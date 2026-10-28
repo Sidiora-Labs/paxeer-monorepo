@@ -1,4 +1,4 @@
-package layerxprograms
+package layerxprograms_test
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -35,15 +36,15 @@ func assertReceiptEventCases(t *testing.T, cases []receiptEventCase) {
 	t.Helper()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			decoded, err := decodeProgramsReceiptEvent(tc.activity, tc.event)
+			decoded, err := lp.DecodeProgramsReceiptEvent(tc.activity, tc.event)
 			require.NoError(t, err)
-			require.Equal(t, tc.name, decoded.name)
-			require.Equal(t, tc.values, decoded.values)
-			definition, ok := programsABI.Events[tc.name]
+			require.Equal(t, tc.name, decoded.Name())
+			require.Equal(t, tc.values, decoded.Values())
+			definition, ok := lp.ProgramsABI.Events[tc.name]
 			require.True(t, ok)
 			require.Equal(t, crypto.Keccak256Hash([]byte(tc.signature)), definition.ID)
 			evm := receiptEventsEVM(t)
-			err = emitReceiptEvents(evm, tc.activity, tc.programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{tc.event}})
+			err = lp.EmitReceiptEvents(evm, tc.activity, tc.programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{tc.event}})
 			if err != nil {
 				t.Errorf("acceptance requires %s from the kernel receipt: %v", tc.name, err)
 			}
@@ -60,10 +61,10 @@ func assertReceiptEventCases(t *testing.T, cases []receiptEventCase) {
 			for i, value := range tc.values {
 				require.Equal(t, value, values[i])
 			}
-			if !decoded.hasProgramID {
+			if !decoded.HasProgramID() {
 				otherID := sha256.Sum256([]byte("another program for " + tc.name))
 				otherEVM := receiptEventsEVM(t)
-				require.NoError(t, emitReceiptEvents(otherEVM, tc.activity, otherID, lxphost.Receipt{
+				require.NoError(t, lp.EmitReceiptEvents(otherEVM, tc.activity, otherID, lxphost.Receipt{
 					Events: []lxphost.ReceiptEvent{tc.event},
 				}))
 				otherLogs := state.GetDBImpl(otherEVM.StateDB).GetAllLogs()
@@ -78,7 +79,7 @@ func assertReceiptEventCases(t *testing.T, cases []receiptEventCase) {
 				evm := receiptEventsEVM(t)
 				body := make([]byte, length)
 				copy(body, tc.event.Body)
-				err := emitReceiptEvents(evm, tc.activity, tc.programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{{Code: tc.event.Code, Body: body}}})
+				err := lp.EmitReceiptEvents(evm, tc.activity, tc.programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{{Code: tc.event.Code, Body: body}}})
 				require.ErrorIs(t, err, lxphost.Code(-1001))
 				require.Contains(t, err.Error(), "body length")
 				require.Empty(t, state.GetDBImpl(evm.StateDB).GetAllLogs())
@@ -118,32 +119,32 @@ func TestProgramsLifecycleEventsFromReceipt(t *testing.T) {
 	t.Run("receipt order", func(t *testing.T) {
 		secondID := sha256.Sum256([]byte("second registry program"))
 		evm := receiptEventsEVM(t)
-		require.NoError(t, emitReceiptEvents(evm, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{
+		require.NoError(t, lp.EmitReceiptEvents(evm, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{
 			{Code: 4, Body: secondID[:]}, {Code: 4, Body: programID[:]},
 		}}))
 		logs := state.GetDBImpl(evm.StateDB).GetAllLogs()
 		require.Len(t, logs, 2)
 		for i, id := range [][32]byte{secondID, programID} {
 			require.Equal(t, common.HexToAddress("0x101D"), logs[i].Address)
-			require.Equal(t, []common.Hash{programsABI.Events["RegistryRead"].ID, common.Hash(id)}, logs[i].Topics)
+			require.Equal(t, []common.Hash{lp.ProgramsABI.Events["RegistryRead"].ID, common.Hash(id)}, logs[i].Topics)
 			require.Empty(t, logs[i].Data)
 			require.Equal(t, uint(i), logs[i].Index)
 		}
 	})
 	t.Run("validation before emission", func(t *testing.T) {
 		evm := receiptEventsEVM(t)
-		require.ErrorIs(t, emitReceiptEvents(evm, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{
+		require.ErrorIs(t, lp.EmitReceiptEvents(evm, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{
 			{Code: 4, Body: programID[:]}, {Code: 4, Body: programID[:31]},
 		}}), lxphost.Code(-1001))
 		require.Empty(t, state.GetDBImpl(evm.StateDB).GetAllLogs())
 	})
 	t.Run("invalid context and activity", func(t *testing.T) {
-		require.NoError(t, emitReceiptEvents(nil, 0x00090004, programID, lxphost.Receipt{}))
-		require.EqualError(t, emitReceiptEvents(nil, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{cases[2].event}}), "EVM is nil")
-		require.EqualError(t, emitReceiptEvents(&vm.EVM{}, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{cases[2].event}}), "EVM StateDB is nil")
+		require.NoError(t, lp.EmitReceiptEvents(nil, 0x00090004, programID, lxphost.Receipt{}))
+		require.EqualError(t, lp.EmitReceiptEvents(nil, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{cases[2].event}}), "EVM is nil")
+		require.EqualError(t, lp.EmitReceiptEvents(&vm.EVM{}, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{cases[2].event}}), "EVM StateDB is nil")
 		evm := receiptEventsEVM(t)
-		require.ErrorIs(t, emitReceiptEvents(evm, 0x00090001, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{cases[2].event}}), lxphost.Code(-1001))
-		require.ErrorIs(t, emitReceiptEvents(evm, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{{Code: 0xffff, Body: programID[:]}}}), lxphost.Code(-1001))
+		require.ErrorIs(t, lp.EmitReceiptEvents(evm, 0x00090001, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{cases[2].event}}), lxphost.Code(-1001))
+		require.ErrorIs(t, lp.EmitReceiptEvents(evm, 0x00090004, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{{Code: 0xffff, Body: programID[:]}}}), lxphost.Code(-1001))
 		require.Empty(t, state.GetDBImpl(evm.StateDB).GetAllLogs())
 	})
 }
@@ -216,15 +217,15 @@ func TestProgramsWindDownAndAccountEventsFromReceipt(t *testing.T) {
 
 	t.Run("receipt order", func(t *testing.T) {
 		evm := receiptEventsEVM(t)
-		require.NoError(t, emitReceiptEvents(evm, 0x00090007, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{
+		require.NoError(t, lp.EmitReceiptEvents(evm, 0x00090007, programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{
 			cases[4].event, cases[2].event, cases[1].event, cases[3].event, cases[5].event,
 		}}))
 		logs := state.GetDBImpl(evm.StateDB).GetAllLogs()
 		require.Len(t, logs, 5)
 		for i, tc := range []receiptEventCase{cases[4], cases[2], cases[1], cases[3], cases[5]} {
 			require.Equal(t, common.HexToAddress("0x101D"), logs[i].Address)
-			require.Equal(t, []common.Hash{programsABI.Events[tc.name].ID, common.Hash(programID)}, logs[i].Topics)
-			values, err := programsABI.Events[tc.name].Inputs.NonIndexed().Unpack(logs[i].Data)
+			require.Equal(t, []common.Hash{lp.ProgramsABI.Events[tc.name].ID, common.Hash(programID)}, logs[i].Topics)
+			values, err := lp.ProgramsABI.Events[tc.name].Inputs.NonIndexed().Unpack(logs[i].Data)
 			require.NoError(t, err)
 			require.Equal(t, tc.values, values)
 			require.Equal(t, uint(i), logs[i].Index)
@@ -235,7 +236,7 @@ func TestProgramsWindDownAndAccountEventsFromReceipt(t *testing.T) {
 			body := append([]byte(nil), tc.event.Body...)
 			body[0] ^= 0xff
 			evm := receiptEventsEVM(t)
-			require.ErrorIs(t, emitReceiptEvents(evm, tc.activity, tc.programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{{Code: tc.event.Code, Body: body}}}), lxphost.Code(-1001))
+			require.ErrorIs(t, lp.EmitReceiptEvents(evm, tc.activity, tc.programID, lxphost.Receipt{Events: []lxphost.ReceiptEvent{{Code: tc.event.Code, Body: body}}}), lxphost.Code(-1001))
 			require.Empty(t, state.GetDBImpl(evm.StateDB).GetAllLogs())
 		}
 	})

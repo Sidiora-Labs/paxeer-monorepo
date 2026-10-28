@@ -56,6 +56,7 @@ import {
   ModuleError,
   PaxeerProvider,
   RpcResponseError,
+  SPONSORED_QUOTE_PATH,
   SPONSORED_SUBMIT_PATH,
   WEB_DATA_EVENTS,
   bridge,
@@ -345,12 +346,12 @@ const signer: ModuleProvider & { readonly isPaxeer: true } = {
     if (argument.method === 'eth_chainId') return `0x${chainId.toString(16)}`;
     if (argument.method === 'eth_getCode') {
       const [target, block] = params as [string, string];
-      if (target !== account || block !== 'latest') throw new Error('refused eth_getCode');
+      if (target !== account || block !== 'pending') throw new Error('refused eth_getCode');
       return `0xef0100${paymaster.slice(2)}`;
     }
     if (argument.method === 'eth_call') {
       const [call, block] = params as [{ to: string; data: string }, string];
-      if (params.length !== 2 || call.to !== account || call.data !== NONCE_SELECTOR || block !== 'latest') throw new Error('refused eth_call');
+      if (params.length !== 2 || call.to !== account || call.data !== NONCE_SELECTOR || block !== 'pending') throw new Error('refused eth_call');
       return `0x${word('uint64', BATCH_NONCE.toString())}`;
     }
     if (argument.method === 'eth_getTransactionCount') {
@@ -382,6 +383,8 @@ const signer: ModuleProvider & { readonly isPaxeer: true } = {
 
 const submissions: SponsoredAdapterRequest[] = [];
 const answers: SponsoredSubmissionEvidence[] = [];
+const budgetQuote = { gasCost: '300000000000000', dailyRemaining: '9750000' };
+const quoteRequests: { method: string; path: string; authorization: string | undefined; body: unknown }[] = [];
 const rpcCalls: { authorization: string | undefined; body: Json }[] = [];
 const moduleReceiptFixtures = JSON.parse(
   readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8'),
@@ -443,6 +446,17 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
       res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'method not found' } }));
       return;
     }
+    if (req.method === 'POST' && req.url === SPONSORED_QUOTE_PATH && req.headers.authorization === 'Bearer session-token') {
+      quoteRequests.push({
+        method: req.method,
+        path: req.url,
+        authorization: req.headers.authorization,
+        body: JSON.parse(Buffer.concat(chunks).toString('utf8')),
+      });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(budgetQuote));
+      return;
+    }
     if (req.method !== 'POST' || req.url !== SPONSORED_SUBMIT_PATH || req.headers.authorization !== 'Bearer session-token') {
       res.writeHead(404, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: 'not_found' }));
@@ -454,6 +468,7 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
     const answer: SponsoredSubmissionEvidence = {
       tx_hash: transactionHash,
       status: 'pending',
+      receipt: null,
       station: {
         state: 'pending',
         deadline: body.construction.quote.deadline,
@@ -808,18 +823,37 @@ describe('modules', () => {
     const retained = new Map<string, string>();
     const stationOptions = { chainId, sponsor: relayer, paymaster, quoteUrl: `${gatewayUrl}/quote`, gatewayUrl, accessToken: () => 'session-token' };
     const station = gasStation(signer, { ...stationOptions, submissionStore: retainedStore(retained) });
-    const budget = await station.quote({ gasLimit: 250_000n, rate: '3114000' });
-    const gasCost = 250_000n * 1_000_000_000n;
+    const session = [
+      { method: 'eth_accounts', params: [] },
+      { method: 'eth_chainId', params: [] },
+    ];
+    signed.length = 0;
+    const budget = await station.quote({ account, gasLimit: 250_000n, rate: '3114000' });
+    const gasCost = BigInt(budgetQuote.gasCost);
+    expect(quoteRequests).toEqual([{
+      method: 'POST',
+      path: SPONSORED_QUOTE_PATH,
+      authorization: 'Bearer session-token',
+      body: { account, gasLimit: '250000', gasPrice: '1000000000', rate: '3114000' },
+    }]);
+    expect(signed).toEqual([
+      { method: 'eth_gasPrice', params: [] },
+      ...session,
+      ...session,
+      { method: 'eth_accounts', params: [] },
+    ]);
     expect(budget).toEqual({
       gasLimit: 250_000n,
       gasPrice: 1_000_000_000n,
       gasCost,
+      dailyRemaining: BigInt(budgetQuote.dailyRemaining),
       rate: '3114000',
       tokenAmount: (gasCost * 3_114_000n + 10n ** 18n - 1n) / 10n ** 18n,
       token: SIDIORA_TOKEN,
       symbol: 'SID',
       decimals: 6,
     });
+    expect(budget.gasCost).not.toBe(budget.gasLimit * budget.gasPrice);
     expect(feeTokenAmount(21_000n * 1_000_000_000n, '3114000')).toBe(66n);
     expect(feeTokenAmount(10n ** 18n, '3.114')).toBe(4n);
     expect(feeTokenAmount(10n ** 18n, '3114000')).toBe(3_114_000n);
@@ -843,7 +877,7 @@ describe('modules', () => {
       account,
       nonce: 4n,
       calls: [
-        orders.cancelOrder(34n),
+        orders.cancelOrder(`0x${word('uint256', '34')}`, fill(0x33, 32)),
         feeToken(signer).setFeeDenom('usid'),
         { to: `0x${'dd'.repeat(20)}`, value: 5n, data: '0x' },
       ],
@@ -865,11 +899,6 @@ describe('modules', () => {
     const config = { quoteUrl: `${gatewayUrl}/quote`, chainId, sponsor: relayer, token: SIDIORA_TOKEN, decimals: SIDIORA_DECIMALS, paymaster };
     const expectedConsent = value(sponsoredConsent(config, batch, now));
     expect(expectedConsent.batchDigest).toBe(station.digest(batch));
-    const session = [
-      { method: 'eth_accounts', params: [] },
-      { method: 'eth_chainId', params: [] },
-    ];
-
     const declinedStore = new Map<string, string>();
     const declined = gasStation(signer, { ...stationOptions, submissionStore: retainedStore(declinedStore) });
     const declinedConsents: SponsoredConsent[] = [];
@@ -906,11 +935,13 @@ describe('modules', () => {
     const authorizationFields = { kind: 'eip7702_authorization', chainId: '125', address: paymaster, nonce: PENDING_NONCE.toString() };
     const authorizationDigest = value(eip7702AuthorizationDigest({ chainId, address: paymaster, nonce: PENDING_NONCE }));
     const authorizationSignature = signDigest(authorizationDigest, accountKey);
-    const authorization = {
+    const yParity = Number.parseInt(authorizationSignature.slice(130), 16) - 27;
+    if (yParity !== 0 && yParity !== 1) throw new Error('invalid authorization recovery bit');
+    const authorization: SponsoredAdapterRequest['authorization'] = {
       chainId: '125',
-      address: paymaster,
+      address: `0x${paymaster.slice(2)}`,
       nonce: '7',
-      yParity: Number.parseInt(authorizationSignature.slice(130), 16) - 27,
+      yParity,
       r: `0x${authorizationSignature.slice(2, 66)}`,
       s: `0x${authorizationSignature.slice(66, 130)}`,
     };
@@ -919,8 +950,8 @@ describe('modules', () => {
       ...session,
       ...session,
       { method: 'eth_chainId', params: [] },
-      { method: 'eth_getCode', params: [account, 'latest'] },
-      { method: 'eth_call', params: [{ to: account, data: NONCE_SELECTOR }, 'latest'] },
+      { method: 'eth_getCode', params: [account, 'pending'] },
+      { method: 'eth_call', params: [{ to: account, data: NONCE_SELECTOR }, 'pending'] },
       { method: 'eth_getTransactionCount', params: [account, 'latest'] },
       ...session,
       { method: 'eth_sign', params: [account, station.digest(batch), construction] },
@@ -931,7 +962,10 @@ describe('modules', () => {
       ...session,
       { method: 'eth_accounts', params: [] },
     ]);
-    expect(signed.filter((entry) => entry.params.includes('pending'))).toEqual([]);
+    expect(signed.filter((entry) => entry.params.includes('pending'))).toEqual([
+      { method: 'eth_getCode', params: [account, 'pending'] },
+      { method: 'eth_call', params: [{ to: account, data: NONCE_SELECTOR }, 'pending'] },
+    ]);
     expect(await station.batchNonce(account)).toBe(BATCH_NONCE);
 
     const reference = value(sponsoredBatchCall(config, batch, accountSignature, relayerSignature, now));
@@ -960,6 +994,7 @@ describe('modules', () => {
       {
         tx_hash: transactionHash,
         status: 'pending',
+        receipt: null,
         station: {
           state: 'pending',
           deadline: quote.deadline.toString(),
@@ -1096,7 +1131,7 @@ async function send_module_transaction_receipted_answers_the_receipt_with_logs()
     {
       scenario: 'direct',
       method: 'paxeer_sendTransactionReceipted',
-      params: [{ from: account, to: tx.to, data: tx.data, value: `0x${tx.value.toString(16)}` }],
+      params: [{ from: account, to: tx.to, data: tx.data, value: `0x${tx.value.toString(16)}`, type: '0x2', chainId: '0x7d' }],
     },
   ]);
   for (const [scenario, code] of [['rejected', 4001], ['unavailable', -32010]] as const) {
@@ -1121,7 +1156,7 @@ async function send_module_transaction_receipted_falls_back_for_an_injected_prov
   expect(answer.rung).toBe('receipted');
   expect(answer.txHash).toBe(moduleReceiptFixtures.submitted.txHash);
   expect(answer.logs).toEqual(moduleReceipted.logs);
-  const params = [{ from: account, to: tx.to, data: tx.data, value: `0x${tx.value.toString(16)}` }];
+  const params = [{ from: account, to: tx.to, data: tx.data, value: `0x${tx.value.toString(16)}`, type: '0x2', chainId: '0x7d' }];
   expect(moduleReceiptRequests.slice(before)).toEqual([
     { scenario: 'injected', method: 'paxeer_sendTransactionReceipted', params },
     { scenario: 'injected', method: 'eth_sendTransaction', params },
@@ -1130,5 +1165,5 @@ async function send_module_transaction_receipted_falls_back_for_an_injected_prov
   ]);
 }
 
-test(send_module_transaction_receipted_answers_the_receipt_with_logs);
-test(send_module_transaction_receipted_falls_back_for_an_injected_provider);
+test('send_module_transaction_receipted_answers_the_receipt_with_logs', send_module_transaction_receipted_answers_the_receipt_with_logs);
+test('send_module_transaction_receipted_falls_back_for_an_injected_provider', send_module_transaction_receipted_falls_back_for_an_injected_provider);

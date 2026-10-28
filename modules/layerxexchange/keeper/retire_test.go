@@ -55,6 +55,7 @@ func TestRetiredAfterV6120Done(t *testing.T) {
 
 func TestRetiredFailsClosedWithoutUpgradeKeeper(t *testing.T) {
 	f := newFixture(t)
+	f.keeper.SetUpgradeKeeper(nil)
 	retired, err := f.keeper.Retired(f.ctx)
 	require.False(t, retired)
 	require.ErrorIs(t, err, types.ErrKeeperMissing)

@@ -348,14 +348,8 @@ message QueryTreasuryRequest {
 }
 
 message QueryTreasuryResponse {
-  string balance = 1 [
-    (gogoproto.customtype) = "Int",
-    (gogoproto.nullable) = false
-  ];
-  string held = 2 [
-    (gogoproto.customtype) = "Int",
-    (gogoproto.nullable) = false
-  ];
+  string balance = 1;
+  string held = 2;
 }
 
 message QuerySurfaceRequest {
@@ -422,10 +416,7 @@ message QueryQuoteLedgerRequest {
 }
 
 message QueryQuoteLedgerResponse {
-  string amount = 1 [
-    (gogoproto.customtype) = "Int",
-    (gogoproto.nullable) = false
-  ];
+  string amount = 1;
 }
 
 message QueryFeeAccountingRequest {}

@@ -149,10 +149,22 @@ func (k *Keeper) GetMarket(ctx sdk.Context, denom string) (types.Market, bool) {
 	return market, true
 }
 
+type unknownMarketError struct {
+	denom string
+}
+
+func (e unknownMarketError) Error() string {
+	return types.ErrUnknownMarket.Error() + ": " + e.denom
+}
+
+func (e unknownMarketError) Unwrap() error { return types.ErrUnknownMarket }
+
+func (e unknownMarketError) Cause() error { return types.ErrUnknownMarket }
+
 func (k *Keeper) mustMarket(ctx sdk.Context, denom string) (types.Market, error) {
 	market, found := k.GetMarket(ctx, denom)
 	if !found {
-		return types.Market{}, fmt.Errorf("%w: %s", types.ErrUnknownMarket, denom)
+		return types.Market{}, unknownMarketError{denom: denom}
 	}
 	return market, nil
 }

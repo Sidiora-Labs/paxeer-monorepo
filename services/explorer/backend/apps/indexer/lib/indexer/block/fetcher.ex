@@ -325,7 +325,8 @@ defmodule Indexer.Block.Fetcher do
     end
   end
 
-  defp import_options(basic_import_options, chain_specific_import_options) do
+  @doc false
+  def import_options(basic_import_options, chain_specific_import_options) do
     do_import_options(
       chain_type(),
       basic_import_options,
@@ -401,11 +402,6 @@ defmodule Indexer.Block.Fetcher do
   defp do_import_options(:paxeer_x, basic_import_options, %{paxeer_x_logs: paxeer_x_logs}) do
     basic_import_options
     |> Map.put_new(:paxeer_x_account_bindings, %{params: paxeer_x_logs.lx_account_bindings})
-    |> Map.put_new(:paxeer_x_custody_events, %{params: paxeer_x_logs.lx_custody_events})
-    |> Map.put_new(:paxeer_x_deposit_roots, %{params: paxeer_x_logs.lx_deposit_roots})
-    |> Map.put_new(:paxeer_x_anchors, %{params: paxeer_x_logs.lx_anchors})
-    |> Map.put_new(:paxeer_x_guarantor_events, %{params: paxeer_x_logs.lx_guarantor_events})
-    |> Map.put_new(:paxeer_x_receipts, %{params: paxeer_x_logs.lx_receipts})
     |> Map.put_new(:paxeer_x_market_events, %{params: paxeer_x_logs.lx_market_events})
   end
 

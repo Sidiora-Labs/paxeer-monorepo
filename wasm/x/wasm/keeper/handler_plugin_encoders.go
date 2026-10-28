@@ -294,6 +294,9 @@ func EncodeIBCMsg(portSource types.ICS20TransferPortSource) func(ctx sdk.Context
 }
 
 func EncodeGovMsg(sender sdk.AccAddress, msg *wasmvmtypes.GovMsg) ([]sdk.Msg, error) {
+	if msg.Vote == nil {
+		return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "Unknown variant of Gov")
+	}
 	var option govtypes.VoteOption
 	switch msg.Vote.Vote {
 	case wasmvmtypes.Yes:
@@ -304,6 +307,8 @@ func EncodeGovMsg(sender sdk.AccAddress, msg *wasmvmtypes.GovMsg) ([]sdk.Msg, er
 		option = govtypes.OptionNoWithVeto
 	case wasmvmtypes.Abstain:
 		option = govtypes.OptionAbstain
+	default:
+		return nil, sdkerrors.Wrap(types.ErrUnknownMsg, "Unknown variant of Gov")
 	}
 	vote := &govtypes.MsgVote{
 		ProposalId: msg.Vote.ProposalId,

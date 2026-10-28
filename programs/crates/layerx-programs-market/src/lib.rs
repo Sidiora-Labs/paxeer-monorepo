@@ -305,7 +305,8 @@ pub fn register(
     principal: AccountId,
     height: u64,
 ) -> Result<Offer<'_>, ProgramError> {
-    if request.id == [0; ID_BYTES]
+    if request.verification != VerificationModel::FraudProvable
+        || request.id == [0; ID_BYTES]
         || request.provider != principal
         || request.capacity == 0
         || request.minimum_units == 0
@@ -346,6 +347,9 @@ pub fn open<'a>(
     principal: AccountId,
     height: u64,
 ) -> Result<(Offer<'a>, ComputeLease<'a>), ProgramError> {
+    if offer.verification != VerificationModel::FraudProvable {
+        return Err(malformed());
+    }
     let expected = offer
         .unit_price
         .checked_mul(Amount::from_integer(request.units))?;
@@ -1483,6 +1487,70 @@ mod tests {
             1,
         )
         .unwrap_or_else(|error| panic!("offer: {error}"))
+    }
+
+    #[test]
+    fn unchallengeable_verification_offer_and_lease_are_refused() {
+        let provider = account(1);
+        let tenant = account(4);
+        let offer = offer(provider, b"stake/offer-1");
+        let registration = RegisterOffer {
+            id: offer.id,
+            provider,
+            payout: offer.payout,
+            asset: offer.asset,
+            stake_account: offer.stake_account,
+            stake_seed: offer.stake_seed,
+            stake: offer.stake,
+            unit_price: offer.unit_price,
+            capacity: offer.total_capacity,
+            minimum_units: offer.minimum_units,
+            maximum_units: offer.maximum_units,
+            expires_at: offer.expires_at,
+            verification: VerificationModel::FraudProvable,
+        };
+        let opening = OpenLease {
+            id: [5; 32],
+            offer_id: offer.id,
+            tenant,
+            refund: tenant,
+            escrow_account: account(6),
+            escrow_seed: b"lease/5",
+            units: 10,
+            funded: Amount::from_integer(40u64),
+            expires_at: 20,
+        };
+        assert_eq!(register(registration, provider, 1), Ok(offer));
+        let (updated, lease) = open(offer, opening, tenant, 2)
+            .unwrap_or_else(|error| panic!("fraud-provable lease: {error}"));
+        assert_eq!(updated.available_capacity, 90);
+        assert_eq!(lease.verification, VerificationModel::FraudProvable);
+        assert_eq!(lease.status, LeaseStatus::Funded);
+        for verification in [VerificationModel::Bonded, VerificationModel::Attested] {
+            assert_eq!(
+                register(
+                    RegisterOffer {
+                        verification,
+                        ..registration
+                    },
+                    provider,
+                    1
+                ),
+                Err(malformed())
+            );
+            assert_eq!(
+                open(
+                    Offer {
+                        verification,
+                        ..offer
+                    },
+                    opening,
+                    tenant,
+                    2
+                ),
+                Err(malformed())
+            );
+        }
     }
 
     #[test]

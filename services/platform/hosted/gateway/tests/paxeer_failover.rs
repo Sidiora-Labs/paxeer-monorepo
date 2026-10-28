@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-const CHAIN_ID: &str = "0x7d0";
+const CHAIN_ID: &str = "0x7d";
 const RPC_URLS: &str = "LAYERX_GATEWAY_PAXEER_RPC_URLS";
 
 fn command(program: &str, arguments: &[&str]) {
@@ -265,15 +265,20 @@ impl Upstream {
                             continue;
                         };
                         let mut stream = StreamOwned::new(connection, tcp);
-                        if let Ok(request) = http::parse_client_request(&mut stream) {
-                            count.fetch_add(1, Ordering::AcqRel);
-                            let response = if fail.load(Ordering::Acquire) {
-                                http::refusal(502, "bad_gateway", None)
-                            } else {
-                                chain_answer(&request)
-                            };
-                            let _ = http::write_response(&mut stream, &response);
-                        }
+                        let request = http::parse_client_request(&mut stream)
+                            .unwrap_or_else(|error| panic!("chain request must be read: {error}"));
+                        count.fetch_add(1, Ordering::AcqRel);
+                        let response = if fail.load(Ordering::Acquire) {
+                            http::refusal(502, "bad_gateway", None)
+                        } else {
+                            chain_answer(&request)
+                        };
+                        http::write_response(&mut stream, &response)
+                            .unwrap_or_else(|error| panic!("chain response must be sent: {error}"));
+                        stream.conn.send_close_notify();
+                        stream.flush().unwrap_or_else(|error| {
+                            panic!("chain TLS response must flush: {error}")
+                        });
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(5));
@@ -314,6 +319,8 @@ impl Drop for Upstream {
 }
 
 fn chain_answer(request: &http::Request) -> http::Response {
+    assert_eq!(request.method, "POST");
+    assert_eq!(request.path, "/rpc");
     let Ok(call) = serde_json::from_slice::<Value>(&request.body) else {
         return http::refusal(400, "invalid_json", None);
     };
@@ -322,6 +329,18 @@ fn chain_answer(request: &http::Request) -> http::Response {
         Some("eth_chainId") => http::json(
             200,
             &json!({"jsonrpc": "2.0", "id": id, "result": CHAIN_ID}),
+        ),
+        Some("pax_sequencerReceipt") => http::json(
+            200,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": {
+                    "rung": "submitted",
+                    "txHash": call["params"][0],
+                    "nonce": "0x20000000000001"
+                }
+            }),
         ),
         _ => http::json(
             200,
@@ -436,6 +455,48 @@ impl Gateway {
             json!({"state": "unavailable", "reason": "unreachable"})
         );
     }
+}
+
+#[test]
+fn pax_sequencer_receipt_relays_the_node_answer() {
+    let fixture = Fixture::start();
+    let upstream = Upstream::start(&fixture.tls, false);
+    let second = Upstream::start(&fixture.tls, false);
+    let gateway = Gateway::start(&fixture, &[upstream.url(), second.url()]);
+    let tx_hash = format!("0x{}", "ab".repeat(32));
+
+    for id in [json!("receipt-caller"), json!(9_007_199_254_740_993_u64)] {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "pax_sequencerReceipt",
+            "params": [tx_hash]
+        });
+        let (status, body) = gateway
+            .exchange("POST", "/rpc", request.to_string().as_bytes())
+            .unwrap_or_else(|error| panic!("pax_sequencerReceipt must be answered: {error}"));
+        assert_eq!(status, 200);
+        let expected = json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": {
+                "rung": "submitted",
+                "txHash": tx_hash,
+                "nonce": "0x20000000000001"
+            }
+        });
+        assert_eq!(
+            body,
+            serde_json::to_vec(&expected).unwrap(),
+            "chain listener received {} requests; gateway answered {}",
+            upstream.hits(),
+            String::from_utf8_lossy(&body)
+        );
+    }
+    assert!(
+        upstream.hits() > 0,
+        "the chain listener must receive the call"
+    );
 }
 
 #[test]

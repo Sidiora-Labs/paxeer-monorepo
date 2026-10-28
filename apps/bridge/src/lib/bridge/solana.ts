@@ -110,3 +110,41 @@ export function parseRecipientRecord(bytes: Uint8Array, handle: Address): Uint8A
   ) return undefined;
   return bytes.slice(30, 62);
 }
+
+export function recipientRecordRequest(programId: string, destination: string) {
+  const handle = solanaRecipientHandle(destination);
+  const record = handle && recipientRecordAddress(programId, handle);
+  if (!record) return undefined;
+  return {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'getAccountInfo',
+    params: [ record.address, { encoding: 'base64' } ],
+  } as const;
+}
+
+export function recipientRecordFromResponse(
+  response: unknown,
+  handle: Address,
+): { registered: false } | { registered: true; key: Uint8Array } {
+  if (typeof response !== 'object' || response === null || 'error' in response || !('result' in response)) {
+    throw new Error('The Solana RPC returned an invalid recipient record response.');
+  }
+  const result = response.result;
+  if (typeof result !== 'object' || result === null || !('value' in result)) {
+    throw new Error('The Solana RPC returned an invalid account result.');
+  }
+  if (result.value === null) return { registered: false };
+  const account = result.value;
+  if (typeof account !== 'object' || account === null || !('data' in account)) {
+    throw new Error('The Solana RPC returned invalid account data.');
+  }
+  const data = account.data;
+  if (!Array.isArray(data) || data.length !== 2 || typeof data[0] !== 'string' || data[1] !== 'base64') {
+    throw new Error('The Solana RPC did not return a base64 recipient record.');
+  }
+  const bytes = Uint8Array.from(atob(data[0]), (char) => char.charCodeAt(0));
+  const key = parseRecipientRecord(bytes, handle);
+  if (!key) throw new Error('The Solana recipient record does not match the expected layout and handle.');
+  return { registered: true, key };
+}

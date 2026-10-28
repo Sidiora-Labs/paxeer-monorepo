@@ -36,7 +36,10 @@ RUN apt-get update && \
 WORKDIR /go/src/pax-chain
 
 ARG TARGETARCH
-COPY wasm-runtime/libwasmvm-linux.sha256 /tmp/libwasmvm-linux.sha256
+COPY wasm-runtime/internal/api/ wasm-runtime/internal/api/
+COPY wasm/x/wasm/artifacts/v152/api/ wasm/x/wasm/artifacts/v152/api/
+COPY wasm/x/wasm/artifacts/v155/api/ wasm/x/wasm/artifacts/v155/api/
+COPY wasm-runtime/libwasmvm-linux.sha256 wasm-runtime/libwasmvm-linux.sha256
 RUN set -eu; \
     case "${TARGETARCH}" in \
       amd64) ARCH_SUFFIX="x86_64" ;; \
@@ -44,24 +47,18 @@ RUN set -eu; \
       *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
     esac; \
     mkdir -p /go/lib; \
+    cp "wasm-runtime/internal/api/libwasmvm.${ARCH_SUFFIX}.so" /go/lib/; \
+    cp "wasm/x/wasm/artifacts/v152/api/libwasmvm152.${ARCH_SUFFIX}.so" /go/lib/; \
+    cp "wasm/x/wasm/artifacts/v155/api/libwasmvm155.${ARCH_SUFFIX}.so" /go/lib/; \
     for library in \
       "libwasmvm.${ARCH_SUFFIX}.so" \
       "libwasmvm152.${ARCH_SUFFIX}.so" \
       "libwasmvm155.${ARCH_SUFFIX}.so"; do \
-        expected=$(awk -v name="${library}" '$2 == name { print $1 }' /tmp/libwasmvm-linux.sha256); \
-        test -n "${expected}"; \
-        curl --fail --location --proto '=https' --tlsv1.2 --retry 5 \
-          --output "/go/lib/${library}" \
-          "https://node.hyperpaxeer.com/lib/${library}"; \
-        echo "${expected}  /go/lib/${library}" | sha256sum --check --strict; \
+        expected=$(awk -v name="${library}" '$2 == name { print $1 }' wasm-runtime/libwasmvm-linux.sha256); \
+        test "${#expected}" -eq 64; \
+        printf '%s  %s\n' "${expected}" "${library}" >> /go/lib/libwasmvm.sha256; \
     done; \
-    mkdir -p \
-      wasm-runtime/internal/api \
-      wasm/x/wasm/artifacts/v152/api \
-      wasm/x/wasm/artifacts/v155/api; \
-    cp "/go/lib/libwasmvm.${ARCH_SUFFIX}.so" wasm-runtime/internal/api/; \
-    cp "/go/lib/libwasmvm152.${ARCH_SUFFIX}.so" wasm/x/wasm/artifacts/v152/api/; \
-    cp "/go/lib/libwasmvm155.${ARCH_SUFFIX}.so" wasm/x/wasm/artifacts/v155/api/
+    (cd /go/lib && sha256sum --check --strict libwasmvm.sha256)
 
 COPY go.* ./
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -84,7 +81,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -X ${VERSION_PKG}.AppName=paxd \
       -X ${VERSION_PKG}.Version=${PAX_CHAIN_VERSION} \
       -X ${VERSION_PKG}.Commit=${PAX_CHAIN_REF:-unknown} \
-      -X '${VERSION_PKG}.BuildTags=${BUILD_TAGS}'" && \
+      -X '${VERSION_PKG}.BuildTags=${BUILD_TAGS}' \
+      -X ${VERSION_PKG}.NativeArchiveDigest=$(cat build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a | sha256sum | cut -d' ' -f1)" && \
     go build -tags "${BUILD_TAGS}" -ldflags "${LDFLAGS}" ${GO_BUILD_ARGS} -o /go/bin/paxd ./daemon/paxd
 
 FROM docker.io/rust:1.91.1-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 AS x-websearch

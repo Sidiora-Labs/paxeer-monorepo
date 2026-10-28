@@ -17,11 +17,13 @@ import (
 
 	_ "github.com/lib/pq"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/records"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/migrations"
 )
 
-var marketIDs = records.MarketIDs
+var marketIDs = map[string]int64{
+	"BTC": 0, "ETH": 1, "SOL": 2, "AVAX": 3, "LINK": 4, "TSLA": 5, "NVDA": 6, "NAS100": 7, "XAU": 8,
+	"SPX500": 9, "GOOGL": 10, "PAX": 11, "SID": 12, "HYPE": 13, "XRP": 14, "ASTER": 15, "TRUMP": 16, "BNB": 17,
+}
 
 var (
 	perpsAddr = addr(0x15, 0x10)

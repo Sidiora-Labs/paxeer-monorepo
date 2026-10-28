@@ -6,7 +6,6 @@
 #include "occupancy.h"
 
 #include "layerx/lx_oracle.h"
-#include "layerx/lx_web.h"
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_merkle.h"
@@ -31,13 +30,7 @@ enum {
     ARBITER_AUTHORITY_BYTES = 247
 };
 
-enum {
-    WEB_FEE_DOMAIN_BYTES = 19,
-    WEB_PENDING_PREFIX_BYTES = 11,
-    WEB_PENDING_KEY_BYTES = WEB_PENDING_PREFIX_BYTES + 32 + 8,
-    WEB_PENDING_RECORD_VERSION = 1,
-    WEB_PENDING_RECORD_BYTES = 123
-};
+enum { WEB_FEE_DOMAIN_BYTES = 19 };
 
 enum {
     PROGRAM_TRANSFER_SOURCE_PRINCIPAL = 1,
@@ -150,13 +143,6 @@ struct lxp_programs_call_activity {
         uint8_t record[LX_ORACLE_COMMITTED_BYTES];
     } oracle_view;
     struct {
-        bool active;
-        uint8_t program_id[32];
-        uint8_t header[LX_WEB_ANSWER_HEADER_BYTES];
-        uint32_t response_length;
-        uint8_t response[LX_WEB_MAX_RESPONSE_BYTES];
-    } web_view;
-    struct {
         lxp_programs_storage_cell *cells;
         uint32_t count;
         bool begun;
@@ -207,16 +193,6 @@ struct lxp_programs_call_activity {
         uint32_t data_length;
     } event;
     uint32_t emitted_event_count;
-    struct {
-        bool active;
-        uint8_t program_id[32];
-        uint64_t request_id;
-        uint8_t kind;
-        uint8_t payload_hash[32];
-        uint8_t fee_asset[32];
-        uint8_t fee_account[32];
-        lxp_u128 fee_amount;
-    } web_request;
 };
 
 static lxp_result replay_host_fact(lxp_programs_call_activity *value, uint8_t tag,
@@ -598,17 +574,6 @@ static lxp_result web_fee_account_id(const uint8_t asset[32], uint8_t id[32])
     (void)memcpy(preimage, domain, sizeof(domain));
     (void)memcpy(preimage + sizeof(domain), asset, 32U);
     return lxp_hash_sha256(preimage, sizeof(preimage), id);
-}
-
-static void web_pending_key(const uint8_t program_id[32], uint64_t request_id,
-                            uint8_t key[WEB_PENDING_KEY_BYTES])
-{
-    static const uint8_t prefix[WEB_PENDING_PREFIX_BYTES] = {
-        'w', 'e', 'b', '/', 'p', 'e', 'n', 'd', 'i', 'n', 'g'
-    };
-    (void)memcpy(key, prefix, sizeof(prefix));
-    (void)memcpy(key + sizeof(prefix), program_id, 32U);
-    write_u64(key + sizeof(prefix) + 32U, request_id);
 }
 
 static lx_account *account_by_id(lx_account_registry *accounts,
@@ -1185,73 +1150,24 @@ lxp_result layerx_programs_call_web_view_begin(
 {
     lxp_programs_call_activity *value =
         (lxp_programs_call_activity *)(uintptr_t)token;
-    uint8_t program_id[32];
     uint8_t input[40];
-    lx_web_answer answer;
-    size_t index;
-    lxp_result status;
     if (value == NULL || value->ctx == NULL) return LXP_ERR_NON_CANONICAL;
-    (void)memset(&value->web_view, 0, sizeof(value->web_view));
-    write_u64(program_id, p0);
-    write_u64(program_id + 8U, p1);
-    write_u64(program_id + 16U, p2);
-    write_u64(program_id + 24U, p3);
-    (void)memcpy(input, program_id, 32U);
+    write_u64(input, p0);
+    write_u64(input + 8U, p1);
+    write_u64(input + 16U, p2);
+    write_u64(input + 24U, p3);
     write_u64(input + 32U, request_id);
-    status = lx_web_committed_read(value->ctx, program_id, request_id,
-                                   &answer);
-    if (status != LXP_OK) return replay_host_failure(value, 4U, status, input, sizeof(input));
-    if (lxp_ct_memcmp(answer.program_id, program_id, 32U) != 0 ||
-        answer.request_id != request_id ||
-        answer.response_length > LX_WEB_MAX_RESPONSE_BYTES ||
-        answer.response_length > answer.full_length)
-        return replay_host_failure(value, 4U, LXP_ERR_ROOT_MISMATCH, input, sizeof(input));
-    (void)memcpy(value->web_view.program_id, program_id, 32U);
-    (void)memcpy(value->web_view.header, answer.content_digest, 32U);
-    for (index = 0U; index < 4U; ++index) {
-        value->web_view.header[32U + index] =
-            (uint8_t)(answer.full_length >> ((3U - index) * 8U));
-        value->web_view.header[36U + index] =
-            (uint8_t)(answer.response_length >> ((3U - index) * 8U));
-    }
-    value->web_view.response_length = answer.response_length;
-    (void)memcpy(value->web_view.response, answer.response,
-                 answer.response_length);
-    value->web_view.active = true;
-    if (value->replay.max_bytes != 0U) {
-        uint8_t facts[32U + 8U + LX_WEB_ANSWER_HEADER_BYTES];
-        (void)memcpy(facts, program_id, 32U);
-        write_u64(facts + 32U, request_id);
-        (void)memcpy(facts + 40U, value->web_view.header, LX_WEB_ANSWER_HEADER_BYTES);
-        return replay_host_fact(value, 4U, facts, sizeof(facts),
-            value->web_view.response, value->web_view.response_length);
-    }
-    return LXP_OK;
+    return replay_host_failure(value, 4U, LXP_ERR_MODULE_DISABLED,
+                                input, sizeof(input));
 }
 
 lxp_result layerx_programs_call_web_view_byte(
     uint64_t token, uint16_t section, uint32_t offset)
 {
-    lxp_programs_call_activity *value =
-        (lxp_programs_call_activity *)(uintptr_t)token;
-    const uint8_t *bytes;
-    size_t length;
-    if (value == NULL || !value->web_view.active)
-        return LXP_ERR_UNKNOWN_FIELD;
-    if (section == 0U) {
-        bytes = value->web_view.program_id;
-        length = 32U;
-    } else if (section == 1U) {
-        bytes = value->web_view.header;
-        length = LX_WEB_ANSWER_HEADER_BYTES;
-    } else if (section == 2U) {
-        bytes = value->web_view.response;
-        length = value->web_view.response_length;
-    } else {
-        return LXP_ERR_UNKNOWN_FIELD;
-    }
-    if ((size_t)offset >= length) return LXP_ERR_TRUNCATED;
-    return (lxp_result)bytes[offset];
+    (void)token;
+    (void)section;
+    (void)offset;
+    return LXP_ERR_MODULE_DISABLED;
 }
 
 static lxp_result catalog_storage_cell(lxp_programs_call_activity *value,
@@ -1655,8 +1571,6 @@ static lxp_result terminal_wrap_applied(lxp_programs_call_activity *value)
     return LXP_OK;
 }
 
-static lxp_result web_request_record(lxp_programs_call_activity *value);
-
 lxp_result layerx_programs_call_terminal_publish(uint64_t token)
 {
     lxp_programs_call_activity *value =
@@ -1745,8 +1659,6 @@ lxp_result layerx_programs_call_terminal_publish(uint64_t token)
     outcome.event_envelope_payload = (lxp_byte_span){
         value->terminal.events, value->terminal.events_length
     };
-    status = web_request_record(value);
-    if (status != LXP_OK) return status;
     event.program_id = value->program_id;
     event.principal = value->authority->principal;
     event.activity_id = activity_id;
@@ -1860,99 +1772,6 @@ lxp_result layerx_programs_call_event_byte(uint64_t token, uint16_t section,
     return LXP_OK;
 }
 
-/* A web request record emitted under the request topic is admitted only
- * with this call's applied transfer into the web fee account, and at most
- * once per call; a request id the program already used, pending or
- * answered, is refused. */
-static lxp_result web_request_capture(lxp_programs_call_activity *value)
-{
-    static const uint8_t answer_prefix[LX_WEB_ANSWER_PREFIX_BYTES] = {
-        'w', 'e', 'b', '/', 'a', 'n', 's', 'w', 'e', 'r'
-    };
-    uint8_t key[WEB_PENDING_KEY_BYTES];
-    uint8_t answer_key[LX_WEB_ANSWER_KEY_BYTES];
-    const uint8_t *stored;
-    size_t stored_length;
-    lxp_byte_span payload;
-    lxp_u128 total = {0U, 0U};
-    uint64_t request_id;
-    uint8_t kind;
-    uint16_t index;
-    bool paid = false;
-    lxp_result status;
-    if (value->web_request.active) return LXP_ERR_DUPLICATE_ENTRY;
-    status = lx_web_request_record_decode(value->event.data,
-                                          value->event.data_length,
-                                          &request_id, &kind, &payload);
-    if (status != LXP_OK) return status;
-    web_pending_key(value->event.program_id, request_id, key);
-    status = lxp_ctx_kv_get(value->ctx, key, sizeof(key), &stored,
-                            &stored_length);
-    if (status == LXP_OK) return LXP_ERR_SEQUENCE_REUSED;
-    if (status != LXP_ERR_UNKNOWN_FIELD) return status;
-    (void)memcpy(answer_key, answer_prefix, sizeof(answer_prefix));
-    (void)memcpy(answer_key + LX_WEB_ANSWER_PREFIX_BYTES,
-                 value->event.program_id, 32U);
-    write_u64(answer_key + LX_WEB_ANSWER_PREFIX_BYTES + 32U, request_id);
-    answer_key[LX_WEB_ANSWER_KEY_BYTES - 1U] = 0U;
-    status = lxp_ctx_kv_get(value->ctx, answer_key, sizeof(answer_key),
-                            &stored, &stored_length);
-    if (status == LXP_OK) return LXP_ERR_SEQUENCE_REUSED;
-    if (status != LXP_ERR_UNKNOWN_FIELD) return status;
-    if (!value->transfer_applied || value->transfer_set == NULL)
-        return LXP_ERR_FEE_UNPAYABLE;
-    for (index = 0U; index < value->transfer_set->leg_count; ++index) {
-        const lxp_transfer_leg *leg = &value->transfer_set->legs[index];
-        uint8_t fee_account[32];
-        if (leg->to == NULL) return LXP_FATAL_INVARIANT;
-        status = web_fee_account_id(leg->asset_id, fee_account);
-        if (status != LXP_OK) return status;
-        if (lxp_ct_memcmp(leg->to->id, fee_account, 32U) != 0) continue;
-        if (paid && lxp_ct_memcmp(value->web_request.fee_asset,
-                                  leg->asset_id, 32U) != 0)
-            return LXP_ERR_ASSET_MISMATCH;
-        status = lxp_u128_add(total, leg->amount, &total);
-        if (status != LXP_OK) return status;
-        (void)memcpy(value->web_request.fee_asset, leg->asset_id, 32U);
-        (void)memcpy(value->web_request.fee_account, fee_account, 32U);
-        paid = true;
-    }
-    if (!paid || lxp_u128_is_zero(total)) return LXP_ERR_FEE_UNPAYABLE;
-    status = lxp_keccak256(payload.bytes, payload.length,
-                           value->web_request.payload_hash);
-    if (status != LXP_OK) return status;
-    (void)memcpy(value->web_request.program_id, value->event.program_id, 32U);
-    value->web_request.request_id = request_id;
-    value->web_request.kind = kind;
-    value->web_request.fee_amount = total;
-    value->web_request.active = true;
-    return LXP_OK;
-}
-
-/* Stages the pending record intake reads: kind, payload hash, the fee asset,
- * account and amount it splits, the recording sequence and the fulfilled
- * flag, under the requesting program and request id. */
-static lxp_result web_request_record(lxp_programs_call_activity *value)
-{
-    uint8_t key[WEB_PENDING_KEY_BYTES];
-    uint8_t record[WEB_PENDING_RECORD_BYTES];
-    lxp_result status;
-    if (!value->web_request.active) return LXP_OK;
-    web_pending_key(value->web_request.program_id,
-                    value->web_request.request_id, key);
-    record[0] = WEB_PENDING_RECORD_VERSION;
-    record[1] = value->web_request.kind;
-    (void)memcpy(record + 2U, value->web_request.payload_hash, 32U);
-    (void)memcpy(record + 34U, value->web_request.fee_asset, 32U);
-    (void)memcpy(record + 66U, value->web_request.fee_account, 32U);
-    status = lxp_u128_to_be(value->web_request.fee_amount, record + 98U);
-    if (status != LXP_OK) return status;
-    write_u64(record + 114U, lxp_ctx_global_sequence(value->ctx));
-    record[122] = 0U;
-    return lxp_ctx_kv_put(value->ctx, key, sizeof(key), record,
-                          sizeof(record));
-}
-
 lxp_result layerx_programs_call_event_emit(uint64_t token)
 {
     lxp_programs_call_activity *value =
@@ -1976,12 +1795,6 @@ lxp_result layerx_programs_call_event_emit(uint64_t token)
     event.topic_length = value->event.topic_length;
     event.data = value->event.data;
     event.data_length = value->event.data_length;
-    if (value->event.topic_length == LX_WEB_REQUEST_TOPIC_BYTES &&
-        memcmp(value->event.topic, LX_WEB_REQUEST_TOPIC,
-               LX_WEB_REQUEST_TOPIC_BYTES) == 0) {
-        status = web_request_capture(value);
-        if (status != LXP_OK) return status;
-    }
     status = lxp_programs_emit_guest_event(value->ctx, &event);
     if (status == LXP_OK) {
         value->event.active = false;

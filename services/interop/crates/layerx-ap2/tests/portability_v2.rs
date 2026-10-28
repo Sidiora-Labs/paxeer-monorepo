@@ -1,4 +1,4 @@
-use layerx_portable::{PortableReceiptV2, ReceiptKeyEntry, PORTABLE_RECEIPT_FORMAT_V2};
+use layerx_portable::{PortableReceiptV2, ReceiptKeyEntry, PORTABLE_RECEIPT_FORMAT};
 use serde_json::Value;
 
 const GUIDE: &str = include_str!("../../../PORTABILITY.md");
@@ -22,6 +22,11 @@ fn hex32(value: &Value) -> [u8; 32] {
 
 #[test]
 fn documented_v2_example_parses_and_verifies() {
+    portability_v2_example_parses();
+}
+
+#[test]
+fn portability_v2_example_parses() {
     let section = GUIDE
         .split_once("### Example (v2)\n")
         .expect("v2 example heading")
@@ -38,7 +43,7 @@ fn documented_v2_example_parses_and_verifies() {
         .0;
     let portable =
         PortableReceiptV2::from_json(json.as_bytes()).expect("documented v2 example must parse");
-    assert_eq!(portable.format(), PORTABLE_RECEIPT_FORMAT_V2);
+    assert_eq!(portable.format(), PORTABLE_RECEIPT_FORMAT);
     assert_eq!(portable.format(), "layerx-receipt-proof-v2");
 
     let fixture: Value = serde_json::from_str(FIXTURE).expect("conformance fixture JSON");

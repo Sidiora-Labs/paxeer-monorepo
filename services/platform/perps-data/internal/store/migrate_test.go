@@ -446,6 +446,7 @@ func TestMigrate(t *testing.T) {
 		if got := columnNames(columns(t, db, "markets")); !slices.Equal(got, []string{
 			"market_id", "symbol", "name", "oracle_symbol", "sz_decimals", "px_decimals", "max_leverage",
 			"maintenance_margin_bps", "max_open_interest", "enabled", "source", "refreshed_block",
+			"tick_size", "lot_size", "tier_class", "impact_notional_usd", "oi_cap_usd", "funding_cap_ppm_per_hour", "listed_at",
 		}) {
 			t.Fatalf("markets columns %v", got)
 		}

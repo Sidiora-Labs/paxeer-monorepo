@@ -24,17 +24,17 @@ use layerx_bridge_relayer::attestation::{
     assemble_signatures, ethereum_address, recover_signer, uint256_from_u64, InboundAttestation,
     SignatureError,
 };
+use layerx_bridge_relayer::config::RelayerConfig;
 use layerx_bridge_relayer::cosign::transport::{spki_pin, ENABLE_VARIABLE};
+use layerx_bridge_relayer::cosign::transport::{DestinationPolicy, OperatorInventory, Transport};
 use layerx_bridge_relayer::cosign::CosignDirectory;
 use layerx_bridge_relayer::hex;
-use layerx_bridge_relayer::journal::{Completion, Entry, Journal, JournalError, Observation, Position};
-use layerx_bridge_relayer::cosign::transport::{OperatorInventory, Transport, DestinationPolicy};
-use layerx_bridge_relayer::config::RelayerConfig;
+use layerx_bridge_relayer::journal::{
+    Completion, Entry, Journal, JournalError, Observation, Position,
+};
 use layerx_bridge_relayer::rpc::{JsonRpc, PaxeerRpc};
-use layerx_mirror::rpc::RpcCluster;
-use layerx_paxeer_verifier::{EndpointConfig, EndpointTransport};
-use serde::Deserialize;
 use layerx_bridge_relayer::signer::{Attestor, ATTEST_INBOUND_DOMAIN, PAXEER_TRANSACTION_DOMAIN};
+use layerx_mirror::rpc::RpcCluster;
 use layerx_mirror::signer::{
     RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm,
 };
@@ -48,6 +48,7 @@ use openssl::x509::extension::{
     BasicConstraints, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName,
 };
 use openssl::x509::{X509Name, X509};
+use serde::Deserialize;
 
 const HANDLE: &str = "bridge-attestor";
 const TRANSPORT: &str = env!("CARGO_BIN_EXE_layerx-bridge-cosign");
@@ -76,7 +77,8 @@ fn signer_binary() -> PathBuf {
 
 /// Qualification uses the declared cardinality; generated keys confer no operator approval.
 fn declared_quorum() -> (usize, usize) {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../services/bridge/deploy/attestors.json");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../../services/bridge/deploy/attestors.json");
     let text = fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("declared membership {}: {error}", path.display()));
     let document: serde_json::Value =
@@ -438,19 +440,41 @@ impl Operator {
     fn publish(&self, attestation: &InboundAttestation) -> [u8; 65] {
         let attestor = self.attestor();
         assert_eq!(attestor.address(), self.address());
-        let mut journal = Journal::open(&self.home.join("journal/relay.jsonl")).expect("independent production journal");
-        let observation = Observation::inbound(attestation, Position { block_number: 1, block_hash: attestation.tx_hash });
+        let mut journal = Journal::open(&self.home.join("journal/relay.jsonl"))
+            .expect("independent production journal");
+        let observation = Observation::inbound(
+            attestation,
+            Position {
+                block_number: 1,
+                block_hash: attestation.tx_hash,
+            },
+        );
         let item = observation.key();
         if !journal.state().items.contains_key(&item) {
-            journal.append(&Entry::Observed { item: item.clone(), observation }).expect("durable observed item");
+            journal
+                .append(&Entry::Observed {
+                    item: item.clone(),
+                    observation,
+                })
+                .expect("durable observed item");
         }
         assert_eq!(journal.state().items[&item].observation, observation);
-        assert!(journal.state().items[&item].is_open(), "completed journal item does not republish");
+        assert!(
+            journal.state().items[&item].is_open(),
+            "completed journal item does not republish"
+        );
         let signature = match journal.state().items[&item].signature {
             Some(signature) => signature,
             None => {
-                let signature = attestor.sign_inbound(attestation).unwrap_or_else(|error| panic!("sign: {error:?}"));
-                journal.append(&Entry::Signed { item: item.clone(), signature }).expect("signature persisted before publication");
+                let signature = attestor
+                    .sign_inbound(attestation)
+                    .unwrap_or_else(|error| panic!("sign: {error:?}"));
+                journal
+                    .append(&Entry::Signed {
+                        item: item.clone(),
+                        signature,
+                    })
+                    .expect("signature persisted before publication");
                 signature
             }
         };
@@ -866,9 +890,14 @@ fn walk(directory: &Path) -> Vec<PathBuf> {
     files
 }
 
-
 fn journal_restart_and_terminal_boundaries(operators: &[Operator], wanted: &InboundAttestation) {
-    let observation = Observation::inbound(wanted, Position { block_number: 1, block_hash: wanted.tx_hash });
+    let observation = Observation::inbound(
+        wanted,
+        Position {
+            block_number: 1,
+            block_hash: wanted.tx_hash,
+        },
+    );
     let item = observation.key();
     for operator in operators {
         let path = operator.home.join("journal/relay.jsonl");
@@ -876,17 +905,38 @@ fn journal_restart_and_terminal_boundaries(operators: &[Operator], wanted: &Inbo
         let state = journal.state().items[&item].clone();
         assert_eq!(state.observation, observation);
         let signature = state.signature.expect("persisted own share");
-        assert_eq!(recover_signer(&wanted.digest(), &signature), Ok(operator.address()));
+        assert_eq!(
+            recover_signer(&wanted.digest(), &signature),
+            Ok(operator.address())
+        );
         assert!(state.submissions.is_empty() && state.completion.is_none() && state.is_open());
-        let mut wrong = signature; wrong[0] ^= 1;
-        assert!(matches!(journal.append(&Entry::Signed { item: item.clone(), signature: wrong }), Err(JournalError::Conflict(_))));
+        let mut wrong = signature;
+        wrong[0] ^= 1;
+        assert!(matches!(
+            journal.append(&Entry::Signed {
+                item: item.clone(),
+                signature: wrong
+            }),
+            Err(JournalError::Conflict(_))
+        ));
         assert_eq!(journal.state().items[&item].signature, Some(signature));
-        journal.append(&Entry::Completed { item: item.clone(), completion: Completion::AlreadyBridged }).expect("journal terminal transition");
+        journal
+            .append(&Entry::Completed {
+                item: item.clone(),
+                completion: Completion::AlreadyBridged,
+            })
+            .expect("journal terminal transition");
         drop(journal);
         let mut restarted = Journal::open(&path).expect("terminal state survives restart");
         assert!(!restarted.state().items[&item].is_open());
         let length = fs::metadata(&path).expect("journal metadata").len();
-        assert!(matches!(restarted.append(&Entry::Completed { item: item.clone(), completion: Completion::AlreadyBridged }), Err(JournalError::Conflict(_))));
+        assert!(matches!(
+            restarted.append(&Entry::Completed {
+                item: item.clone(),
+                completion: Completion::AlreadyBridged
+            }),
+            Err(JournalError::Conflict(_))
+        ));
         assert_eq!(fs::metadata(&path).expect("journal metadata").len(), length);
         assert_eq!(restarted.state().items[&item].signature, Some(signature));
         assert!(operator.collect(&wanted.digest()).contains(&signature));
@@ -897,126 +947,307 @@ fn journal_restart_and_terminal_boundaries(operators: &[Operator], wanted: &Inbo
 fn durable_publication_refuses_conflicts_and_concurrent_duplicates() {
     let root = fixture_directory("operator-cosign-publication");
     fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
-    let ca = Ca::new(&root); let operator = Operator::new(&root, &ca, 0);
-    let wanted = attestation(701); let digest = wanted.digest();
-    let signature = operator.attestor().sign_inbound(&wanted).expect("real signer share");
-    let address = operator.address(); let directory = operator.directory();
+    let ca = Ca::new(&root);
+    let operator = Operator::new(&root, &ca, 0);
+    let wanted = attestation(701);
+    let digest = wanted.digest();
+    let signature = operator
+        .attestor()
+        .sign_inbound(&wanted)
+        .expect("real signer share");
+    let address = operator.address();
+    let directory = operator.directory();
     std::thread::scope(|scope| {
         for _ in 0..8 {
             let directory = &directory;
-            scope.spawn(move || directory.publish(&digest, &address, &signature).expect("concurrent immutable publication"));
+            scope.spawn(move || {
+                directory
+                    .publish(&digest, &address, &signature)
+                    .expect("concurrent immutable publication")
+            });
         }
     });
     assert_eq!(directory.collect(&digest), vec![signature]);
-    assert!(directory.admit(&attestation(702).digest(), &address, &signature).is_err());
+    assert!(directory
+        .admit(&attestation(702).digest(), &address, &signature)
+        .is_err());
     assert!(directory.admit(&digest, &[0; 20], &signature).is_err());
-    let share = digest_directory(&operator.cosign, &digest).join(format!("{}.sig", hex::encode(&address)));
+    let share =
+        digest_directory(&operator.cosign, &digest).join(format!("{}.sig", hex::encode(&address)));
     let original = fs::read(&share).expect("durable share");
-    assert_eq!(fs::metadata(&share).unwrap().permissions().mode() & 0o077, 0);
+    assert_eq!(
+        fs::metadata(&share).unwrap().permissions().mode() & 0o077,
+        0
+    );
     drop(directory);
     assert_eq!(operator.directory().collect(&digest), vec![signature]);
     fs::write(&share, b"corrupted existing share").unwrap();
-    assert!(matches!(operator.directory().publish(&digest, &address, &signature), Err(JournalError::Conflict(_))));
+    assert!(matches!(
+        operator.directory().publish(&digest, &address, &signature),
+        Err(JournalError::Conflict(_))
+    ));
     assert_eq!(fs::read(&share).unwrap(), b"corrupted existing share");
     fs::remove_file(&share).unwrap();
-    operator.directory().publish(&digest, &address, &signature).unwrap();
+    operator
+        .directory()
+        .publish(&digest, &address, &signature)
+        .unwrap();
     assert_eq!(fs::read(&share).unwrap(), original);
-    let alias = digest_directory(&operator.cosign, &digest).join(format!("{}.sig", hex::encode(&address).to_uppercase()));
+    let alias = digest_directory(&operator.cosign, &digest)
+        .join(format!("{}.sig", hex::encode(&address).to_uppercase()));
     if alias != share {
         std::os::unix::fs::symlink(&share, &alias).unwrap();
         assert_eq!(operator.directory().collect(&digest), vec![signature]);
     }
-    assert!(fs::read_dir(digest_directory(&operator.cosign, &digest)).unwrap().all(|entry|
-        !entry.unwrap().file_name().to_string_lossy().starts_with('.')), "no staging files after concurrent completion");
+    assert!(
+        fs::read_dir(digest_directory(&operator.cosign, &digest))
+            .unwrap()
+            .all(|entry| !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with('.')),
+        "no staging files after concurrent completion"
+    );
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SuppliedInputs { inventory: PathBuf, operators: Vec<SuppliedOperator> }
+struct SuppliedInputs {
+    inventory: PathBuf,
+    operators: Vec<SuppliedOperator>,
+}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SuppliedOperator { transport_config: PathBuf, relayer_config: PathBuf }
+struct SuppliedOperator {
+    transport_config: PathBuf,
+    relayer_config: PathBuf,
+}
+
+#[test]
+fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../../services/bridge/deploy/relayer-solana.example.json");
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture).expect("read relayer fixture config"))
+            .expect("relayer fixture JSON");
+    let root = fixture_directory("supplied-paxeer-endpoints");
+    let ca = Ca::new(&root);
+    let der = ca.cert.to_der().expect("Paxeer trust anchor DER");
+    let anchor = root.join("paxeer-ca.der");
+    fs::write(&anchor, &der).expect("write Paxeer trust anchor");
+    value["paxeer"]["receipt_keys"] = serde_json::json!([{
+        "sequencer_id": hex::prefixed(&[1; 32]),
+        "public_key": hex::prefixed(&[2; 32]),
+        "first_height": 0,
+        "last_height": u64::MAX,
+    }]);
+    value["paxeer"]["endpoints"] = serde_json::json!([
+        {
+            "url": "https://paxeer.example.invalid/rpc",
+            "trust_anchor_der": anchor,
+            "request_timeout_ms": 1234,
+        },
+        {
+            "url": "http://127.0.0.1:8545",
+            "local_emulator": true,
+            "request_timeout_ms": 5678,
+        },
+    ]);
+    let path = root.join("relayer.json");
+    fs::write(
+        &path,
+        serde_json::to_vec(&value).expect("relayer config JSON"),
+    )
+    .expect("write relayer config");
+    let relayer = RelayerConfig::load(&path).expect("load supplied relayer config");
+    let endpoints = relayer
+        .paxeer_endpoints()
+        .expect("configured Paxeer endpoints");
+    assert_eq!(endpoints.len(), 2);
+    for (endpoint, configured) in endpoints.iter().zip(&relayer.paxeer.endpoints) {
+        assert_eq!(endpoint.url, configured.url);
+        assert_eq!(endpoint.expected_chain_id, relayer.paxeer.chain_id);
+        assert_eq!(
+            endpoint.request_timeout,
+            Duration::from_millis(configured.request_timeout_ms)
+        );
+    }
+    assert_eq!(
+        endpoints[0].trust_anchor_der.as_deref(),
+        Some(der.as_slice())
+    );
+    assert_eq!(endpoints[1].trust_anchor_der, None);
+    assert!(
+        PaxeerRpc::new(endpoints).is_ok(),
+        "configured Paxeer RPC adapter"
+    );
+    fs::remove_dir_all(root).expect("remove endpoint config fixture");
+}
 
 #[test]
 fn supplied_operator_inventory_matches_registered_bridge_configuration() {
     let path = std::env::var_os("LAYERX_BRIDGE_OPERATOR_CONTRACT_INPUTS")
         .expect("missing authorized operator inventory/configuration inputs; generated signers are not approved membership");
-    let path = PathBuf::from(path); assert!(path.is_absolute());
+    let path = PathBuf::from(path);
+    assert!(path.is_absolute());
     let bytes = fs::read(&path).expect("read supplied operator contract inputs");
     assert!(bytes.len() <= 1_048_576);
-    let inputs: SuppliedInputs = serde_json::from_slice(&bytes).expect("strict operator contract inputs");
-    let inventory = OperatorInventory::load(&inputs.inventory).expect("genuine approved bridge inventory");
+    let inputs: SuppliedInputs =
+        serde_json::from_slice(&bytes).expect("strict operator contract inputs");
+    let inventory =
+        OperatorInventory::load(&inputs.inventory).expect("genuine approved bridge inventory");
     let (size, threshold) = declared_quorum();
-    assert_eq!(inventory.operators.len(), size, "intended bridge membership cardinality");
+    assert_eq!(
+        inventory.operators.len(),
+        size,
+        "intended bridge membership cardinality"
+    );
     assert_eq!(inputs.operators.len(), size);
-    assert!(inventory.destinations.iter().all(|policy| policy.threshold == threshold));
-    let mut observed = std::collections::BTreeSet::new(); let mut relayers = Vec::new();
+    assert!(inventory
+        .destinations
+        .iter()
+        .all(|policy| policy.threshold == threshold));
+    let mut observed = std::collections::BTreeSet::new();
+    let mut relayers = Vec::new();
     for operator in &inputs.operators {
         assert!(operator.transport_config.is_absolute() && operator.relayer_config.is_absolute());
-        let transport = Transport::load(&operator.transport_config).expect("actual production TLS transport configuration");
-        let relayer = RelayerConfig::load(&operator.relayer_config).expect("actual production relayer configuration");
-        transport.validate_operator(&inventory, &relayer).expect("operator conforms to approved roster, independent handles and journal ownership");
-        assert!(observed.insert(transport.attestor), "duplicate supplied operator");
+        let transport = Transport::load(&operator.transport_config)
+            .expect("actual production TLS transport configuration");
+        let relayer = RelayerConfig::load(&operator.relayer_config)
+            .expect("actual production relayer configuration");
+        transport.validate_operator(&inventory, &relayer).expect(
+            "operator conforms to approved roster, independent handles and journal ownership",
+        );
+        assert!(
+            observed.insert(transport.attestor),
+            "duplicate supplied operator"
+        );
         relayers.push(relayer);
     }
     let relayer = &relayers[0];
-    let endpoints = relayer.paxeer.endpoints.iter().map(|endpoint| EndpointConfig {
-        url: endpoint.url.clone(), expected_chain_id: relayer.paxeer.chain_id,
-        request_timeout: Duration::from_millis(endpoint.request_timeout_ms),
-        transport: match &endpoint.trust_anchor_der {
-            Some(path) => EndpointTransport::PinnedTls { trust_anchor_der: fs::read(path).expect("actual Paxeer RPC trust anchor") },
-            None => { assert!(endpoint.local_emulator); EndpointTransport::LocalEmulator }
-        },
-    }).collect();
+    let endpoints = relayer
+        .paxeer_endpoints()
+        .expect("production Paxeer RPC endpoints");
     let paxeer = PaxeerRpc::new(endpoints).expect("production Paxeer RPC adapter");
-    let policy = inventory.destinations.iter().find(|policy| policy.chain_id == relayer.paxeer.chain_id).expect("Paxeer policy");
+    let policy = inventory
+        .destinations
+        .iter()
+        .find(|policy| policy.chain_id == relayer.paxeer.chain_id)
+        .expect("Paxeer policy");
     verify_registered_evm_policy(&paxeer, policy, true);
     for chain in &relayer.chains {
         let rpc = RpcCluster::new(&chain.rpc).expect("production destination quorum RPC");
-        let policy = inventory.destinations.iter().find(|policy| policy.chain_id == chain.chain_id).expect("destination policy");
+        let policy = inventory
+            .destinations
+            .iter()
+            .find(|policy| policy.chain_id == chain.chain_id)
+            .expect("destination policy");
         verify_registered_evm_policy(&rpc, policy, false);
-        let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(&paxeer,
+        let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(
+            &paxeer,
             &layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
-            &layerx_bridge_relayer::abi::encode_get_chain(chain.chain_id))).expect("native chain registration");
+            &layerx_bridge_relayer::abi::encode_get_chain(chain.chain_id),
+        ))
+        .expect("native chain registration");
         assert!(registration.registered && registration.enabled);
-        assert_eq!(registration.vault, chain.vault); assert_eq!(registration.finality_depth, chain.finality_depth);
+        assert_eq!(registration.vault, chain.vault);
+        assert_eq!(registration.finality_depth, chain.finality_depth);
     }
     if let Some(config) = &relayer.solana {
-        use layerx_bridge_relayer::solana::{base58_fixed, release::{config_address, ConfigRecord}, rpc::SolanaRpc};
+        use layerx_bridge_relayer::solana::{
+            base58_fixed,
+            release::{config_address, ConfigRecord},
+            rpc::SolanaRpc,
+        };
         let settings = config.settings().expect("actual Solana settings");
         let quorum = RpcCluster::new(&config.rpc).expect("production Solana quorum");
-        let rpc = SolanaRpc::new(Box::new(RpcCluster::new(&config.rpc).expect("production Solana account adapter")));
-        let slot = rpc.get_slot(settings.commitment).expect("genuine Solana commitment slot");
+        let rpc = SolanaRpc::new(Box::new(
+            RpcCluster::new(&config.rpc).expect("production Solana account adapter"),
+        ));
+        let slot = rpc
+            .get_slot(settings.commitment)
+            .expect("genuine Solana commitment slot");
         let block = quorum.call("getBlock", serde_json::json!([slot, {"commitment": settings.commitment.as_str(), "transactionDetails": "none", "rewards": false, "maxSupportedTransactionVersion": 0}])).expect("genuine Solana policy block");
-        let hash = base58_fixed::<32>(block["blockhash"].as_str().expect("Solana blockhash")).expect("canonical blockhash");
-        let policy = inventory.destinations.iter().find(|policy| policy.chain_id == config.chain_id).expect("Solana policy inventory");
-        assert_eq!(hash, hex::fixed::<32>(&policy.observed_block_hash).expect("Solana observation hash"));
+        let hash = base58_fixed::<32>(block["blockhash"].as_str().expect("Solana blockhash"))
+            .expect("canonical blockhash");
+        let policy = inventory
+            .destinations
+            .iter()
+            .find(|policy| policy.chain_id == config.chain_id)
+            .expect("Solana policy inventory");
+        assert_eq!(
+            hash,
+            hex::fixed::<32>(&policy.observed_block_hash).expect("Solana observation hash")
+        );
         let address = config_address(&settings.program_id).expect("production config PDA");
-        let account = rpc.get_account_info(&address, settings.commitment).expect("genuine config PDA read").expect("registered config PDA");
-        assert_eq!(account.owner, settings.program_id); assert!(!account.executable);
-        let current = ConfigRecord::decode(&account.data).expect("canonical registered Solana policy");
-        assert!(!current.paused); assert_eq!(usize::from(current.threshold), policy.threshold);
-        assert_eq!(current.attestors, policy.attestors.iter().map(|value| hex::fixed::<20>(value).expect("approved attestor")).collect::<Vec<_>>());
-        assert_eq!(rpc.get_slot(settings.commitment).expect("stable Solana observation"), slot);
-        let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(&paxeer,
+        let account = rpc
+            .get_account_info(&address, settings.commitment)
+            .expect("genuine config PDA read")
+            .expect("registered config PDA");
+        assert_eq!(account.owner, settings.program_id);
+        assert!(!account.executable);
+        let current =
+            ConfigRecord::decode(&account.data).expect("canonical registered Solana policy");
+        assert!(!current.paused);
+        assert_eq!(usize::from(current.threshold), policy.threshold);
+        assert_eq!(
+            current.attestors,
+            policy
+                .attestors
+                .iter()
+                .map(|value| hex::fixed::<20>(value).expect("approved attestor"))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            rpc.get_slot(settings.commitment)
+                .expect("stable Solana observation"),
+            slot
+        );
+        let registration = layerx_bridge_relayer::abi::decode_get_chain(&policy_call(
+            &paxeer,
             &layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
-            &layerx_bridge_relayer::abi::encode_get_chain(config.chain_id))).expect("native Solana registration");
-        assert!(registration.registered && registration.enabled); assert_eq!(registration.vault, config.vault);
+            &layerx_bridge_relayer::abi::encode_get_chain(config.chain_id),
+        ))
+        .expect("native Solana registration");
+        assert!(registration.registered && registration.enabled);
+        assert_eq!(registration.vault, config.vault);
     }
-    let raw: serde_json::Value = serde_json::from_slice(&fs::read(&inputs.inventory).expect("inventory bytes")).unwrap();
-    for violation in ["wallet-authority", "duplicate-attestor", "shared-storage", "shared-fee-payer", "wrong-threshold", "unknown-field", "missing-operator"] {
+    let raw: serde_json::Value =
+        serde_json::from_slice(&fs::read(&inputs.inventory).expect("inventory bytes")).unwrap();
+    for violation in [
+        "wallet-authority",
+        "duplicate-attestor",
+        "shared-storage",
+        "shared-fee-payer",
+        "wrong-threshold",
+        "unknown-field",
+        "missing-operator",
+    ] {
         let mut bad = raw.clone();
         match violation {
             "wallet-authority" => bad["authority"] = "wallet".into(),
-            "duplicate-attestor" => bad["operators"][1]["attestor"] = bad["operators"][0]["attestor"].clone(),
-            "shared-storage" => bad["operators"][1]["storage"] = bad["operators"][0]["storage"].clone(),
-            "shared-fee-payer" => bad["operators"][1]["fee_payers"][0]["public_key"] = bad["operators"][0]["fee_payers"][0]["public_key"].clone(),
+            "duplicate-attestor" => {
+                bad["operators"][1]["attestor"] = bad["operators"][0]["attestor"].clone()
+            }
+            "shared-storage" => {
+                bad["operators"][1]["storage"] = bad["operators"][0]["storage"].clone()
+            }
+            "shared-fee-payer" => {
+                bad["operators"][1]["fee_payers"][0]["public_key"] =
+                    bad["operators"][0]["fee_payers"][0]["public_key"].clone()
+            }
             "wrong-threshold" => bad["destinations"][0]["threshold"] = 1.into(),
             "unknown-field" => bad["private_key"] = "refused-field".into(),
-            "missing-operator" => { bad["operators"].as_array_mut().unwrap().pop(); }
+            "missing-operator" => {
+                bad["operators"].as_array_mut().unwrap().pop();
+            }
             _ => unreachable!(),
         }
-        let refused = match serde_json::from_value::<OperatorInventory>(bad) { Ok(inventory) => inventory.validate().is_err(), Err(_) => true };
+        let refused = match serde_json::from_value::<OperatorInventory>(bad) {
+            Ok(inventory) => inventory.validate().is_err(),
+            Err(_) => true,
+        };
         assert!(refused, "accepted inventory violation {violation}");
     }
 }
@@ -1028,44 +1259,112 @@ fn policy_call(rpc: &dyn JsonRpc, target: &[u8; 20], data: &[u8]) -> Vec<u8> {
 }
 fn verify_registered_evm_policy(rpc: &dyn JsonRpc, policy: &DestinationPolicy, paxeer: bool) {
     use layerx_bridge_relayer::abi;
-    let chain_id = rpc.call("eth_chainId", serde_json::json!([])).expect("actual destination domain");
-    assert_eq!(hex::parse_quantity(chain_id.as_str().expect("chain id")).expect("chain id quantity"), policy.chain_id);
-    let head = rpc.call("eth_getBlockByNumber", serde_json::json!(["latest", false])).expect("actual policy observation head");
-    assert_eq!(head["hash"].as_str(), Some(policy.observed_block_hash.as_str()), "supplied observation must be current");
+    let chain_id = rpc
+        .call("eth_chainId", serde_json::json!([]))
+        .expect("actual destination domain");
+    assert_eq!(
+        hex::parse_quantity(chain_id.as_str().expect("chain id")).expect("chain id quantity"),
+        policy.chain_id
+    );
+    let head = rpc
+        .call("eth_getBlockByNumber", serde_json::json!(["latest", false]))
+        .expect("actual policy observation head");
+    assert_eq!(
+        head["hash"].as_str(),
+        Some(policy.observed_block_hash.as_str()),
+        "supplied observation must be current"
+    );
     let target = hex::fixed::<20>(&policy.vault).expect("registered policy target");
     let (members, threshold) = if paxeer {
-        let set = abi::decode_get_attestors(&policy_call(rpc, &target, &abi::GET_ATTESTORS_SELECTOR)).expect("canonical native attestor policy");
+        let set =
+            abi::decode_get_attestors(&policy_call(rpc, &target, &abi::GET_ATTESTORS_SELECTOR))
+                .expect("canonical native attestor policy");
         (set.signers, usize::try_from(set.threshold).unwrap())
     } else {
-        (abi::decode_address_list(&policy_call(rpc, &target, &abi::ATTESTORS_SELECTOR)).expect("canonical vault attestors"),
-            usize::try_from(abi::decode_threshold(&policy_call(rpc, &target, &abi::THRESHOLD_SELECTOR)).expect("canonical vault threshold")).unwrap())
+        (
+            abi::decode_address_list(&policy_call(rpc, &target, &abi::ATTESTORS_SELECTOR))
+                .expect("canonical vault attestors"),
+            usize::try_from(
+                abi::decode_threshold(&policy_call(rpc, &target, &abi::THRESHOLD_SELECTOR))
+                    .expect("canonical vault threshold"),
+            )
+            .unwrap(),
+        )
     };
-    let expected = policy.attestors.iter().map(|value| hex::fixed::<20>(value).expect("approved attestor address")).collect::<Vec<_>>();
-    assert_eq!(members, expected); assert_eq!(threshold, policy.threshold);
-    assert_eq!(rpc.call("eth_getBlockByNumber", serde_json::json!(["latest", false])).expect("stable policy observation")["hash"], head["hash"]);
+    let expected = policy
+        .attestors
+        .iter()
+        .map(|value| hex::fixed::<20>(value).expect("approved attestor address"))
+        .collect::<Vec<_>>();
+    assert_eq!(members, expected);
+    assert_eq!(threshold, policy.threshold);
+    assert_eq!(
+        rpc.call("eth_getBlockByNumber", serde_json::json!(["latest", false]))
+            .expect("stable policy observation")["hash"],
+        head["hash"]
+    );
 }
-
 
 fn tls_delivery(sender: &Operator, receiver: &Operator, wire: &[u8]) -> Option<u8> {
-    let config: serde_json::Value = serde_json::from_slice(&fs::read(&sender.config).expect("real sender configuration")).unwrap();
-    let connector = layerx_mirror::signer::tls_connector(&receiver.name,
-        Path::new(config["trust_anchor"].as_str().unwrap()), &sender.tls_cert, &sender.tls_key).expect("real pinned TLS connector");
-    let stream = TcpStream::connect_timeout(&receiver.listen(), Duration::from_secs(5)).expect("real transport listener");
-    stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap(); stream.set_write_timeout(Some(Duration::from_secs(5))).unwrap();
-    let Ok(mut tls) = connector.connect(&receiver.name, stream) else { return None; };
-    assert_eq!(spki_pin(&tls.ssl().peer_certificate().expect("server certificate")).unwrap(), receiver.pin);
-    if tls.write_all(wire).and_then(|()| tls.flush()).is_err() { return None; }
-    let mut reply = [0]; match tls.read(&mut reply) { Ok(1) => Some(reply[0]), Ok(_) | Err(_) => None }
+    let config: serde_json::Value =
+        serde_json::from_slice(&fs::read(&sender.config).expect("real sender configuration"))
+            .unwrap();
+    let connector = layerx_mirror::signer::tls_connector(
+        &receiver.name,
+        Path::new(config["trust_anchor"].as_str().unwrap()),
+        &sender.tls_cert,
+        &sender.tls_key,
+    )
+    .expect("real pinned TLS connector");
+    let stream = TcpStream::connect_timeout(&receiver.listen(), Duration::from_secs(5))
+        .expect("real transport listener");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    stream
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let Ok(mut tls) = connector.connect(&receiver.name, stream) else {
+        return None;
+    };
+    assert_eq!(
+        spki_pin(&tls.ssl().peer_certificate().expect("server certificate")).unwrap(),
+        receiver.pin
+    );
+    if tls.write_all(wire).and_then(|()| tls.flush()).is_err() {
+        return None;
+    }
+    let mut reply = [0];
+    match tls.read(&mut reply) {
+        Ok(1) => Some(reply[0]),
+        Ok(_) | Err(_) => None,
+    }
 }
 fn hostile_transport_deliveries(sender: &Operator, receiver: &Operator, outsider: &Operator) {
-    use layerx_bridge_relayer::cosign::transport::{encode_wire, REPLY_STORED, REPLY_ALREADY_HELD};
-    let wanted = attestation(891); let digest = wanted.digest();
-    let signature = sender.attestor().sign_inbound(&wanted).expect("actual signer share for wire cases");
+    use layerx_bridge_relayer::cosign::transport::{encode_wire, REPLY_ALREADY_HELD, REPLY_STORED};
+    let wanted = attestation(891);
+    let digest = wanted.digest();
+    let signature = sender
+        .attestor()
+        .sign_inbound(&wanted)
+        .expect("actual signer share for wire cases");
     let valid = encode_wire(&receiver.address(), &digest, &sender.address(), &signature);
     assert_eq!(tls_delivery(sender, receiver, &valid), Some(REPLY_STORED));
-    assert_eq!(tls_delivery(sender, receiver, &valid), Some(REPLY_ALREADY_HELD));
+    assert_eq!(
+        tls_delivery(sender, receiver, &valid),
+        Some(REPLY_ALREADY_HELD)
+    );
     assert_eq!(receiver.collect(&digest), vec![signature]);
-    for violation in ["wrong-digest", "wrong-signer", "wrong-recipient", "malformed-signature", "wrong-magic", "wrong-version", "oversized", "surplus"] {
+    for violation in [
+        "wrong-digest",
+        "wrong-signer",
+        "wrong-recipient",
+        "malformed-signature",
+        "wrong-magic",
+        "wrong-version",
+        "oversized",
+        "surplus",
+    ] {
         let mut wire = valid.clone();
         match violation {
             "wrong-digest" => wire[30] ^= 1,
@@ -1078,28 +1377,56 @@ fn hostile_transport_deliveries(sender: &Operator, receiver: &Operator, outsider
             "surplus" => wire.push(1),
             _ => unreachable!(),
         }
-        assert_eq!(tls_delivery(sender, receiver, &wire), None, "accepted wire violation {violation}");
-        assert_eq!(receiver.collect(&digest), vec![signature], "wire violation changed durable valid shares");
+        assert_eq!(
+            tls_delivery(sender, receiver, &wire),
+            None,
+            "accepted wire violation {violation}"
+        );
+        assert_eq!(
+            receiver.collect(&digest),
+            vec![signature],
+            "wire violation changed durable valid shares"
+        );
     }
-    let outsider_signature = outsider.attestor().sign_inbound(&wanted).expect("actual outsider signer");
-    let unknown = encode_wire(&receiver.address(), &digest, &outsider.address(), &outsider_signature);
+    let outsider_signature = outsider
+        .attestor()
+        .sign_inbound(&wanted)
+        .expect("actual outsider signer");
+    let unknown = encode_wire(
+        &receiver.address(),
+        &digest,
+        &outsider.address(),
+        &outsider_signature,
+    );
     assert_eq!(tls_delivery(outsider, receiver, &unknown), None);
     assert!(!receiver.holds(&digest, &outsider.address()));
 }
 
-
 fn fixture_secret(last: u8) -> [u8; 32] {
-    let mut bytes = [0; 32]; bytes[31] = last; bytes
+    let mut bytes = [0; 32];
+    bytes[31] = last;
+    bytes
 }
 fn fixture_key(last: u8) -> SigningKey {
     SigningKey::from_slice(&fixture_secret(last)).expect("qualification signing key")
 }
 fn fixture_public_key(key: &SigningKey) -> Vec<u8> {
-    key.verifying_key().to_encoded_point(true).as_bytes().to_vec()
+    key.verifying_key()
+        .to_encoded_point(true)
+        .as_bytes()
+        .to_vec()
 }
 fn fixture_directory(name: &str) -> PathBuf {
-    let mut unique = [0; 16]; openssl::rand::rand_bytes(&mut unique).expect("private fixture directory identifier");
-    let directory = std::env::temp_dir().join(format!("lxbr-{}-{name}-{}", std::process::id(), hex::encode(&unique)));
-    fs::DirBuilder::new().mode(0o700).create(&directory).expect("new private fixture directory");
+    let mut unique = [0; 16];
+    openssl::rand::rand_bytes(&mut unique).expect("private fixture directory identifier");
+    let directory = std::env::temp_dir().join(format!(
+        "lxbr-{}-{name}-{}",
+        std::process::id(),
+        hex::encode(&unique)
+    ));
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&directory)
+        .expect("new private fixture directory");
     directory
 }

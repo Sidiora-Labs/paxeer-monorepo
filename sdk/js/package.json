@@ -3,24 +3,11 @@
 	"version": "1.0.6-pax.1",
 	"description": "A Typescript library for building on Pax generated using the official Pax proto files on buf.build.",
 	"sideEffects": false,
-	"main": "./dist/cjs/index.js",
-	"module": "./dist/esm/index.js",
 	"files": [
 		"dist"
 	],
 	"scripts": {
-		"build": "rm -rf dist && yarn compile:all",
-		"compile:all": "yarn compile:cjs && yarn compile:esm && yarn compile:declarations",
-		"compile:cjs": "tsc --outDir dist/cjs --module commonjs --project ./tsconfig.json",
-		"compile:esm": "tsc --outDir dist/esm --module esnext --project ./tsconfig.json",
-		"compile:declarations": "tsc --project ./tsconfig.declaration.json",
-		"generate": "rm -rf protoc && yarn generate-pax-cosmos && yarn generate-pax-chain && yarn generate-third-party && yarn extract-libraries && yarn format",
-		"generate-pax-cosmos": "buf generate --template buf.gen.yaml --debug buf.build/pax-protocol/cosmos-sdk",
-		"generate-pax-chain": "buf generate --template buf.gen.yaml --debug buf.build/pax-protocol/pax-chain",
-		"generate-third-party": "buf generate --template buf.gen.yaml --debug buf.build/pax-protocol/third-party",
-		"extract-libraries": "rm -rf library && tsx scripts/index.ts",
-		"format": "biome format --write",
-		"test": "jest"
+		"test": "node --test test/"
 	},
 	"homepage": "https://github.com/pax-protocol/pax-js#readme",
 	"keywords": [
@@ -41,7 +28,7 @@
 		"@cosmjs/stargate": "^0.32.4"
 	},
 	"devDependencies": {
-		"tsx": "^4.19.1"
+		"typescript": "^5.6.3"
 	},
 	"typesVersions": {
 		"*": {
@@ -58,9 +45,9 @@
 	},
 	"exports": {
 		"./types/*": {
-			"import": "./dist/types/types/*/index.js",
-			"require": "./dist/types/types/*/index.js",
-			"types": "./dist/types/types/*/index.js"
+			"import": "./dist/esm/types/*/index.js",
+			"require": "./dist/cjs/types/*/index.js",
+			"types": "./dist/types/types/*/index.d.ts"
 		},
 		"./rest": {
 			"import": "./dist/esm/rest/index.js",

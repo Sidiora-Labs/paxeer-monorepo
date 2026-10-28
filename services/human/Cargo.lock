@@ -1172,8 +1172,6 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",

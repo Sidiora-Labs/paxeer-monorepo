@@ -4,16 +4,15 @@ import { dirname, join, resolve } from "node:path";
 import {
   MiddlewareError,
   PAYMENT_SIGNATURE_HEADER,
-  ReceiptPayloadAuthority,
   SellerMiddleware,
 } from "@sidiora/layerx-seller-middleware";
 import {
   LayerXApplicationStateError,
-  ReceiptAuthorityClient,
+  SequencerReceiptClient,
   applicationStatePath,
   exactObject,
-  hex32,
   loadApplicationConfig,
+  receiptKeysFromEnvironment,
   requiredEnvironment,
 } from "../support/runtime.mjs";
 
@@ -24,25 +23,6 @@ export function platform_ref_seller() {
 const safeName = (value) => {
   if (!/^[A-Za-z0-9._-]{1,255}$/u.test(value)) throw new Error("invalid_identifier");
   return value;
-};
-
-const serializeBatch = (batch) => ({
-  batch_id: Buffer.from(batch.batchId).toString("hex"),
-  asset: Buffer.from(batch.asset).toString("hex"),
-  previous_state_root: Buffer.from(batch.previousStateRoot).toString("hex"),
-  resulting_state_root: Buffer.from(batch.resultingStateRoot).toString("hex"),
-  sequencer_public_key: Buffer.from(batch.sequencerPublicKey).toString("hex"),
-});
-
-const parseBatch = (value) => {
-  const batch = exactObject(value);
-  return {
-    batchId: hex32(batch.batch_id),
-    asset: hex32(batch.asset),
-    previousStateRoot: hex32(batch.previous_state_root),
-    resultingStateRoot: hex32(batch.resulting_state_root),
-    sequencerPublicKey: hex32(batch.sequencer_public_key),
-  };
 };
 
 const syncDirectory = async (path) => {
@@ -59,21 +39,26 @@ class FileFulfillmentRepository {
     this.directory = directory;
   }
 
+  async get(idempotencyKey) {
+    const path = join(this.directory, `${safeName(idempotencyKey)}.json`);
+    try {
+      return await this.read(path);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      return undefined;
+    }
+  }
+
   async fulfill(proposed, release) {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const path = join(this.directory, `${safeName(proposed.idempotencyKey)}.json`);
-    try {
-      return await this.read(path, proposed);
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
+    const existing = await this.get(proposed.idempotencyKey);
+    if (existing !== undefined) {
+      if (existing.requestDigest !== proposed.requestDigest) throw new MiddlewareError("fulfillment-conflict");
+      return existing;
     }
     const resource = await release();
-    const record = {
-      requestDigest: proposed.requestDigest,
-      receipt: Buffer.from(proposed.canonicalReceipt).toString("base64"),
-      authorizedBatch: serializeBatch(proposed.authorizedBatch),
-      resource,
-    };
+    const record = { ...proposed, resource };
     try {
       const file = await open(path, "wx", 0o600);
       try {
@@ -86,27 +71,26 @@ class FileFulfillmentRepository {
       return { ...proposed, resource };
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
-      return this.read(path, proposed);
+      const stored = await this.read(path);
+      if (stored.requestDigest !== proposed.requestDigest) throw new MiddlewareError("fulfillment-conflict");
+      return stored;
     }
   }
 
-  async read(path, proposed) {
-    const stored = exactObject(JSON.parse(await readFile(path, "utf8")));
-    const canonicalReceipt = Uint8Array.from(Buffer.from(stored.receipt, "base64"));
-    const authorizedBatch = parseBatch(stored.authorizedBatch);
-    if (stored.requestDigest !== proposed.requestDigest) throw new MiddlewareError("fulfillment-conflict");
-    return { ...proposed, canonicalReceipt, authorizedBatch, resource: stored.resource };
+  async read(path) {
+    return exactObject(JSON.parse(await readFile(path, "utf8")));
   }
 }
 
 class StatePreservingReceiptAuthority {
   constructor(resolver) {
-    this.delegate = new ReceiptPayloadAuthority(resolver);
+    this.resolver = resolver;
   }
 
   async settle(request) {
     try {
-      return await this.delegate.settle(request);
+      const receipt = await this.resolver.resolve(request.payload.payload.rawTransaction);
+      return { kind: "settled", ...receipt };
     } catch (error) {
       if (!(error instanceof LayerXApplicationStateError)) throw error;
       if (error.state === "pending") return { kind: "pending" };
@@ -118,11 +102,10 @@ class StatePreservingReceiptAuthority {
 
 const config = await loadApplicationConfig(import.meta.url, "paid-api");
 const resourceBody = exactObject(JSON.parse(await readFile(resolve(config.directory, config.resourceFile), "utf8")));
-const resolver = config.authorizedBatchEnvironment === undefined
-  ? new ReceiptAuthorityClient(config.receiptAuthorityUrl, requiredEnvironment(config.tokenEnvironment))
-  : { resolve: async () => parseBatch(JSON.parse(requiredEnvironment(config.authorizedBatchEnvironment))) };
+const receiptKeys = receiptKeysFromEnvironment(config.receiptKeysEnvironment);
+const resolver = new SequencerReceiptClient(config.rpcUrl, receiptKeys);
 const middleware = new SellerMiddleware({
-  protocolVersion: config.protocolVersion,
+  receiptKeys,
   paymentRequired: {
     x402Version: 2,
     resource: {
@@ -140,7 +123,7 @@ const middleware = new SellerMiddleware({
       maxTimeoutSeconds: 60,
       extra: {
         layerx: {
-          commitment: "executed",
+          commitment: "receipted",
           account: requiredEnvironment(config.accountEnvironment),
           currency: requiredEnvironment(config.currencyEnvironment),
         },

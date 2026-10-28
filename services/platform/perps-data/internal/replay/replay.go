@@ -424,11 +424,9 @@ const (
 	snapshotProjection = "replay_before_projection_"
 )
 
-// snapshot copies the rows of the range, and the projection tables whole, into
-// temporary tables dropped with the transaction.
-// ponytail: projections are copied whole per batch, fine while they fit in a
-// transaction; key the copy by the accounts and markets of the range if they
-// outgrow it.
+// snapshot copies the rows of the range and their account, market and token
+// projections into temporary tables dropped with the transaction. Protocol
+// snapshots have no venue key and are compared in full.
 func snapshot(ctx context.Context, tx *sql.Tx, tables []table, from, to int64) error {
 	for i, t := range tables {
 		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotName(i)+` ON COMMIT DROP AS SELECT * FROM perps.`+pq.QuoteIdentifier(t.name)+` WHERE block BETWEEN $1 AND $2`, from, to); err != nil {
@@ -438,12 +436,65 @@ func snapshot(ctx context.Context, tx *sql.Tx, tables []table, from, to int64) e
 	if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotBlocks+` ON COMMIT DROP AS SELECT * FROM perps.blocks WHERE number BETWEEN $1 AND $2`, from, to); err != nil {
 		return fmt.Errorf("snapshot perps.blocks: %w", err)
 	}
+	keys := []struct {
+		name, typ string
+		columns   []string
+	}{
+		{"replay_accounts", "bytea", []string{"account", "maker", "taker", "from_account", "to_account"}},
+		{"replay_markets", "numeric", []string{"market_id"}},
+		{"replay_tokens", "bytea", []string{"token", "stablecoin", "token_other", "token_in", "token_out", "share_token"}},
+	}
+	for _, key := range keys {
+		parts := []string{`SELECT NULL::` + key.typ + ` AS key WHERE false`}
+		for i, t := range tables {
+			for _, c := range t.columns {
+				for _, column := range key.columns {
+					if c == column {
+						q := pq.QuoteIdentifier(c)
+						parts = append(parts, `SELECT `+q+` FROM `+snapshotName(i)+` WHERE `+q+` IS NOT NULL`)
+					}
+				}
+			}
+		}
+		if key.name == "replay_markets" {
+			for _, p := range []string{"positions_current", "orders"} {
+				parts = append(parts, `SELECT market_id FROM perps.`+p+` WHERE account IN (SELECT key FROM replay_accounts)`)
+			}
+		}
+		if key.name == "replay_tokens" {
+			parts = append(parts, `SELECT token FROM perps.spot_orders WHERE account IN (SELECT key FROM replay_accounts)`,
+				`SELECT stablecoin FROM perps.spot_orders WHERE account IN (SELECT key FROM replay_accounts)`)
+		}
+		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+key.name+` ON COMMIT DROP AS `+strings.Join(parts, ` UNION `)); err != nil {
+			return fmt.Errorf("snapshot %s: %w", key.name, err)
+		}
+	}
 	for _, p := range projectionTables {
-		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotProjection+p+` ON COMMIT DROP AS SELECT * FROM perps.`+pq.QuoteIdentifier(p)); err != nil {
+		query, err := projectionQuery(p)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotProjection+p+` ON COMMIT DROP AS `+query); err != nil {
 			return fmt.Errorf("snapshot perps.%s: %w", p, err)
 		}
 	}
 	return nil
+}
+
+func projectionQuery(name string) (string, error) {
+	query := `SELECT * FROM perps.` + pq.QuoteIdentifier(name)
+	switch name {
+	case "positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily", "leaderboard":
+		return query + ` WHERE account IN (SELECT key FROM replay_accounts)`, nil
+	case "market_stats_rolling", "market_snapshots":
+		return query + ` WHERE market_id IN (SELECT key FROM replay_markets)`, nil
+	case "spot_token_seen":
+		return query + ` WHERE token IN (SELECT key FROM replay_tokens)`, nil
+	case "protocol_snapshots":
+		return query, nil
+	default:
+		return "", fmt.Errorf("replay: no snapshot scope for projection %s", name)
+	}
 }
 
 // restoreRowIDs gives every rewritten row of t the row_id of its first index,
@@ -483,12 +534,20 @@ func diff(ctx context.Context, tx *sql.Tx, tables []table, from, to, maxSeq int6
 	}
 	scopes = append(scopes, scope{"perps.blocks", `SELECT * FROM perps.blocks WHERE number BETWEEN $1 AND $2`, snapshotBlocks, []any{from, to}})
 	for _, p := range projectionTables {
-		scopes = append(scopes, scope{"perps." + p, `SELECT * FROM perps.` + pq.QuoteIdentifier(p), snapshotProjection + p, nil})
+		query, err := projectionQuery(p)
+		if err != nil {
+			return nil, err
+		}
+		scopes = append(scopes, scope{"perps." + p, query, snapshotProjection + p, nil})
 	}
 	out := make([]TableCount, 0, len(scopes)+1)
 	for _, s := range scopes {
 		c := TableCount{Table: s.table}
-		query := `SELECT (SELECT count(*) FROM (` + s.current + `) cur),
+		rowQuery := s.current
+		if strings.HasPrefix(s.before, snapshotProjection) {
+			rowQuery = `SELECT * FROM perps.` + pq.QuoteIdentifier(strings.TrimPrefix(s.before, snapshotProjection))
+		}
+		query := `SELECT (SELECT count(*) FROM (` + rowQuery + `) cur),
 (SELECT count(*) FROM (SELECT * FROM ` + s.before + ` EXCEPT ALL ` + s.current + `) removed)
 + (SELECT count(*) FROM (` + s.current + ` EXCEPT ALL SELECT * FROM ` + s.before + `) added)`
 		if err := tx.QueryRowContext(ctx, query, s.args...).Scan(&c.Rows, &c.Changed); err != nil {

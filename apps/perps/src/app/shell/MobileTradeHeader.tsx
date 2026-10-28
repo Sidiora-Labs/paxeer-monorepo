@@ -2,7 +2,9 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ChevronDown, Eye, EyeOff, X, Search } from "lucide-react";
 import { cn } from "@/ui/utils/cn";
-import { PERPS_MARKETS, coinLogoUrl } from "@/core/perps/config";
+import { coinLogoUrl } from "@/core/perps/config";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { useEnrichedMarketStats } from "@/hooks/perps/useEnrichedStats";
 import { useSidPaxOrderbook, useSidPaxTrades } from "@/hooks/perps/useSidPaxMarketStream";
@@ -14,9 +16,6 @@ import { DepositWithdrawModal } from "@/app/modals/DepositWithdrawModal";
 import { fmtPrice as formatPrice, fmtUsdCompact as fmtUsd } from "@/ui/utils/format";
 import { HyperPaxWordmark } from "@/ui/atoms/HyperPaxWordmark";
 
-const MKT_RWA_IDS = [5, 6, 7, 8, 9, 10];
-const MKT_NEW_IDS = [5, 6, 7, 8, 9, 10];
-
 function fmtChangePct(open: number, close: number): { text: string; positive: boolean } {
   if (open <= 0) return { text: "—", positive: true };
   const pct = ((close - open) / open) * 100;
@@ -27,9 +26,15 @@ interface MobileTradeHeaderProps {
   selectedPair: string;
   onOpenMarketPanel: () => void;
   onSelectMarket?: (symbol: string) => void;
+  catalog?: readonly MarketCatalogEntry[];
 }
 
-export function MobileTradeHeader({ selectedPair, onOpenMarketPanel, onSelectMarket }: MobileTradeHeaderProps) {
+export function MobileTradeHeader({
+  selectedPair,
+  onOpenMarketPanel,
+  onSelectMarket,
+  catalog: suppliedCatalog,
+}: MobileTradeHeaderProps) {
   const [privacyOn, setPrivacyOn] = useState(true);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
@@ -40,10 +45,12 @@ export function MobileTradeHeader({ selectedPair, onOpenMarketPanel, onSelectMar
   const { isConnected, shortAddress, connect } = usePerpsWallet();
   const openConnectModal = useWalletStore((s) => s.openConnectModal);
   const stats = usePortfolioStats();
+  const markets = usePerpsMarkets();
+  const catalog = suppliedCatalog ?? markets.catalog;
 
   const symbol = selectedPair.split("/")[0];
-  const market = PERPS_MARKETS.find((m) => m.symbol === symbol) ?? PERPS_MARKETS[0]!;
-  const { data: enriched } = useEnrichedMarketStats(market.marketId);
+  const market = catalog.find((m) => m.symbol === symbol);
+  const { data: enriched } = useEnrichedMarketStats(market?.marketId);
 
   // Same fallback pattern as PairHeader: realtime /tickers is primary, subgraph
   // enrichedMarketStats covers Paxeer-native markets (PAX / SID / …) that are
@@ -56,26 +63,29 @@ export function MobileTradeHeader({ selectedPair, onOpenMarketPanel, onSelectMar
   };
 
   const mktFiltered = useMemo(() => {
-    let list = [...PERPS_MARKETS];
-    if (mktTab === "rwa") list = list.filter((m) => MKT_RWA_IDS.includes(m.marketId));
-    else if (mktTab === "new") list = list.filter((m) => MKT_NEW_IDS.includes(m.marketId));
+    let list = [...catalog];
+    if (mktTab !== "all") list = list.filter((m) => m.category === mktTab);
     if (mktSearch) {
       const q = mktSearch.toLowerCase();
       list = list.filter((m) => m.symbol.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
     }
     return list;
-  }, [mktTab, mktSearch]);
+  }, [catalog, mktTab, mktSearch]);
 
-  const orderbook = useSidPaxOrderbook(market.symbol);
-  const trades = useSidPaxTrades(market.symbol);
+  const orderbook = useSidPaxOrderbook(market?.symbol);
+  const trades = useSidPaxTrades(market?.symbol);
   const bestBid = orderbook?.bids[0]?.price ?? 0;
   const bestAsk = orderbook?.asks[0]?.price ?? 0;
   const midPrice = bestBid > 0 && bestAsk > 0 ? (bestBid + bestAsk) / 2 : 0;
   const lastTradePrice = trades[0]?.price ?? 0;
 
-  const ticker = tickers[market.symbol];
+  const ticker = market ? tickers[market.symbol] : undefined;
   const et = enriched?.ticker;
-  const markPrice = midPrice || lastTradePrice || pickNum(ticker?.mark_price, et?.mark_price, prices[market.symbol]);
+  const markPrice = midPrice || lastTradePrice || pickNum(
+    ticker?.mark_price,
+    et?.mark_price,
+    market ? prices[market.symbol] : undefined,
+  );
   const open24h = pickNum(ticker?.["24h_open"], et?.h24_open);
   const close24h = pickNum(ticker?.["24h_close"], et?.h24_close) || markPrice;
   const change = fmtChangePct(open24h, close24h);
@@ -93,22 +103,33 @@ export function MobileTradeHeader({ selectedPair, onOpenMarketPanel, onSelectMar
 
         {/* Center: pair selector with leverage badge + 24h change */}
         <button
+          aria-label="Select market"
           className="flex items-center gap-1.5 flex-1 mx-2 min-w-0 justify-start"
           onClick={() => { onOpenMarketPanel(); setIsMarketOpen(true); }}
         >
-          <img
-            src={coinLogoUrl(market.symbol)}
-            alt={market.symbol}
-            className="w-5 h-5 rounded-full object-cover shrink-0"
-          />
+          {market && (
+            <img
+              src={coinLogoUrl(market.symbol)}
+              alt={market.symbol}
+              className="w-5 h-5 rounded-full object-cover shrink-0"
+            />
+          )}
           <div className="flex flex-col items-start min-w-0">
             <div className="flex items-center gap-1">
-              <span className="text-sm font-semibold text-white">{market.symbol}</span>
-              <span className="text-[9px] font-mono font-medium text-[#AFAFAF] bg-[var(--brand-border)] rounded px-1 py-[1px]">{market.maxLeverage}x</span>
+              <span className="text-sm font-semibold text-white">{symbol}</span>
+              {market?.maxLeverage != null && (
+                <span className="text-[9px] font-mono font-medium text-[#AFAFAF] bg-[var(--brand-border)] rounded px-1 py-[1px]">{market.maxLeverage}x</span>
+              )}
               <ChevronDown className="w-3 h-3 text-[#828282]" />
             </div>
             <span className={cn("text-[10px] font-mono font-medium", change.positive ? "text-[var(--brand-green)]" : "text-[var(--brand-red)]")}>
-              {change.text}
+              {market
+                ? change.text
+                : suppliedCatalog === undefined && markets.error
+                  ? "Failed to load markets"
+                  : suppliedCatalog === undefined && markets.isLoading
+                    ? "Loading markets…"
+                    : `Market ${symbol} unavailable`}
             </span>
           </div>
         </button>
@@ -141,7 +162,7 @@ export function MobileTradeHeader({ selectedPair, onOpenMarketPanel, onSelectMar
         </div>
       </header>
 
-      <MobileNavDrawer open={mobileNavOpen} onClose={closeNav} />
+      {mobileNavOpen && <MobileNavDrawer open={mobileNavOpen} onClose={closeNav} />}
       <DepositWithdrawModal isOpen={isDepositOpen} onClose={() => setIsDepositOpen(false)} />
 
       {/* ── Full-screen market selector sheet ── */}
@@ -205,7 +226,7 @@ export function MobileTradeHeader({ selectedPair, onOpenMarketPanel, onSelectMar
               const mTicker = tickers[m.symbol];
               const open24 = mTicker?.["24h_open"] ?? 0;
               const chg = open24 > 0 ? ((mPrice - open24) / open24) * 100 : null;
-              const isSelected = market.symbol === m.symbol;
+              const isSelected = market?.symbol === m.symbol;
               return (
                 <button
                   key={m.symbol}
@@ -221,8 +242,10 @@ export function MobileTradeHeader({ selectedPair, onOpenMarketPanel, onSelectMar
                     <div className="flex flex-col items-start">
                       <div className="flex items-center gap-1">
                         <span className="text-sm font-semibold text-white">{m.symbol}</span>
-                        <span className="text-[9px] font-mono text-[#AFAFAF] bg-[var(--brand-border)] rounded px-1 py-[1px]">{m.maxLeverage}x</span>
-                        {MKT_NEW_IDS.includes(m.marketId) && (
+                        {m.maxLeverage !== null && (
+                          <span className="text-[9px] font-mono text-[#AFAFAF] bg-[var(--brand-border)] rounded px-1 py-[1px]">{m.maxLeverage}x</span>
+                        )}
+                        {m.category === "new" && (
                           <span className="text-[8px] font-mono px-1 rounded" style={{ background: "rgba(255,158,44,0.15)", color: "var(--brand-orange)" }}>NEW</span>
                         )}
                       </div>
@@ -245,7 +268,11 @@ export function MobileTradeHeader({ selectedPair, onOpenMarketPanel, onSelectMar
             })}
             {mktFiltered.length === 0 && (
               <div className="flex items-center justify-center py-12 text-[#828282] text-sm font-mono">
-                No markets
+                {suppliedCatalog === undefined && markets.error
+                  ? "Failed to load markets"
+                  : suppliedCatalog === undefined && markets.isLoading
+                    ? "Loading markets…"
+                    : "No markets"}
               </div>
             )}
           </div>

@@ -1,17 +1,20 @@
 //! Receipt-verified Programs operations for direct-node and hosted transports.
 
 pub use layerx_agent_api::error::{ErrorClass as AgentErrorClass, Retriability};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_proof::program::{
-    AuthorizedProgramExecutionExpectation, VerifiedProgramExecution,
-    verify_authorized_program_execution_with_payers,
+    verify_authorized_program_execution_with_payers, AuthorizedProgramExecutionExpectation,
+    VerifiedProgramExecution,
 };
-pub use layerx_proof::program::{MAX_OCCUPANCY_PAYERS, OccupancyPayer};
+pub use layerx_proof::program::{OccupancyPayer, MAX_OCCUPANCY_PAYERS};
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::intent::ProgramCall;
-use layerx_types::payload::{ModuleId, ModuleRegistry};
+use layerx_types::payload::ModuleRegistry;
 use layerx_types::result::ResultCode;
-use layerx_wire::activity::decode_signed;
-use layerx_wire::hash::activity_id;
+
+pub(crate) const PROGRAMS_PRECOMPILE: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1d,
+];
 
 pub const MAX_SIGNED_ACTIVITY_BYTES: usize = 1_048_576;
 
@@ -19,9 +22,9 @@ pub const MAX_SIGNED_ACTIVITY_BYTES: usize = 1_048_576;
 pub(crate) mod http;
 
 pub use crate::program_lifecycle::{
-    NativeProgramDeployRequest, NativeProgramLifecycleRequest, NativeProgramUpgradeRequest,
-    NativeProgramWindDownRequest, ProgramLifecycleSubmission, programs_module_registry,
-    verify_lifecycle_receipt,
+    programs_module_registry, verify_lifecycle_receipt, NativeProgramDeployRequest,
+    NativeProgramLifecycleRequest, NativeProgramUpgradeRequest, NativeProgramWindDownRequest,
+    ProgramLifecycleSubmission,
 };
 pub use http::{HttpProgramTransport, LayerXKeyCredential};
 
@@ -34,36 +37,33 @@ pub struct ProgramCallRequest {
 }
 
 impl ProgramCallRequest {
-    /// Binds a typed call to the exact signed Programs activity transported by
+    /// Binds a typed call to the exact signed Programs transaction transported by
     /// the client.
     ///
     /// # Errors
     ///
-    /// Refuses non-canonical activity bytes, the wrong module or ordinal, and
+    /// Refuses non-canonical transaction bytes, the wrong destination, and
     /// any payload which differs from the typed call.
     pub fn new(
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
         call: ProgramCall,
         signed_activity: &[u8],
     ) -> Result<Self, ProgramOperationError> {
         if signed_activity.is_empty() || signed_activity.len() > MAX_SIGNED_ACTIVITY_BYTES {
             return Err(ProgramOperationError::Bounds);
         }
-        let activity =
-            decode_signed(signed_activity, registry).map_err(|_| ProgramOperationError::Decode)?;
-        if activity.activity_type().module() != ModuleId::Programs
-            || activity.activity_type().ordinal() != 3
-            || activity.payload() != call.canonical_payload()
-        {
+        let (transaction, signature) =
+            decode_signed(signed_activity).map_err(|_| ProgramOperationError::Decode)?;
+        recover_sender(&transaction, &signature).map_err(|_| ProgramOperationError::Decode)?;
+        if transaction.to != PROGRAMS_PRECOMPILE || transaction.data != call.canonical_payload() {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        let bound_activity_id =
-            activity_id(&activity).map_err(|_| ProgramOperationError::Decode)?;
+        let bound_activity_id = transaction_hash(signed_activity);
         Ok(Self {
             call,
             signed_activity: signed_activity.to_vec(),
             activity_id: bound_activity_id,
-            idempotency_key: activity.idempotency_key(),
+            idempotency_key: bound_activity_id,
         })
     }
 
@@ -77,7 +77,7 @@ impl ProgramCallRequest {
         &self.signed_activity
     }
 
-    /// Returns the activity identifier derived from the retained signed bytes.
+    /// Returns the transaction hash derived from the retained signed bytes.
     #[must_use]
     pub const fn activity_id(&self, _registry: &ModuleRegistry) -> [u8; 32] {
         self.activity_id
@@ -105,12 +105,12 @@ pub struct NativeProgramCallRequest {
 }
 
 impl NativeProgramCallRequest {
-    /// Binds the native payload and fee ceiling to one canonical protocol-3 activity.
+    /// Binds the native calldata and gas fee ceiling to one canonical EIP-1559 call.
     ///
     /// # Errors
     /// Refuses malformed, oversized, wrong-scope or mismatched activity bytes.
     pub fn new(
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
         call: layerx_types::program_call::NativeProgramCall<'_>,
         fee_limit: u128,
         signed_activity: &[u8],
@@ -122,23 +122,24 @@ impl NativeProgramCallRequest {
             return Err(ProgramOperationError::Bounds);
         }
         let payload = call.encode().map_err(|_| ProgramOperationError::Decode)?;
-        let activity =
-            decode_signed(signed_activity, registry).map_err(|_| ProgramOperationError::Decode)?;
-        if activity.protocol_version() != 3
-            || activity.activity_type().module() != ModuleId::Programs
-            || activity.activity_type().ordinal() != 3
-            || activity.fee_limit() != fee_limit
-            || activity.payload() != payload
+        let (transaction, signature) =
+            decode_signed(signed_activity).map_err(|_| ProgramOperationError::Decode)?;
+        recover_sender(&transaction, &signature).map_err(|_| ProgramOperationError::Decode)?;
+        if transaction.to != PROGRAMS_PRECOMPILE
+            || u128::from(transaction.gas_limit).checked_mul(transaction.max_fee_per_gas)
+                != Some(fee_limit)
+            || transaction.data != payload
         {
             return Err(ProgramOperationError::IdentityMismatch);
         }
+        let bound_activity_id = transaction_hash(signed_activity);
         Ok(Self {
             payload,
             fee_limit,
             program_id: call.program_id.bytes(),
             signed_activity: signed_activity.to_vec(),
-            activity_id: activity_id(&activity).map_err(|_| ProgramOperationError::Decode)?,
-            idempotency_key: activity.idempotency_key(),
+            activity_id: bound_activity_id,
+            idempotency_key: bound_activity_id,
         })
     }
 

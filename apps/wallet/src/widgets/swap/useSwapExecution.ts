@@ -28,7 +28,7 @@ export interface UseSwapExecutionResult {
     toToken: SwapToken,
     slippageBps: number,
     recipient: string,
-    balanceRaw?: bigint | null,
+    balanceRaw?: bigint | null
   ) => Promise<void>;
   reset: () => void;
   clearError: () => void;
@@ -48,7 +48,7 @@ export function useSwapExecution(): UseSwapExecutionResult {
       toToken: SwapToken,
       slippageBps: number,
       recipient: string,
-      balanceRaw?: bigint | null,
+      balanceRaw?: bigint | null
     ) => {
       setExecuting(true);
       setExecError('');
@@ -65,7 +65,7 @@ export function useSwapExecution(): UseSwapExecutionResult {
           slippageBps,
           recipient,
         };
-        const hash = await executeSwap(signer, bestQuote, params);
+        const { hash } = await executeSwap(signer, bestQuote, params);
         setTxHash(hash);
       } catch (e) {
         setExecError(e instanceof Error ? e.message : 'Swap failed');
@@ -73,7 +73,7 @@ export function useSwapExecution(): UseSwapExecutionResult {
         setExecuting(false);
       }
     },
-    [getSigner],
+    [getSigner]
   );
 
   const reset = useCallback(() => {

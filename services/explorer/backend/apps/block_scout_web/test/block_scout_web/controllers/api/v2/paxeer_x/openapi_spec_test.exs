@@ -2,7 +2,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
   use BlockScoutWeb.ConnCase
 
   alias Explorer.Chain.Address
-  alias Explorer.Chain.PaxeerX.{AccountBinding, Anchor, CustodyEvent, Receipt}
+  alias Explorer.Chain.PaxeerX.{AccountBinding, Anchor, Receipt}
   alias Explorer.Repo
   alias OpenApiSpex.{Cast, MediaType, Operation, PathItem, Response, Schema}
 
@@ -39,7 +39,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     test "reject a unified account document that lost a field", %{conn: conn} do
       address = insert(:address)
       block = insert(:block, number: 300)
-      transaction = :transaction |> insert() |> with_block(block)
+      transaction = :transaction |> insert(from_address: address) |> with_block(block)
 
       insert_binding(address, block, transaction)
 
@@ -190,9 +190,31 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
         Map.new(fields)
       )
 
-    %CustodyEvent{}
-    |> CustodyEvent.changeset(attributes)
-    |> Repo.insert!()
+    Repo.query!(
+      """
+      INSERT INTO lx_custody_events (
+        transaction_hash, log_index, block_hash, block_number, block_consensus,
+        kind, direction, asset_id, amount, address_hash, account, inserted_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6::lx_custody_event_kind, $7::lx_custody_event_direction,
+        decode(substr($8, 3), 'hex'), $9, decode(substr($10, 3), 'hex'),
+        decode(substr($11, 3), 'hex'), NOW(), NOW()
+      )
+      """,
+      [
+        attributes.transaction_hash.bytes,
+        attributes.log_index,
+        attributes.block_hash.bytes,
+        attributes.block_number,
+        attributes.block_consensus,
+        to_string(attributes.kind),
+        to_string(attributes.direction),
+        attributes.asset_id,
+        attributes[:amount],
+        attributes[:address_hash],
+        attributes[:account]
+      ]
+    )
   end
 
   defp insert_anchor(batch_number) do

@@ -27,7 +27,9 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.TransactionStatus do
         type: :integer,
         minimum: 0,
         nullable: true,
-        description: "Highest indexed consensus block, null while the explorer has indexed none"
+        description:
+          "Highest indexed consensus block, or the commit height when the rung comes from R8; " <>
+            "null while the explorer knows neither height"
       }
     },
     required: [:rung, :block_number, :committed_height],

@@ -32,7 +32,6 @@ const (
 	TokenfactoryStoreKey = "tokenfactory" // modules/tokenfactory/types.StoreKey
 
 	LayerXCustodyStoreKey  = "layerxcustody"  // modules/layerxcustody/types.StoreKey
-	LayerXAnchorStoreKey   = "layerxanchor"   // modules/layerxanchor/types.StoreKey
 	LayerXExchangeStoreKey = "layerxexchange" // modules/layerxexchange/types.StoreKey
 	LayerXBridgeStoreKey   = "layerxbridge"   // modules/layerxbridge/types.StoreKey
 	LaunchpadStoreKey      = "launchpad"      // modules/launchpad/types.StoreKey
@@ -46,6 +45,7 @@ const (
 	LayerXProgramsStoreKey = "layerxprograms" // precompiles/layerxprograms
 	SequencerStoreKey      = "sequencer"      // modules/sequencer/types.StoreKey
 	LayerXAgentStoreKey    = "layerxagent"    // modules/layerxagent/keeper.StoreKey
+	LayerXHostStoreKey     = "lxphost"
 )
 
 // MemIAVLStoreKeys is the canonical list of module KV store keys that are
@@ -74,7 +74,6 @@ var MemIAVLStoreKeys = []string{
 	EpochStoreKey,
 	TokenfactoryStoreKey,
 	LayerXCustodyStoreKey,
-	LayerXAnchorStoreKey,
 	LayerXExchangeStoreKey,
 	LayerXBridgeStoreKey,
 	LaunchpadStoreKey,
@@ -83,6 +82,12 @@ var MemIAVLStoreKeys = []string{
 	PriceFeedStoreKey,
 	XWebStoreKey,
 	SequencerStoreKey,
+	LayerXLedgerStoreKey,
+	LayerXAuthStoreKey,
+	LayerXPayStoreKey,
+	LayerXProgramsStoreKey,
+	LayerXAgentStoreKey,
+	LayerXHostStoreKey,
 }
 
 // memIAVLStoreKeySet is MemIAVLStoreKeys materialized as a set for O(1)

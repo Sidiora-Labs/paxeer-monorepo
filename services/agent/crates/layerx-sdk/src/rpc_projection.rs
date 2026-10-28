@@ -4,11 +4,10 @@ use layerx_agent_api::error::RequestId;
 use layerx_agent_api::identity::strict_hex32;
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::read::{
-    BatchRef, CheckpointRef, FeeProjection, FeeProjectionRequest, Freshness, ProjectionResult,
-    RelativeTo,
+    FeeProjection, FeeProjectionRequest, Freshness, ProjectionResult, RelativeTo,
 };
 use layerx_agent_api::verify::{Level, VerificationStatus};
-use layerx_agent_api::{Amount, Sequence};
+use layerx_agent_api::Amount;
 use serde_json::{json, Value};
 
 use crate::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
@@ -16,47 +15,27 @@ use crate::rpc_history::lower_hex;
 use crate::rpc_subscription::{decimal, object, text, violation};
 use crate::Operation;
 
-/// Decodes the schema wire form of [`Freshness`]: decimal sequences, non-empty references and
-/// a `relative_to` object with exactly one of `batch` or `checkpoint`.
 pub(crate) fn decode_freshness(
     value: &Value,
     operation: Operation,
 ) -> Result<Freshness, EnvelopeError> {
     let freshness = object(
         value,
-        &[
-            "chain_head",
-            "latest_sealed_batch",
-            "latest_finalised_checkpoint",
-            "value_sequence",
-            "relative_to",
-        ],
+        &["chain_head", "value_height", "relative_to"],
         operation,
     )?;
-    let relative = freshness["relative_to"]
-        .as_object()
-        .filter(|relative| relative.len() == 1)
-        .ok_or_else(|| violation(operation))?;
-    let relative_to = match (relative.get("batch"), relative.get("checkpoint")) {
-        (Some(batch), None) => RelativeTo::Batch(
-            BatchRef::new(text(batch, operation)?).map_err(|_| violation(operation))?,
-        ),
-        (None, Some(checkpoint)) => RelativeTo::Checkpoint(
-            CheckpointRef::new(text(checkpoint, operation)?).map_err(|_| violation(operation))?,
-        ),
-        _ => return Err(violation(operation)),
-    };
+    let relative = object(&freshness["relative_to"], &["height", "hash"], operation)?;
+    let chain_head = decimal(&freshness["chain_head"], operation)?;
+    let value_height = decimal(&freshness["value_height"], operation)?;
+    let height = decimal(&relative["height"], operation)?;
+    let hash = bytes32(&relative["hash"], operation)?;
+    if value_height > chain_head || height != value_height || hash == [0; 32] {
+        return Err(violation(operation));
+    }
     Ok(Freshness {
-        chain_head: Sequence(decimal(&freshness["chain_head"], operation)?),
-        latest_sealed_batch: BatchRef::new(text(&freshness["latest_sealed_batch"], operation)?)
-            .map_err(|_| violation(operation))?,
-        latest_finalised_checkpoint: CheckpointRef::new(text(
-            &freshness["latest_finalised_checkpoint"],
-            operation,
-        )?)
-        .map_err(|_| violation(operation))?,
-        value_sequence: Sequence(decimal(&freshness["value_sequence"], operation)?),
-        relative_to,
+        chain_head,
+        value_height,
+        relative_to: RelativeTo::Block { height, hash },
     })
 }
 
@@ -135,8 +114,10 @@ fn decode_projection(value: &Value, operation: Operation) -> Result<FeeProjectio
             "request",
             "parameter_version",
             "fee",
+            "gas_units",
+            "denom",
             "canonical_schedule",
-            "snapshot_sequence",
+            "snapshot_height",
             "snapshot_state_root",
         ],
         operation,
@@ -153,12 +134,14 @@ fn decode_projection(value: &Value, operation: Operation) -> Result<FeeProjectio
         request: decode_request(&projection["request"], operation)?,
         parameter_version,
         fee: Amount(decimal_u128(&projection["fee"], operation)?),
+        gas_units: decimal(&projection["gas_units"], operation)?,
+        denom: text(&projection["denom"], operation)?,
         canonical_schedule: projection["canonical_schedule"]
             .as_str()
             .and_then(lower_hex)
             .and_then(|bytes| CanonicalBytes::new(bytes).ok())
             .ok_or_else(|| violation(operation))?,
-        snapshot_sequence: Sequence(decimal(&projection["snapshot_sequence"], operation)?),
+        snapshot_height: decimal(&projection["snapshot_height"], operation)?,
         snapshot_state_root,
     })
 }
@@ -206,5 +189,34 @@ impl AgentEnvelopeTransport {
                 decode_freshness(&result["observed_freshness"], operation)?,
             )
             .map_err(|_| violation(operation))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn freshness_uses_block_heights_and_rejects_sequence_fields() {
+        let mut value = json!({"chain_head":"12", "value_height":"10", "relative_to":{"height":"10", "hash":"11".repeat(32)}});
+        let decoded =
+            decode_freshness(&value, Operation::Project).unwrap_or_else(|e| panic!("{e:?}"));
+        assert_eq!(decoded.chain_head, 12);
+        assert_eq!(decoded.value_height, 10);
+        assert_eq!(
+            decoded.relative_to,
+            RelativeTo::Block {
+                height: 10,
+                hash: [0x11; 32]
+            }
+        );
+        value["value_sequence"] = json!("10");
+        assert!(decode_freshness(&value, Operation::Project).is_err());
+        value
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("object"))
+            .remove("value_sequence");
+        value["relative_to"]["height"] = json!("11");
+        assert!(decode_freshness(&value, Operation::Project).is_err());
     }
 }

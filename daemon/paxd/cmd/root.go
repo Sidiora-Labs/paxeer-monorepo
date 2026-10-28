@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -252,7 +253,8 @@ func newApp(
 		panic(err)
 	}
 
-	if _, err := sequencer.ReadConfig(appOpts); err != nil {
+	seqCfg, err := sequencer.ReadConfig(appOpts)
+	if err != nil {
 		panic(err)
 	}
 
@@ -276,7 +278,7 @@ func newApp(
 	// This makes it such that the wasm VM gas converts to sdk gas at a 6.66x rate vs that of the previous multiplier
 	wasmGasRegisterConfig.GasMultiplier = 21_000_000
 
-	app := app.New(
+	a := app.New(
 		db,
 		traceStore,
 		true,
@@ -311,7 +313,31 @@ func newApp(
 		baseapp.SetOccEnabled(cast.ToBool(appOpts.Get(baseapp.FlagOccEnabled))),
 	)
 
-	return app
+	node, err := sequencer.NewNode(seqCfg, a)
+	if err != nil {
+		panic(err)
+	}
+	if node != nil {
+		if err := node.Start(context.Background()); err != nil {
+			panic(err)
+		}
+	}
+
+	return &sequencedApp{App: a, node: node}
+}
+
+type sequencedApp struct {
+	*app.App
+	node *sequencer.Node
+}
+
+func (a *sequencedApp) SequencerNode() *sequencer.Node {
+	return a.node
+}
+
+func (a *sequencedApp) Close() error {
+	stopErr := a.node.Stop()
+	return errors.Join(stopErr, a.App.Close())
 }
 
 // appExport creates a new simapp (optionally at a given height)

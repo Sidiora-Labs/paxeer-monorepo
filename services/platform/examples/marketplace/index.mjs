@@ -2,18 +2,20 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { PlatformSdkError, verifyReceipt } from "@sidiora/layerx-sdk";
+import { PlatformSdkError } from "@sidiora/layerx-sdk";
 import {
   LayerXApplicationStateError,
-  ReceiptAuthorityClient,
+  SequencerReceiptClient,
   commandPath,
   diagnosticText,
   exactObject,
   hex32,
   loadApplicationConfig,
   optionalEnvironment,
+  receiptKeysFromEnvironment,
   requiredEnvironment,
 } from "../support/runtime.mjs";
+import { verifyProgramOutcome } from "./receipt-outcome.mjs";
 import { referenceArtifacts } from "../support/artifacts.mjs";
 import {
   accountNameForDid,
@@ -29,7 +31,7 @@ export function platform_ref_marketplace() {
 const config = await loadApplicationConfig(import.meta.url, "marketplace");
 const cli = requiredEnvironment(config.cliBinaryEnvironment);
 const token = requiredEnvironment(config.tokenEnvironment);
-const authority = new ReceiptAuthorityClient(config.receiptAuthorityUrl, token);
+const receipts = new SequencerReceiptClient(config.rpcUrl, receiptKeysFromEnvironment(config.receiptKeysEnvironment));
 
 const cliSecrets = Object.freeze([
   token,
@@ -112,61 +114,9 @@ const idempotency = (suffix) => {
   return value;
 };
 
-const canonicalReceipt = (value) => {
-  const found = findReceipt(value);
-  if (found === undefined) return undefined;
-  if (/^(?:[0-9a-fA-F]{2})+$/u.test(found)) return Uint8Array.from(Buffer.from(found, "hex"));
-  if (/^[A-Za-z0-9+/]+={0,2}$/u.test(found)) return Uint8Array.from(Buffer.from(found, "base64"));
-  throw new LayerXApplicationStateError("unknown", "program_response_invalid_receipt");
-};
-
-const findReceipt = (value) => {
-  if (value === null || typeof value !== "object") return undefined;
-  if (!Array.isArray(value) && typeof value.receipt === "string") return value.receipt;
-  for (const child of Object.values(value)) {
-    const found = findReceipt(child);
-    if (found !== undefined) return found;
-  }
-  return undefined;
-};
-
-const verifyOutcome = async (output) => {
-  const receipt = canonicalReceipt(output);
-  if (receipt === undefined) {
-    const state = findState(output);
-    if (state === "pending" || state === "unknown" || state === "refused") return { state, output };
-    throw new LayerXApplicationStateError("unknown", "program_response_omitted_receipt");
-  }
-  const authorizedBatch = await authority.resolve(receipt);
-  let verification;
-  try {
-    verification = await verifyReceipt(receipt, authorizedBatch, {
-      protocolVersion: config.protocolVersion,
-    });
-  } catch (error) {
-    if (error instanceof PlatformSdkError && error.code === "verification-failure") {
-      throw new LayerXApplicationStateError("refused", "program_receipt_verification_failed");
-    }
-    throw error;
-  }
-  return {
-    state: verification.receipt.resultCode < 0 ? "refused" : "completed",
-    receiptDigest: toHex(verification.receiptDigest),
-    verification: verification.level,
-    resultCode: verification.receipt.resultCode,
-    output,
-  };
-};
-
-const findState = (value) => {
-  if (value === null || typeof value !== "object") return undefined;
-  if (!Array.isArray(value) && ["pending", "unknown", "refused"].includes(value.state)) return value.state;
-  for (const child of Object.values(value)) {
-    const found = findState(child);
-    if (found !== undefined) return found;
-  }
-  return undefined;
-};
+async function verifyOutcome(output) {
+  return verifyProgramOutcome(output, receipts);
+}
 
 const signingKeyDid = async () => {
   const listed = await runCli(["key", "list"]);

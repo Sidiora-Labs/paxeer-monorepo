@@ -127,6 +127,12 @@ CREATE TABLE IF NOT EXISTS explorer_accounts(
     account TEXT PRIMARY KEY,
     imported_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS explorer_progress(
+    account TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    next_query TEXT,
+    PRIMARY KEY(account, feed)
+);
 CREATE TABLE IF NOT EXISTS cursors(
     chain TEXT PRIMARY KEY,
     position INTEGER NOT NULL,
@@ -490,7 +496,7 @@ impl HistoryQuery<'_> {
                 ],
                 |row| {
                     let document = if row.get::<_, i64>(14)? == 0 {
-                        Store::transfer_document(row, self.finality)
+                        Store::transfer_document(row, self.finality)?
                     } else {
                         Store::explorer_document(row)?
                     };
@@ -1517,6 +1523,42 @@ impl Store {
             .is_some())
     }
 
+    /// The saved next-page query for an unfinished explorer feed.
+    ///
+    /// # Errors
+    /// Returns [`IndexError::Store`] on SQLite failure.
+    pub fn explorer_progress(
+        &self,
+        account: &str,
+        feed: &str,
+    ) -> Result<Option<String>, IndexError> {
+        let connection = self.lock()?;
+        Ok(connection
+            .query_row(
+                "SELECT next_query FROM explorer_progress WHERE account = ?1 AND feed = ?2",
+                params![account, feed],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?
+            .flatten())
+    }
+
+    pub(crate) fn explorer_feed_complete(
+        &self,
+        account: &str,
+        feed: &str,
+    ) -> Result<bool, IndexError> {
+        let connection = self.lock()?;
+        Ok(connection
+            .query_row(
+                "SELECT 1 FROM explorer_progress WHERE account = ?1 AND feed = ?2 AND next_query IS NULL",
+                params![account, feed],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some())
+    }
+
     /// Persists the explorer rows of `account` (idempotently) and, when
     /// `complete`, records that its explorer history is imported in full.
     ///
@@ -1526,6 +1568,7 @@ impl Store {
         &self,
         account: &str,
         rows: &[(u64, TransferRow)],
+        progress: &[(&str, Option<String>)],
         complete: bool,
     ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
@@ -1556,7 +1599,17 @@ impl Store {
                 ],
             )?;
         }
+        for (feed, next_query) in progress {
+            transaction.execute(
+                "INSERT OR REPLACE INTO explorer_progress(account, feed, next_query) VALUES (?1, ?2, ?3)",
+                params![account, feed, next_query],
+            )?;
+        }
         if complete {
+            transaction.execute(
+                "DELETE FROM explorer_progress WHERE account = ?1",
+                params![account],
+            )?;
             transaction.execute(
                 "INSERT OR REPLACE INTO explorer_accounts(account, imported_at) VALUES (?1, ?2)",
                 params![account, now()],
@@ -1739,30 +1792,33 @@ impl Store {
         Ok(rows)
     }
 
-    fn transfer_document(row: &Row<'_>, finality: &[(String, Option<i64>)]) -> Value {
-        let id: i64 = row.get(0).unwrap_or_default();
-        let position: i64 = row.get(1).unwrap_or_default();
-        let chain: String = row.get(2).unwrap_or_default();
+    fn transfer_document(
+        row: &Row<'_>,
+        finality: &[(String, Option<i64>)],
+    ) -> rusqlite::Result<Value> {
+        let id: i64 = row.get(0)?;
+        let position: i64 = row.get(1)?;
+        let chain: String = row.get(2)?;
         let boundary = finality
             .iter()
             .find(|(name, _)| *name == chain)
             .and_then(|(_, boundary)| *boundary);
         let final_row = boundary.is_some_and(|boundary| position <= boundary);
-        let decoded: String = row.get(11).unwrap_or_default();
-        json!({
+        let decoded: String = row.get(11)?;
+        Ok(json!({
             "id": id.to_string(),
             "height_or_seq": position.to_string(),
-            "tx_index": row.get::<_, i64>(13).unwrap_or_default().to_string(),
-            "log_index": (row.get::<_, i64>(10).unwrap_or_default().max(1) - 1).to_string(),
+            "tx_index": row.get::<_, i64>(13)?.to_string(),
+            "log_index": (row.get::<_, i64>(10)?.max(1) - 1).to_string(),
             "chain": chain,
-            "kind": row.get::<_, String>(3).unwrap_or_default(),
-            "direction": row.get::<_, String>(4).unwrap_or_default(),
-            "account": row.get::<_, String>(5).unwrap_or_default(),
-            "counterparty": row.get::<_, Option<String>>(6).unwrap_or_default(),
-            "asset": row.get::<_, String>(7).unwrap_or_default(),
-            "amount": row.get::<_, String>(8).unwrap_or_default(),
-            "tx_id": row.get::<_, String>(9).unwrap_or_default(),
-            "ordinal": row.get::<_, i64>(10).unwrap_or_default().to_string(),
+            "kind": row.get::<_, String>(3)?,
+            "direction": row.get::<_, String>(4)?,
+            "account": row.get::<_, String>(5)?,
+            "counterparty": row.get::<_, Option<String>>(6)?,
+            "asset": row.get::<_, String>(7)?,
+            "amount": row.get::<_, String>(8)?,
+            "tx_id": row.get::<_, String>(9)?,
+            "ordinal": row.get::<_, i64>(10)?.to_string(),
             "final": final_row,
             "final_basis": STABILITY_SOURCE,
             "stability": {
@@ -1770,11 +1826,11 @@ impl Store {
                 "source": STABILITY_SOURCE,
                 "finalized_boundary": boundary.map(|boundary| boundary.to_string()),
             },
-            "settlement": row.get::<_, Option<String>>(12).unwrap_or_default().map_or_else(
+            "settlement": row.get::<_, Option<String>>(12)?.map_or_else(
                 || json!({"level": SETTLEMENT_UNVERIFIED, "source": Value::Null, "reason": SETTLEMENT_UNAVAILABLE_REASON}),
                 |document| parse_json(&document)),
             "decoded": parse_json(&decoded),
-        })
+        }))
     }
 
     /// One explorer-imported row in the [`HISTORY_ROWS`] column layout.
@@ -1851,7 +1907,7 @@ impl Store {
         )?;
         let rows = statement
             .query_map(params![chain], |row| {
-                Ok(Self::transfer_document(row, &finality))
+                Ok(Self::transfer_document(row, &finality)?)
             })?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
@@ -2137,6 +2193,37 @@ mod tests {
                 .collect(),
             ..Unit::default()
         }
+    }
+
+    #[test]
+    fn transfers_refuse_a_row_whose_amount_does_not_decode() {
+        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        let untouched = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        for store in [&store, &untouched] {
+            store
+                .commit(&unit(1, "h1", "h0", 1), 10)
+                .unwrap_or_else(|error| panic!("{error}"));
+        }
+        let changed = store
+            .connection
+            .lock()
+            .unwrap_or_else(|error| panic!("{error}"))
+            .execute(
+                "UPDATE transfers SET amount = X'00' WHERE chain = 'test'",
+                [],
+            )
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(changed, 1);
+        assert!(matches!(store.transfers("test"), Err(IndexError::Store(_))));
+        assert!(matches!(
+            store.history("alice", None, 10, None),
+            Err(IndexError::Store(_))
+        ));
+        let rows = untouched
+            .transfers("test")
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["amount"], "1");
     }
 
     #[test]

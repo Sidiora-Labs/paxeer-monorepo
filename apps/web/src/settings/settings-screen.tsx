@@ -12,7 +12,6 @@ import {
   type NotificationDetailLevel,
   type NotificationPreferences,
   type Profile,
-  type WalletBinding,
 } from "../api";
 import { InlineNotice, ScreenCard } from "../kit/surface";
 import { KitButton } from "../kit/control";
@@ -33,7 +32,6 @@ import { usePrivacyMode } from "./privacy";
 interface SettingsSnapshot {
   readonly profile: Profile;
   readonly notifications: NotificationPreferences;
-  readonly binding: WalletBinding;
   readonly passkeyCount: number;
   readonly sessionCount: number;
 }
@@ -68,11 +66,19 @@ const DETAIL_OPTIONS: readonly Readonly<{ value: NotificationDetailLevel; label:
   { value: "full", label: copyEntry("settings.notifications.detail.full").message },
 ];
 
-function bindingValue(binding: WalletBinding): string {
-  if (binding.state === "bound" && binding.address !== undefined) {
-    return binding.address;
-  }
-  return copyEntry(`settings.wallet.${binding.state}`).message;
+export async function loadSettingsSnapshot(client: HumanApiClient): Promise<SettingsSnapshot> {
+  const [profile, notifications, passkeys, sessions] = await Promise.all([
+    client.profileGet(),
+    client.notificationPreferencesGet(),
+    client.securityPasskeyList(),
+    client.sessionList(),
+  ]);
+  return {
+    profile,
+    notifications,
+    passkeyCount: passkeys.passkeys.length,
+    sessionCount: sessions.sessions.length,
+  };
 }
 
 function mutationFailure(error: unknown): string {
@@ -182,24 +188,12 @@ export function SettingsScreen({
     setLoadState({ state: "loading" });
     setNotice(undefined);
     try {
-      const [profile, notifications, binding, passkeys, sessions] = await Promise.all([
-        client.profileGet(),
-        client.notificationPreferencesGet(),
-        client.bindingStatus(),
-        client.securityPasskeyList(),
-        client.sessionList(),
-      ]);
-      setDisplayName(profile.display_name);
-      setAvatarUrl(profile.avatar_url ?? "");
+      const snapshot = await loadSettingsSnapshot(client);
+      setDisplayName(snapshot.profile.display_name);
+      setAvatarUrl(snapshot.profile.avatar_url ?? "");
       setLoadState({
         state: "ready",
-        snapshot: {
-          profile,
-          notifications,
-          binding,
-          passkeyCount: passkeys.passkeys.length,
-          sessionCount: sessions.sessions.length,
-        },
+        snapshot,
       });
     } catch (error) {
       setLoadState(navigator.onLine ? { state: "error", error } : { state: "offline" });
@@ -378,7 +372,7 @@ export function SettingsScreen({
         <SettingsSection title={copyEntry("settings.section.wallet").message}>
           <SettingsRow
             title={copyEntry("settings.wallet.title").message}
-            subtitle={bindingValue(loadState.snapshot.binding)}
+            subtitle={copyEntry("gas.sidiora.title").message}
             navigates
             onClick={() => { router.push("/app/settings/wallet"); }}
           />
@@ -428,12 +422,6 @@ export function SettingsScreen({
               />
             )}
             trailingCaption={privacyValue}
-          />
-          <SettingsRow
-            title={copyEntry("exit.title").message}
-            subtitle={copyEntry("exit.summary").message}
-            navigates
-            onClick={() => { router.push("/app/settings/exit"); }}
           />
         </SettingsSection>
 

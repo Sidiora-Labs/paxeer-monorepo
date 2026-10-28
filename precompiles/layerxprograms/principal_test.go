@@ -1,4 +1,4 @@
-package layerxprograms
+package layerxprograms_test
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -49,24 +50,62 @@ func TestProgramsPrincipalFromBoundDID(t *testing.T) {
 		{origin, originKey},
 		{contract, contractKey},
 	} {
-		authority, actorDID, err := principalOf(ctx, k, tc.caller)
+		authority, actorDID, err := lp.PrincipalOf(ctx, k, tc.caller)
 		require.NoError(t, err)
 		_, accountID, err := lxphost.MainAccountID(tc.key)
 		require.NoError(t, err)
-		require.Equal(t, tc.key, authority.Actor)
 		require.Equal(t, tc.key, authority.VerifiedKey)
-		require.Equal(t, accountID, authority.Principal)
+		require.NotEqual(t, accountID, authority.Principal)
 		require.NotEqual(t, tc.key, authority.Principal)
+		require.True(t, authority.Bound)
 		wantDID := []byte("did:layerx:" + hex.EncodeToString(tc.key[:]))
 		require.Equal(t, wantDID, actorDID)
 		wantActorID, err := lxphost.DIDID(wantDID)
 		require.NoError(t, err)
+		require.Equal(t, wantActorID, authority.Actor)
+		require.Equal(t, wantActorID, authority.Principal)
 		actorID, err := lxphost.DIDID(actorDID)
 		require.NoError(t, err)
 		require.Equal(t, wantActorID, actorID)
 		principals = append(principals, authority.Principal)
 	}
 	require.NotEqual(t, principals[0], principals[1])
+}
+
+func TestProgramsPrincipalAuthorityKindAndHash(t *testing.T) {
+	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx(nil)
+	ctx = ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore())
+	k := &testkeeper.EVMTestApp.EvmKeeper
+	caller := common.HexToAddress("0x13302101")
+	otherCaller := common.HexToAddress("0x13302102")
+	key := bindProgramsPrincipal(t, ctx, k, caller, 0x55)
+	otherKey := bindProgramsPrincipal(t, ctx, k, otherCaller, 0x56)
+	require.NotEqual(t, key, otherKey)
+	var hashes [][32]byte
+	for _, tc := range []struct {
+		caller common.Address
+		key    [32]byte
+	}{
+		{caller, key},
+		{otherCaller, otherKey},
+	} {
+		authority, _, err := lp.PrincipalOf(ctx, k, tc.caller)
+		require.NoError(t, err)
+		require.Equal(t, uint8(1), lxphost.AuthorityKindOwner)
+		require.Equal(t, lxphost.AuthorityKindOwner, authority.Kind)
+		require.Equal(t, [32]byte{}, authority.GrantID)
+		require.Equal(t, tc.key, authority.VerifiedKey)
+		wantHash, err := lxphost.AuthorityHash(lxphost.AuthorityKindOwner, [32]byte{}, tc.key)
+		require.NoError(t, err)
+		require.NotEqual(t, [32]byte{}, wantHash)
+		require.Equal(t, wantHash, authority.AuthorityHash)
+		hashes = append(hashes, authority.AuthorityHash)
+	}
+	require.NotEqual(t, hashes[0], hashes[1])
+	for _, kind := range []uint8{0, 255} {
+		_, err := lxphost.AuthorityHash(kind, [32]byte{}, key)
+		require.Error(t, err)
+	}
 }
 
 func TestProgramsPrincipalUnboundRefused(t *testing.T) {
@@ -76,7 +115,7 @@ func TestProgramsPrincipalUnboundRefused(t *testing.T) {
 	boundCaller := common.HexToAddress("0x13252303")
 	unboundCaller := common.HexToAddress("0x13252304")
 	bindProgramsPrincipal(t, ctx, k, boundCaller, 0x57)
-	authority, actorDID, err := principalOf(ctx, k, boundCaller)
+	authority, actorDID, err := lp.PrincipalOf(ctx, k, boundCaller)
 	require.NoError(t, err)
 	require.NotEqual(t, lxphost.KernelAuthority{}, authority)
 	require.NotEmpty(t, actorDID)
@@ -85,8 +124,8 @@ func TestProgramsPrincipalUnboundRefused(t *testing.T) {
 	for _, caller := range []common.Address{unboundCaller, boundCaller} {
 		_, bound := k.GetLayerXDid(ctx, caller)
 		require.False(t, bound)
-		authority, actorDID, err := principalOf(ctx, k, caller)
-		require.ErrorIs(t, err, ErrUnboundCaller)
+		authority, actorDID, err := lp.PrincipalOf(ctx, k, caller)
+		require.ErrorIs(t, err, lp.ErrUnboundCaller)
 		require.Equal(t, lxphost.KernelAuthority{}, authority)
 		require.Nil(t, actorDID)
 		reason, unpackErr := abi.UnpackRevert(pcommon.LXPReason(err))

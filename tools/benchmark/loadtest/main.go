@@ -32,6 +32,7 @@ import (
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"golang.org/x/sync/semaphore"
@@ -139,6 +140,28 @@ func run(config *Config) {
 	// initialize clients with addresses on clients
 	for _, txClient := range client.EvmTxClients {
 		txClient.evmAddresses = config.EVMAddresses
+	}
+
+	if config.ContainsAnyMessageTypes(ERC20) {
+		for _, txClient := range client.EvmTxClients {
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						panic(fmt.Sprintf("Failed to fund ERC20 account %s: %v", txClient.accountAddress.Hex(), err))
+					}
+				}()
+				fundingTx := txClient.GenerateERC20FundingTx()
+				sent := false
+				txClient.SendEvmTx(fundingTx, func() { sent = true })
+				if !sent {
+					panic("Failed to send ERC20 funding transaction")
+				}
+				if _, err := bind.WaitMined(context.Background(), GetNextEthClient(txClient.ethClients), fundingTx); err != nil {
+					panic(err)
+				}
+				txClient.EnsureTxSuccess(fundingTx.Hash())
+			}()
+		}
 	}
 
 	startLoadtestWorkers(client, *config)
@@ -450,54 +473,6 @@ func (c *LoadTestClient) generateMessage(key cryptotypes.PrivKey, msgType string
 				Denom:  "uhpx",
 				Amount: sdk.NewInt(amountUhpx),
 			}),
-		}}
-	case WasmOccIteratorWrite:
-		// generate some values for indices 1-100
-		indices := []int{}
-		for i := 0; i < 100; i++ {
-			indices = append(indices, i)
-		}
-		rand.Shuffle(100, func(i, j int) {
-			indices[i], indices[j] = indices[j], indices[i]
-		})
-		values := [][]uint64{}
-		num_values := rand.Int()%100 + 1
-		for x := 0; x < num_values; x++ {
-			values = append(values, []uint64{uint64(indices[x]), rand.Uint64() % 12345}) //nolint:gosec
-		}
-		contract := config.PaxTesterAddress
-		msgData := WasmIteratorWriteMsg{
-			Values: values,
-		}
-		jsonData, err := json.Marshal(msgData)
-		if err != nil {
-			panic(err)
-		}
-		msgs = []sdk.Msg{&wasmtypes.MsgExecuteContract{
-			Sender:   sdk.AccAddress(key.PubKey().Address()).String(),
-			Contract: contract,
-			Msg:      wasmtypes.RawContractMessage([]byte(fmt.Sprintf("{\"test_occ_iterator_write\":%s}", jsonData))),
-		}}
-	case WasmOccIteratorRange:
-		contract := config.PaxTesterAddress
-		start := rand.Uint32() % 100
-		end := rand.Uint32() % 100
-		if start > end {
-			start, end = end, start
-		}
-		msgs = []sdk.Msg{&wasmtypes.MsgExecuteContract{
-			Sender:   sdk.AccAddress(key.PubKey().Address()).String(),
-			Contract: contract,
-			Msg:      wasmtypes.RawContractMessage([]byte(fmt.Sprintf("{\"test_occ_iterator_range\":{\"start\": %d, \"end\": %d}}", start, end))),
-		}}
-	case WasmOccParallelWrite:
-		contract := config.PaxTesterAddress
-		// generate random value
-		value := rand.Uint64()
-		msgs = []sdk.Msg{&wasmtypes.MsgExecuteContract{
-			Sender:   sdk.AccAddress(key.PubKey().Address()).String(),
-			Contract: contract,
-			Msg:      wasmtypes.RawContractMessage([]byte(fmt.Sprintf("{\"test_occ_parallelism\":{\"value\": %d}}", value))),
 		}}
 	default:
 		fmt.Printf("Unrecognized message type %s", msgType)

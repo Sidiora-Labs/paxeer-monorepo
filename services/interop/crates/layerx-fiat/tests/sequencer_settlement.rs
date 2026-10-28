@@ -169,9 +169,9 @@ fn signed_payment(
     let mut evidence = recorded_evidence(case);
     let original = &evidence.logs[0];
     let mut topics = original.topics().to_vec();
-    topics[1] = from;
-    topics[2] = to;
-    topics[3] = reference;
+    topics[1] = reference;
+    topics[2] = from;
+    topics[3] = to;
     let payment = SequencerLog::new(original.address(), topics, original.data().to_vec(), 0);
     let body = |log: &SequencerLog| {
         let mut bytes = log.address().to_vec();
@@ -451,12 +451,19 @@ fn fiat_reversal_on_the_capture_receipt_is_refused() {
 #[test]
 fn fiat_card_capture_settles_receipted_evidence() {
     let case = recorded_case();
-    let mut evidence = recorded_evidence(&case);
-    let facts = capture_facts(&evidence);
+    let recorded = recorded_evidence(&case);
+    let facts = capture_facts(&recorded);
     assert_eq!(facts.rail, FiatRail::Card);
     assert_eq!(facts.amount, 1_000_000);
-    let key = evidence.logs[0].topics()[3];
-    let digest = array(&case["receiptDigest"]);
+    let key = recorded.logs[0].topics()[3];
+    let mut evidence = signed_payment(
+        &case,
+        recorded.transaction_hash,
+        recorded.logs[0].topics()[1],
+        recorded.logs[0].topics()[2],
+        key,
+    );
+    let digest = canonical_receipt_digest(&evidence.signed_receipt).unwrap();
     let keys = receipt_keys(&case);
     for rung in [
         SettlementRung::Receipted,
@@ -515,7 +522,7 @@ fn fiat_card_capture_settles_receipted_evidence() {
         assert_eq!(format!("{gateway:?}"), before_replay);
     }
 
-    for mismatch in 0..4 {
+    for mismatch in 0..5 {
         let (mut gateway, principal, trace) = pending_capture(key);
         let mut facts = facts.clone();
         let mut evidence = evidence.clone();
@@ -524,6 +531,7 @@ fn fiat_card_capture_settles_receipted_evidence() {
             1 => facts.asset[0] ^= 1,
             2 => facts.destination[0] ^= 1,
             3 => evidence.transaction_hash[0] ^= 1,
+            4 => evidence = recorded.clone(),
             _ => unreachable!(),
         }
         let before = format!("{gateway:?}");

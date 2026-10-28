@@ -198,7 +198,6 @@ func TestDecodeTransactionRefusesUndecodableBytes(t *testing.T) {
 
 func TestDecodeCalldataForEachPrecompile(t *testing.T) {
 	did := [32]byte{0xaa}
-	beneficiary := [32]byte{0xbb}
 	pointer := common.HexToAddress("0x21f7b20a555199fa73A238B1a91FD0f549068fEe")
 	recipient := common.HexToAddress("0x5555555555555555555555555555555555555555")
 	cases := []struct {
@@ -209,14 +208,14 @@ func TestDecodeCalldataForEachPrecompile(t *testing.T) {
 		want   any
 	}{
 		{"addr", "bindLayerX", []any{did, []byte{1, 2, 3}}, "didPublicKey", did},
-		{"layerxcustody", "depositToken", []any{pointer, big.NewInt(500), beneficiary}, "pointer", pointer},
-		{"layerxanchor", "finalize", []any{uint64(42)}, "batchNumber", uint64(42)},
 		{"perps", "deposit", []any{pointer, big.NewInt(250)}, "token", pointer},
 		{"layerxbridge", "bridgeOut", []any{uint64(1), pointer, big.NewInt(77), recipient}, "recipient", recipient},
 		{"launchpad", "buy", []any{pointer, big.NewInt(10), big.NewInt(9), big.NewInt(1000)}, "pool", pointer},
 		{"feetoken", "setFeeDenom", []any{"usid"}, "denom", "usid"},
 		{"xweb", "request", []any{uint8(2), []byte("query"), uint64(50_000)}, "callbackGas", uint64(50_000)},
+		{"layerxledger", "openAccount", []any{did}, "assetId", did},
 		{"layerxpay", "budgetFund", []any{did, big.NewInt(500)}, "budgetId", did},
+		{"layerxauth", "grantSession", []any{[]byte{1, 2, 3}, uint64(42), did}, "actionKey", did},
 		{"layerxprograms", "call", []any{did, uint16(5), "execute", []byte{1, 2, 3}, []byte{4}, []byte{5}, uint32(1024), [7]uint64{1, 2, 3, 4, 5, 6, 7}, big.NewInt(100)}, "programId", did},
 	}
 	if len(cases) != len(PrecompileNames()) {
@@ -265,6 +264,118 @@ func TestDecodeCalldataForEachPrecompile(t *testing.T) {
 	addr, _ := PrecompileAddress("addr")
 	if _, err := DecodeCalldata(addr, []byte{0xde, 0xad, 0xbe, 0xef}); !errors.Is(err, ErrUnknownMethod) {
 		t.Fatalf("unknown precompile method: %v", err)
+	}
+}
+
+func TestDecodeCalldataRefusesRetiredCustodyAndAnchor(t *testing.T) {
+	cases := []struct {
+		name      string
+		address   common.Address
+		signature string
+		types     []string
+		args      []any
+	}{
+		{
+			name:      "layerxcustody",
+			address:   common.HexToAddress("0x0000000000000000000000000000000000001013"),
+			signature: "depositToken(address,uint256,bytes32)",
+			types:     []string{"address", "uint256", "bytes32"},
+			args:      []any{common.HexToAddress("0x21f7b20a555199fa73A238B1a91FD0f549068fEe"), big.NewInt(500), [32]byte{0xbb}},
+		},
+		{
+			name:      "layerxanchor",
+			address:   common.HexToAddress("0x0000000000000000000000000000000000001014"),
+			signature: "finalize(uint64)",
+			types:     []string{"uint64"},
+			args:      []any{uint64(42)},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if IsPrecompile(tc.address) {
+				t.Fatalf("retired address %s is a precompile", tc.address)
+			}
+			for _, name := range PrecompileNames() {
+				if name == tc.name {
+					t.Fatalf("retired precompile %s is listed", name)
+				}
+			}
+			if address, ok := PrecompileAddress(tc.name); ok {
+				t.Fatalf("retired precompile %s has address %s", tc.name, address)
+			}
+			if _, err := PrecompileABI(tc.name); err == nil {
+				t.Fatalf("retired precompile %s has a registered ABI", tc.name)
+			}
+			if _, err := EmbeddedABI(tc.name); !os.IsNotExist(err) {
+				t.Fatalf("retired ABI %s: got %v, want not found", tc.name, err)
+			}
+			inputs := make(abi.Arguments, len(tc.types))
+			for i, name := range tc.types {
+				typ, err := abi.NewType(name, "", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				inputs[i] = abi.Argument{Type: typ}
+			}
+			encoded, err := inputs.Pack(tc.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			selector := crypto.Keccak256([]byte(tc.signature))[:4]
+			data := append(common.CopyBytes(selector), encoded...)
+			call, err := DecodeCalldata(tc.address, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if call.Kind != CallUnknown || call.To != tc.address || call.Destination != "" || call.Method != "" || len(call.Args) != 0 {
+				t.Fatalf("retired calldata decoded as %+v", call)
+			}
+			if !bytes.Equal(call.Selector, selector) {
+				t.Fatalf("selector %x want %x", call.Selector, selector)
+			}
+		})
+	}
+}
+
+func TestDecodeCalldataForLayerxledgerWrites(t *testing.T) {
+	address := common.HexToAddress("0x000000000000000000000000000000000000101A")
+	if got, ok := PrecompileAddress("layerxledger"); !ok || got != address || !IsPrecompile(address) {
+		t.Fatalf("layerxledger address %s registered=%v", got, ok)
+	}
+	envelope := bytes.Repeat([]byte{0x01, 0x00, 0xff}, 23)
+	call := decodePrecompileWrite(t, address, "layerxledger", "send(bytes)", []any{envelope})
+	assertDecodedArgs(t, call.Args, map[string]any{"envelope": envelope})
+}
+
+func TestDecodeCalldataForLayerxauthWrites(t *testing.T) {
+	address := common.HexToAddress("0x000000000000000000000000000000000000101C")
+	if got, ok := PrecompileAddress("layerxauth"); !ok || got != address || !IsPrecompile(address) {
+		t.Fatalf("layerxauth address %s registered=%v", got, ok)
+	}
+	grant := bytes.Repeat([]byte{0x02, 0x00, 0xfe}, 23)
+	expirySequence := uint64(1)<<63 + 42
+	actionKey := [32]byte{0x03}
+	cases := []struct {
+		sig  string
+		args []any
+		want map[string]any
+	}{
+		{
+			sig:  "grantSession(bytes,uint64,bytes32)",
+			args: []any{grant, expirySequence, actionKey},
+			want: map[string]any{"grant": grant, "expirySequence": expirySequence, "actionKey": actionKey},
+		},
+		{
+			sig:  "grantCapability(bytes)",
+			args: []any{grant},
+			want: map[string]any{"grant": grant},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.sig, func(t *testing.T) {
+			call := decodePrecompileWrite(t, address, "layerxauth", tc.sig, tc.args)
+			assertDecodedArgs(t, call.Args, tc.want)
+		})
 	}
 }
 

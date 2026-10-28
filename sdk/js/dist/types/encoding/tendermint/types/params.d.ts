@@ -4,6 +4,8 @@ import type { MessageFns } from "../../common";
 export interface ConsensusParams extends ConsensusParams_type {
 }
 export interface BlockParams extends BlockParams_type {
+    min_txs_in_block: number;
+    max_gas_wanted: number;
 }
 export interface EvidenceParams extends EvidenceParams_type {
 }
@@ -56,10 +58,14 @@ export declare const aminoConverters: {
         toAmino: (message: BlockParams) => {
             max_bytes: number;
             max_gas: number;
+            min_txs_in_block: number;
+            max_gas_wanted: number;
         };
         fromAmino: (object: BlockParams) => {
             max_bytes: number;
             max_gas: number;
+            min_txs_in_block: number;
+            max_gas_wanted: number;
         };
     };
     "/tendermint.types.EvidenceParams": {

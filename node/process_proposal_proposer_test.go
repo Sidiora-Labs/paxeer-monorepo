@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
@@ -27,6 +28,10 @@ func newProposerWrapper(t *testing.T) *app.TestWrapper {
 }
 
 func TestProposerInLeadersAccepts(t *testing.T) {
+	t.Run("consensus addresses", AddressHash)
+}
+
+func AddressHash(t *testing.T) {
 	w := newProposerWrapper(t)
 	leaders, err := w.App.SequencerKeeper.Leaders(w.Ctx)
 	require.NoError(t, err)
@@ -34,7 +39,7 @@ func TestProposerInLeadersAccepts(t *testing.T) {
 	require.Equal(t, sequencerLeader, leaders[0][:])
 	for _, leader := range leaders {
 		t.Run(hex.EncodeToString(leader[:]), func(t *testing.T) {
-			require.NoError(t, w.CheckSequencerProposer(w.Ctx, leader[:]))
+			require.NoError(t, w.CheckSequencerProposer(w.Ctx, crypto.AddressHash(leader[:])))
 		})
 	}
 }
@@ -48,6 +53,8 @@ func TestProposerOutsideLeadersRefused(t *testing.T) {
 		proposer []byte
 	}{
 		{"outside list", outsider},
+		{"outside consensus address", crypto.AddressHash(outsider)},
+		{"raw leader key", sequencerLeader},
 		{"nil", nil},
 		{"empty", []byte{}},
 		{"zero hash", make([]byte, 32)},

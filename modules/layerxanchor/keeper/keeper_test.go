@@ -8,6 +8,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	cdctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/cachemulti"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/dbadapter"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -524,6 +527,54 @@ func TestChallengeWindowDelaysFinality(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrCheckpointUnknown)
 }
 
+func TestResubmittedCheckpointKeepsChallengeWindow(t *testing.T) {
+	testApp := app.Setup(t, false, false, false)
+	t.Cleanup(func() { require.NoError(t, testApp.Close()) })
+	ctx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(8).WithBlockTime(time.Unix(1_800_000_000, 0))
+	stores := make(map[storetypes.StoreKey]storetypes.CacheWrapper)
+	keys := make(map[string]storetypes.StoreKey)
+	for _, key := range ctx.MultiStore().StoreKeys() {
+		stores[key] = ctx.MultiStore().GetKVStore(key)
+		keys[key.Name()] = key
+	}
+	anchorKey := sdk.NewKVStoreKey(types.StoreKey)
+	anchorDB := dbm.NewMemDB()
+	t.Cleanup(func() { require.NoError(t, anchorDB.Close()) })
+	stores[anchorKey] = dbadapter.Store{DB: anchorDB}
+	keys[anchorKey.Name()] = anchorKey
+	cacheDB := dbm.NewMemDB()
+	t.Cleanup(func() { require.NoError(t, cacheDB.Close()) })
+	ctx = ctx.WithMultiStore(cachemulti.NewStore(cacheDB, stores, keys, nil, nil, nil, 0))
+	testApp.LayerXAnchorKeeper = keeper.NewKeeper(anchorKey, testApp.AccountKeeper, testApp.BankKeeper)
+	s := initializeSuite(t, testApp, ctx, func(p *types.Params) { p.ChallengeWindowSeconds = 50 })
+	s.bondAll()
+	checkpoint, err := s.submit("batch_1_quorum")
+	require.NoError(t, err)
+	require.Equal(t, types.CheckpointSubmitted, checkpoint.Status)
+
+	s.advance(30)
+	s.reporter = account(0xc1)
+	require.NotEqual(t, checkpoint.Submitter, s.reporter.String())
+	resubmitted, err := s.submit("batch_1_quorum")
+	require.NoError(t, err)
+	require.Equal(t, types.CheckpointSubmitted, resubmitted.Status)
+	require.Equal(t, checkpoint.CheckpointID, resubmitted.CheckpointID)
+	require.Equal(t, checkpoint.Submitter, resubmitted.Submitter)
+	require.Equal(t, checkpoint.SubmittedHeight, resubmitted.SubmittedHeight)
+	require.Equal(t, checkpoint.SubmittedTime, resubmitted.SubmittedTime)
+	stored, ok := s.k.GetCheckpoint(s.ctx, checkpoint.BatchNumber)
+	require.True(t, ok)
+	require.Equal(t, resubmitted, stored)
+	_, err = s.k.Finalize(s.ctx, checkpoint.BatchNumber)
+	require.ErrorIs(t, err, types.ErrNotFinalizable)
+
+	s.advance(20)
+	final, err := s.k.Finalize(s.ctx, checkpoint.BatchNumber)
+	require.NoError(t, err)
+	require.Equal(t, types.CheckpointFinal, final.Status)
+	require.Equal(t, checkpoint.CheckpointID, final.CheckpointID)
+}
+
 func TestGenesisRoundTrip(t *testing.T) {
 	s := newSuite(t, func(p *types.Params) { p.ChallengeWindowSeconds = 50 })
 	s.bondAll()
@@ -613,7 +664,7 @@ func TestDefaultGenesisIsValid(t *testing.T) {
 	require.Error(t, bad.Validate())
 }
 
-func parameterRouter(t *testing.T, k keeper.Keeper) (*baseapp.MsgServiceRouter, *codec.ProtoCodec) {
+func parameterRouter(t *testing.T, k keeper.Keeper, upgrades keeper.UpgradeReader) (*baseapp.MsgServiceRouter, *codec.ProtoCodec) {
 	t.Helper()
 	registry := cdctypes.NewInterfaceRegistry()
 	sdk.RegisterInterfaces(registry)
@@ -621,7 +672,7 @@ func parameterRouter(t *testing.T, k keeper.Keeper) (*baseapp.MsgServiceRouter, 
 	cdc := codec.NewProtoCodec(registry)
 	router := baseapp.NewMsgServiceRouter()
 	router.SetInterfaceRegistry(registry)
-	moduleimpl.NewAppModule(k).RegisterServices(module.NewConfigurator(cdc, router, baseapp.NewGRPCQueryRouter()))
+	moduleimpl.NewAppModule(k, upgrades).RegisterServices(module.NewConfigurator(cdc, router, baseapp.NewGRPCQueryRouter()))
 	return router, cdc
 }
 func parameterRoute(t *testing.T, router *baseapp.MsgServiceRouter, cdc *codec.ProtoCodec, ctx sdk.Context, msg *types.MsgUpdateParams) error {
@@ -643,7 +694,7 @@ func TestMsgUpdateParamsGovernanceRoute(t *testing.T) {
 	s := newSuite(t, nil)
 	k, ctx := s.k, s.ctx
 	authority := s.authority.String()
-	router, cdc := parameterRouter(t, k)
+	router, cdc := parameterRouter(t, k, &s.app.UpgradeKeeper)
 	params := k.GetParams(ctx)
 	params.ReporterShare = sdk.NewDecWithPrec(2, 1)
 	params.PermissionlessRegistration = !params.PermissionlessRegistration
@@ -662,7 +713,7 @@ func TestMsgUpdateParamsCodecAndSigners(t *testing.T) {
 	s := newSuite(t, nil)
 	k, ctx := s.k, s.ctx
 	authority := s.authority.String()
-	_, cdc := parameterRouter(t, k)
+	_, cdc := parameterRouter(t, k, &s.app.UpgradeKeeper)
 	msg := &types.MsgUpdateParams{Authority: authority, Params: k.GetParams(ctx)}
 	require.NoError(t, msg.ValidateBasic())
 	signer, err := sdk.AccAddressFromBech32(authority)
@@ -719,7 +770,7 @@ func TestMsgUpdateParamsRefusals(t *testing.T) {
 	s := newSuite(t, nil)
 	k, ctx := s.k, s.ctx
 	authority := s.authority.String()
-	router, cdc := parameterRouter(t, k)
+	router, cdc := parameterRouter(t, k, &s.app.UpgradeKeeper)
 	before := k.GetParams(ctx)
 	outsider := sdk.AccAddress(bytes.Repeat([]byte{0xfe}, 20)).String()
 	for _, caller := range []string{outsider, "invalid-bech32"} {

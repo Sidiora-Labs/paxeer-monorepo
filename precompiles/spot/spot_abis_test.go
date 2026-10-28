@@ -30,7 +30,7 @@ func TestPrecompileABIsWithoutKeepers(t *testing.T) {
 		})
 	}
 
-	set, err := NewPrecompileSet(nil)
+	set, err := newPrecompileSet(nil)
 	require.EqualError(t, err, "spot: the application keepers carry no spot keeper")
 	require.Nil(t, set)
 }

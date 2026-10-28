@@ -4,7 +4,7 @@ import type { TLSSocket } from 'node:tls';
 import { loadWalletInventory, publishCustodyAuthority, requireInventoryKey } from '../agent/authority.js';
 import { readFileSync } from 'node:fs';
 import {
-  concat, decodeAbiParameters, encodeAbiParameters, hashMessage, keccak256, toRlp,
+  concat, encodeAbiParameters, hashMessage, keccak256, toRlp,
   getTransactionType,
   getTypesForEIP712Domain,
   hexToBytes,
@@ -45,12 +45,10 @@ export const AGENT_HEADERS = {
 } as const;
 
 export type SignKind =
-  | 'custody'
   | 'evm_tx'
   | 'eip712'
   | 'personal_message'
   | 'eth_sign_digest'
-  | 'lx_activity'
   | 'lx_send_authorization'
   | 'lx_bind'
   | 'lx_grant';
@@ -58,12 +56,10 @@ export type SignKind =
 export type Curve = 'secp256k1' | 'ed25519';
 
 export const KIND_CURVES: Record<SignKind, Curve> = {
-  custody: 'secp256k1',
   evm_tx: 'secp256k1',
   eip712: 'secp256k1',
   personal_message: 'secp256k1',
   eth_sign_digest: 'secp256k1',
-  lx_activity: 'ed25519',
   lx_send_authorization: 'ed25519',
   lx_bind: 'ed25519',
   lx_grant: 'ed25519',
@@ -147,12 +143,11 @@ export interface ConstructionWire {
 }
 
 export type SignPayload =
-  | { kind: 'evm_tx'; transaction: Hex; custody?: { bytes: Hex; signature: Hex } }
-  | { kind: 'custody'; message: Hex }
+  | { kind: 'evm_tx'; transaction: Hex }
   | { kind: 'eip712'; typedData: string }
   | { kind: 'personal_message'; message: Hex }
   | { kind: 'eth_sign_digest'; digest: Hex; construction: ConstructionWire }
-  | { kind: 'lx_activity' | 'lx_send_authorization'; activity: Hex; disclosure: ActivityDisclosureWire; approval: ActivityApprovalWire }
+  | { kind: 'lx_send_authorization'; activity: Hex; disclosure: ActivityDisclosureWire; approval: ActivityApprovalWire }
   | { kind: 'lx_bind'; message: Hex }
   | { kind: 'lx_grant'; grant: GrantWire };
 
@@ -209,7 +204,6 @@ function checkApproved(disclosure: ActivityDisclosureWire, approval: ActivityApp
 }
 
 export interface SignRequestWire {
-  custody?: { bytes: string; signature: string };
   origin?: AgentOriginalRequest;
   session_id: string;
   key_id: string;
@@ -465,17 +459,15 @@ export function signRequestBody(sessionId: string, keyId: string, signers: strin
   const base = { session_id: sessionId, key_id: keyId, kind: payload.kind, signers };
   switch (payload.kind) {
     case 'evm_tx':
-      return { ...base, transaction: bareHex(payload.transaction), ...(payload.custody ? { custody: payload.custody } : {}) };
+      return { ...base, transaction: bareHex(payload.transaction) };
     case 'eip712':
       return { ...base, typed_data: payload.typedData };
     case 'personal_message':
-    case 'custody':
     case 'lx_bind':
       return { ...base, message: bareHex(payload.message) };
     case 'eth_sign_digest':
       return { ...base, digest: bareHex(payload.digest), construction: payload.construction };
     case 'lx_send_authorization':
-    case 'lx_activity':
       if (payload.approval.session_id !== sessionId || payload.approval.key_id !== keyId) {
         throw new AttestorSessionError('session_bad_request', 'the approval binding names another session or key');
       }
@@ -668,7 +660,7 @@ export class AttestorClient {
       throw err;
     }
     if (input.participants !== undefined) {
-      if (!['lx_activity','lx_send_authorization'].includes(input.payload.kind) || input.participants.length !== this.opts.quorum || new Set(input.participants).size !== this.opts.quorum) {
+      if (input.payload.kind !== 'lx_send_authorization' || input.participants.length !== this.opts.quorum || new Set(input.participants).size !== this.opts.quorum) {
         throw new AttestorSessionError('participant_mismatch', 'only an original approved LX quorum may be pinned');
       }
       members = input.participants.map(id => {
@@ -679,7 +671,7 @@ export class AttestorClient {
     }
     const kind = input.payload.kind;
     const curve = KIND_CURVES[kind];
-    let sessionId = input.payload.kind === 'lx_activity' || input.payload.kind === 'lx_send_authorization' ? input.payload.approval.session_id : randomUUID();
+    let sessionId = input.payload.kind === 'lx_send_authorization' ? input.payload.approval.session_id : randomUUID();
     let participants = members.map((m) => m.nodeId);
     let authorisation = input.authorisation;
     let origin: AgentOriginalRequest | undefined;
@@ -1130,31 +1122,6 @@ export function attestorSigner(
   };
 }
 
-export const CUSTODY_DOMAIN = stringToHex('LX:CUSTODY:v2');
-export const CUSTODY_TARGET = '0x0000000000000000000000000000000000001013' as const;
-export const CUSTODY_ABI = [{type:'address'},{type:'uint256'},{type:'address'},{type:'uint256'},{type:'bytes'},
-  {type:'uint64'},{type:'uint64'},{type:'uint64'},{type:'uint256'},{type:'uint256'}] as const;
-export function decodeCustody(bytes: Hex, address: string, chainId: number, allowExpired = false) {
-  if (!/^0x(?:[0-9a-fA-F]{2})+$/.test(bytes) || bytes.length > 65_538 || !bytes.toLowerCase().startsWith(CUSTODY_DOMAIN)) throw new AttestorSessionError('custody_malformed','invalid custody domain');
-  const body = `0x${bytes.slice(CUSTODY_DOMAIN.length)}` as Hex;
-  const fields = decodeAbiParameters(CUSTODY_ABI,body);
-  if (encodeAbiParameters(CUSTODY_ABI,fields).toLowerCase()!==body.toLowerCase()) throw new AttestorSessionError('custody_malformed','custody encoding is not canonical');
-  const [account,network,to,value,data,nonce,deadline,gas,maxFeePerGas,maxPriorityFeePerGas]=fields;
-  const now=BigInt(Math.floor(Date.now()/1000));
-  if (account.toLowerCase()!==address.toLowerCase()||network!==BigInt(chainId)||to.toLowerCase()!==CUSTODY_TARGET||nonce>BigInt(Number.MAX_SAFE_INTEGER)||(!allowExpired&&(deadline<now||deadline>now+600n))||gas===0n||maxFeePerGas===0n||maxPriorityFeePerGas>maxFeePerGas) throw new AttestorSessionError('custody_mismatch','custody account, network, expiry or transaction bounds differ');
-  const native=keccak256(stringToHex('deposit(bytes32)')).slice(0,10);
-  const token=keccak256(stringToHex('depositToken(address,uint256,bytes32)')).slice(0,10);
-  let beneficiary:Hex;
-  if(data.length===74&&data.slice(0,10)===native&&value>0n) beneficiary=`0x${data.slice(10)}`;
-  else if(data.length===202&&data.slice(0,10)===token&&value===0n){
-    const [pointer,amount,who]=decodeAbiParameters([{type:'address'},{type:'uint256'},{type:'bytes32'}],`0x${data.slice(10)}`);
-    if(pointer==='0x0000000000000000000000000000000000000000'||amount===0n) throw new AttestorSessionError('custody_malformed','invalid token deposit');
-    if(encodeAbiParameters([{type:'address'},{type:'uint256'},{type:'bytes32'}],[pointer,amount,who]).slice(2)!==data.slice(10)) throw new AttestorSessionError('custody_malformed','noncanonical token calldata');
-    beneficiary=who;
-  }else throw new AttestorSessionError('custody_malformed','only canonical custody deposits are admitted');
-  if(BigInt(beneficiary)===0n) throw new AttestorSessionError('custody_malformed','empty beneficiary');
-  return {account,deadline,beneficiary,transaction:{type:'eip1559' as const,chainId,nonce:Number(nonce),to,value,data,gas,maxFeePerGas,maxPriorityFeePerGas}};
-}
 export function sponsorQuoteDigest(batch:ConstructionWire):Hex {
   const q=batch.quote!;
   return hashMessage({raw:keccak256(encodeAbiParameters(

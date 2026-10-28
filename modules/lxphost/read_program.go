@@ -138,7 +138,7 @@ type ExitRoute struct {
 }
 
 func (h *Host) withProgramRead(ctx sdk.Context, read func(unsafe.Pointer) error) error {
-	return h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	return h.withRead(ctx, []uint16{C.LXP_MODULE_PROGRAMS}, func(state *C.lxphost_read_state) error {
 		module := C.lxphost_program_read_context(state)
 		if module == nil {
 			return Code(C.LXP_ERR_ARENA_EXHAUSTED)

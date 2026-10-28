@@ -2,12 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.aminoConverters = void 0;
 const proofs_1 = require("./confio/proofs");
-const accesscontrol_1 = require("./cosmos/accesscontrol/accesscontrol");
-const legacy_1 = require("./cosmos/accesscontrol/legacy");
-const genesis_1 = require("./cosmos/accesscontrol_x/genesis");
-const gov_1 = require("./cosmos/accesscontrol_x/gov");
-const query_1 = require("./cosmos/accesscontrol_x/query");
-const tx_1 = require("./cosmos/accesscontrol_x/tx");
 const auth_1 = require("./cosmos/auth/v1beta1/auth");
 const genesis_2 = require("./cosmos/auth/v1beta1/genesis");
 const query_2 = require("./cosmos/auth/v1beta1/query");
@@ -33,8 +27,6 @@ const query_5 = require("./cosmos/base/tendermint/v1beta1/query");
 const coin_1 = require("./cosmos/base/v1beta1/coin");
 const capability_1 = require("./cosmos/capability/v1beta1/capability");
 const genesis_5 = require("./cosmos/capability/v1beta1/genesis");
-const genesis_6 = require("./cosmos/crisis/v1beta1/genesis");
-const tx_4 = require("./cosmos/crisis/v1beta1/tx");
 const keys_1 = require("./cosmos/crypto/ed25519/keys");
 const keys_2 = require("./cosmos/crypto/multisig/keys");
 const multisig_1 = require("./cosmos/crypto/multisig/v1beta1/multisig");
@@ -58,9 +50,6 @@ const genesis_11 = require("./cosmos/gov/v1beta1/genesis");
 const gov_2 = require("./cosmos/gov/v1beta1/gov");
 const query_9 = require("./cosmos/gov/v1beta1/query");
 const tx_8 = require("./cosmos/gov/v1beta1/tx");
-const genesis_12 = require("./cosmos/mint/v1beta1/genesis");
-const mint_1 = require("./cosmos/mint/v1beta1/mint");
-const query_10 = require("./cosmos/mint/v1beta1/query");
 const types_1 = require("./cosmos/params/types/types");
 const params_1 = require("./cosmos/params/v1beta1/params");
 const query_11 = require("./cosmos/params/v1beta1/query");
@@ -125,12 +114,6 @@ const query_19 = require("./tokenfactory/query");
 const tx_16 = require("./tokenfactory/tx");
 exports.aminoConverters = {
     ...proofs_1.aminoConverters,
-    ...genesis_1.aminoConverters,
-    ...gov_1.aminoConverters,
-    ...query_1.aminoConverters,
-    ...tx_1.aminoConverters,
-    ...accesscontrol_1.aminoConverters,
-    ...legacy_1.aminoConverters,
     ...auth_1.aminoConverters,
     ...genesis_2.aminoConverters,
     ...query_2.aminoConverters,
@@ -156,8 +139,6 @@ exports.aminoConverters = {
     ...coin_1.aminoConverters,
     ...capability_1.aminoConverters,
     ...genesis_5.aminoConverters,
-    ...genesis_6.aminoConverters,
-    ...tx_4.aminoConverters,
     ...keys_1.aminoConverters,
     ...keys_2.aminoConverters,
     ...multisig_1.aminoConverters,
@@ -181,9 +162,6 @@ exports.aminoConverters = {
     ...gov_2.aminoConverters,
     ...query_9.aminoConverters,
     ...tx_8.aminoConverters,
-    ...genesis_12.aminoConverters,
-    ...mint_1.aminoConverters,
-    ...query_10.aminoConverters,
     ...types_1.aminoConverters,
     ...params_1.aminoConverters,
     ...query_11.aminoConverters,

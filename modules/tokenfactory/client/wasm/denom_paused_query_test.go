@@ -27,7 +27,7 @@ func TestWasmGetDenomPaused(t *testing.T) {
 	ctx := testutil.DefaultContext(storeKey, transientKey)
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	params := paramtypes.NewSubspace(cdc, codec.NewLegacyAmino(), storeKey, transientKey, types.ModuleName)
-	k := keeper.NewKeeper(cdc, storeKey, params, nil, nil, nil)
+	k := keeper.NewKeeper(cdc, storeKey, params, nil, nil)
 	handler := wasm.NewTokenFactoryWasmQueryHandler(&k)
 	denom := "factory/creator/paused"
 	issuerDid := "did:layerx:" + strings.Repeat("ab", 32)

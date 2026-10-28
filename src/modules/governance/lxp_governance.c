@@ -477,7 +477,14 @@ static lxp_result grant_scope_validate(lxp_module_ctx *ctx,
         if (status != LXP_OK || !enforced) return status == LXP_OK ? LXP_ERR_AUTH_SCOPE : status;
         const lxp_authority_fee_budget *fee = &grant->fee_budget;
         const lx_programs_transfer_runtime *runtime = ctx->kernel->module_runtime[LXP_MODULE_PROGRAMS];
-        if (runtime == NULL || memcmp(fee->asset_id, runtime->occupancy_asset_id, 32U) != 0 ||
+        lx_programs_fee_schedule schedule;
+        uint8_t asset_id[32];
+        if (runtime == NULL || runtime->resolve_occupancy_parameters == NULL)
+            return LXP_ERR_MODULE_DISABLED;
+        status = runtime->resolve_occupancy_parameters(runtime->occupancy_parameter_context,
+            0U, &schedule, asset_id);
+        if (status != LXP_OK) return status;
+        if (memcmp(fee->asset_id, asset_id, 32U) != 0 ||
             !lxp_u128_is_zero(fee->spent_total) || !lxp_u128_is_zero(fee->spent_this_period) ||
             (fee->period_length != 0U && fee->period_start != grant->not_before))
             return LXP_ERR_AUTH_SCOPE;

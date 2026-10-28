@@ -4,7 +4,9 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use layerx_crypto::evm_transaction::Eip1559Call;
-use layerx_sdk::rpc::{RpcClient, RpcError};
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
+use layerx_sdk::rpc_verification::ReceiptPolicy;
 use serde_json::{json, Value};
 
 const ADDRESS: &str = "0x1111111111111111111111111111111111111111";
@@ -228,6 +230,34 @@ fn reads_use_only_eth_and_px_methods() {
         requests[13]["params"],
         json!([ADDRESS, [format!("0x{}", "55".repeat(32))], "0x9"])
     );
+}
+
+#[test]
+fn finalised_wait_is_refused_without_reading_a_checkpoint() {
+    let (rpc, server) = listener(vec![json!({"chainId": "0x7d"})]);
+    let policy = ReceiptPolicy {
+        protocol_version: 3,
+        network_id: 125,
+        sequencer: SequencerAuthorization::new([1; 32], [2; 32], 1, 100),
+        trusted_checkpoint_context_digest: Some([0x33; 32]),
+    };
+    assert!(matches!(
+        rpc.wait_for(
+            [0xab; 32],
+            Commitment::Finalised,
+            &policy,
+            Duration::from_secs(1)
+        ),
+        Err(RpcError::MissingFinalityTrust)
+    ));
+    assert_eq!(rpc.get_node_info().expect("network")["chainId"], "0x7d");
+    let requests = server.join().expect("RPC listener");
+    assert!(requests.iter().all(|request| {
+        request["method"] != "lx_getNodeInfo" && request["method"] != "lx_getCheckpoint"
+    }));
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0]["method"], "px_getNetwork");
+    assert_eq!(requests[0]["params"], json!([]));
 }
 
 #[test]

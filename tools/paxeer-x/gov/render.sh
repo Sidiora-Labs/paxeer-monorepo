@@ -180,14 +180,6 @@ dry_run "$up" tx gov submit-proposal software-upgrade "$(jq -r .name "$up")" \
   --title "$(jq -r .title "$up")" --description "$(jq -r .description "$up")" --deposit "$(jq -r .deposit "$up")"
 dry_run "$OUT/02-fee-token-params.json" tx gov submit-proposal param-change "$OUT/02-fee-token-params.json"
 dry_run "$OUT/03-xweb-fee.json" tx gov submit-proposal layerx-proposal "$OUT/03-xweb-fee.json" --deposit "$DEPOSIT"
-dry_run "$OUT/04-exchange-markets.json" tx gov submit-proposal layerx-proposal "$OUT/04-exchange-markets.json" --deposit "$DEPOSIT"
-dry_run "$OUT/05-custody.json" tx layerxcustody submit-proposal custody "$OUT/05-custody.json"
-
-anchor="$OUT/06-anchor-sequencer-authorization.json"
-jq -e '(.data | test("^0xc2661383[0-9a-f]{256}$")) and .selector == "0xc2661383"' "$anchor" >/dev/null \
-  || die "anchor calldata is malformed"
-echo "validated $(basename "$anchor")"
-
 for config in "${BRIDGE_CONFIGS[@]}"; do
   name=$(jq -r .name "$config")
   dir="$OUT/bridge/$name"

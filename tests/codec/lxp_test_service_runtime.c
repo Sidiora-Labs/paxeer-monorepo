@@ -52,6 +52,7 @@ static int setup(lx_service_agreement *agreement,
                   lxp_authority_resolved *buyer)
 {
     lxp_module_ctx ctx;
+    lx_service_offer offer;
     lx_escrow_record escrow;
     LXP_CASE_CHECK(lxp_state_store_init(&store_state, 0U) == LXP_OK);
     LXP_CASE_CHECK(lxp_kernel_create(&service_kernel, &store_state,
@@ -75,7 +76,22 @@ static int setup(lx_service_agreement *agreement,
     agreement->dispute_window_end = 1200U;
     agreement->default_outcome = LX_SERVICE_DEFAULT_ACCEPT;
     agreement->state = LX_SERVICE_AGREEMENT_REJECTED;
+    (void)memset(&offer, 0, sizeof(offer));
+    (void)memcpy(offer.offer_id, agreement->offer_id, 32U);
+    id32(offer.activity_id, 13U);
+    (void)memcpy(offer.offering_agent, agreement->provider, 32U);
+    id32(offer.asset_id, 43U);
+    offer.price.lo = 100U;
+    (void)memcpy(offer.terms_hash, agreement->terms_hash, 32U);
+    id32(offer.deliverable_specification_hash, 14U);
+    offer.delivery_deadline = agreement->delivery_deadline;
+    offer.acceptance_window = 100U;
+    offer.dispute_window = 100U;
+    offer.default_outcome = agreement->default_outcome;
+    offer.offer_expiry = 900U;
+    offer.accepted = true;
     LXP_CASE_CHECK(open_ctx(&ctx, 100U, 1U) == 0);
+    LXP_CASE_CHECK(lx_service_offer_put(&ctx, &offer) == LXP_OK);
     LXP_CASE_CHECK(lx_service_agreement_put(&ctx, agreement) == LXP_OK);
     LXP_CASE_CHECK(lxp_module_ctx_commit(&ctx) == LXP_OK);
     (void)memset(&escrow, 0, sizeof(escrow));
@@ -157,6 +173,7 @@ static int service_runtime_reader_called_once(void)
     lx_service_agreement agreement;
     lx_service_dispute dispute;
     lxp_authority_resolved buyer;
+    lxp_authority_resolved arbiter = {0};
     escrow_reader_state reader = {0};
     lx_service_runtime runtime = {host_read_escrow_link, &reader};
     uint8_t payload[128];
@@ -169,6 +186,7 @@ static int service_runtime_reader_called_once(void)
     lxp_module_ctx ctx;
     lx_escrow_record record;
     LXP_CASE_CHECK(setup(&agreement, &buyer) == 0);
+    id32(arbiter.principal, 3U);
     reader.kernel = &service_kernel;
     LXP_CASE_CHECK(lxp_kernel_bind_module_runtime(&service_kernel,
                           LXP_MODULE_SERVICE, &runtime) == LXP_OK);
@@ -195,10 +213,22 @@ static int service_runtime_reader_called_once(void)
     reader.calls = 0U;
     length = resolve_payload(payload);
     LXP_CASE_CHECK(dispatch(LX_SERVICE_DISPUTE_RESOLVE, payload, length,
-                              &buyer, 100U, 3U, 61U, &outcome) == LXP_OK);
+                              &buyer, 100U, 3U, 63U, &outcome) == LXP_OK);
+    LXP_CASE_CHECK(outcome == LXP_ERR_UNAUTHORIZED_ARBITER);
+    LXP_CASE_CHECK(reader.calls == 1U);
+    LXP_CASE_CHECK(memcmp(reader.escrow_id, agreement.escrow_id, 32U) == 0);
+    LXP_CASE_CHECK(event_buffer.count == 0U);
+    LXP_CASE_CHECK(open_ctx(&ctx, 100U, 3U) == 0);
+    LXP_CASE_CHECK(lx_service_dispute_lookup(&ctx, dispute_id,
+                                              &dispute) == LXP_OK);
+    LXP_CASE_CHECK(!dispute.resolved);
+    reader.calls = 0U;
+    LXP_CASE_CHECK(dispatch(LX_SERVICE_DISPUTE_RESOLVE, payload, length,
+                              &arbiter, 100U, 3U, 61U, &outcome) == LXP_OK);
     LXP_CASE_CHECK(outcome == LXP_OK);
     LXP_CASE_CHECK(reader.calls == 1U);
     LXP_CASE_CHECK(memcmp(reader.escrow_id, agreement.escrow_id, 32U) == 0);
+    LXP_CASE_CHECK(event_buffer.count == 1U);
     LXP_CASE_CHECK(open_ctx(&ctx, 100U, 4U) == 0);
     LXP_CASE_CHECK(lx_service_dispute_lookup(&ctx, dispute_id,
                                               &dispute) == LXP_OK);

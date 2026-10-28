@@ -2,7 +2,16 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-use k256::ecdsa::{RecoveryId, Signature, SigningKey};
+use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_committed_proof::{
+    commit::{BlockIdFlag, Commit, CommitSig},
+    header::{
+        validators_hash, BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp, Validator,
+    },
+    proto::{encode_length_delimited, encode_varint, encode_varint_field},
+    ProofError,
+};
+use layerx_indexer::ai_market::{BlockCommitProof, FinalityAuthority};
 use layerx_indexer::ai_reputation::{
     freshness, Admission, ArchiveLocator, FinalizedRead, Freshness, HistoryRequest,
     ReputationError, ReputationProjector, RootConflict,
@@ -32,25 +41,15 @@ use layerx_programs_ai_market::{
     },
     MAX_EVENT_BYTES, MAX_STATE_BYTES,
 };
-use layerx_proof::checkpoint::{
-    checkpoint_id, Attestation, Certificate, Checkpoint, CheckpointError,
-};
-use layerx_proof::settlement::declared_domain;
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::checkpoint_attestation_digest;
-use layerx_wire::limits::PROTOCOL_VERSION;
-use layerx_wire::WireError;
-use sha3::{Digest as _, Keccak256};
+use sha2::{Digest as _, Sha256};
 
 const CHAIN: [u8; 32] = [10; 32];
 const PROGRAM: [u8; 32] = [11; 32];
 const OWNER: [u8; 32] = [12; 32];
 const ASSET: [u8; 32] = [13; 32];
 const REFUND: [u8; 32] = [14; 32];
-const DOMAIN: &str = "vectors";
+const CHAIN_ID: &str = "ai-reputation-finality";
 const CHUNK_RESPONSE_MAX: usize = 8_244;
-const CHECKPOINT_EPOCH: u64 = 7;
-const HEADER_TIMESTAMP_MS: u64 = 1_000;
 const PUBLICATION_TIME_MS: u64 = 5_000;
 const FINALIZED_RANK: u8 = 4;
 
@@ -58,9 +57,7 @@ enum Failure {
     Application(ApplicationError),
     Query(QueryError),
     Reputation(ReputationError),
-    Checkpoint(CheckpointError),
-    Wire(WireError),
-    Signing(String),
+    Commit(ProofError),
     Io(std::io::Error),
     Unexpected(&'static str),
 }
@@ -79,14 +76,9 @@ impl From<ReputationError> for Failure {
         Self::Reputation(error)
     }
 }
-impl From<CheckpointError> for Failure {
-    fn from(error: CheckpointError) -> Self {
-        Self::Checkpoint(error)
-    }
-}
-impl From<WireError> for Failure {
-    fn from(error: WireError) -> Self {
-        Self::Wire(error)
+impl From<ProofError> for Failure {
+    fn from(error: ProofError) -> Self {
+        Self::Commit(error)
     }
 }
 impl From<std::io::Error> for Failure {
@@ -100,18 +92,22 @@ impl core::fmt::Debug for Failure {
             Self::Application(error) => write!(f, "application refusal {error:?}"),
             Self::Query(error) => write!(f, "query refusal {error:?}"),
             Self::Reputation(error) => write!(f, "reputation refusal {error:?}"),
-            Self::Checkpoint(error) => write!(f, "certificate refusal {error:?}"),
-            Self::Wire(error) => write!(f, "wire encoding failure {error:?}"),
-            Self::Signing(error) => write!(f, "signing failure {error}"),
+            Self::Commit(error) => write!(f, "commit refusal {error:?}"),
             Self::Io(error) => write!(f, "io failure {error}"),
             Self::Unexpected(what) => write!(f, "unexpected {what}"),
         }
     }
 }
 type Checked<T = ()> = Result<T, Failure>;
-/// A certificate with the checkpoint identifier registered for it.
-type Certified = (Certificate, [u8; 32]);
-/// State bytes with the read proof and certificate offered for them.
+#[derive(Clone)]
+struct CommitMaterial {
+    header: Header,
+    commit: Commit,
+    store_proof: Vec<u8>,
+}
+/// Block commit material with its store proof digest.
+type Certified = (CommitMaterial, [u8; 32]);
+/// State bytes with the read proof and block commit offered for them.
 type Offered = (Vec<u8>, ReadProof, Certified);
 
 fn chain() -> Checked<ChainDomain> {
@@ -324,7 +320,7 @@ fn proof(height: u64, native_state_root: Digest32) -> Checked<ReadProof> {
         native_state_root,
         observed_sequence: height,
         execution_height: height,
-        batch_id: digest(0xBB)?,
+        block_hash: Digest32::new(header(height, native_state_root).hash())?,
     })
 }
 
@@ -345,8 +341,10 @@ fn expected_binding(
         &facts,
         &FinalityEvidence {
             native_state_root: read.native_state_root,
-            checkpoint: Digest32::new(checkpoint)?,
-            settlement: Presence::Absent,
+            block_height: read.execution_height,
+            block_hash: read.block_hash,
+            app_hash: read.native_state_root,
+            store_proof_digest: Digest32::new(checkpoint)?,
             rank: FINALIZED_RANK,
         },
         PUBLICATION_TIME_MS,
@@ -356,102 +354,129 @@ fn expected_binding(
     Ok((binding.snapshot_id()?, encoded[..n].to_vec()))
 }
 
-fn header(height: u64, resulting_state_root: Digest32) -> Result<Vec<u8>, WireError> {
-    let mut encoder = Encoder::new(354);
-    encoder.structure_header_version(0x1701, PROTOCOL_VERSION)?;
-    encoder.u8(15)?;
-    for field in 1..=15 {
-        encoder.tag(field, 15)?;
-        match field {
-            1 => encoder.u16(PROTOCOL_VERSION)?,
-            2 => encoder.u32(42)?,
-            3 => encoder.u64(CHECKPOINT_EPOCH)?,
-            4 => encoder.u64(height)?,
-            5 => encoder.u64(11)?,
-            6 => encoder.u64(19)?,
-            8 => encoder.bytes(resulting_state_root.as_bytes(), 32)?,
-            14 => encoder.u64(HEADER_TIMESTAMP_MS)?,
-            _ => encoder.bytes(&[field; 32], 32)?,
-        }
+fn validators() -> Vec<Validator> {
+    (1..=4)
+        .map(|value| Validator {
+            pub_key: SigningKey::from_bytes(&[value; 32])
+                .verifying_key()
+                .to_bytes(),
+            voting_power: 10,
+        })
+        .collect()
+}
+
+fn authority() -> FinalityAuthority {
+    FinalityAuthority {
+        chain_id: CHAIN_ID.to_owned(),
+        validators: validators(),
     }
-    Ok(encoder.finish())
 }
 
-fn guarantor(scalar: u8) -> [u8; 32] {
-    let mut id = [0; 32];
-    id[31] = scalar;
-    id
-}
-
-/// One attestation by the declared guarantor whose secret scalar is `scalar`.
-fn attest(id: [u8; 32], height: u64, scalar: u8, tamper: bool) -> Checked<Attestation> {
-    let domain = declared_domain(DOMAIN).map_err(CheckpointError::Configuration)?;
-    let key = SigningKey::from_bytes((&guarantor(scalar)).into())
-        .map_err(|error| Failure::Signing(error.to_string()))?;
-    let point = key.verifying_key().to_encoded_point(false);
-    let hash = Keccak256::digest(
-        point
-            .as_bytes()
-            .get(1..)
-            .ok_or(Failure::Unexpected("point"))?,
-    );
-    let signer: [u8; 20] = hash
-        .get(12..)
-        .and_then(|tail| tail.try_into().ok())
-        .ok_or(Failure::Unexpected("signer"))?;
-    let attested_at_ms = HEADER_TIMESTAMP_MS + u64::from(scalar);
-    let build = |signature: [u8; 64], v: u8| {
-        Attestation::new(
-            PROTOCOL_VERSION,
-            domain.network_id(),
-            domain.settlement().paxeer_chain_id(),
-            domain.settlement().settlement_contract(),
-            CHECKPOINT_EPOCH,
-            id,
-            id,
-            guarantor(scalar),
-            height,
-            [12; 32],
-            true,
-            true,
-            0x1f,
-            attested_at_ms,
-            signer,
-            signature,
-            v,
-        )
+fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
+    let mut commit = Commit {
+        height: header.height as u64,
+        round: 0,
+        block_id: BlockId {
+            hash: header.hash().to_vec(),
+            part_set_header: PartSetHeader {
+                total: 1,
+                hash: vec![0xA5; 32],
+            },
+        },
+        signatures: Vec::new(),
     };
-    let digest = checkpoint_attestation_digest(&build([0; 64], 27).canonical_statement())?;
-    let (signature, recovery): (Signature, RecoveryId) = key
-        .sign_prehash_recoverable(&digest)
-        .map_err(|error| Failure::Signing(error.to_string()))?;
-    let mut signature: [u8; 64] = signature.to_bytes().into();
-    if tamper {
-        signature[40] ^= 1;
+    for value in 1..=4 {
+        let Some((_, tamper)) = signers.iter().find(|(signer, _)| *signer == value) else {
+            commit.signatures.push(CommitSig::absent());
+            continue;
+        };
+        let key = SigningKey::from_bytes(&[value; 32]);
+        let timestamp = Timestamp {
+            seconds: 1_000,
+            nanos: 123,
+        };
+        let mut vote = Vec::new();
+        encode_varint_field(1, 2, &mut vote);
+        vote.push(0x11);
+        vote.extend_from_slice(&commit.height.to_le_bytes());
+        let mut parts = Vec::new();
+        encode_varint_field(
+            1,
+            u64::from(commit.block_id.part_set_header.total),
+            &mut parts,
+        );
+        encode_length_delimited(2, &commit.block_id.part_set_header.hash, &mut parts);
+        let mut block = Vec::new();
+        encode_length_delimited(1, &commit.block_id.hash, &mut block);
+        encode_length_delimited(2, &parts, &mut block);
+        encode_length_delimited(4, &block, &mut vote);
+        let mut time = Vec::new();
+        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
+        encode_length_delimited(5, &time, &mut vote);
+        encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
+        let mut sign_bytes = Vec::new();
+        encode_varint(vote.len() as u64, &mut sign_bytes);
+        sign_bytes.extend_from_slice(&vote);
+        let mut signature = key.sign(&sign_bytes).to_bytes();
+        if *tamper {
+            signature[40] ^= 1;
+        }
+        commit.signatures.push(CommitSig {
+            block_id_flag: BlockIdFlag::Commit,
+            validator_address: Sha256::digest(key.verifying_key().as_bytes())[..20].to_vec(),
+            timestamp,
+            signature: Some(signature),
+        });
     }
-    Ok(build(signature, 27 + u8::from(recovery)))
+    commit
 }
 
-/// A checkpoint certificate for `(height, root)` signed by `signers` (scalar, tampered).
-fn certify_by(
-    height: u64,
-    resulting_state_root: Digest32,
-    signers: &[(u8, bool)],
-    threshold: usize,
-) -> Checked<Certified> {
-    let checkpoint = Checkpoint::new(header(height, resulting_state_root)?, b"PROOF".to_vec());
-    let id = checkpoint_id(&checkpoint)?;
-    let attestations = signers
-        .iter()
-        .map(|(scalar, tamper)| attest(id, height, *scalar, *tamper))
-        .collect::<Checked<Vec<_>>>()?;
+fn header(height: u64, root: Digest32) -> Header {
+    Header {
+        chain_id: CHAIN_ID.to_owned(),
+        height: height as i64,
+        app_hash: root.bytes().to_vec(),
+        version: ConsensusVersion { block: 11, app: 1 },
+        time: Timestamp {
+            seconds: 1_000,
+            nanos: 0,
+        },
+        last_block_id: BlockId::default(),
+        last_commit_hash: vec![1; 32],
+        data_hash: vec![2; 32],
+        validators_hash: validators_hash(&validators()),
+        next_validators_hash: validators_hash(&validators()).to_vec(),
+        consensus_hash: vec![3; 32],
+        last_results_hash: vec![4; 32],
+        evidence_hash: vec![5; 32],
+        proposer_address: vec![6; 20],
+    }
+}
+
+fn store_proof(height: u64, root: Digest32) -> Vec<u8> {
+    let mut proof = root.bytes().to_vec();
+    proof.extend_from_slice(&height.to_be_bytes());
+    proof
+}
+
+fn certify_by(height: u64, root: Digest32, signers: &[(u8, bool)]) -> Checked<Certified> {
+    let header = header(height, root);
+    let commit = signed(&header, signers);
+    let store_proof = store_proof(height, root);
+    let id = Sha256::digest(&store_proof).into();
     Ok((
-        Certificate::new(checkpoint, attestations, threshold, None),
+        CommitMaterial {
+            header,
+            commit,
+            store_proof,
+        },
         id,
     ))
 }
-fn certify(height: u64, resulting_state_root: Digest32) -> Checked<Certified> {
-    certify_by(height, resulting_state_root, &[(1, false), (2, false)], 2)
+
+fn certify(height: u64, root: Digest32) -> Checked<Certified> {
+    certify_by(height, root, &[(1, false), (2, false), (3, false)])
 }
 
 fn offer(
@@ -464,8 +489,11 @@ fn offer(
     Ok(projector.admit(&FinalizedRead {
         proof: read,
         chunks: &chunks,
-        certificate: &certified.0,
-        registered_checkpoint_id: certified.1,
+        commit: BlockCommitProof {
+            header: &certified.0.header,
+            commit: &certified.0.commit,
+            store_proof: &certified.0.store_proof,
+        },
         publication_time_ms: PUBLICATION_TIME_MS,
     }))
 }
@@ -490,7 +518,7 @@ fn fresh_store(name: &str) -> Checked<PathBuf> {
 fn open(path: &Path) -> Checked<ReputationProjector> {
     Ok(ReputationProjector::open(
         path,
-        DOMAIN,
+        authority(),
         chain()?,
         program()?,
     )?)
@@ -683,29 +711,36 @@ fn a09_invalid_certificates_never_move_the_cursor() -> Checked {
     let (_, c15000) = advance(&mut fixture, 15_000)?;
     let r16000 = root(16_000, 1)?;
     let valid = certify(16_000, r16000)?;
+    let mut unpinned = valid.clone();
+    let mut other_validators = validators();
+    other_validators[3].pub_key = SigningKey::from_bytes(&[5; 32]).verifying_key().to_bytes();
+    unpinned.0.header.validators_hash = validators_hash(&other_validators);
+    unpinned.0.commit = signed(&unpinned.0.header, &[(1, false), (2, false), (3, false)]);
+    let mut mismatched = valid.clone();
+    mismatched.0.header = c15000.0.header.clone();
+    let mut other_chain = valid.clone();
+    other_chain.0.header.chain_id = "another-chain".to_owned();
+    other_chain.0.commit = signed(&other_chain.0.header, &[(1, false), (2, false), (3, false)]);
     let invalid = [
         (
             proof(16_000, r16000)?,
-            certify_by(16_000, r16000, &[(1, false), (2, true)], 2)?,
-            ReputationError::Certificate(CheckpointError::Signature(guarantor(2))),
+            certify_by(16_000, r16000, &[(1, false), (2, true), (3, false)])?,
+            ReputationError::Commit(ProofError::InvalidCommitSignature),
         ),
         (
             proof(16_000, r16000)?,
-            certify_by(16_000, r16000, &[(1, false)], 2)?,
-            ReputationError::Certificate(CheckpointError::Threshold {
-                achieved: 1,
-                required: 2,
-            }),
+            certify_by(16_000, r16000, &[(1, false), (2, false)])?,
+            ReputationError::Commit(ProofError::InsufficientVotingPower),
         ),
         (
             proof(16_000, r16000)?,
-            certify_by(16_000, r16000, &[(1, false), (4, false)], 2)?,
-            ReputationError::Certificate(CheckpointError::SignerMembership(guarantor(4))),
+            unpinned,
+            ReputationError::Commit(ProofError::ValidatorsHashMismatch),
         ),
         (
             proof(16_000, r16000)?,
-            (valid.0.clone(), c15000.1),
-            ReputationError::Certificate(CheckpointError::CheckpointIdentifier),
+            mismatched,
+            ReputationError::Commit(ProofError::InvalidCommit),
         ),
         (
             proof(16_000, r16000)?,
@@ -723,6 +758,11 @@ fn a09_invalid_certificates_never_move_the_cursor() -> Checked {
                 ..proof(16_000, r16000)?
             },
             valid.clone(),
+            ReputationError::Refused(WRONG_DOMAIN),
+        ),
+        (
+            proof(16_000, r16000)?,
+            other_chain,
             ReputationError::Refused(WRONG_DOMAIN),
         ),
     ];

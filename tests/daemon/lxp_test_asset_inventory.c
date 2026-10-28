@@ -288,7 +288,7 @@ static int maintenance_fixture_open(maintenance_fixture *f)
     memcpy(f->asset_record.issuer_did32, f->identity->did_id, 32U);
     f->asset_record.salt[0] = 9U;
     f->asset_runtime = (lx_asset_runtime){&f->accounts, &f->asset_record, 1U,
-        &f->asset, 1U, 7U, 3U};
+        &f->asset, 1U, 7U, 3U, false};
     f->actor->has_authority_key = true;
     memcpy(f->actor->authority_key, f->actor_public_key, 32U);
     CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET, &f->asset_runtime) == LXP_OK);
@@ -1065,7 +1065,7 @@ static int maintenance_bridge(const char *manifest_path, const char *activity_pa
     f->asset.registered = true;
     memcpy(f->asset_record.asset_id, f->asset.asset_id, 32U);
     f->asset_runtime = (lx_asset_runtime){&f->accounts, &f->asset_record, 1U,
-        &f->asset, 1U, manifest->network_id, 3U};
+        &f->asset, 1U, manifest->network_id, 3U, false};
     CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET, &f->asset_runtime) == LXP_OK);
     f->runtime.accounts = &f->accounts;
     f->runtime.assets = &f->asset;

@@ -217,6 +217,9 @@ typedef struct lx_budget_revoke_payload {
 } lx_budget_revoke_payload;
 
 const lxp_module_iface *lx_budget_module_iface(void);
+lxp_result lx_budget_grant_draws_read(const struct lxp_kernel *kernel,
+                                      const uint8_t grant_id[32],
+                                      lxp_grant_state *draws);
 lxp_result lx_budget_lookup(lx_budget_store *store,
                             const uint8_t budget_id[32],
                             lx_budget_record **record);

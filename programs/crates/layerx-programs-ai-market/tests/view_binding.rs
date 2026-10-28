@@ -11,18 +11,18 @@ use layerx_programs_ai_market::{
         issue_cursor, open_cursor, parse_hex32, parse_limit, participant_rows, policy_digest,
         read_header, read_state_chunk, select_page, Availability, CaptureFacts, CursorKey,
         CursorScope, FinalityEvidence, KindFilter, ParticipantKind, ParticipantRow, QueryError,
-        ReadProof, RewardField, ScoreField, ScoreStatus, StateCapture, BINDING_MAX_BYTES,
-        CURSOR_LIFETIME_MS, CURSOR_MAX_BYTES, CURSOR_TOKEN_BYTES, FINALIZED_RANK,
-        FULL_CAPTURE_CHUNKS, PAGE_MAX_BYTES, PAGE_MAX_ROWS,
+        ReadProof, RewardField, ScoreField, ScoreStatus, SnapshotBinding, StateCapture,
+        BINDING_MAX_BYTES, CURSOR_LIFETIME_MS, CURSOR_MAX_BYTES, CURSOR_TOKEN_BYTES,
+        FINALIZED_RANK, FULL_CAPTURE_CHUNKS, PAGE_MAX_BYTES, PAGE_MAX_ROWS,
     },
     registry::{derive_rewards_account, F01_SECTION_CAP},
     registry_ops::{self, Outcome},
     state::{self, ActorSlot, Control, ReplayTable, Section, SharedState},
     types::{
         AccountId, AssetId, Authentication, ChainDomain, Digest32, EvaluatorId,
-        EvaluatorRosterEntry, MetadataDigest, PolicyDigest, Presence, PrincipalId, ProgramId,
-        PublicKey32, RequestDigest, RequestId, RubricDigest, StateDigest, Version,
-        WorkerRosterEntry,
+        EvaluatorRosterEntry, MarketId, MetadataDigest, PolicyDigest, Presence, PrincipalId,
+        ProgramId, PublicKey32, RequestDigest, RequestId, RosterDigest, RubricDigest, StateDigest,
+        Version, WorkerRosterEntry,
     },
     workers::{WorkerCurrent, WorkerState, WorkerTable, WORKER_TABLE_MAX_BYTES},
     MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
@@ -325,6 +325,162 @@ fn header_reports_exact_state_identity_and_explicit_absence() -> Checked {
         feature_availability(&uncreated)?[0],
         Availability::NotYetProduced
     );
+    Ok(())
+}
+
+#[test]
+fn binding_v2_encodes_block_commit_section() -> Checked {
+    let binding = binding_v2_fixture()?;
+    let mut out = [0xFF; BINDING_MAX_BYTES];
+    let n = binding.encode(&mut out)?;
+    assert_eq!(BINDING_MAX_BYTES, 300 + 8 + 3 * 32 + 1 + 8 + 8);
+    assert_eq!(n, BINDING_MAX_BYTES);
+    assert_eq!(
+        binding_hex(&out[..n]),
+        concat!(
+            "0001",
+            "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+            "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+            "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+            "0102030405060708",
+            "1112131415161718",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "2122232425262728",
+            "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+            "013132333435363738",
+            "4142434445464748",
+            "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+            "01f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
+            "5152535455565758",
+            "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+            "c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+            "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+            "04",
+            "6162636465666768",
+            "0000000000000000",
+        )
+    );
+    assert_eq!(binding.encode(&mut out[..n - 1]), Err(CAPACITY));
+    let absent = SnapshotBinding {
+        epoch: Presence::Absent,
+        roster: Presence::Absent,
+        ..binding
+    };
+    let n = absent.encode(&mut out)?;
+    assert_eq!(n, ABSENT_PREFIX_BYTES + 121);
+    assert_eq!(
+        binding_hex(&out[ABSENT_PREFIX_BYTES..n]),
+        concat!(
+            "5152535455565758",
+            "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+            "c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+            "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+            "04",
+            "6162636465666768",
+            "0000000000000000",
+        )
+    );
+    Ok(())
+}
+
+fn binding_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn binding_v2_fixture() -> Checked<SnapshotBinding> {
+    Ok(SnapshotBinding {
+        chain: chain()?,
+        program: program()?,
+        market: MarketId::new([12; 32])?,
+        observed_sequence: 0x0102_0304_0506_0708,
+        execution_height: 0x1112_1314_1516_1718,
+        batch_id: digest(0xBB)?,
+        native_state_root: digest(0xA1)?,
+        revision: 0x2122_2324_2526_2728,
+        state_digest: StateDigest::new([0xD1; 32])?,
+        epoch: Presence::Present(0x3132_3334_3536_3738),
+        config: Version::new(0x4142_4344_4546_4748)?,
+        policy: PolicyDigest::new([0xE1; 32])?,
+        roster: Presence::Present(RosterDigest::new([0xF1; 32])?),
+        block_height: 0x5152_5354_5556_5758,
+        block_hash: digest(0xB2)?,
+        app_hash: digest(0xC2)?,
+        store_proof_digest: digest(0xD2)?,
+        rank: FINALIZED_RANK,
+        publication_time_ms: 0x6162_6364_6566_6768,
+    })
+}
+
+#[test]
+fn binding_v2_snapshot_id_keeps_content_prefix() -> Checked {
+    let binding = binding_v2_fixture()?;
+    let expected = parse_hex32("9cfa0a6c276f52867a09e3f1542f627013fc122633aba2b11de92c13f54afc93")?;
+    assert_eq!(binding.snapshot_id()?.bytes(), expected);
+    let rebound = SnapshotBinding {
+        block_height: binding.block_height + 1,
+        block_hash: digest(0xB3)?,
+        app_hash: digest(0xC3)?,
+        store_proof_digest: digest(0xD3)?,
+        rank: 2,
+        publication_time_ms: binding.publication_time_ms + 1,
+        ..binding
+    };
+    let mut original = [0; BINDING_MAX_BYTES];
+    let mut updated = [0; BINDING_MAX_BYTES];
+    let n = binding.encode(&mut original)?;
+    assert_eq!(rebound.encode(&mut updated)?, n);
+    assert_eq!(&original[..300], &updated[..300]);
+    assert_ne!(&original[300..n], &updated[300..n]);
+    assert_eq!(rebound.snapshot_id()?.bytes(), expected);
+    let absent = SnapshotBinding {
+        epoch: Presence::Absent,
+        roster: Presence::Absent,
+        ..binding
+    };
+    assert_eq!(
+        absent.snapshot_id()?.bytes(),
+        parse_hex32("10029f3d49200c0a84f29a07af0117303835a6a9b45f411293a6f97a83df5fb8")?
+    );
+    let changed_content = SnapshotBinding {
+        revision: binding.revision + 1,
+        ..binding
+    };
+    assert_ne!(changed_content.snapshot_id()?, binding.snapshot_id()?);
+    Ok(())
+}
+
+#[test]
+fn require_finalized_refuses_uncommitted_binding() -> Checked {
+    let binding = binding_v2_fixture()?;
+    for rank in 0..=u8::MAX {
+        let candidate = SnapshotBinding { rank, ..binding };
+        assert_eq!(
+            candidate.require_finalized(),
+            if rank == FINALIZED_RANK {
+                Ok(())
+            } else {
+                Err(QueryError::FinalityUnavailable)
+            }
+        );
+    }
+    let zero = parse_hex32("0000000000000000000000000000000000000000000000000000000000000000")?;
+    assert_eq!(Digest32::new(zero), Err(NON_CANONICAL));
+    let single_bit = Digest32::new(parse_hex32(
+        "0000000000000000000000000000000000000000000000000000000000000001",
+    )?)?;
+    for (block_hash, app_hash) in [
+        (single_bit, binding.app_hash),
+        (binding.block_hash, single_bit),
+        (single_bit, single_bit),
+    ] {
+        let committed = SnapshotBinding {
+            block_hash,
+            app_hash,
+            ..binding
+        };
+        assert_eq!(committed.require_finalized(), Ok(()));
+    }
     Ok(())
 }
 

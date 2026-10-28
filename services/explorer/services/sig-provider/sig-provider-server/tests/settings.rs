@@ -3,6 +3,14 @@ use pretty_assertions::assert_eq;
 use sig_provider_server::Settings;
 
 #[test]
+fn precompiles_source_enabled_by_default() {
+    let base = std::fs::read("config/base.toml").expect("Failed to read base config");
+    let settings: Settings = toml::from_slice(&base).expect("Failed to parse base config");
+    assert!(settings.sources.precompiles.enabled);
+    assert!(Settings::default().sources.precompiles.enabled);
+}
+
+#[test]
 fn base_settings_are_default() {
     std::env::set_var("SIG_PROVIDER__CONFIG", "config/base.toml");
     let example = Settings::build().expect("Failed to parse config");

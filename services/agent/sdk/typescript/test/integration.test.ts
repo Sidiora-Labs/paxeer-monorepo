@@ -15,7 +15,6 @@ import {
   type ApprovalGetRequest,
   type ApprovalListRequest,
   type ApprovalRejectRequest,
-  type CheckpointAttestation,
   type Operation,
   type SubmissionState,
   type VerifiedRead,
@@ -61,27 +60,6 @@ export async function verifyTypeScriptPackage(): Promise<void> {
   });
   assert(retainedAsync!.every((byte) => byte === 0), "async secret view survived callback");
   secret.destroy();
-
-  const attestation: CheckpointAttestation = {
-    protocolVersion: 2,
-    networkId: 17,
-    paxeerChainId: 777n,
-    settlementContract: new Uint8Array(20).fill(1),
-    epoch: 9n,
-    checkpointId: new Uint8Array(32),
-    checkpointHash: new Uint8Array(32),
-    guarantorId: new Uint8Array(32),
-    batchNumber: 12n,
-    dataAvailabilityRoot: new Uint8Array(32),
-    replayed: true,
-    dataPossessed: true,
-    availabilityClassMask: 0x1f,
-    attestedAtMs: 1n,
-    signer: new Uint8Array(20).fill(2),
-    signature: new Uint8Array(64),
-    signatureV: 27,
-  };
-  assert(attestation.paxeerChainId === 777n, "Paxeer attestation binding changed");
 
   const read: VerifiedRead<bigint> = {
     value: 10n,

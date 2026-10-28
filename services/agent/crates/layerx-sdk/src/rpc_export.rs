@@ -7,77 +7,109 @@ use layerx_agent_api::export::{
 };
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::read::{ReadRequest, VerifiedRead};
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::{Rung, VerificationStatus};
 use layerx_proof::export::{
     verify_complete, CompleteExportError, CompleteVerificationReport, IndependentOfflineTrust,
 };
-use layerx_proof::export_codec::{ArtifactDecodeError, CompleteOfflineArtifact};
-use layerx_types::verify::VerificationLevel;
+use layerx_proof::export_codec::{
+    ArtifactDecodeError, CompleteOfflineArtifact, EncodedOfflineArtifact,
+};
+
 use serde_json::{json, Value};
 
 use crate::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
 use crate::rpc_history::lower_hex;
 use crate::rpc_projection::decode_freshness;
-use crate::rpc_subscription::{object, text, violation};
+use crate::rpc_subscription::{decimal, object, text, violation};
 use crate::Operation;
 
-/// Schema wire spelling of one verification level.
-pub(crate) const fn level_wire(level: Level) -> &'static str {
-    match level {
-        Level::Unverified => "Unverified",
-        Level::SequencerSigned => "SequencerSigned",
-        Level::BatchIncluded => "BatchIncluded",
-        Level::StateProven => "StateProven",
-        Level::CheckpointFinalised => "CheckpointFinalised",
-        Level::SettlementAnchored => "SettlementAnchored",
-    }
+pub(crate) const fn rung_wire(rung: Rung) -> &'static str {
+    rung.name()
 }
 
-/// Parses the schema wire spelling of one verification level.
-pub(crate) fn level_from_wire(value: &Value, operation: Operation) -> Result<Level, EnvelopeError> {
-    match value.as_str() {
-        Some("Unverified") => Ok(Level::Unverified),
-        Some("SequencerSigned") => Ok(Level::SequencerSigned),
-        Some("BatchIncluded") => Ok(Level::BatchIncluded),
-        Some("StateProven") => Ok(Level::StateProven),
-        Some("CheckpointFinalised") => Ok(Level::CheckpointFinalised),
-        Some("SettlementAnchored") => Ok(Level::SettlementAnchored),
-        _ => Err(violation(operation)),
-    }
-}
-
-const fn verification_level(level: Level) -> VerificationLevel {
-    match level {
-        Level::Unverified => VerificationLevel::UNVERIFIED,
-        Level::SequencerSigned => VerificationLevel::SEQUENCER_SIGNED,
-        Level::BatchIncluded => VerificationLevel::BATCH_INCLUDED,
-        Level::StateProven => VerificationLevel::STATE_PROVEN,
-        Level::CheckpointFinalised => VerificationLevel::CHECKPOINT_FINALISED,
-        Level::SettlementAnchored => VerificationLevel::SETTLEMENT_ANCHORED,
-    }
-}
-
-fn records(value: &Value, operation: Operation) -> Result<Vec<CanonicalBytes>, EnvelopeError> {
+pub(crate) fn rung_from_wire(value: &Value, operation: Operation) -> Result<Rung, EnvelopeError> {
     value
-        .as_array()
-        .ok_or_else(|| violation(operation))?
-        .iter()
-        .map(|record| {
-            record
-                .as_str()
-                .and_then(lower_hex)
-                .and_then(|bytes| CanonicalBytes::new(bytes).ok())
-                .ok_or_else(|| violation(operation))
-        })
-        .collect()
+        .as_str()
+        .and_then(Rung::from_name)
+        .ok_or_else(|| violation(operation))
 }
 
-fn decode_export(value: &Value, operation: Operation) -> Result<OfflineExport, EnvelopeError> {
-    let export = object(
-        value,
-        &["facts", "receipts", "proofs", "certificates", "headers"],
+pub(crate) fn decode_bundle(
+    value: &Value,
+    operation: Operation,
+) -> Result<layerx_agent_api::proof::ProofBundle, EnvelopeError> {
+    use layerx_agent_api::proof::ProofBundle;
+    use layerx_client::sequencer::ReceiptKeyEntry;
+    let bundle = value.as_object().ok_or_else(|| violation(operation))?;
+    let rung = rung_from_wire(
+        bundle
+            .get("verificationLevel")
+            .ok_or_else(|| violation(operation))?,
         operation,
     )?;
+    let mut fields = vec![
+        "format",
+        "verificationLevel",
+        "rawTransaction",
+        "signedReceipt",
+        "receiptDigest",
+        "receiptKey",
+    ];
+    if rung == Rung::Committed {
+        fields.extend(["blockHeader", "receiptInclusion", "commit", "validatorSet"]);
+        if bundle.contains_key("accountProof") {
+            fields.push("accountProof");
+        }
+    }
+    let bundle = object(value, &fields, operation)?;
+    let bytes = |value: &Value| -> Result<CanonicalBytes, EnvelopeError> {
+        value
+            .as_str()
+            .and_then(|s| s.strip_prefix("0x"))
+            .and_then(lower_hex)
+            .filter(|bytes| bytes.len() <= layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES)
+            .and_then(|bytes| CanonicalBytes::new(bytes).ok())
+            .ok_or_else(|| violation(operation))
+    };
+    let id = |value: &Value| -> Result<[u8; 32], EnvelopeError> {
+        bytes(value)?
+            .as_bytes()
+            .try_into()
+            .map_err(|_| violation(operation))
+    };
+    let optional = |field: &str| bundle.get(field).map(&bytes).transpose();
+    let key = object(
+        &bundle["receiptKey"],
+        &["keyId", "publicKey", "firstHeight", "lastHeight"],
+        operation,
+    )?;
+    let result = ProofBundle {
+        format: text(&bundle["format"], operation)?,
+        verification_level: rung,
+        raw_transaction: bytes(&bundle["rawTransaction"])?,
+        signed_receipt: bytes(&bundle["signedReceipt"])?,
+        receipt_digest: id(&bundle["receiptDigest"])?,
+        receipt_key: ReceiptKeyEntry {
+            key_id: id(&key["keyId"])?,
+            public_key: id(&key["publicKey"])?,
+            first_height: decimal(&key["firstHeight"], operation)?,
+            last_height: decimal(&key["lastHeight"], operation)?,
+        },
+        block_header: optional("blockHeader")?,
+        receipt_inclusion: optional("receiptInclusion")?,
+        commit: optional("commit")?,
+        validator_set: optional("validatorSet")?,
+        account_proof: optional("accountProof")?,
+    };
+    result.validate().map_err(|_| violation(operation))?;
+    Ok(result)
+}
+
+pub fn decode_offline_export(
+    value: &Value,
+    operation: Operation,
+) -> Result<OfflineExport, EnvelopeError> {
+    let export = object(value, &["facts", "bundles", "height"], operation)?;
     Ok(OfflineExport {
         facts: export["facts"]
             .as_array()
@@ -85,48 +117,45 @@ fn decode_export(value: &Value, operation: Operation) -> Result<OfflineExport, E
             .iter()
             .map(|fact| FactRef::new(text(fact, operation)?).map_err(|_| violation(operation)))
             .collect::<Result<Vec<_>, _>>()?,
-        receipts: records(&export["receipts"], operation)?,
-        proofs: records(&export["proofs"], operation)?,
-        certificates: records(&export["certificates"], operation)?,
-        headers: records(&export["headers"], operation)?,
+        bundles: export["bundles"]
+            .as_array()
+            .ok_or_else(|| violation(operation))?
+            .iter()
+            .map(|value| decode_bundle(value, operation))
+            .collect::<Result<Vec<_>, _>>()?,
+        height: decimal(&export["height"], operation)?,
     })
 }
 
-/// Decodes every bucket of a received export into the complete offline artifact. The trust
+/// Decodes a historical kernel artifact. The trust
 /// context is not consulted by decoding; it is taken so the artifact is only ever produced on
-/// the path that then verifies it with [`verify_complete_offline_export`].
+/// the path that then verifies it with [`verify_complete_historical_offline_export`].
 ///
 /// # Errors
 /// Returns the strict codec refusal of the first record that is not canonical.
-pub fn decode_offline_export(
-    export: &OfflineExport,
+pub fn decode_historical_offline_export(
+    export: &EncodedOfflineArtifact,
     _trust: &IndependentOfflineTrust,
 ) -> Result<CompleteOfflineArtifact, ArtifactDecodeError> {
-    let facts: Vec<&str> = export.facts.iter().map(FactRef::as_str).collect();
-    let bytes = |bucket: &[CanonicalBytes]| -> Vec<Vec<u8>> {
-        bucket
-            .iter()
-            .map(|record| record.as_bytes().to_vec())
-            .collect()
-    };
+    let facts: Vec<&str> = export.facts.iter().map(String::as_str).collect();
     CompleteOfflineArtifact::decode(
         &facts,
-        &bytes(&export.receipts),
-        &bytes(&export.proofs),
-        &bytes(&export.certificates),
-        &bytes(&export.headers),
+        &export.receipts,
+        &export.proofs,
+        &export.certificates,
+        &export.headers,
     )
 }
 
-/// Refusal of an offline verification of a received export.
+/// Refusal of historical artifact verification.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OfflineVerificationError {
     Codec(ArtifactDecodeError),
     Verify(CompleteExportError),
-    /// The independently verified level is below the level the response claimed.
+    /// The independently verified rung is below the rung the response claimed.
     ClaimExceedsVerified {
-        claimed: Level,
-        verified: Level,
+        claimed: Rung,
+        verified: Rung,
     },
 }
 
@@ -137,21 +166,17 @@ pub enum OfflineVerificationError {
 /// # Errors
 /// Returns the codec refusal, the complete verifier refusal, or
 /// [`OfflineVerificationError::ClaimExceedsVerified`].
-pub fn verify_complete_offline_export(
-    read: &VerifiedRead<OfflineExport>,
-    requested: Level,
+pub fn verify_complete_historical_offline_export(
+    artifact: &CompleteOfflineArtifact,
+    claimed: Rung,
+    requested: Rung,
     trust: &IndependentOfflineTrust,
 ) -> Result<CompleteVerificationReport, OfflineVerificationError> {
-    let artifact =
-        decode_offline_export(&read.value, trust).map_err(OfflineVerificationError::Codec)?;
-    let report = verify_complete(&artifact, trust, verification_level(requested))
-        .map_err(OfflineVerificationError::Verify)?;
-    let verified = Level::from(report.achieved());
-    if verified < read.achieved_verification_level {
-        return Err(OfflineVerificationError::ClaimExceedsVerified {
-            claimed: read.achieved_verification_level,
-            verified,
-        });
+    let report =
+        verify_complete(artifact, trust, requested).map_err(OfflineVerificationError::Verify)?;
+    let verified = report.achieved();
+    if verified < claimed {
+        return Err(OfflineVerificationError::ClaimExceedsVerified { claimed, verified });
     }
     Ok(report)
 }
@@ -161,8 +186,7 @@ impl AgentEnvelopeTransport {
     ///
     /// # Errors
     ///
-    /// Returns `InvalidRequest` for a fact set outside the shared grammar or a SettlementAnchored
-    /// request before sending, the established error envelope, `Transport`, or `Decode` when the
+    /// Returns `InvalidRequest` for a fact set outside the shared grammar before sending, the established error envelope, `Transport`, or `Decode` when the
     /// answer is not exactly the requested facts at or above the requested level.
     pub fn export_offline(
         &self,
@@ -173,31 +197,27 @@ impl AgentEnvelopeTransport {
         let operation = Operation::ExportOffline;
         let request =
             validate_export_request(request.clone()).map_err(|_| EnvelopeError::InvalidRequest)?;
-        if request.requested_verification_level == Level::SettlementAnchored {
-            return Err(EnvelopeError::InvalidRequest);
-        }
         let success = self.send_operation(
             operation,
             request_id,
             &json!({
                 "fact_set": request.selector.iter().map(FactRef::as_str).collect::<Vec<_>>(),
-                "requested_verification_level": level_wire(request.requested_verification_level),
+                "requested_rung": rung_wire(request.requested_rung),
             }),
             Some(credential),
             None,
         )?;
         let read = object(
             &success.value,
-            &["value", "achieved_verification_level", "freshness"],
+            &["value", "achieved_rung", "freshness"],
             operation,
         )?;
         let read = VerifiedRead::new(
-            decode_export(&read["value"], operation)?,
-            level_from_wire(&read["achieved_verification_level"], operation)?,
+            decode_offline_export(&read["value"], operation)?,
+            rung_from_wire(&read["achieved_rung"], operation)?,
             decode_freshness(&read["freshness"], operation)?,
         );
-        if success.verification_status
-            != VerificationStatus::Achieved(read.achieved_verification_level)
+        if !matches!(success.verification_status, VerificationStatus::Achieved(level) if level.rung() == Some(read.achieved_rung))
         {
             return Err(violation(operation));
         }

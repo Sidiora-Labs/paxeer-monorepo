@@ -18,10 +18,7 @@ static lxp_result kernel_state_validate(const lxp_kernel *kernel)
     uint16_t last_module_id = LXP_LEGACY_LAST_MODULE_ID;
     if (kernel == NULL) return LXP_ERR_NON_CANONICAL;
     if (kernel->state == NULL) return LXP_FATAL_INVARIANT;
-    if (kernel->state->idempotency_count != 0U && kernel->state->idempotency == NULL)
-        return LXP_FATAL_INVARIANT;
     if (kernel->state->count > LXP_STATE_MAX_CELLS ||
-        kernel->state->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY ||
         kernel->module_count > LXP_KERNEL_MAX_MODULE_REGISTRATIONS ||
         kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||
@@ -32,10 +29,6 @@ static lxp_result kernel_state_validate(const lxp_kernel *kernel)
     if (kernel->state->account_root_required &&
         kernel->state->accounts == NULL)
         return LXP_FATAL_INVARIANT;
-    for (i = 0U; i < kernel->state->idempotency_count; ++i)
-        if (kernel->state->idempotency[i].receipt_length >
-            LXP_STATE_MAX_RECEIPT_BYTES)
-            return LXP_ERR_LENGTH_LIMIT;
     for (i = 0U; i < kernel->module_count; ++i)
         if (kernel->modules[i].activity_type_count >
             LXP_MODULE_MAX_ACTIVITY_TYPES)
@@ -546,22 +539,6 @@ static lxp_result universal_leaves(const lxp_kernel *kernel,
         status = leaf_set(&leaves[(*count)++], key, sizeof(key), value, 16U);
         if (status != LXP_OK) return status;
     }
-    for (i = 0U; i < kernel->state->idempotency_count; ++i) {
-        const lxp_idempotency_key_state *entry = &kernel->state->idempotency[i];
-        uint8_t key[33];
-        key[0] = 2U;
-        (void)memcpy(key + 1U, entry->key_hash, 32U);
-        {
-            uint8_t committed_value[LXP_STATE_MAX_RECEIPT_BYTES];
-            status = lxp_kernel_idempotency_state_value(
-                entry->receipt, entry->receipt_length,
-                committed_value, sizeof(committed_value));
-            if (status == LXP_OK)
-                status = leaf_set(&leaves[(*count)++], key, sizeof(key),
-                                  committed_value, entry->receipt_length);
-        }
-        if (status != LXP_OK) return status;
-    }
     for (i = 0U; i < kernel->module_count; ++i) {
         const lxp_module_registration *registration = &kernel->modules[i];
         uint8_t key[7];
@@ -637,8 +614,7 @@ static lxp_result state_leaves_allocate(const lxp_kernel *kernel,
                                         state_leaf **leaves)
 {
     size_t capacity = module_id == 0U ?
-        kernel->state->count + kernel->state->idempotency_count +
-            kernel->module_count + 2U :
+        kernel->state->count + kernel->module_count + 2U :
         kernel->module_kv_count + kernel->blob_count;
     *leaves = (state_leaf *)malloc(
         (capacity == 0U ? 1U : capacity) * sizeof(**leaves));

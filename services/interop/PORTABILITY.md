@@ -135,7 +135,7 @@ This is the `PortableReceiptV2::export` result for the recorded
 `V1-layerxledger-pay-exact` case in
 `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`, using its
 `signedReceipt`, `pinnedKey` and signed height as `inclusionHeight`.
-The test `documented_v2_example_parses_and_verifies` reproduces the export,
+The AP2 test `portability_v2_example_parses` reproduces the export,
 compares every JSON value and verifies the example against that pinned key.
 All receipt, digest, key and height values below come from that recorded case.
 
@@ -378,4 +378,4 @@ Always consult the specific verification level and proof scope.
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026 | Initial `layerx-receipt-proof-v1` format and external evidence binding |
-| 2.0 | 2026 | `layerx-receipt-proof-v2`: receipted v2 bytes, canonical digest and height-ranged receipt key; recorded example checked against `PortableReceiptV2::export` |
+| 2.0 | 2026 | `layerx-receipt-proof-v2`: receipted v2 bytes, canonical digest and height-ranged receipt key; recorded example checked against `PortableReceiptV2::export`; v1 documents remain readable |

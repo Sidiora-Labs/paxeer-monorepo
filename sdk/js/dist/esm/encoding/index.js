@@ -1,6 +1,4 @@
 import * as confio from "./confio/index";
-import * as cosmos_accesscontrol from "./cosmos/accesscontrol/index";
-import * as cosmos_accesscontrol_x from "./cosmos/accesscontrol_x/index";
 import * as cosmos_auth_v1beta1 from "./cosmos/auth/v1beta1/index";
 import * as cosmos_authz_v1beta1 from "./cosmos/authz/v1beta1/index";
 import * as cosmos_bank_v1beta1 from "./cosmos/bank/v1beta1/index";
@@ -14,7 +12,6 @@ import * as cosmos_base_store_v1beta1 from "./cosmos/base/store/v1beta1/index";
 import * as cosmos_base_tendermint_v1beta1 from "./cosmos/base/tendermint/v1beta1/index";
 import * as cosmos_base_v1beta1 from "./cosmos/base/v1beta1/index";
 import * as cosmos_capability_v1beta1 from "./cosmos/capability/v1beta1/index";
-import * as cosmos_crisis_v1beta1 from "./cosmos/crisis/v1beta1/index";
 import * as cosmos_crypto_ed25519 from "./cosmos/crypto/ed25519/index";
 import * as cosmos_crypto_multisig from "./cosmos/crypto/multisig/index";
 import * as cosmos_crypto_secp256k1 from "./cosmos/crypto/secp256k1/index";
@@ -25,7 +22,6 @@ import * as cosmos_evidence_v1beta1 from "./cosmos/evidence/v1beta1/index";
 import * as cosmos_feegrant_v1beta1 from "./cosmos/feegrant/v1beta1/index";
 import * as cosmos_genutil_v1beta1 from "./cosmos/genutil/v1beta1/index";
 import * as cosmos_gov_v1beta1 from "./cosmos/gov/v1beta1/index";
-import * as cosmos_mint_v1beta1 from "./cosmos/mint/v1beta1/index";
 import * as cosmos_params_types from "./cosmos/params/types/index";
 import * as cosmos_params_v1beta1 from "./cosmos/params/v1beta1/index";
 import * as cosmos_slashing_v1beta1 from "./cosmos/slashing/v1beta1/index";
@@ -53,8 +49,6 @@ export * from "./registry";
 export const Encoder = {
     confio: confio,
     cosmos: {
-        accesscontrol: cosmos_accesscontrol,
-        accesscontrol_x: cosmos_accesscontrol_x,
         auth: { v1beta1: cosmos_auth_v1beta1 },
         authz: { v1beta1: cosmos_authz_v1beta1 },
         bank: { v1beta1: cosmos_bank_v1beta1 },
@@ -69,7 +63,6 @@ export const Encoder = {
             v1beta1: cosmos_base_v1beta1
         },
         capability: { v1beta1: cosmos_capability_v1beta1 },
-        crisis: { v1beta1: cosmos_crisis_v1beta1 },
         crypto: {
             ed25519: cosmos_crypto_ed25519,
             multisig: cosmos_crypto_multisig,
@@ -82,7 +75,6 @@ export const Encoder = {
         feegrant: { v1beta1: cosmos_feegrant_v1beta1 },
         genutil: { v1beta1: cosmos_genutil_v1beta1 },
         gov: { v1beta1: cosmos_gov_v1beta1 },
-        mint: { v1beta1: cosmos_mint_v1beta1 },
         params: { types: cosmos_params_types, v1beta1: cosmos_params_v1beta1 },
         slashing: { v1beta1: cosmos_slashing_v1beta1 },
         staking: { v1beta1: cosmos_staking_v1beta1 },

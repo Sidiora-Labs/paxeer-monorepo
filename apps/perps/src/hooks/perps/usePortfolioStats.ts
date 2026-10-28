@@ -19,6 +19,7 @@ export interface PortfolioStats {
   freeCollateral: number;
   unrealizedPnl: number;
   totalLeverage: number;
+  maintenanceMarginUsd: AccountState["maintenanceMarginUsd"] | null;
   isLoading: boolean;
   positions: any[];
 }
@@ -31,12 +32,16 @@ export interface PortfolioStats {
 interface RawSnapshot {
   positions: any[];
   account: AccountTotals;
+  accountAddress: string | null;
+  maintenanceMarginUsd: AccountState["maintenanceMarginUsd"] | null;
   isLoading: boolean;
 }
 
 const EMPTY_RAW: RawSnapshot = {
   positions: [],
   account: EMPTY_ACCOUNT,
+  accountAddress: null,
+  maintenanceMarginUsd: null,
   isLoading: false,
 };
 
@@ -127,8 +132,10 @@ async function _fetchAccount(addr: string) {
   try {
     const account = await getPublicClient().readContract(buildGetAccount(addr as `0x${string}`));
     if (_activeAddress !== addr) return;
-    _setRaw({ account });
-  } catch {}
+    _setRaw({ account, accountAddress: addr, maintenanceMarginUsd: account.maintenanceMarginUsd });
+  } catch {
+    if (_activeAddress === addr) _setRaw({ maintenanceMarginUsd: null });
+  }
 }
 
 const POSITION_CHANGED_QUERY = /* GraphQL */ `
@@ -184,7 +191,7 @@ function _stopPolling() {
 function _startPolling(addr: string) {
   _stopPolling();
   _activeAddress = addr;
-  _setRaw({ isLoading: true });
+  _setRaw({ isLoading: true, accountAddress: null, maintenanceMarginUsd: null });
   Promise.all([_fetchAccount(addr), _fetchPositionsOnce(addr)]).finally(() => {
     if (_activeAddress === addr) _setRaw({ isLoading: false });
   });
@@ -259,6 +266,9 @@ export function usePortfolioStats(): PortfolioStats {
 
   return {
     ...totals,
+    maintenanceMarginUsd: wantedAddress !== null && raw.accountAddress === wantedAddress
+      ? raw.maintenanceMarginUsd
+      : null,
     isLoading: raw.isLoading,
     positions: visiblePositions,
   };

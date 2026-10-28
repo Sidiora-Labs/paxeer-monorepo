@@ -7,6 +7,7 @@ import {
   isPushSupported,
   getNotificationPermission,
   setWalletAddressForPush,
+  clearWalletAddressForPush,
   subscribeToPush,
   heartbeat,
 } from './push';
@@ -48,9 +49,10 @@ export async function handleTxCount(currentCount: number): Promise<void> {
   if (currentCount > lastCount) {
     const newTxs = currentCount - lastCount;
     await showLocalNotification('Transaction Received', {
-      body: newTxs === 1
-        ? 'You received a new transaction.'
-        : `You received ${newTxs} new transactions.`,
+      body:
+        newTxs === 1
+          ? 'You received a new transaction.'
+          : `You received ${newTxs} new transactions.`,
       tag: 'tx-received',
       data: { url: '/' },
     } as NotificationOptions);
@@ -113,11 +115,14 @@ async function checkFeatureAnnouncement(): Promise<void> {
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
-export async function startNotificationTriggers(walletAddress: string): Promise<void> {
+export async function startNotificationTriggers(
+  walletAddress: string,
+  signMessage: (text: string) => Promise<string>
+): Promise<void> {
   stopNotificationTriggers();
 
   // Associate wallet address with push subscription on the server
-  setWalletAddressForPush(walletAddress);
+  setWalletAddressForPush(walletAddress, signMessage);
 
   // Ensure the browser is subscribed to push (registers with our backend)
   try {
@@ -149,5 +154,9 @@ export async function startNotificationTriggers(walletAddress: string): Promise<
 }
 
 export function stopNotificationTriggers(): void {
-  if (inactivityTimer) { clearInterval(inactivityTimer); inactivityTimer = null; }
+  clearWalletAddressForPush();
+  if (inactivityTimer) {
+    clearInterval(inactivityTimer);
+    inactivityTimer = null;
+  }
 }

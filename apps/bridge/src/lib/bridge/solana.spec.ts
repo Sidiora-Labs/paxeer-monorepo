@@ -1,12 +1,37 @@
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { hexToBytes, type Address } from 'viem';
+
 import { expect, test } from 'vitest';
 
-import { base58Decode, base58Encode, parseRecipientRecord, recipientRecordAddress } from './solana';
+import { bridgeChainByKey } from './chains';
+import {
+  base58Decode, base58Encode, parseRecipientRecord, recipientRecordAddress,
+  recipientRecordFromResponse, recipientRecordRequest, solanaRecipientHandle,
+} from './solana';
 
 const HANDLE: Address = '0x0123456789abcdef0123456789abcdef01234567';
 const KEY = Uint8Array.from({ length: 32 }, (_, index) => index);
+
+function solanaHandleOfTheWrappedSolMintMatchesTheConfig() {
+  const config: { assets: Array<{ symbol: string; address: string; asset_id: string }> } = JSON.parse(
+    readFileSync(resolve(__dirname, '../../../../../contracts/bridge/solana/chains/solana/config.json'), 'utf8'),
+  );
+  const configuredSol = config.assets.find((asset) => asset.symbol === 'SOL');
+  const clientSol = bridgeChainByKey('solana')?.assets.find((asset) => asset.key === 'sol');
+  const wrappedSolMint = 'So11111111111111111111111111111111111111112';
+  const handle = solanaRecipientHandle(wrappedSolMint);
+
+  expect(configuredSol).toBeDefined();
+  expect(clientSol).toBeDefined();
+  expect(handle).toBeDefined();
+  if (!configuredSol || !clientSol || !handle) throw new Error('SOL configuration, client asset and derived handle must exist');
+  expect(configuredSol.address).toBe(wrappedSolMint);
+  expect(handle.toLowerCase()).toBe(configuredSol.asset_id.toLowerCase());
+  expect(handle.toLowerCase()).toBe(clientSol.assetId.toLowerCase());
+}
 
 function recipientRecordAddressIsOffCurve() {
   expect(base58Encode(new Uint8Array())).toBe('');
@@ -92,6 +117,49 @@ function parseRecipientRecordRefusesAnotherHandle() {
   expect(parseRecipientRecord(bytes, '0x01')).toBeUndefined();
 }
 
+function recipientRecordRequestUsesGetAccountInfo() {
+  const programId = base58Encode(KEY);
+  const destination = base58Encode(new Uint8Array(32).fill(7));
+  const handle = solanaRecipientHandle(destination);
+  if (!handle) throw new Error('A valid Solana destination must have a handle');
+  const record = recipientRecordAddress(programId, handle);
+  if (!record) throw new Error('A valid program and destination must derive a PDA');
+  expect(recipientRecordRequest(programId, destination)).toEqual({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'getAccountInfo',
+    params: [ record.address, { encoding: 'base64' } ],
+  });
+  expect(record.address).not.toBe(destination);
+  expect(recipientRecordRequest(programId, base58Encode(KEY))).not.toEqual(recipientRecordRequest(programId, destination));
+  expect(recipientRecordRequest('invalid', destination)).toBeUndefined();
+  expect(recipientRecordRequest(programId, 'invalid')).toBeUndefined();
+}
+
+function recipientRecordFromResponseReportsAMissingRecord() {
+  expect(recipientRecordFromResponse({ jsonrpc: '2.0', id: 1, result: { context: { slot: 1 }, value: null } }, HANDLE))
+    .toEqual({ registered: false });
+  const data = Buffer.from(recipientRecordBytes()).toString('base64');
+  const response = { jsonrpc: '2.0', id: 1, result: { value: { data: [ data, 'base64' ] } } };
+  expect(recipientRecordFromResponse(response, HANDLE)).toEqual({ registered: true, key: KEY });
+  expect(() => recipientRecordFromResponse(response, '0x0123456789abcdef0123456789abcdef01234568')).toThrow();
+  for (const invalid of [
+    null,
+    {},
+    { error: { code: -32603, message: 'Internal error' } },
+    { result: {} },
+    { result: { value: {} } },
+    { result: { value: { data: [ data, 'base58' ] } } },
+    { result: { value: { data: [ '!', 'base64' ] } } },
+    { result: { value: { data: [ '', 'base64' ] } } },
+  ]) {
+    expect(() => recipientRecordFromResponse(invalid, HANDLE)).toThrow();
+  }
+}
+
+test(recipientRecordRequestUsesGetAccountInfo.name, recipientRecordRequestUsesGetAccountInfo);
+test(recipientRecordFromResponseReportsAMissingRecord.name, recipientRecordFromResponseReportsAMissingRecord);
+test(solanaHandleOfTheWrappedSolMintMatchesTheConfig.name, solanaHandleOfTheWrappedSolMintMatchesTheConfig);
 test(recipientRecordAddressIsOffCurve.name, recipientRecordAddressIsOffCurve);
 test(parseRecipientRecordReadsTheKey.name, parseRecipientRecordReadsTheKey);
 test(parseRecipientRecordRefusesAnotherHandle.name, parseRecipientRecordRefusesAnotherHandle);

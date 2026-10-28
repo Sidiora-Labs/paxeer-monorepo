@@ -487,10 +487,14 @@ function layerXReceiptDigest(extensions: Readonly<Record<string, JsonValue>> | u
     throw new MiddlewareError("verification-failure");
   }
   const digest = layerx["receiptDigest"];
-  if (typeof digest !== "string" || !/^[0-9a-f]{64}$/u.test(digest)) {
+  if (typeof digest !== "string") {
     throw new MiddlewareError("verification-failure");
   }
-  return digest;
+  const normalized = digest.startsWith("0x") ? digest.slice(2) : digest;
+  if (!/^[0-9a-f]{64}$/u.test(normalized)) {
+    throw new MiddlewareError("verification-failure");
+  }
+  return normalized;
 }
 
 async function digestQuote(quote: MerchantQuote): Promise<string> {

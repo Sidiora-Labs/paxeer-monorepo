@@ -9,8 +9,9 @@ use k256::ecdsa::SigningKey;
 use serde_json::{json, Value};
 use x_websearch::attest::{signer_address, AttestorSet, Ready};
 use x_websearch::submit::{
-    attestor_set, fulfil_calldata, fulfil_gas_limit, request_status, selector, Fees, JournalState,
-    Outcome, SubmitError, Submitter, Transaction, FULFIL_SIGNATURE, STATUS_FULFILLED,
+    attestor_set, fulfil_calldata, fulfil_gas_limit, fulfil_program_calldata,
+    fulfil_program_gas_limit, request_status, selector, Fees, JournalState, Outcome, SubmitError,
+    Submitter, Transaction, FULFIL_PROGRAM_SIGNATURE, FULFIL_SIGNATURE, STATUS_FULFILLED,
 };
 use x_websearch::watch::{
     hex0x, kernel_network_id, unhex0x, EvmError, EvmRpc, GET_KERNEL_NETWORK_ID_SIGNATURE,
@@ -201,7 +202,7 @@ impl Replay {
             self.journalled
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner)
-                .push(std::fs::read_to_string(self.journal.join("7.json")).ok());
+                .push(std::fs::read_to_string(&self.journal).ok());
         }
         let mut rules = self.rules.lock().unwrap_or_else(PoisonError::into_inner);
         let rule = rules
@@ -246,6 +247,10 @@ impl Node {
     }
 
     fn start_rules(rules: Vec<Rule>, journal: &Path) -> Checked<Self> {
+        Self::start_rules_at(rules, &journal.join("7.json"))
+    }
+
+    fn start_rules_at(rules: Vec<Rule>, journal: &Path) -> Checked<Self> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let calls: Calls = Arc::new(Mutex::new(Vec::new()));
@@ -548,5 +553,336 @@ fn signatures_out_of_ascending_signer_order_are_refused_before_any_call() -> Che
     assert_eq!(submitter.submit(&repeated), Err(SubmitError::Encode));
     assert!(node.params("eth_call").is_empty());
     assert!(!scratch.journal().join("7.json").exists());
+    Ok(())
+}
+
+// Recorded with eth-abi 6.0.0 and eth-account 0.14.0: encode(["bytes"], [observation])
+// and Account.sign_transaction(type=2, chainId=713714, to=0x1019).
+const PROGRAM_RECORDINGS: &str = r#"[
+  {
+    "program_id": "0x7171717171717171717171717171717171717171717171717171717171717171",
+    "request_id": 7,
+    "nonce": 3,
+    "observation": "0x020000000000000000000000000000000000000000000000000000000000000001717171717171717171717171717171717171717171717171717171717171717100000000000000070178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b02fffa7b9297830882d729170c9ecbb377be79200a4c890700530a13c0fe2ae74a1e69846fd3edc1110f2ef722f1d2293d11916ebccb6a4fc3a39517f2a9dd42731bcc3b1d9feadce303b137ff92e429650cec6ab1867c0179f6ba9e33237dc0880b52bca335be388fde7add0ca9e1c725e3e69332a9d8ce0ad5fa5a14d57ccc40d41b",
+    "calldata": "0x2d4bf7ad00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000125020000000000000000000000000000000000000000000000000000000000000001717171717171717171717171717171717171717171717171717171717171717100000000000000070178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b02fffa7b9297830882d729170c9ecbb377be79200a4c890700530a13c0fe2ae74a1e69846fd3edc1110f2ef722f1d2293d11916ebccb6a4fc3a39517f2a9dd42731bcc3b1d9feadce303b137ff92e429650cec6ab1867c0179f6ba9e33237dc0880b52bca335be388fde7add0ca9e1c725e3e69332a9d8ce0ad5fa5a14d57ccc40d41b000000000000000000000000000000000000000000000000000000",
+    "gas_limit": 79352,
+    "raw": "0x02f901f5830ae3f203843b9aca008504e3b29200830135f894000000000000000000000000000000000000101980b901842d4bf7ad00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000125020000000000000000000000000000000000000000000000000000000000000001717171717171717171717171717171717171717171717171717171717171717100000000000000070178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b02fffa7b9297830882d729170c9ecbb377be79200a4c890700530a13c0fe2ae74a1e69846fd3edc1110f2ef722f1d2293d11916ebccb6a4fc3a39517f2a9dd42731bcc3b1d9feadce303b137ff92e429650cec6ab1867c0179f6ba9e33237dc0880b52bca335be388fde7add0ca9e1c725e3e69332a9d8ce0ad5fa5a14d57ccc40d41b000000000000000000000000000000000000000000000000000000c080a05365d87b67f84aaa27a38c3585f1f54e116bd8dae726a59a9ed71c0ef471bac4a051672b7348ef97a3951d0360be932cd316efbea69290a00db8b9853b4216e0d7",
+    "hash": "0x7bce3798270291f199a0403bf1539b3bc16101b48fa57d73fba654bc3196b04e"
+  },
+  {
+    "program_id": "0x7272727272727272727272727272727272727272727272727272727272727272",
+    "request_id": 7,
+    "nonce": 4,
+    "observation": "0x020000000000000000000000000000000000000000000000000000000000000001727272727272727272727272727272727272727272727272727272727272727200000000000000070178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b0235b4b7f4fa5e903a1c7571f067aa7e1f99b2d4c954d65dd4f364a0320e8360993e309b8578fded1ce622482f44df4e6fe88899e5eacd879e39c0076355b9875d1c2b965fdf561ebb49fcaa6f37579df3554fdd20f514df42ead94d73ff49a8f0c0215795625ce0518d83f84d3deccc40116759e85fc6d06c6ed4a6c026c6ca31621b",
+    "calldata": "0x2d4bf7ad00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000125020000000000000000000000000000000000000000000000000000000000000001727272727272727272727272727272727272727272727272727272727272727200000000000000070178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b0235b4b7f4fa5e903a1c7571f067aa7e1f99b2d4c954d65dd4f364a0320e8360993e309b8578fded1ce622482f44df4e6fe88899e5eacd879e39c0076355b9875d1c2b965fdf561ebb49fcaa6f37579df3554fdd20f514df42ead94d73ff49a8f0c0215795625ce0518d83f84d3deccc40116759e85fc6d06c6ed4a6c026c6ca31621b000000000000000000000000000000000000000000000000000000",
+    "gas_limit": 79352,
+    "raw": "0x02f901f5830ae3f204843b9aca008504e3b29200830135f894000000000000000000000000000000000000101980b901842d4bf7ad00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000125020000000000000000000000000000000000000000000000000000000000000001727272727272727272727272727272727272727272727272727272727272727200000000000000070178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b0235b4b7f4fa5e903a1c7571f067aa7e1f99b2d4c954d65dd4f364a0320e8360993e309b8578fded1ce622482f44df4e6fe88899e5eacd879e39c0076355b9875d1c2b965fdf561ebb49fcaa6f37579df3554fdd20f514df42ead94d73ff49a8f0c0215795625ce0518d83f84d3deccc40116759e85fc6d06c6ed4a6c026c6ca31621b000000000000000000000000000000000000000000000000000000c080a090390cd456e360d97a754755d4ead820d4660d71b2c05c9c27aa5bbb611511ffa00f476bb9e5ee77205dcba0d2b165d28dfa010a157c7a4958d25e5f8b0ffb400b",
+    "hash": "0x6d6a6a7fae98a74900f43037e0fe7e6f350c184e783caa0d7e2a3a2b0dfdd2aa"
+  },
+  {
+    "program_id": "0x7171717171717171717171717171717171717171717171717171717171717171",
+    "request_id": 8,
+    "nonce": 5,
+    "observation": "0x020000000000000000000000000000000000000000000000000000000000000001717171717171717171717171717171717171717171717171717171717171717100000000000000080178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b025ae961f9d1a9496d31d1f99d5c726626eec36c9b235002408dcc581ba2cf67ac169e9d23e43c67bb3df7d86112d1c369a4adba2b049f9444bf0211904162f80e1b795034981efd1985fda48634b75dbe7d40fb09cb4499872ed95e28671a34a7107de66076f8f1d74710b12ae10a9dcaed198c7550a20c11f2bb63917875ecdd2b1b",
+    "calldata": "0x2d4bf7ad00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000125020000000000000000000000000000000000000000000000000000000000000001717171717171717171717171717171717171717171717171717171717171717100000000000000080178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b025ae961f9d1a9496d31d1f99d5c726626eec36c9b235002408dcc581ba2cf67ac169e9d23e43c67bb3df7d86112d1c369a4adba2b049f9444bf0211904162f80e1b795034981efd1985fda48634b75dbe7d40fb09cb4499872ed95e28671a34a7107de66076f8f1d74710b12ae10a9dcaed198c7550a20c11f2bb63917875ecdd2b1b000000000000000000000000000000000000000000000000000000",
+    "gas_limit": 79352,
+    "raw": "0x02f901f5830ae3f205843b9aca008504e3b29200830135f894000000000000000000000000000000000000101980b901842d4bf7ad00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000125020000000000000000000000000000000000000000000000000000000000000001717171717171717171717171717171717171717171717171717171717171717100000000000000080178e2b53bf00e401996720cd3200858d74dcea9e2e85fd8902c2390f16888dfa5222222222222222222222222222222222222222222222222222222222222222200000010000000105061786565722058204e6574776f726b025ae961f9d1a9496d31d1f99d5c726626eec36c9b235002408dcc581ba2cf67ac169e9d23e43c67bb3df7d86112d1c369a4adba2b049f9444bf0211904162f80e1b795034981efd1985fda48634b75dbe7d40fb09cb4499872ed95e28671a34a7107de66076f8f1d74710b12ae10a9dcaed198c7550a20c11f2bb63917875ecdd2b1b000000000000000000000000000000000000000000000000000000c001a0bfb031b06559dff2735e249f4b4e69aca03a7600de8a124f3ce7f551bd881ea3a074f92ddfe27da79f105c235ff2b83736bfb922b8cb291b757d30419a216843c8",
+    "hash": "0xd72652f50a6554f21212419a05d7b0d0d448719ca80fd8dc8e3bc8920c71ff31"
+  }
+]"#;
+
+fn program_recordings() -> Checked<Vec<Value>> {
+    Ok(serde_json::from_str(PROGRAM_RECORDINGS)?)
+}
+
+fn program_key(record: &Value) -> Checked<x_websearch::program::ProgramKey> {
+    Ok((
+        bytes(text(record, "/program_id")?)?
+            .try_into()
+            .map_err(|_| fail("program id is not 32 bytes"))?,
+        record["request_id"]
+            .as_u64()
+            .ok_or_else(|| fail("request id"))?,
+    ))
+}
+
+fn rule(method: &str, params: Value, result: Value, once: bool) -> Rule {
+    Rule {
+        method: method.to_owned(),
+        params,
+        answer: json!({ "result": result }),
+        once,
+        used: false,
+    }
+}
+
+#[test]
+fn fulfil_program_calldata_matches_an_independent_encoder() -> Checked {
+    assert_eq!(FULFIL_PROGRAM_SIGNATURE, "fulfilProgram(bytes)");
+    assert_eq!(selector(FULFIL_PROGRAM_SIGNATURE), [0x2d, 0x4b, 0xf7, 0xad]);
+    let abi: Value =
+        serde_json::from_str(include_str!("../../../../../precompiles/xweb/abi.json"))?;
+    let method = abi
+        .as_array()
+        .and_then(|methods| {
+            methods
+                .iter()
+                .find(|method| method["name"] == "fulfilProgram")
+        })
+        .ok_or_else(|| fail("fulfilProgram missing from ABI"))?;
+    assert_eq!(method["inputs"].as_array().map(Vec::len), Some(1));
+    assert_eq!(method["inputs"][0]["type"], "bytes");
+    for recorded in program_recordings()? {
+        let observation = bytes(text(&recorded, "/observation")?)?;
+        let calldata = fulfil_program_calldata(&observation);
+        assert_eq!(hex0x(&calldata), text(&recorded, "/calldata")?);
+        let gas_limit = fulfil_program_gas_limit(&calldata, 2);
+        assert_eq!(Some(gas_limit), recorded["gas_limit"].as_u64());
+        assert_eq!(
+            gas_limit,
+            21_000
+                + 16 * calldata.len() as u64
+                + 30_000
+                + 16 * (calldata.len() as u64 - 4)
+                + 2 * 8_000
+        );
+        assert_eq!(fulfil_gas_limit(&calldata, 2, 200_000), gas_limit + 210_000);
+        let transaction = Transaction {
+            chain_id: CHAIN_ID,
+            nonce: recorded["nonce"].as_u64().ok_or_else(|| fail("nonce"))?,
+            fees: Fees {
+                max_fee_per_gas: 21_000_000_000,
+                max_priority_fee_per_gas: 1_000_000_000,
+            },
+            gas_limit,
+            to: XWEB_PRECOMPILE,
+            data: calldata,
+        };
+        assert_eq!(
+            hex0x(&transaction.to),
+            "0x0000000000000000000000000000000000001019"
+        );
+        let signed = transaction.sign(&submitter_key()?)?;
+        assert_eq!(signed.raw[0], 2);
+        assert_eq!(hex0x(&signed.raw), text(&recorded, "/raw")?);
+        assert_eq!(hex0x(&signed.hash), text(&recorded, "/hash")?);
+    }
+    for length in [0_usize, 1, 31, 32, 33, 64, 65, 4096] {
+        let observation = vec![0xa5; length];
+        let calldata = fulfil_program_calldata(&observation);
+        assert_eq!(calldata.len(), 4 + 64 + length.div_ceil(32) * 32);
+        assert_eq!(&calldata[4..35], &[0; 31]);
+        assert_eq!(calldata[35], 32);
+        assert_eq!(&calldata[36..60], &[0; 24]);
+        assert_eq!(&calldata[60..68], &(length as u64).to_be_bytes());
+        assert_eq!(&calldata[68..68 + length], observation);
+        assert!(calldata[68 + length..].iter().all(|byte| *byte == 0));
+    }
+    assert_eq!(fulfil_program_gas_limit(&[], usize::MAX), u64::MAX);
+    Ok(())
+}
+
+#[test]
+fn a_program_fulfil_is_journalled_by_program_and_request() -> Checked {
+    let scratch = Scratch::new("program-submit")?;
+    let records = program_recordings()?;
+    let journal = x_websearch::submit::Journal::open(&scratch.journal())?;
+    let key = program_key(&records[0])?;
+    let path = journal.path(key);
+    assert!(path.starts_with(scratch.journal()));
+    assert_eq!(journal.path(7), scratch.journal().join("7.json"));
+    assert_ne!(path, journal.path(7));
+    assert_ne!(path, journal.path(program_key(&records[1])?));
+    assert_ne!(path, journal.path(program_key(&records[2])?));
+    let web = x_websearch::submit::JournalEntry {
+        request_id: 7,
+        state: JournalState::AlreadyFulfilled,
+        transaction: None,
+    };
+    journal.store(&web)?;
+    let web_on_disk = std::fs::read(journal.path(7))?;
+    let mut rules = load_rules(&["chain.json"])?;
+    let block_hash = format!("0x{}", "ab".repeat(32));
+    for (index, record) in records.iter().enumerate() {
+        rules.insert(
+            index,
+            rule(
+                "eth_getTransactionCount",
+                json!(["0xa3e570d1d3ad527d6c518c53be6c6293cddeee01", "pending"]),
+                json!(format!(
+                    "0x{:x}",
+                    record["nonce"].as_u64().ok_or_else(|| fail("nonce"))?
+                )),
+                true,
+            ),
+        );
+        rules.push(rule(
+            "eth_sendRawTransaction",
+            json!([record["raw"]]),
+            record["hash"].clone(),
+            false,
+        ));
+    }
+    let receipt_params = json!([records[0]["hash"]]);
+    let receipt = json!({"transactionHash": records[0]["hash"], "status": "0x1",
+        "blockNumber": "0x21", "blockHash": block_hash});
+    rules.push(rule(
+        "eth_getTransactionReceipt",
+        receipt_params.clone(),
+        Value::Null,
+        true,
+    ));
+    rules.push(rule(
+        "eth_getTransactionReceipt",
+        receipt_params,
+        receipt,
+        false,
+    ));
+    rules.push(rule("eth_blockNumber", json!([]), json!("0x22"), true));
+    rules.push(rule("eth_blockNumber", json!([]), json!("0x23"), false));
+    rules.push(rule(
+        "eth_getBlockByNumber",
+        json!(["0x21", false]),
+        json!({"hash": format!("0x{}", "cd".repeat(32))}),
+        true,
+    ));
+    rules.push(rule(
+        "eth_getBlockByNumber",
+        json!(["0x21", false]),
+        json!({"hash": block_hash}),
+        false,
+    ));
+    rules.push(rule("eth_getTransactionReceipt", json!([records[1]["hash"]]),
+        json!({"transactionHash": records[1]["hash"], "status": "0x0", "blockNumber": "0x21", "blockHash": block_hash}), false));
+    let node = Node::start_rules_at(rules, &path)?;
+    let hash: [u8; 32] = bytes(text(&records[0], "/hash")?)?
+        .try_into()
+        .map_err(|_| fail("hash"))?;
+    let observation = bytes(text(&records[0], "/observation")?)?;
+    {
+        let mut submitter =
+            Submitter::open(node.rpc()?, submitter_key()?, CHAIN_ID, &scratch.journal())?
+                .with_confirmations(2);
+        assert_eq!(submitter.resume_program(key)?, None);
+        let mut mismatched = observation.clone();
+        mismatched[33] ^= 1;
+        assert_eq!(
+            submitter.submit_program(key, &mismatched, 2),
+            Err(SubmitError::Encode)
+        );
+        assert_eq!(
+            submitter.submit_program(key, &observation, 1),
+            Err(SubmitError::Encode)
+        );
+        assert_eq!(
+            submitter.submit_program(key, &observation[..145], 2),
+            Err(SubmitError::Encode)
+        );
+        assert_eq!(node.calls("eth_getTransactionCount"), 0);
+        assert_eq!(
+            submitter.submit_program(key, &observation, 2)?,
+            Outcome::Sent { hash }
+        );
+    }
+    let on_disk: Value = serde_json::from_str(
+        node.journalled()[0]
+            .as_deref()
+            .ok_or_else(|| fail("not journalled before broadcast"))?,
+    )?;
+    assert_eq!(on_disk["state"], "signed");
+    assert_eq!(on_disk["raw"], records[0]["raw"]);
+    assert_eq!(on_disk["hash"], records[0]["hash"]);
+    assert_eq!(on_disk["nonce"], records[0]["nonce"]);
+    // A different key on restart proves that the stored envelope is reused.
+    let mut restarted = Submitter::open(node.rpc()?, secp(0x5a, 2)?, CHAIN_ID, &scratch.journal())?
+        .with_confirmations(2);
+    assert_eq!(restarted.resume_program(key)?, Some(Outcome::Sent { hash }));
+    assert_eq!(
+        node.params("eth_sendRawTransaction"),
+        vec![json!([records[0]["raw"]]), json!([records[0]["raw"]])]
+    );
+    assert_eq!(node.journalled()[0], node.journalled()[1]);
+    assert_eq!(node.calls("eth_getTransactionCount"), 1);
+    assert_eq!(node.calls("eth_maxPriorityFeePerGas"), 1);
+    assert_eq!(restarted.resume_program(key)?, Some(Outcome::Sent { hash }));
+    assert_eq!(
+        journal.load(key)?.ok_or_else(|| fail("journal"))?.state,
+        JournalState::Signed
+    );
+    assert_eq!(restarted.resume_program(key)?, Some(Outcome::Sent { hash }));
+    assert_eq!(
+        journal.load(key)?.ok_or_else(|| fail("journal"))?.state,
+        JournalState::Signed
+    );
+    assert_eq!(restarted.resume_program(key)?, Some(Outcome::Fulfilled));
+    let completed = journal
+        .load(key)?
+        .ok_or_else(|| fail("completed journal"))?;
+    assert_eq!(completed.state, JournalState::Fulfilled);
+    assert_eq!(
+        hex0x(
+            &completed
+                .transaction
+                .ok_or_else(|| fail("signed transaction"))?
+                .1
+                .raw
+        ),
+        records[0]["raw"]
+    );
+    assert_eq!(
+        restarted.submit_program(key, &observation, 2)?,
+        Outcome::Fulfilled
+    );
+    assert_eq!(node.calls("eth_getTransactionReceipt"), 4);
+    assert_eq!(node.calls("eth_sendRawTransaction"), 2);
+    assert_eq!(std::fs::read(journal.path(7))?, web_on_disk);
+    assert_eq!(journal.load(7)?, Some(web));
+    assert_eq!(journal.requests()?, vec![7]);
+    assert!(restarted.resume()?.is_empty());
+    // Program and request components each select a separate entry.
+    let mut submitter =
+        Submitter::open(node.rpc()?, submitter_key()?, CHAIN_ID, &scratch.journal())?
+            .with_confirmations(2);
+    for record in &records[1..] {
+        let other = program_key(record)?;
+        let expected_hash: [u8; 32] = bytes(text(record, "/hash")?)?
+            .try_into()
+            .map_err(|_| fail("hash"))?;
+        assert_eq!(
+            submitter.submit_program(other, &bytes(text(record, "/observation")?)?, 2)?,
+            Outcome::Sent {
+                hash: expected_hash
+            }
+        );
+        let entry = journal
+            .load(other)?
+            .ok_or_else(|| fail("other program journal"))?;
+        assert_eq!(entry.state, JournalState::Signed);
+        assert_eq!(
+            hex0x(
+                &entry
+                    .transaction
+                    .ok_or_else(|| fail("other transaction"))?
+                    .1
+                    .raw
+            ),
+            record["raw"]
+        );
+    }
+    assert_eq!(node.calls("eth_getTransactionCount"), 3);
+    assert_eq!(
+        submitter.resume_program(program_key(&records[1])?)?,
+        Some(Outcome::Reverted)
+    );
+    assert_eq!(journal.load(program_key(&records[1])?)?, None);
+    assert!(journal.load(program_key(&records[2])?)?.is_some());
+    assert_eq!(
+        journal
+            .load(key)?
+            .ok_or_else(|| fail("first journal"))?
+            .state,
+        JournalState::Fulfilled
+    );
+    assert_eq!(std::fs::read(journal.path(7))?, web_on_disk);
     Ok(())
 }

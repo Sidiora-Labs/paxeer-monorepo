@@ -1,0 +1,179 @@
+[
+  {
+    "name": "card_receipted_credit",
+    "principal": "card_receipted_credit",
+    "trace": "18181818181818181818181818181818",
+    "token": "tok_conformance_card_receipted_credit",
+    "now": 11,
+    "replay_at": 12,
+    "provider_public_key": "0xc84069fa2216c6edc1d52ca83aa11c267dd5440afa526090ca43ebd0ca86a9cf",
+    "provider_facts": {
+      "provider": "sequenced-card-provider",
+      "settlement": "card_receipted_credit",
+      "rail": "card",
+      "class": "settled",
+      "amount": "1000000",
+      "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
+      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "observed_at": 10,
+      "hold_until": null,
+      "token_reference_sha256": "0x812be8128e73728833bc1af20392a443ba6116736070b1a0719a542baf6a4a80"
+    },
+    "provider_signature": "0x1bc4c9befe9dfd2489ced98d1ec2a52856e56953f6fd3d6599601d8b2a25dffe8245a7c28544ec479bbc58081dd3212f3ac73b5991875da774003ce83f1dab0d",
+    "sequencer": {
+      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+      "case": "V1-layerxledger-pay-exact",
+      "rung": "receipted",
+      "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
+      "receipt_digest": "0xb274211c7c8e504a54c6a5e741e70d1d4a935dcb2f01f98933200af274486e66",
+      "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
+      "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "payment_reference": "0x0b5827ae8eac02b6eba77b8b130d6a64e9fe1a8e875256b87bce0d79393227a4"
+    },
+    "expect": {
+      "state": "credited",
+      "receipt_digest": "0xb274211c7c8e504a54c6a5e741e70d1d4a935dcb2f01f98933200af274486e66",
+      "translation": "receipt-verified"
+    }
+  },
+  {
+    "name": "bank_receipted_credit",
+    "principal": "bank_receipted_credit",
+    "trace": "18181818181818181818181818181818",
+    "token": "tok_conformance_bank_receipted_credit",
+    "now": 11,
+    "replay_at": 12,
+    "provider_public_key": "0xc84069fa2216c6edc1d52ca83aa11c267dd5440afa526090ca43ebd0ca86a9cf",
+    "provider_facts": {
+      "provider": "sequenced-bank-provider",
+      "settlement": "bank_receipted_credit",
+      "rail": "bank",
+      "class": "settled",
+      "amount": "1000000",
+      "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
+      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "observed_at": 10,
+      "hold_until": null,
+      "token_reference_sha256": "0x679bd79fc9f6a75b5773ed5a41108d7d17c5745adb0e43acaa6ea2029056f1a3"
+    },
+    "provider_signature": "0xc924adeef2bb56eb9b484fb02bdd6254882bbb3a51eb211873c79eebce16ff31857a97817be6da4bb66fbaf2df810c1b6b4f698bad98ab1993f4598c127d870e",
+    "sequencer": {
+      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+      "case": "V1-layerxledger-pay-exact",
+      "rung": "receipted",
+      "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
+      "receipt_digest": "0x64609bfecfa241181ff89d39ef64e966b080ef371a0cd0085e193f791b88ee7d",
+      "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
+      "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "payment_reference": "0xd37ec5ad3fec2fc46907d83e2acbacb9adaffa7372f75ba7df9146d18427bd62"
+    },
+    "expect": {
+      "state": "credited",
+      "receipt_digest": "0x64609bfecfa241181ff89d39ef64e966b080ef371a0cd0085e193f791b88ee7d",
+      "translation": "receipt-verified"
+    }
+  },
+  {
+    "name": "rtp_receipted_credit",
+    "principal": "rtp_receipted_credit",
+    "trace": "18181818181818181818181818181818",
+    "token": "tok_conformance_rtp_receipted_credit",
+    "now": 11,
+    "replay_at": 12,
+    "provider_public_key": "0xc84069fa2216c6edc1d52ca83aa11c267dd5440afa526090ca43ebd0ca86a9cf",
+    "provider_facts": {
+      "provider": "sequenced-rtp-provider",
+      "settlement": "rtp_receipted_credit",
+      "rail": "rtp",
+      "class": "settled",
+      "amount": "1000000",
+      "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
+      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "observed_at": 10,
+      "hold_until": null,
+      "token_reference_sha256": "0xe5fa27e2cfe2a4422f3c1e569029384407666ab67ff542b6b307ddadb8ddce50"
+    },
+    "provider_signature": "0x695be42638852eebfe801e77be2c164213b90dcf33fa5e87caaf3365908c633386f46a8e596679d57fb1604cc699d7309a1cf506badd3b440f625caa76aace0d",
+    "sequencer": {
+      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+      "case": "V1-layerxledger-pay-exact",
+      "rung": "receipted",
+      "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
+      "receipt_digest": "0x0eaf980dc7e0b5f9b7b2355c5073bc786675face49f8527885b1e896e07512a4",
+      "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
+      "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "payment_reference": "0x682606fee5a23df2e15cabd4baacf2f8342bc7bbe9e381988742f6722a11f103"
+    },
+    "expect": {
+      "state": "credited",
+      "receipt_digest": "0x0eaf980dc7e0b5f9b7b2355c5073bc786675face49f8527885b1e896e07512a4",
+      "translation": "receipt-verified"
+    }
+  },
+  {
+    "name": "card_submitted_waits",
+    "principal": "card_submitted_waits",
+    "trace": "18181818181818181818181818181818",
+    "token": "tok_conformance_card_submitted_waits",
+    "now": 11,
+    "replay_at": 12,
+    "provider_public_key": "0xc84069fa2216c6edc1d52ca83aa11c267dd5440afa526090ca43ebd0ca86a9cf",
+    "provider_facts": {
+      "provider": "sequenced-card-provider",
+      "settlement": "card_submitted_waits",
+      "rail": "card",
+      "class": "settled",
+      "amount": "1000000",
+      "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
+      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "observed_at": 10,
+      "hold_until": null,
+      "token_reference_sha256": "0xf55db7d9d16120cc170bd9cd78cb4272df97abe7a47c044e75fb8b38d2ccd06e"
+    },
+    "provider_signature": "0xec1f85b17394dd5f04766f02c062989a8d347ad679835b8f45f2df478b2cd83dc2978a1957e58f1ad782794f923b0ecde7acc3fc9661fb56928c953393305407",
+    "sequencer": {
+      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+      "case": "V1-layerxledger-pay-exact",
+      "rung": "submitted",
+      "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
+      "receipt_digest": null
+    },
+    "expect": {
+      "state": "credit-pending",
+      "translation": "pending"
+    }
+  },
+  {
+    "name": "card_reverted_never_credits",
+    "principal": "card_reverted_never_credits",
+    "trace": "18181818181818181818181818181818",
+    "token": "tok_conformance_card_reverted_never_credits",
+    "now": 11,
+    "replay_at": 12,
+    "provider_public_key": "0xc84069fa2216c6edc1d52ca83aa11c267dd5440afa526090ca43ebd0ca86a9cf",
+    "provider_facts": {
+      "provider": "sequenced-card-provider",
+      "settlement": "card_reverted_never_credits",
+      "rail": "card",
+      "class": "settled",
+      "amount": "1267650600228229401496703205376",
+      "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
+      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "observed_at": 10,
+      "hold_until": null,
+      "token_reference_sha256": "0xac836dd073e7c3515d73bcdf861fbf6e8e35c16a9d88dfc890726b048fe26c52"
+    },
+    "provider_signature": "0x15635e103ee1948773ad984369d4adf80f985bf7b622bc9cb4befe4ae4353074f9b35a82144d8eaef3e23662c81767338d4d47c0c991d761f72ec502889c1b01",
+    "sequencer": {
+      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+      "case": "V2-layerxledger-revert",
+      "rung": "receipted",
+      "transaction_hash": "0x4f96a837589571ea40d90364edb4857a4df24a84d991a035ffb21b87a079e8b8",
+      "receipt_digest": "0xd538b9b7edae31032e2f91f217c15512eaeb0224706e99f17cdd61452f850ea4"
+    },
+    "expect": {
+      "refusal": "ReceiptMismatch",
+      "translation": "pending"
+    }
+  }
+]

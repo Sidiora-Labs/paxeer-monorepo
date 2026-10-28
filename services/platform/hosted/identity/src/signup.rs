@@ -286,6 +286,10 @@ pub fn grant_starter_credit(
     let outcome = match store.starter_credit(sub) {
         _ if store.verified_email(sub).is_none() => Err(Refused::NotVerified),
         Some(credit) if credit.settled_at.is_some() => Err(Refused::AlreadyCredited),
+        Some(credit) if credit.amount != STARTER_CREDIT_AMOUNT => store
+            .reissue_starter_credit(sub, STARTER_CREDIT_AMOUNT)
+            .map_err(|_| Refused::Store)
+            .and_then(|()| store.starter_credit(sub).cloned().ok_or(Refused::Store)),
         Some(credit) => Ok(credit.clone()),
         None => {
             let credit = StarterCredit {
@@ -515,6 +519,62 @@ mod tests {
             verify(&mut store, &token(9), NOW),
             Err(Refused::TokenUnknown)
         );
+    }
+
+    #[test]
+    fn signup_stored_legacy_starter_credit_is_reissued_at_current_amount() {
+        let (mut store, root) = store("legacy-credit");
+        let mut desk = Desk::new(Limits::default(), Vec::new());
+        desk.start(
+            &mut store,
+            &request("legacy@example.com", "ip", "beta.legacy"),
+            &token(1),
+            NOW,
+        )
+        .unwrap_or_else(|refused| panic!("{refused:?}"));
+        verify(&mut store, &token(1), NOW + 1).unwrap_or_else(|refused| panic!("{refused:?}"));
+
+        let legacy = StarterCredit {
+            sub: "beta.legacy".to_owned(),
+            grant_id: "grant-1".to_owned(),
+            amount: "10000000000000000000".to_owned(),
+            granted_at: NOW + 2,
+            settled_at: None,
+        };
+        store
+            .put_starter_credit(legacy.clone())
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert!(store
+            .reissue_starter_credit("beta.unknown", STARTER_CREDIT_AMOUNT)
+            .is_err());
+
+        let reissued = grant_starter_credit(&mut store, &legacy.sub, "grant-2", NOW + 3)
+            .unwrap_or_else(|refused| panic!("{refused:?}"));
+        assert_eq!(reissued.amount, STARTER_CREDIT_AMOUNT);
+        assert_eq!(reissued.grant_id, legacy.grant_id);
+        assert_eq!(reissued.granted_at, legacy.granted_at);
+        assert_eq!(reissued.settled_at, None);
+
+        drop(store);
+        let mut reopened = Store::open(&root).unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(reopened.starter_credit(&legacy.sub), Some(&reissued));
+        assert_eq!(
+            grant_starter_credit(&mut reopened, &legacy.sub, "grant-3", NOW + 4),
+            Ok(reissued)
+        );
+        let settled = settle_starter_credit(&mut reopened, &legacy.sub, &legacy.grant_id, NOW + 5)
+            .unwrap_or_else(|refused| panic!("{refused:?}"));
+        assert_eq!(
+            grant_starter_credit(&mut reopened, &legacy.sub, "grant-4", NOW + 6),
+            Err(Refused::AlreadyCredited)
+        );
+        assert!(reopened
+            .reissue_starter_credit(&legacy.sub, &legacy.amount)
+            .is_err());
+        assert_eq!(reopened.starter_credit(&legacy.sub), Some(&settled));
+        drop(reopened);
+        let reopened = Store::open(&root).unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(reopened.starter_credit(&legacy.sub), Some(&settled));
     }
 
     #[test]

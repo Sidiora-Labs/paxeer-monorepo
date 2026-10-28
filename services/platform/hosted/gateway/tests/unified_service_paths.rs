@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::io::{Cursor, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread;
@@ -17,6 +18,23 @@ const SDK_PROVIDER: &str = include_str!("../../../../../sdk/wallet/src/provider.
 const SDK_LX: &str = include_str!("../../../../../sdk/wallet/src/index.ts");
 const SDK_GAS: &str = include_str!("../../../../../sdk/wallet/src/modules/gas-station.ts");
 const ARCHIVE: &str = include_str!("../../../../../services/platform/relay_archive/runtime.py");
+
+#[test]
+fn served_catalogue_lists_px_register_and_no_retired_lx_routes() {
+    let routes = unified_service_catalogue()["routes"]
+        .as_array()
+        .expect("production routes");
+    for route in routes {
+        assert_ne!(route["path"], "lx_register", "retired route: {route}");
+        assert_ne!(route["path"], "lx_getHistory", "retired route: {route}");
+    }
+    assert!(routes.iter().any(|route| {
+        route["id"] == "kernel:POST:px_register" && route["path"] == "px_register"
+    }));
+    assert!(routes.iter().any(|route| {
+        route["id"] == "indexer:POST:px_getHistory" && route["path"] == "px_getHistory"
+    }));
+}
 
 fn operation(method: &str, target: &str, source: &str) {
     let entry = unified_service_route(method, target).expect("actual unified service operation");
@@ -218,6 +236,10 @@ impl Drop for Gateway {
 
 impl Gateway {
     fn start() -> Self {
+        Self::start_with_explorer(None)
+    }
+
+    fn start_with_explorer(explorer: Option<&TcpListener>) -> Self {
         let directory = std::env::temp_dir().join(format!(
             "layerx-unified-paths-{}-{}",
             std::process::id(),
@@ -229,6 +251,47 @@ impl Gateway {
         fs::create_dir(&directory)
             .unwrap_or_else(|error| panic!("test directory must be created: {error}"));
         let file = |name: &str| directory.join(name);
+        if let Some(explorer) = explorer {
+            let authorization = file("explorer-authorization");
+            fs::write(&authorization, format!("Bearer {}", "ab".repeat(32)))
+                .unwrap_or_else(|error| panic!("explorer authority must be written: {error}"));
+            fs::set_permissions(&authorization, fs::Permissions::from_mode(0o600))
+                .unwrap_or_else(|error| panic!("explorer authority must be protected: {error}"));
+            let bindings = file("route-bindings.json");
+            fs::write(
+                &bindings,
+                json!({
+                    "schema": "paxeer-x.route-bindings.v1",
+                    "chain_id": 125,
+                    "network_id": "unified-service-paths",
+                    "wire_version": layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
+                    "allowed_origins": [],
+                    "services": {},
+                    "upstreams": {
+                        "layerx-explorer": {
+                            "service": "explorer",
+                            "binding": {
+                                "url": format!("https://localhost:{}", explorer.local_addr().expect("explorer address").port()),
+                                "health_path": "/v1/readiness",
+                                "identity_path": "/v1/identity",
+                                "health_authorization_file": authorization,
+                                "ready_pointer": "/complete",
+                                "ready_value": true,
+                                "network_pointer": "/network_id",
+                                "network_value": "unified-service-paths",
+                                "version_pointer": "/wire_version",
+                                "version_value": layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string()
+                            }
+                        }
+                    },
+                    "passthrough": []
+                })
+                .to_string(),
+            )
+            .unwrap_or_else(|error| panic!("explorer binding must be written: {error}"));
+            fs::set_permissions(&bindings, fs::Permissions::from_mode(0o600))
+                .unwrap_or_else(|error| panic!("explorer binding must be protected: {error}"));
+        }
         run(
             "openssl",
             &[
@@ -293,7 +356,8 @@ impl Gateway {
                 .unwrap_or_else(|error| panic!("{name} must be written: {error}"));
         }
         let port = free_port();
-        let gateway = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"));
+        command
             .env_clear()
             .env("PATH", std::env::var_os("PATH").unwrap_or_default())
             .env("LAYERX_GATEWAY_LISTEN", format!("127.0.0.1:{port}"))
@@ -312,7 +376,14 @@ impl Gateway {
             .env("LAYERX_GATEWAY_REDIS_USERNAME_FILE", file("redis-username"))
             .env("LAYERX_GATEWAY_REDIS_PASSWORD_FILE", file("redis-password"))
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::null());
+        if explorer.is_some() {
+            command.env(
+                "LAYERX_GATEWAY_ROUTE_BINDINGS_FILE",
+                file("route-bindings.json"),
+            );
+        }
+        let gateway = command
             .spawn()
             .unwrap_or_else(|error| panic!("gateway must start: {error}"));
         let mut started = Self {
@@ -416,6 +487,33 @@ fn register_replaced() {
     assert!(!names.contains(&"lx_getHistory"), "{names:?}");
     assert!(names.contains(&"px_getHistory"), "{names:?}");
     assert!(names.contains(&"px_register"), "{names:?}");
+}
+
+#[test]
+fn explorer_program_paths_are_not_proxied() {
+    let explorer = TcpListener::bind("127.0.0.1:0").expect("explorer listener must bind");
+    explorer
+        .set_nonblocking(true)
+        .expect("explorer listener must be nonblocking");
+    let gateway = Gateway::start_with_explorer(Some(&explorer));
+    let program = "ab".repeat(32);
+    for path in [
+        format!("/v1/programs/{program}"),
+        format!("/v1/programs/{program}/reads/resolve"),
+    ] {
+        let (status, body) = gateway
+            .exchange("GET", &path, b"")
+            .unwrap_or_else(|error| panic!("{path} must be answered: {error}"));
+        let answer: Value = serde_json::from_slice(&body)
+            .unwrap_or_else(|error| panic!("{path} answer must be JSON: {error}"));
+        assert_eq!(status, 404, "{path} {answer}");
+        assert_eq!(answer["error"]["code"], "not_found", "{path} {answer}");
+        match explorer.accept() {
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(error) => panic!("explorer connection check failed: {error}"),
+            Ok(_) => panic!("{path} reached the explorer upstream"),
+        }
+    }
 }
 
 #[test]

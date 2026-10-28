@@ -421,6 +421,7 @@ typedef struct lxp_kernel_execution {
     lxp_byte_span *canonical_events_out;
     lxp_byte_span *replay_witness_out;
     lxp_byte_span *replay_metadata_proof_out;
+    bool binding_authority;
 } lxp_kernel_execution;
 #define lxp_kernel_execution lxp_kernel_execution
 

@@ -298,9 +298,6 @@ lxp_result lx_checkpoint_registry_create(
     lx_checkpoint_registry **registry);
 lxp_result lx_checkpoint_registry_destroy(
     lx_checkpoint_registry **registry);
-lxp_result lx_checkpoint_registry_register_deposit_root(
-    lx_checkpoint_registry *registry,
-    const lx_paxeer_deposit_root_registration *registration);
 lxp_result lx_bridge_verify_deposit(const lx_deposit_proof *proof,
                                     const lx_checkpoint_registry *checkpoints,
                                     uint32_t network_id,

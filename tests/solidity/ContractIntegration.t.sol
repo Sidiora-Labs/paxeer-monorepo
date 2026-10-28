@@ -924,6 +924,89 @@ contract ContractIntegrationTest {
         require(result.reserveMirror == 100_000_000, "reserve mirror wrong");
     }
 
+    function test_ReserveReconciliationRecordsUnsolicitedSurplus() public {
+        uint128 custody = 1_000_000_000;
+        _prepareSettlement(custody);
+        ReserveReconciler.LiabilityReport memory report = ReserveReconciler.LiabilityReport({
+            assetId: Constants.USDL_ASSET_ID,
+            agentMain: 100_000_000,
+            escrow: 100_000_000,
+            budget: 100_000_000,
+            stream: 100_000_000,
+            margin: 100_000_000,
+            liquidity: 100_000_000,
+            insurance: 100_000_000,
+            fees: 100_000_000,
+            withdrawals: 0,
+            otherSystem: 100_000_000,
+            reserveMirror: 100_000_000
+        });
+        bytes32 stateRoot = reserveReconciler.liabilityLeaf(report);
+        (bytes32 checkpointHash,, CanonicalCheckpoint.GuarantorAttestation[] memory attestations) =
+            _registerCheckpoint(stateRoot);
+        ReserveReconciler.StateProof memory proof =
+            ReserveReconciler.StateProof({leafIndex: 0, siblings: new bytes32[](0)});
+        token.mint(address(this), 1);
+        require(token.transfer(address(vault), 1), "unsolicited transfer failed");
+
+        vm.recordLogs();
+        ReserveReconciler.Reconciliation memory result =
+            reserveReconciler.reconcile(checkpointHash, stateRoot, report, proof, attestations);
+        IntegrationVm.Log[] memory logs = vm.getRecordedLogs();
+        require(result.custody == uint256(custody) + 1, "surplus custody omitted");
+        require(result.circulating == 900_000_000, "surplus changed circulating liabilities");
+        require(result.reserveMirror == 100_000_000, "surplus changed reserve mirror");
+        require(reserveReconciler.surplus(Constants.USDL_ASSET_ID) == 1, "unsolicited surplus not recorded");
+        require(logs.length == 2, "reconciliation events missing");
+        require(logs[1].emitter == address(reserveReconciler), "surplus event emitter");
+        require(
+            logs[1].topics.length == 3 && logs[1].topics[0] == keccak256("ReserveSurplus(bytes32,bytes32,uint256)")
+                && logs[1].topics[1] == Constants.USDL_ASSET_ID && logs[1].topics[2] == checkpointHash,
+            "surplus event topics"
+        );
+        require(keccak256(logs[1].data) == keccak256(abi.encode(uint256(1))), "surplus event amount");
+
+        report.reserveMirror += 1;
+        stateRoot = reserveReconciler.liabilityLeaf(report);
+        (checkpointHash,, attestations) = _registerCheckpoint(stateRoot);
+        vm.recordLogs();
+        result = reserveReconciler.reconcile(checkpointHash, stateRoot, report, proof, attestations);
+        logs = vm.getRecordedLogs();
+        require(result.custody == result.circulating + result.reserveMirror, "balanced custody changed");
+        require(reserveReconciler.surplus(Constants.USDL_ASSET_ID) == 0, "previous surplus not cleared");
+        require(
+            logs.length == 1 && logs[0].emitter == address(reserveReconciler)
+                && logs[0].topics[0] == keccak256("ReserveReconciled(bytes32,bytes32,uint256,uint256,uint256,uint256)"),
+            "balanced reconciliation emitted surplus"
+        );
+    }
+
+    function test_ReserveReconciliationRevertsOnDeficit() public {
+        uint128 custody = 1_000_000_000;
+        _prepareSettlement(custody);
+        ReserveReconciler.LiabilityReport memory report = ReserveReconciler.LiabilityReport({
+            assetId: Constants.USDL_ASSET_ID,
+            agentMain: 100_000_000,
+            escrow: 100_000_000,
+            budget: 100_000_000,
+            stream: 100_000_000,
+            margin: 100_000_000,
+            liquidity: 100_000_000,
+            insurance: 100_000_000,
+            fees: 100_000_000,
+            withdrawals: 0,
+            otherSystem: 100_000_000,
+            reserveMirror: 100_000_001
+        });
+        bytes32 stateRoot = reserveReconciler.liabilityLeaf(report);
+        (bytes32 checkpointHash,, CanonicalCheckpoint.GuarantorAttestation[] memory attestations) =
+            _registerCheckpoint(stateRoot);
+        ReserveReconciler.StateProof memory proof =
+            ReserveReconciler.StateProof({leafIndex: 0, siblings: new bytes32[](0)});
+        vm.expectPartialRevert(ReserveReconciler.ReserveDeficit.selector);
+        reserveReconciler.reconcile(checkpointHash, stateRoot, report, proof, attestations);
+    }
+
     function testGuarantorAdministrativeSlashAndUnbondLifecycles() public {
         _fundGuarantors();
         address firstSigner = vm.addr(1);

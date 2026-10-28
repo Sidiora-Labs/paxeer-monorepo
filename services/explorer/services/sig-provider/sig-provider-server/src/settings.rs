@@ -27,6 +27,7 @@ impl ConfigSettings for Settings {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SourcesSettings {
+    pub precompiles: PrecompilesSettings,
     pub fourbyte: url::Url,
     pub sigeth: url::Url,
     pub eth_bytecode_db: EthBytecodeDbSettings,
@@ -35,10 +36,23 @@ pub struct SourcesSettings {
 impl Default for SourcesSettings {
     fn default() -> Self {
         Self {
+            precompiles: Default::default(),
             fourbyte: url::Url::parse("https://www.4byte.directory/").unwrap(),
             sigeth: url::Url::parse("https://sig.eth.samczsun.com/").unwrap(),
             eth_bytecode_db: Default::default(),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PrecompilesSettings {
+    pub enabled: bool,
+}
+
+impl Default for PrecompilesSettings {
+    fn default() -> Self {
+        Self { enabled: true }
     }
 }
 

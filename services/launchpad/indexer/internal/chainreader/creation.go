@@ -9,6 +9,8 @@ import (
 	"math/big"
 )
 
+var marketCreatedFactoryTopic = crypto.Keccak256Hash([]byte("MarketCreated(address,address,address,uint256,address)"))
+
 // CreationIdentity is receipt evidence, not a projection or current-state
 // attestation. Pool registry pinned-getter corroboration belongs to the caller.
 type CreationIdentity struct {
@@ -60,7 +62,7 @@ func CreationFromReceipt(registry *decode.Registry, receipt *ethtypes.Receipt, e
 	}
 	var result *CreationIdentity
 	for _, l := range unique {
-		if len(l.Topics) == 0 || l.Topics[0] != crypto.Keccak256Hash([]byte("MarketCreated(address,address,address,uint256,address)")) {
+		if len(l.Topics) == 0 || l.Topics[0] != marketCreatedFactoryTopic {
 			continue
 		}
 		e, err := registry.Decode(l)

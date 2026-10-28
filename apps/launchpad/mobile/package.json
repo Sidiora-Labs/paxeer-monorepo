@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "test": "node --test test/*.test.ts",
+    "test:vitest": "vitest run --config vitest.config.ts",
     "android": "react-native run-android",
     "ios": "react-native run-ios"
   },
@@ -23,6 +24,7 @@
     "viem": "2.37.3"
   },
   "devDependencies": {
+    "vitest": "3.2.4",
     "@react-native/babel-preset": "0.86.0",
     "@react-native/metro-config": "0.86.0",
     "typescript": "5.9.3",

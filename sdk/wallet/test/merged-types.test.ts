@@ -15,6 +15,7 @@ import type {
   SequencerReceiptAnswer,
   SequencerRung,
   SendTxResponse,
+  UnifiedAccountDocument,
 } from '../src/index.js';
 
 // Prepare the public SDK program once; the test checks its type diagnostics.
@@ -30,7 +31,13 @@ const program = ts.createProgram([testPath], parsed.options);
 
 function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
   const account: ChainAccount = {
-    account: 'pax1account',
+    account: {
+      evm_address: '0x102132435465768798a9bacbdcedfe0f1e2d3c4b',
+      pax_address: 'pax1exampleaccount',
+      layerx_did: `did:layerx:${'61'.repeat(32)}`,
+      layerx_account: '457d8ff18e80b2c0671cb8dd37042120b6bfcfa2f2477389636a6d62e2e64de0',
+      bound: true,
+    },
     paxeer: { address: '0x1234', balance: '9007199254740993', nonce: '2', height: '77' },
   };
   const balance: BankBalance = { denom: 'apax', amount: account.paxeer.balance };
@@ -56,7 +63,7 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
     height_or_seq: '77',
     kind: 'transfer',
     direction: 'out',
-    account: account.account,
+    account: 'pax1account',
     counterparty: 'pax1recipient',
     asset: balance.denom,
     amount: '10',
@@ -66,8 +73,8 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
     decoded: null,
     asset_metadata: null,
   };
-  const history: ChainHistoryPage = { account: account.account, items: [item], next_cursor: 'c2' };
-  const emptyHistory: ChainHistoryPage = { account: account.account, items: [], next_cursor: null };
+  const history: ChainHistoryPage = { account: 'pax1account', items: [item], next_cursor: 'c2' };
+  const emptyHistory: ChainHistoryPage = { account: 'pax1account', items: [], next_cursor: null };
   const submitted: SequencerReceiptAnswer = { rung: 'submitted', txHash: '0xabcd', nonce: '0x2' };
   const receipted: SequencerReceiptAnswer = {
     ...submitted,
@@ -102,11 +109,11 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
   const withReceipt: SendTxResponse = { ...hashOnly, receipt: receipted };
 
   expectTypeOf<ChainAccount>().toEqualTypeOf<{
-    account: string;
+    account: UnifiedAccountDocument;
     paxeer: { address: string; balance: string; nonce: string; height: string };
   }>();
   expectTypeOf<BankBalance>().toEqualTypeOf<{ denom: string; amount: string }>();
-  expectTypeOf<Balances>().toEqualTypeOf<{ account: string; height: string; balances: BankBalance[] }>();
+  expectTypeOf<Balances>().toEqualTypeOf<{ account: UnifiedAccountDocument; height: string; balances: BankBalance[] }>();
   expectTypeOf<BankAsset>().toEqualTypeOf<{
     asset_id: string;
     denom: string;
@@ -161,7 +168,7 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
   expectTypeOf<JoinedAccount['account']>().not.toEqualTypeOf<string>();
 
   expect(balances).toEqual({
-    account: 'pax1account',
+    account: account.account,
     height: '77',
     balances: [{ denom: 'apax', amount: '9007199254740993' }],
   });

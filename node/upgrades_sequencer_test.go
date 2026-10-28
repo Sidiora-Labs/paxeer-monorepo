@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	appparams "github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
@@ -257,57 +260,95 @@ func TestMergePlanRefusesKeyCoveringOnlyActivationHeight(t *testing.T) {
 
 func TestUpgradesSequencerSwitchAtActivation(t *testing.T) {
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
-	a, ctx := testWrapper.App, testWrapper.Ctx.WithBlockHeight(mergeHeight)
-	rewindBeforeMerge(t, a, ctx)
+	a := testWrapper.App
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	const mergeAt = int64(2)
+	const firstSequenced = mergeAt + 1
+	commit := func(write func(sdk.Context), txs ...[]byte) {
+		t.Helper()
+		height := a.LastBlockHeight() + 1
+		_, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
+			Header: &tmproto.Header{ChainID: "pax-test", Height: height},
+			Txs:    txs,
+		})
+		require.NoError(t, err)
+		write(a.GetContextForDeliverTx(nil))
+		a.SetDeliverStateToCommit()
+		_, err = a.Commit(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, height, a.LastBlockHeight())
+	}
+	commit(func(ctx sdk.Context) { rewindBeforeMerge(t, a, ctx) })
 
-	// Before the plan applies no height is pinned, whatever the round.
-	for _, height := range []int64{mergeHeight - 1, mergeHeight, mergeHeight + 1000} {
-		for _, round := range []int32{0, 1, 2} {
-			leader, pinned, err := a.sequencerPinnedLeader(ctx, height, round)
-			require.NoError(t, err)
-			require.False(t, pinned)
-			require.Equal(t, [32]byte{}, leader)
-		}
+	for _, height := range []int64{mergeAt - 1, mergeAt, mergeAt + 1000} {
+		activation, leaders, err := a.LeaderSchedule(height)
+		require.NoError(t, err)
+		require.Zero(t, activation)
+		require.Empty(t, leaders)
+		ctx, err := a.CreateQueryContext(0, false)
+		require.NoError(t, err)
 		require.False(t, a.Sequenced(ctx, height))
 	}
 
-	a.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t)})
+	commit(func(ctx sdk.Context) {
+		require.Equal(t, mergeAt, ctx.BlockHeight())
+		info := mergePlanInfo(t, map[string]any{
+			"leaders":      [][]byte{mergePrimary[:], mergeStandby[:]},
+			"receipt_keys": seqkeeper.ReceiptKeys{mergeReceiptKey(uint64(firstSequenced))},
+		})
+		a.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeAt, Info: info})
+		require.Equal(t, mergeAt, a.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade))
+		require.False(t, a.Sequenced(ctx, mergeAt))
+		require.True(t, a.Sequenced(ctx, firstSequenced))
+	})
 
-	// H_act-1 keeps the proposer rotation.
-	leader, pinned, err := a.sequencerPinnedLeader(ctx, mergeHeight-1, 0)
-	require.NoError(t, err)
-	require.False(t, pinned)
-	require.Equal(t, [32]byte{}, leader)
+	for _, height := range []int64{mergeAt - 1, mergeAt, firstSequenced, mergeAt + 1000} {
+		activation, leaders, err := a.LeaderSchedule(height)
+		require.NoError(t, err)
+		require.Equal(t, firstSequenced, activation)
+		require.Equal(t, [][32]byte{mergePrimary, mergeStandby}, leaders)
+		require.Equal(t, height > mergeAt, height >= activation)
+	}
 
-	// From H_act the leader is L[r mod len(L)], read from the module store. The
-	// block format reads the same state: H_act applies the plan unsequenced and
-	// every block after it carries the sequence batch.
-	require.False(t, a.Sequenced(ctx, mergeHeight))
-	require.True(t, a.Sequenced(ctx, mergeHeight+1))
 	cases := []struct {
 		height int64
 		round  int32
 		want   [32]byte
 	}{
-		{mergeHeight, 0, mergePrimary},
-		{mergeHeight, 1, mergeStandby},
-		{mergeHeight, 2, mergePrimary},
-		{mergeHeight, 5, mergeStandby},
-		{mergeHeight + 10, 0, mergePrimary},
-		{mergeHeight + 10, 3, mergeStandby},
+		{firstSequenced, 0, mergePrimary},
+		{firstSequenced, 1, mergeStandby},
+		{firstSequenced, 2, mergePrimary},
+		{firstSequenced, 5, mergeStandby},
+		{firstSequenced + 10, 0, mergePrimary},
+		{firstSequenced + 10, 3, mergeStandby},
 	}
 	for _, c := range cases {
-		leader, pinned, err := a.sequencerPinnedLeader(ctx, c.height, c.round)
+		activation, leaders, err := a.LeaderSchedule(c.height)
 		require.NoError(t, err)
-		require.True(t, pinned, "height %d round %d", c.height, c.round)
-		require.Equal(t, c.want, leader, "height %d round %d", c.height, c.round)
+		require.Equal(t, firstSequenced, activation)
+		require.Equal(t, [][32]byte{mergePrimary, mergeStandby}, leaders)
+		require.Equal(t, c.want, leaders[int(c.round)%len(leaders)], "height %d round %d", c.height, c.round)
 	}
 
-	// A store that lost its leader list after the plan applied is refused rather
-	// than read as unpinned.
-	cacheCtx, _ := ctx.CacheContext()
-	cacheCtx.KVStore(a.GetKey(keys.SequencerStoreKey)).Delete(seqtypes.LeaderListKey)
-	_, pinned, err = a.sequencerPinnedLeader(cacheCtx, mergeHeight, 0)
-	require.ErrorIs(t, err, seqtypes.ErrInvalidGenesis)
-	require.False(t, pinned)
+	batch := seqtypes.MsgSequenceBatch{
+		Height:      uint64(firstSequenced),
+		FromSeq:     1,
+		ToSeq:       0,
+		PrevSeqHash: make([]byte, seqtypes.HashLength),
+		LastSeqHash: make([]byte, seqtypes.HashLength),
+		TxRoot:      seqtypes.EmptyTxRoot[:],
+		KeyId:       mergeReceiptKey(uint64(firstSequenced)).KeyId,
+	}
+	digest, err := batch.SignBytes(testWrapper.Ctx.ChainID())
+	require.NoError(t, err)
+	batch.Sig = ed25519.Sign(ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x11}, ed25519.SeedSize)), digest[:])
+	tx, err := EncodeSequenceBatch(batch)
+	require.NoError(t, err)
+	commit(func(ctx sdk.Context) {
+		ctx.KVStore(a.GetKey(keys.SequencerStoreKey)).Set(seqtypes.LeaderListKey, []byte{1})
+	}, tx)
+	activation, leaders, err := a.LeaderSchedule(firstSequenced)
+	require.ErrorIs(t, err, seqkeeper.ErrCorruptStore)
+	require.Zero(t, activation)
+	require.Nil(t, leaders)
 }

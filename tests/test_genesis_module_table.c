@@ -4,12 +4,13 @@
 #include "layerx/lxp_authority.h"
 #include "layerx/lx_asset.h"
 #include "layerx/lxp_hash.h"
-#include "layerx/lxp_handover.h"
 #include "layerx/lxp_fee.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_module_ctx.h"
 #include "layerx/lxp_ledger.h"
 #include "layerx/lxp_state.h"
+
+#include "lxp_test_harness.h"
 
 #include <openssl/evp.h>
 #include <stdio.h>
@@ -178,66 +179,20 @@ static int check_defaults(void)
     return 0;
 }
 
-static int check_handover_registration(void)
+static int check_no_handover_type(void)
 {
-    static const uint8_t authority_seed[32] = {19U};
-    static const uint32_t legacy_types[] = {
-        0x00070001U, 0x00070002U, 0x00070003U,
-        0x00070005U, 0x00070006U, 0x00070008U
-    };
-    static lxp_kernel kernel;
-    lxp_genesis_manifest manifest;
-    lxp_genesis_module_plan legacy, enabled, changed;
-    uint8_t authority[32];
-    draft_manifest(&manifest, NULL, 0U);
-    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &legacy) == LXP_OK);
-    REQUIRE(legacy.count == 3U);
-    REQUIRE(legacy.modules[2]->activity_type_count == 6U);
-    REQUIRE(memcmp(legacy.modules[2]->activity_types, legacy_types,
-                   sizeof(legacy_types)) == 0);
+    lxp_genesis_module_plan plan;
     REQUIRE(lxp_genesis_module_plan_default(
-        LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false, &changed) == LXP_OK);
-    REQUIRE(changed.modules[2] == legacy.modules[2]);
-    REQUIRE(public_key_for(authority_seed, authority) == 0);
-    manifest.parameters[1] = manifest.parameters[0];
-    memset(&manifest.parameters[0], 0, sizeof(manifest.parameters[0]));
-    manifest.parameters[0].module_id = LXP_MODULE_GOVERNANCE;
-    memcpy(manifest.parameters[0].key, "handover-authority", 18U);
-    memcpy(manifest.parameters[0].value, authority, 32U);
-    manifest.parameter_count = 2U;
-    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &enabled) == LXP_OK);
-    REQUIRE(enabled.count == legacy.count);
-    REQUIRE(enabled.modules[2]->activity_type_count == 7U);
-    REQUIRE(memcmp(enabled.modules[2]->activity_types, legacy_types,
-                   sizeof(legacy_types)) == 0);
-    REQUIRE(enabled.modules[2]->activity_types[6] == LXP_GOVERNANCE_HANDOVER);
-    kernel.module_count = enabled.count;
-    for (size_t i = 0U; i < enabled.count; ++i) {
-        kernel.modules[i].module_id = enabled.modules[i]->module_id;
-        kernel.modules[i].abi_version = enabled.modules[i]->abi_version;
-        kernel.modules[i].activity_type_count = enabled.modules[i]->activity_type_count;
-        memcpy(kernel.modules[i].activity_types, enabled.modules[i]->activity_types,
-               enabled.modules[i]->activity_type_count * sizeof(uint32_t));
+        LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false, &plan) == LXP_OK);
+    REQUIRE(plan.count != 0U);
+    for (size_t index = 0U; index < plan.count; ++index) {
+        const lxp_module_iface *iface = plan.modules[index];
+        REQUIRE(iface != NULL);
+        REQUIRE(iface->activity_type_count != 0U);
+        REQUIRE(iface->activity_types != NULL);
+        for (size_t type = 0U; type < iface->activity_type_count; ++type)
+            REQUIRE(iface->activity_types[type] != 0x00070009U);
     }
-    REQUIRE(lxp_genesis_module_plan_matches(&enabled, &kernel) == LXP_OK);
-    REQUIRE(lxp_genesis_module_plan_matches(&legacy, &kernel) != LXP_OK);
-    kernel.modules[2].activity_types[6] ^= 1U;
-    REQUIRE(lxp_genesis_module_plan_matches(&enabled, &kernel) != LXP_OK);
-    manifest.parameters[0].module_id = LXP_MODULE_ASSET;
-    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &changed) == LXP_ERR_AUTH_SCOPE);
-    manifest.parameters[0].module_id = LXP_MODULE_GOVERNANCE;
-    manifest.parameters[2] = manifest.parameters[0];
-    manifest.parameter_count = 3U;
-    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &changed) == LXP_ERR_AUTH_SCOPE);
-    manifest.parameter_count = 2U;
-    manifest.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
-    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &changed) == LXP_ERR_AUTH_SCOPE);
-    manifest.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-    memcpy(manifest.signer_public_key, authority, 32U);
-    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &changed) == LXP_ERR_AUTH_SCOPE);
-    memset(manifest.signer_public_key, 0, 32U);
-    memset(manifest.parameters[0].value, 0, 32U);
-    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &changed) == LXP_ERR_AUTH_SCOPE);
     return 0;
 }
 
@@ -752,17 +707,36 @@ static int check_perps_tif_registration(void)
     return 0;
 }
 
-int main(void)
+static int check_public_fixture_v3(void)
 {
-    REQUIRE(check_oracle_transport_registration() == 0);
-    REQUIRE(check_perps_tif_registration() == 0);
-    REQUIRE(check_table() == 0);
-    REQUIRE(check_defaults() == 0);
-    REQUIRE(check_handover_registration() == 0);
-    REQUIRE(check_enable_flag() == 0);
-    REQUIRE(check_perps_insurance() == 0);
-    REQUIRE(check_public_fixture("tests/fixtures/public-testnet-genesis-v3", 3U) == 0);
-    REQUIRE(check_public_fixture("tests/fixtures/public-testnet-genesis", 4U) == 0);
-    REQUIRE(check_allowance_policy() == 0);
-    return 0;
+    return check_public_fixture("tests/fixtures/public-testnet-genesis-v3", 3U);
+}
+
+static int check_public_fixture_v4(void)
+{
+    return check_public_fixture("tests/fixtures/public-testnet-genesis", 4U);
+}
+
+int main(int argc, char **argv)
+{
+    REQUIRE(lxp_test_register("genesis.module-table.oracle-transport-registration",
+                              check_oracle_transport_registration) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.perps-tif-registration",
+                              check_perps_tif_registration) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.table", check_table) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.defaults",
+                              check_defaults) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.no-handover-type",
+                              check_no_handover_type) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.enable-flag",
+                              check_enable_flag) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.perps-insurance",
+                              check_perps_insurance) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.public-fixture-v3",
+                              check_public_fixture_v3) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.public-fixture-v4",
+                              check_public_fixture_v4) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.allowance-policy",
+                              check_allowance_policy) == 0);
+    return lxp_test_main(argc, argv);
 }

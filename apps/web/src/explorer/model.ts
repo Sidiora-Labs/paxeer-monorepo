@@ -1,10 +1,6 @@
-export type ExplorerVerificationLevel =
-  | "unverified"
-  | "sequencer-signed"
-  | "batch-included"
-  | "state-proven"
-  | "checkpoint-finalised"
-  | "settlement-anchored";
+import type { VerificationRung } from "../kit/model.ts";
+
+export type ExplorerVerificationLevel = VerificationRung;
 
 export interface ExplorerFreshness {
   readonly observedChainSequence: string;
@@ -190,17 +186,18 @@ function boolean(value: unknown, at: string): boolean {
 
 function verificationLevel(value: unknown, at: string): ExplorerVerificationLevel {
   const candidate = text(value, at);
-  if (
-    candidate !== "unverified"
-    && candidate !== "sequencer-signed"
-    && candidate !== "batch-included"
-    && candidate !== "state-proven"
-    && candidate !== "checkpoint-finalised"
-    && candidate !== "settlement-anchored"
-  ) {
-    throw new TypeError(`${at} is not a declared verification level`);
+  switch (candidate) {
+    case "unverified":
+      return "unverified";
+    case "sequencer-signed":
+      return "receipt-verified";
+    case "batch-included":
+    case "state-proven":
+    case "checkpoint-finalised":
+      return "checkpoint-finalised";
+    default:
+      throw new TypeError(`${at} is not a declared verification level`);
   }
-  return candidate;
 }
 
 export function decodeFreshness(value: unknown, at = "freshness"): ExplorerFreshness {

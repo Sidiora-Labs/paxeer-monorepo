@@ -599,7 +599,7 @@ impl Feed {
         delivery: &EventDelivery,
         projected_at: u64,
     ) -> Result<ActivityEntry, FeedError> {
-        let cursor = delivery.cursor.0 .0;
+        let cursor = delivery.cursor.block_height;
         if cursor == 0
             || delivery.event_bytes.is_empty()
             || delivery.deduplication_id.as_bytes()
@@ -612,13 +612,8 @@ impl Feed {
         }
         let (status, receipts) = match &delivery.receipt_reference {
             ReceiptReference::None => (activity.pending.status()?, Vec::new()),
-            ReceiptReference::Verified {
-                receipt_ref,
-                verification_level,
-            } => {
-                let rung = verification_level
-                    .rung()
-                    .ok_or(FeedError::UnverifiedReceipt)?;
+            ReceiptReference::Verified { receipt_ref, rung } => {
+                let rung = *rung;
                 if rung == Rung::Submitted {
                     return Err(FeedError::UnverifiedReceipt);
                 }
@@ -645,17 +640,10 @@ impl Feed {
         };
         let receipt_source_digest = match &delivery.receipt_reference {
             ReceiptReference::None => source_id(&[b"no-receipt"]),
-            ReceiptReference::Verified {
-                receipt_ref,
-                verification_level,
-            } => source_id(&[
+            ReceiptReference::Verified { receipt_ref, rung } => source_id(&[
                 b"verified-receipt".as_slice(),
                 receipt_ref.as_str().as_bytes(),
-                &[rung_code(
-                    verification_level
-                        .rung()
-                        .ok_or(FeedError::UnverifiedReceipt)?,
-                )],
+                &[rung_code(*rung)],
             ]),
         };
         let candidate = Candidate {
@@ -669,7 +657,9 @@ impl Feed {
             source_digest: source_id(&[
                 b"agent-delivery",
                 &delivery.event_bytes,
-                &delivery.cursor.0 .0.to_be_bytes(),
+                &cursor.to_be_bytes(),
+                &delivery.cursor.tx_index.to_be_bytes(),
+                &delivery.cursor.log_index.to_be_bytes(),
                 &receipt_source_digest,
             ]),
             agent_cursor: Some(cursor),

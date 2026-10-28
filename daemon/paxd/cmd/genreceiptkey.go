@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
+	sequencerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	sequencertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
@@ -64,19 +66,37 @@ func AddGenesisReceiptKeyCmd(defaultNodeHome string) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to unmarshal genesis state: %w", err)
 			}
-			var state sequencertypes.GenesisState
+			moduleState := make(map[string]json.RawMessage)
 			if raw, ok := appState[sequencertypes.ModuleName]; ok {
-				if err := json.Unmarshal(raw, &state); err != nil {
+				if err := json.Unmarshal(raw, &moduleState); err != nil {
 					return fmt.Errorf("failed to unmarshal sequencer genesis state: %w", err)
 				}
 			}
-			for _, pinned := range state.ReceiptKeys {
-				if pinned.KeyId == key.KeyId {
+			if moduleState == nil {
+				return fmt.Errorf("sequencer genesis state must be an object")
+			}
+			var receiptKeys sequencerkeeper.ReceiptKeys
+			if raw, ok := moduleState["receipt_keys"]; ok {
+				if err := json.Unmarshal(raw, &receiptKeys); err != nil {
+					return fmt.Errorf("failed to unmarshal sequencer receipt keys: %w", err)
+				}
+			}
+			for _, pinned := range receiptKeys {
+				if bytes.Equal(pinned.KeyId, key.KeyId[:]) {
 					return fmt.Errorf("receipt key id %x is already pinned", key.KeyId)
 				}
 			}
-			state.ReceiptKeys = append(state.ReceiptKeys, key)
-			sequencerJSON, err := json.Marshal(state)
+			receiptKeys = append(receiptKeys, sequencerkeeper.ReceiptKeyEntry{
+				KeyId:       key.KeyId[:],
+				PublicKey:   key.PublicKey[:],
+				FirstHeight: key.FirstHeight,
+				LastHeight:  key.LastHeight,
+			})
+			moduleState["receipt_keys"], err = json.Marshal(receiptKeys)
+			if err != nil {
+				return fmt.Errorf("failed to marshal sequencer receipt keys: %w", err)
+			}
+			sequencerJSON, err := json.Marshal(moduleState)
 			if err != nil {
 				return fmt.Errorf("failed to marshal sequencer genesis state: %w", err)
 			}

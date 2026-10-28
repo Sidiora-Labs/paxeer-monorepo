@@ -16,6 +16,7 @@ import (
 	cdctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
@@ -65,6 +66,196 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "Surface":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				address, err := types.ParseHexAddress("address", "0x0000000000000000000000000000000000001234")
+				require.NoError(t, err)
+				surface := keeper.Surface{Role: types.RolePool, Generation: types.Generation1, Market: "surface-market"}
+				require.NoError(t, k.SetSurface(ctx, address, surface))
+				data, err := cdc.Marshal(&types.QuerySurfaceRequest{Address: address.Hex()})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QuerySurfaceResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, types.QuerySurfaceResponse{
+					Found: true,
+					Surface: &types.SurfaceInfo{
+						Role: surface.Role, Generation: uint32(surface.Generation), Market: surface.Market,
+					},
+				}, result)
+			case "Retired":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				address, err := types.ParseHexAddress("address", "0x0000000000000000000000000000000000001235")
+				require.NoError(t, err)
+				retired := types.RetiredAddress{
+					Address: address.Hex(), Role: types.RoleRouter,
+					Replacement: keeper.Generation2Surfaces[types.RoleRouter].Hex(),
+				}
+				require.NoError(t, k.RecordRetired(ctx, retired))
+				data, err := cdc.Marshal(&types.QueryRetiredRequest{Address: address.Hex()})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryRetiredResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				info := types.RetiredInfoOf(retired)
+				require.Equal(t, types.QueryRetiredResponse{Found: true, Retired: &info}, result)
+			case "FeeRight":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				collection, err := types.ParseHexAddress("collection", "0x0000000000000000000000000000000000001236")
+				require.NoError(t, err)
+				owner, err := types.ParseHexAddress("owner", "0x0000000000000000000000000000000000001237")
+				require.NoError(t, err)
+				pool, err := types.ParseHexAddress("pool", "0x0000000000000000000000000000000000001238")
+				require.NoError(t, err)
+				id, err := k.MintFeeRight(ctx, collection, owner, pool, types.FeeStrategyClaim)
+				require.NoError(t, err)
+				right, found, err := k.GetFeeRight(ctx, collection, id)
+				require.NoError(t, err)
+				require.True(t, found)
+				data, err := cdc.Marshal(&types.QueryFeeRightRequest{Collection: collection.Hex(), Id: id})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryFeeRightResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				info := types.FeeRightInfoOf(right)
+				require.Equal(t, types.QueryFeeRightResponse{Found: true, FeeRight: &info}, result)
+			case "AirdropEpoch":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				data, err := cdc.Marshal(&types.QueryAirdropEpochRequest{
+					Pool: "0x0000000000000000000000000000000000001238", Epoch: 1,
+				})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryAirdropEpochResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, types.QueryAirdropEpochResponse{Found: false}, result)
+			case "AirdropClaimed":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				data, err := cdc.Marshal(&types.QueryAirdropClaimedRequest{
+					Pool:   "0x0000000000000000000000000000000000001238",
+					Holder: "0x0000000000000000000000000000000000001239", Epoch: 1,
+				})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryAirdropClaimedResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, types.QueryAirdropClaimedResponse{Claimed: false}, result)
+			case "HasRole":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				contract := k.Generation2().FeeAccumulator
+				account, err := types.ParseHexAddress("account", "0x0000000000000000000000000000000000001239")
+				require.NoError(t, err)
+				data, err := cdc.Marshal(&types.QueryHasRoleRequest{
+					Contract: contract.Hex(), Role: keeper.PoolRole.Hex(), Account: account.Hex(),
+				})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryHasRoleResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.False(t, result.HasRole)
+				require.Equal(t, k.HasRole(ctx, contract, keeper.PoolRole, account), result.HasRole)
+			case "QuoteLedger":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidRequest)
+				data, err := cdc.Marshal(&types.QueryQuoteLedgerRequest{Kind: "treasury-held"})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryQuoteLedgerResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				amount, err := k.GetQuoteLedger(ctx, keeper.TreasuryHeldLedger())
+				require.NoError(t, err)
+				require.Equal(t, sdk.ZeroInt(), amount)
+				require.Equal(t, amount.String(), result.Amount)
+			case "FeeAccounting":
+				require.NoError(t, err)
+				var result types.QueryFeeAccountingResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				liabilities, err := k.TotalLiabilities(ctx)
+				require.NoError(t, err)
+				require.Equal(t, sdk.ZeroInt(), liabilities)
+				require.Equal(t, liabilities, result.Accounting.TotalLiabilities)
+				require.Equal(t, sdk.ZeroInt(), result.Accounting.PendingProtocolFees)
+			case "Treasury":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				data, err := cdc.Marshal(&types.QueryTreasuryRequest{Token: params.QuoteToken})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryTreasuryResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, sdk.ZeroInt().String(), result.Balance)
+				require.Equal(t, sdk.ZeroInt().String(), result.Held)
+			case "Quote":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, "amount_in must be a positive base-10 integer", status.Convert(err).Message())
+				data, err := cdc.Marshal(&types.QueryQuoteRequest{Denom: "unknown-market", IsBuy: true, AmountIn: "1000000"})
+				require.NoError(t, err)
+				_, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.ErrorIs(t, err, types.ErrUnknownMarket)
+				var launchpadErr *sdkerrors.Error
+				require.ErrorAs(t, err, &launchpadErr)
+				codespace, code, _ := sdkerrors.ABCIInfo(launchpadErr, false)
+				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
+				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
+			case "PriceHistory":
+				require.ErrorIs(t, err, types.ErrUnknownMarket)
+				require.Equal(t, ": "+types.ErrUnknownMarket.Error(), err.Error())
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
+				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
+			case "PoolMetadata":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				var addressErr *sdkerrors.Error
+				require.ErrorAs(t, err, &addressErr)
+				codespace, code, _ := sdkerrors.ABCIInfo(addressErr, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+				data, err := cdc.Marshal(&types.QueryPoolMetadataRequest{
+					Pool: "0x0000000000000000000000000000000000001238",
+				})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryPoolMetadataResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, types.QueryPoolMetadataResponse{Found: false}, result)
+			case "MarketByAddress":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+			case "Markets":
+				require.ErrorIs(t, err, types.ErrInvalidRange)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, types.ErrInvalidRange.Codespace(), codespace)
+				require.Equal(t, types.ErrInvalidRange.ABCICode(), code)
+				data, err := cdc.Marshal(&types.QueryMarketsRequest{Limit: 1})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryMarketsResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Empty(t, result.Markets)
+				require.Equal(t, k.GetMarketCount(ctx), result.Total)
+			case "MarketsByCreator":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+				creator := sdk.AccAddress([]byte("launchpad creator 01"))
+				data, err := cdc.Marshal(&types.QueryMarketsByCreatorRequest{Creator: creator.String(), Limit: 1})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryMarketsByCreatorResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Empty(t, result.Markets)
 			default:
 				require.Equal(t, codes.Unimplemented, status.Code(err))
 				require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())

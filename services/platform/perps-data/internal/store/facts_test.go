@@ -90,6 +90,170 @@ func (c *chain) counts(block string) []string {
 	return append(out, "outbox="+c.values(outboxAtSQL, block)[0])
 }
 
+func TestRebuildScoped(t *testing.T) {
+	if err := Rebuild(context.Background(), nil, 0, 1); err == nil || err.Error() != "store: Rebuild needs a transaction" {
+		t.Fatalf("Rebuild without transaction = %v", err)
+	}
+	db := testDB(t)
+	migrate(t, db)
+	c := newChain(t, db)
+	c.want(`SELECT count(*)::text FROM perps.markets WHERE market_id IN (0, 9)`, []string{"2"})
+	for _, bounds := range [][2]int64{{-1, 1}, {2, 1}} {
+		if err := Rebuild(c.ctx, c.tx, bounds[0], bounds[1]); err == nil {
+			t.Fatalf("Rebuild accepted invalid range %v", bounds)
+		}
+	}
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	c.next(100, t0)
+	c.blockRow(100, t0)
+	c.deposited(traderA, "1000", "1000")
+	c.deposited(traderB, "2000", "2000")
+	c.opened("1", traderA, "0", "1000", "60000", "100")
+	c.opened("2", traderB, "0", "2000", "60000", "200")
+	c.opened("3", traderB, "9", "3000", "500", "300")
+	c.placed("7", traderA, "300")
+	c.placed("8", traderB, "300")
+	c.settled("1", traderA, "1000", "0", "0", "0", "0")
+	c.settled("2", traderB, "2000", "0", "0", "0", "0")
+	c.openInterest("0", "1000", "2000")
+	c.openInterest("9", "3000", "0")
+	c.mark("0", "60000")
+	c.mark("9", "500")
+	c.project()
+
+	c.next(101, t0.Add(time.Hour))
+	c.blockRow(101, c.at)
+	c.fill("0", "7", "8", traderA, traderB, "60000", "100")
+	c.endBlock()
+	c.openInterest("9", "4000", "0")
+	c.project()
+	if err := (Snapshotter{}).Snapshot(c.ctx, c.tx, c.block, c.at); err != nil {
+		t.Fatal(err)
+	}
+
+	c.next(102, t0.Add(25*time.Hour))
+	c.blockRow(102, c.at)
+	c.endBlock()
+	c.modified("1", traderA, "800", "80000000000000", "80")
+	c.fee("1", traderA, 0, "2", "1")
+	c.project()
+	if err := (Snapshotter{}).Snapshot(c.ctx, c.tx, c.block, c.at); err != nil {
+		t.Fatal(err)
+	}
+
+	c.next(103, t0.Add(26*time.Hour))
+	c.blockRow(103, c.at)
+	c.tpsl("1", traderA, "70000", "50000")
+	c.settled("1", traderA, "100", "10", "2", "0", "1")
+	c.project()
+	if err := (Snapshotter{}).Snapshot(c.ctx, c.tx, c.block, c.at); err != nil {
+		t.Fatal(err)
+	}
+
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := c.tx.ExecContext(c.ctx, query, args...); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+	// Rewrite A's block without updating the projections.
+	exec(`UPDATE perps.position_events SET new_size_usd = 900, new_collateral_usd = 90000000000000, new_collateral_amount = 90
+WHERE block = 102 AND kind = 'modified' AND account = $1`, traderA.Bytes())
+	// Preserve the existing block metadata of an unrelated account.
+	exec(`UPDATE perps.account_margin SET updated_block = 101 WHERE account = $1`, traderB.Bytes())
+	exec(`UPDATE perps.user_stats SET updated_block = 101 WHERE account = $1`, traderB.Bytes())
+	accountTables := []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily"}
+	accountRows := func(account common.Address, physical bool) []string {
+		t.Helper()
+		var out []string
+		for _, table := range accountTables {
+			value := "to_jsonb(p)::text"
+			if physical {
+				value += " || ':' || p.ctid::text"
+			}
+			out = append(out, c.values(`SELECT coalesce(string_agg(v, ',' ORDER BY v), '') FROM
+(SELECT `+value+` AS v FROM perps.`+table+` p WHERE account = $1) rows`, account.Bytes())[0])
+		}
+		return out
+	}
+	marketRows := func(market string, physical bool) []string {
+		t.Helper()
+		var out []string
+		for _, table := range []string{"market_stats_rolling", "market_snapshots"} {
+			value := "to_jsonb(p)::text"
+			if physical {
+				value += " || ':' || p.ctid::text"
+			}
+			out = append(out, c.values(`SELECT coalesce(string_agg(v, ',' ORDER BY v), '') FROM
+(SELECT `+value+` AS v FROM perps.`+table+` p WHERE market_id = $1) rows`, market)[0])
+		}
+		return out
+	}
+	beforeB, beforeMarket := accountRows(traderB, true), marketRows("9", true)
+	beforeCycle := c.values(`SELECT to_jsonb(p)::text || ':' || ctid::text FROM perps.keeper_cycles p WHERE block = 101`)
+	c.want(`SELECT remaining_size_usd::text FROM perps.orders WHERE order_id = 8`, []string{"200"})
+	exec("SAVEPOINT fresh_fold")
+	for _, table := range rebuildTables {
+		exec(`DELETE FROM perps.` + table)
+	}
+	facts, err := loadFacts(c.ctx, c.tx, 100, 103)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []uint64{100, 101, 102, 103} {
+		if _, err := project(c.ctx, c.tx, facts[n]); err != nil {
+			t.Fatalf("fresh project %d: %v", n, err)
+		}
+		at := facts[n][0].Common().BlockTime
+		if err := (Snapshotter{}).Snapshot(c.ctx, c.tx, n, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := rebuildLeaderboard(c.ctx, c.tx, c.at); err != nil {
+		t.Fatal(err)
+	}
+	wantA, wantMarket := accountRows(traderA, false), marketRows("0", false)
+	wantProtocol := c.values(`SELECT string_agg(to_jsonb(p)::text, ',' ORDER BY hour) FROM perps.protocol_snapshots p`)
+	wantBoard := c.leaderboardRows()
+	wantCycle := c.values(`SELECT to_jsonb(p)::text FROM perps.keeper_cycles p WHERE block = 102`)
+	exec("ROLLBACK TO SAVEPOINT fresh_fold")
+	exec("RELEASE SAVEPOINT fresh_fold")
+
+	if err := Rebuild(c.ctx, c.tx, 102, 102); err != nil {
+		t.Fatalf("Rebuild: %v", err)
+	}
+	if got := accountRows(traderA, false); !slices.Equal(got, wantA) {
+		t.Fatalf("A differs from fresh fold\n got %q\nwant %q", got, wantA)
+	}
+	if got := accountRows(traderB, true); !slices.Equal(got, beforeB) {
+		t.Fatalf("B was rewritten\n got %q\nwant %q", got, beforeB)
+	}
+	if got := marketRows("0", false); !slices.Equal(got, wantMarket) {
+		t.Fatalf("touched market differs from fresh fold\n got %q\nwant %q", got, wantMarket)
+	}
+	if got := marketRows("9", true); !slices.Equal(got, beforeMarket) {
+		t.Fatalf("unrelated market was rewritten\n got %q\nwant %q", got, beforeMarket)
+	}
+	c.want(`SELECT string_agg(to_jsonb(p)::text, ',' ORDER BY hour) FROM perps.protocol_snapshots p`, wantProtocol)
+	if got := c.leaderboardRows(); !slices.EqualFunc(got, wantBoard, slices.Equal[[]string]) {
+		t.Fatalf("leaderboard differs from fresh fold\n got %q\nwant %q", got, wantBoard)
+	}
+	c.want(`SELECT to_jsonb(p)::text || ':' || ctid::text FROM perps.keeper_cycles p WHERE block = 101`, beforeCycle)
+	c.want(`SELECT to_jsonb(p)::text FROM perps.keeper_cycles p WHERE block = 102`, wantCycle)
+	c.want(`SELECT size_usd::text, collateral_amount::text, take_profit_price::text FROM perps.positions_current WHERE position_id = 1`, []string{"900", "90", "70000"})
+	c.want(`SELECT remaining_size_usd::text FROM perps.orders WHERE order_id = 7`, []string{"200"})
+
+	if err := Rebuild(c.ctx, c.tx, 102, 102); err != nil {
+		t.Fatalf("repeat Rebuild: %v", err)
+	}
+	if got := accountRows(traderA, false); !slices.Equal(got, wantA) {
+		t.Fatalf("repeat rebuild changed A: %q", got)
+	}
+	if got := accountRows(traderB, true); !slices.Equal(got, beforeB) {
+		t.Fatalf("repeat rebuild rewrote B: %q", got)
+	}
+}
+
 func TestFactWriters(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)

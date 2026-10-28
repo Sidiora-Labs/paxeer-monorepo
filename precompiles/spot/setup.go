@@ -7,7 +7,7 @@ import (
 
 // NewServedSet wraps every spot rail for dynamic gas dispatch.
 func NewServedSet(keepers utils.Keepers) (map[common.Address]*Precompile, error) {
-	set, err := NewPrecompileSet(keepers)
+	set, err := newPrecompileSet(keepers)
 	if err != nil {
 		return nil, err
 	}

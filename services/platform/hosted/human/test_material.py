@@ -1,4 +1,5 @@
 import importlib.util
+import inspect
 import json
 import os
 from pathlib import Path
@@ -18,6 +19,10 @@ spec.loader.exec_module(material)
 
 
 class MaterialTests(unittest.TestCase):
+    def test_registry_material_runs_no_handover_verify(self):
+        self.assertNotIn('layerx-handover', inspect.getsource(material.hosted_registry_material_produce))
+        self.assertNotIn('/usr/local/bin/layerx-handover', (HERE / 'material.py').read_text())
+
     def test_generated_bootstrap_and_protected_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'human'

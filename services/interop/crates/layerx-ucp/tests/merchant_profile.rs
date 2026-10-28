@@ -114,10 +114,15 @@ fn signed_receipt(
         .collect();
     let signed = fixture_bytes(&case["signedReceipt"]);
     let mut unsigned = signed[..signed.len() - 69].to_vec();
-    replace_signed_field(&mut unsigned, topics[2], recipient);
-    replace_signed_field(&mut unsigned, topics[3], idempotency_key);
-    topics[2] = recipient;
-    topics[3] = idempotency_key;
+    let recorded_topics = topics.concat();
+    topics = vec![topics[0], idempotency_key, topics[1], recipient];
+    let offsets: Vec<usize> = unsigned
+        .windows(recorded_topics.len())
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == recorded_topics).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one signed payment log");
+    unsigned[offsets[0]..offsets[0] + recorded_topics.len()].copy_from_slice(&topics.concat());
     let mut data = vec![0; 64];
     data[..32].copy_from_slice(&asset);
     data[48..].copy_from_slice(&amount.to_be_bytes());

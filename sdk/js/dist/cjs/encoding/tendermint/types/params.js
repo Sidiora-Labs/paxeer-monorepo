@@ -146,6 +146,12 @@ exports.BlockParams = {
         if (message.max_gas !== 0) {
             writer.uint32(16).int64(message.max_gas);
         }
+        if (message.min_txs_in_block !== 0) {
+            writer.uint32(24).int64(message.min_txs_in_block);
+        }
+        if (message.max_gas_wanted !== 0) {
+            writer.uint32(32).int64(message.max_gas_wanted);
+        }
         return writer;
     },
     decode(input, length) {
@@ -167,6 +173,18 @@ exports.BlockParams = {
                     }
                     message.max_gas = longToNumber(reader.int64());
                     continue;
+                case 3:
+                    if (tag !== 24) {
+                        break;
+                    }
+                    message.min_txs_in_block = longToNumber(reader.int64());
+                    continue;
+                case 4:
+                    if (tag !== 32) {
+                        break;
+                    }
+                    message.max_gas_wanted = longToNumber(reader.int64());
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -178,7 +196,9 @@ exports.BlockParams = {
     fromJSON(object) {
         return {
             max_bytes: isSet(object.max_bytes) ? globalThis.Number(object.max_bytes) : 0,
-            max_gas: isSet(object.max_gas) ? globalThis.Number(object.max_gas) : 0
+            max_gas: isSet(object.max_gas) ? globalThis.Number(object.max_gas) : 0,
+            min_txs_in_block: isSet(object.min_txs_in_block) ? globalThis.Number(object.min_txs_in_block) : 0,
+            max_gas_wanted: isSet(object.max_gas_wanted) ? globalThis.Number(object.max_gas_wanted) : 0
         };
     },
     toJSON(message) {
@@ -189,6 +209,12 @@ exports.BlockParams = {
         if (message.max_gas !== 0) {
             obj.max_gas = Math.round(message.max_gas);
         }
+        if (message.min_txs_in_block !== 0) {
+            obj.min_txs_in_block = Math.round(message.min_txs_in_block);
+        }
+        if (message.max_gas_wanted !== 0) {
+            obj.max_gas_wanted = Math.round(message.max_gas_wanted);
+        }
         return obj;
     },
     create(base) {
@@ -198,6 +224,8 @@ exports.BlockParams = {
         const message = createBaseBlockParams();
         message.max_bytes = object.max_bytes ?? 0;
         message.max_gas = object.max_gas ?? 0;
+        message.min_txs_in_block = object.min_txs_in_block ?? 0;
+        message.max_gas_wanted = object.max_gas_wanted ?? 0;
         return message;
     }
 };
@@ -702,7 +730,7 @@ function createBaseConsensusParams() {
     };
 }
 function createBaseBlockParams() {
-    return { max_bytes: 0, max_gas: 0 };
+    return { max_bytes: 0, max_gas: 0, min_txs_in_block: 0, max_gas_wanted: 0 };
 }
 function createBaseEvidenceParams() {
     return { max_age_num_blocks: 0, max_age_duration: undefined, max_bytes: 0 };

@@ -2,6 +2,7 @@ import type { GeneratedType } from "@cosmjs/proto-signing";
 import type { DenomAuthorityMetadata as DenomAuthorityMetadata_type } from "../../types/tokenfactory";
 import type { MessageFns } from "../common";
 export interface DenomAuthorityMetadata extends DenomAuthorityMetadata_type {
+    issuerDid: string;
 }
 export declare const DenomAuthorityMetadata: MessageFns<DenomAuthorityMetadata, "paxprotocol.paxchain.tokenfactory.DenomAuthorityMetadata">;
 export declare const registry: Array<[string, GeneratedType]>;
@@ -10,9 +11,11 @@ export declare const aminoConverters: {
         aminoType: string;
         toAmino: (message: DenomAuthorityMetadata) => {
             admin: string;
+            issuerDid: string;
         };
         fromAmino: (object: DenomAuthorityMetadata) => {
             admin: string;
+            issuerDid: string;
         };
     };
 };

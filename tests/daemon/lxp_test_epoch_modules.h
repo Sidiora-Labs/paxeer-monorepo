@@ -155,7 +155,7 @@ static inline lxp_result epoch_fixture_bind(epoch_fixture *fixture)
     fixture->asset_runtime = (lx_asset_runtime){
         &fixture->accounts, fixture->assets.assets, fixture->assets.count,
         fixture->transfer_assets, 1U, EPOCH_FIXTURE_NETWORK_ID,
-        LXP_PROTOCOL_VERSION_STATE_COMMITMENT
+        LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false
     };
     status = lxp_kernel_bind_module_runtime(&fixture->kernel, LXP_MODULE_ASSET,
                                             &fixture->asset_runtime);

@@ -1,14 +1,13 @@
 //! Golden vector tests for portable receipt export and verification.
 //!
 //! These vectors prove that an external party can verify `LayerX` receipts
-//! using only the published format specification and trusted batch authorization.
+//! using only the published format specification and independently pinned receipt keys.
 
 use layerx_portable::{
-    interop_portable_verification, verify_portable_json, PortableReceipt, PortableReceiptError,
-    PortableReceiptV2, PortableVerified, ReceiptKeyEntry, PORTABLE_RECEIPT_FORMAT,
-    PORTABLE_RECEIPT_FORMAT_V2,
+    interop_portable_verification, verify_portable_json, PortableReceiptError, PortableReceiptV2,
+    PortableVerified, ReceiptKeyEntry, PORTABLE_RECEIPT_FORMAT,
 };
-use layerx_proof::receipt::{AuthorizedBatch, ReceiptCheck, VerificationFailure};
+use layerx_proof::receipt::{ReceiptCheck, VerificationFailure};
 
 const GOLDEN_RECEIPT_JSON: &str = r#"{
   "format": "layerx-receipt-proof-v1",
@@ -21,15 +20,6 @@ const GOLDEN_RECEIPT_JSON: &str = r#"{
   "resultingStateRoot": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
   "sequencerPublicKey": "BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU"
 }"#;
-
-#[test]
-fn format_constant_matches_specification() {
-    assert_eq!(PORTABLE_RECEIPT_FORMAT, "layerx-receipt-proof-v1");
-    assert_eq!(
-        interop_portable_verification(),
-        "layerx-receipt-proof-v1-and-pinned-external-evidence-v1"
-    );
-}
 
 const V2_SIGNED_RECEIPT: &str = "0x000252010002000000200303030303030303030303030303030303030303030303030303030303030303000000000000000700000020040404040404040404040404040404040404040404040404040404040404040400000020968bd239d91b0e9801eb4126a4ab1f3774a23752128003f99b21715d5d765c0d00000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000001000c000000000100000000200000000000000000000000000000000000000000000000000000000000000000000000710000000000005208000000000000520800000000000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000000475706178000000000000000000000000000052080000002000000000000000000000000000000000000000000000000000000000000003b6000c0000000100000000020000002002cef2c10e756312b83aa7e7051954161146e03371cb3c4f091303c95e0ee8c9000000000000000000000000000000010000002000000000000000000000000006060606060606060606060606060606060606060000000000000000000000000000520a000000000000000000000000000000010000000000000000000000200000000000000000000000000707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000100000020000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000003e80100000040c58fd462ad78cbfd1741051e09471761daf31eb4e3091ce19cfb80aa50616b39b24d40b4036e09a8c6772b3862c05ac0f3bc93f27e7d376f61d525f13a52f70f";
 
@@ -80,7 +70,7 @@ fn signature_refusal() -> PortableReceiptError {
 
 #[test]
 fn v2_format_constant_matches_specification() {
-    assert_eq!(PORTABLE_RECEIPT_FORMAT_V2, "layerx-receipt-proof-v2");
+    assert_eq!(PORTABLE_RECEIPT_FORMAT, "layerx-receipt-proof-v2");
 }
 
 #[test]
@@ -97,13 +87,13 @@ fn v2_receipt_verifies_offline() {
     assert_eq!(verified.height(), 950);
     assert_eq!(verified.inclusion_height(), 951);
     assert_eq!(
-        verify_portable_json(V2_RECEIPT_JSON.as_bytes(), None, &keys),
+        verify_portable_json(V2_RECEIPT_JSON.as_bytes(), &keys),
         Ok(PortableVerified::V2(verified))
     );
 
     let exported = PortableReceiptV2::export(&v2_signed_bytes(), &keys[1], 951)
         .unwrap_or_else(|error| panic!("v2 vector exports: {error:?}"));
-    assert_eq!(exported.format(), PORTABLE_RECEIPT_FORMAT_V2);
+    assert_eq!(exported.format(), PORTABLE_RECEIPT_FORMAT);
     assert_eq!(exported.to_json(), Ok(V2_RECEIPT_JSON.as_bytes().to_vec()));
 }
 
@@ -122,7 +112,7 @@ fn a_v2_proof_without_raw_transaction_still_verifies() {
     assert_eq!(verified.height(), 950);
     assert_eq!(verified.inclusion_height(), 951);
     assert_eq!(
-        verify_portable_json(V2_RECEIPT_JSON.as_bytes(), None, &keys),
+        verify_portable_json(V2_RECEIPT_JSON.as_bytes(), &keys),
         Ok(PortableVerified::V2(verified))
     );
     let exported = PortableReceiptV2::export(&v2_signed_bytes(), &keys[1], 951)
@@ -182,213 +172,20 @@ fn v2_refuses_inclusion_before_signed_height_and_mismatched_carried_key() {
 }
 
 #[test]
-fn v1_receipts_keep_the_v1_path_in_the_dual_format_verifier() {
+fn a_v1_document_is_refused_as_unsupported() {
+    for keys in [&published_keys(900)[..], &[][..]] {
+        assert_eq!(
+            verify_portable_json(GOLDEN_RECEIPT_JSON.as_bytes(), keys),
+            Err(PortableReceiptError::UnsupportedFormat)
+        );
+    }
+}
+
+#[test]
+fn the_portable_anchor_names_the_v2_format() {
+    assert_eq!(PORTABLE_RECEIPT_FORMAT, "layerx-receipt-proof-v2");
     assert_eq!(
-        verify_portable_json(GOLDEN_RECEIPT_JSON.as_bytes(), None, &published_keys(900)),
-        Err(PortableReceiptError::MissingBatchAuthorization)
+        interop_portable_verification(),
+        "layerx-receipt-proof-v2-and-pinned-external-evidence-v1"
     );
-    let batch = AuthorizedBatch::new([99u8; 32], [2u8; 32], [3u8; 32], [4u8; 32], [5u8; 32]);
-    assert_eq!(
-        verify_portable_json(GOLDEN_RECEIPT_JSON.as_bytes(), Some(&batch), &[]),
-        Err(PortableReceiptError::BatchAuthorizationMismatch)
-    );
-    assert_eq!(
-        PortableReceipt::from_json(V2_RECEIPT_JSON.as_bytes()),
-        Err(PortableReceiptError::JsonShape)
-    );
-}
-
-#[test]
-fn parse_golden_receipt_json() {
-    let parsed = PortableReceipt::from_json(GOLDEN_RECEIPT_JSON.as_bytes());
-    assert!(
-        parsed.is_ok(),
-        "Golden vector must parse without error: {parsed:?}"
-    );
-    let receipt = parsed.unwrap_or_else(|error| panic!("golden vector parses: {error:?}"));
-    assert_eq!(receipt.format(), PORTABLE_RECEIPT_FORMAT);
-}
-
-#[test]
-fn reject_malformed_json() {
-    let cases = [
-        (b"" as &[u8], "empty input"),
-        (b"{}", "missing required fields"),
-        (b"[]", "wrong json type"),
-        (
-            br#"{"format":"layerx-receipt-proof-v1","extra":"field"}"#,
-            "unknown field",
-        ),
-    ];
-    for (input, label) in cases {
-        let result = PortableReceipt::from_json(input);
-        assert!(result.is_err(), "Must reject {label}: {result:?}");
-    }
-}
-
-#[test]
-fn reject_padded_base64() {
-    let padded_json = GOLDEN_RECEIPT_JSON.replace("BAQE", "BAQE=");
-    let result = PortableReceipt::from_json(padded_json.as_bytes());
-    match result {
-        Err(PortableReceiptError::InvalidBase64(_)) => {}
-        other => panic!("Must reject padded base64, got {other:?}"),
-    }
-}
-
-#[test]
-fn reject_non_canonical_base64() {
-    let mut modified = GOLDEN_RECEIPT_JSON.replace(
-        r#""receiptDigest": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ""#,
-        r#""receiptDigest": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAR""#,
-    );
-    modified = modified.replace(
-        r#""resultingStateRoot": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ""#,
-        r#""resultingStateRoot": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAR""#,
-    );
-    let result = PortableReceipt::from_json(modified.as_bytes());
-    match result {
-        Err(PortableReceiptError::InvalidBase64(_)) => {}
-        other => panic!("Must reject non-canonical base64, got {other:?}"),
-    }
-}
-
-#[test]
-fn reject_wrong_field_lengths() {
-    let short_digest = GOLDEN_RECEIPT_JSON.replace(
-        r#""receiptDigest": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ""#,
-        r#""receiptDigest": "BAQE""#,
-    );
-    let result = PortableReceipt::from_json(short_digest.as_bytes());
-    match result {
-        Err(PortableReceiptError::InvalidLength(_)) => {}
-        other => panic!("Must reject wrong length, got {other:?}"),
-    }
-}
-
-#[test]
-fn reject_unsupported_format() {
-    let wrong_format = GOLDEN_RECEIPT_JSON.replace(
-        r#""format": "layerx-receipt-proof-v1""#,
-        r#""format": "layerx-receipt-proof-v2""#,
-    );
-    let result = PortableReceipt::from_json(wrong_format.as_bytes());
-    match result {
-        Err(PortableReceiptError::UnsupportedFormat) => {}
-        other => panic!("Must reject unsupported format, got {other:?}"),
-    }
-}
-
-#[test]
-fn reject_unsupported_verification_level() {
-    let wrong_level = GOLDEN_RECEIPT_JSON.replace(
-        r#""verificationLevel": "sequencer-signed""#,
-        r#""verificationLevel": "checkpoint-finalized""#,
-    );
-    let result = PortableReceipt::from_json(wrong_level.as_bytes());
-    match result {
-        Err(PortableReceiptError::UnsupportedVerificationLevel) => {}
-        other => panic!("Must reject unsupported verification level, got {other:?}"),
-    }
-}
-
-#[test]
-fn verify_requires_matching_batch_authorization() {
-    let receipt = PortableReceipt::from_json(GOLDEN_RECEIPT_JSON.as_bytes())
-        .unwrap_or_else(|error| panic!("golden vector parses: {error:?}"));
-
-    let _trusted_batch =
-        AuthorizedBatch::new([1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32], [5u8; 32]);
-
-    let mismatched_batch =
-        AuthorizedBatch::new([99u8; 32], [2u8; 32], [3u8; 32], [4u8; 32], [5u8; 32]);
-
-    let result = receipt.verify(&mismatched_batch);
-    match result {
-        Err(PortableReceiptError::BatchAuthorizationMismatch) => {}
-        other => panic!("Must reject batch mismatch, got {other:?}"),
-    }
-}
-
-#[test]
-fn export_rejects_truncated_canonical_receipt() {
-    let canonical_receipt = vec![
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1,
-    ];
-    let batch = AuthorizedBatch::new([10u8; 32], [20u8; 32], [30u8; 32], [40u8; 32], [50u8; 32]);
-
-    let result = PortableReceipt::export(&canonical_receipt, &batch);
-    assert_eq!(
-        result,
-        Err(PortableReceiptError::Receipt(VerificationFailure {
-            check: ReceiptCheck::Decode,
-        }))
-    );
-}
-
-#[test]
-fn export_and_json_roundtrip() {
-    let _batch = AuthorizedBatch::new([1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32], [5u8; 32]);
-
-    let parsed_original = PortableReceipt::from_json(GOLDEN_RECEIPT_JSON.as_bytes())
-        .unwrap_or_else(|error| panic!("golden vector parses: {error:?}"));
-    let json_output = parsed_original
-        .to_json()
-        .unwrap_or_else(|error| panic!("serializes to JSON: {error:?}"));
-    let parsed_roundtrip = PortableReceipt::from_json(&json_output)
-        .unwrap_or_else(|error| panic!("roundtrip parses: {error:?}"));
-
-    assert_eq!(
-        parsed_original.format(),
-        parsed_roundtrip.format(),
-        "format must survive roundtrip"
-    );
-    assert_eq!(
-        parsed_original.canonical_receipt(),
-        parsed_roundtrip.canonical_receipt(),
-        "canonical receipt must survive roundtrip"
-    );
-    assert_eq!(
-        parsed_original.receipt_digest(),
-        parsed_roundtrip.receipt_digest(),
-        "receipt digest must survive roundtrip"
-    );
-}
-
-#[test]
-fn reject_oversized_json() {
-    let mut oversized = String::with_capacity(2_000_000);
-    oversized.push_str(r#"{"format":"layerx-receipt-proof-v1","verificationLevel":"sequencer-signed","canonicalReceipt":""#);
-    for _ in 0..400_000 {
-        oversized.push_str("AAAA");
-    }
-    oversized.push_str(r#"","receiptDigest":"BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ","batchId":"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE","asset":"AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI","previousStateRoot":"AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM","resultingStateRoot":"BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ","sequencerPublicKey":"BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU"}"#);
-
-    let result = PortableReceipt::from_json(oversized.as_bytes());
-    match result {
-        Err(PortableReceiptError::JsonBounds) => {}
-        other => panic!("Must reject oversized JSON, got {other:?}"),
-    }
-}
-
-#[test]
-fn reject_oversized_canonical_receipt() {
-    let batch = AuthorizedBatch::new([1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32], [5u8; 32]);
-    let oversized_receipt = vec![0u8; 1_048_577];
-    let result = PortableReceipt::export(&oversized_receipt, &batch);
-    match result {
-        Err(PortableReceiptError::ReceiptBounds) => {}
-        other => panic!("Must reject oversized receipt, got {other:?}"),
-    }
-}
-
-#[test]
-fn reject_empty_canonical_receipt() {
-    let batch = AuthorizedBatch::new([1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32], [5u8; 32]);
-    let result = PortableReceipt::export(&[], &batch);
-    match result {
-        Err(PortableReceiptError::ReceiptBounds) => {}
-        other => panic!("Must reject empty receipt, got {other:?}"),
-    }
 }

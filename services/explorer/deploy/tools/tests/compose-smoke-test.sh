@@ -60,10 +60,10 @@ liveness_url="http://127.0.0.1:${BACKEND_PUBLISHED_PORT}/api/health/liveness"
 capabilities_url="http://127.0.0.1:${BACKEND_PUBLISHED_PORT}/api/v2/paxeer-x/capabilities"
 journal_url="http://127.0.0.1:${RPC_FIXTURE_PUBLISHED_PORT}/__journal"
 
-# Every LayerX surface reads as absent on the chain as recorded: the five
+# Every LayerX surface reads as absent on the chain as recorded: the three
 # surface precompiles carry no code and getUnifiedAccount at the addr
 # precompile reverts.
-expected_capabilities='{"addr": false, "anchor": false, "bridge": false, "custody": false, "exchange": false, "launchpad": false}'
+expected_capabilities='{"addr": false, "bridge": false, "exchange": false, "launchpad": false}'
 
 liveness_timeout_seconds="${LIVENESS_TIMEOUT_SECONDS:-900}"
 probe_timeout_seconds="${PROBE_TIMEOUT_SECONDS:-120}"
@@ -198,8 +198,6 @@ import json
 import sys
 
 surfaces = {
-    "custody": "0x0000000000000000000000000000000000001013",
-    "anchor": "0x0000000000000000000000000000000000001014",
     "exchange": "0x0000000000000000000000000000000000001015",
     "bridge": "0x0000000000000000000000000000000000001016",
     "launchpad": "0x0000000000000000000000000000000000001017",
@@ -240,11 +238,18 @@ capabilities="$(curl -fsS --max-time 10 "${capabilities_url}")" ||
   die "the capability endpoint did not answer"
 
 printf '%s' "${capabilities}" | python3 -c '
+from datetime import datetime
 import json
 import sys
 
 expected = json.loads(sys.argv[1])
 actual = json.load(sys.stdin)
+
+checked_at = actual["checked_at"]
+if not isinstance(checked_at, str):
+    sys.exit("the capability probe did not publish its checked_at timestamp")
+datetime.fromisoformat(checked_at.replace("Z", "+00:00"))
+expected["checked_at"] = checked_at
 
 if actual != expected:
     sys.stderr.write(

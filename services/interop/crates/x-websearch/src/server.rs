@@ -324,6 +324,7 @@ impl RouteTable {
 
     /// Sets the handler of
     /// `GET /program-attestations/<program id>/<request id>`.
+    /// The EVM program relay registers its local program exchange here.
     ///
     /// # Errors
     /// Refuses a table whose program exchange route already has a handler.

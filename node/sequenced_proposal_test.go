@@ -7,6 +7,7 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -71,7 +72,7 @@ func TestProcessProposalRejectsBrokenSeqChain(t *testing.T) {
 	require.Equal(t, root[:], batch.TxRoot)
 	require.NoError(t, batch.VerifySignature(sequencedChainID, [32]byte(sequencerPublicKey())))
 
-	resp := processSequencedProposal(t, w, sequencerLeader, broken, tx1, tx2)
+	resp := processSequencedProposal(t, w, crypto.AddressHash(sequencerLeader), broken, tx1, tx2)
 	require.Equal(t, abci.ResponseProcessProposal_REJECT, resp.Status)
 	require.Nil(t, w.App.GetOptimisticProcessingInfo().Completion)
 	requireSequencerState(t, w, 0, zeroSeqHash)
@@ -81,12 +82,12 @@ func TestProcessProposalRejectsBrokenSeqChain(t *testing.T) {
 	gapBatch, err := app.DecodeSequenceBatch(gap)
 	require.NoError(t, err)
 	require.NoError(t, seqtypes.VerifyBatchTxs(gapBatch, ids))
-	resp = processSequencedProposal(t, w, sequencerLeader, gap, tx1, tx2)
+	resp = processSequencedProposal(t, w, crypto.AddressHash(sequencerLeader), gap, tx1, tx2)
 	require.Equal(t, abci.ResponseProcessProposal_REJECT, resp.Status)
 	require.Nil(t, w.App.GetOptimisticProcessingInfo().Completion)
 
 	valid := signedBatchAt(t, 2, sequencerKeySeed, 1, 2, zeroSeqHash, last[:], root[:], sequencerKeyID)
-	resp = processSequencedProposal(t, w, sequencerLeader, valid, tx1, tx2)
+	resp = processSequencedProposal(t, w, crypto.AddressHash(sequencerLeader), valid, tx1, tx2)
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resp.Status)
 	stored, err := w.App.SequencerKeeper.LastSeq(w.App.GetProcessProposalCleanContext())
 	require.NoError(t, err)
@@ -100,13 +101,13 @@ func TestProcessProposalRejectsProposerOutsideLeaders(t *testing.T) {
 	outsider := bytes.Clone(sequencerLeader)
 	outsider[0] ^= 1
 
-	for _, proposer := range [][]byte{outsider, nil, sequencerLeader[:20]} {
+	for _, proposer := range [][]byte{outsider, nil, sequencerLeader[:20], sequencerLeader, crypto.AddressHash(outsider)} {
 		resp := processSequencedProposal(t, w, proposer, batch)
 		require.Equal(t, abci.ResponseProcessProposal_REJECT, resp.Status)
 		require.Nil(t, w.App.GetOptimisticProcessingInfo().Completion)
 	}
 	requireSequencerState(t, w, 0, zeroSeqHash)
-	resp := processSequencedProposal(t, w, sequencerLeader, batch)
+	resp := processSequencedProposal(t, w, crypto.AddressHash(sequencerLeader), batch)
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resp.Status)
 }
 
@@ -124,6 +125,47 @@ func TestFinalizeBlockHaltsOnBadBatchSignature(t *testing.T) {
 	require.Contains(t, err.Error(), "height 2")
 	require.Nil(t, results)
 	requireSequencerState(t, w, 0, zeroSeqHash)
+}
+
+func TestFinalizeBlockHaltsOnBatchTxMismatch(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		toSeq    uint64
+		flipLast bool
+		flipRoot bool
+		reason   string
+	}{
+		{name: "lastSeqHash", toSeq: 2, flipLast: true, reason: "lastSeqHash differs from activity id chain"},
+		{name: "sequence count", toSeq: 3, reason: "activity id count is 2, want 3"},
+		{name: "txRoot", toSeq: 2, flipRoot: true, reason: "txRoot differs from activity id root"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := newSequencedProposalWrapper(t)
+			tx1, hash1 := evmTransfer(t, w, utils.NewSigner(), utils.NewSigner().EvmAddress)
+			tx2, hash2 := evmTransfer(t, w, utils.NewSigner(), utils.NewSigner().EvmAddress)
+			ids := [][32]byte{[32]byte(hash1), [32]byte(hash2)}
+			root := seqtypes.TxRoot(ids)
+			last := seqtypes.SeqHash(seqtypes.SeqHash([32]byte{}, 1, ids[0]), 2, ids[1])
+			if tc.flipLast {
+				last[0] ^= 1
+			}
+			if tc.flipRoot {
+				root[0] ^= 1
+			}
+			batch := signedBatchAt(t, 2, sequencerKeySeed, 1, tc.toSeq, zeroSeqHash, last[:], root[:], sequencerKeyID)
+			decoded, err := app.DecodeSequenceBatch(batch)
+			require.NoError(t, err)
+			require.NoError(t, decoded.VerifySignature(sequencedChainID, [32]byte(sequencerPublicKey())))
+
+			results, err := processBlock(w, [][]byte{batch, tx1, tx2})
+			require.ErrorIs(t, err, app.ErrSequencedBlockHalt)
+			require.ErrorIs(t, err, seqtypes.ErrInvalidSequenceBatch)
+			require.Contains(t, err.Error(), "height 2")
+			require.Contains(t, err.Error(), tc.reason)
+			require.Nil(t, results)
+			requireSequencerState(t, w, 0, zeroSeqHash)
+		})
+	}
 }
 
 func TestSequencedReadsKeeperActivationHeight(t *testing.T) {

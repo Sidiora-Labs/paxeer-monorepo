@@ -997,7 +997,11 @@ func (b *Backend) GetBlockContext(ctx context.Context, block *ethtypes.Block, st
 	if typedStateDB == nil {
 		return vm.BlockContext{}, errors.New("unsupported EVM state database")
 	}
-	blockCtx, err := b.keeper.GetVMBlockContext(typedStateDB.Ctx(), b.keeper.GetGasPool())
+	sdkCtx := typedStateDB.Ctx()
+	if block.Number().Int64() != sdkCtx.BlockHeight() {
+		sdkCtx = sdkCtx.WithBlockHeight(block.Number().Int64()).WithBlockTime(time.Unix(int64(block.Time()), 0).UTC())
+	}
+	blockCtx, err := b.keeper.GetVMBlockContext(sdkCtx, b.keeper.GetGasPool())
 	if err != nil {
 		return vm.BlockContext{}, fmt.Errorf("failed to construct EVM block context: %w", err)
 	}

@@ -1,10 +1,11 @@
-import { encodeAbiParameters, encodeEventTopics, getAddress, zeroHash } from 'viem';
-import type { Address, Hex, Log } from 'viem';
+import { encodeAbiParameters, encodeEventTopics, getAddress, zeroAddress, zeroHash } from 'viem';
+import type { Address, Hex, Log, TransactionReceipt } from 'viem';
 import { expect, test } from 'vitest';
 
+import { bridgeChainByKey, type BridgeChain } from './chains';
 import { LAYERX_BRIDGE_ADDRESS, layerxBridgeAbi, paxeerXVaultAbi } from './contracts';
 import { paxeerRecipient } from './digests';
-import { matchDepositLog, nonceFromBridgeOutLogs } from './import';
+import { importDeposit, importWithdrawal, matchDepositLog, nonceFromBridgeOutLogs } from './import';
 import type { BridgeTransfer } from './transfers';
 
 const vault: Address = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -120,3 +121,152 @@ function nonceFromBridgeOutLogsIgnoresAnotherAddress() {
 test(matchDepositLogRequiresTheAssetAndRecipient);
 test(nonceFromBridgeOutLogsReadsTheNonce);
 test(nonceFromBridgeOutLogsIgnoresAnotherAddress);
+
+const sourceReceipt: TransactionReceipt = {
+  blockHash: '0x1111111111111111111111111111111111111111111111111111111111111111',
+  blockNumber: 400n,
+  contractAddress: null,
+  cumulativeGasUsed: 95000n,
+  effectiveGasPrice: 1000000000n,
+  from: account,
+  gasUsed: 95000n,
+  logs: [],
+  logsBloom: `0x${ '00'.repeat(256) }`,
+  status: 'success',
+  to: vault,
+  transactionHash: '0x2222222222222222222222222222222222222222222222222222222222222222',
+  transactionIndex: 2,
+  type: 'eip1559',
+};
+
+const importChain: BridgeChain = {
+  key: 'base',
+  label: 'Base',
+  kind: 'evm',
+  chainId: 8453n,
+  vault,
+  finalityDepth: 1800,
+  blockSeconds: 2,
+  nativeSymbol: 'ETH',
+  state: 'configured',
+  assets: [ {
+    key: 'token',
+    symbol: 'TOKEN',
+    decimals: 6,
+    address: asset,
+    assetId: asset,
+    isNative: false,
+    perTxCap: '10000000',
+    totalCap: '100000000',
+  } ],
+};
+
+function importDepositBuildsARecordFromTheVaultLog() {
+  const vaultLog: Log = {
+    address: getAddress(vault),
+    topics: [
+      '0x19a8713a4594d98824323571a687838aa76b4d730cfedde1785ee8bb92195190',
+      '0x000000000000000000000000cccccccccccccccccccccccccccccccccccccccc',
+      '0x000000000000000000000000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      '0x000000000000000000000000dddddddddddddddddddddddddddddddddddddddd',
+    ],
+    data: '0x000000000000000000000000000000000000000000000000000000000074cbb10000000000000000000000000000000000000000000000000000000000000009',
+    logIndex: 7,
+    blockHash: sourceReceipt.blockHash,
+    blockNumber: sourceReceipt.blockNumber,
+    transactionHash: sourceReceipt.transactionHash,
+    transactionIndex: sourceReceipt.transactionIndex,
+    removed: false,
+  };
+  const receipt: TransactionReceipt = {
+    ...sourceReceipt,
+    from: other,
+    logs: [
+      depositLog(1, { address: other, amount: 900n, recipient: other }),
+      vaultLog,
+    ],
+  };
+  const record = importDeposit(importChain, receipt);
+  expect(record).toEqual({
+    id: `${ sourceReceipt.transactionHash }:in`,
+    direction: 'in',
+    foreignChainKey: 'base',
+    foreignChainId: '8453',
+    symbol: 'TOKEN',
+    decimals: 6,
+    amount: '7654321',
+    assetId: getAddress(asset),
+    vault,
+    account: getAddress(account),
+    recipient: getAddress(recipient),
+    sourceTxHash: sourceReceipt.transactionHash,
+    requiredConfirmations: 1800,
+    submittedAt: expect.any(Number),
+    logIndex: '7',
+    nonce: '9',
+  });
+  expect(matchDepositLog(record, receipt.logs)?.args.paxeerRecipient).toBe(paxeerRecipient(recipient).toLowerCase());
+}
+
+function importDepositRefusesAReceiptWithoutAVaultLog() {
+  const impostorReceipt: TransactionReceipt = {
+    ...sourceReceipt,
+    logs: [ depositLog(7, { address: other }), bridgeOutLog(vault, 9n) ],
+  };
+  expect(() => importDeposit(importChain, impostorReceipt)).toThrow(`No BridgeDeposit log from vault ${ vault } was found.`);
+  expect(() => importDeposit(importChain, { ...sourceReceipt, logs: [] })).toThrow(vault);
+  expect(() => importDeposit(importChain, {
+    ...sourceReceipt,
+    status: 'reverted',
+    logs: [ depositLog(7) ],
+  })).toThrow('reverted');
+}
+
+function importWithdrawalReadsTheBridgeOutLog() {
+  const base = bridgeChainByKey('base');
+  if (!base) throw new Error('The Base bridge route must be registered.');
+  const validLog: Log = {
+    address: LAYERX_BRIDGE_ADDRESS,
+    topics: [
+      '0x3e990eb54009dcdca53d8fa87307210f07097f37dcf6185dee71a42f8e7d524e',
+      '0x0000000000000000000000000000000000000000000000000000000000002105',
+      '0x0000000000000000000000000000000000000000000000000000000000000000',
+      '0x000000000000000000000000000000000000000000000000000000000000002a',
+    ],
+    data: '0x000000000000000000000000000000000000000000000000000000000012d687000000000000000000000000dddddddddddddddddddddddddddddddddddddddd',
+    logIndex: 8,
+    blockHash: sourceReceipt.blockHash,
+    blockNumber: sourceReceipt.blockNumber,
+    transactionHash: sourceReceipt.transactionHash,
+    transactionIndex: sourceReceipt.transactionIndex,
+    removed: false,
+  };
+  const receipt: TransactionReceipt = {
+    ...sourceReceipt,
+    to: LAYERX_BRIDGE_ADDRESS,
+    logs: [ bridgeOutLog(other, 5n), depositLog(3, { address: LAYERX_BRIDGE_ADDRESS }), validLog ],
+  };
+  expect(importWithdrawal(receipt)).toEqual({
+    id: `${ sourceReceipt.transactionHash }:out`,
+    direction: 'out',
+    foreignChainKey: 'base',
+    foreignChainId: '8453',
+    symbol: 'ETH',
+    decimals: 18,
+    amount: '1234567',
+    assetId: zeroAddress,
+    vault: base.vault,
+    account,
+    recipient: getAddress(recipient),
+    sourceTxHash: sourceReceipt.transactionHash,
+    requiredConfirmations: 1,
+    submittedAt: expect.any(Number),
+    bridgeOutNonce: '42',
+  });
+  expect(() => importWithdrawal({ ...receipt, logs: [ bridgeOutLog(other, 5n) ] })).toThrow(LAYERX_BRIDGE_ADDRESS);
+  expect(() => importWithdrawal({ ...receipt, status: 'reverted' })).toThrow('reverted');
+}
+
+test(importDepositBuildsARecordFromTheVaultLog);
+test(importDepositRefusesAReceiptWithoutAVaultLog);
+test(importWithdrawalReadsTheBridgeOutLog);

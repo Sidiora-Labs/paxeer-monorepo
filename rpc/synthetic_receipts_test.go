@@ -139,7 +139,7 @@ func (f *syntheticReceiptFixture) filterAPI(t *testing.T, namespace string) *evm
 	api := evmrpc.NewFilterAPI(f.tm, f.k, f.ctxProvider, f.txConfigProvider, evmrpc.NewFilterConfig(time.Minute, 0, 0),
 		evmrpc.ConnectionTypeHTTP, namespace, make(chan struct{}, evmrpc.MaxDBReadConcurrency), f.cache, f.mu,
 		evmrpc.NewLogSlicePool(), f.watermarks)
-	t.Cleanup(api.Cleanup)
+	t.Cleanup(func() { evmrpc.ShutdownFilterAPIForTest(api) })
 	return api
 }
 

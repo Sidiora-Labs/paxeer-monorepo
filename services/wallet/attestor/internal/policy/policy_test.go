@@ -1,7 +1,10 @@
 package policy
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"crypto/ed25519"
+	"encoding/binary"
 	"errors"
 	"math/big"
 	"os"
@@ -16,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
 )
 
@@ -136,6 +140,166 @@ func TestValueCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, common.HexToAddress("0x7777777777777777777777777777777777777777"), big.NewInt(0), unknownToken), h.ledger), CodeNoCap)
+}
+
+func TestLayerxledgerSendCountsSpend(t *testing.T) {
+	h := newHarness(t)
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	asset := common.HexToHash("0x1234567890abcdef123456780000000000000000000000000000000000000001")
+	assetKey := common.Bytes2Hex(asset[:])
+	doc.Defaults.Caps[assetKey] = Cap{PerTransaction: "5000000", Daily: "8000000"}
+	h.policy = New(doc)
+	contract, err := evm.PrecompileABI("layerxledger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address, _ := evm.PrecompileAddress("layerxledger")
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{1}, ed25519.SeedSize))
+	send := lxwire.Send{
+		From: [32]byte{1}, To: [32]byte{2}, Asset: asset,
+		IdempotencyKey: [32]byte{3}, ExpiresAt: uint64(h.now.Add(time.Hour).UnixMilli()),
+		AuthorizationKind: lxwire.OwnerAuthorization, Controller: [32]byte{1},
+		NetworkID: 125, ProtocolVersion: lxwire.StateCommitmentProtocolVersion,
+	}
+	copy(send.PublicKey[:], key.Public().(ed25519.PublicKey))
+	evaluate := func(amount uint64) Decision {
+		send.Amount = lxwire.Uint128{Lo: amount}
+		send.SourceSequence++
+		digest, err := send.AuthorizationDigest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		copy(send.Signature[:], ed25519.Sign(key, digest[:]))
+		envelope, err := send.Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := contract.Pack("send", envelope)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger)
+	}
+	expect(t, evaluate(5_000_001), CodeValueCap)
+	decision := evaluate(5_000_000)
+	expect(t, decision, CodeAllowed)
+	if len(decision.Spends) != 1 || decision.Spends[0].Asset != assetKey || decision.Spends[0].Amount.Cmp(big.NewInt(5_000_000)) != 0 {
+		t.Fatalf("spends %+v, want 5000000 of %s", decision.Spends, assetKey)
+	}
+	send.Asset[0] ^= 1
+	expect(t, evaluate(1), CodeNoCap)
+	spent, err := h.ledger.Spent(strings.ToLower(testAccount), assetKey, h.now.Add(-SpendWindow))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spent.Cmp(big.NewInt(5_000_000)) != 0 {
+		t.Fatalf("ledger spent %s, want 5000000", spent)
+	}
+}
+
+func policyTestAuthorityGrant(asset [32]byte, allowance uint64, kind uint8) []byte {
+	var out []byte
+	u64 := func(value uint64) { out = binary.BigEndian.AppendUint64(out, value) }
+	u128 := func(value uint64) { u64(0); u64(value) }
+	field := func(value []byte) {
+		out = binary.BigEndian.AppendUint32(out, uint32(len(value)))
+		out = append(out, value...)
+	}
+	out = binary.BigEndian.AppendUint16(out, 1)
+	out = binary.BigEndian.AppendUint16(out, 0x2001)
+	out = append(out, 1)
+	field(bytes.Repeat([]byte{1}, 32))
+	field(bytes.Repeat([]byte{1}, 32))
+	out = append(out, kind)
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{2}, ed25519.SeedSize))
+	field(key.Public().(ed25519.PublicKey))
+	u64(1 << 1)
+	out = binary.BigEndian.AppendUint16(out, 5)
+	out = binary.BigEndian.AppendUint16(out, 5)
+	field(asset[:])
+	u128(1_000_000)
+	u128(allowance)
+	u128(0)
+	u64(0)
+	u128(0)
+	u128(0)
+	u64(0)
+	field(bytes.Repeat([]byte{3}, 32))
+	u64(1_800_000_000_000)
+	u64(1_800_003_600_000)
+	u64(1)
+	out = append(out, 0)
+	u64(0)
+	field(make([]byte, 64))
+	return out
+}
+
+func TestLayerxauthGrantIssueCountsAllowance(t *testing.T) {
+	for _, method := range []string{"grantSession", "grantSessionSuccessor", "grantCapability"} {
+		t.Run(method, func(t *testing.T) {
+			h := newHarness(t)
+			doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			asset := [32]byte{4}
+			assetKey := common.Bytes2Hex(asset[:])
+			doc.Defaults.Caps[assetKey] = Cap{PerTransaction: "5000000", Daily: "8000000"}
+			h.policy = New(doc)
+			contract, err := evm.PrecompileABI("layerxauth")
+			if err != nil {
+				t.Fatal(err)
+			}
+			address, _ := evm.PrecompileAddress("layerxauth")
+			kind := uint8(3)
+			if method != "grantCapability" {
+				kind = 2
+			}
+			evaluate := func(grant []byte) Decision {
+				args := []any{grant}
+				if method != "grantCapability" {
+					args = append(args, uint64(100), [32]byte{5})
+					if method == "grantSessionSuccessor" {
+						args = append(args, [32]byte{6}, [32]byte{7})
+					}
+				}
+				data, err := contract.Pack(method, args...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger)
+			}
+			grant := policyTestAuthorityGrant(asset, 5_000_000, kind)
+			decision := evaluate(grant)
+			expect(t, decision, CodeAllowed)
+			if len(decision.Spends) != 1 || decision.Spends[0].Asset != assetKey || decision.Spends[0].Amount.Cmp(big.NewInt(5_000_000)) != 0 {
+				t.Fatalf("spends %+v, want 5000000 of %s", decision.Spends, assetKey)
+			}
+			expect(t, evaluate(policyTestAuthorityGrant(asset, 4_000_000, kind)), CodeDailyCap)
+			expect(t, evaluate(grant[:len(grant)-1]), CodeDecodeError)
+			expect(t, evaluate(append(bytes.Clone(grant), 0)), CodeDecodeError)
+			expect(t, evaluate(policyTestAuthorityGrant(asset, 0, kind)), CodeUnlimitedApproval)
+			data, err := contract.Pack("revokeGrant", [32]byte{8}, uint8(1), uint64(2))
+			if err != nil {
+				t.Fatal(err)
+			}
+			revoked := h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger)
+			expect(t, revoked, CodeAllowed)
+			if len(revoked.Spends) != 0 {
+				t.Fatalf("revocation spends %+v, want none", revoked.Spends)
+			}
+			spent, err := h.ledger.Spent(strings.ToLower(testAccount), assetKey, h.now.Add(-SpendWindow))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if spent.Cmp(big.NewInt(5_000_000)) != 0 {
+				t.Fatalf("ledger spent %s, want 5000000", spent)
+			}
+		})
+	}
 }
 
 func TestRollingCapAcrossWindowBoundary(t *testing.T) {
@@ -669,6 +833,26 @@ func TestShippedPolicyAllowsWalletSDKWrites(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, feetoken, big.NewInt(0), setDenom), h.ledger), CodeAllowed)
 }
 
+func TestShippedPolicyRefusesUsdlApproveToListedPrecompile(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	erc20, err := evm.PrecompileABI("erc20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spender := common.HexToAddress("0x0000000000000000000000000000000000001018")
+	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
+	approve, err := erc20.Pack("approve", spender, big.NewInt(50_000_000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	expect(t, h.policy.Evaluate(testAccount, h.tx(t, usdl, big.NewInt(0), approve), h.ledger), CodeSelectorNotAllowed)
+}
+
 func TestShippedPolicyAllowsPerpsApproveThenDeposit(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
@@ -731,6 +915,73 @@ func TestShippedPolicyAllowsPerpsApproveThenDeposit(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, perps, big.NewInt(0), transfer), h.ledger), CodeSelectorNotAllowed)
 	legacy := append(crypto.Keccak256([]byte("placeOrder(bytes32,uint8,uint256,uint256,uint8)"))[:4], make([]byte, 160)...)
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, perps, big.NewInt(0), legacy), h.ledger), CodeDecodeError)
+}
+
+func TestTransferToPrecompileRecipientRefused(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
+	precompile := common.HexToAddress("0x0000000000000000000000000000000000001017")
+	bridge, ok := evm.PrecompileAddress("layerxbridge")
+	if !ok {
+		t.Fatal("layerxbridge address is missing")
+	}
+	amount := big.NewInt(25_000_000)
+	for _, tc := range []struct {
+		method   string
+		contract string
+		target   common.Address
+		args     func(common.Address) []any
+	}{
+		{"transfer", "erc20", usdl, func(to common.Address) []any { return []any{to, amount} }},
+		{"transferFrom", "erc20", usdl, func(to common.Address) []any {
+			return []any{common.HexToAddress(testAccount), to, amount}
+		}},
+		{"bridgeOut", "layerxbridge", bridge, func(to common.Address) []any {
+			return []any{uint64(1), usdl, amount, to}
+		}},
+		{"approve", "erc20", usdl, func(to common.Address) []any { return []any{to, amount} }},
+	} {
+		t.Run(tc.method, func(t *testing.T) {
+			contract, err := evm.PrecompileABI(tc.contract)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, to := range []common.Address{precompile, common.HexToAddress(friend)} {
+				t.Run(to.Hex(), func(t *testing.T) {
+					h := newHarness(t)
+					h.policy = New(doc)
+					data, err := contract.Pack(tc.method, tc.args(to)...)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := CodeAllowed
+					if to == precompile && tc.method != "approve" {
+						want = CodeDestinationBlocked
+					}
+					decision := h.policy.Evaluate(testAccount, h.tx(t, tc.target, big.NewInt(0), data), h.ledger)
+					expect(t, decision, want)
+					if want == CodeDestinationBlocked && decision.Reason != "recipient "+precompile.Hex()+" is a precompile" {
+						t.Fatalf("refusal reason %q does not identify the precompile recipient", decision.Reason)
+					}
+				})
+			}
+		})
+	}
+	t.Run("permit", func(t *testing.T) {
+		h := newHarness(t)
+		h.policy = New(doc)
+		typed := permitData(t, amount.String())
+		typed.Data.Domain.VerifyingContract = usdl.Hex()
+		typed.Data.Message["spender"] = precompile.Hex()
+		typed.Digest, err = evm.TypedDataDigest(typed.Data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: typed}, h.ledger), CodeAllowed)
+	})
 }
 
 func TestShippedPolicyAllowsLaunchpadApproveThenBuy(t *testing.T) {
@@ -801,6 +1052,141 @@ func TestShippedPolicyAllowsLaunchpadApproveThenBuy(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, launchpad, big.NewInt(0), unlisted), h.ledger), CodeSelectorNotAllowed)
 }
 
+type launchpadTestPermit struct {
+	Value    *big.Int
+	Deadline *big.Int
+	V        uint8
+	R        [32]byte
+	S        [32]byte
+}
+
+func newLaunchpadPermitHarness(t *testing.T) *harness {
+	t.Helper()
+	h := newHarness(t)
+	doc, err := Parse(testDocument(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	launchpad, _ := evm.PrecompileAddress("launchpad")
+	doc.Defaults.Selectors[launchpad.Hex()] = []string{
+		selectorHex(t, "launchpad", "swapTokenForTokenWithPermit"),
+		selectorHex(t, "launchpad", "buyWithPermit"),
+		selectorHex(t, "launchpad", "sellWithPermit"),
+		selectorHex(t, "launchpad", "createMarketWithPermit"),
+	}
+	doc.Defaults.TrustedSpenders = []string{launchpad.Hex()}
+	doc.Defaults.Caps[sidiora] = Cap{PerTransaction: "100", Daily: "150"}
+	h.policy = New(doc)
+	return h
+}
+
+func TestLaunchpadPermitPullCountsAgainstTheTokenCap(t *testing.T) {
+	h := newLaunchpadPermitHarness(t)
+	contract, err := evm.PrecompileABI("launchpad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	launchpad, _ := evm.PrecompileAddress("launchpad")
+	tokenIn := common.HexToAddress(sidiora)
+	asset := TokenAsset(tokenIn)
+	deadline := big.NewInt(1_900_000_000)
+	evaluate := func(value int64) Decision {
+		t.Helper()
+		permit := launchpadTestPermit{Value: big.NewInt(value), Deadline: deadline, V: 27, R: [32]byte{1}, S: [32]byte{2}}
+		data, err := contract.Pack("swapTokenForTokenWithPermit", tokenIn, common.HexToAddress(friend), big.NewInt(1), big.NewInt(1), deadline, permit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inspection, err := inspectCall(launchpad, big.NewInt(0), data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(inspection.Spends) != 2 || inspection.Spends[1].Asset != asset || inspection.Spends[1].Amount.Cmp(big.NewInt(value)) != 0 || inspection.Spends[1].Spender != nil {
+			t.Fatalf("inspection spends %+v, want %d of %s without a spender", inspection.Spends, value, asset)
+		}
+		return h.policy.Evaluate(testAccount, h.tx(t, launchpad, big.NewInt(0), data), h.ledger)
+	}
+	assertSpent := func(want int64) {
+		t.Helper()
+		spent, err := h.ledger.Spent(AccountKey(testAccount), asset, h.now.Add(-SpendWindow))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if spent.Cmp(big.NewInt(want)) != 0 {
+			t.Fatalf("ledger spent %s, want %d of %s", spent, want, asset)
+		}
+	}
+	assertAllowed := func(value int64) {
+		t.Helper()
+		decision := evaluate(value)
+		expect(t, decision, CodeAllowed)
+		if len(decision.Spends) != 1 || decision.Spends[0].Asset != asset || decision.Spends[0].Amount.Cmp(big.NewInt(value)) != 0 {
+			t.Fatalf("spends %+v, want %d of %s", decision.Spends, value, asset)
+		}
+	}
+
+	decision := evaluate(101)
+	expect(t, decision, CodeValueCap)
+	if len(decision.Spends) != 0 {
+		t.Fatalf("refused permit recorded spends %+v", decision.Spends)
+	}
+	assertSpent(0)
+	assertAllowed(100)
+	assertSpent(100)
+
+	h.now = h.now.Add(RateWindow)
+	decision = evaluate(51)
+	expect(t, decision, CodeDailyCap)
+	if len(decision.Spends) != 0 {
+		t.Fatalf("daily-cap refusal recorded spends %+v", decision.Spends)
+	}
+	assertSpent(100)
+	assertAllowed(50)
+	assertSpent(150)
+
+	h.now = h.now.Add(SpendWindow + time.Second)
+	assertAllowed(99)
+	assertSpent(99)
+}
+
+func TestLaunchpadPermitWithoutNamedTokenRefused(t *testing.T) {
+	contract, err := evm.PrecompileABI("launchpad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	launchpad, _ := evm.PrecompileAddress("launchpad")
+	deadline := big.NewInt(1_900_000_000)
+	permit := launchpadTestPermit{Value: big.NewInt(1), Deadline: deadline, V: 27, R: [32]byte{1}, S: [32]byte{2}}
+	for _, tc := range []struct {
+		method string
+		args   []any
+	}{
+		{"buyWithPermit", []any{common.HexToAddress(friend), big.NewInt(1), big.NewInt(1), deadline, permit}},
+		{"sellWithPermit", []any{common.HexToAddress(friend), big.NewInt(1), big.NewInt(1), deadline, permit}},
+		{"createMarketWithPermit", []any{"Token", "TKN", uint8(0), common.HexToAddress(friend), permit}},
+	} {
+		t.Run(tc.method, func(t *testing.T) {
+			h := newLaunchpadPermitHarness(t)
+			data, err := contract.Pack(tc.method, tc.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decision := h.policy.Evaluate(testAccount, h.tx(t, launchpad, big.NewInt(0), data), h.ledger)
+			expect(t, decision, CodeSelectorNotAllowed)
+			if len(decision.Spends) != 0 {
+				t.Fatalf("refused %s recorded spends %+v", tc.method, decision.Spends)
+			}
+			spent, err := h.ledger.Spent(AccountKey(testAccount), TokenAsset(common.HexToAddress(sidiora)), h.now.Add(-SpendWindow))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if spent.Sign() != 0 {
+				t.Fatalf("refused %s recorded ledger spend %s", tc.method, spent)
+			}
+		})
+	}
+}
+
 func TestShippedPolicySponsoredFeeAndPaymasterDelegation(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
@@ -847,6 +1233,139 @@ func TestShippedPolicySponsoredFeeAndPaymasterDelegation(t *testing.T) {
 	h.now = h.now.Add(RateWindow)
 	expect(t, h.policy.Evaluate(testAccount, setCode(paymaster), h.ledger), CodeAllowed)
 	expect(t, h.policy.Evaluate(testAccount, setCode(common.HexToAddress(friend)), h.ledger), CodeDelegateNotAllowed)
+}
+
+func TestSetCodeRefusesALaterUnlistedAuthorization(t *testing.T) {
+	h := newHarness(t)
+	to := common.HexToAddress(friend)
+	allowed := common.HexToAddress("0x4444444444444444444444444444444444444444")
+	tx := &evm.Transaction{
+		Type: 4, ChainID: chainID, To: &to, Value: big.NewInt(0),
+		Authorizations: []types.SetCodeAuthorization{
+			{ChainID: *uint256.NewInt(125), Address: allowed, Nonce: 1},
+			{ChainID: *uint256.NewInt(125), Address: common.HexToAddress(friend), Nonce: 2},
+		},
+	}
+	req := Request{Kind: KindEVMTransaction, View: tx}
+	expect(t, h.policy.Evaluate(testAccount, req, h.ledger), CodeDelegateNotAllowed)
+
+	tx.Authorizations[1].Address = allowed
+	expect(t, h.policy.Evaluate(testAccount, req, h.ledger), CodeAllowed)
+}
+
+func TestTrustedSpenderNearMaxApprovalRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		amount *big.Int
+		code   string
+	}{
+		{"near maximum", new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(2)), CodeUnlimitedApproval},
+		{"at ceiling", new(big.Int).Lsh(big.NewInt(1), 255), CodeUnlimitedApproval},
+		{"maximum", new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)), CodeUnlimitedApproval},
+		{"below ceiling", new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(1)), CodeAllowed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			h.policy = New(doc)
+			token := common.HexToAddress(sidiora)
+			trusted := common.HexToAddress("0x0000000000000000000000000000000000001017")
+			erc20, err := evm.PrecompileABI("erc20")
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := erc20.Pack("approve", trusted, tc.amount)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decision := h.policy.Evaluate(testAccount, h.tx(t, token, big.NewInt(0), data), h.ledger)
+			expect(t, decision, tc.code)
+			if tc.code == CodeUnlimitedApproval && decision.Reason != "unlimited approval of "+TokenAsset(token)+" to "+trusted.Hex()+" is refused" {
+				t.Fatalf("unexpected refusal reason %q", decision.Reason)
+			}
+			if len(decision.Spends) != 0 || len(h.ledger.spends) != 0 {
+				t.Fatalf("trusted approval recorded spends: decision %+v, ledger %+v", decision.Spends, h.ledger.spends)
+			}
+		})
+	}
+}
+
+func TestTrustedSpenderNearMaxPermitRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		amount *big.Int
+		code   string
+	}{
+		{"near maximum", new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(2)), CodeUnlimitedApproval},
+		{"at ceiling", new(big.Int).Lsh(big.NewInt(1), 255), CodeUnlimitedApproval},
+		{"maximum", new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)), CodeUnlimitedApproval},
+		{"below ceiling", new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(1)), CodeAllowed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			h.policy = New(doc)
+			token := common.HexToAddress(sidiora)
+			trusted := common.HexToAddress("0x0000000000000000000000000000000000001017")
+			typed := permitData(t, tc.amount.String())
+			typed.Data.Message["spender"] = trusted.Hex()
+			typed.Digest, err = evm.TypedDataDigest(typed.Data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decision := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: typed}, h.ledger)
+			expect(t, decision, tc.code)
+			if tc.code == CodeUnlimitedApproval && decision.Reason != "unlimited approval of "+TokenAsset(token)+" to "+trusted.Hex()+" is refused" {
+				t.Fatalf("unexpected refusal reason %q", decision.Reason)
+			}
+			if len(decision.Spends) != 0 || len(h.ledger.spends) != 0 {
+				t.Fatalf("trusted permit recorded spends: decision %+v, ledger %+v", decision.Spends, h.ledger.spends)
+			}
+		})
+	}
+}
+
+func permitDataTo(t *testing.T, spender, value string) *evm.TypedData {
+	t.Helper()
+	body := `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit","domain":{"name":"Sidiora","version":"1","chainId":125,"verifyingContract":"` + sidiora + `"},"message":{"owner":"` + testAccount + `","spender":"` + spender + `","value":"` + value + `","nonce":"0","deadline":"4102444800"}}`
+	typed, err := evm.DecodeTypedData([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return typed
+}
+
+func TestShippedPolicyTrustedSpenderPermit(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	const trusted = "0x0000000000000000000000000000000000001017"
+	permit := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: permitDataTo(t, trusted, "100000000")}, h.ledger)
+	expect(t, permit, CodeAllowed)
+	if len(permit.Spends) != 0 {
+		t.Fatalf("trusted SID permit counted %+v against a cap", permit.Spends)
+	}
+	unlimited := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: permitDataTo(t, trusted, maxUint256.String())}, h.ledger)
+	expect(t, unlimited, CodeUnlimitedApproval)
+	if len(unlimited.Spends) != 0 {
+		t.Fatalf("refused trusted SID permit recorded capped spends %+v", unlimited.Spends)
+	}
+	spent, err := h.ledger.Spent(AccountKey(testAccount), TokenAsset(common.HexToAddress(sidiora)), h.now.Add(-SpendWindow))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spent.Sign() != 0 {
+		t.Fatalf("trusted SID permits recorded %s of capped spend, want zero", spent)
+	}
 }
 
 func TestShippedPolicySIDCapIsSponsoredFeeOnly(t *testing.T) {

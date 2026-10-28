@@ -2,6 +2,7 @@ package policy
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
 )
 
@@ -236,8 +238,13 @@ func parseAsset(asset string) (string, error) {
 	if asset == AssetNative {
 		return AssetNative, nil
 	}
+	if len(asset) == 64 && asset == strings.ToLower(asset) {
+		if _, err := hex.DecodeString(asset); err == nil {
+			return asset, nil
+		}
+	}
 	if !common.IsHexAddress(asset) {
-		return "", fmt.Errorf("asset %q is neither %s nor a token address", asset, AssetNative)
+		return "", fmt.Errorf("asset %q is neither %s, a token address nor a lowercase 32-byte asset id", asset, AssetNative)
 	}
 	return TokenAsset(common.HexToAddress(asset)), nil
 }
@@ -344,6 +351,8 @@ type Destination struct {
 	// Counterparty marks a spender or recipient named in the call's
 	// arguments rather than the address the call is sent to.
 	Counterparty bool
+	Recipient    bool
+	Spender      bool
 }
 
 type Spend struct {
@@ -516,7 +525,7 @@ func (p *Policy) Evaluate(account string, req Request, ledger Ledger) Decision {
 			}
 		}
 		if spend.Spender != nil && effective.trusted[*spend.Spender] {
-			if spend.Amount != nil && spend.Amount.Cmp(maxUint256) == 0 {
+			if spend.Amount != nil && spend.Amount.Cmp(approvalCeiling) >= 0 {
 				return denied(CodeUnlimitedApproval, "unlimited approval of %s to %s is refused", spend.Asset, spend.Spender.Hex())
 			}
 			if _, ok := effective.caps[spend.Asset]; !ok || pullCounted[*spend.Spender] {
@@ -586,6 +595,9 @@ func checkDestination(effective *compiled, destination Destination) (Decision, b
 	if effective.allow != nil && !effective.allow[address] {
 		return denied(CodeDestinationBlocked, "destination %s is not on the allow list", address.Hex()), false
 	}
+	if destination.Recipient && destination.Precompile {
+		return denied(CodeDestinationBlocked, "recipient %s is a precompile", address.Hex()), false
+	}
 	allowed, listed := effective.selectors[address]
 	if !listed && !destination.Precompile {
 		return Decision{}, true
@@ -594,6 +606,9 @@ func checkDestination(effective *compiled, destination Destination) (Decision, b
 		return denied(CodeSelectorNotAllowed, "precompile %s has no allowed methods", address.Hex()), false
 	}
 	if destination.Counterparty {
+		if destination.Spender && !effective.trusted[address] {
+			return denied(CodeSelectorNotAllowed, "spender %s is not trusted", address.Hex()), false
+		}
 		return Decision{}, true
 	}
 	if len(destination.Selector) != 4 || !allowed[[4]byte(destination.Selector)] {
@@ -647,12 +662,12 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		out.Spends = append(out.Spends, Spend{Asset: TokenAsset(asset), Amount: amount})
 		return nil
 	}
-	recipient := func(arg string) error {
+	recipient := func(arg string, isRecipient bool) error {
 		address, ok := call.Args[arg].(common.Address)
 		if !ok {
 			return refuse(CodeDecodeError, "%s.%s argument %s is malformed", call.Destination, call.Method, arg)
 		}
-		out.Destinations = append(out.Destinations, Destination{Address: address, Precompile: evm.IsPrecompile(address), Counterparty: true})
+		out.Destinations = append(out.Destinations, Destination{Address: address, Precompile: evm.IsPrecompile(address), Counterparty: true, Recipient: isRecipient})
 		return nil
 	}
 	switch {
@@ -664,16 +679,36 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		spend := Spend{Asset: TokenAsset(to), Amount: amount}
 		switch call.Method {
 		case "transfer", "transferFrom":
-			err = recipient("to")
+			err = recipient("to", true)
 		case "approve":
-			if err = recipient("spender"); err == nil {
+			if err = recipient("spender", false); err == nil {
+				out.Destinations[len(out.Destinations)-1].Spender = true
 				spender := out.Destinations[len(out.Destinations)-1].Address
 				spend.Spender = &spender
 			}
 		}
 		out.Spends = append(out.Spends, spend)
-	case call.Destination == "layerxcustody" && call.Method == "depositToken":
-		err = token("pointer", "amount")
+	case call.Destination == "layerxledger" && call.Method == "send":
+		envelope, ok := call.Args["envelope"].([]byte)
+		if !ok {
+			return Inspection{}, refuse(CodeDecodeError, "layerxledger.send envelope is malformed")
+		}
+		send, decodeErr := lxwire.DecodeSend(envelope)
+		if decodeErr != nil {
+			return Inspection{}, refuse(CodeDecodeError, "layerxledger.send: %v", decodeErr)
+		}
+		amount := send.Amount.Bytes()
+		out.Spends = append(out.Spends, Spend{Asset: hex.EncodeToString(send.Asset[:]), Amount: new(big.Int).SetBytes(amount[:])})
+	case call.Destination == "layerxauth" && (call.Method == "grantSession" || call.Method == "grantSessionSuccessor" || call.Method == "grantCapability"):
+		grant, ok := call.Args["grant"].([]byte)
+		if !ok {
+			return Inspection{}, refuse(CodeDecodeError, "layerxauth.%s grant is malformed", call.Method)
+		}
+		spend, decodeErr := grantAllowance(grant)
+		if decodeErr != nil {
+			return Inspection{}, decodeErr
+		}
+		out.Spends = append(out.Spends, spend)
 	case (call.Destination == "layerxpay" && (call.Method == "budgetFundNative" || call.Method == "budgetFund")) ||
 		(call.Destination == "layerxprograms" && call.Method == "sandboxFund"):
 		amount, ok := call.Args["amount"].(*big.Int)
@@ -696,15 +731,125 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		err = token("token", "amount")
 	case call.Destination == "perps" && call.Method == "openPosition":
 		err = token("collateralToken", "collateralAmount")
+	case call.Destination == "launchpad" && call.Method == "swapTokenForTokenWithPermit":
+		asset, ok := call.Args["tokenIn"].(common.Address)
+		if !ok {
+			return Inspection{}, refuse(CodeDecodeError, "launchpad.%s tokenIn is malformed", call.Method)
+		}
+		type permitParams struct {
+			Value    *big.Int
+			Deadline *big.Int
+			V        uint8
+			R        [32]byte
+			S        [32]byte
+		}
+		permit := abi.ConvertType(call.Args["permit"], new(permitParams)).(*permitParams)
+		out.Spends = append(out.Spends, Spend{Asset: TokenAsset(asset), Amount: permit.Value})
+	case call.Destination == "launchpad" && (call.Method == "buyWithPermit" || call.Method == "sellWithPermit" || call.Method == "createMarketWithPermit"):
+		return Inspection{}, refuse(CodeSelectorNotAllowed, "launchpad.%s does not name the permitted token for cap accounting", call.Method)
 	case call.Destination == "layerxbridge" && call.Method == "bridgeOut":
 		if err = token("asset", "amount"); err == nil {
-			err = recipient("recipient")
+			err = recipient("recipient", true)
 		}
 	}
 	if err != nil {
 		return Inspection{}, err
 	}
 	return out, nil
+}
+
+func grantAllowance(raw []byte) (Spend, error) {
+	r := bytes.NewReader(raw)
+	var decodeErr error
+	read := func(value any) {
+		if decodeErr == nil {
+			decodeErr = binary.Read(r, binary.BigEndian, value)
+		}
+	}
+	fixed := func(size int) []byte {
+		var length uint32
+		read(&length)
+		if length != uint32(size) {
+			decodeErr = errors.New("non-canonical grant field length")
+			return nil
+		}
+		value := make([]byte, size)
+		read(value)
+		return value
+	}
+	var structureVersion, tag uint16
+	var version, kind, revoked uint8
+	read(&structureVersion)
+	read(&tag)
+	read(&version)
+	fixed(32) // grantor
+	fixed(32) // grantee
+	read(&kind)
+	fixed(32) // key
+	var moduleMask uint64
+	var ordinalMin, ordinalMax uint16
+	read(&moduleMask)
+	read(&ordinalMin)
+	read(&ordinalMax)
+	asset := fixed(32)
+	var perActivity, allowance, spent [16]byte
+	read(&perActivity)
+	read(&allowance)
+	read(&spent)
+	var periodLength, periodStart uint64
+	var perPeriod, spentPeriod [16]byte
+	read(&periodLength)
+	read(&perPeriod)
+	read(&spentPeriod)
+	read(&periodStart)
+	fixed(32) // purpose hash
+	var notBefore, notAfter, revocationSequence, revokedAt uint64
+	read(&notBefore)
+	read(&notAfter)
+	read(&revocationSequence)
+	read(&revoked)
+	read(&revokedAt)
+	fixed(64) // grantor signature
+	switch version {
+	case 1:
+	case 2:
+		fixed(32) // fee asset
+		var feeScope [96]byte
+		read(&feeScope)
+	case 3:
+		var authenticationOnly uint8
+		read(&authenticationOnly)
+		if kind != 2 || authenticationOnly != 1 {
+			decodeErr = errors.New("invalid authentication grant")
+		}
+	case 4:
+		var threshold, signers, approvals uint8
+		read(&threshold)
+		read(&signers)
+		if signers > 8 {
+			decodeErr = errors.New("too many grant signers")
+		}
+		fixed(int(signers) * 32)
+		read(&approvals)
+		if approvals > signers {
+			decodeErr = errors.New("too many grant approvals")
+		}
+		fixed(int(approvals) * 32)
+		var earliestSequence, earliestTimestamp uint64
+		read(&earliestSequence)
+		read(&earliestTimestamp)
+	default:
+		decodeErr = errors.New("unsupported grant version")
+	}
+	if decodeErr != nil || r.Len() != 0 || structureVersion != 1 || tag != 0x2001 || kind < 1 || kind > 8 ||
+		((kind >= 7) != (version == 4)) || revoked > 1 || notAfter <= notBefore || ordinalMin > ordinalMax {
+		return Spend{}, refuse(CodeDecodeError, "layerxauth grant is malformed")
+	}
+	amount := new(big.Int).SetBytes(allowance[:])
+	if amount.Sign() == 0 && !bytes.Equal(asset, make([]byte, 32)) {
+		return Spend{}, refuse(CodeUnlimitedApproval, "layerxauth grant has no total allowance bound")
+	}
+	return Spend{Asset: hex.EncodeToString(asset), Amount: amount}, nil
 }
 
 func inspectTransaction(ctx Context, view any) (Inspection, error) {
@@ -766,12 +911,13 @@ func inspectTypedData(ctx Context, view any) (Inspection, error) {
 		}
 		spend.Spender = &spender
 		out.Spends = append(out.Spends, spend)
-		out.Destinations = append(out.Destinations, Destination{Address: spender, Precompile: evm.IsPrecompile(spender), Counterparty: true})
+		out.Destinations = append(out.Destinations, Destination{Address: spender, Precompile: evm.IsPrecompile(spender), Counterparty: true, Spender: true})
 	}
 	return out, nil
 }
 
 var maxUint256 = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
+var approvalCeiling = new(big.Int).Lsh(big.NewInt(1), 255)
 
 func permitSpend(typed *evm.TypedData) (Spend, common.Address, error) {
 	domain := typed.Data.Domain

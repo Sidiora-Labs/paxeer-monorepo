@@ -5,6 +5,8 @@ import (
 	ibckeeper "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/keeper"
 	evmante "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/ante"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	layerxauthante "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/ante"
+	layerxauthkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle"
 	oraclekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/keeper"
 	pricefeedkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
@@ -31,6 +33,7 @@ type HandlerOptions struct {
 	OracleKeeper      *oraclekeeper.Keeper
 	PricefeedKeeper   pricefeedkeeper.Keeper
 	EVMKeeper         *evmkeeper.Keeper
+	LayerXAuthKeeper  *layerxauthkeeper.Keeper
 	UpgradeKeeper     *upgradekeeper.Keeper
 	TXCounterStoreKey sdk.StoreKey
 	LatestCtxGetter   func() sdk.Context
@@ -66,6 +69,9 @@ func NewAnteHandler(options HandlerOptions) (sdk.AnteHandler, sdk.AnteHandler, e
 	if options.EVMKeeper == nil {
 		return nil, nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "evm keeper is required for ante builder")
 	}
+	if options.LayerXAuthKeeper == nil {
+		return nil, nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "layerxauth keeper is required for ante builder")
+	}
 	if options.LatestCtxGetter == nil {
 		return nil, nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "latest context getter is required for ante builder")
 	}
@@ -98,6 +104,7 @@ func NewAnteHandler(options HandlerOptions) (sdk.AnteHandler, sdk.AnteHandler, e
 		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
 		evmante.NewEVMAddressDecorator(options.EVMKeeper, options.EVMKeeper.AccountKeeper()),
 		antedecorators.NewAuthzNestedMessageDecorator(),
+		layerxauthante.NewRevocationDecorator(options.LayerXAuthKeeper, options.EVMKeeper),
 		ibcante.NewAnteDecorator(options.IBCKeeper),
 	}
 

@@ -235,7 +235,7 @@ static int test_pause_dispatch(void)
     PAUSE_CHECK(lxp_kernel_set_capabilities(
         &f->kernel, NULL, lxp_kernel_canonical_ledger_apply) == LXP_OK);
     f->runtime = (lx_asset_runtime){&f->accounts, &f->genesis_asset, 1U,
-        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY};
+        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false};
     PAUSE_CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET,
                                                &f->runtime) == LXP_OK);
 
@@ -440,7 +440,7 @@ static int test_supply_binding_dispatch(void)
     PAUSE_CHECK(lxp_kernel_set_capabilities(
         &f->kernel, NULL, lxp_kernel_canonical_ledger_apply) == LXP_OK);
     f->runtime = (lx_asset_runtime){&f->accounts, &f->genesis_asset, 1U,
-        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY};
+        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false};
     PAUSE_CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET,
                                                &f->runtime) == LXP_OK);
 
@@ -628,7 +628,7 @@ static int test_withdraw_dispatch(void)
     PAUSE_CHECK(lxp_kernel_set_capabilities(
         &f->kernel, NULL, lxp_kernel_canonical_ledger_apply) == LXP_OK);
     f->runtime = (lx_asset_runtime){&f->accounts, &f->genesis_asset, 1U,
-        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY};
+        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false};
     PAUSE_CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET,
                                                &f->runtime) == LXP_OK);
 
@@ -777,7 +777,7 @@ static int test_payer_grant_read(void)
     PAUSE_CHECK(lxp_kernel_set_capabilities(
         &f->kernel, NULL, lxp_kernel_canonical_ledger_apply) == LXP_OK);
     f->runtime = (lx_asset_runtime){&f->accounts, &f->genesis_asset, 1U,
-        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY};
+        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false};
     PAUSE_CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET,
                                                &f->runtime) == LXP_OK);
 

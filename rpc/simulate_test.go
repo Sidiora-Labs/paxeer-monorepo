@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/export"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
@@ -1251,4 +1252,41 @@ func TestStateAndHeaderUsesBlockTime(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(blockTime.Unix()), header.Time)
 	require.True(t, blockTime.Equal(sdb.(*state.DBImpl).Ctx().BlockTime()))
+}
+
+func TestGetBlockContextUsesRequestedBlock(t *testing.T) {
+	testApp := app.Setup(t, false, false, false)
+	const height int64 = 100
+	blockTime := time.Unix(1696941649, 0).UTC()
+	stateTime := blockTime.Add(5 * time.Second)
+	sdkCtx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(height + 1).WithBlockTime(stateTime)
+	ctxProvider := func(int64) sdk.Context { return sdkCtx }
+	watermarks := evmrpc.NewWatermarkManager(nil, ctxProvider, nil, testApp.EvmKeeper.ReceiptStore())
+	backend := evmrpc.NewBackend(ctxProvider, &testApp.EvmKeeper, legacyabci.BeginBlockKeepers{},
+		func(int64) client.TxConfig { return TxConfig }, nil,
+		&evmrpc.SimulateConfig{GasCap: 10000000, EVMTimeout: 30 * time.Second},
+		testApp.BaseApp, testApp.TracerAnteHandler, evmrpc.NewBlockCache(3000), &sync.Mutex{}, watermarks)
+	stateDB := state.NewDBImpl(sdkCtx, &testApp.EvmKeeper, true)
+
+	for _, tc := range []struct {
+		name   string
+		height int64
+		time   time.Time
+	}{
+		{name: "historical block", height: height, time: blockTime},
+		{name: "state context block", height: height + 1, time: stateTime},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			block := ethtypes.NewBlockWithHeader(&ethtypes.Header{
+				Number: big.NewInt(tc.height),
+				Time:   uint64(tc.time.Unix()),
+			})
+			blockCtx, err := backend.GetBlockContext(context.Background(), block, stateDB, nil)
+			require.NoError(t, err)
+			require.Equal(t, big.NewInt(tc.height), blockCtx.BlockNumber)
+			require.Equal(t, uint64(tc.time.Unix()), blockCtx.Time)
+			require.Equal(t, height+1, stateDB.Ctx().BlockHeight())
+			require.True(t, stateTime.Equal(stateDB.Ctx().BlockTime()))
+		})
+	}
 }

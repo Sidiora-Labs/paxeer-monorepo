@@ -22,7 +22,17 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       "MarginWithdrawalRequested(bytes32,bytes32,address,bytes32,uint256,uint64)",
       "OrderPlaced(bytes32,bytes32,address,uint8,uint256,uint256,uint8,uint64)",
       "OrderCancelRequested(bytes32,bytes32,address,uint64)",
-      "SettlementRequested(bytes32,bytes32,address,uint64)"
+      "SettlementRequested(bytes32,bytes32,address,uint64)",
+      "CollateralDeposited(address,uint256,uint256)",
+      "CollateralWithdrawn(address,uint256,uint256)",
+      "CollateralTransferred(address,address,uint256)",
+      "OrderPlaced(uint256,address,uint256,uint8,bool,uint256,uint256)",
+      "OrderCancelled(uint256,address)",
+      "OrderExecuted(uint256,uint256,uint256)",
+      "PositionOpened(uint256,address,uint256,bool,uint256,uint256,uint256,address,uint256)",
+      "PositionClosed(uint256,address,uint256,uint256,uint256,int256,bool)",
+      "Liquidation(uint256,address,uint256,uint256,uint256,address)",
+      "TradeSettled(uint256,address,uint256,uint8,uint256,uint256,int256,uint256,int256,uint256)"
     ],
     bridge: [
       "BridgeIn(uint64,bytes32,address,uint64,address,uint256,string)",
@@ -38,7 +48,19 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       "AirdropExecuted(address,uint256,uint256)",
       "AirdropClaimed(address,address,uint256,uint256)",
       "LpRewardsExecuted(address,uint256)",
-      "PauseToggled(address,bool)"
+      "PauseToggled(address,bool)",
+      "ConfigUpdated(bytes32,uint256,uint256,uint256,uint256)",
+      "FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)",
+      "FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)",
+      "FeeStrategyChanged(bytes32,uint256,uint8,uint8,uint256,uint256)",
+      "MarketCreated(bytes32,address,address,address,address,uint256,uint256)",
+      "NftMint(uint256,address,address,uint8,uint256,uint256)",
+      "NftTransfer(address,address,address,uint256,uint256,uint256)",
+      "PoolRegistered(address,address,address,address,uint256,uint256,uint256)",
+      "PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)",
+      "RouterTrade(uint8,address,address,address,address,uint256,uint256,uint256,uint256,uint256)",
+      "Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)",
+      "TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)"
     ]
   }
 
@@ -151,7 +173,7 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       end
 
       keys = Enum.map(definitions, &{&1.address, &1.topic})
-      assert length(keys) == 17
+      assert length(keys) == 39
       assert Enum.uniq(keys) == keys
     end
 
@@ -514,4 +536,5 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
   defp abi_type(:string), do: "string"
   defp abi_type({:bytes, size}), do: "bytes#{size}"
   defp abi_type({:uint, bits}), do: "uint#{bits}"
+  defp abi_type({:int, bits}), do: "int#{bits}"
 end

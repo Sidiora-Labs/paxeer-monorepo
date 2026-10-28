@@ -17,13 +17,17 @@
 package evmrpc
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,9 +55,10 @@ type HTTPConfig struct {
 
 // WsConfig is the JSON-RPC/Websocket configuration
 type WsConfig struct {
-	Origins []string
-	Modules []string
-	prefix  string // path prefix on which to mount ws handler
+	Origins  []string
+	Modules  []string
+	DenyList []string
+	prefix   string // path prefix on which to mount ws handler
 	RPCEndpointConfig
 }
 
@@ -62,11 +67,26 @@ type RPCEndpointConfig struct {
 	batchItemLimit         int
 	batchResponseSizeLimit int
 	readLimit              int64
+	ipRateLimitRPS         float64
+	ipRateLimitBurst       int
 }
 
 type rpcHandler struct {
 	http.Handler
-	server *rpc.Server
+	server  *rpc.Server
+	limiter *ipRateLimiter
+}
+
+func (l *ipRateLimiter) wrap(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !l.allow(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":null,"error":{"code":-32005,"message":"rate limit exceeded"}}`)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 type HTTPServer struct {
@@ -76,6 +96,7 @@ type HTTPServer struct {
 	mu       sync.Mutex
 	server   *http.Server
 	listener net.Listener // non-nil when server is running
+	onStop   []func()
 
 	// HTTP RPC handler things.
 
@@ -251,6 +272,12 @@ func CheckPath(r *http.Request, path string) bool {
 	return len(r.URL.Path) >= len(path) && r.URL.Path[:len(path)] == path
 }
 
+func (h *HTTPServer) addStopHook(hook func()) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onStop = append(h.onStop, hook)
+}
+
 // Stop shuts down the HTTP server.
 func (h *HTTPServer) Stop() {
 	h.mu.Lock()
@@ -261,7 +288,13 @@ func (h *HTTPServer) Stop() {
 }
 
 func (h *HTTPServer) doStop() {
+	defer func() { h.onStop = nil }()
 	if h.listener == nil {
+		h.disableRPC()
+		h.disableWS()
+		for _, hook := range h.onStop {
+			hook()
+		}
 		return // not running
 	}
 
@@ -274,12 +307,17 @@ func (h *HTTPServer) doStop() {
 	if httpHandler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		httpHandler.server.Stop()
+		httpHandler.limiter.stop()
 		h.apis = nil
 	}
 	if wsHandler != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		wsHandler.server.Stop()
+		wsHandler.limiter.stop()
 		h.wsAPIs = nil
+	}
+	for _, hook := range h.onStop {
+		hook()
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -325,9 +363,11 @@ func (h *HTTPServer) EnableRPC(apis []rpc.API, config HTTPConfig) error {
 	h.HTTPConfig = config
 	h.apis = registeredAPIs(apis, config.Modules)
 	base := NewHTTPHandlerStack(srv, config.CorsAllowedOrigins, config.Vhosts, config.JwtSecret)
+	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.httpHandler.Store(&rpcHandler{
-		Handler: wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist),
+		Handler: limiter.wrap(wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist)),
 		server:  srv,
+		limiter: limiter,
 	})
 	return nil
 }
@@ -338,6 +378,7 @@ func (h *HTTPServer) disableRPC() bool {
 	if handler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		handler.server.Stop()
+		handler.limiter.stop()
 		h.apis = nil
 	}
 	return handler != nil
@@ -359,13 +400,219 @@ func (h *HTTPServer) EnableWS(apis []rpc.API, config WsConfig) error {
 	if err := RegisterApis(apis, config.Modules, srv); err != nil {
 		return err
 	}
+	logger.Info("Registering deny list for evm websocket", "deny-list", config.DenyList)
+	for _, method := range config.DenyList {
+		srv.RegisterDenyList(method)
+	}
 	h.WsConfig = config
 	h.wsAPIs = registeredAPIs(apis, config.Modules)
+	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.wsHandler.Store(&rpcHandler{
-		Handler: NewWSHandlerStack(srv.WebsocketHandler(config.Origins), config.JwtSecret),
+		Handler: limiter.wrap(NewWSHandlerStack(newDenyListWSHandler(srv, config), config.JwtSecret)),
 		server:  srv,
+		limiter: limiter,
 	})
 	return nil
+}
+
+type denyListWSConn struct {
+	*websocket.Conn
+	mu            sync.Mutex
+	deniedMethods map[string]string
+	deniedErrors  map[string]string
+}
+
+func (c *denyListWSConn) SetWriteDeadline(deadline time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.Conn.SetWriteDeadline(deadline)
+}
+
+func rewriteWSMessages(raw json.RawMessage, rewrite func(json.RawMessage) (json.RawMessage, error)) (json.RawMessage, error) {
+	if !bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")) {
+		return rewrite(raw)
+	}
+	var messages []json.RawMessage
+	if err := json.Unmarshal(raw, &messages); err != nil {
+		return nil, err
+	}
+	for i, message := range messages {
+		var err error
+		messages[i], err = rewrite(message)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return json.Marshal(messages)
+}
+
+func (c *denyListWSConn) readJSON(value interface{}) error {
+	var raw json.RawMessage
+	if err := c.Conn.ReadJSON(&raw); err != nil {
+		return err
+	}
+	raw, err := rewriteWSMessages(raw, func(raw json.RawMessage) (json.RawMessage, error) {
+		var message jsonrpcMessage
+		if err := json.Unmarshal(raw, &message); err != nil || message.Method == "" {
+			return raw, nil
+		}
+		method, denied := c.deniedMethods[message.Method]
+		if !denied {
+			return raw, nil
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			return nil, err
+		}
+		if fields == nil {
+			return raw, nil
+		}
+		for key := range fields {
+			if strings.EqualFold(key, "method") {
+				delete(fields, key)
+			}
+		}
+		fields["method"], _ = json.Marshal(method)
+		return json.Marshal(fields)
+	})
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, value)
+}
+
+func (c *denyListWSConn) writeJSON(value interface{}, _ bool) error {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	raw, err = rewriteWSMessages(raw, func(raw json.RawMessage) (json.RawMessage, error) {
+		var response struct {
+			Error *struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(raw, &response); err != nil || response.Error == nil || response.Error.Code != -32601 {
+			return raw, nil
+		}
+		message, denied := c.deniedErrors[response.Error.Message]
+		if !denied {
+			return raw, nil
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			return nil, err
+		}
+		var errorFields map[string]json.RawMessage
+		if err := json.Unmarshal(fields["error"], &errorFields); err != nil {
+			return nil, err
+		}
+		errorFields["message"], _ = json.Marshal(message)
+		fields["error"], err = json.Marshal(errorFields)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(fields)
+	})
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.Conn.WriteJSON(json.RawMessage(raw))
+}
+
+func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
+	if len(config.DenyList) == 0 {
+		return srv.WebsocketHandler(config.Origins)
+	}
+	deniedMethods := make(map[string]string, len(config.DenyList))
+	deniedErrors := make(map[string]string, len(config.DenyList))
+	prefix := "denied:" + string(rpc.NewID()) + ":"
+	for i, method := range config.DenyList {
+		alias := prefix + strconv.Itoa(i)
+		deniedMethods[method] = alias
+		deniedErrors[fmt.Sprintf("the method %s does not exist/is not available", alias)] =
+			fmt.Sprintf("the method %s does not exist/is not available", method)
+	}
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return wsOriginAllowed(r, config.Origins)
+		},
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		conn.SetReadLimit(config.readLimit)
+		c := &denyListWSConn{Conn: conn, deniedMethods: deniedMethods, deniedErrors: deniedErrors}
+		stopped := make(chan struct{})
+		defer close(stopped)
+		conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Time{}) })
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-stopped:
+					return
+				case <-ticker.C:
+					_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+					if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
+						_ = conn.Close()
+						return
+					}
+				}
+			}
+		}()
+		srv.ServeCodec(rpc.NewFuncCodec(c, c.writeJSON, c.readJSON), 0)
+	})
+}
+
+func wsOriginAllowed(r *http.Request, origins []string) bool {
+	if _, present := r.Header["Origin"]; !present {
+		return true
+	}
+	allowed := make([]string, 0, len(origins))
+	for _, origin := range origins {
+		if origin != "" {
+			allowed = append(allowed, origin)
+		}
+	}
+	if len(allowed) == 0 {
+		allowed = append(allowed, "http://localhost")
+		if hostname, err := os.Hostname(); err == nil {
+			allowed = append(allowed, "http://"+hostname)
+		}
+	}
+	origin, err := url.Parse(strings.ToLower(r.Header.Get("Origin")))
+	if err != nil {
+		return false
+	}
+	for _, rule := range allowed {
+		if rule == "*" {
+			return true
+		}
+		parsed, err := url.Parse(rule)
+		if err != nil {
+			continue
+		}
+		scheme, host, port := parsed.Scheme, parsed.Hostname(), parsed.Port()
+		if !strings.Contains(rule, "://") {
+			scheme, host, port = "", parsed.Scheme, parsed.Opaque
+			if host == "" {
+				host = rule
+			}
+		}
+		if (scheme == "" || scheme == origin.Scheme) && (host == "" || host == origin.Hostname()) && (port == "" || port == origin.Port()) {
+			return true
+		}
+	}
+	return false
 }
 
 // disableWS disables the WebSocket handler. This is internal, the caller must hold h.mu.
@@ -374,6 +621,7 @@ func (h *HTTPServer) disableWS() bool {
 	if ws != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		ws.server.Stop()
+		ws.limiter.stop()
 		h.wsAPIs = nil
 	}
 	return ws != nil

@@ -1,13 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { observeTransfer, recoverTransferObservation, submittedTransfer, type TransferIdentity, type TransferObservation, type TransferTruth } from '@paxeer/wallet';
+import {
+  observeTransfer,
+  recoverTransferObservation,
+  statusLadder,
+  submittedTransfer,
+  type TransferIdentity,
+  type TransferObservation,
+  type TransferTruth,
+} from '@paxeer/wallet';
 import { StatusLadder } from '@/account/StatusLadder';
 import { getActiveRpcUrl, PAXEER_CONFIG, RPC_CHANGED_EVENT } from '@/lib/constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import { openExternalUrl } from '@/lib/security/navigation';
-import { putTransferRecord, transferObservationsRepository, type JsonValue } from '@/platform/storage/repositories';
+import {
+  putTransferRecord,
+  transferObservationsRepository,
+  type JsonValue,
+} from '@/platform/storage/repositories';
 
 interface TransferSuccessProps {
   fromLabel: string;
@@ -43,13 +55,7 @@ const draw = {
 
 function AnimatedCheckmark({ size = 80 }: { size?: number }) {
   return (
-    <motion.svg
-      animate="visible"
-      height={size}
-      initial="hidden"
-      viewBox="0 0 100 100"
-      width={size}
-    >
+    <motion.svg animate="visible" height={size} initial="hidden" viewBox="0 0 100 100" width={size}>
       <title>Success</title>
       <motion.circle
         custom={0}
@@ -104,7 +110,11 @@ function recoverObservation(identity: TransferIdentity): TransferObservation {
   }
 }
 
-async function rpcRequest(url: string, method: string, params: readonly unknown[]): Promise<unknown> {
+async function rpcRequest(
+  url: string,
+  method: string,
+  params: readonly unknown[]
+): Promise<unknown> {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -113,15 +123,26 @@ async function rpcRequest(url: string, method: string, params: readonly unknown[
     cache: 'no-store',
   });
   if (!response.ok) throw new Error(`RPC answered HTTP ${response.status}`);
-  const body = await response.json() as { jsonrpc?: unknown; id?: unknown; result?: unknown; error?: { message?: string } };
+  const body = (await response.json()) as {
+    jsonrpc?: unknown;
+    id?: unknown;
+    result?: unknown;
+    error?: { message?: string };
+  };
   if (body.jsonrpc !== '2.0' || body.id !== 1) throw new Error('Malformed RPC response');
   if (body.error) throw new Error(body.error.message || `RPC ${method} failed`);
-  if (!Object.prototype.hasOwnProperty.call(body, 'result')) throw new Error('RPC response omitted its result');
+  if (!Object.prototype.hasOwnProperty.call(body, 'result'))
+    throw new Error('RPC response omitted its result');
   return body.result;
 }
 
-export function useTransferObservation(identity: TransferIdentity): { observation: TransferObservation; error: string } {
-  const [observation, setObservation] = useState<TransferObservation>(() => submittedTransfer(identity));
+export function useTransferObservation(identity: TransferIdentity): {
+  observation: TransferObservation;
+  error: string;
+} {
+  const [observation, setObservation] = useState<TransferObservation>(() =>
+    submittedTransfer(identity)
+  );
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -131,27 +152,42 @@ export function useTransferObservation(identity: TransferIdentity): { observatio
     let current = recoverObservation(identity);
     setObservation(current);
     setError('');
-    const explorerStatusUrl = process.env.NEXT_PUBLIC_PAXEER_EXPLORER_URL || process.env.NEXT_PUBLIC_EXPLORER_STATUS_URL || PAXEER_CONFIG.blockscoutApiBase;
+    const explorerStatusUrl =
+      process.env.NEXT_PUBLIC_PAXEER_EXPLORER_URL ||
+      process.env.NEXT_PUBLIC_EXPLORER_STATUS_URL ||
+      PAXEER_CONFIG.blockscoutApiBase;
     const tick = async () => {
       if (cancelled || running) return;
       if (timer) clearTimeout(timer);
       running = true;
       try {
         const rpcUrl = getActiveRpcUrl();
-        const next = await observeTransfer((method, params) => rpcRequest(rpcUrl, method, params), current, { url: explorerStatusUrl });
+        const next = await observeTransfer(
+          (method, params) => rpcRequest(rpcUrl, method, params),
+          current,
+          { url: explorerStatusUrl }
+        );
         if (cancelled) return;
         current = next;
         setObservation(next);
         setError(next.warning ?? '');
         try {
           const stored = JSON.parse(JSON.stringify(next)) as JsonValue;
-          transferObservationsRepository.update((records) => putTransferRecord(records, storageKey(identity), stored));
+          transferObservationsRepository.update((records) =>
+            putTransferRecord(records, storageKey(identity), stored)
+          );
         } catch {
           setError('Observation is available, but this browser could not save it for reload.');
         }
       } catch (e) {
         if (!cancelled) {
-          current = { ...current, truth: 'unknown', steps: [], blockNumber: null, blockHash: undefined };
+          current = {
+            ...current,
+            truth: 'unknown',
+            steps: [],
+            blockNumber: null,
+            blockHash: undefined,
+          };
           setObservation(current);
           setError(e instanceof Error ? e.message : 'The transaction status could not be read');
         }
@@ -171,11 +207,21 @@ export function useTransferObservation(identity: TransferIdentity): { observatio
     };
   }, [identity.hash, identity.chainId]);
 
-  const matches = observation.identity.hash.toLowerCase() === identity.hash.toLowerCase() && observation.identity.chainId === identity.chainId;
-  return { observation: matches ? observation : submittedTransfer(identity), error: matches ? error : '' };
+  const matches =
+    observation.identity.hash.toLowerCase() === identity.hash.toLowerCase() &&
+    observation.identity.chainId === identity.chainId;
+  return {
+    observation: matches ? observation : submittedTransfer(identity),
+    error: matches ? error : '',
+  };
 }
 
-export function TransferSuccess({
+export function TransferSuccess(props: TransferSuccessProps) {
+  const { observation, error } = useTransferObservation(props.transfer);
+  return <TransferSuccessResult {...props} observation={observation} error={error} />;
+}
+
+export function TransferSuccessResult({
   fromLabel,
   fromAmount,
   fromSymbol,
@@ -187,18 +233,25 @@ export function TransferSuccess({
   submissionWarning,
   onExplorerView,
   onDone,
-}: TransferSuccessProps) {
-  const { observation, error } = useTransferObservation(transfer);
+  observation,
+  error,
+}: TransferSuccessProps & { observation: TransferObservation; error: string }) {
   const txHash = transfer.hash;
-  const final = observation.truth === 'included' && observation.steps.some((step) => step.rung === 'final');
-  const phase: 'processing' | 'completed' = final ? 'completed' : 'processing';
+  const completed =
+    observation.truth === 'included' && observation.steps.some((step) => step.rung === 'committed');
+  const receipted =
+    observation.truth === 'included' &&
+    statusLadder.highest(observation.steps)?.rung === 'receipted';
+  const phase: 'processing' | 'completed' = completed ? 'completed' : 'processing';
 
-  const shortHash = txHash.length > 16
-    ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}`
-    : txHash;
+  const shortHash = txHash.length > 16 ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}` : txHash;
 
   return (
-    <div data-transfer-hash={transfer.hash} data-transfer-chain={transfer.chainId} className="fixed inset-0 z-50 flex items-center justify-center bg-pax-bg/95 backdrop-blur-sm px-6">
+    <div
+      data-transfer-hash={transfer.hash}
+      data-transfer-chain={transfer.chainId}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-pax-bg/95 backdrop-blur-sm px-6"
+    >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -209,7 +262,7 @@ export function TransferSuccess({
         <div className="relative flex items-center justify-center h-[100px] w-[100px] mb-5">
           <motion.div
             animate={{ opacity: [0, 0.8, 0.6] }}
-            className={`absolute inset-0 rounded-full blur-2xl ${final ? 'bg-emerald-500/10' : 'bg-white/5'}`}
+            className={`absolute inset-0 rounded-full blur-2xl ${completed ? 'bg-emerald-500/10' : 'bg-white/5'}`}
             initial={{ opacity: 0 }}
             transition={{ duration: 1.5, times: [0, 0.5, 1] }}
           />
@@ -233,12 +286,15 @@ export function TransferSuccess({
                 <motion.div
                   animate={{ rotate: 360 }}
                   className="absolute inset-0 rounded-full  "
-                  style={{
-                  }}
+                  style={{}}
                   transition={{ rotate: { duration: 2, repeat: Infinity, ease: 'linear' } }}
                 />
                 <div className="rounded-full bg-pax-card p-4">
-                  <span aria-hidden="true" className="text-2xl">{observation.truth === 'reverted' || observation.truth === 'replaced' ? '!' : '…'}</span>
+                  <span aria-hidden="true" className="text-2xl">
+                    {observation.truth === 'reverted' || observation.truth === 'replaced'
+                      ? '!'
+                      : '…'}
+                  </span>
                 </div>
               </motion.div>
             )}
@@ -256,7 +312,11 @@ export function TransferSuccess({
             transition={{ duration: 0.4 }}
             className="text-lg font-bold mb-1"
           >
-            {final ? 'Transfer Completed' : TRUTH_TITLES[observation.truth]}
+            {completed
+              ? 'Transfer Completed'
+              : receipted
+                ? 'Receipted'
+                : TRUTH_TITLES[observation.truth]}
           </motion.h2>
         </AnimatePresence>
 
@@ -277,12 +337,23 @@ export function TransferSuccess({
           <StatusLadder steps={observation.steps} />
           {observation.lastVerified && observation.steps.length === 0 && (
             <p data-retained-evidence className="mt-2 text-[11px] text-pax-muted">
-              Saved evidence for block {observation.lastVerified.blockNumber}; current status requires revalidation.
+              Saved evidence for block {observation.lastVerified.blockNumber}; current status
+              requires revalidation.
             </p>
           )}
-          {observation.replacementHash && <p className="mt-2 text-[11px] break-all">Replacement: {observation.replacementHash}</p>}
-          {submissionWarning && <p role="alert" className="mt-2 text-[11px] text-pax-muted">{submissionWarning}</p>}
-          {error && <p role="alert" className="mt-2 text-[11px] text-pax-muted">{error}</p>}
+          {observation.replacementHash && (
+            <p className="mt-2 text-[11px] break-all">Replacement: {observation.replacementHash}</p>
+          )}
+          {submissionWarning && (
+            <p role="alert" className="mt-2 text-[11px] text-pax-muted">
+              {submissionWarning}
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="mt-2 text-[11px] text-pax-muted">
+              {error}
+            </p>
+          )}
         </div>
 
         {/* Transfer card */}
@@ -298,7 +369,9 @@ export function TransferSuccess({
             transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
           >
             {/* From */}
-            <div className={`glass-card p-3 transition-all duration-300 ${phase === 'completed' ? 'rounded-b-none ' : ''}`}>
+            <div
+              className={`glass-card p-3 transition-all duration-300 ${phase === 'completed' ? 'rounded-b-none ' : ''}`}
+            >
               <span className="flex items-center gap-1 text-[10px] text-pax-muted mb-1">
                 <SvgIcon name="arrow-up" className="w-3 h-3" /> From
               </span>
@@ -319,7 +392,9 @@ export function TransferSuccess({
             </div>
 
             {/* To */}
-            <div className={`glass-card p-3 transition-all duration-300 ${phase === 'completed' ? 'rounded-t-none ' : ''}`}>
+            <div
+              className={`glass-card p-3 transition-all duration-300 ${phase === 'completed' ? 'rounded-t-none ' : ''}`}
+            >
               <span className="flex items-center gap-1 text-[10px] text-pax-muted mb-1">
                 <SvgIcon name="arrow-down" className="w-3 h-3" /> To
               </span>
@@ -342,7 +417,7 @@ export function TransferSuccess({
         </motion.div>
 
         <AnimatePresence>
-          {(
+          {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -351,20 +426,37 @@ export function TransferSuccess({
             >
               {(onExplorerView || explorerUrl) && (
                 <button
-                  onClick={() => onExplorerView ? onExplorerView() : explorerUrl ? openExternalUrl(explorerUrl) : undefined}
+                  onClick={() =>
+                    onExplorerView
+                      ? onExplorerView()
+                      : explorerUrl
+                        ? openExternalUrl(explorerUrl)
+                        : undefined
+                  }
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
                 >
-                  <SvgIcon name="external-link" className="w-4 h-4" style={{ filter: 'brightness(0) invert(1)' }} /> Explorer
+                  <SvgIcon
+                    name="external-link"
+                    className="w-4 h-4"
+                    style={{ filter: 'brightness(0) invert(1)' }}
+                  />{' '}
+                  Explorer
                 </button>
               )}
               <button
-                onClick={() => onDone(final || observation.truth === 'reverted' || observation.truth === 'replaced')}
+                onClick={() =>
+                  onDone(
+                    completed ||
+                      observation.truth === 'reverted' ||
+                      observation.truth === 'replaced'
+                  )
+                }
                 className="px-6 py-2.5 rounded-xl bg-pax-accent text-black text-xs font-semibold press-scale"
               >
-                {final ? 'Done' : 'Close'}
+                {completed ? 'Done' : 'Close'}
               </button>
             </motion.div>
-          )}
+          }
         </AnimatePresence>
       </motion.div>
     </div>

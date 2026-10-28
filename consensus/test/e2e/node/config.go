@@ -21,6 +21,8 @@ type Config struct {
 	SnapshotInterval uint64                      `toml:"snapshot_interval"`
 	RetainBlocks     uint64                      `toml:"retain_blocks"`
 	ValidatorUpdates map[string]map[string]uint8 `toml:"validator_update"`
+	LeaderPin        []string                    `toml:"leader_pin"`
+	LeaderPinHeight  int64                       `toml:"leader_pin_height"`
 	PrivValServer    string                      `toml:"privval_server"`
 	PrivValKey       string                      `toml:"privval_key"`
 	PrivValState     string                      `toml:"privval_state"`
@@ -36,6 +38,8 @@ func (cfg *Config) App() *app.Config {
 		KeyType:          cfg.KeyType,
 		ValidatorUpdates: cfg.ValidatorUpdates,
 		PersistInterval:  cfg.PersistInterval,
+		LeaderPin:        cfg.LeaderPin,
+		LeaderPinHeight:  cfg.LeaderPinHeight,
 	}
 }
 

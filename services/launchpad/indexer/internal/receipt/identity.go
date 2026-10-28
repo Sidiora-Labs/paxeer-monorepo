@@ -369,11 +369,18 @@ func (a *RPCQualification) discoveryEpoch(owned RPCOptions, address common.Addre
 	}
 	identity := deployment.Role{Address: address.Hex(), Kind: "direct", RuntimeHash: template.RuntimeHash}
 	if role == "SidioraPool" {
-		beacon := owned.Manifest.Roles["PoolBeacon"]
-		identity.Kind = "beacon_proxy"
-		identity.BeaconAddress = beacon.Address
-		identity.ImplementationAddress = beacon.ImplementationAddress
-		identity.ImplementationHash = beacon.ImplementationHash
+		switch template.Kind {
+		case "", "beacon_proxy":
+			beacon := owned.Manifest.Roles["PoolBeacon"]
+			identity.Kind = "beacon_proxy"
+			identity.BeaconAddress = beacon.Address
+			identity.ImplementationAddress = beacon.ImplementationAddress
+			identity.ImplementationHash = beacon.ImplementationHash
+		case "surface":
+			identity.Kind = "surface"
+		default:
+			return RPCCodeEpoch{}, ErrQualification
+		}
 	}
 	return RPCCodeEpoch{Deployment: decode.Deployment{Address: address, Role: role, ABIRevision: template.ABIRevision, From: from}, Identity: identity}, nil
 }
@@ -473,6 +480,8 @@ type PoolReserves struct {
 	VirtualUSDL, RealUSDL, Token, Price *big.Int
 }
 
+var getReservesSelector = crypto.Keccak256([]byte("getReserves()"))[:4]
+
 // PoolReserves reads getReserves() and getPrice() of a qualified pool pinned to
 // block (EIP-1898 by block identity), i.e. the pool state after that block.
 // SidioraPool emits PoolStateUpdated only from syncReserves(), so swaps do not
@@ -495,7 +504,7 @@ func (a *RPCQualification) PoolReserves(ctx context.Context, pool common.Address
 	if err != nil {
 		return out, err
 	}
-	raw, err := authority.client.CallContractAtHash(read, ethereum.CallMsg{To: &pool, Data: crypto.Keccak256([]byte("getReserves()"))[:4], Gas: rpcReadGas}, block)
+	raw, err := authority.client.CallContractAtHash(read, ethereum.CallMsg{To: &pool, Data: getReservesSelector, Gas: rpcReadGas}, block)
 	release()
 	if err != nil {
 		return out, errors.Join(ErrQualification, err)

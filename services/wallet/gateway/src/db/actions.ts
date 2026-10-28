@@ -16,7 +16,7 @@ import type { ErrorEnvelope } from '../agent/actions/errors.js';
  * operation returns the existing row instead of allocating a new nonce.
  */
 
-export type ActionKind = 'layerx_deposit' | 'allowance_and_call';
+export type ActionKind = 'allowance_and_call';
 
 export type ActionStatus =
   | 'received'
@@ -101,7 +101,7 @@ export async function createOrGetAction(args: {
   return withTransaction(async (client) => {
     const existing = await client.query<ActionRow>(
       `select ${COLS} from agent_actions where did = $1 and idempotency_key = $2 limit 1`,
-      [args.did, args.idempotencyKey],
+      [args.did, args.idempotencyKey]
     );
     if (existing.rows[0]) return { row: existing.rows[0], created: false };
 
@@ -119,13 +119,13 @@ export async function createOrGetAction(args: {
         args.kind,
         args.idempotencyKey,
         JSON.stringify(args.request),
-      ],
+      ]
     );
     // A racing insert won the conflict — pick up their row.
     if (!rows[0]) {
       const racer = await client.query<ActionRow>(
         `select ${COLS} from agent_actions where did = $1 and idempotency_key = $2 limit 1`,
-        [args.did, args.idempotencyKey],
+        [args.did, args.idempotencyKey]
       );
       return { row: racer.rows[0]!, created: false };
     }
@@ -142,7 +142,7 @@ export async function getAction(id: string): Promise<ActionRow | null> {
 export async function getActionForDid(id: string, did: string): Promise<ActionRow | null> {
   const { rows } = await query<ActionRow>(
     `select ${COLS} from agent_actions where id = $1 and did = $2`,
-    [id, did],
+    [id, did]
   );
   return rows[0] ?? null;
 }
@@ -187,7 +187,8 @@ export async function updateAction(id: string, patch: ActionPatch): Promise<Acti
 
   if (patch.status !== undefined) push('status', patch.status);
   if (patch.phase !== undefined) push('phase', patch.phase);
-  if (patch.plan !== undefined) push('plan', patch.plan === null ? null : JSON.stringify(patch.plan));
+  if (patch.plan !== undefined)
+    push('plan', patch.plan === null ? null : JSON.stringify(patch.plan));
   if (patch.approval_tx_hash !== undefined) push('approval_tx_hash', patch.approval_tx_hash);
   if (patch.approval_nonce !== undefined) push('approval_nonce', patch.approval_nonce);
   if (patch.call_tx_hash !== undefined) push('call_tx_hash', patch.call_tx_hash);
@@ -196,9 +197,11 @@ export async function updateAction(id: string, patch: ActionPatch): Promise<Acti
   if (patch.reserved_value_wei !== undefined)
     push('reserved_value_wei', patch.reserved_value_wei.toString());
   if (patch.error_code !== undefined) push('error_code', patch.error_code);
-  if (patch.error !== undefined) push('error', patch.error === null ? null : JSON.stringify(patch.error));
+  if (patch.error !== undefined)
+    push('error', patch.error === null ? null : JSON.stringify(patch.error));
   if (patch.credit_verified !== undefined) push('credit_verified', patch.credit_verified);
-  if (patch.credit !== undefined) push('credit', patch.credit === null ? null : JSON.stringify(patch.credit));
+  if (patch.credit !== undefined)
+    push('credit', patch.credit === null ? null : JSON.stringify(patch.credit));
   if (patch.wallet_id !== undefined) push('wallet_id', patch.wallet_id);
   if (patch.wallet_address !== undefined) push('wallet_address', patch.wallet_address);
 
@@ -208,7 +211,7 @@ export async function updateAction(id: string, patch: ActionPatch): Promise<Acti
   const { rows } = await query<ActionRow>(
     `update agent_actions set ${cols.join(', ')}, updated_at = now()${terminalClause}
       where id = $1 returning ${COLS}`,
-    vals,
+    vals
   );
   return rows[0]!;
 }
@@ -242,7 +245,7 @@ export async function claimNextAction(leaseMs: number): Promise<ActionRow | null
         order by updated_at asc
         for update skip locked
         limit 1`,
-      [NON_TERMINAL, String(INTAKE_GRACE_SECONDS)],
+      [NON_TERMINAL, String(INTAKE_GRACE_SECONDS)]
     );
     const id = rows[0]?.id;
     if (!id) return null;
@@ -253,7 +256,7 @@ export async function claimNextAction(leaseMs: number): Promise<ActionRow | null
               updated_at = now()
         where id = $1
         returning ${COLS}`,
-      [id, String(leaseMs)],
+      [id, String(leaseMs)]
     );
     return claimed.rows[0]!;
   });
@@ -261,9 +264,10 @@ export async function claimNextAction(leaseMs: number): Promise<ActionRow | null
 
 /** Release a worker lease (lets the next tick pick the action up immediately). */
 export async function releaseLease(id: string): Promise<void> {
-  await query(`update agent_actions set worker_locked_until = null, updated_at = now() where id = $1`, [
-    id,
-  ]).catch(() => undefined);
+  await query(
+    `update agent_actions set worker_locked_until = null, updated_at = now() where id = $1`,
+    [id]
+  ).catch(() => undefined);
 }
 
 /** Non-terminal actions whose lease is stale — the reconciler's work list. */
@@ -275,26 +279,7 @@ export async function listStalledActions(limit = 50): Promise<ActionRow[]> {
         and (worker_locked_until is null or worker_locked_until < now())
       order by updated_at asc
       limit $1`,
-    [limit],
-  );
-  return rows;
-}
-
-/**
- * Confirmed LayerX deposits whose sequencer credit hasn't landed yet. The
- * layerx-sync worker backfills `credit_verified` from the LayerX deposits table
- * without changing the (already terminal) confirmed status.
- */
-export async function listUncreditedLayerxDeposits(limit = 100): Promise<ActionRow[]> {
-  const { rows } = await query<ActionRow>(
-    `select ${COLS} from agent_actions
-      where kind = 'layerx_deposit'
-        and status = 'confirmed'
-        and credit_verified = false
-        and call_tx_hash is not null
-      order by terminal_at asc
-      limit $1`,
-    [limit],
+    [limit]
   );
   return rows;
 }
@@ -302,27 +287,39 @@ export async function listUncreditedLayerxDeposits(limit = 100): Promise<ActionR
 /** Flip an already-confirmed deposit to credit-verified with the LayerX snapshot. */
 export async function markCreditVerified(
   id: string,
-  credit: Record<string, unknown>,
+  credit: Record<string, unknown>
 ): Promise<void> {
   await query(
     `update agent_actions set credit_verified = true, credit = $2, updated_at = now() where id = $1`,
-    [id, JSON.stringify(credit)],
+    [id, JSON.stringify(credit)]
   );
 }
-
 
 export async function retainActionCustodyAuthorization(
   id: string,
   did: string,
-  custody: { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization },
+  custody: { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization }
 ): Promise<ActionRow> {
   return withTransaction(async (client) => {
-    const selected = await client.query<ActionRow>(`select ${COLS} from agent_actions where id = $1 and did = $2 for update`, [id, did]);
+    const selected = await client.query<ActionRow>(
+      `select ${COLS} from agent_actions where id = $1 and did = $2 for update`,
+      [id, did]
+    );
     const row = selected.rows[0];
-    if (!row || row.terminal_at !== null || row.error_code !== 'AGENT_REAUTHORIZATION_REQUIRED' || custody.origin.did !== did) throw new Error('action authority cannot be replaced');
+    if (
+      !row ||
+      row.terminal_at !== null ||
+      row.error_code !== 'AGENT_REAUTHORIZATION_REQUIRED' ||
+      custody.origin.did !== did
+    )
+      throw new Error('action authority cannot be replaced');
     const original = row.request._custody as { origin?: AgentOriginalRequest } | undefined;
-    if (!original?.origin || original.origin.method !== custody.origin.method
-      || original.origin.did !== custody.origin.did || original.origin.body !== custody.origin.body) {
+    if (
+      !original?.origin ||
+      original.origin.method !== custody.origin.method ||
+      original.origin.did !== custody.origin.did ||
+      original.origin.body !== custody.origin.body
+    ) {
       throw new Error('reauthorization differs from the durable original request');
     }
     if (!custody.reauthorization || typeof row.error?.cause.signing_request !== 'string') {
@@ -331,8 +328,12 @@ export async function retainActionCustodyAuthorization(
     const offered = JSON.parse(custody.reauthorization.body) as Record<string, unknown>;
     const challenged = JSON.parse(row.error.cause.signing_request) as Record<string, unknown>;
     const offeredOrigin = offered.origin as AgentOriginalRequest | undefined;
-    if (!offeredOrigin || offeredOrigin.method !== original.origin.method
-      || offeredOrigin.did !== original.origin.did || offeredOrigin.body !== original.origin.body) {
+    if (
+      !offeredOrigin ||
+      offeredOrigin.method !== original.origin.method ||
+      offeredOrigin.did !== original.origin.did ||
+      offeredOrigin.body !== original.origin.body
+    ) {
       throw new Error('reauthorization original request changed');
     }
     delete offered.origin;
@@ -342,7 +343,8 @@ export async function retainActionCustodyAuthorization(
     }
     const updated = await client.query<ActionRow>(
       `update agent_actions set request = jsonb_set(request, '{_custody}', $3::jsonb), error_code = null, error = null, updated_at = now()
-        where id = $1 and did = $2 returning ${COLS}`, [id, did, JSON.stringify(custody)],
+        where id = $1 and did = $2 returning ${COLS}`,
+      [id, did, JSON.stringify(custody)]
     );
     if (!updated.rows[0]) throw new Error('action authority update failed');
     return updated.rows[0];
@@ -376,51 +378,64 @@ export interface ActionLegExecution {
 }
 
 export function actionLegExecution(row: ActionRow, leg: ActionLeg): ActionLegExecution {
-  const execution = row.request._execution as Partial<Record<ActionLeg, ActionLegExecution>> | undefined;
+  const execution = row.request._execution as
+    Partial<Record<ActionLeg, ActionLegExecution>> | undefined;
   return execution?.[leg] ?? {};
 }
 
 async function lockedAction(client: PoolClient, id: string): Promise<ActionRow> {
-  const selected = await client.query<ActionRow>(`select ${COLS} from agent_actions where id = $1 for update`, [id]);
+  const selected = await client.query<ActionRow>(
+    `select ${COLS} from agent_actions where id = $1 for update`,
+    [id]
+  );
   const row = selected.rows[0];
   if (!row || row.terminal_at !== null) throw new Error('action is no longer advanceable');
   return row;
 }
 
 export async function retainActionTransactionDraft(
-  id: string, leg: ActionLeg, draft: ActionTransactionDraft,
+  id: string,
+  leg: ActionLeg,
+  draft: ActionTransactionDraft
 ): Promise<ActionTransactionDraft> {
   return withTransaction(async (client) => {
     const row = await lockedAction(client, id);
     const state = actionLegExecution(row, leg);
     if (state.draft) return state.draft;
     const currentHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
-    if (currentHash !== draft.replaces) throw new Error('action transaction changed while preparing a draft');
+    if (currentHash !== draft.replaces)
+      throw new Error('action transaction changed while preparing a draft');
     if (!row.wallet_address) throw new Error('action wallet is missing');
     await client.query(
       `insert into custody_signing_reservations (address, chain_id, action_id, nonce) values ($1, $2, $3, $4)
        on conflict (address, chain_id) do nothing`,
-      [row.wallet_address.toLowerCase(), draft.chainId, id, draft.nonce],
+      [row.wallet_address.toLowerCase(), draft.chainId, id, draft.nonce]
     );
     const reservation = await client.query<{ action_id: string; nonce: string }>(
       'select action_id, nonce::text from custody_signing_reservations where address = $1 and chain_id = $2',
-      [row.wallet_address.toLowerCase(), draft.chainId],
+      [row.wallet_address.toLowerCase(), draft.chainId]
     );
-    if (reservation.rows[0]?.action_id !== id || reservation.rows[0].nonce !== String(draft.nonce)) {
+    if (
+      reservation.rows[0]?.action_id !== id ||
+      reservation.rows[0].nonce !== String(draft.nonce)
+    ) {
       throw new Error('wallet nonce is already reserved');
     }
     const next = { ...state, draft };
     await client.query(
       `update agent_actions set request = jsonb_set(request, '{_execution}',
         coalesce(request->'_execution', '{}'::jsonb) || jsonb_build_object($2::text, $3::jsonb)), updated_at = now()
-        where id = $1`, [id, leg, JSON.stringify(next)],
+        where id = $1`,
+      [id, leg, JSON.stringify(next)]
     );
     return draft;
   });
 }
 
 export async function retainActionSignedTransaction(
-  id: string, leg: ActionLeg, signed: ActionSignedTransaction,
+  id: string,
+  leg: ActionLeg,
+  signed: ActionSignedTransaction
 ): Promise<ActionSignedTransaction> {
   return withTransaction(async (client) => {
     const row = await lockedAction(client, id);
@@ -430,12 +445,14 @@ export async function retainActionSignedTransaction(
       throw new Error('signed transaction differs from the retained draft');
     }
     const currentHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
-    if (currentHash !== signed.draft.replaces) throw new Error('action transaction changed before signature retention');
+    if (currentHash !== signed.draft.replaces)
+      throw new Error('action transaction changed before signature retention');
     const reserved = await client.query(
       'update custody_signing_reservations set signed_hash = $3 where action_id = $1 and nonce = $2 and signed_hash is null',
-      [id, signed.draft.nonce, signed.hash],
+      [id, signed.draft.nonce, signed.hash]
     );
-    if (reserved.rowCount !== 1) throw new Error('signed transaction lost its durable nonce reservation');
+    if (reserved.rowCount !== 1)
+      throw new Error('signed transaction lost its durable nonce reservation');
     const next: ActionLegExecution = {
       current: signed,
       history: [...(state.history ?? []), ...(state.current ? [state.current] : [])],
@@ -445,15 +462,30 @@ export async function retainActionSignedTransaction(
         (user_id, wallet_id, address, kind, to_address, value_wei, chain_id, request_hash, tx_hash, principal_did)
         select w.user_id, w.id, w.address, 'transaction', $1, $2, $3, $4, $5, $6
         from wallets w where w.id = $7`,
-      [signed.draft.to, signed.draft.value, signed.draft.chainId,
-        `action:${id}:${leg}:${signed.hash}`, signed.hash, row.did, row.wallet_id],
+      [
+        signed.draft.to,
+        signed.draft.value,
+        signed.draft.chainId,
+        `action:${id}:${leg}:${signed.hash}`,
+        signed.hash,
+        row.did,
+        row.wallet_id,
+      ]
     );
     await client.query(
       `update agent_actions set request = jsonb_set(request, '{_execution}',
         coalesce(request->'_execution', '{}'::jsonb) || jsonb_build_object($2::text, $3::jsonb)) #- '{_custody,reauthorization}',
         ${leg}_tx_hash = $4, ${leg}_nonce = $5, status = $6, phase = $7,
         error_code = null, error = null, updated_at = now() where id = $1`,
-      [id, leg, JSON.stringify(next), signed.hash, signed.draft.nonce, `${leg}_pending`, `${leg}_confirmation`],
+      [
+        id,
+        leg,
+        JSON.stringify(next),
+        signed.hash,
+        signed.draft.nonce,
+        `${leg}_pending`,
+        `${leg}_confirmation`,
+      ]
     );
     return signed;
   });
@@ -462,18 +494,35 @@ export async function retainActionSignedTransaction(
 export async function releaseActionBudget(id: string): Promise<void> {
   await withTransaction(async (client) => {
     const row = await lockedAction(client, id);
-    if (row.approval_tx_hash || row.call_tx_hash || !row.reserved_budget_id || BigInt(row.reserved_value_wei) <= 0n) return;
-    await client.query('update agent_budgets set spent_wei = greatest(0, spent_wei - $2) where id = $1',
-      [row.reserved_budget_id, row.reserved_value_wei]);
-    await client.query('update agent_actions set reserved_budget_id = null, reserved_value_wei = 0 where id = $1', [id]);
+    if (
+      row.approval_tx_hash ||
+      row.call_tx_hash ||
+      !row.reserved_budget_id ||
+      BigInt(row.reserved_value_wei) <= 0n
+    )
+      return;
+    await client.query(
+      'update agent_budgets set spent_wei = greatest(0, spent_wei - $2) where id = $1',
+      [row.reserved_budget_id, row.reserved_value_wei]
+    );
+    await client.query(
+      'update agent_actions set reserved_budget_id = null, reserved_value_wei = 0 where id = $1',
+      [id]
+    );
   });
 }
 
 export async function releaseActionNonce(id: string, nonce: number): Promise<void> {
-  await query('delete from custody_signing_reservations where action_id = $1 and nonce = $2', [id, nonce]);
+  await query('delete from custody_signing_reservations where action_id = $1 and nonce = $2', [
+    id,
+    nonce,
+  ]);
 }
 
-export async function reserveActionBudget(id: string, args: Parameters<typeof reserveBudget>[0]): Promise<string | null> {
+export async function reserveActionBudget(
+  id: string,
+  args: Parameters<typeof reserveBudget>[0]
+): Promise<string | null> {
   return withTransaction(async (client) => {
     const row = await lockedAction(client, id);
     if (row.did !== args.did) throw new Error('budget principal differs from action');
@@ -488,12 +537,15 @@ export async function reserveActionBudget(id: string, args: Parameters<typeof re
     await client.query(
       `update agent_actions set reserved_budget_id = $2, reserved_value_wei = $3,
         request = jsonb_set(request, '{_budget}', $4::jsonb), updated_at = now() where id = $1`,
-      [id, budgetId, args.valueWei.toString(), JSON.stringify(budgetRequest)],
+      [id, budgetId, args.valueWei.toString(), JSON.stringify(budgetRequest)]
     );
     return budgetId;
   });
 }
 
 export async function releaseUnsignedActionNonce(id: string): Promise<void> {
-  await query('delete from custody_signing_reservations where action_id = $1 and signed_hash is null', [id]);
+  await query(
+    'delete from custody_signing_reservations where action_id = $1 and signed_hash is null',
+    [id]
+  );
 }

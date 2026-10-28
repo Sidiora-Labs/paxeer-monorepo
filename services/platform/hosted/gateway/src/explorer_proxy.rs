@@ -244,6 +244,24 @@ pub(super) fn route(request: &IncomingRequest) -> Option<OutgoingResponse> {
     Some(http_route(request))
 }
 
+pub(super) fn filter_capabilities_response(
+    path: &str,
+    answer: &mut OutgoingResponse,
+) -> Result<(), &'static str> {
+    if path != "/api/v2/paxeer-x/capabilities" || answer.body.is_empty() {
+        return Ok(());
+    }
+    let mut capabilities: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_slice(&answer.body).map_err(|_| "explorer_capabilities_refused")?;
+    capabilities.remove("custody");
+    capabilities.remove("anchor");
+    answer.body = serde_json::to_vec(&capabilities).map_err(|_| "explorer_capabilities_refused")?;
+    answer
+        .headers
+        .retain(|(name, _)| !matches!(name.as_str(), "etag" | "x-content-sha256"));
+    Ok(())
+}
+
 fn http_route(request: &IncomingRequest) -> OutgoingResponse {
     let Ok((path, _)) = split_target(&request.path) else {
         return response(400, "explorer_target_refused", None);
@@ -322,6 +340,9 @@ fn http_route(request: &IncomingRequest) -> OutgoingResponse {
         } else if name != "cache-control" {
             output.headers.push((name, value));
         }
+    }
+    if let Err(reason) = filter_capabilities_response(route.path, &mut output) {
+        return response(502, reason, None);
     }
     output
 }

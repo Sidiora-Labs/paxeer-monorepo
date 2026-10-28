@@ -2,6 +2,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   use Explorer.DataCase
 
   alias Explorer.Chain.Block
+  alias Explorer.Chain.Cache.Counters.LastFetchedCounter
   alias Explorer.Chain.PaxeerX.{PriceFeed, PriceFeedScannedBlock, PriceMarket, PriceObservation, PriceUpdate}
   alias Explorer.PagingOptions
   alias Explorer.PaxeerX.CosmosRest
@@ -18,6 +19,66 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
     {:ok, [update]} = CosmosRest.decode_price_updates(submissions, results["txs_results"], length(raw))
 
     %{update: update}
+  end
+
+  test "scanned_any? stays true after compaction empties the scanned table", %{update: update} do
+    refute PriceFeed.scanned_any?()
+
+    for number <- 10..12 do
+      block = insert(:block, number: number)
+      assert {:ok, 0} = PriceFeed.replace_block_updates(block, [])
+    end
+
+    assert Repo.aggregate(PriceFeedScannedBlock, :count) == 3
+    assert PriceFeed.scanned_any?()
+    assert PriceFeed.compact_scanned_blocks(10, 2) == 11
+    assert Repo.aggregate(PriceFeedScannedBlock, :count) == 1
+    assert PriceFeed.compact_scanned_blocks(10, 2) == 12
+    assert Repo.aggregate(PriceFeedScannedBlock, :count) == 0
+    assert Repo.aggregate(PriceUpdate, :count) == 0
+    assert PriceFeed.scanned_through(10) == 12
+    assert PriceFeed.scanned_any?()
+
+    assert LastFetchedCounter.delete("paxeer_x_price_feed_scanned_through_10")
+    refute PriceFeed.scanned_any?()
+
+    block = insert(:block, number: 13)
+    assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+    assert PriceFeed.compact_scanned_blocks(13, 2) == 13
+    assert LastFetchedCounter.delete("paxeer_x_price_feed_scanned_through_13")
+    assert Repo.aggregate(PriceFeedScannedBlock, :count) == 0
+    assert Repo.aggregate(PriceUpdate, :count) == 1
+    assert PriceFeed.scanned_any?()
+  end
+
+  test "mark_unscannable never downgrades a scanned height", %{update: update} do
+    scanned = insert(:block, number: 30)
+    unavailable = insert(:block, number: 31)
+    error = "{:unreachable, \"node\"}"
+    pruned_error = "{:height_unavailable, \"node\"}"
+
+    assert {:ok, 1} = PriceFeed.replace_block_updates(scanned, [update])
+    assert %PriceFeedScannedBlock{status: "scanned", error: nil} = Repo.get(PriceFeedScannedBlock, scanned.number)
+
+    assert :ok = PriceFeed.mark_unscannable(scanned.number, "failed", error)
+    assert %PriceFeedScannedBlock{status: "scanned", error: nil} = Repo.get(PriceFeedScannedBlock, scanned.number)
+
+    assert :ok = PriceFeed.mark_unscannable(scanned.number, "unavailable", pruned_error)
+    assert %PriceFeedScannedBlock{status: "scanned", error: nil} = Repo.get(PriceFeedScannedBlock, scanned.number)
+
+    assert :ok = PriceFeed.mark_unscannable(unavailable.number, "unavailable", pruned_error)
+
+    assert %PriceFeedScannedBlock{status: "unavailable", error: ^pruned_error} =
+             Repo.get(PriceFeedScannedBlock, unavailable.number)
+
+    assert :ok = PriceFeed.mark_unscannable(unavailable.number, "failed", error)
+
+    assert %PriceFeedScannedBlock{status: "failed", error: ^error} =
+             Repo.get(PriceFeedScannedBlock, unavailable.number)
+
+    assert :ok = PriceFeed.mark_unscannable(unavailable.number, "unavailable", pruned_error)
+    assert {:ok, 0} = PriceFeed.replace_block_updates(unavailable, [])
+    assert %PriceFeedScannedBlock{status: "scanned", error: nil} = Repo.get(PriceFeedScannedBlock, unavailable.number)
   end
 
   describe "replace_block_updates/2" do
@@ -67,6 +128,53 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   end
 
   describe "reads" do
+    test "latest_per_market and market_updates skip failed submissions and refused observations", %{update: update} do
+      [older, newer] = Enum.map([10, 11], &insert(:block, number: &1))
+      observation = hd(update.observations)
+      accepted = %{update | observations: [observation]}
+
+      refused = %{
+        update
+        | hash: "0x" <> String.duplicate("ab", 32),
+          index: 0,
+          observations: [%{observation | accepted: false, index_price: observation.index_price + 1}]
+      }
+
+      failed = %{
+        update
+        | hash: "0x" <> String.duplicate("cd", 32),
+          index: 1,
+          status: 0,
+          observations: [%{observation | accepted: true, index_price: observation.index_price + 2}]
+      }
+
+      assert {:ok, 1} = PriceFeed.replace_block_updates(older, [accepted])
+      assert {:ok, 2} = PriceFeed.replace_block_updates(newer, [refused, failed])
+      assert 1 == PriceFeed.upsert_markets([%{market_id: 0, symbol: "BTC", chainflow_symbol: "BTC"}])
+
+      assert [{%PriceMarket{market_id: 0}, %PriceObservation{block_number: 10, accepted: true} = latest}] =
+               PriceFeed.latest_per_market()
+
+      assert to_string(latest.update_hash) == accepted.hash
+      assert latest.update.status == 1
+      assert Decimal.equal?(latest.index_price, observation.index_price)
+
+      assert [%PriceObservation{block_number: 10, accepted: true} = historical] =
+               PriceFeed.market_updates(0, %PagingOptions{page_size: 10})
+
+      assert historical.update_hash == latest.update_hash
+      assert historical.update.status == 1
+      assert Decimal.equal?(historical.index_price, observation.index_price)
+
+      assert [%{status: 0}, %{status: 1}, %{status: 1}] = PriceFeed.list_updates(%PagingOptions{page_size: 10})
+
+      assert %PriceUpdate{status: 1, observations: [%PriceObservation{accepted: false}]} =
+               PriceFeed.update_by_hash(refused.hash)
+
+      assert %PriceUpdate{status: 0, observations: [%PriceObservation{accepted: true}]} =
+               PriceFeed.update_by_hash(failed.hash)
+    end
+
     test "hide submissions of non-consensus blocks", %{update: update} do
       block = insert(:block, consensus: false)
       {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
@@ -278,6 +386,27 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
       assert PriceFeed.scanned_through(5) == 4
       assert {:ok, numbers} = PriceFeed.stream_unscanned_block_numbers([], &[&1 | &2], 5)
       assert Enum.reverse(numbers) == [15, 10, 11, 12, 13, 14, 16, 17, 19, 20]
+    end
+
+    test "a stale compaction write never moves the watermark back" do
+      Repo.insert_all(PriceFeedScannedBlock, Enum.map(10..12, &%{block_number: &1}))
+      :ok = PriceFeed.mark_unscannable(13, "failed", "unreachable")
+      :ok = PriceFeed.mark_unscannable(14, "unavailable", "pruned")
+
+      assert PriceFeed.scanned_through(10) == 9
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 14
+      assert PriceFeed.scanned_through(10) == 14
+      assert PriceFeed.advance_scanned_through(10, 12) == 14
+      assert PriceFeed.scanned_through(10) == 14
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 14
+
+      Repo.insert_all(PriceFeedScannedBlock, Enum.map([11, 15, 16, 18], &%{block_number: &1}))
+
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 16
+      assert PriceFeed.scanned_through(10) == 16
+
+      assert Repo.all(from(s in PriceFeedScannedBlock, order_by: s.block_number, select: {s.block_number, s.status})) ==
+               [{11, "scanned"}, {13, "failed"}, {14, "unavailable"}, {18, "scanned"}]
     end
 
     test "a status outside the known set is refused" do

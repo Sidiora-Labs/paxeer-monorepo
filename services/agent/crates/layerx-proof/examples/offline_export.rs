@@ -6,7 +6,7 @@ use layerx_proof::export::{
     IndependentOfflineTrust, OfflineExport,
 };
 use layerx_proof::export_codec::CompleteOfflineArtifact;
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 
 fn verify_without_network(
     artifact: &OfflineExport,
@@ -19,7 +19,7 @@ fn verify_without_network(
 fn verify_complete_without_network(
     artifact: &CompleteOfflineArtifact,
     trust: &IndependentOfflineTrust,
-    requested: VerificationLevel,
+    requested: Rung,
 ) -> Result<CompleteVerificationReport, CompleteExportError> {
     verify_complete(artifact, trust, requested)
 }
@@ -35,7 +35,7 @@ fn main() {
     let complete: fn(
         &CompleteOfflineArtifact,
         &IndependentOfflineTrust,
-        VerificationLevel,
+        Rung,
     ) -> Result<CompleteVerificationReport, CompleteExportError> = verify_complete_without_network;
     let _ = (verifier, complete);
 }

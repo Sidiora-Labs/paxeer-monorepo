@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use layerx_interop_gateway::trace::{TraceId, Traced};
+use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_x402::buyer::{
     BuiltPayment, Buyer, BuyerPaymentPlane, PaymentBuildRequest, SupportedKind,
@@ -108,6 +109,32 @@ fn mock_receipt_bytes() -> Vec<u8> {
 
 fn mock_authorized_batch() -> AuthorizedBatch {
     AuthorizedBatch::new([1; 32], [0x12; 32], [2; 32], [3; 32], [4; 32])
+}
+
+fn pinned_receipt_keys() -> [SequencerAuthorization; 1] {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))
+    .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
+    let key = &fixture["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("fixture cases"))
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .unwrap_or_else(|| panic!("recorded settlement"))["pinnedKey"];
+    let field = |name: &str| {
+        key[name]
+            .as_str()
+            .and_then(|value| value.strip_prefix("0x"))
+            .unwrap_or_else(|| panic!("pinned key {name}"))
+    };
+    [SequencerAuthorization::from_config(
+        field("keyId"),
+        field("publicKey"),
+        &key["firstHeight"].to_string(),
+        &key["lastHeight"].to_string(),
+    )
+    .unwrap_or_else(|error| panic!("receipt authorization: {error}"))]
 }
 
 #[test]
@@ -416,10 +443,10 @@ fn buyer_capture_refuses_failed_settlement_as_success() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&failed).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let batch = mock_authorized_batch();
+    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
-    let result = Buyer::capture_settlement(&encoded, &payment, &batch, &trace);
+    let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
 
     assert!(result.is_err());
 }
@@ -451,10 +478,10 @@ fn buyer_capture_refuses_missing_layerx_evidence() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&no_evidence).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let batch = mock_authorized_batch();
+    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
-    let result = Buyer::capture_settlement(&encoded, &payment, &batch, &trace);
+    let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
 
     assert!(result.is_err());
 }
@@ -496,10 +523,10 @@ fn buyer_capture_refuses_wrong_verification_level() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&wrong_level).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let batch = mock_authorized_batch();
+    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
-    let result = Buyer::capture_settlement(&encoded, &payment, &batch, &trace);
+    let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
 
     assert!(result.is_err());
 }
@@ -541,10 +568,10 @@ fn buyer_capture_refuses_malformed_receipt() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&bad_receipt).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let batch = mock_authorized_batch();
+    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
-    let result = Buyer::capture_settlement(&encoded, &payment, &batch, &trace);
+    let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
 
     assert!(result.is_err());
 }
@@ -771,11 +798,11 @@ fn capture(
     offer: PaymentRequirements,
     repeated: Option<&str>,
 ) -> Result<layerx_x402::buyer::CapturedSettlement, X402Error> {
-    let (receipt, batch) = signed_settlement();
+    let (receipt, _batch) = signed_settlement();
     Buyer::capture_settlement(
         &settlement_header(&receipt, repeated),
         &built_for(offer),
-        &batch,
+        &pinned_receipt_keys(),
         &TraceId::mint([0xab; 16]),
     )
     .map_err(Traced::into_error)

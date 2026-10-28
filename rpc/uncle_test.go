@@ -13,7 +13,7 @@ import (
 
 func TestUncleByBlockIndexIsNull(t *testing.T) {
 	watermarks := NewWatermarkManager(nil, nil, nil, nil)
-	api := NewUncleAPI(nil, watermarks)
+	api := NewUncleAPI(nil, watermarks, ConnectionTypeHTTP)
 	require.Same(t, watermarks, api.watermarks)
 	ctx := context.Background()
 	index := hexutil.Uint(0)

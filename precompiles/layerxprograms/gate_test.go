@@ -1,4 +1,4 @@
-package layerxprograms
+package layerxprograms_test
 
 import (
 	"math/big"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -18,13 +19,13 @@ func TestProgramsGateRefusesBeforeMergeHeight(t *testing.T) {
 	ctx, _ := parent.CacheContext()
 	const planName = "programs-gate-merge-plan"
 	const doneHeight int64 = 100
-	gate := programsGate{upgrade: &app.UpgradeKeeper, planName: planName}
+	gate := lp.NewProgramsGate(&app.UpgradeKeeper, planName)
 	require.Zero(t, app.UpgradeKeeper.GetDoneHeight(ctx, planName))
 
-	assertDisabled := func(t *testing.T, ctx sdk.Context, gate programsGate) {
+	assertDisabled := func(t *testing.T, ctx sdk.Context, gate lp.ProgramsGate) {
 		t.Helper()
-		err := gate.checkActive(ctx)
-		require.ErrorIs(t, err, ErrModuleDisabled)
+		err := gate.CheckActive(ctx)
+		require.ErrorIs(t, err, lp.ErrModuleDisabled)
 		require.Equal(t, pcommon.LXPRevert("LXP_MODULE_DISABLED", ""), pcommon.RevertReason(err))
 	}
 	for _, height := range []int64{0, doneHeight - 1, doneHeight, doneHeight + 1, 1000000} {
@@ -40,21 +41,21 @@ func TestProgramsGateRefusesBeforeMergeHeight(t *testing.T) {
 	app.UpgradeKeeper.SetDone(ctx.WithBlockHeight(doneHeight), planName)
 	require.Equal(t, doneHeight, app.UpgradeKeeper.GetDoneHeight(ctx, planName))
 
-	require.NotEmpty(t, programsABI.Methods)
-	for name, method := range programsABI.Methods {
+	require.NotEmpty(t, lp.ProgramsABI.Methods)
+	for name, method := range lp.ProgramsABI.Methods {
 		t.Run(name, func(t *testing.T) {
 			for _, height := range []int64{0, doneHeight - 1} {
 				assertDisabled(t, ctx.WithBlockHeight(height), gate)
 			}
 			for _, height := range []int64{doneHeight, doneHeight + 1, 1000000} {
-				require.NoError(t, gate.checkActive(ctx.WithBlockHeight(height)))
-				require.NoError(t, checkCall(&method, nil, false))
+				require.NoError(t, gate.CheckActive(ctx.WithBlockHeight(height)))
+				require.NoError(t, lp.CheckCall(&method, nil, false))
 			}
 		})
 	}
-	assertDisabled(t, ctx.WithBlockHeight(doneHeight), programsGate{})
-	assertDisabled(t, ctx.WithBlockHeight(doneHeight), programsGate{upgrade: &app.UpgradeKeeper})
-	assertDisabled(t, ctx.WithBlockHeight(doneHeight), programsGate{planName: planName})
+	assertDisabled(t, ctx.WithBlockHeight(doneHeight), lp.ProgramsGate{})
+	assertDisabled(t, ctx.WithBlockHeight(doneHeight), lp.NewProgramsGate(&app.UpgradeKeeper, ""))
+	assertDisabled(t, ctx.WithBlockHeight(doneHeight), lp.NewProgramsGate(nil, planName))
 	assertDisabled(t, sdk.Context{}, gate)
 	require.Zero(t, app.UpgradeKeeper.GetDoneHeight(parent, planName))
 }
@@ -77,17 +78,17 @@ func TestProgramsGateRefusesValueAndStaticWrites(t *testing.T) {
 		"sandboxFund":      true,
 		"sandboxActivate":  true,
 	}
-	require.NotEmpty(t, programsABI.Methods)
+	require.NotEmpty(t, lp.ProgramsABI.Methods)
 	for name := range writes {
-		require.Contains(t, programsABI.Methods, name)
+		require.Contains(t, lp.ProgramsABI.Methods, name)
 	}
-	require.Contains(t, programsABI.Methods, "simulateCall")
+	require.Contains(t, lp.ProgramsABI.Methods, "simulateCall")
 	maxValue := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
-	for name, method := range programsABI.Methods {
+	for name, method := range lp.ProgramsABI.Methods {
 		t.Run(name, func(t *testing.T) {
 			for _, readOnly := range []bool{false, true} {
 				for _, value := range []*big.Int{big.NewInt(1), maxValue, big.NewInt(-1)} {
-					err := checkCall(&method, value, readOnly)
+					err := lp.CheckCall(&method, value, readOnly)
 					require.Error(t, err)
 					reason, unpackErr := abi.UnpackRevert(pcommon.LXPReason(err))
 					require.NoError(t, unpackErr)
@@ -95,9 +96,9 @@ func TestProgramsGateRefusesValueAndStaticWrites(t *testing.T) {
 					require.Equal(t, pcommon.LXPRevert("LXP_PRECOMPILE_NON_PAYABLE", ""), pcommon.RevertReason(err))
 				}
 				for _, value := range []*big.Int{nil, big.NewInt(0)} {
-					err := checkCall(&method, value, readOnly)
+					err := lp.CheckCall(&method, value, readOnly)
 					if readOnly && writes[name] {
-						require.ErrorIs(t, err, ErrReadOnlyWrite)
+						require.ErrorIs(t, err, lp.ErrReadOnlyWrite)
 						require.Equal(t, pcommon.LXPRevert("LXP_PROGRAM_REFUSED", "write under staticcall"), pcommon.RevertReason(err))
 					} else {
 						require.NoError(t, err)
@@ -106,14 +107,14 @@ func TestProgramsGateRefusesValueAndStaticWrites(t *testing.T) {
 			}
 		})
 	}
-	write := programsABI.Methods["deploy"]
+	write := lp.ProgramsABI.Methods["deploy"]
 	write.StateMutability = "view"
-	require.ErrorIs(t, checkCall(&write, nil, true), ErrReadOnlyWrite)
-	simulation := programsABI.Methods["simulateCall"]
+	require.ErrorIs(t, lp.CheckCall(&write, nil, true), lp.ErrReadOnlyWrite)
+	simulation := lp.ProgramsABI.Methods["simulateCall"]
 	simulation.StateMutability = "nonpayable"
-	require.NoError(t, checkCall(&simulation, nil, true))
+	require.NoError(t, lp.CheckCall(&simulation, nil, true))
 	for _, readOnly := range []bool{false, true} {
-		require.ErrorIs(t, checkCall(nil, nil, readOnly), errGateUnknownMethod)
-		require.ErrorIs(t, checkCall(&abi.Method{Name: "unknown"}, nil, readOnly), errGateUnknownMethod)
+		require.ErrorIs(t, lp.CheckCall(nil, nil, readOnly), lp.ErrGateUnknownMethod)
+		require.ErrorIs(t, lp.CheckCall(&abi.Method{Name: "unknown"}, nil, readOnly), lp.ErrGateUnknownMethod)
 	}
 }

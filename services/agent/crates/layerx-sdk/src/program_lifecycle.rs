@@ -1,12 +1,11 @@
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::program_lifecycle::{
     NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown,
 };
-use layerx_wire::activity::decode_signed;
-use layerx_wire::hash::activity_id;
 use sha2::{Digest as _, Sha256};
 
-use crate::programs::{ProgramOperationError, MAX_SIGNED_ACTIVITY_BYTES};
+use crate::programs::{ProgramOperationError, MAX_SIGNED_ACTIVITY_BYTES, PROGRAMS_PRECOMPILE};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeProgramLifecycleRequest {
@@ -75,7 +74,7 @@ impl NativeProgramLifecycleRequest {
     }
 
     fn bind(
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
         ordinal: u16,
         payload: &[u8],
         signed: &[u8],
@@ -83,23 +82,31 @@ impl NativeProgramLifecycleRequest {
         if signed.is_empty() || signed.len() > MAX_SIGNED_ACTIVITY_BYTES {
             return Err(ProgramOperationError::Bounds);
         }
-        let activity =
-            decode_signed(signed, registry).map_err(|_| ProgramOperationError::Decode)?;
-        if activity.protocol_version() != 3
-            || activity.activity_type().module() != ModuleId::Programs
-            || activity.activity_type().ordinal() != ordinal
-            || activity.payload() != payload
-            || activity.payload_hash()
-                != layerx_wire::hash::payload_hash(&activity)
-                    .map_err(|_| ProgramOperationError::Decode)?
-        {
+        let (transaction, signature) =
+            decode_signed(signed).map_err(|_| ProgramOperationError::Decode)?;
+        recover_sender(&transaction, &signature).map_err(|_| ProgramOperationError::Decode)?;
+        if transaction.to != PROGRAMS_PRECOMPILE || transaction.data != payload {
             return Err(ProgramOperationError::IdentityMismatch);
         }
+        match ordinal {
+            1 => {
+                NativeProgramDeploy::decode(payload).map_err(|_| ProgramOperationError::Decode)?;
+            }
+            2 => {
+                NativeProgramUpgrade::decode(payload).map_err(|_| ProgramOperationError::Decode)?;
+            }
+            7 => {
+                NativeProgramWindDown::decode(payload)
+                    .map_err(|_| ProgramOperationError::Decode)?;
+            }
+            _ => return Err(ProgramOperationError::IdentityMismatch),
+        }
+        let bound_id = transaction_hash(signed);
         Ok(Self {
             ordinal,
             signed_activity: signed.to_vec(),
-            activity_id: activity_id(&activity).map_err(|_| ProgramOperationError::Decode)?,
-            idempotency_key: activity.idempotency_key(),
+            activity_id: bound_id,
+            idempotency_key: bound_id,
         })
     }
 
@@ -222,7 +229,18 @@ mod tests {
                 serde_json::from_slice(&std::fs::read(path).map_err(|error| error.to_string())?)
                     .map_err(|error| error.to_string())?;
             let payload = bytes(&fixture, "payload_hex")?;
-            let signed = bytes(&fixture, "signed_activity_hex")?;
+            let transaction = layerx_crypto::evm_transaction::Eip1559Call {
+                chain_id: 1,
+                nonce: 7,
+                max_priority_fee_per_gas: 2,
+                max_fee_per_gas: 3,
+                gas_limit: 30_000,
+                to: PROGRAMS_PRECOMPILE,
+                data: payload.clone(),
+            };
+            let signed = transaction
+                .sign(&[1; 32])
+                .map_err(|error| error.to_string())?;
             let request = match ordinal {
                 1 => NativeProgramLifecycleRequest::deploy(
                     &registry,
@@ -243,29 +261,18 @@ mod tests {
             }
             .map_err(|error| format!("{error:?}"))?;
             assert_eq!(request.ordinal(), ordinal);
-            assert_eq!(
-                request.bound_activity_id().as_slice(),
-                bytes(&fixture, "activity_id_hex")?
-            );
-            assert_eq!(
-                request.bound_idempotency_key().as_slice(),
-                bytes(&fixture, "idempotency_key_hex")?
-            );
+            assert_eq!(request.bound_activity_id(), transaction_hash(&signed));
+            assert_eq!(request.bound_idempotency_key(), transaction_hash(&signed));
             assert_eq!(request.signed_activity(), signed);
-            let activity =
-                decode_signed(&signed, &registry).map_err(|error| format!("{error:?}"))?;
-            let public_key: [u8; 32] = bytes(&fixture, "public_key_hex")?
-                .try_into()
-                .map_err(|_| "public key length")?;
-            let signature: [u8; 64] = activity
-                .signature()
-                .ok_or("signature absent")?
-                .try_into()
-                .map_err(|_| "signature length")?;
-            let preimage =
-                layerx_wire::sign::preimage(&activity).map_err(|error| format!("{error:?}"))?;
-            layerx_crypto::ed25519::verify_digest(&public_key, &signature, preimage.as_bytes())
-                .map_err(|error| format!("{error:?}"))?;
+            let (decoded, signature) = decode_signed(&signed).map_err(|error| error.to_string())?;
+            assert_eq!(decoded, transaction);
+            assert_eq!(
+                recover_sender(&decoded, &signature).map_err(|error| error.to_string())?,
+                [
+                    0x1a, 0x64, 0x2f, 0x0e, 0x3c, 0x3a, 0xf5, 0x45, 0xe7, 0xac, 0xbd, 0x38, 0xb0,
+                    0x72, 0x51, 0xb3, 0x99, 0x09, 0x14, 0xf1,
+                ]
+            );
             for length in 0..signed.len() {
                 assert!(NativeProgramLifecycleRequest::bind(
                     &registry,
@@ -275,16 +282,30 @@ mod tests {
                 )
                 .is_err());
             }
-            let mut wrong_protocol = signed.clone();
-            let mut wrong_hash = signed.clone();
-            let hash_offset = signed.len() - 69 - payload.len() - 5 - 32;
-            wrong_hash[hash_offset] ^= 1;
-            assert!(decode_signed(&wrong_hash, &registry).is_ok());
+            let mut wrong_target = transaction.clone();
+            wrong_target.to[19] ^= 1;
+            let wrong_target = wrong_target
+                .sign(&[1; 32])
+                .map_err(|error| error.to_string())?;
+            assert!(NativeProgramLifecycleRequest::bind(
+                &registry,
+                ordinal,
+                &payload,
+                &wrong_target
+            )
+            .is_err());
+            let mut wrong_data = transaction.clone();
+            wrong_data.data[0] ^= 1;
+            let wrong_data = wrong_data
+                .sign(&[1; 32])
+                .map_err(|error| error.to_string())?;
+            assert!(decode_signed(&wrong_data).is_ok());
             assert!(
-                NativeProgramLifecycleRequest::bind(&registry, ordinal, &payload, &wrong_hash)
+                NativeProgramLifecycleRequest::bind(&registry, ordinal, &payload, &wrong_data)
                     .is_err()
             );
-            wrong_protocol[1] = 2;
+            let mut wrong_protocol = signed.clone();
+            wrong_protocol[0] = 1;
             assert!(NativeProgramLifecycleRequest::bind(
                 &registry,
                 ordinal,

@@ -4,7 +4,6 @@ import {
   getErc20Allowance,
   getErc20Balance,
   getNativeBalance,
-  publicClient,
   isTxKnown,
   resolveGas,
   simulate,
@@ -17,6 +16,7 @@ import { AttestorError, AttestorReauthorizationRequired, type AgentOriginalReque
 import { CustodyAuthorityError } from '../authority.js';
 import { withDistributedWalletLock } from './nonceLock.js';
 import { broadcastReserved, type NonceLease } from '../../nonce/store.js';
+import { sharedRpcPool } from '../../rpc/pool.js';
 import {
   buildErrorEnvelope,
   terminalStatusFor,
@@ -416,15 +416,21 @@ export function legNonce(lease: NonceLease, opts?: { nonce?: number }): Promise<
  * Broadcast a retained leg at its nonce. A failed send is returned, not thrown, so the wallet lock
  * commits the nonce store's record of the broadcast and the next allocation reconciles it.
  */
-async function submitRetained(row: ActionRow, signed: ActionSignedTransaction, lease: NonceLease): Promise<unknown> {
-  if (keccak256(signed.raw) !== signed.hash) throw new Error('retained transaction integrity failure');
+export async function submitRetained(
+  row: ActionRow,
+  signed: ActionSignedTransaction,
+  lease: NonceLease
+): Promise<unknown> {
+  if (keccak256(signed.raw) !== signed.hash)
+    throw new Error('retained transaction integrity failure');
   if (await isTxKnown(signed.hash)) {
     await lease.track(signed.draft.nonce, signed.hash, null);
   } else {
     const sent = await broadcastReserved(lease, signed.draft.nonce, signed.raw, async (raw) => {
-      const hash = await publicClient().sendRawTransaction({ serializedTransaction: raw });
-      if (hash.toLowerCase() !== signed.hash.toLowerCase()) throw new Error('RPC transaction hash differs from retained bytes');
-      return { hash, member: env.HYPERPAXEER_RPC_URL };
+      const { hash, member } = await sharedRpcPool().sendRawTransactionVia(raw);
+      if (hash.toLowerCase() !== signed.hash.toLowerCase())
+        throw new Error('RPC transaction hash differs from retained bytes');
+      return { hash, member };
     });
     if (sent.error !== null && !(await isTxKnown(signed.hash))) return sent.error;
   }

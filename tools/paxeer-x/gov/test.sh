@@ -27,8 +27,6 @@ sid_docs_name_v6120() {
       fail "sid_docs_name_v6120: retired name in $file"
     fi
   done
-  grep -Fq 'modules/layerxcustody/types/governance_activation.go' "$ROOT/RELEASE.md" \
-    || fail "sid_docs_name_v6120: custody activation source missing"
   echo "sid_docs_name_v6120: ok"
 }
 
@@ -50,7 +48,7 @@ if [ -z "$PAXD" ]; then
   PAXD=$WORK/paxd
 fi
 
-OUT=$WORK/out
+OUT=${GOV_TEST_OUT:-$WORK/out}
 "$ROOT/tools/paxeer-x/gov/render.sh" --out "$OUT" --paxd "$PAXD" \
   --height 27000000 \
   --release-url https://example.invalid/paxd-v6.12.0-linux-amd64 \
@@ -70,14 +68,13 @@ OUT=$WORK/out
   --bridge-config "$ROOT/services/bridge/deploy/proposals/testdata/solana.json" \
   --bridge-manifest "$ROOT/services/bridge/deploy/proposals/testdata/attestors.json"
 
-for f in 01-software-upgrade 02-fee-token-params 03-xweb-fee 04-exchange-markets 05-custody \
+for f in 01-software-upgrade 02-fee-token-params 03-xweb-fee \
   bridge/solana/proposals/04-proposal-open-chain bridge/solana/proposals/05-proposal-sidiora-cap; do
   [ -s "$OUT/$f.json" ] || fail "$f.json missing"
   [ -s "$OUT/$f.json.tx.json" ] || fail "$f.json was not dry-run"
   jq -e '.body.messages[0]["@type"] == "/cosmos.gov.v1beta1.MsgSubmitProposal"' "$OUT/$f.json.tx.json" >/dev/null \
     || fail "$f.json.tx.json does not carry a MsgSubmitProposal"
 done
-[ -s "$OUT/06-anchor-sequencer-authorization.json" ] || fail "anchor calldata missing"
 
 plan_named_v6120
 jq -e '.name == "v6.12.0" and .height == "27000000" and (.info | fromjson | .binaries["linux/amd64"] | endswith("?checksum=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))' \
@@ -89,12 +86,4 @@ jq -e '.changes == [
 jq -e '.messages[0].fee == "50000"' "$OUT/03-xweb-fee.json" >/dev/null || fail "xweb fee is not 0.001 USD at 0.02 USD/PAX"
 jq -e '.messages[0].kernel_network_id == 125 and .messages[0].program_fee_denoms == ["uhpx","usid","uusdc","uusdl"]' \
   "$OUT/03-xweb-fee.json" >/dev/null || fail "xweb program settings"
-jq -e '[.messages[] | select(.["@type"] == "/paxprotocol.paxchain.layerxexchange.MsgSetMarket")] | length == 3' \
-  "$OUT/04-exchange-markets.json" >/dev/null || fail "exchange markets"
-jq -e '.messages[2].params.deposit_root_authority == "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
-  and ([.messages[0:2][].asset.denom] == ["uhpx", "usid"])' "$OUT/05-custody.json" >/dev/null || fail "custody proposal"
-jq -e '[.[] | select(.type == "function" and .name == "setSequencerAuthorization") | .inputs[].type] == ["bytes32", "bytes32", "uint64", "uint64"]' \
-  "$ROOT/precompiles/layerxanchor/abi.json" >/dev/null || fail "anchor ABI changed"
-jq -e '.data == "0xc2661383" + ("6" * 64) + "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
-  + ("0" * 63) + "1" + ("0" * 48) + ("f" * 16)' "$OUT/06-anchor-sequencer-authorization.json" >/dev/null || fail "anchor calldata"
 echo "governance window kit: ok"

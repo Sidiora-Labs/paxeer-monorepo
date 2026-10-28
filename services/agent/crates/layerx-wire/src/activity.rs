@@ -245,6 +245,35 @@ pub fn decode_signed(bytes: &[u8], registry: &ModuleRegistry) -> Result<Activity
     decode_internal(bytes, registry, true)
 }
 
+/// Reads the signed envelope header and type field before registry selection.
+/// The complete envelope must still be validated with [`decode_signed`].
+///
+/// # Errors
+///
+/// Refuses malformed headers, field counts, versions, tags, and activity types.
+pub fn peek_signed_activity_type(bytes: &[u8]) -> Result<ActivityType, WireError> {
+    let mut decoder = Decoder::new(bytes, MAX_MESSAGE_BYTES);
+    let envelope_version = decoder.structure_header_version(STRUCTURE_TAG)?;
+    if decoder.u8()? != SIGNED_FIELD_COUNT {
+        return Err(WireError::known(
+            KnownResult::MalformedEnvelope,
+            decoder.offset(),
+        ));
+    }
+    field(&mut decoder, 1)?;
+    if decoder.u16()? != envelope_version {
+        return Err(WireError::known(
+            KnownResult::VersionUnsupported,
+            decoder.offset(),
+        ));
+    }
+    field(&mut decoder, 2)?;
+    let _network_id = decoder.u32()?;
+    field(&mut decoder, 3)?;
+    ActivityType::from_u32(decoder.u32()?)
+        .map_err(|_| WireError::known(KnownResult::UnknownActivity, decoder.offset()))
+}
+
 /// Decodes a canonical unsigned activity.
 ///
 /// # Errors

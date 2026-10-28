@@ -11,7 +11,7 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.SettlementRung do
       "The rung the settlement ladder puts an item on: `submitted` while neither a committed block " <>
         "nor a verified sequencer receipt holds it, `receipted` once a sequencer receipt passes the " <>
         "client checks R1-R6 against the pinned receipt keys, and `committed` once a block the " <>
-        "committed head covers holds it.",
+        "committed head covers holds it or a sequencer receipt passes client checks R1-R8.",
     type: :string,
     enum: ["submitted", "receipted", "committed"],
     nullable: false

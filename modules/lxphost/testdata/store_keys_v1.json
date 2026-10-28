@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "module_keys": [
+    {
+      "name": "program",
+      "module": 9,
+      "kernel_key_hex": "70726f6772616d00000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "store_key_hex": "01000970726f6772616d00000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+    },
+    {
+      "name": "program_interface",
+      "module": 9,
+      "kernel_key_hex": "696e7465726661636500000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "store_key_hex": "010009696e7465726661636500000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+    },
+    {
+      "name": "program_storage_head",
+      "module": 9,
+      "kernel_key_hex": "70726f6773746f72000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f01",
+      "store_key_hex": "01000970726f6773746f72000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f01"
+    },
+    {
+      "name": "program_owner",
+      "module": 9,
+      "kernel_key_hex": "70726f6772616d2d6f776e657200000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "store_key_hex": "01000970726f6772616d2d6f776e657200000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+    },
+    {
+      "name": "wind_down_status",
+      "module": 9,
+      "kernel_key_hex": "77696e642d646f776e0073000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "store_key_hex": "01000977696e642d646f776e0073000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+    },
+    {
+      "name": "wind_down_route",
+      "module": 9,
+      "kernel_key_hex": "77696e642d646f776e0072000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+      "store_key_hex": "01000977696e642d646f776e0072000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f"
+    },
+    {
+      "name": "wind_down_history",
+      "module": 9,
+      "kernel_key_hex": "77696e642d646f776e0068000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f0102030405060708",
+      "store_key_hex": "01000977696e642d646f776e0068000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f0102030405060708"
+    },
+    {
+      "name": "sandbox_lease",
+      "module": 9,
+      "kernel_key_hex": "7300e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+      "store_key_hex": "0100097300e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+    },
+    {
+      "name": "sandbox_escrow",
+      "module": 9,
+      "kernel_key_hex": "7301e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+      "store_key_hex": "0100097301e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+    },
+    {
+      "name": "sandbox_usage",
+      "module": 9,
+      "kernel_key_hex": "7302e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+      "store_key_hex": "0100097302e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+    }
+  ],
+  "account_keys": [
+    {
+      "name": "wind_down_account",
+      "account_id_hex": "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+      "store_key_hex": "06808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f"
+    },
+    {
+      "name": "zero_account",
+      "account_id_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "store_key_hex": "060000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}

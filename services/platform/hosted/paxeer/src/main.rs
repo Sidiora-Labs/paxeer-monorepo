@@ -28,7 +28,7 @@ const MAX_CONNECTIONS: usize = 128;
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 
 const ALLOWED_PREFIXES: [&str; 1] = ["eth_"];
-const ALLOWED_METHODS: [&str; 2] = ["net_version", "web3_clientVersion"];
+const ALLOWED_METHODS: [&str; 3] = ["net_version", "web3_clientVersion", "pax_sequencerReceipt"];
 const DENIED_METHODS: [&str; 8] = [
     "eth_accounts",
     "eth_coinbase",
@@ -653,7 +653,17 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_chunks, read_http_message};
+    use super::{decode_chunks, method_allowed, read_http_message};
+
+    #[test]
+    fn sequencer_receipt_method_is_allowed() {
+        assert!(method_allowed("pax_sequencerReceipt"));
+        assert!(method_allowed("eth_getTransactionReceipt"));
+        assert!(method_allowed("net_version"));
+        assert!(!method_allowed("pax_unknownMethod"));
+        assert!(!method_allowed("eth_sendTransaction"));
+        assert!(!method_allowed("eth_sign"));
+    }
 
     #[test]
     fn node_chunk_framing_is_bounded_and_unambiguous() {

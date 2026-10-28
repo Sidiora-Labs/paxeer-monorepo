@@ -5847,7 +5847,7 @@ static lxp_result open_process(lxp_daemon_process *process,
         process->asset_runtime = (lx_asset_runtime){
             &process->accounts, process->asset_registry.assets,
             process->asset_count, process->assets, process->asset_count,
-            process->network_id, process->protocol_version};
+            process->network_id, process->protocol_version, false};
         status = lxp_kernel_bind_module_runtime(
             &process->kernel, LXP_MODULE_ASSET, &process->asset_runtime);
     }

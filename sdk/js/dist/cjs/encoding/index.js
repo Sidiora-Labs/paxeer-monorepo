@@ -38,8 +38,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Encoder = void 0;
 const confio = __importStar(require("./confio/index"));
-const cosmos_accesscontrol = __importStar(require("./cosmos/accesscontrol/index"));
-const cosmos_accesscontrol_x = __importStar(require("./cosmos/accesscontrol_x/index"));
 const cosmos_auth_v1beta1 = __importStar(require("./cosmos/auth/v1beta1/index"));
 const cosmos_authz_v1beta1 = __importStar(require("./cosmos/authz/v1beta1/index"));
 const cosmos_bank_v1beta1 = __importStar(require("./cosmos/bank/v1beta1/index"));
@@ -53,7 +51,6 @@ const cosmos_base_store_v1beta1 = __importStar(require("./cosmos/base/store/v1be
 const cosmos_base_tendermint_v1beta1 = __importStar(require("./cosmos/base/tendermint/v1beta1/index"));
 const cosmos_base_v1beta1 = __importStar(require("./cosmos/base/v1beta1/index"));
 const cosmos_capability_v1beta1 = __importStar(require("./cosmos/capability/v1beta1/index"));
-const cosmos_crisis_v1beta1 = __importStar(require("./cosmos/crisis/v1beta1/index"));
 const cosmos_crypto_ed25519 = __importStar(require("./cosmos/crypto/ed25519/index"));
 const cosmos_crypto_multisig = __importStar(require("./cosmos/crypto/multisig/index"));
 const cosmos_crypto_secp256k1 = __importStar(require("./cosmos/crypto/secp256k1/index"));
@@ -64,7 +61,6 @@ const cosmos_evidence_v1beta1 = __importStar(require("./cosmos/evidence/v1beta1/
 const cosmos_feegrant_v1beta1 = __importStar(require("./cosmos/feegrant/v1beta1/index"));
 const cosmos_genutil_v1beta1 = __importStar(require("./cosmos/genutil/v1beta1/index"));
 const cosmos_gov_v1beta1 = __importStar(require("./cosmos/gov/v1beta1/index"));
-const cosmos_mint_v1beta1 = __importStar(require("./cosmos/mint/v1beta1/index"));
 const cosmos_params_types = __importStar(require("./cosmos/params/types/index"));
 const cosmos_params_v1beta1 = __importStar(require("./cosmos/params/v1beta1/index"));
 const cosmos_slashing_v1beta1 = __importStar(require("./cosmos/slashing/v1beta1/index"));
@@ -92,8 +88,6 @@ __exportStar(require("./registry"), exports);
 exports.Encoder = {
     confio: confio,
     cosmos: {
-        accesscontrol: cosmos_accesscontrol,
-        accesscontrol_x: cosmos_accesscontrol_x,
         auth: { v1beta1: cosmos_auth_v1beta1 },
         authz: { v1beta1: cosmos_authz_v1beta1 },
         bank: { v1beta1: cosmos_bank_v1beta1 },
@@ -108,7 +102,6 @@ exports.Encoder = {
             v1beta1: cosmos_base_v1beta1
         },
         capability: { v1beta1: cosmos_capability_v1beta1 },
-        crisis: { v1beta1: cosmos_crisis_v1beta1 },
         crypto: {
             ed25519: cosmos_crypto_ed25519,
             multisig: cosmos_crypto_multisig,
@@ -121,7 +114,6 @@ exports.Encoder = {
         feegrant: { v1beta1: cosmos_feegrant_v1beta1 },
         genutil: { v1beta1: cosmos_genutil_v1beta1 },
         gov: { v1beta1: cosmos_gov_v1beta1 },
-        mint: { v1beta1: cosmos_mint_v1beta1 },
         params: { types: cosmos_params_types, v1beta1: cosmos_params_v1beta1 },
         slashing: { v1beta1: cosmos_slashing_v1beta1 },
         staking: { v1beta1: cosmos_staking_v1beta1 },

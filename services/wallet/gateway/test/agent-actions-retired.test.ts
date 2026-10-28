@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
+import ts from 'typescript';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { newAgentKey } from './support/identity.js';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
@@ -64,7 +66,7 @@ async function layerxDepositRouteIsNotServed(): Promise<void> {
       nonce,
       expiry,
       body: Buffer.from(body),
-    }),
+    })
   );
   const signedHeaders = {
     'x-agent-key': agent.did,
@@ -74,7 +76,7 @@ async function layerxDepositRouteIsNotServed(): Promise<void> {
   };
 
   const before = await pool.query<{ count: string }>(
-    'select count(*)::text as count from agent_actions',
+    'select count(*)::text as count from agent_actions'
   );
   expect(before.rows[0]?.count).toBe('0');
   for (const headers of [{}, signedHeaders, signedHeaders]) {
@@ -87,7 +89,7 @@ async function layerxDepositRouteIsNotServed(): Promise<void> {
     expect(response.statusCode).toBe(404);
     expect(response.json()).toMatchObject({ statusCode: 404, error: 'Not Found' });
     const after = await pool.query<{ count: string }>(
-      'select count(*)::text as count from agent_actions',
+      'select count(*)::text as count from agent_actions'
     );
     expect(after.rows[0]?.count).toBe('0');
   }
@@ -102,3 +104,70 @@ async function layerxDepositRouteIsNotServed(): Promise<void> {
 }
 
 test(layerxDepositRouteIsNotServed);
+
+async function actionKindsExcludeLayerxDeposit(): Promise<void> {
+  const actions = await import('../src/db/actions.js');
+  expect(actions.retainActionCustodyAuthorization).toBeTypeOf('function');
+
+  const source = ts.createSourceFile(
+    'actions.ts',
+    readFileSync(new URL('../src/db/actions.ts', import.meta.url), 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  );
+  const kind = source.statements.find(
+    (node): node is ts.TypeAliasDeclaration =>
+      ts.isTypeAliasDeclaration(node) && node.name.text === 'ActionKind'
+  );
+  expect(kind).toBeDefined();
+  expect(kind?.type).toMatchObject({
+    kind: ts.SyntaxKind.LiteralType,
+    literal: { kind: ts.SyntaxKind.StringLiteral, text: 'allowance_and_call' },
+  });
+
+  const agent = newAgentKey('allowance-action-store');
+  const { upsertPrincipalOnVerify } = await import('../src/db/agents.js');
+  await upsertPrincipalOnVerify({
+    did: agent.did,
+    label: 'allowance-action-store',
+    keyFingerprint: agent.publicKeyHex.slice(0, 16),
+    publicKey: agent.publicKeyHex,
+  });
+
+  try {
+    const request = { spender: '0x' + '11'.repeat(20), amount: '250' };
+    const args: Parameters<typeof actions.createOrGetAction>[0] = {
+      did: agent.did,
+      walletId: null,
+      walletAddress: null,
+      kind: 'allowance_and_call',
+      idempotencyKey: 'allowance-action-store',
+      request,
+    };
+    const created = await actions.createOrGetAction(args);
+    expect(created.created).toBe(true);
+    expect(created.row).toMatchObject({
+      did: agent.did,
+      kind: 'allowance_and_call',
+      status: 'received',
+      phase: 'intake',
+      request,
+    });
+    expect(await actions.getAction(created.row.id)).toEqual(created.row);
+
+    const replay = await actions.createOrGetAction(args);
+    expect(replay.created).toBe(false);
+    expect(replay.row).toEqual(created.row);
+
+    const stored = await pool.query<{ kind: string }>(
+      'select kind from agent_actions where did = $1',
+      [agent.did]
+    );
+    expect(stored.rows).toEqual([{ kind: 'allowance_and_call' }]);
+  } finally {
+    await pool.query('delete from agent_principals where did = $1', [agent.did]);
+  }
+}
+
+test(actionKindsExcludeLayerxDeposit);

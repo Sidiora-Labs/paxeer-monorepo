@@ -175,7 +175,7 @@ errors       = ["operator_required", "token_missing", "token_invalid", "token_no
 [op.sign.request]
 session_id = "string"
 key_id = "string"
-kind = "string: one of kinds"
+kind = "string: one of op.sign kinds; custody is unsupported"
 signers = "array of string: at least three holders including the receiving node"
 transaction = "hex optional: unsigned typed or legacy transaction for evm_tx"
 typed_data = "string optional: EIP-712 JSON document for eip712"

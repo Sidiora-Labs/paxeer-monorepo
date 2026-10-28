@@ -37,6 +37,7 @@ import { query } from '../db/pool.js';
 import { CustodyAuthorityError, publishCustodyAuthority } from '../agent/authority.js';
 import { AttestorError, attestorErrorBody, attestorErrorStatus } from '../attestor/client.js';
 import { effectivePolicy } from '../policy/agent.js';
+import { custodyRefusal as agentCustodyRefusal } from './agentExec.js';
 import {
   BudgetBody,
   FundAgentBody,
@@ -44,6 +45,8 @@ import {
   RuleBody,
   SweepBody,
 } from '../schemas/agent.js';
+
+const custodyRefusal: typeof agentCustodyRefusal = agentCustodyRefusal;
 
 /**
  * Owner control plane.
@@ -400,6 +403,8 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     } catch (err) {
       if (err instanceof CustodyAuthorityError) return reply.code(503).send({ error: err.code, replication_pending: true });
       if (err instanceof AttestorError) return reply.code(attestorErrorStatus(err)).send(attestorErrorBody(err));
+      const refusal = custodyRefusal(err);
+      if (refusal) return reply.code(refusal.status).send(refusal.body);
       req.log.error({ err }, 'fund agent failed');
       return reply.code(502).send({ error: 'send_failed', detail: (err as Error).message });
     }
@@ -461,6 +466,8 @@ export async function ownerRoutes(app: FastifyInstance): Promise<void> {
     } catch (err) {
       if (err instanceof CustodyAuthorityError) return reply.code(503).send({ error: err.code, replication_pending: true });
       if (err instanceof AttestorError) return reply.code(attestorErrorStatus(err)).send(attestorErrorBody(err));
+      const refusal = custodyRefusal(err);
+      if (refusal) return reply.code(refusal.status).send(refusal.body);
       req.log.error({ err }, 'sweep agent failed');
       return reply.code(502).send({ error: 'send_failed', detail: (err as Error).message });
     }

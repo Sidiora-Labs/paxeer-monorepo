@@ -364,6 +364,7 @@ type spotTrader struct {
 // tokens it received by transfer) is logged once with the reason and left
 // out; it never fails the fold of the others. omitted counts those accounts.
 func (s *SpotUsers) fold(ctx context.Context, user *common.Address) (traders map[common.Address]*spotTrader, omitted int, err error) {
+	s.board.folds.Add(1)
 	var arg any
 	if user != nil {
 		arg = user.Bytes()
@@ -634,37 +635,40 @@ func (s *SpotUsers) positions(ctx context.Context, user common.Address, _ map[st
 	if err != nil {
 		return nil, err
 	}
+	return s.positionsFromFold(ctx, user, traders[user])
+}
+
+func (s *SpotUsers) positionsFromFold(ctx context.Context, user common.Address, tr *spotTrader) (spotPositionsBody, error) {
 	body := spotPositionsBody{Address: spotHex(user), Positions: []spotPositionJSON{}}
-	tr := traders[user]
 	if tr == nil {
 		return body, nil
 	}
 	tokens, err := s.tokens(ctx)
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	height, err := s.head(ctx)
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	for _, b := range tr.books {
 		node, err := s.balanceOf(ctx, b.token, user, height)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		qty, err := spotInt(b.pos.CurrentHoldings)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		sold, err := spotInt(b.pos.TotalTokensSold)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		var avgExit *string
 		if sold.Sign() > 0 {
 			received, err := spotInt(b.pos.TotalUsdlReceived)
 			if err != nil {
-				return nil, err
+				return body, err
 			}
 			v := new(big.Int).Quo(new(big.Int).Mul(received, spotWad), sold).String()
 			avgExit = &v
@@ -1127,8 +1131,11 @@ func (s *SpotUsers) pnlSummary(ctx context.Context, user common.Address, _ map[s
 	if err != nil {
 		return nil, err
 	}
+	return s.pnlSummaryFromFold(ctx, user, traders[user])
+}
+
+func (s *SpotUsers) pnlSummaryFromFold(ctx context.Context, user common.Address, tr *spotTrader) (spotPnlBody, error) {
 	body := spotPnlBody{Address: spotHex(user), RealizedUsd: "0"}
-	tr := traders[user]
 	if tr == nil {
 		zero := "0"
 		body.UnrealizedUsd, body.TotalUsd = &zero, &zero
@@ -1136,11 +1143,11 @@ func (s *SpotUsers) pnlSummary(ctx context.Context, user common.Address, _ map[s
 	}
 	tokens, err := s.tokens(ctx)
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	realized, err := tr.realized()
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	unrealized, marked := new(big.Int), true
 	for _, b := range tr.books {
@@ -1149,7 +1156,7 @@ func (s *SpotUsers) pnlSummary(ctx context.Context, user common.Address, _ map[s
 		}
 		price, ok, err := s.mark(ctx, tokens[b.token])
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		if !ok {
 			marked = false
@@ -1157,15 +1164,15 @@ func (s *SpotUsers) pnlSummary(ctx context.Context, user common.Address, _ map[s
 		}
 		raw, err := pnl.TotalPnl(b.pos.RealizedPnlUsdl, b.pos.AvgCostBasis, b.pos.CurrentHoldings, price)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		total, err := spotInt(raw)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		own, err := spotInt(b.pos.RealizedPnlUsdl)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		unrealized.Add(unrealized, total.Sub(total, own))
 	}
@@ -1344,7 +1351,6 @@ func (s *SpotUsers) rebuildBoard() (any, error) {
 	if view, ok := s.freshBoard(); ok {
 		return view, nil
 	}
-	s.board.folds.Add(1)
 	ctx, cancel := context.WithTimeout(context.Background(), spotBoardFoldTimeout)
 	defer cancel()
 	ranks, omitted, err := s.rankAll(ctx)
@@ -1439,8 +1445,6 @@ const spotOrderAccountSQL = `SELECT account FROM perps.spot_orders WHERE order_i
 // SpotTrade, the positions of its token as SpotPosition, the profit summary
 // as SpotPnlSummary and the leg it closed as SpotClosedLeg. Other rows feed
 // no stream.
-// ponytail: each trade refolds the account's history three times (positions,
-// profit, legs); fold once and share it if busy accounts lag the socket.
 func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]SpotStreamItem, error) {
 	var p spotFactPayload
 	if err := json.Unmarshal(env.Payload, &p); err != nil {
@@ -1491,11 +1495,16 @@ func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]S
 	if items, err = appendSpotItem(items, "trade", user, trade); err != nil {
 		return nil, err
 	}
-	positions, err := s.positions(ctx, user, nil)
+	traders, _, err := s.fold(ctx, &user)
 	if err != nil {
 		return nil, err
 	}
-	for _, position := range positions.(spotPositionsBody).Positions {
+	tr := traders[user]
+	positions, err := s.positionsFromFold(ctx, user, tr)
+	if err != nil {
+		return nil, err
+	}
+	for _, position := range positions.Positions {
 		if position.Token != trade.TokenIn && position.Token != trade.TokenOut {
 			continue
 		}
@@ -1503,18 +1512,14 @@ func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]S
 			return nil, err
 		}
 	}
-	summary, err := s.pnlSummary(ctx, user, nil)
+	summary, err := s.pnlSummaryFromFold(ctx, user, tr)
 	if err != nil {
 		return nil, err
 	}
 	if items, err = appendSpotItem(items, "pnl", user, summary); err != nil {
 		return nil, err
 	}
-	traders, _, err := s.fold(ctx, &user)
-	if err != nil {
-		return nil, err
-	}
-	if tr := traders[user]; tr != nil {
+	if tr != nil {
 		tokens, err := s.tokens(ctx)
 		if err != nil {
 			return nil, err

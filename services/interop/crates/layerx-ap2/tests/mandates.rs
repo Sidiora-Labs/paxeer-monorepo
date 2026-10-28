@@ -1,10 +1,31 @@
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use layerx_ap2::{
-    Ap2Error, KeyResolver, KeyUse, MandateMode, MandateVerifier, ProtectedHeader,
-    VerificationContext,
+    ap2_adapter_descriptor, AdapterOutcome, Ap2Adapter, Ap2Error, AuthorizedPayment, KeyResolver,
+    KeyUse, LayerXAssetBinding, LayerXIntentPlane, MandateMode, MandateVerifier, Merchant,
+    PlaneOutcome, ProtectedHeader, ReceiptSigner, VerificationContext,
 };
-use p256::ecdsa::signature::Signer as _;
+use layerx_intents::{compile, CompiledIntent, Intent, IntentKind, LxpSend};
+use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
+use layerx_interop_gateway::gateway::TranslationStatus;
+use layerx_interop_gateway::principal::PrincipalId;
+use layerx_interop_gateway::trace::TraceId;
+use layerx_interop_gateway::GatewayCore;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::verify_sequencer_signature;
+use layerx_proof::sequencer_logs::SequencerLog;
+use layerx_types::account::AccountId;
+use layerx_types::amount::Amount;
+use layerx_types::ids::{AssetId, IdempotencyKey};
+use layerx_types::intent::{
+    AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
+    SendAuthorizationKind, Sequence, TimestampSeconds,
+};
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use p256::ecdsa::signature::{Signer as _, Verifier as _};
 use p256::ecdsa::{Signature, SigningKey, VerifyingKey};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -13,6 +34,235 @@ const NOW: u64 = 1_700_000_000;
 const ISSUER_KID: &str = "issuer-001";
 const MERCHANT_KID: &str = "merchant-001";
 const ALTERNATE_ISSUER_KID: &str = "issuer-002";
+
+type ExecutedPayment = layerx_ap2::ExecutedPayment;
+
+fn recorded_hex(value: &Value) -> Vec<u8> {
+    hex::decode(
+        value
+            .as_str()
+            .expect("recorded hex string")
+            .strip_prefix("0x")
+            .expect("recorded hex prefix"),
+    )
+    .expect("recorded hex bytes")
+}
+
+fn recorded_array<const N: usize>(value: &Value) -> [u8; N] {
+    recorded_hex(value)
+        .try_into()
+        .expect("recorded field width")
+}
+
+fn recorded_payment(case: &Value) -> ExecutedPayment {
+    ExecutedPayment {
+        evidence: SequencerEvidence {
+            transaction_hash: recorded_array(&case["receiptJson"]["txHash"]),
+            signed_receipt: recorded_hex(&case["signedReceipt"]),
+            logs: case["receiptJson"]["logs"]
+                .as_array()
+                .expect("recorded logs")
+                .iter()
+                .map(|log| {
+                    SequencerLog::new(
+                        recorded_array(&log["address"]),
+                        log["topics"]
+                            .as_array()
+                            .expect("recorded topics")
+                            .iter()
+                            .map(recorded_array)
+                            .collect(),
+                        recorded_hex(&log["data"]),
+                        u64::from_str_radix(
+                            log["logIndex"]
+                                .as_str()
+                                .expect("recorded log index")
+                                .strip_prefix("0x")
+                                .expect("log index prefix"),
+                            16,
+                        )
+                        .expect("recorded log index quantity"),
+                    )
+                })
+                .collect(),
+            rung: SettlementRung::Receipted,
+        },
+        order_id: "order-12345".into(),
+    }
+}
+
+struct IntentKey {
+    directory: std::path::PathBuf,
+    public_key: [u8; 32],
+}
+
+impl IntentKey {
+    fn new() -> Self {
+        let directory =
+            std::env::temp_dir().join(format!("ap2-mandate-intent-{}", std::process::id()));
+        std::fs::create_dir(&directory).expect("intent key directory");
+        let mut der =
+            hex::decode("302e020100300506032b657004220420").expect("Ed25519 PKCS8 prefix");
+        der.extend_from_slice(&[0x35; 32]);
+        std::fs::write(directory.join("key.der"), der).expect("intent signing key");
+        let output = std::process::Command::new("openssl")
+            .args(["pkey", "-inform", "DER", "-in"])
+            .arg(directory.join("key.der"))
+            .args(["-pubout", "-outform", "DER"])
+            .output()
+            .expect("Ed25519 public key command");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.stdout.len(), 44);
+        Self {
+            directory,
+            public_key: output.stdout[12..].try_into().expect("Ed25519 public key"),
+        }
+    }
+
+    fn sign(&self, message: &[u8]) -> [u8; 64] {
+        std::fs::write(self.directory.join("message"), message).expect("intent signing input");
+        let output = std::process::Command::new("openssl")
+            .args(["pkeyutl", "-sign", "-rawin", "-keyform", "DER", "-inkey"])
+            .arg(self.directory.join("key.der"))
+            .arg("-in")
+            .arg(self.directory.join("message"))
+            .output()
+            .expect("Ed25519 intent signer");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        output.stdout.try_into().expect("Ed25519 intent signature")
+    }
+}
+
+impl Drop for IntentKey {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.directory).expect("remove intent key directory");
+    }
+}
+
+fn sign_payment_reference(
+    evidence: &mut SequencerEvidence,
+    payment: &AuthorizedPayment,
+    key: &IntentKey,
+) -> [u8; 32] {
+    assert_eq!(evidence.logs.len(), 1, "one recorded PaymentExact log");
+    let log = &evidence.logs[0];
+    let old_topics = log.topics()[1..].concat();
+    let topics = vec![
+        log.topics()[0],
+        payment.idempotency_key(),
+        log.topics()[1],
+        log.topics()[2],
+    ];
+    let positions: Vec<_> = evidence
+        .signed_receipt
+        .windows(old_topics.len())
+        .enumerate()
+        .filter_map(|(index, bytes)| (bytes == old_topics).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1, "one signed PaymentExact indexed tuple");
+    evidence.signed_receipt[positions[0]..positions[0] + old_topics.len()]
+        .copy_from_slice(&topics[1..].concat());
+    evidence.logs[0] = SequencerLog::new(log.address(), topics, log.data().to_vec(), 0);
+    let unsigned_end = evidence.signed_receipt.len() - 69;
+    let mut hash = Sha256::new();
+    hash.update(b"LXP/v1/receipt\0");
+    hash.update(&evidence.signed_receipt[..unsigned_end]);
+    hash.update([0]);
+    let digest: [u8; 32] = hash.finalize().into();
+    evidence.signed_receipt[unsigned_end + 5..].copy_from_slice(&key.sign(&digest));
+    digest
+}
+
+struct RecordedPaymentPlane {
+    executed: ExecutedPayment,
+    key: IntentKey,
+}
+
+impl LayerXIntentPlane for RecordedPaymentPlane {
+    fn compile(
+        &mut self,
+        payment: &AuthorizedPayment,
+        _: &TraceId,
+    ) -> Result<CompiledIntent, Ap2Error> {
+        let send = LxpSend::new(
+            AccountId::parse("agent:buyer:main").expect("payer account"),
+            AccountId::parse("agent:merchant:main").expect("payee account"),
+            AssetId::new(payment.asset()),
+            Amount::from_u128(payment.amount()),
+            Sequence::from_u64(0),
+            IdempotencyKey::new(payment.idempotency_key()),
+            TimestampSeconds::from_u64(NOW + 1800),
+            ContextHash::new(payment.request_digest()),
+            SendAuthorization::new(
+                SendAuthorizationKind::Owner,
+                PublicKey::new(self.key.public_key),
+                AuthorizationSignature::new(self.key.sign(&payment.request_digest())),
+            ),
+            NetworkId::new(125).expect("network"),
+            ProtocolVersion::new(2).expect("protocol"),
+        )
+        .map_err(|_| Ap2Error::IntentCompilation)?;
+        let activity = ActivityType::new(ModuleId::Asset, 5).expect("send activity");
+        let registry =
+            ModuleRegistry::new(&[
+                ModuleRegistration::new(ModuleId::Asset, &[activity]).expect("asset registration")
+            ])
+            .expect("module registry");
+        compile(&Intent::v1(IntentKind::LxpSend(send)), &registry)
+            .map_err(|_| Ap2Error::IntentCompilation)
+    }
+
+    fn execute(
+        &mut self,
+        payment: &AuthorizedPayment,
+        compiled: CompiledIntent,
+        _: &TraceId,
+    ) -> Result<PlaneOutcome, Ap2Error> {
+        assert_eq!(
+            compiled.activity_type(),
+            ActivityType::new(ModuleId::Asset, 5).expect("send")
+        );
+        let log = &self.executed.evidence.logs[0];
+        assert_eq!(payment.idempotency_key(), log.topics()[1]);
+        assert_eq!(payment.payer_receipt_account(), log.topics()[2]);
+        assert_eq!(payment.payee_receipt_account(), log.topics()[3]);
+        assert_eq!(payment.asset().as_slice(), &log.data()[..32]);
+        assert_eq!(payment.amount().to_be_bytes().as_slice(), &log.data()[48..]);
+        Ok(PlaneOutcome::Executed(Box::new(ExecutedPayment {
+            evidence: self.executed.evidence.clone(),
+            order_id: self.executed.order_id.clone(),
+        })))
+    }
+}
+
+struct MandateReceiptSigner(SigningKey);
+
+impl ReceiptSigner for MandateReceiptSigner {
+    fn issuer(&self) -> &str {
+        "test-merchant-api"
+    }
+
+    fn key_id(&self) -> &str {
+        "receipt-001"
+    }
+
+    fn verifying_key(&self) -> &VerifyingKey {
+        self.0.verifying_key()
+    }
+
+    fn sign_es256(&mut self, input: &[u8]) -> Result<[u8; 64], Ap2Error> {
+        let signature: Signature = self.0.sign(input);
+        Ok(signature.to_bytes().into())
+    }
+}
 
 struct TestKeyResolver {
     issuer: VerifyingKey,
@@ -399,4 +649,164 @@ fn unsupported_algorithm_is_refused_before_key_resolution() {
     let resolver = TestKeyResolver::authentic();
     let result = MandateVerifier::new(&resolver).verify(&token, &token, &context());
     assert!(matches!(result, Err(Ap2Error::UnsupportedAlgorithm)));
+}
+
+#[test]
+fn mandate_payment_reference_is_the_recorded_digest() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))
+    .expect("recorded sequencer receipt vectors");
+    let case = fixture["cases"]
+        .as_array()
+        .expect("recorded cases")
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .expect("recorded payExact receipt");
+    let mut executed = recorded_payment(case);
+    let digest: [u8; 32] = recorded_array(&case["receiptDigest"]);
+    assert_eq!(
+        canonical_receipt_digest(&executed.evidence.signed_receipt),
+        Ok(digest)
+    );
+    let key = &case["pinnedKey"];
+    let pins = [SequencerAuthorization::new(
+        recorded_array(&key["keyId"]),
+        recorded_array(&key["publicKey"]),
+        key["firstHeight"].as_u64().expect("first signing height"),
+        key["lastHeight"].as_u64().expect("last signing height"),
+    )];
+    assert!(!executed.order_id.is_empty());
+    assert!(executed
+        .order_id
+        .bytes()
+        .all(|byte| byte.is_ascii_graphic()));
+    let receipt = verify_sequencer_signature(&executed.evidence.signed_receipt, &pins)
+        .expect("recorded receipt is signed by its height-pinned sequencer");
+    let protocol = receipt.protocol().expect("recorded protocol receipt");
+    assert_eq!(protocol.result_code(), 0);
+    assert_eq!(protocol.activity_id(), executed.evidence.transaction_hash);
+    let log = &executed.evidence.logs[0];
+    let amount = u128::from_be_bytes(log.data()[48..].try_into().expect("recorded amount"));
+    let binding = LayerXAssetBinding {
+        currency: "USD".into(),
+        minor_unit_exponent: 2,
+        atomic_units_per_minor_unit: 1,
+        asset: log.data()[..32].try_into().expect("recorded asset"),
+        payer_receipt_account: log.topics()[1],
+        payee_receipt_account: log.topics()[2],
+        payee_merchant: Merchant::new("merchant-001", "Test Merchant", None).expect("merchant"),
+    };
+    let (checkout, payment) = direct_pair(amount);
+    let resolver = TestKeyResolver::authentic();
+    let verification = context();
+    let verified = MandateVerifier::new(&resolver)
+        .verify(&checkout, &payment, &verification)
+        .expect("authentic recorded-amount mandates");
+    let principal = PrincipalId::new("buyer").expect("principal");
+    let authorized = layerx_ap2::authorize_payment(&principal, &verified, &verification, &binding)
+        .expect("authorized recorded payment");
+    let receipt_key = IntentKey::new();
+    let digest = sign_payment_reference(&mut executed.evidence, &authorized, &receipt_key);
+    assert_eq!(
+        canonical_receipt_digest(&executed.evidence.signed_receipt),
+        Ok(digest)
+    );
+    assert_ne!(digest, recorded_array::<32>(&case["receiptDigest"]));
+    let pins = [SequencerAuthorization::new(
+        recorded_array(&key["keyId"]),
+        receipt_key.public_key,
+        key["firstHeight"].as_u64().expect("first signing height"),
+        key["lastHeight"].as_u64().expect("last signing height"),
+    )];
+    let receipt = verify_sequencer_signature(&executed.evidence.signed_receipt, &pins)
+        .expect("mandate receipt is signed by its height-pinned sequencer");
+    let protocol = receipt.protocol().expect("mandate protocol receipt");
+    assert_eq!(protocol.result_code(), 0);
+    assert_eq!(protocol.activity_id(), executed.evidence.transaction_hash);
+    let signed_receipt = executed.evidence.signed_receipt.clone();
+    let trace = TraceId::mint([0x57; 16]);
+    let suite = ConformanceSuite::new(
+        AdapterId::new("ap2-mandate-receipt-vectors").expect("suite ID"),
+        u64::try_from(fixture["cases"].as_array().expect("recorded cases").len())
+            .expect("vector count"),
+        Sha256::digest(include_bytes!(
+            "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        ))
+        .into(),
+    )
+    .expect("conformance suite");
+    let mut gateway = GatewayCore::new();
+    gateway
+        .register_adapter(
+            ap2_adapter_descriptor(suite).expect("AP2 descriptor"),
+            &trace,
+            NOW,
+        )
+        .expect("register AP2");
+    let mut plane = RecordedPaymentPlane {
+        executed,
+        key: receipt_key,
+    };
+    let mut payment_signer = MandateReceiptSigner(issuer_key());
+    let mut checkout_signer = MandateReceiptSigner(merchant_key());
+    let outcome = Ap2Adapter::new(&resolver, &pins)
+        .execute(
+            &mut gateway,
+            &principal,
+            &checkout,
+            &payment,
+            &verification,
+            &binding,
+            &mut plane,
+            &mut payment_signer,
+            &mut checkout_signer,
+            &trace,
+            NOW,
+        )
+        .expect("AP2 settles the recorded payExact receipt");
+    let AdapterOutcome::Settled(settled) = outcome else {
+        panic!("expected recorded payment settlement: {outcome:?}");
+    };
+    assert_eq!(settled.receipt_digest, digest);
+    assert_eq!(
+        gateway.translation(&principal, authorized.idempotency_key()),
+        Some(TranslationStatus::ReceiptVerified {
+            receipt_digest: digest
+        })
+    );
+    let portable = settled
+        .layerx
+        .verify_v2(&pins)
+        .expect("portable receipt verifies");
+    assert_eq!(portable.receipt_digest(), digest);
+    assert_eq!(portable.signed_receipt(), signed_receipt);
+    let (input, signature) = settled
+        .payment_receipt_jwt
+        .rsplit_once('.')
+        .expect("signed payment JWT");
+    let signature =
+        Signature::from_slice(&URL_SAFE_NO_PAD.decode(signature).expect("signature bytes"))
+            .expect("ES256 signature");
+    payment_signer
+        .verifying_key()
+        .verify(input.as_bytes(), &signature)
+        .expect("authentic payment receipt signature");
+    let payload: Value = serde_json::from_slice(
+        &URL_SAFE_NO_PAD
+            .decode(input.split_once('.').expect("JWT payload").1)
+            .expect("payload bytes"),
+    )
+    .expect("payment receipt payload");
+    assert_eq!(payload["status"], "Success");
+    assert_eq!(payload["reference"], verified.payment_receipt_reference());
+    let reference = payload["layerx_receipt_reference"]
+        .as_str()
+        .expect("LayerX reference");
+    assert!(reference.starts_with("lxp:"));
+    assert_eq!(reference, format!("lxp:{}", URL_SAFE_NO_PAD.encode(digest)));
+    assert_eq!(
+        payload["layerx_evidence"]["receiptDigest"],
+        format!("0x{}", hex::encode(digest))
+    );
 }

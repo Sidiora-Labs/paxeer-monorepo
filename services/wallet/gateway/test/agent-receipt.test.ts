@@ -14,7 +14,9 @@ const zeroAddress = '0x0000000000000000000000000000000000000000';
 const broadcasts = new Map<Hex, Hex>();
 const receiptRequests: Hex[] = [];
 const receiptResults = new Map<Hex, SequencerReceiptResult | null>();
+const latestTransactionCounts = new Map<string, number>();
 let pendingReceipt = false;
+let unknownOutcomeSend = false;
 let rpcServer: Server;
 let pg: EphemeralPostgres;
 let app: FastifyInstance;
@@ -45,7 +47,8 @@ beforeAll(async () => {
     let result: unknown;
     switch (body.method) {
       case 'eth_blockNumber': result = '0x64'; break;
-      case 'eth_getTransactionCount': result = '0x0'; break;
+      case 'eth_getTransactionCount': result = `0x${(latestTransactionCounts.get(body.params[0]!.toLowerCase()) ?? 0).toString(16)}`; break;
+      case 'eth_getTransactionByHash': result = null; break;
       case 'eth_estimateGas': result = '0x186a0'; break;
       case 'eth_getBlockByNumber': result = { number: '0x64', baseFeePerGas: '0x3b9aca00' }; break;
       case 'eth_maxPriorityFeePerGas': result = '0x3b9aca00'; break;
@@ -53,6 +56,13 @@ beforeAll(async () => {
         const raw = body.params[0]!;
         const hash = keccak256(raw);
         broadcasts.set(hash, raw);
+        if (unknownOutcomeSend) {
+          const address = await recoverTransactionAddress({ serializedTransaction: raw });
+          latestTransactionCounts.set(address.toLowerCase(), parseTransaction(raw).nonce! + 1);
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32000, message: 'nonce too low' } }));
+          return;
+        }
         const receipt = pendingReceipt ? null : {
           ...sequencerReceipt(raw), from: await recoverTransactionAddress({ serializedTransaction: raw }),
         };
@@ -196,6 +206,39 @@ async function agentApproveReturnsSequencerReceipt() {
   expect((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase()).toBe(address.toLowerCase());
 }
 
+async function agentUnknownOutcomeSendCountsTowardDailyCap() {
+  const { agent, address } = await provisionAgent('unknown-outcome-daily-cap');
+  const payload = {
+    tx: { to: recipient, value: '1', gas: '21000', maxFeePerGas: '2000000000', maxPriorityFeePerGas: '1000000000' },
+  };
+  unknownOutcomeSend = true;
+  try {
+    const response = await signedPost(agent, '/v1/agent/send', payload);
+    expect(response.statusCode, response.body).toBe(202);
+    const body = response.json();
+    expect(body).toMatchObject({ error: 'outcome_unknown', retry: 'poll_receipt', must_not_resubmit: true });
+    const raw = broadcasts.get(body.tx_hash)!;
+    expect(raw).toBeDefined();
+    expect(body.tx_hash).toBe(keccak256(raw));
+    expect(parseTransaction(raw).value).toBe(1n);
+    expect((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase()).toBe(address.toLowerCase());
+    const signatures = await database.query<{ tx_hash: string; value_wei: string }>(
+      `select tx_hash, value_wei::text as value_wei from wallet_signatures
+       where principal_did = $1 and kind = 'transaction'`, [agent.did],
+    );
+    expect(signatures.rows).toEqual([{ tx_hash: body.tx_hash, value_wei: '1' }]);
+
+    const broadcastCount = broadcasts.size;
+    const refused = await signedPost(agent, '/v1/agent/send', payload);
+    expect(refused.statusCode, refused.body).toBe(403);
+    expect(refused.json()).toMatchObject({ error: 'DAILY_VALUE_CAP', used: '1', request: '1', cap: '1' });
+    expect(broadcasts.size).toBe(broadcastCount);
+  } finally {
+    unknownOutcomeSend = false;
+  }
+}
+
 test(agentSendReturnsSequencerReceipt, agentSendReturnsSequencerReceipt);
 test(agentTransferReturnsSequencerReceipt, agentTransferReturnsSequencerReceipt);
 test(agentApproveReturnsSequencerReceipt, agentApproveReturnsSequencerReceipt);
+test(agentUnknownOutcomeSendCountsTowardDailyCap, agentUnknownOutcomeSendCountsTowardDailyCap);

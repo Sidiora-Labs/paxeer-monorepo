@@ -29,6 +29,8 @@ pub const NODE_SIGNING_METHODS: [&str; 8] = [
 /// request/response relay.
 pub const SUBSCRIPTION_METHODS: [&str; 2] = ["eth_subscribe", "eth_unsubscribe"];
 
+pub const SEQUENCER_METHODS: [&str; 1] = ["pax_sequencerReceipt"];
+
 const MAX_METHOD_BYTES: usize = 64;
 
 /// `0x0000000000000000000000000000000000001001`.
@@ -112,7 +114,7 @@ pub fn relayable_method(method: &str) -> bool {
     {
         return false;
     }
-    is_evm_namespace(method)
+    is_evm_namespace(method) || SEQUENCER_METHODS.contains(&method)
 }
 
 /// Why precompile bytes were refused.
@@ -918,6 +920,20 @@ mod tests {
 
     fn u256_max() -> String {
         "115792089237316195423570985008687907853269984665640564039457584007913129639935".to_owned()
+    }
+
+    #[test]
+    fn sequencer_receipt_is_the_only_relayed_pax_name() {
+        assert!(relayable_method("pax_sequencerReceipt"));
+        for method in [
+            "pax_other",
+            "pax_",
+            "pax_sequencerReceipt_other",
+            "pax_sequencerreceipt",
+            "eth_sign",
+        ] {
+            assert!(!relayable_method(method), "{method}");
+        }
     }
 
     #[test]

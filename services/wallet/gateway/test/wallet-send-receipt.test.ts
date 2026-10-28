@@ -14,9 +14,9 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const sequencerKey = generateKeyPairSync('ed25519');
 const keyId = keccak256(toHex(sequencerKey.publicKey.export({ type: 'spki', format: 'der' })));
 const requests: { method: string; params: unknown[] }[] = [];
-const receipts = new Map<Hex, SequencerReceiptResult>();
+const receipts = new Map<Hex, Extract<SequencerReceiptResult, { rung: 'receipted' }>>();
 const chain = new TestChain(CHAIN_ID);
-let pending = false;
+let receiptVariant: SequencerReceiptResult['rung'] | null = 'receipted';
 let identity: Identity;
 let postgres: EphemeralPostgres;
 let sequencer: Server;
@@ -39,8 +39,15 @@ beforeAll(async () => {
       res.setHeader('content-type', 'application/json');
       if (body.method === 'pax_sequencerReceipt') {
         const hash = body.params[0] as Hex;
-        if (!receipts.has(hash)) throw new Error('receipt requested before broadcast');
-        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: pending ? null : receipts.get(hash) }));
+        const receipt = receipts.get(hash);
+        if (!receipt) throw new Error('receipt requested before broadcast');
+        const result: SequencerReceiptResult | null = receiptVariant === null ? null
+          : receiptVariant === 'submitted' ? { rung: 'submitted', txHash: hash, nonce: receipt.nonce }
+          : receiptVariant === 'committed' ? {
+            ...receipt, rung: 'committed', blockNumber: receipt.height, blockHash: keccak256(receipt.height),
+          }
+          : receipt;
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
         return;
       }
       if (body.method !== 'eth_sendRawTransaction') throw new Error(`unexpected sequencer method ${body.method}`);
@@ -108,8 +115,8 @@ afterAll(async () => {
   await identity?.close();
 }, 120_000);
 
-async function sendAndAssert(receiptPending: boolean): Promise<void> {
-  pending = receiptPending;
+async function sendAndAssert(variant: SequencerReceiptResult['rung'] | null): Promise<void> {
+  receiptVariant = variant;
   for (const nonce of [undefined, 0]) {
     const userId = randomUUID();
     const { wallet } = await wallets.provisionWalletForUser(userId);
@@ -136,21 +143,42 @@ async function sendAndAssert(receiptPending: boolean): Promise<void> {
     expect(calls[1]!.params).toEqual([sent.hash]);
     expect(keccak256(calls[0]!.params[0] as Hex)).toBe(sent.hash);
     expect(receipts.has(sent.hash)).toBe(true);
-    expect(response.json()).toEqual({
+    const receipt = receipts.get(sent.hash)!;
+    const body = response.json<{ rung: SequencerReceiptResult['rung']; receipt: SequencerReceiptResult | null }>();
+    expect(body).toEqual({
       tx_hash: sent.hash, address: wallet.address, chain_id: CHAIN_ID,
-      rung: receiptPending ? 'submitted' : 'receipted',
-      receipt: receiptPending ? null : receipts.get(sent.hash),
+      rung: variant === null ? 'submitted' : variant,
+      receipt: variant === null ? null
+        : variant === 'submitted' ? { rung: 'submitted', txHash: sent.hash, nonce: receipt.nonce }
+        : variant === 'committed' ? {
+          ...receipt, rung: 'committed', blockNumber: receipt.height, blockHash: keccak256(receipt.height),
+        }
+        : receipt,
     });
+    if (variant !== null) {
+      expect(body.rung).toBe(variant);
+      expect(body.rung).toBe(body.receipt!.rung);
+    }
   }
 }
 
 async function walletSendReturnsSequencerReceipt(): Promise<void> {
-  await sendAndAssert(false);
+  await sendAndAssert('receipted');
 }
 
 async function walletSendReportsSubmittedWhenReceiptPending(): Promise<void> {
-  await sendAndAssert(true);
+  await sendAndAssert(null);
+}
+
+async function walletSendPreservesSubmittedRung(): Promise<void> {
+  await sendAndAssert('submitted');
+}
+
+async function walletSendPreservesCommittedRung(): Promise<void> {
+  await sendAndAssert('committed');
 }
 
 test(walletSendReturnsSequencerReceipt);
 test(walletSendReportsSubmittedWhenReceiptPending);
+test(walletSendPreservesSubmittedRung);
+test(walletSendPreservesCommittedRung);

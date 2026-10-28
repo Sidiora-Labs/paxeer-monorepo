@@ -96,22 +96,3 @@ lxp_result lxp_batch_sign(const lxp_batch_header *header,
     return status != LXP_OK ? status : signed_ok ? LXP_OK :
            LXP_ERR_BAD_SIGNATURE;
 }
-
-lxp_result lxp_batch_verify_signature(
-    const lxp_batch_header *header, const uint8_t *signature,
-    size_t signature_length,
-    const lxp_sequencer_authorization *authorization, lxp_arena *arena)
-{
-    uint8_t digest[32];
-    lxp_result status;
-    if (header == NULL || signature == NULL || signature_length != 64U ||
-        arena == NULL) return LXP_ERR_BAD_SIGNATURE;
-    if (!authorization_matches(header, authorization))
-        return LXP_ERR_AUTH_SCOPE;
-    status = lxp_batch_header_hash(header, arena, digest);
-    if (status == LXP_OK)
-        status = lxp_ed25519_verify_raw(authorization->public_key, signature,
-                                        digest, sizeof(digest));
-    lxp_secure_zero(digest, sizeof(digest));
-    return status;
-}

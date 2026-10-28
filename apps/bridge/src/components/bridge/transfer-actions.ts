@@ -7,13 +7,15 @@
  * the backend says is re-derived and re-verified against chain state
  * before the wallet is asked for a signature.
  */
-import { getAddress, parseEventLogs } from 'viem';
+import { getAddress } from 'viem';
+import type { Log } from 'viem';
 import { getBlockNumber, readContract, getTransactionReceipt } from 'wagmi/actions';
 
 import type { DepositAttestation, ReleaseAttestation } from '@/lib/bridge/attestation-api';
 import { bridgeChainByKey, paxeer } from '@/lib/bridge/chains';
 import { layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from '@/lib/bridge/contracts';
-import { inboundDigest, outboundDigest, paxeerRecipient, verifyThresholdSignatures } from '@/lib/bridge/digests';
+import { inboundDigest, outboundDigest, paxeerRecipient, releaseNullifier, verifyThresholdSignatures } from '@/lib/bridge/digests';
+import { nonceFromBridgeOutLogs } from '@/lib/bridge/import';
 import type { BridgeTransfer } from '@/lib/bridge/transfers';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 
@@ -29,9 +31,34 @@ export type TransferLive = {
   confirmations: number;
   requiredConfirmations: number;
   credited: boolean;
+  released: boolean;
   attestationReady: boolean;
   sourceFailed: boolean;
 };
+
+export function releaseCheckOf(transfer: BridgeTransfer) {
+  const chain = bridgeChainByKey(transfer.foreignChainKey);
+  if (transfer.direction !== 'out' || !transfer.vault || transfer.bridgeOutNonce === undefined || !chain?.viemChain) {
+    return undefined;
+  }
+  return {
+    abi: paxeerXVaultAbi,
+    address: transfer.vault,
+    functionName: 'nullified',
+    args: [ releaseNullifier(transfer.sourceTxHash, BigInt(transfer.bridgeOutNonce)) ],
+    chainId: chain.viemChain.id,
+  } as const;
+}
+
+export function settledRefusal(transfer: BridgeTransfer, live: TransferLive | undefined): string | undefined {
+  if (transfer.direction === 'in' && live?.credited) {
+    return 'This deposit is already credited on Paxeer.';
+  }
+  if (transfer.direction === 'out' && live?.released) {
+    return 'This withdrawal is already released from the vault.';
+  }
+  return undefined;
+}
 
 /** Source-chain confirmation count and receipt status for a transfer. */
 export async function readTransferLive(transfer: BridgeTransfer): Promise<TransferLive> {
@@ -42,6 +69,7 @@ export async function readTransferLive(transfer: BridgeTransfer): Promise<Transf
       confirmations: 0,
       requiredConfirmations: transfer.requiredConfirmations,
       credited: false,
+      released: false,
       attestationReady: false,
       sourceFailed: false,
     };
@@ -60,12 +88,15 @@ export async function readTransferLive(transfer: BridgeTransfer): Promise<Transf
       chainId: paxeer.id,
     }).catch(() => false) as boolean;
   }
+  const releaseCheck = releaseCheckOf(transfer);
+  const released = releaseCheck ? await readContract(wagmiConfig, releaseCheck) : false;
   const confirmations =
     receipt && head !== null ? Math.max(0, Number(head - receipt.blockNumber) + 1) : 0;
   return {
     confirmations,
     requiredConfirmations: transfer.requiredConfirmations,
     credited,
+    released,
     attestationReady: false,
     sourceFailed: receipt !== null && receipt.status === 'reverted',
   };
@@ -261,12 +292,6 @@ export async function buildVerifiedRelease(
 }
 
 /** Parse the BridgeOut nonce out of a Paxeer burn receipt. */
-export function bridgeOutNonceFromReceipt(logs: readonly { address: string; topics: readonly string[]; data: string }[]): bigint | undefined {
-  try {
-    const events = parseEventLogs({ abi: layerxBridgeAbi, logs: logs as never, eventName: 'BridgeOut' });
-    const first = events[0] as { args?: { nonce?: bigint } } | undefined;
-    return first?.args?.nonce;
-  } catch {
-    return undefined;
-  }
+export function bridgeOutNonceFromReceipt(logs: ReadonlyArray<Log>): bigint | undefined {
+  return nonceFromBridgeOutLogs(logs);
 }

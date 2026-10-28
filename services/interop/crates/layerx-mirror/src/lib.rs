@@ -1,8 +1,7 @@
 //! Ethereum and Solana publication of retrievable `LayerX` batch archives.
 
-pub mod ethereum;
 pub mod committed;
-pub mod node;
+pub mod ethereum;
 pub mod rpc;
 pub mod runtime;
 pub mod signer;
@@ -13,5 +12,6 @@ pub mod store;
 mod publisher;
 mod verify;
 
+pub use crate::committed::CommittedCoordinate;
 pub use publisher::*;
 pub use verify::*;

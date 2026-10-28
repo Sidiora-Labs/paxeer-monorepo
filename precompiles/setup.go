@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	spottypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/addr"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/bank"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
@@ -20,9 +21,12 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/oracle"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/p256"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pointer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pointerview"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pricefeed"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/solo"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/staking"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/wasmd"
@@ -82,6 +86,18 @@ var (
 	mergeConstructorsMtx sync.RWMutex
 	mergeConstructors    = map[ecommon.Address]MergeConstructor{}
 )
+
+func MissingMergeConstructors() []MergeAddress {
+	mergeConstructorsMtx.RLock()
+	defer mergeConstructorsMtx.RUnlock()
+	missing := make([]MergeAddress, 0, len(MergeAddressTable))
+	for _, entry := range MergeAddressTable {
+		if _, registered := mergeConstructors[entry.Address]; !registered {
+			missing = append(missing, entry)
+		}
+	}
+	return missing
+}
 
 // RegisterMergeConstructor records the constructor of the precompile served at
 // a MergeAddressTable address. An address with no registered constructor is
@@ -291,6 +307,18 @@ func InitializePrecompiles(
 		return err
 	}
 
+	perpsp, err := perps.NewPrecompile(keepers)
+	if err != nil {
+		return err
+	}
+
+	pricefeedp, err := pricefeed.NewPrecompile(keepers)
+	if err != nil {
+		return err
+	}
+
+	spotABIs := spot.PrecompileABIs()
+
 	// A dry run only records names and ABIs, so it builds the bridge and
 	// launchpad precompiles without their keepers; a live run requires them.
 	layerxbridgep, err := layerxbridge.NewPrecompile(keepers)
@@ -341,6 +369,14 @@ func InitializePrecompiles(
 	PrecompileNamesToInfo[layerxcustodyp.GetName()] = PrecompileInfo{ABI: layerxcustodyp.GetABI(), Address: layerxcustodyp.Address()}
 	PrecompileNamesToInfo[layerxanchorp.GetName()] = PrecompileInfo{ABI: layerxanchorp.GetABI(), Address: layerxanchorp.Address()}
 	PrecompileNamesToInfo[layerxexchangep.GetName()] = PrecompileInfo{ABI: layerxexchangep.GetABI(), Address: layerxexchangep.Address()}
+	PrecompileNamesToInfo["layerxexchange"] = PrecompileInfo{ABI: layerxexchangep.GetABI(), Address: layerxexchangep.Address()}
+	PrecompileNamesToInfo[perpsp.GetName()] = PrecompileInfo{ABI: perpsp.GetABI(), Address: perpsp.Address()}
+	PrecompileNamesToInfo[pricefeedp.GetName()] = PrecompileInfo{ABI: pricefeedp.GetABI(), Address: pricefeedp.Address()}
+	PrecompileNamesToInfo["spot_pecor"] = PrecompileInfo{ABI: spotABIs["spot_pecor"], Address: ecommon.HexToAddress(spottypes.PECORAddress)}
+	PrecompileNamesToInfo["spot_orders"] = PrecompileInfo{ABI: spotABIs["spot_orders"], Address: ecommon.HexToAddress(spottypes.PECOROrdersAddress)}
+	PrecompileNamesToInfo["spot_stoporders"] = PrecompileInfo{ABI: spotABIs["spot_stoporders"], Address: ecommon.HexToAddress(spottypes.PECORStopOrdersAddress)}
+	PrecompileNamesToInfo["spot_quoter"] = PrecompileInfo{ABI: spotABIs["spot_quoter"], Address: ecommon.HexToAddress(spottypes.PECORQuoterAddress)}
+	PrecompileNamesToInfo["spot_vault"] = PrecompileInfo{ABI: spotABIs["spot_vault"], Address: ecommon.HexToAddress(spottypes.PECORVaultAddress)}
 	PrecompileNamesToInfo[layerxbridgep.GetName()] = PrecompileInfo{ABI: layerxbridgep.GetABI(), Address: layerxbridgep.Address()}
 	PrecompileNamesToInfo[launchpadp.GetName()] = PrecompileInfo{ABI: launchpadp.GetABI(), Address: launchpadp.Address()}
 	PrecompileNamesToInfo[xwebp.GetName()] = PrecompileInfo{ABI: xwebp.GetABI(), Address: xwebp.Address()}
@@ -374,24 +410,31 @@ func InitializePrecompiles(
 		addPrecompileToVM(layerxbridgep)
 		addPrecompileToVM(launchpadp)
 		addPrecompileToVM(xwebp)
-		for _, p := range merge {
-			addPrecompileToVM(p)
-		}
 		Initialized = true
 	}
 	return nil
 }
 
 func GetPrecompileInfo(name string) PrecompileInfo {
+	i, err := GetPrecompileInfoE(name)
+	if err != nil {
+		panic(err)
+	}
+	return i
+}
+
+func GetPrecompileInfoE(name string) (PrecompileInfo, error) {
 	if !Initialized {
 		// Precompile Info does not require any keeper state
-		_ = InitializePrecompiles(true, &utils.EmptyKeepers{})
+		if err := InitializePrecompiles(true, &utils.EmptyKeepers{}); err != nil {
+			return PrecompileInfo{}, err
+		}
 	}
 	i, ok := PrecompileNamesToInfo[name]
 	if !ok {
-		panic(name + "doesn't exist as a precompile")
+		return PrecompileInfo{}, fmt.Errorf("%s doesn't exist as a precompile", name)
 	}
-	return i
+	return i, nil
 }
 
 // This function modifies global variable in `vm` module. It should only be called once

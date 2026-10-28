@@ -48,6 +48,9 @@ contract ReserveReconciler is LayerXComponent {
     LayerXVault public immutable vault;
     WithdrawalClaims public immutable withdrawalClaims;
     mapping(bytes32 => Reconciliation) public latest;
+    mapping(bytes32 => uint256) public surplus;
+
+    event ReserveSurplus(bytes32 indexed assetId, bytes32 indexed checkpointHash, uint256 surplus);
 
     event ReserveReconciled(
         bytes32 indexed assetId,
@@ -125,7 +128,8 @@ contract ReserveReconciler is LayerXComponent {
         if (pending != report.withdrawals) revert InvalidReserveProof();
         address token = vault.assetRegistry().asset(report.assetId).token;
         uint256 custody = SafeTransfer.balanceOf(token, address(vault));
-        if (custody < circulating || custody != Arithmetic.add(circulating, report.reserveMirror)) {
+        uint256 liabilities = Arithmetic.add(circulating, report.reserveMirror);
+        if (custody < liabilities) {
             revert ReserveDeficit();
         }
         result = Reconciliation({
@@ -137,6 +141,9 @@ contract ReserveReconciler is LayerXComponent {
             reconciledAt: Arithmetic.toUint64(block.timestamp)
         });
         latest[report.assetId] = result;
+        uint256 excess = custody - liabilities;
+        surplus[report.assetId] = excess;
         emit ReserveReconciled(report.assetId, checkpointHash, custody, circulating, pending, report.reserveMirror);
+        if (excess != 0) emit ReserveSurplus(report.assetId, checkpointHash, excess);
     }
 }

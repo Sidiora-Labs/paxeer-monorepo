@@ -1,20 +1,24 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import {
+  keccak256,
   parseTransaction,
   recoverMessageAddress,
   recoverTransactionAddress,
   recoverTypedDataAddress,
+  serializeTransaction,
   type Hex,
   type TypedDataDefinition,
 } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { startPostgres, type EphemeralPostgres } from '../support/postgres.js';
 import { ADDR, TestChain, chainMainAccountId } from '../support/chain.js';
+import type { SequencerReceiptResult } from '../../src/rpc/pool.js';
 import {
   CHAIN_ID,
   NATIVE_PER_TX_CAP_WEI,
@@ -52,6 +56,9 @@ let network: AttestorNetwork;
 let pg: EphemeralPostgres;
 let app: FastifyInstance;
 let chain: TestChain;
+let sequencerProxy: Server;
+const broadcasts: Hex[] = [];
+const sequencerReceipts: Array<{ hash: Hex; result: SequencerReceiptResult | null }> = [];
 let workDir: string;
 let sponsorAddress: string;
 const userId = randomUUID();
@@ -77,6 +84,37 @@ beforeAll(async () => {
   await chain.start();
   network = await startAttestorNetwork({ identity, rpcUrl: chain.url });
 
+  sequencerProxy = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => {
+      void (async () => {
+        const body = Buffer.concat(chunks).toString('utf8');
+        const rpc = JSON.parse(body) as { method: string; params: Hex[] };
+        if (rpc.method === 'eth_sendRawTransaction') broadcasts.push(rpc.params[0]!);
+        const upstream = await fetch(chain.url, {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body,
+        });
+        const answer = await upstream.text();
+        if (rpc.method === 'pax_sequencerReceipt') {
+          const envelope = JSON.parse(answer) as { result?: SequencerReceiptResult | null };
+          if ('result' in envelope) sequencerReceipts.push({ hash: rpc.params[0]!, result: envelope.result! });
+        }
+        res.writeHead(upstream.status, { 'content-type': 'application/json' });
+        res.end(answer);
+      })().catch((error: Error) => {
+        res.writeHead(502, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      });
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    sequencerProxy.once('error', reject);
+    sequencerProxy.listen(0, '127.0.0.1', resolve);
+  });
+  const sequencerAddress = sequencerProxy.address();
+  if (!sequencerAddress || typeof sequencerAddress === 'string') throw new Error('sequencer proxy did not bind');
+
   workDir = mkdtempSync(join(tmpdir(), 'gateway-e2e-sponsor-'));
   const sponsorKey = generatePrivateKey();
   sponsorAddress = privateKeyToAccount(sponsorKey).address.toLowerCase();
@@ -88,6 +126,7 @@ beforeAll(async () => {
   process.env.HYPERPAXEER_RPC_URL = chain.url;
   process.env.HYPERPAXEER_CHAIN_ID = String(CHAIN_ID);
   process.env.RPC_URLS = chain.url;
+  process.env.SEQUENCER_RPC_URL = `http://127.0.0.1:${sequencerAddress.port}`;
   process.env.SPONSOR_PRIVATE_KEY_FILE = sponsorFile;
   process.env.ATTESTOR_ENDPOINTS = network.nodes.map((n) => n.apiUrl).join(',');
   process.env.ATTESTOR_CLIENT_CERT_FILE = network.pki.clientCert;
@@ -146,11 +185,77 @@ afterAll(async () => {
   await pg?.stop();
   await network?.stop();
   await identity?.close();
+  if (sequencerProxy) await new Promise<void>((resolve, reject) => {
+    sequencerProxy.close((error) => error ? reject(error) : resolve());
+  });
   await chain?.stop();
   if (workDir) rmSync(workDir, { recursive: true, force: true });
 }, 120_000);
 
+async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
+  const { sharedRpcPool } = await import('../../src/rpc/pool.js');
+  const headers = auth(await identity.mint(userId));
+  const transfer = {
+    type: 'eip1559',
+    chainId: CHAIN_ID,
+    nonce: await sharedRpcPool().getTransactionCount(key.address, 'pending'),
+    to: RECIPIENT,
+    value: 100_000_000_000_000_000n,
+    gas: 21_000n,
+    maxFeePerGas: 2_000_000_000n,
+    maxPriorityFeePerGas: 1_000_000_000n,
+  } as const;
+  const unsigned = serializeTransaction(transfer);
+  const reviewed = await app.inject({
+    method: 'POST', url: '/v1/wallet/evm/review', headers, payload: { transaction: unsigned },
+  });
+  expect(reviewed.statusCode, reviewed.body).toBe(200);
+  const review = reviewed.json();
+  expect(review).toMatchObject({
+    state: 'reviewed', chain_id: CHAIN_ID, to: RECIPIENT,
+    value: transfer.value.toString(), data: '0x', signing_hash: keccak256(unsigned),
+    key_id: key.keyId, principal: userId,
+  });
+  expect(review.id).toMatch(/^[0-9a-f-]{36}$/);
+  expect(review.participants).toHaveLength(3);
+  expect(new Set(review.participants).size).toBe(3);
+
+  const approved = await app.inject({
+    method: 'POST', url: '/v1/wallet/evm/approve', headers,
+    payload: { review_id: review.id, signing_hash: review.signing_hash, decision: 'approve' },
+  });
+  expect(approved.statusCode, approved.body).toBe(200);
+  expect(approved.json()).toMatchObject({
+    ...review, state: 'approved',
+    approval: {
+      version: 1, principal: userId, key_id: key.keyId, session_id: review.session_id,
+      signing_hash: keccak256(unsigned), expires_at: review.expires_at,
+    },
+  });
+
+  broadcasts.length = 0;
+  sequencerReceipts.length = 0;
+  const signed = await app.inject({
+    method: 'POST', url: '/v1/wallet/evm/sign', headers,
+    payload: { approval_id: review.id },
+  });
+  expect(signed.statusCode, signed.body).toBe(200);
+  const answer = signed.json();
+  expect(answer).toMatchObject({ id: review.id, state: 'signed', signing_hash: review.signing_hash });
+  expect(broadcasts).toHaveLength(1);
+  const raw = broadcasts[0]!;
+  expect(answer.tx_hash).toBe(keccak256(raw));
+  expect(parseTransaction(raw)).toMatchObject(transfer);
+  expect((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase()).toBe(key.address.toLowerCase());
+  expect(['receipted', 'committed']).toContain(answer.rung);
+  expect(answer.receipt).toMatchObject({ txHash: answer.tx_hash, rung: answer.rung, status: '0x1' });
+  expect(answer.receipt.receipt).toMatch(/^0x(?:[0-9a-fA-F]{2})+$/);
+  expect(sequencerReceipts).toEqual([{ hash: answer.tx_hash, result: answer.receipt }]);
+}
+
 describe('gateway against five real attestor daemons', () => {
+  test(evmReviewApproveSignReturnsReceipt, evmReviewApproveSignReturnsReceipt, 300_000);
+
   it('reports every readiness component up', async () => {
     const res = await app.inject({ method: 'GET', url: '/readyz' });
     const body = res.json();

@@ -8,12 +8,6 @@ exports.PublicKey = {
         if (message.ed25519 !== undefined) {
             writer.uint32(10).bytes(message.ed25519);
         }
-        if (message.secp256k1 !== undefined) {
-            writer.uint32(18).bytes(message.secp256k1);
-        }
-        if (message.sr25519 !== undefined) {
-            writer.uint32(26).bytes(message.sr25519);
-        }
         return writer;
     },
     decode(input, length) {
@@ -29,18 +23,6 @@ exports.PublicKey = {
                     }
                     message.ed25519 = reader.bytes();
                     continue;
-                case 2:
-                    if (tag !== 18) {
-                        break;
-                    }
-                    message.secp256k1 = reader.bytes();
-                    continue;
-                case 3:
-                    if (tag !== 26) {
-                        break;
-                    }
-                    message.sr25519 = reader.bytes();
-                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -51,21 +33,13 @@ exports.PublicKey = {
     },
     fromJSON(object) {
         return {
-            ed25519: isSet(object.ed25519) ? bytesFromBase64(object.ed25519) : undefined,
-            secp256k1: isSet(object.secp256k1) ? bytesFromBase64(object.secp256k1) : undefined,
-            sr25519: isSet(object.sr25519) ? bytesFromBase64(object.sr25519) : undefined
+            ed25519: isSet(object.ed25519) ? bytesFromBase64(object.ed25519) : undefined
         };
     },
     toJSON(message) {
         const obj = {};
         if (message.ed25519 !== undefined) {
             obj.ed25519 = base64FromBytes(message.ed25519);
-        }
-        if (message.secp256k1 !== undefined) {
-            obj.secp256k1 = base64FromBytes(message.secp256k1);
-        }
-        if (message.sr25519 !== undefined) {
-            obj.sr25519 = base64FromBytes(message.sr25519);
         }
         return obj;
     },
@@ -75,13 +49,11 @@ exports.PublicKey = {
     fromPartial(object) {
         const message = createBasePublicKey();
         message.ed25519 = object.ed25519 ?? undefined;
-        message.secp256k1 = object.secp256k1 ?? undefined;
-        message.sr25519 = object.sr25519 ?? undefined;
         return message;
     }
 };
 function createBasePublicKey() {
-    return { ed25519: undefined, secp256k1: undefined, sr25519: undefined };
+    return { ed25519: undefined };
 }
 function bytesFromBase64(b64) {
     if (globalThis.Buffer) {
@@ -115,7 +87,7 @@ exports.registry = [["/tendermint.crypto.PublicKey", exports.PublicKey]];
 exports.aminoConverters = {
     "/tendermint.crypto.PublicKey": {
         aminoType: "tendermint.crypto.PublicKey",
-        toAmino: (message) => ({ ...message }),
-        fromAmino: (object) => ({ ...object })
+        toAmino: (message) => ({ ed25519: message.ed25519 }),
+        fromAmino: (object) => ({ ed25519: object.ed25519 })
     }
 };

@@ -80,8 +80,8 @@ The module runtime is bound alongside perps and service through
 is enabled in genesis through `services/platform/hosted/node/genesis-modules.conf`.
 
 Spot is a LayerX kernel module executing inside `layerxd`. It is a
-different surface from the Paxeer-side `layerxexchange` precompile and Go
-module (EVM address `0x1015`), which takes orders from the Paxeer chain;
+different surface from the Paxeer-side perpetuals precompile at EVM address
+`0x1015`. The `layerxexchange` precompile is retired at v6.12.0;
 see [Unified Network Architecture](UnifiedNetwork.md). The protocol
 specification in `spec/layerx-beta/spec.kvx` describes this module under
 module id 7; the shipped module id is `10` because ids 7-9 were already

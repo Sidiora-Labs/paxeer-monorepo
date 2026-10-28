@@ -1,10 +1,4 @@
 import { aminoConverters as confio_proofs_amino } from "./confio/proofs";
-import { aminoConverters as cosmos_accesscontrol_accesscontrol_amino } from "./cosmos/accesscontrol/accesscontrol";
-import { aminoConverters as cosmos_accesscontrol_legacy_amino } from "./cosmos/accesscontrol/legacy";
-import { aminoConverters as cosmos_accesscontrol_x_genesis_amino } from "./cosmos/accesscontrol_x/genesis";
-import { aminoConverters as cosmos_accesscontrol_x_gov_amino } from "./cosmos/accesscontrol_x/gov";
-import { aminoConverters as cosmos_accesscontrol_x_query_amino } from "./cosmos/accesscontrol_x/query";
-import { aminoConverters as cosmos_accesscontrol_x_tx_amino } from "./cosmos/accesscontrol_x/tx";
 import { aminoConverters as cosmos_auth_v1beta1_auth_amino } from "./cosmos/auth/v1beta1/auth";
 import { aminoConverters as cosmos_auth_v1beta1_genesis_amino } from "./cosmos/auth/v1beta1/genesis";
 import { aminoConverters as cosmos_auth_v1beta1_query_amino } from "./cosmos/auth/v1beta1/query";
@@ -30,8 +24,6 @@ import { aminoConverters as cosmos_base_tendermint_v1beta1_query_amino } from ".
 import { aminoConverters as cosmos_base_v1beta1_coin_amino } from "./cosmos/base/v1beta1/coin";
 import { aminoConverters as cosmos_capability_v1beta1_capability_amino } from "./cosmos/capability/v1beta1/capability";
 import { aminoConverters as cosmos_capability_v1beta1_genesis_amino } from "./cosmos/capability/v1beta1/genesis";
-import { aminoConverters as cosmos_crisis_v1beta1_genesis_amino } from "./cosmos/crisis/v1beta1/genesis";
-import { aminoConverters as cosmos_crisis_v1beta1_tx_amino } from "./cosmos/crisis/v1beta1/tx";
 import { aminoConverters as cosmos_crypto_ed25519_keys_amino } from "./cosmos/crypto/ed25519/keys";
 import { aminoConverters as cosmos_crypto_multisig_keys_amino } from "./cosmos/crypto/multisig/keys";
 import { aminoConverters as cosmos_crypto_multisig_v1beta1_multisig_amino } from "./cosmos/crypto/multisig/v1beta1/multisig";
@@ -55,9 +47,6 @@ import { aminoConverters as cosmos_gov_v1beta1_genesis_amino } from "./cosmos/go
 import { aminoConverters as cosmos_gov_v1beta1_gov_amino } from "./cosmos/gov/v1beta1/gov";
 import { aminoConverters as cosmos_gov_v1beta1_query_amino } from "./cosmos/gov/v1beta1/query";
 import { aminoConverters as cosmos_gov_v1beta1_tx_amino } from "./cosmos/gov/v1beta1/tx";
-import { aminoConverters as cosmos_mint_v1beta1_genesis_amino } from "./cosmos/mint/v1beta1/genesis";
-import { aminoConverters as cosmos_mint_v1beta1_mint_amino } from "./cosmos/mint/v1beta1/mint";
-import { aminoConverters as cosmos_mint_v1beta1_query_amino } from "./cosmos/mint/v1beta1/query";
 import { aminoConverters as cosmos_params_types_types_amino } from "./cosmos/params/types/types";
 import { aminoConverters as cosmos_params_v1beta1_params_amino } from "./cosmos/params/v1beta1/params";
 import { aminoConverters as cosmos_params_v1beta1_query_amino } from "./cosmos/params/v1beta1/query";
@@ -122,12 +111,6 @@ import { aminoConverters as tokenfactory_query_amino } from "./tokenfactory/quer
 import { aminoConverters as tokenfactory_tx_amino } from "./tokenfactory/tx";
 export const aminoConverters = {
     ...confio_proofs_amino,
-    ...cosmos_accesscontrol_x_genesis_amino,
-    ...cosmos_accesscontrol_x_gov_amino,
-    ...cosmos_accesscontrol_x_query_amino,
-    ...cosmos_accesscontrol_x_tx_amino,
-    ...cosmos_accesscontrol_accesscontrol_amino,
-    ...cosmos_accesscontrol_legacy_amino,
     ...cosmos_auth_v1beta1_auth_amino,
     ...cosmos_auth_v1beta1_genesis_amino,
     ...cosmos_auth_v1beta1_query_amino,
@@ -153,8 +136,6 @@ export const aminoConverters = {
     ...cosmos_base_v1beta1_coin_amino,
     ...cosmos_capability_v1beta1_capability_amino,
     ...cosmos_capability_v1beta1_genesis_amino,
-    ...cosmos_crisis_v1beta1_genesis_amino,
-    ...cosmos_crisis_v1beta1_tx_amino,
     ...cosmos_crypto_ed25519_keys_amino,
     ...cosmos_crypto_multisig_keys_amino,
     ...cosmos_crypto_multisig_v1beta1_multisig_amino,
@@ -178,9 +159,6 @@ export const aminoConverters = {
     ...cosmos_gov_v1beta1_gov_amino,
     ...cosmos_gov_v1beta1_query_amino,
     ...cosmos_gov_v1beta1_tx_amino,
-    ...cosmos_mint_v1beta1_genesis_amino,
-    ...cosmos_mint_v1beta1_mint_amino,
-    ...cosmos_mint_v1beta1_query_amino,
     ...cosmos_params_types_types_amino,
     ...cosmos_params_v1beta1_params_amino,
     ...cosmos_params_v1beta1_query_amino,

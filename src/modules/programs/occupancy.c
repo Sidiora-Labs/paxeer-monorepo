@@ -6,6 +6,7 @@
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_fee.h"
 #include "layerx/lxp_hash.h"
+#include "layerx/lxp_replica.h"
 
 #include <limits.h>
 #include <string.h>

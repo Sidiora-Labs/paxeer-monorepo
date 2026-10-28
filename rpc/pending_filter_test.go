@@ -69,7 +69,7 @@ func pendingFilterAPI(t *testing.T, s *pendingSequencer, tm *MockClient, feed *e
 	if feed != nil {
 		evmrpc.SetReceiptLogFeedForTest(api, feed)
 	}
-	t.Cleanup(api.Cleanup)
+	t.Cleanup(func() { evmrpc.ShutdownFilterAPIForTest(api) })
 	return api
 }
 
@@ -441,7 +441,7 @@ func TestPendingFilterExplicitLatestSurvivesCommit(t *testing.T) {
 		evmrpc.NewWatermarkManager(tm, committedCtx, nil, nil),
 	)
 	evmrpc.SetReceiptLogFeedForTest(api, feed)
-	t.Cleanup(api.Cleanup)
+	t.Cleanup(func() { evmrpc.ShutdownFilterAPIForTest(api) })
 
 	crit := pendingFilterCrit()
 	crit.FromBlock = big.NewInt(rpc.LatestBlockNumber.Int64())

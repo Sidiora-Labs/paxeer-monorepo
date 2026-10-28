@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -69,6 +70,30 @@ class RegistrationInputTests(unittest.TestCase):
             provision.owner_registration(self.root)
         self.assertIn(str(self.path), str(caught.exception))
         self.assertFalse((self.root / 'human-evidence').exists())
+
+    def test_owner_policy_has_no_movement_intervals(self):
+        policy = provision.owner_policy()
+        self.assertNotIn('movement', policy)
+        source = Path(provision.__file__)
+        self.assertEqual(policy, json.loads(source.with_name('beta-owner-policy.json').read_text()))
+        copied_source = self.root / 'provision.py'
+        copied_source.write_text(source.read_text())
+        spec = importlib.util.spec_from_file_location('policy_provision', copied_source)
+        copied_provision = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(copied_provision)
+        policy_path = self.root / 'beta-owner-policy.json'
+        policy_path.write_text(json.dumps(policy))
+        self.assertEqual(copied_provision.owner_policy(), policy)
+        policy['movement'] = {
+            'PAXEER_CONFIRMATIONS': 12,
+            'CHECKPOINT_INTERVAL_SECONDS': 60,
+            'PAXEER_BLOCK_SECONDS': 2,
+            'REMINDER_INTERVAL_SECONDS': 300,
+        }
+        policy_path.write_text(json.dumps(policy))
+        with self.assertRaises(copied_provision.Refused) as caught:
+            copied_provision.owner_policy()
+        self.assertEqual(str(caught.exception), f'{policy_path}: invalid owner policy')
 
     def test_missing_wrong_mode_symlink_hardlink_and_directory_refuse(self):
         self.refused()

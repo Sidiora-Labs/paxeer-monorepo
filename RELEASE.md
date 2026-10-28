@@ -5,6 +5,11 @@ and a set of files anyone can rebuild bit for bit from that tag. Applying a rele
 network is a governance upgrade: every validator and full node halts at the plan height and restarts
 on the new binary. The tooling for both halves lives in [`tools/release`](tools/release).
 
+The v6.12.0 migration includes the SID holder migration and SID mint-authority move
+as hooks of the upgrade handler in [`node/upgrades_v6120.go`](node/upgrades_v6120.go).
+These hooks migrate the legacy SID balances to usid and move its mint authority to the
+bridge module account; they ship together in the v6.12.0 release.
+
 ## Release identity
 
 - `tools/release/version.json` holds `version` (`vX.Y.Z`) and `upgrade`, the on-chain upgrade plan

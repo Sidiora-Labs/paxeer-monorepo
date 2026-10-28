@@ -1,0 +1,10 @@
+[card]
+role = "fm-programs"
+domain = 13
+sandbox_profile = "rust"
+anchors = ["13.0.1", "13.0.2", "13.0.3", "13.0.4", "13.0.9"]
+wave_gate = ["scripts/gates/wave-0.sh", "scripts/gates/wave-1.sh", "scripts/gates/wave-2.sh", "scripts/gates/wave-3.sh", "scripts/gates/wave-6.sh", "scripts/gates/wave-15.sh", "scripts/gates/wave-16.sh", "scripts/gates/wave-17.sh", "scripts/gates/wave-18.sh", "scripts/gates/wave-19.sh", "scripts/gates/wave-20.sh", "scripts/gates/wave-21.sh", "scripts/gates/wave-22.sh", "scripts/gates/wave-23.sh", "scripts/gates/wave-24.sh", "scripts/gates/wave-25.sh", "scripts/gates/wave-26.sh", "scripts/gates/wave-27.sh", "scripts/gates/wave-28.sh", "scripts/gates/wave-29.sh", "scripts/gates/wave-32.sh", "scripts/gates/wave-33.sh", "scripts/gates/wave-34.sh"]
+max_parallel = 23
+escalation = "stop the wave and file a qualification finding"
+limits = ["max_task_minutes = 30", "max_gate_runs_per_task = 1", "source = spec/workflow.kvx:32-36"]
+no_false_success = "A task remains in_progress through implementation and task qualification. Mark it done only after its verify_cmd genuinely passes. Aggregate suites, sanitizers, workspace-wide lint, cluster and browser matrices are release-candidate gates, run once per wave or once at release, never per task. Surface honest partials and external blockers; 'implemented, not qualified' is an acceptable reported outcome."

@@ -10,7 +10,7 @@ import useSocketBuffer from 'lib/socket/useSocketBuffer';
 import useSocketMessage from 'lib/socket/useSocketMessage';
 import applyPriceUpdates from 'ui/paxeerX/feed/applyPriceUpdates';
 import PaxeerXFeedMarketsTable from 'ui/paxeerX/feed/PaxeerXFeedMarketsTable';
-import useFeedSocket from 'ui/paxeerX/feed/useFeedSocket';
+import useFeedSocket, { FEED_OVERVIEW_BUFFER_LIMIT } from 'ui/paxeerX/feed/useFeedSocket';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
@@ -30,7 +30,7 @@ const PaxeerXFeed = () => {
     });
   }, [ queryClient ]);
 
-  const { push, hoverProps } = useSocketBuffer<PriceUpdateItem>({ onFlush: handleFlush });
+  const { push, hoverProps } = useSocketBuffer<PriceUpdateItem>({ onFlush: handleFlush, limit: FEED_OVERVIEW_BUFFER_LIMIT });
 
   const handleNewUpdate: SocketMessage.PaxeerXFeedNewUpdate['handler'] = React.useCallback((payload) => {
     push(payload);

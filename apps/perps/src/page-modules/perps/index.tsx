@@ -6,7 +6,7 @@ import { PairHeader } from "@/widgets/trading/PairHeader";
 import { MarketWatchlist } from "@/widgets/trading/MarketSelectorPanel";
 import { MobileAppLayout } from "@/widgets/mobile/MobileAppLayout";
 import { ResizeHandle } from "@/ui/atoms/resize-handle";
-import { PERPS_MARKETS, type PerpsMarket } from "@/core/perps/config";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { useIsMobile } from "@/hooks/ui/useMobile";
@@ -94,14 +94,17 @@ export default function TradingInterface() {
   const router = useRouter();
   const { address } = usePerpsWallet();
   const { prices } = useRealtimePrices();
+  const { tradeable, isLoading, error } = usePerpsMarkets();
   const isMobile = useIsMobile();
   const { presets, activePreset, activeId, applyPreset } = useLayoutPresets();
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
 
   const selectedSymbol = (router.query.market as string)?.toUpperCase() || "PAX";
-  const selectedMarket = useMemo<PerpsMarket>(
-    () => PERPS_MARKETS.find((m) => m.symbol === selectedSymbol) ?? PERPS_MARKETS[0]!,
-    [selectedSymbol]
+  const selectedMarket = useMemo(
+    () =>
+      tradeable.find((m) => m.symbol === selectedSymbol) ??
+      tradeable.find((m) => m.symbol === "PAX"),
+    [tradeable, selectedSymbol]
   );
 
   const selectMarket = useCallback(
@@ -156,8 +159,9 @@ export default function TradingInterface() {
 
   // Title updates: depend on the selected market's price only (not the whole
   // prices map) and throttle writes to 1 Hz max to avoid per-tick tab repaints.
-  const marketPrice = prices[selectedMarket.symbol];
+  const marketPrice = selectedMarket ? prices[selectedMarket.symbol] : undefined;
   useEffect(() => {
+    if (!selectedMarket) return;
     const formattedPrice = marketPrice
       ? new Intl.NumberFormat("en-US", {
           maximumFractionDigits: 2,
@@ -177,7 +181,13 @@ export default function TradingInterface() {
       document.title = nextTitle;
     }, 1000 - sinceLast);
     return () => window.clearTimeout(handle);
-  }, [selectedMarket.symbol, marketPrice]);
+  }, [selectedMarket?.symbol, marketPrice]);
+
+  if (isLoading) return <div role="status">Loading markets…</div>;
+  if (error) return <div role="alert">Unable to load markets: {error.message}</div>;
+  if (!selectedMarket) {
+    return <div role="alert">The selected market and PAX are unavailable.</div>;
+  }
 
   // ═══════════════════ MOBILE ═══════════════════
   // Shell renders MobileTradeHeader (Component.shell === "trade"). The page

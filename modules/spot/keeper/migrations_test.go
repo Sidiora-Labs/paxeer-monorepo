@@ -112,3 +112,70 @@ func TestMigrate1to2BuildsActiveLength(t *testing.T) {
 		}
 	}
 }
+
+func TestMigrate1to2ExportRoundTrip(t *testing.T) {
+	f := newStopFixture(t)
+	expiry := uint64(f.ctx.BlockTime().Unix()) + 3600
+	var limitIDs, stopLimitIDs, stopLossIDs []uint64
+	for i := 0; i < 2; i++ {
+		id, _, err := f.k.PlaceLimit(f.ctx, f.user, f.stable, f.base, sdk.NewInt(1_000_000_000), stopTestPrice(60), expiry, types.OrderTypeLimitSell)
+		require.NoError(t, err)
+		limitIDs = append(limitIDs, id)
+		id, err = f.k.PlaceStopLimit(f.ctx, f.user, f.stable, f.base, sdk.NewInt(100_000_000), stopTestPrice(55), stopTestPrice(60), expiry, types.OrderTypeStopLimitBuy)
+		require.NoError(t, err)
+		stopLimitIDs = append(stopLimitIDs, id)
+		id, err = f.k.PlaceStopLoss(f.ctx, f.user, f.base, f.stable, sdk.NewInt(1_000_000_000), stopTestPrice(40), expiry)
+		require.NoError(t, err)
+		stopLossIDs = append(stopLossIDs, id)
+	}
+	want := f.k.ExportGenesis(f.ctx)
+	require.Len(t, want.LimitOrders, 2)
+	require.Len(t, want.StopLimitOrders, 2)
+	require.Len(t, want.StopLossOrders, 2)
+	require.Equal(t, limitIDs, want.ActiveLimitOrders)
+	require.Equal(t, stopLimitIDs, want.ActiveStopLimitOrders)
+	require.Equal(t, stopLossIDs, want.ActiveStopLossOrders)
+
+	store := f.ctx.KVStore(f.key)
+	for _, index := range []struct {
+		prefix []byte
+		count  int
+	}{
+		{types.ActivePositionPrefix, 6},
+		{types.ActiveLengthPrefix, 3},
+	} {
+		var keys [][]byte
+		iterator := sdk.KVStorePrefixIterator(store, index.prefix)
+		for ; iterator.Valid(); iterator.Next() {
+			keys = append(keys, append([]byte(nil), iterator.Key()...))
+		}
+		iterator.Close()
+		require.Len(t, keys, index.count)
+		for _, key := range keys {
+			store.Delete(key)
+			require.False(t, store.Has(key))
+		}
+	}
+	message, broken := keeper.ActiveIndexInvariant(f.k)(f.ctx)
+	require.True(t, broken, message)
+	require.NoError(t, keeper.NewMigrator(f.k).Migrate1to2(f.ctx))
+	exported := f.k.ExportGenesis(f.ctx)
+	require.Equal(t, want, exported)
+	require.NoError(t, exported.Validate())
+	message, broken = keeper.ActiveIndexInvariant(f.k)(f.ctx)
+	require.False(t, broken, message)
+
+	app := testkeeper.EVMTestApp
+	feed, ctx := pricefeedtest.NewKeeper(app, f.ctx)
+	key := sdk.NewKVStoreKey(types.StoreKey)
+	ctx = pricefeedtest.WithPriceFeedStore(ctx, key)
+	k := keeper.NewKeeper(key, app.BankKeeper, &app.EvmKeeper, feed)
+	iterator := sdk.KVStorePrefixIterator(ctx.KVStore(key), nil)
+	empty := !iterator.Valid()
+	iterator.Close()
+	require.True(t, empty)
+	k.InitGenesis(ctx, *exported)
+	require.Equal(t, exported, k.ExportGenesis(ctx))
+	message, broken = keeper.ActiveIndexInvariant(k)(ctx)
+	require.False(t, broken, message)
+}

@@ -11,6 +11,11 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.TransactionSignature do
     type: :object,
     properties: %{
       rung: SettlementRung,
+      committed_height: %Schema{
+        type: :integer,
+        nullable: true,
+        description: "Height of the commit verified by R7 and R8"
+      },
       receipt: %Schema{
         type: :string,
         pattern: "^0x([A-Fa-f0-9]{2})+$",

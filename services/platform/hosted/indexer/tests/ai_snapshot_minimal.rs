@@ -1,16 +1,23 @@
 //! F10 minimal finalized snapshot projection over real market state, real chunk capture,
-//! real k256-signed checkpoint certificates and a file-backed `SQLite` projection.
+//! real Ed25519-signed block commits and a file-backed `SQLite` projection.
 
 use std::fs;
 use std::path::PathBuf;
 
-use k256::ecdsa::{Signature, SigningKey};
-use layerx_crypto::secp256k1;
-use layerx_indexer::ai_market::event_id;
+use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_committed_proof::{
+    commit::{BlockIdFlag, Commit, CommitSig},
+    header::{
+        validators_hash, BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp, Validator,
+    },
+    proto::{encode_length_delimited, encode_varint, encode_varint_field},
+    ProofError,
+};
+use layerx_indexer::ai_market::{event_id, verify_block_commit};
 use layerx_indexer::ai_market::{
-    Alert, Availability, CheckpointProof, CursorKeyring, FinalityAuthority, Freshness, Observation,
-    PageRequest, ParticipantKind, ProjectionState, ProjectionStore, QueryLimiter, RateConfig,
-    ReadVerification, SnapshotRecord, ViewError, Viewer, AUTHORITY_FRESHNESS_HEIGHTS,
+    Alert, Availability, BlockCommitProof, CursorKeyring, FinalityAuthority, Freshness,
+    Observation, PageRequest, ParticipantKind, ProjectionState, ProjectionStore, QueryLimiter,
+    RateConfig, ReadVerification, SnapshotRecord, ViewError, Viewer, AUTHORITY_FRESHNESS_HEIGHTS,
     MINIMUM_PUBLICATION_RANK, SNAPSHOT_EVENT_TAG,
 };
 use layerx_indexer::codec::hex;
@@ -30,13 +37,7 @@ use layerx_programs_ai_market::{
     workers::{WorkerCurrent, WorkerState, WorkerTable, WORKER_TABLE_MAX_BYTES},
     MAX_EVENT_BYTES, MAX_STATE_BYTES,
 };
-use layerx_proof::checkpoint::{
-    checkpoint_id, Attestation, Certificate, Checkpoint, CheckpointError, GuarantorKey,
-    SettlementDomain,
-};
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::{checkpoint_attestation_digest, program_execution_batch_id};
-use layerx_wire::limits::PROTOCOL_VERSION;
+use sha2::{Digest as _, Sha256};
 
 const CHAIN: [u8; 32] = [10; 32];
 const PROGRAM: [u8; 32] = [11; 32];
@@ -44,15 +45,7 @@ const OWNER: [u8; 32] = [12; 32];
 const ASSET: [u8; 32] = [13; 32];
 const REFUND: [u8; 32] = [14; 32];
 const CHUNK_RESPONSE_MAX: usize = 8_244;
-const NETWORK: u32 = 42;
-const PAXEER_CHAIN: u64 = 31_337;
-const CONTRACT: [u8; 20] = [0x55; 20];
-const CHECKPOINT_EPOCH: u64 = 7;
-const BATCH: u64 = 8;
-const PREVIOUS_ROOT: [u8; 32] = [7; 32];
-const ACTIVITY_ROOT: [u8; 32] = [9; 32];
-const DA_ROOT: [u8; 32] = [12; 32];
-const HEADER_TIME_MS: u64 = 1_000;
+const CHAIN_ID: &str = "ai-market-finality";
 const PUBLISHED_AT_MS: u64 = 2_000;
 const NOW_MS: u64 = 5_000_000;
 const SECRET: [u8; 32] = [0x5A; 32];
@@ -87,9 +80,7 @@ other_failure!(
     ApplicationError,
     QueryError,
     layerx_wire::WireError,
-    CheckpointError,
-    k256::ecdsa::Error,
-    layerx_crypto::VerifyError,
+    ProofError,
     rusqlite::Error,
     std::io::Error,
     &'static str,
@@ -236,16 +227,6 @@ fn chunk_payload(revision: u64, pinned: Option<StateDigest>, offset: u32) -> Vec
     payload
 }
 
-fn batch_id(sequence: u64) -> Checked<Digest32> {
-    Ok(Digest32::new(program_execution_batch_id(
-        PREVIOUS_ROOT,
-        ACTIVITY_ROOT,
-        sequence,
-        sequence,
-        BATCH,
-    )?)?)
-}
-
 /// Whole same-root capture through the real chunk selector and `StateCapture`.
 fn capture(state_bytes: &[u8], root: u8, sequence: u64) -> Checked<(Vec<u8>, CaptureFacts)> {
     let proof = ReadProof {
@@ -254,7 +235,7 @@ fn capture(state_bytes: &[u8], root: u8, sequence: u64) -> Checked<(Vec<u8>, Cap
         native_state_root: digest(root)?,
         observed_sequence: sequence,
         execution_height: sequence + 110,
-        batch_id: batch_id(sequence)?,
+        block_hash: Digest32::new(commit_header(root, sequence, CHAIN_ID).hash())?,
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let n = read_state_chunk(state_bytes, &chunk_payload(0, None, 0), &mut out)?;
@@ -278,112 +259,110 @@ fn capture(state_bytes: &[u8], root: u8, sequence: u64) -> Checked<(Vec<u8>, Cap
     Ok((bytes.to_vec(), facts))
 }
 
-fn header(root: [u8; 32], sequence: u64, network: u32) -> Checked<Vec<u8>> {
-    let mut e = Encoder::new(354);
-    e.structure_header_version(0x1701, PROTOCOL_VERSION)?;
-    e.u8(15)?;
-    for field in 1..=15u8 {
-        e.tag(field, 15)?;
-        match field {
-            1 => e.u16(PROTOCOL_VERSION)?,
-            2 => e.u32(network)?,
-            3 => e.u64(CHECKPOINT_EPOCH)?,
-            4 => e.u64(BATCH)?,
-            5 | 6 => e.u64(sequence)?,
-            7 => e.bytes(&PREVIOUS_ROOT, 32)?,
-            8 => e.bytes(&root, 32)?,
-            9 => e.bytes(&ACTIVITY_ROOT, 32)?,
-            12 => e.bytes(&DA_ROOT, 32)?,
-            14 => e.u64(HEADER_TIME_MS)?,
-            _ => e.bytes(&[field; 32], 32)?,
+fn validators() -> Vec<Validator> {
+    (1..=4)
+        .map(|value| Validator {
+            pub_key: SigningKey::from_bytes(&[value; 32])
+                .verifying_key()
+                .to_bytes(),
+            voting_power: 10,
+        })
+        .collect()
+}
+
+fn authority() -> FinalityAuthority {
+    FinalityAuthority {
+        chain_id: CHAIN_ID.to_owned(),
+        validators: validators(),
+    }
+}
+
+fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
+    let mut commit = Commit {
+        height: header.height as u64,
+        round: 0,
+        block_id: BlockId {
+            hash: header.hash().to_vec(),
+            part_set_header: PartSetHeader {
+                total: 1,
+                hash: vec![0xA5; 32],
+            },
+        },
+        signatures: Vec::new(),
+    };
+    for value in 1..=4 {
+        let Some((_, tamper)) = signers.iter().find(|(signer, _)| *signer == value) else {
+            commit.signatures.push(CommitSig::absent());
+            continue;
+        };
+        let key = SigningKey::from_bytes(&[value; 32]);
+        let timestamp = Timestamp {
+            seconds: 1_000,
+            nanos: 123,
+        };
+        let mut vote = Vec::new();
+        encode_varint_field(1, 2, &mut vote);
+        vote.push(0x11);
+        vote.extend_from_slice(&commit.height.to_le_bytes());
+        let mut parts = Vec::new();
+        encode_varint_field(
+            1,
+            u64::from(commit.block_id.part_set_header.total),
+            &mut parts,
+        );
+        encode_length_delimited(2, &commit.block_id.part_set_header.hash, &mut parts);
+        let mut block = Vec::new();
+        encode_length_delimited(1, &commit.block_id.hash, &mut block);
+        encode_length_delimited(2, &parts, &mut block);
+        encode_length_delimited(4, &block, &mut vote);
+        let mut time = Vec::new();
+        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
+        encode_length_delimited(5, &time, &mut vote);
+        encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
+        let mut sign_bytes = Vec::new();
+        encode_varint(vote.len() as u64, &mut sign_bytes);
+        sign_bytes.extend_from_slice(&vote);
+        let mut signature = key.sign(&sign_bytes).to_bytes();
+        if *tamper {
+            signature[40] ^= 1;
         }
+        commit.signatures.push(CommitSig {
+            block_id_flag: BlockIdFlag::Commit,
+            validator_address: Sha256::digest(key.verifying_key().as_bytes())[..20].to_vec(),
+            timestamp,
+            signature: Some(signature),
+        });
     }
-    Ok(e.finish())
+    commit
 }
 
-fn guarantor(value: u8) -> Checked<(SigningKey, GuarantorKey)> {
-    let mut scalar = [0u8; 32];
-    scalar[31] = value;
-    let signing = SigningKey::from_bytes((&scalar).into())?;
-    let public: [u8; 33] = signing
-        .verifying_key()
-        .to_encoded_point(true)
-        .as_bytes()
-        .try_into()
-        .map_err(|_| "compressed key width")?;
-    let mut id = [0u8; 32];
-    id[0] = value;
-    Ok((signing, GuarantorKey::new(id, public, true)))
-}
-
-fn attestation(
-    id: [u8; 32],
-    network: u32,
-    key: &GuarantorKey,
-    signing: &SigningKey,
-) -> Checked<Attestation> {
-    let guarantor_id = key.guarantor_id();
-    let attested_at = HEADER_TIME_MS + u64::from(guarantor_id[0]);
-    let mut message = [0u8; 189];
-    message[..2].copy_from_slice(&PROTOCOL_VERSION.to_be_bytes());
-    message[2..6].copy_from_slice(&network.to_be_bytes());
-    message[6..14].copy_from_slice(&PAXEER_CHAIN.to_be_bytes());
-    message[14..34].copy_from_slice(&CONTRACT);
-    message[34..42].copy_from_slice(&CHECKPOINT_EPOCH.to_be_bytes());
-    message[42..74].copy_from_slice(&id);
-    message[74..106].copy_from_slice(&id);
-    message[106..138].copy_from_slice(&guarantor_id);
-    message[138..146].copy_from_slice(&BATCH.to_be_bytes());
-    message[146..178].copy_from_slice(&DA_ROOT);
-    message[178] = 1;
-    message[179] = 1;
-    message[180] = 0x1f;
-    message[181..].copy_from_slice(&attested_at.to_be_bytes());
-    let prehash = checkpoint_attestation_digest(&message)?;
-    let (signature, recovery): (Signature, _) = signing.sign_prehash_recoverable(&prehash)?;
-    let signer = secp256k1::evm_address(&key.public_key())?;
-    Ok(Attestation::new(
-        PROTOCOL_VERSION,
-        network,
-        PAXEER_CHAIN,
-        CONTRACT,
-        CHECKPOINT_EPOCH,
-        id,
-        id,
-        guarantor_id,
-        BATCH,
-        DA_ROOT,
-        true,
-        true,
-        0x1f,
-        attested_at,
-        signer,
-        signature.to_bytes().into(),
-        27 + u8::from(recovery),
-    ))
-}
-
-fn authority() -> Checked<FinalityAuthority> {
-    Ok(FinalityAuthority {
-        network_id: NETWORK,
-        settlement: SettlementDomain::new(PAXEER_CHAIN, CONTRACT),
-        guarantors: (1..=3)
-            .map(|v| guarantor(v).map(|(_, key)| key))
-            .collect::<Checked<_>>()?,
-    })
-}
-
-/// Two-of-three threshold certificate for a checkpoint whose header commits `root` at
-/// `sequence`; returns it with its registered identifier.
-fn certificate(root: u8, sequence: u64, network: u32) -> Checked<(Certificate, [u8; 32])> {
-    let checkpoint = Checkpoint::new(header([root; 32], sequence, network)?, b"PROOF".to_vec());
-    let id = checkpoint_id(&checkpoint)?;
-    let mut attestations = Vec::new();
-    for value in 1..=3 {
-        let (signing, key) = guarantor(value)?;
-        attestations.push(attestation(id, network, &key, &signing)?);
+fn commit_header(root: u8, sequence: u64, chain_id: &str) -> Header {
+    Header {
+        chain_id: chain_id.to_owned(),
+        height: (sequence + 110) as i64,
+        app_hash: vec![root; 32],
+        version: ConsensusVersion { block: 11, app: 1 },
+        time: Timestamp {
+            seconds: 1_000,
+            nanos: 0,
+        },
+        last_block_id: BlockId::default(),
+        last_commit_hash: vec![1; 32],
+        data_hash: vec![2; 32],
+        validators_hash: validators_hash(&validators()),
+        next_validators_hash: validators_hash(&validators()).to_vec(),
+        consensus_hash: vec![3; 32],
+        last_results_hash: vec![4; 32],
+        evidence_hash: vec![5; 32],
+        proposer_address: vec![6; 20],
     }
-    Ok((Certificate::new(checkpoint, attestations, 2, None), id))
+}
+
+fn store_proof(root: u8, sequence: u64) -> Vec<u8> {
+    let mut proof = vec![root; 32];
+    proof.extend_from_slice(&sequence.to_be_bytes());
+    proof
 }
 
 fn observe(
@@ -408,19 +387,19 @@ fn promote_with(
     record: &SnapshotRecord,
     root: u8,
     sequence: u64,
-    network: u32,
+    chain_id: &str,
 ) -> Result<SnapshotRecord, ViewError> {
-    let (certificate, id) =
-        certificate(root, sequence, network).map_err(|e| ViewError::Store(format!("{e:?}")))?;
-    let authority = authority().map_err(|e| ViewError::Store(format!("{e:?}")))?;
+    let header = commit_header(root, sequence, chain_id);
+    let commit = signed(&header, &[(1, false), (2, false), (3, false)]);
+    let store_proof = store_proof(root, sequence);
     store.promote(
         &record.snapshot_id,
-        &CheckpointProof {
-            certificate: &certificate,
-            registered_checkpoint_id: id,
-            registered_settlement_reference: None,
+        &BlockCommitProof {
+            header: &header,
+            commit: &commit,
+            store_proof: &store_proof,
         },
-        &authority,
+        &authority(),
         PUBLISHED_AT_MS,
     )
 }
@@ -432,7 +411,7 @@ fn finalize(store: &ProjectionStore, record: &SnapshotRecord) -> Checked<Snapsho
         record,
         root,
         record.observed_sequence,
-        NETWORK,
+        CHAIN_ID,
     )?)
 }
 
@@ -544,26 +523,28 @@ fn a02_only_a_rank4_checkpoint_for_the_same_root_finalizes() -> Checked {
     assert!(store.pending_events(&market()?, 16)?.is_empty());
 
     assert_eq!(
-        promote_with(&store, &record, 0xB2, 900, NETWORK).err(),
+        promote_with(&store, &record, 0xB2, 900, CHAIN_ID).err(),
         Some(ViewError::BindingMismatch)
     );
     assert_eq!(
-        promote_with(&store, &record, 0xA1, 899, NETWORK).err(),
+        promote_with(&store, &record, 0xA1, 899, CHAIN_ID).err(),
         Some(ViewError::BindingMismatch)
     );
-    let (certificate, id) = certificate(0xA1, 900, NETWORK)?;
-    let mut wrong_id = id;
-    wrong_id[0] ^= 1;
+    let header = commit_header(0xA1, 900, CHAIN_ID);
+    let mut commit = signed(&header, &[(1, false), (2, false), (3, false)]);
+    let proof_bytes = store_proof(0xA1, 900);
+    let id: [u8; 32] = Sha256::digest(&proof_bytes).into();
+    commit.block_id.hash[0] ^= 1;
     assert_eq!(
         store
             .promote(
                 &record.snapshot_id,
-                &CheckpointProof {
-                    certificate: &certificate,
-                    registered_checkpoint_id: wrong_id,
-                    registered_settlement_reference: None,
+                &BlockCommitProof {
+                    header: &header,
+                    commit: &commit,
+                    store_proof: &proof_bytes
                 },
-                &authority()?,
+                &authority(),
                 PUBLISHED_AT_MS,
             )
             .err(),
@@ -586,9 +567,11 @@ fn a02_only_a_rank4_checkpoint_for_the_same_root_finalizes() -> Checked {
     assert_eq!(events[0].rank, 4);
     assert_eq!(Some(&events[0].binding), finalized.binding.as_ref());
     let view = store.market_view(&alice, &market()?, None, None)?;
-    assert_eq!(view.binding.checkpoint, Digest32::new(id)?);
+    assert_eq!(view.binding.store_proof_digest, Digest32::new(id)?);
+    assert_eq!(view.binding.block_hash, record.batch_id);
+    assert_eq!(view.binding.app_hash, record.native_state_root);
+    assert_eq!(view.binding.block_height, record.execution_height);
     assert_eq!(view.binding.rank, 4);
-    assert_eq!(view.binding.settlement, Presence::Absent);
     assert_eq!(view.availability[5], Availability::NotEnabled);
     assert_eq!(view.availability[2], Availability::NotYetProduced);
     Ok(())
@@ -990,10 +973,10 @@ fn a15_conflicts_refuse_or_quarantine_with_id_only_alerts() -> Checked {
     let foreign = ProjectionStore::open_in_memory()?;
     let pending = observe(&foreign, &s, 0xA1, 900, 1)?;
     assert_eq!(
-        promote_with(&foreign, &pending, 0xA1, 900, NETWORK + 1).err(),
+        promote_with(&foreign, &pending, 0xA1, 900, "another-chain").err(),
         Some(ViewError::WrongDomain)
     );
-    let (_, foreign_id) = certificate(0xA1, 900, NETWORK + 1)?;
+    let foreign_id = commit_header(0xA1, 900, "another-chain").hash();
     assert_eq!(
         foreign.alerts()?,
         vec![Alert {
@@ -1079,5 +1062,79 @@ fn a15_restored_database_reproduces_identical_snapshots() -> Checked {
     assert_eq!(after, before);
     assert_eq!(after.3.len(), 1);
     assert!(store.alerts()?.is_empty());
+    Ok(())
+}
+
+#[test]
+fn block_commit_rejects_malformed_headers_and_empty_store_proofs() -> Checked {
+    let header = commit_header(0xA1, 900, CHAIN_ID);
+    let commit = signed(&header, &[(1, false), (2, false), (3, false)]);
+    let store_proof = store_proof(0xA1, 900);
+    let authority = authority();
+    let verify = |header: &Header, store_proof: &[u8]| {
+        verify_block_commit(
+            &BlockCommitProof {
+                header,
+                commit: &commit,
+                store_proof,
+            },
+            &authority,
+        )
+    };
+    let verified = verify(&header, &store_proof)?;
+    assert_eq!(verified.chain_id, CHAIN_ID);
+    assert_eq!(verified.height, 1010);
+    assert_eq!(verified.block_hash, header.hash());
+    assert_eq!(verified.app_hash, [0xA1; 32]);
+    assert_eq!(
+        verified.store_proof_digest,
+        <[u8; 32]>::from(Sha256::digest(&store_proof))
+    );
+    for seconds in [-62_135_596_801, 253_402_300_800] {
+        let mut malformed = header.clone();
+        malformed.time.seconds = seconds;
+        assert_eq!(
+            verify(&malformed, &store_proof),
+            Err(ProofError::InvalidCommit)
+        );
+    }
+    let mut malformed = header.clone();
+    malformed.time.nanos = 1_000_000_000;
+    assert_eq!(
+        verify(&malformed, &store_proof),
+        Err(ProofError::InvalidCommit)
+    );
+    malformed = header.clone();
+    malformed.height = -1;
+    assert_eq!(
+        verify(&malformed, &store_proof),
+        Err(ProofError::InvalidCommit)
+    );
+    for length in [0, 31, 33] {
+        malformed = header.clone();
+        malformed.app_hash = vec![0xA1; length];
+        assert_eq!(
+            verify(&malformed, &store_proof),
+            Err(ProofError::InvalidProof)
+        );
+    }
+    assert_eq!(verify(&header, &[]), Err(ProofError::InvalidProof));
+    let mut boundary_authority = authority.clone();
+    boundary_authority.validators[2].voting_power = 5;
+    boundary_authority.validators[3].voting_power = 5;
+    let mut boundary_header = header.clone();
+    boundary_header.validators_hash = validators_hash(&boundary_authority.validators);
+    let boundary_commit = signed(&boundary_header, &[(1, false), (2, false)]);
+    assert_eq!(
+        verify_block_commit(
+            &BlockCommitProof {
+                header: &boundary_header,
+                commit: &boundary_commit,
+                store_proof: &store_proof,
+            },
+            &boundary_authority
+        ),
+        Err(ProofError::InsufficientVotingPower)
+    );
     Ok(())
 }

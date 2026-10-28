@@ -283,7 +283,7 @@ int main(int argc, char **argv)
         lxp_verified_receipt_index_init(&custody_index) == LXP_OK);
     memcpy(custody_asset_record.asset_id, f->asset.asset_id, 32U);
     custody_asset_runtime = (lx_asset_runtime){&f->accounts, &custody_asset_record, 1U,
-        &f->asset, 1U, 7U, LXP_PROTOCOL_VERSION_STATE_COMMITMENT};
+        &f->asset, 1U, 7U, LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false};
     f->actor->has_authority_key = true;
     memcpy(f->actor->authority_key, f->key, 32U);
     CUSTODY_CHECK(lxp_kernel_register_module(&f->kernel, lx_asset_module_iface()) == LXP_OK &&

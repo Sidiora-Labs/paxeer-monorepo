@@ -8,10 +8,12 @@ use layerx_bridge_relayer::attestation::{
     ethereum_address, to_attestor_signature, uint256_from_u64, InboundAttestation,
     OutboundAttestation,
 };
-use layerx_bridge_relayer::attestation_api::{deposit_answer, AttestationView};
+use layerx_bridge_relayer::attestation_api::{deposit_answer, release_answer, AttestationView};
 use layerx_bridge_relayer::cosign::CosignDirectory;
 use layerx_bridge_relayer::hex;
-use layerx_bridge_relayer::journal::{inbound_key, Entry, Journal, Observation, Position};
+use layerx_bridge_relayer::journal::{
+    inbound_key, outbound_key, Entry, Journal, Observation, Position,
+};
 use serde_json::{json, Value};
 
 fn must<T, E: Debug>(result: Result<T, E>) -> T {
@@ -292,4 +294,179 @@ fn deposit_status_follows_the_collected_signatures() {
     drop(journal);
     view.items = directory.journal().state().items.clone();
     assert_eq!(answer(&view, &attestation)["status"], "ready");
+}
+
+fn release() -> OutboundAttestation {
+    OutboundAttestation {
+        chain_id: u64::MAX,
+        vault: [0xcd; 20],
+        paxeer_tx_hash: [0xef; 32],
+        paxeer_nonce: u64::MAX - 1,
+        recipient: [0xab; 20],
+        asset: [0xbc; 20],
+        amount: [0xff; 32],
+    }
+}
+
+fn release_bundle(view: &AttestationView, attestation: &OutboundAttestation) -> Value {
+    release_answer(
+        view,
+        attestation.chain_id,
+        &attestation.paxeer_tx_hash,
+        attestation.paxeer_nonce,
+    )
+    .unwrap_or_else(|| panic!("observed release must have an answer"))
+}
+
+#[test]
+fn an_observed_release_answers_the_bundle_fields_the_bridge_app_reads() {
+    let directory = Directory::new();
+    let mut journal = directory.journal();
+    let mut attestation = release();
+    let amounts = [
+        (
+            [0xff; 32],
+            "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        ),
+        ([0; 32], "0"),
+        (uint256_from_u64(1), "1"),
+        (uint256_from_u64(u64::MAX), "18446744073709551615"),
+    ];
+    let cosign = CosignDirectory::new(directory.0.join("cosign"));
+    for (index, (amount, decimal)) in amounts.into_iter().enumerate() {
+        attestation.paxeer_nonce = u64::MAX - 1 - must(u64::try_from(index));
+        attestation.amount = amount;
+        let observation = Observation::outbound(&attestation, position());
+        let key = observation.key();
+        must(journal.append(&Entry::Observed {
+            item: key.clone(),
+            observation,
+        }));
+        let digest = attestation.digest();
+        let (own_signer, own_signature) = sign(&digest, 1);
+        let (peer, peer_signature) = sign(&digest, 2);
+        must(cosign.publish(&digest, &peer, &peer_signature));
+        let mut view = AttestationView {
+            items: journal.state().items.clone(),
+            signatures: BTreeMap::from([(digest, cosign.collect(&digest))]),
+            thresholds: BTreeMap::from([(attestation.chain_id, 2)]),
+        };
+        let mut expected = json!({
+            "chainId": "18446744073709551615",
+            "vault": format!("0x{}", "cd".repeat(20)),
+            "paxeerTxHash": format!("0x{}", "ef".repeat(32)),
+            "paxeerNonce": attestation.paxeer_nonce.to_string(),
+            "recipient": format!("0x{}", "ab".repeat(20)),
+            "asset": format!("0x{}", "bc".repeat(20)),
+            "amount": decimal,
+            "digest": hex::prefixed(&digest),
+            "signatures": [hex::prefixed(&peer_signature)],
+            "status": "observed",
+        });
+        assert_eq!(release_bundle(&view, &attestation), expected);
+
+        must(journal.append(&Entry::Signed {
+            item: key,
+            signature: own_signature,
+        }));
+        view.items = journal.state().items.clone();
+        view.signatures.clear();
+        expected["signatures"] = json!([hex::prefixed(&own_signature)]);
+        expected["status"] = json!("attesting");
+        assert_eq!(release_bundle(&view, &attestation), expected);
+
+        must(cosign.publish(&digest, &own_signer, &own_signature));
+        let mut collected = cosign.collect(&digest);
+        collected.push(own_signature);
+        collected.push([0; 65]);
+        view.signatures.insert(digest, collected);
+        let signers = BTreeMap::from([(own_signer, own_signature), (peer, peer_signature)]);
+        let encoded: Vec<_> = signers
+            .values()
+            .map(|signature| hex::prefixed(signature))
+            .collect();
+        expected["signatures"] = json!(encoded);
+        expected["status"] = json!("ready");
+        assert_eq!(release_bundle(&view, &attestation), expected);
+
+        for threshold in [0, 3] {
+            view.thresholds.insert(attestation.chain_id, threshold);
+            assert_eq!(release_bundle(&view, &attestation)["status"], "attesting");
+        }
+        view.thresholds.remove(&attestation.chain_id);
+        assert_eq!(release_bundle(&view, &attestation)["status"], "attesting");
+        view.thresholds.insert(attestation.chain_id, 2);
+        drop(journal);
+        journal = directory.journal();
+        view.items = journal.state().items.clone();
+        assert_eq!(release_bundle(&view, &attestation), expected);
+    }
+}
+
+#[test]
+fn an_unobserved_release_answers_nothing() {
+    let directory = Directory::new();
+    let mut journal = directory.journal();
+    let attestation = release();
+    assert_eq!(
+        release_answer(
+            &AttestationView::default(),
+            attestation.chain_id,
+            &attestation.paxeer_tx_hash,
+            attestation.paxeer_nonce,
+        ),
+        None
+    );
+    let mut inbound = deposit();
+    inbound.chain_id = 7;
+    observe(&mut journal, &inbound);
+    let observation = Observation::outbound(&attestation, position());
+    must(journal.append(&Entry::Observed {
+        item: observation.key(),
+        observation,
+    }));
+    let mut view = AttestationView {
+        items: journal.state().items.clone(),
+        ..AttestationView::default()
+    };
+    assert_eq!(
+        release_answer(&view, inbound.chain_id, &inbound.tx_hash, inbound.log_index),
+        None
+    );
+    for (chain, hash, nonce) in [
+        (
+            attestation.chain_id - 1,
+            attestation.paxeer_tx_hash,
+            attestation.paxeer_nonce,
+        ),
+        (attestation.chain_id, [0xee; 32], attestation.paxeer_nonce),
+        (
+            attestation.chain_id,
+            attestation.paxeer_tx_hash,
+            attestation.paxeer_nonce - 1,
+        ),
+    ] {
+        assert_eq!(release_answer(&view, chain, &hash, nonce), None);
+    }
+    assert_eq!(release_bundle(&view, &attestation)["status"], "observed");
+
+    let inbound_item =
+        view.items[&inbound_key(inbound.chain_id, &inbound.tx_hash, inbound.log_index)].clone();
+    view.items.insert(
+        outbound_key(
+            attestation.chain_id,
+            &attestation.paxeer_tx_hash,
+            attestation.paxeer_nonce,
+        ),
+        inbound_item,
+    );
+    assert_eq!(
+        release_answer(
+            &view,
+            attestation.chain_id,
+            &attestation.paxeer_tx_hash,
+            attestation.paxeer_nonce
+        ),
+        None
+    );
 }

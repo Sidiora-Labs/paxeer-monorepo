@@ -14,9 +14,10 @@ import { bindCustodyBudgetReservation, getPolicy, listRules, releaseBudget, rele
 import { evaluateAgent, type AgentTxIntent } from '../policy/agent.js';
 import { AttestorError, AttestorTokenError, AttestorReauthorizationRequired, attestorErrorBody, attestorErrorStatus } from '../attestor/client.js';
 import { resolveGas } from '../chainReads.js';
-import { NonceBelowLatestError, NonceOutstandingError, NonceUnresolvedError, broadcastReserved, type NonceLease } from '../nonce/store.js';
+import { NonceBelowLatestError, NonceOutstandingError, NonceUnresolvedError, broadcastReserved, nonceUnresolvedBody, type NonceLease } from '../nonce/store.js';
 import { BroadcastOutcomeUnknownError, NonceConflictError, TransactionRejectedError, outcomeUnknownBody, sharedRpcPool, type SequencerReceiptResult } from '../rpc/pool.js';
 import { BROADCAST_GRACE_MS } from '../chain.js';
+import { PRECOMPILE_ADDRESSES, unservedPrecompileAt } from '../precompiles.js';
 
 /**
  * Shared agent execution core.
@@ -81,9 +82,13 @@ export function custodyRefusal(error: unknown): ExecResult | null {
     return { status: 409, body: { error: 'nonce_outstanding', nonce: error.nonce } };
   }
   if (error instanceof NonceUnresolvedError) {
-    return { status: 503, body: { error: 'nonce_unresolved', nonce: error.nonce, unreachable: error.unreachable, members: error.memberCount } };
+    return { status: 503, body: nonceUnresolvedBody(error) };
   }
   if (error instanceof NonceConflictError) {
+    if (error.consumed) {
+      return { status: 409, body: { error: 'nonce_consumed', retry: 'prepare', nonce: error.nonce,
+        member: error.member, members: error.members } };
+    }
     return { status: 409, body: { error: 'nonce_conflict', detail: error.message, retry: 'prepare', member: error.member, members: error.members } };
   }
   if (error instanceof BroadcastOutcomeUnknownError) {
@@ -171,6 +176,18 @@ export async function executeAgentTransaction(args: {
 }): Promise<ExecResult> {
   const { ctx, intent, tx, broadcast, audit } = args;
 
+  const precompile = unservedPrecompileAt(tx.to);
+  if (precompile !== null) {
+    return {
+      status: 503,
+      body: {
+        error: 'precompile_not_served',
+        precompile,
+        address: PRECOMPILE_ADDRESSES[precompile],
+      },
+    };
+  }
+
   const wallet = await getAgentWallet(ctx.did);
   if (!wallet) return { status: 409, body: { error: 'agent_wallet_not_provisioned' } };
   const [policy, rules] = await Promise.all([getPolicy(ctx.did), listRules(ctx.did)]);
@@ -181,6 +198,23 @@ export async function executeAgentTransaction(args: {
 
   const chainId = tx.chainId ?? env.HYPERPAXEER_CHAIN_ID;
   const valueWei = tx.value ?? 0n;
+
+  const recordTransactionSignature = async (txHash: Hex | null): Promise<void> => {
+    await logSignature({
+      user_id: wallet.user_id,
+      wallet_id: wallet.id,
+      address: wallet.address,
+      kind: 'transaction',
+      to_address: tx.to ?? null,
+      value_wei: valueWei,
+      chain_id: chainId,
+      request_hash: audit.request_hash,
+      tx_hash: txHash,
+      ip: audit.ip,
+      user_agent: audit.user_agent,
+      principal_did: ctx.did,
+    });
+  };
 
   let txHash: Hex | null = null;
   let signedTx: Hex | null = null;
@@ -225,6 +259,7 @@ export async function executeAgentTransaction(args: {
       if (custodyBudgetReservationId) await releaseCustodyBudgetReservation(custodyBudgetReservationId, ctx.did);
       else await releaseBudget(decision.reservedBudgetId, decision.reservedValueWei);
     }
+    if (signedTx !== null && txHash) await recordTransactionSignature(txHash);
     const refused = custodyRefusal(err);
     if (refused) return refused;
     const detail = (err as Error).message;
@@ -235,20 +270,7 @@ export async function executeAgentTransaction(args: {
     };
   }
 
-  await logSignature({
-    user_id: wallet.user_id,
-    wallet_id: wallet.id,
-    address: wallet.address,
-    kind: 'transaction',
-    to_address: tx.to ?? null,
-    value_wei: valueWei,
-    chain_id: chainId,
-    request_hash: audit.request_hash,
-    tx_hash: txHash,
-    ip: audit.ip,
-    user_agent: audit.user_agent,
-    principal_did: ctx.did,
-  });
+  await recordTransactionSignature(txHash);
 
   return {
     status: 200,
