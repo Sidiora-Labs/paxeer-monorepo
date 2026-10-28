@@ -182610,7 +182610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1044.1]
 title = "Issue #1044: Serve a native sequence-batch transaction in the gateway router surface fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183067,7 +183067,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1094.1]
 title = "Issue #1094: Send the complete ceremony import from importSnapshotKey and give the snapshot test an approved inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
