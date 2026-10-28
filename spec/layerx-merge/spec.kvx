@@ -182376,7 +182376,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.853.1]
 title = "Issue #853: Name the missing-pool quote error, show the pool fee rate and call the quote asset a symbol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182592,7 +182592,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.900.1]
 title = "Issue #900: Keep live rows reachable, show the socket alert, refetch on join and dedupe hashes on the price feed pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183212,7 +183212,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1061.1]
 title = "Issue #1061: Wait for the consensus commit without holding the standby mutex that guards lease takeover"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184611,7 +184611,7 @@ do_3 = "In the same file's receipt builder (fn receipt, :580-644) complete the R
 
 [task.18.1152.1]
 title = "Issue #1152: Add the golang.org/x/term v0.15.0 go.sum lines the module graph needs so the chain image's go mod download completes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
