@@ -144058,7 +144058,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.3]
 title = "Decode the agent runtime peer answers with rung bytes and 65-byte signatures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.0.1", "10.2.7", "9.1.8", "18.1119.1"]
@@ -144751,7 +144751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.21.1]
 title = "Remove the precompile-routed intent kinds from the intents vocabulary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.2", "11.0.2", "11.30.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -184740,7 +184740,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1154.1]
 title = "Issue #1154: Port the checkpoint test's proof bundle refusal to the receipt-proof v2 request shape"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
