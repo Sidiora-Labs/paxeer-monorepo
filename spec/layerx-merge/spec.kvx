@@ -172440,7 +172440,7 @@ qualification = "UNRUN"
 
 [task.18.826.1]
 title = "Issue #826: Refuse the all-zero DID in the SDK history account helpers and regenerate the SDK reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1071.1"]
