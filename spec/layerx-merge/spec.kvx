@@ -134222,7 +134222,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.29.2]
 title = "Track custody rebalance transactions to the committed rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["8.29.1", "8.29.3"]
@@ -173752,7 +173752,7 @@ qualification = "UNRUN"
 
 [task.18.689.1]
 title = "Issue #689: Initialise the configured server Sentry client from the Next instrumentation hook"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1052.1"]
@@ -174796,7 +174796,7 @@ qualification = "UNRUN"
 
 [task.18.946.1]
 title = "Issue #946: Return recent trades for a checksummed pool address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
