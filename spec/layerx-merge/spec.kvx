@@ -173111,7 +173111,7 @@ qualification = "UNRUN"
 
 [task.18.904.1]
 title = "Issue #904: Size every perps close in base so a partial close fills the quoted lot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174104,7 +174104,7 @@ qualification = "UNRUN"
 
 [task.18.861.1]
 title = "Issue #861: Age perps leaderboard 7d and 30d entries out at the head block time"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174147,7 +174147,7 @@ qualification = "UNRUN"
 
 [task.18.878.1]
 title = "Issue #878: Read the asset registry only for history pages that need it and pass through its refusal code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176287,7 +176287,7 @@ qualification = "UNRUN"
 
 [task.18.836.1]
 title = "Issue #836: Refuse an unpayable starter credit before the faucet call, with its own message, budget slot and pinned amount"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177436,7 +177436,7 @@ qualification = "UNRUN"
 
 [task.18.838.1]
 title = "Issue #838: Cover the gateway history answer path over a loopback Paxeer node, a DID selector and no Paxeer config"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177478,7 +177478,7 @@ qualification = "UNRUN"
 
 [task.18.872.1]
 title = "Issue #872: Count launchpad permit pulls against the token caps in the attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177605,7 +177605,7 @@ qualification = "UNRUN"
 
 [task.18.1003.1]
 title = "Issue #1003: Retire the wallet SDK point tests that call the removed LX review API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
