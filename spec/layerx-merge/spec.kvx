@@ -131917,8 +131917,9 @@ do_1 = "Rewrite snapshot and current (services/platform/hosted/authority/src/tru
 do_2 = "Delete the checkpoint verification of Trust::snapshot and Trust::checkpoint (services/platform/hosted/authority/src/trust.rs:110-181), which needs a kernel publication per batch."
 do_3 = "A claimed key outside the list answers the existing refusal of snapshot (services/platform/hosted/authority/src/trust.rs:192); a list rotation is a file change and a restart."
 do_4 = "Add trust_snapshot_is_the_pinned_key_list to services/platform/hosted/authority/tests/chain_receipts.rs (planned)."
+do_5 = "Where trust.rs needs a layerx_client::handover::SequencerHistory built from the pinned key list, add a constructor to services/agent/crates/layerx-client/src/handover.rs that validates its input exactly as from_genesis_artifact does, and add a read accessor for the pinned keys to ChainReceipts in services/platform/hosted/authority/src/chain_receipt.rs; both additions are the minimum the trust snapshot needs and alter no existing behaviour of either file."
 symbols = ["snapshot", "current", "SequencerHistory", "trust_snapshot_is_the_pinned_key_list"]
-touches = ["services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/tests/chain_receipts.rs"]
+touches = ["services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/tests/chain_receipts.rs", "services/agent/crates/layerx-client/src/handover.rs", "services/platform/hosted/authority/src/chain_receipt.rs"]
 tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::trust_snapshot_is_the_pinned_key_list"]
 planned_paths = ["services/platform/hosted/authority/tests/chain_receipts.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority"
@@ -138160,7 +138161,7 @@ do_8 = "authenticate_cumulative_use (services/agent/crates/layerx-agentd/src/pro
 
 [task.9.2.1]
 title = "Prepare EIP-1559 transactions at the pending nonce"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.12.1", "9.0.1", "9.1.8"]
@@ -139046,7 +139047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.11.2]
 title = "Ingest events from eth_subscribe logs with gap backfill"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.11.1", "9.12.1", "9.5.2", "9.1.8"]
@@ -157305,7 +157306,7 @@ title = "Serve exitValue and exitValueBounded from a tombstoned program"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5", "18.1073.1"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5", "18.1073.1", "18.1124.1"]
 reqs = ["13267.1", "13267.2"]
 capabilities = ["13.26.3"]
 interfaces = ["interface.13.pc-0x101d-exitvalue", "interface.13.pc-0x101d-exitvaluebounded"]
@@ -157337,7 +157338,7 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
@@ -158204,7 +158205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.5]
 title = "Prove 0x101D logs and outputs are identical across two independent executions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.24.1", "13.22.6", "18.1073.1", "13.25.1"]
@@ -158327,7 +158328,7 @@ title = "Prove 0x101D value account views equal bank balances of the same accoun
 status = "pending"
 mode = "BUILD"
 wave = 17
-requires = ["13.28.2", "13.25.1", "18.1073.1"]
+requires = ["13.28.2", "13.25.1", "18.1073.1", "18.1123.1"]
 reqs = ["13299.1"]
 capabilities = ["13.34.9"]
 interfaces = []
@@ -172302,7 +172303,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -178929,7 +178930,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179327,6 +179328,7 @@ ac_1 = "Both image ignore files re-include every checksum-listed programs/vendor
 [req.181119]
 title = "Port the human service's activity module to the rung convention so layerx-human-service compiles again"
 ac_1 = "cargo build --locked -p layerx-human-service succeeds at main and the detail, detail_rungs, activity and activity_rungs integration tests pass, with the activity module carrying rungs through ReceiptReference::Verified { receipt_ref, rung } and the finality evidence link."
+ac_3 = "The activity feed compiles against the block-position subscription cursor: agent_cursor carries the delivery's block height and the source digest commits block height, transaction index and log index."
 
 [req.181120]
 title = "Surface the standby's refusal reason and make it acknowledge the recorder's openAccount groups"
@@ -179335,6 +179337,22 @@ ac_1 = "A refused replication group reports the standby's refusal reason in the 
 [req.181121]
 title = "Port layerx-mcp's read, wallet and web tools to the agent API read types, Wallet::execute and the x402 buyer so the crate compiles again"
 ac_1 = "cargo build --locked -p layerx-mcp succeeds at main and the read, web and write integration tests pass, with the wallet tool still returning a VerifiedRpcReceipt and the web tool still verifying the settlement receipt under the pinned sequencer."
+
+[req.181122]
+title = "Propagate a pre-seal sandbox runtime refusal instead of reporting LXP_FATAL_INVARIANT"
+ac_1 = "A sandbox EXECUTE whose admission the runtime refuses returns the refusal status with the guest savepoint discarded, and only an OK status with an unpublished usage result or an active savepoint reports LXP_FATAL_INVARIANT."
+
+[req.181123]
+title = "Register the getProgramAccountById, getAccountProfile and getValueAccount views of the programs precompile"
+ac_1 = "getProgramAccountById, getAccountProfile and getValueAccount dispatch through the precompile's method table and a test proves each account view through the registry while an unregistered name still refuses with errGateUnknownMethod."
+
+[req.181124]
+title = "Set the host node's occupancy asset from the fee schedule before the kernel binds a wind-down ledger admission"
+ac_1 = "Before any activity executes on the host node, programs_runtime.occupancy_asset_id equals the loaded fee schedule's occupancy asset, ProgramsOccupancyAsset exposes it, and a wind-down exit through the precompile binds its ledger admission against the caller's funded account."
+
+[req.181125]
+title = "Resolve sandbox lifecycle accessor tokens through sandbox_for_call so EXECUTE admission can read the activity id by call token"
+ac_1 = "While a sandbox EXECUTE is active, layerx_programs_sandbox_lifecycle_length and layerx_programs_sandbox_lifecycle_byte return the active sandbox's fields for both the inner call token and the outer sandbox token, return LXP_ERR_NON_CANONICAL for any other token or when no sandbox is active, and the existing FUND/ACTIVATE lifecycle cases still pass."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -179526,6 +179544,38 @@ req = "181121.1"
 scenario = "Given main after c00533709, when layerx-mcp builds and its read, web and write integration tests run, then the build succeeds and every test passes."
 contract = "contracts/agent-ts-sdk.md#history"
 test = "services/agent/crates/layerx-mcp/tests/web.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1122.1]
+feature = "18"
+req = "181122.1"
+scenario = "Given a funded, activated sandbox lease, when an EXECUTE is submitted whose admission the runtime refuses, then lxp_programs_sandbox_execute returns LXP_ERR_NON_CANONICAL, the guest savepoint is inactive and the staging buffers are released."
+contract = "contracts/programs.md#market-guest"
+test = "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_refusal_propagates"
+qualification = "UNRUN"
+
+[acceptance.18.1123.1]
+feature = "18"
+req = "181123.1"
+scenario = "Given the programs precompile at head, when a caller packs getValueAccount, getAccountProfile or getProgramAccountById and submits it, then the registered handler answers with the decoded account view instead of LXP_PRECOMPILE_UNKNOWN_METHOD."
+contract = "contracts/programs.md#market-guest"
+test = "precompiles/layerxprograms/view_accounts_test.go::TestProgramsViewAccountMethodsRegistered"
+qualification = "UNRUN"
+
+[acceptance.18.1124.1]
+feature = "18"
+req = "181124.1"
+scenario = "Given a host node whose fee record names an occupancy asset, when a programs activity executes, then the node's occupancy asset equals the fee record's and the ledger admission binds; given no fee record, then the programs activity refuses with the resolver's status."
+contract = "contracts/programs.md#market-guest"
+test = "modules/lxphost/fee_record_load_test.go::TestHostProgramsOccupancyAssetFollowsFeeSchedule"
+qualification = "UNRUN"
+
+[acceptance.18.1125.1]
+feature = "18"
+req = "181125.1"
+scenario = "Given an active SANDBOX_EXECUTE activity whose inner CALL token is the token held by the runtime, when host admission reads lifecycle section 8 with that call token, then it receives the 32-byte activity id instead of LXP_ERR_NON_CANONICAL, and an unrelated token is still refused."
+contract = "contracts/programs.md#market-guest"
+test = "lxp_test_sandbox_lifecycle::sandbox_execute_lifecycle_accepts_call_token"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -179976,7 +180026,7 @@ do_4 = "If a file still refuses the refreshed fixture after do_3, record the exa
 
 [task.18.1098.1]
 title = "Issue #1098: Issue #1098: Run mix-in-builder.sh test once per umbrella app when the path arguments span several apps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1076.1"]
@@ -180185,6 +180235,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Since 051d11e3a layerx_agent_api::subscription::Cursor is a struct { block_height: u64, tx_index: u32, log_index: u32 } (services/agent/crates/layerx-agent-api/src/stream.rs:120-124), so src/activity/mod.rs:602 `delivery.cursor.0 .0` and :672 `delivery.cursor.0 .0.to_be_bytes()` no longer compile. Derive the scalar the feed stores as agent_cursor and compares with observed_agent_head (:602, :675, :899-903, :944) from delivery.cursor.block_height, keep the zero-cursor refusal at :603, and commit all three fields' big-endian bytes to the source digest at :672 in the order block_height, tx_index, log_index, as the daemon does in services/agent/crates/layerx-agentd/src/human_runtime.rs since the same commit."
 
 [task.18.1120.1]
 title = "Issue #1120: Surface the standby's refusal reason and make it acknowledge the recorder's openAccount groups"
@@ -180231,15 +180282,138 @@ do_2 = "In services/agent/crates/layerx-mcp/src/tools/wallet.rs:66-103 keep the 
 do_3 = "In services/agent/crates/layerx-mcp/src/tools/web.rs:1036-1070 give Buyer::capture_settlement the &[SequencerAuthorization] it takes (services/interop/crates/layerx-x402/src/buyer.rs:239-243; layerx-proof src/inclusion.rs:15-20): build the slice from the pinned sequencer the WebConfig carries, extending WebConfig::new with the sequencer id and the batch range the authorization needs if the public key alone cannot build one, and keep authorised_batch's signature verification of the receipt as the first check."
 do_4 = "Change no other crate; the crate's read, web and write integration tests are the proof and run unchanged except where a WebConfig constructor change requires the tests' config helper to pass the added fields."
 symbols = []
-touches = ["services/agent/crates/layerx-mcp/src/tools/read.rs", "services/agent/crates/layerx-mcp/src/tools/wallet.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/web.rs"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/read.rs", "services/agent/crates/layerx-mcp/src/tools/wallet.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/web.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs", "services/agent/crates/layerx-mcp/tests/read.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test read --test web --test write"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test read --test web --test write --test daemon_bound"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the three tool files; layerx-mcp returns to failing compilation on the three moved interfaces."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "The WebConfig::new extension that do_3 requires (sequencer_id, first_batch_number, last_batch_number after sequencer_public_key) has two callers outside tools/web.rs: Binding::web_route at src/binding.rs:957-992 (the call at :970 passes the six original arguments) and the web_section fixture at tests/daemon_bound.rs:977-986. Read the three values from the web binding section in binding.rs, add them to the daemon_bound fixture, and keep every assertion of tests/daemon_bound.rs as written."
+do_6 = "Port the fixtures in services/agent/crates/layerx-mcp/tests/read.rs to the read mirror types of services/agent/crates/layerx-agent-api/src/read.rs at head: Freshness { chain_head: u64, value_height: u64, relative_to: RelativeTo::Block { height, hash } } and BalanceValue with its height field; assertions about the rendered freshness assert what src/tools/read.rs renders for those types, and no assertion is removed."
+
+[task.18.1122.1]
+title = "Issue #1122: Propagate a pre-seal sandbox runtime refusal instead of reporting LXP_FATAL_INVARIANT"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181122.1"]
+capabilities = []
+interfaces = []
+do_1 = "In src/modules/programs/sandbox.c lxp_programs_sandbox_execute (:405-427): when lxp_programs_call_execute returns a non-fatal error while value->guest_savepoint.active is still set, discard the savepoint with lxp_module_savepoint_discard (include/layerx/lxp_module.h:162) and return the runtime's status unchanged; keep LXP_FATAL_INVARIANT only for status == LXP_OK with an unpublished usage result (:425) or with a still-active savepoint (:427)."
+do_2 = "Add tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_refusal_propagates: drive an EXECUTE through the fixture (fixture_init, execute_payload at :213) whose admission layerx_programs_call_sandbox_admit refuses (for example a lease state digest that does not match the stored lease), assert the returned status is the runtime's refusal (LXP_ERR_NON_CANONICAL), not LXP_FATAL_INVARIANT, assert value->guest_savepoint.active is cleared and buffers_released(value) holds, and register the case in main (:356) next to the existing two."
+do_3 = "Change nothing in programs/crates; the runtime's seal contract (ffi_call.rs:2263, :3461, :3519, :3567) stays as written."
+symbols = ["lxp_programs_sandbox_execute", "lxp_module_savepoint_discard", "sandbox_execute_refusal_propagates"]
+touches = ["src/modules/programs/sandbox.c", "tests/codec/lxp_test_sandbox_lifecycle.c"]
+tests = ["tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_refusal_propagates"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_lifecycle && ./build/tests/kernel/codec/lxp_test_sandbox_lifecycle sandbox_fund_activate_native sandbox_stage_begin_accepts_lifecycle sandbox_execute_refusal_propagates"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert sandbox.c and the lifecycle test; a refused EXECUTE returns to reporting LXP_FATAL_INVARIANT."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1123.1]
+title = "Issue #1123: Register the getProgramAccountById, getAccountProfile and getValueAccount views of the programs precompile"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181123.1"]
+capabilities = []
+interfaces = []
+do_1 = "In precompiles/layerxprograms/view_accounts.go add an init that calls register (precompiles/layerxprograms/submit.go:43) for getProgramAccountById with getProgramAccountByIdHandler, getAccountProfile with getAccountProfileHandler and getValueAccount with getValueAccountHandler, matching the pattern of view_registry.go:13-16; getProgramAccount stays registered in method_account.go:11."
+do_2 = "In precompiles/layerxprograms/view_accounts_test.go add TestProgramsViewAccountMethodsRegistered, which resolves each of the four account view names through the same handler registry Submit consults and dispatches the packed ABI inputs through the resolved handler, asserting the decoded outputs equal the values the existing direct-handler tests prove, and which asserts that resolving a name no file registers yields the errGateUnknownMethod refusal (gate.go:33)."
+do_3 = "Change no handler body, no gas.go entry and no abi.json entry."
+symbols = ["init", "getProgramAccountByIdHandler", "getAccountProfileHandler", "getValueAccountHandler", "TestProgramsViewAccountMethodsRegistered"]
+touches = ["precompiles/layerxprograms/view_accounts.go", "precompiles/layerxprograms/view_accounts_test.go"]
+tests = ["precompiles/layerxprograms/view_accounts_test.go::TestProgramsViewAccountMethodsRegistered"]
+planned_paths = []
+build_cmd = "go build ./precompiles/layerxprograms/..."
+verify_cmd = "go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsViewProgramAccountLookups|TestProgramsViewValueAccountBalance|TestProgramsViewAccountMethodsRegistered)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert view_accounts.go and view_accounts_test.go; the three views return to answering LXP_PRECOMPILE_UNKNOWN_METHOD."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1124.1]
+title = "Issue #1124: Set the host node's occupancy asset from the fee schedule before the kernel binds a wind-down ledger admission"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181124.1"]
+capabilities = []
+interfaces = []
+do_1 = "In the C preamble of modules/lxphost/host.go, in the function that fills the execution record and calls lxp_kernel_execute_activity (host.go:545), resolve the fee schedule's occupancy asset through node->programs_runtime.resolve_occupancy_parameters with node->programs_runtime.occupancy_parameter_context (host.go:218-220) for the fee schedule version the kernel's programs CALL path resolves for an activity (src/protocol/lxp_kernel.c:6785-6793), and copy the resolved 32 bytes into node->programs_runtime.occupancy_asset_id before the kernel call so lxp_kernel_bind_ledger_admission (lxp_kernel.c:493-498) compares against the fee asset; when the resolver fails for an activity of the programs module return its status, and for activities of other modules leave the field as it was."
+do_2 = "Expose func (h *Host) ProgramsOccupancyAsset() [32]byte in modules/lxphost/host.go that returns node->programs_runtime.occupancy_asset_id through cgo."
+do_3 = "In modules/lxphost/fee_record_load_test.go add TestHostProgramsOccupancyAssetFollowsFeeSchedule: with newFeeRecordLoadFixture(t, true) execute one programs activity through the host and assert ProgramsOccupancyAsset equals the occupancy asset carried by the loaded fee record; with newFeeRecordLoadFixture(t, false) assert the field stays zero and the programs activity refuses with the status the resolver returns."
+do_4 = "Change no file under src/ or include/; the kernel's bind stays as written."
+symbols = ["ProgramsOccupancyAsset", "TestHostProgramsOccupancyAssetFollowsFeeSchedule"]
+touches = ["modules/lxphost/host.go", "modules/lxphost/fee_record_load_test.go"]
+tests = ["modules/lxphost/fee_record_load_test.go::TestHostProgramsOccupancyAssetFollowsFeeSchedule"]
+planned_paths = []
+build_cmd = "go build ./modules/lxphost/..."
+verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostLoadsProgramsFeeRecordForGovernance|TestHostFeeRecordAbsentRefusesVersion|TestHostProgramsOccupancyAssetFollowsFeeSchedule)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert host.go and fee_record_load_test.go; wind-down exits through the precompile return to refusing with LXP_CONTEXT_MISMATCH."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1125.1]
+title = "Issue #1125: Resolve sandbox lifecycle accessor tokens through sandbox_for_call so EXECUTE admission can read the activity id by call token"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1122.1"]
+reqs = ["181125.1"]
+capabilities = []
+interfaces = []
+do_1 = "src/modules/programs/sandbox.c:506-510: in layerx_programs_sandbox_lifecycle_length replace the direct cast and `value != active_sandbox` check with `programs_sandbox_activity *value = sandbox_for_call(token);` and refuse when `value == NULL || section > 13U` (sandbox_for_call is forward-declared at :89)."
+do_2 = "src/modules/programs/sandbox.c:523-530: apply the same change to layerx_programs_sandbox_lifecycle_byte. Leave every section mapping (:531-550) and every other accessor unchanged."
+do_3 = "tests/codec/lxp_test_sandbox_lifecycle.c: add case sandbox_execute_lifecycle_accepts_call_token. With the fixture initialised, set active_sandbox to a programs_sandbox_activity whose operation is SANDBOX_EXECUTE, ctx is &f->ctx and call is a distinct non-NULL decoded pointer. Assert that lifecycle_length(call token, 8) == 32 and lifecycle_byte(call token, 8, i) == f->ctx.activity_id[i] for all 32 bytes. Assert that the outer token still resolves, that an unrelated token returns LXP_ERR_NON_CANONICAL, and that both accessors return LXP_ERR_NON_CANONICAL once active_sandbox is NULL. Register the case in main (:358-361)."
+symbols = ["layerx_programs_sandbox_lifecycle_length", "layerx_programs_sandbox_lifecycle_byte", "sandbox_for_call", "layerx_programs_call_sandbox_admit", "admit_host"]
+touches = ["src/modules/programs/sandbox.c", "tests/codec/lxp_test_sandbox_lifecycle.c"]
+tests = ["lxp_test_sandbox_lifecycle::sandbox_execute_lifecycle_accepts_call_token", "lxp_test_sandbox_lifecycle::sandbox_fund_activate_native", "lxp_test_sandbox_lifecycle::sandbox_stage_begin_accepts_lifecycle"]
+planned_paths = []
+build_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_lifecycle"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_lifecycle && ./build/tests/kernel/codec/lxp_test_sandbox_lifecycle sandbox_execute_lifecycle_accepts_call_token sandbox_fund_activate_native sandbox_stage_begin_accepts_lifecycle"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the two accessor hunks in src/modules/programs/sandbox.c and the added test case, which restores outer-token-only lifecycle access."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
