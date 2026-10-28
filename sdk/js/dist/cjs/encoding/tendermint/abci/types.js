@@ -2,8 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registry = exports.ValidatorUpdate = exports.TxResult = exports.ExecTxResult = exports.EventAttribute = exports.Event = exports.ResponseFinalizeBlock = exports.ResponseCommit = exports.ResponseDeliverTx = exports.ResponseCheckTx = exports.ResponseQuery = exports.ResponseInfo = void 0;
 exports.aminoConverters = void 0;
-exports.checkTxTypeFromJSON = checkTxTypeFromJSON;
-exports.checkTxTypeToJSON = checkTxTypeToJSON;
 exports.misbehaviorTypeFromJSON = misbehaviorTypeFromJSON;
 exports.misbehaviorTypeToJSON = misbehaviorTypeToJSON;
 const wire_1 = require("@bufbuild/protobuf/wire");
@@ -1150,31 +1148,6 @@ exports.ValidatorUpdate = {
         return message;
     }
 };
-function checkTxTypeFromJSON(object) {
-    switch (object) {
-        case 0:
-        case "NEW":
-            return abci_1.CheckTxType.NEW;
-        case 1:
-        case "RECHECK":
-            return abci_1.CheckTxType.RECHECK;
-        case -1:
-        case "UNRECOGNIZED":
-        default:
-            return abci_1.CheckTxType.UNRECOGNIZED;
-    }
-}
-function checkTxTypeToJSON(object) {
-    switch (object) {
-        case abci_1.CheckTxType.NEW:
-            return "NEW";
-        case abci_1.CheckTxType.RECHECK:
-            return "RECHECK";
-        case abci_1.CheckTxType.UNRECOGNIZED:
-        default:
-            return "UNRECOGNIZED";
-    }
-}
 function misbehaviorTypeFromJSON(object) {
     switch (object) {
         case 0:
