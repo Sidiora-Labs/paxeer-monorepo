@@ -9179,3 +9179,28 @@ symbol = "symbols"
 observed = "Attempts 3 and 4 (38472f260) pass build and behaviour tests and fail cg spec done on symbol render-edge-trust.sh not defined in the graph; the same check fails 18.1058.1 (a test title) and would fail 18.900.1, 18.921.1, 18.922.1, 10.5.2 and 10.13.8."
 assumption = "Symbols are graph identifiers; file names and test titles removed from the seven tasks."
 severity = "minor"
+
+[finding.18.1136.1.1]
+task = "18.1136.1"
+file = "apps/bridge/vitest.config.ts:8"
+symbol = "defineConfig"
+observed = "Attempt 1 (d8e7bc915) raised the target, generated the route types and repaired most libraries, then exhausted its repairs on vitest.config.ts: the svgr and tsconfig-paths plugins are typed against a second vite copy whose Plugin type the vitest 4.0.15 vite rejects; bridge-card.tsx:210 and import.ts:87-91 also remain."
+assumption = "Dependency incoherence inside the app; do_4 and the two added touches let the next attempt align the vite versions and continue from the candidate."
+severity = "major"
+
+[finding.18.1135.1.1]
+task = "18.1135.1"
+file = "modules/lxphost/host.go:1127"
+symbol = "activityModules"
+observed = "Attempt 1 (279199654) added the programs module to every governance activity's set; the active-record continuity case passed, but TestResolutionExecuteEntry and a without-record case failed with LXP_ERR_VERSION_UNSUPPORTED because a fresh chain carries no programs state to load."
+assumption = "do_5 makes the full load conditional on the active record; the refusal and receipt fields stay as do_2 requires."
+severity = "major"
+
+[finding.18.849.1.3]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile.dockerignore:70"
+symbol = "x-websearch"
+observed = "Attempt 7 (4039a22e0) built the native stage and failed the full image at the x-websearch stage: cargo could not load workspace member services/interop/crates/layerx-committed-proof, which 70d213655 added to services/interop/Cargo.toml after the ignore file's interop re-includes were written; the attempt read do_5 as forbidding that repair."
+assumption = "do_5 now names the re-include; no other interop member is missing from the context."
+severity = "major"
+

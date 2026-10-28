@@ -54,7 +54,12 @@ function cardInputError(inputs: CardStateInputs): string | undefined {
   return undefined;
 }
 
-export function cardState(inputs: CardStateInputs) {
+export function cardState(inputs: CardStateInputs): {
+  inputError: string | undefined;
+  blockers: string[];
+  maxAmount: string | undefined;
+  ready: boolean;
+} {
   const { amount, asset, balance, direction, gasReserve } = inputs;
   const inputError = cardInputError(inputs);
   const blockers = routeBlockers(inputs);

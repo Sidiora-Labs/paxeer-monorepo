@@ -24,6 +24,7 @@ const creditedLive: TransferLive = {
   confirmations: 12,
   requiredConfirmations: 12,
   credited: true,
+  released: false,
   attestationReady: false,
   sourceFailed: false,
 };
@@ -47,7 +48,7 @@ function phaseOfSettlesADepositThePrecompileNullified(): void {
 
 function settlementPatchRecordsAChainObservedClaimOnce(): void {
   const now = 2000;
-  const patch = settlementPatch(deposit, creditedLive, now);
+  const patch: ReturnType<typeof settlementPatch> = settlementPatch(deposit, creditedLive, now);
   expect(patch).toEqual({ claimedAt: now });
   expect(deposit.claimedAt).toBeUndefined();
   expect(deposit.claimTxHash).toBeUndefined();

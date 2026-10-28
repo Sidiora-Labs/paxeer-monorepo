@@ -38,12 +38,22 @@ import {
 } from '@/lib/bridge/use-bridge-state';
 import { CircleAlertIcon, CircleCheckIcon, InfoIcon, ShieldCheckIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { isAddress } from 'viem';
+import { isAddress, type Address, type Hex } from 'viem';
 import { useAccount, useChainId, useConnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 
 import { AmountInput, AssetPicker, ReceivePreview, RoutePanel, SwapDirectionButton, type RouteOption } from './route-panels';
 
 type Direction = 'in' | 'out';
+
+type BridgeWriteRequest = (
+  | Exclude<ReturnType<typeof planDeposit>[number], { functionName: 'approve' }> |
+  {
+    abi: typeof layerxBridgeAbi;
+    address: Address;
+    functionName: 'bridgeOut';
+    args: readonly [bigint, Address, bigint, Address];
+  }
+) & { chainId: number };
 
 const ROUTE_HINT: Record<BridgeChain['state'], string> = {
   configured: 'Vault deployed',
@@ -194,11 +204,11 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
   }
   const ready = cardReady && blockers.length === 0;
 
-  const fire = (request: Parameters<typeof deposit.write.writeContract>[0], which: 'deposit' | 'withdraw') => {
+  const fire = (request: BridgeWriteRequest, which: 'deposit' | 'withdraw') => {
     if (!address) return;
     const w = which === 'deposit' ? deposit.write : withdraw.write;
-    w.writeContract(request, {
-      onSuccess: (hash) => {
+    const callbacks = {
+      onSuccess: (hash: Hex) => {
         const input = { hash, foreign, asset, account: address, amount: amountValue, requiredConfirmations: finality };
         saveTransfer(which === 'deposit' ?
           depositRecord({ ...input, vault: request.address, recipient: destination }) :
@@ -211,8 +221,19 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
         });
         onTransferSubmitted();
       },
-      onError: (error) => toast.error(which === 'deposit' ? 'Deposit failed' : 'Withdrawal failed', { description: describeWriteError(error) }),
-    });
+      onError: (error: unknown) => toast.error(which === 'deposit' ? 'Deposit failed' : 'Withdrawal failed', { description: describeWriteError(error) }),
+    };
+    switch (request.functionName) {
+      case 'depositNative':
+        w.writeContract(request, callbacks);
+        break;
+      case 'deposit':
+        w.writeContract(request, callbacks);
+        break;
+      case 'bridgeOut':
+        w.writeContract(request, callbacks);
+        break;
+    }
   };
 
   const submit = () => {
