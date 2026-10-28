@@ -173975,7 +173975,7 @@ qualification = "UNRUN"
 
 [task.18.814.1]
 title = "Issue #814: Keep a checkpoint's challenge window when the same checkpoint is resubmitted"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175238,7 +175238,7 @@ qualification = "UNRUN"
 
 [task.18.910.1]
 title = "Issue #910: Keep the route catalogue to gateway methods that are served"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176428,7 +176428,7 @@ qualification = "UNRUN"
 
 [task.18.955.1]
 title = "Issue #955: Align the explorer account page with the native unified account response that has no balance parts or activity side"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177092,7 +177092,7 @@ qualification = "UNRUN"
 
 [task.18.978.1]
 title = "Issue #978: Report the node's rung in wallet send responses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177969,7 +177969,7 @@ qualification = "UNRUN"
 
 [task.18.887.1]
 title = "Issue #887: Build the Programs runtime library with unwinding panics so FFI guards reject instead of aborting"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178695,7 +178695,7 @@ qualification = "UNRUN"
 
 [task.18.940.1]
 title = "Issue #940: Include nested abi/abi.json precompiles in the generated precompile reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
