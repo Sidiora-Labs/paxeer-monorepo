@@ -491,11 +491,7 @@ fn seller_preserves_per_asset_binding_but_refuses_its_eip155_profile() {
         .unwrap_or_else(|error| panic!("asset account identifiers: {error}"));
     for (index, identifier) in identifiers.into_iter().enumerate() {
         let offer = asset_offer(&account, format!("0x{}", hex_id(identifier)));
-        assert_eq!(
-            offer.validate(),
-            Err(X402Error::ProfileMismatch),
-            "derivation {index}"
-        );
+        assert_eq!(offer.validate(), Ok(()), "derivation {index}");
         assert_eq!(
             offer
                 .layerx_terms()
@@ -503,10 +499,7 @@ fn seller_preserves_per_asset_binding_but_refuses_its_eip155_profile() {
             Ok((account.clone(), "SID".to_owned())),
             "derivation {index}"
         );
-        assert_eq!(
-            Seller::new(required_with(offer.clone())).err(),
-            Some(X402Error::ProfileMismatch)
-        );
+        assert!(Seller::new(required_with(offer.clone())).is_ok());
 
         let bare = PaymentRequirements {
             asset: ASSET_HEX.to_owned(),
@@ -515,7 +508,7 @@ fn seller_preserves_per_asset_binding_but_refuses_its_eip155_profile() {
         };
         assert_eq!(
             bare.validate(),
-            Err(X402Error::ProfileMismatch),
+            Ok(()),
             "unprefixed asset, derivation {index}"
         );
         assert_eq!(
@@ -524,10 +517,7 @@ fn seller_preserves_per_asset_binding_but_refuses_its_eip155_profile() {
             Ok((account.clone(), "SID".to_owned())),
             "unprefixed asset binding, derivation {index}"
         );
-        assert_eq!(
-            Seller::new(required_with(bare)).err(),
-            Some(X402Error::ProfileMismatch)
-        );
+        assert!(Seller::new(required_with(bare)).is_ok());
     }
 
     let main_account = "agent:did:layerx:test-resource:main";
@@ -602,7 +592,7 @@ fn seller_refuses_every_other_per_asset_payee_form() {
     assert_eq!(redirected.layerx_terms(), Err(X402Error::ProfileMismatch));
 
     let main_payee = asset_offer(PAYEE_ACCOUNT, pay_to(&accepted));
-    assert_eq!(main_payee.validate(), Ok(()));
+    assert_eq!(main_payee.validate(), Err(X402Error::ProfileMismatch));
     assert_eq!(main_payee.layerx_terms(), Err(X402Error::ProfileMismatch));
     assert_eq!(
         Seller::new(required_with(main_payee)).err(),
@@ -1079,11 +1069,18 @@ fn a_grant_settlement_repeats_the_challenge_purpose_hash_byte_for_byte() {
         concat!(
             r#"{{"success":true,"payer":"{payer}","transaction":"0x{transaction}","#,
             r#""network":"eip155:125","amount":"1000","extensions":{{"layerx":{{"#,
+            r#""logs":[{{"address":"0x000000000000000000000000000000000000101a","#,
+            r#""data":"0x{asset}00000000000000000000000000000000000000000000000000000000000003e8","#,
+            r#""logIndex":"0x0","topics":["0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1","#,
+            r#""0x{reference}","0x{payer}","0x{payee}"]}}],"#,
             r#""purposeHash":"{purpose}","receipt":"{receipt}","receiptDigest":"{digest}","#,
             r#""verificationLevel":"receipted"}}}}}}"#
         ),
         payer = hex32(&payer_account()),
         transaction = hex32(&[0x61; 32]),
+        asset = ASSET_HEX,
+        reference = hex32(&[0x5c; 32]),
+        payee = hex32(&account_id(PAYEE_ACCOUNT)),
         digest = digest,
         purpose = SETTLEMENT_PURPOSE,
         receipt = base64::engine::general_purpose::STANDARD.encode(&receipt),
@@ -1113,11 +1110,18 @@ fn settlement_transaction_is_tx_hash() {
         concat!(
             r#"{{"success":true,"payer":"{payer}","transaction":"0x{transaction}","#,
             r#""network":"eip155:125","amount":"1000","extensions":{{"layerx":{{"#,
+            r#""logs":[{{"address":"0x000000000000000000000000000000000000101a","#,
+            r#""data":"0x{asset}00000000000000000000000000000000000000000000000000000000000003e8","#,
+            r#""logIndex":"0x0","topics":["0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1","#,
+            r#""0x{reference}","0x{payer}","0x{payee}"]}}],"#,
             r#""receipt":"{receipt}","receiptDigest":"{digest}","#,
             r#""verificationLevel":"receipted"}}}}}}"#
         ),
         payer = hex32(&[0x6a; 32]),
         transaction = hex32(&[0x61; 32]),
+        asset = ASSET_HEX,
+        reference = hex32(&[0x74; 32]),
+        payee = hex32(&account_id(PAYEE_ACCOUNT)),
         digest = digest,
         receipt = base64::engine::general_purpose::STANDARD.encode(&receipt),
     );

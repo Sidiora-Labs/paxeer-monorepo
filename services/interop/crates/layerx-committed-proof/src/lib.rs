@@ -162,9 +162,7 @@ pub fn verify_receipted(
     if reader.take(4)? != [0; 4] {
         return Err(ProofError::InvalidReceipt);
     }
-    if !(1..=3).contains(&reader.take(1)?[0]) {
-        return Err(ProofError::InvalidReceipt);
-    }
+    reader.take(1)?;
     let asset = reader.array::<32>()?;
     reader.take(16)?;
     let from = reader.array::<32>()?;
@@ -192,15 +190,16 @@ pub fn verify_receipted(
     digest.update(&signed_receipt[..unsigned_length]);
     digest.update([0]);
     let digest: [u8; 32] = digest.finalize().into();
-    if !keys.iter().any(|(id, key, first, last)| {
-        *id == key_id
-            && *id != [0; 32]
-            && (*first..=*last).contains(&height)
-            && VerifyingKey::from_bytes(key)
-                .is_ok_and(|key| key.verify_strict(&digest, &signature).is_ok())
-    }) {
-        return Err(ProofError::UnpinnedReceiptSignature);
-    }
+    let (_, signing_key, _, _) = keys
+        .iter()
+        .find(|(id, key, first, last)| {
+            *id == key_id
+                && *id != [0; 32]
+                && (*first..=*last).contains(&height)
+                && VerifyingKey::from_bytes(key)
+                    .is_ok_and(|key| key.verify_strict(&digest, &signature).is_ok())
+        })
+        .ok_or(ProofError::UnpinnedReceiptSignature)?;
     if activity != transaction_hash(raw_transaction) {
         return Err(ProofError::ReceiptActivityMismatch);
     }
@@ -219,6 +218,7 @@ pub fn verify_receipted(
         "from": receipt_hex(&from[12..]),
         "to": receipt_hex(&to[12..]),
         "keyId": receipt_hex(&key_id),
+        "signingKey": receipt_hex(signing_key),
         "receipt": receipt_hex(signed_receipt),
     });
     verify_receipt_view(

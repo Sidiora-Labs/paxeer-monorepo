@@ -10351,3 +10351,46 @@ detail = "18.997.1 added signingKey to the sequencer receipt conformance fixture
 title = "Retiring a signer on the KMS side leaves its service callers refusing at parse"
 detail = "10.11.5 made both KMS providers parse operation 11 as an EIP-1559 send authorization; Keystore::authorize_send, authorize_kernel_send and the send route's attestor branch still send a SendPlanAuthorization, so every kernel send is Kms(Refused) with no quorum code (#1169, 10.0.3 do_6). A task that changes what a KMS operation accepts must port or delete the service callers of that operation in its gate."
 
+[gotcha.2120]
+title = "A test target that includes tests/support cannot be gated alone while support is broken"
+detail = "18.1166.1 gated --test migration, which pulls tests/support/mod.rs and real_authority.rs; those failed on ports 18.1131.1 owns, and 18.1131.1 required 18.1166.1. Fold the file into the task that owns the support module instead of adding a task per test file."
+
+
+[gotcha.2121]
+title = "Reshaping an evidence struct must port every test fixture that builds it"
+detail = "10.13.1 removed authorized_batch and verification_level from ProtocolEvidence and AgentEvidence and gated two targets; eleven human-service test files kept the old fields and every pending human-service task started failing its build (#1172). Grep tests/ for the removed field names before publishing."
+
+
+[gotcha.2122]
+title = "A Tendermint transaction leaf is the Cosmos wrapper, never the raw EVM transaction"
+detail = "sdk/platform/go/committed.go hashed one inclusion transaction both as the EVM activity id and as the sha256 block leaf; no recording can satisfy both on a node whose blocks wrap MsgEthereumTx (#1171). Bind through the wrapper."
+
+
+[gotcha.2123]
+title = "A LayerX profile on an external network is a mismatch, not a valid offer"
+detail = "After keying is_layerx_network on eip155:125, the non-LayerX branch of validate accepted an eip155:8453 offer carrying a bound extra.layerx profile; the seller test expects ProfileMismatch there (18.1162.1 attempt 5)."
+
+[gotcha.2124]
+title = "A sandbox execute is admitted against the stored Active lease, not against the payload alone"
+detail = "The kernel's sandboxExecute refuses LXP_ERR_NON_CANONICAL without a site when the host's admit_host cannot decode an Active lease and escrow from sandbox state kinds 0 and 1 or the payload's expected_lease_digest and fee_destination differ from that lease (13.27.1 attempt 23). Drive the real sandboxFund and sandboxActivate handlers first and derive the execute payload from the activated lease; a NON_CANONICAL from the kernel is a contract mismatch, not a sequence problem."
+
+[gotcha.2125]
+title = "A KMS test fixture must outlive host.stop()/host.start()"
+detail = "layerx-human-kms provider tests restart the KMS mid-test; a fixture that starts the attestor cluster or writes config files inside host.start() or drops them with the first host leaves the restarted KMS refusing (status 1) or exiting at startup (18.1156.1 attempt 7). Start the cluster once per test and hand the restarted KMS the same file paths."
+
+[gotcha.2126]
+title = "A fixture-port task must own every test target its build compiles"
+detail = "cargo build --tests (and cargo test --no-run) compiles every test file of the crate, so a task that ports test fixtures after a type reshape fails at build on any test file outside its touches that still uses the old shape (18.1172.1 attempt 1: render.rs, journey_faults.rs). Grep the whole tests/ directory for the retired fields when writing the touches list."
+
+[gotcha.2127]
+title = "verify_receipted only verifies receipted-rung views"
+detail = "layerx-committed-proof's verify_receipted hardcodes rung receipted and no block fields in its expected view (src/lib.rs:210-223) and compares exactly (:376); a pax_sequencerReceipt view recorded after commitment (rung committed, blockNumber, blockHash) is refused with ReceiptViewMismatch. Use verify_committed (task 18.1176.1) with the verified header hash for such views."
+
+[gotcha.2128]
+title = "schema-check names only the first missing compatibility minor"
+detail = "check_compatibility (services/human/tools/schema-check/src/lib.rs:2398) emits one compatibility-row-missing violation for the first missing minor and a separate unrecorded-schema-version violation for the schema's own minor (:2409-2414); a test expecting one violation per missing minor contradicts task 10.16.3 and fails (18.987.1 attempts 1-5)."
+
+[gotcha.2129]
+title = "A grant with a skewed expiry is InvalidEvidence, never StepUpMismatch"
+detail = "validate_native_local_grant (services/human/crates/layerx-human-kms/src/attestor.rs:1912) binds expires_at_ms to the capability not-after and refuses before any digest exists, so a step-up mismatch fixture must mutate a field the validator admits but the signing bytes cover (owner_public_key, attestor.rs:1824); moving the expiry yields InvalidEvidence at signer.rs:976 (18.1110.1 attempt 5; task 18.1177.1)."
+
