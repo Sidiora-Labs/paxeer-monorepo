@@ -8560,3 +8560,74 @@ observed = "Attempt 6 passed its gate and failed ten graph checks because the ta
 assumption = "The symbol list is cleared; the task touches three documentation pages and its gate stays as written."
 severity = "minor"
 
+[finding.13.24.1.1]
+task = "13.24.1"
+file = "src/modules/programs/occupancy.c:318-319"
+symbol = "lxp_programs_occupancy_bind_call"
+observed = "Attempt 7 (method_call_test.go:245) expected LXP_NON_CANONICAL and received LXP_UNAUTHORIZED_DEBIT: call.c:2620-2622 binds occupancy before the Rust boundary and refuses a signed fee limit below the execution ceiling there."
+assumption = "The spec cited an unreachable refusal; req.13260 ac_2 and do_2 now name the occupancy admission."
+severity = "major"
+
+[finding.13.25.2.1]
+task = "13.25.2"
+file = "src/modules/programs/accounts.c:961-976"
+symbol = "lxp_programs_account_register"
+observed = "Attempt 8 (method_account_test.go:126) expected a revert on an identical second registerAccount and got none: the kernel answers LXP_OK with created=false for an identical binding; accounts.c:530 is lxp_programs_account_lookup."
+assumption = "The spec cited a lookup as a refusal; req.13264 ac_2 now states the idempotent success and the LXP_ERR_ASSET_MISMATCH refusal, and the duplicate test is renamed."
+severity = "major"
+
+[finding.18.944.1.1]
+task = "18.944.1"
+file = "node/upgrades_merge_gate_test.go:26"
+symbol = "TestMergePrecompileGate"
+observed = "Attempt 5 failed on 'VersionMap should not contain layerxagent': the NewTestWrapper app registers layerxagent (node/app.go:313) unconditionally, so do_1's precondition could never hold as read."
+assumption = "do_1 now arranges the map with SetModuleVersionMap as node/upgrades_test.go:240 does."
+severity = "major"
+
+[finding.5.55.5.3]
+task = "5.55.5"
+file = "node/sequencer/standby.go:325"
+symbol = "Replicator"
+observed = "Attempt 5 on a base containing a0615a88e (18.1074.1) and 0dc2d6d81 (5.55.6) still halts, at openAccount: 'standby refused the group: standby holds seq 5' (ErrStandbyRefused, epoch not above the primary's); the recorder output does not say which Standby.receive branch refused."
+assumption = "Progress from seq 1 to seq 5 shows the adoption fix landed; the remaining refusal is a node defect filed as issue #1109, task 18.1109.1, which 5.55.5 now requires."
+severity = "blocker"
+
+[finding.18.875.1.1]
+task = "18.875.1"
+file = "services/explorer/backend/apps/explorer/priv/repo/migrations"
+symbol = "price_feed_tables"
+observed = "Attempt 5 verify failed with DBConnection.EncodeError: the migration binds the 70-character default index name paxeer_x_price_updates_feeder_hash_block_number_DESC_index_DESC_index to a text::name parameter and Postgres names hold at most 63 bytes."
+assumption = "Attempt 4's selection by i.indexrelid::regclass::text with NOT i.indisvalid passed; the next attempt returns to it or names the index explicitly under 63 bytes."
+severity = "minor"
+
+[finding.18.1065.1.3]
+task = "18.1065.1"
+file = "services/wallet/gateway/src/provision/state.ts:345-350"
+symbol = "createEvmKey"
+observed = "Attempt 8 set the four WALLET_* variables and provisioning then answered 503 custody_inventory_pending: requireInventoryKey(keyId, 'generate', owner) found no inventory entry for wallet:<userId>:standard:secp256k1:0."
+assumption = "The e2e inventory must admit generation per key id and republish the generated public key with 'sign'; do_6 states both."
+severity = "major"
+
+[finding.18.911.1.5]
+task = "18.911.1"
+file = "tools/qualification/paxeer-x/program_market_attestation.py:276-285"
+symbol = "evidence_directory"
+observed = "Attempt 9 built both stages but the attestation run exited 1 with 'PAXEER_X_EVIDENCE_DIR is required': the driver needs a caller-owned 0700 directory outside the checkout and the gate supplied none."
+assumption = "The verify_cmd now provides mktemp -d; the driver's requirement stands."
+severity = "minor"
+
+[finding.11.1.4.3]
+task = "11.1.4"
+file = "services/interop/crates/layerx-migrate/src/lib.rs:1020"
+symbol = "MigrationPlaneResult"
+observed = "Attempt 5 failed the dependents build on the same orphaned settle_with_receipt call as finding.11.1.4.2; no other task touches layerx-migrate."
+assumption = "11.1.4 ports the migrate completion to settle_with_sequencer_evidence (do_5) since it retires the method the caller uses."
+severity = "major"
+
+[finding.18.837.1.1]
+task = "18.837.1"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller_test.exs"
+symbol = "capabilities_controller_test"
+observed = "Attempt 2 (7a80bddbb) passed its gate but could not be merged: the base's copy of capabilities_controller_test.exs changed after the attempt branched and both sides edit it."
+assumption = "The candidate continues on the current base keeping the base's tests and this task's two tests."
+severity = "minor"
