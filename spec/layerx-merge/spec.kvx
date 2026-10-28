@@ -174319,7 +174319,7 @@ qualification = "UNRUN"
 
 [task.18.989.1]
 title = "Issue #989: Restore the overwritten earlier GOTCHA entries and append their replacements"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175967,7 +175967,7 @@ qualification = "UNRUN"
 
 [task.18.975.1]
 title = "Issue #975: Pin the teardown carry-forward test to an explicit small sweep limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176471,7 +176471,7 @@ qualification = "UNRUN"
 
 [task.18.977.1]
 title = "Issue #977: Seed the linked offer and resolve as the arbiter in the service runtime reader test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
