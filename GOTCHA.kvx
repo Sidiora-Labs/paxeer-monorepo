@@ -10382,3 +10382,7 @@ detail = "layerx-human-kms provider tests restart the KMS mid-test; a fixture th
 title = "A fixture-port task must own every test target its build compiles"
 detail = "cargo build --tests (and cargo test --no-run) compiles every test file of the crate, so a task that ports test fixtures after a type reshape fails at build on any test file outside its touches that still uses the old shape (18.1172.1 attempt 1: render.rs, journey_faults.rs). Grep the whole tests/ directory for the retired fields when writing the touches list."
 
+[gotcha.2127]
+title = "verify_receipted only verifies receipted-rung views"
+detail = "layerx-committed-proof's verify_receipted hardcodes rung receipted and no block fields in its expected view (src/lib.rs:210-223) and compares exactly (:376); a pax_sequencerReceipt view recorded after commitment (rung committed, blockNumber, blockHash) is refused with ReceiptViewMismatch. Use verify_committed (task 18.1176.1) with the verified header hash for such views."
+

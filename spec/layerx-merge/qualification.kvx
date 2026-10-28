@@ -9811,3 +9811,11 @@ symbol = "VerifiedBudgetAfter"
 observed = "Attempt 1 (821190a1a) ported the eleven listed test files; cargo build --tests then failed in tests/render.rs (level field on VerifiedBudgetAfter, now rung) and tests/journey_faults.rs:629 (ReceiptMaterial missing tx_hash, receipt_hash, block_height, rung), files outside the task's touches."
 assumption = "Step 4 extends the task to every test target the crate build compiles; move_money.rs carries the same ReceiptMaterial literals, and seven more files still name the retired fields."
 severity = "major"
+
+[finding.11.14.3.3]
+task = "11.14.3"
+file = "services/interop/crates/layerx-committed-proof/src/lib.rs:210"
+symbol = "verify_receipted"
+observed = "Attempt 5 (1f0a0d60b) built, and verify failed at committed_vectors.rs:322 with ReceiptViewMismatch: the recorded view carries blockHash, blockNumber and rung committed, the expected view of lib.rs:210-223 carries rung receipted and no block fields; signingKey matches after 18.1167.1."
+assumption = "The node's view is canonical; task 18.1176.1 (issue #1176) adds verify_committed for the committed rung and this task now requires it."
+severity = "major"
