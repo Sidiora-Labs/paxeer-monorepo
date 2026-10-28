@@ -172341,7 +172341,7 @@ qualification = "UNRUN"
 
 [task.18.778.1]
 title = "Issue #778: Record the reviewed golangci-lint checksum so paxeer-lint and paxeer-ci can install their linter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173474,7 +173474,7 @@ qualification = "UNRUN"
 
 [task.18.800.1]
 title = "Issue #800: Refuse wallet agent-precompile calls until the configured chain serves code at the address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175100,7 +175100,7 @@ qualification = "UNRUN"
 
 [task.18.803.1]
 title = "Issue #803: Gate every known asset-moving selector by the agent withdrawal allowlist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175324,7 +175324,7 @@ qualification = "UNRUN"
 
 [task.18.947.1]
 title = "Issue #947: Refuse an unlisted EIP-7702 delegate at sign-digest before signing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175494,7 +175494,7 @@ qualification = "UNRUN"
 
 [task.18.768.1]
 title = "Issue #768: Return unclaimed airdrop epoch funds to the pool after a claim window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176192,7 +176192,7 @@ qualification = "UNRUN"
 
 [task.18.805.1]
 title = "Issue #805: Classify a nonce-too-low broadcast from every member's transaction count"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177831,7 +177831,7 @@ qualification = "UNRUN"
 
 [task.18.808.1]
 title = "Issue #808: Answer an unknown owner fund or sweep broadcast with the poll-receipt outcome"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178184,7 +178184,7 @@ qualification = "UNRUN"
 
 [task.18.1035.1]
 title = "Issue #1035: Build the shared-vector payment gate from the migrated receipt-key fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178418,7 +178418,7 @@ qualification = "UNRUN"
 
 [task.18.809.1]
 title = "Issue #809: Reserve a client-chosen nonce on /v1/wallet/send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
