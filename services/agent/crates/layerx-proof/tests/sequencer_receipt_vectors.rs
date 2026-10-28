@@ -266,6 +266,12 @@ fn go_signed_positive_and_revert_receipts_verify_with_identical_fields() {
         let receipt = verified(case).unwrap_or_else(|failure| panic!("{}: {failure:?}", id(case)));
         assert_eq!(text(case, "expected.rung"), "receipted");
         assert_eq!(text(case, "expected.verifier"), "accepts");
+        assert_eq!(
+            array::<32>(case, "receiptJson.signingKey"),
+            array::<32>(case, "pinnedKey.publicKey"),
+            "{}: receiptJson.signingKey must match pinnedKey.publicKey",
+            id(case)
+        );
         assert_eq!(hex(case, "receiptJson.receipt"), signed, "{}", id(case));
         assert_eq!(
             encode(&receipt).unwrap_or_else(|error| panic!("{error:?}")),

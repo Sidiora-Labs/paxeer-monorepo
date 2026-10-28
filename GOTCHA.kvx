@@ -9802,3 +9802,99 @@ area = "search-front bring-up test"
 symptom = "search-front.test.sh fails config_exit with JSONDecodeError on empty output, config_matches_template and config_refuses_unset."
 cause = "Since 288a967c2 the x-websearch config example renders receipt_keys and payment.payer_address from X_WEBSEARCH_RECEIPT_KEY_ID, X_WEBSEARCH_RECEIPT_PUBLIC_KEY and X_WEBSEARCH_PAYER_ADDRESS and has no note key; fixture_env predates both."
 do = "Set the three variables in fixture_env and assert only that the rendered config has no note key (18.1070.1)."
+
+[gotcha.2016]
+area = "spec acceptance contracts"
+symptom = "An acceptance cites a contract anchor that does not exist (contracts/sequencer.md#receipt-key-pin-and-rotation) or a section unrelated to the task (contracts/agent-ts-sdk.md#history for a Rust receipt-vector proof)."
+cause = "Contract strings were copied from a sibling acceptance of the same owner instead of the section heading; sequencer.md anchors the section as <a id='receipt-key-pin'>."
+do = "Resolve the anchor against the contract file (<a id> or heading) before writing it and cite the section that defines the behaviour under test (18.997.1, 18.1088.1)."
+
+[gotcha.2017]
+area = "bring-up test harness"
+symptom = "tools/bringup/check-live.test.sh reports no stand-in case after check_live_kernel_app_volumeless and prints a kernel-readiness evidence line with exit_code 1."
+cause = "The real kernel-node stage at :1471 needs root, unshare and the PAXEER_X_RUNTIME_* artifact variables and exits the harness when they are absent, so the cases after :1520 never run (#1100)."
+do = "Run the harness where the kernel artifacts exist, or move the stage after the stand-in cases (18.776.1 do_5); never give the readiness script a fallback."
+
+[gotcha.2018]
+area = "explorer test wrapper"
+symptom = "mix-in-builder.sh test with paths from two umbrella apps fails 'Background migrations failed' (DBConnection.OwnershipError) in the second app's test helper."
+cause = "One sidecar database serves one mix test run; the second app's test helper re-runs the background migrations against the already-migrated database (#1098)."
+do = "Run the wrapper once per app until 18.1098.1 lands; never put paths of two apps in one invocation."
+
+[gotcha.2019]
+area = "paxeer-x attestation gate"
+symptom = "program_market_attestation.py --begin-build exits 'producer source closure is dirty or contains untracked inputs' although git status shows only the task's own edits."
+cause = "source_identity() (:147) runs git status over SOURCE_PATHS and treats any modified tracked file, including the implementation under qualification, as a dirty closure."
+do = "Commit the implementation so HEAD carries it before running the attestation build or verify; the gate accepts only a clean tree at HEAD."
+
+[gotcha.2020]
+area = "cg spec done symbol resolution"
+symptom = "cg spec done reports a declared symbol as 'not defined in the graph' although the identifier exists: a type reached through a use alias, a nested module path, or an Elixir module function."
+cause = "The resolver before hyperfide 4f3a3094b matched only bare top-level identifiers; aliases, nested paths and Elixir modules were never looked up."
+do = "Use cg built from hyperfide 4f3a3094b or later (branch cg/spec-symbol-resolver-2026-10-28); keep task symbols as code identifiers (GOTCHA 1998) and re-run the done gate on the unchanged candidate."
+
+[gotcha.2021]
+area = "docker build context"
+symptom = "make programs-release-build inside docker/paxeer/Dockerfile.paxd-node or docker/layerx/Dockerfile fails 'failed to calculate checksum of: /src/programs/vendor/ed25519-dalek-2.2.0/tests/examples/pubkey.der'."
+cause = "Both ignore files re-exclude programs/vendor/**/*.der after re-including programs/vendor/**, which drops the vendored crate's public test vectors that its .cargo-checksum.json lists; cargo --locked refuses the vendored source."
+do = "Re-include exactly those fixture files (programs/vendor/ed25519-dalek-*/tests/examples/*.der) after the key-material rule; never edit a vendored .cargo-checksum.json and never widen the re-include beyond the fixtures (18.849.1, 18.869.1)."
+
+[gotcha.2022]
+area = "wallet gateway e2e environment"
+symptom = "gateway.e2e.test.ts dies in startPostgres with '[env] Invalid environment configuration' naming WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE, WALLET_IDENTITY_BINDING_TENANT, WALLET_CUSTODY_INVENTORY_FILE and WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE."
+cause = "src/env.ts:258-261 requires the four wallet identity and custody inventory inputs whenever ATTESTOR_ENDPOINTS is set (since 281e812be); the e2e harness sets the attestor endpoints but not them."
+do = "Set the four variables from the attestor harness before any import of src/env.ts, with the tenant equal to the attestors' ATTESTOR_AUTHORITY_TENANT and the inventory JWT tenant (18.1065.1)."
+
+[gotcha.2023]
+area = "paxeer-x qualification drivers"
+symptom = "program_market_attestation.py --build reports BUILD_RESULT native 1 with 'layerx/programs.h: No such file or directory'."
+cause = "The driver defaults --cppflags to the empty string, so the native test compiles with a bare cc; every tests/programs file includes 'layerx/...' relative to include/."
+do = "Pass or default --cppflags -Iinclude (arbiter_prestate.py:355 does); do not rewrite the includes in the test (18.911.1, issue #1105)."
+
+[gotcha.2024]
+area = "shell test harness stand-in processes"
+symptom = "A harness that copies sleep under a daemon name reports process=none; stderr shows 'coreutils: unknown program <name>'."
+cause = "Where coreutils is a multicall binary (uutils, busybox) the copy dispatches on its own file name and refuses to run."
+do = "Copy a standalone interpreter (command -v bash) under the daemon name and start it with -c 'sleep N' and no exec; /proc/<pid>/exe and environ then still belong to the named copy (check-live.test.sh, 18.776.1)."
+
+[gotcha.2025]
+area = "explorer read-only archive schemas"
+symptom = "Explorer tests fail with 'function Explorer.Chain.PaxeerX.Anchor.changeset/2 is undefined or private' (same for Receipt)."
+cause = "b14589838 made Anchor and Receipt read-only archive records without changesets; archive_readonly_test.exs guards that."
+do = "Seed rows in tests with Ecto.Changeset.cast(%Anchor{}, attrs, Map.keys(attrs)) |> Repo.insert!() or through the import runner; never add the changeset back (18.1010.1, 18.1006.1, 18.1104.1)."
+
+[gotcha.2026]
+area = "explorer migrations"
+symptom = "Postgrex raises DBConnection.EncodeError when a migration binds a generated index name as a name parameter."
+cause = "Postgres identifiers hold 63 bytes; Ecto's default index name for several columns with directions exceeds that and the name type refuses it."
+do = "Select indexes by i.indexrelid::regclass::text (and NOT i.indisvalid) or name the index explicitly under 63 bytes (18.875.1)."
+
+[gotcha.2027]
+area = "programs precompile call fee"
+symptom = "A call with a fee limit below the fee reverts LXP_UNAUTHORIZED_DEBIT, not LXP_NON_CANONICAL."
+cause = "Under occupancy protocol versions call.c:2620-2622 runs lxp_programs_occupancy_bind_call, which refuses at occupancy.c:318-319 before the call runtime's check at ffi_call.rs:2909-2910."
+do = "Expect LXP_ERR_UNAUTHORIZED_DEBIT for the occupancy path; the NON_CANONICAL check is reached only with occupancy off (13.24.1)."
+
+[gotcha.2028]
+area = "programs account register"
+symptom = "A second identical registerAccount does not revert."
+cause = "lxp_programs_account_register answers LXP_OK with created=false for an identical binding (accounts.c:961-976); another asset under the same seed is LXP_ERR_ASSET_MISMATCH."
+do = "Test the idempotent read-back and the asset-mismatch refusal; accounts.c:530 is a lookup and refuses nothing (13.25.2)."
+
+[gotcha.2029]
+area = "paxeer-x qualification drivers"
+symptom = "program_market_attestation.py exits 1 with 'PAXEER_X_EVIDENCE_DIR is required' after both build stages pass."
+cause = "The attestation run writes under a caller-owned 0700 directory that must lie outside the checkout (evidence_directory at :276-285); the build modes do not need it."
+do = "Prefix the run with d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d (18.911.1)."
+
+[gotcha.2030]
+area = "wallet gateway custody inventory"
+symptom = "Provisioning answers 503 custody_inventory_pending although every WALLET_* variable is set."
+cause = "requireInventoryKey(keyId, 'generate', owner) needs an inventory entry for wallet:<userId>:standard:secp256k1:0 with public_key '', epoch 0 and operations ['generate']; review and sign later need the entry republished with the generated public key and 'sign', at a higher sequence."
+do = "Have the test write the generation admission before provisioning and republish the key after it (18.1065.1)."
+
+[gotcha.2031]
+area = "node merge gate tests"
+symptom = "A test cannot require the NewTestWrapper app's version map to lack layerxagent."
+cause = "node/app.go:313 registers layerxagent in every test app."
+do = "Rewrite the map with a.UpgradeKeeper.SetModuleVersionMap before the assertions, as node/upgrades_test.go:240 does (18.944.1)."

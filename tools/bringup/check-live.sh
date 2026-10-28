@@ -3712,13 +3712,13 @@ print(len(ms), len(started), len(mounts))
 # location answers a POSTed status and refuses a GET, and the indexer's start
 # block is the node's first retained block; the Paxeer backfill cursor sits at
 # the cutover the init kept and the live cursor at or past it; and through
-# the router px_getUnifiedHistory, lx_getHistory and px_getHistory answer
-# items for CHECK_LIVE_INDEXER_ACCOUNT, a 0x EVM address with history on both
-# sides. One line per check.
+# the router px_getUnifiedHistory and px_getHistory answer items for
+# CHECK_LIVE_INDEXER_ACCOUNT, a 0x EVM address with indexed history.
+# One line per check.
 check_indexer() {
 	local router_url=https://api-mainnet-beta.paxeer.network/rpc relay_url=https://archive.paxeer.network
 	local account="${CHECK_LIVE_INDEXER_ACCOUNT:-}" app answer n_machines n_started n_data unit w reply line side want url pin host
-	local subject status code earliest start cutover backfilled live listen method params layerx="" failures=0
+	local subject status code earliest start cutover backfilled live listen method params failures=0
 	local script
 	if ! [[ "$account" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
 		echo "check-live: CHECK_LIVE_INDEXER_ACCOUNT must be a 0x EVM address with indexed history" >&2
@@ -3877,14 +3877,8 @@ print(value if value.isdigit() else "")
 		failures=$((failures + 1))
 	fi
 
-	for method in px_getUnifiedHistory lx_getHistory px_getHistory; do
+	for method in px_getUnifiedHistory px_getHistory; do
 		params="[\"$account\"]"
-		[ "$method" != lx_getHistory ] || params="[\"$layerx\"]"
-		if [ "$method" = lx_getHistory ] && [ -z "$layerx" ]; then
-			echo "fail history method=$method account=none via=px_getUnifiedHistory"
-			failures=$((failures + 1))
-			continue
-		fi
 		code="$(curl -sS -m "$timeout" -o "$w/history.json" -w '%{http_code}' -H 'content-type: application/json' \
 			--data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" "$router_url" 2>/dev/null)" || code=none
 		read -r answer line <<<"$(python3 -c '
@@ -3895,17 +3889,13 @@ if not isinstance(result, dict):
     error = doc.get("error") or {}
     print("error", ((error.get("data") or {}).get("code") or error.get("message") or "no-result").replace(" ", "-"))
     sys.exit(0)
-sides = [a.get("account") for a in result.get("accounts") or [] if a.get("side") == "layerx"]
-print(len(result.get("items") or []), sides[0] if sides else "-")
+print(len(result.get("items") or []))
 ' "$w/history.json" 2>/dev/null)"
 		if [ "$code" = 200 ] && [[ "${answer:-}" =~ ^[0-9]+$ ]] && [ "$answer" -gt 0 ]; then
 			echo "pass history method=$method account=${params:2:-2} items=$answer"
 		else
 			echo "fail history method=$method account=${params:2:-2} http=$code answer=${answer:-none}${line:+ $line}"
 			failures=$((failures + 1))
-		fi
-		if [ "$method" = px_getUnifiedHistory ] && [[ "${answer:-}" =~ ^[0-9]+$ ]] && [ "${line:--}" != - ]; then
-			layerx="$line"
 		fi
 	done
 	finish "$failures"

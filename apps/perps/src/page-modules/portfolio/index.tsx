@@ -53,6 +53,7 @@ export function overviewDailyPnlProps(result: ReturnType<typeof useDailyPnl>) {
     dailyPnlLoading: result.isLoading,
     dailyPnlError: result.error,
     dailyPnlSkippedDays: result.skippedDays,
+    dailyPnlHistoryCapped: result.historyCapped,
   };
 }
 
