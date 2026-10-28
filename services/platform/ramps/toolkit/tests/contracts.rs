@@ -879,8 +879,9 @@ fn replaying_the_journal_reproduces_identical_projection() {
     let (mut journal, digest) = seeded_journal(&path);
     assert_eq!(settle_callback(&mut journal, digest), Ok(true));
     let mut layerx = TransitionEvidence::empty();
-    layerx.activity_id = Some([4; 32]);
-    layerx.canonical_activity = Some(vec![1, 2, 3]);
+    layerx.tx_hash = Some([4; 32]);
+    layerx.raw_transaction = Some(vec![1, 2, 3]);
+    layerx.rung = Some(Rung::Submitted);
     layerx.retry_at = Some(1_100);
     journal
         .transition(
