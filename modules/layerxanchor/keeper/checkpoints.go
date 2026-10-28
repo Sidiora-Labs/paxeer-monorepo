@@ -149,6 +149,11 @@ func (k Keeper) SubmitCheckpoint(ctx sdk.Context, submitter sdk.AccAddress, head
 		Status: types.CheckpointSubmitted, DeclaredThreshold: certificate.Threshold,
 		Submitter: submitter.String(), SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
 	}
+	if exists && existing.CheckpointID == types.Hash32(checkpointID) {
+		checkpoint.Submitter = existing.Submitter
+		checkpoint.SubmittedHeight = existing.SubmittedHeight
+		checkpoint.SubmittedTime = existing.SubmittedTime
+	}
 	for _, attestation := range certificate.Attestations {
 		checkpoint.Guarantors = append(checkpoint.Guarantors, attestation.GuarantorID)
 		k.set(ctx, types.AvailabilityKey(h.BatchNumber, attestation.GuarantorID), types.AvailabilityAttestation{
