@@ -23,8 +23,9 @@ type WithdrawalEvidence struct {
 }
 
 // ExitEvidence is a forced-exit request: a native state witness proving the
-// account under the latest finalized state root, and the account authority's
-// signature naming the Paxeer recipient.
+// account against the latest finalized batch until the first forced exit is
+// queued, and against that exit checkpoint batch afterwards, plus the account
+// authority's signature naming the Paxeer recipient.
 type ExitEvidence struct {
 	Witness            []byte
 	BatchNumber        uint64

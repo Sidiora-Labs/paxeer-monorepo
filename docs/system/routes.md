@@ -25,10 +25,10 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 | human-kms | Policy-bound custody authority, export and recovery | private | /v1/routes/human-kms | gateway-api-key |
 | human-web | Public native program evidence verification page and API | product | /v1/routes/human-web | gateway-api-key |
 | identity | Principal, tenant and session resolution | private | /v1/routes/identity | gateway-api-key |
-| indexer | Canonical receipts, history and rollback-safe projections | product | /v1/routes/indexer | gateway-api-key |
+| indexer | Canonical receipts, px_getHistory history reads and rollback-safe projections | product | /v1/routes/indexer | gateway-api-key |
 | internal-services | Private KMS, approvals, journeys and receipt event sources | private | /v1/routes/internal-services | gateway-api-key |
 | interop | x402, AP2, UCP, Visa TAP, HTTP, MCP, A2A and fiat adapters | product | /v1/routes/interop | gateway-api-key |
-| kernel | Sequencer, native module execution, batches and durable kernel state | product | /v1/routes/kernel | gateway-api-key |
+| kernel | Sequencer, native module execution, batches, durable kernel state and px_register identity registration | product | /v1/routes/kernel | gateway-api-key |
 | markets | Native asset markets, spot/perps, exchange and launchpad | product | /v1/routes/markets | gateway-api-key |
 | mcp-a2a | MCP/A2A tool catalogue and client transport | product | /v1/routes/mcp-a2a | gateway-api-key |
 | mirror | Verified Ethereum and Solana mirror publication | product | /v1/routes/mirror | gateway-api-key |

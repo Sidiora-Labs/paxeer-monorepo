@@ -1,3 +1,6 @@
+#[cfg(not(any(test, panic = "unwind")))]
+compile_error!("Programs host-ffi requires panic = \"unwind\" so FFI guards can catch panics");
+
 use layerx_programs_runtime::{
     hash_bytes, reserve_host_sandbox_escrow_charge, settle_reserved_host_sandbox_escrow_charge,
     ActivityBudgetBinding, HashAlgorithm, MeteredUsage, ProgramId, ReservedSandboxEscrowCharge,
@@ -12,6 +15,10 @@ use crate::{
 
 const OK: i32 = 0;
 const NON_CANONICAL: i32 = -3;
+
+fn guarded<T>(f: impl FnOnce() -> Result<T, i32> + std::panic::UnwindSafe) -> Result<T, i32> {
+    std::panic::catch_unwind(f).unwrap_or(Err(NON_CANONICAL))
+}
 
 struct HostSettlementReservation {
     token: u64,
@@ -224,7 +231,7 @@ pub extern "C" fn layerx_programs_sandbox_destroy_host(
     expected_sequence: u64,
     boundary: u64,
 ) -> i32 {
-    std::panic::catch_unwind(|| {
+    guarded(|| {
         if lease_id.is_null() || expected_root.is_null() || activity_id.is_null() {
             return Err(NON_CANONICAL);
         }
@@ -238,8 +245,6 @@ pub extern "C" fn layerx_programs_sandbox_destroy_host(
         }
         destroy_host(token, id, root, activity, expected_sequence, boundary)
     })
-    .ok()
-    .and_then(Result::ok)
     .map_or(NON_CANONICAL, |()| OK)
 }
 
@@ -468,7 +473,7 @@ pub extern "C" fn layerx_programs_sandbox_admit_host(
     maximum_fee_hi: u64,
     maximum_fee_lo: u64,
 ) -> i32 {
-    admit_host(token, observed_batch, maximum_fee_hi, maximum_fee_lo)
+    guarded(|| admit_host(token, observed_batch, maximum_fee_hi, maximum_fee_lo))
         .map_or_else(|error| error, |()| OK)
 }
 
@@ -604,7 +609,7 @@ pub extern "C" fn layerx_programs_sandbox_final_reserve_host(
     output_bytes: u64,
     final_namespace_bytes: u64,
 ) -> i32 {
-    std::panic::catch_unwind(|| {
+    guarded(|| {
         HOST_SETTLEMENT_RESERVATION.with(|slot| {
             let slot = slot.borrow();
             let reservation = slot.as_ref().ok_or(NON_CANONICAL)?;
@@ -651,8 +656,6 @@ pub extern "C" fn layerx_programs_sandbox_final_reserve_host(
             Ok(())
         })
     })
-    .ok()
-    .and_then(Result::ok)
     .map_or(NON_CANONICAL, |()| OK)
 }
 
@@ -1002,7 +1005,7 @@ pub extern "C" fn layerx_programs_sandbox_settle_call_rust(
     output_bytes: u64,
     final_namespace_bytes: u64,
 ) -> i32 {
-    std::panic::catch_unwind(|| {
+    guarded(|| {
         settle_call(
             token,
             outcome,
@@ -1018,8 +1021,6 @@ pub extern "C" fn layerx_programs_sandbox_settle_call_rust(
             final_namespace_bytes,
         )
     })
-    .ok()
-    .and_then(Result::ok)
     .map_or(NON_CANONICAL, |()| OK)
 }
 
@@ -1124,15 +1125,21 @@ fn validate_lifecycle(token: u64, operation: u8) -> Result<(), i32> {
 
 #[no_mangle]
 pub extern "C" fn layerx_programs_sandbox_lifecycle_validate(token: u64, operation: u8) -> i32 {
-    std::panic::catch_unwind(|| validate_lifecycle(token, operation))
-        .ok()
-        .and_then(Result::ok)
-        .map_or(NON_CANONICAL, |()| OK)
+    guarded(|| validate_lifecycle(token, operation)).map_or(NON_CANONICAL, |()| OK)
 }
 
 #[cfg(test)]
 mod admission_cases {
-    use super::{admitted_charge, postexecution_reserve_fits};
+    use super::{admitted_charge, guarded, postexecution_reserve_fits, NON_CANONICAL};
+
+    #[test]
+    fn guarded_maps_a_panic_to_non_canonical() {
+        assert_eq!(
+            guarded(|| -> Result<(), i32> { panic!("decode") }),
+            Err(NON_CANONICAL)
+        );
+        assert_eq!(guarded(|| Ok(7)), Ok(7));
+    }
 
     #[test]
     fn admission_reserves_occupancy_through_expiry_and_full_execution() {
