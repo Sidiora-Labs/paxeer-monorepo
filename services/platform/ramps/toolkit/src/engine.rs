@@ -1,9 +1,10 @@
 use layerx_paxeer_client::{FinalityReport, FinalityTracker, TransactionHash};
-use layerx_types::payload::ModuleRegistry;
+use layerx_types::{payload::ModuleRegistry, rung::Rung};
 
 use crate::clients::{
     callback_evidence_digest, ComplianceClient, ComplianceOutcome, LayerxClient, LayerxSubmission,
-    PaxeerCustodyClient, ProviderCallback, ProviderClient, ProviderResult, ProviderState,
+    PaxeerCustodyClient, PreparedLayerx, ProviderCallback, ProviderClient, ProviderResult,
+    ProviderState,
 };
 use crate::journal::{
     Journal, OrderSnapshot, PaxeerObservation, ProviderCallbackWrite, TransitionEvidence,
@@ -196,12 +197,23 @@ impl RampEngine<'_> {
         let prepared = self
             .layerx
             .prepare_payment(&order, account_sequence, now, self.registry)?;
+        self.submit_payment(&order, expected, prepared, now)
+    }
+
+    fn submit_payment(
+        &mut self,
+        order: &RampOrder,
+        expected: WorkflowStage,
+        prepared: PreparedLayerx,
+        now: u64,
+    ) -> Result<(), RampError> {
         let mut planned = TransitionEvidence::empty();
-        planned.activity_id = Some(prepared.activity_id());
-        planned.canonical_activity = Some(prepared.canonical_activity().to_vec());
+        planned.tx_hash = Some(prepared.tx_hash());
+        planned.raw_transaction = Some(prepared.raw_transaction().to_vec());
+        planned.rung = Some(Rung::Submitted);
         planned.retry_at = Some(now.saturating_add(self.lease_seconds));
         self.journal.transition(
-            order_digest,
+            order.order_digest,
             expected,
             WorkflowStage::LayerxSubmissionPlanned,
             planned,
@@ -209,9 +221,9 @@ impl RampEngine<'_> {
             now,
         )?;
         self.apply_layerx_result(
-            &order,
+            order,
             WorkflowStage::LayerxSubmissionPlanned,
-            self.layerx.submit_prepared(&order, prepared),
+            self.layerx.submit_prepared(order, prepared),
             now,
         )
     }
@@ -231,8 +243,15 @@ impl RampEngine<'_> {
         ) {
             return Err(RampError::IllegalTransition);
         }
-        let activity = snapshot.evidence.activity_id.ok_or(RampError::Layerx)?;
-        let result = self.layerx.resolve(&snapshot.order, activity)?;
+        let tx_hash = snapshot.evidence.tx_hash.ok_or(RampError::Layerx)?;
+        let (mut result, _, committed) = self
+            .layerx
+            .resolve_with_evidence(&snapshot.order, tx_hash)?;
+        if committed {
+            if let LayerxSubmission::Verified { leg, .. } = &mut result {
+                leg.rung = Rung::Committed;
+            }
+        }
         self.apply_layerx_result(&snapshot.order, snapshot.stage, result, now)
     }
 
@@ -262,47 +281,34 @@ impl RampEngine<'_> {
         result: LayerxSubmission,
         now: u64,
     ) -> Result<(), RampError> {
-        let (next, evidence) = match result {
-            LayerxSubmission::Unknown {
-                activity_id,
-                canonical_activity,
-            } => {
-                let mut evidence = TransitionEvidence::empty();
-                evidence.activity_id = Some(activity_id);
-                evidence.canonical_activity = canonical_activity;
+        let mut evidence = TransitionEvidence::empty();
+        evidence.tx_hash = Some(result.tx_hash());
+        evidence.raw_transaction = result.raw_transaction().map(<[u8]>::to_vec);
+        let next = match result {
+            LayerxSubmission::Unknown { .. } => {
+                evidence.rung = Some(Rung::Submitted);
                 evidence.retry_at = Some(now.saturating_add(self.lease_seconds));
-                (WorkflowStage::LayerxSubmittedUnknown, evidence)
+                WorkflowStage::LayerxSubmittedUnknown
             }
-            LayerxSubmission::Pending {
-                activity_id,
-                canonical_activity,
-            } => {
-                let mut evidence = TransitionEvidence::empty();
-                evidence.activity_id = Some(activity_id);
-                evidence.canonical_activity = canonical_activity;
+            LayerxSubmission::Pending { .. } => {
+                evidence.rung = Some(Rung::Submitted);
                 evidence.retry_at = Some(now.saturating_add(self.lease_seconds));
-                (WorkflowStage::LayerxPending, evidence)
+                WorkflowStage::LayerxPending
             }
-            LayerxSubmission::Refused {
-                activity_id,
-                canonical_activity,
-                code,
-            } => {
-                let mut evidence = TransitionEvidence::empty();
-                evidence.activity_id = Some(activity_id);
-                evidence.canonical_activity = Some(canonical_activity);
+            LayerxSubmission::Refused { code, .. } => {
                 evidence.refusal_code = Some(code);
-                (WorkflowStage::LayerxRefused, evidence)
+                WorkflowStage::LayerxRefused
             }
-            LayerxSubmission::Verified {
-                leg: verified,
-                canonical_activity,
-            } => {
-                let mut evidence = TransitionEvidence::empty();
-                evidence.activity_id = Some(verified.tx_hash);
-                evidence.canonical_activity = canonical_activity;
-                evidence.receipt_digest = Some(verified.receipt_digest);
-                (WorkflowStage::LayerxVerified, evidence)
+            LayerxSubmission::Verified { leg, .. } => {
+                evidence.receipt_digest = Some(leg.receipt_digest);
+                evidence.receipt_height = Some(leg.height);
+                evidence.rung = Some(leg.rung);
+                if leg.rung == Rung::Submitted {
+                    evidence.retry_at = Some(now.saturating_add(self.lease_seconds));
+                    WorkflowStage::LayerxPending
+                } else {
+                    WorkflowStage::LayerxVerified
+                }
             }
         };
         self.journal.transition(
