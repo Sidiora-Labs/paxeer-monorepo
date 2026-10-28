@@ -183934,7 +183934,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1135.1]
 title = "Issue #1135: Keep receipt state roots continuous when a governance activity runs with an active programs fee record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
