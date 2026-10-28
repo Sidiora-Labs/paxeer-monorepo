@@ -637,7 +637,9 @@ def history_params(
 def history_account(account: str) -> str:
     """An EVM address or did:layerx DID, the forms px_getHistory and px_getUnifiedHistory take."""
     lowered = account.strip().lower() if isinstance(account, str) else ""
-    if _EVM_ADDRESS.fullmatch(lowered) is None and _DID.fullmatch(lowered) is None:
+    if lowered == "did:layerx:" + "0" * 64 or (
+        _EVM_ADDRESS.fullmatch(lowered) is None and _DID.fullmatch(lowered) is None
+    ):
         raise ValueError("invalid-account-identifier")
     return lowered
 
