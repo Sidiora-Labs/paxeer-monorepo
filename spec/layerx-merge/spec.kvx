@@ -142396,7 +142396,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.95.1]
 title = "Stop the native read daemon tests from driving the retired program admission script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["9.5.7", "9.24.2", "9.1.8", "18.1131.1", "18.1138.1"]
