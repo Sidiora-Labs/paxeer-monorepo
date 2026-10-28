@@ -9787,3 +9787,11 @@ symbol = "PaymentRequirements::validate"
 observed = "Attempt 5 (07c1bb776) keyed is_layerx_network on eip155:125; the eip155:8453 offer with a bound LayerX profile still validated Ok(()) through the non-LayerX branch against the unchanged Err(ProfileMismatch) at tests/seller.rs:630."
 assumption = "A LayerX profile on a network the offer does not settle on is a ProfileMismatch; do_1 now says so and the external case stays as written."
 severity = "minor"
+
+[finding.13.27.1.6]
+task = "13.27.1"
+file = "programs/crates/layerx-programs-sandbox/src/host_ffi.rs:481"
+symbol = "admit_host"
+observed = "Attempt 23 (92b530b58) seeded the fee account at the identity sequence as step 6 says and sandboxExecute reverted LXP_NON_CANONICAL: the host's admission decodes an Active lease and its escrow from sandbox state and matches the payload's digest and fee destination to it, which a hand-seeded funded lease cannot satisfy."
+assumption = "The test runs fund, activate and execute as one lifecycle (new step 7); the kernel and host are unchanged."
+severity = "minor"
