@@ -173794,7 +173794,7 @@ qualification = "UNRUN"
 
 [task.18.723.1]
 title = "Issue #723: Serve a Prometheus metrics endpoint from the paxai worker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1083.1"]
