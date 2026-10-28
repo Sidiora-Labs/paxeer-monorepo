@@ -1135,6 +1135,7 @@ dependencies = [
  "layerx-intents",
  "layerx-proof",
  "layerx-types",
+ "serde_json",
  "sha2",
 ]
 
