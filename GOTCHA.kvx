@@ -2236,10 +2236,10 @@ text = "Requirement references can identify numbered clauses under a parent sect
 text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
 
 [gotcha.376]
-text = "Requirement references can identify numbered clauses under a parent section; read-only scheduling helpers must not assume every reference names a standalone req section. Preserve unresolved references rather than dropping them."
+text = "modules/layerxgov NewLayerXProposal only checks that each message type is in the accepted table; the authority check happens in the proposal's ValidateBasic, so a test for a forged authority must assert at validation (or at the message service / handler), not at construction."
 
 [gotcha.377]
-text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
+text = "Reading keeper state from a freshly reopened node application before a block has begun dereferences a nil context and panics; open the app, begin a normal block, then read."
 
 [gotcha.378]
 text = "A Go test that re-executes its own binary as a child process (os/exec with an environment flag) needs a helper test that t.Skip()s when the flag is absent; keep that helper out of every gate's required-name list so the gate's skipped count stays a real zero while the parent still drives it."
@@ -2248,7 +2248,7 @@ text = "A Go test that re-executes its own binary as a child process (os/exec wi
 text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
 
 [gotcha.379]
-text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
+text = "Never chain a git push after a grep in one && chain: grep returns 1 when nothing matches and the push is silently skipped. Run the push as its own statement and confirm with git ls-remote."
 
 [gotcha.380]
 text = "Evidence build.command must be the literal executed invocation copied from the shell history, never a paraphrase with pseudo-redirections like '-> dir'; integrators reject paraphrased commands and require metadata recovery."
@@ -2260,7 +2260,9 @@ text = "Verify commit-message claims by reading the test body, not by grepping t
 text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
 
 [gotcha.382]
-text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
+symptom = "cargo build from the worktree root exits 101 'could not find Cargo.toml' for interop crates"
+cause = "the interop workspace manifest is interop/Cargo.toml and the human workspace is human/Cargo.toml; the repository root has no Cargo workspace"
+fix = "cd into the workspace directory (or pass --manifest-path interop/Cargo.toml) in every build invocation; the dispatch text must carry the cwd"
 
 [gotcha.383]
 symptom = "forge build exits 0 but <out>/BatchCallAndSponsor.sol/BatchCallAndSponsor.json is absent while sibling artifacts exist"
@@ -2324,7 +2326,7 @@ text = "layerx-agentd authority clients accept https only and need a CA DER plus
 summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
 
 [gotcha.401]
-summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
+text = "Bootstrap guarantor attestation files are named %020d-*.attestation (zero-padded id prefix, singular suffix), not <id>.attestations; fixtures must glob both forms when listing them."
 
 [gotcha.402]
 text = "git treats platform/Cargo.lock as binary in this repo (prints 'Binary files differ'); read lock hunks with git diff --text."
@@ -2788,7 +2790,7 @@ text = "A brief that forbids every default can forbid the crate's own encoded co
 text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
 
 [gotcha.546]
-text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
+text = "A worker whose context compacts mid-window loses its sense of elapsed time and runs far past a 30-minute cap. Put the cap check in the brief as a clock command to run after any compaction, and treat an overrun as implemented-not-qualified with staged partials, not as a failure to retry."
 
 [gotcha.547]
 text = "A pre-dispatch owner gate cannot use facts that only exist after the subject is bound. Before proposing where to fetch an owner witness, locate where binding runs relative to the gate; here bind_rpc_subject and subject::for_did run after authorized(), so upgrade and wind-down owner checks belong after bind, not before the guard."
@@ -9668,3 +9670,111 @@ area = "x-websearch tests"
 symptom = "cargo test -p x-websearch fails in tests/api.rs at under_the_single_level_only_the_named_attestor_signs_and_fulfil_carries_one_signature with Error: Evm(Malformed) while the lib and payment suites pass."
 cause = "decode_request_view (src/submit.rs:291-327) accepts only the eleven-word request view, but tests/fixtures/api/evm.json still records the nine-word getRequest answer from before the view grew."
 do = "Re-record the fixture's getRequest answer as the eleven-field view (task 18.1037.1, issue #1037); never widen the decoder to accept the short answer."
+
+[gotcha.1991]
+text = "Requirement references can identify numbered clauses under a parent section; read-only scheduling helpers must not assume every reference names a standalone req section. Preserve unresolved references rather than dropping them."
+
+[gotcha.1992]
+text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
+
+[gotcha.1993]
+text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
+
+[gotcha.1994]
+text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
+
+[gotcha.1995]
+summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
+
+[gotcha.1996]
+text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
+
+[gotcha.1997]
+area = "paxd native builds"
+symptom = "go build -o reuses an existing paxd binary after only its native archives change; make -n stops at the native archives missing error on a fresh checkout."
+cause = "Go's link action ID ignores the contents of -l native archives; chain.mk:90 refuses to compute their digest until both archives exist, including during make -n."
+do = "Build paxd-native-libs before a dry run and stamp NativeArchiveDigest into the link flags so native archive changes force relinking."
+
+[gotcha.1998]
+area = "spec task symbols"
+symptom = "cg spec done refuses with symbol ... not defined in the graph although verify_cmd passed."
+cause = "The graph check resolves only indexed code identifiers (functions, types, constants, Type::method). Test descriptions with spaces, Elixir Mod.fun/arity references, Make targets and document headings are never indexed."
+do = "List only code identifiers under symbols; name tests under tests."
+
+[gotcha.1999]
+area = "spec gate strings"
+symptom = "A verify_cmd that nests an escaped double quote fails in sh with colon not found and backticks executing."
+cause = "Escaped double quotes inside a kvx gate string reach the shell with their backslashes intact."
+do = "Use single quotes inside build_cmd and verify_cmd; never nest double quotes."
+
+[gotcha.2000]
+area = "layerx-agentd lib tests"
+symptom = "Two tls_boundary tests panic with build the real Paxeer TLS boundary first under cargo test -p layerx-agentd --lib."
+cause = "tls_boundary.rs:187 spawns the layerx-paxeer-boundary binary from LAYERX_PAXEER_BOUNDARY_BIN or services/platform/target/debug."
+do = "Gates that run the agentd lib suite build -p layerx-platform-paxeer-boundary first and export LAYERX_PAXEER_BOUNDARY_BIN, as task 9.1.7 does."
+
+[gotcha.2001]
+area = "main gates"
+symptom = "Tasks fail their build or verify on code they did not touch: apps/perps tsc (esbuild types), apps/wallet typecheck (Balances.account), publish-images.test.sh, explorer backend warnings-as-errors (ReceiptController routes), layerx-ai-evaluator (ReadProof.batch_id), the agentd custody fixture."
+cause = "Six cross-component changes landed on main without their dependents; tracked as issues #1052-#1057."
+do = "Tasks on those gates require 18.1052.1-18.1057.1; record a new instance as an issue plus a task instead of fixing it inside an unrelated task."
+
+[gotcha.2002]
+area = "explorer test gates"
+symptom = "mix-in-builder.sh test reports FATAL 3D000 database explorer_test does not exist and runs no test."
+cause = "The test path was given relative to the repository root (services/explorer/backend/apps/...) while the builder resolves paths from the backend directory and only sets up the database for paths it recognises (apps/*, test/*, *_test.exs)."
+do = "Write explorer test paths as apps/<app>/test/... in build_cmd and verify_cmd."
+
+[gotcha.2003]
+area = "explorer compile warnings"
+symptom = "Only tests under apps/ethereum_jsonrpc fail with Compilation failed due to warnings while block_scout_web and explorer tests run with the same warnings."
+cause = "apps/ethereum_jsonrpc/mix.exs:52 aliases compile to compile --warnings-as-errors in every environment, so a stale router reference in block_scout_web (issue #1055) fails that app's tests."
+do = "Tasks whose gate runs apps/ethereum_jsonrpc tests require 18.1055.1 until the router is clean."
+
+[gotcha.2004]
+area = "paxeer-x attestation"
+symptom = "program_market_attestation.py --begin-build exits because PAXEER_X_BUILDER_ID is unset."
+cause = "begin_build() (tools/qualification/paxeer-x/program_market_attestation.py:178) requires the variable and --build (:205) re-checks the manifest builder against it."
+do = "Export PAXEER_X_BUILDER_ID=$(hostname) for the whole gate; it is recorded as the builder identity only."
+
+[gotcha.2005]
+area = "launchpad stats-workers tests"
+symptom = "stats-workers tests cannot connect: STATS_TEST_POSTGRES_DSN names a server, not a database."
+cause = "internaltest.NewPostgres (services/launchpad/stats-workers/internal/internaltest/containers.go:44) creates a throwaway database on the server the DSN names, so the role needs CREATEDB."
+do = "Point *_TEST_POSTGRES_DSN at a server whose role may create databases."
+
+[gotcha.2006]
+area = "agent daemon dependents"
+symptom = "cargo build of layerx-human-service, layerx-human-test-support, layerx-explorer-index, layerx-mcp, layerx-platform-cli, layerx-agentd-host and the human providers fails at main with E0560 on ReadRequest and HistorySelector."
+cause = "71550012a reshaped layerx-agent-api; the callers in layerx-agentd (agent_rpc_adapters.rs, human_runtime.rs, export.rs, read/proof_bundle.rs) were not ported and these crates depend on layerx-agentd. layerx-intents, layerx-human-kms, layerx-platform-authority and layerx-platform-agent-boundary fail only under cargo test (dev-dependency)."
+do = "Tasks whose gate compiles one of those crates require 9.1.8; never patch the daemon callers inside a dependent task."
+
+[gotcha.2007]
+area = "code graph symbols"
+symptom = "cg spec done reports a Rust method as not defined in the graph although it exists, when its impl header elides a lifetime (impl Foo<'_>)."
+cause = "At f93cce7 the graph records such an impl under the name _ (ast_systems.c:510-516 takes the name leaf of the generic type), so Type::method cannot find its container."
+do = "Name the symbol bare, or write the impl header with a named lifetime, until the graph fix lands."
+
+[gotcha.2008]
+area = "code graph symbols"
+symptom = "cg spec done reports Type::method as not defined in the graph when a type and method with the same names exist in two crates."
+cause = "qualified_path_score (spec.c:3787-3862) refuses a tie at the best score instead of preferring the task's touched files."
+do = "Use a symbol that is unique in the repository, or the bare method name when it is unique, until the graph fix lands."
+
+[gotcha.2009]
+area = "code graph symbols"
+symptom = "Every Elixir symbol of an explorer task fails cg spec done with not defined in the graph even when verify passes."
+cause = "cg at f93cce7 has no Elixir extractor (lang.c:146-182 lists no .ex or .exs), so no Elixir module or function is in the graph."
+do = "Elixir tasks cannot carry graph-checked symbols until an extractor exists; keep the identifiers in the do steps and tests."
+
+[gotcha.2010]
+area = "programs module"
+symptom = "Programs registerAccount, setExitRoute, deprecate and transfer calls fail with LXP_ERR_MODULE_DISABLED (-103) on the hosted kernel while sandbox and storage-retirement activities pass."
+cause = "lxp_kernel.c:6757-6762 and :4985-4988 gate LX_PROGRAMS_ACCOUNT and LX_PROGRAMS_WIND_DOWN on kernel->observe_commit, whose only installer lost its caller when 1.15.1 made the state feed optional."
+do = "Tasks that exercise those activities require 18.1073.1; do not map -103 onto an expected error."
+
+[gotcha.2011]
+area = "custody fixture"
+symptom = "Four layerx-agentd lib tests fail with Decode(MalformedPayload) or Activity on tests/fixtures/custody/daemon-light-credit-receipt."
+cause = "modules/layerxledger/types/payload_transfer.go:84-85 appends network id and protocol version to every send payload since 0991c9602; the fixture from 5ff0d17cd predates that layout and decode_activity_send demands the suffix."
+do = "Re-capture the fixture from the current encoder; never relax the decoder's suffix check."

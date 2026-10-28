@@ -46,29 +46,14 @@ export const unifiedAccount: PaxeerXUnifiedAccount = {
     {
       asset: custodyAsset,
       total: '1200',
-      parts: {
-        chain: '0',
-        custody: '500',
-        kernel: '700',
-      },
     },
     {
       asset: tokenAsset,
       total: '2500000',
-      parts: {
-        chain: '2500000',
-        custody: '0',
-        kernel: '0',
-      },
     },
     {
       asset: nativeAsset,
       total: '1000000000000000000',
-      parts: {
-        chain: '1000000000000000000',
-        custody: '0',
-        kernel: '0',
-      },
     },
   ],
   activity: [
@@ -78,7 +63,6 @@ export const unifiedAccount: PaxeerXUnifiedAccount = {
       block_number: 1_285_004,
       ordinal: 0,
       status: 'instant',
-      side: 'kernel',
       timestamp: '2024-04-02T11:41:07.000000Z',
       asset: custodyAsset,
       amount: '1200',
@@ -90,7 +74,6 @@ export const unifiedAccount: PaxeerXUnifiedAccount = {
       block_number: 1_284_912,
       ordinal: 0,
       status: 'sealed',
-      side: 'chain',
       timestamp: '2024-04-02T11:03:11.000000Z',
       asset: tokenAsset,
       amount: '2500000',
@@ -102,7 +85,6 @@ export const unifiedAccount: PaxeerXUnifiedAccount = {
       block_number: 1_284_017,
       ordinal: 0,
       status: 'final',
-      side: 'chain',
       timestamp: '2024-04-02T10:12:35.000000Z',
       asset: nativeAsset,
       amount: '1500000000000000000',

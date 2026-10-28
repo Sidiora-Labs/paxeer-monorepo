@@ -11,8 +11,8 @@ defmodule Indexer.Transform.PaxeerXLogs do
   `parse/1` returns a map with one list per target table:
 
     * `:lx_account_bindings` - `addr` precompile, `0x…1004`
-    * `:lx_market_events` - `layerxexchange` `0x…1015`, `layerxbridge` `0x…1016`
-      and `launchpad` `0x…1017`
+    * `:lx_market_events` - `perps` `0x…1015`, `layerxbridge` `0x…1016`
+      and generation 2 `launchpad` `0x…1017`
 
   Every row is a parameter map for the changeset of its schema, so the keys are
   the column names of the `lx_*` tables and nothing else. All rows carry
@@ -20,7 +20,7 @@ defmodule Indexer.Transform.PaxeerXLogs do
     * `transaction_hash`, `block_hash`, `block_number`, `log_index` - the key
     * `event_name` - the Solidity event name, e.g. `"LayerXBound"`
     * `parameters` - every decoded argument under its ABI name, lossless:
-      `address` and `bytes32` as lowercase `0x` strings, `uintN` as integers,
+      `address` and `bytes32` as lowercase `0x` strings, `uintN` and `intN` as integers,
       `bool` as booleans, `string` as is
 
   The emitting precompile is not repeated on the row: it is fixed by
@@ -59,7 +59,7 @@ defmodule Indexer.Transform.PaxeerXLogs do
 
   @precompile_names %{
     @addr_precompile => "addr",
-    @exchange_precompile => "layerxexchange",
+    @exchange_precompile => "perps",
     @bridge_precompile => "layerxbridge",
     @launchpad_precompile => "launchpad"
   }
@@ -69,7 +69,7 @@ defmodule Indexer.Transform.PaxeerXLogs do
     lx_market_events: []
   }
 
-  @party_argument_names ~w(owner trader recipient holder creator payer sender party to)
+  @party_argument_names ~w(owner trader account user from recipient holder creator payer sender party to)
 
   @definitions [
     %{
@@ -180,6 +180,169 @@ defmodule Indexer.Transform.PaxeerXLogs do
         {"positionId", {:bytes, 32}, true},
         {"owner", :address, true},
         {"nonce", {:uint, 64}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "CollateralDeposited",
+      signature: "CollateralDeposited(address,uint256,uint256)",
+      topic: "0xf4d587c98d234ca4d147061e6b5167e7f41ee17f11562a9f0b49570abece859e",
+      domain: :exchange,
+      kind: "collateral_deposited",
+      arguments: [
+        {"account", :address, true},
+        {"amount", {:uint, 256}, false},
+        {"newBalance", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "CollateralWithdrawn",
+      signature: "CollateralWithdrawn(address,uint256,uint256)",
+      topic: "0xdaed309a628faec6cab72194019e2a1a34e890ca9bf9be99788992dd54692819",
+      domain: :exchange,
+      kind: "collateral_withdrawn",
+      arguments: [
+        {"account", :address, true},
+        {"amount", {:uint, 256}, false},
+        {"newBalance", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "CollateralTransferred",
+      signature: "CollateralTransferred(address,address,uint256)",
+      topic: "0x4b483fbdbe44e7192bad7366e354aa164b27d131f15b3003dcd2dbe41f45840e",
+      domain: :exchange,
+      kind: "collateral_transferred",
+      arguments: [
+        {"from", :address, true},
+        {"to", :address, true},
+        {"amount", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "OrderPlaced",
+      signature: "OrderPlaced(uint256,address,uint256,uint8,bool,uint256,uint256)",
+      topic: "0xc287284afa96b84a04a018a681cfbd788864dbcb99125f0c4779c371634fc3b1",
+      domain: :exchange,
+      kind: "order_placed",
+      arguments: [
+        {"orderId", {:uint, 256}, true},
+        {"user", :address, true},
+        {"marketId", {:uint, 256}, true},
+        {"orderType", {:uint, 8}, false},
+        {"isLong", :bool, false},
+        {"triggerPrice", {:uint, 256}, false},
+        {"sizeUsd", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "OrderCancelled",
+      signature: "OrderCancelled(uint256,address)",
+      topic: "0xc0362da6f2ff36b382b34aec0814f6b3cdf89f5ef282a1d1f114d0c0b036d596",
+      domain: :exchange,
+      kind: "order_cancelled",
+      arguments: [
+        {"orderId", {:uint, 256}, true},
+        {"user", :address, true}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "OrderExecuted",
+      signature: "OrderExecuted(uint256,uint256,uint256)",
+      topic: "0xc91e7dfc399621d0ecf4ceada07d0bc5f1c29dd5a8911478baf90d86489f2f81",
+      domain: :exchange,
+      kind: "order_executed",
+      arguments: [
+        {"orderId", {:uint, 256}, true},
+        {"positionId", {:uint, 256}, true},
+        {"executionPrice", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "PositionOpened",
+      signature: "PositionOpened(uint256,address,uint256,bool,uint256,uint256,uint256,address,uint256)",
+      topic: "0x79529707ccb70a3b8fc904e66aa412b72239eda11f81a8150389703d255daee4",
+      domain: :exchange,
+      kind: "position_opened",
+      arguments: [
+        {"positionId", {:uint, 256}, true},
+        {"user", :address, true},
+        {"marketId", {:uint, 256}, true},
+        {"isLong", :bool, false},
+        {"sizeUsd", {:uint, 256}, false},
+        {"leverage", {:uint, 256}, false},
+        {"entryPrice", {:uint, 256}, false},
+        {"collateralToken", :address, false},
+        {"collateralAmount", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "PositionClosed",
+      signature: "PositionClosed(uint256,address,uint256,uint256,uint256,int256,bool)",
+      topic: "0x1ebd5cdb6e99c3faad52065545129e201c5d9edfeb96808d9f500baa6a591508",
+      domain: :exchange,
+      kind: "position_closed",
+      arguments: [
+        {"positionId", {:uint, 256}, true},
+        {"user", :address, true},
+        {"marketId", {:uint, 256}, true},
+        {"closedSizeUsd", {:uint, 256}, false},
+        {"exitPrice", {:uint, 256}, false},
+        {"realizedPnl", {:int, 256}, false},
+        {"isFullClose", :bool, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "Liquidation",
+      signature: "Liquidation(uint256,address,uint256,uint256,uint256,address)",
+      topic: "0x52af4f7bedc94d7c3acb731423eb48e0d79237ea8d43c54e1639a5701e81ba4d",
+      domain: :exchange,
+      kind: "liquidation",
+      arguments: [
+        {"positionId", {:uint, 256}, true},
+        {"user", :address, true},
+        {"marketId", {:uint, 256}, true},
+        {"liquidationPrice", {:uint, 256}, false},
+        {"penalty", {:uint, 256}, false},
+        {"keeper", :address, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @exchange_precompile,
+      name: "TradeSettled",
+      signature: "TradeSettled(uint256,address,uint256,uint8,uint256,uint256,int256,uint256,int256,uint256)",
+      topic: "0x5388fd53f51aad820b2b7d94022ebebcf83fa3895e7a58036a83836d520ba52f",
+      domain: :exchange,
+      kind: "trade_settled",
+      arguments: [
+        {"positionId", {:uint, 256}, true},
+        {"user", :address, true},
+        {"marketId", {:uint, 256}, true},
+        {"tradeType", {:uint, 8}, false},
+        {"sizeUsd", {:uint, 256}, false},
+        {"executionPrice", {:uint, 256}, false},
+        {"grossPnl", {:int, 256}, false},
+        {"totalFeesUsd", {:uint, 256}, false},
+        {"fundingPaidUsd", {:int, 256}, false},
+        {"netPayoutTokens", {:uint, 256}, false}
       ]
     },
     %{
@@ -599,16 +762,19 @@ defmodule Indexer.Transform.PaxeerXLogs do
   @doc """
   Decodes the Paxeer X precompile logs of `logs` into one list of row maps per
   `lx_*` table. Logs from a supported precompile whose topic or arguments cannot
-  be decoded are logged. Logs from any other emitter contribute nothing.
+  be decoded are logged and counted in `undecoded_log_count`. Logs from any other emitter contribute nothing.
   """
   @spec parse([map()]) :: %{
           lx_account_bindings: [map()],
-          lx_market_events: [map()]
+          lx_market_events: [map()],
+          undecoded_log_count: non_neg_integer()
         }
   def parse(logs) when is_list(logs) do
-    {rows, _undecoded_log_count} = Enum.reduce(logs, {@empty_rows, 0}, &parse_log/2)
+    {rows, undecoded_log_count} = Enum.reduce(logs, {@empty_rows, 0}, &parse_log/2)
 
-    Map.new(rows, fn {table, table_rows} -> {table, Enum.reverse(table_rows)} end)
+    rows
+    |> Map.new(fn {table, table_rows} -> {table, Enum.reverse(table_rows)} end)
+    |> Map.put(:undecoded_log_count, undecoded_log_count)
   end
 
   defp parse_log(log, {rows, undecoded_log_count} = acc) do
@@ -715,7 +881,7 @@ defmodule Indexer.Transform.PaxeerXLogs do
       domain: definition.domain,
       kind: definition.kind,
       address_hash: party_address_hash(parameters),
-      account: parameters["account"],
+      account: if({"account", {:bytes, 32}, true} in definition.arguments, do: parameters["account"]),
       asset_id: parameters["assetId"],
       asset_address_hash: parameters["asset"] || parameters["token"],
       amount: parameters["amount"]
@@ -747,6 +913,7 @@ defmodule Indexer.Transform.PaxeerXLogs do
   defp from_data(:address, value), do: "0x" <> Base.encode16(value, case: :lower)
   defp from_data({:bytes, 32}, value), do: "0x" <> Base.encode16(value, case: :lower)
   defp from_data({:uint, _bits}, value), do: value
+  defp from_data({:int, 256}, value), do: value
   defp from_data(:bool, value), do: value
   defp from_data(:string, value), do: value
 

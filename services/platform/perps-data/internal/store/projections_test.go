@@ -1029,3 +1029,107 @@ FROM perps.leaderboard WHERE "window" = $1 AND account = $2`, []string{"150", "6
 		wantFull(c)
 	})
 }
+
+func TestLeaderboardWindowAgesOut(t *testing.T) {
+	db := testDB(t)
+	migrate(t, db)
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	for _, first := range []string{"close", "settlement"} {
+		for _, refresh := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/refresh_%t", first, refresh), func(t *testing.T) {
+				c := newChain(t, db)
+				c.blockRow(100, t0)
+				c.next(100, t0)
+				c.opened("1", traderA, "0", "1000", "60000", "100")
+				if first == "close" {
+					c.closed("1", traderA, "1000", "100", true)
+				} else {
+					c.settled("1", traderA, "1000", "0", "0", "0", "0")
+				}
+				c.project()
+				if got := c.leaderboardRows(); len(got) != 3 {
+					t.Fatalf("initial leaderboard = %q, want an entry in all three windows", got)
+				}
+
+				newest := t0
+				if refresh {
+					newest = t0.Add(24 * time.Hour)
+					c.blockRow(101, newest)
+					c.next(101, newest)
+					if first == "close" {
+						c.settled("1", traderA, "1000", "0", "0", "0", "0")
+					} else {
+						c.closed("1", traderA, "1000", "100", true)
+					}
+					c.project()
+				}
+
+				for i, elapsed := range []time.Duration{
+					7*24*time.Hour - time.Second, 7 * 24 * time.Hour, 8 * 24 * time.Hour,
+					30*24*time.Hour - time.Second, 30 * 24 * time.Hour, 31 * 24 * time.Hour,
+				} {
+					at := t0.Add(elapsed)
+					c.blockRow(uint64(102+i), at)
+					c.next(uint64(102+i), at)
+					c.project()
+					for _, w := range []struct {
+						name string
+						span time.Duration
+					}{{"7d", 7 * 24 * time.Hour}, {"30d", 30 * 24 * time.Hour}, {"all", 0}} {
+						want := "1"
+						if w.span > 0 && !newest.After(at.Add(-w.span)) {
+							want = "0"
+						}
+						c.want(`SELECT count(*)::text FROM perps.leaderboard WHERE "window" = $1 AND account = $2`,
+							[]string{want}, w.name, traderA.Bytes())
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestLeaderboardRefoldsOnLiquidation(t *testing.T) {
+	db := testDB(t)
+	migrate(t, db)
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	const q = `SELECT open_positions::text FROM perps.leaderboard WHERE "window" = $1 AND account = $2`
+	for _, event := range []string{"liquidation", "adl"} {
+		t.Run(event, func(t *testing.T) {
+			c := newChain(t, db)
+			c.blockRow(100, t0)
+			c.next(100, t0)
+			c.opened("1", traderA, "0", "1000", "60000", "100")
+			c.opened("2", traderA, "0", "1000", "60000", "100")
+			c.settled("1", traderA, "1000", "0", "0", "0", "0")
+			c.project()
+			for _, w := range []string{"all", "30d", "7d"} {
+				c.want(q, []string{"2"}, w, traderA.Bytes())
+			}
+
+			c.blockRow(101, t0.Add(time.Hour))
+			c.next(101, t0.Add(time.Hour))
+			c.closed("1", traderA, "1000", "-100", true)
+			// Fold the close into positions before projecting the final receipt
+			// row alone, so this event must refresh the board's open count.
+			if _, err := project(c.ctx, c.tx, c.rows); err != nil {
+				t.Fatalf("fold closing position: %v", err)
+			}
+			c.rows = nil
+			if event == "liquidation" {
+				c.liquidation("1", traderA)
+			} else {
+				c.adl("2", traderA, "250")
+			}
+			c.project()
+			for _, w := range []string{"all", "30d", "7d"} {
+				c.want(q, []string{"1"}, w, traderA.Bytes())
+			}
+			if event == "liquidation" {
+				c.want(`SELECT status FROM perps.positions_current WHERE position_id = '1'`, []string{"liquidated"})
+			} else {
+				c.want(`SELECT status, size_usd::text FROM perps.positions_current WHERE position_id = '2'`, []string{"open", "750"})
+			}
+		})
+	}
+}

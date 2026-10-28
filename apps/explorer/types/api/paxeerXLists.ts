@@ -1,13 +1,15 @@
+export const PAXEER_X_NATIVE_RUNGS = [ 'submitted', 'receipted', 'committed' ] as const;
+
+export type PaxeerXNativeRung = typeof PAXEER_X_NATIVE_RUNGS[number];
+
 export const PAXEER_X_STATUS_RUNGS = [ 'pending', 'instant', 'sealed', 'final' ] as const;
 
 export type PaxeerXStatusRung = typeof PAXEER_X_STATUS_RUNGS[number];
 
 export type PaxeerXTxStatus = {
-  rung: PaxeerXStatusRung;
+  rung: PaxeerXNativeRung;
   block_number: number | null;
-  sealed_batch_number: number | null;
-  finalized_batch_number: number | null;
-  checkpoint_id: string | null;
+  committed_height: number | null;
 };
 
 // `checkpoint_height` is the kernel height the checkpoint commits to and `sealed_height` the

@@ -36,6 +36,10 @@ impl ConfigFile {
             .arg(&self.0)
             .output()
             .expect("run reference ramp");
+        assert!(
+            output.stdout.is_empty(),
+            "ramp must refuse before announcing a listener"
+        );
         let stderr = String::from_utf8(output.stderr).expect("startup diagnostic");
         assert!(!output.status.success(), "ramp accepted config: {stderr}");
         assert!(stderr.contains("refused startup"), "{stderr}");
@@ -127,13 +131,7 @@ fn config() -> Value {
             "wallet_address": "operator-wallet",
             "vault_id": "operator-vault",
             "signer_key_handle": "kms://ramp/paxeer",
-            "rpc_endpoints": ["https://rpc-a.example.test:8545", "https://rpc-b.example.test:8545"],
-            "rpc_trust_anchor_der": "unused-paxeer-anchor.der",
-            "rpc_chain_id": 229,
-            "rpc_minimum_agreement": 2,
-            "required_confirmations": 12,
-            "poll_cadence_seconds": 5,
-            "delayed_after_polls": 12
+            "poll_cadence_seconds": 5
         },
         "provider_callback_public_key": "44".repeat(32),
         "operator_control_token_file": "unused-operator-token"
@@ -141,29 +139,36 @@ fn config() -> Value {
 }
 
 #[test]
-fn reference_ramp_requires_paxeer_rpc_fields() {
-    let file = ConfigFile::new("required-fields");
+fn reference_ramp_refuses_retired_paxeer_rpc_fields() {
+    let file = ConfigFile::new("retired-fields");
     let baseline = config();
     let stderr = file.refusal(&baseline);
     assert!(stderr.contains("listener must be tls or plain"), "{stderr}");
-    for field in [
-        "rpc_endpoints",
-        "rpc_trust_anchor_der",
-        "rpc_chain_id",
-        "rpc_minimum_agreement",
-        "required_confirmations",
-        "delayed_after_polls",
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve listener address");
+    for (field, value) in [
+        (
+            "rpc_endpoints",
+            json!([
+                "https://rpc-a.example.test:8545",
+                "https://rpc-b.example.test:8545"
+            ]),
+        ),
+        ("rpc_trust_anchor_der", json!("unused-paxeer-anchor.der")),
+        ("rpc_chain_id", json!(229)),
+        ("rpc_minimum_agreement", json!(2)),
+        ("required_confirmations", json!(12)),
+        ("delayed_after_polls", json!(12)),
     ] {
         let mut document = baseline.clone();
-        document["paxeer"]
-            .as_object_mut()
-            .expect("Paxeer config")
-            .remove(field);
+        document["listener"] = json!("plain");
+        document["listen"] = json!(listener.local_addr().expect("listener address").to_string());
+        document["paxeer"][field] = value;
         let stderr = file.refusal(&document);
         assert!(
-            stderr.contains(&format!("missing field `{field}`")),
+            stderr.contains(&format!("unknown field `{field}`")),
             "{stderr}"
         );
+        assert!(stderr.contains("parse config:"), "{stderr}");
     }
 }
 
