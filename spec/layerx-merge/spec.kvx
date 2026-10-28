@@ -172664,7 +172664,7 @@ qualification = "UNRUN"
 
 [task.18.941.1]
 title = "Issue #941: Relink loadtest after native archive changes and build the archives before it links"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174973,7 +174973,7 @@ qualification = "UNRUN"
 
 [task.18.694.1]
 title = "Issue #694: Stop presenting a capped daily PnL read as All-time performance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1052.1"]
@@ -175918,7 +175918,7 @@ qualification = "UNRUN"
 
 [task.18.948.1]
 title = "Issue #948: Send a complete ceremony import from the attestor server test helper and name the refused ceremony id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179746,7 +179746,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1083.1]
 title = "Issue #1083: Refresh services/platform/Cargo.lock after the ramp manifests dropped the retired Paxeer crates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
