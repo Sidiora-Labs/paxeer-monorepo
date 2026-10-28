@@ -157231,7 +157231,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.26.1]
 title = "Serve setExitRoute and deprecate wind-down operations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5", "18.1073.1"]
@@ -157263,7 +157263,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.26.2]
 title = "Serve tombstone of a deprecated program"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5", "18.1073.1"]
@@ -176964,7 +176964,7 @@ qualification = "UNRUN"
 
 [task.18.883.1]
 title = "Issue #883: Run the wallet attestor and ceremony Go tests in CI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1066.1"]
