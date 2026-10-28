@@ -256,6 +256,18 @@ impl PurposePresetCatalog {
             .collect()
     }
 
+    pub fn activity_types(&self, id: &str) -> Result<Vec<ActivityType>, AgentCreationError> {
+        let preset = self.preset(id).ok_or(AgentCreationError::UnknownPurpose)?;
+        if preset.call_selectors.is_empty() {
+            return Err(AgentCreationError::InvalidPresetConfig);
+        }
+        let call = layerx_types::programs_activity::activity_type(
+            layerx_types::programs_activity::CALL_ORDINAL,
+        )
+        .map_err(|_| AgentCreationError::InvalidPresetConfig)?;
+        Ok(vec![call])
+    }
+
     fn preset(&self, id: &str) -> Option<&PurposePreset> {
         self.presets.iter().find(|preset| preset.id == id)
     }
