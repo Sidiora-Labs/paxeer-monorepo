@@ -126,6 +126,24 @@ defmodule Explorer.PaxeerX.CosmosRestTest do
     assert :counters.get(failing_calls, 1) == 1
   end
 
+  test "reports a proxy page that mentions is not available as an http status", context do
+    Bypass.expect(context.rest, "GET", "/cosmos/tx/v1beta1/txs/block/#{@height}", fn conn ->
+      Plug.Conn.resp(conn, 502, "service is not available")
+    end)
+
+    rest_url = context.rest_url
+
+    assert {:error, {:http_status, 502, ^rest_url}} =
+             CosmosRest.fetch_block_txs([rest_url], @height)
+
+    Bypass.expect(context.rpc, "GET", "/block_results", fn conn ->
+      Plug.Conn.resp(conn, 200, rpc_error(@pruned))
+    end)
+
+    rpc_url = context.rpc_url
+    assert {:error, {:height_unavailable, ^rpc_url}} = CosmosRest.fetch_block_results([rpc_url], @height)
+  end
+
   test "reports a height every node has pruned as unavailable", context do
     other = Bypass.open()
 

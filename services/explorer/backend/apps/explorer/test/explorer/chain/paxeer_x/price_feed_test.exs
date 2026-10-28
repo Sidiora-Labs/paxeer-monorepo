@@ -51,6 +51,36 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
     assert PriceFeed.scanned_any?()
   end
 
+  test "mark_unscannable never downgrades a scanned height", %{update: update} do
+    scanned = insert(:block, number: 30)
+    unavailable = insert(:block, number: 31)
+    error = "{:unreachable, \"node\"}"
+    pruned_error = "{:height_unavailable, \"node\"}"
+
+    assert {:ok, 1} = PriceFeed.replace_block_updates(scanned, [update])
+    assert %PriceFeedScannedBlock{status: "scanned", error: nil} = Repo.get(PriceFeedScannedBlock, scanned.number)
+
+    assert :ok = PriceFeed.mark_unscannable(scanned.number, "failed", error)
+    assert %PriceFeedScannedBlock{status: "scanned", error: nil} = Repo.get(PriceFeedScannedBlock, scanned.number)
+
+    assert :ok = PriceFeed.mark_unscannable(scanned.number, "unavailable", pruned_error)
+    assert %PriceFeedScannedBlock{status: "scanned", error: nil} = Repo.get(PriceFeedScannedBlock, scanned.number)
+
+    assert :ok = PriceFeed.mark_unscannable(unavailable.number, "unavailable", pruned_error)
+
+    assert %PriceFeedScannedBlock{status: "unavailable", error: ^pruned_error} =
+             Repo.get(PriceFeedScannedBlock, unavailable.number)
+
+    assert :ok = PriceFeed.mark_unscannable(unavailable.number, "failed", error)
+
+    assert %PriceFeedScannedBlock{status: "failed", error: ^error} =
+             Repo.get(PriceFeedScannedBlock, unavailable.number)
+
+    assert :ok = PriceFeed.mark_unscannable(unavailable.number, "unavailable", pruned_error)
+    assert {:ok, 0} = PriceFeed.replace_block_updates(unavailable, [])
+    assert %PriceFeedScannedBlock{status: "scanned", error: nil} = Repo.get(PriceFeedScannedBlock, unavailable.number)
+  end
+
   describe "replace_block_updates/2" do
     test "stores the recorded submission with its observations and marks the height scanned", %{update: update} do
       block = insert(:block)

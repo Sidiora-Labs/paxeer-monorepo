@@ -9863,3 +9863,38 @@ symptom = "Explorer tests fail with 'function Explorer.Chain.PaxeerX.Anchor.chan
 cause = "b14589838 made Anchor and Receipt read-only archive records without changesets; archive_readonly_test.exs guards that."
 do = "Seed rows in tests with Ecto.Changeset.cast(%Anchor{}, attrs, Map.keys(attrs)) |> Repo.insert!() or through the import runner; never add the changeset back (18.1010.1, 18.1006.1, 18.1104.1)."
 
+[gotcha.2026]
+area = "explorer migrations"
+symptom = "Postgrex raises DBConnection.EncodeError when a migration binds a generated index name as a name parameter."
+cause = "Postgres identifiers hold 63 bytes; Ecto's default index name for several columns with directions exceeds that and the name type refuses it."
+do = "Select indexes by i.indexrelid::regclass::text (and NOT i.indisvalid) or name the index explicitly under 63 bytes (18.875.1)."
+
+[gotcha.2027]
+area = "programs precompile call fee"
+symptom = "A call with a fee limit below the fee reverts LXP_UNAUTHORIZED_DEBIT, not LXP_NON_CANONICAL."
+cause = "Under occupancy protocol versions call.c:2620-2622 runs lxp_programs_occupancy_bind_call, which refuses at occupancy.c:318-319 before the call runtime's check at ffi_call.rs:2909-2910."
+do = "Expect LXP_ERR_UNAUTHORIZED_DEBIT for the occupancy path; the NON_CANONICAL check is reached only with occupancy off (13.24.1)."
+
+[gotcha.2028]
+area = "programs account register"
+symptom = "A second identical registerAccount does not revert."
+cause = "lxp_programs_account_register answers LXP_OK with created=false for an identical binding (accounts.c:961-976); another asset under the same seed is LXP_ERR_ASSET_MISMATCH."
+do = "Test the idempotent read-back and the asset-mismatch refusal; accounts.c:530 is a lookup and refuses nothing (13.25.2)."
+
+[gotcha.2029]
+area = "paxeer-x qualification drivers"
+symptom = "program_market_attestation.py exits 1 with 'PAXEER_X_EVIDENCE_DIR is required' after both build stages pass."
+cause = "The attestation run writes under a caller-owned 0700 directory that must lie outside the checkout (evidence_directory at :276-285); the build modes do not need it."
+do = "Prefix the run with d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d (18.911.1)."
+
+[gotcha.2030]
+area = "wallet gateway custody inventory"
+symptom = "Provisioning answers 503 custody_inventory_pending although every WALLET_* variable is set."
+cause = "requireInventoryKey(keyId, 'generate', owner) needs an inventory entry for wallet:<userId>:standard:secp256k1:0 with public_key '', epoch 0 and operations ['generate']; review and sign later need the entry republished with the generated public key and 'sign', at a higher sequence."
+do = "Have the test write the generation admission before provisioning and republish the key after it (18.1065.1)."
+
+[gotcha.2031]
+area = "node merge gate tests"
+symptom = "A test cannot require the NewTestWrapper app's version map to lack layerxagent."
+cause = "node/app.go:313 registers layerxagent in every test app."
+do = "Rewrite the map with a.UpgradeKeeper.SetModuleVersionMap before the assertions, as node/upgrades_test.go:240 does (18.944.1)."

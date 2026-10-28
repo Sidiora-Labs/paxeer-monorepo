@@ -25,7 +25,7 @@ defmodule Explorer.PaxeerX.CosmosRest do
   @rounds 2
   @retry_delay_ms 200
   @max_body_bytes 33_554_432
-  @http_options [recv_timeout: 5_000, timeout: 2_000, follow_redirect: false]
+  @http_options [recv_timeout: 30_000, timeout: 2_000, follow_redirect: false]
   @max_int64 9_223_372_036_854_775_807
   @max_int32 2_147_483_647
 
@@ -373,7 +373,7 @@ defmodule Explorer.PaxeerX.CosmosRest do
   # greater than the current height.
   defp node_error(status, body, url) do
     cond do
-      body =~ "is not available" -> {:error, {:height_unavailable, url}}
+      body =~ ~r/height \d+ is not available, lowest height is \d+/ -> {:error, {:height_unavailable, url}}
       body =~ ~r/must be less than or equal to|greater than the current height/ -> {:error, {:height_ahead, url}}
       true -> {:error, {:http_status, status, url}}
     end
