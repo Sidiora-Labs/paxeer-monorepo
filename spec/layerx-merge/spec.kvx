@@ -134353,7 +134353,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.30.3]
 title = "Report reference ramp rebalances and readiness by rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.30.2", "8.29.2"]
@@ -157069,7 +157069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.24.3]
 title = "Serve quoteCallFee from the current fee schedule and occupancy ceiling"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.9", "1.92.1", "13.22.8", "1.23.6"]
@@ -174063,7 +174063,7 @@ qualification = "UNRUN"
 
 [task.18.830.1]
 title = "Issue #830: Keep a keyed forced-exit total per account and asset instead of scanning every claim"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.906.1"]
@@ -174365,7 +174365,7 @@ qualification = "UNRUN"
 
 [task.18.1017.1]
 title = "Issue #1017: Align the capabilities controller tests with the four live surface keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175772,7 +175772,7 @@ qualification = "UNRUN"
 
 [task.18.881.1]
 title = "Issue #881: Assert every price-update broadcast end to end and keep the realtime subscriber alive on a failing event"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176247,7 +176247,7 @@ qualification = "UNRUN"
 
 [task.18.819.1]
 title = "Issue #819: Build every published image from the build context its Dockerfile expects"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1054.1", "18.779.1"]
@@ -177223,7 +177223,7 @@ qualification = "UNRUN"
 
 [task.18.701.1]
 title = "Issue #701: Render the native settlement rungs on the transaction Overview badge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177311,7 +177311,7 @@ qualification = "UNRUN"
 
 [task.18.771.1]
 title = "Issue #771: Probe the exchange and bridge surfaces with view calls instead of eth_getCode"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177738,7 +177738,7 @@ qualification = "UNRUN"
 
 [task.18.772.1]
 title = "Issue #772: Decode the v6.12.0 perpetuals events emitted at 0x1015"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177928,7 +177928,7 @@ qualification = "UNRUN"
 
 [task.18.873.1]
 title = "Issue #873: Keep advertising price_feed after scanned-block compaction empties the scanned table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

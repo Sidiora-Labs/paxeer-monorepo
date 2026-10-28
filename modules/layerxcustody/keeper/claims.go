@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"math/big"
 
@@ -408,12 +409,31 @@ func (k *Keeper) queueExit(ctx sdk.Context, pending pendingClaim) (types.Claim, 
 	if k.BalanceConsumed(ctx, pending.account, pending.assetID, pending.anchor) {
 		return types.Claim{}, types.ErrExitConsumed
 	}
-	remaining := new(big.Int).Sub(types.AmountInt(pending.amount), k.exitedAmount(ctx, pending.account, pending.assetID))
+	exited, err := k.exitedAmount(ctx, pending.account, pending.assetID)
+	if err != nil {
+		return types.Claim{}, err
+	}
+	remaining := new(big.Int).Sub(types.AmountInt(pending.amount), exited)
 	if remaining.Sign() <= 0 {
 		return types.Claim{}, types.ErrExitConsumed
 	}
 	if exitBatch, frozen := k.ExitCheckpoint(ctx); frozen && pending.batchNumber != exitBatch {
 		return types.Claim{}, sdkerrors.Wrapf(types.ErrExitCheckpoint, "batch %d, forced exits use batch %d", pending.batchNumber, exitBatch)
+	}
+	for {
+		previous, found := k.GetClaim(ctx, pending.claimID)
+		if !found || previous.Status != types.ClaimStatus_CLAIM_STATUS_CANCELLED {
+			break
+		}
+		record, found := k.GetNullifier(ctx, pending.nullifier)
+		if previous.Kind != types.ClaimKind_CLAIM_KIND_FORCED_EXIT || !found ||
+			record.Status != types.NullifierStatus_NULLIFIER_STATUS_CANCELLED || record.ClaimId != previous.ClaimId {
+			return types.Claim{}, types.ErrNullifierUsed
+		}
+		pending.withdrawalID = sha256.Sum256(append([]byte("LXP/Paxeer/forced-exit-retry/v1\x00"), pending.withdrawalID[:]...))
+		pending.nullifier = types.WithdrawalNullifier(k.GetParams(ctx).NetworkId, pending.withdrawalID,
+			pending.account, pending.assetID, pending.amount, pending.anchor)
+		pending.claimID = types.ExitClaimID(k.evmKeeper.ChainID(ctx), pending.nullifier)
 	}
 	var amount [16]byte
 	remaining.FillBytes(amount[:])
@@ -422,25 +442,24 @@ func (k *Keeper) queueExit(ctx sdk.Context, pending pendingClaim) (types.Claim, 
 	if err != nil {
 		return types.Claim{}, err
 	}
+	k.store(ctx).Set(types.ExitedTotalKey(pending.account, pending.assetID), []byte(exited.Add(exited, remaining).String()))
 	k.store(ctx).Set(types.ConsumedKey(pending.account, pending.assetID, pending.anchor), []byte{1})
 	k.store(ctx).Set(types.ExitCheckpointKey, binary.BigEndian.AppendUint64(nil, pending.batchNumber))
 	return claim, nil
 }
 
-// exitedAmount sums the forced exits of an account and asset that are queued
-// or paid; a cancelled exit took nothing from custody.
-// ponytail: scans every claim, keep a per-(account, asset) total if claims grow large.
-func (k *Keeper) exitedAmount(ctx sdk.Context, account, assetID [32]byte) *big.Int {
-	total := new(big.Int)
-	k.IterateClaims(ctx, func(claim types.Claim) bool {
-		if claim.Kind == types.ClaimKind_CLAIM_KIND_FORCED_EXIT && claim.Status != types.ClaimStatus_CLAIM_STATUS_CANCELLED &&
-			claim.Account == types.Hash32(account) && claim.AssetId == types.Hash32(assetID) {
-			amount, _ := sdk.NewIntFromString(claim.Amount)
-			total.Add(total, amount.BigInt())
-		}
-		return false
-	})
-	return total
+// exitedAmount reads the forced-exit total of an account and asset, including
+// queued and paid exits and excluding cancelled exits.
+func (k *Keeper) exitedAmount(ctx sdk.Context, account, assetID [32]byte) (*big.Int, error) {
+	bz := k.store(ctx).Get(types.ExitedTotalKey(account, assetID))
+	if bz == nil {
+		return new(big.Int), nil
+	}
+	amount, err := types.ParseAmount(string(bz))
+	if err != nil {
+		return nil, sdkerrors.Wrap(types.ErrInvalidClaim, "invalid forced-exit total: "+err.Error())
+	}
+	return amount.BigInt(), nil
 }
 
 // ExitCheckpoint is the batch of the first queued or paid forced exit. LayerX
@@ -459,14 +478,41 @@ func (k *Keeper) ExitCheckpoint(ctx sdk.Context) (uint64, bool) {
 	return binary.BigEndian.Uint64(bz), true
 }
 
-// syncExitCheckpoint rebuilds the exit checkpoint from the stored claims. It
-// scans every claim, so it runs only when an exit is cancelled and at genesis.
+// syncExitCheckpoint rebuilds the exit checkpoint and totals from the stored
+// claims during cancellation, genesis import, retirement and migration.
 func (k *Keeper) syncExitCheckpoint(ctx sdk.Context) {
+	var keys [][]byte
+	k.iterateKeys(ctx, types.ExitedTotalPrefix, func(key, _ []byte) {
+		keys = append(keys, append(append([]byte(nil), types.ExitedTotalPrefix...), key...))
+	})
+	for _, key := range keys {
+		k.store(ctx).Delete(key)
+	}
 	k.store(ctx).Delete(types.ExitCheckpointKey)
+	frozen := false
 	k.IterateClaims(ctx, func(claim types.Claim) bool {
 		if claim.Kind == types.ClaimKind_CLAIM_KIND_FORCED_EXIT && claim.Status != types.ClaimStatus_CLAIM_STATUS_CANCELLED {
-			k.store(ctx).Set(types.ExitCheckpointKey, binary.BigEndian.AppendUint64(nil, claim.BatchNumber))
-			return true
+			account, err := types.ParseHash32(claim.Account)
+			if err != nil {
+				panic(err)
+			}
+			assetID, err := types.ParseHash32(claim.AssetId)
+			if err != nil {
+				panic(err)
+			}
+			amount, err := types.ParseAmount(claim.Amount)
+			if err != nil {
+				panic(sdkerrors.Wrap(types.ErrInvalidClaim, "invalid forced-exit amount: "+err.Error()))
+			}
+			total, err := k.exitedAmount(ctx, account, assetID)
+			if err != nil {
+				panic(err)
+			}
+			k.store(ctx).Set(types.ExitedTotalKey(account, assetID), []byte(total.Add(total, amount.BigInt()).String()))
+			if !frozen {
+				k.store(ctx).Set(types.ExitCheckpointKey, binary.BigEndian.AppendUint64(nil, claim.BatchNumber))
+				frozen = true
+			}
 		}
 		return false
 	})
@@ -524,7 +570,8 @@ func (k *Keeper) queuedExit(ctx sdk.Context, evidence ExitEvidence) (types.Claim
 	var out types.Claim
 	found := false
 	k.IterateClaims(ctx, func(claim types.Claim) bool {
-		if claim.Kind == types.ClaimKind_CLAIM_KIND_FORCED_EXIT && claim.Account == types.Hash32(evidence.Account) &&
+		if claim.Kind == types.ClaimKind_CLAIM_KIND_FORCED_EXIT && claim.Status != types.ClaimStatus_CLAIM_STATUS_CANCELLED &&
+			claim.Account == types.Hash32(evidence.Account) &&
 			claim.AssetId == types.Hash32(evidence.AssetID) && claim.Anchor == types.Hash32(stateRoot) &&
 			claim.Recipient == types.Address(evidence.Recipient) {
 			out, found = claim, true
@@ -546,6 +593,33 @@ func (k *Keeper) CancelClaim(ctx sdk.Context, claimID [32]byte) (types.Claim, er
 		if !found || claim.Status != types.ClaimStatus_CLAIM_STATUS_PENDING {
 			return types.Claim{}, types.ErrClaimNotPending
 		}
+		assetID, err := types.ParseHash32(claim.AssetId)
+		if err != nil {
+			return types.Claim{}, err
+		}
+		amount, err := types.ParseAmount(claim.Amount)
+		if err != nil {
+			return types.Claim{}, sdkerrors.Wrap(types.ErrInvalidClaim, "invalid claim amount: "+err.Error())
+		}
+		if claim.Kind == types.ClaimKind_CLAIM_KIND_FORCED_EXIT {
+			account, err := types.ParseHash32(claim.Account)
+			if err != nil {
+				return types.Claim{}, err
+			}
+			total, err := k.exitedAmount(ctx, account, assetID)
+			if err != nil {
+				return types.Claim{}, err
+			}
+			if total.Cmp(amount.BigInt()) < 0 {
+				return types.Claim{}, sdkerrors.Wrap(types.ErrInvalidClaim, "claim exceeds forced-exit total")
+			}
+			anchor, err := types.ParseHash32(claim.Anchor)
+			if err != nil {
+				return types.Claim{}, err
+			}
+			k.store(ctx).Set(types.ExitedTotalKey(account, assetID), []byte(total.Sub(total, amount.BigInt()).String()))
+			k.store(ctx).Delete(types.ConsumedKey(account, assetID, anchor))
+		}
 		if err := k.transition(ctx, claim, types.NullifierStatus_NULLIFIER_STATUS_CANCELLED); err != nil {
 			return types.Claim{}, err
 		}
@@ -554,8 +628,6 @@ func (k *Keeper) CancelClaim(ctx sdk.Context, claimID [32]byte) (types.Claim, er
 		if claim.Kind == types.ClaimKind_CLAIM_KIND_FORCED_EXIT {
 			k.syncExitCheckpoint(ctx)
 		}
-		assetID, _ := types.ParseHash32(claim.AssetId)
-		amount, _ := sdk.NewIntFromString(claim.Amount)
 		custodied, released, pending := k.totals(ctx, assetID)
 		k.setTotals(ctx, assetID, custodied, released, pending.Sub(amount))
 		return claim, ctx.EventManager().EmitTypedEvent(&types.EventClaimCancelled{ClaimId: claim.ClaimId, Nullifier: claim.Nullifier})

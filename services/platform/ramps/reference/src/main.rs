@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
@@ -10,7 +9,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use layerx_paxeer_client::{EndpointConfig, EndpointTransport, TrackerConfig, TransactionHash};
 use layerx_ramp_toolkit::clients::{
     decode_hex, parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient,
     LayerxConfig, MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback,
@@ -23,8 +21,8 @@ use layerx_ramp_toolkit::migration::{
     SourceSettlementService, SourceSettlementState, SOURCE_SETTLEMENT_VERSION,
 };
 use layerx_ramp_toolkit::{
-    platform_ramp_toolkit, CreateOrder, OperatorIdentity, QuoteTerms, RampDirection, RampError,
-    RampOrder, EXTERNAL_CUSTODY_LABEL,
+    parse_transaction_hash, platform_ramp_toolkit, CreateOrder, OperatorIdentity, QuoteTerms,
+    RampDirection, RampError, RampOrder, EXTERNAL_CUSTODY_LABEL,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
@@ -118,13 +116,7 @@ struct PaxeerConfig {
     wallet_address: String,
     vault_id: String,
     signer_key_handle: String,
-    rpc_endpoints: Vec<String>,
-    rpc_trust_anchor_der: PathBuf,
-    rpc_chain_id: u64,
-    rpc_minimum_agreement: usize,
-    required_confirmations: u64,
     poll_cadence_seconds: u64,
-    delayed_after_polls: u64,
 }
 
 enum Listener {
@@ -157,7 +149,6 @@ struct State {
     provider: ProviderClient,
     layerx: LayerxClient,
     paxeer: PaxeerCustodyClient,
-    paxeer_tracker_config: TrackerConfig,
     pending_rebalances: Mutex<BTreeSet<[u8; 32]>>,
     registry: ModuleRegistry,
     worker_id: String,
@@ -227,7 +218,7 @@ fn verify_receipt_command() -> Result<(), String> {
     }
     let transaction = arguments[2]
         .to_str()
-        .and_then(|value| TransactionHash::from_hex(value).ok())
+        .and_then(|value| parse_transaction_hash(value).ok())
         .ok_or_else(|| format!("{USAGE}; expected a 0x-prefixed 32-byte transaction hash"))?;
     let read = |path: &std::ffi::OsString| {
         SecretFile::new(PathBuf::from(path))
@@ -255,7 +246,7 @@ fn verify_receipt_command() -> Result<(), String> {
         .map_err(|_| "invalid verifier TLS configuration")?;
     let client = build_layerx(&config.layerx, http)?;
     let layerx_ramp_toolkit::clients::LayerxSubmission::Verified { leg, .. } = client
-        .resolve(&order, transaction.bytes())
+        .resolve(&order, transaction)
         .map_err(|_| "receipt proof refused")?
     else {
         return Err("receipt not verified".to_owned());
@@ -265,7 +256,7 @@ fn verify_receipt_command() -> Result<(), String> {
         json!({
             "verified": true,
             "order_digest": order.order_digest,
-            "transaction_hash": TransactionHash::new(leg.tx_hash).to_hex(),
+            "transaction_hash": format!("0x{}", layerx_ramp_toolkit::clients::hex(&leg.tx_hash)),
             "receipt_digest": format!("0x{}", layerx_ramp_toolkit::clients::hex(&leg.receipt_digest)),
             "height": leg.height,
             "rung": leg.rung.name(),
@@ -373,13 +364,7 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || config.client_tls.timeout_seconds == 0
         || config.lease_seconds <= config.client_tls.timeout_seconds.saturating_mul(5)
         || config.quotes.is_empty()
-        || config.paxeer.rpc_endpoints.is_empty()
-        || config.paxeer.rpc_chain_id == 0
-        || config.paxeer.rpc_minimum_agreement < 2
-        || config.paxeer.rpc_minimum_agreement > config.paxeer.rpc_endpoints.len()
-        || config.paxeer.required_confirmations == 0
         || config.paxeer.poll_cadence_seconds == 0
-        || config.paxeer.delayed_after_polls == 0
         || config.layerx.max_fee_per_gas == 0
         || config.identity.audience.is_empty()
         || !valid_service_path(&config.provider.settlement_path)
@@ -508,7 +493,6 @@ fn build_state(config: &Config) -> Result<State, String> {
         vault_id: config.paxeer.vault_id.clone(),
         signer_key_handle: config.paxeer.signer_key_handle.clone(),
     };
-    let paxeer_tracker_config = tracker_config(config, timeout)?;
     let registry = asset_registry()?;
     let mut quotes = BTreeMap::new();
     for quote in &config.quotes {
@@ -554,7 +538,6 @@ fn build_state(config: &Config) -> Result<State, String> {
         provider,
         layerx,
         paxeer,
-        paxeer_tracker_config,
         pending_rebalances: Mutex::new(BTreeSet::new()),
         registry,
         worker_id: config.worker_id.clone(),
@@ -579,34 +562,6 @@ fn asset_registry() -> Result<ModuleRegistry, String> {
     let registry =
         ModuleRegistry::new(&[registration]).map_err(|_| "module registry rejected".to_owned())?;
     Ok(registry)
-}
-
-fn tracker_config(config: &Config, timeout: Duration) -> Result<TrackerConfig, String> {
-    let rpc_trust_anchor_der = fs::read(&config.paxeer.rpc_trust_anchor_der)
-        .map_err(|_| "Paxeer RPC trust anchor is unavailable".to_owned())?;
-    if rpc_trust_anchor_der.is_empty() {
-        return Err("Paxeer RPC trust anchor is empty".to_owned());
-    }
-    let paxeer_tracker_config = TrackerConfig {
-        endpoints: config
-            .paxeer
-            .rpc_endpoints
-            .iter()
-            .map(|url| EndpointConfig {
-                url: url.clone(),
-                request_timeout: timeout,
-                transport: EndpointTransport::PinnedTls {
-                    trust_anchor_der: rpc_trust_anchor_der.clone(),
-                },
-                expected_chain_id: config.paxeer.rpc_chain_id,
-            })
-            .collect(),
-        minimum_endpoint_agreement: config.paxeer.rpc_minimum_agreement,
-        required_confirmations: config.paxeer.required_confirmations,
-        poll_cadence: Duration::from_secs(config.paxeer.poll_cadence_seconds),
-        delayed_after_polls: config.paxeer.delayed_after_polls,
-    };
-    Ok(paxeer_tracker_config)
 }
 
 fn configured_key(value: &str, label: &str) -> Result<[u8; 32], String> {
@@ -1162,10 +1117,10 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
             operation_id,
             transaction_hash,
         } => {
-            let transaction = TransactionHash::from_hex(&transaction_hash)
+            let transaction = parse_transaction_hash(&transaction_hash)
                 .map_err(|_| error(400, "transaction_hash_invalid"))?;
             rebalancer
-                .poll(idempotency_key, &operation_id, transaction.bytes(), now())
+                .poll(idempotency_key, &operation_id, transaction, now())
                 .map_err(|error| map_error(&error))?;
             let persisted = journal
                 .paxeer(&idempotency_key)
@@ -1285,7 +1240,6 @@ fn verified_recovery(state: &State) -> Result<(), RampError> {
             &state.provider,
             &state.layerx,
             &state.paxeer,
-            &state.paxeer_tracker_config,
         )
     })?;
     *state

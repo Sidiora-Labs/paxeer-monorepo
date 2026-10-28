@@ -44,6 +44,55 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     :lx_market_events
   ]
 
+  test "a v6.12.0 perps collateral deposit at 0x1015 decodes into an exchange market event" do
+    account = <<0x77::160>>
+    amount = 1_000_000
+    new_balance = 2_000_000
+
+    deposit = %{
+      address_hash: @exchange_precompile,
+      block_hash: bytes32(0x78),
+      block_number: 4_000_000,
+      transaction_hash: bytes32(0x79),
+      index: 0,
+      first_topic:
+        "0x" <> Base.encode16(ExKeccak.hash_256("CollateralDeposited(address,uint256,uint256)"), case: :lower),
+      second_topic: topic(:address, account),
+      third_topic: nil,
+      fourth_topic: nil,
+      data: "0x" <> Base.encode16(TypeEncoder.encode([amount, new_balance], [{:uint, 256}, {:uint, 256}]), case: :lower)
+    }
+
+    assert %{lx_market_events: [row], undecoded_log_count: 0} = PaxeerXLogs.parse([deposit])
+    assert row.domain == :exchange
+    assert row.kind == "collateral_deposited"
+    assert row.address_hash == address(0x77)
+    assert row.amount == amount
+    assert row.event_name == "CollateralDeposited"
+    assert row.parameters == %{"account" => address(0x77), "amount" => amount, "newBalance" => new_balance}
+    assert row.account == nil
+    assert_schema_row(:lx_market_events, row)
+
+    legacy =
+      log(definition!("MarginDeposited"), 1, %{
+        "intentId" => <<0x31::256>>,
+        "account" => <<0x32::256>>,
+        "owner" => account,
+        "assetId" => <<0x34::256>>,
+        "amount" => amount,
+        "depositId" => <<0x35::256>>,
+        "nonce" => 3
+      })
+
+    assert %{lx_market_events: [^row, legacy_row], undecoded_log_count: 0} = PaxeerXLogs.parse([deposit, legacy])
+    assert legacy_row.domain == :exchange
+    assert legacy_row.kind == "margin_deposited"
+    assert legacy_row.address_hash == address(0x77)
+    assert legacy_row.account == bytes32(0x32)
+    assert legacy_row.amount == amount
+    assert_schema_row(:lx_market_events, legacy_row)
+  end
+
   describe "definitions/0" do
     test "every topic0 constant is keccak256 of the event signature from the precompile ABI" do
       for definition <- PaxeerXLogs.definitions() do
@@ -926,6 +975,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
   defp abi_type(:string), do: "string"
   defp abi_type({:bytes, size}), do: "bytes#{size}"
   defp abi_type({:uint, bits}), do: "uint#{bits}"
+  defp abi_type({:int, bits}), do: "int#{bits}"
 
   defp fixture({definition, index}) do
     values =
@@ -950,6 +1000,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
   defp sample({:bytes, 32}, seed), do: <<seed::256>>
   defp sample({:uint, bits}, seed) when bits <= 16, do: rem(seed, 200) + 1
   defp sample({:uint, _bits}, seed), do: seed * 7 + 3
+  defp sample({:int, 256}, seed), do: -(seed * 7 + 3)
   defp sample(:bool, seed), do: rem(seed, 2) == 0
   defp sample(:string, seed), do: "denom-#{seed}"
 

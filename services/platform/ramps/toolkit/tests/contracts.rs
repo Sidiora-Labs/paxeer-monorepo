@@ -430,7 +430,6 @@ struct RecoveryAuthority {
     provider: layerx_ramp_toolkit::clients::ProviderClient,
     layerx: layerx_ramp_toolkit::clients::LayerxClient,
     custody: layerx_ramp_toolkit::clients::PaxeerCustodyClient,
-    tracker: layerx_paxeer_client::TrackerConfig,
 }
 
 impl RecoveryAuthority {
@@ -506,13 +505,6 @@ impl RecoveryAuthority {
             vault_id: field(custody_config, "vault_id"),
             signer_key_handle: field(custody_config, "signer_key_handle"),
         };
-        let tracker = layerx_paxeer_client::TrackerConfig {
-            endpoints: Vec::new(),
-            minimum_endpoint_agreement: 0,
-            required_confirmations: 0,
-            poll_cadence: Duration::from_secs(1),
-            delayed_after_polls: 0,
-        };
         fn protected_input<T: serde::de::DeserializeOwned>(name: &str) -> T {
             let path = std::env::var_os(name)
                 .unwrap_or_else(|| panic!("required protected real recovery input: {name}"));
@@ -549,7 +541,6 @@ impl RecoveryAuthority {
             provider,
             layerx,
             custody,
-            tracker,
         }
     }
 
@@ -633,7 +624,6 @@ impl RecoveryAuthority {
                 &self.provider,
                 &self.layerx,
                 &self.custody,
-                &self.tracker,
             )
         })
     }
@@ -764,7 +754,6 @@ fn assert_callback_recovery(fault: WriteFault, label: &str) {
                 &authority.provider,
                 &authority.layerx,
                 &authority.custody,
-                &authority.tracker,
             )
         });
         assert_eq!(denied, Err(RampError::OrderBinding));

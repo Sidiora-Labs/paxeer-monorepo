@@ -432,13 +432,6 @@ fn recovery_refuses_chain_id_mismatch() {
         status_path: "/status".into(),
     };
     let custody = custody(&files, "https://localhost:1");
-    let tracker = layerx_paxeer_client::TrackerConfig {
-        endpoints: Vec::new(),
-        minimum_endpoint_agreement: 0,
-        required_confirmations: 0,
-        poll_cadence: Duration::from_secs(1),
-        delayed_after_polls: 0,
-    };
     let order = order_for(RampDirection::OnRamp);
     let mut operator = order.operator.clone();
     operator.principal_id.push_str("-wrong");
@@ -452,8 +445,7 @@ fn recovery_refuses_chain_id_mismatch() {
             &operator,
             &provider,
             &layerx,
-            &custody,
-            &tracker
+            &custody
         ),
         Err(RampError::Paxeer)
     );
@@ -464,8 +456,7 @@ fn recovery_refuses_chain_id_mismatch() {
             &operator,
             &provider,
             &layerx,
-            &custody,
-            &tracker
+            &custody
         ),
         Err(RampError::Paxeer)
     );
@@ -477,8 +468,7 @@ fn recovery_refuses_chain_id_mismatch() {
             &operator,
             &provider,
             &layerx,
-            &custody,
-            &tracker
+            &custody
         ),
         Err(RampError::OrderBinding)
     );
@@ -488,8 +478,7 @@ fn recovery_refuses_chain_id_mismatch() {
             &order.operator,
             &provider,
             &layerx,
-            &custody,
-            &tracker
+            &custody
         ),
         Ok(())
     );
