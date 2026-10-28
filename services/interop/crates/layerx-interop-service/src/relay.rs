@@ -271,6 +271,25 @@ impl ChainRelay {
                 decoded_hash
             }
         };
+        self.receipt(tx_hash)
+    }
+
+    pub(crate) fn recorded_evidence(
+        &self,
+        idempotency_key: &str,
+    ) -> Result<Option<RelayOutcome>, RelayError> {
+        let key = RelayJournal::key(idempotency_key)?;
+        let Some(entry) = self.journal.read(&key)? else {
+            return Ok(None);
+        };
+        let (_, _, tx_hash) = decode_pay_exact(&entry.raw).map_err(RelayError::Transaction)?;
+        if tx_hash != entry.tx_hash {
+            return Err(RelayError::TransactionHashMismatch);
+        }
+        self.receipt(tx_hash).map(Some)
+    }
+
+    fn receipt(&self, tx_hash: [u8; 32]) -> Result<RelayOutcome, RelayError> {
         let answer = self
             .endpoint
             .sequencer_receipt(&tx_hash)

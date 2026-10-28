@@ -9662,3 +9662,9 @@ area = "spec"
 symptom = "cg spec done refuses 'symbol Type::method -- not defined in the graph' for a method declared in a lifetime or generic impl."
 cause = "The symbol graph does not link methods of impl Type<'_> back to Type::method (finding.11.23.3.1, finding.8.29.1.1)."
 do = "List the test functions or free symbols in symbols instead of the impl methods."
+
+[gotcha.1990]
+area = "x-websearch tests"
+symptom = "cargo test -p x-websearch fails in tests/api.rs at under_the_single_level_only_the_named_attestor_signs_and_fulfil_carries_one_signature with Error: Evm(Malformed) while the lib and payment suites pass."
+cause = "decode_request_view (src/submit.rs:291-327) accepts only the eleven-word request view, but tests/fixtures/api/evm.json still records the nine-word getRequest answer from before the view grew."
+do = "Re-record the fixture's getRequest answer as the eleven-field view (task 18.1037.1, issue #1037); never widen the decoder to accept the short answer."

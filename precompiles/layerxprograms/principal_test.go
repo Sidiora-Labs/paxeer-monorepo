@@ -54,20 +54,58 @@ func TestProgramsPrincipalFromBoundDID(t *testing.T) {
 		require.NoError(t, err)
 		_, accountID, err := lxphost.MainAccountID(tc.key)
 		require.NoError(t, err)
-		require.Equal(t, tc.key, authority.Actor)
 		require.Equal(t, tc.key, authority.VerifiedKey)
-		require.Equal(t, accountID, authority.Principal)
+		require.NotEqual(t, accountID, authority.Principal)
 		require.NotEqual(t, tc.key, authority.Principal)
+		require.True(t, authority.Bound)
 		wantDID := []byte("did:layerx:" + hex.EncodeToString(tc.key[:]))
 		require.Equal(t, wantDID, actorDID)
 		wantActorID, err := lxphost.DIDID(wantDID)
 		require.NoError(t, err)
+		require.Equal(t, wantActorID, authority.Actor)
+		require.Equal(t, wantActorID, authority.Principal)
 		actorID, err := lxphost.DIDID(actorDID)
 		require.NoError(t, err)
 		require.Equal(t, wantActorID, actorID)
 		principals = append(principals, authority.Principal)
 	}
 	require.NotEqual(t, principals[0], principals[1])
+}
+
+func TestProgramsPrincipalAuthorityKindAndHash(t *testing.T) {
+	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx(nil)
+	ctx = ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore())
+	k := &testkeeper.EVMTestApp.EvmKeeper
+	caller := common.HexToAddress("0x13302101")
+	otherCaller := common.HexToAddress("0x13302102")
+	key := bindProgramsPrincipal(t, ctx, k, caller, 0x55)
+	otherKey := bindProgramsPrincipal(t, ctx, k, otherCaller, 0x56)
+	require.NotEqual(t, key, otherKey)
+	var hashes [][32]byte
+	for _, tc := range []struct {
+		caller common.Address
+		key    [32]byte
+	}{
+		{caller, key},
+		{otherCaller, otherKey},
+	} {
+		authority, _, err := lp.PrincipalOf(ctx, k, tc.caller)
+		require.NoError(t, err)
+		require.Equal(t, uint8(1), lxphost.AuthorityKindOwner)
+		require.Equal(t, lxphost.AuthorityKindOwner, authority.Kind)
+		require.Equal(t, [32]byte{}, authority.GrantID)
+		require.Equal(t, tc.key, authority.VerifiedKey)
+		wantHash, err := lxphost.AuthorityHash(lxphost.AuthorityKindOwner, [32]byte{}, tc.key)
+		require.NoError(t, err)
+		require.NotEqual(t, [32]byte{}, wantHash)
+		require.Equal(t, wantHash, authority.AuthorityHash)
+		hashes = append(hashes, authority.AuthorityHash)
+	}
+	require.NotEqual(t, hashes[0], hashes[1])
+	for _, kind := range []uint8{0, 255} {
+		_, err := lxphost.AuthorityHash(kind, [32]byte{}, key)
+		require.Error(t, err)
+	}
 }
 
 func TestProgramsPrincipalUnboundRefused(t *testing.T) {

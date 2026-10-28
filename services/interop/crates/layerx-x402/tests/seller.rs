@@ -665,7 +665,7 @@ fn settlement_log(from: [u8; 32], reference: [u8; 32]) -> SequencerLog {
     data.extend_from_slice(&1000_u128.to_be_bytes());
     SequencerLog::new(
         ledger,
-        vec![topic, from, account_id(PAYEE_ACCOUNT), reference],
+        vec![topic, reference, from, account_id(PAYEE_ACCOUNT)],
         data,
         0,
     )
@@ -1312,6 +1312,16 @@ fn seller_refuses_a_log_for_another_amount() {
 }
 
 #[test]
+fn seller_refuses_legacy_payment_exact_topic_order() {
+    let payment = settlement_log(payer_account(), [0x74; 32]);
+    let mut topics = payment.topics().to_vec();
+    topics[1..].rotate_left(1);
+    let payment = SequencerLog::new(payment.address(), topics, payment.data().to_vec(), 0);
+    let executed = settlement_executed_with_logs(payer_account(), vec![payment]);
+    assert_evidence_mismatch_before_settlement(executed.evidence, settlement_keys());
+}
+
+#[test]
 fn seller_refuses_evidence_without_a_payment_log() {
     let (_, evidence, keys) = recorded_evidence("V1-pax-transfer");
     assert!(evidence.logs.is_empty());
@@ -1322,9 +1332,9 @@ fn seller_refuses_evidence_without_a_payment_log() {
         payment.address(),
         vec![
             payment.topics()[0],
-            payment.topics()[1],
-            payment.topics()[2],
             [0x75; 32],
+            payment.topics()[2],
+            payment.topics()[3],
         ],
         payment.data().to_vec(),
         0,
@@ -1361,7 +1371,7 @@ fn seller_refuses_evidence_without_a_payment_log() {
 fn seller_settles_receipted_evidence_with_the_transaction_hash() {
     let executed = settlement_executed(5, payer_account());
     let transaction_hash = executed.evidence.transaction_hash;
-    let reference = hex32(&executed.evidence.logs[0].topics()[3]);
+    let reference = hex32(&executed.evidence.logs[0].topics()[1]);
     let expected_digest = canonical_receipt_digest(&executed.evidence.signed_receipt)
         .unwrap_or_else(|error| panic!("signed payExact digest: {error}"));
     let offer = test_requirements();
@@ -1401,6 +1411,7 @@ fn seller_settles_receipted_evidence_with_the_transaction_hash() {
     );
     assert!(response.success);
     assert_eq!(response.amount, Some(AtomicAmount::from_u128(1000)));
+    assert_eq!(response.payer, Some(hex32(&payer_account())));
     assert_eq!(
         response.extensions["layerx"]["verificationLevel"],
         "receipted"
