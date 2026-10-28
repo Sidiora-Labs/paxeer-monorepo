@@ -93850,7 +93850,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.5]
 title = "Register the Programs module with the storage-retirement activity set in the hosted kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["1.23.4", "13.22.4"]
@@ -98117,7 +98117,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.5]
 title = "Shared host conformance: idempotency keys are per DID across ledger and auth"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4", "2.14.6"]
@@ -117539,7 +117539,7 @@ do_6 = "The first attempt stopped with an incomplete V4 vector because the recor
 
 [task.5.55.6]
 title = "Let the standby cross commits and serve the sequencer base fee"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = []
@@ -119206,7 +119206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.98.2]
 title = "Name the Comet RPC in the local node env file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.98.1"]
@@ -134190,7 +134190,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.29.1]
 title = "Drive ramp payment legs and journal evidence by transaction hash and rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["8.28.3"]
@@ -157133,7 +157133,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.25.4]
 title = "Authorize transfer legs debited from accounts the principal DID owns"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = []
@@ -157165,7 +157165,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.25.5]
 title = "Set the owner authority kind and hash on the 0x101D principal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["13.22.3"]

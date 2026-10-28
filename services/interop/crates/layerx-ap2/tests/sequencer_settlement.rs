@@ -379,18 +379,22 @@ fn sign_payment_reference(
     payment: &AuthorizedPayment,
     key: &ReceiptKey,
 ) -> [u8; 32] {
-    let old_reference = evidence.logs[0].topics()[3];
-    let mut topics = evidence.logs[0].topics().to_vec();
-    topics[3] = payment.idempotency_key();
+    let old_topics = evidence.logs[0].topics()[1..].concat();
+    let topics = vec![
+        evidence.logs[0].topics()[0],
+        payment.idempotency_key(),
+        evidence.logs[0].topics()[1],
+        evidence.logs[0].topics()[2],
+    ];
     let positions: Vec<_> = evidence
         .signed_receipt
-        .windows(32)
+        .windows(old_topics.len())
         .enumerate()
-        .filter_map(|(index, bytes)| (bytes == old_reference).then_some(index))
+        .filter_map(|(index, bytes)| (bytes == old_topics).then_some(index))
         .collect();
-    assert_eq!(positions.len(), 1, "one signed PaymentExact reference");
-    evidence.signed_receipt[positions[0]..positions[0] + 32]
-        .copy_from_slice(&payment.idempotency_key());
+    assert_eq!(positions.len(), 1, "one signed PaymentExact indexed tuple");
+    evidence.signed_receipt[positions[0]..positions[0] + old_topics.len()]
+        .copy_from_slice(&topics[1..].concat());
     evidence.logs[0] = SequencerLog::new(
         evidence.logs[0].address(),
         topics,
@@ -417,6 +421,17 @@ fn ap2_execute_settles_receipted_evidence() {
     let payment = authorized(&principal, &pair, &binding);
     let key = ReceiptKey::new();
     let digest = sign_payment_reference(&mut evidence, &payment, &key);
+    assert_eq!(
+        &evidence.logs[0].topics()[1..],
+        &[
+            payment.idempotency_key(),
+            binding.payer_receipt_account,
+            binding.payee_receipt_account,
+        ]
+    );
+    assert_ne!(payment.idempotency_key(), binding.payer_receipt_account);
+    assert_ne!(payment.idempotency_key(), binding.payee_receipt_account);
+    assert_ne!(binding.payer_receipt_account, binding.payee_receipt_account);
     let recorded_pin = pinned_key(&case);
     let pins = [SequencerAuthorization::new(
         recorded_pin.sequencer_id(),
@@ -662,7 +677,7 @@ fn ap2_execute_refuses_a_payee_mismatch() {
     );
     let digest = sign_payment_reference(&mut plane.evidence, &payment, &plane.key);
     assert_eq!(
-        plane.evidence.logs[0].topics()[3],
+        plane.evidence.logs[0].topics()[1],
         payment.idempotency_key()
     );
     let test_pins = [SequencerAuthorization::new(

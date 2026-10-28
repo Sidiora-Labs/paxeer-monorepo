@@ -20,6 +20,29 @@ type committedFixture struct {
 	keys       []ed25519.PrivateKey
 }
 
+func committedFixtureTransactionTree(txs [3][]byte) ([32]byte, [3]CommittedProof) {
+	var leaves [3][32]byte
+	for n, tx := range txs {
+		hash := sha256.Sum256(tx)
+		var preimage [33]byte
+		copy(preimage[1:], hash[:])
+		leaves[n] = sha256.Sum256(preimage[:])
+	}
+	inner := func(left, right [32]byte) [32]byte {
+		var preimage [65]byte
+		preimage[0] = 1
+		copy(preimage[1:33], left[:])
+		copy(preimage[33:], right[:])
+		return sha256.Sum256(preimage[:])
+	}
+	left := inner(leaves[0], leaves[1])
+	return inner(left, leaves[2]), [3]CommittedProof{
+		{Total: 3, Index: 0, Aunts: [][32]byte{leaves[1], leaves[2]}},
+		{Total: 3, Index: 1, Aunts: [][32]byte{leaves[0], leaves[2]}},
+		{Total: 3, Index: 2, Aunts: [][32]byte{left}},
+	}
+}
+
 func committedFixtureProof(leaves [][]byte, index int) CommittedProof {
 	proof := CommittedProof{Total: int64(len(leaves)), Index: int64(index)}
 	var visit func([][]byte, int)
@@ -113,9 +136,9 @@ func newCommittedFixture(t *testing.T, id string, powers [4]int64, offset int64)
 	message = append(message, committedBytes(2, response)...)
 	result.Data = committedBytes(1, message)
 	// Three leaves exercise both a full subtree and the unbalanced right branch.
-	txs := [][]byte{batch, raw, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
+	txs := [3][]byte{batch, raw, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
 	results := [][]byte{(ExecTxResult{}).bytes(), result.bytes(), (ExecTxResult{GasWanted: 60000, GasUsed: 46220}).bytes()}
-	dataHash := committedRoot(txs)
+	dataHash, txProofs := committedFixtureTransactionTree(txs)
 	resultsHash := committedRoot(results)
 	validatorsHash := committedValidatorsHash(f.validators)
 	f.header = CommittedHeader{VersionBlock: 11, VersionApp: 2, ChainID: "committed-sdk-test", Height: height,
@@ -126,8 +149,8 @@ func newCommittedFixture(t *testing.T, id string, powers [4]int64, offset int64)
 	next.Time = next.Time.Add(time.Second)
 	next.LastBlockID = f.commit.BlockID
 	next.LastResultsHash = resultsHash[:]
-	f.inclusion = ReceiptInclusion{Transaction: raw, TransactionProof: committedFixtureProof(txs, 1),
-		Result: result, ResultProof: committedFixtureProof(results, 1), BatchTransaction: batch, BatchProof: committedFixtureProof(txs, 0),
+	f.inclusion = ReceiptInclusion{Transaction: raw, TransactionProof: txProofs[1],
+		Result: result, ResultProof: committedFixtureProof(results, 1), BatchTransaction: batch, BatchProof: txProofs[0],
 		NextHeader: next, NextCommit: committedFixtureCommit(next, f.keys, 3), NextValidators: f.validators}
 	return f
 }
@@ -138,15 +161,16 @@ func (f committedFixture) verify() (Committed, error) {
 
 func (f *committedFixture) reanchor(t *testing.T) {
 	t.Helper()
-	txs := [][]byte{f.inclusion.BatchTransaction, f.inclusion.Transaction, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
+	txs := [3][]byte{f.inclusion.BatchTransaction, f.inclusion.Transaction, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
 	results := [][]byte{(ExecTxResult{}).bytes(), f.inclusion.Result.bytes(), (ExecTxResult{GasWanted: 60000, GasUsed: 46220}).bytes()}
-	dataHash, resultsHash, validatorsHash := committedRoot(txs), committedRoot(results), committedValidatorsHash(f.validators)
+	dataHash, txProofs := committedFixtureTransactionTree(txs)
+	resultsHash, validatorsHash := committedRoot(results), committedValidatorsHash(f.validators)
 	f.header.DataHash = dataHash[:]
 	f.header.ValidatorsHash = validatorsHash[:]
 	f.header.NextValidatorsHash = validatorsHash[:]
 	f.commit = committedFixtureCommit(f.header, f.keys, 3)
-	f.inclusion.BatchProof = committedFixtureProof(txs, 0)
-	f.inclusion.TransactionProof = committedFixtureProof(txs, 1)
+	f.inclusion.BatchProof = txProofs[0]
+	f.inclusion.TransactionProof = txProofs[1]
 	f.inclusion.ResultProof = committedFixtureProof(results, 1)
 	f.inclusion.NextHeader.ValidatorsHash = validatorsHash[:]
 	f.inclusion.NextHeader.LastBlockID = f.commit.BlockID
@@ -161,6 +185,60 @@ func requireCommittedRefusal(t *testing.T, f committedFixture, check ReceiptChec
 	var verification *VerificationError
 	if !errors.As(err, &verification) || verification.Check != check || !errors.Is(err, ErrVerification) || result.Rung != "" {
 		t.Fatalf("expected %s refusal, got rung %q, error %v", check, result.Rung, err)
+	}
+}
+
+func TestCommittedTransactionProofsMatchConsensusContract(t *testing.T) {
+	txs := [3][]byte{[]byte("foo"), []byte("bar"), []byte("baz")}
+	root, proofs := committedFixtureTransactionTree(txs)
+	if got := hex.EncodeToString(root[:]); got != "c9148115f7280f200540da16817e48993037810e4592366390aa81258546107d" {
+		t.Fatalf("transaction root differs from SHA256 transaction/RFC6962 contract: %s", got)
+	}
+	wantAunts := [3][]string{
+		{"ebb48bb18728aa8c4fdee8e155e7ea2560ae1e985149f3519b7d6bbaf02e9202", "446c71e2a36c3fb5cf5b000f25ac0ff52998b5e98e369ec51abeb90b8014e4fc"},
+		{"1421850065ddc57d658632cd5027088fe5b9c2a5bff09bd6af4a28966f251bd3", "446c71e2a36c3fb5cf5b000f25ac0ff52998b5e98e369ec51abeb90b8014e4fc"},
+		{"a0ae9380d7511576a57864ecc0443aa8d9c81e41eda85a441a3d7023060ddf0e"},
+	}
+	for n, proof := range proofs {
+		if proof.Total != 3 || proof.Index != int64(n) || len(proof.Aunts) != len(wantAunts[n]) {
+			t.Fatalf("transaction %d has incorrect proof position or length", n)
+		}
+		for a, aunt := range proof.Aunts {
+			if got := hex.EncodeToString(aunt[:]); got != wantAunts[n][a] {
+				t.Fatalf("transaction %d aunt %d differs from consensus hashing contract: %s", n, a, got)
+			}
+		}
+		if !committedVerifyTransactionProof(txs[n], proof, root[:]) {
+			t.Fatalf("transaction %d consensus-contract proof was refused", n)
+		}
+		if committedVerifyProof(txs[n], proof, root[:]) {
+			t.Fatalf("transaction %d proof accepted an unhashed transaction leaf", n)
+		}
+	}
+}
+
+func TestCommittedRungRefusesWrongProofPreimages(t *testing.T) {
+	for _, mutation := range []string{"unhashed transactions", "hashed results"} {
+		t.Run(mutation, func(t *testing.T) {
+			f := newCommittedFixture(t, "V1-pax-transfer", [4]int64{1, 1, 1, 1}, 0)
+			switch mutation {
+			case "unhashed transactions":
+				txs := [][]byte{f.inclusion.BatchTransaction, f.inclusion.Transaction, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
+				root := committedRoot(txs)
+				f.header.DataHash = root[:]
+				f.inclusion.BatchProof = committedFixtureProof(txs, 0)
+				f.inclusion.TransactionProof = committedFixtureProof(txs, 1)
+			case "hashed results":
+				results := [3][]byte{(ExecTxResult{}).bytes(), f.inclusion.Result.bytes(), (ExecTxResult{GasWanted: 60000, GasUsed: 46220}).bytes()}
+				root, proofs := committedFixtureTransactionTree(results)
+				f.inclusion.NextHeader.LastResultsHash = root[:]
+				f.inclusion.ResultProof = proofs[1]
+			}
+			f.commit = committedFixtureCommit(f.header, f.keys, 3)
+			f.inclusion.NextHeader.LastBlockID = f.commit.BlockID
+			f.inclusion.NextCommit = committedFixtureCommit(f.inclusion.NextHeader, f.keys, 3)
+			requireCommittedRefusal(t, f, "committed-inclusion")
+		})
 	}
 }
 
@@ -315,7 +393,7 @@ func TestCommittedRungRefusesTamperedInclusion(t *testing.T) {
 			requireCommittedRefusal(t, f, check)
 		})
 	}
-	for _, mutation := range []string{"unsupported result code", "wrong result status", "wrong gas", "malformed batch", "batch height", "sequence outside batch", "unverified receipt"} {
+	for _, mutation := range []string{"unsupported result code", "wrong result status", "wrong gas", "different transaction", "prehashed transaction", "prehashed batch", "malformed batch", "batch height", "sequence outside batch", "unverified receipt"} {
 		t.Run(mutation, func(t *testing.T) {
 			f := newCommittedFixture(t, "V1-pax-transfer", [4]int64{1, 1, 1, 1}, 0)
 			check := ReceiptCheck("committed-result")
@@ -326,6 +404,17 @@ func TestCommittedRungRefusesTamperedInclusion(t *testing.T) {
 				f.inclusion.Result.Code = 45
 			case "wrong gas":
 				f.inclusion.Result.GasUsed++
+			case "different transaction":
+				f.inclusion.Transaction[0] ^= 1
+				check = "committed-inclusion"
+			case "prehashed transaction":
+				hash := sha256.Sum256(f.inclusion.Transaction)
+				f.inclusion.Transaction = hash[:]
+				check = "committed-inclusion"
+			case "prehashed batch":
+				hash := sha256.Sum256(f.inclusion.BatchTransaction)
+				f.inclusion.BatchTransaction = hash[:]
+				check = "committed-batch"
 			case "malformed batch":
 				f.inclusion.BatchTransaction[0] ^= 1
 				check = "committed-batch"

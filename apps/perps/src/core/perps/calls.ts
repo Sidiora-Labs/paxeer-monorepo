@@ -153,6 +153,7 @@ export interface OpenPositionInput {
   leverage: bigint;
   quote: OpenQuote;
   timeInForce?: typeof TimeInForce.IOC | typeof TimeInForce.FOK;
+  reduceOnly?: boolean;
   takeProfitPrice?: bigint;
   stopLossPrice?: bigint;
 }
@@ -175,7 +176,7 @@ export function buildOpenPosition(input: OpenPositionInput) {
     triggerPrice: 0n,
     acceptablePrice: acceptablePrice(input.quote.entryPrice, input.isLong, "open"),
     collateralAmount: input.collateralAmount,
-    reduceOnly: false,
+    reduceOnly: input.reduceOnly ?? false,
     takeProfitPrice,
     stopLossPrice,
     deadline: marketDeadline(),

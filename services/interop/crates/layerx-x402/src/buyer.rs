@@ -331,7 +331,7 @@ impl Buyer {
         if payments.next().is_some()
             || payment.topics().len() != 4
             || payment.data().len() != 64
-            || payment.topics()[3] != expected.idempotency_key
+            || payment.topics()[1] != expected.idempotency_key
             || expected.idempotency_key == [0; 32]
             || payment.data()[32..48] != [0; 16]
         {
@@ -348,12 +348,12 @@ impl Buyer {
         let accepted = &expected.payload.accepted;
         accepted.validate().map_err(fail)?;
         if unhex(&accepted.asset).map_err(fail)?.as_slice() != asset
-            || unhex(&accepted.pay_to).map_err(fail)?.as_slice() != payment.topics()[2]
+            || unhex(&accepted.pay_to).map_err(fail)?.as_slice() != payment.topics()[3]
             || accepted.amount.value() != amount
         {
             return Err(fail(X402Error::EvidenceMismatch));
         }
-        let payer = hex(&payment.topics()[1]);
+        let payer = hex(&payment.topics()[2]);
         if response.network != expected.payload.accepted.network
             || response.amount != Some(expected.payload.accepted.amount)
             || response.payer.as_deref() != Some(payer.as_str())
@@ -431,7 +431,7 @@ fn hex(bytes: &[u8; 32]) -> String {
 mod tests {
     use std::collections::BTreeMap;
 
-    use ed25519_dalek::SigningKey;
+    use ed25519_dalek::{Signer as _, SigningKey};
     use serde_json::{json, Value};
 
     use super::{hex, unhex, BuiltPayment, Buyer, CapturedSettlement, SupportedKind};
@@ -483,6 +483,33 @@ mod tests {
                 .map_err(|_| X402Error::EvidenceMismatch)
         };
         let log = &case["receiptJson"]["logs"][0];
+        let mut topics = log["topics"]
+            .as_array()
+            .ok_or(X402Error::EvidenceMismatch)?
+            .iter()
+            .map(word)
+            .collect::<Result<Vec<_>, _>>()?;
+        let recorded_topics = topics.concat();
+        topics[1..].rotate_right(1);
+        let mut receipt = unhex(&text(&case["signedReceipt"])?)?;
+        let positions: Vec<_> = receipt
+            .windows(recorded_topics.len())
+            .enumerate()
+            .filter_map(|(index, value)| (value == recorded_topics).then_some(index))
+            .collect();
+        assert_eq!(positions.len(), 1);
+        receipt[positions[0]..positions[0] + recorded_topics.len()]
+            .copy_from_slice(&topics.concat());
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)
+            .map_err(|_| X402Error::EvidenceMismatch)?;
+        let signer = SigningKey::from_bytes(&[0x72; 32]);
+        let signature_start = receipt.len() - 64;
+        receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+        let mut logs = case["receiptJson"]["logs"].clone();
+        logs[0]["topics"] = json!(topics
+            .iter()
+            .map(|topic| format!("0x{}", hex(topic)))
+            .collect::<Vec<_>>());
         let data = unhex(&text(&log["data"])?)?;
         let amount = AtomicAmount::from_u128(1_000_000);
         let payment = BuiltPayment {
@@ -521,16 +548,16 @@ mod tests {
             extensions: BTreeMap::from([(
                 "layerx".to_owned(),
                 json!({
-                    "receipt": STANDARD.encode(unhex(&text(&case["signedReceipt"])?)?),
-                    "receiptDigest": text(&case["receiptDigest"])?.trim_start_matches("0x"),
-                    "verificationLevel": "receipted", "logs": case["receiptJson"]["logs"],
+                    "receipt": STANDARD.encode(&receipt),
+                    "receiptDigest": hex(&digest),
+                    "verificationLevel": "receipted", "logs": logs,
                 }),
             )]),
         };
         let key = &case["pinnedKey"];
         let keys = vec![SequencerAuthorization::new(
             word(&key["keyId"])?,
-            word(&key["publicKey"])?,
+            signer.verifying_key().to_bytes(),
             key["firstHeight"]
                 .as_u64()
                 .ok_or(X402Error::EvidenceMismatch)?,
