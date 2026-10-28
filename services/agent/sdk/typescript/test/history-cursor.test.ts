@@ -395,7 +395,7 @@ function history_page_keeps_rows_tied_with_the_limit_row(): void {
     assert.equal(page.items.length, 3);
     assert.deepEqual(
       page.items.map((row) => row.id),
-      [1n, 2n, 3n],
+      ["1", "2", "3"],
     );
     assert.deepEqual(
       page.items.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
