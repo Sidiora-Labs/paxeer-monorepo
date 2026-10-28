@@ -171,11 +171,14 @@ export function useModuleSend(
           if (receipt) return receipt;
           if (fee?.choice !== 'sid_sponsored')
             throw new Error('the module send returned no sequencer receipt');
-          return waitForSequencerReceipt(
+          const sponsoredReceipt = await waitForSequencerReceipt(
             (method, params) => provider.request({ method, params }),
             hash,
             { rung: 'receipted' }
           );
+          const status = receiptStatus(sponsoredReceipt);
+          if (status !== 'pending') fee.settle(status);
+          return sponsoredReceipt;
         };
         const approve = approval ? await approval(address, tx) : undefined;
         if (approve) {
@@ -223,6 +226,7 @@ export interface FeeSelection {
   readonly approve: () => void;
   readonly cancel: () => void;
   readonly recover: () => Promise<void>;
+  readonly settle: (status: 'confirmed' | 'reverted') => void;
   readonly submit: (tx: ModuleTransaction, direct: () => Promise<string>) => Promise<string>;
 }
 
@@ -497,8 +501,11 @@ export function useFeeSelection(
     }
     publish({ ...current, phase: 'approved' });
   }, []);
+  const settle = useCallback(function settle(status: 'confirmed' | 'reverted') {
+    publish({ ...sponsoredRef.current, phase: status });
+  }, []);
   const submit = useCallback(
-    async (tx: ModuleTransaction, direct: () => Promise<string>): Promise<string> => {
+    async function submit(tx: ModuleTransaction, direct: () => Promise<string>): Promise<string> {
       if (choice !== 'sid_sponsored') {
         const blocked = feeBlocked(choice, feeDenom);
         if (blocked) throw new Error(blocked);
@@ -509,6 +516,11 @@ export function useFeeSelection(
       if (!current.batch || !current.relayerSignature || !sameCalls(current.batch, tx))
         throw new GasStationError({ code: 'refused', field: 'construction_changed' });
       if (current.phase === 'unknown' || current.phase === 'submitted') {
+        const retained = await client.pending(address!);
+        if (!retained || client.digest(retained.batch) !== client.digest(current.batch)) {
+          publish({ phase: 'idle' });
+          throw new GasStationError({ code: 'refused', field: 'quote_required' });
+        }
         const report = await client.resume(current.batch, current.relayerSignature);
         publish({
           ...current,
@@ -608,6 +620,7 @@ export function useFeeSelection(
     approve,
     cancel,
     recover,
+    settle,
     submit,
   };
 }
