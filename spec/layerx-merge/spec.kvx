@@ -158205,7 +158205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.5]
 title = "Prove 0x101D logs and outputs are identical across two independent executions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.24.1", "13.22.6", "18.1073.1", "13.25.1"]
@@ -180014,7 +180014,7 @@ do_4 = "If a file still refuses the refreshed fixture after do_3, record the exa
 
 [task.18.1098.1]
 title = "Issue #1098: Issue #1098: Run mix-in-builder.sh test once per umbrella app when the path arguments span several apps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1076.1"]
@@ -180291,7 +180291,7 @@ do_6 = "Port the fixtures in services/agent/crates/layerx-mcp/tests/read.rs to t
 
 [task.18.1122.1]
 title = "Issue #1122: Propagate a pre-seal sandbox runtime refusal instead of reporting LXP_FATAL_INVARIANT"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
