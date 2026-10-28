@@ -14,11 +14,12 @@ import useFeedSocket, { FEED_OVERVIEW_BUFFER_LIMIT } from 'ui/paxeerX/feed/useFe
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import SocketAlert from 'ui/shared/SocketAlert';
 
 const PaxeerXFeed = () => {
   const queryClient = useQueryClient();
 
-  const { channel, refetchInterval } = useFeedSocket({ topic: 'paxeer_x_feed:new_update', isDisabled: false });
+  const { channel, refetchInterval, isSocketDown } = useFeedSocket({ topic: 'paxeer_x_feed:new_update', isDisabled: false });
 
   const { data, isError, isPending } = useApiQuery('general:paxeer_x_feed_markets', {
     queryOptions: { refetchInterval },
@@ -47,6 +48,11 @@ const PaxeerXFeed = () => {
   return (
     <>
       <PageTitle title="Price feed" withTextAd isLoading={ isPending }/>
+      { isSocketDown && (
+        <Box role="alert" mb={ 4 }>
+          <SocketAlert/>
+        </Box>
+      ) }
       <DataListDisplay
         isError={ isError }
         itemsNum={ items?.length }
