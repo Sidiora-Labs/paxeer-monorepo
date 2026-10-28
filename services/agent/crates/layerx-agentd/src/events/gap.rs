@@ -529,7 +529,7 @@ fn enforce_retention_inner(
     if retention.maximum_undelivered_sequences == 0 {
         return Err(GapError::InvalidRetention);
     }
-    let requested_from = subscriptions.resume_cursor_inner(target)?.0;
+    let requested_from = subscriptions.resume_cursor_inner(target)?.block_height;
     let bounded_oldest = head_exclusive.saturating_sub(retention.maximum_undelivered_sequences);
     let oldest_available = core_oldest_available.max(bounded_oldest);
     if requested_from >= oldest_available {
