@@ -180011,7 +180011,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1111.1]
 title = "Issue #1111: Teach the disclosure crate the LXDC3 custody credit that the kernel, the Go verifier and the daemon reader define for Bridge activity 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -180044,7 +180044,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1115.1]
 title = "Issue #1115: Compile the layerx-crypto disclosure_call test target again by mapping PayloadError before the ? operator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
