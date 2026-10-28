@@ -180188,7 +180188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1120.1]
 title = "Issue #1120: Surface the standby's refusal reason and make it acknowledge the recorder's openAccount groups"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
