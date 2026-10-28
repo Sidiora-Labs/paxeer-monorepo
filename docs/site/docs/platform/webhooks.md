@@ -28,37 +28,73 @@ dashboard.
 
 ## Deployment
 
-Webhooks run as the Fly app `paxeer-webhooks`
-(`services/platform/hosted/webhooks/fly.toml`), built from the `fly` target of
-`docker/platform-webhooks/Dockerfile`. The `fly` target starts
-`services/platform/hosted/webhooks/fly-init.sh`, which sets
-`LAYERX_WEBHOOKS_INSTANCE_ID` from `FLY_MACHINE_ID` and starts
-`layerx-webhooks` as uid `65532`. The app has two process groups, each
-with at least two machines across `ams` and `fra`:
+Railway runs two services, `webhooks-public` and `webhooks-ingress`, built
+from the `env-init-prebuilt` or `env-init` target of
+`docker/platform-webhooks/Dockerfile`. The `env-init-prebuilt` target
+packages a prebuilt binary and checks its SHA-256; `env-init` uses the
+binary compiled by the Dockerfile's build stage. Both targets
+start `layerx-env-files`, which writes the role's credential files before
+running `services/platform/hosted/webhooks/env-init.sh`. The init script
+selects the listener, health listener and credential paths from
+`LAYERX_ROLE`, sets `LAYERX_WEBHOOKS_INSTANCE_ID` to `RAILWAY_REPLICA_ID`
+or the hostname, and starts `layerx-webhooks` as uid `65532`.
 
-- `public` listens in plain HTTP on `[::]:9444` behind the Fly
-  `http_service`. The edge proxies `hooks.paxeer.network` to it through
-  the wildcard name with a certbot certificate.
-- `ingress` listens with TLS on `[::]:443` under the internal CA. Its
-  certificate, from the `developer` row of `tools/bringup/ca.sh`, names
-  `ingress.process.paxeer-webhooks.internal`. Producers post events to
-  `https://ingress.process.paxeer-webhooks.internal`: the router
-  (`services/wallet/deploy/endpoint.toml`), the kernel app
-  (`services/wallet/deploy/human.toml`) and the registry.
+The service settings and URLs come from
+`services/platform/hosted/webhooks/railway.env.example`:
 
-Webhook state lives in the internal Redis `paxeer-internal-redis`
-(`rediss://paxeer-internal-redis.internal:6379`). Event sources are the
-`journeys`, `payments`, `approvals` and `programs` groups of
-`paxeer-internal` on port `9443`. The KMS is its `kms` group. Identity
-is `paxeer-identity` on `9443`. The receipt authority and the agent
-boundary are `paxeer-human-service.internal` on `9445` and `9446`.
-Every client identity, token and key is a Fly secret mounted under
-`/run/layerx` (`services/platform/hosted/webhooks/fly.toml`).
+- `LAYERX_ROLE=public` serves the developer API with TLS on
+  `[::]:9444`, at `https://webhooks-public.railway.internal:9444`.
+  Its role-specific credential is the developer identity token at
+  `/run/layerx/tokens/identity`.
+- `LAYERX_ROLE=ingress` serves internal producer and operator routes
+  with TLS on `[::]:9443`, at
+  `https://webhooks-ingress.railway.internal:9443`. It requires an
+  internal-CA client certificate with a webhook role URI SAN. The server
+  certificate comes from the `developer` row of `tools/bringup/ca.sh`;
+  the kernel reaches ingress through the Railway TCP proxy, whose name
+  must be included through `LAYERX_EXTRA_SANS_<ROW>` when issuing it.
 
-`tools/bringup/check-live.sh developers` checks the deployment. It
-checks readiness at the three names and started machines in two regions
-per app and per webhooks group. It then runs one subscription round
-trip and waits for one delivered producer event.
+`LAYERX_WEBHOOKS_LISTEN` can override each role's TLS address. Both roles
+answer `GET /healthz` over plain HTTP at `LAYERX_HEALTH_ADDR`, otherwise
+`[::]:$PORT` when `PORT` is set, otherwise `[::]:9442` for public or
+`[::]:8080` for ingress. The env example sets both `LAYERX_HEALTH_ADDR`
+and `PORT` to the corresponding health address and port. `PORT` only
+moves the health listener; it does not move the TLS listener.
+
+| Dependency | URL from the env example |
+| --- | --- |
+| Webhook Redis | `rediss://redis-internal.railway.internal:6379` |
+| KMS | `https://internal-kms.railway.internal:9443` |
+| Developer identity | `https://identity.railway.internal:9443` |
+| Receipt authority | `https://kernel.paxeer.network:9445` |
+| Agent boundary | `https://kernel.paxeer.network:9446` |
+| Journey source | `https://internal-journeys.railway.internal:9443` |
+| Payment source | `https://internal-payments.railway.internal:9443` |
+| Approval source | `https://internal-approvals.railway.internal:9443` |
+| Program source | `https://internal-programs.railway.internal:9443` |
+
+Ingress also takes `LAYERX_WEBHOOKS_NETWORK_ID` from
+`${{router.LAYERX_GATEWAY_NETWORK_ID}}`, matching the deployment network
+name echoed by the receipt authority.
+
+Each file row in the env example holds base64 data, decoded under
+`/run/layerx` by `layerx-env-files` using
+`docker/platform-webhooks/files.tsv`. Set `LAYERX_FILES_OWNER=65532:65532`.
+The values come from `tools/bringup/mint-secrets.sh` and
+`tools/bringup/ca.sh`:
+
+| Role | File variables | Paths under `/run/layerx` |
+| --- | --- | --- |
+| Both | `WEBHOOKS_INGRESS_TLS_CERT_DER`, `WEBHOOKS_INGRESS_TLS_KEY_DER` | `tls/server.der`, `tls/server-key.der` |
+| Both | `WEBHOOKS_CLIENT_P12`, `WEBHOOKS_CLIENT_PASSWORD` | `client/identity.p12`, `client/password` |
+| Both | `WEBHOOKS_CLIENT_CA_DER`, `WEBHOOKS_PUBLIC_CA` | `ca/internal.der`, `ca/public.der` |
+| Both | `WEBHOOKS_REDIS_USERNAME`, `WEBHOOKS_REDIS_PASSWORD` | `redis/username`, `redis/password` |
+| Both | `WEBHOOKS_KMS_TOKEN`, `WEBHOOKS_CURSOR_KEY` | `tokens/kms`, `keys/cursor` |
+| Public | `WEBHOOKS_IDENTITY_TOKEN` | `tokens/identity` |
+| Ingress | `WEBHOOKS_COMPONENT_TOKEN`, `WEBHOOKS_AUTHORITY_TOKEN` | `tokens/component`, `tokens/authority` |
+| Ingress | `WEBHOOKS_JOURNEY_SOURCE_TOKEN`, `WEBHOOKS_PAYMENT_SOURCE_TOKEN`, `WEBHOOKS_APPROVAL_SOURCE_TOKEN`, `WEBHOOKS_PROGRAM_SOURCE_TOKEN` | `tokens/journey`, `tokens/payment`, `tokens/approval`, `tokens/program` |
+| Ingress | `WEBHOOKS_SOURCE_TRIGGER_TOKEN`, `WEBHOOKS_OPERATOR_TOKEN` | `tokens/source-trigger`, `tokens/operator` |
+| Ingress | `WEBHOOKS_SEQUENCER_PUBLIC_KEY`, `WEBHOOKS_SEQUENCER_ID`, `WEBHOOKS_SEQUENCER_FIRST_BATCH`, `WEBHOOKS_SEQUENCER_LAST_BATCH` | `keys/sequencer`, `keys/sequencer-id`, `keys/sequencer-first-batch`, `keys/sequencer-last-batch` |
 
 ---
 

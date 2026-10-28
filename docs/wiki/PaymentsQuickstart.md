@@ -3,8 +3,10 @@
 This path covers a wallet, custody-credit funding, an Asset transfer, token issuance,
 an LXT20 program, and an HTTP 402 payment. The wallet/token CLI, native Asset
 execution, public RPC, payment signer, and extended 402LXP flow described here
-are served by this tree. The LXT20 example is not: neither
-`programs/sdk/rust/examples` nor `programs/fixtures/pay5` is present here.
+are served by this tree. The LXT20 token and merchant examples live in
+`programs/sdk/rust/examples/token-lxt20` and
+`programs/sdk/rust/examples/payments-merchant`; their replay fixtures live in
+`programs/fixtures/pay5`.
 
 For a shorter environment checklist, start with
 [Getting started](Getting-Started-Beta.md). Wire details are in
@@ -210,8 +212,7 @@ or stream closure.
 ## 6. Build and deploy the LXT20 example
 
 The LXT20 example is a Programs ABI-v2 token backed by one native Asset. It is
-not a second ledger and does not mint native units. It is not in this tree, so
-the build below has no manifest to read here.
+not a second ledger and does not mint native units.
 
 ```sh
 cargo build \

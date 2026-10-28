@@ -1195,6 +1195,7 @@ mod teardown {
 
     #[test]
     fn cohort_spanning_several_batches_is_destroyed_deterministically_with_carry_forward() {
+        const BATCH: u32 = 6;
         let run = || {
             let mut fixtures: Vec<Fixture> = (1..=14)
                 .map(|id| fixture(id, id % 3, u128::from(id)))
@@ -1206,24 +1207,19 @@ mod teardown {
                     .unwrap_or_else(|error| panic!("schedule: {error:?}"));
             }
             assert!(queue
-                .due(EXPIRY - 1, MAX_SWEEP_LEASES_PER_BATCH)
+                .due(EXPIRY - 1, BATCH)
                 .unwrap_or_else(|error| panic!("early: {error:?}"))
                 .leases()
                 .is_empty());
             let mut pages = Vec::new();
             for boundary in EXPIRY..EXPIRY + 3 {
-                let page = sweep(
-                    &mut queue,
-                    boundary,
-                    MAX_SWEEP_LEASES_PER_BATCH,
-                    |lease, at| {
-                        let entry = fixtures
-                            .iter_mut()
-                            .find(|entry| entry.state.lease.id() == lease)
-                            .ok_or(ExpiryRefusal::InvalidEvidence)?;
-                        teardown(entry, at)
-                    },
-                )
+                let page = sweep(&mut queue, boundary, BATCH, |lease, at| {
+                    let entry = fixtures
+                        .iter_mut()
+                        .find(|entry| entry.state.lease.id() == lease)
+                        .ok_or(ExpiryRefusal::InvalidEvidence)?;
+                    teardown(entry, at)
+                })
                 .unwrap_or_else(|error| panic!("sweep {boundary}: {error:?}"));
                 let destroyed = fixtures
                     .iter()

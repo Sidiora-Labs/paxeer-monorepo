@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use ed25519_dalek::{Signer as _, SigningKey};
+use ed25519_dalek::{Signature, Signer as _, SigningKey};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{canonical_protocol_facts, AuthorizedBatch};
 use layerx_sdk::production::{verify_receipt, ReceiptKeys};
@@ -73,6 +73,52 @@ fn pin_fixture(fixture: &mut serde_json::Value) {
     fixture["canonical_receipt_hex"] = encoded_hex(&canonical).into();
     fixture["authorized_batch"]["batch_id_hex"] = encoded_hex(&batch_id).into();
     fixture["expected"]["receipt_digest_hex"] = encoded_hex(&digest).into();
+}
+
+fn pin_vector(vector: &mut serde_json::Value) {
+    let mut canonical = value_hex(vector, "canonical_receipt_hex");
+    let offsets: Vec<_> = canonical
+        .windows(32)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x81; 32]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "vector batch ID must be unique");
+    assert!(canonical.len() >= 69, "vector signature tail missing");
+    let signature_offset = canonical.len() - 64;
+    let signed = canonical[signature_offset - 5..signature_offset] == [1, 0, 0, 0, 64];
+    let mut unsigned = if signed {
+        let mut unsigned = canonical[..signature_offset - 5].to_vec();
+        unsigned.push(0);
+        unsigned
+    } else {
+        assert_eq!(canonical.last(), Some(&0), "unsigned vector flag missing");
+        canonical.clone()
+    };
+    let signing_key = SigningKey::from_bytes(&[0x33; 32]);
+    let signature_valid = signed.then(|| {
+        let signature = Signature::from_slice(&canonical[signature_offset..])
+            .unwrap_or_else(|error| panic!("vector signature: {error:?}"));
+        let digest = receipt_digest(&unsigned)
+            .unwrap_or_else(|error| panic!("original vector digest: {error:?}"));
+        signing_key
+            .verifying_key()
+            .verify_strict(&digest, &signature)
+            .is_ok()
+    });
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&RECEIPT_HEIGHT.to_be_bytes());
+    canonical[offsets[0]..offsets[0] + 32].copy_from_slice(&batch_id);
+    unsigned[offsets[0]..offsets[0] + 32].copy_from_slice(&batch_id);
+    if let Some(valid) = signature_valid {
+        let digest = receipt_digest(&unsigned)
+            .unwrap_or_else(|error| panic!("height vector digest: {error:?}"));
+        let mut signature = signing_key.sign(&digest).to_bytes();
+        if !valid {
+            signature[63] ^= 1;
+        }
+        canonical[signature_offset..].copy_from_slice(&signature);
+    }
+    vector["canonical_receipt_hex"] = encoded_hex(&canonical).into();
 }
 
 fn fixture_keys(canonical: &[u8], batch: &AuthorizedBatch) -> [SequencerAuthorization; 1] {
@@ -346,14 +392,15 @@ fn core_programs_fixture_preserves_the_optional_outcome() {
 }
 
 fn assert_refusal_taxonomy(name: &str) {
-    let fixture = shared_fixture(name);
+    let mut fixture = shared_fixture(name);
     let authorised = value_authorised(&fixture);
     let positive = shared_fixture("receipt-programs-positive-v2.json");
     let keys = fixture_keys(&value_hex(&positive, "canonical_receipt_hex"), &authorised);
     for vector in fixture["vectors"]
-        .as_array()
+        .as_array_mut()
         .unwrap_or_else(|| panic!("refusal vectors missing"))
     {
+        pin_vector(vector);
         let canonical = value_hex(vector, "canonical_receipt_hex");
         let Err(failure) = verify_receipt(
             &canonical,

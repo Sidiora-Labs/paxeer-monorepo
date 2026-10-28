@@ -6,6 +6,12 @@ import {GuarantorBond} from "../../contracts/GuarantorBond.sol";
 import {Constants} from "../../contracts/libraries/Constants.sol";
 
 interface BondVm {
+    struct Log {
+        bytes32[] topics;
+        bytes data;
+        address emitter;
+    }
+
     function addr(uint256 privateKey) external returns (address);
     function deal(address account, uint256 balance) external;
     function prank(address sender) external;
@@ -13,6 +19,8 @@ interface BondVm {
     function expectRevert(bytes4 selector) external;
     function etch(address target, bytes calldata code) external;
     function warp(uint256 timestamp) external;
+    function recordLogs() external;
+    function getRecordedLogs() external returns (Log[] memory);
 }
 
 contract BondToken {
@@ -280,6 +288,30 @@ contract GuarantorBondTest {
         require(!received, "native PAX accepted");
         (received,) = address(bond).call{value: 1}(abi.encodeCall(GuarantorBond.depositBond, (guarantorId, uint256(1))));
         require(!received, "payable bond deposit accepted");
+    }
+
+    function testSyncCustodiedValueUnchangedIsNoOp() public {
+        GuarantorBond bond = _newBond();
+        vm.recordLogs();
+        bond.syncCustodiedValue(0);
+        require(bond.custodiedValue() == 0, "initial custody changed");
+        require(bond.membershipVersion() == 0, "initial version advanced");
+        require(vm.getRecordedLogs().length == 0, "initial no-op emitted an event");
+
+        uint256 value = 100 ether;
+        bond.syncCustodiedValue(value);
+        uint64 version = bond.membershipVersion();
+        require(bond.custodiedValue() == value && version == 1, "first sync not applied");
+
+        vm.recordLogs();
+        bond.syncCustodiedValue(value);
+        require(bond.custodiedValue() == value, "unchanged sync changed custody");
+        require(bond.membershipVersion() == version, "unchanged sync advanced version");
+        require(vm.getRecordedLogs().length == 0, "unchanged sync emitted an event");
+
+        vm.expectRevert(GuarantorBond.Unauthorized.selector);
+        vm.prank(address(0xBAD));
+        bond.syncCustodiedValue(value);
     }
 
     function testEveryEligibilityMutationAdvancesVersionWithoutConsumingGovernanceSequence() public {

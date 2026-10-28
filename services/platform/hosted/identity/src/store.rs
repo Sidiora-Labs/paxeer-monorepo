@@ -71,6 +71,10 @@ enum Record {
         verified_at: u64,
     },
     Credit(StarterCredit),
+    Reissue {
+        sub: String,
+        amount: String,
+    },
     Settle {
         sub: String,
         settled_at: u64,
@@ -226,6 +230,18 @@ impl State {
             .get_mut(sub)
             .ok_or_else(|| "settlement references no starter credit".to_owned())?;
         credit.settled_at = Some(settled_at);
+        Ok(())
+    }
+
+    fn reissue_credit(&mut self, sub: &str, amount: String) -> Result<(), String> {
+        let credit = self
+            .credits
+            .get_mut(sub)
+            .ok_or_else(|| "reissue references no starter credit".to_owned())?;
+        if credit.settled_at.is_some() {
+            return Err("starter credit already settled".to_owned());
+        }
+        credit.amount = amount;
         Ok(())
     }
 
@@ -542,6 +558,22 @@ impl Store {
         self.state.insert_credit(credit)
     }
 
+    pub fn reissue_starter_credit(&mut self, sub: &str, amount: &str) -> Result<(), String> {
+        let credit = self
+            .state
+            .credits
+            .get(sub)
+            .ok_or_else(|| "reissue references no starter credit".to_owned())?;
+        if credit.settled_at.is_some() {
+            return Err("starter credit already settled".to_owned());
+        }
+        self.append(&Record::Reissue {
+            sub: sub.to_owned(),
+            amount: amount.to_owned(),
+        })?;
+        self.state.reissue_credit(sub, amount.to_owned())
+    }
+
     /// # Errors
     /// Refuses an unknown credit or durable write failure.
     pub fn settle_starter_credit(&mut self, sub: &str, settled_at: u64) -> Result<(), String> {
@@ -635,6 +667,7 @@ fn apply(state: &mut State, record: Record) -> Result<(), String> {
         }
         Record::Verify { token_digest, .. } => state.verify_signup(&token_digest).map(|_| ()),
         Record::Credit(credit) => state.insert_credit(credit),
+        Record::Reissue { sub, amount } => state.reissue_credit(&sub, amount),
         Record::Settle { sub, settled_at } => state.settle_credit(&sub, settled_at),
         Record::PublicationKey {
             digest,

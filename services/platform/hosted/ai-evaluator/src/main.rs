@@ -1256,7 +1256,7 @@ fn tick(chain: &Chain, sender: &EvmSender, evaluator: &mut Evaluator) -> Result<
         native_state_root: head.state_root,
         observed_sequence: head.number,
         execution_height: head.number,
-        batch_id: head.hash,
+        block_hash: head.hash,
     };
     let state = capture_state(&identity, &proof, |envelope| {
         chain.simulate(sender.address(), head.number, envelope)

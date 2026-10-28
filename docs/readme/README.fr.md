@@ -36,7 +36,7 @@
 
 Paxeer X Network est un seul réseau doté de deux domaines d’exécution : la chaîne Paxeer X (`paxd`, Go, identifiant de chaîne EVM 125) et le noyau LayerX (`layerxd`, C17), le domaine d’exécution et de comptabilité déterministe destiné aux agents autonomes. Site officiel : [paxeer.network](https://paxeer.network/). Documentation : [docs.paxeer.app](https://docs.paxeer.app/).
 
-La chaîne Paxeer X assure l’exécution EVM sur un consensus Tendermint et porte les modules `layerxcustody`, `layerxexchange`, `layerxbridge` et `launchpad`, que les contrats atteignent via les précompilés aux adresses `0x1013`, `0x1015`, `0x1016` et `0x1017`. Le noyau LayerX exécute et comptabilise l’activité des agents de manière déterministe et renvoie un reçu signé pour chaque activité ; ses checkpoints sont réglés sur la chaîne via le précompilé `layerxAnchor` à l’adresse `0x1014`.
+La chaîne Paxeer X assure l’exécution EVM sur un consensus Tendermint et porte les modules `layerxcustody`, `layerxexchange`, `layerxbridge` et `launchpad`. Les contrats accèdent aux modules natifs via les précompilés `layerxCustody` (`0x1013`), `perps` (`0x1015`), `layerxBridge` (`0x1016`) et `launchpad` (`0x1017`). L’ensemble v6.12.0 construit dans `node/app.go`, servi une fois cette mise à niveau activée, donne la priorité à `perps` à l’adresse `0x1015` sur `layerxExchange`. Le noyau LayerX exécute et comptabilise l’activité des agents de manière déterministe et renvoie un reçu signé pour chaque activité ; ses checkpoints sont réglés sur la chaîne via le précompilé `layerxAnchor` à l’adresse `0x1014`.
 
 Ce dépôt est le monorepo de Sidiora Labs pour Paxeer X Network : la chaîne Paxeer X et le noyau LayerX dans un même dépôt. Les réunir permet d’auditer au même endroit le noyau, la chaîne, les contrats et les surfaces pour développeurs. Chaque sous-système garde ses propres limites de compilation, de publication, de déploiement et de confiance. La spécification de référence est [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx), rendue sous la forme [`spec/paxeer-x/design.md`](../../spec/paxeer-x/design.md) ; les notes de version se trouvent dans [`CHANGELOG.md`](../../CHANGELOG.md).
 
@@ -167,7 +167,7 @@ flowchart TB
     occ("OCC parallel executor")
     pAnchor{{"layerxAnchor<br/>0x1014"}}
     pCustody{{"layerxCustody<br/>0x1013"}}
-    pExch{{"layerxExchange<br/>0x1015"}}
+    pExch{{"perps<br/>0x1015"}}
     pBridge{{"layerxBridge<br/>0x1016"}}
     pLaunch{{"launchpad<br/>0x1017"}}
     mCustody["layerxcustody module"]

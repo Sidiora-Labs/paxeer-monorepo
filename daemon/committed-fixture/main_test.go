@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,12 +16,14 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	paxdcmd "github.com/Sidiora-Labs/Paxeer-X-Network/daemon/paxd/cmd"
 	seqmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	seqconfig "github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	servercmd "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/cmd"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
 
@@ -141,6 +144,77 @@ func TestRecorderHomePinsGeneratedReceiptKey(t *testing.T) {
 		if !cfg.Enable || cfg.ReceiptKeyFile != n.receiptKeyFile || cfg.WALDir != filepath.Join(n.home, "data", "sequencer-wal") {
 			t.Fatalf("incorrect sequencer paths or enable flag: %+v", cfg)
 		}
+		if cfg.Role != seqconfig.RolePrimary || cfg.StandbyAddress == "" || cfg.ReplicationTimeout <= 0 {
+			t.Fatalf("primary must have a standby and a positive replication timeout: %+v", cfg)
+		}
+		if cfg.ReplicationTimeout != 5*time.Second {
+			t.Fatalf("replication timeout must be 5s, got %s", cfg.ReplicationTimeout)
+		}
+		if n.standby == nil || n.standby.home == n.home {
+			t.Fatal("primary must have a distinct prepared standby home")
+		}
+		standbyApp := viper.New()
+		standbyApp.SetConfigFile(filepath.Join(n.standby.home, "config", "app.toml"))
+		if err := standbyApp.ReadInConfig(); err != nil {
+			t.Fatal(err)
+		}
+		standbyCfg, err := seqconfig.ReadConfig(standbyApp)
+		if err != nil {
+			t.Fatalf("prepared standby configuration must be usable: %v", err)
+		}
+		if !standbyCfg.Enable || standbyCfg.Role != seqconfig.RoleStandby ||
+			standbyCfg.StandbyAddress != cfg.StandbyAddress || standbyCfg.ReplicationTimeout != cfg.ReplicationTimeout ||
+			standbyCfg.WALDir != filepath.Join(n.standby.home, "data", "sequencer-wal") ||
+			standbyCfg.ReceiptKeyFile != n.standby.receiptKeyFile {
+			t.Fatalf("standby must replicate with its own paths and matching address: %+v", standbyCfg)
+		}
+		standbySeedHex, err := os.ReadFile(standbyCfg.ReceiptKeyFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		standbySeed, err := hex.DecodeString(strings.TrimSpace(string(standbySeedHex)))
+		if err != nil || len(standbySeed) != ed25519.SeedSize {
+			t.Fatal("standby receipt key file must contain an ed25519 seed")
+		}
+		standbyPrivate := ed25519.NewKeyFromSeed(standbySeed)
+		standbyPublic := standbyPrivate.Public().(ed25519.PublicKey)
+		if !bytes.Equal(standbyPublic, n.standby.receiptPublicKey) || bytes.Equal(standbyPublic, public) {
+			t.Fatal("standby must use its own generated receipt key")
+		}
+		clear(standbySeed)
+		clear(standbyPrivate)
+		primaryGenesis, err := os.ReadFile(filepath.Join(n.home, "config", "genesis.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		standbyGenesis, err := os.ReadFile(filepath.Join(n.standby.home, "config", "genesis.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(primaryGenesis, standbyGenesis) {
+			t.Fatal("standby must copy the primary genesis")
+		}
+		primaryID, err := tmconfig.DefaultConfig().SetRoot(n.home).LoadNodeKeyID()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var standbyTM struct {
+			P2P struct {
+				PersistentPeers string `toml:"persistent-peers"`
+			} `toml:"p2p"`
+		}
+		if _, err := toml.DecodeFile(filepath.Join(n.standby.home, "config", "config.toml"), &standbyTM); err != nil {
+			t.Fatal(err)
+		}
+		if standbyTM.P2P.PersistentPeers != string(primaryID)+"@"+n.p2pAddress {
+			t.Fatal("standby must peer with the primary")
+		}
+		if n.rpcURL == n.standby.rpcURL || n.consensusAddress == n.standby.consensusAddress || n.p2pAddress == n.standby.p2pAddress {
+			t.Fatal("standby must have its own EVM, RPC and P2P listeners")
+		}
+		if _, err := os.Stat(filepath.Join(n.standby.home, "paxd.log")); !os.IsNotExist(err) {
+			t.Fatal("preparing the standby home must not start paxd")
+		}
 		if filepath.Dir(cfg.ReceiptKeyFile) != filepath.Join(n.home, "config") || !filepath.IsAbs(cfg.WALDir) {
 			t.Fatal("sequencer paths must refer to this temporary home")
 		}
@@ -158,5 +232,65 @@ func TestRecorderHomePinsGeneratedReceiptKey(t *testing.T) {
 		}
 		clear(seed)
 		clear(private)
+	}
+}
+
+func TestRecorderHomeStartsSequencerReceiptRPC(t *testing.T) {
+	paxd, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("COMMITTED_FIXTURE_EXEC_PAXD", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	n, err := prepareHome(ctx, paxd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(n.home) })
+	stop, err := n.start()
+	if err != nil {
+		for _, peer := range []*node{n, n.standby} {
+			var tail bytes.Buffer
+			peer.printLogTail(&tail)
+			t.Log(tail.String())
+		}
+		t.Fatalf("start prepared sequencer home: %v", err)
+	}
+	t.Cleanup(stop)
+	probe, cancelProbe := context.WithTimeout(ctx, time.Second)
+	defer cancelProbe()
+	var receipt json.RawMessage
+	if err := n.client.CallContext(probe, &receipt, "pax_sequencerReceipt", common.Hash{}); err != nil {
+		t.Fatalf("primary sequencer receipt RPC must answer after start: %v", err)
+	}
+	if string(receipt) != "null" {
+		t.Fatalf("unknown transaction must have no receipt, got %s", receipt)
+	}
+	for _, peer := range []*node{n, n.standby} {
+		if peer.processDone == nil {
+			t.Fatal("both primary and standby must have started")
+		}
+		select {
+		case <-peer.processDone:
+			t.Fatalf("paxd in %s exited before stop", peer.home)
+		default:
+		}
+		if info, err := os.Stat(filepath.Join(peer.home, "paxd.log")); err != nil || info.Mode().Perm() != 0600 {
+			t.Fatalf("each paxd must have its own private log: %v", err)
+		}
+	}
+	conn, err := net.DialTimeout("tcp", n.standbyAddress, time.Second)
+	if err != nil {
+		t.Fatalf("standby must serve the configured replication address: %v", err)
+	}
+	conn.Close()
+	stop()
+	for _, peer := range []*node{n, n.standby} {
+		select {
+		case <-peer.processDone:
+		default:
+			t.Fatalf("stop did not terminate paxd in %s", peer.home)
+		}
 	}
 }
