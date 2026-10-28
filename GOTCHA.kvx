@@ -9778,3 +9778,27 @@ area = "custody fixture"
 symptom = "Four layerx-agentd lib tests fail with Decode(MalformedPayload) or Activity on tests/fixtures/custody/daemon-light-credit-receipt."
 cause = "modules/layerxledger/types/payload_transfer.go:84-85 appends network id and protocol version to every send payload since 0991c9602; the fixture from 5ff0d17cd predates that layout and decode_activity_send demands the suffix."
 do = "Re-capture the fixture from the current encoder; never relax the decoder's suffix check."
+
+[gotcha.2012]
+area = "cargo lock"
+symptom = "Every --locked cargo command in services/platform exits 101 'the lock file needs to be updated' although no manifest changed in the task."
+cause = "eb194b27c removed layerx-paxeer-client and layerx-intents from two ramp manifests without running cargo update, so Cargo.lock still lists them under those packages; removing a dependency changes the lock as much as adding one."
+do = "Run cargo update --workspace in the same change as any manifest dependency removal and commit the lock; 18.1083.1 repairs the platform lock."
+
+[gotcha.2013]
+area = "node --test"
+symptom = "A script-style test file reports every registered test ok and then fails with 'A resource generated asynchronous activity after the test ended' and no line number."
+cause = "Top-level assertions after an await run once the registered tests have finished; node --test attributes the throw to the file, not the line."
+do = "Run the compiled file directly with node and an uncaughtException handler that prints the stack to find the failing top-level line; keep the whole-file gate."
+
+[gotcha.2014]
+area = "system docs generator"
+symptom = "tools/docs/gen-system-docs.sh exits 'rpc: cannot resolve service sequencerReceiptAPI'."
+cause = "gen_system_docs.py:67 CTOR and :81 match only New\w+ constructors while rpc/server.go:199 builds the service with newSequencerReceiptAPI."
+do = "Widen both patterns to [Nn]ew\w+ (18.1071.1); do not hand-edit docs/system pages."
+
+[gotcha.2015]
+area = "search-front bring-up test"
+symptom = "search-front.test.sh fails config_exit with JSONDecodeError on empty output, config_matches_template and config_refuses_unset."
+cause = "Since 288a967c2 the x-websearch config example renders receipt_keys and payment.payer_address from X_WEBSEARCH_RECEIPT_KEY_ID, X_WEBSEARCH_RECEIPT_PUBLIC_KEY and X_WEBSEARCH_PAYER_ADDRESS and has no note key; fixture_env predates both."
+do = "Set the three variables in fixture_env and assert only that the rendered config has no note key (18.1070.1)."

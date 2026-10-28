@@ -8368,8 +8368,112 @@ severity = "blocker"
 
 [finding.18.804.1.1]
 task = "18.804.1"
-file = "services/wallet/gateway/src/precompiles.ts:38-47"
+file = "services/wallet/gateway/src/precompiles.ts:32"
 symbol = "UNSERVED_PRECOMPILES"
-observed = "Attempt 3 cannot satisfy do_2 because UNSERVED_PRECOMPILES still lists orob, clearing, eip712, pofq and teeattestor while node/precompiles.go:20-24 and node/upgrades.go:33-37 link them, and src/precompiles.ts was not in the task's touches."
-assumption = "The task now touches src/precompiles.ts and do_5 updates the list; the test assertion at precompiles.test.ts:234 stays as written."
+observed = "Attempt 3 was triaged against a revision where UNSERVED_PRECOMPILES still listed orob, clearing, eip712, pofq and teeattestor; 9aef930a7 had already reduced it to oracle, scheduler and streams, so do_2 is satisfiable at head (issue #1079)."
+assumption = "The do_5 step and the src/precompiles.ts touch added at a4db0be51 are withdrawn; the task continues as originally specified."
+severity = "minor"
+
+[finding.18.1069.1.1]
+task = "18.1069.1"
+file = "services/agent/sdk/typescript/test/px.test.ts:752"
+symbol = "CURSOR"
+observed = "Attempts 2 and 3 fail after the five registered tests with 'Invalid history cursor' raised from the top-level decode at px.test.ts:835: CURSOR (block 0, log 12) precedes the last recorded row (block 12, transaction 1), which nextCursor refuses since 2463fcb04 (9.33.3); the file was never run whole after that change."
+assumption = "The task now touches px.test.ts and moves CURSOR to the last row's canonical cursor; the decoder rule stands."
+severity = "major"
+
+[finding.18.1070.1.1]
+task = "18.1070.1"
+file = "tools/bringup/tests/search-front.test.sh:74"
+symbol = "fixture_env"
+observed = "Attempts 1-3 fail config_exit, config_matches_template and config_refuses_unset: since 288a967c2 the x-websearch example renders receipt_keys and payment.payer_address from X_WEBSEARCH_RECEIPT_KEY_ID, X_WEBSEARCH_RECEIPT_PUBLIC_KEY and X_WEBSEARCH_PAYER_ADDRESS, which fixture_env never sets, so config exits 1 and the test asserts a note key the template no longer has."
+assumption = "The task now also touches the test to set the three variables and assert only that the rendered config has no note key; no check is removed."
+severity = "major"
+
+[finding.18.1071.1.1]
+task = "18.1071.1"
+file = "tools/docs/gen/gen_system_docs.py:67"
+symbol = "CTOR"
+observed = "Attempts 1-3: tools/docs/gen-system-docs.sh exits 'rpc: cannot resolve service sequencerReceiptAPI' because CTOR and the server variable pattern match only New\w+ while rpc/server.go:199 uses newSequencerReceiptAPI; the fix was do_3 of 18.826.1, which requires 18.1071.1."
+assumption = "The generator fix moves into 18.1071.1 together with every regenerated docs/system page; 18.826.1 keeps the SDK change and its own regeneration."
+severity = "major"
+
+[finding.18.694.1.1]
+task = "18.694.1"
+file = "apps/perps/tests/exact-money.test.ts:18"
+symbol = "overviewProps"
+observed = "Attempt 4: tsc --noEmit exits 2 with TS2345 because the daily literal lacks the historyCapped field do_2 adds to useDailyPnl's result; the file was outside touches."
+assumption = "The task now touches exact-money.test.ts and adds historyCapped: false to the literal; no assertion changes."
+severity = "major"
+
+[finding.18.948.1.1]
+task = "18.948.1"
+file = "services/wallet/attestor/internal/server/keys.go:645"
+symbol = "doRefresh"
+observed = "Attempts 3-5: once importKey sends CeremonyID, doRefresh refuses every RefreshRequest without ceremony_id, so TestFiveNodeEndToEnd (e2e_test.go:975) and TestRefreshKeepsTheOldEpochWhenAParticipantStopsBeforeCommit (durability_test.go:91) fail on refreshes at e2e_test.go:969-970, durability_test.go:83-86 and server_test.go:617,:815 that predate the import change."
+assumption = "The task now touches durability_test.go and server_test.go and sends ceremony_id in those refreshes; keys.go:645-646 stays."
+severity = "major"
+
+[finding.18.997.1.1]
+task = "18.997.1"
+file = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+symbol = "TestSequencerReceiptVectors"
+observed = "Attempt 4 at 3192dc1b6: the rogue-key refusal is fixed, but the fixture equality at rpc/sequencer_receipt_vectors_test.go:692 fails because served answers carry signingKey (rpc/sequencer_receipt.go:145, :288, added 7d1bcd226) while the shared conformance vectors, read by eight suites across Go, Rust, TypeScript and the wallet, have none."
+assumption = "Cross-system contradiction; the vectors need one coordinated regeneration under its own issue before this task retries."
+severity = "major"
+
+[finding.18.700.1.1]
+task = "18.700.1"
+file = "services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:765"
+symbol = "parse"
+observed = "Attempt 4 at base 3192dc1b6: account_binding_test.exs:116 and :169 fail because parse/1 returned no undecoded_log_count at that base (dropped a266cc9fe, restored ea2c971cd after the base)."
+assumption = "Pre-existing at that base and resolved at head; the task retries unchanged."
+severity = "minor"
+
+[finding.8.30.4.1]
+task = "8.30.4"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-reference-ramp"
+observed = "Attempt 3 at d439b5046, and the builds of 18.1067.1 a3, 18.1077.1 a1-a2 and 18.1078.1 a1, exit 101: the lock still lists layerx-paxeer-client and layerx-intents under layerx-reference-ramp and layerx-ramp-toolkit after eb194b27c removed them from the manifests (issue #1083)."
+assumption = "18.1083.1 refreshes the lock; the 52 tasks whose gates run --locked in services/platform require it."
+severity = "major"
+
+[finding.18.869.1.1]
+task = "18.869.1"
+file = "docker/layerx/Dockerfile"
+symbol = "native"
+observed = "Attempt 4 (and 18.849.1 a4): docker build still stops at RUN --mount with 'the --mount option requires BuildKit' because the legacy builder ran without the buildx component."
+assumption = "Environment gap as in 18.849.1.1; the environment installs buildx before the gate and both tasks retry unchanged."
+severity = "major"
+
+[finding.18.776.1.1]
+task = "18.776.1"
+file = "tools/bringup/check-live.test.sh"
+symbol = "check_live_indexer_passing"
+observed = "Attempt 5: the gate failed but its only output, /tmp/check-live-test.log, is written outside the collected paths, so the cause is unknown."
+assumption = "The verify command now prints that log on failure; nothing else changes."
+severity = "minor"
+
+[finding.18.911.1.2]
+task = "18.911.1"
+file = "tools/qualification/paxeer-x/program_market_attestation.py:147"
+symbol = "SOURCE_PATHS"
+observed = "Attempt 5: --begin-build exits 'producer source closure is dirty or contains untracked inputs' after make build/liblayerx.a, without naming the dirty or untracked path under SOURCE_PATHS (src, include, programs, tests/programs, tests/support, services/agent/crates and the rest)."
+assumption = "The build leaves an untracked input inside the closure; the next attempt runs git status --porcelain over SOURCE_PATHS after the make step and reports the path before changing anything."
+severity = "major"
+
+[finding.18.1065.1.1]
+task = "18.1065.1"
+file = "services/wallet/attestor/cmd/attestor/main.go:216"
+symbol = "NewInventory"
+observed = "Attempts 4 and 5 (a5 writes inventory.pub and the authority variables) still exit 'attestor: approved wallet inventory: custody authority unavailable or refused' when node-1 starts in gateway.e2e.test.ts."
+assumption = "The refusal has not been isolated; the next attempt reproduces NewInventory's refusal with go test on internal/server against the same files before editing attestors.ts again."
+severity = "major"
+
+[finding.9.1.8.4]
+task = "9.1.8"
+file = "tests/fixtures/custody/daemon-light-credit-receipt"
+symbol = "decode_activity_send"
+observed = "Attempt 11 ports the daemon (254 of 258 lib tests) but the four custody tests fail with Disclosure(Decode(MalformedPayload)); the fixture directory has no README and the tree has no generator, so do_6 as written could not be followed."
+assumption = "do_6 now names the ten files, the writers (payload_transfer.go:84-85 suffix, LXDC3 framing of disclosure.rs:1403) and the honest stop; the tests stay unchanged."
 severity = "major"
