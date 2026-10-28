@@ -64,7 +64,7 @@ def gen_routes():
 
 # EVM JSON-RPC --------------------------------------------------------------
 
-CTOR = re.compile(r"func (New\w+)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\(?\*?(\w+)[^{\n]*\{")
+CTOR = re.compile(r"func ([Nn]ew\w+)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\(?\*?(\w+)[^{\n]*\{")
 METHOD = re.compile(r"^func \(\w+ \*?(\w+)\) ([A-Z]\w*)\((.*?)\)\s*(.*?)\s*\{\s*$", re.M)
 STRUCT = re.compile(r"^type (\w+) struct \{\n(.*?)^\}", re.M | re.S)
 
@@ -81,12 +81,15 @@ def gen_rpc():
         for typ, body in STRUCT.findall(text):
             embeds[typ] = re.findall(r"^\t\*?([A-Z]\w*)\s*$", body, re.M)
     server = read(rpc / "server.go")
-    variables = dict(re.findall(r"(\w+)(?:, \w+)? :?= (New\w+)\(", server))
+    variables = dict(re.findall(r"(\w+)(?:, \w+)? :?= ([Nn]ew\w+)\(", server))
+    closures = dict(re.findall(r"(\w+) := func\([^)]*\)\s*\*(\w+)\s*\{", server))
 
     def resolve(expr):
         if expr.startswith("&"):
             return expr[1:]
-        if expr.startswith("New"):
+        if expr in closures:
+            return closures[expr]
+        if expr.startswith(("New", "new")):
             return ctors.get(expr)
         return ctors.get(variables.get(expr, ""))
 
