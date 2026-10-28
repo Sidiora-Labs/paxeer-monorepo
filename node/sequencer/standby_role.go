@@ -121,7 +121,7 @@ func StartStandby(ctx context.Context, cfg Config, a *app.App) (*Standby, error)
 		WAL: w, Executor: &standbyRoleReplay{AppReplayer: NewAppReplayer(exec, r), pins: pins, local: key.public},
 		ConsensusKey: pv, ReceiptKey: key.private,
 		PrimaryConsensusKey: primaryConsensus, PrimaryReceiptKey: primaryReceipt,
-		CommittedHeight: uint64(height), LastSeq: lastSeq,
+		CommittedHeight: uint64(height), LastSeq: lastSeq, ReplicationTimeout: cfg.ReplicationTimeout,
 	})
 	if err != nil {
 		w.Close()
@@ -132,6 +132,7 @@ func StartStandby(ctx context.Context, cfg Config, a *app.App) (*Standby, error)
 		w.Close()
 		return nil, fmt.Errorf("sequencer: standby listen: %w", err)
 	}
+	a.SetOpenBlock(exec)
 	stop := context.AfterFunc(ctx, func() { _ = l.Close() })
 	go func() {
 		err := s.Serve(standbyRoleListener{Listener: l, ctx: ctx})

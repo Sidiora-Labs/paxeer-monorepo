@@ -31,12 +31,13 @@
       "maximum_response_bytes": 16777216
     },
     "chain_id": 125,
+    "genesis_hash_hex": "REPLACE_WITH_VERIFIED_PAXEER_GENESIS_HASH_HEX",
     "receipt_keys": [
       {
-        "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
-        "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
-        "firstHeight": 1000,
-        "lastHeight": 1999
+        "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+        "first_height": 1000,
+        "last_height": 1999
       }
     ]
   },

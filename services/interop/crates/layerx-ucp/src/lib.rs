@@ -514,14 +514,14 @@ impl UcpPaymentPlane for ExecutedUcpPayment {
                 log.address() == LEDGER_ADDRESS
                     && log.topics().len() == 4
                     && log.topics()[0] == PAYMENT_EXACT_TOPIC
-                    && log.topics()[3] == intent.idempotency_key
+                    && log.topics()[1] == intent.idempotency_key
             });
             let payment = payments.next().ok_or(UcpError::ReceiptMismatch)?;
             let mut expected_data = [0; 64];
             expected_data[..32].copy_from_slice(&intent.asset);
             expected_data[48..].copy_from_slice(&intent.amount.to_be_bytes());
             if payments.next().is_some()
-                || payment.topics()[2] != intent.recipient
+                || payment.topics()[3] != intent.recipient
                 || payment.data() != expected_data
             {
                 return Err(UcpError::ReceiptMismatch);
@@ -835,13 +835,13 @@ fn matches_payment_exact(
     if topic_count != 4
         || body[..20] != LEDGER_ADDRESS
         || body[21..53] != PAYMENT_EXACT_TOPIC
-        || body[117..149] != reference
+        || body[53..85] != reference
     {
         return Ok(false);
     }
-    if body[53..85] == [0; 32]
-        || body[53..85] == body[85..117]
-        || body[85..117] != recipient
+    if body[85..117] == [0; 32]
+        || body[85..117] == body[117..149]
+        || body[117..149] != recipient
         || body[149..181] != data_digest
     {
         return Err(UcpError::ReceiptMismatch);

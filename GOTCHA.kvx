@@ -2236,10 +2236,10 @@ text = "Requirement references can identify numbered clauses under a parent sect
 text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
 
 [gotcha.376]
-text = "Requirement references can identify numbered clauses under a parent section; read-only scheduling helpers must not assume every reference names a standalone req section. Preserve unresolved references rather than dropping them."
+text = "modules/layerxgov NewLayerXProposal only checks that each message type is in the accepted table; the authority check happens in the proposal's ValidateBasic, so a test for a forged authority must assert at validation (or at the message service / handler), not at construction."
 
 [gotcha.377]
-text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
+text = "Reading keeper state from a freshly reopened node application before a block has begun dereferences a nil context and panics; open the app, begin a normal block, then read."
 
 [gotcha.378]
 text = "A Go test that re-executes its own binary as a child process (os/exec with an environment flag) needs a helper test that t.Skip()s when the flag is absent; keep that helper out of every gate's required-name list so the gate's skipped count stays a real zero while the parent still drives it."
@@ -2248,7 +2248,7 @@ text = "A Go test that re-executes its own binary as a child process (os/exec wi
 text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
 
 [gotcha.379]
-text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
+text = "Never chain a git push after a grep in one && chain: grep returns 1 when nothing matches and the push is silently skipped. Run the push as its own statement and confirm with git ls-remote."
 
 [gotcha.380]
 text = "Evidence build.command must be the literal executed invocation copied from the shell history, never a paraphrase with pseudo-redirections like '-> dir'; integrators reject paraphrased commands and require metadata recovery."
@@ -2260,7 +2260,9 @@ text = "Verify commit-message claims by reading the test body, not by grepping t
 text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
 
 [gotcha.382]
-text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
+symptom = "cargo build from the worktree root exits 101 'could not find Cargo.toml' for interop crates"
+cause = "the interop workspace manifest is interop/Cargo.toml and the human workspace is human/Cargo.toml; the repository root has no Cargo workspace"
+fix = "cd into the workspace directory (or pass --manifest-path interop/Cargo.toml) in every build invocation; the dispatch text must carry the cwd"
 
 [gotcha.383]
 symptom = "forge build exits 0 but <out>/BatchCallAndSponsor.sol/BatchCallAndSponsor.json is absent while sibling artifacts exist"
@@ -2324,7 +2326,7 @@ text = "layerx-agentd authority clients accept https only and need a CA DER plus
 summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
 
 [gotcha.401]
-summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
+text = "Bootstrap guarantor attestation files are named %020d-*.attestation (zero-padded id prefix, singular suffix), not <id>.attestations; fixtures must glob both forms when listing them."
 
 [gotcha.402]
 text = "git treats platform/Cargo.lock as binary in this repo (prints 'Binary files differ'); read lock hunks with git diff --text."
@@ -2788,7 +2790,7 @@ text = "A brief that forbids every default can forbid the crate's own encoded co
 text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
 
 [gotcha.546]
-text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
+text = "A worker whose context compacts mid-window loses its sense of elapsed time and runs far past a 30-minute cap. Put the cap check in the brief as a clock command to run after any compaction, and treat an overrun as implemented-not-qualified with staged partials, not as a failure to retry."
 
 [gotcha.547]
 text = "A pre-dispatch owner gate cannot use facts that only exist after the subject is bound. Before proposing where to fetch an owner witness, locate where binding runs relative to the gate; here bind_rpc_subject and subject::for_did run after authorized(), so upgrade and wind-down owner checks belong after bind, not before the guard."
@@ -9410,3 +9412,279 @@ area = "services/platform/hosted/gateway/tests/local"
 symptom = "cargo build of the local qualification package fails in its build script: 'parent-built core binary required' or 'fixture path contract changed'"
 cause = "the package adapts the core boundary fixture at build time: it needs LAYERX_TEST_CORE_BIN set to a built layerx-core-boundary and asserts three needles in core/tests/boundary.rs, one of which moved when platform moved"
 do = "do not give a task a build or verify command against that manifest; put stand-alone tests in the gateway crate's tests directory (include_str! the scanned file) and leave the package to the task that deletes its lifecycle target"
+
+[gotcha.1948]
+area = "precompiles/layerxprograms"
+symptom = "go test of a precompile package fails with 'import cycle not allowed in test' as soon as a test imports node or another package that imports the package under test"
+cause = "an in-package _test.go file is compiled into the package, so any import that reaches back to the package closes a cycle; Go only allows that from an external test package"
+do = "move the tests that need node or the app to package <name>_test and re-export the unexported identifiers they use through an export_test.go (precedent precompiles/spot/export_test.go)"
+
+[gotcha.1949]
+area = "node/sequencer"
+symptom = "starting a sequencer primary in a test or fixture recorder fails with ErrConfigStandbyAddress, or Replicator.Release returns a dial error before the first block"
+cause = "a primary requires a host:port standby address (node/sequencer/node.go:62) and a reachable standby; Release dials it on every accept (node/sequencer/node_start.go:111)"
+do = "start a standby with sequencer.StartStandby on a free loopback port first and point the primary's standby-address at it, as node/sequencer/tcp_ack_test.go:70-90 does"
+
+[gotcha.1950]
+area = "node/upgrades"
+symptom = "applying the v7.0 upgrade handler through the app in a test panics 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906'"
+cause = "validateMergePrecompiles (node/upgrades.go:584) requires the oracle, scheduler and streams precompiles to be registered, which only happens once node imports them"
+do = "order any test that applies the v7.0 handler after the task that wires those precompiles into node; do not register constructors from the test and do not relax the check"
+
+[gotcha.1951]
+area = "services/interop"
+symptom = "cargo build --tests of layerx-interop-gateway fails in tests/workspace_lock.rs with a missing Cargo.toml for a crate that no longer exists"
+cause = "workspace_lock.rs include_str!s every member crate's manifest; deleting a crate without removing its entry breaks every test target of the gateway"
+do = "when a crate is deleted, drop its entry from services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs in the same change"
+
+[gotcha.1952]
+area = "daemon/paxd/cmd"
+symptom = "validate-genesis reports 'receipt key list is empty' right after add-genesis-receipt-key succeeded"
+cause = "the command re-marshals the untagged sequencertypes.GenesisState (key ReceiptKeys) while the module decodes its wire object with receipt_keys and byte-string leaders (modules/sequencer/module.go:38-45)"
+do = "edit the module state as map[string]json.RawMessage in the module's wire encoding, as add-genesis-sequencer-leader (daemon/paxd/cmd/genseqleader.go) does"
+
+[gotcha.1953]
+area = "node/sequencer, rpc"
+symptom = "a test expects transactionIndex 0x0 or receipt Index 0 for the first accepted transaction and gets 1"
+cause = "the sequencer numbers accepted transactions from 1 within the open block (node/sequencer/accept.go:40, microbatch.go:333) and the receipt RPC reads that index verbatim; 0 marks an invalid receipt (rpc/sequencer_receipt_test.go:515)"
+do = "assert Index 1 and transactionIndex 0x1 for the first accepted transaction"
+
+[gotcha.1954]
+area = "services/platform/perps-data"
+symptom = "a go test in perps-data fails with 'TestMarkets requires PERPS_DATA_TEST_RPC' (or the e2e equivalent) in an environment without a node"
+cause = "the package test clients dial the node named by PERPS_DATA_TEST_RPC and fail rather than skip when it is unset"
+do = "run the test behind tools/qualification/localnode/v6120-node.sh --env-out <file> and source that file (set -a; . <file>; set +a) before go test, as the done markets tasks do"
+
+[gotcha.1955]
+area = "tools/qualification/localnode"
+symptom = "perps-gateway.sh stops with 'nats-server is required' although nats-server was installed with go install"
+cause = "the script checks command -v for nats-server and reads PERPS_DATA_TEST_DATABASE_URL from the environment; a GOPATH/bin binary is not on PATH by default"
+do = "put $(go env GOPATH)/bin on PATH and export PERPS_DATA_TEST_DATABASE_URL before running the script"
+
+[gotcha.1956]
+area = "tokenfactory"
+symptom = "CreateDenom returns \"subdenom too long, max length is 44 bytes\" when a layerxledger asset is bound"
+cause = "hex of a 32-byte asset id is 64 characters; MaxSubdenomLength is 44 (modules/tokenfactory/types/denoms.go:17) and sdk.ValidateDenom allows only [a-zA-Z0-9/-], so base64 is out too"
+do = "encode the asset id as the base-62 text of its big-endian integer zero-padded to 43 digits (big.Int.Text(62)); test against the real keeper, a recording IssuerKeeper never sees the cap"
+
+[gotcha.1957]
+area = "ramps toolkit"
+symptom = "cargo test -p layerx-ramp-toolkit fails compiling src/bin/ramp-verify-receipt.rs after a change to LayerxConfig"
+cause = "the crate's binaries compile together with its tests, and the reference ramp crate depends on the toolkit types"
+do = "when changing a shared config or client type, port the crate's bins and every dependent crate in the same task; a type change that leaves dependents uncompilable cannot be qualified alone"
+
+[gotcha.1958]
+area = "precompiles"
+symptom = "TestMergeServes0x0903/0x0905/0x0906 fail with \"node must register the ... constructor\""
+cause = "node/precompiles.go imports the agent oracle, scheduler and streams precompile packages only through task 5.94.4, so MissingMergeConstructors still lists them"
+do = "order activation tests for 0x0903, 0x0905 and 0x0906 after 5.94.4"
+
+[gotcha.1959]
+area = "committed-fixture recorder"
+symptom = "paxd panics \"validator ... not in committee\" (consensus/internal/consensus/state.go:2622) when a standby node is started next to the primary"
+cause = "the standby home was initialised with --mode validator and a fresh priv_validator_key that no gentx put in the validator set"
+do = "initialise the standby with --mode full, copy the primary genesis.json, set sequencer.role = standby and start it before the primary"
+
+[gotcha.1960]
+area = "interop gateway AP2"
+symptom = "Ap2Adapter::execute returns EvidenceMismatch for a recorded payExact receipt"
+cause = "settle_with_sequencer_evidence (gateway.rs:613-622) needs exactly one PaymentExact log whose reference topic equals the payment idempotency key; a recorded receipt carries a recorded reference"
+do = "rewrite topics[3] and the same 32 bytes of signed_receipt to payment.idempotency_key(), re-sign under a fresh Ed25519 key pinned to the recorded key id and heights (tests/sequencer_settlement.rs sign_payment_reference)"
+
+[gotcha.1961]
+area = "node store upgrades"
+symptom = "node/app.go:1553: undefined: storekeys.LayerXAnchorStoreKey; every Go test importing node fails at build"
+cause = "one task retired the store key constant while the store deletion upgrade and its tests from another task still named the store through it"
+do = "a deletion upgrade names a retired store by a literal of its historical name; when retiring a store key constant, grep node/ and storage/ tests for the constant and port them in the same change"
+
+[gotcha.1962]
+area = "cargo workspaces"
+symptom = "cargo --locked: the lock file <ws>/Cargo.lock needs to be updated, in workspaces the change never touched"
+cause = "a crate manifest changed its dependency list and only its own workspace lock was refreshed; other workspace locks pin that crate as a path dependency and record its dependency list"
+do = "after editing any crate manifest, run cargo metadata without --locked in every workspace whose Cargo.lock names the crate (grep -l 'name = \"<crate>\"' $(git ls-files '*Cargo.lock')) and commit those locks with the change"
+
+[gotcha.1963]
+area = "x-websearch"
+symptom = "error[E0432]: unresolved imports crate::payment::GatewayRpc, crate::payment::RpcAnswer after deleting them as a do item asked"
+cause = "the do item listed only the payment.rs sites; kernel.rs and watch.rs import the same items and neither is in the task"
+do = "before deleting a pub item, git grep its name across the crate and either add every importer to the task or keep the item and hand its deletion to the task that removes the last importer"
+
+[gotcha.1964]
+area = "sequencer-receipt vectors"
+symptom = "a vector test expects every expected.refusedAt case to be refused by decode or verify and fails on V3-activity-id-not-raw-hash and V3-seq-hash-mismatch"
+cause = "expected.verifier is the signature verifier's verdict; R4 and R6 are client rules over rawTransaction and prevSeqHash that a receipt verifier without those inputs cannot apply, so their verifier value is accepts"
+do = "classify by expected.verifier first (Decode, SequencerSignature, accepts) and apply R4 (keccak of rawTransaction) and R6 (sequence chain) in the test from the case inputs, as services/agent/crates/layerx-proof/tests/sequencer_receipt_vectors.rs does"
+
+[gotcha.1965]
+area = "node tests"
+symptom = "a task written to restore one retired symbol in node/store_delete_test.go fails because the same file references a second retired keeper method"
+cause = "the task was scoped from the first compile error only; go reports errors per package and stops at the first file set, hiding later dead references"
+do = "before publishing a compile-repair task, list every a.<Keeper>.<Method> reference in the test file and confirm each method still exists on the live keeper (git grep 'func (k *Keeper) <Method>('), then cover all of them in one task"
+
+[gotcha.1966]
+area = "cargo workspaces"
+symptom = "a lock-refresh task fails its build with E0432/E0599 inside a path dependency, not in the lock"
+cause = "a crate in another workspace deleted public items (SignedHeaderTrust, MirrorVerifier::from_source) that a shared library crate still uses, so every workspace depending on that library stops building"
+do = "before deleting a pub item from a crate other workspaces depend on, git grep the item across services/ and tools/ and put the dependents' port in the same task or a required follow-up; gate lock-only tasks with cargo metadata --locked rather than a compile"
+
+[gotcha.1967]
+area = "conformance vectors"
+symptom = "a vector-driven test fails on cases whose expected.verifier is accepts or Decode even though the component under test behaves per the vector"
+cause = "expected.verifier is the signature verifier's verdict over the signed bytes: Decode is raised by verify_sequencer_signature, not by a JSON view decoder, and accepts means the refusal (R4, R5, R6) is a client rule that a bytes-only verifier such as the mirror cannot and must not raise"
+do = "classify cases by expected.verifier; for accepts cases assert the verifier accepts and apply the client rule in the test from rawTransaction, prevSeqHash and the JSON view; for Decode cases call the verifier and assert ReceiptCheck::Decode"
+
+[gotcha.1968]
+area = "x402 payment plane"
+symptom = "a settled metered draw answers receipt_consumed on its first receipted retry although the record was released once"
+cause = "the plane saved leaf_hash of the signed receipt (LXP/v1/merkle-leaf domain) as the record digest while the seller compares the canonical_receipt_digest the gateway recorded at settlement, so PaymentStore::release saw two different digests for one receipt"
+do = "when a digest is stored by one component and compared by another, grep the comparer first and use its exact function (canonical_receipt_digest for sequencer receipts); never derive the stored digest with a different hash domain"
+
+[gotcha.1969]
+area = "spec"
+symptom = "A done task's late do item said a planned dispatch table was unnecessary because an existing Execute already dispatched; it dispatched one method, and 21 dependant tasks that add handlers in their own files found no seam and failed with LXP_PRECOMPILE_UNKNOWN_METHOD."
+cause = "The reading that excused the table checked the task's own tests, not the touches of its dependants."
+do = "Before excusing a planned registration or dispatch seam, list the dependants' touches; if they add handlers in separate files the seam is required, so add it as a small task in the dependants' wave and make them require it."
+
+[gotcha.1970]
+area = "spec"
+symptom = "A delete-the-module task listed the module, its tests and the files its do items named; the build failed because three other files imported the module's re-exports and one enum."
+cause = "The do items were written from the module's own callers, not from a grep of crate::<module> across the crate."
+do = "Before writing a module-deletion task, grep crate::<module>:: and <module>:: across the crate and every test, and give each surviving symbol a destination file in a do item and in touches."
+
+[gotcha.1971]
+area = "spec"
+symptom = "An acceptance criterion generalised a refusal reason to every negative case of a shared vector file, and three cases returned a different reason that another criterion in the same feature requires."
+cause = "The criterion was written from the three cases its parenthesis names and did not read the vector file's verifier column, which separates signature failures from content mismatches."
+do = "When a criterion ranges over the cases of a shared vector file, derive the expected outcome per case from the file's own classification fields and cite the sibling criterion that governs each class."
+
+[gotcha.1972]
+area = "precompiles/layerxprograms"
+symptom = "View tests that seeded kernel state by submitting a module activity were refused LXP_ERR_UNKNOWN_ACTIVITY, and versioned schedule views had no host reader for the history rows."
+cause = "The hosted programs registration does not route every module activity, and the host read wiring named only the active-row readers."
+do = "Seed module state in view tests with kv.Set under the kernel key layout, and when a view takes a version argument check modules/lxphost/read.go for a reader over the history prefix before writing the handler."
+
+[gotcha.1973]
+area = "node/abci"
+symptom = "A merged chain refused every proposal at height 2 with proposer ... is outside the pinned leader list although the validator key was pinned as a leader."
+cause = "Header.ProposerAddress is the 20-byte crypto.AddressHash of the validator key while the leader list stores 32-byte keys, and the check compared the two directly."
+do = "Compare the proposer with crypto.AddressHash(leader) for each pinned key, and drive ProcessProposal tests with the derived address, never the raw key."
+
+[gotcha.1974]
+area = "apps/perps"
+symptom = "Removing a field from the static PerpsMarket seed type broke tsc in widgets and tests that never read the seed list."
+cause = "MarketRow and the mobile market props extend PerpsMarket, so the gateway-fed consumers inherit every seed field."
+do = "Keep live-only fields on a type that extends the seed type (TradeableMarket) and point the gateway-fed consumers at it before deleting the seed field."
+
+[gotcha.1975]
+area = "services/interop/x-websearch"
+symptom = "Deleting a crate module that only re-exported symbols still broke the integration tests, which imported the symbols through the deleted path."
+cause = "tests/ reach crate items through x_websearch::<module>:: paths, so re-export removal is a public API change that git grep over src/ alone does not show."
+do = "Before deleting a module, grep the whole crate directory (tests, benches, examples) for its path and repoint or delete every importer in the same change."
+
+[gotcha.1976]
+area = "modules/layerxauth"
+symptom = "go test of the auth keeper package fails at setup with import cycle not allowed in test, before any test runs."
+cause = "In-package test files import tests/testutil/keeper, which imports node, which imports the keeper under test."
+do = "Tests that need the node test harness live in package <pkg>_test with an export_test.go bridge, as the ledger keeper tests do."
+
+[gotcha.1977]
+area = "services/interop/x-websearch"
+symptom = "Every V3 conformance case was refused invalid_payment_payload instead of a receipt refusal."
+cause = "The V3 vectors carry no txHash and the exact payload parser now requires one before fetching the receipt."
+do = "Derive the payload txHash as keccak of the case rawTransaction and script the gateway receipt answer for it; the receipt refusals come only after the payload parses."
+
+[gotcha.1978]
+area = "services/platform/perps-data"
+symptom = "A test that expects a chain-backed refresh to land and the refreshed height to advance within a few hundred milliseconds fails with the column still NULL."
+cause = "One refresh against the started node takes longer than the bound and two consecutive refreshes can read the same height."
+do = "Prove a second refresh by clearing the rows after the first one lands and waiting for them to be refilled, with bounds in seconds."
+
+[gotcha.1979]
+area = "kernel-host"
+symptom = "Programs account, wind-down, sandbox or storage-retirement activities submitted through the hosted kernel revert LXP_ERR_UNKNOWN_ACTIVITY while deploy, call and transfer work."
+cause = "modules/lxphost/host.go:159 and read.go:216 register programs_module_registration(), whose activity list (src/modules/programs/registration.c:18-24) is the five original types."
+do = "Check the list lxp_kernel_module_for_activity consults before suspecting the payload codec; register the variant that lists the activity (task 1.23.5)."
+
+[gotcha.1980]
+area = "kernel-host"
+symptom = "Every non-zero fee limit through Host.Execute or Host.Simulate is LXP_ERR_FEE_UNPAYABLE, and Host.Simulate of an unsigned host-bound activity is LXP_ERR_BAD_SIGNATURE."
+cause = "lxphost_execute and lxphost_simulate never fill execution->fee_balance, and lxphost_simulate never sets execution->binding_authority."
+do = "Fill fee_balance from the payer's agent main account as cmd/layerxd/lxp_daemon_lni.c:2300-2346 does and mirror host.go:536-537 in simulate (task 1.23.6); tests need a funded main account."
+
+[gotcha.1981]
+area = "precompiles"
+symptom = "Asserting a revert reason equal to a bare LXP_ code fails with actual 'LXP_CODE: detail'."
+cause = "pcommon.RevertReason joins code and detail with ': ' (precompiles/layerxprograms/errors_test.go:68)."
+do = "Compare with pcommon.LXPRevert(code, detail) as gate_test.go:102 does, or ErrorContains \"LXP_CODE:\"."
+
+[gotcha.1982]
+area = "spec"
+symptom = "Spec lines citing include/layerx/programs.h:171-179 for Programs activity types point two lines early."
+cause = "LX_PROGRAMS_FEE_GOVERNANCE was inserted into the enum, shifting ACCOUNT to :176, WIND_DOWN to :177, SANDBOX to :179 and STORAGE_RETIREMENT to :181."
+do = "Cite the enum by value (0x0009000N) and re-read the header before trusting a line number."
+
+[gotcha.1983]
+area = "ramps"
+symptom = "Removing the reference ramp's PaxeerConfig RPC fields or State tracker fields fails to build with E0609, E0061 and E0063."
+cause = "rebalance, rebalance_presentation, verify_recovery_settlement's sixth argument and RampEngine.registry still read them until later tasks remove those readers."
+do = "Remove the fields in the task that removes the last reader (8.31.2), not in the configuration task."
+
+[gotcha.1984]
+area = "programs"
+symptom = "A hosted Programs transfer from a ledger account is refused LXP_ERR_AUTH_SCOPE, or LXP_ERR_NON_CANONICAL when the authority hash is zero."
+cause = "src/modules/programs/transfer.c:107-108 and :51-52 accept only a leg whose from id equals authority->principal, which under decision.1329 is the DID id and never an account id; :133-136 refuse a zero authority_hash."
+do = "Debit the DID's main or asset account under task 13.25.4 and fill Kind and AuthorityHash through principalOf (13.25.5)."
+
+[gotcha.1985]
+area = "lxphost"
+symptom = "Host.Execute of ACCOUNT 0x00090006 or WIND_DOWN 0x00090007 returns the Go error LXP_ERR_MODULE_DISABLED although the Programs module is registered."
+cause = "src/protocol/lxp_kernel.c:6752-6762 gates Programs state activities on kernel->observe_commit, which only lxp_programs_bind_state_feed (src/modules/programs/feed.c:114) sets."
+do = "Bind a Programs state feed before expecting a receipt; the error is not a registration failure."
+
+[gotcha.1986]
+area = "layerxauth"
+symptom = "A test expecting ErrIdempotentReplay for a reused idempotency key never sees it and finds nothing under host prefix 0x04."
+cause = "req.1010 (task 1.2.1) removed kernel idempotency recording; only the account sequence refuses replay, with ErrSequenceReused."
+do = "Assert ErrSequenceReused on a consumed sequence and an empty 0x04 prefix."
+
+[gotcha.1987]
+area = "sequencer"
+symptom = "A paxd standby refuses every replicated group after the first commit ('standby holds seq 1') and the primary halts in its commit listener."
+cause = "AppReplayer.Apply treats wal.Committed as a no-op and sequential.Open requires LastBlockHeight+1, so an unpeered standby stays at height 1 and Open(3) fails with a sticky refusal (node/sequencer/standby.go:323, :695-700)."
+do = "Peer the standby to the primary and, under task 5.55.6, wait for the app commit before applying Open(H+1)."
+
+[gotcha.1988]
+area = "rpc"
+symptom = "eth_gasPrice on a sequencer fails with 'pending block does not fix a base fee'."
+cause = "rpcPendingSnapshot (node/app.go:3288) forwards only Snapshot and PendingTx, so evmrpc.PendingBaseFee (rpc/info.go:376) is unsatisfied at rpc/info.go:387."
+do = "Read baseFeePerGas of eth_getBlockByNumber latest, or forward BaseFeePerGas (task 5.55.6)."
+
+[gotcha.1989]
+area = "spec"
+symptom = "cg spec done refuses 'symbol Type::method -- not defined in the graph' for a method declared in a lifetime or generic impl."
+cause = "The symbol graph does not link methods of impl Type<'_> back to Type::method (finding.11.23.3.1, finding.8.29.1.1)."
+do = "List the test functions or free symbols in symbols instead of the impl methods."
+
+[gotcha.1990]
+area = "x-websearch tests"
+symptom = "cargo test -p x-websearch fails in tests/api.rs at under_the_single_level_only_the_named_attestor_signs_and_fulfil_carries_one_signature with Error: Evm(Malformed) while the lib and payment suites pass."
+cause = "decode_request_view (src/submit.rs:291-327) accepts only the eleven-word request view, but tests/fixtures/api/evm.json still records the nine-word getRequest answer from before the view grew."
+do = "Re-record the fixture's getRequest answer as the eleven-field view (task 18.1037.1, issue #1037); never widen the decoder to accept the short answer."
+
+[gotcha.1991]
+text = "Requirement references can identify numbered clauses under a parent section; read-only scheduling helpers must not assume every reference names a standalone req section. Preserve unresolved references rather than dropping them."
+
+[gotcha.1992]
+text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
+
+[gotcha.1993]
+text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
+
+[gotcha.1994]
+text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
+
+[gotcha.1995]
+summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
+
+[gotcha.1996]
+text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."

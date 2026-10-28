@@ -7,7 +7,7 @@ import {
   OWNER,
   OWNER_ACCOUNT,
   OWNER_DID,
-  expectedSequence,
+  expectedPendingNonce,
   golden,
   startAccountEndpoint,
   type AccountEndpoint,
@@ -77,7 +77,7 @@ function button(mounted: Mounted, name: string): HTMLButtonElement {
 
 describe('KernelPlan', () => {
   it('plans, presents, submits with the plan digest and bindings, and tracks the journey', async () => {
-    const mounted = await render('available');
+    const mounted = await render('merged');
     await mounted.until(() => mounted.query('[data-kernel="available"]') !== null, 'kernel state');
     expect(button(mounted, 'plan').disabled).toBe(true);
     await fill(mounted);
@@ -123,27 +123,26 @@ describe('KernelPlan', () => {
       (entry) => entry.scope === 'human' && entry.path === '/v1/intents/submit'
     );
     expect(submit?.idempotencyKey).toBe(IDEMPOTENCY_KEY);
-    const body = submit?.body as {
-      plan_digest: string;
-      signed_digest: string;
-      bindings: { account_sequence: number; actor: string; not_after: number }[];
-    };
+    const body = submit?.body as SubmitPlanRequest;
     expect(body.plan_digest).toBe('4b'.repeat(32));
     expect(body.signed_digest).toBe(body.plan_digest);
     expect(body.bindings.map((binding) => binding.account_sequence)).toEqual([
-      expectedSequence(),
-      expectedSequence(),
+      expectedPendingNonce(),
+      expectedPendingNonce(),
     ]);
-    expect(body.bindings.every((binding) => binding.actor === OWNER_DID)).toBe(true);
+    expect(body.bindings.every((binding) => binding.actor === OWNER)).toBe(true);
     expect(
       body.bindings.every((binding) => binding.not_after === Math.floor(DEADLINE_MS / 1000))
     ).toBe(true);
-    expect(endpoint.methods('available')).toContain('lx_getSequence');
-    expect(
-      endpoint.seen.find(
-        (entry) => entry.scope === 'available' && entry.methods.includes('lx_getSequence')
-      )?.body
-    ).toMatchObject({ params: [OWNER_ACCOUNT] });
+    expect(endpoint.methods('merged')).not.toContain('lx_getSequence');
+    const nonceReads = endpoint.seen.filter(
+      (entry) => entry.scope === 'merged' && entry.methods.includes('eth_getTransactionCount')
+    );
+    expect(nonceReads).toHaveLength(1);
+    expect(nonceReads[0].body).toMatchObject({
+      method: 'eth_getTransactionCount',
+      params: [OWNER, 'pending'],
+    });
 
     const journey = mounted.query('[data-journey]');
     expect(journey?.getAttribute('data-journey')).toBe('jrn_01j2gx3fam9kq4vte8n5w6y7z8');
@@ -153,9 +152,9 @@ describe('KernelPlan', () => {
         .all('[data-rung]')
         .map((rung) => [rung.getAttribute('data-rung'), rung.getAttribute('data-reached')])
     ).toEqual([
-      ['instant', 'true'],
-      ['sealed', 'false'],
-      ['final', 'false'],
+      ['submitted', 'true'],
+      ['receipted', 'true'],
+      ['committed', 'false'],
     ]);
     expect(mounted.all('[data-stage]').map((stage) => stage.getAttribute('data-state'))).toEqual([
       'done',

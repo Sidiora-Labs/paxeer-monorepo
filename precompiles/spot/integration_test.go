@@ -22,7 +22,6 @@ import (
 	spotkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	spottypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
-	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
 	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
@@ -107,7 +106,7 @@ type hyperpaxEnv struct {
 	a       *app.App
 	ctx     sdk.Context
 	k       *spotkeeper.Keeper
-	set     map[common.Address]*pcommon.Precompile
+	set     map[common.Address]*spot.Precompile
 	erc20   abi.ABI
 	usdl    common.Address
 	pax     common.Address
@@ -159,7 +158,7 @@ func newHyperpaxEnv(t *testing.T) *hyperpaxEnv {
 	require.NoError(t, err)
 	erc20, err := abi.JSON(bytes.NewReader(raw))
 	require.NoError(t, err)
-	set, err := spot.NewPrecompileSet(hyperpaxKeepers{a.GetPrecompileKeepers(), k})
+	set, err := spot.NewServedSet(hyperpaxKeepers{a.GetPrecompileKeepers(), k})
 	require.NoError(t, err)
 	e := &hyperpaxEnv{t: t, a: a, ctx: ctx, k: k, set: set, erc20: erc20,
 		usdl: common.HexToAddress(spottypes.USDLAddress),

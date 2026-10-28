@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_interop_gateway::evidence::canonical_receipt_digest;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
@@ -17,7 +19,7 @@ use sha2::{Digest as _, Sha256};
 
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
-fn fixture(id: &str) -> Value {
+fn historical_fixture(id: &str) -> Value {
     let document: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
@@ -29,6 +31,40 @@ fn fixture(id: &str) -> Value {
         .find(|case| case["id"] == id)
         .unwrap_or_else(|| panic!("missing fixture {id}"))
         .clone()
+}
+
+fn fixture(id: &str) -> Value {
+    let mut case = historical_fixture(id);
+    let mut topics = case["receiptJson"]["logs"][0]["topics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("fixture topics"))
+        .iter()
+        .map(|topic| word(text(topic)))
+        .collect::<Vec<_>>();
+    let recorded_topics = topics.concat();
+    topics[1..].rotate_right(1);
+    let mut receipt = bytes(text(&case["signedReceipt"]));
+    let positions: Vec<_> = receipt
+        .windows(recorded_topics.len())
+        .enumerate()
+        .filter_map(|(index, value)| (value == recorded_topics).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1);
+    receipt[positions[0]..positions[0] + recorded_topics.len()].copy_from_slice(&topics.concat());
+    let digest = canonical_receipt_digest(&receipt)
+        .unwrap_or_else(|error| panic!("native receipt digest: {error}"));
+    let signer = SigningKey::from_bytes(&[0x72; 32]);
+    let signature_start = receipt.len() - 64;
+    receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    case["signedReceipt"] = json!(format!("0x{}", hex(&receipt)));
+    case["receiptDigest"] = json!(format!("0x{}", hex(&digest)));
+    case["pinnedKey"]["publicKey"] =
+        json!(format!("0x{}", hex(&signer.verifying_key().to_bytes())));
+    case["receiptJson"]["logs"][0]["topics"] = json!(topics
+        .iter()
+        .map(|topic| format!("0x{}", hex(topic)))
+        .collect::<Vec<_>>());
+    case
 }
 
 fn text(value: &Value) -> &str {
@@ -89,7 +125,7 @@ fn recorded(id: &str) -> TestResult<(Buyer, BuiltPayment, SettlementResponse, Va
                 network: "eip155:125".to_owned(),
                 amount,
                 asset: format!("0x{}", hex(&data[..32])),
-                pay_to: text(&log["topics"][2]).to_owned(),
+                pay_to: text(&log["topics"][3]).to_owned(),
                 max_timeout_seconds: 90,
                 extra: Some(
                     json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
@@ -98,12 +134,12 @@ fn recorded(id: &str) -> TestResult<(Buyer, BuiltPayment, SettlementResponse, Va
             payload: json!({}),
             extensions: BTreeMap::new(),
         },
-        idempotency_key: word(text(&log["topics"][3])),
+        idempotency_key: word(text(&log["topics"][1])),
     };
     let response = SettlementResponse {
         success: true,
         error_reason: None,
-        payer: Some(text(&log["topics"][1]).trim_start_matches("0x").to_owned()),
+        payer: Some(text(&log["topics"][2]).trim_start_matches("0x").to_owned()),
         transaction: text(&case["receiptJson"]["txHash"]).to_owned(),
         network: "eip155:125".to_owned(),
         amount: Some(amount),
@@ -182,12 +218,47 @@ fn buyer_captures_the_recorded_receipted_settlement() -> TestResult {
             Err(X402Error::EvidenceMismatch)
         );
     }
+    let mut wrong_payer = response.clone();
+    wrong_payer.payer = Some("ff".repeat(32));
+    assert_eq!(
+        capture(&buyer, &payment, &wrong_payer),
+        Err(X402Error::EvidenceMismatch)
+    );
     let unpinned = Buyer::new(vec![SupportedKind {
         scheme: "exact".to_owned(),
         network: "eip155:125".to_owned(),
     }])?;
     assert_eq!(
         capture(&unpinned, &payment, &response),
+        Err(X402Error::EvidenceMismatch)
+    );
+    Ok(())
+}
+
+#[test]
+fn buyer_refuses_legacy_payment_exact_topic_order() -> TestResult {
+    let (_, payment, mut response, _) = recorded("V1-layerxledger-pay-exact")?;
+    let case = historical_fixture("V1-layerxledger-pay-exact");
+    let key = &case["pinnedKey"];
+    let authorization = SequencerAuthorization::new(
+        word(text(&key["keyId"])),
+        word(text(&key["publicKey"])),
+        key["firstHeight"].as_u64().ok_or("first height")?,
+        key["lastHeight"].as_u64().ok_or("last height")?,
+    );
+    let buyer = Buyer::with_receipt_keys(
+        vec![SupportedKind {
+            scheme: "exact".to_owned(),
+            network: "eip155:125".to_owned(),
+        }],
+        vec![authorization],
+    )?;
+    let evidence = response.extensions.get_mut("layerx").ok_or("layerx")?;
+    evidence["receipt"] = json!(STANDARD.encode(bytes(text(&case["signedReceipt"]))));
+    evidence["receiptDigest"] = json!(text(&case["receiptDigest"]).trim_start_matches("0x"));
+    evidence["logs"] = case["receiptJson"]["logs"].clone();
+    assert_eq!(
+        capture(&buyer, &payment, &response),
         Err(X402Error::EvidenceMismatch)
     );
     Ok(())

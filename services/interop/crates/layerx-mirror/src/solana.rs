@@ -20,7 +20,7 @@ use crate::{archive_commitment, Archive, ArchiveCommitment, MirrorCursor};
 const SYSTEM_PROGRAM: [u8; 32] = [0; 32];
 const PDA_MARKER: &[u8] = b"ProgramDerivedAddress";
 const MANIFEST_MAGIC: &[u8; 8] = b"LXMMAN04";
-const CHUNK_MAGIC: &[u8; 8] = b"LXMCHK03";
+const CHUNK_MAGIC: &[u8; 8] = b"LXMCHK04";
 const INSTRUCTION_MAGIC: &[u8; 4] = b"LXMA";
 const INSTRUCTION_VERSION: u16 = 4;
 const MAX_TRANSACTION_BYTES: usize = 1232;
@@ -954,12 +954,7 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StageInstruction>
     let manifest = [0; 32];
     let chunk_count = u32::try_from(archive.bytes().len().div_ceil(chunk_bytes))
         .map_err(|_| SolanaError::Transaction)?;
-    let block_hash = archive
-        .data()
-        .committed
-        .as_ref()
-        .ok_or(SolanaError::Transaction)?
-        .block_hash;
+    let block_hash = archive.data().committed.block_hash;
     let mut begin = Vec::new();
     begin.extend_from_slice(INSTRUCTION_MAGIC);
     begin.extend_from_slice(&INSTRUCTION_VERSION.to_be_bytes());
@@ -1484,7 +1479,7 @@ fn base58_digit(value: u8) -> Option<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_manifest, stages, Archive, SolanaError};
+    use super::{decode_chunk, decode_manifest, stages, Archive, ArchiveCommitment, SolanaError};
     use crate::committed::{CommittedBlock, CommittedHeader};
     use crate::{archive_commitment, NodeHead};
     use sha2::{Digest, Sha256};
@@ -1511,7 +1506,7 @@ mod tests {
         };
         let archive = Archive::from_committed(&block, 77, NodeHead::new(block.header.height, None))
             .map_err(|error| format!("committed archive: {error:?}"))?;
-        assert!(archive.data().checkpoint.is_none());
+        assert_eq!(archive.data().committed.block_hash, block.header.block_hash);
         assert_ne!(&block.header.block_hash, archive.commitment().as_bytes());
         let instructions =
             stages(&archive, 720).map_err(|error| format!("committed instructions: {error:?}"))?;
@@ -1526,60 +1521,182 @@ mod tests {
         assert_eq!(&instructions[1].data[..7], b"LXMA\0\x04\x02");
         assert_eq!(&instructions[2].data[..7], b"LXMA\0\x04\x03");
 
-        let legacy = Archive::from_spool(ARCHIVE.to_vec(), NodeHead::new(1, None))
-            .map_err(|error| format!("legacy archive: {error:?}"))?;
-        assert!(legacy.data().committed.is_none());
-        assert!(matches!(
-            stages(&legacy, 720),
-            Err(SolanaError::Transaction)
-        ));
         Ok(())
     }
 
+    fn source_derived_v4_manifest() -> Vec<u8> {
+        let mut manifest = MANIFEST.to_vec();
+        manifest[..8].copy_from_slice(b"LXMMAN04");
+        manifest[84..116].copy_from_slice(&[0x42; 32]);
+        manifest
+    }
+
+    fn source_derived_v4_chunk(
+        commitment: ArchiveCommitment,
+        index: u32,
+        value: &[u8],
+    ) -> Result<Vec<u8>, String> {
+        let length = u32::try_from(value.len()).map_err(|error| error.to_string())?;
+        let mut account = Vec::with_capacity(80 + value.len());
+        account.extend_from_slice(b"LXMCHK04");
+        account.extend_from_slice(commitment.as_bytes());
+        account.extend_from_slice(&index.to_be_bytes());
+        account.extend_from_slice(&Sha256::digest(value));
+        account.extend_from_slice(&length.to_be_bytes());
+        account.extend_from_slice(value);
+        Ok(account)
+    }
+
     #[test]
-    fn a_version_3_manifest_account_is_not_read_as_a_v4_archive() -> Result<(), String> {
+    fn a_version_3_manifest_account_is_not_read_as_a_v4_archive() {
         let commitment = archive_commitment(ARCHIVE);
         assert_eq!(&MANIFEST[..8], b"LXMMAN03");
         assert!(matches!(
             decode_manifest(MANIFEST, commitment, *PUBLISHER),
             Err(SolanaError::Manifest)
         ));
+    }
 
-        let mut version_4 = MANIFEST.to_vec();
-        version_4[..8].copy_from_slice(b"LXMMAN04");
+    #[test]
+    fn reader_matches_source_derived_v4_manifest_and_chunk_accounts() -> Result<(), String> {
+        let commitment = archive_commitment(ARCHIVE);
+        let manifest = source_derived_v4_manifest();
         assert_eq!(super::MANIFEST_MAGIC, b"LXMMAN04");
-        let decoded = decode_manifest(&version_4, commitment, *PUBLISHER)
-            .map_err(|error| format!("version 4 manifest: {error:?}"))?;
+        let decoded = decode_manifest(&manifest, commitment, *PUBLISHER)
+            .map_err(|error| format!("source-derived v4 manifest: {error:?}"))?;
         assert!(decoded.finalized);
         assert_eq!(decoded.length, ARCHIVE.len());
         assert_eq!(decoded.chunk_count, 8);
         assert_eq!(decoded.digest, <[u8; 32]>::from(Sha256::digest(ARCHIVE)));
+        let mut retrieved = Vec::new();
+        for (index, chunk) in ARCHIVE.chunks(720).enumerate() {
+            let index = u32::try_from(index).map_err(|error| error.to_string())?;
+            let account = source_derived_v4_chunk(commitment, index, chunk)?;
+            assert_eq!(&account[..8], b"LXMCHK04");
+            assert_eq!(account.len(), 80 + chunk.len());
+            let decoded = decode_chunk(&account, commitment, index, 720)
+                .map_err(|error| format!("source-derived v4 chunk: {error:?}"))?;
+            assert_eq!(decoded, chunk);
+            retrieved.extend_from_slice(&decoded);
+        }
+        assert_eq!(retrieved, ARCHIVE);
+        assert_eq!(archive_commitment(&retrieved), commitment);
+        assert_eq!(<[u8; 32]>::from(Sha256::digest(&retrieved)), decoded.digest);
         Ok(())
     }
 
     #[test]
-    fn publisher_and_reader_match_real_runtime_manifest() -> Result<(), String> {
-        let commitment = archive_commitment(ARCHIVE);
-        let decoded = decode_manifest(MANIFEST, commitment, *PUBLISHER)
-            .map_err(|error| format!("runtime manifest: {error:?}"))?;
-        assert!(decoded.finalized);
-        assert_eq!(decoded.length, ARCHIVE.len());
-        assert_eq!(decoded.chunk_count, 8);
-        assert_eq!(decoded.digest, <[u8; 32]>::from(Sha256::digest(ARCHIVE)));
-        let archive = Archive::from_spool(ARCHIVE.to_vec(), NodeHead::new(1, None))
-            .map_err(|error| format!("native archive: {error:?}"))?;
+    fn publisher_instructions_match_the_v4_chunk_account_layout() -> Result<(), String> {
+        let block = CommittedBlock {
+            header: CommittedHeader {
+                height: 1,
+                block_hash: [0x42; 32],
+                parent_hash: [0x21; 32],
+                app_hash: [0x63; 32],
+                timestamp: 1234,
+                transactions: Vec::new(),
+            },
+            receipts: Vec::new(),
+        };
+        let archive = Archive::from_committed(&block, 77, NodeHead::new(1, None))
+            .map_err(|error| format!("committed archive: {error:?}"))?;
         let instructions =
-            stages(&archive, 720).map_err(|error| format!("publisher instructions: {error:?}"))?;
-        assert_eq!(instructions.len(), 10);
-        assert_eq!(&instructions[0].data[..7], b"LXMA\0\x03\x01");
-        assert_eq!(&instructions[0].data[7..39], &MANIFEST[8..40]);
-        assert_eq!(&instructions[0].data[39..], &MANIFEST[72..192]);
-        assert_eq!(&instructions[9].data[..7], b"LXMA\0\x03\x03");
-        for (index, chunk) in ARCHIVE.chunks(720).enumerate() {
+            stages(&archive, 128).map_err(|error| format!("publisher instructions: {error:?}"))?;
+        assert_eq!(archive.bytes().len(), 130);
+        assert_eq!(instructions.len(), 4);
+        let begin = &instructions[0].data;
+        assert_eq!(&begin[..7], b"LXMA\0\x04\x01");
+        assert_eq!(&begin[7..39], archive.commitment().as_bytes());
+        assert_eq!(&begin[39..43], &77_u32.to_be_bytes());
+        assert_eq!(&begin[43..51], &block.header.height.to_be_bytes());
+        assert_eq!(&begin[51..83], &block.header.block_hash);
+        assert_eq!(&begin[83..91], &130_u64.to_be_bytes());
+        assert_eq!(&begin[91..95], &2_u32.to_be_bytes());
+        assert_eq!(&begin[95..127], &Sha256::digest(archive.bytes())[..]);
+        assert_eq!(
+            &begin[127..],
+            &super::chunk_chain_root(archive.bytes(), 128)
+                .map_err(|error| format!("chunk chain: {error:?}"))?
+        );
+        assert_eq!(&instructions[3].data[..7], b"LXMA\0\x04\x03");
+        assert_eq!(&instructions[3].data[7..], archive.commitment().as_bytes());
+        let mut retrieved = Vec::new();
+        for (index, chunk) in archive.bytes().chunks(128).enumerate() {
             let encoded = &instructions[index + 1].data;
-            assert_eq!(&encoded[..7], b"LXMA\0\x03\x02");
+            let index = u32::try_from(index).map_err(|error| error.to_string())?;
+            let length = u16::try_from(chunk.len()).map_err(|error| error.to_string())?;
+            assert_eq!(&encoded[..7], b"LXMA\0\x04\x02");
+            assert_eq!(&encoded[7..39], archive.commitment().as_bytes());
+            assert_eq!(&encoded[39..43], &index.to_be_bytes());
+            assert_eq!(&encoded[43..45], &length.to_be_bytes());
             assert_eq!(&encoded[45..45 + chunk.len()], chunk);
             assert_eq!(&encoded[45 + chunk.len()..], &Sha256::digest(chunk)[..]);
+            let account = source_derived_v4_chunk(archive.commitment(), index, chunk)?;
+            let decoded = decode_chunk(&account, archive.commitment(), index, 128)
+                .map_err(|error| format!("publisher chunk account: {error:?}"))?;
+            assert_eq!(decoded, chunk);
+            retrieved.extend_from_slice(&decoded);
+        }
+        assert_eq!(retrieved, archive.bytes());
+        assert_eq!(archive_commitment(&retrieved), archive.commitment());
+        Ok(())
+    }
+
+    #[test]
+    fn reader_refuses_chunk_version_identity_and_payload_substitution() -> Result<(), String> {
+        let commitment = archive_commitment(ARCHIVE);
+        let account = source_derived_v4_chunk(commitment, 7, &ARCHIVE[..720])?;
+        assert_eq!(
+            decode_chunk(&account, commitment, 7, 720)
+                .map_err(|error| format!("v4 chunk: {error:?}"))?,
+            &ARCHIVE[..720]
+        );
+        for magic in [b"LXMCHK02", b"LXMCHK03", b"LXMCHK05"] {
+            let mut changed = account.clone();
+            changed[..8].copy_from_slice(magic);
+            assert!(matches!(
+                decode_chunk(&changed, commitment, 7, 720),
+                Err(SolanaError::Retrieval)
+            ));
+        }
+        for offset in [0, 8, 39, 40, 43, 44, 75, 76, 79, 80, 799] {
+            let mut changed = account.clone();
+            changed[offset] ^= 0x80;
+            assert!(matches!(
+                decode_chunk(&changed, commitment, 7, 720),
+                Err(SolanaError::Retrieval)
+            ));
+        }
+        for length in [0, 7, 79, 80, 799] {
+            assert!(matches!(
+                decode_chunk(&account[..length], commitment, 7, 720),
+                Err(SolanaError::Retrieval)
+            ));
+        }
+        let mut extended = account.clone();
+        extended.push(0);
+        assert!(matches!(
+            decode_chunk(&extended, commitment, 7, 720),
+            Err(SolanaError::Retrieval)
+        ));
+        assert!(matches!(
+            decode_chunk(&account, archive_commitment(&ARCHIVE[..720]), 7, 720),
+            Err(SolanaError::Retrieval)
+        ));
+        assert!(matches!(
+            decode_chunk(&account, commitment, 8, 720),
+            Err(SolanaError::Retrieval)
+        ));
+        assert!(matches!(
+            decode_chunk(&account, commitment, 7, 719),
+            Err(SolanaError::Retrieval)
+        ));
+        for length in [0, 721] {
+            let account = source_derived_v4_chunk(commitment, 7, &ARCHIVE[..length])?;
+            assert!(matches!(
+                decode_chunk(&account, commitment, 7, 720),
+                Err(SolanaError::Retrieval)
+            ));
         }
         Ok(())
     }
@@ -1587,14 +1704,15 @@ mod tests {
     #[test]
     fn reader_refuses_manifest_identity_and_progress_substitution() {
         let commitment = archive_commitment(ARCHIVE);
+        let manifest = source_derived_v4_manifest();
         for index in [0, 8, 40, 123, 127, 160, 231, 235, 236, 332, 333] {
-            let mut changed = MANIFEST.to_vec();
+            let mut changed = manifest.clone();
             changed[index] ^= 0x80;
             assert!(matches!(
                 decode_manifest(&changed, commitment, *PUBLISHER),
                 Err(SolanaError::Retrieval)
             ));
         }
-        assert!(decode_manifest(&MANIFEST[..237], commitment, *PUBLISHER).is_err());
+        assert!(decode_manifest(&manifest[..237], commitment, *PUBLISHER).is_err());
     }
 }

@@ -359,7 +359,6 @@ var (
 		epochmoduletypes.StoreKey,
 		tokenfactorytypes.StoreKey,
 		layerxcustodytypes.StoreKey,
-		layerxanchortypes.StoreKey,
 		layerxexchangetypes.StoreKey,
 		layerxbridgetypes.StoreKey,
 		launchpadtypes.StoreKey,
@@ -814,8 +813,6 @@ func New(
 	)
 	app.BankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
 
-	app.LayerXAnchorKeeper = layerxanchorkeeper.NewKeeper(app.keys[layerxanchortypes.StoreKey], app.AccountKeeper, app.BankKeeper)
-
 	// The last arguments can contain custom message handlers, and custom query handlers,
 	// if we want to allow any custom callbacks
 	supportedFeatures := "iterator,staking,stargate,pax"
@@ -876,9 +873,6 @@ func New(
 	app.BankKeeper.RegisterRecipientChecker(app.EvmKeeper.CanAddressReceive)
 	app.LayerXCustodyKeeper = layerxcustodykeeper.NewKeeper(appCodec, keys[layerxcustodytypes.StoreKey],
 		app.AccountKeeper, app.BankKeeper, &app.EvmKeeper, app.UpgradeKeeper)
-	// Custody trusts only anchor-finalized checkpoints and anchor sequencer
-	// authorizations; its own authority-registered checkpoints are unused.
-	app.LayerXCustodyKeeper.SetAnchorReader(layerxanchorkeeper.NewCustodyAnchor(app.LayerXAnchorKeeper))
 	authority := layerxgovtypes.GovernanceAuthority()
 	networkID := evmconfig.GetEVMChainID(app.ChainID)
 	if !networkID.IsUint64() || networkID.Uint64() > math.MaxUint32 {
@@ -909,8 +903,6 @@ func New(
 		&app.EvmKeeper, app.TokenFactoryKeeper)
 	app.LaunchpadKeeper = launchpadkeeper.NewKeeper(keys[launchpadtypes.StoreKey], app.BankKeeper,
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
-	app.BankKeeper.(bankkeeper.BaseKeeper).RegisterBalanceChangeHook(launchpadtypes.ModuleName, app.LaunchpadKeeper.BeforeBalanceChange)
-	app.GigaBankKeeper.RegisterBalanceChangeHook(launchpadtypes.ModuleName, app.LaunchpadKeeper.BeforeBalanceChange)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
 	app.SpotKeeper = spotkeeper.NewKeeper(keys[spottypes.StoreKey], app.BankKeeper, &app.EvmKeeper, app.PricefeedKeeper)
@@ -1104,7 +1096,6 @@ func New(
 		transferModule,
 		epochModule,
 		tokenfactorymodule.NewAppModule(app.TokenFactoryKeeper, app.AccountKeeper, app.BankKeeper),
-		layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		layerxcustodymodule.NewAppModule(app.LayerXCustodyKeeper),
 		layerxexchangemodule.NewAppModule(app.LayerXExchangeKeeper),
@@ -1203,7 +1194,6 @@ func New(
 		wasm.ModuleName,
 		evmtypes.ModuleName,
 		layerxcustodytypes.ModuleName,
-		layerxanchortypes.ModuleName,
 		layerxexchangetypes.ModuleName,
 		layerxbridgetypes.ModuleName,
 		launchpadtypes.ModuleName,
@@ -1546,6 +1536,8 @@ func (app *App) SetStoreUpgradeHandlers() {
 	}
 }
 
+const retiredAnchorStoreName = "layerxanchor"
+
 // layerxStoreUpgrades returns the store upgrades of the named LayerX upgrade plan.
 func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
 	switch name {
@@ -1559,6 +1551,8 @@ func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
 		return activationStoreUpgrades(), true
 	case MergeUpgrade:
 		return mergeStoreUpgrades(), true
+	case AnchorStoreDeleteUpgrade:
+		return storetypes.StoreUpgrades{Deleted: []string{retiredAnchorStoreName}}, true
 	case V6120Upgrade:
 		return v6120StoreUpgrades(), true
 	}
@@ -3296,6 +3290,30 @@ type rpcPendingSnapshot struct {
 	source evmrpc.PendingSnapshot
 }
 
+func (app *App) RPCPendingSnapshot() (evmrpc.PendingSnapshot, error) {
+	if app.openBlock == nil {
+		return nil, ErrPendingServedBySequencer
+	}
+	source, ok := app.openBlock.(evmrpc.PendingSnapshot)
+	if !ok {
+		return nil, errors.New("sequencer open block does not provide pending transactions")
+	}
+	return rpcPendingSnapshot{app: app, source: source}, nil
+}
+
+var _ evmrpc.PendingBaseFee = rpcPendingSnapshot{}
+
+func (s rpcPendingSnapshot) BaseFeePerGas() (sdk.Dec, error) {
+	if source, ok := s.source.(evmrpc.PendingBaseFee); ok {
+		return source.BaseFeePerGas()
+	}
+	ctx, err := s.app.PendingSnapshot()
+	if err != nil {
+		return sdk.Dec{}, err
+	}
+	return s.app.EvmKeeper.GetNextBaseFeePerGas(ctx), nil
+}
+
 func (s rpcPendingSnapshot) Snapshot() (sdk.Context, error) {
 	return s.app.PendingSnapshot()
 }
@@ -3461,11 +3479,11 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 		options = append(options, app.sequencerRPC)
 	}
 	if app.openBlock != nil {
-		source, ok := app.openBlock.(evmrpc.PendingSnapshot)
-		if !ok {
-			panic("sequencer open block does not provide pending transactions")
+		source, err := app.RPCPendingSnapshot()
+		if err != nil {
+			panic(err)
 		}
-		pending, err := evmrpc.NewPendingOption(rpcPendingSnapshot{app: app, source: source})
+		pending, err := evmrpc.NewPendingOption(source)
 		if err != nil {
 			panic(err)
 		}
