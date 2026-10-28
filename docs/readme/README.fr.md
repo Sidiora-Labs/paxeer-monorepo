@@ -50,7 +50,7 @@ Les développeurs du noyau commencent par la documentation hébergée sur [docs.
 
 ## Compiler depuis les sources
 
-Le nœud de la chaîne Paxeer X est écrit en Go 1.25.6 (`go.mod`). Le noyau LayerX est en C17 (`-std=c17` dans le `Makefile` racine). Les workspaces agent, human et platform utilisent Rust 1.91.1 (`rust-toolchain.toml`). Les contrats de règlement du noyau dans `contracts/` utilisent Solidity 0.8.27 (`foundry.toml`). La qualification par rejeu nécessite GCC 13, Clang 18, Docker, un runner amd64 musl ainsi qu’un compilateur croisé AArch64 avec QEMU ; voir [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
+Le nœud de la chaîne Paxeer X est écrit en Go 1.25.8 (`go.mod`). Le noyau LayerX est en C17 (`-std=c17` dans le `Makefile` racine). Les workspaces agent, human et platform utilisent Rust 1.91.1 (`rust-toolchain.toml`). Les contrats de règlement du noyau dans `contracts/` utilisent Solidity 0.8.27 (`foundry.toml`). La qualification par rejeu nécessite GCC 13, Clang 18, Docker, un runner amd64 musl ainsi qu’un compilateur croisé AArch64 avec QEMU ; voir [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
 
 Cibles du noyau LayerX :
 

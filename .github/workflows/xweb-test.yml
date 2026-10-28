@@ -124,7 +124,7 @@ jobs:
       - name: Install the pinned Go toolchain
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.25.6'
+          go-version: '1.25.8'
 
       - name: Install native dependencies
         run: sudo apt-get update && sudo apt-get install --yes build-essential libssl-dev

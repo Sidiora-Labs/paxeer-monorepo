@@ -50,7 +50,7 @@ Desenvolvedores do kernel começam pela documentação hospedada em [docs.paxeer
 
 ## Compilar a partir do código-fonte
 
-O nó da cadeia Paxeer X é escrito em Go 1.25.6 (`go.mod`). O kernel LayerX é C17 (`-std=c17` no `Makefile` raiz). Os workspaces agent, human e platform usam Rust 1.91.1 (`rust-toolchain.toml`). Os contratos de liquidação do kernel em `contracts/` usam Solidity 0.8.27 (`foundry.toml`). A qualificação por replay exige GCC 13, Clang 18, Docker, um runner amd64 com musl e um compilador cruzado AArch64 com QEMU; consulte [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
+O nó da cadeia Paxeer X é escrito em Go 1.25.8 (`go.mod`). O kernel LayerX é C17 (`-std=c17` no `Makefile` raiz). Os workspaces agent, human e platform usam Rust 1.91.1 (`rust-toolchain.toml`). Os contratos de liquidação do kernel em `contracts/` usam Solidity 0.8.27 (`foundry.toml`). A qualificação por replay exige GCC 13, Clang 18, Docker, um runner amd64 com musl e um compilador cruzado AArch64 com QEMU; consulte [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
 
 Targets do kernel LayerX:
 
