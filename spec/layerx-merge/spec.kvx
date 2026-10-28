@@ -185052,7 +185052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1162.1]
 title = "Issue #1162: Enforce the x402 payee binding on eip155 networks and expect the settlement logs in the seller tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185241,7 +185241,7 @@ do_7 = "Issue #1170."
 
 [task.18.1171.1]
 title = "Issue #1171: Bind the wrapped EVM transaction to the Tendermint block transaction in the SDK committed verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
