@@ -553,3 +553,107 @@ pub fn version_file_bytes(version: u32) -> Vec<u8> {
     bytes.extend_from_slice(&version.to_be_bytes());
     bytes
 }
+
+fn human_workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap_or_else(|error| panic!("resolve human workspace root: {error}"))
+}
+
+#[must_use]
+pub fn human_workspace_metadata() -> serde_json::Value {
+    let workspace_root = human_workspace_root();
+    let manifest_path = workspace_root.join("Cargo.toml");
+    let output = std::process::Command::new("cargo")
+        .current_dir(&workspace_root)
+        .args([
+            "metadata",
+            "--format-version",
+            "1",
+            "--locked",
+            "--manifest-path",
+        ])
+        .arg(&manifest_path)
+        .output()
+        .unwrap_or_else(|error| {
+            panic!(
+                "run cargo metadata for {}: {error}",
+                manifest_path.display()
+            )
+        });
+    assert!(
+        output.status.success(),
+        "cargo metadata for {} failed with {}: {}",
+        manifest_path.display(),
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout)
+        .unwrap_or_else(|error| panic!("parse human workspace metadata: {error}"))
+}
+
+#[must_use]
+pub fn workspace_package_names(metadata: &serde_json::Value) -> Vec<String> {
+    let members: BTreeSet<&str> = metadata["workspace_members"]
+        .as_array()
+        .unwrap_or_else(|| panic!("cargo metadata workspace_members must be an array"))
+        .iter()
+        .map(|member| {
+            member
+                .as_str()
+                .unwrap_or_else(|| panic!("cargo metadata workspace member ID must be a string"))
+        })
+        .collect();
+    let mut names: Vec<String> = metadata["packages"]
+        .as_array()
+        .unwrap_or_else(|| panic!("cargo metadata packages must be an array"))
+        .iter()
+        .filter(|package| {
+            let id = package["id"]
+                .as_str()
+                .unwrap_or_else(|| panic!("cargo metadata package ID must be a string"));
+            members.contains(id)
+        })
+        .map(|package| {
+            package["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("cargo metadata package name must be a string"))
+                .to_owned()
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+#[must_use]
+pub fn human_sources_containing(needle: &str) -> Vec<PathBuf> {
+    let mut directories = vec![human_workspace_root().join("crates")];
+    let mut sources = Vec::new();
+    while let Some(directory) = directories.pop() {
+        let entries = std::fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("read directory {}: {error}", directory.display()));
+        for entry in entries {
+            let entry = entry.unwrap_or_else(|error| {
+                panic!("read directory entry in {}: {error}", directory.display())
+            });
+            let path = entry.path();
+            let file_type = entry
+                .file_type()
+                .unwrap_or_else(|error| panic!("read file type for {}: {error}", path.display()));
+            if file_type.is_dir() {
+                directories.push(path);
+            } else if file_type.is_file()
+                && path.extension().is_some_and(|extension| extension == "rs")
+            {
+                let source = std::fs::read_to_string(&path)
+                    .unwrap_or_else(|error| panic!("read Rust source {}: {error}", path.display()));
+                if source.contains(needle) {
+                    sources.push(path);
+                }
+            }
+        }
+    }
+    sources.sort();
+    sources
+}

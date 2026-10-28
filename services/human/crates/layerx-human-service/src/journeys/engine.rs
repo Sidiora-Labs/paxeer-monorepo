@@ -19,6 +19,7 @@ use layerx_intents::{compile, CompileError, DisclosureCheck, DisclosureCheckErro
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch, VerificationFailure};
 use layerx_sdk::{Call, Client as AgentClient, SdkError, SubmissionOutcome};
 use layerx_types::payload::{ActivityType, ModuleRegistry, PayloadError};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -222,13 +223,17 @@ pub struct NativeJourneyAdmission {
 }
 
 /// Canonical receipt bytes, independently supplied batch authority, and the
-/// verification rank authenticated by the agent boundary. The rank is not
-/// inferred from receipt bytes and cannot replace local receipt verification.
+/// verification rank authenticated by the agent boundary, together with the
+/// transaction identity, receipt digest, observed block height, and rung.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReceiptMaterial {
     pub canonical_bytes: Vec<u8>,
     pub authorised_batch: AuthorizedBatch,
     pub verification_level: VerificationLevel,
+    pub tx_hash: [u8; 32],
+    pub receipt_hash: [u8; 32],
+    pub block_height: u64,
+    pub rung: Rung,
 }
 
 /// Receipt evidence retained by a completed journey leg. This exposes only
@@ -976,7 +981,9 @@ impl JourneyEngine {
                 let signed = SignedEvidence {
                     preparation_ref: prepared.preparation_ref.as_str().to_owned(),
                     canonical_digest: Sha256::digest(&prepared.unsigned_canonical_bytes).into(),
-                    signature: signature.signature().to_vec(),
+                    signature: SignatureBytes::new(signature.signature().to_vec())?
+                        .as_bytes()
+                        .to_vec(),
                     signer_public_key: signature.signer_public_key(),
                 };
                 self.record.legs[leg_index].signed = Some(signed);
@@ -1221,7 +1228,9 @@ impl JourneyEngine {
             self.record.legs[index].signed = Some(SignedEvidence {
                 preparation_ref: prepared.preparation_ref.as_str().to_owned(),
                 canonical_digest: Sha256::digest(&prepared.unsigned_canonical_bytes).into(),
-                signature: signature.signature().to_vec(),
+                signature: SignatureBytes::new(signature.signature().to_vec())?
+                    .as_bytes()
+                    .to_vec(),
                 signer_public_key: signature.signer_public_key(),
             });
             return self.transition(scope, index, JourneyPhase::Signed, now);
@@ -1626,6 +1635,12 @@ impl JourneyEngine {
         material: &ReceiptMaterial,
         now: u64,
     ) -> Result<(), JourneyError> {
+        if material.tx_hash != expected_activity_id
+            || material.receipt_hash != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+            || material.rung < Rung::Receipted
+        {
+            return Err(JourneyError::ReceiptMismatch);
+        }
         let verified = verify_outcome(&material.canonical_bytes, &material.authorised_batch)?;
         let receipt = verified
             .receipt()
@@ -1965,7 +1980,7 @@ fn validate_record(record: &JourneyRecord) -> Result<(), JourneyError> {
             || leg.preparation.authority.len() > TEXT_LIMIT
             || leg.prepared_ref.as_ref().is_some_and(String::is_empty)
             || leg.signed.as_ref().is_some_and(|value| {
-                value.signature.len() != 64
+                value.signature.len() != 65
                     || value.preparation_ref.is_empty()
                     || value.signer_public_key == [0; 32]
             })

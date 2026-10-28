@@ -1,5 +1,6 @@
 //! Execution of a signed unified plan through the existing movement journeys.
 
+use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
@@ -17,11 +18,10 @@ use crate::trace::TraceId;
 use super::{
     AgentBoundary, DepositForwardFailure, DepositForwardJourney, DepositForwardStage,
     DepositForwardStatus, DepositJourney, DepositJourneyError, DepositPlan, DepositStage,
-    DepositStatus, Domain, Endpoint, ExecutableShape, IntentWithdrawalJourney,
-    IntentWithdrawalStage, IntentWithdrawalStatus, JourneyEngine, JourneyError, JourneyLeg,
-    JourneyPlan, JourneyState, JourneyStatus, LegMechanism, Mechanism, RequiredAuthority,
-    RouteRequest, RouteResolver, UnifiedPlan, WithdrawalJourneyError, WithdrawalPlan,
-    WithdrawalStage,
+    DepositStatus, Endpoint, ExecutableShape, IntentWithdrawalJourney, IntentWithdrawalStage,
+    IntentWithdrawalStatus, JourneyEngine, JourneyError, JourneyLeg, JourneyPlan, JourneyState,
+    JourneyStatus, LegMechanism, Mechanism, RequiredAuthority, RouteRequest, RouteResolver,
+    UnifiedPlan, WithdrawalJourneyError, WithdrawalPlan, WithdrawalStage,
 };
 
 /// The submit classifier is the planner's executable shape contract.
@@ -51,6 +51,7 @@ pub struct IntentLegBinding {
     pub actor: String,
     pub authority: String,
     pub relationship: String,
+    /// The sender's EVM pending-tag nonce, retaining the contract field name.
     pub account_sequence: u64,
     pub not_before: u64,
     pub not_after: u64,
@@ -137,6 +138,7 @@ impl SubmitPlanRequest {
 pub struct BindingExpectation {
     pub actor: AgentDid,
     pub authority: AuthorityRef,
+    /// The pending-tag nonce returned by the agent runtime's ACCOUNT_SEQUENCE answer.
     pub account_sequence: u64,
     pub currency: String,
     pub now: u64,
@@ -150,8 +152,9 @@ pub struct BindingExpectation {
 /// Refuses a digest that no longer matches, a binding count that differs
 /// from the leg count, a binding naming another leg, action key, actor,
 /// authority, relationship or currency, a fee limit outside the leg fee and
-/// the intent ceiling, a stale account sequence and a validity window that
-/// does not contain the submission time.
+/// the intent ceiling, a nonce differing from the sender's pending nonce,
+/// repeated sender/nonce pairs and a validity window that does not contain
+/// the submission time.
 pub fn verify_bindings(
     plan: &UnifiedPlan,
     request: &SubmitPlanRequest,
@@ -170,7 +173,7 @@ pub fn verify_bindings(
         });
     }
     let constraints = plan.intent().constraints();
-    let mut sequence = expectation.account_sequence;
+    let mut sender_nonces = BTreeSet::new();
     for (leg, binding) in plan.legs().iter().zip(&request.bindings) {
         let index = leg.index();
         let action_key = plan
@@ -190,16 +193,13 @@ pub fn verify_bindings(
         if binding.fee_limit < leg.fee() || binding.fee_limit > constraints.max_fee() {
             return Err(SubmitRefusal::FeeLimitMismatch { index });
         }
-        if binding.account_sequence != sequence {
+        if binding.account_sequence != expectation.account_sequence
+            || !sender_nonces.insert((binding.actor.as_str(), binding.account_sequence))
+        {
             return Err(SubmitRefusal::StaleSequence { index });
         }
         if expectation.now < binding.not_before || expectation.now > binding.not_after {
             return Err(SubmitRefusal::WindowExpired { index });
-        }
-        if leg.domain() == Domain::LayerX {
-            sequence = sequence
-                .checked_add(1)
-                .ok_or(SubmitRefusal::LegMismatch { index })?;
         }
     }
     Ok(())

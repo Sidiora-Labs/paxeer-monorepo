@@ -316,6 +316,13 @@ impl ProductionComponents {
             if activity.network_id() != self.network_id {
                 return Err(ApiFailure::forbidden());
             }
+            if material.tx_hash != activity_id
+                || material.receipt_hash
+                    != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+                || material.rung < layerx_types::rung::Rung::Receipted
+            {
+                return Err(ApiFailure::upstream_degraded());
+            }
             let evidence = crate::agents::ProtocolEvidence {
                 actor: self.agent_actor.as_str().as_bytes().to_vec(),
                 owner_public_key: key.public_key,
@@ -324,8 +331,10 @@ impl ProductionComponents {
                 action_key: activity.idempotency_key(),
                 activity_id,
                 receipt_bytes: material.canonical_bytes,
-                authorized_batch: material.authorised_batch,
-                verification_level: material.verification_level,
+                tx_hash: material.tx_hash,
+                receipt_hash: material.receipt_hash,
+                block_height: material.block_height,
+                rung: material.rung,
             };
             journey
                 .accept_bootstrap_owner(&mut scope, stage, &evidence, &registry, trace, observed_at)
