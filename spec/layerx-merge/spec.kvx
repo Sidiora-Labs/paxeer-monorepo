@@ -143691,7 +143691,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.1]
 title = "Replace the KMS activity module registry with a chain snapshot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -184009,7 +184009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1141.1]
 title = "Issue #1141: Issue #1141: Add the golang.org/x/net go.mod hash the module graph needs so the chain binary builds in read-only module mode"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
