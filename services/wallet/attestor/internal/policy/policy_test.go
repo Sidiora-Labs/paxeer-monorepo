@@ -897,6 +897,73 @@ func TestShippedPolicyAllowsPerpsApproveThenDeposit(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, perps, big.NewInt(0), legacy), h.ledger), CodeDecodeError)
 }
 
+func TestTransferToPrecompileRecipientRefused(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
+	precompile := common.HexToAddress("0x0000000000000000000000000000000000001017")
+	bridge, ok := evm.PrecompileAddress("layerxbridge")
+	if !ok {
+		t.Fatal("layerxbridge address is missing")
+	}
+	amount := big.NewInt(25_000_000)
+	for _, tc := range []struct {
+		method   string
+		contract string
+		target   common.Address
+		args     func(common.Address) []any
+	}{
+		{"transfer", "erc20", usdl, func(to common.Address) []any { return []any{to, amount} }},
+		{"transferFrom", "erc20", usdl, func(to common.Address) []any {
+			return []any{common.HexToAddress(testAccount), to, amount}
+		}},
+		{"bridgeOut", "layerxbridge", bridge, func(to common.Address) []any {
+			return []any{uint64(1), usdl, amount, to}
+		}},
+		{"approve", "erc20", usdl, func(to common.Address) []any { return []any{to, amount} }},
+	} {
+		t.Run(tc.method, func(t *testing.T) {
+			contract, err := evm.PrecompileABI(tc.contract)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, to := range []common.Address{precompile, common.HexToAddress(friend)} {
+				t.Run(to.Hex(), func(t *testing.T) {
+					h := newHarness(t)
+					h.policy = New(doc)
+					data, err := contract.Pack(tc.method, tc.args(to)...)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := CodeAllowed
+					if to == precompile && tc.method != "approve" {
+						want = CodeDestinationBlocked
+					}
+					decision := h.policy.Evaluate(testAccount, h.tx(t, tc.target, big.NewInt(0), data), h.ledger)
+					expect(t, decision, want)
+					if want == CodeDestinationBlocked && decision.Reason != "recipient "+precompile.Hex()+" is a precompile" {
+						t.Fatalf("refusal reason %q does not identify the precompile recipient", decision.Reason)
+					}
+				})
+			}
+		})
+	}
+	t.Run("permit", func(t *testing.T) {
+		h := newHarness(t)
+		h.policy = New(doc)
+		typed := permitData(t, amount.String())
+		typed.Data.Domain.VerifyingContract = usdl.Hex()
+		typed.Data.Message["spender"] = precompile.Hex()
+		typed.Digest, err = evm.TypedDataDigest(typed.Data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expect(t, h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: typed}, h.ledger), CodeAllowed)
+	})
+}
+
 func TestShippedPolicyAllowsLaunchpadApproveThenBuy(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
