@@ -833,6 +833,26 @@ func TestShippedPolicyAllowsWalletSDKWrites(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, feetoken, big.NewInt(0), setDenom), h.ledger), CodeAllowed)
 }
 
+func TestShippedPolicyRefusesUsdlApproveToListedPrecompile(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	erc20, err := evm.PrecompileABI("erc20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spender := common.HexToAddress("0x0000000000000000000000000000000000001018")
+	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
+	approve, err := erc20.Pack("approve", spender, big.NewInt(50_000_000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	expect(t, h.policy.Evaluate(testAccount, h.tx(t, usdl, big.NewInt(0), approve), h.ledger), CodeSelectorNotAllowed)
+}
+
 func TestShippedPolicyAllowsPerpsApproveThenDeposit(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
