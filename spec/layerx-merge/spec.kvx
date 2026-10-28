@@ -180089,7 +180089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1116.1]
 title = "Issue #1116: Re-include the checksum-listed vendored crate fixtures in the layerx and paxd-node image contexts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
