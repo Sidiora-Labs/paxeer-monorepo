@@ -139046,7 +139046,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.11.2]
 title = "Ingest events from eth_subscribe logs with gap backfill"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.11.1", "9.12.1", "9.5.2", "9.1.8"]
