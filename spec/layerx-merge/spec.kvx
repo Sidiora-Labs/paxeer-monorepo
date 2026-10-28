@@ -139173,7 +139173,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.12.3]
 title = "Replace the startup node settings with JSON-RPC URL and chain id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.12.1", "9.12.2", "9.1.8"]
@@ -180431,7 +180431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1125.1]
 title = "Issue #1125: Resolve sandbox lifecycle accessor tokens through sandbox_for_call so EXECUTE admission can read the activity id by call token"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1122.1"]
@@ -180492,7 +180492,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1127.1]
 title = "Issue #1127: Port layerx-agent-api tests/stream.rs to the struct Cursor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
