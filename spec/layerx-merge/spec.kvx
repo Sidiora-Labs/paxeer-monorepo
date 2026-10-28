@@ -138510,7 +138510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.5.3]
 title = "Serve availability from eth_getBlockByNumber"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.12.1", "9.5.4", "9.21.2", "9.1.8", "18.1127.1"]
@@ -180473,7 +180473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1126.1]
 title = "Issue #1126: Standby replays a ledger openAccount after register with the primary's receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
