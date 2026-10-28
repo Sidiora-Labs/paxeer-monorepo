@@ -136608,7 +136608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.47.7]
 title = "Conformance vectors V1-V5 are published under sdk/platform/conformance/fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.41.2", "5.0.3", "5.55.5", "18.1164.1", "18.1171.1", "18.1178.1"]
@@ -185364,7 +185364,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1172.1]
 title = "Issue #1172: Port the human service test fixtures to the evidence fields 10.13.1 introduced"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
