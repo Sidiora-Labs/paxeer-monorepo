@@ -105635,7 +105635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.1]
 title = "End-to-end: /api/markets serves every chain market by id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.42.5", "3.41.4", "5.98.2"]
