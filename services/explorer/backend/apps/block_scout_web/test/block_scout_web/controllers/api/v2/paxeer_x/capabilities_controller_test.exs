@@ -20,6 +20,11 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CapabilitiesControllerTest do
   ]
 
   @addr_precompile "0x0000000000000000000000000000000000001004"
+  @view_calls %{
+    "0x0000000000000000000000000000000000001015" => "0xb71d031c" <> String.duplicate("0", 64),
+    "0x0000000000000000000000000000000000001016" => "0xb187bd26"
+  }
+  @view_word "0x" <> String.duplicate("0", 64)
 
   @unified_account_answer "0x" <> String.duplicate("0", 320)
 
@@ -76,9 +81,22 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CapabilitiesControllerTest do
 
   defp answer(%{id: id, method: "eth_getCode", params: [address, block]}) do
     assert address in @code_addresses
+    assert address == "0x0000000000000000000000000000000000001017"
     assert block == @head_quantity
 
     %{id: id, jsonrpc: "2.0", result: @bytecode}
+  end
+
+  defp answer(%{
+         id: id,
+         method: "eth_call",
+         params: [%{to: to, data: data}, block]
+       })
+       when is_map_key(@view_calls, to) do
+    assert data == Map.fetch!(@view_calls, to)
+    assert block == @head_quantity
+
+    %{id: id, jsonrpc: "2.0", result: @view_word}
   end
 
   defp answer(%{
