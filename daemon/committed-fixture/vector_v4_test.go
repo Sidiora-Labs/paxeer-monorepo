@@ -119,7 +119,7 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 		t.Fatal("missing named refusal")
 	}
 	s := vector.Settlement
-	if s == nil || s.Receipt == nil || s.Header == nil || s.ExecutionHeader == nil || s.Commit == nil || s.InsufficientCommit == nil || s.ExecTxResult == nil || len(s.Validators) == 0 {
+	if s == nil || s.Receipt == nil || s.Header == nil || s.ExecutionHeader == nil || s.ExecutionCommit == nil || s.Commit == nil || s.InsufficientCommit == nil || s.ExecTxResult == nil || len(s.Validators) == 0 {
 		t.Fatal("missing settled payExact receipt, execution proofs, committed header, commit or validator set")
 	}
 	if !bytes.Equal(s.Receipt.Receipt, positive.Receipt) || s.Receipt.Rung != evmrpc.RungCommitted {
@@ -145,6 +145,15 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 	}
 	if err := set.VerifyCommit(fixtureChainID, s.Commit.BlockID, s.Header.Height, s.Commit); err != nil {
 		t.Fatalf("positive Comet commit: %v", err)
+	}
+	if s.ExecutionCommit.Height != s.ExecutionHeader.Height || !bytes.Equal(s.ExecutionCommit.BlockID.Hash, s.ExecutionHeader.Hash()) {
+		t.Fatal("execution commit is not for the execution header")
+	}
+	if err := set.VerifyCommit(fixtureChainID, s.ExecutionCommit.BlockID, s.ExecutionHeader.Height, s.ExecutionCommit); err != nil {
+		t.Fatalf("positive Comet execution commit: %v", err)
+	}
+	if !bytes.Equal(s.Header.LastCommitHash, s.ExecutionCommit.Hash()) {
+		t.Fatal("committed header does not bind the execution commit")
 	}
 	if !reflect.DeepEqual(s.InsufficientCommit.BlockID, s.Commit.BlockID) || s.InsufficientCommit.Height != s.Commit.Height || s.InsufficientCommit.Round != s.Commit.Round || len(s.InsufficientCommit.Signatures) != len(s.Validators) {
 		t.Fatal("insufficient-power refusal changed commit identity")

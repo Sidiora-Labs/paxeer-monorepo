@@ -58,6 +58,7 @@ type v4Settlement struct {
 	ExecTxResultBytes  hexutil.Bytes                  `json:"exec_tx_result_bytes"`
 	ExecTxResultProof  merkle.Proof                   `json:"exec_tx_result_proof"`
 	ExecutionHeader    *tmtypes.Header                `json:"execution_header"`
+	ExecutionCommit    *tmtypes.Commit                `json:"execution_commit"`
 	Header             *tmtypes.Header                `json:"header"`
 	Commit             *tmtypes.Commit                `json:"commit"`
 	Validators         []*tmtypes.Validator           `json:"validators"`
@@ -341,6 +342,10 @@ func v4RecordSettlement(ctx context.Context, n *node, receipt *evmrpc.SequencerR
 	if err != nil {
 		return nil, err
 	}
+	executionCommit, err := client.Commit(ctx, &height)
+	if err != nil {
+		return nil, err
+	}
 	validators, err := client.Validators(ctx, &committedHeight, nil, nil)
 	if err != nil {
 		return nil, err
@@ -358,12 +363,21 @@ func v4RecordSettlement(ctx context.Context, n *node, receipt *evmrpc.SequencerR
 	if err := set.VerifyCommit(fixtureChainID, commit.Commit.BlockID, committedHeight, commit.Commit); err != nil {
 		return nil, err
 	}
+	if executionCommit == nil || executionCommit.Commit == nil || executionCommit.Commit.Height != block.Block.Header.Height || !bytes.Equal(executionCommit.Commit.BlockID.Hash, block.Block.Header.Hash()) {
+		return nil, errors.New("Comet execution commit does not bind the payment execution header")
+	}
+	if err := set.VerifyCommit(fixtureChainID, executionCommit.Commit.BlockID, height, executionCommit.Commit); err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(commit.Header.LastCommitHash, executionCommit.Commit.Hash()) {
+		return nil, errors.New("committed header does not bind the execution commit")
+	}
 	insufficient := *commit.Commit
 	insufficient.Signatures = make([]tmtypes.CommitSig, len(commit.Commit.Signatures))
 	for i := range insufficient.Signatures {
 		insufficient.Signatures[i] = tmtypes.NewCommitSigAbsent()
 	}
-	return &v4Settlement{RawTransaction: raw, Receipt: receipt, Batch: batch, BatchProof: txs.Proof(0), TransactionProof: txs.Proof(index), ExecTxResult: results.TxsResults[index], ExecTxResultBytes: encoded[index], ExecTxResultProof: *proofs[index], ExecutionHeader: &block.Block.Header, Header: commit.Header, Commit: commit.Commit, Validators: validators.Validators, InsufficientCommit: &insufficient}, nil
+	return &v4Settlement{RawTransaction: raw, Receipt: receipt, Batch: batch, BatchProof: txs.Proof(0), TransactionProof: txs.Proof(index), ExecTxResult: results.TxsResults[index], ExecTxResultBytes: encoded[index], ExecTxResultProof: *proofs[index], ExecutionHeader: &block.Block.Header, ExecutionCommit: executionCommit.Commit, Header: commit.Header, Commit: commit.Commit, Validators: validators.Validators, InsufficientCommit: &insufficient}, nil
 }
 
 func v4Package(n *node, receipt, sibling *evmrpc.SequencerReceiptResult, settlement *v4Settlement) (*v4Vector, error) {
