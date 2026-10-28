@@ -12,7 +12,7 @@ use layerx_agentd::boot::{Gate, GateError, Status, WriteGateError};
 use layerx_agentd::compat::{
     self, CompatibilityError, CONTRACT_VERSION, DAEMON_VERSION, SDK_VERSION,
 };
-use layerx_agentd::config::StartupConfig;
+use layerx_agentd::config::{ReceiptKeySource, StartupConfig};
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig, NodeRpcError};
 use layerx_agentd::store::TenantId;
 use layerx_programs::hex;
@@ -137,10 +137,11 @@ pub fn config() -> StartupConfig {
 
 fn config_with_authority(authority_source: PathBuf) -> StartupConfig {
     let tenant = tenant();
-    StartupConfig {
+    let (node_config, server) = empty_node_config(1, 0);
+    let config = StartupConfig {
         network_id: 42,
-        node_endpoint: PathBuf::from("/run/layerx/layerxd.sock"),
-        expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
+        node_endpoint: node_config.url.clone(),
+        expected_chain_id: node_config.chain_id,
         tenants: BTreeSet::from([tenant.clone()]),
         policy_sources: BTreeMap::from([(
             tenant.clone(),
@@ -151,8 +152,15 @@ fn config_with_authority(authority_source: PathBuf) -> StartupConfig {
             PathBuf::from("/etc/layerx/signer-a.kvx"),
         )]),
         verification_defaults: BTreeMap::from([(tenant, VerificationLevel::STATE_PROVEN)]),
-        sequencer_authority_source: authority_source,
-    }
+        receipt_key_source: ReceiptKeySource::PinnedFile(authority_source),
+    };
+    must(NodeRpc::connect(&NodeRpcConfig {
+        url: config.node_endpoint.clone(),
+        chain_id: config.expected_chain_id,
+        ..node_config
+    }));
+    must(server.join());
+    config
 }
 
 fn protected_authority(path: &Path) {
