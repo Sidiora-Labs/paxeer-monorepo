@@ -181842,7 +181842,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.754.1]
 title = "Issue #754: Key wallet rate limits on the real client address behind the edge proxy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
