@@ -8695,3 +8695,11 @@ symbol = "mix-in-builder"
 observed = "Attempt 1 (1eb86b67e) ran the indexer test to 0 failures and the block_scout_web channel test then failed with DBConnection.OwnershipError because one wrapper invocation ran two umbrella apps (issue #1098)."
 assumption = "The gate now runs one wrapper invocation per app; the candidate continues unchanged."
 severity = "minor"
+
+[finding.18.1111.1.1]
+task = "18.1111.1"
+file = "services/agent/crates/layerx-crypto/tests/disclosure_call.rs:386"
+symbol = "ActivityType::new"
+observed = "Attempt 1 (16ea64b79) failed its build step with E0277 in tests/disclosure_call.rs, a target the task does not touch and which does not compile at main since b6f48e079 (PayloadError is not an std::error::Error; issue #1115)."
+assumption = "The build_cmd now builds only the library and the disclosure target; task 18.1115.1 repairs the disclosure_call target and 9.35.1 requires it."
+severity = "minor"
