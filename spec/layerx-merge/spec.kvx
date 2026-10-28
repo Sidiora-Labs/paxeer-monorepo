@@ -183276,7 +183276,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1108.1]
 title = "Issue #1108: Read the sequence batch in the signature route with the gateway height and tx encoding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
