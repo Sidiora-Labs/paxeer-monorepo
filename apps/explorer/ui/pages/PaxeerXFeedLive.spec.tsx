@@ -6,6 +6,7 @@ import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 
 import { SocketProvider } from 'lib/socket/context';
 import * as feedMock from 'mocks/paxeerX/feed';
+import { FEED_FALLBACK_REFETCH_INTERVAL } from 'ui/paxeerX/feed/useFeedSocket';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { waitFor } from 'vitest/lib';
@@ -101,6 +102,52 @@ describe('PaxeerXFeed live updates', () => {
       });
 
       expect(indexPriceOf(container, 0)).toBe(newBtcIndexPrice);
+    } finally {
+      await socket.close();
+    }
+  });
+
+  it('does not read the markets endpoint again while the feed channel is joined', async() => {
+    const socket = await createTestSocket();
+
+    try {
+      const { container } = render(
+        <SocketProvider url={ socket.url }>
+          <PaxeerXFeed/>
+        </SocketProvider>,
+      );
+
+      await waitFor(() => {
+        expect(indexPriceOf(container, 0)).toBe(feedMock.btcIndexPrice);
+      });
+      await socket.join(TOPIC);
+
+      const marketReads = () => fetchMock.mock.calls.filter(([ url ]) => String(url).includes('/api/v2/paxeer-x/feed/markets')).length;
+      expect(marketReads()).toBe(1);
+      const tableBefore = container.querySelector('[data-scan-table-card]');
+      expect(tableBefore).not.toBeNull();
+
+      socket.send(TOPIC, 'new_update', submission(34800140, 'ab'));
+
+      await waitFor(() => {
+        expect(indexPriceOf(container, 0)).toBe(newBtcIndexPrice);
+      }, { timeout: 10_000 });
+
+      expect(indexPriceOf(container, 17)).toBe(solIndexPrice);
+      expect(row(container, 0)?.querySelector(`a[href="/feed/update/0x${ 'ab'.repeat(32) }"]`)).not.toBeNull();
+      expect(note(container)).toBe(`Latest submitted prices per market at chain head block ${ (34800140).toLocaleString() }`);
+      expect(container.querySelector('[data-scan-table-card]')).toBe(tableBefore);
+      expect(marketReads()).toBe(1);
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 2 * FEED_FALLBACK_REFETCH_INTERVAL);
+      });
+
+      expect(marketReads()).toBe(1);
+      expect(indexPriceOf(container, 0)).toBe(newBtcIndexPrice);
+      expect(indexPriceOf(container, 17)).toBe(solIndexPrice);
+      expect(container.querySelector('[data-scan-table-card]')).toBe(tableBefore);
+      expect(Array.from(container.querySelectorAll('[data-market]')).map((item) => item.getAttribute('data-market'))).toEqual([ '0', '17' ]);
     } finally {
       await socket.close();
     }

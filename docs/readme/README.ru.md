@@ -50,7 +50,7 @@ Paxeer X Network — одна сеть с двумя доменами испол
 
 ## Сборка из исходного кода
 
-Узел цепочки Paxeer X написан на Go 1.25.6 (`go.mod`). Ядро LayerX написано на C17 (`-std=c17` в корневом `Makefile`). Рабочие пространства agent, human и platform используют Rust 1.91.1 (`rust-toolchain.toml`). Расчётные контракты ядра в `contracts/` используют Solidity 0.8.27 (`foundry.toml`). Для квалификации воспроизведением нужны GCC 13, Clang 18, Docker, раннер amd64 с musl, а также кросс-компилятор AArch64 и QEMU; см. [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
+Узел цепочки Paxeer X написан на Go 1.25.8 (`go.mod`). Ядро LayerX написано на C17 (`-std=c17` в корневом `Makefile`). Рабочие пространства agent, human и platform используют Rust 1.91.1 (`rust-toolchain.toml`). Расчётные контракты ядра в `contracts/` используют Solidity 0.8.27 (`foundry.toml`). Для квалификации воспроизведением нужны GCC 13, Clang 18, Docker, раннер amd64 с musl, а также кросс-компилятор AArch64 и QEMU; см. [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
 
 Цели ядра LayerX:
 

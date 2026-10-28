@@ -6,6 +6,8 @@ import { SECOND } from 'toolkit/utils/consts';
 // While the channel is joined the pages take every submission from the socket; until it joins, or once
 // the socket closes or fails, they fall back to reading the endpoint on this cadence.
 export const FEED_FALLBACK_REFETCH_INTERVAL = 5 * SECOND;
+export const FEED_OVERVIEW_BUFFER_LIMIT = 200;
+export const FEED_HISTORY_BUFFER_LIMIT = 50;
 
 interface Params {
   topic: string;

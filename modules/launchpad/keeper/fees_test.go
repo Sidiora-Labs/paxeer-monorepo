@@ -169,7 +169,8 @@ func TestRecordFeeSplit(t *testing.T) {
 		treasury, err := f.k.TreasuryGetBalance(f.ctx, f.usdl)
 		require.NoError(t, err)
 		require.Equal(t, int64(3_000), treasury.Int64())
-		require.False(t, f.ctx.KVStore(f.key).Has(types.ProtocolFeesKey(f.denom)),
+		protocolFeesKey := append(append([]byte(nil), types.ProtocolFeesPrefix...), []byte(f.denom)...)
+		require.False(t, f.ctx.KVStore(f.key).Has(protocolFeesKey),
 			"RecordFee must not write the generation 1 per-market protocol counter")
 		require.Equal(t, int64(27_000), f.accumulated())
 		require.Equal(t, int64(27_000), f.liabilities())
