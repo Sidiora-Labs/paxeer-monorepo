@@ -178,7 +178,7 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
 
   async function sequencerReceipt(hash: Hex) {
     const receipt = await rpc.sequencerReceipt(hash);
-    return { receipt, rung: receipt === null ? ('submitted' as const) : ('receipted' as const) };
+    return { receipt, rung: receipt === null ? ('submitted' as const) : receipt.rung };
   }
 
   function requireQuorumWallet(sw:SigningWallet):asserts sw is SigningWallet & {attestorKeyId:string} {
@@ -377,6 +377,9 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
       if(c.kind==='sponsored_batch'){
         if(c.account.toLowerCase()!==sw.row.address.toLowerCase()||BigInt(c.quote.deadline)<=BigInt(Math.floor(Date.now()/1000))||BigInt(c.quote.tokenAmount)>BigInt(c.quote.maxTokenAmount)) throw new RouteRefusal(403,'consent_mismatch',{error:'consent_mismatch'});
       }else if(BigInt(c.nonce)!==BigInt(await rpc.getTransactionCount(sw.row.address as Hex,'latest'))) throw new RouteRefusal(409,'authorization_nonce_changed',{error:'authorization_nonce_changed'});
+      if (c.kind === 'eip7702_authorization' && !env.WALLET_AUTHORIZATION_DELEGATES.includes(c.address.toLowerCase())) {
+        throw new RouteRefusal(403, 'delegate_not_allowed', { error: 'delegate_not_allowed' });
+      }
       const digest=constructionDigest(c);const signed=await signConstruction(sw,req,{kind:'eth_sign_digest',digest,construction:c},digest);
       if(c.kind==='sponsored_batch'&&BigInt(c.quote.deadline)<=BigInt(Math.floor(Date.now()/1000)))throw new RouteRefusal(403,'consent_expired',{error:'consent_expired'});
       if(c.kind==='eip7702_authorization'&&BigInt(c.nonce)!==BigInt(await rpc.getTransactionCount(sw.row.address as Hex,'latest')))throw new RouteRefusal(409,'authorization_nonce_changed',{error:'authorization_nonce_changed'});
@@ -463,7 +466,7 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
         const outcome = await nonces.withLock(sw.row.address, async (lease) => {
           if (tx.nonce !== undefined) {
             try {
-              await lease.checkClientNonce(tx.nonce);
+              await lease.reserveClientNonce(tx.nonce);
             } catch (err) {
               if (err instanceof NonceBelowLatestError) {
                 throw new RouteRefusal(409, 'nonce_below_latest', { error: 'nonce_below_latest', nonce: err.nonce, latest: err.latest });
@@ -473,19 +476,10 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
           }
           const nonce = tx.nonce ?? (await lease.next());
           const signed = await signer.signTransaction({ ...prepared, nonce });
-          if (tx.nonce === undefined) {
-            const sent = await broadcastReserved(lease, nonce, signed.value, (raw) => rpc.sendRawTransactionVia(raw));
-            return sent.hash !== null
-              ? { ok: true as const, hash: sent.hash, nonce, signed }
-              : { ok: false as const, error: sent.error as Error, nonce, signed };
-          }
-          try {
-            const { hash, member } = await rpc.sendRawTransactionVia(signed.value);
-            await lease.track(nonce, keccak256(signed.value), member);
-            return { ok: true as const, hash, nonce, signed };
-          } catch (err) {
-            return { ok: false as const, error: err as Error, nonce, signed };
-          }
+          const sent = await broadcastReserved(lease, nonce, signed.value, (raw) => rpc.sendRawTransactionVia(raw));
+          return sent.hash !== null
+            ? { ok: true as const, hash: sent.hash, nonce, signed }
+            : { ok: false as const, error: sent.error as Error, nonce, signed };
         });
         if (!outcome.ok && outcome.error instanceof NonceConflictError) {
           return {

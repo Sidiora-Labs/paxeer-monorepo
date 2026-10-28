@@ -26,7 +26,7 @@
   "services": [
     {
       "id": "kernel",
-      "purpose": "Sequencer, native module execution, batches and durable kernel state",
+      "purpose": "Sequencer, native module execution, batches, durable kernel state and px_register identity registration",
       "exposure": "product",
       "discovery_path": "/v1/routes/kernel",
       "transport": "authenticated-discovery",
@@ -588,7 +588,7 @@
     },
     {
       "id": "indexer",
-      "purpose": "Canonical receipts, history and rollback-safe projections",
+      "purpose": "Canonical receipts, px_getHistory history reads and rollback-safe projections",
       "exposure": "product",
       "discovery_path": "/v1/routes/indexer",
       "transport": "authenticated-discovery",

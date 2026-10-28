@@ -22,6 +22,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc721"
 )
 
+const ERC20FundingAmount = 9000000 * 1000000000000
+
 var (
 	DefaultPriorityFee = big.NewInt(1000000000)    // 1gwei
 	DefaultMaxFee      = big.NewInt(1000000000000) // 1000gwei
@@ -128,8 +130,21 @@ func (txClient *EvmTxClient) GenerateSendFundsTx() *ethtypes.Transaction {
 	return txClient.sign(tx)
 }
 
-// GenerateERC20TransferTx returns a random ERC20 send
-// the contract it interacts with needs no funding (infinite balances)
+func (txClient *EvmTxClient) GenerateERC20FundingTx() *ethtypes.Transaction {
+	opts := txClient.getTransactOpts()
+	opts.GasLimit = uint64(100000)
+	token, err := erc20.NewErc20(txClient.evmAddresses.ERC20, GetNextEthClient(txClient.ethClients))
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create ERC20 contract: %v \n", err))
+	}
+	tx, err := token.Mint(opts, txClient.accountAddress, big.NewInt(ERC20FundingAmount))
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create ERC20 funding transaction: %v \n", err))
+	}
+	return txClient.sign(tx)
+}
+
+// GenerateERC20TransferTx returns a random self-transfer of the minted balance.
 func (txClient *EvmTxClient) GenerateERC20TransferTx() *ethtypes.Transaction {
 	opts := txClient.getTransactOpts()
 	// override gas limit for an ERC20 transfer

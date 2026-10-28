@@ -32,6 +32,7 @@ import (
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"golang.org/x/sync/semaphore"
@@ -139,6 +140,28 @@ func run(config *Config) {
 	// initialize clients with addresses on clients
 	for _, txClient := range client.EvmTxClients {
 		txClient.evmAddresses = config.EVMAddresses
+	}
+
+	if config.ContainsAnyMessageTypes(ERC20) {
+		for _, txClient := range client.EvmTxClients {
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						panic(fmt.Sprintf("Failed to fund ERC20 account %s: %v", txClient.accountAddress.Hex(), err))
+					}
+				}()
+				fundingTx := txClient.GenerateERC20FundingTx()
+				sent := false
+				txClient.SendEvmTx(fundingTx, func() { sent = true })
+				if !sent {
+					panic("Failed to send ERC20 funding transaction")
+				}
+				if _, err := bind.WaitMined(context.Background(), GetNextEthClient(txClient.ethClients), fundingTx); err != nil {
+					panic(err)
+				}
+				txClient.EnsureTxSuccess(fundingTx.Hash())
+			}()
+		}
 	}
 
 	startLoadtestWorkers(client, *config)

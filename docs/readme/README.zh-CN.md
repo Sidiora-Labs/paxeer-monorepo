@@ -36,7 +36,7 @@
 
 Paxeer X Network 是一个拥有两个执行域的网络：Paxeer X 链（`paxd`，Go，EVM 链 ID 125）和 LayerX 内核（`layerxd`，C17）。LayerX 内核是面向自主代理的确定性执行与记账域。官方网站：[paxeer.network](https://paxeer.network/)。文档：[docs.paxeer.app](https://docs.paxeer.app/)。
 
-Paxeer X 链在 Tendermint 共识之上运行 EVM 执行，并包含 `layerxcustody`、`layerxexchange`、`layerxbridge` 和 `launchpad` 模块，合约通过位于 `0x1013`、`0x1015`、`0x1016` 和 `0x1017` 的预编译合约访问它们。LayerX 内核以确定性方式执行代理活动并记账，为每个活动返回签名收据；其检查点通过位于 `0x1014` 的 `layerxAnchor` 预编译合约在链上结算。
+Paxeer X 链在 Tendermint 共识之上运行 EVM 执行，并包含 `layerxcustody`、`layerxexchange`、`layerxbridge` 和 `launchpad` 模块。合约通过 `layerxCustody`（`0x1013`）、`perps`（`0x1015`）、`layerxBridge`（`0x1016`）和 `launchpad`（`0x1017`）预编译合约访问原生模块。`node/app.go` 构建的 v6.12.0 集合在该升级激活后提供服务，在 `0x1015` 优先使用 `perps`，而非 `layerxExchange`。LayerX 内核以确定性方式执行代理活动并记账，为每个活动返回签名收据；其检查点通过位于 `0x1014` 的 `layerxAnchor` 预编译合约在链上结算。
 
 本仓库是 Sidiora Labs 为 Paxeer X Network 维护的单一仓库：Paxeer X 链和 LayerX 内核位于同一个仓库中。放在一起使内核、链、合约和开发者接口可以在同一处审计。每个子系统保留各自的构建、发布、部署和信任边界。规范性说明是 [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx)，渲染版本为 [`spec/paxeer-x/design.md`](../../spec/paxeer-x/design.md)；发布说明见 [`CHANGELOG.md`](../../CHANGELOG.md)。
 
@@ -167,7 +167,7 @@ flowchart TB
     occ("OCC parallel executor")
     pAnchor{{"layerxAnchor<br/>0x1014"}}
     pCustody{{"layerxCustody<br/>0x1013"}}
-    pExch{{"layerxExchange<br/>0x1015"}}
+    pExch{{"perps<br/>0x1015"}}
     pBridge{{"layerxBridge<br/>0x1016"}}
     pLaunch{{"launchpad<br/>0x1017"}}
     mCustody["layerxcustody module"]

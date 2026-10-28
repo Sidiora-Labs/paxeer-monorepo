@@ -152,6 +152,7 @@ fn order_for(direction: RampDirection) -> RampOrder {
             order_id: "order-1".into(),
             quote_id: "quote-1".into(),
             payer_grant: (direction == RampDirection::OffRamp).then_some([9; 32]),
+            payer_grant_purpose: (direction == RampDirection::OffRamp).then_some([6; 32]),
         },
         QuoteTerms {
             quote_id: "quote-1".into(),
