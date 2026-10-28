@@ -680,3 +680,108 @@ func TestDirectOverloadsReachTheirRole(t *testing.T) {
 		require.Equal(t, surfaceRevert, ret, tc.sig)
 	}
 }
+
+func TestDirectInitializeOverloadsReachTheirRole(t *testing.T) {
+	e := newFeeTestEnv(t)
+	direct := readABI(t, "abi.json")
+	owners := map[string]string{}
+	methods := map[string]abi.Method{}
+	for _, role := range directRoles {
+		parsed := readABI(t, "abi/"+role+".json")
+		e.abis[role] = parsed
+		for _, method := range parsed.Methods {
+			if method.RawName == "initialize" {
+				if _, taken := owners[method.Sig]; !taken {
+					owners[method.Sig] = role
+					methods[method.Sig] = method
+				}
+			}
+		}
+		address := launchpadkeeper.Generation2Surfaces[role]
+		e.stateDB.SetCode(address, surfaceRuntime)
+		require.NoError(t, e.k.SetSurface(e.stateDB.Ctx(), address,
+			launchpadkeeper.Surface{Role: role, Generation: types.Generation2}), role)
+	}
+
+	count, suffixed := 0, 0
+	for _, method := range direct.Methods {
+		if method.RawName != "initialize" {
+			continue
+		}
+		count++
+		if method.Name != method.RawName {
+			suffixed++
+		}
+		t.Run(method.Name, func(t *testing.T) {
+			role, ok := owners[method.Sig]
+			require.True(t, ok, "%s is declared by no direct role", method.Sig)
+			args := make([]interface{}, len(method.Inputs))
+			for i, input := range method.Inputs {
+				require.Equal(t, "address", input.Type.String(), method.Sig)
+				args[i] = feeTestAddress("initialize " + input.Name)
+			}
+			input, err := direct.Pack(method.Name, args...)
+			require.NoError(t, err, method.Sig)
+			surfaceInput, err := e.abis[role].Pack(methods[method.Sig].Name, args...)
+			require.NoError(t, err, method.Sig)
+			require.Equal(t, surfaceInput, input, method.Sig)
+
+			ret, _, err := e.evm.Call(e.outsider, common.HexToAddress(types.LaunchpadAddress), input,
+				feeTestCallGas, uint256.NewInt(0))
+			require.ErrorIs(t, err, vm.ErrExecutionReverted, method.Sig)
+			surfaceRet, _, surfaceErr := e.evm.Call(e.outsider, launchpadkeeper.Generation2Surfaces[role],
+				surfaceInput, feeTestCallGas, uint256.NewInt(0))
+			require.ErrorIs(t, surfaceErr, vm.ErrExecutionReverted, method.Sig)
+			require.Equal(t, surfaceRet, ret, method.Sig)
+			contractError, ok := types.ContractErrorOf(types.ErrAlreadyInitialized)
+			require.True(t, ok)
+			want, err := contractError.Revert()
+			require.NoError(t, err)
+			require.Equal(t, want, ret, method.Sig)
+		})
+	}
+	require.Equal(t, 6, count)
+	require.Equal(t, 5, suffixed)
+}
+
+func TestDirectClaimAirdropPaysEligibleHolder(t *testing.T) {
+	e := newFeeTestEnv(t)
+	fa, fr := types.RoleFeeAccumulator, types.RoleFeesRouter
+	one := big.NewInt(1)
+	e.setStrategy(types.FeeStrategyClaim, types.FeeStrategyAirdrop)
+	e.write(fa, e.pool, "recordFee", e.pool, big.NewInt(feeTestFee))
+	require.Equal(t, []interface{}{big.NewInt(feeTestPoolCut)}, e.write(fr, e.owner, "executeAirdrop", one))
+	require.Equal(t, one, e.view(fa, "getAirdropEpoch", e.pool))
+	require.Equal(t, big.NewInt(feeTestPoolCut), e.view(fa, "getAirdropBalance", e.pool))
+	require.Equal(t, int64(0), e.balance(e.usdl, e.holder))
+
+	direct := readABI(t, "abi.json")
+	bySig := map[string]abi.Method{}
+	for _, method := range direct.Methods {
+		bySig[method.Sig] = method
+	}
+	method, ok := bySig["claimAirdrop(address,address)"]
+	require.True(t, ok)
+	input, err := direct.Pack(method.Name, e.pool, e.holder)
+	require.NoError(t, err)
+	require.Equal(t, e.input(fa, "claimAirdrop", e.pool, e.holder), input)
+	ret, _, err := e.evm.Call(e.outsider, common.HexToAddress(types.LaunchpadAddress), input, feeTestCallGas,
+		uint256.NewInt(0))
+	require.NoError(t, err, "direct claim reverted with %x", ret)
+	out, err := method.Outputs.Unpack(ret)
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{big.NewInt(feeTestPoolCut)}, out)
+	require.Equal(t, feeTestPoolCut, e.balance(e.usdl, e.holder))
+	require.Equal(t, true, e.view(fa, "hasClaimedAirdrop", e.pool, e.holder, one))
+	same(t, big.NewInt(0), e.view(fa, "airdropEpochRemaining", e.pool, one))
+
+	ret, _, err = e.evm.Call(e.outsider, common.HexToAddress(types.LaunchpadAddress), input, feeTestCallGas,
+		uint256.NewInt(0))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	contractError, ok := types.ContractErrorOf(types.ErrAlreadyClaimed)
+	require.True(t, ok)
+	want, err := contractError.Revert()
+	require.NoError(t, err)
+	require.Equal(t, want, ret)
+	require.Equal(t, feeTestPoolCut, e.balance(e.usdl, e.holder))
+}
