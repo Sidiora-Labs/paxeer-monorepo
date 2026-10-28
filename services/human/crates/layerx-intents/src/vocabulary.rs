@@ -84,7 +84,7 @@ impl Intent {
     }
 }
 
-/// The fourteen v1 journeys and the protocol module payload each compiles to.
+/// Human journeys and the protocol module payload each compiles to.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IntentKind {
     /// Onboarding: register a DID and primary key in the governance identity registry.
@@ -124,20 +124,6 @@ pub enum IntentKind {
     /// Paxeer withdrawal: request a bridge-module withdrawal.
     BridgeWithdrawRequest(BridgeWithdrawRequest),
     Perps(layerx_types::payload::PerpsPayload),
-    ExchangeOrder(crate::precompile::ExchangeOrder),
-    ExchangeCancel(crate::precompile::ExchangeCancel),
-    ExchangeSettle(crate::precompile::ExchangeSettle),
-    ExchangeMarginDeposit(crate::precompile::ExchangeMarginDeposit),
-    ExchangeMarginWithdraw(crate::precompile::ExchangeMarginWithdraw),
-    BridgeIn(crate::precompile::BridgeIn),
-    BridgeOut(crate::precompile::BridgeOut),
-    LaunchpadCreate(crate::precompile::MarketCreated),
-    LaunchpadSwap(crate::precompile::Swap),
-    LaunchpadAirdropExecute(crate::precompile::FeeDistributed),
-    LaunchpadFeeStrategy(crate::precompile::FeeStrategyChanged),
-    LaunchpadFeesBurn(crate::precompile::FeeDistributed),
-    LaunchpadFeesClaim(crate::precompile::FeeDistributed),
-    LaunchpadLpRewards(crate::precompile::FeeDistributed),
 }
 
 impl IntentKind {
@@ -158,60 +144,24 @@ impl IntentKind {
             | Self::NativeAssetAccountOpen(_)
             | Self::LxpReceive(_)
             | Self::NativeReceive(_)
-            | Self::BridgeWithdrawRequest(_)
-            | Self::ExchangeMarginWithdraw(_) => ModuleId::Asset,
+            | Self::BridgeWithdrawRequest(_) => ModuleId::Asset,
             Self::PayerGrantRegistration(_)
             | Self::NativeBudgetCreate(_)
             | Self::BudgetCreate(_)
             | Self::BudgetFund(_)
             | Self::BudgetDefund(_) => ModuleId::Budget,
-            Self::BridgeDepositCredit(_)
-            | Self::NativeCustodyCredit(_)
-            | Self::ExchangeMarginDeposit(_)
-            | Self::BridgeIn(_)
-            | Self::BridgeOut(_)
-            | Self::LaunchpadCreate(_)
-            | Self::LaunchpadSwap(_)
-            | Self::LaunchpadAirdropExecute(_)
-            | Self::LaunchpadFeeStrategy(_)
-            | Self::LaunchpadFeesBurn(_)
-            | Self::LaunchpadFeesClaim(_)
-            | Self::LaunchpadLpRewards(_) => ModuleId::Bridge,
-            Self::Perps(_)
-            | Self::ExchangeOrder(_)
-            | Self::ExchangeCancel(_)
-            | Self::ExchangeSettle(_) => ModuleId::Perps,
+            Self::BridgeDepositCredit(_) | Self::NativeCustodyCredit(_) => ModuleId::Bridge,
+            Self::Perps(_) => ModuleId::Perps,
         }
     }
 
-    /// Returns the perps activity a perps or exchange-routed intent carries.
+    /// Returns the perps activity a perps intent carries.
     #[must_use]
     pub const fn perps_payload(&self) -> Option<&layerx_types::payload::PerpsPayload> {
         match self {
             Self::Perps(payload) => Some(payload),
-            Self::ExchangeOrder(value) => Some(value.payload()),
-            Self::ExchangeCancel(value) => Some(value.payload()),
-            Self::ExchangeSettle(value) => Some(value.payload()),
             _ => None,
         }
-    }
-
-    /// Reports whether the intent records a Paxeer-settled precompile event
-    /// that has no `LayerX` activity.
-    #[must_use]
-    pub const fn settled_on_paxeer(&self) -> bool {
-        matches!(
-            self,
-            Self::BridgeIn(_)
-                | Self::BridgeOut(_)
-                | Self::LaunchpadCreate(_)
-                | Self::LaunchpadSwap(_)
-                | Self::LaunchpadAirdropExecute(_)
-                | Self::LaunchpadFeeStrategy(_)
-                | Self::LaunchpadFeesBurn(_)
-                | Self::LaunchpadFeesClaim(_)
-                | Self::LaunchpadLpRewards(_)
-        )
     }
 }
 
