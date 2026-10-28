@@ -566,10 +566,8 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         capability_digest,
         current_time()?,
     )?;
-    let changed_grant = NativeLocalGrantConsentV1 {
-        expires_at_ms: grant.expires_at_ms - 1,
-        ..grant.clone()
-    };
+    let mut changed_grant = grant.clone();
+    changed_grant.owner_public_key[0] ^= 1;
     let mismatched = ready(custody.sign_native_consent_in_scope(
         &mut scope,
         NativeConsentRequest::new(
@@ -582,6 +580,25 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         ),
     ))?;
     assert!(matches!(mismatched, Err(CustodyError::StepUpMismatch)));
+    let expiry_skewed_grant = NativeLocalGrantConsentV1 {
+        expires_at_ms: grant.expires_at_ms - 1,
+        ..grant.clone()
+    };
+    let invalid_evidence = ready(custody.sign_native_consent_in_scope(
+        &mut scope,
+        NativeConsentRequest::new(
+            &principal,
+            &key,
+            NativeConsent::LocalGrant(&expiry_skewed_grant),
+            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
+            current_time()?,
+            trace.clone(),
+        ),
+    ))?;
+    assert!(matches!(
+        invalid_evidence,
+        Err(CustodyError::InvalidEvidence)
+    ));
     provider.admit_assertion(&fixture.owner, &fixture.second_assertion)?;
     let signed = ready(custody.sign_native_consent_in_scope(
         &mut scope,
