@@ -55,13 +55,48 @@ fn health_listener_routes() {
 #[test]
 fn only_the_price_sidecar_ships() -> Result {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let manifest = std::fs::read_to_string(dir.join("Cargo.toml")).map_err(|e| e.to_string())?;
-    let bins: Vec<&str> = manifest
-        .lines()
-        .skip_while(|line| *line != "[[bin]]")
-        .filter(|line| line.starts_with("name = "))
+    let output = std::process::Command::new(env!("CARGO"))
+        .args([
+            "metadata",
+            "--format-version",
+            "1",
+            "--no-deps",
+            "--manifest-path",
+        ])
+        .arg(dir.join("Cargo.toml"))
+        .output()
+        .map_err(|e| e.to_string())?;
+    assert!(
+        output.status.success(),
+        "cargo metadata failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
+    let package = metadata["packages"]
+        .as_array()
+        .expect("cargo metadata packages must be an array")
+        .iter()
+        .find(|package| package["name"] == "layerx-oracle-feeder")
+        .expect("cargo metadata must include layerx-oracle-feeder");
+    let bins: Vec<&str> = package["targets"]
+        .as_array()
+        .expect("cargo metadata targets must be an array")
+        .iter()
+        .filter(|target| {
+            target["kind"]
+                .as_array()
+                .expect("cargo metadata target kind must be an array")
+                .iter()
+                .any(|kind| kind == "bin")
+        })
+        .map(|target| {
+            target["name"]
+                .as_str()
+                .expect("cargo metadata target name must be a string")
+        })
         .collect();
-    assert_eq!(bins, ["name = \"price-sidecar\""]);
+    assert_eq!(bins, ["price-sidecar"]);
     let dockerfile = std::fs::read_to_string(dir.join("Dockerfile")).map_err(|e| e.to_string())?;
     assert!(dockerfile.contains("--bin price-sidecar"));
     assert!(dockerfile.contains("ENTRYPOINT [\"/usr/local/bin/price-sidecar\"]"));

@@ -9718,3 +9718,15 @@ area = "main gates"
 symptom = "Tasks fail their build or verify on code they did not touch: apps/perps tsc (esbuild types), apps/wallet typecheck (Balances.account), publish-images.test.sh, explorer backend warnings-as-errors (ReceiptController routes), layerx-ai-evaluator (ReadProof.batch_id), the agentd custody fixture."
 cause = "Six cross-component changes landed on main without their dependents; tracked as issues #1052-#1057."
 do = "Tasks on those gates require 18.1052.1-18.1057.1; record a new instance as an issue plus a task instead of fixing it inside an unrelated task."
+
+[gotcha.2002]
+area = "explorer test gates"
+symptom = "mix-in-builder.sh test reports FATAL 3D000 database explorer_test does not exist and runs no test."
+cause = "The test path was given relative to the repository root (services/explorer/backend/apps/...) while the builder resolves paths from the backend directory and only sets up the database for paths it recognises (apps/*, test/*, *_test.exs)."
+do = "Write explorer test paths as apps/<app>/test/... in build_cmd and verify_cmd."
+
+[gotcha.2003]
+area = "explorer compile warnings"
+symptom = "Only tests under apps/ethereum_jsonrpc fail with Compilation failed due to warnings while block_scout_web and explorer tests run with the same warnings."
+cause = "apps/ethereum_jsonrpc/mix.exs:52 aliases compile to compile --warnings-as-errors in every environment, so a stale router reference in block_scout_web (issue #1055) fails that app's tests."
+do = "Tasks whose gate runs apps/ethereum_jsonrpc tests require 18.1055.1 until the router is clean."
