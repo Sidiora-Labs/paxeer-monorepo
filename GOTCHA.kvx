@@ -10410,3 +10410,7 @@ detail = "layerx_programs_call_begin (programs/crates/layerx-programs-runtime/sr
 title = "Integration harnesses on chain 1337 fail the x402 network binding"
 detail = "layerx-x402 model.rs:19 binds LayerX offers to eip155:125 and refuses extra.layerx on any other eip155 network (:180-193, e556c8b04); a gateway harness whose evm.chain_id is 1337 (x-websearch tests/fixtures/config/valid.json:52) gets 503 payment_unavailable from Seller::new on every request, so the harness must override chain_id to 125 in its config helper and answer eth_chainId with 0x7d (18.1129.1 attempt 12)."
 
+[gotcha.2134]
+title = "The KMS no longer signs kernel activity envelopes"
+detail = "Since 843ee0252 (10.11.7) layerx-human-kms sign (src/server.rs:158-184) admits only an unsigned EIP-1559 type-2 call whose bind_call disclosure and Keccak256 digest match call.signing_hash(), and refuses the kernel envelope with its SHA-256 LXP/v1/signature-preimage digest (status 1); provider tests that still build unsigned_envelope_bytes must port to evm_signing_request (tests/provider.rs:716-730). Keystore::authorize_send in layerx-human-service still sends the retired operation-11 SendPlanAuthorization until 10.0.3 lands (#1169)."
+
