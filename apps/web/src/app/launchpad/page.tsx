@@ -83,9 +83,9 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
       {problem === undefined ? null : <MarketUnavailable detail={problem} />}
       {config === undefined ? null : (
         <div className="flex flex-wrap gap-6">
-          <LabelValue label="Quote asset" value={config.quoteDenom} />
+          <LabelValue label="Quote asset" value={config.quoteSymbol} />
           <LabelValue label="Markets" value={count.toString()} />
-          <LabelValue label="Creation fee" value={`${formatUnits(config.creationFee, LAUNCHPAD_DECIMALS)} ${config.quoteDenom}`} />
+          <LabelValue label="Creation fee" value={`${formatUnits(config.creationFee, LAUNCHPAD_DECIMALS)} ${config.quoteSymbol}`} />
           <LabelValue
             label="Swap fee range"
             value={`${config.minFeeBps.toString()}–${config.maxFeeBps.toString()} bps (base ${config.baseFeeBps.toString()})`}
@@ -128,12 +128,13 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
       </ExplorerPanel>
       <LaunchpadActions
         account={account}
-        quoteDenom={config?.quoteDenom ?? "quote"}
+        quoteSymbol={config?.quoteSymbol ?? "quote"}
         markets={markets.filter((market): market is LaunchpadMarket => !("unavailable" in market)).map((market) => ({
           token: market.token,
           pool: market.pool,
           label: `${market.name} (${market.symbol})`,
           paused: market.paused,
+          currentFeeBps: market.currentFeeBps,
         }))}
         feeStrategies={FEE_STRATEGIES}
       />
