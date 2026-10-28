@@ -121,7 +121,8 @@ The non-negotiable ones for a working build:
 - `NEXT_PUBLIC_MARKET_PROXY_HOST` — Chainflow market feed host (optional, built-in default when blank).
 - `NEXT_PUBLIC_PERPS_PRECOMPILE`, `NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE`, `NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE`, `NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE`, `NEXT_PUBLIC_PECOR_STOP_PRECOMPILE`, `NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE`, `NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE` — optional precompile address overrides for a local node (release addresses when blank).
 - `NEXT_PUBLIC_RELEASE_SPOT_OPEN` — spot release gate; `1` opens the spot route, its navigation entry and the markets spot mode (spot stays closed when blank).
-- `PERPS_CANDLE_URL` + `MARKET_PROXY_HOST` — server-side candle proxy upstream (must set explicitly).
+- `MARKET_PROXY_ORIGIN` — required server-only candle proxy Origin header. Set a bare http(s) origin such as `https://perps.example.com`, with no trailing slash, path, query or credentials, as required by `upstreamOrigin` in `src/pages/api/candle/[...path].ts`. Without it, every candle request returns 503.
+- `MARKET_PROXY_HOST` — server-only candle proxy upstream hostname (template defaults to `data.feed.chainflowtrading.com`).
 
 **Public vs secret keys.** A few `NEXT_PUBLIC_*` values look key-shaped but are not secrets — they're anon/publishable identifiers meant to be visible in the client bundle:
 
@@ -131,12 +132,12 @@ The non-negotiable ones for a working build:
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Just a hostname. |
 | `NEXT_PUBLIC_PAXEER_WALLET_API` | Yes | Public REST endpoint. |
 | `NEXT_PUBLIC_PAXSCAN_*` | Yes | Public block explorer. |
-| `MARKET_PROXY_HOST`, `PERPS_CANDLE_URL` | Yes (server-only) | Plain hostnames, but kept server-side to keep the proxy contract clean. |
+| `MARKET_PROXY_HOST`, `MARKET_PROXY_ORIGIN` | Yes (server-only) | Plain hostname and origin, but kept server-side to keep the proxy contract clean. |
 | anything that looks like a service-role key, JWT signing secret, or wallet private key | **No** | Never put one of these in a `NEXT_PUBLIC_*` var — it gets baked into every client bundle. Use server-only env vars. |
 
 **Critical:** if `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is missing or blank at build time, the connect modal **silently hides the embedded-wallet sign-in section** and only injected wallets (MetaMask, Paxport extension, etc.) will be offered. The fix is to set both values and rebuild (`./deploy/scripts/deploy.sh`).
 
-Anything starting with `NEXT_PUBLIC_*` is baked into the client bundle and requires a rebuild to change. The server-only vars (`PERPS_CANDLE_URL`, `MARKET_PROXY_HOST`) can change with a container restart.
+Anything starting with `NEXT_PUBLIC_*` is baked into the client bundle and requires a rebuild to change. The server-only vars (`MARKET_PROXY_ORIGIN`, `MARKET_PROXY_HOST`) can change with a container restart.
 
 ### 3. Drop the Origin CA cert
 

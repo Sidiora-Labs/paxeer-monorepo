@@ -73,6 +73,17 @@ test('MARKET_PROXY_ORIGIN is declared in the production example and the Railway 
   assert.match(web, /^MARKET_PROXY_ORIGIN = "https:\/\/\$\{\{RAILWAY_PUBLIC_DOMAIN\}\}"$/m);
 });
 
+function candleProxyDocsNameMarketProxyOriginOnly() {
+  const readme = readFileSync(path.join(ROOT, 'deploy/README.md'), 'utf8');
+  assert.ok(readme.includes('MARKET_PROXY_ORIGIN'));
+  for (const file of ['deploy/README.md', 'deploy/docker-compose.yml', 'deploy/.env.production.example']) {
+    const contents = readFileSync(path.join(ROOT, file), 'utf8');
+    assert.equal(contents.includes('PERPS_CANDLE_URL'), false, `${file} names the unused candle proxy variable`);
+  }
+}
+
+test(candleProxyDocsNameMarketProxyOriginOnly);
+
 test('env template names no retired or deny-listed host', () => {
   const lines = readFileSync(path.join(ROOT, 'src/env/.env.template'), 'utf8').split('\n');
   assert.ok(lines.includes('EXPLORER_URL=https://paxscan.io'));
