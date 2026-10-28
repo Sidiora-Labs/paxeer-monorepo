@@ -27,6 +27,7 @@ fn order(direction: RampDirection, customer: &str) -> RampOrder {
             order_id: "order-1".to_owned(),
             quote_id: "quote-1".to_owned(),
             payer_grant,
+            payer_grant_purpose: (direction == RampDirection::OffRamp).then_some([6; 32]),
         },
         QuoteTerms {
             quote_id: "quote-1".to_owned(),
@@ -222,7 +223,7 @@ fn payment_direction_selects_direct_send_or_customer_grant() {
     assert_eq!(send.to, layerx_ramp_toolkit::evm::LEDGER_ADDRESS);
     assert_eq!(draw.to, layerx_ramp_toolkit::evm::LEDGER_ADDRESS);
     assert_eq!(&send.data[..4], &[0x78, 0xea, 0x11, 0xdb]);
-    assert_eq!(&draw.data[100..132], &[7; 32]);
+    assert_eq!(&draw.data[4..36], &[7; 32]);
     assert_eq!(
         compile_operator_send(&off_ramp),
         Err(RampError::InvalidOrder)
