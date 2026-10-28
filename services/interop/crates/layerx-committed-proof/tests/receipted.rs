@@ -118,6 +118,21 @@ fn receipted_fixture_cases_verify_or_refuse() {
                 expected,
                 "{id}: matching standby pin"
             );
+            let mut wrong_signing_key = case["receiptJson"].clone();
+            wrong_signing_key["signingKey"] = format!("0x{}", "00".repeat(32)).into();
+            let wrong_signing_key = serde_json::to_vec(&wrong_signing_key)
+                .unwrap_or_else(|error| panic!("{id}: invalid altered JSON view: {error}"));
+            assert_eq!(
+                verify_receipted(
+                    &raw,
+                    &receipt,
+                    &wrong_signing_key,
+                    previous,
+                    &[(key_id, key, first, last)]
+                ),
+                Err(ProofError::ReceiptViewMismatch),
+                "{id}: JSON signing key must match the verified pin"
+            );
             let mut wrong_id = key_id;
             wrong_id[0] ^= 1;
             assert_eq!(
@@ -245,4 +260,61 @@ fn receipted_fixture_cases_verify_or_refuse() {
     assert_eq!(accepted, 4, "all recorded V1 cases must execute");
     assert_eq!(refused, 6, "all recorded V3 cases must execute");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn receipted_operation_zero_is_carried_into_signature_check() {
+    let fixture: serde_json::Value =
+        serde_json::from_str(FIXTURE).unwrap_or_else(|error| panic!("invalid fixture: {error}"));
+    let mut checked = 0;
+    for case in fixture["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing fixture cases"))
+        .iter()
+        .filter(|case| string(case, "vector") == "V1")
+    {
+        let id = string(case, "id");
+        let raw = bytes(case, "rawTransaction");
+        let receipt = bytes(case, "signedReceipt");
+        let view = serde_json::to_vec(&case["receiptJson"])
+            .unwrap_or_else(|error| panic!("{id}: invalid JSON view: {error}"));
+        let previous = hash(case, "prevSeqHash");
+        let pin = &case["pinnedKey"];
+        let key_id = hash(pin, "keyId");
+        let key = hash(pin, "publicKey");
+        let first = number(pin, "firstHeight");
+        let last = number(pin, "lastHeight");
+        assert_eq!(
+            verify_receipted(
+                &raw,
+                &receipt,
+                &view,
+                previous,
+                &[(key_id, key, first, last)]
+            ),
+            Ok(hash(case, "receiptDigest")),
+            "{id}: original V1 receipt verifies"
+        );
+        let operation_offset = receipt
+            .windows(10)
+            .position(|bytes| bytes == [0, 12, 0, 0, 0, 1, 0, 0, 0, 0])
+            .unwrap_or_else(|| panic!("{id}: missing module-12 trailer and parameter version"))
+            + 10;
+        assert_eq!(receipt[operation_offset], 2, "{id}: fixture operation");
+        let mut zero_operation = receipt.clone();
+        zero_operation[operation_offset] = 0;
+        assert_eq!(
+            verify_receipted(
+                &raw,
+                &zero_operation,
+                &view,
+                previous,
+                &[(key_id, key, first, last)]
+            ),
+            Err(ProofError::UnpinnedReceiptSignature),
+            "{id}: operation zero is carried into the signature check"
+        );
+        checked += 1;
+    }
+    assert_eq!(checked, 4, "all recorded V1 operations must be checked");
 }
