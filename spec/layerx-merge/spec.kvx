@@ -157982,7 +157982,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.32.1]
 title = "Forward program web requests to xweb and read committed answers for web_read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.24.1", "13.22.6", "6.0.2", "18.1073.1"]
