@@ -173882,7 +173882,7 @@ qualification = "UNRUN"
 
 [task.18.783.1]
 title = "Issue #783: Document every served px_ method in the public RPC pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178329,7 +178329,7 @@ qualification = "UNRUN"
 
 [task.18.776.1]
 title = "Issue #776: Check only px_getHistory and px_getUnifiedHistory in the live indexer check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
