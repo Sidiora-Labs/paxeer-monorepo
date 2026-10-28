@@ -617,6 +617,103 @@ fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
         Err(SequencerError::Endpoint)
     );
     assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
+    assert_eq!(
+        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+}
+
+#[test]
+fn railway_private_network_opt_in_accepts_only_strict_private_urls() {
+    for url in [
+        "http://router.railway.internal:9443",
+        "http://router-1.railway.internal:1",
+        "http://1.railway.internal:65535",
+    ] {
+        assert!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[]).is_ok(),
+            "{url}"
+        );
+    }
+    let longest = format!("http://{}.railway.internal:9443", "a".repeat(63));
+    assert!(SequencerEndpoint::new_with_railway_private_network(&longest, &[]).is_ok());
+    for url in [
+        "http://router.example:9443",
+        "http://192.168.1.1:9443",
+        "http://.railway.internal:9443",
+        "http://-router.railway.internal:9443",
+        "http://router-.railway.internal:9443",
+        "http://Router.railway.internal:9443",
+        "http://router_name.railway.internal:9443",
+        "http://sub.router.railway.internal:9443",
+        "http://router.railway.internal.example:9443",
+        "http://router.railway.internal.:9443",
+        "http://user@router.railway.internal:9443",
+        "http://router.railway.internal",
+        "http://router.railway.internal:",
+        "http://router.railway.internal:0",
+        "http://router.railway.internal:65536",
+        "http://router.railway.internal:000001",
+        "http://router.railway.internal:+9443",
+        "http://router.railway.internal:9443/",
+        "http://router.railway.internal:9443/rpc",
+        "http://router.railway.internal:9443?query=1",
+        "http://router.railway.internal:9443#fragment",
+        "ftp://router.railway.internal:9443",
+    ] {
+        assert_eq!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[]).map(|_| ()),
+            Err(SequencerError::Endpoint),
+            "{url}"
+        );
+    }
+    let too_long = format!("http://{}.railway.internal:9443", "a".repeat(64));
+    assert_eq!(
+        SequencerEndpoint::new_with_railway_private_network(&too_long, &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+}
+
+#[test]
+fn railway_private_network_opt_in_keeps_https_pinning_and_loopback() {
+    for url in [
+        "https://router.example/",
+        "https://router.railway.internal:9443",
+    ] {
+        assert_eq!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[]).map(|_| ()),
+            Err(SequencerError::Endpoint),
+            "{url}"
+        );
+        assert_eq!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[&[]]).map(|_| ()),
+            Err(SequencerError::Endpoint),
+            "{url}"
+        );
+        assert!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[&[0x30, 0x82]]).is_ok(),
+            "{url}"
+        );
+    }
+    for url in [
+        "http://127.0.0.1:9443/",
+        "http://localhost:9443/",
+        "http://[::1]:9443/",
+    ] {
+        assert!(SequencerEndpoint::new(url, &[]).is_ok(), "{url}");
+        assert!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[]).is_ok(),
+            "{url}"
+        );
+    }
+    assert_eq!(
+        SequencerEndpoint::new_with_railway_private_network(
+            "http://router.railway.internal:9443",
+            &[&[]],
+        )
+        .map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
 }
 
 const BLOCK_HASH: &str = "0x4b1f2c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c";

@@ -125,9 +125,9 @@ func VerifyCommittedReceipt(receiptVerification SequencerReceiptVerification, bl
 		i.TransactionProof.Index <= 0 || i.TransactionProof.Index != i.ResultProof.Index ||
 		i.TransactionProof.Total != i.ResultProof.Total || i.BatchProof.Total != i.TransactionProof.Total ||
 		i.BatchProof.Index != 0 || uint64(i.TransactionProof.Index) != uint64(binary.BigEndian.Uint32(r.Effects[0].Body[24:28])) ||
-		!committedVerifyProof(i.Transaction, i.TransactionProof, blockHeader.DataHash) ||
+		!committedVerifyTransactionProof(i.Transaction, i.TransactionProof, blockHeader.DataHash) ||
 		!committedVerifyProof(i.Result.bytes(), i.ResultProof, i.NextHeader.LastResultsHash) ||
-		!committedVerifyProof(i.BatchTransaction, i.BatchProof, blockHeader.DataHash) {
+		!committedVerifyTransactionProof(i.BatchTransaction, i.BatchProof, blockHeader.DataHash) {
 		return fail("committed-inclusion")
 	}
 	var status int32
@@ -243,6 +243,11 @@ func committedRoot(leaves [][]byte) [32]byte {
 	}
 	split := committedSplit(int64(len(leaves)))
 	return committedInner(committedRoot(leaves[:split]), committedRoot(leaves[split:]))
+}
+
+func committedVerifyTransactionProof(transaction []byte, proof CommittedProof, root []byte) bool {
+	hash := sha256.Sum256(transaction)
+	return committedVerifyProof(hash[:], proof, root)
 }
 
 func committedVerifyProof(leaf []byte, proof CommittedProof, root []byte) bool {

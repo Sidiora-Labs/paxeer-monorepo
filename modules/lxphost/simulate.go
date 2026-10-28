@@ -105,6 +105,8 @@ static int32_t lxphost_simulate(lxphost_node *node, uint32_t network_id,
     execution->signature_valid = node->envelope.activity.signature.length != 0U ?
         lxp_activity_verify_signature(&node->envelope.activity) == LXP_OK :
         binding_authority;
+    execution->binding_authority =
+        node->envelope.activity.signature.length == 0U && binding_authority;
     execution->identities = &node->identities;
     execution->authority = &node->authority;
     execution->fee_parameters = &node->fees;

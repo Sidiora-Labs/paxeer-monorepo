@@ -1121,6 +1121,12 @@ mod tests {
             .unwrap_or_else(|| panic!("methods missing"));
         let published = [
             "px_register",
+            "px_getCommit",
+            "px_getValidators",
+            "px_getReceiptKeys",
+            "px_getSequenceBatch",
+            "px_requestFunds",
+            "pax_sequencerReceipt",
             "lx_requestFunds",
             "lx_getAccount",
             "lx_getBalance",
@@ -1148,6 +1154,8 @@ mod tests {
             "px_getUnifiedHistory",
             "px_listHolderRecords",
             "px_getCapabilities",
+            "px_getRouteCatalogue",
+            "lx_getWalletCaps",
         ];
         for name in published {
             assert_eq!(

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, it, mock, test } from "node:test";
 import { strict as assert } from "node:assert";
-import { encodeFunctionData, type Address } from "viem";
+import { decodeFunctionData, encodeFunctionData, type Address } from "viem";
 
 import type { OrderFormState, OrderPlan, OrderLimits } from "../src/core/perps/orderPlan";
 import { OrderType, TimeInForce } from "../src/core/network/abi/PerpsPrecompile";
@@ -21,7 +21,10 @@ const {
   successReset,
   timeInForceOf,
 } = require("../src/core/perps/orderPlan") as typeof import("../src/core/perps/orderPlan");
-const { ladderCloid } = require("../src/core/perps/calls") as typeof import("../src/core/perps/calls");
+const { buildOpenPosition, ladderCloid } =
+  require("../src/core/perps/calls") as typeof import("../src/core/perps/calls");
+const { planOrder } = require("../src/core/perps/positionWrites") as typeof import("../src/core/perps/positionWrites");
+const { COLLATERAL_TOKENS } = require("../src/core/perps/config") as typeof import("../src/core/perps/config");
 
 const PERPS: Address = "0x0000000000000000000000000000000000001015";
 const E18 = 10n ** 18n;
@@ -185,6 +188,77 @@ describe("time in force", () => {
     assert.equal(p.limitPrice, 3_010n * E18);
     assert.equal(only(buildOrderPlan(form({ ...LIMIT, reduceOnly: true }), null, LIMITS)).reduceOnly, true);
     assert.equal(only(buildOrderPlan(form(LIMIT), null, LIMITS)).reduceOnly, false);
+  });
+
+  it("marketReduceOnlyReachesEncodedWrite", async () => {
+    for (const isLong of [false, true]) {
+      for (const fok of [false, true]) {
+        const ordinary = only(buildOrderPlan(form({ isLong, fok }), quote(), LIMITS));
+        for (const reduceOnly of [false, true]) {
+          const plan = buildOrderPlan(form({ isLong, fok, reduceOnly }), quote(), LIMITS);
+          const order = only(plan);
+          assert.deepEqual(order, { ...ordinary, reduceOnly });
+          assert.equal(order.timeInForce, fok ? TimeInForce.FOK : TimeInForce.IOC);
+          assert.equal(order.acceptablePrice, (isLong ? 95_475n : 94_525n) * E18);
+          assert.equal(order.deadline, BigInt(REFERENCE_SECONDS + 60));
+
+          const writes = await planOrder(plan.calls, { allowance: async () => 0n, native: new Set<Address>() });
+          assert.equal(writes.length, 2);
+          assert.deepEqual(writes[0], {
+            address: COLLATERAL_TOKENS.usdl.address,
+            functionName: "approve",
+            args: [PERPS, 100_000_000n],
+          });
+          const call = writes[1];
+          assert.equal(call.functionName, "placeOrder");
+          assert.strictEqual(call, plan.calls[0]);
+          const decoded = decodeFunctionData({ abi: call.abi, data: encodeFunctionData(call) });
+          assert.equal(decoded.functionName, "placeOrder");
+          assert.deepEqual(decoded.args, [order]);
+          assert.equal(decoded.args[0].reduceOnly, reduceOnly);
+        }
+      }
+    }
+  });
+
+  it("marketBuilderDefaultsReduceOnlyToFalse", () => {
+    const input = {
+      marketId: 0n,
+      isLong: true,
+      collateralAmount: 100_000_000n,
+      leverage: 50n * E18,
+      quote: quote(),
+    };
+    const ordinary = buildOpenPosition(input);
+    assert.equal(ordinary.args[0].reduceOnly, false);
+    assert.deepEqual(buildOpenPosition({ ...input, reduceOnly: false }), ordinary);
+    assert.deepEqual(buildOpenPosition({ ...input, reduceOnly: true }).args, [
+      { ...ordinary.args[0], reduceOnly: true },
+    ]);
+  });
+
+  it("marketReduceOnlyPreservesValidation", () => {
+    for (const reduceOnly of [false, true]) {
+      for (const collateralAmount of ["", "0", "-1", "invalid"]) {
+        refusedWith(
+          buildOrderPlan(form({ reduceOnly, collateralAmount }), quote(), LIMITS),
+          "VALIDATION_AMOUNT_INVALID",
+        );
+      }
+      refusedWith(buildOrderPlan(form({ reduceOnly }), null, LIMITS), "VALIDATION_REQUIRED_FIELD");
+      refusedWith(buildOrderPlan(form({ reduceOnly, leverage: "0.5" }), quote(), LIMITS), "VALIDATION_BELOW_MIN");
+      refusedWith(buildOrderPlan(form({ reduceOnly, leverage: "51" }), quote(), LIMITS), "VALIDATION_ABOVE_MAX");
+      refusedWith(buildOrderPlan(form({ reduceOnly }), quote({ sizeUsd: 0n }), LIMITS), "VALIDATION_AMOUNT_INVALID");
+      refusedWith(buildOrderPlan(form({ reduceOnly }), quote({ entryPrice: 0n }), LIMITS), "VALIDATION_AMOUNT_INVALID");
+      refusedWith(
+        buildOrderPlan(form({ reduceOnly }), quote({ sizeUsd: 5_000n * E18 + 1n }), { ...LIMITS, lotSize: E18 }),
+        "VALIDATION_PRECISION",
+      );
+      refusedWith(
+        buildOrderPlan(form({ reduceOnly, tpslEnabled: true, tpPrice: "94000" }), quote(), LIMITS),
+        "TRADE_TP_SL_INVALID",
+      );
+    }
   });
 });
 

@@ -8173,3 +8173,51 @@ symbol = "TestAuthResultByIdempotency"
 observed = "Attempt ff891ba32 (base 73253d5f5) fixed the import cycle, built and `go test -count=1 ./modules/layerxauth/keeper/` exited 1 (logs-verify-1.log) on TestGrantSession, TestGrantSessionSuccessor, TestGrantCapability, TestAuthExecuteIdempotentReplay, TestAuthExecuteSequenceReused, TestRevokeGrantAdvancesRevocation and TestAuthResultByIdempotency: each expects a stored receipt or LXP_IDEMPOTENT_REPLAY from the idempotency store task 1.2.1 retired and gets nil, independent of the moved files."
 assumption = "Those seven tests of tasks 2.7.1 and 2.7.4 need an owner task that rewrites them to the post-1.2.1 contract; 2.14.6 qualifies its three named tests and ff891ba32 is continued."
 severity = "major"
+
+[finding.13.25.1.2]
+task = "13.25.1"
+file = "src/modules/programs/transfer.c"
+symbol = "authorize_leg"
+observed = "decision.1329 was revised on 2026-10-28: the principal is the DID id and the main account is the debit account; transfer.c:107-108 and :51-52 refuse any leg whose from id differs from the principal and :133-136 refuse a zero authority_hash, so no hosted transfer can debit a ledger account until task 13.25.4 accepts legs from accounts the principal DID owns and 13.25.5 fills Kind and AuthorityHash."
+assumption = "13.25.1 requires 13.25.4 and 13.25.5 and continues from the funding setup of 8290ed5ee; the revised decision awaits owner confirmation."
+severity = "blocker"
+
+[finding.1.23.5]
+task = "1.23.5"
+file = "src/protocol/lxp_kernel.c"
+symbol = "lxp_kernel_execute_activity"
+observed = "Attempts through 1b25d3584 registered v4_storage_retirement and the account subtest received the error LXP_ERR_MODULE_DISABLED from the Programs state-activity gate at lxp_kernel.c:6758-6762 before dispatch, because modules/lxphost binds no commit observer; only lxp_programs_bind_state_feed (src/modules/programs/feed.c:114) installs one and it needs the durable state feed store that layerxd and the emulator open."
+assumption = "The acceptance records the gate's code; a follow-up host task binds a Programs state feed before any hosted ACCOUNT or WIND_DOWN activity (13.25.2, 13.26.x) can execute."
+severity = "major"
+
+[finding.2.14.5]
+task = "2.14.5"
+file = "modules/layerxauth/keeper/shared_host_test.go"
+symbol = "TestSharedHostIdempotencyAcrossModules"
+observed = "Attempt 5f3ba8b33 ran and found no host row under prefix 0x04 after a ledger Send with key K and no ErrIdempotentReplay on reuse: task 1.2.1 (req.1010) removed kernel idempotency recording, so the only replay refusal left is ErrSequenceReused on a consumed account sequence."
+assumption = "req.2071 now asserts the sequence refusal and the empty 0x04 prefix; lines 1-202 of 5f3ba8b33 are the candidate to continue."
+severity = "major"
+
+[finding.3.54.1]
+task = "3.54.1"
+file = "tools/qualification/localnode/v6120-node.sh"
+symbol = "PERPS_DATA_TEST_COMET"
+observed = "Attempts through d4e0dbd64 built and the verify stopped at e2e_test.go:122 because PERPS_DATA_TEST_COMET was unset: v6120-node.sh:419-424 writes only LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL to --env-out."
+assumption = "Task 5.98.2 adds PERPS_DATA_TEST_COMET; 3.54.1 and 3.54.4 require it and d4e0dbd64 is re-qualified unchanged."
+severity = "major"
+
+[finding.8.29.1.1]
+task = "8.29.1"
+file = "services/platform/ramps/toolkit/src/engine.rs"
+symbol = "RampEngine::submit_layerx"
+observed = "At 998546692 the verify_cmd passed and cg spec done refused RampEngine::submit_layerx and RampEngine::resolve_layerx (methods of impl RampEngine<'_>, engine.rs:24) as not defined in the graph."
+assumption = "The symbol list names the two tests, as in finding.11.23.3.1; 998546692 is continued on main after 8.30.2."
+severity = "minor"
+
+[finding.5.55.2.5]
+task = "5.55.2"
+file = "node/sequencer/standby.go"
+symbol = "receive"
+observed = "Attempt 42d6f4e25 ran the recorder: eth_gasPrice failed with 'pending block does not fix a base fee' (rpcPendingSnapshot, node/app.go:3288, satisfies no PendingBaseFee) and the primary halted at height 2 because the unpeered standby, still at height 1 since AppReplayer.Apply treats wal.Committed as a no-op (node/sequencer/replay.go:22-38), refused Open(3) (standby.go:323, :695-700) with a sticky failure."
+assumption = "Task 5.55.6 orders the standby's open after the app commit and forwards the base fee; 5.55.2 requires it and continues from 42d6f4e25 with the standby peered to the primary."
+severity = "blocker"

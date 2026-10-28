@@ -2385,13 +2385,6 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 	beginBlockResp := app.BeginBlock(ctx, req.Height, lastCommit.Votes, req.ByzantineValidators, true)
 	events = append(events, beginBlockResp.Events...)
 
-	if firstTx == 1 {
-		if err := app.SequencerKeeper.DeliverSequenceBatch(ctx.WithTxIndex(0), batch); err != nil {
-			recordSequencedHalt(ctx.Context())
-			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
-		}
-	}
-
 	evmTxs := make([]*evmtypes.MsgEVMTransaction, len(txs)) // nil for non-EVM txs
 	var typedTxs []sdk.Tx
 	if len(preDecoded) == len(txs) {
@@ -2399,6 +2392,17 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 		app.FinalizeDecodedTransactionsConcurrently(ctx, typedTxs[firstTx:])
 	} else {
 		typedTxs = append(make([]sdk.Tx, firstTx), app.DecodeTransactionsConcurrently(ctx, txs[firstTx:])...)
+	}
+
+	if firstTx == 1 {
+		if err := seqtypes.VerifyBatchTxs(batch, app.sequencedActivityIDs(txs[1:], typedTxs[1:])); err != nil {
+			recordSequencedHalt(ctx.Context())
+			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
+		}
+		if err := app.SequencerKeeper.DeliverSequenceBatch(ctx.WithTxIndex(0), batch); err != nil {
+			recordSequencedHalt(ctx.Context())
+			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
+		}
 	}
 
 	for i := firstTx; i < len(txs); i++ {
@@ -3290,6 +3294,30 @@ type rpcPendingSnapshot struct {
 	source evmrpc.PendingSnapshot
 }
 
+func (app *App) RPCPendingSnapshot() (evmrpc.PendingSnapshot, error) {
+	if app.openBlock == nil {
+		return nil, ErrPendingServedBySequencer
+	}
+	source, ok := app.openBlock.(evmrpc.PendingSnapshot)
+	if !ok {
+		return nil, errors.New("sequencer open block does not provide pending transactions")
+	}
+	return rpcPendingSnapshot{app: app, source: source}, nil
+}
+
+var _ evmrpc.PendingBaseFee = rpcPendingSnapshot{}
+
+func (s rpcPendingSnapshot) BaseFeePerGas() (sdk.Dec, error) {
+	if source, ok := s.source.(evmrpc.PendingBaseFee); ok {
+		return source.BaseFeePerGas()
+	}
+	ctx, err := s.app.PendingSnapshot()
+	if err != nil {
+		return sdk.Dec{}, err
+	}
+	return s.app.EvmKeeper.GetNextBaseFeePerGas(ctx), nil
+}
+
 func (s rpcPendingSnapshot) Snapshot() (sdk.Context, error) {
 	return s.app.PendingSnapshot()
 }
@@ -3455,11 +3483,11 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 		options = append(options, app.sequencerRPC)
 	}
 	if app.openBlock != nil {
-		source, ok := app.openBlock.(evmrpc.PendingSnapshot)
-		if !ok {
-			panic("sequencer open block does not provide pending transactions")
+		source, err := app.RPCPendingSnapshot()
+		if err != nil {
+			panic(err)
 		}
-		pending, err := evmrpc.NewPendingOption(rpcPendingSnapshot{app: app, source: source})
+		pending, err := evmrpc.NewPendingOption(source)
 		if err != nil {
 			panic(err)
 		}

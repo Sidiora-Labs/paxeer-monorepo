@@ -27,7 +27,10 @@ function writes(path) {
     if (entry.type !== "function" || entry.stateMutability === "view" || entry.stateMutability === "pure") continue;
     const types = entry.inputs.map(canonical);
     const signature = `${entry.name}(${types.join(",")})`;
-    out[signature] ??= { types, payable: entry.stateMutability === "payable" };
+    out[signature] ??= {
+      types,
+      payable: path !== "precompiles/launchpad/abi.json" && entry.stateMutability === "payable",
+    };
   }
   return out;
 }
