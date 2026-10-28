@@ -172570,7 +172570,7 @@ qualification = "UNRUN"
 
 [task.18.849.1]
 title = "Issue #849: Build the layerx chain image with its native-library Rust stage and repair its build context"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1106.1", "18.1141.1", "18.1152.1"]
