@@ -390,8 +390,10 @@ impl ProductionAgentCreation<'_> {
             action_key: action.action_key,
             activity_id,
             receipt_bytes: material.canonical_bytes,
-            authorized_batch: material.authorised_batch,
-            verification_level: material.verification_level,
+            tx_hash: material.tx_hash,
+            receipt_hash: material.receipt_hash,
+            block_height: material.block_height,
+            rung: material.rung,
         }))
     }
 
