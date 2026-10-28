@@ -141,7 +141,7 @@ func (b *branchCtx) identitySequence(did [32]byte) (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
-func (b *branch) load(h *Host, modules []uint16, keys ...[]byte) error {
+func (b *branch) load(h *Host, modules []uint16) error {
 	for _, module := range modules {
 		iterator := sdk.KVStorePrefixIterator(b.store, moduleKVKey(module, nil))
 		for ; iterator.Valid(); iterator.Next() {
@@ -160,23 +160,6 @@ func (b *branch) load(h *Host, modules []uint16, keys ...[]byte) error {
 		if err := iterator.Close(); err != nil {
 			return codeFatalInvariant
 		}
-	}
-	for _, key := range keys {
-		if len(key) < 4 || key[0] != moduleKVPrefix {
-			return codeFatalInvariant
-		}
-		if _, loaded := b.loaded[string(key)]; loaded {
-			continue
-		}
-		value := b.store.Get(key)
-		if value == nil {
-			continue
-		}
-		module := binary.BigEndian.Uint16(key[1:3])
-		if err := h.loadModuleKV(module, key[3:], value); err != nil {
-			return err
-		}
-		b.loaded[string(key)] = append([]byte(nil), value...)
 	}
 	iterator := sdk.KVStorePrefixIterator(b.store, []byte{idempotencyPrefix})
 	for ; iterator.Valid(); iterator.Next() {

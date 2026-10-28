@@ -12,6 +12,7 @@ use layerx_agentd::session::SessionId;
 use layerx_agentd::store::TenantId;
 use layerx_agentd::tenant::{Config, RedactionPolicy, Retention};
 use layerx_types::ids::{ActivityId, Did, IdempotencyKey};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
@@ -90,9 +91,9 @@ fn entry(class: EventClass) -> Entry {
         submitted_bytes: (class == EventClass::Submission)
             .then(|| protect_payload(&config(), 10, 10, b"exact-canonical-signed-activity")),
         receipt_id: (class == EventClass::TerminalOutcome).then_some([7; 32]),
-        tx_hash: None,
-        nonce: None,
-        rung: None,
+        tx_hash: Some([8; 32]),
+        nonce: matches!(class, EventClass::Submission | EventClass::TerminalOutcome).then_some(42),
+        rung: (class == EventClass::TerminalOutcome).then_some(Rung::Committed),
     }
 }
 
@@ -150,22 +151,18 @@ fn recorded_session_reconstructs_decision_bytes_authority_and_core_receipt() {
             core_receipt_bytes: b"exact-core-produced-receipt".to_vec(),
         },
     )]);
-    let replay = reconstruct_session(
-        &restored,
-        &receipts,
-        SessionId([1; 32]),
-        IdempotencyKey::new([4; 32]),
-    )
-    .unwrap_or_else(|error| panic!("reconstruct: {error}"));
+    let replay = reconstruct_session(&restored, &receipts, SessionId([1; 32]), [8; 32])
+        .unwrap_or_else(|error| panic!("reconstruct: {error}"));
     assert_eq!(replay.decisions.len(), 6);
     assert_eq!(replay.submitted_bytes, b"exact-canonical-signed-activity");
     assert_eq!(
         replay.protocol_authority,
         ProtocolAuthority::CapabilityGrant([6; 32])
     );
-    assert_eq!(replay.resulting_activity_id, ActivityId::new([5; 32]));
+    assert_eq!(replay.tx_hash, [8; 32]);
+    assert_eq!(replay.nonce, 42);
     assert_eq!(replay.core_receipt_bytes, b"exact-core-produced-receipt");
-    assert_eq!(replay.verification_level, VerificationLevel::STATE_PROVEN);
+    assert_eq!(replay.rung, Rung::Committed);
     let _ = fs::remove_dir_all(root);
 }
 

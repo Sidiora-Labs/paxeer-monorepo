@@ -487,10 +487,9 @@ fn accept_outcome(
         .map_err(|_| ApiFailure::upstream_degraded())?;
     let verified = outcome.verify_outcome(kind).map_err(creation_failure)?;
     let protocol = verified
-        .receipt()
         .protocol()
         .ok_or_else(ApiFailure::upstream_degraded)?;
-    if outcome.verification_level.wire_rank() < 4
+    if outcome.rung != layerx_types::rung::Rung::Committed
         || outcome.network_id != record.network
         || outcome.actor != record.did.as_bytes()
     {
@@ -503,7 +502,7 @@ fn accept_outcome(
         activity_id: outcome.activity_id,
         receipt_digest: Sha256::digest(&outcome.receipt_bytes).into(),
         observed_sequence: protocol.global_sequence(),
-        verification: outcome.verification_level.wire_rank(),
+        verification: outcome.rung.wire_rank(),
         finalized_at: now,
     };
     if protocol.result_code() != 0 {
@@ -692,7 +691,7 @@ impl ProductionComponents {
         if finalization.action_key != action_key
             || finalization.receipt_digest != evidence.receipt_digest
             || finalization.observed_sequence != evidence.observed_sequence
-            || finalization.verification != evidence.verification_level.wire_rank()
+            || finalization.verification != evidence.rung.wire_rank()
         {
             return Err(ApiFailure::upstream_degraded());
         }

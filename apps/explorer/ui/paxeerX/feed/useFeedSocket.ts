@@ -12,14 +12,16 @@ export const FEED_HISTORY_BUFFER_LIMIT = 50;
 interface Params {
   topic: string;
   isDisabled: boolean;
+  onJoin?: () => void;
 }
 
-export default function useFeedSocket({ topic, isDisabled }: Params) {
+export default function useFeedSocket({ topic, isDisabled, onJoin }: Params) {
   const [ isJoined, setIsJoined ] = React.useState(false);
 
   const handleJoin = React.useCallback(() => {
     setIsJoined(true);
-  }, []);
+    onJoin?.();
+  }, [ onJoin ]);
 
   const handleSocketIssue = React.useCallback(() => {
     setIsJoined(false);

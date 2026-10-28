@@ -11,8 +11,6 @@ use std::path::PathBuf;
 use zeroize::{Zeroize, Zeroizing};
 
 const MAX_STATE: usize = 8 * 1024 * 1024;
-#[path = "settlement_recipient.rs"]
-mod settlement_recipient;
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record {
@@ -26,7 +24,7 @@ struct Record {
     #[serde(default)]
     wallet: Option<crate::evm::Wallet>,
     #[serde(default)]
-    send_actions: BTreeMap<String, (crate::evm_types::SendPlanAuthorization, Vec<u8>)>,
+    send_actions: BTreeMap<String, (crate::send::SendAuthorization, Vec<u8>)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_identity: Option<[u8; 32]>,
     #[serde(default)]
@@ -45,12 +43,46 @@ struct State {
     network: u32,
     records: BTreeMap<String, Record>,
 }
+struct EvmAttestor {
+    signer: crate::attestor::AttestorSigner,
+    key_id: String,
+    address: [u8; 20],
+}
+impl EvmAttestor {
+    fn load(chain_id: u64) -> std::result::Result<Option<Self>, String> {
+        let Some(path) = std::env::var_os("LAYERX_HUMAN_KMS_ATTESTOR_CONFIG_FILE") else {
+            return Ok(None);
+        };
+        let bytes = protected(std::path::Path::new(&path), 65_536, false)?;
+        let config: crate::attestor::AttestorSignerConfig =
+            serde_json::from_slice(&bytes).map_err(|_| "attestor configuration invalid")?;
+        if u64::from(config.network_id) != chain_id || config.evm_address == [0; 20] {
+            return Err("attestor chain or address refused".into());
+        }
+        let assertion_path = std::env::var_os("LAYERX_HUMAN_KMS_EVM_ASSERTION_FILE")
+            .ok_or("EVM owner assertion file required")?;
+        let assertion = protected(std::path::Path::new(&assertion_path), 65_536, true)?;
+        let assertion =
+            std::str::from_utf8(&assertion).map_err(|_| "EVM owner assertion invalid")?;
+        let mut signer = crate::attestor::AttestorSigner::from_config(&config)
+            .map_err(|error| error.to_string())?;
+        signer
+            .set_evm_assertion(assertion.trim())
+            .map_err(|error| error.to_string())?;
+        Ok(Some(Self {
+            signer,
+            key_id: config.evm_key_id,
+            address: config.evm_address,
+        }))
+    }
+}
 pub(crate) struct Store {
     root: PathBuf,
     state: State,
     key: LessSafeKey,
     aad: Vec<u8>,
     healthy: bool,
+    evm_attestor: Option<EvmAttestor>,
     _lock: File,
 }
 pub(crate) fn hex(bytes: &[u8]) -> String {
@@ -179,6 +211,7 @@ impl Store {
             key,
             aad,
             healthy: true,
+            evm_attestor: EvmAttestor::load(config.chain.chain_id)?,
             _lock: lock,
         };
         store
@@ -251,9 +284,8 @@ impl Store {
             Operation::Create => return self.create(request),
             Operation::Rotate => return Err(Error::Refused),
             Operation::AuthorizeSend => {
-                return self.authorize_send(request, signing_digest.ok_or(Error::Refused)?)
+                return self.authorize_send(request, signing_digest.ok_or(Error::Refused)?, now)
             }
-            Operation::AuthorizeRecipient => return self.authorize_recipient(request),
             Operation::EvmWallet | Operation::Evm => return self.evm(request, now),
             Operation::ExportPrimary => return self.export_primary(request),
             Operation::Describe
@@ -327,7 +359,12 @@ impl Store {
         self.persist()?;
         Ok(exported.to_vec())
     }
-    fn authorize_send(&mut self, request: &Request<'_>, digest: [u8; 32]) -> Result<Vec<u8>> {
+    fn authorize_send(
+        &mut self,
+        request: &Request<'_>,
+        digest: [u8; 32],
+        now: u64,
+    ) -> Result<Vec<u8>> {
         let record = self
             .state
             .records
@@ -339,13 +376,18 @@ impl Store {
         if record.self_custodied {
             return Err(Error::SelfCustodied);
         }
-        let seed = record.seed.as_ref().ok_or(Error::NotFound)?;
-        let authorization: crate::evm_types::SendPlanAuthorization =
+        record.seed.as_ref().ok_or(Error::NotFound)?;
+        let authorization: crate::send::SendAuthorization =
             serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-        let key = hex(&authorization.action_key);
-        if let Some((previous, signature)) = record.send_actions.get(&key) {
+        if crate::send::digest(&authorization, request.binding, self.state.network, 3, now)?
+            != digest
+        {
+            return Err(Error::Integrity);
+        }
+        let key = hex(&authorization.authorization.action_key);
+        if let Some((previous, transaction)) = record.send_actions.get(&key) {
             return if previous == &authorization {
-                Ok(signature.clone())
+                Ok(transaction.clone())
             } else {
                 Err(Error::Conflict)
             };
@@ -353,12 +395,23 @@ impl Store {
         if record.send_actions.len() >= 4096 {
             return Err(Error::Unavailable);
         }
-        let signature = signing_key(seed)?.sign(&digest).as_ref().to_vec();
+        let attestor = self.evm_attestor.as_ref().ok_or(Error::Unavailable)?;
+        let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
+        if wallet.evm_key_id != attestor.key_id || wallet.address != attestor.address {
+            return Err(Error::Integrity);
+        }
+        wallet.authorize(authorization.authorization.clone(), now)?;
+        let action = wallet.sign(
+            &authorization.authorization.action_key,
+            now,
+            u64::from(self.state.network),
+            &attestor.signer,
+        )?;
         record
             .send_actions
-            .insert(key, (authorization, signature.clone()));
+            .insert(key, (authorization, action.raw_transaction.clone()));
         self.persist()?;
-        Ok(signature)
+        Ok(action.raw_transaction)
     }
     fn evm(&mut self, request: &Request<'_>, now: u64) -> Result<Vec<u8>> {
         use crate::evm_types::{EvmAcknowledgement, EvmPlanAuthorization};
@@ -378,7 +431,11 @@ impl Store {
         }
         if request.operation == 6 {
             if record.wallet.is_none() {
-                record.wallet = Some(crate::evm::Wallet::create()?);
+                let attestor = self.evm_attestor.as_ref().ok_or(Error::Unavailable)?;
+                record.wallet = Some(crate::evm::Wallet::create(
+                    &attestor.key_id,
+                    attestor.address,
+                )?);
             }
             let address = record.wallet.as_ref().ok_or(Error::Integrity)?.address;
             self.persist()?;
@@ -397,7 +454,11 @@ impl Store {
             8 => {
                 let key: [u8; 32] =
                     serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-                wallet.sign(&key, now)?
+                let attestor = self.evm_attestor.as_ref().ok_or(Error::Unavailable)?;
+                if wallet.evm_key_id != attestor.key_id || wallet.address != attestor.address {
+                    return Err(Error::Integrity);
+                }
+                wallet.sign(&key, now, u64::from(self.state.network), &attestor.signer)?
             }
             9 => {
                 let ack: EvmAcknowledgement =

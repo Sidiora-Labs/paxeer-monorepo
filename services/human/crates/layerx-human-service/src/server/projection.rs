@@ -1,4 +1,4 @@
-use layerx_agent_api::verify::Level;
+use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 
 use super::agent_runtime::{
@@ -7,14 +7,25 @@ use super::agent_runtime::{
 use super::backend::ApiFailure;
 use crate::approvals::{AgentApprovalState, VerifiedBudgetAfter};
 
-pub(super) fn verification(rank: u8) -> Result<&'static str, ApiFailure> {
-    match rank {
-        0 => Ok("unverified"),
-        1..=3 => Ok("receipt-verified"),
-        4 => Ok("checkpoint-finalised"),
-        5 => Ok("settlement-anchored"),
-        _ => Err(ApiFailure::upstream_degraded()),
+impl super::HumanComponentServer {
+    #[must_use]
+    pub fn verification_level_name(rung: Rung) -> &'static str {
+        match rung {
+            Rung::Submitted => "unverified",
+            Rung::Receipted => "receipt-verified",
+            Rung::Committed => "checkpoint-finalised",
+        }
     }
+}
+
+pub(super) fn verification(rank: u8) -> Result<&'static str, ApiFailure> {
+    let rung = match rank {
+        0..=1 => Rung::Submitted,
+        2..=3 => Rung::Receipted,
+        4 => Rung::Committed,
+        _ => return Err(ApiFailure::upstream_degraded()),
+    };
+    Ok(super::HumanComponentServer::verification_level_name(rung))
 }
 
 pub(super) fn hex(bytes: &[u8]) -> String {
@@ -167,15 +178,11 @@ pub(super) fn native_state(
     }
 }
 
-pub(super) fn level(level: Level) -> Result<&'static str, ApiFailure> {
-    verification(match level {
-        Level::Unverified => 0,
-        Level::SequencerSigned => 1,
-        Level::BatchIncluded => 2,
-        Level::StateProven => 3,
-        Level::CheckpointFinalised => 4,
-        Level::SettlementAnchored => 5,
-    })
+pub(super) fn level(level: layerx_agent_api::verify::Level) -> Result<&'static str, ApiFailure> {
+    level
+        .rung()
+        .map(super::HumanComponentServer::verification_level_name)
+        .ok_or_else(ApiFailure::upstream_degraded)
 }
 
 pub(super) fn native_approval(
@@ -290,15 +297,7 @@ pub(super) fn approval(
     let approval_id = format!("apr_{}", hex(&hold.approval_id));
     let money = json!({"amount":amount.amount.0.to_string(),"currency":managed.currency});
     let expires_at = unix_time(facts.activity_expires_at_unix_seconds)?;
-    let rank = match budget.level {
-        Level::Unverified => 0,
-        Level::SequencerSigned => 1,
-        Level::BatchIncluded => 2,
-        Level::StateProven => 3,
-        Level::CheckpointFinalised => 4,
-        Level::SettlementAnchored => 5,
-    };
-    let remaining = json!({"money":{"amount":budget.remaining.to_string(),"currency":managed.currency},"verification":verification(rank)?});
+    let remaining = json!({"money":{"amount":budget.remaining.to_string(),"currency":managed.currency},"verification":super::HumanComponentServer::verification_level_name(budget.rung)});
     let summary = json!({"approval_id":approval_id,"agent_id":managed.agent_id,"agent_name":managed.name,"counterparty":counterparty.as_str(),"amount":money,"reason_copy_key":reason,"expires_at":expires_at,"state":state,"budget_remaining_after":remaining});
     let detail = json!({"approval_id":approval_id,"agent_id":managed.agent_id,"agent_name":managed.name,"state":state,"state_copy_key":format!("approval.state.{state}"),"reason_copy_key":reason,
         "facts":{"amount":money,"counterparty":counterparty.as_str(),"asset":managed.currency,"fees":{"amount":hold.held_activity.fee_limit.0.to_string(),"currency":managed.currency},"expires_at":expires_at},
@@ -537,10 +536,7 @@ pub(super) fn program_budget(
         || budget.checkpoint_digest == [0; 32]
         || budget.proof_digest == [0; 32]
         || budget.verified_proof_bytes.is_empty()
-        || !matches!(
-            budget.verification,
-            Level::CheckpointFinalised | Level::SettlementAnchored
-        )
+        || budget.verification.rung() != Some(Rung::Committed)
         || budget.age_sequences > budget.maximum_age_sequences
         || <[u8; 32]>::from(Sha256::digest(&budget.verified_proof_bytes)) != budget.proof_digest
         || proof_reference["evidence_id"] != json!(format!("evd_{}", hex(&budget.proof_digest)))

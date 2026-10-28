@@ -1120,6 +1120,7 @@ dependencies = [
  "sha2",
  "sha3",
  "subtle",
+ "ureq",
  "zeroize",
 ]
 
@@ -1135,6 +1136,7 @@ dependencies = [
  "layerx-intents",
  "layerx-proof",
  "layerx-types",
+ "serde_json",
  "sha2",
 ]
 

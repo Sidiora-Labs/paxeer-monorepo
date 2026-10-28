@@ -961,7 +961,11 @@ impl WithdrawalJourney {
                         ReceiptLookup::Absent => return self.status(),
                         ReceiptLookup::Found(material) => material,
                     };
-                    if material.canonical_bytes != evidence.canonical_receipt {
+                    if material.canonical_bytes != evidence.canonical_receipt
+                        || material.tx_hash != evidence.activity_id
+                        || material.receipt_hash != evidence.receipt_digest
+                        || material.rung < layerx_types::rung::Rung::Receipted
+                    {
                         return Err(WithdrawalJourneyError::EvidenceConflict);
                     }
                     let expectation = self.debit_expectation(evidence.activity_id)?;
@@ -2503,8 +2507,9 @@ mod material_persistence_tests {
 
     const RECEIPT: &[u8] =
         include_bytes!("../../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
-    const PROOF: &[u8] =
-        include_bytes!("../../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof");
+    const PROOF: &[u8] = include_bytes!(
+        "../../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof"
+    );
     const HEADER: &[u8] =
         include_bytes!("../../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
     const HEADER_SIGNATURE: &[u8] = include_bytes!(

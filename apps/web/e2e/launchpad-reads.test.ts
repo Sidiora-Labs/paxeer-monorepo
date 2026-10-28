@@ -344,11 +344,12 @@ test("launchpad markets, count and config read only methods the current launchpa
         tokenReserve: 3n,
         realQuoteBalance: 2n,
         cumulativeVolume: 4n,
+        currentFeeBps: 5n,
         price: 8n,
       },
     ]);
     assert.deepEqual(config, {
-      quoteDenom: "USDL",
+      quoteSymbol: "USDL",
       creationFee: 5n * 10n ** 18n,
       minFeeBps: 30n,
       maxFeeBps: 300n,
@@ -356,6 +357,50 @@ test("launchpad markets, count and config read only methods the current launchpa
     });
   });
 });
+
+async function launchpad_quote_without_a_pool_is_no_launchpad_pool_error() {
+  const { quoteLaunchpadSwap } = await import("../src/app/launchpad/actions.ts");
+  await serving(async (called) => {
+    await assert.rejects(precompiles.launchpadQuote(USDL, "buy", 1n), (error: unknown) => {
+      assert.ok(error instanceof precompiles.NoLaunchpadPoolError);
+      assert.ok(error instanceof RangeError);
+      assert.equal(error.name, "NoLaunchpadPoolError");
+      assert.equal(error.message, `no launchpad pool trades ${USDL}`);
+      return true;
+    });
+    assert.deepEqual(await quoteLaunchpadSwap(USDL, "buy", "1"), {
+      ok: false,
+      detail: `no launchpad pool trades ${USDL}`,
+    });
+    assert.ok(called.includes(`${LAUNCHPAD}.getPoolByToken`));
+    assert.ok(!called.includes(`${LAUNCHPAD}.quoteExactInput`));
+    assert.deepEqual(called.filter((entry) => entry.startsWith("rejected")), []);
+  });
+}
+
+test(launchpad_quote_without_a_pool_is_no_launchpad_pool_error);
+
+async function launchpad_markets_carry_the_pool_fee_rate_and_quote_symbol() {
+  await serving(async (called) => {
+    const [markets, config] = await Promise.all([
+      precompiles.launchpadMarkets(0n, 50n),
+      precompiles.launchpadConfig(),
+    ]);
+    assert.equal(markets.length, 1);
+    const market = markets[0];
+    assert.ok(market !== undefined && !("unavailable" in market));
+    assert.equal(market.pool, POOL);
+    assert.equal(market.currentFeeBps, 5n);
+    assert.equal(config.quoteSymbol, "USDL");
+    assert.equal(Object.hasOwn(config, "quoteDenom"), false);
+    assert.ok(called.includes(`${LAUNCHPAD}.getPoolStats`));
+    assert.ok(called.includes(`${LAUNCHPAD}.usdlAddress`));
+    assert.ok(called.includes(`${USDL}.symbol`));
+    assert.deepEqual(called.filter((entry) => entry.startsWith("rejected")), []);
+  });
+}
+
+test(launchpad_markets_carry_the_pool_fee_rate_and_quote_symbol);
 
 test("a launchpad quote resolves the token's pool and asks quoteExactInput with the trade direction", async () => {
   await serving(async (called) => {
