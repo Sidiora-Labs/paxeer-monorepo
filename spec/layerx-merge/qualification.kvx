@@ -8815,3 +8815,19 @@ symbol = "checkpoint"
 observed = "Attempt 1 (e506e1bcb) cannot build layerx-platform-cli because layerx-mcp fails with seven errors: read.rs reads the pre-71550012a shape of CheckpointValue, ProofBundle and HistoryValue, wallet.rs treats the activity hash Wallet::execute returns since 0a296da5e as a VerifiedRpcReceipt, and web.rs passes an AuthorizedBatch where Buyer::capture_settlement takes &[SequencerAuthorization] since 4e013c19c."
 assumption = "The crate was unbuildable for the layerx-agentd reason (#1057) when the three interfaces moved, so no gate met the merged code; issue #1121 / task 18.1121.1 carries the port and every open task whose gate compiles layerx-mcp or layerx-platform-cli requires it."
 severity = "blocker"
+
+[finding.13.27.1.1]
+task = "13.27.1"
+file = "src/modules/programs/sandbox.c:427"
+symbol = "lxp_programs_sandbox_execute"
+observed = "Every runtime refusal between sandbox admission and the guest seal returns with the guest savepoint active, and :427 rewrites that status to LXP_FATAL_INVARIANT, so TestProgramsSandboxExecuteEmitsUsage cannot show which admission or settlement check refused (issue #1122, task 18.1122.1)."
+assumption = "13.27.1 continues on the fixture; the kernel change is 18.1122.1 and is not a prerequisite."
+severity = "major"
+
+[finding.18.911.1.7]
+task = "18.911.1"
+file = "programs/crates/layerx-programs-market/src/lib.rs:303-350"
+symbol = "register"
+observed = "Since e28cb9af0 (18.811.1) the market guest registers and opens only FraudProvable (model 3) offers and settle.rs refuses direct-usage leases, so the attestation driver cases for model 1 (Bonded) and model 2 (Attested), including admission_cases on the model 2 lease, expect acceptances main refuses by design; do_4 keeps those assertions as written."
+assumption = "Needs a ruling: retarget the model 1 and model 2 cases to refusal expectations or restore those models in the guest; the model 3 -3 refusal is investigated separately."
+severity = "major"
