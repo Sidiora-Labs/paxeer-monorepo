@@ -9523,3 +9523,19 @@ symbol = "reconstruct_session"
 observed = "Attempt 9 (6ba6741dc) still ran the all-targets build and failed in tests/audit_coverage.rs, which passes IdempotencyKey to reconstruct_session and asserts resulting_activity_id and verification_level that the version-3 Reconstruction of 9.6.2 (64ab4a5c3) no longer has; 9.6.2 touched the file but verified only audit_record_v3."
 assumption = "Issue #1158 / task 18.1158.1 ports the coverage test; 18.1131.1, whose gate builds every layerx-agentd test target, now requires it; this task builds only the checkpoint target."
 severity = "minor"
+
+[finding.18.1156.1.1]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:73"
+symbol = "DisclosedNativeOperation"
+observed = "The first attempt (f5f1770b2) wrote chain_id 125 as specified and failed its build on E0004 at native_setup.rs:73 and :82, outside its touches: the matches cover four of the twelve DisclosedNativeOperation variants, a pre-existing failure recorded as gotcha.906 and gotcha.942 and owned by no task (10.98.8 changes only its import paths)."
+assumption = "Issue #1159; folded as do_3 with native_setup.rs in touches and 10.98.8 now requiring this task, since the provider target cannot be qualified otherwise."
+severity = "minor"
+
+[finding.18.1157.1.1]
+task = "18.1157.1"
+file = "services/interop/crates/layerx-x402/tests/buyer.rs:59"
+symbol = "test_supported"
+observed = "The first attempt (5b66056dd) implemented the metered PaymentDrawn capture and its two tests passed, but 19 of the 26 pre-existing tests of the buyer target fail at head: the fixtures offer layerx:beta and layerx:mainnet, which validate_network (src/seller.rs:411) has refused since c6f95f885, and non-hash transactions, which validate_transaction (b9ee0272a) refuses as TransactionForm; 11.5.1 and 18.1133.1 verified other targets."
+assumption = "Issue #1160; folded as do_4 (same file, same gate). tests/e2e.rs and tests/vectors.rs also carry the words and were not checked."
+severity = "minor"
