@@ -10,8 +10,10 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use layerx_human_service::custody::RemoteKmsProvider;
-use layerx_human_service::frame::{Limits, MutualTlsConfig};
+use layerx_human_service::{
+    custody::RemoteKmsProvider,
+    frame::{Limits, MutualTlsConfig},
+};
 use layerx_types::payload::{ActivityType, ModuleId};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;

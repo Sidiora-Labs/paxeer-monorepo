@@ -142685,7 +142685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.0.2]
 title = "Refuse retired human-api operations with operation-retired before dispatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.15.2", "10.4.4", "14.10.1", "9.1.8", "18.1119.1"]
@@ -142966,7 +142966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.2]
 title = "Render approvals with rungs instead of the kernel Level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.0.1", "9.1.6", "9.1.7", "9.23.7", "9.1.8", "18.1119.1"]
@@ -143223,7 +143223,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.4.1]
 title = "Move the custody gateway and KMS provider client onto the human frame module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
@@ -182627,7 +182627,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.922.1]
 title = "Issue #922: Make price feed retry classification deterministic, warn on held heights and schedule retries after the batch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.921.1"]
@@ -183904,7 +183904,7 @@ touches = ["modules/lxphost/host.go", "modules/lxphost/ctx.go", "modules/lxphost
 tests = ["modules/lxphost/host_test.go::TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity"]
 planned_paths = []
 build_cmd = "go build ./modules/lxphost/..."
-verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestResolutionExecuteEntry|TestHostFeeRecordAbsentRefusesVersion)$'"
+verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestHostFeeRecordAbsentRefusesVersion)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
@@ -184127,7 +184127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.817.1]
 title = "Issue #817: Assert the mined nonce conflict as the 409 prepare-again answer the pool gives where the owner, agent receipt and nonce tests still expect 202 outcome_unknown"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184160,7 +184160,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1105.1]
 title = "Issue #1105: Default the market attestation driver's native include path to -Iinclude and pin it with a focused test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184224,7 +184224,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1139.1]
 title = "Issue #1139: Skip a late completed job in the PaxAI worker maintenance tick instead of aborting the tick"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184401,7 +184401,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.680.1]
 title = "Issue #680: Let the variable helper accept a multi-line value for a name ending in _PEM while keeping it masked"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184431,7 +184431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.726.1]
 title = "Issue #726: Make the gateway's hosted env example name the indexer, faucet and receipt-key variables and drop the unread sequencer file variables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184463,7 +184463,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.729.1]
 title = "Issue #729: Make the indexer's hosted env example name the paxscan variables backfill requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

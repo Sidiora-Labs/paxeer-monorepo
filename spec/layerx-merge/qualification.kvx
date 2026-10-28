@@ -9331,3 +9331,11 @@ symbol = "handshake_gate"
 observed = "Attempt 2's --tests build compiles the seventeen agentd test targets that include tests/support/mod.rs, whose real_authority.rs still imports boot::handshake_gate; that port is 18.1131.1 do_1, and 18.1131.1 requires this task."
 assumption = "build_cmd compiles only the four touched targets (delivery, webhook, approval_events, w7_subscription_permit), none of which includes the support module."
 severity = "major"
+
+[finding.18.1135.1.2]
+task = "18.1135.1"
+file = "modules/lxphost/resolution_test.go:217"
+symbol = "TestResolutionExecuteEntry"
+observed = "Attempt 5 (14169ffbe) passed the two tests this task adds; TestResolutionExecuteEntry fails at main since e1c81cc5a with LXP_ERR_VERSION_UNSUPPORTED because the resolution fixture seeds no fee record (issue #1130), which 18.1130.1 repairs and proves in its own verify_cmd while requiring this task."
+assumption = "verify_cmd runs only the two tests this task adds; TestResolutionExecuteEntry stays in 18.1130.1's gate, where its fixture is repaired."
+severity = "major"
