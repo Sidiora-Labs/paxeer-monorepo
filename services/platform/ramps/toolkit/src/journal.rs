@@ -3,6 +3,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead as _, BufReader, Read as _, Seek as _, Write as _};
 use std::path::Path;
 
+use layerx_client::sequencer::SequencerReceipt;
 use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -80,34 +81,34 @@ pub struct ProviderCallbackWrite<'a> {
 pub struct PaxeerObservation<'a> {
     pub operation_id: &'a str,
     pub transaction_hash: [u8; 32],
-    pub stage: &'a str,
+    pub rung: Rung,
     pub block_hash: Option<[u8; 32]>,
-    pub confirmations: u64,
+    pub block_height: Option<u64>,
 }
 
 impl<'a> PaxeerObservation<'a> {
     #[must_use]
-    pub fn from_finality(
-        operation_id: &'a str,
-        report: &layerx_paxeer_client::FinalityReport,
-    ) -> Self {
-        use layerx_paxeer_client::FinalityStage;
-        let (stage, block_hash) = match report.stage() {
-            FinalityStage::Announced => ("announced", None),
-            FinalityStage::Missing { .. } => ("missing", None),
-            FinalityStage::Pooled { .. } => ("pooled", None),
-            FinalityStage::Confirming { inclusion, .. } => {
-                ("confirming", Some(inclusion.block.hash))
-            }
-            FinalityStage::Final { inclusion, .. } => ("final", Some(inclusion.block.hash)),
-            FinalityStage::Displaced { lost, .. } => ("displaced", Some(lost.block.hash)),
+    pub fn from_sequencer_receipt(operation_id: &'a str, receipt: &SequencerReceipt) -> Self {
+        let (transaction_hash, rung, block_hash, block_height) = match receipt {
+            SequencerReceipt::Submitted { tx_hash, .. } => (*tx_hash, Rung::Submitted, None, None),
+            SequencerReceipt::Receipted(receipt) => (receipt.tx_hash, Rung::Receipted, None, None),
+            SequencerReceipt::Committed {
+                receipt,
+                block_number,
+                block_hash,
+            } => (
+                receipt.tx_hash,
+                Rung::Committed,
+                Some(*block_hash),
+                Some(*block_number),
+            ),
         };
         Self {
             operation_id,
-            transaction_hash: report.transaction().bytes(),
-            stage,
+            transaction_hash,
+            rung,
             block_hash,
-            confirmations: report.progress().confirmed,
+            block_height,
         }
     }
 }
@@ -172,6 +173,15 @@ pub enum Event {
         stage: String,
         block_hash: Option<[u8; 32]>,
         confirmations: u64,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            serialize_with = "serialize_rung",
+            deserialize_with = "deserialize_rung"
+        )]
+        rung: Option<Rung>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        block_height: Option<u64>,
     },
 }
 
@@ -217,6 +227,8 @@ pub struct PaxeerSnapshot {
     pub stage: String,
     pub block_hash: Option<[u8; 32]>,
     pub confirmations: u64,
+    pub rung: Option<Rung>,
+    pub block_height: Option<u64>,
 }
 
 impl OrderSnapshot {
@@ -401,14 +413,38 @@ impl Projection {
                 stage,
                 block_hash,
                 confirmations,
-            } => self.stage_paxeer_observed(
-                idempotency_key,
-                operation_id,
-                *transaction_hash,
-                stage,
-                *block_hash,
-                *confirmations,
-            ),
+                rung,
+                block_height,
+            } => match rung {
+                Some(rung) => {
+                    if stage != rung.name() || *confirmations != 0 {
+                        return Err(RampError::Paxeer);
+                    }
+                    self.stage_custody_observed(
+                        idempotency_key,
+                        PaxeerObservation {
+                            operation_id,
+                            transaction_hash: *transaction_hash,
+                            rung: *rung,
+                            block_hash: *block_hash,
+                            block_height: *block_height,
+                        },
+                    )
+                }
+                None => {
+                    if block_height.is_some() {
+                        return Err(RampError::Paxeer);
+                    }
+                    self.stage_paxeer_observed(
+                        idempotency_key,
+                        operation_id,
+                        *transaction_hash,
+                        stage,
+                        *block_hash,
+                        *confirmations,
+                    )
+                }
+            },
         }
     }
 
@@ -542,7 +578,57 @@ impl Projection {
             stage: "submission_planned".to_owned(),
             block_hash: None,
             confirmations: 0,
+            rung: None,
+            block_height: None,
         }))
+    }
+
+    fn stage_custody_observed(
+        &self,
+        idempotency_key: &[u8; 32],
+        observation: PaxeerObservation<'_>,
+    ) -> Result<StagedMutation, RampError> {
+        if !safe_identifier(observation.operation_id) || observation.transaction_hash == [0; 32] {
+            return Err(RampError::Paxeer);
+        }
+        let mut snapshot = self
+            .paxeer
+            .get(idempotency_key)
+            .cloned()
+            .ok_or(RampError::Paxeer)?;
+        if snapshot
+            .operation_id
+            .as_deref()
+            .is_some_and(|value| value != observation.operation_id)
+            || snapshot
+                .transaction_hash
+                .is_some_and(|value| value != observation.transaction_hash)
+            || snapshot.rung.is_some_and(|rung| observation.rung < rung)
+            || snapshot
+                .block_hash
+                .is_some_and(|hash| Some(hash) != observation.block_hash)
+            || snapshot
+                .block_height
+                .is_some_and(|height| Some(height) != observation.block_height)
+        {
+            return Err(RampError::Conflict);
+        }
+        let committed = observation.rung == Rung::Committed;
+        if committed != observation.block_hash.is_some()
+            || committed != observation.block_height.is_some()
+            || observation.block_hash == Some([0; 32])
+            || observation.block_height == Some(0)
+        {
+            return Err(RampError::Paxeer);
+        }
+        snapshot.operation_id = Some(observation.operation_id.to_owned());
+        snapshot.transaction_hash = Some(observation.transaction_hash);
+        snapshot.stage = observation.rung.name().to_owned();
+        snapshot.rung = Some(observation.rung);
+        snapshot.block_hash = observation.block_hash;
+        snapshot.block_height = observation.block_height;
+        snapshot.confirmations = 0;
+        Ok(StagedMutation::Paxeer(snapshot))
     }
 
     fn stage_paxeer_observed(
@@ -563,6 +649,9 @@ impl Projection {
             .get(idempotency_key)
             .cloned()
             .ok_or(RampError::Paxeer)?;
+        if snapshot.rung.is_some() {
+            return Err(RampError::Conflict);
+        }
         if snapshot
             .operation_id
             .as_deref()
@@ -1454,10 +1543,7 @@ impl Journal {
         now: u64,
     ) -> Result<(), RampError> {
         self.require_operational()?;
-        if !safe_identifier(observation.operation_id)
-            || observation.transaction_hash == [0; 32]
-            || !safe_identifier(observation.stage)
-        {
+        if !safe_identifier(observation.operation_id) || observation.transaction_hash == [0; 32] {
             return Err(RampError::Paxeer);
         }
         let existing = self
@@ -1480,9 +1566,11 @@ impl Journal {
                 idempotency_key,
                 operation_id: observation.operation_id.to_owned(),
                 transaction_hash: observation.transaction_hash,
-                stage: observation.stage.to_owned(),
+                stage: observation.rung.name().to_owned(),
                 block_hash: observation.block_hash,
-                confirmations: observation.confirmations,
+                confirmations: 0,
+                rung: Some(observation.rung),
+                block_height: observation.block_height,
             },
             now,
         )

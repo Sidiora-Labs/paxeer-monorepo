@@ -12,7 +12,7 @@ Paxeer is a Cosmos-SDK chain with a native EVM. LayerX is a deterministic execut
 
 ## The proof-carrying connector
 
-Seven precompiles at well-known EVM addresses connect the two domains. Each one is declared as a Solidity interface and implemented as a native Go function inside the EVM module. `LayerXVerify`, `Addr`, `LayerXCustody` and `LayerXAnchor` see only Paxeer state and calldata and verify submitted LayerX evidence using the `layerxproof/codec` and `layerxproof/verify` Go packages, both of which are pure — no clock, no network, no database. `LayerXExchange`, `LayerXBridge` and `Launchpad` (below) are newer additions with different jobs: the first two move value between chains or domains under signed evidence, and the third runs a self-contained AMM on Paxeer alone.
+Seven precompiles at well-known EVM addresses connect the two domains. Their interfaces are declared in Solidity or an ABI JSON file and implemented as native Go functions inside the EVM module. `LayerXVerify`, `Addr`, `LayerXCustody` and `LayerXAnchor` see only Paxeer state and calldata and verify submitted LayerX evidence using the `layerxproof/codec` and `layerxproof/verify` Go packages, both of which are pure — no clock, no network, no database. `Perps`, `LayerXBridge` and `Launchpad` (below) are newer additions with different jobs: Perps provides native perpetuals trading, LayerXBridge moves value between chains under signed evidence, and Launchpad runs a self-contained AMM on Paxeer alone.
 
 ### LayerXVerify — `0x0000000000000000000000000000000000001012`
 
@@ -87,34 +87,31 @@ View methods: `latestFinalized`, `checkpoint`, `finalizedStateRoot`, `finalizedR
 
 The `statusOf` function returns the checkpoint status ladder: **0 unknown**, **1 submitted**, **2 final**.
 
-### LayerXExchange — `0x0000000000000000000000000000000000001015`
+### Perps — `0x0000000000000000000000000000000000001015`
 
-Records pending trading intents; it never matches an order on Paxeer.
-Every write emits an event carrying an `intentId`
-(`sha256("LXP/Paxeer/exchange-intent/v1" || chain id || this || owner ||
-kind || nonce)`) for the LayerX intent router. Margin only moves through
-`layerxcustody`: a margin deposit is a `LayerXCustody` deposit tagged for
-this account, and a margin withdrawal is paid out later by a proof-carrying
-`LayerXCustody` withdrawal. Declared in
-`precompiles/layerxexchange/LayerXExchange.sol`:
+From v6.12.0, this address serves the native perpetuals precompile.
+Its ABI is `precompiles/perps/abi/abi.json`.
+The `layerxexchange` precompile is retired at v6.12.0; v6.9 intent
+selectors sent to `0x1015` are refused
+(`precompiles/perps/switch_test.go:357-358`).
+
+Write methods:
 
 | Method | Purpose |
 |--------|---------|
-| `depositMargin(account) → intentId, depositId` | Custody `msg.value` as margin for a LayerX account. |
-| `depositMarginToken(pointer, amount, account) → intentId, depositId` | Custody a bank-denom pointer as margin. |
-| `withdrawMargin(account, assetId, amount) → intentId` | Ask LayerX to release margin to a withdrawable balance. |
-| `placeOrder(market, side, price, qty, tif) → intentId` | Record a spot/perps order intent. |
-| `cancelOrder(orderId) → intentId` | Record a cancel intent. |
-| `requestSettlement(positionId) → intentId` | Record a settlement-request intent. |
+| `deposit` | Deposit collateral. |
+| `withdraw` | Withdraw collateral. |
+| `transferCollateral` | Transfer collateral to another account. |
+| `openPosition` | Open a perpetuals position. |
+| `closePosition` | Close a perpetuals position. |
+| `placeOrder` | Place an order using the ABI's order parameters. |
+| `placeLimitOrder` | Place a limit order. |
+| `cancelOrder` | Cancel an order. |
+| `addCollateral` | Add collateral to a position. |
+| `removeCollateral` | Remove collateral from a position. |
 
-View methods `getIntent`, `intentNonce`, `getMarket`, `getOrder`,
-`getPosition` and `getMargin` prove LayerX state under a caller-supplied
-witness and finalized batch number rather than reading over the network.
-`services/human/crates/layerx-intents/src/precompile.rs` decodes and types these
-events (`ExchangeOrder`, `ExchangeCancel`, `ExchangeSettle`,
-`ExchangeMarginDeposit`, `ExchangeMarginWithdraw`), but nothing in the tree
-calls that router outside its own tests yet — see
-[Not yet built](#not-yet-built).
+Main view methods: `getAccount`, `getMarket`, `getPosition`, `getOrder`,
+`getMarkPrice` and `totalMarkets`.
 
 ### LayerXBridge — `0x0000000000000000000000000000000000001016`
 

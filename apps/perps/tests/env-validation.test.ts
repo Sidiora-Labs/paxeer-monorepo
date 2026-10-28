@@ -6,7 +6,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseMarketProxyOrigin } from '../src/pages/api/candle/[...path]';
 import { parseStatusPageUrl } from '../src/app/shell/Footer';
-import { COLLATERAL_TOKENS, PERPS_MARKETS, coinLogoUrl } from '../src/core/perps/config';
+
+process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL = 'https://gateway.example.test';
+const { COLLATERAL_TOKENS, PERPS_MARKETS, coinLogoUrl } =
+  require('../src/core/perps/config') as typeof import('../src/core/perps/config');
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const REPO = path.join(ROOT, '../..');
@@ -97,12 +100,40 @@ test('no src file references raw.githubusercontent.com and the dead streaming sh
 });
 
 function runRegister(env: Record<string, string>) {
-  const childEnv: NodeJS.ProcessEnv = { ...process.env, ...env };
+  const childEnv: NodeJS.ProcessEnv = { ...process.env };
   delete childEnv.NODE_TEST_CONTEXT;
-  return spawnSync(process.execPath, ['--import', 'tsx', '-e', `import('./src/instrumentation.ts').then((m) => (m.default ?? m).register())`], {
+  delete childEnv.NEXT_RUNTIME;
+  delete childEnv.SENTRY_DSN;
+  delete childEnv.NEXT_PUBLIC_SENTRY_DSN;
+  Object.assign(childEnv, env);
+  return spawnSync(process.execPath, ['--import', 'tsx', '-e', `import('./src/instrumentation.ts').then((m) => (m.default ?? m).register()).then(() => console.log(Boolean(require('@sentry/nextjs').getClient())))`], {
     cwd: ROOT, env: childEnv, encoding: 'utf8',
   });
 }
+
+const sentryRegistrationTests = {
+  'instrumentation register() initialises the server Sentry client when SENTRY_DSN is set'() {
+    const child = runRegister({
+      NEXT_RUNTIME: 'nodejs',
+      MARKET_PROXY_ORIGIN: 'https://perps.example.com',
+      NEXT_PUBLIC_STATUS_PAGE_URL: 'https://status.example.com',
+      SENTRY_DSN: 'https://public@example.com/1',
+    });
+    assert.equal(child.status, 0, `${child.stdout}${child.stderr}`);
+    assert.equal(child.stdout.trim(), 'true');
+  },
+  'instrumentation register() leaves Sentry uninitialised without a DSN'() {
+    const child = runRegister({
+      MARKET_PROXY_ORIGIN: 'https://perps.example.com',
+      NEXT_PUBLIC_STATUS_PAGE_URL: 'https://status.example.com',
+    });
+    assert.equal(child.status, 0, `${child.stdout}${child.stderr}`);
+    assert.equal(child.stdout.trim(), 'false');
+  },
+};
+
+test(sentryRegistrationTests['instrumentation register() initialises the server Sentry client when SENTRY_DSN is set']);
+test(sentryRegistrationTests['instrumentation register() leaves Sentry uninitialised without a DSN']);
 
 test('instrumentation register() fails the boot on a malformed MARKET_PROXY_ORIGIN naming the variable', () => {
   const child = runRegister({ MARKET_PROXY_ORIGIN: 'https://perps.example.com/' });
