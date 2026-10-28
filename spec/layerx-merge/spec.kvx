@@ -134450,7 +134450,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.31.2]
 title = "Drop the Paxeer client and kernel intent compiler from the ramp crates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["8.29.2", "8.30.3", "8.28.2"]
