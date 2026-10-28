@@ -24,7 +24,9 @@ pub(crate) enum Operation {
     RotateIfCurrent,
     Destroy,
     Sign,
+    /// Version 3, operation 6: the attestor wallet address, with no payload.
     EvmWallet,
+    /// Version 3, operations 7 through 10 and 12: the existing JSON payload.
     Evm,
     AuthorizeSend,
     AuthorizeRecipient,
