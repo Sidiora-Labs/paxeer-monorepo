@@ -35,8 +35,9 @@ for dockerfile in docker/intent-ingester/Dockerfile docker/redis/Dockerfile; do
 done
 
 workflow=.github/workflows/publish-images.yml
-if python3 -c 'import yaml' 2>/dev/null; then
-    python3 - "$workflow" <<'PY' || fail "workflow structure check failed"
+chain_source_paths() {
+    if python3 -c 'import yaml'; then
+        python3 - "$workflow" <<'PY' || fail "workflow structure check failed"
 import sys
 import yaml
 
@@ -45,8 +46,15 @@ on = doc.get("on", doc.get(True))
 push = on["push"]
 assert "main" in push["branches"], "push to main is not a trigger"
 assert push["tags"], "tag trigger dropped"
-for path in ("docker/**", "services/platform/**", "services/interop/**", "services/wallet/**", "apps/explorer/**", "services/explorer/**"):
+for path in (
+    "docker/**", "services/platform/**", "services/interop/**", "services/wallet/**",
+    "sdk/wallet/**", "apps/explorer/**", "services/explorer/**",
+    "go.mod", "go.sum", "Makefile", "chain.mk", "cmd/**", "daemon/**", "node/**",
+    "modules/**", "precompiles/**", "rpc/**", "engine/**", "sdk/**", "src/**",
+    "include/**", "programs/**", "contracts/config/**", "tools/release/version.json",
+):
     assert path in push["paths"], f"missing push path {path}"
+print("publish-images.test: chain_source_paths ok", flush=True)
 assert "workflow_dispatch" in on, "dispatch trigger dropped"
 jobs = doc["jobs"]
 for name in ("images", "images-dependent"):
@@ -66,13 +74,16 @@ assert "CI_LINUX_RUNNER" not in text and "fly-linux" not in text, "Fly runner cl
 for job in jobs.values():
     assert "ubuntu" in str(job["runs-on"]), "every job must run on a GitHub-hosted ubuntu label by default"
 PY
-else
-    grep -q 'matrix:' "$workflow" || fail "workflow has no matrix"
-    grep -q 'packages: write' "$workflow" || fail "workflow lacks packages: write"
-    grep -q 'docker/build-push-action@' "$workflow" || fail "workflow does not use docker/build-push-action"
-    grep -q 'beta-images.sh' "$workflow" || fail "workflow does not read the image table"
-    ! grep -q 'CI_LINUX_RUNNER' "$workflow" || fail "Fly runner clause remains"
-fi
+    else
+        fail "chain_source_paths requires PyYAML; install it for python3 before running this test"
+        grep -q 'matrix:' "$workflow" || fail "workflow has no matrix"
+        grep -q 'packages: write' "$workflow" || fail "workflow lacks packages: write"
+        grep -q 'docker/build-push-action@' "$workflow" || fail "workflow does not use docker/build-push-action"
+        grep -q 'beta-images.sh' "$workflow" || fail "workflow does not read the image table"
+        ! grep -q 'CI_LINUX_RUNNER' "$workflow" || fail "Fly runner clause remains"
+    fi
+}
+chain_source_paths
 
 bash -n services/platform/hosted/tests/beta-images.sh services/platform/hosted/tests/beta-cluster.sh || fail "shell syntax"
 
