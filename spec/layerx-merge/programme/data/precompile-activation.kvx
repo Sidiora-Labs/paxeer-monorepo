@@ -13,7 +13,7 @@ modules = ["layerxcustody"]
 
 [address.0x1014]
 plan = "v6.9"
-modules = ["layerxanchor"]
+modules = ["upgrade"]
 
 [address.0x1015]
 plan = "v6.9"
