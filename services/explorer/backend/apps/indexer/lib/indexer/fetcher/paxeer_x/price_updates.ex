@@ -176,6 +176,11 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdates do
     retry(number, attempts, failures, now, reason)
   end
 
+  defp after_scan({:error, {:http_status, status, _} = reason}, number, attempts, failures, now)
+       when status in 500..599 do
+    retry(number, attempts, failures, now, reason)
+  end
+
   defp after_scan({:error, reason}, number, _attempts, failures, _now) when failures + 1 >= @max_attempts do
     Logger.error("price feed scan of block #{number} failed #{failures + 1} times: #{inspect(reason)}")
     PriceFeed.mark_unscannable(number, "failed", inspect(reason))
