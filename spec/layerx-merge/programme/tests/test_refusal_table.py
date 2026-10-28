@@ -42,6 +42,7 @@ REQUIRED_REFUSALS = {
 
 def test_every_refusal_has_one_exact_command() -> None:
     refusals = load(DATA)
+    assert refusals.pop("meta") == {"format_version": 1}
     assert refusals
     for surface, (expect, selector) in REQUIRED_REFUSALS.items():
         section = f"refusal.{surface}"

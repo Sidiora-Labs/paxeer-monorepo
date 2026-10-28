@@ -35,11 +35,19 @@ defmodule Indexer.Transform.PaxeerXLogsRetiredTest do
       index: 1
     }
 
-    expected = %{lx_account_bindings: [], lx_market_events: []}
+    expected_rows = []
 
-    assert PaxeerXLogs.parse([custody_log, anchor_log]) == expected
-    assert PaxeerXLogs.parse([custody_log]) == expected
-    assert PaxeerXLogs.parse([anchor_log]) == expected
+    for logs <- [[custody_log, anchor_log], [custody_log], [anchor_log]] do
+      result = PaxeerXLogs.parse(logs)
+      rows = Map.fetch!(result, :lx_market_events)
+
+      assert Map.delete(result, :lx_market_events) == %{lx_account_bindings: [], undecoded_log_count: 0}
+      assert length(rows) == length(expected_rows)
+
+      Enum.zip(rows, expected_rows)
+      |> Enum.with_index()
+      |> Enum.each(fn {{got, want}, i} -> assert {i, got} == {i, want} end)
+    end
   end
 
   defp word(value), do: "0x" <> Base.encode16(<<value::256>>, case: :lower)

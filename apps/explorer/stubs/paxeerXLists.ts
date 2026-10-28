@@ -20,9 +20,7 @@ export const PAXEER_X_RECEIPTS_ITEM: PaxeerXReceiptsItem = {
 };
 
 export const PAXEER_X_TX_STATUS: PaxeerXTxStatus = {
-  rung: 'sealed',
+  rung: 'submitted',
   block_number: 8341004,
-  sealed_batch_number: 1042,
-  finalized_batch_number: 1041,
-  checkpoint_id: TX_HASH,
+  committed_height: null,
 };

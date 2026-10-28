@@ -36,6 +36,7 @@ interface PortfolioOverviewPanelProps {
   dailyPnlError: Error | null;
   /** Days PerfDB returned with incomplete values. */
   dailyPnlSkippedDays: number;
+  dailyPnlHistoryCapped: boolean;
   isLoading: boolean;
   privacy: boolean;
   onTogglePrivacy: () => void;
@@ -68,7 +69,8 @@ export function PortfolioOverviewPanel(props: PortfolioOverviewPanelProps) {
   const {
     isConnected, hasVault, address,
     totalVaultUsd, unrealizedPnl, openPositions, realizedPnl, totalTrades,
-    balances, dailyPnl, dailyPnlLoading, dailyPnlError, dailyPnlSkippedDays, isLoading, privacy,
+    balances, dailyPnl, dailyPnlLoading, dailyPnlError, dailyPnlSkippedDays, dailyPnlHistoryCapped,
+    isLoading, privacy,
     onTogglePrivacy, onRefresh, onConnect, onDeposit, onWithdraw,
   } = props;
 
@@ -112,6 +114,7 @@ export function PortfolioOverviewPanel(props: PortfolioOverviewPanelProps) {
         isLoading={dailyPnlLoading}
         error={dailyPnlError}
         skippedDays={dailyPnlSkippedDays}
+        historyCapped={dailyPnlHistoryCapped}
       />
     </div>
   );

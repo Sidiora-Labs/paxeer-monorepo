@@ -36,9 +36,12 @@ fixture_env=(
 	X_WEBSEARCH_USDL_ASSET_ID=0404040404040404040404040404040404040404040404040404040404040404
 	X_WEBSEARCH_USDL_PRICE=1000000000000000
 	X_WEBSEARCH_GATEWAY_ENDPOINT=https://api-mainnet-beta.paxeer.network/rpc
+	X_WEBSEARCH_RECEIPT_KEY_ID=test-receipt-key
+	X_WEBSEARCH_RECEIPT_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 	X_WEBSEARCH_SEQUENCER_ID=0505050505050505050505050505050505050505050505050505050505050505
 	X_WEBSEARCH_SEQUENCER_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 	X_WEBSEARCH_EVM_ENDPOINT=https://api15.paxeer.network/
+	X_WEBSEARCH_PAYER_ADDRESS=0x1111111111111111111111111111111111111111
 )
 
 status=0
@@ -55,6 +58,27 @@ map $xweb_node $xweb_eligible {
 WANT'
 check render_names_both_unready 'grep -Fq "neither api15.paxeer.network nor api1.paxeer.network" "$work/render.err"'
 
+deploy_prints_upstreams_and_edge_registration() {
+	local status=0
+	local -a lines
+	env "${fixture_env[@]}" "$front" deploy search-front.example.net >"$work/deploy.out" 2>"$work/deploy.err" || status=$?
+	[ "$status" -eq 0 ] || return 1
+	mapfile -t lines <"$work/deploy.out"
+	[ "${#lines[@]}" -eq 2 ] || return 1
+	[[ "${lines[0]}" == SEARCH_FRONT_UPSTREAMS=* ]] || return 1
+	printf '%s' "${lines[0]#SEARCH_FRONT_UPSTREAMS=}" | base64 --decode >"$work/deploy-upstreams.conf" || return 1
+	cmp "$work/upstreams.conf" "$work/deploy-upstreams.conf" || return 1
+	[ "${lines[1]}" = 'tools/bringup/edge.sh register search.paxeer.network search-front.example.net' ] || return 1
+	status=0
+	env "${fixture_env[@]}" "$front" deploy >"$work/deploy-no-host.out" 2>"$work/deploy-no-host.err" || status=$?
+	[ "$status" -eq 2 ] || return 1
+	[ ! -s "$work/deploy-no-host.out" ] || return 1
+	grep -Fq 'usage: tools/bringup/search-front.sh' "$work/deploy-no-host.err" || return 1
+	grep -Fq 'the rightmost' "$work/deploy-no-host.err" || return 1
+	grep -Fq 'X-Forwarded-For hop outside LAYERX_TRUSTED_PROXIES' "$work/deploy-no-host.err"
+}
+check deploy_prints_upstreams_and_edge_registration deploy_prints_upstreams_and_edge_registration
+
 status=0
 env "${fixture_env[@]}" SEARCH_FRONT_BACKUP=api15.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
 check render_refuses_repeated_backup '[ "$status" -eq 1 ]'
@@ -69,9 +93,8 @@ check config_matches_template 'env "${fixture_env[@]}" python3 - "$repo_root/ser
 import json, os, re, sys
 template = json.load(open(sys.argv[1]))
 rendered = json.load(open(sys.argv[2]))
-assert "note" in template and "note" not in rendered
+assert "note" not in rendered
 assert "REPLACE_WITH" not in open(sys.argv[1]).read()
-template.pop("note")
 def walk(want, got):
     if isinstance(want, dict):
         assert isinstance(got, dict) and set(want) == set(got)

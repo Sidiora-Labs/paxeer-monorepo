@@ -2868,13 +2868,13 @@ paxd-version-check:
 		fi && \
 		echo "paxd-version-check: $$got"
 
-paxeer-lint:
+paxeer-lint: paxeer-tools-install
 	$(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) lint
 
 paxeer-test:
 	GOPROXY=off $(PAXEER_MAKE) test
 
-paxeer-ci:
+paxeer-ci: paxeer-tools-install
 	GOPROXY=off $(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) ci
 
 workspace-inventory-check:

@@ -5,6 +5,7 @@ import {
   decodeHistoryPage,
   decodePaxeerHistoryPage,
   decodeUnifiedHistoryPage,
+  historyAccount,
   historyCursor,
   historyParams,
   type HistoryRow,
@@ -13,6 +14,32 @@ import {
 const ACCOUNT = `0x${"12".repeat(20)}`;
 const ACCOUNT_PATTERN = /^0x[0-9a-f]{40}$/u;
 const HASH = `0x${"ab".repeat(32)}`;
+
+class HistoryAccountTests {
+  static "historyAccount refuses the all-zero DID"(): void {
+    const zeroDid = `did:layerx:${"0".repeat(64)}`;
+    for (const account of [zeroDid, ` ${zeroDid.toUpperCase()} `]) {
+      assert.throws(() => historyAccount(account), {
+        name: "Error",
+        message: "Invalid account identifier",
+      });
+    }
+    for (const account of [
+      `did:layerx:${"11".repeat(32)}`,
+      `did:layerx:${"aB".repeat(32)}`,
+      `did:layerx:${"0".repeat(63)}1`,
+      `did:layerx:1${"0".repeat(63)}`,
+      `0x${"aB".repeat(20)}`,
+      `0x${"0".repeat(40)}`,
+    ]) {
+      assert.equal(historyAccount(account), account.toLowerCase());
+      assert.equal(
+        historyAccount(` ${account.toUpperCase()} `),
+        account.toLowerCase(),
+      );
+    }
+  }
+}
 
 function historyRow() {
   return {
@@ -395,7 +422,7 @@ function history_page_keeps_rows_tied_with_the_limit_row(): void {
     assert.equal(page.items.length, 3);
     assert.deepEqual(
       page.items.map((row) => row.id),
-      [1n, 2n, 3n],
+      ["1", "2", "3"],
     );
     assert.deepEqual(
       page.items.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
@@ -418,6 +445,7 @@ function history_page_keeps_rows_tied_with_the_limit_row(): void {
   }
 }
 
+test(HistoryAccountTests["historyAccount refuses the all-zero DID"]);
 test(history_cursor_encodes_block_height_tx_index_and_log_index);
 test(history_rows_carry_the_transaction_hash);
 test(history_rows_accept_explorer_row_ids);

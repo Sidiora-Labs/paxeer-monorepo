@@ -177,13 +177,7 @@ impl Workspace {
                 "wallet_address": "operator-wallet",
                 "vault_id": "operator-vault",
                 "signer_key_handle": "kms://ramp-work/paxeer",
-                "rpc_endpoints": ["https://rpc-a.example.test:8545", "https://rpc-b.example.test:8545"],
-                "rpc_trust_anchor_der": p("anchor.der"),
-                "rpc_chain_id": 229,
-                "rpc_minimum_agreement": 2,
-                "required_confirmations": 12,
-                "poll_cadence_seconds": 5,
-                "delayed_after_polls": 12
+                "poll_cadence_seconds": 5
             },
             "provider_callback_public_key": "44".repeat(32),
             "operator_control_token_file": p("operator-token")

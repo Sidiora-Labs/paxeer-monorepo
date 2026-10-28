@@ -87,7 +87,7 @@ ldflags := $(strip $(ldflags))
 # The flags are recursive so the digest is taken when a recipe runs, after
 # paxd-native-libs has rebuilt the archives.
 NATIVE_ARCHIVES := $(PAXEER_PROJECT_HOME)/build/liblayerx.a $(PAXEER_PROJECT_HOME)/programs/target/release/liblayerx_programs_sandbox.a
-native_archive_digest = $(if $(filter-out $(wildcard $(NATIVE_ARCHIVES)),$(NATIVE_ARCHIVES)),$(error native archives missing: $(filter-out $(wildcard $(NATIVE_ARCHIVES)),$(NATIVE_ARCHIVES)); run paxd-native-libs),$(firstword $(shell cat $(NATIVE_ARCHIVES) | sha256sum)))
+native_archive_digest = $(if $(filter-out $(wildcard $(NATIVE_ARCHIVES)),$(NATIVE_ARCHIVES)),$(error native archives missing: $(filter-out $(wildcard $(NATIVE_ARCHIVES)),$(NATIVE_ARCHIVES)); run paxd-native-libs),$(or $(firstword $(shell if command -v sha256sum >/dev/null 2>&1; then cat $(NATIVE_ARCHIVES) | sha256sum; else cat $(NATIVE_ARCHIVES) | shasum -a 256; fi)),$(error cannot hash native archives $(NATIVE_ARCHIVES))))
 paxd_ldflags = $(ldflags) -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.NativeArchiveDigest=$(native_archive_digest)
 
 # BUILD_FLAGS = -tags "$(build_tags)" -ldflags '$(paxd_ldflags)' -race
@@ -175,8 +175,8 @@ install-rocksdb: go.sum paxd-native-libs
 	go install $(BUILD_FLAGS) -tags "$(build_tags) rocksdbBackend" ./daemon/paxd
 	@echo "paxd installed with RocksDB backend support!"
 
-loadtest: go.sum
-		go build -tags "$(build_tags)" -ldflags '$(ldflags)' -o ./build/loadtest ./tools/benchmark/loadtest/
+loadtest: go.sum paxd-native-libs
+		go build -tags "$(build_tags)" -ldflags '$(paxd_ldflags)' -o ./build/loadtest ./tools/benchmark/loadtest/
 
 go.sum: go.mod
 		@echo "--> Ensure dependencies have not been modified"
@@ -214,8 +214,8 @@ paxd-native-digest-check:
 clean:
 	rm -rf ./build/paxd ./build/loadtest ./build/generated ./build/proto ./build/packages.txt ./build/packages.txt.*
 
-build-loadtest:
-	go build -o build/loadtest ./tools/benchmark/loadtest/
+build-loadtest: paxd-native-libs
+	go build -tags "$(build_tags)" -ldflags '$(paxd_ldflags)' -o build/loadtest ./tools/benchmark/loadtest/
 
 
 ###############################################################################
