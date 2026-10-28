@@ -463,7 +463,7 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
         const outcome = await nonces.withLock(sw.row.address, async (lease) => {
           if (tx.nonce !== undefined) {
             try {
-              await lease.checkClientNonce(tx.nonce);
+              await lease.reserveClientNonce(tx.nonce);
             } catch (err) {
               if (err instanceof NonceBelowLatestError) {
                 throw new RouteRefusal(409, 'nonce_below_latest', { error: 'nonce_below_latest', nonce: err.nonce, latest: err.latest });
@@ -473,19 +473,10 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
           }
           const nonce = tx.nonce ?? (await lease.next());
           const signed = await signer.signTransaction({ ...prepared, nonce });
-          if (tx.nonce === undefined) {
-            const sent = await broadcastReserved(lease, nonce, signed.value, (raw) => rpc.sendRawTransactionVia(raw));
-            return sent.hash !== null
-              ? { ok: true as const, hash: sent.hash, nonce, signed }
-              : { ok: false as const, error: sent.error as Error, nonce, signed };
-          }
-          try {
-            const { hash, member } = await rpc.sendRawTransactionVia(signed.value);
-            await lease.track(nonce, keccak256(signed.value), member);
-            return { ok: true as const, hash, nonce, signed };
-          } catch (err) {
-            return { ok: false as const, error: err as Error, nonce, signed };
-          }
+          const sent = await broadcastReserved(lease, nonce, signed.value, (raw) => rpc.sendRawTransactionVia(raw));
+          return sent.hash !== null
+            ? { ok: true as const, hash: sent.hash, nonce, signed }
+            : { ok: false as const, error: sent.error as Error, nonce, signed };
         });
         if (!outcome.ok && outcome.error instanceof NonceConflictError) {
           return {
