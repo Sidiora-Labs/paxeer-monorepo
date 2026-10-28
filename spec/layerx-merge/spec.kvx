@@ -179098,7 +179098,7 @@ qualification = "UNRUN"
 
 [task.18.1055.1]
 title = "Issue #1055: Remove the explorer routes that point at the deleted anchor and receipt controllers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
