@@ -9683,3 +9683,75 @@ symbol = "seller_preserves_per_asset_binding_but_refuses_its_eip155_profile"
 observed = "Attempt 1 (91fa642a4) fixed is_layerx_network and the two settlement strings; 22 seller tests pass and two contradict the model's documented contract: :494 and :507-509 refuse a payTo derived from the offer's matching per-asset account, :604 accepts a payTo redirected away from the main account the profile names."
 assumption = "do_5 flips those assertions to the contract of model.rs:166-168 and :189-202 and nothing else; the ruling is recorded for the owner."
 severity = "minor"
+
+[finding.18.1131.1.5]
+task = "18.1131.1"
+file = "services/agent/crates/layerx-agentd/tests/migration.rs:242"
+symbol = "compat::verify"
+observed = "Attempt 8 (79ae24dd5) ported the three touched files, but the all-targets daemon test build failed with four E0308 at tests/migration.rs:242-257, which pass lni::schema::Version where compat::verify takes &str since 70ce262d3 (issue #1166)."
+assumption = "18.1166.1 ports the migration test; this task now requires it and keeps its all-targets build."
+severity = "minor"
+
+[finding.11.14.3.2]
+task = "11.14.3"
+file = "services/interop/crates/layerx-committed-proof/src/lib.rs:165"
+symbol = "verify_receipted"
+observed = "Attempts 2 and 3 copied the recorder's bytes and verify_receipted refused them with InvalidReceipt at the operation byte: the node writes 0, the conformance fixtures carry 2 and the verifier requires 1..=3 (issue #1167)."
+assumption = "18.1167.1 makes the verifier carry the byte; this task now requires it. The recorded view also carries blockHash, blockNumber, signingKey and rung committed that verify_receipt_view's exact comparison never builds; that refusal is expected next and is recorded, not patched."
+severity = "major"
+
+[finding.8.47.7.2]
+task = "8.47.7"
+file = "sdk/platform/go/conformance_vectors_test.go:325"
+symbol = "TestVectorV5PortableRoundTrips"
+observed = "Attempt 2 (5a818c31e): the committed V5 case fails at check raw-transaction with Local verification failed, the bundle having been assembled from a V4 vector that lacks the execution header's commit."
+assumption = "Rebuilding the V5 committed bundle from the re-recorded V4 vector after 18.1164.1 (do_6) resolves it; a raw-transaction binding that still fails afterwards is a separate defect to record."
+severity = "minor"
+
+[finding.18.1162.1.2]
+task = "18.1162.1"
+file = "services/interop/crates/layerx-x402/tests/seller.rs:626"
+symbol = "seller_refuses_every_other_per_asset_payee_form"
+observed = "Attempt 3 (7c279b1e4) applied do_1 as written, making every eip155 network a LayerX network, so the eip155:8453 external offer validated Ok(()) against the unchanged Err(ProfileMismatch) at :630; 23 of 24 seller tests passed."
+assumption = "decision.822 names eip155:125 as the LayerX network; do_1 now keys is_layerx_network on that exact network and the external case stays as written."
+severity = "minor"
+
+[finding.18.1151.1.4]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/src/custody/mod.rs:958"
+symbol = "require_record_binding"
+observed = "Attempt 9 (8f741f744) built the producer-signed binding flow; authorize_kernel_send at wallet_identity_e2e.rs:276 returned Kms(Refused) with no quorum code, a local CustodySigner refusal, after every attestor node reached Done."
+assumption = "The refusal is the binding digest or seal identity check; do_7 names the branches and the key must be created under the principal the binding token resolves to."
+severity = "minor"
+
+[finding.18.1156.1.4]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-kms/src/store.rs:52"
+symbol = "EvmAttestor::load"
+observed = "Attempt 6 (38c4b4a46) rewrote the 33 network words; 12 provider tests still fail: status 1 from send::digest for EVM transactions with chain_id 31337 (:861, :1360) and Kms(Unavailable) from the EVM operations because no attestor signer is configured (issue #1168, 23ebd9073)."
+assumption = "do_7 and do_8 complete the target in this task; #1168 and #1159 close by hand when it publishes."
+severity = "major"
+
+[finding.13.27.1.5]
+task = "13.27.1"
+file = "src/modules/programs/sandbox.c:417"
+symbol = "layerx_programs_sandbox"
+observed = "Attempt 22 (83e97ad0e): after 18.1163.1 the -208 escrow refusal is gone; the candidate re-seeded the fee account to the upcoming global sequence and sandboxExecute then reverted with LXP_FATAL_INVARIANT at an unnamed sandbox.c site; the zero-asset test passes."
+assumption = "The fixture must keep the host-read identity sequence (do_6); the fatal site is to be named by the harness diagnostic before any further change."
+severity = "major"
+
+[finding.18.1151.1.5]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/src/custody/evm.rs:212"
+symbol = "Keystore::authorize_send"
+observed = "Attempt 10 (dd4aaed6a) reached the owner send authorization; Kms(Refused) with no quorum code came from sign_send_now's parse of the operation-11 payload, which has expected an EIP-1559 send authorization since 10.11.5 while the service still serializes a SendPlanAuthorization (issue #1169)."
+assumption = "The kernel send authorization is retired product-wide; 10.0.3 ports the service's callers (do_6) and this task follows it in wave 11 with the send leg ported to the EIP-1559 shape."
+severity = "major"
+
+[finding.18.1167.1.1]
+task = "18.1167.1"
+file = "services/interop/crates/layerx-committed-proof/src/lib.rs:376"
+symbol = "verify_receipt_view"
+observed = "Attempt 1 (ae2f48e86) carried the operation byte; the receipted target failed at tests/receipted.rs:84 with ReceiptViewMismatch on V1-pax-transfer because 6c1851b54 (18.997.1) added signingKey to every fixture receiptJson and the exact view comparison never builds it (issue #1170)."
+assumption = "do_6 builds signingKey from the matched pinned key; the fixture is canonical and unchanged."
+severity = "major"
