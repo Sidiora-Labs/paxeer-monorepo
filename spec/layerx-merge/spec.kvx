@@ -174928,7 +174928,7 @@ qualification = "UNRUN"
 
 [task.18.1022.1]
 title = "Issue #1022: Re-pin negative receipt vectors to height-encoded batch IDs for the height-ranged SDK verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175408,7 +175408,7 @@ qualification = "UNRUN"
 
 [task.18.1023.1]
 title = "Issue #1023: Drop the retired intent-ingester manifest from the interop workspace-lock test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176053,7 +176053,7 @@ qualification = "UNRUN"
 
 [task.18.1024.1]
 title = "Issue #1024: Retry funding chain initialization after a startup outage"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176577,7 +176577,7 @@ qualification = "UNRUN"
 
 [task.18.1025.1]
 title = "Issue #1025: Check the payExact reference against the payload idempotency key in both x402 verification and settlement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177177,7 +177177,7 @@ qualification = "UNRUN"
 
 [task.18.1026.1]
 title = "Issue #1026: Accept the receipted rung in Rust Wallet waits"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177647,7 +177647,7 @@ qualification = "UNRUN"
 
 [task.18.1027.1]
 title = "Issue #1027: Encode ramp off-ramp draws in the native 0x101A draw argument order"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178867,7 +178867,7 @@ qualification = "UNRUN"
 
 [task.18.1037.1]
 title = "Issue #1037: Record the eleven-field request view in the x-websearch api EVM fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
