@@ -9835,3 +9835,43 @@ symbol = "native_provider_and_sdk_real_cluster"
 observed = "Attempt 5 (c67079b4a) built and passed every Go assertion; the Rust consumer failed at :584 expecting StepUpMismatch for a grant with expires_at_ms - 1, which validate_native_local_grant (attestor.rs:1912) refuses as InvalidEvidence before the step-up compare (signer.rs:994); the same mutation sits in native_send_purpose.rs:589 (gotcha 740)."
 assumption = "The validator is right; task 18.1177.1 (issue #1177) changes both fixtures to mutate owner_public_key and this task requires it."
 severity = "major"
+
+[finding.18.911.1.8]
+task = "18.911.1"
+file = "tests/programs/test_market_attestation.c:1101-1105"
+symbol = "main"
+observed = "Attempt 15 (54078c924) built and failed at the first market call of every model with -3 = STATUS_BOUNDS, before register(); independently, do_4 kept the model 1 and model 2 acceptances that register (lib.rs:309) and open (:343) refuse by design since 18.811.1 (finding 18.911.1.7)."
+assumption = "Ruling: the landed 18.811.1 behaviour is canonical; do_4 now retargets models 1 and 2 to the -2 registration refusal and moves admission_cases to a model 3 lease, and a new step names the -3 as a fixture-side host call before register()."
+severity = "major"
+
+[finding.8.47.7.4]
+task = "8.47.7"
+file = "sdk/platform/go/portable_receipt.go:137"
+symbol = "VerifyPortableReceipt"
+observed = "Attempt 5 (eb1b99ca7) passed V1-V4 and failed only TestVectorV5PortableRoundTrips/committed at the raw-transaction check: :137 requires rawTransaction to byte-equal the block transaction, which verify.go:1091 (keccak of the EVM bytes) and committed.go:126-131 (wrapper unwrapped and proven as a leaf) make impossible for any wrapped transaction since 046c9c4c1."
+assumption = "The fixture bytes are right; task 18.1178.1 (issue #1178) rebinds the portable check through committedEVMTransaction and rewraps the synthetic committed fixture, and 8.47.7 requires it with only a README reword left."
+severity = "major"
+
+[finding.13.27.1.7]
+task = "13.27.1"
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs:2796"
+symbol = "layerx_programs_call_begin"
+observed = "Attempt 24 (b58b6019d) built and failed TestProgramsSandboxExecuteEmitsUsage with LXP_NON_CANONICAL from the sandbox guest-ABI gate at ffi_call.rs:2796-2803: the inner call payload came from programsCallFixture (method_call_test.go:145,153), an ABI-v1 program and call, while a sandboxed call must carry guest ABI 2-5; admit_host never ran."
+assumption = "do_7 wrongly pointed at the ABI-v1 fixture; a new step deploys an ABI-v2 program in the test and encodes the inner call with abiVersion 2, with no kernel or host change."
+severity = "minor"
+
+[finding.18.1172.1.2]
+task = "18.1172.1"
+file = "services/human/crates/layerx-human-service/tests/support/withdraw_native.rs:353"
+symbol = "ReceiptMaterial"
+observed = "Attempt 3 (05c5107ff) failed the build at a shared support module outside touches whose ReceiptMaterial literal lacks the four fields landed by 10.13.1; cargo build --tests compiles it into the withdraw test target."
+assumption = "Every test and support file of the crate with an unported ReceiptMaterial, VerifiedBudgetAfter or ReceiptReference::Verified literal is now in touches (scan recorded in do_5)."
+severity = "minor"
+
+[finding.18.1129.1.5]
+task = "18.1129.1"
+file = "services/interop/crates/x-websearch/tests/payment.rs:1217"
+symbol = "configure_with"
+observed = "Attempt 12 (d2aa1cd26) built and failed 30 of 35 payment tests with one root: the harness offers eip155:1337 (valid.json:52 through configure_with) and layerx-x402 model.rs:180-193 (e556c8b04, between attempts 11 and 12) refuses extra.layerx on any network but eip155:125, so Seller::new answers 503 payment_unavailable before any challenge; do_3 forbade moving the three chain-bound assertions."
+assumption = "Ruling: the recorded eip155:125 binding governs; do_12 moves the harness and the three assertions to chain 125 at equal strength, a port of the landed contract, with no change to layerx-x402."
+severity = "major"

@@ -8,6 +8,7 @@ mod canonical_owner {
     use layerx_types::amount::Amount;
     use layerx_types::ids::{Did, IdempotencyKey};
     use layerx_types::payload::{ModuleRegistration, ModuleRegistry, Payload};
+    use sha2::{Digest as _, Sha256};
 
     pub struct SignedOwner {
         pub bytes: Vec<u8>,
@@ -73,7 +74,19 @@ mod canonical_owner {
         authorized_batch: &layerx_proof::receipt::AuthorizedBatch,
     ) {
         checked(evidence.bound_activity(kind));
-        checked(evidence.verify_outcome(kind));
+        let receipt = checked(evidence.verify_outcome(kind));
+        let protocol = receipt.protocol().expect("protocol receipt");
+        assert_eq!(evidence.tx_hash, protocol.activity_id());
+        assert_eq!(evidence.tx_hash, evidence.activity_id);
+        assert_eq!(evidence.rung, layerx_types::rung::Rung::Committed);
+        assert_eq!(
+            &protocol.batch_id()[24..],
+            &evidence.block_height.to_be_bytes()
+        );
+        assert_eq!(
+            evidence.receipt_hash,
+            <[u8; 32]>::from(Sha256::digest(&evidence.receipt_bytes))
+        );
         checked(layerx_proof::receipt::verify_native_owner_outcome(
             &evidence.receipt_bytes,
             authorized_batch,
