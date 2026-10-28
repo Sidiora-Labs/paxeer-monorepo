@@ -9803,3 +9803,11 @@ symbol = "canonical_signing_and_disclosure_refusals"
 observed = "Attempt 7 (dc8dac988) added the attestor fixture and chain_id 125 transactions; 4 passed and 11 failed: the operation-11 case still sends the retired kernel SendPlanAuthorization (refused since 10.11.5), restarted hosts answer status 1 or exit at startup, one EVM test times out, and three signing tests are refused."
 assumption = "Steps 9 and 10 port the send case to SendAuthorization and make the fixtures survive host restarts; whatever remains is recorded per test."
 severity = "major"
+
+[finding.18.1172.1.1]
+task = "18.1172.1"
+file = "services/human/crates/layerx-human-service/tests/render.rs:299"
+symbol = "VerifiedBudgetAfter"
+observed = "Attempt 1 (821190a1a) ported the eleven listed test files; cargo build --tests then failed in tests/render.rs (level field on VerifiedBudgetAfter, now rung) and tests/journey_faults.rs:629 (ReceiptMaterial missing tx_hash, receipt_hash, block_height, rung), files outside the task's touches."
+assumption = "Step 4 extends the task to every test target the crate build compiles; move_money.rs carries the same ReceiptMaterial literals, and seven more files still name the retired fields."
+severity = "major"
