@@ -172295,7 +172295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -175603,9 +175603,8 @@ do_1 = "Replace goSources (services/wallet/gateway/test/precompiles.test.ts:166-
 do_2 = "In the 'lists every 0x09xx route while no node package links a layerxagent precompile' test (precompiles.test.ts:177-184) map each route key to its package (orob, clearing, pofq, scheduler, teeAttestor to teeattestor, eip712; oracle and streams to none, matching precompiles/layerxagent/*) and expect a key in UNSERVED_PRECOMPILES (services/wallet/gateway/src/precompiles.ts:38-47) exactly when no non-test .go file outside precompiles/layerxagent imports that package, instead of deriving the expected set from the constant."
 do_3 = "In refuseUnserved (services/wallet/gateway/src/routes/agentPrecompiles.ts:61-71) keep status 503 and the existing body fields, add retryable: false to the body and send a Retry-After: 3600 header."
 do_4 = "Extend 'refuses a signed scheduler deposit to the unserved precompile without signing' in services/wallet/gateway/test/agent.test.ts:378-391 to assert retryable false and the Retry-After header, and keep the per-key unserved test in precompiles.test.ts as the check for do_2."
-do_5 = "Update UNSERVED_PRECOMPILES at services/wallet/gateway/src/precompiles.ts:38-47 so that orob, clearing, eip712, pofq and teeattestor, which node/precompiles.go:20-24 and node/upgrades.go:33-37 link, are no longer listed as unserved, leaving scheduler listed; keep the assertion at test/precompiles.test.ts:234 as written and let the per-key test of do_2 prove the list against the node packages."
 symbols = ["goSources", "refuseUnserved"]
-touches = ["services/wallet/gateway/test/precompiles.test.ts", "services/wallet/gateway/src/routes/agentPrecompiles.ts", "services/wallet/gateway/test/agent.test.ts", "services/wallet/gateway/src/precompiles.ts"]
+touches = ["services/wallet/gateway/test/precompiles.test.ts", "services/wallet/gateway/src/routes/agentPrecompiles.ts", "services/wallet/gateway/test/agent.test.ts"]
 tests = ["services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile", "services/wallet/gateway/test/agent.test.ts::refuses a signed scheduler deposit to the unserved precompile without signing"]
 planned_paths = []
 build_cmd = "pnpm --dir services/wallet/gateway exec tsc -p tsconfig.json --noEmit"
@@ -178915,7 +178914,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179221,7 +179220,7 @@ ac_1 = "The tied-position history tests of both SDKs expect the string row ids t
 
 [req.181069]
 title = "Add the tx_hash every unified-history row needs to the px-get-unified-history fixture"
-ac_1 = "dist/test/px.test.js loads and its named tests run, because every row of the unified-history fixture carries the tx_hash history.ts:198 requires."
+ac_1 = "dist/test/px.test.js runs to completion under node --test because every row of the unified-history fixture carries the tx_hash history.ts:198 requires."
 
 [req.181070]
 title = "Let search-front.sh deploy a config example without a note key"
@@ -179242,6 +179241,18 @@ ac_1 = "A Programs account or wind-down activity submitted through modules/lxpho
 [req.181074]
 title = "Make sealed-block adoption in FinalizeBlock commit the state follower re-execution computes"
 ac_1 = "For a sealed block with user transactions and the sequence batch transaction, the AppHash the primary commits through sealed adoption equals the AppHash ProcessBlock re-execution commits from the same prior state, and App.Commit logs per-store commit hashes."
+
+[req.181076]
+title = "Align the retired, launchpad and market ABI explorer tests with the expanded perps log decoder"
+ac_1 = "The retired-precompile, launchpad compatibility and market ABI tests pass against the decoder that returns undecoded_log_count and defines the perps events, without changing the decoder."
+
+[req.181077]
+title = "Drop the retired Paxeer RPC fields from the reference ramp route test fixtures"
+ac_1 = "The reference ramp's rebalance and work route tests build their PaxeerConfig without the six retired RPC fields and pass."
+
+[req.181078]
+title = "Make the platform dependency policy pass on the live workspace while still banning the retired crates from the ramps"
+ac_1 = "sh services/platform/tools/dependency-policy.sh exits 0 on the live platform workspace, exits 1 when a ramp crate depends on layerx-paxeer-client or layerx-intents, and test_ramp_dependencies.py proves both."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -179270,9 +179281,9 @@ qualification = "UNRUN"
 [acceptance.18.1069.1]
 feature = "18"
 req = "181069.1"
-scenario = "Given the px-get-unified-history fixture, when px.test.js is loaded, then the module-level decode succeeds and px_amounts_decode_up_to_uint256 passes."
+scenario = "Given the px-get-unified-history fixture, when node --test runs dist/test/px.test.js, then the unified-history decode succeeds and the file passes."
 contract = "contracts/agent-ts-sdk.md#history"
-test = "services/agent/sdk/typescript/test/px.test.ts::px_amounts_decode_up_to_uint256"
+test = "services/agent/sdk/typescript/test/px.test.ts"
 qualification = "UNRUN"
 
 [acceptance.18.1070.1]
@@ -179313,6 +179324,30 @@ req = "181074.1"
 scenario = "Given one committed state and a sealed block with a user transaction and the batch transaction, when it is finalized through sealed adoption and through re-execution, then both commit the same AppHash."
 contract = "contracts/rpc.md#namespace-debug"
 test = "node/sequenced_finalize_test.go::TestFinalizeAdoptedSealedBlockMatchesReexecution"
+qualification = "UNRUN"
+
+[acceptance.18.1076.1]
+feature = "18"
+req = "181076.1"
+scenario = "Given the perps-aware log decoder at head, when the retired, launchpad and market event test files run, then every test passes and proves the current result shape and ABI."
+contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
+test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs"
+qualification = "UNRUN"
+
+[acceptance.18.1077.1]
+feature = "18"
+req = "181077.1"
+scenario = "Given PaxeerConfig with deny_unknown_fields, when the rebalance and work route tests run, then their fixtures parse and every test passes."
+contract = "contracts/perps-data.md#websocket"
+test = "services/platform/ramps/reference/tests/work_routes.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1078.1]
+feature = "18"
+req = "181078.1"
+scenario = "Given the live platform workspace with the retired crates still as members, when the dependency policy runs without arguments, then it exits 0, and when a ramp crate depends on a retired crate, then it exits 1 naming both."
+contract = "contracts/perps-data.md#websocket"
+test = "services/platform/tests/test_ramp_dependencies.py::test_dependency_policy_bans_paxeer_client"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -179412,14 +179447,14 @@ requires = []
 reqs = ["181069.1"]
 capabilities = []
 interfaces = []
-do_1 = "Add a tx_hash field (a 0x-prefixed 32-byte hex string, distinct per row and consistent with the row's other identifiers) to every row of apps/web/e2e/fixtures/px-get-unified-history.json, so the module-level decode at services/agent/sdk/typescript/test/px.test.ts:941 passes the requirement of services/agent/sdk/typescript/src/history.ts:198."
+do_1 = "Add a tx_hash field (a 0x-prefixed 32-byte hex string, distinct per row and consistent with the row's other identifiers) to every row of apps/web/e2e/fixtures/px-get-unified-history.json, so the decode at services/agent/sdk/typescript/test/px.test.ts:941 passes the requirement of services/agent/sdk/typescript/src/history.ts:198 and the whole script-style test file runs to completion."
 do_2 = "Change no decoder and no test; the fixture is the only touched file."
 symbols = []
 touches = ["apps/web/e2e/fixtures/px-get-unified-history.json"]
 tests = []
 planned_paths = []
 build_cmd = "npm --prefix services/agent/sdk/typescript run build"
-verify_cmd = "node --test --test-name-pattern='^(px_amounts_decode_up_to_uint256)$' services/agent/sdk/typescript/dist/test/px.test.js"
+verify_cmd = "node --test services/agent/sdk/typescript/dist/test/px.test.js"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-agent"
@@ -179572,6 +179607,95 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
 rollback = "Revert the four files; the primary returns to committing the executor's sealed state as is."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1076.1]
+title = "Issue #1076: Align the retired, launchpad and market ABI explorer tests with the expanded perps log decoder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181076.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs and apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs extend the expected maps the helpers compare with == (lx_account_bindings and lx_market_events) with undecoded_log_count: 0, which parse/1 (apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:765-777) now always returns since ea2c971cd; keep every other assertion."
+do_2 = "In services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs update the market ABI assertions to the current definition set (the ten perps events added at paxeer_x_logs.ex:185-347, with their int256 arguments) and extend the topic-signature helper with a clause for signed integer types, so the test proves the current ABI exactly as it proved the previous five-event ABI."
+do_3 = "Change no decoder code and remove no test."
+symbols = []
+touches = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the three test files; they return to pinning the two-key result and the five-event ABI."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1077.1]
+title = "Issue #1077: Drop the retired Paxeer RPC fields from the reference ramp route test fixtures"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181077.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/ramps/reference/tests/rebalance_routes.rs (fixture around :179) and services/platform/ramps/reference/tests/work_routes.rs (fixture around :180) remove rpc_endpoints, rpc_trust_anchor_der, rpc_chain_id, rpc_minimum_agreement, required_confirmations and delayed_after_polls, which PaxeerConfig (services/platform/ramps/reference/src/main.rs:109, deny_unknown_fields since eb194b27c) refuses."
+do_2 = "Keep every assertion of both test files; change no source file."
+symbols = []
+touches = ["services/platform/ramps/reference/tests/rebalance_routes.rs", "services/platform/ramps/reference/tests/work_routes.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/platform && cargo build --locked -p layerx-reference-ramp --tests"
+verify_cmd = "cd services/platform && cargo test --locked -p layerx-reference-ramp --test rebalance_routes --test work_routes"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the two fixtures; the route tests return to failing on the unknown fields."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1078.1]
+title = "Issue #1078: Make the platform dependency policy pass on the live workspace while still banning the retired crates from the ramps"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181078.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/tools/dependency-policy.sh:27 keep bindgen, libsqlite3-sys, rusqlite, sqlx-sqlite, layerx-core, layerx-protocol-core, ctor and inventory as global package bans, and move layerx-paxeer-client and layerx-intents to a ramp-edge ban: exit 1 naming the crate and the dependency when layerx-ramp-toolkit or layerx-reference-ramp lists one of them in its dependencies array, so the live workspace (which keeps both crates as members until 8.9.2) passes the no-argument run that make platform-lint performs (services/platform/Makefile.inc:120)."
+do_2 = "In services/platform/tests/test_ramp_dependencies.py change test_dependency_policy_bans_paxeer_client to prove the refusal on a copy of the live metadata where a ramp crate gains a dependency on layerx-paxeer-client, and add a test that the policy passes on the unmodified live metadata; keep test_ramp_crates_do_not_depend_on_paxeer_client as written."
+do_3 = "Do not change any Cargo manifest or lock file."
+symbols = []
+touches = ["services/platform/tools/dependency-policy.sh", "services/platform/tests/test_ramp_dependencies.py"]
+tests = ["services/platform/tests/test_ramp_dependencies.py::test_dependency_policy_bans_paxeer_client"]
+planned_paths = []
+build_cmd = "sh -n services/platform/tools/dependency-policy.sh && python3 -m py_compile services/platform/tests/test_ramp_dependencies.py"
+verify_cmd = "sh services/platform/tools/dependency-policy.sh && python3 -m pytest services/platform/tests/test_ramp_dependencies.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the policy script and the test; the no-argument run returns to exiting 1 on the live workspace."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
