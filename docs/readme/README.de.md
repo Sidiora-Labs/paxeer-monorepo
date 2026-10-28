@@ -50,7 +50,7 @@ Kernel-Entwickler beginnen mit der gehosteten Dokumentation unter [docs.paxeer.a
 
 ## Aus dem Quellcode bauen
 
-Der Knoten der Paxeer-X-Chain ist in Go 1.25.6 geschrieben (`go.mod`). Der LayerX-Kernel ist C17 (`-std=c17` im Root-`Makefile`). Die Agent-, Human- und Platform-Workspaces verwenden Rust 1.91.1 (`rust-toolchain.toml`). Die Settlement-Contracts des Kernels in `contracts/` verwenden Solidity 0.8.27 (`foundry.toml`). Die Replay-Qualifikation braucht GCC 13, Clang 18, Docker, einen amd64-musl-Runner sowie einen AArch64-Cross-Compiler mit QEMU; siehe [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
+Der Knoten der Paxeer-X-Chain ist in Go 1.25.8 geschrieben (`go.mod`). Der LayerX-Kernel ist C17 (`-std=c17` im Root-`Makefile`). Die Agent-, Human- und Platform-Workspaces verwenden Rust 1.91.1 (`rust-toolchain.toml`). Die Settlement-Contracts des Kernels in `contracts/` verwenden Solidity 0.8.27 (`foundry.toml`). Die Replay-Qualifikation braucht GCC 13, Clang 18, Docker, einen amd64-musl-Runner sowie einen AArch64-Cross-Compiler mit QEMU; siehe [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
 
 Targets des LayerX-Kernels:
 
