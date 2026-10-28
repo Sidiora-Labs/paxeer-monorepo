@@ -1,3 +1,4 @@
+use ed25519_dalek::SigningKey;
 use layerx_agent_api::export::{
     check_export_response, validate_export_request, FactRef, FactRefError, OfflineExport,
     MAX_FACT_REFS,
@@ -11,11 +12,9 @@ use layerx_agentd::agent_rpc::MAX_BODY_BYTES;
 use layerx_agentd::export::{
     require_frame_within_bound, ExportProduceError, ExportTrustSource, MAX_EXPORT_BYTES,
 };
+use layerx_agentd::read::CommitValidator;
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_proof::export::OfflineTrustError;
-use layerx_proof::settlement::declared_domain;
-use layerx_proof::signed_authority::SignedAuthorityHistory;
-use layerx_wire::activity::decode_signed;
-use layerx_wire::handover::decode_genesis_trust;
 
 const GENESIS: &[u8] =
     include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/genesis.bin");
@@ -46,25 +45,6 @@ fn request(facts: &[String], level: Rung) -> ReadRequest<Vec<FactRef>> {
             .collect(),
         requested_rung: level,
     }
-}
-
-fn history() -> (
-    SignedAuthorityHistory,
-    layerx_types::payload::ModuleRegistry,
-) {
-    let genesis = must(decode_genesis_trust(GENESIS));
-    let activity = must(decode_signed(HANDOVER, &genesis.registry));
-    let mut history = must(SignedAuthorityHistory::from_genesis(
-        genesis.network_id,
-        genesis.canonical_state_root,
-        genesis.initial_sequencer_key,
-        genesis.governance_witness,
-    ));
-    for (index, record) in HEADERS.chunks_exact(418).enumerate() {
-        let packet = (index >= 13).then_some(activity.payload());
-        must(history.advance(&record[..354], &must(record[354..].try_into()), packet));
-    }
-    (history, genesis.registry)
 }
 
 fn response(facts: &[String], level: Rung) -> VerifiedRead<OfflineExport> {
@@ -183,24 +163,59 @@ fn export_response_must_answer_every_requested_fact_at_the_requested_rung() {
 }
 
 #[test]
-fn export_trust_is_independent_of_the_artifact_and_bound_to_the_authority_network() {
-    let (history, registry) = history();
-    assert!(declared_domain("undeclared").is_err());
-    let domain = must(declared_domain("vectors"));
-    let network_matches = domain.network_id() == history.network_id();
-    let settlement = domain.settlement();
-    match ExportTrustSource::new(history, domain, 1) {
-        Ok(source) => {
-            assert!(network_matches);
-            let trust = must(source.trust(registry));
-            assert_eq!(trust.settlement(), settlement);
-        }
-        Err(error) => {
-            if network_matches {
-                assert!(!matches!(error, OfflineTrustError::NetworkId));
-            } else {
-                assert!(matches!(error, OfflineTrustError::NetworkId));
-            }
-        }
+fn export_trust_is_independent_of_the_artifact_and_rejects_invalid_entries() {
+    let receipt_key = ReceiptKeyEntry {
+        key_id: [1; 32],
+        public_key: SigningKey::from_bytes(&[2; 32]).verifying_key().to_bytes(),
+        first_height: 1,
+        last_height: 9,
+    };
+    let public_key = SigningKey::from_bytes(&[3; 32]).verifying_key().to_bytes();
+    let validator = CommitValidator {
+        address: CommitValidator::address_for_key(&public_key),
+        public_key,
+        voting_power: 1,
+    };
+    let source = must(ExportTrustSource::new(vec![receipt_key], vec![validator]));
+    assert_eq!(source.receipt_keys(), &[receipt_key]);
+    assert_eq!(source.validator_set(), &[validator]);
+
+    for receipt_keys in [
+        vec![],
+        vec![ReceiptKeyEntry {
+            key_id: [0; 32],
+            ..receipt_key
+        }],
+        vec![ReceiptKeyEntry {
+            public_key: [0; 32],
+            ..receipt_key
+        }],
+        vec![ReceiptKeyEntry {
+            first_height: 10,
+            ..receipt_key
+        }],
+        vec![receipt_key, receipt_key],
+    ] {
+        assert_eq!(
+            ExportTrustSource::new(receipt_keys, vec![validator]),
+            Err(OfflineTrustError::NetworkId)
+        );
+    }
+    for validator_set in [
+        vec![],
+        vec![CommitValidator {
+            voting_power: 0,
+            ..validator
+        }],
+        vec![CommitValidator {
+            address: [0; 20],
+            ..validator
+        }],
+        vec![validator, validator],
+    ] {
+        assert_eq!(
+            ExportTrustSource::new(vec![receipt_key], validator_set),
+            Err(OfflineTrustError::NetworkId)
+        );
     }
 }

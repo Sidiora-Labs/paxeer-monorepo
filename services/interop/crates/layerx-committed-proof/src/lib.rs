@@ -97,6 +97,53 @@ pub fn verify_receipted(
     prev_seq_hash: [u8; 32],
     keys: &[([u8; 32], [u8; 32], u64, u64)],
 ) -> Result<[u8; 32], ProofError> {
+    verify_receipt(
+        raw_transaction,
+        signed_receipt,
+        receipt_json,
+        prev_seq_hash,
+        keys,
+        ReceiptRung::Receipted,
+    )
+}
+
+/// Verify a committed receipt view using the block hash returned by [`verify_header`].
+/// The view's block number must equal the signed receipt's height.
+///
+/// # Errors
+/// Returns the same errors as [`verify_receipted`], including
+/// [`ProofError::ReceiptViewMismatch`] for inconsistent block fields or rung.
+pub fn verify_committed(
+    raw_transaction: &[u8],
+    signed_receipt: &[u8],
+    receipt_json: &[u8],
+    prev_seq_hash: [u8; 32],
+    keys: &[([u8; 32], [u8; 32], u64, u64)],
+    block_hash: [u8; 32],
+) -> Result<[u8; 32], ProofError> {
+    verify_receipt(
+        raw_transaction,
+        signed_receipt,
+        receipt_json,
+        prev_seq_hash,
+        keys,
+        ReceiptRung::Committed(block_hash),
+    )
+}
+
+enum ReceiptRung {
+    Receipted,
+    Committed([u8; 32]),
+}
+
+fn verify_receipt(
+    raw_transaction: &[u8],
+    signed_receipt: &[u8],
+    receipt_json: &[u8],
+    prev_seq_hash: [u8; 32],
+    keys: &[([u8; 32], [u8; 32], u64, u64)],
+    expected_rung: ReceiptRung,
+) -> Result<[u8; 32], ProofError> {
     if raw_transaction.is_empty()
         || raw_transaction.len() > 1_048_576
         || signed_receipt.len() > 1_048_576
@@ -162,9 +209,7 @@ pub fn verify_receipted(
     if reader.take(4)? != [0; 4] {
         return Err(ProofError::InvalidReceipt);
     }
-    if !(1..=3).contains(&reader.take(1)?[0]) {
-        return Err(ProofError::InvalidReceipt);
-    }
+    reader.take(1)?;
     let asset = reader.array::<32>()?;
     reader.take(16)?;
     let from = reader.array::<32>()?;
@@ -192,22 +237,23 @@ pub fn verify_receipted(
     digest.update(&signed_receipt[..unsigned_length]);
     digest.update([0]);
     let digest: [u8; 32] = digest.finalize().into();
-    if !keys.iter().any(|(id, key, first, last)| {
-        *id == key_id
-            && *id != [0; 32]
-            && (*first..=*last).contains(&height)
-            && VerifyingKey::from_bytes(key)
-                .is_ok_and(|key| key.verify_strict(&digest, &signature).is_ok())
-    }) {
-        return Err(ProofError::UnpinnedReceiptSignature);
-    }
+    let (_, signing_key, _, _) = keys
+        .iter()
+        .find(|(id, key, first, last)| {
+            *id == key_id
+                && *id != [0; 32]
+                && (*first..=*last).contains(&height)
+                && VerifyingKey::from_bytes(key)
+                    .is_ok_and(|key| key.verify_strict(&digest, &signature).is_ok())
+        })
+        .ok_or(ProofError::UnpinnedReceiptSignature)?;
     if activity != transaction_hash(raw_transaction) {
         return Err(ProofError::ReceiptActivityMismatch);
     }
     if from[..12] != [0; 12] || to[..12] != [0; 12] {
         return Err(ProofError::InvalidReceipt);
     }
-    let expected = serde_json::json!({
+    let mut expected = serde_json::json!({
         "rung": "receipted",
         "txHash": receipt_hex(&activity),
         "nonce": format!("0x{nonce:x}"),
@@ -219,8 +265,14 @@ pub fn verify_receipted(
         "from": receipt_hex(&from[12..]),
         "to": receipt_hex(&to[12..]),
         "keyId": receipt_hex(&key_id),
+        "signingKey": receipt_hex(signing_key),
         "receipt": receipt_hex(signed_receipt),
     });
+    if let ReceiptRung::Committed(block_hash) = expected_rung {
+        expected["rung"] = "committed".into();
+        expected["blockNumber"] = format!("0x{height:x}").into();
+        expected["blockHash"] = receipt_hex(&block_hash).into();
+    }
     verify_receipt_view(
         receipt_json,
         expected,

@@ -18,6 +18,11 @@ use crate::model::{
 };
 use crate::seller::validate_network;
 
+const PAYMENT_DRAWN_TOPIC: [u8; 32] = [
+    0x13, 0x47, 0x3d, 0x10, 0x3a, 0x2d, 0x52, 0x17, 0x20, 0x16, 0xc8, 0x72, 0xee, 0xae, 0x01, 0x53,
+    0xe2, 0x54, 0xaf, 0x3c, 0x21, 0xa1, 0xd9, 0x87, 0x49, 0x2a, 0xb7, 0x37, 0xf1, 0xa3, 0x4f, 0xe1,
+];
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SupportedKind {
     pub scheme: String,
@@ -317,11 +322,15 @@ impl Buyer {
             .map_err(fail)?
             .try_into()
             .map_err(|_| fail(X402Error::EvidenceMismatch))?;
-        let topic: [u8; 32] =
+        let metered = expected.payload.accepted.scheme == "metered";
+        let topic: [u8; 32] = if metered {
+            PAYMENT_DRAWN_TOPIC
+        } else {
             unhex("0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1")
                 .map_err(fail)?
                 .try_into()
-                .map_err(|_| fail(X402Error::EvidenceMismatch))?;
+                .map_err(|_| fail(X402Error::EvidenceMismatch))?
+        };
         let mut payments = logs
             .logs()
             .iter()
@@ -331,18 +340,34 @@ impl Buyer {
             .ok_or_else(|| fail(X402Error::EvidenceMismatch))?;
         if payments.next().is_some()
             || payment.topics().len() != 4
-            || payment.data().len() != 64
-            || payment.topics()[1] != expected.idempotency_key
+            || payment.data().len() != if metered { 128 } else { 64 }
             || expected.idempotency_key == [0; 32]
             || payment.data()[32..48] != [0; 16]
         {
+            return Err(fail(X402Error::EvidenceMismatch));
+        }
+        if metered {
+            let grant = payment_reference(
+                expected
+                    .payload
+                    .payload
+                    .get("grantId")
+                    .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
+            )
+            .map_err(fail)?;
+            if payment.topics()[1] != grant
+                || payment.data()[64..96] != expected.idempotency_key[..]
+            {
+                return Err(fail(X402Error::EvidenceMismatch));
+            }
+        } else if payment.topics()[1] != expected.idempotency_key {
             return Err(fail(X402Error::EvidenceMismatch));
         }
         let asset: [u8; 32] = payment.data()[..32]
             .try_into()
             .map_err(|_| fail(X402Error::EvidenceMismatch))?;
         let amount = u128::from_be_bytes(
-            payment.data()[48..]
+            payment.data()[48..64]
                 .try_into()
                 .map_err(|_| fail(X402Error::EvidenceMismatch))?,
         );
@@ -377,6 +402,23 @@ impl Buyer {
             receipt_digest,
         })
     }
+}
+
+fn payment_reference(value: &Value) -> Result<[u8; 32], X402Error> {
+    let text = value.as_str().ok_or(X402Error::EvidenceMismatch)?;
+    let digits = text.strip_prefix("0x").unwrap_or(text);
+    if digits.len() != 64 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let mut reference = [0; 32];
+    for (index, byte) in reference.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&digits[index * 2..index * 2 + 2], 16)
+            .map_err(|_| X402Error::EvidenceMismatch)?;
+    }
+    if reference == [0; 32] {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    Ok(reference)
 }
 
 /// The `purposeHash` a settlement of `accepted` must repeat: none for an
