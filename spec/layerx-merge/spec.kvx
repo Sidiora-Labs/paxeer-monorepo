@@ -182109,7 +182109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.859.1]
 title = "Issue #859: Pin the minimatch types so the perps builder typing probe is green on a fresh install"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
