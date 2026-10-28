@@ -153600,7 +153600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.29.2]
 title = "Decode the optional transaction hash of journey evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["12.29.1"]
@@ -184330,7 +184330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1143.1]
 title = "Issue #1143: Issue #1143: Build the agent daemon's delivery, webhook, approval and permit tests with the height-indexed event cursor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
