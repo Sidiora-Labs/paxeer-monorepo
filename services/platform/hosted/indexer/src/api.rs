@@ -118,7 +118,12 @@ fn page(page: Page) -> Response {
 
 /// A history-cursor page with its freshness: the indexed Paxeer height,
 /// the chain height last observed at the source and the readiness document.
-fn fresh_page(store: &Store, readiness: &Readiness, page: Result<Page, IndexError>) -> Response {
+fn fresh_page(
+    store: &Store,
+    readiness: &Readiness,
+    page: Result<Page, IndexError>,
+    explorer_complete: Option<bool>,
+) -> Response {
     let freshness = || -> Result<_, IndexError> {
         Ok((
             store
@@ -131,14 +136,17 @@ fn fresh_page(store: &Store, readiness: &Readiness, page: Result<Page, IndexErro
         ))
     };
     match page.and_then(|page| Ok((page, freshness()?))) {
-        Ok((page, (indexed_height, chain_height, document))) => json(
-            200,
-            &json!({
+        Ok((page, (indexed_height, chain_height, document))) => {
+            let mut document = json!({
                 "version": 1, "items": page.items, "next_cursor": page.next_cursor,
                 "indexedHeight": indexed_height, "chainHeight": chain_height,
                 "freshness": document,
-            }),
-        ),
+            });
+            if let Some(complete) = explorer_complete {
+                document["explorerComplete"] = json!(complete);
+            }
+            json(200, &document)
+        }
         Err(error) => failure(&error),
     }
 }
@@ -333,16 +341,22 @@ pub fn route_with(store: &Store, readiness: &Readiness, method: &str, target: &s
             Ok(query) => query,
             Err(response) => return response,
         };
-        if let Some(explorer) = &readiness.explorer {
-            if let Err(error) = explorer.import(store, &account) {
-                eprintln!("layerx-indexer explorer import failed: {error}");
-                return refusal(503, "explorer_unavailable", Some(1));
+        let explorer_complete = if let Some(explorer) = &readiness.explorer {
+            match explorer.import(store, &account) {
+                Ok(complete) => Some(complete),
+                Err(error) => {
+                    eprintln!("layerx-indexer explorer import failed: {error}");
+                    return refusal(503, "explorer_unavailable", Some(1));
+                }
             }
-        }
+        } else {
+            None
+        };
         return fresh_page(
             store,
             readiness,
             store.merged_history(&account, query.position, query.limit, query.kind.as_deref()),
+            explorer_complete,
         );
     }
     if let Some(segment) = path.strip_prefix("/v1/holders/") {
@@ -366,6 +380,7 @@ pub fn route_with(store: &Store, readiness: &Readiness, method: &str, target: &s
             store,
             readiness,
             store.holder_records(&holder, query.kind.as_deref(), query.position, query.limit),
+            None,
         );
     }
     refusal(404, "not_found", None)
