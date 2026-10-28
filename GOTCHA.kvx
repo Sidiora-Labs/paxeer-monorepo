@@ -10163,3 +10163,31 @@ detail = "cg spec done resolves every symbols entry after the gate passes: Opera
 [gotcha.2078]
 title = "Two repairs inside one crate's test targets must not both build --tests"
 detail = "18.1143.1 (four agentd test files' cursor fixtures) built -p layerx-agentd --tests, which also compiles the seventeen targets whose shared support module 18.1131.1 is porting, while 18.1131.1 requires 18.1143.1; neither could pass. A repair task builds only the test targets it touches; the task that owns the shared module is the one that builds --tests."
+
+[gotcha.2079]
+title = "A task gate must not name a test whose fixture a dependent task repairs"
+detail = "18.1135.1's verify_cmd ran TestResolutionExecuteEntry, which fails at main until 18.1130.1 seeds the fee record, and 18.1130.1 requires 18.1135.1: neither could pass and 641 pending tasks sat behind the pair. A task's gate names the tests it adds or whose fixtures it owns; a test another task repairs belongs to that task's gate."
+
+[gotcha.2080]
+title = "A core backfill restores only chain-positioned durable events"
+detail = "Since 646c4f96c apply_backfill matches each RecoveredEvent position against durable events decoded as Ethereum logs; local-only stream events (approval emissions) have no log, so position() is None and the backfill returns GapError::DurableEvent. Restore-after-gap fixtures must ingest a positioned chain log as tests/gaps.rs:349-392 does. 18.1143.1's gate kept running the stale approval_events fixture; narrowed, repaired by 18.1150.1."
+
+
+[gotcha.2081]
+title = "Attestor cluster fixtures pass only the asset send type"
+detail = "Since eec0db612 the attestor daemon admits ATTESTOR_ACTIVITY_TYPES equal to 0x10005 alone and 027b07111 refuses a wider list at startup. wallet_identity_e2e flattened its whole module registry (governance 0x70004, bridge 0x80001) into the cluster env and both nodes exited before signing. Pass the asset send alone; the registry stays the service's own. 18.1147.1's gate narrowed to the attestor-independent test; repaired by 18.1151.1."
+
+[gotcha.2082]
+title = "Mutually dependent deletions are one task"
+detail = "layerx-intents vocabulary.rs variants wrap crate::precompile types and precompile.rs constructs those variants; deleting either side alone (10.21.1 attempts 1-2) fails the crate build. When two files reference each other, their deletions belong to one task with both paths in touches."
+
+
+[gotcha.2083]
+title = "Raising the go directive outruns an installed older Go under GOTOOLCHAIN=local"
+detail = "09f9d9239 raised go.mod to go 1.25.8; every go command on an installed go1.25.6 with GOTOOLCHAIN=local refuses with 'go.mod requires go >= 1.25.8'. A gate that runs go must allow GOTOOLCHAIN=go<pin> (or install the pinned release) before any go command; the error is the toolchain, not the task."
+
+
+[gotcha.2084]
+title = "go mod download needs a go.mod hash for every version in the module graph"
+detail = "go mod download (and go list -m all) read the go.mod of every module version in the graph and refuse any whose /go.mod hash is missing from go.sum, even versions that provide no package to the build (golang.org/x/net for #1141, golang.org/x/term v0.15.0 for #1152). go build alone never notices; add the lines with go mod download <module>@<version>."
+

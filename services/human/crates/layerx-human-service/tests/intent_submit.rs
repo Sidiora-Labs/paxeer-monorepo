@@ -618,8 +618,8 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
     digest.update(b"LXP/v1/receipt\0");
     digest.update(encode(None));
     let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
+    let canonical_bytes = encode(Some(signature.to_bytes()));
     ReceiptMaterial {
-        canonical_bytes: encode(Some(signature.to_bytes())),
         authorised_batch: AuthorizedBatch::new(
             batch,
             ASSET,
@@ -628,6 +628,11 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
             signer.verifying_key().to_bytes(),
         ),
         verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
+        receipt_hash: Sha256::digest(&canonical_bytes).into(),
+        canonical_bytes,
+        tx_hash: activity_id,
+        block_height: sequence,
+        rung: layerx_types::rung::Rung::Receipted,
     }
 }
 

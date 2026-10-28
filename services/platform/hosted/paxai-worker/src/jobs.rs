@@ -1107,6 +1107,21 @@ impl JobService {
         })?
     }
 
+    pub fn commit_record_or_retain(
+        &self,
+        key: JobKey,
+        authority: &FinalizedAuthority,
+    ) -> Result<Option<Digest32>, ServiceError> {
+        if self.store.job(key)?.state.late {
+            return Ok(None);
+        }
+        match self.commit_record(key, authority) {
+            Ok(digest) => Ok(Some(digest)),
+            Err(ServiceError::DeadlineInvalid) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
     /// F02-R020 readiness for new admissions: `NOT_READY` without an admissible finalized view,
     /// with an unavailable store, a saturated queue or a runner that does not have every
     /// advertised model loaded under the manifest deployment; `transport` caps the result.

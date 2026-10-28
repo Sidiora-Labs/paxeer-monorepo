@@ -445,6 +445,12 @@ impl<'a> ProductionAgentCreation<'a> {
                 ReceiptLookup::Absent => return Err(AgentFailure::Unavailable),
             },
         };
+        if receipt.tx_hash != activity_id
+            || receipt.receipt_hash != <[u8; 32]>::from(Sha256::digest(&receipt.canonical_bytes))
+            || receipt.rung < layerx_types::rung::Rung::Receipted
+        {
+            return Err(AgentFailure::Refused("creation receipt metadata differs"));
+        }
         Ok(ProtocolEvidence {
             actor: self.actor.as_str().as_bytes().to_vec(),
             owner_public_key: public_key,
