@@ -21,6 +21,12 @@ pub enum RpcError {
     Verification,
     Signing(layerx_crypto::signer::SignError),
     StaleSourceSequence,
+    Reverted {
+        code: String,
+        reason: String,
+        result: Option<layerx_types::result::KnownResult>,
+        retriability: layerx_types::result::Retriability,
+    },
     MissingFinalityTrust,
     Pending {
         activity_id: [u8; 32],
@@ -987,7 +993,40 @@ impl RpcClient {
             "data": format!("0x{}", encode_hex(&call.data)),
             "accessList": [],
         });
-        quantity_u64(&self.call("eth_estimateGas", &json!([transaction, "pending"]))?)
+        quantity_u64(
+            &self
+                .call("eth_estimateGas", &json!([transaction, "pending"]))
+                .map_err(map_transaction_revert)?,
+        )
+    }
+
+    pub fn estimate_fee_from(&self, call: &Eip1559Call, from: [u8; 20]) -> Result<u64, RpcError> {
+        let transaction = json!({
+            "from": format!("0x{}", encode_hex(&from)), "type": "0x2",
+            "chainId": format!("0x{:x}", call.chain_id), "nonce": format!("0x{:x}", call.nonce),
+            "maxPriorityFeePerGas": format!("0x{:x}", call.max_priority_fee_per_gas),
+            "maxFeePerGas": format!("0x{:x}", call.max_fee_per_gas), "gas": format!("0x{:x}", call.gas_limit),
+            "to": format!("0x{}", encode_hex(&call.to)), "value": "0x0", "data": format!("0x{}", encode_hex(&call.data)), "accessList": []
+        });
+        quantity_u64(
+            &self
+                .call("eth_estimateGas", &json!([transaction, "pending"]))
+                .map_err(map_transaction_revert)?,
+        )
+    }
+
+    pub fn eip1559_parameters(&self) -> Result<(u64, u128, u128), RpcError> {
+        let chain_id = quantity_u64(&self.call("eth_chainId", &json!([]))?)?;
+        let price = quantity_u128(&self.call("eth_gasPrice", &json!([]))?)?;
+        let priority = quantity_u128(&self.call("eth_maxPriorityFeePerGas", &json!([]))?)?;
+        let maximum = price
+            .checked_mul(2)
+            .and_then(|value| value.checked_add(priority))
+            .ok_or(RpcError::InvalidResponse)?;
+        if chain_id == 0 || maximum == 0 {
+            return Err(RpcError::InvalidResponse);
+        }
+        Ok((chain_id, priority, maximum))
     }
 
     /// # Errors
@@ -1009,21 +1048,6 @@ impl RpcClient {
         self.call("eth_getProof", &json!([address, keys, block]))
     }
 
-    /// Returns the RPC outcome, including pending; this is not a verified receipt.
-    /// # Errors
-    /// Rejects empty or oversized bytes and preserves submission refusals.
-    pub fn send_activity(
-        &self,
-        canonical: &[u8],
-        commitment: Commitment,
-    ) -> Result<Value, RpcError> {
-        if canonical.is_empty() || canonical.len() > 524_288 {
-            return Err(RpcError::InvalidRequest);
-        }
-        let hex: String = encode_hex(canonical);
-        self.call("lx_sendActivity", &json!([hex, commitment.as_str()]))
-    }
-
     /// Submits raw transaction bytes and returns their hash without implying a receipt.
     /// # Errors
     /// Rejects empty or oversized bytes and malformed transaction hashes.
@@ -1031,19 +1055,32 @@ impl RpcClient {
         if raw.is_empty() || raw.len() > 524_288 {
             return Err(RpcError::InvalidRequest);
         }
-        ethereum_hash(&self.call(
-            "eth_sendRawTransaction",
-            &json!([format!("0x{}", encode_hex(raw))]),
-        )?)
+        ethereum_hash(
+            &self
+                .call(
+                    "eth_sendRawTransaction",
+                    &json!([format!("0x{}", encode_hex(raw))]),
+                )
+                .map_err(map_transaction_revert)?,
+        )
     }
 
     /// Returns unverified sequencer status and receipt evidence for the hash.
     /// # Errors
     /// Preserves sequencer RPC refusals and rejects malformed status documents.
     pub fn sequencer_receipt(&self, hash: [u8; 32]) -> Result<Value, RpcError> {
-        let result = self.call(
+        self.sequencer_receipt_bounded(hash, Duration::from_secs(30))
+    }
+
+    pub(crate) fn sequencer_receipt_bounded(
+        &self,
+        hash: [u8; 32],
+        timeout: Duration,
+    ) -> Result<Value, RpcError> {
+        let result = self.call_bounded(
             "pax_sequencerReceipt",
             &json!([format!("0x{}", encode_hex(&hash))]),
+            timeout,
         )?;
         object(&result)?;
         Ok(result)
@@ -1059,6 +1096,23 @@ impl RpcClient {
         params: &Value,
         timeout: Duration,
     ) -> Result<Value, RpcError> {
+        if method == "lx_getReceipt" {
+            let id = params[0].as_str().ok_or(RpcError::InvalidRequest)?;
+            let hash = ethereum_hash(&Value::String(format!("0x{id}")))?;
+            let result = self.sequencer_receipt_bounded(hash, timeout)?;
+            if result["txHash"] != format!("0x{id}") {
+                return Err(RpcError::InvalidResponse);
+            }
+            if result["rung"] == "submitted" {
+                return Ok(json!({"state": "pending"}));
+            }
+            check_transaction_revert(&result)?;
+            let receipt = result["receipt"]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .ok_or(RpcError::InvalidResponse)?;
+            return Ok(json!({"activity_id": id, "receipt": receipt}));
+        }
         if timeout.is_zero() {
             return Err(RpcError::Transport);
         }
@@ -1139,6 +1193,96 @@ fn decode_response(document: &Value, id: &str) -> Result<Value, RpcError> {
         .get("result")
         .cloned()
         .ok_or(RpcError::InvalidResponse)
+}
+
+fn quantity_u128(value: &Value) -> Result<u128, RpcError> {
+    let hex = value
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .ok_or(RpcError::InvalidResponse)?;
+    if hex.is_empty()
+        || (hex.len() > 1 && hex.starts_with('0'))
+        || !hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(RpcError::InvalidResponse);
+    }
+    u128::from_str_radix(hex, 16).map_err(|_| RpcError::InvalidResponse)
+}
+
+fn revert_reason(data: &Value) -> Option<String> {
+    let text = data
+        .as_str()
+        .or_else(|| data.get("data").and_then(Value::as_str))?;
+    let hex = text.strip_prefix("0x")?;
+    if hex.len() % 2 != 0 || hex.len() > 2 * 524_288 {
+        return None;
+    }
+    let bytes = hex
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
+        .collect::<Option<Vec<_>>>()?;
+    if bytes.get(..4)? != [0x08, 0xc3, 0x79, 0xa0]
+        || bytes.get(4..35)?.iter().any(|byte| *byte != 0)
+        || *bytes.get(35)? != 32
+        || bytes.get(36..60)?.iter().any(|byte| *byte != 0)
+    {
+        return None;
+    }
+    let length = usize::try_from(u64::from_be_bytes(bytes.get(60..68)?.try_into().ok()?)).ok()?;
+    let end = 68usize.checked_add(length)?;
+    let padded = 68usize.checked_add(length.checked_add(31)? & !31)?;
+    if padded != bytes.len() || bytes.get(end..padded)?.iter().any(|byte| *byte != 0) {
+        return None;
+    }
+    std::str::from_utf8(bytes.get(68..end)?)
+        .ok()
+        .map(str::to_owned)
+}
+
+fn classified_revert(reason: String) -> RpcError {
+    let code = reason
+        .split_once(": ")
+        .map_or(reason.as_str(), |(code, _)| code)
+        .to_owned();
+    let result = layerx_types::result::KnownResult::from_revert_reason(&reason);
+    let retriability = layerx_types::result::Retriability::of_revert_reason(&reason);
+    RpcError::Reverted {
+        code,
+        reason,
+        result,
+        retriability,
+    }
+}
+
+fn map_transaction_revert(error: RpcError) -> RpcError {
+    if let RpcError::Remote { message, data, .. } = &error {
+        if let Some(reason) = data.as_ref().and_then(revert_reason) {
+            return classified_revert(reason);
+        }
+        if let Some(reason) = message
+            .strip_prefix("execution reverted: ")
+            .or_else(|| message.starts_with("LXP_").then_some(message.as_str()))
+        {
+            return classified_revert(reason.to_owned());
+        }
+    }
+    error
+}
+
+pub(crate) fn check_transaction_revert(receipt: &Value) -> Result<(), RpcError> {
+    match receipt["status"].as_str() {
+        Some("0x1") => Ok(()),
+        Some("0x0") => {
+            let data = receipt
+                .get("returnData")
+                .or_else(|| receipt.get("revertData"))
+                .ok_or(RpcError::InvalidResponse)?;
+            let reason = revert_reason(data).ok_or(RpcError::InvalidResponse)?;
+            Err(classified_revert(reason))
+        }
+        _ => Err(RpcError::InvalidResponse),
+    }
 }
 
 pub(crate) fn encode_hex(bytes: &[u8]) -> String {

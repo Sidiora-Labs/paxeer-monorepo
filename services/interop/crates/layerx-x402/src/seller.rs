@@ -438,7 +438,7 @@ fn pay_exact_matches(
     if payments.next().is_some() {
         return Err(X402Error::EvidenceMismatch);
     }
-    let [_, payer, recipient, reference] = payment.topics() else {
+    let [_, reference, payer, recipient] = payment.topics() else {
         return Err(X402Error::EvidenceMismatch);
     };
     if reference != idempotency_key
@@ -634,7 +634,7 @@ pub(crate) mod tests {
         data.extend_from_slice(&1000_u128.to_be_bytes());
         SequencerLog::new(
             ledger,
-            vec![signature, [0x71; 32], recipient, [0x74; 32]],
+            vec![signature, [0x74; 32], [0x71; 32], recipient],
             data,
             0,
         )

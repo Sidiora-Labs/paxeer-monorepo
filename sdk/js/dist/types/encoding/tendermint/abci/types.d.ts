@@ -1,6 +1,6 @@
 import type { GeneratedType } from "@cosmjs/proto-signing";
 import type { EventAttribute as EventAttribute_type, Event as Event_type, ExecTxResult as ExecTxResult_type, ResponseCheckTx as ResponseCheckTx_type, ResponseCommit as ResponseCommit_type, ResponseDeliverTx as ResponseDeliverTx_type, ResponseFinalizeBlock as ResponseFinalizeBlock_type, ResponseInfo as ResponseInfo_type, ResponseQuery as ResponseQuery_type, TxResult as TxResult_type, ValidatorUpdate as ValidatorUpdate_type } from "../../../types/tendermint/abci";
-import { CheckTxType, MisbehaviorType } from "../../../types/tendermint/abci";
+import { MisbehaviorType } from "../../../types/tendermint/abci";
 import type { MessageFns } from "../../common";
 export interface ResponseInfo extends ResponseInfo_type {
 }
@@ -35,8 +35,6 @@ export declare const EventAttribute: MessageFns<EventAttribute, "tendermint.abci
 export declare const ExecTxResult: MessageFns<ExecTxResult, "tendermint.abci.ExecTxResult">;
 export declare const TxResult: MessageFns<TxResult, "tendermint.abci.TxResult">;
 export declare const ValidatorUpdate: MessageFns<ValidatorUpdate, "tendermint.abci.ValidatorUpdate">;
-export declare function checkTxTypeFromJSON(object: any): CheckTxType;
-export declare function checkTxTypeToJSON(object: CheckTxType): string;
 export declare function misbehaviorTypeFromJSON(object: any): MisbehaviorType;
 export declare function misbehaviorTypeToJSON(object: MisbehaviorType): string;
 export declare const registry: Array<[string, GeneratedType]>;

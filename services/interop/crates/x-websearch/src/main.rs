@@ -15,9 +15,9 @@ use x_websearch::content::{self, ContentStore};
 use x_websearch::crawl::{CrawlBudget, CrawlReport, Crawler, StopSignal};
 use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
-use x_websearch::keys::ATTESTOR_KEY_FILE;
-use x_websearch::payment::{system_clock, GatewayRpc, PaymentGate, RpcAnswer};
+use x_websearch::payment::{system_clock, PaymentGate};
 use x_websearch::program::{self, ProgramAttestor, ProgramExchange, ProgramRelay, Step};
+use x_websearch::settlement::SettlementRpc;
 
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -52,7 +52,7 @@ struct Readiness {
 }
 
 impl Readiness {
-    fn new(config: &Config, network_id: u32, evm: bool, program: bool) -> Self {
+    fn new(network_id: u32, evm: bool, program: bool) -> Self {
         let mut roles = BTreeMap::new();
         let mut add = |role, names: &[&'static str], budget| {
             roles.insert(
@@ -105,9 +105,7 @@ impl Readiness {
                     "relay_progress",
                     "program_journal",
                 ],
-                config.kernel.as_ref().map_or(60_000, |settings| {
-                    settings.poll_interval_ms.saturating_mul(3).max(60_000)
-                }),
+                60_000,
             );
         }
         Self {
@@ -205,32 +203,11 @@ fn directory_usable(path: &std::path::Path) -> bool {
             .is_ok()
 }
 
-fn settlement_usable(config: &Config, network_id: u32, endpoint: &str) -> bool {
-    let Ok(rpc) = GatewayRpc::new(endpoint) else {
+fn settlement_usable(config: &Config, endpoint: &str) -> bool {
+    let Ok(rpc) = SettlementRpc::new(endpoint, config.evm.chain_id) else {
         return false;
     };
-    let rpc = match config.gateway.authorization_file.as_deref() {
-        Some(path) => match rpc.with_authorization_file(path) {
-            Ok(rpc) => rpc,
-            Err(_) => return false,
-        },
-        None => return false,
-    };
-    let Some(RpcAnswer::Result(node)) = rpc.call("lx_getNodeInfo", &serde_json::json!([])) else {
-        return false;
-    };
-    node.get("network_id").and_then(serde_json::Value::as_u64) == Some(u64::from(network_id))
-        && node
-            .get("protocol_version")
-            .and_then(serde_json::Value::as_u64)
-            == Some(u64::from(x_websearch::payment::PROTOCOL_VERSION))
-        && config.gateway.receipt_keys.iter().any(|key| {
-            node.get("authorised_sequencer_key")
-                .and_then(serde_json::Value::as_str)
-                == Some(x_websearch::payment::hex(&key.public_key()).as_str())
-                && layerx_wire::handover::sequencer_id(&key.public_key()).ok()
-                    == Some(key.sequencer_id())
-        })
+    rpc.sequencer_receipt(&[0; 32]).is_ok()
 }
 
 fn peer_quorum_usable(
@@ -364,11 +341,7 @@ impl ReadinessProbe {
         self.readiness.update(
             "paid_delivery",
             "settlement_authority",
-            settlement_usable(
-                &self.config,
-                self.readiness.network_id,
-                &self.config.gateway.endpoint,
-            ),
+            settlement_usable(&self.config, &self.config.gateway.endpoint),
         );
         if let Some(signer) = self.signer {
             let rpc = EvmRpc::new(&self.config.evm.endpoint);
@@ -396,7 +369,7 @@ impl ReadinessProbe {
                     && directory_usable(&self.config.data_dir.join("watch")),
             );
         }
-        if self.config.kernel.is_some() {
+        if self.signer.is_some() {
             self.readiness.update(
                 "program_relay",
                 "program_journal",
@@ -437,7 +410,7 @@ fn config_path(arguments: impl IntoIterator<Item = OsString>) -> Option<PathBuf>
 
 /// The program relay and what it runs beside: the EVM endpoint it reads the
 /// registered attestor set from and the time between its steps.
-struct RelayLoop {
+struct RelayParts {
     relay: ProgramRelay,
     rpc: EvmRpc,
     interval: Duration,
@@ -451,7 +424,7 @@ struct Assembled {
     crawler: Crawler,
     index: Arc<WebIndex>,
     pipeline: Option<Pipeline>,
-    relay: Option<RelayLoop>,
+    relay: Option<RelayParts>,
     probe: ReadinessProbe,
 }
 
@@ -515,7 +488,6 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         &store,
     )?;
     let readiness = Arc::new(Readiness::new(
-        config,
         network_id,
         pipeline.is_some(),
         relay.is_some(),
@@ -599,13 +571,10 @@ fn relay(
     fetcher: &Arc<Fetcher>,
     index: &Arc<WebIndex>,
     store: &Arc<ContentStore>,
-) -> Result<Option<RelayLoop>, String> {
-    let Some(settings) = &config.kernel else {
+) -> Result<Option<RelayParts>, String> {
+    let Some(attestor_key) = keys.attestor() else {
         return Ok(None);
     };
-    let attestor_key = keys
-        .attestor()
-        .ok_or_else(|| format!("program relay needs {ATTESTOR_KEY_FILE}"))?;
     let rpc =
         EvmRpc::new(&config.evm.endpoint).map_err(|error| format!("evm.endpoint: {error}"))?;
     let watcher = RequestWatcher::open(
@@ -630,9 +599,12 @@ fn relay(
         Arc::clone(index),
         Arc::clone(store),
     );
-    let submitter_key = keys
-        .submitter()
-        .ok_or_else(|| "program relay needs a submitter key".to_owned())?;
+    let submitter_key = keys.submitter().ok_or_else(|| {
+        format!(
+            "program relay needs {}",
+            x_websearch::keys::SUBMITTER_KEY_FILE
+        )
+    })?;
     let submitter = Submitter::open(
         rpc.clone(),
         submitter_key.clone(),
@@ -648,10 +620,10 @@ fn relay(
         set: attest::AttestorSet::default(),
         submitter,
     };
-    Ok(Some(RelayLoop {
+    Ok(Some(RelayParts {
         relay,
         rpc,
-        interval: settings.poll_interval(),
+        interval: ATTEST_INTERVAL,
         confirmations: u64::from(config.evm.confirmations),
     }))
 }
@@ -1086,7 +1058,7 @@ fn now_ms() -> u64 {
 
 /// One relay step: refresh the registered attestor set, then answer, exchange
 /// and post the program requests.
-fn relay_round(relay: &mut RelayLoop) -> bool {
+fn relay_round(relay: &mut RelayParts) -> bool {
     let set_usable = match submit::attestor_set(&relay.rpc) {
         Ok(set) => {
             relay.relay.set = set;
@@ -1134,7 +1106,7 @@ fn relay_round(relay: &mut RelayLoop) -> bool {
 /// raised. The journalled requests and submissions were loaded when the
 /// relay opened, before this loop takes any new work.
 fn start_relay(
-    mut relay: RelayLoop,
+    mut relay: RelayParts,
     stop: StopSignal,
     readiness: Arc<Readiness>,
 ) -> std::io::Result<JoinHandle<()>> {
@@ -1343,12 +1315,12 @@ fn main() -> ExitCode {
 }
 
 /// Starts the crawler, with an attestor key the attestor loop, and with the
-/// kernel settings the program relay. The handles of the threads that started
+/// submitter key the EVM program relay. The handles of the threads that started
 /// come back with the first failure.
 fn start_loops(
     crawler: Crawler,
     pipeline: Option<Pipeline>,
-    relay: Option<RelayLoop>,
+    relay: Option<RelayParts>,
     seeds: Vec<String>,
     interval: Duration,
     probe: ReadinessProbe,

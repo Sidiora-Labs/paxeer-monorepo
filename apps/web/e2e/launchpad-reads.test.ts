@@ -4,31 +4,37 @@ import { registerHooks } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import type { ReactElement, ReactNode } from "react";
 import ts from "typescript";
 import { decodeFunctionData, encodeFunctionResult, type Abi, type Hex } from "viem";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: "data:text/javascript,", shortCircuit: true };
-    // The agent SDK sources import their siblings by the emitted .js name.
-    if (specifier.startsWith(".") && specifier.endsWith(".js") && context.parentURL?.endsWith(".ts") === true) {
-      const source = new URL(specifier.replace(/\.js$/u, ".ts"), context.parentURL);
-      if (existsSync(source)) return { url: source.href, shortCircuit: true };
+    if (specifier.startsWith(".") && context.parentURL !== undefined) {
+      const candidate = new URL(specifier, context.parentURL);
+      for (const suffix of [".ts", ".tsx", "/index.ts"]) {
+        const source = candidate.href.endsWith(".js") ? new URL(candidate.href.slice(0, -3) + suffix) : new URL(candidate.href + suffix);
+        if (existsSync(source)) return nextResolve(source.href, context);
+      }
     }
+    if (specifier === "next/navigation") return nextResolve("next/navigation.js", context);
+    if (specifier === "next/link") return nextResolve("next/link.js", context);
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (/\.ts$/u.test(url) && !url.includes("/node_modules/")) {
+    if (/\.(ts|tsx)$/u.test(url) && !url.includes("/node_modules/")) {
       return {
         format: "module",
         shortCircuit: true,
         source: ts.transpileModule(readFileSync(new URL(url), "utf8"), {
           fileName: fileURLToPath(url),
-          compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+          compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX },
         }).outputText,
       };
     }
-    return nextLoad(url, context);
+    const loaded = nextLoad(url, context);
+    return loaded.format === "commonjs" ? { ...loaded, source: undefined } : loaded;
   },
 });
 
@@ -110,11 +116,19 @@ async function body(request: IncomingMessage): Promise<{ id: string; method: str
 }
 
 /** Serves eth_call only for selectors the published ABI of the called address declares. */
-async function serving(run: (called: string[]) => Promise<void>) {
+async function serving(run: (called: string[]) => Promise<void>, answers = ANSWERS) {
   const called: string[] = [];
   const server = createServer((request, response) => {
     void body(request).then((call) => {
       response.setHeader("content-type", "application/json");
+      if (call.method === "px_getCapabilities") {
+        called.push(call.method);
+        response.end(JSON.stringify({
+          jsonrpc: "2.0", id: call.id,
+          result: { exchange: false, bridge: false, launchpad: true, probed_at: 0, rpc_height: "1" },
+        }));
+        return;
+      }
       const [target] = call.params;
       const to = target?.to.toLowerCase() ?? "";
       const contract = CONTRACTS[to];
@@ -124,7 +138,7 @@ async function serving(run: (called: string[]) => Promise<void>) {
         const { functionName, args } = decodeFunctionData({ abi: contract, data: target!.data });
         const key = `${to}.${functionName}`;
         called.push(key);
-        const answer = ANSWERS[key];
+        const answer = answers[key];
         assert.ok(answer !== undefined, `unexpected read ${key}`);
         const data = encodeFunctionResult({ abi: contract, functionName, result: answer(args ?? []) } as never);
         response.end(JSON.stringify({ jsonrpc: "2.0", id: call.id, result: data }));
@@ -194,4 +208,61 @@ test("a launchpad quote resolves the token's pool and asks quoteExactInput with 
     assert.deepEqual(called.filter((entry) => entry.startsWith("rejected")), []);
     await assert.rejects(precompiles.launchpadQuote(USDL, "buy", 1n), RangeError);
   });
+});
+
+test("launchpad page renders pool prices at 18 decimals and amounts at six decimals", async (t) => {
+  const { isValidElement } = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { default: LaunchpadPage } = await import("../src/app/launchpad/page.tsx");
+  const { ExplorerTable } = await import("../src/kit/explorer.tsx");
+  const { LabelValue } = await import("../src/kit/money.tsx");
+  const { LAUNCHPAD_DECIMALS, parseUnits } = await import("../src/app/_markets/format.ts");
+
+  function descendants(node: ReactNode): ReactElement<{ children?: ReactNode }>[] {
+    if (Array.isArray(node)) return node.flatMap(descendants);
+    if (!isValidElement<{ children?: ReactNode }>(node)) return [];
+    return [node, ...descendants(node.props.children)];
+  }
+
+  const virtualUsdl = 10_000_000_000n;
+  const tokenReserve = 1_000_000_000_000_000n;
+  const nativePrice = (virtualUsdl * 10n ** 18n) / tokenReserve;
+  assert.equal(nativePrice, 10_000_000_000_000n);
+
+  for (const [price, expected] of [
+    [nativePrice, "0.00001"],
+    [0n, "0"],
+    [1n, "0.000000000000000001"],
+    [9_007_199_254_740_993_123_456_789_012_345_678n, "9007199254740993.123456789012345678"],
+  ] as const) {
+    await t.test(`price ${price.toString()} renders as ${expected}`, async () => {
+      await serving(async (called) => {
+        const page = await LaunchpadPage({ searchParams: Promise.resolve({}) });
+        const elements = descendants(page);
+        const table = elements.find((element) => element.type === ExplorerTable);
+        assert.ok(table, "the live launchpad page must contain its Markets table");
+        const html = renderToStaticMarkup(table);
+        const cells = [...html.matchAll(/<td\b[^>]*>(.*?)<\/td>/gu)].map((match) => match[1]);
+        assert.deepEqual(cells.slice(2, 6), [expected, "1000000000.000001", "1000000000", "123.456789"]);
+        const labels = elements.filter((element) => element.type === LabelValue).map((element) => renderToStaticMarkup(element)).join("");
+        assert.match(labels, /Creation fee<\/span><span[^>]*>5\.000001 USDL<\/span>/u);
+        assert.ok(called.includes("px_getCapabilities"));
+        assert.ok(called.includes(`${LAUNCHPAD}.getPoolStats`));
+        assert.deepEqual(called.filter((entry) => entry.startsWith("rejected")), []);
+      }, {
+        ...ANSWERS,
+        [`${LAUNCHPAD}.creationFee`]: () => 5_000_001n,
+        [`${TOKEN}.totalSupply`]: () => 1_000_000_000_000_001n,
+        [`${LAUNCHPAD}.getPoolStats`]: ([pool]) => {
+          assert.equal(String(pool).toLowerCase(), POOL);
+          return {
+            virtualUsdl, realUsdl: 0n, tokenReserve, cumulativeVolume: 123_456_789n,
+            currentFeeBps: 100n, poolAge: 6n, marketCap: 10_000_000_000n, price,
+          };
+        },
+      });
+    });
+  }
+  assert.equal(parseUnits("5.000001", LAUNCHPAD_DECIMALS), 5_000_001n);
+  assert.equal(parseUnits("0.0000001", LAUNCHPAD_DECIMALS), undefined);
 });

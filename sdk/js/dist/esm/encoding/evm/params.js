@@ -367,6 +367,12 @@ export const AllowedFeeDenom = {
         if (message.denom !== "") {
             writer.uint32(10).string(message.denom);
         }
+        if (isSet(message.rate) && message.rate !== "") {
+            writer.uint32(26).string(message.rate);
+        }
+        if (isSet(message.rate_update_height) && message.rate_update_height !== 0) {
+            writer.uint32(32).int64(message.rate_update_height);
+        }
         return writer;
     },
     decode(input, length) {
@@ -382,6 +388,18 @@ export const AllowedFeeDenom = {
                     }
                     message.denom = reader.string();
                     continue;
+                case 3:
+                    if (tag !== 26) {
+                        break;
+                    }
+                    message.rate = reader.string();
+                    continue;
+                case 4:
+                    if (tag !== 32) {
+                        break;
+                    }
+                    message.rate_update_height = longToNumber(reader.int64());
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -392,13 +410,21 @@ export const AllowedFeeDenom = {
     },
     fromJSON(object) {
         return {
-            denom: isSet(object.denom) ? globalThis.String(object.denom) : ""
+            denom: isSet(object.denom) ? globalThis.String(object.denom) : "",
+            rate: isSet(object.rate) ? globalThis.String(object.rate) : "",
+            rate_update_height: isSet(object.rate_update_height) ? globalThis.Number(object.rate_update_height) : 0
         };
     },
     toJSON(message) {
         const obj = {};
         if (message.denom !== "") {
             obj.denom = message.denom;
+        }
+        if (isSet(message.rate) && message.rate !== "") {
+            obj.rate = message.rate;
+        }
+        if (isSet(message.rate_update_height) && message.rate_update_height !== 0) {
+            obj.rate_update_height = Math.round(message.rate_update_height);
         }
         return obj;
     },
@@ -408,12 +434,16 @@ export const AllowedFeeDenom = {
     fromPartial(object) {
         const message = createBaseAllowedFeeDenom();
         message.denom = object.denom ?? "";
+        message.rate = object.rate ?? "";
+        message.rate_update_height = object.rate_update_height ?? 0;
         return message;
     }
 };
 function createBaseAllowedFeeDenom() {
     return {
-        denom: ""
+        denom: "",
+        rate: "",
+        rate_update_height: 0
     };
 }
 function createBaseParams() {

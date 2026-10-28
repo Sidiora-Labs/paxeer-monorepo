@@ -302,11 +302,23 @@ func TestAirdropHoldingHistory(t *testing.T) {
 	t.Run("registration", func(t *testing.T) {
 		hook := func(sdk.Context, sdk.AccAddress, string, func() sdk.Int) error { return nil }
 		regular := bank.(bankkeeper.BaseKeeper)
-		require.Panics(t, func() { regular.RegisterBalanceChangeHook(types.ModuleName, hook) })
 		require.Panics(t, func() { regular.RegisterBalanceChangeHook("", hook) })
 		require.Panics(t, func() { regular.RegisterBalanceChangeHook("other", nil) })
-		require.Panics(t, func() { giga.RegisterBalanceChangeHook(types.ModuleName, hook) })
 		require.Panics(t, func() { giga.RegisterBalanceChangeHook("", hook) })
 		require.Panics(t, func() { giga.RegisterBalanceChangeHook("other", nil) })
+
+		h := newHistoryEnv(t)
+		h.swap(h.trader, h.denom, true, 100_000_000)
+		holder := h.account(0)
+		h.transfer(h.trader, holder, 1_000)
+		h.trigger()
+		h.transfer(holder, h.trader, 500)
+		require.Equal(t, i(500), h.balance(holder, h.denom))
+		for _, prefix := range [][]byte{types.HoldingHistoryPrefix, types.HoldingCountPrefix, types.HoldingEntryPrefix} {
+			iterator := sdk.KVStorePrefixIterator(h.ctx.KVStore(h.key), prefix)
+			empty := !iterator.Valid()
+			require.NoError(t, iterator.Close())
+			require.True(t, empty, "retired holding-history prefix %x must be empty after transfers", prefix)
+		}
 	})
 }

@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 
+import type { MarginTier } from "../src/core/perps/marketConfig";
 import {
   WAD,
   computePositionPnl,
@@ -15,6 +16,9 @@ import {
 } from "../src/core/perps/pnlHelpers";
 
 const usd = (n: bigint) => n * WAD;
+const tiers: readonly MarginTier[] = [
+  { lowerBoundUsd: 0n, maxLeverage: 50n, maintenanceBps: 100n, deductionUsd: 0n },
+];
 
 function position(over: Partial<ParsedPosition>): ParsedPosition {
   return {
@@ -38,7 +42,7 @@ function position(over: Partial<ParsedPosition>): ParsedPosition {
 
 describe("position pnl", () => {
   it("long 10x BTC up 10% doubles collateral", () => {
-    const p = computePositionPnl(position({}), usd(55_000n));
+    const p = computePositionPnl(position({}), usd(55_000n), tiers);
     assert.equal(p.markPrice, usd(55_000n));
     assert.equal(p.initialCollateral, usd(1_000n));
     assert.equal(p.unrealizedPnl, usd(1_000n));
@@ -53,7 +57,7 @@ describe("position pnl", () => {
   });
 
   it("short 10x BTC against a 10% rise is wiped out and past liquidation", () => {
-    const p = computePositionPnl(position({ isLong: false }), usd(55_000n));
+    const p = computePositionPnl(position({ isLong: false }), usd(55_000n), tiers);
     assert.equal(p.unrealizedPnl, -usd(1_000n));
     assert.equal(p.remainingCollateral, 0n);
     assert.equal(p.roe, -usd(100n));
@@ -66,6 +70,7 @@ describe("position pnl", () => {
     const p = computePositionPnl(
       position({ fundingPaidUsd: usd(10n), feesUsd: 5n * WAD + WAD / 2n }),
       usd(55_000n),
+      tiers,
     );
     assert.equal(p.unrealizedPnl, usd(1_000n));
     assert.equal(p.remainingCollateral, usd(1_984n) + WAD / 2n);
@@ -78,6 +83,7 @@ describe("position pnl", () => {
     const long = computePositionPnl(
       position({ sizeUsd, leverage: WAD, entryPrice: usd(7n) }),
       usd(8n),
+      tiers,
     );
     assert.equal(long.unrealizedPnl, 17_636_684_160_493_827_017_636_684n);
     assert.equal(long.initialCollateral, sizeUsd);
@@ -85,66 +91,68 @@ describe("position pnl", () => {
     const short = computePositionPnl(
       position({ sizeUsd, leverage: WAD, entryPrice: usd(7n), isLong: false }),
       usd(8n),
+      tiers,
     );
     assert.equal(short.unrealizedPnl, -17_636_684_160_493_827_017_636_684n);
   });
 
   it("sub-wei pnl drops the fraction on both sides", () => {
-    const long = computePositionPnl(position({ sizeUsd: 5n, entryPrice: usd(3n) }), usd(4n));
+    const long = computePositionPnl(position({ sizeUsd: 5n, entryPrice: usd(3n) }), usd(4n), tiers);
     assert.equal(long.unrealizedPnl, 1n);
-    const short = computePositionPnl(position({ sizeUsd: 5n, entryPrice: usd(3n), isLong: false }), usd(4n));
+    const short = computePositionPnl(position({ sizeUsd: 5n, entryPrice: usd(3n), isLong: false }), usd(4n), tiers);
     assert.equal(short.unrealizedPnl, -1n);
-    const tiny = computePositionPnl(position({ sizeUsd: 2n, entryPrice: usd(3n) }), usd(4n));
+    const tiny = computePositionPnl(position({ sizeUsd: 2n, entryPrice: usd(3n) }), usd(4n), tiers);
     assert.equal(tiny.unrealizedPnl, 0n);
   });
 
   it("liquidation price rounds toward entry", () => {
-    const long = computePositionPnl(position({ entryPrice: usd(100n), leverage: usd(7n) }), usd(100n));
-    assert.equal(long.liqPrice, 87_142_857_142_857_142_858n);
+    const long = computePositionPnl(position({ entryPrice: usd(100n), leverage: usd(7n) }), usd(100n), tiers);
+    assert.equal(long.liqPrice, 86_714_285_714_285_714_286n);
     const short = computePositionPnl(
       position({ entryPrice: usd(100n), leverage: usd(7n), isLong: false }),
       usd(100n),
+      tiers,
     );
-    assert.equal(short.liqPrice, 112_857_142_857_142_857_142n);
+    assert.equal(short.liqPrice, 113_285_714_285_714_285_714n);
     assert.equal(long.liqSafetyBps, 10_000n);
-    const low = computePositionPnl(position({ leverage: WAD / 2n }), usd(50_000n));
+    const low = computePositionPnl(position({ leverage: WAD / 2n }), usd(50_000n), tiers);
     assert.equal(low.liqPrice, 0n);
   });
 
   it("liquidation price subtracts funding and fees like remaining collateral does", () => {
     const charged = { entryPrice: usd(100n), sizeUsd: usd(1_000n), leverage: usd(10n), fundingPaidUsd: usd(3n), feesUsd: usd(2n) };
-    const long = computePositionPnl(position(charged), usd(100n));
+    const long = computePositionPnl(position(charged), usd(100n), tiers);
     assert.equal(long.liqPrice, 91_500_000_000_000_000_000n);
-    const short = computePositionPnl(position({ ...charged, isLong: false }), usd(100n));
+    const short = computePositionPnl(position({ ...charged, isLong: false }), usd(100n), tiers);
     assert.equal(short.liqPrice, 108_500_000_000_000_000_000n);
     assert.equal(long.liqPrice - usd(100n), usd(100n) - short.liqPrice);
     for (const p of [long, short]) {
-      const atLiq = computePositionPnl(position({ ...charged, isLong: p === long }), p.liqPrice);
+      const atLiq = computePositionPnl(position({ ...charged, isLong: p === long }), p.liqPrice, tiers);
       assert.equal(atLiq.remainingCollateral, usd(10n));
     }
-    const uncharged = computePositionPnl(position({ ...charged, fundingPaidUsd: 0n, feesUsd: 0n }), usd(100n));
+    const uncharged = computePositionPnl(position({ ...charged, fundingPaidUsd: 0n, feesUsd: 0n }), usd(100n), tiers);
     assert.equal(uncharged.liqPrice, usd(91n));
   });
 
   it("charges beyond the cushion put liquidation past entry with no safety left", () => {
     const over = { entryPrice: usd(100n), sizeUsd: usd(1_000n), leverage: usd(10n), feesUsd: usd(95n) };
-    const long = computePositionPnl(position(over), usd(100n));
+    const long = computePositionPnl(position(over), usd(100n), tiers);
     assert.equal(long.liqPrice, usd(100n) + 500_000_000_000_000_000n);
     assert.equal(long.liqSafetyBps, 0n);
-    const short = computePositionPnl(position({ ...over, isLong: false }), usd(100n));
+    const short = computePositionPnl(position({ ...over, isLong: false }), usd(100n), tiers);
     assert.equal(short.liqPrice, usd(100n) - 500_000_000_000_000_000n);
     assert.equal(short.liqSafetyBps, 0n);
   });
 
   it("no mark or no entry yields the idle state", () => {
-    const p = computePositionPnl(position({ feesUsd: usd(100n) }), 0n);
+    const p = computePositionPnl(position({ feesUsd: usd(100n) }), 0n, tiers);
     assert.equal(p.markPrice, 0n);
     assert.equal(p.unrealizedPnl, 0n);
     assert.equal(p.remainingCollateral, usd(900n));
     assert.equal(p.collateralHealthPct, usd(90n));
     assert.equal(p.liqPrice, 0n);
     assert.equal(p.roe, 0n);
-    const noEntry = computePositionPnl(position({ entryPrice: 0n }), usd(1n));
+    const noEntry = computePositionPnl(position({ entryPrice: 0n }), usd(1n), tiers);
     assert.equal(noEntry.unrealizedPnl, 0n);
   });
 
@@ -161,8 +169,8 @@ describe("position pnl", () => {
         entryPrice: next(10n ** 24n) + 1n,
       };
       const mark = next(10n ** 24n) + 1n;
-      const long = computePositionPnl(position({ ...base, isLong: true }), mark);
-      const short = computePositionPnl(position({ ...base, isLong: false }), mark);
+      const long = computePositionPnl(position({ ...base, isLong: true }), mark, tiers);
+      const short = computePositionPnl(position({ ...base, isLong: false }), mark, tiers);
       assert.equal(long.unrealizedPnl, -short.unrealizedPnl);
       assert.equal(long.roe, -short.roe);
       assert.equal(long.remainingCollateral + short.remainingCollateral, 2n * long.initialCollateral);

@@ -155,13 +155,13 @@ test('snapshotThenDeltas', async () => {
   peer.send(bookFrame('BTC@perp_orderbook', 12, { asks: [[103, 6]], bids: [[97, 7]] }));
   await waitFor(() => book.last()?.asks[0]?.price === 103, 'delta 12');
   assert.equal(book.values.length, count + 1);
-  assert.deepEqual(book.last()?.asks, [{ price: 103, size: 6 }]);
-  assert.deepEqual(book.last()?.bids, [{ price: 97, size: 7 }]);
+  assert.deepEqual(book.last()?.asks, [{ price: 103, priceText: '103', size: 6 }]);
+  assert.deepEqual(book.last()?.bids, [{ price: 97, priceText: '97', size: 7 }]);
   assert.equal(peer.closeCode, null);
 });
 
 test('gapResyncsFromRest', async () => {
-  restBook = { success: true, data: { asks: [{ price: 201, quantity: 1.5 }, { price: 200, quantity: 2 }], bids: [{ price: 198, quantity: 4 }, { price: 199, quantity: 3 }] } };
+  restBook = { success: true, data: { asks: [{ price: 201, quantity: 1.5 }, { price: ' 200.000000000000000001 ', quantity: 2 }], bids: [{ price: 198, quantity: 4 }, { price: 199, quantity: 3 }] } };
   const book = track<import('../src/core/net/venueStream').VenueBook>(l => venue.subscribeVenueBook('BTC', l));
   const first = await openPeer(0);
   await waitFor(() => subscribes(first).length === 1, 'subscribe');
@@ -180,8 +180,8 @@ test('gapResyncsFromRest', async () => {
   await waitFor(() => subscribes(second).length === 1, 'resubscribe');
   assert.deepEqual(subscribes(second), ['BTC@perp_orderbook']);
   await waitFor(() => book.last()?.asks[0]?.price === 200, 'REST book');
-  assert.deepEqual(book.last()?.asks, [{ price: 200, size: 2 }, { price: 201, size: 1.5 }]);
-  assert.deepEqual(book.last()?.bids, [{ price: 199, size: 3 }, { price: 198, size: 4 }]);
+  assert.deepEqual(book.last()?.asks, [{ price: 200, priceText: '200.000000000000000001', size: 2 }, { price: 201, priceText: '201', size: 1.5 }]);
+  assert.deepEqual(book.last()?.bids, [{ price: 199, priceText: '199', size: 3 }, { price: 198, priceText: '198', size: 4 }]);
   second.send({ event: 'welcome', ts: Date.now(), snapshotId: 'proc-a' });
   second.send(bookFrame('BTC@perp_orderbook', 20, { asks: [[300, 1]], bids: [[299, 1]] }, { snapshot: true }));
   await waitFor(() => book.last()?.asks[0]?.price === 300, 'resubscribe snapshot');
@@ -243,13 +243,13 @@ test('perpBookFromGateway', async () => {
   peer.send({ event: 'subscribed', topic: 'SOL@perp_orderbook', ts: Date.now(), snapshotId: 'proc-a' });
   peer.send(bookFrame('SOL@perp_orderbook', 3, {
     symbol: 'SOL', mark_price: 150.5, index_price: 150.25, basis_bps: 16.6,
-    asks: [[151, 30], [150.75, 25], ['bad', 1]],
+    asks: [[151, 30], [' 150.750000000000000001 ', 25], ['bad', 1]],
     bids: [[149.5, 40], [150, 10]],
   }, { snapshot: true, ts: 1700000000000 }));
   await waitFor(() => book.last(), 'book');
   assert.deepEqual(book.last(), {
-    asks: [{ price: 150.75, size: 25 }, { price: 151, size: 30 }],
-    bids: [{ price: 150, size: 10 }, { price: 149.5, size: 40 }],
+    asks: [{ price: 150.75, priceText: '150.750000000000000001', size: 25 }, { price: 151, priceText: '151', size: 30 }],
+    bids: [{ price: 150, priceText: '150', size: 10 }, { price: 149.5, priceText: '149.5', size: 40 }],
     markPrice: 150.5,
     indexPrice: 150.25,
     basisBps: 16.6,
