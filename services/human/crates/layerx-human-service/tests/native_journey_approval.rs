@@ -19,12 +19,13 @@ use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, Ti
 use layerx_client::client::{ClientConfig, ReconnectPolicy};
 use layerx_client::lni::handshake::HandshakeConfig;
 use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::{Limits, MutualTlsConfig};
+use layerx_client::lni::transport::Limits;
 use layerx_client::Client;
 use layerx_human_service::audit::{AuditChain, AuditEvent, Decision};
 use layerx_human_service::custody::{
     CustodySigner, KeyId, Keystore, Operation, RemoteKmsProvider, SigningLimits,
 };
+use layerx_human_service::frame::{Limits as FrameLimits, MutualTlsConfig};
 use layerx_human_service::journeys::{
     AgentBoundary, JourneyEngine, JourneyKind, JourneyLeg, JourneyPhase, JourneyPlan, JourneyState,
 };
@@ -91,6 +92,15 @@ fn id(value: &str) -> [u8; 32] {
 }
 fn limits() -> Limits {
     Limits {
+        maximum_frame_bytes: 1_212_416,
+        maximum_connections: 1,
+        maximum_streams: 1,
+        maximum_queued_bytes: 1_212_416,
+        deadline: Duration::from_secs(8),
+    }
+}
+fn frame_limits() -> FrameLimits {
+    FrameLimits {
         maximum_frame_bytes: 1_212_416,
         maximum_connections: 1,
         maximum_streams: 1,
@@ -169,7 +179,7 @@ fn custody(fixture: &Value, registry: &layerx_types::payload::ModuleRegistry) ->
         checked(text(fixture, "kms_endpoint").parse()),
         text(fixture, "kms_server_name"),
         tls,
-        limits(),
+        frame_limits(),
     ));
     let keys = checked(Keystore::open_production(
         text(fixture, "custody_store"),
