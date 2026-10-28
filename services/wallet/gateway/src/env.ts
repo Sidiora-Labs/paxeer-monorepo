@@ -4,6 +4,20 @@ import { compileOrigin } from './cors.js';
 
 export { compileOrigin };
 
+export const WALLET_AUTHORIZATION_DELEGATES = z
+  .string()
+  .default('')
+  .transform((s) =>
+    s
+      .split(',')
+      .map((address) => address.trim().toLowerCase())
+      .filter(Boolean)
+  )
+  .refine(
+    (addresses) => addresses.every((address) => /^0x[0-9a-f]{40}$/.test(address)),
+    'WALLET_AUTHORIZATION_DELEGATES must be a comma-separated list of 0x addresses'
+  );
+
 /**
  * Parse LAYERX_TRUSTED_PROXIES: a comma-separated list of proxy addresses or
  * CIDR ranges whose X-Forwarded-For hops are trusted. The client address is
@@ -179,6 +193,7 @@ export const EnvSchema = z
 
     WALLET_CUSTODY_INVENTORY_FILE: z.string().min(1).optional(),
     WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE: z.string().min(1).optional(),
+    WALLET_AUTHORIZATION_DELEGATES,
     ATTESTOR_ENDPOINTS: z
       .string()
       .optional()
