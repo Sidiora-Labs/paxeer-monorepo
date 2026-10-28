@@ -158354,7 +158354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.10]
 title = "Prove 0x101D calls in one block give the same result under parallel and sequential execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.24.1", "13.25.1", "13.32.2", "18.1073.1"]
