@@ -17,7 +17,6 @@ use layerx_agent_api::subscription::{
 };
 use layerx_agent_api::track::ReceiptRef;
 use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
 use layerx_agentd::events::subscription::Store as SubscriptionStore;
 use layerx_agentd::events::{
     backfill, deliver, ingest, CoreEvent, DeliveryEngine, DeliveryItem, EventAttributes,
@@ -281,7 +280,7 @@ fn delivered_events(root: &std::path::Path) -> Vec<EventDelivery> {
                     canonical_bytes: bytes,
                     receipt_reference: receipt,
                     receipt_verification_level: if receipt.is_some() {
-                        VerificationLevel::SEQUENCER_SIGNED
+                        VerificationLevel::BATCH_INCLUDED
                     } else {
                         VerificationLevel::UNVERIFIED
                     },
@@ -301,7 +300,11 @@ fn delivered_events(root: &std::path::Path) -> Vec<EventDelivery> {
             SubscriptionCreate {
                 scope: subscription_scope(),
                 filter: filter(),
-                start: ApiCursor(Sequence(0)),
+                start: ApiCursor {
+                    block_height: 0,
+                    tx_index: 0,
+                    log_index: 0,
+                },
                 delivery_target: text(DeliveryTarget::new("uds://human-feed"), "delivery target"),
             },
         ),
@@ -498,7 +501,7 @@ fn real_agent_receipts_restart_and_snapshot_cursors_drive_one_unified_feed() {
         ActivityStatus::Deposit(DepositStage::Done)
     );
     assert_eq!(completed.receipts().len(), 1);
-    assert_eq!(completed.receipts()[0].level(), Level::SequencerSigned);
+    assert_eq!(completed.receipts()[0].level(), Level::BatchIncluded);
 
     drop(scope);
     drop(store);
@@ -658,10 +661,14 @@ fn completion_is_unrepresentable_without_verified_receipt_evidence() {
         EventDelivery::new(
             EventIdentity::new([0x41; 32]),
             vec![1, 2, 3],
-            ApiCursor(Sequence(1)),
+            ApiCursor {
+                block_height: 1,
+                tx_index: 0,
+                log_index: 0,
+            },
             ReceiptReference::Verified {
                 receipt_ref: text(ReceiptRef::new("receipt-unverified"), "receipt ref"),
-                verification_level: Level::Unverified,
+                rung: Level::Unverified.rung().expect("source rung"),
             },
         ),
         "event delivery",
