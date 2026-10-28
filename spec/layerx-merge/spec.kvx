@@ -143305,7 +143305,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.4.3]
 title = "Move the evidence and native-journey integration tests off the LNI client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.0.1", "10.4.1", "10.13.3", "9.1.8", "18.1119.1"]
@@ -185083,7 +185083,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1164.1]
 title = "Issue #1164: Issue #1164: committed-fixture recorder omits the execution header's commit that the SDK committed verifier requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
