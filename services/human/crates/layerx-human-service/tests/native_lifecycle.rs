@@ -4,9 +4,10 @@ use ed25519_dalek::SigningKey;
 use layerx_human_service::agents::{AgentFailure, ProtocolEvidence};
 use layerx_human_service::server::agent_creation::ProductionAgentCreation;
 use layerx_intents::canonical;
-use layerx_proof::receipt::{verify_sequencer_signature, AuthorizedBatch};
+use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
+use sha2::{Digest as _, Sha256};
 
 fn checked<T, E: Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("original native lifecycle evidence: {error:?}"))
@@ -48,14 +49,10 @@ fn evidence() -> ProtocolEvidence {
             "../../../../../tests/fixtures/authority/native-sessions/authentication/grant.activity-id"
         ),
         receipt_bytes: receipt.to_vec(),
-        authorized_batch: AuthorizedBatch::new(
-            protocol.batch_id(),
-            protocol.asset(),
-            protocol.previous_state_root(),
-            protocol.resulting_state_root(),
-            sequencer,
-        ),
-        verification_level: VerificationLevel::SEQUENCER_SIGNED,
+        tx_hash: protocol.activity_id(),
+        receipt_hash: Sha256::digest(receipt).into(),
+        block_height: u64::from_be_bytes(protocol.batch_id()[24..].try_into().expect("block height")),
+        rung: Rung::Receipted,
     }
 }
 
@@ -67,10 +64,9 @@ fn native_lifecycle_binds_distinct_action_and_activity_without_inventing_finalit
     let original = checked(evidence.bound_activity(kind));
     assert_eq!(original.idempotency_key(), evidence.action_key);
     let verified = checked(evidence.verify_outcome(kind));
-    assert_eq!(verified.level(), VerificationLevel::SEQUENCER_SIGNED);
+    assert_eq!(evidence.rung, Rung::Receipted);
     assert_eq!(
         verified
-            .receipt()
             .protocol()
             .unwrap_or_else(|| panic!("missing protocol"))
             .operation(),
