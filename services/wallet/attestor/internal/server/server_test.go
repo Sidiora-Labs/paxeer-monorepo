@@ -580,7 +580,7 @@ func (h *snapshotHarness) expect(t *testing.T, c *testCluster, operation string,
 	}
 }
 
-func importSnapshotKey(t *testing.T, c *testCluster, holders []string, keyID, account string) ed25519.PublicKey {
+func importSnapshotKey(t *testing.T, c *testCluster, authority *nativeInventoryAuthority, holders []string, keyID, account string) ed25519.PublicKey {
 	t.Helper()
 	edSeed := sha256.Sum256([]byte("attestor snapshot ed25519 key " + keyID))
 	edPub := ed25519.NewKeyFromSeed(edSeed[:]).Public().(ed25519.PublicKey)
@@ -592,12 +592,23 @@ func importSnapshotKey(t *testing.T, c *testCluster, holders []string, keyID, ac
 	if err != nil {
 		t.Fatal(err)
 	}
+	if authority != nil {
+		authority.keys = append(authority.keys, InventoryKey{
+			KeyID: keyID, Curve: "ed25519", PublicKey: hex.EncodeToString(edPub), Owner: testOwner,
+			Operations: []string{"import", "refresh", "sign"},
+		})
+		authority.publish(t)
+	}
 	byNode := map[string]ShareBundleJSON{}
 	for _, b := range bundles {
 		byNode[b.ParticipantID] = EncodeBundle(b)
 	}
 	decodeOK[KeyResponse](t, "import", c.callAll(t, c.byID(holders...), PathImport, func(n *testNode) any {
-		return ImportRequest{SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, Account: account, Share: byNode[n.id]}
+		return ImportRequest{
+			CeremonyID: "metrics-ceremony", SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner,
+			PublicKey: hex.EncodeToString(edPub), Participants: holders, Threshold: dealer.Threshold,
+			Account: account, Share: byNode[n.id],
+		}
 	}, ""))
 	return edPub
 }
@@ -607,19 +618,27 @@ func TestSnapshotFollowsEveryKeyChangeAndRestoresToSign(t *testing.T) {
 	c := newTestClusterWith(t, 5, true, testPolicy(), h.tune(t))
 	h.expect(t, c, "start", map[string]int{}, "")
 
+	inventorySeed := sha256.Sum256([]byte("attestor snapshot inventory bootstrap"))
+	authority := nativeInventory(t, c, "gen-key", ed25519.NewKeyFromSeed(inventorySeed[:]).Public().(ed25519.PublicKey))
+	authority.keys[0].PublicKey = ""
+	authority.keys[0].Operations = []string{"generate"}
+	authority.publish(t)
 	genAccount := common.HexToAddress("0x4444444444444444444444444444444444444444").Hex()
-	decodeOK[KeyResponse](t, "generate", c.callAll(t, c.nodes, PathGenerate, func(*testNode) any {
+	generated := decodeOK[KeyResponse](t, "generate", c.callAll(t, c.nodes, PathGenerate, func(*testNode) any {
 		return GenerateRequest{SessionID: "generate-snap", KeyID: "gen-key", Curve: "ed25519", Owner: testOwner, Account: genAccount}
 	}, ""))
 	h.expect(t, c, "keys.generate", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "gen-key")
 
+	authority.keys[0].PublicKey = generated[0].PublicKey
+	authority.keys[0].Operations = []string{"refresh"}
+	authority.publish(t)
 	decodeOK[KeyResponse](t, "refresh", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
 		return RefreshRequest{SessionID: "refresh-snap", KeyID: "gen-key", CeremonyID: "metrics-ceremony", ExistingKey: true, ExpectedEpoch: new(uint64)}
 	}, ""))
 	h.expect(t, c, "keys.refresh", map[string]int{"node-1": 2, "node-2": 2, "node-3": 2, "node-4": 2, "node-5": 2}, "gen-key")
 
 	account := common.HexToAddress("0x5555555555555555555555555555555555555555").Hex()
-	edPub := importSnapshotKey(t, c, c.ids, "snap-key", account)
+	edPub := importSnapshotKey(t, c, authority, c.ids, "snap-key", account)
 	h.expect(t, c, "keys.import", map[string]int{"node-1": 3, "node-2": 3, "node-3": 3, "node-4": 3, "node-5": 3}, "snap-key")
 
 	for _, id := range c.ids {
@@ -692,7 +711,7 @@ func TestSnapshotFollowsAddShare(t *testing.T) {
 	c := newTestClusterWith(t, 6, true, testPolicy(), h.tune(t))
 	holders := c.ids[:5]
 	account := common.HexToAddress("0x6666666666666666666666666666666666666666").Hex()
-	edPub := importSnapshotKey(t, c, holders, "share-key", account)
+	edPub := importSnapshotKey(t, c, nil, holders, "share-key", account)
 	h.expect(t, c, "keys.import", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "share-key")
 
 	quorum := []string{"node-1", "node-2", "node-3"}
