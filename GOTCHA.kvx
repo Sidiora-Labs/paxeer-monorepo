@@ -10386,3 +10386,7 @@ detail = "cargo build --tests (and cargo test --no-run) compiles every test file
 title = "verify_receipted only verifies receipted-rung views"
 detail = "layerx-committed-proof's verify_receipted hardcodes rung receipted and no block fields in its expected view (src/lib.rs:210-223) and compares exactly (:376); a pax_sequencerReceipt view recorded after commitment (rung committed, blockNumber, blockHash) is refused with ReceiptViewMismatch. Use verify_committed (task 18.1176.1) with the verified header hash for such views."
 
+[gotcha.2128]
+title = "schema-check names only the first missing compatibility minor"
+detail = "check_compatibility (services/human/tools/schema-check/src/lib.rs:2398) emits one compatibility-row-missing violation for the first missing minor and a separate unrecorded-schema-version violation for the schema's own minor (:2409-2414); a test expecting one violation per missing minor contradicts task 10.16.3 and fails (18.987.1 attempts 1-5)."
+

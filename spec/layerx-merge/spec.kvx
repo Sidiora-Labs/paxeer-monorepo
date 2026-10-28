@@ -173340,7 +173340,7 @@ reqs = ["18987.1", "18987.2"]
 capabilities = []
 interfaces = []
 do_1 = "missing_compatibility_row_for_a_minor_is_rejected (services/human/tools/schema-check/tests/compatibility_rows.rs:77) asserts minor = 9 at :83 while services/human/schema/human-api/v1.kvx:4 declares minor = 10, so it fails before exercising missing-row validation."
-do_2 = "Replace the literal minor = 9 assertion with the minor parsed from the fixture copy of v1.kvx and, for the truncation at [compatibility.row.9] (compatibility_rows.rs:86), expect one compatibility-row-missing violation for each schema version 1.8 through 1.<minor> the truncated matrix lacks, keeping the single 1.8 violation expected after row 10 onward is restored (:104-113)."
+do_2 = "Replace the literal minor = 9 assertion (services/human/tools/schema-check/tests/compatibility_rows.rs:80-83) with the minor parsed from the fixture copy of v1.kvx ([schema] minor). After truncating the matrix at [compatibility.row.9] (:86), keep expecting exactly one compatibility-row-missing violation at the fixture's compatibility.kvx with detail `no matrix row records schema version 1.8` (:90-99), because check_compatibility names only the first missing minor (src/lib.rs:2398, task 10.16.3 do_1, landed f3c9b3e10), and additionally assert exactly one unrecorded-schema-version violation at the same path with detail `no matrix row records schema version 1.<minor>` built from the parsed minor (src/lib.rs:2409-2414). Keep the single 1.8 violation expected after row 10 onward is restored. Change no checker source."
 do_3 = "In real_schema_declares_operation_retired_error_code (services/human/tools/schema-check/tests/merged_schema_retired.rs:114) replace report.retired_variants.len() == 1 at :118 with an exact assertion that the report keys are ErrorCode, EvidenceClass, JourneyKind and VerificationLevel, keeping the ErrorCode entry assertion at :117."
 do_4 = "The tests are missing_compatibility_row_for_a_minor_is_rejected in tests/compatibility_rows.rs and real_schema_declares_operation_retired_error_code in tests/merged_schema_retired.rs, both passing against the checked-in minor-10 schema."
 symbols = ["missing_compatibility_row_for_a_minor_is_rejected", "real_schema_declares_operation_retired_error_code"]
@@ -173363,13 +173363,13 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [req.18987]
 title = "Schema-check regression tests validate the integrated human schema"
-ac_1 = "missing_compatibility_row_for_a_minor_is_rejected (services/human/tools/schema-check/tests/compatibility_rows.rs:77) derives the current minor from v1.kvx and reports one compatibility-row-missing violation per removed schema version."
+ac_1 = "missing_compatibility_row_for_a_minor_is_rejected (services/human/tools/schema-check/tests/compatibility_rows.rs:77) derives the current minor from v1.kvx and, for the truncated matrix, expects exactly one compatibility-row-missing violation naming 1.8 plus one unrecorded-schema-version violation naming 1.<minor>, as the checker of task 10.16.3 reports them."
 ac_2 = "real_schema_declares_operation_retired_error_code (services/human/tools/schema-check/tests/merged_schema_retired.rs:114) asserts the ErrorCode retired variants and that the retired-variants report keys are exactly ErrorCode, EvidenceClass, JourneyKind and VerificationLevel."
 
 [acceptance.18.987.1]
 feature = "18"
 req = "18987.1"
-scenario = "Given the checked-in minor-10 schema copied to a fixture, when the matrix is truncated at [compatibility.row.9], then schema-check reports a compatibility-row-missing violation for each of 1.8, 1.9 and 1.10, and restoring row 10 onward leaves only the 1.8 violation"
+scenario = "Given the checked-in minor-10 schema copied to a fixture, when the matrix is truncated at [compatibility.row.9], then schema-check reports exactly one compatibility-row-missing violation naming 1.8 and one unrecorded-schema-version violation naming 1.10, and restoring row 10 onward leaves only the 1.8 violation"
 contract = "contracts/services.md#human-service"
 test = "services/human/tools/schema-check/tests/compatibility_rows.rs::missing_compatibility_row_for_a_minor_is_rejected"
 qualification = "UNRUN"
