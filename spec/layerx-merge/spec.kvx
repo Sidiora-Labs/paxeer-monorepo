@@ -147271,7 +147271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.4.2]
 title = "Report the committed rung from the x402 facilitator only with a committed proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.4.1", "11.2.5"]
@@ -147334,7 +147334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.5.2]
 title = "Accept a committed rung at the x402 buyer only with a verifying proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.5.1", "11.2.5"]
@@ -185487,7 +185487,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1173.2]
 title = "Issue #1173: Take a market's latest price only from an accepted observation in the explorer feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185517,7 +185517,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1174.1]
 title = "Issue #1174: Stage the optional gateway UI bindings file for uid 4020 before the entrypoint drops privileges"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
