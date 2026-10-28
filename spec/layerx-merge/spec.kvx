@@ -176876,7 +176876,7 @@ qualification = "UNRUN"
 
 [task.18.837.1]
 title = "Issue #837: Advertise the explorer price_feed capability only for a live, scanned feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
