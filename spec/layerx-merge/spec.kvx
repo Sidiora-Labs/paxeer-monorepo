@@ -184037,7 +184037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.731.1]
 title = "Issue #731: Keep EVM transactions on the home page when price-feed submissions fill every block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
