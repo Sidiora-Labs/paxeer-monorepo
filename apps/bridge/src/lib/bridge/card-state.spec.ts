@@ -49,7 +49,7 @@ function cardInputs(): CardStateInputs {
   };
 }
 
-function cardStateIsNotReadyWhileABlockerExists() {
+function cardStateIsNotReadyWhileABlockerExists(): void {
   const inputs = cardInputs();
   expect(cardState(inputs)).toMatchObject({ inputError: undefined, blockers: [], ready: true });
   const blockedRoutes: Array<Partial<CardStateInputs>> = [
@@ -117,7 +117,7 @@ function cardStateIsNotReadyWhileABlockerExists() {
   expect(cardState({ ...inputs, paxeerState: { ...inputs.paxeerState, maxInFlight: 1n } }).ready).toBe(false);
 }
 
-function cardStateMaxAmountReservesNativeGas() {
+function cardStateMaxAmountReservesNativeGas(): void {
   const inputs = cardInputs();
   const balance = 1234567890123456789012n;
   const gasReserve = 1000000000000000n;

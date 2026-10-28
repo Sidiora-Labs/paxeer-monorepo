@@ -12,7 +12,7 @@ import getQueryParamString from 'lib/router/getQueryParamString';
 import useSocketBuffer from 'lib/socket/useSocketBuffer';
 import useSocketMessage from 'lib/socket/useSocketMessage';
 import PaxeerXFeedMarketUpdatesTable from 'ui/paxeerX/feed/PaxeerXFeedMarketUpdatesTable';
-import useFeedSocket from 'ui/paxeerX/feed/useFeedSocket';
+import useFeedSocket, { FEED_HISTORY_BUFFER_LIMIT } from 'ui/paxeerX/feed/useFeedSocket';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
@@ -20,7 +20,7 @@ import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import { ScanTableCard } from 'ui/shared/scan';
 
 // Newest first, the order the endpoint pages in.
-const byNewest = (a: MarketUpdate, b: MarketUpdate) => b.block_number - a.block_number || b.sequence - a.sequence;
+const byNewest = (a: MarketUpdate, b: MarketUpdate) => b.block_number - a.block_number || b.index - a.index;
 
 const PaxeerXFeedMarket = () => {
   const router = useRouter();
@@ -43,7 +43,7 @@ const PaxeerXFeedMarket = () => {
   });
 
   // ponytail: the first page keeps its length, so rows pushed off it by live updates are reached again only
-  // after a reload; the market history keyset has no update index in the socket item to move next_page_params.
+  // after a reload; next_page_params still points to the original page boundary.
   const handleFlush = React.useCallback((updates: Array<MarketUpdate>) => {
     queryClient.setQueryData(getResourceKey('general:paxeer_x_feed_market_updates', { pathParams: { id } }), (prevData: MarketUpdatesResponse | undefined) => {
       if (!prevData) {
@@ -65,7 +65,7 @@ const PaxeerXFeedMarket = () => {
     });
   }, [ id, queryClient ]);
 
-  const { push, hoverProps } = useSocketBuffer<MarketUpdate>({ onFlush: handleFlush });
+  const { push, hoverProps } = useSocketBuffer<MarketUpdate>({ onFlush: handleFlush, limit: FEED_HISTORY_BUFFER_LIMIT });
 
   const handleNewUpdate: SocketMessage.PaxeerXFeedMarketNewUpdate['handler'] = React.useCallback((payload) => {
     push(payload);

@@ -81,5 +81,14 @@
     "tslib": "^2.8.1",
     "tsx": "^4.19.2",
     "typescript": "5.5.2"
-  }
+  },
+  "overrides": {
+    "@types/minimatch": "5.1.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/minimatch": "5.1.2"
+    }
+  },
+  "packageManager": "pnpm@10.34.9"
 }

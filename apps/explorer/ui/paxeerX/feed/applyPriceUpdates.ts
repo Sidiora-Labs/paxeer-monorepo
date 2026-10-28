@@ -23,10 +23,11 @@ export default function applyPriceUpdates(prevData: FeedMarketsResponse, updates
 
       const isNewer = !latest ||
         update.block_number > latest.block_number ||
-        (update.block_number === latest.block_number && observation.sequence > latest.sequence);
+        (update.block_number === latest.block_number && update.index > latest.index);
 
       if (isNewer) {
         latest = {
+          index: update.index,
           index_price: observation.index_price,
           mark_price: observation.mark_price,
           source_timestamp_ms: observation.source_timestamp_ms,

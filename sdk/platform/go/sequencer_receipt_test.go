@@ -128,6 +128,78 @@ func TestSequencerReceiptV1CasesVerifyReceipted(t *testing.T) {
 	}
 }
 
+func TestSequencerReceiptRefusesForeignSigningKey(t *testing.T) {
+	count := 0
+	for _, c := range sequencerReceiptCases(t) {
+		if c.Vector != "V1" {
+			continue
+		}
+		count++
+		t.Run(c.ID, func(t *testing.T) {
+			keys := sequencerFixtureKeys(t, c)
+			raw := sequencerFixtureBytes(t, c.RawTransaction)
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(c.ReceiptJSON, &fields); err != nil {
+				t.Fatal(err)
+			}
+			var signingKey string
+			if err := json.Unmarshal(fields["signingKey"], &signingKey); err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(sequencerFixtureBytes(t, signingKey), keys.Pins[0].PublicKey[:]) {
+				t.Fatal("fixture signing key differs from pinned key")
+			}
+			verified, err := VerifySequencerReceipt(c.ReceiptJSON, raw, keys)
+			if err != nil || verified.Rung != "receipted" || verified.Level != c.Expected.Rung {
+				t.Fatalf("fixture signing key: result %+v, error %v", verified, err)
+			}
+			foreignKey := keys.Pins[0].PublicKey
+			foreignKey[0] ^= 1
+			for _, mutation := range []struct {
+				name, value string
+			}{
+				{"foreign", "0x" + hex.EncodeToString(foreignKey[:])},
+				{"malformed", "0x" + strings.Repeat("gg", 32)},
+				{"short", "0x" + hex.EncodeToString(keys.Pins[0].PublicKey[:31])},
+				{"long", signingKey + "00"},
+				{"empty", ""},
+			} {
+				t.Run(mutation.name, func(t *testing.T) {
+					value, err := json.Marshal(mutation.value)
+					if err != nil {
+						t.Fatal(err)
+					}
+					fields["signingKey"] = value
+					data, err := json.Marshal(fields)
+					if err != nil {
+						t.Fatal(err)
+					}
+					verified, err := VerifySequencerReceipt(data, raw, keys)
+					var refusal *VerificationError
+					if !errors.As(err, &refusal) || !errors.Is(err, ErrVerification) || refusal.Check != ReceiptCheckKeyID {
+						t.Fatalf("want refusal %s, got %v (%+v)", ReceiptCheckKeyID, err, refusal)
+					}
+					if verified.Rung != "" || len(verified.CanonicalBytes) != 0 {
+						t.Fatal("refusal returned a verified receipt")
+					}
+				})
+			}
+			delete(fields, "signingKey")
+			data, err := json.Marshal(fields)
+			if err != nil {
+				t.Fatal(err)
+			}
+			verified, err = VerifySequencerReceipt(data, raw, keys)
+			if err != nil || verified.Rung != "receipted" || verified.Level != c.Expected.Rung {
+				t.Fatalf("absent signing key: result %+v, error %v", verified, err)
+			}
+		})
+	}
+	if count != 4 {
+		t.Fatalf("executed %d V1 cases, expected 4", count)
+	}
+}
+
 func TestSequencerReceiptV2RevertDecodesReason(t *testing.T) {
 	count := 0
 	for _, c := range sequencerReceiptCases(t) {

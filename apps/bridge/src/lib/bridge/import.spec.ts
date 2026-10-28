@@ -31,7 +31,7 @@ const transfer: BridgeTransfer = {
   submittedAt: 0,
 };
 
-function receiptLog(address: Address, topics: ReturnType<typeof encodeEventTopics>, data: Hex, logIndex: number): Log {
+function receiptLog(address: Address, topics: ReturnType<typeof encodeEventTopics>, data: Hex, logIndex: number): Log<bigint, number, false> {
   const [ signature, ...indexed ] = topics;
   return {
     address,
@@ -55,7 +55,7 @@ function depositLog(logIndex: number, overrides: {
   sender?: Address;
   recipient?: Address;
   amount?: bigint;
-} = {}): Log {
+} = {}): Log<bigint, number, false> {
   return receiptLog(
     overrides.address ?? vault,
     encodeEventTopics({
@@ -72,7 +72,7 @@ function depositLog(logIndex: number, overrides: {
   );
 }
 
-function bridgeOutLog(address: Address, nonce: bigint): Log {
+function bridgeOutLog(address: Address, nonce: bigint): Log<bigint, number, false> {
   return receiptLog(
     address,
     encodeEventTopics({
@@ -85,7 +85,7 @@ function bridgeOutLog(address: Address, nonce: bigint): Log {
   );
 }
 
-function matchDepositLogRequiresTheAssetAndRecipient() {
+function matchDepositLogRequiresTheAssetAndRecipient(): void {
   const wrongAsset = depositLog(0, { asset: other });
   const wrongRecipient = depositLog(1, { recipient: other });
   const wrongVault = depositLog(2, { address: other });
@@ -105,14 +105,14 @@ function matchDepositLogRequiresTheAssetAndRecipient() {
   expect(matchDepositLog({ ...transfer, vault: undefined }, [ matching ])).toBeUndefined();
 }
 
-function nonceFromBridgeOutLogsReadsTheNonce() {
+function nonceFromBridgeOutLogsReadsTheNonce(): void {
   const log = bridgeOutLog(LAYERX_BRIDGE_ADDRESS, BigInt(9));
   expect(nonceFromBridgeOutLogs([ log ])).toBe(BigInt(9));
   expect(nonceFromBridgeOutLogs([])).toBeUndefined();
   expect(nonceFromBridgeOutLogs([ depositLog(0, { address: LAYERX_BRIDGE_ADDRESS }), log ])).toBe(BigInt(9));
 }
 
-function nonceFromBridgeOutLogsIgnoresAnotherAddress() {
+function nonceFromBridgeOutLogsIgnoresAnotherAddress(): void {
   const impostor = bridgeOutLog(other, BigInt(5));
   expect(nonceFromBridgeOutLogs([ impostor ])).toBeUndefined();
   expect(nonceFromBridgeOutLogs([ impostor, bridgeOutLog(LAYERX_BRIDGE_ADDRESS, BigInt(9)) ])).toBe(BigInt(9));
@@ -161,8 +161,8 @@ const importChain: BridgeChain = {
   } ],
 };
 
-function importDepositBuildsARecordFromTheVaultLog() {
-  const vaultLog: Log = {
+function importDepositBuildsARecordFromTheVaultLog(): void {
+  const vaultLog: Log<bigint, number, false> = {
     address: getAddress(vault),
     topics: [
       '0x19a8713a4594d98824323571a687838aa76b4d730cfedde1785ee8bb92195190',
@@ -208,7 +208,7 @@ function importDepositBuildsARecordFromTheVaultLog() {
   expect(matchDepositLog(record, receipt.logs)?.args.paxeerRecipient).toBe(paxeerRecipient(recipient).toLowerCase());
 }
 
-function importDepositRefusesAReceiptWithoutAVaultLog() {
+function importDepositRefusesAReceiptWithoutAVaultLog(): void {
   const impostorReceipt: TransactionReceipt = {
     ...sourceReceipt,
     logs: [ depositLog(7, { address: other }), bridgeOutLog(vault, 9n) ],
@@ -222,10 +222,10 @@ function importDepositRefusesAReceiptWithoutAVaultLog() {
   })).toThrow('reverted');
 }
 
-function importWithdrawalReadsTheBridgeOutLog() {
+function importWithdrawalReadsTheBridgeOutLog(): void {
   const base = bridgeChainByKey('base');
   if (!base) throw new Error('The Base bridge route must be registered.');
-  const validLog: Log = {
+  const validLog: Log<bigint, number, false> = {
     address: LAYERX_BRIDGE_ADDRESS,
     topics: [
       '0x3e990eb54009dcdca53d8fa87307210f07097f37dcf6185dee71a42f8e7d524e',

@@ -11,7 +11,7 @@ const account: Address = '0x1111111111111111111111111111111111111111';
 const vault: Address = '0x2222222222222222222222222222222222222222';
 const recipient: Address = '0xAbCdEf0123456789aBcDeF0123456789aBCdEf01';
 
-function depositRecordCarriesTheVaultAndFinalityDepth() {
+function depositRecordCarriesTheVaultAndFinalityDepth(): void {
   const foreign = BRIDGE_CHAINS.find((chain) => chain.key === 'base')!;
   const asset = foreign.assets[0];
   const amount = 1234567890123456789n;
@@ -45,7 +45,7 @@ function depositRecordCarriesTheVaultAndFinalityDepth() {
   }
 }
 
-function withdrawalRecordKeepsTheTypedDestination() {
+function withdrawalRecordKeepsTheTypedDestination(): void {
   for (const key of [ 'base', 'solana' ]) {
     const foreign = { ...BRIDGE_CHAINS.find((chain) => chain.key === key)!, vault };
     const asset = foreign.assets[0];
