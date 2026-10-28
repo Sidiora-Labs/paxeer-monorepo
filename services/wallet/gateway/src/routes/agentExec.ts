@@ -84,6 +84,10 @@ export function custodyRefusal(error: unknown): ExecResult | null {
     return { status: 503, body: { error: 'nonce_unresolved', nonce: error.nonce, unreachable: error.unreachable, members: error.memberCount } };
   }
   if (error instanceof NonceConflictError) {
+    if (error.consumed) {
+      return { status: 409, body: { error: 'nonce_consumed', retry: 'prepare', nonce: error.nonce,
+        member: error.member, members: error.members } };
+    }
     return { status: 409, body: { error: 'nonce_conflict', detail: error.message, retry: 'prepare', member: error.member, members: error.members } };
   }
   if (error instanceof BroadcastOutcomeUnknownError) {
