@@ -181641,7 +181641,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.742.1]
 title = "Issue #742: Apply the per-token cap to raw ERC-20 transfer calldata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181827,7 +181827,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.758.1]
 title = "Issue #758: Turn a non-JSON gateway answer into a typed gateway error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182009,7 +182009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.851.1]
 title = "Issue #851: Read the web launchpad market page at one block with bounded, per-pool settled reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182133,7 +182133,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.885.1]
 title = "Issue #885: Stop the wallet caps view from rereading grant history in a loop after a grant expires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182411,7 +182411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.936.1]
 title = "Issue #936: Require a fresh SID quote for a sponsored resend once the earlier sponsored send has settled in the wallet app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182442,7 +182442,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.951.1]
 title = "Issue #951: Prove the attestor refuses an unlisted delegate end to end and in every set-code authorization tuple"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182471,7 +182471,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1038.1]
 title = "Issue #1038: Make the prehashed tamper cases reach the transaction-leaf hashing of the committed rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182752,7 +182752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1050.1]
 title = "Issue #1050: Resolve the ESM EVM genesis module's params import under Node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182782,7 +182782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1051.1]
 title = "Issue #1051: Drop the retired CheckTxType enum and its JSON helpers from the shipped CJS and ESM builds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183025,7 +183025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1091.1]
 title = "Issue #1091: Give the search-front fixture a receipt key id the x-websearch loader accepts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
