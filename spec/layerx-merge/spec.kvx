@@ -105728,7 +105728,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.4]
 title = "End-to-end: GraphQL markets equal the chain market config and tiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["3.42.9", "3.54.1", "5.98.2"]
@@ -172341,7 +172341,7 @@ qualification = "UNRUN"
 
 [task.18.778.1]
 title = "Issue #778: Record the reviewed golangci-lint checksum so paxeer-lint and paxeer-ci can install their linter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172577,7 +172577,7 @@ qualification = "UNRUN"
 
 [task.18.890.1]
 title = "Issue #890: Point the payments and porting guides at the in-tree LXT-20 sources and pay5 fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172876,7 +172876,7 @@ qualification = "UNRUN"
 
 [task.18.779.1]
 title = "Issue #779: Publish the paxd images for pushes that change only chain source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1054.1"]
@@ -173389,7 +173389,7 @@ qualification = "UNRUN"
 
 [task.18.687.1]
 title = "Issue #687: Resubscribe a perps GraphQL stream after the gateway ends it with a recoverable loss error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1052.1"]
@@ -173474,7 +173474,7 @@ qualification = "UNRUN"
 
 [task.18.800.1]
 title = "Issue #800: Refuse wallet agent-precompile calls until the configured chain serves code at the address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174648,7 +174648,7 @@ qualification = "UNRUN"
 
 [task.18.832.1]
 title = "Issue #832: Drop the stale perps-keeper inventory row and read feeder bin targets from cargo metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1056.1"]
@@ -175100,7 +175100,7 @@ qualification = "UNRUN"
 
 [task.18.803.1]
 title = "Issue #803: Gate every known asset-moving selector by the agent withdrawal allowlist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175324,7 +175324,7 @@ qualification = "UNRUN"
 
 [task.18.947.1]
 title = "Issue #947: Refuse an unlisted EIP-7702 delegate at sign-digest before signing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175494,7 +175494,7 @@ qualification = "UNRUN"
 
 [task.18.768.1]
 title = "Issue #768: Return unclaimed airdrop epoch funds to the pool after a claim window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176192,7 +176192,7 @@ qualification = "UNRUN"
 
 [task.18.805.1]
 title = "Issue #805: Classify a nonce-too-low broadcast from every member's transaction count"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177353,7 +177353,7 @@ qualification = "UNRUN"
 
 [task.18.789.1]
 title = "Issue #789: Validate the launchpad deadline and document every wallet environment variable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1053.1"]
@@ -177831,7 +177831,7 @@ qualification = "UNRUN"
 
 [task.18.808.1]
 title = "Issue #808: Answer an unknown owner fund or sweep broadcast with the poll-receipt outcome"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178055,7 +178055,7 @@ qualification = "UNRUN"
 
 [task.18.939.1]
 title = "Issue #939: Document the perpetuals precompile ABI served at 0x1015 and retire the layerxexchange section"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178184,7 +178184,7 @@ qualification = "UNRUN"
 
 [task.18.1035.1]
 title = "Issue #1035: Build the shared-vector payment gate from the migrated receipt-key fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178418,7 +178418,7 @@ qualification = "UNRUN"
 
 [task.18.809.1]
 title = "Issue #809: Reserve a client-chosen nonce on /v1/wallet/send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
