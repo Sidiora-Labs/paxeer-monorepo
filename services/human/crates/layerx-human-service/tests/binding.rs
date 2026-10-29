@@ -658,11 +658,13 @@ fn initial_binding_requires_real_signature_and_verified_matching_receipt() {
     ));
 
     let accepted_receipt = binding_receipt(submission, address, 4);
+    let receipt_hash: [u8; 32] = Sha256::digest(&accepted_receipt.canonical_receipt).into();
     let active = required(
         journey.finalize(&mut scope, &accepted_receipt, 104, &TraceId::mint([2; 16])),
         "finalize binding",
     );
     assert_eq!(active.address(), address.bytes());
+    assert_eq!(active.receipt_digest(), receipt_hash);
     agent.mark_executed(submission, accepted_receipt);
     assert!(agent
         .outbox

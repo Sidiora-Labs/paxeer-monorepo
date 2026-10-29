@@ -95,6 +95,10 @@ fn journey_leg_receipt_material_carries_rung_and_receipt_hash() {
         let verified =
             verify_sequencer_signature(&canonical_bytes, ReceiptKeys::HeightRanges(&pins))
                 .expect("receipt signature against independently pinned key");
+        assert_eq!(
+            layerx_intents::canonical::receipt_bytes(&verified).expect("canonical receipt"),
+            canonical_bytes
+        );
         let protocol = verified.protocol().expect("protocol receipt");
         let tx_hash: [u8; 32] = Keccak256::digest(hex(case, "rawTransaction")).into();
         assert_eq!(tx_hash, hash(case, "receiptJson.txHash"));

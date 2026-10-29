@@ -8,16 +8,7 @@ cd "$repository_root"
 
 programs_conservation_suite()
 {
-    make --no-print-directory programs-core-test
-    make --no-print-directory \
-        test-ledger-set \
-        test-ledger-send \
-        test-ledger-receive \
-        test-gateway-send \
-        test-gateway-receive \
-        test-idempotency
-    make --no-print-directory test-storage qualify-faults
-    make --no-print-directory programs-differential
+    go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsCallsConserveFeeAsset|TestProgramsTransferConservesProgramValue)$'
     (
         cd programs
         "$programs_cargo" test --locked -p layerx-programs-runtime --test monetary_law

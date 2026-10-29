@@ -370,6 +370,23 @@ impl Seller {
         if let (Some(purpose), Some(terms)) = (purpose, layerx.as_object_mut()) {
             terms.insert("purposeHash".to_owned(), Value::String(purpose));
         }
+        if let (
+            SettlementRung::Committed {
+                block_number,
+                block_hash,
+            },
+            Some(terms),
+        ) = (evidence.rung, layerx.as_object_mut())
+        {
+            terms.insert(
+                "blockNumber".to_owned(),
+                Value::String(format!("0x{block_number:x}")),
+            );
+            terms.insert(
+                "blockHash".to_owned(),
+                Value::String(prefixed_hex(&block_hash)),
+            );
+        }
         let mut extensions = BTreeMap::new();
         extensions.insert("layerx".to_owned(), layerx);
         let response = SettlementResponse {

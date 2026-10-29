@@ -696,7 +696,9 @@ defmodule BlockScoutWeb.Notifier do
         FeedView.prepare_update(update, symbols, block_height)
       )
 
-      Enum.each(update.observations, fn observation ->
+      update.observations
+      |> Enum.filter(fn observation -> update.status == 1 and observation.accepted end)
+      |> Enum.each(fn observation ->
         Endpoint.broadcast(
           "paxeer_x_feed:market:#{observation.market_id}",
           "new_update",

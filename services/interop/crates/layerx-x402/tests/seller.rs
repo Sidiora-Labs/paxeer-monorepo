@@ -766,6 +766,14 @@ fn settlement_executed_with_logs(
     from: [u8; 32],
     logs: Vec<SequencerLog>,
 ) -> layerx_x402::seller::ExecutedPayment {
+    settlement_executed_with_rung(from, logs, SettlementRung::Receipted)
+}
+
+fn settlement_executed_with_rung(
+    from: [u8; 32],
+    logs: Vec<SequencerLog>,
+    rung: SettlementRung,
+) -> layerx_x402::seller::ExecutedPayment {
     use ed25519_dalek::{Signer as _, SigningKey};
     let key = SigningKey::from_bytes(&SETTLEMENT_SEQUENCER_SEED);
     let unsigned = settlement_receipt(from, &logs, None);
@@ -776,7 +784,7 @@ fn settlement_executed_with_logs(
             transaction_hash: [0x61; 32],
             signed_receipt: settlement_receipt(from, &logs, Some(key.sign(&digest).to_bytes())),
             logs,
-            rung: SettlementRung::Receipted,
+            rung,
         },
     }
 }
@@ -1090,6 +1098,55 @@ fn a_grant_settlement_repeats_the_challenge_purpose_hash_byte_for_byte() {
         response.extensions["layerx"]["purposeHash"],
         SETTLEMENT_PURPOSE
     );
+}
+
+#[test]
+fn a_committed_exact_settlement_round_trips_to_the_buyer() {
+    let payload = json!({"receipt": "AA==", "idempotencyKey": "74".repeat(32)});
+    let executed = settlement_executed_with_rung(
+        [0x6a; 32],
+        vec![settlement_log([0x6a; 32], [0x74; 32])],
+        SettlementRung::Committed {
+            block_number: 9,
+            block_hash: [0xab; 32],
+        },
+    );
+    let outcome = settle_executed(
+        test_requirements(),
+        payload.clone(),
+        executed,
+        settlement_keys(),
+    )
+    .unwrap_or_else(|error| panic!("committed exact settlement: {error:?}"));
+    let (bytes, _) = settled_header(outcome);
+    let response: SettlementResponse = serde_json::from_slice(&bytes)
+        .unwrap_or_else(|error| panic!("settlement response: {error}"));
+    let layerx = &response.extensions["layerx"];
+    assert_eq!(layerx["verificationLevel"], "committed");
+    assert_eq!(layerx["blockNumber"], "0x9");
+    assert_eq!(layerx["blockHash"], format!("0x{}", "ab".repeat(32)));
+
+    let header = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    let built = layerx_x402::buyer::BuiltPayment {
+        header: String::new(),
+        payload: PaymentPayload {
+            x402_version: X402_VERSION,
+            resource: Some(test_payment_required().resource),
+            accepted: test_requirements(),
+            payload,
+            extensions: BTreeMap::new(),
+        },
+        idempotency_key: [0x74; 32],
+    };
+    let captured = layerx_x402::Buyer::capture_settlement(
+        &header,
+        &built,
+        &settlement_keys(),
+        &TraceId::mint([0xab; 16]),
+    )
+    .unwrap_or_else(|error| panic!("buyer captures committed settlement: {error:?}"));
+    assert_eq!(captured.rung, "committed");
+    assert_eq!(captured.transaction_hash, [0x61; 32]);
 }
 
 #[test]
