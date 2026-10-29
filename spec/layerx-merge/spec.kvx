@@ -188066,7 +188066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1219.1]
 title = "Issue #1219: Give the failed price submission in the live-topic test the observation shape the decoder produces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188215,7 +188215,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1225.1]
 title = "Issue #1225: Build the api_stream and account fixtures from the tracked migrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
