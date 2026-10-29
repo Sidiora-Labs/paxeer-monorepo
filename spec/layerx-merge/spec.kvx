@@ -116597,7 +116597,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.47.3]
 title = "Print the receipted rung only after the receipt signature verifies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.47.2", "5.0.3", "9.0.2"]
@@ -135647,7 +135647,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.42.4]
 title = "JVM SDK agent operation envelope at major 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["8.42.1", "9.0.2"]
@@ -135896,7 +135896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.43.4]
 title = ".NET SDK agent operation envelope at major 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["8.43.1", "9.0.2"]
@@ -136519,7 +136519,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.4]
 title = "JVM generated schema routes program operations to 0x101D and prepares EIP-1559 transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["8.45.1", "9.0.2"]
@@ -139444,7 +139444,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.11.3]
 title = "Answer subscription operations with block-position cursors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["9.11.2", "9.0.2", "9.1.8", "18.1131.1"]
@@ -140305,7 +140305,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.20.1]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["9.2.3", "9.3.1", "9.3.2", "9.1.8", "18.1131.1"]
