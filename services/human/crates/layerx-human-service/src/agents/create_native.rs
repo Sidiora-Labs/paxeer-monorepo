@@ -1,5 +1,5 @@
 use super::*;
-use layerx_crypto::onboarding::{OnboardingConsent, SponsoredRegistration};
+use layerx_crypto::onboarding::OnboardingConsent;
 use layerx_intents::{LxpSend, NativeBudgetCreate};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -49,13 +49,6 @@ pub trait NativeAgentCreationContract: ScopedAgentCreationContract {
         scope: &mut PrincipalScope<'_>,
         request: &NativeIdentityRevisionRequest,
     ) -> Result<u64, AgentFailure>;
-    /// # Errors
-    /// Refuses an invalid target consent, sponsor or durable registration outcome.
-    fn onboard_scoped(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        request: NativeOnboardingRequest,
-    ) -> Result<ProtocolEvidence, AgentFailure>;
     /// # Errors
     /// Refuses an unproven source account, custody authorization or transfer outcome.
     fn fund_scoped(
@@ -195,7 +188,9 @@ impl CreationJourney {
                 continue;
             }
             let result = match stage {
-                CreationStage::DidRegistration => self.native_onboard(scope, registry, agent, now),
+                CreationStage::DidRegistration => {
+                    Err(AgentFailure::Refused("native onboarding operation is retired").into())
+                }
                 CreationStage::MainFunding | CreationStage::InitialFunding => {
                     self.native_fund(scope, registry, agent, stage, now)
                 }
@@ -250,59 +245,6 @@ impl CreationJourney {
             .and_then(|name| name.strip_suffix(":main"))
             .ok_or(AgentCreationError::InvalidContext)?;
         Did::new(did.as_bytes()).map_err(|_| AgentCreationError::InvalidContext)
-    }
-
-    fn native_onboard<C: NativeAgentCreationContract>(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        registry: &ModuleRegistry,
-        agent: &mut C,
-        now: u64,
-    ) -> Result<(), AgentCreationError> {
-        let stage = CreationStage::DidRegistration;
-        let consent = OnboardingConsent {
-            sponsor: layerx_intents::canonical::did_id_for_protocol(&self.sponsor()?, 3)
-                .map_err(|_| AgentCreationError::InvalidContext)?,
-            target: self.did()?,
-            target_public_key: self
-                .record
-                .public_key
-                .ok_or(AgentCreationError::CustodyRequired)?,
-            native_asset: self.native_mode()?.native_asset,
-            action_key: self.stage(stage).action_key,
-            expires_at: self
-                .record
-                .started_at
-                .checked_add(self.native_mode()?.timestamp_span)
-                .and_then(|value| value.checked_mul(1_000))
-                .ok_or(AgentCreationError::InvalidContext)?,
-        };
-        let evidence = agent.onboard_scoped(
-            scope,
-            NativeOnboardingRequest {
-                consent: consent.clone(),
-                network_id: self.record.network_id,
-                started_at: self.record.started_at,
-                custody_key: KeyId::new(format!("agent-{}", short_hex(&self.record.agent_id)))?,
-            },
-        )?;
-        let kind = ActivityType::new(layerx_types::payload::ModuleId::Governance, 1)
-            .map_err(|_| AgentCreationError::InvalidStage)?;
-        let activity = evidence.bound_activity(kind)?;
-        let registration = SponsoredRegistration::decode(activity.payload())
-            .map_err(|_| AgentCreationError::EvidenceConflict)?;
-        if registration.consent != consent
-            || registration.validate_outer(&activity).is_err()
-            || activity.actor_did() != self.sponsor()?.as_bytes()
-        {
-            return Err(AgentCreationError::EvidenceConflict);
-        }
-        let intent = Intent::v3(IntentKind::NativeOnboarding(registration));
-        let compiled = compile(&intent, registry)?;
-        if activity.payload() != compiled.payload().as_bytes() {
-            return Err(AgentCreationError::EvidenceConflict);
-        }
-        self.accept_native(scope, stage, kind, &evidence, now)
     }
 
     fn native_fund<C: NativeAgentCreationContract>(
