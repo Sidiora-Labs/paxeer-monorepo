@@ -629,6 +629,10 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 			handler := rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(runtime.Handler()))
 			router.Handle("/v2/discovery/*", handler)
 			router.Handle("/v2/discovery/notifications", handler)
+			router.Handle("/v2/squads", handler)
+			router.Handle("/v2/squads/*", handler)
+			router.Handle("/v2/me/notifications", handler)
+			router.Handle("/v2/me/notifications/*", handler)
 			checks["discovery_notifications"] = runtime.Ready
 			return nil
 		}
@@ -640,6 +644,10 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 	notificationsHTTP := notifications.HTTP{Store: ns, Discovery: ds, Authenticate: authenticate}
 	router.Handle("/v2/discovery/notifications", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
 	router.Handle("/v2/discovery/notifications/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
+	router.Handle("/v2/me/notifications", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
+	router.Handle("/v2/me/notifications/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
+	router.Handle("/v2/squads", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(discoveryHTTP.Handler())))
+	router.Handle("/v2/squads/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(discoveryHTTP.Handler())))
 	router.Handle("/v2/discovery/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/v2/discovery/feed") || r.URL.Path == "/v2/discovery/leaderboards" || strings.HasPrefix(r.URL.Path, "/v2/discovery/callouts") {
 			// The discovery runtime is not configured in this deployment.

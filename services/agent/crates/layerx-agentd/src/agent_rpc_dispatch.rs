@@ -348,16 +348,16 @@ fn hexv(bytes: &[u8]) -> Value {
     Value::String(lower_hex(bytes))
 }
 
-fn level(value: u8) -> Option<Rung> {
+fn rung(value: u8) -> Option<Rung> {
     Some(match value {
-        0 | 1 => Rung::Submitted,
-        2 | 3 => Rung::Receipted,
-        4 => Rung::Committed,
+        0 => Rung::Submitted,
+        1 => Rung::Receipted,
+        2 => Rung::Committed,
         _ => return None,
     })
 }
 
-pub(crate) fn level_name(value: Rung) -> &'static str {
+pub(crate) fn rung_name(value: Rung) -> &'static str {
     value.name()
 }
 
@@ -367,11 +367,11 @@ fn state_name(value: u8) -> Option<&'static str> {
         1 => "Signed",
         2 => "Queued",
         3 => "Submitted",
-        4 => "Acknowledged",
         5 => "Unknown",
         6 => "Executed",
         7 => "Failed",
         8 => "Expired",
+        9 => "Committed",
         _ => return None,
     })
 }
@@ -389,7 +389,7 @@ fn decode_account_state(
     account_id: [u8; 32],
 ) -> Option<(Value, Option<Rung>)> {
     let observed = reader.fixed::<32>()?;
-    let achieved = level(reader.u8()?)?;
+    let achieved = rung(reader.u8()?)?;
     let value = reader.bytes()?;
     let proof = reader.bytes()?;
     let sequence = reader.u64()?;
@@ -412,7 +412,7 @@ fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let observed_at = reader.text()?;
     out.insert("age_seconds".into(), dec(reader.u64()?));
     out.insert("amount".into(), dec(reader.u128()?));
-    let achieved = level(reader.u8()?)?;
+    let achieved = rung(reader.u8()?)?;
     out.insert("global_sequence".into(), dec(reader.u64()?));
     out.insert("batch_number".into(), dec(reader.u64()?));
     out.insert("observed_head_sequence".into(), dec(reader.u64()?));
@@ -434,22 +434,24 @@ fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     Some((Value::Object(out), Some(achieved)))
 }
 
-fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+pub(crate) fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
-    out.insert("submission_ref".into(), Value::String(reader.text()?));
+    let tx_hash = reader.fixed::<32>()?;
+    out.insert("tx_hash".into(), hexv(&tx_hash));
+    out.insert("submission_ref".into(), hexv(&tx_hash));
     let state = reader.u8()?;
     out.insert("state".into(), Value::String(state_name(state)?.into()));
     match state {
-        6 => {
-            out.insert("receipt_ref".into(), Value::String(reader.text()?));
+        6 | 9 => {
+            out.insert("receipt_ref".into(), hexv(&reader.fixed::<32>()?));
         }
         7 => {
             out.insert("result_code".into(), dec(reader.i32()?));
         }
         _ => {}
     }
-    let achieved = level(reader.u8()?)?;
-    out.insert("rung".into(), Value::String(level_name(achieved).into()));
+    let achieved = rung(reader.u8()?)?;
+    out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     let evidence_count = usize::from(reader.u8()?);
     if evidence_count > MAX_EVIDENCE {
         return None;
@@ -490,7 +492,10 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
         return None;
     }
     let (submission, achieved) = decode_tracked(reader)?;
-    let executed = submission.get("state") == Some(&Value::String("Executed".into()));
+    let executed = matches!(
+        submission.get("state").and_then(Value::as_str),
+        Some("Executed" | "Committed")
+    );
     let receipt = match reader.u8()? {
         0 => None,
         1 => Some(decode_receipt(reader)?.0),
@@ -508,7 +513,10 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
 
 fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
-    out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
+    let canonical = reader.bytes()?;
+    let receipt = layerx_wire::receipt::decode(canonical).ok()?;
+    out.insert("tx_hash".into(), hexv(&receipt.protocol()?.activity_id()));
+    out.insert("canonical_bytes".into(), hexv(canonical));
     let mut batch = Map::new();
     for name in [
         "batch_id",
@@ -522,9 +530,9 @@ fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     out.insert("authorised_batch".into(), Value::Object(batch));
     let achieved = match reader.u8()? {
         0 => return None,
-        value => level(value)?,
+        value => rung(value)?,
     };
-    out.insert("rung".into(), Value::String(level_name(achieved).into()));
+    out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     Some((Value::Object(out), Some(achieved)))
 }
 
@@ -672,10 +680,24 @@ pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<
     };
     let mut out = Map::new();
     out.insert("status".into(), Value::String(status.into()));
+    out.insert("outcome".into(), Value::String(status.into()));
     out.insert(
         "submission_ref".into(),
         if effective == 0 {
             submission_ref.map_or(Value::Null, |reference| hexv(&reference))
+        } else {
+            Value::Null
+        },
+    );
+    let tx_hash = if effective == 0 { submission_ref } else { None };
+    out.insert(
+        "tx_hash".into(),
+        tx_hash.map_or(Value::Null, |hash| hexv(&hash)),
+    );
+    out.insert(
+        "rung".into(),
+        if tx_hash.is_some() {
+            Value::String(Rung::Submitted.name().into())
         } else {
             Value::Null
         },
@@ -1318,10 +1340,11 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
         Operation::Track => {
             let request: TrackRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
+            submission_key(&request.submission_ref, id)?;
             dispatched(
                 id,
                 owner.track(peer, &request.submission_ref),
-                decode_observation,
+                decode_tracked,
             )
         }
         Operation::ApprovalList => {
@@ -1411,7 +1434,7 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
                 let response = shared
                     .lock()
                     .and_then(|mut guard| guard.rpc_submit_external(context, envelope));
-                dispatched(id, response, decode_eip1559_submission)
+                dispatched(id, response, decode_submitted)
             }
         }
         Operation::FaucetClaim => Err(rejection(
@@ -1558,4 +1581,62 @@ fn canonical_decimals_and_hex_are_exact() {
     assert!(hex32(&"AB".repeat(32), id).is_err());
     assert!(hex32(&"ab".repeat(31), id).is_err());
     assert_eq!(lower_hex(&[0x0f, 0xa0]), "0fa0");
+}
+
+pub fn submission_key(text: &str, id: RequestId) -> Result<[u8; 32], Rejection> {
+    hex32(text, id)
+        .map_err(|_| rejection(ErrorClass::ProtocolIncompatibility, id, "invalid_request"))
+}
+
+pub(crate) fn decode_submitted(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let (observation, rung) = decode_observation(reader)?;
+    Some((observation.get("submission")?.clone(), rung))
+}
+
+pub fn decode_write_answer(
+    id: RequestId,
+    response: HumanResponse,
+) -> Result<(Value, Rung), Rejection> {
+    let answer = dispatched(id, Ok(response), decode_tracked)?;
+    let Some(VerificationStatus::Achieved(rung)) = answer.verification else {
+        return Err(malformed(id));
+    };
+    Ok((answer.value, rung))
+}
+
+pub fn track_write_answer(
+    id: RequestId,
+    outbox: &crate::outbox::Outbox,
+    reference: &str,
+) -> Result<(Value, Rung), Rejection> {
+    let hash = submission_key(reference, id)?;
+    let status = outbox.status(hash).ok_or_else(|| malformed(id))?;
+    let response = crate::human_runtime::write_submission(status, None)
+        .map_err(|error| owner_error(id, error))?;
+    decode_write_answer(id, response)
+}
+
+pub fn wait_write_answer(
+    submission: Value,
+    result: crate::finality::WaitResult,
+    id: RequestId,
+) -> Result<(Value, VerificationStatus), Rejection> {
+    if submission.get("rung").and_then(Value::as_str) != Some(result.reached.name()) {
+        return Err(malformed(id));
+    }
+    let verification = if result.reached < result.requested {
+        VerificationStatus::Below {
+            requested: result.requested,
+            achieved: result.reached,
+            reason: layerx_agent_api::error::ReasonCode::new("deadline_elapsed")
+                .map_err(|_| malformed(id))?,
+        }
+    } else {
+        VerificationStatus::Achieved(result.reached)
+    };
+    Ok((
+        serde_json::json!({"submission": submission, "actual_rung": result.reached.name(),
+        "deadline_elapsed": result.deadline_elapsed}),
+        verification,
+    ))
 }

@@ -697,7 +697,7 @@ defmodule BlockScoutWeb.Notifier do
       )
 
       update.observations
-      |> Enum.filter(&(update.status == 1 and &1.accepted))
+      |> Enum.filter(fn observation -> update.status == 1 and observation.accepted end)
       |> Enum.each(fn observation ->
         Endpoint.broadcast(
           "paxeer_x_feed:market:#{observation.market_id}",

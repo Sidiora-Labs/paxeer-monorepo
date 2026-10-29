@@ -10537,3 +10537,15 @@ area = "launchpad tests"
 symptom = "A launchpad Postgres test reads handoffs/L35/schema.sql or integration/migrations and fails before any assertion."
 cause = "Those paths were never committed to any ref; the tracked schema is each service's embedded goose migration set."
 do = "Apply services/launchpad/<service>/migrations through the service's migrate package under <SERVICE>_TEST_DATABASE_URL (decision.1817); task gates stay network-free."
+
+[gotcha.2156]
+area = "x402 recordings"
+symptom = "Replaying a seller recording in a buyer crate fails on every paid exchange although the payload port is complete."
+cause = "The seller moved from LAYERX-PAYER-DID to LAYERX-PAYER-ADDRESS and recorded on eip155:125; the buyer still sent the DID header over the test chain id 1337."
+do = "Read the payer header name and the chain reference from the recording and configure the buyer with them; never edit the recording (decision.1820)."
+
+[gotcha.2157]
+area = "agent daemon tests"
+symptom = "A gate test panics 'owned real sequencer fixture required' and the task can never qualify."
+cause = "The test took its evidence from a PAXEER_X_*_FIXTURE environment variable that only a release environment provides."
+do = "Serve the sequencer answers from a loopback TcpListener and sign receipts in-process (tests/node_rpc.rs pattern); keep the real-fixture variant as a release gate not named in verify_cmd (decisions 1806, 1821)."
