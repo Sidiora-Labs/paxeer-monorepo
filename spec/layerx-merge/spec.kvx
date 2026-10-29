@@ -108759,7 +108759,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.23.6]
 title = "Track the launchpad account and api stream schema as embedded goose migrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["4.23.1", "4.23.2", "4.24.1"]
