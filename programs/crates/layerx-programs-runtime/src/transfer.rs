@@ -1671,6 +1671,7 @@ pub enum TransferLawError {
     InvariantViolation,
     CapabilityEscalation,
     KernelRefused,
+    Kernel(i32),
     ReceiptInvalid,
     ReceiptMismatch,
     StaleStorage,
@@ -1694,6 +1695,9 @@ impl Display for TransferLawError {
                 formatter.write_str("child transfer exceeds narrowed call authority")
             }
             Self::KernelRefused => formatter.write_str("kernel transfer primitive refused the set"),
+            Self::Kernel(code) => {
+                write!(formatter, "kernel transfer refused with result code {code}")
+            }
             Self::ReceiptInvalid => formatter.write_str("standard settlement receipt is invalid"),
             Self::ReceiptMismatch => formatter.write_str("receipt does not bind the transfer set"),
             Self::StaleStorage => formatter.write_str("prepared storage snapshot is stale"),
@@ -2526,7 +2530,8 @@ mod tests {
     }
 
     #[test]
-    fn program_authority_refuses_callee_frame_and_ungranted_authority_and_keeps_program_spend_grants() {
+    fn program_authority_refuses_callee_frame_and_ungranted_authority_and_keeps_program_spend_grants(
+    ) {
         let owner = program_id(1);
         let principal = principal_id(2);
         let seed = b"pool";
@@ -2640,7 +2645,10 @@ mod tests {
         );
 
         let truncated = &set.canonical()[..set.canonical().len() - 1];
-        assert_eq!(AtomicTransferSet::canonical_decode(truncated), Err(TransferLawError::InvalidTransferSet));
+        assert_eq!(
+            AtomicTransferSet::canonical_decode(truncated),
+            Err(TransferLawError::InvalidTransferSet)
+        );
     }
 
     #[test]
@@ -2719,99 +2727,104 @@ mod tests {
     }
     #[test]
     fn real_guest_mixed_effects_seal_exact_dual_authority_kernel_set() {
-        use crate::test_support::{code_section, func_body, function_section, import_section, module, type_section, unsigned_leb, OP_CALL, OP_END, OP_I32_CONST, TYPE_I32, TYPE_I64};
-        use crate::{AuthorizedExecutionRequest, CompositionContext, Executor, Storage, WasmEngine, ABI_MODULE, CALL_ENTRY_EXPORT};
         use crate::abi::response::CANDIDATE_ABI_MODULE;
         use crate::abi::UnavailableReceiptOracle as NoReceipts;
-    
-    fn section(id: u8, payload: &[u8]) -> Vec<u8> {
-        let mut encoded = vec![id];
-        encoded.extend(unsigned_leb(payload.len() as u64));
-        encoded.extend_from_slice(payload);
-        encoded
-    }
-    
-    fn data_section(entries: &[(u32, &[u8])]) -> Vec<u8> {
-        let mut payload = unsigned_leb(entries.len() as u64);
-        for (offset, bytes) in entries {
-            payload.extend([0, OP_I32_CONST]);
-            payload.extend(unsigned_leb(u64::from(*offset)));
-            payload.push(OP_END);
-            payload.extend(unsigned_leb(bytes.len() as u64));
-            payload.extend_from_slice(bytes);
+        use crate::test_support::{
+            code_section, func_body, function_section, import_section, module, type_section,
+            unsigned_leb, OP_CALL, OP_END, OP_I32_CONST, TYPE_I32, TYPE_I64,
+        };
+        use crate::{
+            AuthorizedExecutionRequest, CompositionContext, Executor, Storage, WasmEngine,
+            ABI_MODULE, CALL_ENTRY_EXPORT,
+        };
+
+        fn section(id: u8, payload: &[u8]) -> Vec<u8> {
+            let mut encoded = vec![id];
+            encoded.extend(unsigned_leb(payload.len() as u64));
+            encoded.extend_from_slice(payload);
+            encoded
         }
-        section(11, &payload)
-    }
-    
-    fn candidate_mixed_transfer_module(
-        seed: &[u8],
-        source: [u8; 32],
-        asset: [u8; 32],
-        recipient: [u8; 32],
-    ) -> Vec<u8> {
-        const SOURCE_OFFSET: u32 = 128;
-        const ASSET_OFFSET: u32 = 160;
-        const RECIPIENT_OFFSET: u32 = 192;
-        let mut entries = unsigned_leb(3);
-        for (name, kind, index) in [
-            ("layerx_reserve", 0_u8, 2_u8),
-            (CALL_ENTRY_EXPORT, 0, 3),
-            ("memory", 2, 0),
-        ] {
-            entries.extend(unsigned_leb(name.len() as u64));
-            entries.extend_from_slice(name.as_bytes());
-            entries.extend_from_slice(&[kind, index]);
+
+        fn data_section(entries: &[(u32, &[u8])]) -> Vec<u8> {
+            let mut payload = unsigned_leb(entries.len() as u64);
+            for (offset, bytes) in entries {
+                payload.extend([0, OP_I32_CONST]);
+                payload.extend(unsigned_leb(u64::from(*offset)));
+                payload.push(OP_END);
+                payload.extend(unsigned_leb(bytes.len() as u64));
+                payload.extend_from_slice(bytes);
+            }
+            section(11, &payload)
         }
-        let mut entry = vec![0x42, 0, 0x42, 3];
-        for value in [ASSET_OFFSET, 32, RECIPIENT_OFFSET, 32] {
-            entry.push(OP_I32_CONST);
-            entry.extend(unsigned_leb(u64::from(value)));
+
+        fn candidate_mixed_transfer_module(
+            seed: &[u8],
+            source: [u8; 32],
+            asset: [u8; 32],
+            recipient: [u8; 32],
+        ) -> Vec<u8> {
+            const SOURCE_OFFSET: u32 = 128;
+            const ASSET_OFFSET: u32 = 160;
+            const RECIPIENT_OFFSET: u32 = 192;
+            let mut entries = unsigned_leb(3);
+            for (name, kind, index) in [
+                ("layerx_reserve", 0_u8, 2_u8),
+                (CALL_ENTRY_EXPORT, 0, 3),
+                ("memory", 2, 0),
+            ] {
+                entries.extend(unsigned_leb(name.len() as u64));
+                entries.extend_from_slice(name.as_bytes());
+                entries.extend_from_slice(&[kind, index]);
+            }
+            let mut entry = vec![0x42, 0, 0x42, 3];
+            for value in [ASSET_OFFSET, 32, RECIPIENT_OFFSET, 32] {
+                entry.push(OP_I32_CONST);
+                entry.extend(unsigned_leb(u64::from(value)));
+            }
+            entry.extend([OP_CALL, 0, 0x1a]);
+            entry.extend([0x42, 0, 0x42, 5, OP_I32_CONST, 0, OP_I32_CONST]);
+            entry.extend(unsigned_leb(seed.len() as u64));
+            for value in [SOURCE_OFFSET, 32, ASSET_OFFSET, 32, RECIPIENT_OFFSET, 32] {
+                entry.push(OP_I32_CONST);
+                entry.extend(unsigned_leb(u64::from(value)));
+            }
+            entry.extend([OP_CALL, 1, OP_END]);
+            module(&[
+                type_section(&[
+                    (
+                        &[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32],
+                        &[TYPE_I32],
+                    ),
+                    (
+                        &[
+                            TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
+                            TYPE_I32, TYPE_I32, TYPE_I32,
+                        ],
+                        &[TYPE_I32],
+                    ),
+                    (&[TYPE_I32], &[TYPE_I32]),
+                    (&[TYPE_I32, TYPE_I32], &[TYPE_I32]),
+                ]),
+                import_section(&[
+                    (ABI_MODULE, "transfer_402", 0),
+                    (CANDIDATE_ABI_MODULE, "transfer_program_402", 1),
+                ]),
+                function_section(&[2, 3]),
+                section(5, &[1, 1, 1, 1]),
+                section(7, &entries),
+                code_section(&[
+                    func_body(&[], &[OP_I32_CONST, 0, OP_END]),
+                    func_body(&[], &entry),
+                ]),
+                data_section(&[
+                    (0, seed),
+                    (SOURCE_OFFSET, &source),
+                    (ASSET_OFFSET, &asset),
+                    (RECIPIENT_OFFSET, &recipient),
+                ]),
+            ])
         }
-        entry.extend([OP_CALL, 0, 0x1a]);
-        entry.extend([0x42, 0, 0x42, 5, OP_I32_CONST, 0, OP_I32_CONST]);
-        entry.extend(unsigned_leb(seed.len() as u64));
-        for value in [SOURCE_OFFSET, 32, ASSET_OFFSET, 32, RECIPIENT_OFFSET, 32] {
-            entry.push(OP_I32_CONST);
-            entry.extend(unsigned_leb(u64::from(value)));
-        }
-        entry.extend([OP_CALL, 1, OP_END]);
-        module(&[
-            type_section(&[
-                (
-                    &[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32],
-                    &[TYPE_I32],
-                ),
-                (
-                    &[
-                        TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
-                        TYPE_I32, TYPE_I32,
-                    ],
-                    &[TYPE_I32],
-                ),
-                (&[TYPE_I32], &[TYPE_I32]),
-                (&[TYPE_I32, TYPE_I32], &[TYPE_I32]),
-            ]),
-            import_section(&[
-                (ABI_MODULE, "transfer_402", 0),
-                (CANDIDATE_ABI_MODULE, "transfer_program_402", 1),
-            ]),
-            function_section(&[2, 3]),
-            section(5, &[1, 1, 1, 1]),
-            section(7, &entries),
-            code_section(&[
-                func_body(&[], &[OP_I32_CONST, 0, OP_END]),
-                func_body(&[], &entry),
-            ]),
-            data_section(&[
-                (0, seed),
-                (SOURCE_OFFSET, &source),
-                (ASSET_OFFSET, &asset),
-                (RECIPIENT_OFFSET, &recipient),
-            ]),
-        ])
-    }
-    
-    
+
         let program = ProgramId::new([51; 32]).unwrap_or_else(|error| panic!("program: {error}"));
         let payer = PrincipalId::new([52; 32]).unwrap_or_else(|error| panic!("payer: {error}"));
         let seed = b"merchant/settlement";
@@ -2883,25 +2896,39 @@ mod tests {
         assert_eq!(authority.source_account(), source);
         assert_eq!(authority.staging_frame(), CallFrameId::root());
         let authorization = AuthorizationContext::new(payer, grants.clone());
-        let capability = TransferCapability::from_root_authorization(program, &authorization, [55; 32])
-            .unwrap_or_else(|error| panic!("authority: {error}"));
-        let set = capability.authorize_for_graph_with_version(effects, record.call_graph(), true)
+        let capability =
+            TransferCapability::from_root_authorization(program, &authorization, [55; 32])
+                .unwrap_or_else(|error| panic!("authority: {error}"));
+        let set = capability
+            .authorize_for_graph_with_version(effects, record.call_graph(), true)
             .unwrap_or_else(|error| panic!("seal: {error}"));
         assert_eq!(set.legs(), effects.transfers.as_slice());
         assert_eq!(set.total_amount(), 8);
         assert_ne!(set.kernel_root(), [0; 32]);
-        assert_eq!(AtomicTransferSet::canonical_decode(set.canonical()).as_ref(), Ok(&set));
-        assert_eq!(set.kernel_root(), canonical_kernel_root(set.kernel_canonical(), 2)
-            .unwrap_or_else(|error| panic!("kernel root: {error}")));
+        assert_eq!(
+            AtomicTransferSet::canonical_decode(set.canonical()).as_ref(),
+            Ok(&set)
+        );
+        assert_eq!(
+            set.kernel_root(),
+            canonical_kernel_root(set.kernel_canonical(), 2)
+                .unwrap_or_else(|error| panic!("kernel root: {error}"))
+        );
         let mut tampered = set.canonical().to_vec();
         tampered.push(0);
-        assert_eq!(AtomicTransferSet::canonical_decode(&tampered), Err(TransferLawError::InvalidTransferSet));
+        assert_eq!(
+            AtomicTransferSet::canonical_decode(&tampered),
+            Err(TransferLawError::InvalidTransferSet)
+        );
         let replay = execute();
         assert_eq!(record.receipt_projection(), replay.receipt_projection());
-        let replay_set = capability.authorize_for_graph_with_version(
-            replay.effects().unwrap_or_else(|| panic!("replay effects")), replay.call_graph(), true,
-        ).unwrap_or_else(|error| panic!("replay seal: {error}"));
+        let replay_set = capability
+            .authorize_for_graph_with_version(
+                replay.effects().unwrap_or_else(|| panic!("replay effects")),
+                replay.call_graph(),
+                true,
+            )
+            .unwrap_or_else(|error| panic!("replay seal: {error}"));
         assert_eq!(replay_set, set);
     }
-
 }
