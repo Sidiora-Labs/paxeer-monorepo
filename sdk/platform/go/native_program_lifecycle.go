@@ -20,6 +20,7 @@ type NativeProgramDeploy struct {
 }
 
 type NativeProgramUpgrade struct {
+	FeeLimit       Uint128
 	ProgramID      [32]byte
 	GuestABI       uint16
 	OldHash        [32]byte
@@ -247,10 +248,13 @@ func DecodeNativeProgramWindDown(payload []byte) (NativeProgramWindDown, error) 
 }
 
 type NativeProgramLifecycleRequest struct {
-	ordinal        uint16
-	payload        []byte
-	signedActivity []byte
-	binding        programCallBinding
+	From            [20]byte
+	TransactionHash [32]byte
+	FeeLimit        Uint128
+	ordinal         uint16
+	payload         []byte
+	signedActivity  []byte
+	binding         programCallBinding
 }
 
 func NewNativeProgramLifecycleRequest(ordinal uint16, payload, signedActivity []byte) (NativeProgramLifecycleRequest, error) {
@@ -268,11 +272,14 @@ func NewNativeProgramLifecycleRequest(ordinal uint16, payload, signedActivity []
 	if err != nil {
 		return NativeProgramLifecycleRequest{}, err
 	}
-	binding, err := bindNativeProgramActivity(ordinal, payload, signedActivity)
-	if err != nil {
-		return NativeProgramLifecycleRequest{}, err
+	var binding programCallBinding
+	if len(signedActivity) != 0 || ordinal == 7 {
+		binding, err = bindNativeProgramActivity(ordinal, payload, signedActivity)
+		if err != nil {
+			return NativeProgramLifecycleRequest{}, err
+		}
 	}
-	return NativeProgramLifecycleRequest{ordinal, append([]byte{}, payload...), append([]byte{}, signedActivity...), binding}, nil
+	return NativeProgramLifecycleRequest{ordinal: ordinal, payload: append([]byte{}, payload...), signedActivity: append([]byte{}, signedActivity...), binding: binding}, nil
 }
 
 func bindNativeProgramActivity(ordinal uint16, expected, signed []byte) (programCallBinding, error) {
@@ -328,20 +335,65 @@ func bindNativeProgramActivity(ordinal uint16, expected, signed []byte) (program
 	return programCallBinding{ActivityID: domainDigest([]byte("LXP/v1/activity-id\x00"), signed), IdempotencyKey: key, NotBefore: before, NotAfter: after}, nil
 }
 
-func (programs *Programs) Deploy(ctx context.Context, value NativeProgramDeploy, signed []byte, key IdempotencyKey) (VerifiedReceipt, error) {
+func (request NativeProgramLifecycleRequest) EVMCalldata() ([]byte, error) {
+	switch request.ordinal {
+	case 1:
+		value, err := DecodeNativeProgramDeploy(request.payload)
+		if err != nil {
+			return nil, err
+		}
+		head := [][]byte{value.ProgramID[:], programABIWord(uint64(value.GuestABI)), programABIWord(uint64(value.Policy)), value.Authority[:], value.NewHash[:], nil, nil}
+		return programABIDynamic("bde3ff66", head, []int{5, 6}, [][]byte{value.Interface, value.Wasm}), nil
+	case 2:
+		value, err := DecodeNativeProgramUpgrade(request.payload)
+		if err != nil {
+			return nil, err
+		}
+		flags := uint64(0)
+		if len(value.MigrationHook) != 0 {
+			flags |= 1
+		}
+		if value.ClearInterface {
+			flags |= 2
+		}
+		head := [][]byte{value.ProgramID[:], programABIWord(uint64(value.GuestABI)), programABIWord(flags), value.OldHash[:], value.NewHash[:], nil, nil, nil, programABIFee(request.FeeLimit)}
+		return programABIDynamic("a860929f", head, []int{5, 6, 7}, [][]byte{value.MigrationHook, value.Interface, value.Wasm}), nil
+	default:
+		return nil, lifecycleInvalid()
+	}
+}
+
+func (request NativeProgramLifecycleRequest) Transaction(ctx context.Context, programs *Programs) (ProgramTransaction, error) {
+	data, err := request.EVMCalldata()
+	if err != nil {
+		return ProgramTransaction{}, err
+	}
+	return programs.buildTransaction(ctx, request.From, data)
+}
+
+func (programs *Programs) Deploy(ctx context.Context, value NativeProgramDeploy, signed []byte, key IdempotencyKey) (ProgramSubmission, error) {
 	payload, err := EncodeNativeProgramDeploy(value)
 	if err != nil {
-		return VerifiedReceipt{}, err
+		return ProgramSubmission{}, err
 	}
 	return programs.lifecycle(ctx, 1, payload, signed, key)
 }
 
-func (programs *Programs) Upgrade(ctx context.Context, value NativeProgramUpgrade, signed []byte, key IdempotencyKey) (VerifiedReceipt, error) {
+func (programs *Programs) Upgrade(ctx context.Context, value NativeProgramUpgrade, signed []byte, key IdempotencyKey) (ProgramSubmission, error) {
 	payload, err := EncodeNativeProgramUpgrade(value)
 	if err != nil {
-		return VerifiedReceipt{}, err
+		return ProgramSubmission{}, err
 	}
-	return programs.lifecycle(ctx, 2, payload, signed, key)
+	request, err := NewNativeProgramLifecycleRequest(2, payload, signed)
+	if err != nil {
+		return ProgramSubmission{}, err
+	}
+	request.FeeLimit = value.FeeLimit
+	tx, err := request.Transaction(ctx, programs)
+	if err != nil {
+		return ProgramSubmission{}, err
+	}
+	return ProgramSubmission{State: ProgramSubmissionPrepared, Transaction: &tx, IdempotencyKey: key.String()}, nil
 }
 
 func (programs *Programs) WindDown(ctx context.Context, value NativeProgramWindDown, signed []byte, key IdempotencyKey) (VerifiedReceipt, error) {
@@ -349,24 +401,32 @@ func (programs *Programs) WindDown(ctx context.Context, value NativeProgramWindD
 	if err != nil {
 		return VerifiedReceipt{}, err
 	}
-	return programs.lifecycle(ctx, 7, payload, signed, key)
-}
-
-func (programs *Programs) lifecycle(ctx context.Context, ordinal uint16, payload, signed []byte, key IdempotencyKey) (VerifiedReceipt, error) {
-	request, err := NewNativeProgramLifecycleRequest(ordinal, payload, signed)
+	request, err := NewNativeProgramLifecycleRequest(7, payload, signed)
 	if err != nil {
 		return VerifiedReceipt{}, err
 	}
-	if programs.protocolVersion != 3 || !canonicalProgramKey(key) || key.String() != hex.EncodeToString(request.binding.IdempotencyKey[:]) {
+	binding, err := bindNativeProgramActivity(7, payload, signed)
+	if err != nil || programs.protocolVersion != 3 || !canonicalProgramKey(key) || key.String() != hex.EncodeToString(binding.IdempotencyKey[:]) {
 		return VerifiedReceipt{}, lifecycleInvalid()
 	}
-	operation := map[uint16]string{1: "program.deploy", 2: "program.upgrade", 7: "program.wind-down"}[ordinal]
 	var raw json.RawMessage
-	err = programs.client.Agent(ctx, AgentOperation(operation), map[string]string{"signed_activity": hex.EncodeToString(request.signedActivity), "payload": hex.EncodeToString(request.payload)}, &raw, CallOptions{IdempotencyKey: key})
+	err = programs.client.Agent(ctx, AgentOperation("program.wind-down"), map[string]string{"signed_activity": hex.EncodeToString(request.signedActivity), "payload": hex.EncodeToString(request.payload)}, &raw, CallOptions{IdempotencyKey: key})
 	if err != nil {
 		return VerifiedReceipt{}, err
 	}
-	return decodeLifecycleSubmission(raw, request.binding.ActivityID, programs.trustedSequencerPublicKey)
+	return decodeLifecycleSubmission(raw, binding.ActivityID, programs.trustedSequencerPublicKey)
+}
+
+func (programs *Programs) lifecycle(ctx context.Context, ordinal uint16, payload, signed []byte, key IdempotencyKey) (ProgramSubmission, error) {
+	request, err := NewNativeProgramLifecycleRequest(ordinal, payload, signed)
+	if err != nil {
+		return ProgramSubmission{}, err
+	}
+	tx, err := request.Transaction(ctx, programs)
+	if err != nil {
+		return ProgramSubmission{}, err
+	}
+	return ProgramSubmission{State: ProgramSubmissionPrepared, Transaction: &tx, IdempotencyKey: key.String()}, nil
 }
 
 func decodeLifecycleSubmission(raw json.RawMessage, activity, sequencer [32]byte) (VerifiedReceipt, error) {
@@ -400,24 +460,15 @@ func decodeLifecycleSubmission(raw json.RawMessage, activity, sequencer [32]byte
 }
 
 func (programs *Programs) LifecycleReceipt(ctx context.Context, request NativeProgramLifecycleRequest) (VerifiedReceipt, error) {
-	bound, err := NewNativeProgramLifecycleRequest(request.ordinal, request.payload, request.signedActivity)
-	if err != nil || programs.protocolVersion != 3 {
+	if request.TransactionHash == ([32]byte{}) {
 		return VerifiedReceipt{}, lifecycleInvalid()
 	}
-	key := hex.EncodeToString(bound.binding.IdempotencyKey[:])
-	activity := hex.EncodeToString(bound.binding.ActivityID[:])
-	raw, err := programs.raw(ctx, "program.receipt", false, map[string]string{"idempotency_key": key, "expected_activity_id": activity, "requested_verification_level": "sequencer-signed"}, CallOptions{PathParameters: map[string]string{"idempotency_key": key}})
+	submission, err := programs.Activity(ctx, request.TransactionHash)
 	if err != nil {
 		return VerifiedReceipt{}, err
 	}
-	var fields map[string]json.RawMessage
-	var actual, receipt string
-	if decodeStrict(raw, &fields) != nil || !exactFields(fields, "activity_id", "receipt") || json.Unmarshal(fields["activity_id"], &actual) != nil || actual != activity || json.Unmarshal(fields["receipt"], &receipt) != nil || len(receipt) > 2097152 || !canonicalLowerHex(receipt, len(receipt)/2) {
-		return VerifiedReceipt{}, newSDKError(ErrorVerificationFailure, RetryNever)
+	if submission.SequencerReceipt == nil {
+		return VerifiedReceipt{}, newSDKError(ErrorUnknownOutcome, RetryUnknownOutcome)
 	}
-	canonical, err := hex.DecodeString(receipt)
-	if err != nil {
-		return VerifiedReceipt{}, err
-	}
-	return VerifyProgramLifecycleReceipt(canonical, bound.binding.ActivityID, programs.trustedSequencerPublicKey)
+	return submission.SequencerReceipt.VerifiedReceipt, nil
 }
