@@ -15,6 +15,7 @@ import {
 } from '../src/rpc/pool.js';
 import { env } from '../src/env.js';
 import { custodyRefusal } from '../src/routes/agentExec.js';
+import { BROADCAST_GRACE_MS } from '../src/chain.js';
 
 interface Node {
   server: Server;
@@ -27,6 +28,7 @@ interface Node {
   sendError: { code: number; message: string } | null;
   receipt: SequencerReceiptResult | null;
   latestCount: number;
+  lookupFails: boolean;
 }
 
 const nodes: Node[] = [];
@@ -34,7 +36,7 @@ const nodes: Node[] = [];
 function startNode(): Promise<Node> {
   const node: Node = {
     server: null as unknown as Server, url: '', failing: false, head: 1000, calls: [], requests: [],
-    revertCalls: false, sendError: null, receipt: null, latestCount: 9,
+    revertCalls: false, sendError: null, receipt: null, latestCount: 9, lookupFails: false,
   };
   node.server = createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -57,11 +59,12 @@ function startNode(): Promise<Node> {
           return reply({ result: `0x${node.head.toString(16)}` });
         case 'eth_chainId':
           return reply({ result: '0x7d' });
+        case 'eth_getTransactionByHash':
+          if (node.lookupFails) return reply({ error: { code: -32000, message: 'transaction index unavailable' } });
+          return reply({ result: null });
         case 'eth_getTransactionCount':
           if (body.params[1] === 'pending') return reply({ error: { code: -32000, message: 'pending block is not available' } });
           return reply({ result: `0x${node.latestCount.toString(16)}` });
-        case 'eth_getTransactionByHash':
-          return reply({ result: null });
         case 'eth_call':
           if (node.revertCalls) return reply({ error: { code: 3, message: 'execution reverted', data: '0x' } });
           return reply({ result: '0x' });
@@ -125,6 +128,7 @@ beforeEach(() => {
     n.sendError = null;
     n.receipt = null;
     n.latestCount = 9;
+    n.lookupFails = false;
   }
 });
 
@@ -287,6 +291,36 @@ const nonceTooLowTests = {
 };
 
 for (const run of Object.values(nonceTooLowTests)) test(run, run);
+
+const lookupTests = {
+  async 'drops a member whose transaction lookups fail past the grace period while its health checks pass'(): Promise<void> {
+    const p = pool();
+    const hash: Hex = `0x${'42'.repeat(32)}`;
+    a.lookupFails = true;
+    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [0], members: 2 });
+    expect((await p.checkHealth()).map((ep) => ep.state)).toEqual(['healthy', 'healthy']);
+    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [0], members: 2 });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, BROADCAST_GRACE_MS + 1));
+    expect((await p.checkHealth()).map((ep) => ep.state)).toEqual(['healthy', 'healthy']);
+    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [], members: 2 });
+    expect(a.calls).toContain('eth_blockNumber');
+    expect(a.calls.filter((method) => method === 'eth_getTransactionByHash')).toHaveLength(3);
+
+    a.lookupFails = false;
+    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [], members: 2 });
+    a.lookupFails = true;
+    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [0], members: 2 });
+    b.lookupFails = true;
+    expect(await p.lookupTransaction(hash, null)).toEqual({ known: false, unreachable: [0, 1], members: 2 });
+  },
+};
+
+test(
+  lookupTests['drops a member whose transaction lookups fail past the grace period while its health checks pass'],
+  lookupTests['drops a member whose transaction lookups fail past the grace period while its health checks pass'],
+  BROADCAST_GRACE_MS + 10_000,
+);
 
 describe('RpcPool', () => {
   it('fails over from a failing endpoint and takes it back once it recovers', async () => {

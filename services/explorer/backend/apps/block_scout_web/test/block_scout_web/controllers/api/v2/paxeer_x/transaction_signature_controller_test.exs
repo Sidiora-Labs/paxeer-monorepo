@@ -46,7 +46,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
       hash = tx_hash(vector)
       answer = vector["receiptJson"]
       key = vector["pinnedKey"]
-      serve_rpc(hash, answer, [key])
+      serve_rpc(hash, answer, %{"keys" => [key]})
 
       response = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 200)
       assert {:ok, receipt} = vector["signedReceipt"] |> bytes() |> SequencerReceipt.decode()
@@ -63,6 +63,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
       assert {:ok, _body} = OpenApiSpex.cast_value(response, schema, spec)
       assert_received {:rpc_call, "pax_sequencerReceipt", [^hash]}
       assert_received {:rpc_call, "px_getReceiptKeys", []}
+      assert_received {:rpc_call, "eth_getTransactionReceipt", [^hash]}
       refute_received {:rpc_call, _method, _params}
     end
 
@@ -76,7 +77,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
         "blockHash" => hex(<<1::256>>)
       })
 
-    serve_rpc(hash, answer, [vector["pinnedKey"]])
+    serve_rpc(hash, answer, %{"keys" => [vector["pinnedKey"]]})
     response = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 200)
     assert response["rung"] == "receipted"
   end
@@ -107,15 +108,21 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
       hash = tx_hash(vector)
       assert {:ok, keys} = SequencerReceipt.decode_receipt_keys([key])
       assert SequencerReceipt.verify(hash, answer, keys, []) == {:error, step}
-      serve_rpc(hash, answer, [key])
+      serve_rpc(hash, answer, %{"keys" => [key]})
 
       assert %{"message" => "Not found"} = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 404)
       assert_received {:rpc_call, "pax_sequencerReceipt", [^hash]}
       assert_received {:rpc_call, "px_getReceiptKeys", []}
+      assert_received {:rpc_call, "eth_getTransactionReceipt", [^hash]}
       refute_received {:rpc_call, _method, _params}
     end
 
-    for {answer, keys} <- [{nil, []}, {vector["receiptJson"], []}, {vector["receiptJson"], [%{}]}] do
+    for {answer, keys} <- [
+          {nil, %{"keys" => []}},
+          {vector["receiptJson"], %{"keys" => []}},
+          {vector["receiptJson"], %{"keys" => [%{}]}},
+          {vector["receiptJson"], [vector["pinnedKey"]]}
+        ] do
       serve_rpc(hash, answer, keys)
       assert %{"message" => "Not found"} = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 404)
     end
@@ -146,7 +153,12 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
   defp serve_rpc(hash, answer, keys) do
     bypass = Bypass.open()
     test_pid = self()
-    results = %{"pax_sequencerReceipt" => {[hash], answer}, "px_getReceiptKeys" => {[], keys}}
+
+    results = %{
+      "pax_sequencerReceipt" => {[hash], answer},
+      "px_getReceiptKeys" => {[], keys},
+      "eth_getTransactionReceipt" => {[hash], nil}
+    }
 
     Bypass.expect(bypass, "POST", "/", fn conn ->
       {:ok, body, conn} = Conn.read_body(conn)

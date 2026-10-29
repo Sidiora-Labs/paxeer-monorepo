@@ -1,8 +1,9 @@
-//! Budget creation through the ordinary canonical write pipeline.
+//! Budget creation through layerxpay EIP-1559 calls and committed receipts.
 
-use layerx_crypto::disclosure::{self, DisclosedNativeOperation};
-use layerx_types::account::AccountId;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistry};
+use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+use layerx_client::sequencer::{ExecutedReceipt, SequencerEndpoint, SequencerReceipt};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+use layerx_types::payload::ModuleRegistry;
 
 use super::accounting::{ProtocolBudgetRecord, ProtocolBudgetState};
 use crate::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence};
@@ -11,7 +12,8 @@ use crate::store::{Store, TenantId};
 
 const LOCAL_BYPASS_STATEMENT: &str =
     "daemon-enforced only; bypassing layerx-agentd bypasses this limit";
-const BUDGET_CREATE_ORDINAL: u16 = 1;
+const BUDGET_CREATE: &str = "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)";
+const BUDGET_CREATE_NATIVE: &str = "budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)";
 const PROTOCOL_ENFORCEMENT: &str = "protocol-enforced";
 
 /// Protocol object offered for a spending limit.
@@ -38,18 +40,14 @@ pub struct BudgetRequest {
     pub verified_submission: Option<VerifiedSubmission>,
 }
 
-/// Raw core receipt returned for the submitted creation activity.
-///
-/// This boundary supplies no object identifier; the identifier is read from
-/// the canonical activity by the rule core keys the record with, then
-/// confirmed from proven module state.
+/// Receipt evidence returned for the exact submitted budget transaction.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CoreBudgetReceipt {
-    pub evidence: RawReceiptEvidence,
+pub struct CoreBudgetReceipt<E = RawReceiptEvidence> {
+    pub evidence: E,
 }
 
 /// The mandatory exact-submission, raw-evidence and proven-state seam.
-pub trait BudgetPipeline {
+pub trait BudgetPipeline<R = RawReceiptEvidence, S = crate::protocol_evidence::RawStateEvidence> {
     /// Submits the byte-identical verifier-bound budget activity and returns raw core evidence.
     ///
     /// # Errors
@@ -59,7 +57,7 @@ pub trait BudgetPipeline {
     fn submit_budget(
         &mut self,
         request: &BudgetRequest,
-    ) -> Result<CoreBudgetReceipt, BudgetCreationError>;
+    ) -> Result<CoreBudgetReceipt<R>, BudgetCreationError>;
 
     /// Reads the proven budget module state stored under `budget_state_key(budget_id)`.
     ///
@@ -69,21 +67,15 @@ pub trait BudgetPipeline {
     fn budget_state(
         &mut self,
         budget_id: [u8; 32],
-    ) -> Result<ProtocolBudgetState, BudgetCreationError>;
+    ) -> Result<ProtocolBudgetState<S>, BudgetCreationError>;
 }
 
-/// Every field of one canonical core budget-create payload (211-byte version 1
-/// or 251-byte version 2), decoded by the shared native disclosure parser.
-///
-/// Core keys the created record by the payload's own `budget_id`, so the
-/// identifier is read from the exact bytes that were signed, never from the
-/// receipt. The payload carries no owner: core resolves it from the signer, and
-/// `owner` here is the actor's main account the native parser binds against.
+/// ABI creation fields and the recovered EVM sender.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BudgetCreateIdentity {
     pub encoding_version: u16,
     pub budget_id: [u8; 32],
-    pub owner: [u8; 32],
+    pub sender: [u8; 20],
     pub budget_account: [u8; 32],
     pub asset: [u8; 32],
     pub purpose: [u8; 32],
@@ -99,59 +91,348 @@ pub struct BudgetCreateIdentity {
     pub source_sequence: u64,
 }
 
-/// Decodes the budget identity from a signed canonical budget-create activity.
-///
-/// # Errors
-///
-/// Returns `NotBudgetCreation` when the bytes are not one canonical signed
-/// activity of type budget/create whose payload the native disclosure accepts.
-pub fn budget_create_identity(
-    canonical_activity: &[u8],
-    registry: &ModuleRegistry,
+pub trait BudgetIdentitySource {
+    fn identity(&self) -> Result<BudgetCreateIdentity, BudgetCreationError>;
+}
+
+pub fn budget_create_identity<T: BudgetIdentitySource + ?Sized>(
+    source: &T,
+    _registry: &ModuleRegistry,
 ) -> Result<BudgetCreateIdentity, BudgetCreationError> {
-    let not_creation = BudgetCreationError::NotBudgetCreation;
-    let activity = layerx_wire::activity::decode_signed(canonical_activity, registry)
-        .map_err(|_| not_creation)?;
-    let create =
-        ActivityType::new(ModuleId::Budget, BUDGET_CREATE_ORDINAL).map_err(|_| not_creation)?;
-    if activity.activity_type() != create {
-        return Err(not_creation);
+    source.identity()
+}
+
+pub(crate) fn selector(signature: &str) -> [u8; 4] {
+    transaction_hash(signature.as_bytes())[..4]
+        .try_into()
+        .expect("selector width")
+}
+
+pub(crate) fn word(data: &[u8], index: usize) -> Result<[u8; 32], BudgetCreationError> {
+    data.get(4 + index * 32..4 + (index + 1) * 32)
+        .and_then(|value| value.try_into().ok())
+        .ok_or(BudgetCreationError::NotBudgetCreation)
+}
+
+pub(crate) fn integer(
+    data: &[u8],
+    index: usize,
+    width: usize,
+) -> Result<u128, BudgetCreationError> {
+    let value = word(data, index)?;
+    if value[..32 - width].iter().any(|byte| *byte != 0) {
+        return Err(BudgetCreationError::NotBudgetCreation);
     }
-    let unsigned =
-        layerx_wire::activity::encode_unsigned(&activity).map_err(|_| not_creation)?;
-    let disclosure = disclosure::bind(&unsigned, registry).map_err(|_| not_creation)?;
-    let Some(DisclosedNativeOperation::BudgetCreate(budget)) = disclosure.native_operation else {
-        return Err(not_creation);
+    let mut bytes = [0; 16];
+    bytes[16 - width..].copy_from_slice(&value[32 - width..]);
+    Ok(u128::from_be_bytes(bytes))
+}
+
+impl BudgetIdentitySource for [u8] {
+    fn identity(&self) -> Result<BudgetCreateIdentity, BudgetCreationError> {
+        let (call, signature) =
+            decode_signed(self).map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+        let native = call.data.starts_with(&selector(BUDGET_CREATE_NATIVE));
+        if call.to != PrecompileTarget::Pay.address()
+            || (!native && !call.data.starts_with(&selector(BUDGET_CREATE)))
+            || call.data.len() != 4 + if native { 14 * 32 } else { 12 * 32 }
+        {
+            return Err(BudgetCreationError::NotBudgetCreation);
+        }
+        let data = &call.data;
+        let rollover = integer(data, 11, 1)? as u8;
+        let carry_cap = integer(data, 5, 16)?;
+        let period_length_ms = integer(data, 7, 8)? as u64;
+        let period_start_ms = integer(data, 8, 8)? as u64;
+        let expiry_ms = integer(data, 9, 8)? as u64;
+        if word(data, 0)? == [0; 32]
+            || period_length_ms == 0
+            || period_start_ms.checked_add(period_length_ms).is_none()
+            || expiry_ms <= period_start_ms
+            || !(1..=2).contains(&rollover)
+            || (rollover == 1 && carry_cap != 0)
+        {
+            return Err(BudgetCreationError::InvalidLimit);
+        }
+        Ok(BudgetCreateIdentity {
+            encoding_version: if native { 2 } else { 1 },
+            budget_id: word(data, 0)?,
+            sender: recover_sender(&call, &signature)
+                .map_err(|_| BudgetCreationError::NotBudgetCreation)?,
+            budget_account: word(data, 1)?,
+            asset: word(data, 2)?,
+            purpose: word(data, 3)?,
+            per_period_limit: integer(data, 4, 16)?,
+            carry_cap,
+            initial_amount: integer(data, 6, 16)?,
+            period_length_ms,
+            period_start_ms,
+            expiry_ms,
+            revocation_sequence: integer(data, 10, 8)? as u64,
+            rollover,
+            source_account: if native { word(data, 12)? } else { [0; 32] },
+            source_sequence: if native {
+                integer(data, 13, 8)? as u64
+            } else {
+                0
+            },
+        })
+    }
+}
+
+impl BudgetIdentitySource for (&[u8], &SequencerReceipt) {
+    fn identity(&self) -> Result<BudgetCreateIdentity, BudgetCreationError> {
+        let mut identity = self.0.identity()?;
+        let (call, _) =
+            decode_signed(self.0).map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+        let receipt = committed_receipt(self.1, transaction_hash(self.0))?;
+        let event = budget_log(receipt, "BudgetCreated(bytes32,bytes32,uint128)")?;
+        if event.data.len() != 64
+            || event.data[..32] != identity.asset
+            || event.data[32..48].iter().any(|byte| *byte != 0)
+            || event.data[48..] != identity.initial_amount.to_be_bytes()
+            || event.topics[1] != identity.budget_id
+            || receipt.from != identity.sender
+            || receipt.nonce != call.nonce
+        {
+            return Err(BudgetCreationError::IdentityMismatch);
+        }
+        identity.budget_id = event.topics[1];
+        Ok(identity)
+    }
+}
+
+pub(crate) fn committed_receipt(
+    receipt: &SequencerReceipt,
+    expected: [u8; 32],
+) -> Result<&ExecutedReceipt, BudgetCreationError> {
+    let SequencerReceipt::Committed {
+        receipt,
+        block_number,
+        block_hash,
+    } = receipt
+    else {
+        return Err(BudgetCreationError::UnverifiedReceipt);
     };
-    let actor = std::str::from_utf8(activity.actor_did()).map_err(|_| not_creation)?;
-    let owner = protocol_account(&format!("agent:{actor}:main"))?;
-    Ok(BudgetCreateIdentity {
-        encoding_version: budget.encoding_version,
-        budget_id: budget.budget_id,
-        owner,
-        budget_account: budget.budget_account,
-        asset: budget.asset,
-        purpose: budget.purpose,
-        per_period_limit: budget.per_period_limit,
-        carry_cap: budget.carry_cap,
-        initial_amount: budget.initial_amount,
-        period_length_ms: budget.period_length_ms,
-        period_start_ms: budget.period_start_ms,
-        expiry_ms: budget.expiry_ms,
-        revocation_sequence: budget.revocation_sequence,
-        rollover: budget.rollover,
-        source_account: budget.source_account,
-        source_sequence: budget.source_sequence,
-    })
+    if receipt.tx_hash != expected {
+        return Err(BudgetCreationError::ReceiptActivityMismatch);
+    }
+    if !receipt.success {
+        return Err(BudgetCreationError::CoreRejected);
+    }
+    if *block_number == 0
+        || receipt.height != *block_number
+        || *block_hash == [0; 32]
+        || receipt.to != PrecompileTarget::Pay.address()
+        || !receipt.vm_error.is_empty()
+    {
+        return Err(BudgetCreationError::UnverifiedReceipt);
+    }
+    Ok(receipt)
 }
 
-pub(crate) fn protocol_account(name: &str) -> Result<[u8; 32], BudgetCreationError> {
-    let account =
-        AccountId::parse(name).map_err(|_| BudgetCreationError::NotBudgetCreation)?;
-    layerx_wire::hash::account_id_for_protocol(&account, 3)
-        .map_err(|_| BudgetCreationError::NotBudgetCreation)
+pub(crate) fn budget_log<'a>(
+    receipt: &'a ExecutedReceipt,
+    signature: &str,
+) -> Result<&'a layerx_client::sequencer::SequencerLog, BudgetCreationError> {
+    let topic = transaction_hash(signature.as_bytes());
+    let mut logs = receipt.logs.iter().filter(|log| {
+        log.address == PrecompileTarget::Pay.address() && log.topics.first() == Some(&topic)
+    });
+    let log = logs.next().ok_or(BudgetCreationError::UnverifiedReceipt)?;
+    if logs.next().is_some() || log.topics.len() != 2 || log.topics[1] == [0; 32] {
+        return Err(BudgetCreationError::UnverifiedReceipt);
+    }
+    Ok(log)
 }
 
+impl BudgetRequest {
+    pub fn create_protocol_budget(
+        &self,
+        identity: &BudgetCreateIdentity,
+    ) -> Result<PrecompileCall, BudgetCreationError> {
+        if self.ceiling == 0 || self.expiry_ms == 0 {
+            return Err(BudgetCreationError::InvalidLimit);
+        }
+        if self.expiry_ms <= self.core_time_ms {
+            return Err(BudgetCreationError::Expired);
+        }
+        if identity.encoding_version != 1 && identity.encoding_version != 2 {
+            return Err(BudgetCreationError::NotBudgetCreation);
+        }
+        if identity.budget_id == [0; 32]
+            || identity.budget_account == [0; 32]
+            || identity.period_length_ms == 0
+            || identity.period_start_ms >= self.expiry_ms
+            || identity
+                .period_start_ms
+                .checked_add(identity.period_length_ms)
+                .is_none()
+            || !(1..=2).contains(&identity.rollover)
+            || (identity.rollover == 1 && identity.carry_cap != 0)
+            || (identity.encoding_version == 2
+                && (identity.source_account == [0; 32] || identity.source_sequence == 0))
+        {
+            return Err(BudgetCreationError::InvalidLimit);
+        }
+        let number = |value: u128| {
+            let mut word = [0; 32];
+            word[16..].copy_from_slice(&value.to_be_bytes());
+            AbiArgument::Word(word)
+        };
+        let mut arguments = vec![
+            AbiArgument::Word(identity.budget_id),
+            AbiArgument::Word(identity.budget_account),
+            AbiArgument::Word(self.asset),
+            AbiArgument::Word(identity.purpose),
+            number(self.ceiling),
+            number(identity.carry_cap),
+            number(identity.initial_amount),
+            number(identity.period_length_ms.into()),
+            number(identity.period_start_ms.into()),
+            number(self.expiry_ms.into()),
+            number(identity.revocation_sequence.into()),
+            number(identity.rollover.into()),
+        ];
+        if identity.encoding_version == 2 {
+            arguments.extend([
+                AbiArgument::Word(identity.source_account),
+                number(identity.source_sequence.into()),
+            ]);
+        }
+        Ok(PrecompileCall {
+            target: PrecompileTarget::Pay,
+            selector: selector(if identity.encoding_version == 2 {
+                BUDGET_CREATE_NATIVE
+            } else {
+                BUDGET_CREATE
+            }),
+            arguments,
+        })
+    }
+    pub fn pipeline(
+        endpoint: SequencerEndpoint,
+    ) -> impl BudgetPipeline<SequencerReceipt, super::accounting::CommittedBudgetEvidence>
+           + super::mutate::BudgetMutationPipeline<
+        SequencerReceipt,
+        super::accounting::CommittedBudgetEvidence,
+    > {
+        SequencerBudgetPipeline {
+            endpoint,
+            committed_height: None,
+        }
+    }
+}
+
+pub(crate) struct SequencerBudgetPipeline {
+    pub(crate) endpoint: SequencerEndpoint,
+    pub(crate) committed_height: Option<u64>,
+}
+impl SequencerBudgetPipeline {
+    pub(crate) fn submit(
+        &mut self,
+        submission: &VerifiedSubmission,
+    ) -> Result<CoreBudgetReceipt<SequencerReceipt>, BudgetCreationError> {
+        self.committed_height = None;
+        let hash = self
+            .endpoint
+            .send_raw_transaction(submission.exact_bytes())
+            .map_err(|_| BudgetCreationError::Submission)?;
+        if hash != submission.activity_id() {
+            return Err(BudgetCreationError::ReceiptActivityMismatch);
+        }
+        for attempt in 0..20 {
+            let evidence = self
+                .endpoint
+                .sequencer_receipt(&hash)
+                .map_err(|_| BudgetCreationError::Submission)?;
+            if let Some(evidence @ SequencerReceipt::Committed { .. }) = evidence {
+                let receipt = committed_receipt(&evidence, hash)?;
+                self.committed_height = Some(receipt.height);
+                return Ok(CoreBudgetReceipt { evidence });
+            }
+            if attempt < 19 {
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+        }
+        Err(BudgetCreationError::Submission)
+    }
+    pub(crate) fn read(
+        &self,
+        budget_id: [u8; 32],
+    ) -> Result<ProtocolBudgetState<super::accounting::CommittedBudgetEvidence>, BudgetCreationError>
+    {
+        let height = self
+            .committed_height
+            .ok_or(BudgetCreationError::CreatedBudgetUnconfirmed)?;
+        ProtocolBudgetState::read_at(&self.endpoint, budget_id, height)
+            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)
+    }
+}
+impl BudgetPipeline<SequencerReceipt, super::accounting::CommittedBudgetEvidence>
+    for SequencerBudgetPipeline
+{
+    fn submit_budget(
+        &mut self,
+        request: &BudgetRequest,
+    ) -> Result<CoreBudgetReceipt<SequencerReceipt>, BudgetCreationError> {
+        self.submit(
+            request
+                .verified_submission
+                .as_ref()
+                .ok_or(BudgetCreationError::ActivityBindingUnavailable)?,
+        )
+    }
+    fn budget_state(
+        &mut self,
+        budget_id: [u8; 32],
+    ) -> Result<ProtocolBudgetState<super::accounting::CommittedBudgetEvidence>, BudgetCreationError>
+    {
+        self.read(budget_id)
+    }
+}
+
+pub trait BudgetReceiptEvidence {
+    fn layerxpay_receipt(&self) -> Result<&SequencerReceipt, BudgetCreationError>;
+}
+impl BudgetReceiptEvidence for SequencerReceipt {
+    fn layerxpay_receipt(&self) -> Result<&SequencerReceipt, BudgetCreationError> {
+        Ok(self)
+    }
+}
+impl BudgetReceiptEvidence for RawReceiptEvidence {
+    fn layerxpay_receipt(&self) -> Result<&SequencerReceipt, BudgetCreationError> {
+        Err(BudgetCreationError::UnverifiedReceipt)
+    }
+}
+
+pub trait BudgetStateEvidence {
+    fn verified_record(
+        &self,
+        verifier: &EvidenceAuthority,
+    ) -> Result<(ProtocolBudgetRecord, u64), BudgetCreationError>;
+}
+impl BudgetStateEvidence for ProtocolBudgetState {
+    fn verified_record(
+        &self,
+        verifier: &EvidenceAuthority,
+    ) -> Result<(ProtocolBudgetRecord, u64), BudgetCreationError> {
+        let state = verifier
+            .verify_state(&self.evidence)
+            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
+        let record = ProtocolBudgetRecord::decode(state.canonical_state())
+            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
+        Ok((record, state.observed_head_sequence()))
+    }
+}
+impl BudgetStateEvidence for ProtocolBudgetState<super::accounting::CommittedBudgetEvidence> {
+    fn verified_record(
+        &self,
+        _verifier: &EvidenceAuthority,
+    ) -> Result<(ProtocolBudgetRecord, u64), BudgetCreationError> {
+        Ok((self.record().clone(), self.committed_height()))
+    }
+}
 /// Converts a public expiry in seconds to the core millisecond clock.
 ///
 /// # Errors
@@ -164,7 +445,7 @@ pub fn core_expiry_ms(seconds: u64) -> Result<u64, BudgetCreationError> {
     }
 }
 
-/// Successfully created protocol-backed budget, confirmed from proven core state.
+/// Protocol budget confirmed by a layerxpay log and resulting committed state.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProtocolBudget {
     object_id: [u8; 32],
@@ -202,7 +483,7 @@ impl ProtocolBudget {
         &self.record
     }
 
-    /// Returns the signed head sequence that anchored the confirming state.
+    /// Returns the committed block height of the confirming state.
     #[must_use]
     pub const fn observed_head_sequence(&self) -> u64 {
         self.observed_head_sequence
@@ -253,27 +534,16 @@ pub enum BudgetCreationError {
     ContextMismatch,
 }
 
-/// Offers a verifier-bound signed canonical limit activity to core and confirms
-/// the created object from proven module state.
-///
-/// # Errors
-///
-/// Refuses a zero ceiling or expiry, an expiry at or before the verified core
-/// batch time (core treats equality as expired), missing or substituted verifier
-/// binding, an activity that is not a canonical budget creation, a payload
-/// whose limit, expiry or asset differ from the request, a receipt for any
-/// activity other than the exact canonical verified submission, and an
-/// unverified or rejected receipt. After a successful receipt the budget
-/// identifier is read from the payload by core's own keying rule and the
-/// record under `budget_state_key` must verify, decode and match the request;
-/// otherwise `CreatedBudgetUnconfirmed` is returned and nothing is cached.
-pub fn create_protocol_budget(
+pub fn create_protocol_budget<R: BudgetReceiptEvidence, S>(
     _store: &mut Store,
     request: &BudgetRequest,
     registry: &ModuleRegistry,
     verifier: &EvidenceAuthority,
-    pipeline: &mut dyn BudgetPipeline,
-) -> Result<ProtocolBudget, BudgetCreationError> {
+    pipeline: &mut dyn BudgetPipeline<R, S>,
+) -> Result<ProtocolBudget, BudgetCreationError>
+where
+    ProtocolBudgetState<S>: BudgetStateEvidence,
+{
     if request.ceiling == 0 || request.expiry_ms == 0 {
         return Err(BudgetCreationError::InvalidLimit);
     }
@@ -287,39 +557,33 @@ pub fn create_protocol_budget(
         .verified_submission
         .as_ref()
         .ok_or(BudgetCreationError::ActivityBindingUnavailable)?;
-    if submission.exact_bytes() != request.canonical_activity.as_slice()
+    if submission.exact_bytes() != request.canonical_activity
         || submission.idempotency_key() != request.request_id
     {
         return Err(BudgetCreationError::ActivityBindingMismatch);
     }
-    let identity = budget_create_identity(submission.exact_bytes(), registry)?;
-    if identity.per_period_limit != request.ceiling
-        || identity.expiry_ms != request.expiry_ms
-        || identity.asset != request.asset
-    {
+    let requested_identity = budget_create_identity(submission.exact_bytes(), registry)?;
+    let prepared = request.create_protocol_budget(&requested_identity)?;
+    let expected = prepared
+        .encode()
+        .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+    let (signed, _) = decode_signed(submission.exact_bytes())
+        .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+    if signed.to != prepared.target.address() || signed.data != expected {
         return Err(BudgetCreationError::IdentityMismatch);
     }
     let receipt = pipeline.submit_budget(request)?;
-    let verified_receipt = verifier
-        .verify_receipt(&receipt.evidence)
-        .map_err(|_| BudgetCreationError::UnverifiedReceipt)?;
-    if verified_receipt.activity_id() != submission.activity_id() {
-        return Err(BudgetCreationError::ReceiptActivityMismatch);
-    }
-    if verified_receipt.result_code() != 0 {
-        return Err(BudgetCreationError::CoreRejected);
-    }
+    let receipt = receipt.evidence.layerxpay_receipt()?;
+    let identity = budget_create_identity(&(submission.exact_bytes(), receipt), registry)?;
+    let executed = committed_receipt(receipt, submission.activity_id())?;
     let state = pipeline.budget_state(identity.budget_id)?;
-    let verified_state = verifier
-        .verify_state(&state.evidence)
-        .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
-    let record = ProtocolBudgetRecord::decode(verified_state.canonical_state())
-        .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
-    if record.budget_id != identity.budget_id
-        || record.owner != identity.owner
+    let (record, height) = state.verified_record(verifier)?;
+    if height != executed.height
+        || record.budget_id != identity.budget_id
         || record.budget_account != identity.budget_account
         || record.asset_id != request.asset
         || record.per_period_limit != request.ceiling
+        || record.configured_period_limit != request.ceiling
         || record.expiry != request.expiry_ms
         || record.carry_cap != identity.carry_cap
         || record.period_length != identity.period_length_ms
@@ -327,21 +591,21 @@ pub fn create_protocol_budget(
         || record.revocation_sequence != identity.revocation_sequence
         || record.rollover_policy != identity.rollover
         || record.purpose_hash != identity.purpose
-        || record.source_account.is_some() != (identity.encoding_version == 2)
-        || record
-            .source_account
-            .is_some_and(|source| source != identity.source_account)
+        || record.spent_this_period != 0
+        || record.carried != 0
+        || record.source_account
+            != (identity.encoding_version == 2).then_some(identity.source_account)
         || record.closed
         || record.revoked
     {
         return Err(BudgetCreationError::CreatedBudgetUnconfirmed);
     }
     Ok(ProtocolBudget {
-        object_id: record.budget_id,
+        object_id: identity.budget_id,
         kind: request.kind,
-        receipt_bytes: verified_receipt.canonical_receipt().to_vec(),
+        receipt_bytes: executed.receipt.clone(),
         enforcement: PROTOCOL_ENFORCEMENT,
-        observed_head_sequence: verified_state.observed_head_sequence(),
+        observed_head_sequence: height,
         record,
     })
 }

@@ -12,7 +12,6 @@ use layerx_agentd::store::{
     migrate_forward, MigrationError, MigrationStep, ObjectKind, StorageClass, Store, TenantKey,
     CURRENT_SCHEMA_VERSION,
 };
-use layerx_client::lni::schema::Version;
 
 use support::{directory, tenant, verified_submission};
 
@@ -239,22 +238,30 @@ fn shutdown_refuses_an_inflight_stage_that_disagrees_with_the_durable_outbox() {
 fn published_compatibility_matrix_accepts_only_the_supported_complete_tuple() {
     assert_eq!(matrix().len(), 1);
     assert_eq!(verify_published(), Ok(()));
-    assert!(verify(DAEMON_VERSION, Version::V1_0, CONTRACT_VERSION, SDK_VERSION).is_ok());
+    let node_client = format!(
+        "paxd/v{}.0.0/linux-amd64/go1.25",
+        matrix()[0].node_interface_major
+    );
+    let unsupported_node_client = format!(
+        "paxd/v{}.0.0/linux-amd64/go1.25",
+        matrix()[0].node_interface_major + 1
+    );
+    assert!(verify(DAEMON_VERSION, &node_client, CONTRACT_VERSION, SDK_VERSION).is_ok());
     assert_eq!(
         verify(
             DAEMON_VERSION,
-            Version { major: 2, minor: 0 },
+            &unsupported_node_client,
             CONTRACT_VERSION,
             SDK_VERSION,
         ),
         Err(CompatibilityError::UnsupportedNodeInterface)
     );
     assert_eq!(
-        verify(DAEMON_VERSION, Version::V1_0, 2, SDK_VERSION),
+        verify(DAEMON_VERSION, &node_client, 2, SDK_VERSION),
         Err(CompatibilityError::UnsupportedContract)
     );
     assert_eq!(
-        verify(DAEMON_VERSION, Version::V1_0, CONTRACT_VERSION, "9.0.0"),
+        verify(DAEMON_VERSION, &node_client, CONTRACT_VERSION, "9.0.0"),
         Err(CompatibilityError::UnsupportedSdk)
     );
 }

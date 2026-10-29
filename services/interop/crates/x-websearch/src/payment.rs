@@ -17,7 +17,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use k256::ecdsa::SigningKey;
 use layerx_crypto::payments::{Grant, Payment};
-use layerx_interop_gateway::adapter::ConformanceSuite;
+use layerx_interop_gateway::adapter::{AdapterDescriptor, ConformanceSuite};
 use layerx_interop_gateway::evidence::{
     canonical_receipt_digest, SequencerEvidence, SettlementRung,
 };
@@ -56,7 +56,6 @@ pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE: &str = "PAYMENT-RESPONSE";
 /// Names the buyer's EVM address so metered offers can be bound to its accounts.
 pub const PAYER_ADDRESS: &str = "LAYERX-PAYER-ADDRESS";
-pub const PAYER_DID: &str = "LAYERX-PAYER-DID";
 pub const COMMITMENT: &str = "executed";
 pub const METERED: &str = "metered";
 pub const EXACT: &str = "exact";
@@ -139,9 +138,17 @@ fn ledger_account(
 ) -> Result<[u8; 32], SettlementError> {
     let mut owner = [0; 32];
     owner[12..].copy_from_slice(address);
+    ledger_account_for_owner(rpc, &owner, asset)
+}
+
+fn ledger_account_for_owner(
+    rpc: &SettlementRpc,
+    owner: &[u8; 32],
+    asset: &AcceptedAsset,
+) -> Result<[u8; 32], SettlementError> {
     let data = [
         &keccak(b"accountId(bytes32,bytes32)")[..4],
-        &owner,
+        owner.as_slice(),
         &asset.asset_id,
     ]
     .concat();
@@ -151,6 +158,12 @@ fn ledger_account(
         .map_err(|_| SettlementError::Malformed)?;
     if account == [0; 32] {
         return Err(SettlementError::Malformed);
+    }
+    if asset.symbol == crate::config::AssetSymbol::Pax {
+        let name = format!("agent:did:layerx:{}:main", hex(owner));
+        return layerx_x402::model::account_identifiers(&name)
+            .map(|ids| ids[1])
+            .map_err(|_| SettlementError::Malformed);
     }
     Ok(account)
 }
@@ -1132,7 +1145,7 @@ pub struct PaymentGate {
     rpc: SettlementRpc,
     store: PaymentStore,
     clock: Clock,
-    gateway: Mutex<GatewayCore>,
+    adapter: AdapterDescriptor,
     delivery_lock: Mutex<()>,
     payment_lock: Mutex<()>,
     _lease: fs::File,
@@ -1205,27 +1218,10 @@ impl PaymentGate {
         let owner = read_receiver_did(&rpc, &address).map_err(|_| GateError::Adapter)?;
         let mut accounts = [[0; 32]; 4];
         for (slot, asset) in accounts.iter_mut().zip(assets.all()) {
-            let data = [
-                &keccak(b"accountId(bytes32,bytes32)")[..4],
-                &owner,
-                &asset.asset_id,
-            ]
-            .concat();
-            *slot = rpc
-                .eth_call(LEDGER_PRECOMPILE, &data)
-                .map_err(|_| GateError::Adapter)?
-                .try_into()
-                .map_err(|_| GateError::Adapter)?;
-            if *slot == [0; 32] {
-                return Err(GateError::Adapter);
-            }
+            *slot =
+                ledger_account_for_owner(&rpc, &owner, asset).map_err(|_| GateError::Adapter)?;
         }
-        let trace = TraceId::mint([0; 16]);
-        let mut gateway = GatewayCore::new();
-        let descriptor = x402_adapter_descriptor(conformance).map_err(|_| GateError::Adapter)?;
-        gateway
-            .register_adapter(descriptor, &trace, clock() / 1_000)
-            .map_err(|_| GateError::Adapter)?;
+        let adapter = x402_adapter_descriptor(conformance).map_err(|_| GateError::Adapter)?;
         Ok(Self {
             assets,
             receiver: Receiver {
@@ -1243,7 +1239,7 @@ impl PaymentGate {
             rpc,
             store,
             clock,
-            gateway: Mutex::new(gateway),
+            adapter,
             delivery_lock: Mutex::new(()),
             payment_lock: Mutex::new(()),
             _lease: lease,
@@ -1300,9 +1296,18 @@ impl PaymentGate {
         scheme: &str,
         payer: Option<[u8; 20]>,
     ) -> Result<PaymentRequirements, Response> {
+        let account = if asset.symbol == crate::config::AssetSymbol::Pax {
+            format!("agent:did:layerx:{}:main", hex(&self.receiver.did_key))
+        } else {
+            format!(
+                "agent:did:layerx:{}:asset:{}",
+                hex(&self.receiver.did_key),
+                asset.id_hex()
+            )
+        };
         let mut layerx = json!({
             "commitment": COMMITMENT,
-            "account": format!("agent:did:layerx:{}:asset:{}", hex(&self.receiver.did_key), asset.id_hex()),
+            "account": account,
             "currency": asset.symbol.code(),
         });
         if let (Some(payer), Some(terms)) = (payer, layerx.as_object_mut()) {
@@ -1426,7 +1431,13 @@ impl PaymentGate {
             refusal: None,
         };
         let outcome = {
-            let mut gateway = self.gateway.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut gateway = GatewayCore::new();
+            if gateway
+                .register_adapter(self.adapter.clone(), &trace, now_ms / 1_000)
+                .is_err()
+            {
+                return Response::error(503, "payment_unavailable");
+            }
             seller.settle(
                 &mut gateway,
                 &principal,
@@ -2063,6 +2074,9 @@ impl<'Plane> Plane<'Plane> {
             return Err("payment_pending");
         };
         if let Some(record) = existing {
+            if request.scheme == METERED && record.offer != offer_record(request) {
+                return Err("idempotency_conflict");
+            }
             if record.principal != request.principal.as_str()
                 || record.request_digest != hex(&request.request_digest)
                 || record.resource != self.resource

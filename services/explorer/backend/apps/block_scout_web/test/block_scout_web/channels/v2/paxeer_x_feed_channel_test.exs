@@ -1,6 +1,7 @@
 defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
   use BlockScoutWeb.ConnCase, async: false
 
+  import ExUnit.CaptureLog, only: [capture_log: 1]
   import Phoenix.ChannelTest, only: [socket: 3, subscribe_and_join: 2]
 
   alias BlockScoutWeb.Notifier
@@ -28,6 +29,82 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
     end)
 
     :ok
+  end
+
+  test "a refused observation moves no market price on the live topics" do
+    block = insert(:block, number: 20)
+
+    [successful, failed] =
+      store(block, [
+        submission(0, [Map.put(observation(0, 5), :accepted, false), observation(2, 7)]),
+        submission(1, [observation(0, 6)]) |> Map.put(:status, 0)
+      ])
+
+    Enum.each(
+      ~w(paxeer_x_feed:new_update paxeer_x_feed:market:0 paxeer_x_feed:market:2),
+      &@endpoint.subscribe/1
+    )
+
+    Notifier.handle_event({:chain_event, :paxeer_x_price_updates, :realtime, [20]})
+
+    assert_receive %Broadcast{
+      topic: "paxeer_x_feed:new_update",
+      event: "new_update",
+      payload: %{
+        "hash" => ^successful,
+        "status" => "ok",
+        "price_update" => %{
+          "observations" => [
+            %{"market_id" => 0, "accepted" => false},
+            %{"market_id" => 2, "accepted" => true}
+          ]
+        }
+      }
+    }
+
+    assert_receive %Broadcast{
+      topic: "paxeer_x_feed:new_update",
+      event: "new_update",
+      payload: %{
+        "hash" => ^failed,
+        "status" => "error",
+        "price_update" => %{"observations" => [%{"market_id" => 0, "accepted" => true}]}
+      }
+    }
+
+    assert_receive %Broadcast{
+      topic: "paxeer_x_feed:market:2",
+      event: "new_update",
+      payload: %{"update_hash" => ^successful, "sequence" => 7}
+    }
+
+    refute_receive %Broadcast{topic: "paxeer_x_feed:market:2"}
+    refute_receive %Broadcast{topic: "paxeer_x_feed:market:0"}
+    refute_receive %Broadcast{topic: "paxeer_x_feed:new_update"}
+  end
+
+  test "a backfilled height is not pushed as a new block" do
+    block = insert(:block, number: 20)
+    insert(:block, number: 31)
+    [hash] = store(block, [submission(0, [observation(2, 7)])])
+
+    Enum.each(
+      ~w(paxeer_x_feed:new_update paxeer_x_feed:market:2 transactions:new_transaction blocks:new_block),
+      &@endpoint.subscribe/1
+    )
+
+    Notifier.handle_event({:chain_event, :paxeer_x_price_updates, :realtime, [20]})
+
+    assert_receive %Broadcast{topic: "paxeer_x_feed:new_update", event: "new_update", payload: %{"hash" => ^hash}}
+
+    assert_receive %Broadcast{
+      topic: "paxeer_x_feed:market:2",
+      event: "new_update",
+      payload: %{"update_hash" => ^hash}
+    }
+
+    refute_receive %Broadcast{topic: "blocks:new_block"}
+    refute_receive %Broadcast{topic: "transactions:new_transaction"}
   end
 
   describe "price update broadcasts" do
@@ -80,23 +157,6 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
       refute_receive %Broadcast{topic: "paxeer_x_feed:new_update"}
     end
 
-    test "the event published for a stored submission reaches the socket through the realtime subscriber",
-         %{conn: conn} do
-      block = insert(:block, number: 30)
-      [hash] = store(block, [submission(0, [observation(2, 9)])])
-      subscriber = Process.whereis(Main)
-      @endpoint.subscribe("paxeer_x_feed:new_update")
-      @endpoint.subscribe("blocks:new_block")
-
-      Publisher.broadcast(%{paxeer_x_price_updates: [30]}, :realtime)
-
-      assert_receive %Broadcast{topic: "paxeer_x_feed:new_update", event: "new_update", payload: payload}, 5_000
-      assert json(payload) == json_response(get(conn, "/api/v2/paxeer-x/feed/updates/#{hash}"), 200)
-      assert [%{"symbol" => "SOL-USD"}] = payload["price_update"]["observations"]
-      assert_receive %Broadcast{topic: "blocks:new_block", payload: %{block: %{"price_update_count" => 1}}}, 5_000
-      assert Process.whereis(Main) == subscriber
-    end
-
     test "a block without updates broadcasts nothing" do
       insert(:block, number: 21)
       Enum.each(~w(paxeer_x_feed:new_update transactions:new_transaction blocks:new_block), &@endpoint.subscribe/1)
@@ -105,6 +165,73 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
 
       refute_receive %Broadcast{}
     end
+  end
+
+  test "the event published for a stored submission reaches the socket through the realtime subscriber",
+       %{conn: conn} do
+    block = insert(:block, number: 30)
+    [hash] = store(block, [submission(0, [observation(2, 9)])])
+    subscriber = Process.whereis(Main)
+    assert is_pid(subscriber)
+    @endpoint.subscribe("paxeer_x_feed:new_update")
+    @endpoint.subscribe("paxeer_x_feed:market:2")
+    @endpoint.subscribe("transactions:new_transaction")
+    @endpoint.subscribe("blocks:new_block")
+
+    Publisher.broadcast(%{paxeer_x_price_updates: [30]}, :realtime)
+
+    assert_receive %Broadcast{topic: "paxeer_x_feed:new_update", event: "new_update", payload: payload}, 5_000
+    assert json(payload) == json_response(get(conn, "/api/v2/paxeer-x/feed/updates/#{hash}"), 200)
+    assert [%{"symbol" => "SOL-USD"}] = payload["price_update"]["observations"]
+
+    assert [market_item] = json_response(get(conn, "/api/v2/paxeer-x/feed/markets/2/updates"), 200)["items"]
+    assert_receive %Broadcast{topic: "paxeer_x_feed:market:2", event: "new_update", payload: market_payload}, 5_000
+    assert json(market_payload) == market_item
+
+    assert_receive %Broadcast{
+                     topic: "transactions:new_transaction",
+                     event: "transaction",
+                     payload: %{transaction: 1}
+                   },
+                   5_000
+
+    assert_receive %Broadcast{
+                     topic: "blocks:new_block",
+                     event: "new_block",
+                     payload: %{block: %{"height" => 30, "price_update_count" => 1}}
+                   },
+                   5_000
+
+    assert Process.whereis(Main) == subscriber
+  end
+
+  test "a failing event handler leaves the realtime subscriber running" do
+    block = insert(:block, number: 31)
+    [hash] = store(block, [submission(0, [observation(2, 10)])])
+    subscriber = Process.whereis(Main)
+    assert is_pid(subscriber)
+    @endpoint.subscribe("paxeer_x_feed:new_update")
+
+    log =
+      capture_log(fn ->
+        send(subscriber, {:chain_event, :paxeer_x_price_updates, :realtime, [:not_a_block_number]})
+        :sys.get_state(subscriber)
+
+        Publisher.broadcast(%{paxeer_x_price_updates: [31]}, :realtime)
+
+        assert_receive %Broadcast{
+                         topic: "paxeer_x_feed:new_update",
+                         event: "new_update",
+                         payload: %{"hash" => ^hash}
+                       },
+                       5_000
+
+        assert Process.whereis(Main) == subscriber
+      end)
+
+    assert log =~ "[error]"
+    assert log =~ "paxeer_x_price_updates"
+    assert log =~ "Ecto.Query.CastError"
   end
 
   describe "join" do
@@ -142,6 +269,7 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
   defp observation(market_id, value) do
     %{
       market_id: market_id,
+      accepted: true,
       sequence: value,
       index_price: value * 1_000_000_000_000_000_000,
       mark_price: (value + 1) * 1_000_000_000_000_000_000,

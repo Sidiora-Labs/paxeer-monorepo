@@ -12,10 +12,14 @@ def test_every_data_file_declares_format_1(tmp_path: Path) -> None:
     assert {path.name for path in paths} == {
         "activation-plan.kvx",
         "decisions.kvx",
+        "external-gaps.kvx",
         "parity.kvx",
+        "precompile-activation.kvx",
+        "refusals.kvx",
         "rehearsal.kvx",
         "retired.kvx",
         "sandbox-profiles.kvx",
+        "services.kvx",
         "wave-gates.kvx",
     }
     for path in paths:

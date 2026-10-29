@@ -7,7 +7,8 @@
 //! match: they are not answered with any substitute refusal.
 
 use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::verify::RungStatus as VerificationStatus;
 use layerx_crypto::evm_transaction::{
     decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
@@ -31,6 +32,124 @@ pub struct DispatchContext {
     pub request_id: RequestId,
     pub idempotency_key: Option<[u8; 32]>,
     pub peer: HumanPeer,
+}
+
+pub struct PreparedBootstrapTransaction {
+    pub transaction: Eip1559Call,
+    pub signed_transaction: Vec<u8>,
+    pub tx_hash: [u8; 32],
+    pub bound_address: [u8; 20],
+}
+
+fn prepare_bootstrap_transaction(
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+    chain_id: u64,
+    fees: layerx_client::account_binding::BindFees,
+    call: crate::prepare::evm::PrecompileCall,
+    bound_address: [u8; 20],
+    id: RequestId,
+) -> Result<PreparedBootstrapTransaction, Rejection> {
+    if chain_id == 0 || fees.gas_limit == 0 || fees.max_fee_per_gas < fees.max_priority_fee_per_gas
+    {
+        return Err(malformed(id));
+    }
+    let transaction = Eip1559Call {
+        chain_id,
+        nonce: fees.evm_nonce,
+        max_priority_fee_per_gas: fees.max_priority_fee_per_gas,
+        max_fee_per_gas: fees.max_fee_per_gas,
+        gas_limit: fees.gas_limit,
+        to: call.target.address(),
+        data: call.encode().map_err(|_| malformed(id))?,
+    };
+    let secret = account
+        .evm_secret()
+        .ok_or_else(|| rejection(ErrorClass::PolicyRefusal, id, "binding.evm_key_unavailable"))?;
+    let signed_transaction = transaction.sign(secret).map_err(|_| malformed(id))?;
+    Ok(PreparedBootstrapTransaction {
+        tx_hash: transaction_hash(&signed_transaction),
+        transaction,
+        signed_transaction,
+        bound_address,
+    })
+}
+
+pub fn agent_register(
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+    chain_id: u64,
+    bind_nonce: u64,
+    fees: layerx_client::account_binding::BindFees,
+    id: RequestId,
+) -> Result<PreparedBootstrapTransaction, Rejection> {
+    use layerx_client::account_binding::{plan_bind, sign_bind_transaction, BindError, BindPlan};
+    if chain_id == 0 || fees.gas_limit == 0 || fees.max_fee_per_gas < fees.max_priority_fee_per_gas
+    {
+        return Err(malformed(id));
+    }
+    let BindPlan::Bind(call) =
+        plan_bind(account, chain_id, None, bind_nonce).map_err(|_| malformed(id))?
+    else {
+        return Err(malformed(id));
+    };
+    call.signed_binding().verify().map_err(|_| malformed(id))?;
+    let signed_transaction =
+        sign_bind_transaction(account, chain_id, &call, fees).map_err(|error| match error {
+            BindError::EvmKeyUnavailable => {
+                rejection(ErrorClass::PolicyRefusal, id, "binding.evm_key_unavailable")
+            }
+            _ => malformed(id),
+        })?;
+    let (transaction, _) = decode_signed(&signed_transaction).map_err(|_| malformed(id))?;
+    Ok(PreparedBootstrapTransaction {
+        tx_hash: transaction_hash(&signed_transaction),
+        transaction,
+        signed_transaction,
+        bound_address: account.evm_address(),
+    })
+}
+
+pub fn session_open(
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+    registry: &crate::session_keys::SessionKeyRegistry,
+    issued: &layerx_crypto::session::IssuedSessionKey,
+    chain_id: u64,
+    expiry_sequence: u64,
+    purpose: [u8; 32],
+    fees: layerx_client::account_binding::BindFees,
+    id: RequestId,
+) -> Result<PreparedBootstrapTransaction, Rejection> {
+    use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+    if expiry_sequence == 0 {
+        return Err(malformed(id));
+    }
+    let decoded = layerx_crypto::session::decode_session_key(&issued.registration_payload)
+        .map_err(|_| malformed(id))?;
+    if decoded != *issued {
+        return Err(malformed(id));
+    }
+    let key = registry
+        .load(issued.grant_id, issued.clone())
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "session.key_unavailable"))?;
+    let mut expiry = [0; 32];
+    expiry[24..].copy_from_slice(&expiry_sequence.to_be_bytes());
+    key.with_secret(|_| ())
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "session.key_unavailable"))?;
+    prepare_bootstrap_transaction(
+        account,
+        chain_id,
+        fees,
+        PrecompileCall {
+            target: PrecompileTarget::Auth,
+            selector: [0x11, 0x07, 0xb4, 0x9e],
+            arguments: vec![
+                AbiArgument::Bytes(issued.registration_payload.clone()),
+                AbiArgument::Word(expiry),
+                AbiArgument::Word(purpose),
+            ],
+        },
+        key.evm_address(),
+        id,
+    )
 }
 
 /// `verification` is `Some` only when the decoded owner payload carries a verification level;
@@ -347,27 +466,17 @@ fn hexv(bytes: &[u8]) -> Value {
     Value::String(lower_hex(bytes))
 }
 
-fn level(value: u8) -> Option<Level> {
+fn rung(value: u8) -> Option<Rung> {
     Some(match value {
-        0 => Level::Unverified,
-        1 => Level::SequencerSigned,
-        2 => Level::BatchIncluded,
-        3 => Level::StateProven,
-        4 => Level::CheckpointFinalised,
-        5 => Level::SettlementAnchored,
+        0 => Rung::Submitted,
+        1 => Rung::Receipted,
+        2 => Rung::Committed,
         _ => return None,
     })
 }
 
-pub(crate) fn level_name(value: Level) -> &'static str {
-    match value {
-        Level::Unverified => "Unverified",
-        Level::SequencerSigned => "SequencerSigned",
-        Level::BatchIncluded => "BatchIncluded",
-        Level::StateProven => "StateProven",
-        Level::CheckpointFinalised => "CheckpointFinalised",
-        Level::SettlementAnchored => "SettlementAnchored",
-    }
+pub(crate) fn rung_name(value: Rung) -> &'static str {
+    value.name()
 }
 
 fn state_name(value: u8) -> Option<&'static str> {
@@ -376,92 +485,69 @@ fn state_name(value: u8) -> Option<&'static str> {
         1 => "Signed",
         2 => "Queued",
         3 => "Submitted",
-        4 => "Acknowledged",
         5 => "Unknown",
         6 => "Executed",
         7 => "Failed",
         8 => "Expired",
+        9 => "Committed",
         _ => return None,
     })
 }
 
-fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
-    let mut out = Map::new();
-    out.insert("chain_sequence".into(), dec(reader.u64()?));
-    out.insert("sealed_batch".into(), dec(reader.u64()?));
-    out.insert("finalised_checkpoint".into(), hexv(&reader.fixed::<32>()?));
-    Some((Value::Object(out), None))
+fn decode_read_json(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let value: Value = serde_json::from_slice(reader.bytes()?).ok()?;
+    let freshness = value.get("freshness")?;
+    for field in ["chain_head", "value_height"] {
+        let text = freshness.get(field)?.as_str()?;
+        if text.parse::<u64>().ok()?.to_string() != text {
+            return None;
+        }
+    }
+    if !value.get("achieved_verification_level")?.is_null() {
+        return None;
+    }
+    Some((value, None))
+}
+
+fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    decode_read_json(reader)
 }
 
 fn decode_account_state(
     reader: &mut Reader<'_>,
     account_id: [u8; 32],
-) -> Option<(Value, Option<Level>)> {
-    let observed = reader.fixed::<32>()?;
-    let achieved = level(reader.u8()?)?;
-    let value = reader.bytes()?;
-    let proof = reader.bytes()?;
-    let sequence = reader.u64()?;
-    if observed != account_id || achieved < Level::StateProven || sequence == 0 {
-        return None;
-    }
-    let mut out = Map::new();
-    out.insert("account_id".into(), hexv(&observed));
-    out.insert("canonical_value".into(), hexv(value));
-    out.insert("proof".into(), hexv(proof));
-    out.insert("sequence".into(), dec(sequence));
-    Some((Value::Object(out), Some(achieved)))
+) -> Option<(Value, Option<Rung>)> {
+    let result = decode_read_json(reader)?;
+    (result.0["value"]["account"] == hexv(&account_id)).then_some(result)
 }
 
-fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
-    let mut out = Map::new();
-    let account = reader.fixed::<32>()?;
-    let asset = reader.fixed::<32>()?;
-    let currency = reader.text()?;
-    let observed_at = reader.text()?;
-    out.insert("age_seconds".into(), dec(reader.u64()?));
-    out.insert("amount".into(), dec(reader.u128()?));
-    let achieved = level(reader.u8()?)?;
-    out.insert("global_sequence".into(), dec(reader.u64()?));
-    out.insert("batch_number".into(), dec(reader.u64()?));
-    out.insert("observed_head_sequence".into(), dec(reader.u64()?));
-    out.insert("observed_checkpoint".into(), hexv(&reader.fixed::<32>()?));
-    out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
-    out.insert("proof_material".into(), hexv(reader.bytes()?));
-    if achieved < Level::CheckpointFinalised
-        || account == [0; 32]
-        || asset == [0; 32]
-        || currency.is_empty()
-        || observed_at.is_empty()
-    {
+fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let result = decode_read_json(reader)?;
+    let text = result.0["value"]["amount"].as_str()?;
+    if text.parse::<u128>().ok()?.to_string() != text {
         return None;
     }
-    out.insert("account".into(), hexv(&account));
-    out.insert("asset".into(), hexv(&asset));
-    out.insert("currency".into(), Value::String(currency));
-    out.insert("observed_at".into(), Value::String(observed_at));
-    Some((Value::Object(out), Some(achieved)))
+    Some(result)
 }
 
-fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
-    out.insert("submission_ref".into(), Value::String(reader.text()?));
+    let tx_hash = reader.fixed::<32>()?;
+    out.insert("tx_hash".into(), hexv(&tx_hash));
+    out.insert("submission_ref".into(), hexv(&tx_hash));
     let state = reader.u8()?;
     out.insert("state".into(), Value::String(state_name(state)?.into()));
     match state {
-        6 => {
-            out.insert("receipt_ref".into(), Value::String(reader.text()?));
+        6 | 9 => {
+            out.insert("receipt_ref".into(), hexv(&reader.fixed::<32>()?));
         }
         7 => {
             out.insert("result_code".into(), dec(reader.i32()?));
         }
         _ => {}
     }
-    let achieved = level(reader.u8()?)?;
-    out.insert(
-        "verification_level".into(),
-        Value::String(level_name(achieved).into()),
-    );
+    let achieved = rung(reader.u8()?)?;
+    out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     let evidence_count = usize::from(reader.u8()?);
     if evidence_count > MAX_EVIDENCE {
         return None;
@@ -496,13 +582,16 @@ fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
     Some((Value::Object(out), Some(achieved)))
 }
 
-pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let activity_id = reader.fixed::<32>()?;
     if activity_id == [0; 32] {
         return None;
     }
     let (submission, achieved) = decode_tracked(reader)?;
-    let executed = submission.get("state") == Some(&Value::String("Executed".into()));
+    let executed = matches!(
+        submission.get("state").and_then(Value::as_str),
+        Some("Executed" | "Committed")
+    );
     let receipt = match reader.u8()? {
         0 => None,
         1 => Some(decode_receipt(reader)?.0),
@@ -518,9 +607,12 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
     Some((Value::Object(out), achieved))
 }
 
-fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
-    out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
+    let canonical = reader.bytes()?;
+    let receipt = layerx_wire::receipt::decode(canonical).ok()?;
+    out.insert("tx_hash".into(), hexv(&receipt.protocol()?.activity_id()));
+    out.insert("canonical_bytes".into(), hexv(canonical));
     let mut batch = Map::new();
     for name in [
         "batch_id",
@@ -534,16 +626,13 @@ fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
     out.insert("authorised_batch".into(), Value::Object(batch));
     let achieved = match reader.u8()? {
         0 => return None,
-        value => level(value)?,
+        value => rung(value)?,
     };
-    out.insert(
-        "verification_level".into(),
-        Value::String(level_name(achieved).into()),
-    );
+    out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     Some((Value::Object(out), Some(achieved)))
 }
 
-fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     match reader.u8()? {
         0 => {
             let mut out = Map::new();
@@ -564,7 +653,7 @@ fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Level
 /// Reads a preparation reference, the type-2 call fields, and the activity disclosure.
 /// The signing hash is derived from the call rather than trusted from the owner payload.
 /// The client additionally re-binds the disclosure against its activity registry.
-pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
     out.insert("preparation_ref".into(), Value::String(reader.text()?));
     if reader.u8()? != 2 {
@@ -626,7 +715,7 @@ pub fn decode_eip1559_prepare_answer(
     dispatched(request_id, Ok(response), decode_preparation).map(|answer| answer.value)
 }
 
-fn decode_eip1559_submission(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_eip1559_submission(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let preparation_ref = reader.text()?;
     let raw_transaction = reader.bytes()?;
     let (transaction, signature) = decode_signed(raw_transaction).ok()?;
@@ -664,7 +753,7 @@ pub fn decode_eip1559_submit_answer(
     dispatched(request_id, Ok(response), decode_eip1559_submission).map(|answer| answer.value)
 }
 
-pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let outcome = reader.u8()?;
     let submission_ref = match reader.u8()? {
         0 => None,
@@ -687,10 +776,24 @@ pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<
     };
     let mut out = Map::new();
     out.insert("status".into(), Value::String(status.into()));
+    out.insert("outcome".into(), Value::String(status.into()));
     out.insert(
         "submission_ref".into(),
         if effective == 0 {
             submission_ref.map_or(Value::Null, |reference| hexv(&reference))
+        } else {
+            Value::Null
+        },
+    );
+    let tx_hash = if effective == 0 { submission_ref } else { None };
+    out.insert(
+        "tx_hash".into(),
+        tx_hash.map_or(Value::Null, |hash| hexv(&hash)),
+    );
+    out.insert(
+        "rung".into(),
+        if tx_hash.is_some() {
+            Value::String(Rung::Submitted.name().into())
         } else {
             Value::Null
         },
@@ -757,7 +860,7 @@ fn decode_approval(reader: &mut Reader<'_>) -> Option<Value> {
     Some(Value::Object(out))
 }
 
-fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let count = usize::from(reader.u8()?);
     if count > MAX_APPROVALS {
         return None;
@@ -777,7 +880,7 @@ fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>
     Some((Value::Object(out), None))
 }
 
-fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     Some((decode_approval(reader)?, None))
 }
 
@@ -786,7 +889,7 @@ fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)
 pub(crate) fn dispatched(
     request_id: RequestId,
     response: Result<HumanResponse, HumanOperationError>,
-    decoder: impl FnOnce(&mut Reader<'_>) -> Option<(Value, Option<Level>)>,
+    decoder: impl FnOnce(&mut Reader<'_>) -> Option<(Value, Option<Rung>)>,
 ) -> Result<Dispatched, Rejection> {
     let response = response.map_err(|error| owner_error(request_id, error))?;
     let mut reader = Reader {
@@ -844,7 +947,27 @@ struct ReadAccountRequest {
     tenant: Option<String>,
     #[serde(default, skip_serializing)]
     agent: Option<String>,
+    #[serde(alias = "account")]
     account_id: String,
+    #[serde(
+        default,
+        alias = "requested_rung",
+        skip_serializing_if = "Option::is_none"
+    )]
+    requested_verification_level: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ReadBalanceRequest {
+    #[serde(default, skip_serializing)]
+    tenant: Option<String>,
+    #[serde(default, skip_serializing)]
+    agent: Option<String>,
+    account: String,
+    asset: String,
+    #[serde(alias = "requested_rung")]
+    requested_verification_level: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -957,9 +1080,9 @@ pub(crate) fn human_prepare(
             .map_err(|_| noncanonical(request_id))?,
         actor: request.actor,
         authority: request.authority,
-        account_sequence: decimal_u64(&request.account_sequence, request_id)?,
-        not_before: decimal_u64(&request.not_before, request_id)?,
-        not_after: decimal_u64(&request.not_after, request_id)?,
+        nonce: decimal_u64(&request.account_sequence, request_id)?,
+        not_before_height: decimal_u64(&request.not_before, request_id)?,
+        not_after_height: decimal_u64(&request.not_after, request_id)?,
         idempotency_key: request.idempotency_key,
         fee_limit: decimal_u128(&request.fee_limit, request_id)?,
         payload: hex_bytes(&request.payload, request_id)?,
@@ -1036,7 +1159,10 @@ pub(crate) fn canonical_request_bytes(
         Operation::ReadAccount => {
             named(operation, &decode::<ReadAccountRequest>(request, id)?, id)?
         }
-        Operation::ReadBalance | Operation::ReadCheckpoint => {
+        Operation::ReadBalance => {
+            named(operation, &decode::<ReadBalanceRequest>(request, id)?, id)?
+        }
+        Operation::ReadCheckpoint => {
             named(operation, &decode::<CoordinatesOnly>(request, id)?, id)?
         }
         Operation::Track => named(operation, &decode::<TrackRequest>(request, id)?, id)?,
@@ -1300,27 +1426,47 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             let request: ReadAccountRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
             let account_id = hex32(&request.account_id, id)?;
+            if let Some(level) = &request.requested_verification_level {
+                Rung::from_name(level).ok_or_else(|| malformed(id))?;
+            }
             dispatched(id, owner.account_state(peer, account_id), |reader| {
                 decode_account_state(reader, account_id)
             })
         }
         Operation::ReadBalance => {
-            let request: CoordinatesOnly = decode(request, id)?;
+            let request: ReadBalanceRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
-            dispatched(id, owner.balance(peer), decode_balance)
+            let account = hex32(&request.account, id)?;
+            let asset = hex32(&request.asset, id)?;
+            Rung::from_name(&request.requested_verification_level).ok_or_else(|| malformed(id))?;
+            dispatched(id, owner.balance(peer), |reader| {
+                let result = decode_balance(reader)?;
+                (result.0["value"]["account"] == hexv(&account)
+                    && result.0["value"]["asset"] == hexv(&asset))
+                .then_some(result)
+            })
         }
         Operation::ReadCheckpoint => {
             let request: CoordinatesOnly = decode(request, id)?;
             let _ = (request.tenant, request.agent);
-            dispatched(id, owner.head(peer), decode_head)
+            let error =
+                layerx_agent_api::error::ApiError::unavailable_capability(id, "read.checkpoint")
+                    .expect("static operation name");
+            Err(Rejection {
+                class: error.class,
+                retriability: error.retriability,
+                request_id: id,
+                reason: "unavailable_capability.read.checkpoint",
+            })
         }
         Operation::Track => {
             let request: TrackRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
+            submission_key(&request.submission_ref, id)?;
             dispatched(
                 id,
                 owner.track(peer, &request.submission_ref),
-                decode_observation,
+                decode_tracked,
             )
         }
         Operation::ApprovalList => {
@@ -1410,7 +1556,7 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
                 let response = shared
                     .lock()
                     .and_then(|mut guard| guard.rpc_submit_external(context, envelope));
-                dispatched(id, response, decode_eip1559_submission)
+                dispatched(id, response, decode_submitted)
             }
         }
         Operation::FaucetClaim => Err(rejection(
@@ -1557,4 +1703,62 @@ fn canonical_decimals_and_hex_are_exact() {
     assert!(hex32(&"AB".repeat(32), id).is_err());
     assert!(hex32(&"ab".repeat(31), id).is_err());
     assert_eq!(lower_hex(&[0x0f, 0xa0]), "0fa0");
+}
+
+pub fn submission_key(text: &str, id: RequestId) -> Result<[u8; 32], Rejection> {
+    hex32(text, id)
+        .map_err(|_| rejection(ErrorClass::ProtocolIncompatibility, id, "invalid_request"))
+}
+
+pub(crate) fn decode_submitted(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let (observation, rung) = decode_observation(reader)?;
+    Some((observation.get("submission")?.clone(), rung))
+}
+
+pub fn decode_write_answer(
+    id: RequestId,
+    response: HumanResponse,
+) -> Result<(Value, Rung), Rejection> {
+    let answer = dispatched(id, Ok(response), decode_tracked)?;
+    let Some(VerificationStatus::Achieved(rung)) = answer.verification else {
+        return Err(malformed(id));
+    };
+    Ok((answer.value, rung))
+}
+
+pub fn track_write_answer(
+    id: RequestId,
+    outbox: &crate::outbox::Outbox,
+    reference: &str,
+) -> Result<(Value, Rung), Rejection> {
+    let hash = submission_key(reference, id)?;
+    let status = outbox.status(hash).ok_or_else(|| malformed(id))?;
+    let response = crate::human_runtime::write_submission(status, None)
+        .map_err(|error| owner_error(id, error))?;
+    decode_write_answer(id, response)
+}
+
+pub fn wait_write_answer(
+    submission: Value,
+    result: crate::finality::WaitResult,
+    id: RequestId,
+) -> Result<(Value, VerificationStatus), Rejection> {
+    if submission.get("rung").and_then(Value::as_str) != Some(result.reached.name()) {
+        return Err(malformed(id));
+    }
+    let verification = if result.reached < result.requested {
+        VerificationStatus::Below {
+            requested: result.requested,
+            achieved: result.reached,
+            reason: layerx_agent_api::error::ReasonCode::new("deadline_elapsed")
+                .map_err(|_| malformed(id))?,
+        }
+    } else {
+        VerificationStatus::Achieved(result.reached)
+    };
+    Ok((
+        serde_json::json!({"submission": submission, "actual_rung": result.reached.name(),
+        "deadline_elapsed": result.deadline_elapsed}),
+        verification,
+    ))
 }

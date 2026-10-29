@@ -137,10 +137,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             intent.kind(),
             IntentKind::SessionGrant(_)
                 | IntentKind::RecoveryRegistration(_)
-                | IntentKind::NativeOnboarding(_)
-                | IntentKind::NativeOnboardingConsent(_)
                 | IntentKind::NativeBudgetCreate(_)
-                | IntentKind::NativeOwnerRotation(_)
                 | IntentKind::NativeAssetAccountOpen(_)
         )
     {
@@ -155,11 +152,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
     let mut encoder = Encoder::new(MAX_PAYLOAD_BYTES);
     if matches!(
         intent.kind(),
-        IntentKind::NativeOnboarding(_)
-            | IntentKind::NativeOnboardingConsent(_)
-            | IntentKind::NativeBudgetCreate(_)
-            | IntentKind::NativeOwnerRotation(_)
-            | IntentKind::NativeAssetAccountOpen(_)
+        IntentKind::NativeBudgetCreate(_) | IntentKind::NativeAssetAccountOpen(_)
     ) && intent.version() != IntentVersion::V3
     {
         return Err(CompileError::wire(
@@ -175,30 +168,6 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             wire(CompileField::Header, encoder.u16(1))?;
             fixed(&mut encoder, &asset.bytes(), CompileField::Asset)?;
             finish(registry, ModuleId::Asset, 4, encoder)
-        }
-        IntentKind::NativeOnboardingConsent(value) => {
-            fixed(
-                &mut encoder,
-                &value.payload().map_err(|_| native_invalid())?,
-                CompileField::Payload,
-            )?;
-            finish(registry, ModuleId::Governance, 1, encoder)
-        }
-        IntentKind::NativeOnboarding(value) => {
-            fixed(
-                &mut encoder,
-                &value.payload().map_err(|_| native_invalid())?,
-                CompileField::Payload,
-            )?;
-            finish(registry, ModuleId::Governance, 1, encoder)
-        }
-        IntentKind::NativeOwnerRotation(value) => {
-            fixed(
-                &mut encoder,
-                &value.payload().map_err(|_| native_invalid())?,
-                CompileField::Payload,
-            )?;
-            finish(registry, ModuleId::Governance, 2, encoder)
         }
         IntentKind::NativeBudgetCreate(value) => {
             fixed(
@@ -529,7 +498,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
                 &value.idempotency_key.bytes(),
                 CompileField::IdempotencyKey,
             )?;
-            finish(registry, ModuleId::Budget, 7, encoder)
+            finish(registry, ModuleId::Budget, 8, encoder)
         }
         IntentKind::BridgeDepositCredit(value) => {
             header(&mut encoder, 0x4801, 7)?;
@@ -554,11 +523,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             )?;
             finish(registry, ModuleId::Bridge, 1, encoder)
         }
-        IntentKind::NativeCustodyCredit(value)
-        | IntentKind::ExchangeMarginDeposit(crate::precompile::ExchangeMarginDeposit {
-            credit: value,
-            ..
-        }) => {
+        IntentKind::NativeCustodyCredit(value) => {
             if intent.version() != IntentVersion::V1 {
                 return Err(CompileError::wire(
                     CompileField::Version,
@@ -571,11 +536,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             fixed(&mut encoder, value.payload(), CompileField::DepositProof)?;
             finish(registry, ModuleId::Bridge, 1, encoder)
         }
-        IntentKind::BridgeWithdrawRequest(value)
-        | IntentKind::ExchangeMarginWithdraw(crate::precompile::ExchangeMarginWithdraw {
-            request: value,
-            ..
-        }) => {
+        IntentKind::BridgeWithdrawRequest(value) => {
             if intent.version() != IntentVersion::V2 {
                 return Err(CompileError::wire(
                     CompileField::Version,
@@ -601,21 +562,6 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             finish(registry, ModuleId::Asset, 9, encoder)
         }
         IntentKind::Perps(payload) => perps(intent, registry, payload),
-        IntentKind::ExchangeOrder(value) => perps(intent, registry, value.payload()),
-        IntentKind::ExchangeCancel(value) => perps(intent, registry, value.payload()),
-        IntentKind::ExchangeSettle(value) => perps(intent, registry, value.payload()),
-        IntentKind::BridgeIn(_)
-        | IntentKind::BridgeOut(_)
-        | IntentKind::LaunchpadCreate(_)
-        | IntentKind::LaunchpadSwap(_)
-        | IntentKind::LaunchpadAirdropExecute(_)
-        | IntentKind::LaunchpadFeeStrategy(_)
-        | IntentKind::LaunchpadFeesBurn(_)
-        | IntentKind::LaunchpadFeesClaim(_)
-        | IntentKind::LaunchpadLpRewards(_) => Err(CompileError {
-            field: CompileField::ActivityType,
-            reason: CompileErrorReason::SettledOnPaxeer,
-        }),
     }
 }
 

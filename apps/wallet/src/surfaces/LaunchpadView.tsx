@@ -22,6 +22,13 @@ import { useFeeSelection, useModuleSend, useSurfaceWallet } from './useSurface';
 
 export type LaunchpadAction = 'buy' | 'sell' | 'create' | 'claim';
 
+export function parseDeadlineMinutes(text: string): number {
+  if (!/^[1-9][0-9]*$/.test(text)) {
+    throw new RangeError('the deadline must be a positive whole number of minutes');
+  }
+  return Number(text);
+}
+
 const ACTIONS: readonly { value: LaunchpadAction; label: string }[] = [
   { value: 'buy', label: 'Buy' },
   { value: 'sell', label: 'Sell' },
@@ -59,9 +66,9 @@ export function LaunchpadView({ sidRate, legs, now = Date.now }: LaunchpadViewPr
           const buying = action === 'buy';
           const order = {
             pool,
-            amountIn: buying ? parseUnits(amountIn, 18) : BigInt(amountIn),
-            minOut: buying ? BigInt(minOut) : parseUnits(minOut, 18),
-            deadline: BigInt(Math.floor(now() / 1000) + Number(deadlineMinutes) * 60),
+            amountIn: buying ? parseUnits(amountIn, 6) : BigInt(amountIn),
+            minOut: buying ? BigInt(minOut) : parseUnits(minOut, 6),
+            deadline: BigInt(Math.floor(now() / 1000) + parseDeadlineMinutes(deadlineMinutes) * 60),
           };
           return buying
             ? { tx: surfaceModule.buy(order), spend: { kind: 'buy', order } }
@@ -130,14 +137,14 @@ export function LaunchpadView({ sidRate, legs, now = Date.now }: LaunchpadViewPr
             onChange={(e) => setPool(e.target.value)}
           />
           <TextField
-            label={action === 'buy' ? 'Pay (PAX)' : 'Sell (token base units)'}
+            label={action === 'buy' ? 'Pay (USDL)' : 'Sell (token base units)'}
             name="amountIn"
             value={amountIn}
             onChange={(e) => setAmountIn(e.target.value)}
           />
           <TextField
             label={
-              action === 'buy' ? 'Receive at least (token base units)' : 'Receive at least (PAX)'
+              action === 'buy' ? 'Receive at least (token base units)' : 'Receive at least (USDL)'
             }
             name="minOut"
             value={minOut}

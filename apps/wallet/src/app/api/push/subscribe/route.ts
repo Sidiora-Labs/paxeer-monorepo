@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyPushOwnership } from '@/server/push-ownership';
 import {
   parseStoredSubscription,
   removeSubscription,
   upsertSubscription,
 } from '@/server/push-store';
-import {
-  boundaryErrorResponse,
-  HttpBoundaryError,
-  readBoundedJson,
-} from '@/server/http';
+import { boundaryErrorResponse, HttpBoundaryError, readBoundedJson } from '@/server/http';
 
 function record(input: unknown): Record<string, unknown> {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    throw new HttpBoundaryError(
-      400,
-      'SUBSCRIPTION_INVALID',
-      'Push subscription is invalid',
-    );
+    throw new HttpBoundaryError(400, 'SUBSCRIPTION_INVALID', 'Push subscription is invalid');
   }
   return input as Record<string, unknown>;
 }
@@ -24,6 +17,13 @@ function record(input: unknown): Record<string, unknown> {
 export async function POST(request: NextRequest) {
   try {
     const body = record(await readBoundedJson(request, 8_192));
+    if (typeof body.signature !== 'string' || typeof body.issuedAt !== 'number') {
+      throw new HttpBoundaryError(
+        401,
+        'SUBSCRIPTION_UNPROVEN',
+        'Push subscription ownership could not be verified'
+      );
+    }
     const keys = record(body.keys);
     const subscription = parseStoredSubscription({
       endpoint: body.endpoint,
@@ -33,11 +33,17 @@ export async function POST(request: NextRequest) {
       createdAt: Date.now(),
       lastActiveAt: Date.now(),
     });
-    await upsertSubscription(subscription);
-    return NextResponse.json(
-      { ok: true },
-      { headers: { 'Cache-Control': 'no-store' } },
+    verifyPushOwnership(
+      {
+        endpoint: subscription.endpoint,
+        walletAddress: subscription.walletAddress,
+        issuedAt: body.issuedAt,
+        signature: body.signature,
+      },
+      Math.floor(Date.now() / 1_000)
     );
+    await upsertSubscription(subscription);
+    return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return boundaryErrorResponse(error);
   }
@@ -52,25 +58,14 @@ export async function DELETE(request: NextRequest) {
       body.endpoint.length < 12 ||
       body.endpoint.length > 2_048
     ) {
-      throw new HttpBoundaryError(
-        400,
-        'SUBSCRIPTION_INVALID',
-        'Push subscription is invalid',
-      );
+      throw new HttpBoundaryError(400, 'SUBSCRIPTION_INVALID', 'Push subscription is invalid');
     }
     const endpoint = new URL(body.endpoint);
     if (endpoint.protocol !== 'https:') {
-      throw new HttpBoundaryError(
-        400,
-        'SUBSCRIPTION_INVALID',
-        'Push subscription is invalid',
-      );
+      throw new HttpBoundaryError(400, 'SUBSCRIPTION_INVALID', 'Push subscription is invalid');
     }
     const removed = await removeSubscription(endpoint.toString());
-    return NextResponse.json(
-      { ok: true, removed },
-      { headers: { 'Cache-Control': 'no-store' } },
-    );
+    return NextResponse.json({ ok: true, removed }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return boundaryErrorResponse(error);
   }

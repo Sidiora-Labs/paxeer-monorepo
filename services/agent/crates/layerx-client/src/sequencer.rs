@@ -145,6 +145,8 @@ pub struct ExecutedReceipt {
     pub key_id: [u8; 32],
     /// Canonical signed receipt bytes.
     pub receipt: Vec<u8>,
+    /// Signing public key served with the receipt.
+    pub signing_key: [u8; 32],
 }
 
 /// The answer of `pax_sequencerReceipt` for a known transaction.
@@ -196,6 +198,8 @@ pub struct SequencerBlock {
     pub timestamp: u64,
     /// Root the header commits over the block's transactions.
     pub transactions_root: [u8; 32],
+    /// Root the header commits over the block's receipts.
+    pub receipts_root: [u8; 32],
     /// The signed transactions in block index order, each in the encoding
     /// `eth_sendRawTransaction` takes.
     pub transactions: Vec<Vec<u8>>,
@@ -495,6 +499,16 @@ impl SequencerEndpoint {
         }
     }
 
+    /// The node's current block height.
+    ///
+    /// # Errors
+    /// Transport and refusal failures as [`SequencerError`];
+    /// [`SequencerError::Malformed`] for an invalid or overflowing quantity.
+    pub fn block_number(&self) -> Result<u64, SequencerError> {
+        let result = self.call("eth_blockNumber", &json!([]))?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
+    }
+
     /// The committed block at `height` with full transactions; `None` when the
     /// node has no block at that height.
     ///
@@ -760,7 +774,7 @@ fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
 }
 
 const SUBMITTED_FIELDS: [&str; 3] = ["rung", "txHash", "nonce"];
-const RECEIPTED_FIELDS: [&str; 22] = [
+const RECEIPTED_FIELDS: [&str; 23] = [
     "rung",
     "txHash",
     "nonce",
@@ -783,6 +797,7 @@ const RECEIPTED_FIELDS: [&str; 22] = [
     "vmError",
     "keyId",
     "receipt",
+    "signingKey",
 ];
 
 fn decode_receipt(value: &Value) -> Option<SequencerReceipt> {
@@ -857,6 +872,7 @@ fn executed(fields: &Fields<'_>) -> Option<ExecutedReceipt> {
         vm_error: fields.string("vmError")?,
         key_id: fields.fixed("keyId")?,
         receipt,
+        signing_key: fields.fixed("signingKey")?,
     })
 }
 
@@ -921,6 +937,7 @@ fn decode_block(value: &Value, height: u64) -> Option<SequencerBlock> {
         parent_hash: fields.fixed("parentHash")?,
         timestamp: fields.u64("timestamp")?,
         transactions_root: fields.fixed("transactionsRoot")?,
+        receipts_root: fields.fixed("receiptsRoot")?,
         transactions,
     })
 }

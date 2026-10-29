@@ -2,7 +2,6 @@ package layerx
 
 import (
 	"bytes"
-	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
@@ -15,12 +14,9 @@ import (
 )
 
 var (
-	merkleLeafDomain           = []byte("LXP/v1/merkle-leaf\x00")
-	merkleInternalDomain       = []byte("LXP/v1/merkle-internal\x00")
-	batchHeaderDomain          = []byte("LXP/v1/batch-header\x00")
-	receiptDomain              = []byte("LXP/v1/receipt\x00")
-	checkpointDomain           = []byte("LXP/v2/checkpoint-certificate\x00")
-	guarantorAttestationDomain = []byte("LXP/v2/guarantor-attestation\x00")
+	merkleLeafDomain     = []byte("LXP/v1/merkle-leaf\x00")
+	merkleInternalDomain = []byte("LXP/v1/merkle-internal\x00")
+	receiptDomain        = []byte("LXP/v1/receipt\x00")
 )
 
 const (
@@ -28,8 +24,6 @@ const (
 	maximumMessageBytes    = 1_048_576
 	maximumEffects         = 512
 	maximumEffectBody      = 256
-	batchHeaderBytes       = 354
-	allAvailabilityClasses = 0x1f
 )
 
 const ProgramsModuleID uint16 = 9
@@ -78,12 +72,19 @@ func (*VerificationError) Unwrap() error { return ErrVerification }
 func receiptFailure(check ReceiptCheck) error { return &VerificationError{Check: check} }
 func verificationFailure() error              { return newSDKError(ErrorVerificationFailure, RetryNever) }
 
-type AuthorizedBatch struct {
-	BatchID            [32]byte
-	Asset              [32]byte
-	PreviousStateRoot  [32]byte
-	ResultingStateRoot [32]byte
-	SequencerPublicKey [32]byte
+type VerificationLevel string
+
+const (
+	VerificationReceipted VerificationLevel = "receipted"
+	VerificationCommitted VerificationLevel = "committed"
+)
+
+func (level VerificationLevel) Valid() bool {
+	return level == VerificationReceipted || level == VerificationCommitted
+}
+
+func VerificationLevels() []VerificationLevel {
+	return []VerificationLevel{VerificationReceipted, VerificationCommitted}
 }
 
 type ProtocolReceiptFacts struct {
@@ -190,88 +191,6 @@ type decodedReceipt struct {
 	protocol           ProtocolReceipt
 }
 
-func VerifyReceiptOutcome(canonicalReceipt []byte, authorized AuthorizedBatch, selectedProtocol ...uint16) (VerifiedReceipt, error) {
-	return verifyReceiptOutcomeProfile(canonicalReceipt, authorized, false, selectedProtocol...)
-}
-
-func verifyReceiptOutcomeProfile(canonicalReceipt []byte, authorized AuthorizedBatch, nativeV5 bool, selectedProtocol ...uint16) (VerifiedReceipt, error) {
-	receipt, err := decodeProtocolReceipt(canonicalReceipt)
-	if err != nil {
-		return VerifiedReceipt{}, err
-	}
-	if !selectedProtocolMatches(receipt.protocolVersion, selectedProtocol) {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckProtocolVersion)
-	}
-	program := receipt.protocol.ModuleID == ProgramsModuleID && (receipt.operation == 0 || receipt.operation == 3)
-	if program {
-		module := receipt.protocol.ModuleVersion
-		validModule := receipt.protocolVersion == 3 && (module == 4 || module == 5) || receipt.protocolVersion == 2 && (module == 2 || module == 3 || receipt.operation == 3 && module == 1)
-		if !validModule {
-			return VerifiedReceipt{}, receiptFailure(ReceiptCheckModuleVersion)
-		}
-		if receipt.operation == 0 && receipt.resultCode != 0 {
-			return VerifiedReceipt{}, receiptFailure(ReceiptCheckResultCode)
-		}
-		if receipt.operation == 3 {
-			outcome := receipt.protocol.ProgramOutcome
-			if outcome == nil {
-				return VerifiedReceipt{}, receiptFailure(ReceiptCheckReceiptShape)
-			}
-			nativeABI := nativeV5 && receipt.protocolVersion == 3 && (outcome.ABIVersion == ProgramAbiV3 || outcome.ABIVersion == ProgramAbiV4 || outcome.ABIVersion == ProgramAbiV5)
-			if (!nativeABI && outcome.ABIVersion != 1 && outcome.ABIVersion != 2) || outcome.RuntimeVersion != 1 {
-				return VerifiedReceipt{}, receiptFailure(ReceiptCheckProtocolVersion)
-			}
-			if nativeABI && uint32(outcome.ABIVersion) > module {
-				return VerifiedReceipt{}, receiptFailure(ReceiptCheckModuleVersion)
-			}
-		}
-	}
-	if !program && receipt.operation == 0 {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckOperation)
-	}
-	if zero32(receipt.activityID) {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckActivityID)
-	}
-	if receipt.batchID != authorized.BatchID {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckBatchID)
-	}
-	if !program && (receipt.asset != authorized.Asset || zero32(receipt.asset)) {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckAsset)
-	}
-	if receipt.previousStateRoot != authorized.PreviousStateRoot {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckPreviousStateRoot)
-	}
-	if receipt.resultingStateRoot != authorized.ResultingStateRoot {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckResultingStateRoot)
-	}
-	if !program && receipt.resultCode == 0 {
-		debitAfter, ok := receipt.debitBefore.Sub(receipt.amount)
-		if !ok || !debitAfter.Equal(receipt.debitAfter) {
-			return VerifiedReceipt{}, receiptFailure(ReceiptCheckDebitBalance)
-		}
-		creditAfter, ok := receipt.creditBefore.Add(receipt.amount)
-		if !ok || !creditAfter.Equal(receipt.creditAfter) {
-			return VerifiedReceipt{}, receiptFailure(ReceiptCheckCreditBalance)
-		}
-	}
-	digest := domainDigest(receiptDomain, receipt.unsigned)
-	if !ed25519.Verify(authorized.SequencerPublicKey[:], digest[:], receipt.signature[:]) {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckSequencerSignature)
-	}
-	return VerifiedReceipt{
-		Level:          "sequencer-signed",
-		Receipt:        receipt.protocol,
-		CanonicalBytes: append([]byte(nil), canonicalReceipt...),
-		ReceiptDigest:  digest,
-		Facts: ProtocolReceiptFacts{
-			ResultCode: receipt.resultCode,
-			Asset:      receipt.asset,
-			Amount:     receipt.amount,
-			FeeCharged: receipt.feeCharged,
-		},
-	}, nil
-}
-
 func VerifyProgramLifecycleReceipt(canonical []byte, expectedActivity [32]byte, sequencer [32]byte) (VerifiedReceipt, error) {
 	decoded, err := decodeProtocolReceipt(canonical)
 	if err != nil {
@@ -287,17 +206,6 @@ func VerifyProgramLifecycleReceipt(canonical []byte, expectedActivity [32]byte, 
 	}
 	return VerifiedReceipt{Level: "sequencer-signed", Receipt: receipt, CanonicalBytes: append([]byte{}, canonical...), ReceiptDigest: digest,
 		Facts: ProtocolReceiptFacts{ResultCode: receipt.ResultCode, Asset: receipt.Asset, Amount: receipt.Amount, FeeCharged: receipt.FeeCharged}}, nil
-}
-
-func VerifyReceipt(canonicalReceipt []byte, authorized AuthorizedBatch, selectedProtocol ...uint16) (VerifiedReceipt, error) {
-	verified, err := VerifyReceiptOutcome(canonicalReceipt, authorized, selectedProtocol...)
-	if err != nil {
-		return VerifiedReceipt{}, err
-	}
-	if verified.Facts.ResultCode != 0 {
-		return VerifiedReceipt{}, receiptFailure(ReceiptCheckResultCode)
-	}
-	return verified, nil
 }
 
 func decodeProtocolReceipt(value []byte) (decodedReceipt, error) {
@@ -536,292 +444,6 @@ func proofDepth(count uint32) int {
 	return depth
 }
 
-type BatchHeader struct {
-	ProtocolVersion      uint16
-	NetworkID            uint32
-	Epoch                uint64
-	BatchNumber          uint64
-	FirstSequence        uint64
-	LastSequence         uint64
-	PreviousStateRoot    [32]byte
-	ResultingStateRoot   [32]byte
-	ActivityMerkleRoot   [32]byte
-	ReceiptMerkleRoot    [32]byte
-	EventMerkleRoot      [32]byte
-	DataAvailabilityRoot [32]byte
-	OracleRoot           [32]byte
-	TimestampMillis      uint64
-	SequencerID          [32]byte
-}
-
-func DecodeBatchHeader(canonicalHeader []byte) (BatchHeader, error) {
-	if len(canonicalHeader) != batchHeaderBytes {
-		return BatchHeader{}, verificationFailure()
-	}
-	decoder := wireDecoder{value: canonicalHeader}
-	if decoder.u16() != 1 || decoder.u16() != 0x1701 || decoder.u8() != 15 {
-		return BatchHeader{}, verificationFailure()
-	}
-	field := func(expected uint8) bool { return decoder.u8() == expected }
-	var header BatchHeader
-	if !field(1) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.ProtocolVersion = decoder.u16()
-	if !field(2) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.NetworkID = decoder.u32()
-	if !field(3) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.Epoch = decoder.u64()
-	if !field(4) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.BatchNumber = decoder.u64()
-	if !field(5) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.FirstSequence = decoder.u64()
-	if !field(6) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.LastSequence = decoder.u64()
-	if !field(7) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.PreviousStateRoot = decoder.array32()
-	if !field(8) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.ResultingStateRoot = decoder.array32()
-	if !field(9) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.ActivityMerkleRoot = decoder.array32()
-	if !field(10) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.ReceiptMerkleRoot = decoder.array32()
-	if !field(11) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.EventMerkleRoot = decoder.array32()
-	if !field(12) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.DataAvailabilityRoot = decoder.array32()
-	if !field(13) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.OracleRoot = decoder.array32()
-	if !field(14) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.TimestampMillis = decoder.u64()
-	if !field(15) {
-		return BatchHeader{}, verificationFailure()
-	}
-	header.SequencerID = decoder.array32()
-	if decoder.failed || decoder.offset != len(canonicalHeader) {
-		return BatchHeader{}, verificationFailure()
-	}
-	return header, nil
-}
-
-type SequencerAuthorization struct {
-	SequencerID      [32]byte
-	PublicKey        [32]byte
-	FirstBatchNumber uint64
-	LastBatchNumber  uint64
-}
-
-type InclusionKind string
-
-const (
-	InclusionActivity InclusionKind = "activity"
-	InclusionReceipt  InclusionKind = "receipt"
-	InclusionEvent    InclusionKind = "event"
-	InclusionState    InclusionKind = "state"
-)
-
-type InclusionVerification struct {
-	Level        string
-	Header       BatchHeader
-	HeaderDigest [32]byte
-	Root         [32]byte
-}
-
-func VerifyBatchInclusion(kind InclusionKind, canonicalLeaf []byte, proof MerkleProof, canonicalHeader []byte, headerSignature []byte, authorization SequencerAuthorization, selectedProtocol ...uint16) (InclusionVerification, error) {
-	header, err := DecodeBatchHeader(canonicalHeader)
-	if err != nil {
-		return InclusionVerification{}, err
-	}
-	if !selectedProtocolMatches(header.ProtocolVersion, selectedProtocol) {
-		return InclusionVerification{}, verificationFailure()
-	}
-	if header.BatchNumber < authorization.FirstBatchNumber || header.BatchNumber > authorization.LastBatchNumber || header.SequencerID != authorization.SequencerID || len(headerSignature) != ed25519.SignatureSize {
-		return InclusionVerification{}, verificationFailure()
-	}
-	digest := domainDigest(batchHeaderDomain, canonicalHeader)
-	if !ed25519.Verify(authorization.PublicKey[:], digest[:], headerSignature) {
-		return InclusionVerification{}, verificationFailure()
-	}
-	var root [32]byte
-	level := "batch-included"
-	switch kind {
-	case InclusionActivity:
-		root = header.ActivityMerkleRoot
-	case InclusionReceipt:
-		root = header.ReceiptMerkleRoot
-	case InclusionEvent:
-		root = header.EventMerkleRoot
-	case InclusionState:
-		root = header.ResultingStateRoot
-		level = "state-proven"
-	default:
-		return InclusionVerification{}, verificationFailure()
-	}
-	if err := VerifyMerkleInclusion(canonicalLeaf, proof, root); err != nil {
-		return InclusionVerification{}, err
-	}
-	return InclusionVerification{Level: level, Header: header, HeaderDigest: digest, Root: root}, nil
-}
-
-type CheckpointAttestation struct {
-	ProtocolVersion       uint16
-	NetworkID             uint32
-	PaxeerChainID         uint64
-	SettlementContract    [20]byte
-	Epoch                 uint64
-	CheckpointID          [32]byte
-	CheckpointHash        [32]byte
-	GuarantorID           [32]byte
-	BatchNumber           uint64
-	DataAvailabilityRoot  [32]byte
-	Replayed              bool
-	DataPossessed         bool
-	AvailabilityClassMask uint8
-	AttestedAtMillis      uint64
-	Signer                [20]byte
-	Signature             [64]byte
-	SignatureV            uint8
-}
-
-type GuarantorKey struct {
-	GuarantorID [32]byte
-	PublicKey   [33]byte
-	Bonded      bool
-}
-
-type CheckpointCertificate struct {
-	CanonicalHeader     []byte
-	ValidityProof       []byte
-	Attestations        []CheckpointAttestation
-	Threshold           uint32
-	SettlementReference []byte
-}
-
-type CheckpointVerificationInput struct {
-	Certificate                   CheckpointCertificate
-	BondedSet                     []GuarantorKey
-	RegisteredCheckpointID        [32]byte
-	ExpectedPaxeerChainID         uint64
-	ExpectedSettlementContract    [20]byte
-	RegisteredSettlementReference []byte
-	AvailabilityObtained          bool
-}
-
-type Secp256k1Verifier interface {
-	VerifyRecoverableSecp256k1(context.Context, [33]byte, [64]byte, uint8, [20]byte, [32]byte) bool
-}
-
-type CheckpointVerification struct {
-	Level        string
-	CheckpointID [32]byte
-	Achieved     uint32
-	Required     uint32
-	Header       BatchHeader
-}
-
-func VerifyCheckpoint(ctx context.Context, input CheckpointVerificationInput, signatures Secp256k1Verifier, selectedProtocol ...uint16) (CheckpointVerification, error) {
-	certificate := input.Certificate
-	if ctx == nil || signatures == nil || !input.AvailabilityObtained || uint64(len(certificate.ValidityProof)) > uint64(^uint32(0)) || certificate.Threshold == 0 ||
-		input.ExpectedPaxeerChainID == 0 || input.ExpectedSettlementContract == ([20]byte{}) {
-		return CheckpointVerification{}, verificationFailure()
-	}
-	header, err := DecodeBatchHeader(certificate.CanonicalHeader)
-	if err != nil {
-		return CheckpointVerification{}, err
-	}
-	if !selectedProtocolMatches(header.ProtocolVersion, selectedProtocol) {
-		return CheckpointVerification{}, verificationFailure()
-	}
-	length := make([]byte, 4)
-	binary.BigEndian.PutUint32(length, uint32(len(certificate.ValidityProof)))
-	checkpointID := domainDigest(checkpointDomain, certificate.CanonicalHeader, length, certificate.ValidityProof)
-	if checkpointID != input.RegisteredCheckpointID {
-		return CheckpointVerification{}, verificationFailure()
-	}
-	bonded := make(map[[32]byte]GuarantorKey, len(input.BondedSet))
-	for _, member := range input.BondedSet {
-		if member.Bonded {
-			bonded[member.GuarantorID] = member
-		}
-	}
-	seen := make(map[[32]byte]struct{}, len(certificate.Attestations))
-	var achieved uint32
-	for _, attestation := range certificate.Attestations {
-		if err := ctx.Err(); err != nil {
-			return CheckpointVerification{}, err
-		}
-		if _, duplicate := seen[attestation.GuarantorID]; duplicate ||
-			attestation.ProtocolVersion != header.ProtocolVersion || attestation.NetworkID != header.NetworkID || attestation.Epoch != header.Epoch ||
-			attestation.PaxeerChainID != input.ExpectedPaxeerChainID || attestation.SettlementContract != input.ExpectedSettlementContract ||
-			attestation.CheckpointID != checkpointID || attestation.CheckpointHash != checkpointID ||
-			attestation.BatchNumber != header.BatchNumber || attestation.DataAvailabilityRoot != header.DataAvailabilityRoot ||
-			!attestation.Replayed || !attestation.DataPossessed || attestation.AvailabilityClassMask != allAvailabilityClasses || attestation.AttestedAtMillis == 0 ||
-			attestation.Signer == ([20]byte{}) || (attestation.SignatureV != 27 && attestation.SignatureV != 28) {
-			return CheckpointVerification{}, verificationFailure()
-		}
-		member, ok := bonded[attestation.GuarantorID]
-		if !ok {
-			return CheckpointVerification{}, verificationFailure()
-		}
-		seen[attestation.GuarantorID] = struct{}{}
-		message := make([]byte, 0, 189)
-		message = appendUint16(message, attestation.ProtocolVersion)
-		message = appendUint32(message, attestation.NetworkID)
-		message = appendUint64(message, attestation.PaxeerChainID)
-		message = append(message, attestation.SettlementContract[:]...)
-		message = appendUint64(message, attestation.Epoch)
-		message = append(message, attestation.CheckpointID[:]...)
-		message = append(message, attestation.CheckpointHash[:]...)
-		message = append(message, attestation.GuarantorID[:]...)
-		message = appendUint64(message, attestation.BatchNumber)
-		message = append(message, attestation.DataAvailabilityRoot[:]...)
-		message = append(message, boolByte(attestation.Replayed), boolByte(attestation.DataPossessed), attestation.AvailabilityClassMask)
-		message = appendUint64(message, attestation.AttestedAtMillis)
-		digest := domainDigest(guarantorAttestationDomain, message)
-		if !signatures.VerifyRecoverableSecp256k1(ctx, member.PublicKey, attestation.Signature, attestation.SignatureV, attestation.Signer, digest) {
-			return CheckpointVerification{}, verificationFailure()
-		}
-		achieved++
-	}
-	if achieved < certificate.Threshold {
-		return CheckpointVerification{}, verificationFailure()
-	}
-	level := "checkpoint-finalised"
-	if certificate.SettlementReference != nil {
-		if len(certificate.SettlementReference) == 0 || !bytes.Equal(certificate.SettlementReference, input.RegisteredSettlementReference) {
-			return CheckpointVerification{}, verificationFailure()
-		}
-		level = "settlement-anchored"
-	}
-	return CheckpointVerification{Level: level, CheckpointID: checkpointID, Achieved: achieved, Required: certificate.Threshold, Header: header}, nil
-}
-
 type wireDecoder struct {
 	value  []byte
 	offset int
@@ -1010,6 +632,7 @@ type sequencerReceiptJSON struct {
 	ContractAddress   string                `json:"contractAddress"`
 	VMError           string                `json:"vmError"`
 	KeyID             string                `json:"keyId"`
+	SigningKey        string                `json:"signingKey,omitempty"`
 	Receipt           string                `json:"receipt"`
 }
 
@@ -1081,6 +704,12 @@ func VerifySequencerReceipt(receiptBytes, rawTransaction []byte, keys ReceiptKey
 	if key == nil {
 		return fail(ReceiptCheckKeyHeight)
 	}
+	if _, present := fields["signingKey"]; present {
+		signingKey, ok := receiptHex(view.SigningKey)
+		if !ok || !bytes.Equal(signingKey, key.PublicKey[:]) {
+			return fail(ReceiptCheckKeyID)
+		}
+	}
 	if len(rawTransaction) == 0 || len(rawTransaction) > maximumMessageBytes || receiptKeccak256(rawTransaction) != r.ActivityID {
 		return fail(ReceiptCheckRawTransaction)
 	}
@@ -1107,9 +736,9 @@ func VerifySequencerReceipt(receiptBytes, rawTransaction []byte, keys ReceiptKey
 		return fail(ReceiptCheckSignature)
 	}
 	result := SequencerReceiptVerification{
-		VerifiedReceipt: VerifiedReceipt{Level: "receipted", Receipt: r, CanonicalBytes: append([]byte(nil), canonical...), ReceiptDigest: digest,
+		VerifiedReceipt: VerifiedReceipt{Level: string(VerificationReceipted), Receipt: r, CanonicalBytes: append([]byte(nil), canonical...), ReceiptDigest: digest,
 			Facts: ProtocolReceiptFacts{ResultCode: r.ResultCode, Asset: r.Asset, Amount: r.Amount, FeeCharged: r.FeeCharged}},
-		Rung: "receipted", Status: status, ReturnData: append([]byte(nil), data...), Logs: view.Logs,
+		Rung: string(VerificationReceipted), Status: status, ReturnData: append([]byte(nil), data...), Logs: view.Logs,
 	}
 	if status == 0 {
 		result.Revert = decodeReceiptRevert(data)

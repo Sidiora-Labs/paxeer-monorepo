@@ -35,6 +35,17 @@ export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES
   'streams',
 ] as const);
 
+export function unservedPrecompileAt(
+  to: string | undefined,
+): keyof typeof PRECOMPILE_ADDRESSES | null {
+  if (to === undefined) return null;
+  const address = to.toLowerCase();
+  for (const key of UNSERVED_PRECOMPILES) {
+    if (PRECOMPILE_ADDRESSES[key].toLowerCase() === address) return key;
+  }
+  return null;
+}
+
 export class PrecompileNotServedError extends Error {
   constructor(public readonly precompile: keyof typeof PRECOMPILE_ADDRESSES) {
     super(
@@ -66,6 +77,14 @@ export const TEE_FAMILIES = {
   intel_sgx: 3,
 } as const;
 export type TeeFamilyName = keyof typeof TEE_FAMILIES;
+
+export function precompileAddressBook() {
+  const keys = Object.keys(PRECOMPILE_ADDRESSES) as (keyof typeof PRECOMPILE_ADDRESSES)[];
+  const served = Object.fromEntries(
+    keys.map((key) => [key, !UNSERVED_PRECOMPILES.has(key)]),
+  ) as Record<keyof typeof PRECOMPILE_ADDRESSES, boolean>;
+  return { addresses: PRECOMPILE_ADDRESSES, served, tee_families: TEE_FAMILIES };
+}
 
 export interface BuiltCall {
   to: `0x${string}`;

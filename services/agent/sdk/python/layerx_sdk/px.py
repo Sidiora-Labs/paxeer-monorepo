@@ -17,13 +17,12 @@ from .agent_http import LayerXKeyCredential
 
 _MAX_RESPONSE_BYTES = 9 * 1024 * 1024
 _MAX_REQUEST_BYTES = 1024 * 1024
-_MAX_U128 = 340282366920938463463374607431768211455
 _MAX_U64 = 18446744073709551615
 _EVM_ADDRESS = re.compile(r"^0x[0-9a-f]{40}$")
 _HEX32 = re.compile(r"^[0-9a-f]{64}$")
 _DID = re.compile(r"^did:layerx:[0-9a-f]{64}$")
 _DECIMAL = re.compile(r"^(?:0|[1-9][0-9]*)$")
-_HEX_QUANTITY = re.compile(r"^0x[0-9a-f]{1,32}$")
+_HEX_QUANTITY = re.compile(r"^0x[0-9a-f]{1,64}$")
 
 _MAX_U256 = (1 << 256) - 1
 _ROW_ID = re.compile(r"^(?:explorer:)?[1-9][0-9]*$")
@@ -177,6 +176,7 @@ class HistoryRow:
     asset: str
     amount: int
     tx_id: str
+    tx_hash: str
     ordinal: int
     final: bool
     decoded: object
@@ -401,7 +401,7 @@ def px_account_key(account: str) -> str:
 
 def px_quantity(value: object) -> int:
     if type(value) is int:
-        if value < 0 or value > _MAX_U128:
+        if value < 0 or value > _MAX_U256:
             raise ValueError("invalid-px-quantity")
         return value
     if not isinstance(value, str):
@@ -413,7 +413,7 @@ def px_quantity(value: object) -> int:
         parsed = int(text, 10)
     else:
         raise ValueError("invalid-px-quantity")
-    if parsed > _MAX_U128:
+    if parsed > _MAX_U256:
         raise ValueError("invalid-px-quantity")
     return parsed
 
@@ -638,7 +638,9 @@ def history_params(
 def history_account(account: str) -> str:
     """An EVM address or did:layerx DID, the forms px_getHistory and px_getUnifiedHistory take."""
     lowered = account.strip().lower() if isinstance(account, str) else ""
-    if _EVM_ADDRESS.fullmatch(lowered) is None and _DID.fullmatch(lowered) is None:
+    if lowered == "did:layerx:" + "0" * 64 or (
+        _EVM_ADDRESS.fullmatch(lowered) is None and _DID.fullmatch(lowered) is None
+    ):
         raise ValueError("invalid-account-identifier")
     return lowered
 
@@ -678,6 +680,9 @@ def decode_unified_history_page(
 
 def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
     row = _document(value)
+    tx_hash = row.get("tx_hash")
+    if not isinstance(tx_hash, str) or re.fullmatch(r"0x[0-9a-fA-F]{64}", tx_hash) is None:
+        raise ValueError("invalid-history-transaction-hash")
     _present(
         row,
         (
@@ -691,6 +696,7 @@ def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
             "asset",
             "amount",
             "tx_id",
+            "tx_hash",
             "ordinal",
             "final",
             "decoded",
@@ -731,6 +737,7 @@ def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
         asset,
         _history_decimal(row["amount"], _MAX_U256),
         _text(row["tx_id"], 256),
+        tx_hash,
         _history_decimal(row["ordinal"], _MAX_U64),
         final,
         row["decoded"],

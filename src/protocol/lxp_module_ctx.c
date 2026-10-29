@@ -60,6 +60,7 @@ struct lxp_prepared_module_transition {
     lxp_prepared_account_change accounts[
         LXP_MAX_TRANSFER_SET_LEGS * 2U + 1U];
     size_t account_count;
+    lxp_applied_transfers applied_transfers;
     lxp_module_blob blobs[LXP_KERNEL_MAX_STAGED_BLOBS];
     size_t blob_count;
     bool allowance_charged;
@@ -1138,6 +1139,9 @@ lxp_result lxp_module_ctx_commit(lxp_module_ctx *ctx)
     ctx->staged_account_count = 0U;
     ctx->transfer_snapshot_count = 0U;
     ctx->transfer_applied = false;
+    if (ctx->kernel->applied_transfers_out != NULL)
+        *ctx->kernel->applied_transfers_out = ctx->applied_transfers;
+    (void)memset(&ctx->applied_transfers, 0, sizeof(ctx->applied_transfers));
     ctx->allowance_charged = false;
     ctx->allowance_record_staged = false;
     ctx->commit_prepared = false;
@@ -1506,6 +1510,7 @@ lxp_result lxp_module_ctx_preview_state_root(
 static void restore_transfer_snapshots(lxp_module_ctx *ctx)
 {
     size_t i;
+    (void)memset(&ctx->applied_transfers, 0, sizeof(ctx->applied_transfers));
     for (i = 0U; i < ctx->transfer_snapshot_count; ++i) {
         lxp_module_account_snapshot *snapshot = &ctx->transfer_snapshots[i];
         (void)lxp_ledger_restore_account_snapshot(
@@ -2174,6 +2179,17 @@ static lxp_result emit_transfer_set(lxp_module_ctx *ctx,
         }
     }
     ctx->transfer_applied = true;
+    if (!programs_maintenance) {
+        lxp_applied_transfers *applied = &ctx->applied_transfers;
+        for (i = 0U; i < emitted.leg_count; ++i) {
+            lxp_applied_transfer_leg *leg = &applied->legs[i];
+            (void)memcpy(leg->from, emitted.legs[i].from->id, 32U);
+            (void)memcpy(leg->to, emitted.legs[i].to->id, 32U);
+            (void)memcpy(leg->asset_id, emitted.legs[i].asset_id, 32U);
+            leg->amount = emitted.legs[i].amount;
+        }
+        applied->count = emitted.leg_count;
+    }
     return LXP_OK;
 }
 
@@ -2669,6 +2685,7 @@ lxp_result lxp_module_ctx_export_prepared(
         ctx->staged_account_count > LXP_MODULE_MAX_STAGED_ACCOUNTS ||
         ctx->transfer_snapshot_count >
             LXP_MAX_TRANSFER_SET_LEGS * 2U + 1U ||
+        ctx->applied_transfers.count > LXP_MAX_TRANSFER_SET_LEGS ||
         ctx->staged_blob_count > LXP_KERNEL_MAX_STAGED_BLOBS)
         return LXP_ERR_NON_CANONICAL;
     if (!ctx->commit_prepared) {
@@ -2692,6 +2709,7 @@ lxp_result lxp_module_ctx_export_prepared(
     (void)memcpy(result->level_snapshot_token, level_snapshot_token, 32U);
     result->call_admission = ctx->call_admission;
     result->ledger_admission = ctx->ledger_admission;
+    result->applied_transfers = ctx->applied_transfers;
     result->gas_used = ctx->gas_used;
     result->effects = *effects;
     result->program_outcome = ctx->program_outcome;
@@ -2849,6 +2867,7 @@ static lxp_result prepared_context_validate(
         prepared->staged_count > LXP_MODULE_MAX_STAGED_WRITES ||
         prepared->staged_account_count > LXP_MODULE_MAX_STAGED_ACCOUNTS ||
         prepared->account_count > LXP_MAX_TRANSFER_SET_LEGS * 2U + 1U ||
+        prepared->applied_transfers.count > LXP_MAX_TRANSFER_SET_LEGS ||
         prepared->blob_count > LXP_KERNEL_MAX_STAGED_BLOBS ||
         !ledger_admission_equal(&prepared->ledger_admission,
                                 &ctx->ledger_admission) ||
@@ -2994,6 +3013,7 @@ lxp_result lxp_module_ctx_import_prepared(
         *accounts[i] = prepared->accounts[i].after;
     }
     ctx->transfer_applied = prepared->account_count != 0U;
+    ctx->applied_transfers = prepared->applied_transfers;
     if (prepared->allowance_charged) {
         ctx->allowance_before = prepared->allowance_before;
         ctx->allowance_charged = true;

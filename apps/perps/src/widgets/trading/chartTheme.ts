@@ -26,11 +26,10 @@ export function chartThemeTransition(
   previous: string | undefined,
   next: string | undefined,
 ) {
-  const from = resolveChartTheme(previous).name;
-  const to = resolveChartTheme(next).name;
-  if (from === to) return "none";
-  const builtIn = (theme: string) => theme === "light" || theme === "dark";
-  return builtIn(from) && builtIn(to) ? "runtime" : "rebuild";
+  const from = resolveChartTheme(previous);
+  const to = resolveChartTheme(next);
+  if (from.name === to.name) return "none";
+  return from.customCssUrl !== to.customCssUrl ? "rebuild" : "runtime";
 }
 
 export interface ChartSnapshot {

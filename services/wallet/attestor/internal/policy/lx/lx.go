@@ -60,15 +60,12 @@ const (
 
 const activityTypeOffset = 14
 
-const (
-	budgetFundTag        uint16 = 0x4202
-	budgetFundFieldCount uint16 = 6
-)
+const budgetFundTag lxwire.ActivityType = 0x00030002
 
 var (
 	OpAssetTransfer = lxwire.ActivityType(uint32(lxwire.ModuleAsset)<<16 | 5)
 	OpAssetApprove  = lxwire.ActivityType(uint32(lxwire.ModuleAsset)<<16 | 7)
-	OpBudgetFund    = lxwire.ActivityType(uint32(lxwire.ModuleBudget)<<16 | 2)
+	OpBudgetFund    = budgetFundTag
 	OpProgramCall   = lxwire.ActivityType(uint32(lxwire.ModulePrograms)<<16 | 5)
 )
 
@@ -547,6 +544,14 @@ type Effect struct {
 	Amounts      []Amount
 	Destinations []ID
 	Legs         []Leg
+	BudgetFund   *BudgetFundPayload
+}
+
+type BudgetFundPayload struct {
+	EncodingVersion uint16
+	BudgetID        ID
+	Amount          *big.Int
+	SourceSequence  uint64
 }
 
 type spend struct {
@@ -1159,31 +1164,38 @@ func checkAssetSend(activity *lxwire.Activity, send *lxwire.Send) (*Effect, erro
 }
 
 func decodeBudgetFund(activity *lxwire.Activity) (*Effect, error) {
-	if len(activity.Payload) > lxwire.MaxSendPayloadBytes {
-		return nil, fmt.Errorf("budget fund payload of %d bytes exceeds %d", len(activity.Payload), lxwire.MaxSendPayloadBytes)
+	length := len(activity.Payload)
+	if length != 50 && length != 58 {
+		return nil, fmt.Errorf("budget fund payload has non-canonical length %d", length)
 	}
 	r := &payloadReader{data: activity.Payload}
-	tag, count := r.u16(), r.u16()
-	if r.err == nil && (tag != budgetFundTag || count != budgetFundFieldCount) {
-		return nil, fmt.Errorf("budget fund payload tag %#04x with %d fields is not the fund layout", tag, count)
+	version := r.u16()
+	if !((length == 50 && version == 1) || (length == 58 && version == 2)) {
+		return nil, fmt.Errorf("budget fund payload version %d is not canonical for length %d", version, length)
 	}
-	budget, from, to, asset := r.id(), r.id(), r.id(), r.id()
+	budget := r.id()
 	amount := r.u128()
-	idempotency := r.id()
+	var sourceSequence uint64
+	if version == 2 {
+		sourceSequence = r.u64()
+	}
 	if err := r.finish(); err != nil {
 		return nil, fmt.Errorf("budget fund: %w", err)
 	}
 	switch {
 	case budget == ID{}:
 		return nil, errors.New("budget fund names no budget")
-	case from == to:
-		return nil, errors.New("budget fund debits and credits the same account")
 	case amount.IsZero():
 		return nil, errors.New("budget fund moves no amount")
-	case [32]byte(idempotency) != activity.IdempotencyKey:
-		return nil, errors.New("budget fund idempotency key is not the envelope idempotency key")
+	case sourceSequence == ^uint64(0):
+		return nil, errors.New("budget fund source sequence cannot be incremented")
 	}
-	return transferEffect(from, to, asset, toBig(amount)), nil
+	return &Effect{BudgetFund: &BudgetFundPayload{
+		EncodingVersion: version,
+		BudgetID:        budget,
+		Amount:          toBig(amount),
+		SourceSequence:  sourceSequence,
+	}}, nil
 }
 
 func (e *Evaluator) inspectBind(ctx policy.Context, view any) (policy.Inspection, error) {

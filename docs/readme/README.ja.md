@@ -50,7 +50,7 @@ Paxeer X チェーン（チェーン ID 125）に接続するには、[`docs/sit
 
 ## ソースからビルドする
 
-Paxeer X チェーンのノードは Go 1.25.6 です（`go.mod`）。LayerX カーネルは C17 です（ルートの `Makefile` に `-std=c17`）。agent、human、platform の各ワークスペースは Rust 1.91.1 を使います（`rust-toolchain.toml`）。`contracts/` にあるカーネルの決済コントラクトは Solidity 0.8.27 を使います（`foundry.toml`）。リプレイ検定には GCC 13、Clang 18、Docker、amd64 の musl ランナー、AArch64 クロスコンパイラと QEMU が必要です。詳しくは [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md) を参照してください。
+Paxeer X チェーンのノードは Go 1.25.8 です（`go.mod`）。LayerX カーネルは C17 です（ルートの `Makefile` に `-std=c17`）。agent、human、platform の各ワークスペースは Rust 1.91.1 を使います（`rust-toolchain.toml`）。`contracts/` にあるカーネルの決済コントラクトは Solidity 0.8.27 を使います（`foundry.toml`）。リプレイ検定には GCC 13、Clang 18、Docker、amd64 の musl ランナー、AArch64 クロスコンパイラと QEMU が必要です。詳しくは [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md) を参照してください。
 
 LayerX カーネルのターゲット:
 

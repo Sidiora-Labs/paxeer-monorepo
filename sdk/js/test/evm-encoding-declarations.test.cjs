@@ -162,7 +162,6 @@ function evm_encoding_declarations_reject_aliases_and_missing_fields() {
 	}
 }
 
-
 function checkRuntime(modules) {
 	for (const [name, expected] of Object.entries(fixtures)) {
 		const module = modules.find((candidate) => candidate[name]);
