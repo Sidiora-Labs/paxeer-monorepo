@@ -200,7 +200,7 @@ fn actual_submission(bytes: &[u8], public: &[u8; 32]) -> crate::sign::VerifiedSu
             disclosure_digest: disclosed.digest,
         },
     };
-    checked(crate::sign::verify_before_submit(
+    checked(crate::sign::verify_kernel_before_submit(
         bytes, &prepared, public, &registry,
     ))
 }
@@ -210,12 +210,18 @@ fn prove_terminal_recovery(activity: &[u8], credit: &[u8], terminal: &VerifiedRe
     use crate::store::{Store, TenantId};
     let verified = actual_submission(activity, &checked(credit[139..171].try_into()));
     assert_eq!(verified.activity_id(), terminal.activity_id());
-    let id = verified.idempotency_key();
     let root = std::env::temp_dir().join(format!("native-terminal-{}", std::process::id()));
     let tenant = checked(TenantId::new("native-terminal"));
     let mut store = checked(Store::open(&root));
     let mut outbox = Outbox::default();
-    checked(outbox.enqueue(&mut store, tenant.clone(), id, verified));
+    let id = checked(outbox.enqueue_with_origin(
+        &mut store,
+        tenant.clone(),
+        verified.idempotency_key(),
+        verified,
+        None,
+        None,
+    ));
     checked(outbox.transition(
         &mut store,
         id,
