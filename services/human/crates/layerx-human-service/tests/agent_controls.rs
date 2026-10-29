@@ -189,7 +189,7 @@ impl AgentSessionContract for RealAgentLayer {
             revocation_sequence: self.revocation_sequence,
             protocol_time: self.now,
             core_sequence: self.core_sequence,
-            verification_level: VerificationLevel::STATE_PROVEN,
+            rung: layerx_types::rung::Rung::Committed,
         })
     }
 
@@ -263,7 +263,7 @@ impl AgentSessionContract for RealAgentLayer {
             daemon_session_id: grant_id,
             protocol_sequence: self.core_sequence,
             observed_at: self.now,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: layerx_types::rung::Rung::Receipted,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest();
@@ -323,7 +323,7 @@ impl AgentSessionContract for RealAgentLayer {
             reason,
             observed_sequence: self.core_sequence,
             observed_at: self.now,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: layerx_types::rung::Rung::Receipted,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest();
@@ -379,7 +379,7 @@ impl AgentCreationContract for RealAgentLayer {
         if finalization.action_key != action.action_key
             || finalization.activity_id != receipt.activity_id
             || finalization.observed_sequence != 11
-            || finalization.verification != VerificationLevel::CHECKPOINT_FINALISED.wire_rank()
+            || finalization.verification != layerx_types::rung::Rung::Committed.wire_rank()
         {
             return Err(AgentFailure::Refused(
                 "protocol budget finalization mismatch",
@@ -601,7 +601,7 @@ fn pause_revokes_real_authority_promptly_and_resume_is_receipt_gated() {
 #[test]
 fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
     let mut unfinalized = protocol_receipt([0x60; 32]);
-    unfinalized.verification_level = VerificationLevel::SEQUENCER_SIGNED;
+    unfinalized.rung = layerx_types::rung::Rung::Receipted;
     assert!(matches!(
         ProductionAgentCreation::finalization_evidence(&unfinalized, ModuleId::Budget, 1, 1_002,),
         Err(AgentFailure::Refused(
@@ -638,7 +638,7 @@ fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
     assert_eq!(changed.limit.enforcement_copy_key, PROTOCOL_LIMIT_COPY_KEY);
     assert_eq!(
         changed.limit.verification_level,
-        VerificationLevel::CHECKPOINT_FINALISED
+        layerx_types::rung::Rung::Committed
     );
     assert_eq!(
         protocol
@@ -754,17 +754,23 @@ fn protocol_receipt_for_payload(
         network_id: 77,
         action_key,
         activity_id: owner.id,
+        receipt_hash: Sha256::digest(&receipt_bytes).into(),
         receipt_bytes,
-        authorized_batch: AuthorizedBatch::new(
+        tx_hash: fields.activity_id,
+        block_height: 11,
+        rung: layerx_types::rung::Rung::Committed,
+    };
+    canonical_owner::assert_outcome(
+        &evidence,
+        payload.activity_type(),
+        &AuthorizedBatch::new(
             fields.batch_id,
             [0; 32],
             fields.previous_state_root,
             fields.resulting_state_root,
             signer.verifying_key().to_bytes(),
         ),
-        verification_level: VerificationLevel::CHECKPOINT_FINALISED,
-    };
-    canonical_owner::assert_outcome(&evidence, payload.activity_type());
+    );
     evidence
 }
 

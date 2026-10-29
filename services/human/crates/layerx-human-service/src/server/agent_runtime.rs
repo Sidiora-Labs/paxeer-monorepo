@@ -1786,13 +1786,22 @@ impl AgentRuntime {
         actor: &layerx_agent_api::identity::AgentDid,
         authority: &layerx_agent_api::identity::AuthorityRef,
     ) -> Result<u64, AgentBoundaryError> {
+        self.pending_nonce(actor, authority)
+    }
+
+    pub fn pending_nonce(
+        &mut self,
+        actor: &layerx_agent_api::identity::AgentDid,
+        authority: &layerx_agent_api::identity::AuthorityRef,
+    ) -> Result<u64, AgentBoundaryError> {
         let mut writer = Writer::new(ACCOUNT_SEQUENCE);
         writer.text(actor.as_str())?;
         writer.text(authority.as_str())?;
         let mut reader = self.exchange(&writer.finish())?;
-        let sequence = reader.u64()?;
+        let pending_nonce = reader.u64()?;
+        decode_rung(reader.u8()?)?;
         reader.finish()?;
-        Ok(sequence)
+        Ok(pending_nonce)
     }
     /// # Errors
     /// Refuses unauthenticated state or a canonical account not bound to the requested ID.
@@ -1804,16 +1813,12 @@ impl AgentRuntime {
         writer.fixed(&account_id);
         let mut reader = self.exchange(&writer.finish())?;
         let observed: [u8; 32] = reader.fixed()?;
-        let level = reader.u8()?;
+        let rung = decode_rung(reader.u8()?)?;
         let bytes = reader.bytes()?;
         let proof = reader.bytes()?;
-        let sequence = reader.u64()?;
+        let height = reader.u64()?;
         reader.finish()?;
-        if observed != account_id
-            || level < layerx_types::verify::VerificationLevel::STATE_PROVEN.wire_rank()
-            || proof.is_empty()
-            || sequence == 0
-        {
+        if observed != account_id || rung != Rung::Committed || proof.is_empty() || height == 0 {
             return Err(AgentBoundaryError::CorruptResponse);
         }
         layerx_proof::state::decode_account_value(account_id, &bytes)
@@ -4512,6 +4517,10 @@ impl AgentRuntime {
         if kind != 2 || authority != session.grant_id {
             return Err(AgentBoundaryError::CorruptResponse);
         }
+        let generation = reader.u64()?;
+        let head_sequence = reader.u64()?;
+        let protocol_time_ms = reader.u64()?;
+        let pending_nonce = reader.u64()?;
         let value = super::native_send::NativeSendOwnerCoordinatesV1 {
             actor,
             authority: format!(
@@ -4521,10 +4530,10 @@ impl AgentRuntime {
                     .map(|byte| format!("{byte:02x}"))
                     .collect::<String>()
             ),
-            generation: reader.u64()?,
-            head_sequence: reader.u64()?,
-            protocol_time_ms: reader.u64()?,
-            account_sequence: reader.u64()?,
+            generation,
+            head_sequence,
+            protocol_time_ms,
+            account_sequence: pending_nonce,
             expiry_sequence: reader.u64()?,
             expiry_ms: reader.u64()?,
             owner_public_key: reader.fixed()?,

@@ -81,6 +81,12 @@ func committedFixtureCommit(header CommittedHeader, keys []ed25519.PrivateKey, s
 	return commit
 }
 
+func committedFixtureWrappedTransaction(raw []byte) []byte {
+	message := committedBytes(1, []byte("/ethermint.evm.v1.MsgEthereumTx"))
+	message = append(message, committedBytes(2, committedBytes(1, raw))...)
+	return committedBytes(1, committedBytes(1, message))
+}
+
 func newCommittedFixture(t *testing.T, id string, powers [4]int64, offset int64) committedFixture {
 	t.Helper()
 	var c sequencerReceiptCase
@@ -136,7 +142,8 @@ func newCommittedFixture(t *testing.T, id string, powers [4]int64, offset int64)
 	message = append(message, committedBytes(2, response)...)
 	result.Data = committedBytes(1, message)
 	// Three leaves exercise both a full subtree and the unbalanced right branch.
-	txs := [3][]byte{batch, raw, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
+	wrapped := committedFixtureWrappedTransaction(raw)
+	txs := [3][]byte{batch, wrapped, sequencerFixtureBytes(t, sequencerReceiptCases(t)[1].RawTransaction)}
 	results := [][]byte{(ExecTxResult{}).bytes(), result.bytes(), (ExecTxResult{GasWanted: 60000, GasUsed: 46220}).bytes()}
 	dataHash, txProofs := committedFixtureTransactionTree(txs)
 	resultsHash := committedRoot(results)
@@ -149,7 +156,7 @@ func newCommittedFixture(t *testing.T, id string, powers [4]int64, offset int64)
 	next.Time = next.Time.Add(time.Second)
 	next.LastBlockID = f.commit.BlockID
 	next.LastResultsHash = resultsHash[:]
-	f.inclusion = ReceiptInclusion{Transaction: raw, TransactionProof: txProofs[1],
+	f.inclusion = ReceiptInclusion{Transaction: wrapped, TransactionProof: txProofs[1],
 		Result: result, ResultProof: committedFixtureProof(results, 1), BatchTransaction: batch, BatchProof: txProofs[0],
 		NextHeader: next, NextCommit: committedFixtureCommit(next, f.keys, 3), NextValidators: f.validators}
 	return f
