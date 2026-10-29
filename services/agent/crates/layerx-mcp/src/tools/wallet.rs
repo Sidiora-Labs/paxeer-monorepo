@@ -6,11 +6,18 @@ use std::time::Duration;
 
 use layerx_agentd::policy::{evaluate, EvaluationInput, Outcome, PolicySet, Purpose};
 use layerx_agentd::protocol_evidence::{RawActivityReceiptEvidence, RawReceiptEvidence};
+use layerx_crypto::disclosure::call::{bind_call, encode_payment_call};
+use layerx_crypto::disclosure::Disclosure;
+use layerx_crypto::evm_transaction::{assemble, recover_sender, transaction_hash, Eip1559Call};
 use layerx_crypto::payments::Payment;
+use layerx_crypto::send::{ledger_payment_call, CallOptions};
+use layerx_crypto::signer::sign_disclosed_call;
 use layerx_sdk::rpc::{Commitment, RpcError, RpcValue};
 use layerx_sdk::rpc_verification::VerifiedRpcReceipt;
 use layerx_sdk::wallet::{PaymentOptions, Wallet};
-use layerx_types::payload::ModuleId;
+use serde_json::json;
+
+use crate::catalogue::native_alias_target;
 
 use crate::server::{InvocationOutcome, Server, ServerError};
 use crate::tools::write::PaymentTool;
@@ -23,6 +30,7 @@ pub enum WalletToolError {
     Scope,
     Arguments,
     Evidence,
+    Read(layerx_agent_api::error::ApiError),
 }
 
 pub struct PaymentExecution<'a> {
@@ -56,51 +64,191 @@ pub fn execute(
     let [effect] = intent.effects.as_slice() else {
         return Err(WalletToolError::Arguments);
     };
-    let ordinal = match tool {
-        PaymentTool::Send | PaymentTool::Transfer => 5,
-        PaymentTool::Create => 1,
-        PaymentTool::Mint => 10,
-        PaymentTool::IssueGrant => 7,
-        PaymentTool::DrawGrant => 6,
-    };
+    let target = native_alias_target(tool.name()).ok_or(WalletToolError::Arguments)?;
+    let ordinal = target.ordinal;
     server
         .execute_committed(
             core_sequence,
             tool.name(),
             payment_arguments(execution)?,
             |_| {
-                let result = execution
-                    .wallet
-                    .prepare_payload(
-                        ModuleId::Asset,
-                        ordinal,
-                        execution.canonical_payload,
-                        execution.options,
-                    )
-                    .map_err(WalletToolError::Rpc)
-                    .and_then(|prepared| {
-                        let disclosure = prepared.disclosure();
-                        let (amount, asset, counterparty) =
-                            policy_dimensions(tool, disclosure, execution)?;
-                        if effect.amount != amount
-                            || effect.asset != asset
-                            || effect.counterparty != counterparty
-                            || effect.activity_type != ordinal
-                        {
-                            return Err(WalletToolError::Arguments);
-                        }
-                        let decision = evaluate(execution.policy, input);
-                        if decision.outcome != Outcome::Allow {
-                            return Err(WalletToolError::Policy);
-                        }
-                        run(execution.wallet.execute(prepared, execution.options))
-                            .map_err(WalletToolError::Rpc)
-                    });
+                let result = prepare(tool, execution).and_then(|(call, disclosure, from)| {
+                    let (amount, asset, counterparty) =
+                        policy_dimensions(tool, &disclosure, execution)?;
+                    if effect.amount != amount
+                        || effect.asset != asset
+                        || effect.counterparty != counterparty
+                        || effect.activity_type != ordinal
+                    {
+                        return Err(WalletToolError::Arguments);
+                    }
+                    let decision = evaluate(execution.policy, input);
+                    if decision.outcome != Outcome::Allow {
+                        return Err(WalletToolError::Policy);
+                    }
+                    let signature = run(sign_disclosed_call(
+                        execution.wallet.signer,
+                        &call,
+                        &disclosure,
+                        from,
+                    ))
+                    .map_err(|error| WalletToolError::Rpc(RpcError::Signing(error)))?;
+                    if recover_sender(&call, &signature).map_err(|_| WalletToolError::Evidence)?
+                        != from
+                    {
+                        return Err(WalletToolError::Evidence);
+                    }
+                    let raw = assemble(&call, &signature);
+                    let hash = execution
+                        .wallet
+                        .rpc
+                        .send_raw_transaction(&raw)
+                        .map_err(WalletToolError::Rpc)?;
+                    if hash != transaction_hash(&raw) {
+                        return Err(WalletToolError::Evidence);
+                    }
+                    execution
+                        .wallet
+                        .wait_for(
+                            hash,
+                            execution.options.commitment,
+                            execution.options.wait_timeout,
+                        )
+                        .map_err(WalletToolError::Rpc)
+                });
                 let outcome = classify(&result);
                 (result, outcome)
             },
         )
         .map_err(WalletToolError::Server)?
+}
+
+pub fn prepare_alias_call(
+    tool: PaymentTool,
+    payload: &[u8],
+    actor: &[u8],
+    options: &CallOptions,
+) -> Result<Eip1559Call, WalletToolError> {
+    let target = native_alias_target(tool.name()).ok_or(WalletToolError::Arguments)?;
+    let call = if target.ordinal == 5 {
+        ledger_payment_call(payload, options)
+            .map_err(|_| WalletToolError::Arguments)?
+            .call
+    } else {
+        let payment = Payment::decode(target.module, target.ordinal, payload, actor)
+            .map_err(|_| WalletToolError::Arguments)?;
+        Eip1559Call {
+            chain_id: options.chain_id,
+            nonce: options.nonce,
+            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+            max_fee_per_gas: options.max_fee_per_gas,
+            gas_limit: options.gas_limit,
+            to: target.address,
+            data: encode_payment_call(&payment, actor).map_err(|_| WalletToolError::Arguments)?,
+        }
+    };
+    if call.to != target.address {
+        return Err(WalletToolError::Evidence);
+    }
+    Ok(call)
+}
+
+fn prepare(
+    tool: PaymentTool,
+    execution: &PaymentExecution<'_>,
+) -> Result<(Eip1559Call, Disclosure, [u8; 20]), WalletToolError> {
+    let wallet = execution.wallet;
+    let options = execution.options;
+    if options.wait_timeout > Duration::from_secs(300) {
+        return Err(WalletToolError::Arguments);
+    }
+    if options.commitment == Commitment::Finalised
+        && wallet.policy.trusted_checkpoint_context_digest.is_none()
+    {
+        return Err(WalletToolError::Rpc(RpcError::MissingFinalityTrust));
+    }
+    let from = wallet
+        .signer
+        .evm_address()
+        .ok_or(WalletToolError::Arguments)?;
+    let address: String = from.iter().map(|byte| format!("{byte:02x}")).collect();
+    let nonce = wallet
+        .rpc
+        .get_identity_sequence(&format!("0x{address}"))
+        .map_err(WalletToolError::Rpc)?;
+    let (chain_id, priority, fee) = wallet
+        .rpc
+        .eip1559_parameters()
+        .map_err(WalletToolError::Rpc)?;
+    let gas_limit = options
+        .fee_limit
+        .checked_div(fee)
+        .and_then(|gas| u64::try_from(gas).ok())
+        .filter(|gas| *gas > 0)
+        .ok_or(WalletToolError::Arguments)?;
+    let mut call = prepare_alias_call(
+        tool,
+        execution.canonical_payload,
+        options.actor.as_bytes(),
+        &CallOptions {
+            from,
+            chain_id,
+            nonce,
+            max_priority_fee_per_gas: priority,
+            max_fee_per_gas: fee,
+            gas_limit,
+        },
+    )?;
+    let gas = wallet
+        .rpc
+        .estimate_fee_from(&call, from)
+        .map_err(WalletToolError::Rpc)?;
+    if gas == 0 || gas > gas_limit {
+        return Err(WalletToolError::Arguments);
+    }
+    call.gas_limit = gas;
+    let disclosure = bind_call(&call, from).map_err(|_| WalletToolError::Evidence)?;
+    if let Some(sequence) = disclosure
+        .payload_sequence()
+        .map_err(|_| WalletToolError::Evidence)?
+    {
+        let source = match disclosure
+            .construct_method()
+            .map_err(|_| WalletToolError::Evidence)?
+        {
+            Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerDraw {
+                recipient,
+                ..
+            }) => recipient,
+            _ => {
+                disclosure
+                    .counterparties
+                    .first()
+                    .ok_or(WalletToolError::Arguments)?
+                    .account
+            }
+        };
+        let account: String = source.iter().map(|byte| format!("{byte:02x}")).collect();
+        let value = wallet
+            .rpc
+            .get_account(&account)
+            .map_err(WalletToolError::Rpc)?;
+        if value["account_id"] != account {
+            return Err(WalletToolError::Evidence);
+        }
+        let text = value
+            .get("next_sequence")
+            .and_then(serde_json::Value::as_str)
+            .ok_or(WalletToolError::Evidence)?;
+        let observed = text.parse::<u64>().map_err(|_| WalletToolError::Evidence)?;
+        if observed.to_string() != text {
+            return Err(WalletToolError::Evidence);
+        }
+        if sequence != observed {
+            return Err(WalletToolError::Rpc(RpcError::StaleSourceSequence));
+        }
+    }
+    Ok((call, disclosure, from))
 }
 
 fn policy_dimensions(
@@ -174,23 +322,33 @@ pub fn cumulative_evidence(
 }
 
 /// # Errors
-/// Applies the existing scoped read route and preserves unverified RPC read data and errors.
+/// Refuses another agent's account list or a signer without an EVM address.
 pub fn accounts(
     server: &mut Server,
     core_sequence: u64,
     wallet: &Wallet<'_>,
     did: &str,
 ) -> Result<RpcValue, WalletToolError> {
+    let server_actor = server.binding().agent().as_bytes().to_vec();
     server
         .execute_read(
             core_sequence,
             "wallet.accounts",
             did.as_bytes().to_vec(),
             |_| {
-                let result = wallet
-                    .accounts(did)
-                    .map(layerx_sdk::rpc::BalancesSnapshot::into_value)
-                    .map_err(WalletToolError::Rpc);
+                let result = if did.as_bytes() != server_actor {
+                    Err(WalletToolError::Scope)
+                } else {
+                    wallet
+                        .signer
+                        .evm_address()
+                        .ok_or(WalletToolError::Arguments)
+                        .map(|address| {
+                            let address: String =
+                                address.iter().map(|byte| format!("{byte:02x}")).collect();
+                            json!({"accounts": [format!("0x{address}")]})
+                        })
+                };
                 let outcome = if result.is_ok() {
                     InvocationOutcome::Completed
                 } else {
@@ -203,24 +361,28 @@ pub fn accounts(
 }
 
 /// # Errors
-/// Applies the existing scoped balance route and preserves RPC errors.
+/// Preserves daemon balance read errors and scoped read authorization.
 pub fn balance(
     server: &mut Server,
     core_sequence: u64,
-    wallet: &Wallet<'_>,
-    did: &str,
-    asset: [u8; 32],
+    config: &layerx_agentd::node_rpc::NodeRpcConfig,
+    account: [u8; 20],
+    height: Option<u64>,
 ) -> Result<RpcValue, WalletToolError> {
-    let mut arguments = did.as_bytes().to_vec();
-    arguments.extend_from_slice(&asset);
+    let arguments = serde_json::to_vec(&json!({"account": account, "height": height}))
+        .map_err(|_| WalletToolError::Arguments)?;
     server
         .execute_read(core_sequence, "wallet.balance", arguments, |_| {
-            let result = wallet.balance(did, asset).map_err(WalletToolError::Rpc);
-            let outcome = if result.is_ok() {
-                InvocationOutcome::Completed
-            } else {
-                InvocationOutcome::Failed
-            };
+            let result = layerx_agentd::read::balance(config, account, height)
+                .map(|read| json!({
+                    "account": format!("0x{}", account.iter().map(|byte| format!("{byte:02x}")).collect::<String>()),
+                    "amount": read.amount.value().to_string(),
+                    "rung": read.achieved_rung.map(layerx_types::rung::Rung::name),
+                    "freshness": {"chain_head": read.freshness.chain_head, "value_height": read.freshness.value_height,
+                        "relative_to": if height.is_some() { "Block" } else { "Pending" }}
+                }))
+                .map_err(WalletToolError::Read);
+            let outcome = if result.is_ok() { InvocationOutcome::Completed } else { InvocationOutcome::Failed };
             (result, outcome)
         })
         .map_err(WalletToolError::Server)?

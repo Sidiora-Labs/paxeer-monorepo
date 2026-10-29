@@ -106,19 +106,20 @@ impl OperationClass {
         Self::Write,
     ];
 
-    /// Classifies the generated Agent API operation inventory. Bootstrap operations that cannot
-    /// carry a pre-existing token are explicitly excluded. This exhaustive match makes adding a
-    /// schema operation a compile-time authorization decision.
+    /// Classifies the generated Agent API operation inventory. This exhaustive match makes
+    /// adding a schema operation a compile-time authorization decision.
     #[must_use]
     pub const fn for_operation(operation: Operation) -> Option<Self> {
         match operation {
-            Operation::AgentRegister | Operation::SessionOpen | Operation::McpInvoke => None,
+            Operation::McpInvoke => None,
             Operation::ApprovalApprove
             | Operation::ApprovalGet
             | Operation::ApprovalList
             | Operation::ApprovalReject => Some(Self::Approve),
             Operation::ExportOffline => Some(Self::Export),
-            Operation::Prepare => Some(Self::Prepare),
+            Operation::AgentRegister | Operation::SessionOpen | Operation::Prepare => {
+                Some(Self::Prepare)
+            }
             Operation::PolicyDryRun => Some(Self::Read),
             Operation::SubscriptionAcknowledge
             | Operation::SubscriptionCreate

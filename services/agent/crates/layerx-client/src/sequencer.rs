@@ -145,6 +145,8 @@ pub struct ExecutedReceipt {
     pub key_id: [u8; 32],
     /// Canonical signed receipt bytes.
     pub receipt: Vec<u8>,
+    /// Signing public key served with the receipt.
+    pub signing_key: [u8; 32],
 }
 
 /// The answer of `pax_sequencerReceipt` for a known transaction.
@@ -772,7 +774,7 @@ fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
 }
 
 const SUBMITTED_FIELDS: [&str; 3] = ["rung", "txHash", "nonce"];
-const RECEIPTED_FIELDS: [&str; 22] = [
+const RECEIPTED_FIELDS: [&str; 23] = [
     "rung",
     "txHash",
     "nonce",
@@ -795,6 +797,7 @@ const RECEIPTED_FIELDS: [&str; 22] = [
     "vmError",
     "keyId",
     "receipt",
+    "signingKey",
 ];
 
 fn decode_receipt(value: &Value) -> Option<SequencerReceipt> {
@@ -869,6 +872,7 @@ fn executed(fields: &Fields<'_>) -> Option<ExecutedReceipt> {
         vm_error: fields.string("vmError")?,
         key_id: fields.fixed("keyId")?,
         receipt,
+        signing_key: fields.fixed("signingKey")?,
     })
 }
 

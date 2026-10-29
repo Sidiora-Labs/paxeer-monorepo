@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+func expectedV2ID(id string, createdAt time.Time) string {
+	digest := md5.Sum([]byte(id))
+	h := hex.EncodeToString(digest[:])
+	uuid := fmt.Sprintf("%012x7%s%c%s", createdAt.UTC().UnixMilli(), h[13:16], "89ab"[(digest[8]>>4)&3], h[17:])
+	return uuid[:8] + "-" + uuid[8:12] + "-" + uuid[12:16] + "-" + uuid[16:20] + "-" + uuid[20:]
+}
+
 func TestPostgresListPageUnreadOnlyCursorAndLimit(t *testing.T) {
 	s, account := notificationDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -61,9 +68,7 @@ func TestPostgresListPageUnreadOnlyCursorAndLimit(t *testing.T) {
 			if item.InboxItem != expected {
 				t.Fatalf("page %d item %d: got=%+v want=%+v", pageIndex, i, item, expected)
 			}
-			digest := md5.Sum([]byte(expected.ID))
-			h := hex.EncodeToString(digest[:])
-			uuid := h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
+			uuid := expectedV2ID(expected.ID, expected.CreatedAt)
 			if item.V2ID != uuid {
 				t.Fatalf("v2 UUID: got=%q want=%q", item.V2ID, uuid)
 			}

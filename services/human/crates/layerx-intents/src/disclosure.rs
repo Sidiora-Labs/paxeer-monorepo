@@ -118,10 +118,7 @@ impl DisclosureCheck {
                 intent.kind(),
                 IntentKind::SessionGrant(_)
                     | IntentKind::RecoveryRegistration(_)
-                    | IntentKind::NativeOnboarding(_)
-                    | IntentKind::NativeOnboardingConsent(_)
                     | IntentKind::NativeBudgetCreate(_)
-                    | IntentKind::NativeOwnerRotation(_)
                     | IntentKind::NativeAssetAccountOpen(_)
             )
         {
@@ -141,11 +138,7 @@ impl DisclosureCheck {
         let payload = compiled.payload().as_bytes();
         if matches!(
             intent.kind(),
-            IntentKind::NativeOnboarding(_)
-                | IntentKind::NativeOnboardingConsent(_)
-                | IntentKind::NativeBudgetCreate(_)
-                | IntentKind::NativeOwnerRotation(_)
-                | IntentKind::NativeAssetAccountOpen(_)
+            IntentKind::NativeBudgetCreate(_) | IntentKind::NativeAssetAccountOpen(_)
         ) && intent.version() != crate::IntentVersion::V3
         {
             return Err(DisclosureCheckError::FieldMismatch(
@@ -157,42 +150,6 @@ impl DisclosureCheck {
             IntentKind::NativeAssetAccountOpen(asset) => {
                 round_trip.u16(1, DisclosureField::Header)?;
                 round_trip.fixed(&asset.bytes(), DisclosureField::Asset)?;
-            }
-            IntentKind::NativeOnboardingConsent(value) => {
-                let decoded = layerx_crypto::onboarding::OnboardingConsent::decode_payload(
-                    payload,
-                    value.target.clone(),
-                    value.target_public_key,
-                )
-                .map_err(|_| DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes))?;
-                require(decoded == *value, DisclosureField::PayloadBytes)?;
-                round_trip.fixed(
-                    &decoded.payload().map_err(|_| {
-                        DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes)
-                    })?,
-                    DisclosureField::PayloadBytes,
-                )?;
-            }
-            IntentKind::NativeOnboarding(value) => {
-                let decoded = layerx_crypto::onboarding::SponsoredRegistration::decode(payload)
-                    .map_err(|_| {
-                        DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes)
-                    })?;
-                require(decoded == *value, DisclosureField::PayloadBytes)?;
-                round_trip.fixed(
-                    &decoded.payload().map_err(|_| {
-                        DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes)
-                    })?,
-                    DisclosureField::PayloadBytes,
-                )?;
-            }
-            IntentKind::NativeOwnerRotation(value) => {
-                round_trip.fixed(
-                    &value.payload().map_err(|_| {
-                        DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes)
-                    })?,
-                    DisclosureField::PayloadBytes,
-                )?;
             }
             IntentKind::NativeBudgetCreate(value) => {
                 value.verify_payload(payload).map_err(|_| {
@@ -725,12 +682,8 @@ impl<'a> RoundTrip<'a> {
 
 fn expected_activity_type(intent: &Intent) -> Result<ActivityType, DisclosureCheckError> {
     let (module, ordinal) = match intent.kind() {
-        IntentKind::DidRegistration(_)
-        | IntentKind::NativeOnboardingConsent(_)
-        | IntentKind::NativeOnboarding(_) => (ModuleId::Governance, 1),
-        IntentKind::KeyRotation(_) | IntentKind::NativeOwnerRotation(_) => {
-            (ModuleId::Governance, 2)
-        }
+        IntentKind::DidRegistration(_) => (ModuleId::Governance, 1),
+        IntentKind::KeyRotation(_) => (ModuleId::Governance, 2),
         IntentKind::RecoveryRegistration(_) => (ModuleId::Governance, 3),
         IntentKind::EvmPayoutBinding(_) => (ModuleId::Governance, 4),
         IntentKind::AuthorityGrant(_) => (ModuleId::Governance, 8),

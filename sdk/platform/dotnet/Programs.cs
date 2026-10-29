@@ -171,8 +171,8 @@ public sealed class ProgramsClient
 
     public Task<SequencerReceiptVerification> DeployAsync(NativeProgramDeploy value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
         SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
-    public Task<SequencerReceiptVerification> UpgradeAsync(NativeProgramUpgrade value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
-        SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
+    public Task<SequencerReceiptVerification> UpgradeAsync(NativeProgramUpgrade value, ProtocolAmount feeLimit, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
+        SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value, feeLimit), signedTransaction, key, cancellationToken);
     public Task<SequencerReceiptVerification> WindDownAsync(NativeProgramWindDown value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
         SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
 
@@ -340,171 +340,10 @@ public sealed class ProgramsClient
         return VerifyReceiptAsync(view, raw, ReceiptPins());
     }
 
-    public static async ValueTask<ReceiptVerification> VerifyReceiptAsync(byte[] canonicalReceipt, AuthorizedReceiptBatch authorized,
-        byte[] expectedActivityId, ushort expectedGuestAbiVersion, byte[] terminalPayload, byte[] callGraph,
-        CancellationToken cancellationToken = default, ushort protocolVersion = 2)
-    {
-        if (expectedActivityId?.Length != 32 || !GeneratedReceiptContract.SupportsProgramGuestAbi(expectedGuestAbiVersion) ||
-            protocolVersion != 3 && expectedGuestAbiVersion is not (GeneratedReceiptContract.ProgramAbiV1 or GeneratedReceiptContract.ProgramAbiV2)) throw Invalid();
-        var verified = await LocalVerifier.VerifyReceiptOutcomeAsync(canonicalReceipt, authorized, cancellationToken, protocolVersion).ConfigureAwait(false);
-        var receipt = verified.Receipt;
-        var outcome = receipt.ProgramOutcome;
-        if (receipt.ProtocolVersion == 0 || receipt.ModuleId != ReceiptModuleId || receipt.Operation != CallOperation ||
-            receipt.ModuleVersion is < 1 or > 5 || !receipt.ActivityId.SequenceEqual(expectedActivityId) ||
-            outcome is null || outcome.AbiVersion != expectedGuestAbiVersion || terminalPayload is null ||
-            terminalPayload.Length > MaximumProgramBytes || callGraph is null || callGraph.Length == 0 ||
-            callGraph.Length > MaximumCallGraphBytes ||
-            !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Security.Cryptography.SHA256.HashData(terminalPayload), outcome.TerminalPayloadRoot) ||
-            !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Security.Cryptography.SHA256.HashData(callGraph), outcome.CallGraphRoot))
-            throw new PlatformSdkException(SdkErrorCode.VerificationFailure, RetryClass.Never);
-        return verified;
-    }
-
     private static void VerifyRequestedAbi(ProgramCall call, VerifiedProgramExecution execution)
     {
         if (call.NativeCall is { } native && execution.Receipt.Receipt.ProgramOutcome!.AbiVersion != native.GuestAbi)
             throw Verify();
-    }
-
-    private async Task<ProgramSubmission> VerifySubmissionAsync(JsonValue value, byte[]? expectedProgramId,
-        byte[]? expectedActivityId, string? expectedIdempotencyKey, byte[]? expectedRetained,
-        CancellationToken cancellationToken)
-    {
-        var map = Map(value); var state = Text(map, "state");
-        if (state == "unknown")
-        {
-            var hasRetained = map.ContainsKey("retained_signed_activity");
-            RequireFields(map, hasRetained ? ["state", "activity_id", "idempotency_key", "retained_signed_activity"] :
-                ["state", "activity_id", "idempotency_key"]);
-            var activity = Bytes(map, "activity_id", 32, true); var idempotency = Hex(map, "idempotency_key", 32, true);
-            var retained = hasRetained ? Bytes(map, "retained_signed_activity", MaximumProgramBytes) : null;
-            if ((expectedActivityId is not null && !Fixed(activity, expectedActivityId)) ||
-                (expectedIdempotencyKey is not null && idempotency != expectedIdempotencyKey) ||
-                (expectedRetained is not null && (retained is null || !Fixed(retained, expectedRetained)))) throw Verify();
-            return new(value, state, activity, idempotency, retained, null);
-        }
-        if (state is not ("executed" or "refused")) throw Decode();
-        var execution = await VerifyExecutionAsync(map, state, true, expectedProgramId, expectedActivityId,
-            expectedIdempotencyKey, cancellationToken).ConfigureAwait(false);
-        var outcomeKind = Text(Map(Field(map, "outcome")), "kind");
-        if (state == "refused" && outcomeKind != "refused" || state == "executed" &&
-            outcomeKind is not ("completed" or "legacy_completed")) throw Verify();
-        return new(value, state, Bytes(map, "activity_id", 32, true), Text(map, "idempotency_key"), null, execution);
-    }
-
-    private async Task<VerifiedProgramExecution> VerifyExecutionAsync(IReadOnlyDictionary<string, JsonValue> map,
-        string state, bool idempotent, byte[]? expectedProgramId, byte[]? expectedActivityId,
-        string? expectedIdempotencyKey, CancellationToken cancellationToken)
-    {
-        string[] fields = ["state",
-            "activity_id",
-            "program_id",
-            "guest_abi_version",
-            "module_version",
-            "batch_id",
-            "global_sequence",
-            "result_code",
-            "state_root",
-            "receipt",
-            "receipt_digest",
-            "terminal_payload",
-            "call_graph",
-            "authority",
-            "usage",
-            "outcome",
-            "verification"];
-        if (idempotent) fields = [.. fields, "idempotency_key"];
-        RequireFields(map, fields);
-        var activity = Bytes(map, "activity_id", 32, true); var program = Bytes(map, "program_id", 32, true);
-        if (Text(map, "state") != state || expectedProgramId is not null && !Fixed(program, expectedProgramId) ||
-            expectedActivityId is not null && !Fixed(activity, expectedActivityId) ||
-            expectedIdempotencyKey is not null && Text(map, "idempotency_key") != expectedIdempotencyKey) throw Verify();
-        var guestAbi = Integer(map, "guest_abi_version"); var moduleVersion = Integer(map, "module_version");
-        var resultCode = Integer32(map, "result_code"); var globalSequence = DecimalUInt64(map, "global_sequence");
-        if (guestAbi < 0 || guestAbi > ushort.MaxValue || !GeneratedReceiptContract.SupportsProgramGuestAbi((ushort)guestAbi) ||
-            _protocolVersion != 3 && guestAbi is not (GeneratedReceiptContract.ProgramAbiV1 or GeneratedReceiptContract.ProgramAbiV2) || moduleVersion is < 1 or > 4 ||
-            Text(map, "verification") != "receipt-terminal-and-call-graph-verified") throw Decode();
-        var authorityMap = Map(Field(map, "authority"));
-        RequireFields(authorityMap, ["batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"]);
-        var authority = Authority(Field(map, "authority"));
-        if (!Fixed(authority.BatchId, Bytes(map, "batch_id", 32, true)) ||
-            !Fixed(authority.ResultingStateRoot, Bytes(map, "state_root", 32, true)) ||
-            !Fixed(authority.SequencerPublicKey, _sequencerPublicKey)) throw Verify();
-        var usage = Map(Field(map, "usage"));
-        RequireFields(usage, ["cpu_fuel",
-            "memory_bytes",
-            "storage_read_bytes",
-            "storage_write_bytes",
-            "output_values",
-            "output_bytes",
-            "fee_units"]);
-        var cpu = DecimalUInt64(usage, "cpu_fuel"); var memory = DecimalUInt64(usage, "memory_bytes");
-        var read = DecimalUInt64(usage, "storage_read_bytes"); var write = DecimalUInt64(usage, "storage_write_bytes");
-        var outputValues = UInt32Integer(usage, "output_values"); var outputBytes = DecimalUInt64(usage, "output_bytes");
-        var fee = DecimalUInt128(usage, "fee_units");
-        var outcomeDocument = Map(Field(map, "outcome")); var outcomeKind = ValidateOutcome(outcomeDocument);
-        var receiptBytes = Bytes(map, "receipt", MaximumProgramBytes); var terminal = Bytes(map, "terminal_payload", MaximumProgramBytes, empty: true);
-        var graph = Bytes(map, "call_graph", MaximumProgramBytes); var receiptDigest = Bytes(map, "receipt_digest", 32, true);
-        var verified = await VerifyReceiptAsync(receiptBytes, authority, activity, checked((ushort)guestAbi), terminal,
-            graph, cancellationToken, _protocolVersion).ConfigureAwait(false);
-        var receipt = verified.Receipt; var receiptOutcome = receipt.ProgramOutcome!;
-        var transferVerification = VerifyTerminal(terminal, graph, program, outcomeDocument, receipt.ProtocolVersion, receiptOutcome);
-        var kindMatches = outcomeKind switch
-        {
-            "completed" or "legacy_completed" => receiptOutcome.TerminalKind == 1 &&
-                Integer32(outcomeDocument, "code") == receiptOutcome.ResultCode,
-            "refused" => receiptOutcome.TerminalKind is 2 or 3,
-            _ => false,
-        };
-        if (!Fixed(verified.ReceiptDigest, receiptDigest) || receipt.GlobalSequence != globalSequence ||
-            receipt.ResultCode != resultCode || receiptOutcome.ResultCode != resultCode ||
-            receipt.ModuleVersion != moduleVersion || receiptOutcome.CpuFuel != cpu || receiptOutcome.MemoryBytes != memory ||
-            receiptOutcome.StorageReadBytes != read || receiptOutcome.StorageWriteBytes != write ||
-            receiptOutcome.OutputValues != outputValues || receiptOutcome.OutputBytes != outputBytes ||
-            UInt128Big(receiptOutcome.FeeUnits) != fee || !kindMatches) throw Verify();
-        return new(JsonValue.Object(map), verified, terminal, graph, transferVerification);
-    }
-
-    private async Task<VerifiedProgramExecution> VerifySimulationAsync(JsonValue value, byte[] expectedProgramId,
-        ActivityBinding binding, CancellationToken cancellationToken)
-    {
-        var map = Map(value); RequireFields(map, ["committed", "execution", "simulation_evidence"]);
-        if (Field(map, "committed") is not JsonValue.BooleanValue { Value: false }) throw Verify();
-        var executionMap = Map(Field(map, "execution"));
-        var execution = await VerifyExecutionAsync(executionMap, "simulated", false, expectedProgramId,
-            binding.ActivityId, null, cancellationToken).ConfigureAwait(false);
-        var evidence = Map(Field(map, "simulation_evidence"));
-        RequireFields(evidence, ["boundary_id",
-            "activity_id",
-            "previous_state_root",
-            "hypothetical_state_root",
-            "observed_sequence",
-            "observed_at",
-            "committed",
-            "public_key",
-            "signature"]);
-        if (Field(evidence, "committed") is not JsonValue.BooleanValue { Value: false }) throw Verify();
-        var authority = Map(Field(executionMap, "authority")); var boundary = Bytes(evidence, "boundary_id", 32, true);
-        var publicKey = Bytes(evidence, "public_key", 32, true); var activity = Bytes(evidence, "activity_id", 32, true);
-        var previous = Bytes(evidence, "previous_state_root", 32, true);
-        var hypothetical = Bytes(evidence, "hypothetical_state_root", 32, true);
-        var sequence = DecimalUInt64(evidence, "observed_sequence"); var observedAt = DecimalUInt64(evidence, "observed_at");
-        var signature = Bytes(evidence, "signature", 64, true); var now = NowMilliseconds();
-        if (sequence == ulong.MaxValue || !Fixed(activity, binding.ActivityId) ||
-            !Fixed(activity, Bytes(executionMap, "activity_id", 32, true)) ||
-            !Fixed(previous, Bytes(authority, "previous_state_root", 32, true)) ||
-            !Fixed(hypothetical, Bytes(authority, "resulting_state_root", 32, true)) ||
-            !Fixed(hypothetical, Bytes(executionMap, "state_root", 32, true)) ||
-            !Fixed(publicKey, Bytes(authority, "sequencer_public_key", 32, true)) || !Fixed(publicKey, _sequencerPublicKey) ||
-            DecimalUInt64(executionMap, "global_sequence") != sequence + 1 || observedAt < binding.NotBefore ||
-            observedAt > binding.NotAfter || observedAt > now || now - observedAt > _maximumSimulationAgeMilliseconds ||
-            !Fixed(boundary, Digest(Encoding.UTF8.GetBytes("LayerX/emulator/simulation-boundary/v1\0"), publicKey))) throw Verify();
-        var signed = new List<byte>(256); signed.AddRange(Encoding.UTF8.GetBytes("LayerX/agent/program-simulation-evidence/v1\0"));
-        signed.AddRange(boundary); signed.AddRange(activity); signed.AddRange(previous); signed.AddRange(hypothetical);
-        var word = new byte[8]; BinaryPrimitives.WriteUInt64BigEndian(word, sequence); signed.AddRange(word);
-        BinaryPrimitives.WriteUInt64BigEndian(word, observedAt); signed.AddRange(word); signed.Add(0);
-        if (!LocalVerifier.VerifyEd25519Digest(publicKey, signature, SHA256.HashData(signed.ToArray()))) throw Verify();
-        return execution;
     }
 
     private object VerifyDiscovery(JsonValue value, string programId, bool @interface, ulong now)
@@ -612,13 +451,6 @@ public sealed class ProgramsClient
                 Bytes(source, "reproduced_artifact_digest", 32, true)),
             _ => throw Decode()
         };
-    }
-
-    private static AuthorizedReceiptBatch Authority(JsonValue value)
-    {
-        var map = Map(value); return new(Bytes(map, "batch_id", 32, true), Bytes(map, "asset", 32, true),
-            Bytes(map, "previous_state_root", 32, true), Bytes(map, "resulting_state_root", 32, true),
-            Bytes(map, "sequencer_public_key", 32, true));
     }
 
     private static void ValidateSource(IReadOnlyDictionary<string, JsonValue> source)

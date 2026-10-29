@@ -55,10 +55,10 @@ impl From<crate::human::HumanFinalizationEvidence> for FinalizationEvidence {
     fn from(value: crate::human::HumanFinalizationEvidence) -> Self {
         Self {
             action_key: value.action_key,
-            activity_id: value.activity_id,
-            receipt_digest: value.receipt_digest,
-            observed_sequence: value.observed_sequence,
-            verification: value.verification,
+            activity_id: value.tx_hash,
+            receipt_digest: value.receipt_hash,
+            observed_sequence: value.observed_height,
+            verification: value.rung,
             finalized_at: value.finalized_at,
         }
     }

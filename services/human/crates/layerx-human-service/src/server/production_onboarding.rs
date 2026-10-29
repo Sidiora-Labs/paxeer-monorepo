@@ -1,9 +1,7 @@
 use super::*;
 use crate::agents::{CreationStage, NativeFundingRequest};
-use crate::custody::{Operation as CustodyOperation, SignAuthorization, SignRequest};
 use crate::onboarding::{NativePlan, NativeSponsor, OnboardingStatus};
 use crate::store::{PrincipalId, PrincipalScope};
-use layerx_intents::owner_activity::OwnerEnvelopeContext;
 
 struct NativeExecution<'a> {
     principal: &'a PrincipalId,
@@ -39,66 +37,7 @@ impl ProductionComponents {
                 observed_at,
             );
         }
-        let (sponsor, mut agent) = {
-            let scope = store
-                .principal(&self.onboarding_sponsor_principal)
-                .map_err(|_| ApiFailure::upstream_degraded())?;
-            let mut agent = self.principal_agent(&scope)?;
-            (self.native_onboarding_sponsor(&scope, &mut agent)?, agent)
-        };
-        let registry = agent.registry().clone();
-        let (plan, consent) = {
-            let mut scope = store
-                .principal(principal)
-                .map_err(|_| ApiFailure::unavailable())?;
-            let plan = journey
-                .native_plan(&mut scope, &sponsor, observed_at)
-                .map_err(|_| ApiFailure::upstream_degraded())?;
-            let consent = self.native_onboarding_consent(&mut scope, &plan, &registry, &trace)?;
-            (plan, consent)
-        };
-        let prepared = {
-            let mut scope = store
-                .principal(&self.onboarding_sponsor_principal)
-                .map_err(|_| ApiFailure::upstream_degraded())?;
-            let mut adapter = self.onboarding_adapter(
-                &mut agent,
-                &trace,
-                self.agent_actor.clone(),
-                self.agent_authority.clone(),
-            )?;
-            adapter
-                .prepare_lifecycle_intent(
-                    &mut scope,
-                    &registry,
-                    Intent::v3(IntentKind::NativeOnboarding(consent)),
-                    plan.registration_action,
-                    primary_key()?,
-                    plan.started_at,
-                )
-                .map_err(|_| ApiFailure::upstream_degraded())?
-        };
-        drop(store);
-        let registration = self
-            .onboarding_adapter(
-                &mut agent,
-                &trace,
-                self.agent_actor.clone(),
-                self.agent_authority.clone(),
-            )?
-            .submit_prepared(prepared)
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        self.fund_native_onboarding(
-            &NativeExecution {
-                principal,
-                plan: &plan,
-                trace: &trace,
-                observed_at,
-                registry: &registry,
-            },
-            &mut agent,
-            &registration,
-        )
+        Err(ApiFailure::operation_retired())
     }
 
     fn load_native_onboarding(
@@ -392,81 +331,6 @@ impl ProductionComponents {
             },
         )
         .map_err(|_| ApiFailure::upstream_degraded())
-    }
-
-    fn native_onboarding_consent(
-        &self,
-        scope: &mut PrincipalScope<'_>,
-        plan: &NativePlan,
-        registry: &layerx_types::payload::ModuleRegistry,
-        trace: &TraceId,
-    ) -> Result<layerx_crypto::onboarding::SponsoredRegistration, ApiFailure> {
-        let row = RowKey::new("onboarding-native-target-consent")
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        if let Some(value) = scope.get(Table::Journeys, &row) {
-            return plan
-                .signed_consent(value.bytes())
-                .map_err(|_| ApiFailure::upstream_degraded());
-        }
-        let key = primary_key()?;
-        let descriptor = self
-            .custody
-            .describe_key(scope.principal(), &key)
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        if descriptor.class != KeyClass::HumanPrimary || descriptor.public_key != plan.target_key {
-            return Err(ApiFailure::upstream_degraded());
-        }
-        let intent = Intent::v3(IntentKind::NativeOnboardingConsent(
-            plan.consent()
-                .map_err(|_| ApiFailure::upstream_degraded())?,
-        ));
-        let compiled = layerx_intents::compile(&intent, registry)
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        let context = OwnerEnvelopeContext {
-            actor: plan.target().map_err(|_| ApiFailure::upstream_degraded())?,
-            owner_public_key: descriptor.public_key,
-            network_id: plan.network_id,
-            account_sequence: 0,
-            not_before_ms: plan
-                .started_at
-                .checked_mul(1_000)
-                .ok_or_else(ApiFailure::upstream_degraded)?,
-            not_after_ms: plan.expires_at,
-            action_key: plan.registration_action,
-            fee_limit: 0,
-        };
-        let (unsigned, disclosure) =
-            layerx_intents::owner_activity::unsigned_native(&compiled, &context, registry)
-                .map_err(|_| ApiFailure::upstream_degraded())?;
-        let principal = scope.principal().clone();
-        let signature = super::super::poll_once_ready(self.custody.sign_in_scope(
-            scope,
-            SignRequest::new(
-                &principal,
-                &key,
-                trace,
-                SignAuthorization::new(CustodyOperation::ProtocolMutation, None),
-                &unsigned,
-                &disclosure,
-                plan.started_at,
-            ),
-        ))
-        .map_err(|_| ApiFailure::upstream_degraded())?
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-        let signed = layerx_intents::owner_activity::attach_signature(
-            &unsigned,
-            *signature.signature(),
-            signature.signer_public_key(),
-            registry,
-        )
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-        let registration = plan
-            .signed_consent(&signed)
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        scope
-            .put(Table::Journeys, row, plan.started_at, signed)
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        Ok(registration)
     }
 }
 

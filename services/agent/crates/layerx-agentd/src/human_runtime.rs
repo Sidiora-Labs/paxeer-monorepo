@@ -5558,9 +5558,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     actor: actor.clone(),
                     authority,
                     activity_type: activity,
-                    expected_account_sequence: Some(human.account_sequence),
+                    expected_account_sequence: Some(human.nonce),
                     timestamp_bound: Some(
-                        TimestampBound::new(human.not_before, human.not_after)
+                        TimestampBound::new(human.not_before_height, human.not_after_height)
                             .map_err(|_| HumanOperationError::Refused)?,
                     ),
                     fee_limit: Some(Amount::from_u128(human.fee_limit)),
@@ -5834,9 +5834,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     actor: actor.clone(),
                     authority,
                     activity_type: activity,
-                    expected_account_sequence: Some(human.account_sequence),
+                    expected_account_sequence: Some(human.nonce),
                     timestamp_bound: Some(
-                        TimestampBound::new(human.not_before, human.not_after)
+                        TimestampBound::new(human.not_before_height, human.not_after_height)
                             .map_err(|_| HumanOperationError::Refused)?,
                     ),
                     fee_limit: Some(Amount::from_u128(human.fee_limit)),
@@ -10167,7 +10167,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                     let authority = operations.authority.authorized_activity(
                         &bound,
                         &signed_activity,
-                        evidence.activity_id,
+                        evidence.tx_hash,
                     )?;
                     (identity, authority, registry)
                 };
@@ -14926,9 +14926,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         if gate.is_none() {
             self.require_unversioned_policy_binding(peer)?;
         }
-        let timestamp =
-            TimestampBound::new(request.operation.not_before, request.operation.not_after)
-                .map_err(|_| HumanOperationError::Refused)?;
+        let timestamp = TimestampBound::new(
+            request.operation.not_before_height,
+            request.operation.not_after_height,
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
         let budget_context = self.budget_mutation_context(
             peer,
             activity_type,
@@ -14953,7 +14955,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 actor,
                 authority,
                 activity_type,
-                expected_account_sequence: Some(request.operation.account_sequence),
+                expected_account_sequence: Some(request.operation.nonce),
                 timestamp_bound: Some(timestamp),
                 fee_limit: Some(Amount::from_u128(request.operation.fee_limit)),
                 idempotency_key: IdempotencyKey::new(
@@ -17773,9 +17775,9 @@ fn legacy_prepare_digest(request: &HumanPrepare) -> [u8; 32] {
     digest.update(request.activity_type.to_be_bytes());
     hash_text(&mut digest, request.actor.as_bytes());
     hash_text(&mut digest, request.authority.as_bytes());
-    digest.update(request.account_sequence.to_be_bytes());
-    digest.update(request.not_before.to_be_bytes());
-    digest.update(request.not_after.to_be_bytes());
+    digest.update(request.nonce.to_be_bytes());
+    digest.update(request.not_before_height.to_be_bytes());
+    digest.update(request.not_after_height.to_be_bytes());
     hash_text(&mut digest, request.idempotency_key.as_bytes());
     digest.update(request.fee_limit.to_be_bytes());
     digest.update(request.payload_hash);
