@@ -10513,3 +10513,69 @@ area = "budget payloads"
 symptom = "A budget fund vector or compiler emits a 0x4202 six-field 180-byte payload and the kernel or layerx-crypto refuses it."
 cause = "The tagged 0x42xx layout is stale; the kernel canonical fund payload is type 0x00030002 with v1 50 bytes or v2 58 bytes (lx_budget_codec.c:173-196), as layerx-crypto and modules/layerxpay/types/payload_budget.go encode; binding a budget mutation needs bind_budget_mutation with a BudgetStateContext."
 do = "Encode the kernel layout (decision.1811) and bind with the budget state context; the wallet policy, its vectors and the intent compiler must agree with the kernel codec."
+
+[gotcha.2152]
+area = "launchpad replay fixtures"
+symptom = "A recorded chain-125 market replay fails receipt qualification although the recording is byte-exact."
+cause = "deployment.Current() moved to a new contract generation (16ee6fd09, v6.12.0) and validateCode compares runtime hashes at the qualified block, so the current manifest can never qualify blocks recorded under the previous generation."
+do = "Qualify with the history entry whose activation height covers the anchor (deployment.Approved, decision.1814); never pin Current() in a replay test."
+
+[gotcha.2153]
+area = "flatkv config"
+symptom = "ParseFlatKVConfig returns 'data dir is required' for every call and a parse-time panic would stop every node."
+cause = "Validation ran at parse while DataDir is assigned later at store construction (composite/store.go:133, flatkv/store.go:230)."
+do = "Validate where the full config exists; parse functions return cast errors only (decision.1819)."
+
+[gotcha.2154]
+area = "release workflow"
+symptom = "committed_pipeline() panics on the platform workflow and release_pipeline_has_no_replay_gate cannot run."
+cause = "A verification step carried if: always(), which the release validator admits only as the sdk-v tag condition."
+do = "Delete the condition on the workflow step; never widen the validator (No Weakening)."
+
+[gotcha.2155]
+area = "launchpad tests"
+symptom = "A launchpad Postgres test reads handoffs/L35/schema.sql or integration/migrations and fails before any assertion."
+cause = "Those paths were never committed to any ref; the tracked schema is each service's embedded goose migration set."
+do = "Apply services/launchpad/<service>/migrations through the service's migrate package under <SERVICE>_TEST_DATABASE_URL (decision.1817); task gates stay network-free."
+
+[gotcha.2156]
+area = "x402 recordings"
+symptom = "Replaying a seller recording in a buyer crate fails on every paid exchange although the payload port is complete."
+cause = "The seller moved from LAYERX-PAYER-DID to LAYERX-PAYER-ADDRESS and recorded on eip155:125; the buyer still sent the DID header over the test chain id 1337."
+do = "Read the payer header name and the chain reference from the recording and configure the buyer with them; never edit the recording (decision.1820)."
+
+[gotcha.2157]
+area = "agent daemon tests"
+symptom = "A gate test panics 'owned real sequencer fixture required' and the task can never qualify."
+cause = "The test took its evidence from a PAXEER_X_*_FIXTURE environment variable that only a release environment provides."
+do = "Serve the sequencer answers from a loopback TcpListener and sign receipts in-process (tests/node_rpc.rs pattern); keep the real-fixture variant as a release gate not named in verify_cmd (decisions 1806, 1821)."
+
+[gotcha.2158]
+area = "programs precompile tests"
+symptom = "A program deploy or call returns LXP_ERR_CONTEXT_MISMATCH (-213) although the handler passes the payload through unchanged."
+cause = "The interface bytes' ABI u16 (right after the 32-byte code hash) differs from the deploy or call abiVersion; the runtime's interface check (ffi_interface.rs:469-474, :549-552) rejects it at deploy and at call."
+do = "Write the same ABI in the interface field and in EncodeDeployPayload/EncodeCallPayload; the capability-11 entry needs ABI 3 or 4. The kernel's sandbox code never returns -213."
+
+[gotcha.2159]
+area = "lxphost replay tests"
+symptom = "A replay test cannot make the precompile refuse a reused actor sequence."
+cause = "submit of precompiles/layerxprograms/submit.go reads ReadIdentitySequence and ReadLastSequence itself and always advances the sequence."
+do = "Drive both calls through lxphost.ExecuteActivity at an explicit account sequence under fresh WithSequence(ctx, last+1) contexts and assert LXP_ERR_SEQUENCE_REUSED (-301), as execute_test.go:73-100 does (decision.1822)."
+
+[gotcha.2160]
+area = "programs arbiter"
+symptom = "Changing the derive signatures of layerx-programs-arbiter breaks the crate build with 'missing epoch/batch' and 'old caller' errors."
+cause = "VerifiedAdmissionPrestate has no epoch, batch or fee-history accessor, and step.rs and market.rs call derive with header and receipt_proof."
+do = "Keep header: &VerifiedBatchHeader, replace only the receipt proof, and update step.rs and market.rs in the same task (decision.1823)."
+
+[gotcha.2161]
+area = "human-service tests"
+symptom = "The node-fixture tests of layerx-human-service cannot drop layerx_client::lni although the src files are off it."
+cause = "AgentRuntime::connect still takes lni::transport::Limits until 10.3.1; the rpc replacement has no frame transport or Acknowledged variant."
+do = "Scan the src files only in the J44.21 task and rewrite the fixtures against a loopback sequencer RPC in the task that follows the runtime change (decision.1824, 10.98.15)."
+
+[gotcha.2162]
+area = "J44.25 ports"
+symptom = "A 'rename-only' port from bind or sign_disclosed to bind_call or sign_disclosed_call stalls for attempts on 'cannot preserve behaviour'."
+cause = "The replacement is the EVM call API: Eip1559Call plus a 20-byte from, 65-byte signatures, SigningPreparation instead of Prepared; behaviour changes by design."
+do = "Write the task so the tests assert the new API's behaviour and drop the 'behaviour unchanged' clause (decision.1825)."

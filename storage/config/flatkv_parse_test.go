@@ -48,8 +48,8 @@ func TestParseFlatKVConfigReadsTemplateKeys(t *testing.T) {
 		}
 
 		cfg, err := ParseFlatKVConfig(opts)
+		require.NoError(t, err)
 		require.Equal(t, stateCommit.FlatKVConfig, cfg)
-		require.EqualError(t, err, "data dir is required")
 	})
 
 	for _, tc := range []struct {
@@ -93,8 +93,8 @@ func TestParseFlatKVConfigReadsTemplateKeys(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, err := ParseFlatKVConfig(tc.opts)
+			require.NoError(t, err)
 			require.Equal(t, tc.want, cfg)
-			require.EqualError(t, err, "data dir is required")
 		})
 	}
 }
@@ -127,8 +127,8 @@ func TestParseFlatKVConfigKeepsDefaultsForAbsentKeys(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, err := ParseFlatKVConfig(tc.opts)
+			require.NoError(t, err)
 			require.Equal(t, *flatkvconfig.DefaultConfig(), cfg)
-			require.EqualError(t, err, "data dir is required")
 		})
 	}
 
@@ -136,8 +136,8 @@ func TestParseFlatKVConfigKeepsDefaultsForAbsentKeys(t *testing.T) {
 		want := *flatkvconfig.DefaultConfig()
 		want.Fsync = true
 		cfg, err := ParseFlatKVConfig(flatKVAppOptions{"state-commit.flatkv.fsync": true})
+		require.NoError(t, err)
 		require.Equal(t, want, cfg)
-		require.EqualError(t, err, "data dir is required")
 	})
 }
 
@@ -164,11 +164,11 @@ func TestParseFlatKVConfigRefusesInvalidValues(t *testing.T) {
 		})
 	}
 
-	t.Run("config validation", func(t *testing.T) {
+	t.Run("config validation deferred until store construction", func(t *testing.T) {
 		cfg, err := ParseFlatKVConfig(flatKVAppOptions{})
-		require.Error(t, err)
-		require.ErrorContains(t, err, "data dir")
-		require.EqualError(t, err, cfg.Validate().Error())
+		require.NoError(t, err)
+		require.Equal(t, *flatkvconfig.DefaultConfig(), cfg)
+		require.EqualError(t, cfg.Validate(), "data dir is required")
 	})
 }
 

@@ -15668,6 +15668,11 @@ components:
       description: One market observation of a price-feed submission; prices are 18-decimal integers.
       nullable: false
       properties:
+        accepted:
+          nullable: false
+          type: boolean
+          x-struct: null
+          x-validate: null
         index_price:
           $ref: '#/components/schemas/IntegerString'
         mark_price:
@@ -15696,6 +15701,7 @@ components:
           x-validate: null
       required:
       - market_id
+      - accepted
       - symbol
       - index_price
       - mark_price
@@ -18648,6 +18654,13 @@ components:
           type: integer
           x-struct: null
           x-validate: null
+        index:
+          description: Position in the CometBFT block
+          minimum: 0
+          nullable: false
+          type: integer
+          x-struct: null
+          x-validate: null
         index_price:
           $ref: '#/components/schemas/IntegerString'
         mark_price:
@@ -18670,6 +18683,7 @@ components:
       - update_hash
       - block_number
       - timestamp
+      - index
       - index_price
       - mark_price
       - source_timestamp_ms

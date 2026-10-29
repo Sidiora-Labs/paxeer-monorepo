@@ -62,7 +62,7 @@ export function provisionDepsFromEnv(): ProvisionDeps | null {
     rpc: sharedRpcPool(),
     attestors,
     nonces: sharedNonceStore(),
-    sponsor: null,
+    station: env.WALLET_GAS_STATION_URL ? new GasStationClient(env.WALLET_GAS_STATION_URL) : null,
     chainId: env.HYPERPAXEER_CHAIN_ID,
     gasCapWei: env.ACCOUNT_SETUP_GAS_CAP_WEI,
     receiptTimeoutMs: 60_000,
@@ -107,8 +107,11 @@ export async function walletRoutes(
 
   app.post('/v1/wallet/provision', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user!.id;
-    const provision = deps();
     try {
+      if (!opts.provision?.station && !env.WALLET_GAS_STATION_URL) {
+        throw new ProvisionError('gas_station_unconfigured', 503, 'no gas station is configured');
+      }
+      const provision = deps();
       if (!provision) {
         if (env.WALLET_IDENTITY_BINDING_TENANT) {
           throw new ProvisionError(
