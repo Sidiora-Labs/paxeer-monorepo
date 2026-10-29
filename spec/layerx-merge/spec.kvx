@@ -182162,7 +182162,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1129.1]
 title = "Issue #1129: Re-record the x-websearch client exchange with the x402 buyer's log evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1133.1", "18.1157.1"]
@@ -185833,7 +185833,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1183.1]
 title = "Issue #1183: Bind the launchpad release provenance check to the monorepo off-chain images workflow instead of the removed launchpad workflows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
