@@ -10453,3 +10453,63 @@ area = "programs call terminal"
 symptom = "A refused LX_PROGRAMS_CALL reports result_code -736 whatever the guest returned, and a test matching LXP/program-execution/v5 at the start of the terminal payload fails."
 cause = "-736 is LXP_ERR_PROGRAM_REFUSED (include/layerx/lxp_result.h:142) and under protocol v3 the terminal payload is wrapped as LXP/programs/terminal-applied-legs/v1 NUL + u32 detail length + detail + u32 legs (src/modules/programs/call.c:1531-1570)."
 do = "Unwrap the terminal-applied-legs prefix before matching the guest output, as tests/programs/test_call_activity.c:72-83 does."
+
+[gotcha.2142]
+area = "agentd prepare"
+symptom = "A directory listing of services/agent/crates/layerx-agentd/src/prepare/ shows no evm.rs, and layerx_agentd::prepare::evm::prepare_bound looks absent."
+cause = "prepare/mod.rs declares pub mod evm inline at :3 (EvmPreparationState :12, PrecompileTarget :20, prepare_bound :325) and re-exports it at :396."
+do = "Grep for the symbol before concluding a module path is wrong; an inline module has no file of its own."
+
+[gotcha.2143]
+area = "budget defund"
+symptom = "A compiled budget defund is refused at the agent boundary as an unsupported activity."
+cause = "layerx-intents compiles and discloses the defund as Budget ordinal 7 (compile.rs:532, disclosure.rs:745) while lx_budget.h:23 defines LX_BUDGET_DEFUND = 0x00030008 and layerx-crypto disclosure.rs:962 admits Budget 2, 8, 9 only."
+do = "Use ordinal 8 for the kernel defund (18.1188.1); under decision.1805 the reclaim leg is the Pay budgetDefund call, not a kernel envelope."
+
+[gotcha.2144]
+area = "human kms signing"
+symptom = "A journey leg signed through custody is refused by the live submit contract with Malformed('signature')."
+cause = "The production KMS sign (layerx-human-kms/src/server.rs:158-184) admits only an unsigned EIP-1559 call with its bind_call disclosure and the submit contract requires a 65-byte signature (layerx-agent-api/src/write.rs:78); the engine (engine.rs:964-990) and the local envelope signer still produce 64-byte kernel-envelope signatures."
+do = "Carry type-2 transactions end to end (decision.1805); do not widen or truncate the signature to make a kernel envelope pass."
+
+[gotcha.2145]
+area = "agentd tests"
+symptom = "An agentd test that verifies a receipt or state leaf panics at tests/support/real_authority.rs:46 'real isolated Paxeer chain id is required: NotPresent'."
+cause = "support::evidence_verifier() (tests/support/mod.rs:466) is chain-bound: evidence_authority -> try_evidence_authority_mode -> ReadinessNode::new (:1432) reads LAYERX_TEST_PAXEER_CHAIN_ID and binds a responder; only tools/qualification/paxeer-x/caps-codecs.py exports that environment."
+do = "Build the verifier with EvidenceAuthority::pinned_to_handshake(layerx_wire::limits::PROTOCOL_VERSION, 42, SigningKey::from_bytes(&[0x3a; 32]).verifying_key().to_bytes()) (src/protocol_evidence.rs:606), the key and network id support::raw_receipt and raw_state_leaf use; never export chain variables without a chain."
+
+[gotcha.2146]
+area = "agentd human peer"
+symptom = "A test that calls serve_one needs a HumanOperations and every implementation requires a connected layerx_client::Client over a live LNI socket."
+cause = "SharedAgentOwner, UnifiedAgentOwner and ProductionHumanOperations (src/human_runtime.rs:2338, :8525, :13223) all take the Client and dispatch_request (src/human.rs:2050) consults operations for every request; there is no node-free constructor."
+do = "Verify serve_one only through the PAXEER_X_NATIVE_PROGRAM_HUMAN_PEER_FIXTURE release gate (tools/qualification/paxeer-x/native-program-human-peer.py); task gates cover the codec; write no HumanOperations test double (decision.1806)."
+
+[gotcha.2147]
+area = "spec waves"
+symptom = "A spec edit that moves a task to a later wave, or adds a requires edge, parses cleanly yet no task is admitted afterwards."
+cause = "Parsing the plan does not validate it; the admission step also refuses any task whose requirement sits in a later wave and any requires cycle, and then runs without admitting anything."
+do = "Before committing a wave or requires change, check that no dependant sits in an earlier wave than its requirement and that the requires graph has no cycle; when a task must wait for another, move the dependants too or drop the edge."
+
+[gotcha.2148]
+area = "rust crates"
+symptom = "A task passes its own test and the wider build of the crate's dependents fails with E0063 missing field on a struct literal."
+cause = "A library struct gained a field (SequencerBlock.receipts_root, layerx-client src/sequencer.rs:200) and the sibling test binaries of the same crate still spell the old literal; cargo test -p crate --test name builds only the named binary."
+do = "When a struct gains a field, port every struct literal in the crate's tests in the same task; build the crate with --tests before qualifying."
+
+[gotcha.2149]
+area = "sdk verifiers"
+symptom = "A portable receipt vector verifies in Go and .NET and the JVM verifier refuses it."
+cause = "The JVM FIELDS rule carried a term the other verifiers do not (operation != 2, LocalVerifier.java:185-190), over-fitted to the asset transfer receipt it was written against."
+do = "Mirror the Go and .NET field rules term by term; a committed settlement receipt has moduleId 12 and operation 0 (decision.1807)."
+
+[gotcha.2150]
+area = "spec authoring"
+symptom = "A task step names a diagnostic facility or helper that is not in the tree and attempts stall looking for it."
+cause = "The step was written from a design, not from the code; readers then search for the facility instead of narrowing the fault."
+do = "Replace the step with an assertion ladder over the real reads and handlers (ReadAccount, ReadProgramAccount, the registered call handler) that stops at the first failing assertion and records it."
+
+[gotcha.2151]
+area = "budget payloads"
+symptom = "A budget fund vector or compiler emits a 0x4202 six-field 180-byte payload and the kernel or layerx-crypto refuses it."
+cause = "The tagged 0x42xx layout is stale; the kernel canonical fund payload is type 0x00030002 with v1 50 bytes or v2 58 bytes (lx_budget_codec.c:173-196), as layerx-crypto and modules/layerxpay/types/payload_budget.go encode; binding a budget mutation needs bind_budget_mutation with a BudgetStateContext."
+do = "Encode the kernel layout (decision.1811) and bind with the budget state context; the wallet policy, its vectors and the intent compiler must agree with the kernel codec."
