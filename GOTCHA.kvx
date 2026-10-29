@@ -10414,3 +10414,78 @@ detail = "layerx-x402 model.rs:19 binds LayerX offers to eip155:125 and refuses 
 title = "The KMS no longer signs kernel activity envelopes"
 detail = "Since 843ee0252 (10.11.7) layerx-human-kms sign (src/server.rs:158-184) admits only an unsigned EIP-1559 type-2 call whose bind_call disclosure and Keccak256 digest match call.signing_hash(), and refuses the kernel envelope with its SHA-256 LXP/v1/signature-preimage digest (status 1); provider tests that still build unsigned_envelope_bytes must port to evm_signing_request (tests/provider.rs:716-730). Keystore::authorize_send in layerx-human-service still sends the retired operation-11 SendPlanAuthorization until 10.0.3 lands (#1169)."
 
+[gotcha.2135]
+title = "Shell variables cannot be task symbols"
+detail = "cg spec done runs a graph check over every entry of a task's symbols list and refuses a name the symbol graph has not indexed; shell variables such as FILE_VARIABLES in docker/platform-gateway/entrypoint.sh are never indexed (18.1174.1 attempt 1 passed its tests and was refused on that check alone). Name shell-script identifiers in do steps and touches only, and keep symbols to indexed functions and types."
+
+[gotcha.2136]
+area = "programs sandbox"
+symptom = "sandboxExecute is refused LXP_ERR_NON_CANONICAL although admission, the stored lease, the funded escrow and the ABI and fee-schedule gates all pass."
+cause = "The fee debit from the lease escrow is a program-source leg; transfer_source_validate (src/modules/programs/call.c:2203-2219) needs a registerAccount binding for the seed sandbox-lease-escrow/v1 NUL || lease_id, and settle_call (host_ffi.rs:762-764) reports the AUTH_SCOPE refusal as NON_CANONICAL."
+do = "Open the escrow through registerAccount before sandboxFund; a hand-seeded module value account is not a bound program account."
+
+[gotcha.2137]
+area = "x402 gateway"
+symptom = "x-websearch metered and exact draws answer payment_invalid for every request after a refused one that reused the idempotency key."
+cause = "The x402 seller keys the gateway translation by the payload idempotencyKey (layerx-x402/src/seller.rs:180-195) and GatewayCore refuses a repeated key with different content (layerx-interop-gateway/src/gateway.rs:462-469); x-websearch kept one GatewayCore for the gate lifetime."
+do = "Build a GatewayCore per settlement as layerx-interop-service does per request; durable idempotency belongs to PaymentStore."
+
+[gotcha.2138]
+area = "sdk portable receipt"
+symptom = "The JVM and .NET portable receipt verifiers refuse the published V5 vector that the Go verifier accepts."
+cause = "The vector's wire layout is the Go encoding (receiptJson present; PascalCase, base64, integer-array and RFC3339 committed evidence); contracts/clients.md no longer lists the portable v2 fields, so the other SDKs followed older field lists."
+do = "Treat sdk/platform/go/portable_receipt.go and sdk/platform/go/committed.go as the wire reference for portable v2 bundles until the contract states it."
+
+[gotcha.2139]
+area = "explorer openapi"
+symptom = "Explorer controller tests fail schema validation after a view starts emitting a new field."
+cause = "OpenApiSpex schemas declare additionalProperties: false and BlockScoutWeb.TestApiSchemaAssertions validates every json_response against them; services/explorer/swagger.yaml is a generated copy of the same schemas."
+do = "Add the field to the schema module and to swagger.yaml in the same change as the view."
+
+[gotcha.2140]
+area = "launchpad fixtures"
+symptom = "Go, Node and shell tests fail opening launchpad/spec/production-system/integration/contracts/v1/*.json."
+cause = "384f41641 removed the whole launchpad/ tree; the six frozen v1 fixtures live under sdk/launchpad/protocol/contracts/v1/ (decision.1803)."
+do = "Read the fixtures from sdk/launchpad/protocol/contracts/v1/; readers of files already absent before the removal stay under decision.421."
+
+[gotcha.2141]
+area = "programs call terminal"
+symptom = "A refused LX_PROGRAMS_CALL reports result_code -736 whatever the guest returned, and a test matching LXP/program-execution/v5 at the start of the terminal payload fails."
+cause = "-736 is LXP_ERR_PROGRAM_REFUSED (include/layerx/lxp_result.h:142) and under protocol v3 the terminal payload is wrapped as LXP/programs/terminal-applied-legs/v1 NUL + u32 detail length + detail + u32 legs (src/modules/programs/call.c:1531-1570)."
+do = "Unwrap the terminal-applied-legs prefix before matching the guest output, as tests/programs/test_call_activity.c:72-83 does."
+
+[gotcha.2142]
+area = "agentd prepare"
+symptom = "A directory listing of services/agent/crates/layerx-agentd/src/prepare/ shows no evm.rs, and layerx_agentd::prepare::evm::prepare_bound looks absent."
+cause = "prepare/mod.rs declares pub mod evm inline at :3 (EvmPreparationState :12, PrecompileTarget :20, prepare_bound :325) and re-exports it at :396."
+do = "Grep for the symbol before concluding a module path is wrong; an inline module has no file of its own."
+
+[gotcha.2143]
+area = "budget defund"
+symptom = "A compiled budget defund is refused at the agent boundary as an unsupported activity."
+cause = "layerx-intents compiles and discloses the defund as Budget ordinal 7 (compile.rs:532, disclosure.rs:745) while lx_budget.h:23 defines LX_BUDGET_DEFUND = 0x00030008 and layerx-crypto disclosure.rs:962 admits Budget 2, 8, 9 only."
+do = "Use ordinal 8 for the kernel defund (18.1188.1); under decision.1805 the reclaim leg is the Pay budgetDefund call, not a kernel envelope."
+
+[gotcha.2144]
+area = "human kms signing"
+symptom = "A journey leg signed through custody is refused by the live submit contract with Malformed('signature')."
+cause = "The production KMS sign (layerx-human-kms/src/server.rs:158-184) admits only an unsigned EIP-1559 call with its bind_call disclosure and the submit contract requires a 65-byte signature (layerx-agent-api/src/write.rs:78); the engine (engine.rs:964-990) and the local envelope signer still produce 64-byte kernel-envelope signatures."
+do = "Carry type-2 transactions end to end (decision.1805); do not widen or truncate the signature to make a kernel envelope pass."
+
+[gotcha.2145]
+area = "agentd tests"
+symptom = "An agentd test that verifies a receipt or state leaf panics at tests/support/real_authority.rs:46 'real isolated Paxeer chain id is required: NotPresent'."
+cause = "support::evidence_verifier() (tests/support/mod.rs:466) is chain-bound: evidence_authority -> try_evidence_authority_mode -> ReadinessNode::new (:1432) reads LAYERX_TEST_PAXEER_CHAIN_ID and binds a responder; only tools/qualification/paxeer-x/caps-codecs.py exports that environment."
+do = "Build the verifier with EvidenceAuthority::pinned_to_handshake(layerx_wire::limits::PROTOCOL_VERSION, 42, SigningKey::from_bytes(&[0x3a; 32]).verifying_key().to_bytes()) (src/protocol_evidence.rs:606), the key and network id support::raw_receipt and raw_state_leaf use; never export chain variables without a chain."
+
+[gotcha.2146]
+area = "agentd human peer"
+symptom = "A test that calls serve_one needs a HumanOperations and every implementation requires a connected layerx_client::Client over a live LNI socket."
+cause = "SharedAgentOwner, UnifiedAgentOwner and ProductionHumanOperations (src/human_runtime.rs:2338, :8525, :13223) all take the Client and dispatch_request (src/human.rs:2050) consults operations for every request; there is no node-free constructor."
+do = "Verify serve_one only through the PAXEER_X_NATIVE_PROGRAM_HUMAN_PEER_FIXTURE release gate (tools/qualification/paxeer-x/native-program-human-peer.py); task gates cover the codec; write no HumanOperations test double (decision.1806)."
+
+[gotcha.2147]
+area = "spec waves"
+symptom = "A spec edit that moves a task to a later wave, or adds a requires edge, parses cleanly yet no task is admitted afterwards."
+cause = "Parsing the plan does not validate it; the admission step also refuses any task whose requirement sits in a later wave and any requires cycle, and then runs without admitting anything."
+do = "Before committing a wave or requires change, check that no dependant sits in an earlier wave than its requirement and that the requires graph has no cycle; when a task must wait for another, move the dependants too or drop the edge."

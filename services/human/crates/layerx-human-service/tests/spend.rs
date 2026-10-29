@@ -283,16 +283,27 @@ fn signed_receipt(
         sequence,
         &signer,
     );
+    let material = ReceiptMaterial {
+        authorised_batch: authorized_batch,
+        verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
+        receipt_hash: Sha256::digest(&canonical_receipt).into(),
+        canonical_bytes: canonical_receipt,
+        tx_hash: activity_id,
+        block_height: sequence,
+        rung: layerx_types::rung::Rung::Receipted,
+    };
+    let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
+        .unwrap_or_else(|error| panic!("spend receipt: {error:?}"));
+    let protocol = receipt.protocol().expect("protocol spend receipt");
+    assert_eq!(material.tx_hash, protocol.activity_id());
+    assert_eq!(material.block_height, protocol.global_sequence());
+    assert_eq!(
+        material.receipt_hash,
+        <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+    );
+    assert_eq!(material.rung, layerx_types::rung::Rung::Receipted);
     SpendReceipt {
-        material: ReceiptMaterial {
-            authorised_batch: authorized_batch,
-            verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
-            receipt_hash: Sha256::digest(&canonical_receipt).into(),
-            canonical_bytes: canonical_receipt,
-            tx_hash: activity_id,
-            block_height: sequence,
-            rung: layerx_types::rung::Rung::Receipted,
-        },
+        material,
         authorized_batch,
         evidence,
     }

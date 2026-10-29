@@ -101,7 +101,7 @@ func TestReplayCheckpointAtomicAndLiveCursorIndependent(t *testing.T) {
 
 func sourceRegistry(t *testing.T, emitter common.Address) *decode.Registry {
 	t.Helper()
-	body, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v1/chain/abi-catalog.json")
+	body, err := os.ReadFile("../../../../../sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

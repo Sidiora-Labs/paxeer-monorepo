@@ -9883,3 +9883,59 @@ symbol = "signing_request"
 observed = "Attempt 8 (f759ae9ca) passed 6 of 15 provider tests; seven failures send the kernel activity envelope with a SHA-256 preimage that sign refuses since 843ee0252 (10.11.7), one is Keystore::authorize_send still serializing the retired SendPlanAuthorization (issue #1169, owned by 10.0.3 do_6), one is the 2 s fixture deadline under fifteen concurrent attestor clusters."
 assumption = "Ruling: the seven sites port to the landed EIP-1559 contract inside touches (owner_bootstrap.rs included, deleted later by 10.21.4), the deadlines rise to 30 s, and the task requires 10.0.3 at wave 11 rather than splitting #1169 out, since a split would collide with 10.0.3 on custody/evm.rs; the kernel fee-grant, session-grant, onboarding and native-operation disclosure checks that bind_call does not carry are retired coverage under decision.1005 unless an owner rules otherwise."
 severity = "major"
+
+[finding.18.1174.1.1]
+task = "18.1174.1"
+file = "docker/platform-gateway/entrypoint.sh"
+symbol = "FILE_VARIABLES"
+observed = "Attempt 1 (28d44fbbd) built and passed all four env_example tests, and the done record was refused only by the graph check: FILE_VARIABLES is a shell variable in entrypoint.sh, which the symbol graph does not index."
+assumption = "The symbol list keeps only the indexed Python functions; the shell variable stays named in do_1 and touches, and attempt 2 reruns the same candidate."
+severity = "minor"
+
+[finding.8.42.8.1]
+task = "8.42.8"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:184-188"
+symbol = "shape"
+observed = "Attempt 4 fails portableVectorV5Verifies on both bundles because shape requires the document's key set to equal RECEIPTED_FIELDS or COMMITTED_FIELDS (:30-34), which omit receiptJson, and Committed.java decodes a camelCase hex model without the Transaction field, while the published V5 bundles carry receiptJson and Go-encoded committed evidence (sdk/platform/go/committed.go:15-87)."
+assumption = "Verifier defect, not a vector defect (the Go verifier of 8.47.7 authored the vector); 18.1184.1 (issue #1184) ports the verifier and 8.42.8 requires it."
+severity = "major"
+
+[finding.8.43.8.1]
+task = "8.43.8"
+file = "sdk/platform/dotnet/PortableReceipt.cs:96-109"
+symbol = "verify"
+observed = "Attempt 4 passes the receipted bundle and fails the committed bundle at the blockHeader decode: Committed.cs:21-23 and the camelCase hex readers do not match the published encoding (PascalCase, base64, integer arrays, RFC3339, Transaction and successor fields), and neither Committed.Verify nor PortableReceipt.verify binds rawTransaction to receiptInclusion.Transaction (sdk/platform/go/committed.go:230)."
+assumption = "Verifier defect; 18.1185.1 (issue #1185) ports the committed decode and verification and 8.43.8 requires it."
+severity = "major"
+
+[finding.18.1149.1.2]
+task = "18.1149.1"
+file = "services/human/crates/layerx-human-service/src/journeys/engine.rs:964-990"
+symbol = "sign_in_scope"
+observed = "At 384f41641 the engine and the reclaim fixtures sign 64-byte kernel-envelope signatures while SignatureBytes::new (layerx-agent-api/src/write.rs:78) requires 65 bytes, and the compiled defund 0x00030007 (layerx-intents/src/compile.rs:532) is refused at layerx-crypto/src/disclosure.rs:553 because :962 admits Budget 2, 8, 9 and lx_budget.h:23 defines defund as 0x00030008."
+assumption = "Two product defects, not fixture defects: the ordinal belongs to 18.1188.1 (issue #1188) and the leg form to the EIP-1559 migration (decision.1805; 10.13.5, 10.0.3, 18.1186.1), after which 18.1149.1 reworks the fixtures."
+severity = "major"
+
+[finding.9.3.1.3]
+task = "9.3.1"
+file = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:46"
+symbol = "ReadinessNode::new"
+observed = "At ff3ecfb5a7 committed_is_reached_only_from_executed panics 'real isolated Paxeer chain id is required: NotPresent' because support::evidence_verifier() boots a ReadinessNode from LAYERX_TEST_PAXEER_CHAIN_ID; no in-tree target exports LAYERX_TEST_PAXEER_* for make agent-test or run-real-node-tests.sh, only tools/qualification/paxeer-x/caps-codecs.py:51-54 does, so the 13 agentd tests using evidence_verifier run only under that script."
+assumption = "Pre-existing release-gate gap, not a task defect; the task test moves to EvidenceAuthority::pinned_to_handshake under decision.1806 and the gap stays recorded for the release harness."
+severity = "major"
+
+[finding.9.13.1.1]
+task = "9.13.1"
+file = "services/agent/crates/layerx-agentd/tests/human_frame.rs:102"
+symbol = "human_peer_still_answers_lxhagt01_frames"
+observed = "At 92a5690c0 the live test panics 'genuine native_program_human_peer fixture is required'; every HumanOperations implementation needs a Client connected over a live LNI socket (human_runtime.rs:2338, :8525, :13223) and dispatch_request (human.rs:2050) consults it for every request, so serve_one has no node-free path."
+assumption = "Acceptance 9.46.2 is verified at release with the native-program-human-peer fixture (decision.1806); the task gate is the codec round trip."
+severity = "minor"
+
+[finding.10.13.6.2]
+task = "10.13.6"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:2468"
+symbol = "drive_archive_reclaim"
+observed = "At 9af35d565 the archive test advances a Reclaim journey through the agent contract before confirming the archive and the live submit contract refuses the 64-byte leg signature with Malformed('signature') (layerx-agent-api/src/write.rs:78); the controls test passes."
+assumption = "The reclaim leg form is decision.1805 and belongs to 10.13.5, 10.0.3 and 18.1149.1; the archive rung gate is verified against disposition evidence at each rung without a reclaim journey."
+severity = "major"
