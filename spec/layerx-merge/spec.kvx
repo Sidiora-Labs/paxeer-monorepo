@@ -188256,7 +188256,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1222.1]
 title = "Issue #1222: Assert InvalidArgument for malformed addresses in the AirdropClaimed, HasRole and FeeRight keeper refusal tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
