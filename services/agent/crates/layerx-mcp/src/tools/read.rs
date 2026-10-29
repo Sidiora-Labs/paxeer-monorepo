@@ -1,4 +1,4 @@
-//! Verified-only read tool envelopes with explicit bounded pagination.
+//! Height-based read tool envelopes with explicit bounded pagination.
 
 use layerx_agent_api::availability::AvailabilityReport;
 use layerx_agent_api::prepare::CanonicalBytes;
@@ -6,7 +6,7 @@ use layerx_agent_api::proof::ProofBundle;
 use layerx_agent_api::read::{
     BalanceValue, CheckpointValue, Freshness, HistoryCursor, HistoryValue,
 };
-use layerx_agent_api::verify::Level;
+use layerx_agent_api::verify::Rung;
 
 const MAX_PAGE_ITEMS: usize = 256;
 const MAX_RESULT_BYTES: usize = 1_048_576;
@@ -34,6 +34,31 @@ impl CoreToolValue for AvailabilityReport {}
 pub struct ReceiptValue {
     pub canonical_receipt: CanonicalBytes,
     pub evidence_ids: Vec<[u8; 32]>,
+    pub height: u64,
+}
+
+impl ReceiptValue {
+    pub fn from_sequencer_signed(
+        canonical_receipt: CanonicalBytes,
+        keys: &[layerx_proof::inclusion::SequencerAuthorization],
+    ) -> Result<Self, ReadToolError> {
+        let signed =
+            layerx_proof::receipt::verify_sequencer_signature(canonical_receipt.as_bytes(), keys)
+                .map_err(|_| ReadToolError::Unverified)?;
+        let protocol = signed
+            .protocol()
+            .ok_or(ReadToolError::MissingReceiptEvidence)?;
+        let height = u64::from_be_bytes(
+            protocol.batch_id()[24..]
+                .try_into()
+                .map_err(|_| ReadToolError::Arithmetic)?,
+        );
+        Ok(Self {
+            canonical_receipt,
+            evidence_ids: vec![protocol.context_hash()],
+            height,
+        })
+    }
 }
 
 impl sealed::Sealed for ReceiptValue {}
@@ -98,11 +123,11 @@ pub struct PageInfo {
     pub next: Option<Continuation>,
 }
 
-/// A tool result cannot omit achieved level or freshness.
+/// A read carries height freshness and an optional write-evidence rung.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedToolResult<T: CoreToolValue> {
     pub value: T,
-    pub verification_level: Level,
+    pub rung: Option<Rung>,
     pub freshness: Freshness,
     pub page: PageInfo,
 }
@@ -110,6 +135,7 @@ pub struct VerifiedToolResult<T: CoreToolValue> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReadToolError {
     Unverified,
+    HeightMismatch,
     InvalidBounds,
     CursorMismatch,
     CursorOutOfRange,
@@ -118,27 +144,22 @@ pub enum ReadToolError {
     Arithmetic,
 }
 
-/// Returns one verified balance with its exact freshness coordinates.
+/// Returns one balance with its exact height freshness coordinates.
 ///
 /// # Errors
 ///
-/// Returns `Unverified` when the level is not fully verified, `Stale` when the
-/// freshness coordinates fall outside the accepted window, and `ResultTooLarge`
+/// Returns `Unverified` for a submitted-only rung, `HeightMismatch` when the
+/// value and freshness heights differ, and `ResultTooLarge`
 /// when the encoded state exceeds `maximum_bytes`.
 pub fn balance(
     value: BalanceValue,
-    verification_level: Level,
+    rung: Option<Rung>,
     freshness: Freshness,
     maximum_bytes: usize,
 ) -> Result<VerifiedToolResult<BalanceValue>, ReadToolError> {
+    require_height(value.height, &freshness)?;
     let encoded_bytes = value.canonical_state.as_bytes().len();
-    single(
-        value,
-        verification_level,
-        freshness,
-        encoded_bytes,
-        maximum_bytes,
-    )
+    single(value, rung, freshness, encoded_bytes, maximum_bytes)
 }
 
 /// Returns verified receipt bytes; an evidence-free receipt is never surfaced as verified.
@@ -147,13 +168,17 @@ pub fn balance(
 ///
 /// Returns `MissingReceiptEvidence` for a receipt carrying no evidence identifiers,
 /// `Arithmetic` when the evidence and receipt byte counts overflow, and the
-/// `Unverified`, `Stale` and `ResultTooLarge` refusals shared by every read tool.
+/// `Unverified`, `HeightMismatch` and `ResultTooLarge` refusals.
 pub fn receipt(
     value: ReceiptValue,
-    verification_level: Level,
+    rung: Option<Rung>,
     freshness: Freshness,
     maximum_bytes: usize,
 ) -> Result<VerifiedToolResult<ReceiptValue>, ReadToolError> {
+    require_height(value.height, &freshness)?;
+    if !matches!(rung, Some(Rung::Receipted | Rung::Committed)) {
+        return Err(ReadToolError::Unverified);
+    }
     if value.evidence_ids.is_empty() {
         return Err(ReadToolError::MissingReceiptEvidence);
     }
@@ -168,41 +193,30 @@ pub fn receipt(
         .len()
         .checked_add(evidence_bytes)
         .ok_or(ReadToolError::Arithmetic)?;
-    single(
-        value,
-        verification_level,
-        freshness,
-        encoded_bytes,
-        maximum_bytes,
-    )
+    single(value, rung, freshness, encoded_bytes, maximum_bytes)
 }
 
 /// Returns an exact checkpoint certificate, never a locally inferred checkpoint summary.
 ///
 /// # Errors
 ///
-/// Returns `Unverified` when the level is not fully verified, `Stale` for freshness
-/// outside the accepted window, and `ResultTooLarge` when the certificate exceeds
+/// Returns `Unverified` for a submitted-only rung, `HeightMismatch` for inconsistent
+/// height coordinates, and `ResultTooLarge` when the certificate exceeds
 /// `maximum_bytes`.
 pub fn checkpoint(
     value: CheckpointValue,
-    verification_level: Level,
+    rung: Option<Rung>,
     freshness: Freshness,
     maximum_bytes: usize,
 ) -> Result<VerifiedToolResult<CheckpointValue>, ReadToolError> {
+    require_height(value.height, &freshness)?;
     let encoded_bytes = value
         .commit
         .as_bytes()
         .len()
         .checked_add(value.validator_set.as_bytes().len())
         .ok_or(ReadToolError::Arithmetic)?;
-    single(
-        value,
-        verification_level,
-        freshness,
-        encoded_bytes,
-        maximum_bytes,
-    )
+    single(value, rung, freshness, encoded_bytes, maximum_bytes)
 }
 
 /// Returns proof bytes and the exact target they verify.
@@ -210,14 +224,17 @@ pub fn checkpoint(
 /// # Errors
 ///
 /// Returns `Arithmetic` when summing the target and proof byte lengths overflows,
-/// plus the `Unverified`, `Stale` and `ResultTooLarge` refusals shared by every
+/// plus the `Unverified` and `ResultTooLarge` refusals shared by every
 /// read tool.
 pub fn proof(
     value: ProofBundle,
-    verification_level: Level,
+    rung: Option<Rung>,
     freshness: Freshness,
     maximum_bytes: usize,
 ) -> Result<VerifiedToolResult<ProofBundle>, ReadToolError> {
+    if rung != Some(value.verification_level) {
+        return Err(ReadToolError::Unverified);
+    }
     let encoded_bytes = [
         Some(&value.raw_transaction),
         Some(&value.signed_receipt),
@@ -233,13 +250,7 @@ pub fn proof(
         sum.checked_add(bytes.as_bytes().len())
             .ok_or(ReadToolError::Arithmetic)
     })?;
-    single(
-        value,
-        verification_level,
-        freshness,
-        encoded_bytes,
-        maximum_bytes,
-    )
+    single(value, rung, freshness, encoded_bytes, maximum_bytes)
 }
 
 /// Returns attributed availability evidence with explicit size accounting.
@@ -247,11 +258,11 @@ pub fn proof(
 /// # Errors
 ///
 /// Returns `Arithmetic` when a class byte count does not fit `usize` or the running
-/// total overflows, plus the `Unverified`, `Stale` and `ResultTooLarge` refusals
+/// total overflows, plus the `Unverified` and `ResultTooLarge` refusals
 /// shared by every read tool.
 pub fn availability(
     value: AvailabilityReport,
-    verification_level: Level,
+    rung: Option<Rung>,
     freshness: Freshness,
     maximum_bytes: usize,
 ) -> Result<VerifiedToolResult<AvailabilityReport>, ReadToolError> {
@@ -259,32 +270,27 @@ pub fn availability(
         let bytes = usize::try_from(class.verified_bytes).map_err(|_| ReadToolError::Arithmetic)?;
         sum.checked_add(bytes).ok_or(ReadToolError::Arithmetic)
     })?;
-    single(
-        value,
-        verification_level,
-        freshness,
-        encoded_bytes,
-        maximum_bytes,
-    )
+    single(value, rung, freshness, encoded_bytes, maximum_bytes)
 }
 
 /// Pages exact core history records without silently dropping a record or upstream continuation.
 ///
 /// # Errors
 ///
-/// Returns `Unverified` for a level below full verification, `CursorMismatch` when the
+/// Returns `Unverified` for a submitted-only rung, `CursorMismatch` when the
 /// cursor was issued for a different query digest or snapshot, `CursorOutOfRange` for an
 /// offset past the record set, `ResultTooLarge` when the first record alone exceeds
 /// `maximum_bytes`, and `Arithmetic` on byte-count or offset overflow.
 pub fn history(
     value: &HistoryValue,
-    verification_level: Level,
+    rung: Option<Rung>,
     freshness: Freshness,
     query_digest: [u8; 32],
     snapshot: [u8; 32],
     pagination: Pagination,
 ) -> Result<VerifiedToolResult<HistoryValue>, ReadToolError> {
-    require_verified(verification_level)?;
+    require_read_rung(rung)?;
+    require_height(value.height, &freshness)?;
     let offset = match pagination.cursor {
         Some(cursor) => {
             if cursor.query_digest != query_digest || cursor.snapshot != snapshot {
@@ -334,7 +340,7 @@ pub fn history(
             next_cursor: None,
             height: value.height,
         },
-        verification_level,
+        rung,
         freshness,
         page: PageInfo {
             complete,
@@ -348,12 +354,12 @@ pub fn history(
 
 fn single<T: CoreToolValue>(
     value: T,
-    verification_level: Level,
+    rung: Option<Rung>,
     freshness: Freshness,
     encoded_bytes: usize,
     maximum_bytes: usize,
 ) -> Result<VerifiedToolResult<T>, ReadToolError> {
-    require_verified(verification_level)?;
+    require_read_rung(rung)?;
     if maximum_bytes == 0 || maximum_bytes > MAX_RESULT_BYTES {
         return Err(ReadToolError::InvalidBounds);
     }
@@ -362,7 +368,7 @@ fn single<T: CoreToolValue>(
     }
     Ok(VerifiedToolResult {
         value,
-        verification_level,
+        rung,
         freshness,
         page: PageInfo {
             complete: true,
@@ -374,10 +380,17 @@ fn single<T: CoreToolValue>(
     })
 }
 
-const fn require_verified(level: Level) -> Result<(), ReadToolError> {
-    if matches!(level, Level::Unverified) {
+const fn require_read_rung(rung: Option<Rung>) -> Result<(), ReadToolError> {
+    if matches!(rung, Some(Rung::Submitted)) {
         Err(ReadToolError::Unverified)
     } else {
         Ok(())
     }
+}
+
+fn require_height(height: u64, freshness: &Freshness) -> Result<(), ReadToolError> {
+    if height != freshness.value_height {
+        return Err(ReadToolError::HeightMismatch);
+    }
+    Ok(())
 }
