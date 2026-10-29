@@ -253,6 +253,14 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if p.audience == "livestream" && selected.Template == "/v2/provider-webhooks/livepeer" {
+		if values := r.Header.Values("Livepeer-Signature"); len(values) == 1 {
+			req.Header.Set("Livepeer-Signature", values[0])
+		} else if len(values) > 1 {
+			connectedError(w, 400, "ambiguous_header")
+			return
+		}
+	}
 	if principal.Wallet != "" {
 		if authorization := r.Header.Get("Authorization"); authorization != "" {
 			req.Header.Set("Authorization", authorization)
@@ -270,11 +278,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			requestID = uuid.NewString()
 			req.Header.Set("X-Request-ID", requestID)
 		}
-		audience := p.audience
-		if p.audience == "user" && (strings.HasPrefix(selected.Template, "/v1/") || strings.HasPrefix(selected.Template, "/v3/") || selected.Template == "/v2/me/preferences" || selected.Template == "/v2/me/exports/{jobId}/download") {
-			audience = "account"
-		}
-		signer := sharedauth.ServiceAssertionIssuer{Issuer: "gateway", Audience: audience, Key: p.key, Transport: actorAssertionTransport(p.audience)}
+		signer := sharedauth.ServiceAssertionIssuer{Issuer: "gateway", Audience: connectedAssertionAudience(p.audience, selected.Template), Key: p.key, Transport: actorAssertionTransport(p.audience)}
 		if e = signer.SignRequest(req, principal, []string{"owner"}, body); e != nil {
 			connectedError(w, 403, "actor_assertion_denied")
 			return
@@ -649,6 +653,13 @@ func (p *Connected) slowRoute(route *ConnectedRoute) bool {
 // (internal/app metadataPrivateChannel) reads the gateway's actor assertion
 // from. Every other upstream reads the shared actor headers.
 var MetadataActorTransport = sharedauth.AssertionTransport{AssertionHeader: "X-Internal-Assertion", SignatureHeader: "X-Internal-Signature"}
+
+func connectedAssertionAudience(upstream, template string) string {
+	if upstream == "user" {
+		return "account"
+	}
+	return upstream
+}
 
 func actorAssertionTransport(upstream string) sharedauth.AssertionTransport {
 	if upstream == "metadata" {

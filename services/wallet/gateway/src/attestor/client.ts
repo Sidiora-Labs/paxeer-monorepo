@@ -1174,7 +1174,7 @@ function parseEvmReview(value: unknown, nodeId: string): EvmReviewWire {
     || typeof answer.to !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(answer.to)
     || typeof answer.value !== 'string' || !/^(0|[1-9][0-9]{0,77})$/.test(answer.value) || BigInt(answer.value) >= (1n << 256n)
     || typeof answer.data !== 'string' || !/^0x(?:[0-9a-fA-F]{2})*$/.test(answer.data) || answer.data.length > 2_097_154
-    || typeof answer.method !== 'string' || !answer.method || typeof answer.destination !== 'string'
+    || typeof answer.method !== 'string' || (answer.data !== '0x' && !answer.method) || typeof answer.destination !== 'string'
     || typeof answer.signing_hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(answer.signing_hash)
     || !Number.isSafeInteger(answer.chain_id) || answer.chain_id <= 0
     || !Number.isSafeInteger(answer.audit_sequence) || answer.audit_sequence < 1) {

@@ -365,19 +365,9 @@ struct ProgramLifecycleArgs {
     #[arg(long)]
     program_id: String,
     #[arg(long)]
-    idempotency_key: String,
-    #[arg(long)]
-    key: Option<String>,
-    #[arg(long)]
-    account_sequence: u64,
-    #[arg(long)]
-    not_before_ms: u64,
-    #[arg(long)]
-    expires_at_ms: u64,
+    evm_key_file: PathBuf,
     #[arg(long, default_value = "0")]
     fee_limit: String,
-    #[arg(long)]
-    previous_state_root: String,
 }
 
 #[derive(Subcommand)]
@@ -1084,35 +1074,15 @@ fn execute_program_lifecycle(
     gateway: Option<&str>,
     operation: impl FnOnce(
         &http::Client,
-        &programs::CallRequest<'_>,
+        &programs::EvmLifecycleRequest<'_>,
     ) -> Result<serde_json::Value, String>,
 ) -> Result<CommandOutput, String> {
     let configuration = Configuration::load()?;
     let (environment, client) = program_client(&configuration, rpc, gateway)?;
-    let (_, active) = configuration.active_environment()?;
-    let key_name = serving_key(&configuration, signing.key.as_deref())?;
-    let actor_did = &configuration
-        .keys
-        .get(key_name)
-        .ok_or_else(|| format!("key {key_name} does not exist"))?
-        .did;
-    let request = programs::CallRequest {
+    let request = programs::EvmLifecycleRequest {
         program_id: &signing.program_id,
-        calldata: "",
-        fuel: 0,
-        native: programs::NativeCallOptions::default(),
         fee_limit: &signing.fee_limit,
-        capabilities: &[],
-        idempotency_key: &signing.idempotency_key,
-        network_id: active.network_id,
-        actor_did,
-        key_name,
-        account_sequence: signing.account_sequence,
-        not_before_ms: signing.not_before_ms,
-        expires_at_ms: signing.expires_at_ms,
-        sequencer_public_key: active.sequencer_trust_anchor.as_deref().ok_or_else(|| {
-            format!("environment {environment} has no configured sequencer trust anchor")
-        })?,
+        key_file: &signing.evm_key_file,
     };
     Ok(CommandOutput::new(
         "program.lifecycle",
@@ -1180,7 +1150,6 @@ fn program(
                     upgrade_authority: upgrade_authority.as_deref(),
                     interface: interface.as_deref(),
                 },
-                &signing.previous_state_root,
             )
         }),
         ProgramCommand::Upgrade {
@@ -1203,7 +1172,6 @@ fn program(
                     clear_interface,
                     allow_breaking_interface,
                 },
-                &signing.previous_state_root,
             )
         }),
         ProgramCommand::WindDown(command) => program_wind_down(command, rpc, gateway),
@@ -1285,7 +1253,7 @@ fn program_wind_down(
                 seed: &seed,
             };
             execute_program_lifecycle(&signing, rpc, gateway, |client, request| {
-                programs::wind_down(client, request, operation, &signing.previous_state_root)
+                programs::wind_down(client, request, operation)
             })
         }
         ProgramWindDownCommand::Deprecate {
@@ -1298,17 +1266,12 @@ fn program_wind_down(
                 deadline_batch,
             };
             execute_program_lifecycle(&signing, rpc, gateway, |client, request| {
-                programs::wind_down(client, request, operation, &signing.previous_state_root)
+                programs::wind_down(client, request, operation)
             })
         }
         ProgramWindDownCommand::Tombstone { signing } => {
             execute_program_lifecycle(&signing, rpc, gateway, |client, request| {
-                programs::wind_down(
-                    client,
-                    request,
-                    ProgramWindDownOperation::Tombstone,
-                    &signing.previous_state_root,
-                )
+                programs::wind_down(client, request, ProgramWindDownOperation::Tombstone)
             })
         }
         ProgramWindDownCommand::Exit { account, signing } => {
@@ -1316,7 +1279,7 @@ fn program_wind_down(
                 account: encoding::fixed_hex("account", &account)?,
             };
             execute_program_lifecycle(&signing, rpc, gateway, |client, request| {
-                programs::wind_down(client, request, operation, &signing.previous_state_root)
+                programs::wind_down(client, request, operation)
             })
         }
     }
@@ -1521,16 +1484,8 @@ mod program_arguments_tests {
         vec![
             "--program-id",
             "1111111111111111111111111111111111111111111111111111111111111111",
-            "--idempotency-key",
-            "4444444444444444444444444444444444444444444444444444444444444444",
-            "--account-sequence",
-            "0",
-            "--not-before-ms",
-            "1",
-            "--expires-at-ms",
-            "100",
-            "--previous-state-root",
-            "2222222222222222222222222222222222222222222222222222222222222222",
+            "--evm-key-file",
+            "keys.json",
         ]
     }
 
