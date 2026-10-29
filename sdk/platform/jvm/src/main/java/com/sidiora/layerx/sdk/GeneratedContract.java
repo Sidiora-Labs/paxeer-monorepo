@@ -161,7 +161,8 @@ final class GeneratedContract {
         "not-suppressible",
         "support-unavailable",
         "support-conversation-unknown",
-        "support-message-unknown");
+        "support-message-unknown",
+        "operation-retired");
     static final Set<String> HUMAN_RETRIABILITY = Set.of(
         "retriable",
         "retriable-after",
@@ -202,16 +203,7 @@ final class GeneratedContract {
         Map.entry("authenticator.setup.begin", new OperationCatalog.Route("POST", "/v1/security/authenticators/setups", List.of(), false, false)),
         Map.entry("authenticator.setup.finish", new OperationCatalog.Route("POST", "/v1/security/authenticators/setups/{setup_id}", List.of("setup_id"), false, false)),
         Map.entry("authenticator.status", new OperationCatalog.Route("GET", "/v1/security/authenticators", List.of(), false, true)),
-        Map.entry("binding.rebind", new OperationCatalog.Route("POST", "/v1/wallet-binding/rebind", List.of(), true, false)),
-        Map.entry("binding.rebind.action", new OperationCatalog.Route("POST", "/v1/wallet-binding/rebind/action", List.of(), false, false)),
-        Map.entry("binding.statement", new OperationCatalog.Route("POST", "/v1/wallet-binding/statement", List.of(), false, false)),
-        Map.entry("binding.status", new OperationCatalog.Route("GET", "/v1/wallet-binding", List.of(), false, true)),
-        Map.entry("binding.submit", new OperationCatalog.Route("POST", "/v1/wallet-binding", List.of(), true, false)),
-        Map.entry("deposit.confirm", new OperationCatalog.Route("POST", "/v1/deposits/{journey_id}/confirm", List.of("journey_id"), false, false)),
-        Map.entry("deposit.start", new OperationCatalog.Route("POST", "/v1/deposits", List.of(), true, false)),
         Map.entry("evidence.get", new OperationCatalog.Route("GET", "/v1/evidence/{evidence_id}", List.of("evidence_id"), false, true)),
-        Map.entry("exit.eligibility", new OperationCatalog.Route("GET", "/v1/exit/eligibility", List.of(), false, true)),
-        Map.entry("exit.start", new OperationCatalog.Route("POST", "/v1/exit", List.of(), true, false)),
         Map.entry("home.summary", new OperationCatalog.Route("GET", "/v1/home", List.of(), false, true)),
         Map.entry("intent.plan", new OperationCatalog.Route("POST", "/v1/intents/plan", List.of(), false, false)),
         Map.entry("intent.submit", new OperationCatalog.Route("POST", "/v1/intents/submit", List.of(), true, false)),
@@ -260,7 +252,5 @@ final class GeneratedContract {
         Map.entry("support.read", new OperationCatalog.Route("POST", "/v1/support/conversations/{conversation_id}/read", List.of("conversation_id"), false, false)),
         Map.entry("support.reply", new OperationCatalog.Route("POST", "/v1/support/conversations/{conversation_id}/replies", List.of("conversation_id"), true, false)),
         Map.entry("support.status", new OperationCatalog.Route("GET", "/v1/support/conversations/{conversation_id}/status", List.of("conversation_id"), false, true)),
-        Map.entry("version", new OperationCatalog.Route("GET", "/v1/version", List.of(), false, true)),
-        Map.entry("withdraw.claim", new OperationCatalog.Route("POST", "/v1/withdrawals/{journey_id}/claim", List.of("journey_id"), false, false)),
-        Map.entry("withdraw.start", new OperationCatalog.Route("POST", "/v1/withdrawals", List.of(), true, false)));
+        Map.entry("version", new OperationCatalog.Route("GET", "/v1/version", List.of(), false, true)));
 }
