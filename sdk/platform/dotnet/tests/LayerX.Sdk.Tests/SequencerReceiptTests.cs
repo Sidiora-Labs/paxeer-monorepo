@@ -13,9 +13,17 @@ namespace LayerX.Sdk.Tests;
 public sealed class SequencerReceiptTests
 {
     [Fact]
+    public void PublishedVectorFilesMatchRecordedCases()
+    {
+        SequencerReceiptV1CasesVerifyReceipted();
+        SequencerReceiptV2RevertDecodesReason();
+        SequencerReceiptV3RefusalsNameTheirCheck();
+    }
+
+    [Fact]
     public void SequencerReceiptV1CasesVerifyReceipted()
     {
-        using var document = LoadFixture();
+        using var document = LoadFixture("vector-v1-receipted-positive.json");
         var cases = Cases(document, "V1");
         Assert.Equal(4, cases.Length);
         foreach (var vector in cases)
@@ -23,7 +31,8 @@ public sealed class SequencerReceiptTests
             var keys = Keys(vector);
             var view = vector.GetProperty("receiptJson");
             var raw = Hex(vector, "rawTransaction");
-            var result = LocalVerifier.VerifySequencerReceipt(JsonSerializer.SerializeToUtf8Bytes(view), raw, keys);
+            Assert.Equal("accepts", vector.GetProperty("expected").GetProperty("verifier").GetString());
+            var result = VerifySequencerReceipt(vector);
             Assert.Equal(vector.GetProperty("expected").GetProperty("rung").GetString(), result.Rung);
             Assert.Equal("receipted", result.Rung);
             Assert.Equal(1U, result.Status);
@@ -72,10 +81,11 @@ public sealed class SequencerReceiptTests
     [Fact]
     public void SequencerReceiptV2RevertDecodesReason()
     {
-        using var document = LoadFixture();
+        using var document = LoadFixture("vector-v2-receipted-revert.json");
         var vector = Assert.Single(Cases(document, "V2"));
-        var result = LocalVerifier.VerifySequencerReceipt(JsonSerializer.SerializeToUtf8Bytes(vector.GetProperty("receiptJson")),
-            Hex(vector, "rawTransaction"), Keys(vector));
+        Assert.Equal("accepts", vector.GetProperty("expected").GetProperty("verifier").GetString());
+        var result = VerifySequencerReceipt(vector);
+        Assert.Equal(vector.GetProperty("expected").GetProperty("rung").GetString(), result.Rung);
         Assert.Equal("receipted", result.Rung);
         Assert.Equal(0U, result.Status);
         Assert.Equal(1, result.Receipt.ResultCode);
@@ -93,26 +103,27 @@ public sealed class SequencerReceiptTests
     [Fact]
     public void SequencerReceiptV3RefusalsNameTheirCheck()
     {
-        using var document = LoadFixture();
+        using var document = LoadFixture("vector-v3-receipt-refusals.json");
         var cases = Cases(document, "V3");
         Assert.Equal(6, cases.Length);
-        var checks = new Dictionary<string, ReceiptCheck>
+        var checks = new Dictionary<string, (ReceiptCheck Check, string RefusedAt)>
         {
-            ["R3: keyId is not in the pinned ReceiptKeys"] = ReceiptCheck.KeyId,
-            ["R3: batch_id height is outside the pinned key range"] = ReceiptCheck.KeyHeight,
-            ["R4: activity_id is not keccak256 of the raw transaction"] = ReceiptCheck.RawTransaction,
-            ["R6: seqHash does not chain prevSeqHash, seq and activity_id"] = ReceiptCheck.SequenceHash,
-            ["sequencer receipt: JSON view differs from receipt bytes"] = ReceiptCheck.Logs,
-            ["layerx codec: non-canonical"] = ReceiptCheck.CanonicalEncoding,
+            ["R3: keyId is not in the pinned ReceiptKeys"] = (ReceiptCheck.KeyId, "R3"),
+            ["R3: batch_id height is outside the pinned key range"] = (ReceiptCheck.KeyHeight, "R3"),
+            ["R4: activity_id is not keccak256 of the raw transaction"] = (ReceiptCheck.RawTransaction, "R4"),
+            ["R6: seqHash does not chain prevSeqHash, seq and activity_id"] = (ReceiptCheck.SequenceHash, "R6"),
+            ["sequencer receipt: JSON view differs from receipt bytes"] = (ReceiptCheck.Logs, "R5"),
+            ["layerx codec: non-canonical"] = (ReceiptCheck.CanonicalEncoding, "R2"),
         };
         foreach (var vector in cases)
         {
             var expected = checks[vector.GetProperty("expected").GetProperty("check").GetString()!];
-            AssertCheck(expected, () => LocalVerifier.VerifySequencerReceipt(
-                JsonSerializer.SerializeToUtf8Bytes(vector.GetProperty("receiptJson")), Hex(vector, "rawTransaction"), Keys(vector)));
+            Assert.Equal(expected.RefusedAt, vector.GetProperty("expected").GetProperty("refusedAt").GetString());
+            AssertCheck(expected.Check, () => VerifySequencerReceipt(vector));
         }
 
-        var success = Cases(document, "V1")[1];
+        using var positive = LoadFixture("vector-v1-receipted-positive.json");
+        var success = Cases(positive, "V1")[1];
         var raw = Hex(success, "rawTransaction");
         var keys = Keys(success);
         var original = JsonNode.Parse(success.GetProperty("receiptJson").GetRawText())!.AsObject();
@@ -149,6 +160,10 @@ public sealed class SequencerReceiptTests
             success.GetProperty("receiptJson"), raw, keys with { PreviousSequenceHash = new byte[32] }));
     }
 
+    private static SequencerReceiptVerification VerifySequencerReceipt(JsonElement vector) =>
+        LocalVerifier.VerifySequencerReceipt(JsonSerializer.SerializeToUtf8Bytes(vector.GetProperty("receiptJson")),
+            Hex(vector, "rawTransaction"), Keys(vector));
+
     private static void AssertCheck(ReceiptCheck check, Action verify)
     {
         var error = Assert.Throws<PlatformSdkException>(verify);
@@ -163,11 +178,15 @@ public sealed class SequencerReceiptTests
             key.GetProperty("firstHeight").GetUInt64(), key.GetProperty("lastHeight").GetUInt64()) }, Hex(vector, "prevSeqHash"));
     }
 
-    private static JsonElement[] Cases(JsonDocument document, string vector) => document.RootElement.GetProperty("cases")
-        .EnumerateArray().Where(value => value.GetProperty("vector").GetString() == vector).ToArray();
+    private static JsonElement[] Cases(JsonDocument document, string vector)
+    {
+        var cases = document.RootElement.GetProperty("cases").EnumerateArray().ToArray();
+        Assert.All(cases, value => Assert.Equal(vector, value.GetProperty("vector").GetString()));
+        return cases;
+    }
 
     private static byte[] Hex(JsonElement value, string name) => Convert.FromHexString(value.GetProperty(name).GetString()![2..]);
 
-    private static JsonDocument LoadFixture([CallerFilePath] string source = "") => JsonDocument.Parse(File.ReadAllText(
-        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../../conformance/fixtures/sequencer-receipt-v1.json"))));
+    private static JsonDocument LoadFixture(string name, [CallerFilePath] string source = "") => JsonDocument.Parse(File.ReadAllText(
+        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../../conformance/fixtures", name))));
 }
