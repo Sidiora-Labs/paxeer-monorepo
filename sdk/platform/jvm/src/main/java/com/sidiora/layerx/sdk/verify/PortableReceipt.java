@@ -1,17 +1,11 @@
 package com.sidiora.layerx.sdk.verify;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sidiora.layerx.sdk.PlatformSdkException;
 import java.io.IOException;
@@ -28,9 +22,9 @@ public final class PortableReceipt {
     public static final String FORMAT = "layerx-receipt-proof-v2";
     private static final int MAX_BUNDLE_BYTES = 16 * 1_048_576;
     private static final Set<String> RECEIPTED_FIELDS = Set.of("format", "verificationLevel",
-        "rawTransaction", "signedReceipt", "receiptDigest", "receiptKey");
+        "rawTransaction", "signedReceipt", "receiptDigest", "receiptKey", "receiptJson");
     private static final Set<String> COMMITTED_FIELDS = Set.of("format", "verificationLevel",
-        "rawTransaction", "signedReceipt", "receiptDigest", "receiptKey", "blockHeader",
+        "rawTransaction", "signedReceipt", "receiptDigest", "receiptKey", "receiptJson", "blockHeader",
         "receiptInclusion", "commit", "validatorSet");
     private static final Set<String> RETIRED_FIELDS = Set.of("batchId", "asset",
         "previousStateRoot", "resultingStateRoot");
@@ -55,21 +49,24 @@ public final class PortableReceipt {
         public void requireSuccess() { receipted.requireSuccess(); }
     }
 
-    public static byte[] export(byte[] rawTransaction, byte[] signedReceipt,
+    public static byte[] export(byte[] rawTransaction, byte[] receiptJson,
                                 LocalVerifier.ReceiptKey receiptKey) {
-        return encode(base(rawTransaction, signedReceipt, receiptKey));
+        ObjectNode bundle = base(rawTransaction, receiptJson, receiptKey);
+        byte[] encoded = encode(bundle);
+        verify(encoded, new LocalVerifier.ReceiptKeys(List.of(receiptKey)));
+        return encoded;
     }
 
-    public static byte[] export(byte[] rawTransaction, byte[] signedReceipt,
+    public static byte[] export(byte[] rawTransaction, byte[] receiptJson,
                                 LocalVerifier.ReceiptKey receiptKey, Committed.Header blockHeader,
                                 Committed.ReceiptInclusion receiptInclusion, Committed.Commit commit,
                                 List<Committed.Validator> validatorSet) {
-        ObjectNode bundle = base(rawTransaction, signedReceipt, receiptKey);
+        ObjectNode bundle = base(rawTransaction, receiptJson, receiptKey);
         bundle.put("verificationLevel", "committed");
-        bundle.set("blockHeader", JSON.valueToTree(blockHeader));
-        bundle.set("receiptInclusion", JSON.valueToTree(receiptInclusion));
-        bundle.set("commit", JSON.valueToTree(commit));
-        bundle.set("validatorSet", JSON.valueToTree(validatorSet));
+        bundle.set("blockHeader", Committed.encodeHeader(blockHeader));
+        bundle.set("receiptInclusion", Committed.encodeInclusion(receiptInclusion));
+        bundle.set("commit", Committed.encodeCommit(commit));
+        bundle.set("validatorSet", Committed.encodeValidators(validatorSet));
         byte[] encoded = encode(bundle);
         verify(encoded, new LocalVerifier.ReceiptKeys(List.of(receiptKey)));
         return encoded;
@@ -102,23 +99,20 @@ public final class PortableReceipt {
                 && pinned.firstHeight().equals(quantity(carriedKey, "firstHeight"))
                 && pinned.lastHeight().equals(quantity(carriedKey, "lastHeight")));
 
-            var receipted = LocalVerifier.verifySequencerReceipt(
-                hex(document, "signedReceipt", 1, 1_048_576),
-                hex(document, "rawTransaction", 1, 1_048_576), receiptKeys);
+            byte[] rawTransaction = hex(document, "rawTransaction", 1, 1_048_576);
+            var receipted = verifyReceipt(document.required("receiptJson"), rawTransaction, pinned);
+            require(MessageDigest.isEqual(receipted.canonicalBytes(),
+                hex(document, "signedReceipt", 1, 1_048_576)));
             require(MessageDigest.isEqual(receipted.receiptDigest(),
                 hex(document, "receiptDigest", 32, 32)));
             require(MessageDigest.isEqual(receipted.receipt().contextHash(), pinned.keyId()));
             Committed.Verification committed = null;
             if (level.equals("committed")) {
-                var header = JSON.treeToValue(document.required("blockHeader"), Committed.Header.class);
-                var inclusion = JSON.treeToValue(document.required("receiptInclusion"),
-                    Committed.ReceiptInclusion.class);
-                var commit = JSON.treeToValue(document.required("commit"), Committed.Commit.class);
-                JsonNode validators = document.required("validatorSet");
-                require(validators.isArray() && !validators.isEmpty() && validators.size() <= 10000);
-                List<Committed.Validator> validatorSet = JSON.readerForListOf(Committed.Validator.class)
-                    .readValue(validators);
-                committed = Committed.verify(receipted, header, inclusion, commit, validatorSet);
+                var header = Committed.decodeHeader(document.required("blockHeader"));
+                var inclusion = Committed.decodeInclusion(document.required("receiptInclusion"));
+                var commit = Committed.decodeCommit(document.required("commit"));
+                var validatorSet = Committed.decodeValidators(document.required("validatorSet"));
+                committed = Committed.verify(receipted, rawTransaction, header, inclusion, commit, validatorSet);
             }
             return new Verification(snapshot, receipted, committed);
         } catch (PlatformSdkException error) {
@@ -128,11 +122,13 @@ public final class PortableReceipt {
         }
     }
 
-    private static ObjectNode base(byte[] rawTransaction, byte[] signedReceipt,
+    private static ObjectNode base(byte[] rawTransaction, byte[] receiptJson,
                                    LocalVerifier.ReceiptKey receiptKey) {
         require(receiptKey != null);
-        var verified = LocalVerifier.verifySequencerReceipt(signedReceipt, rawTransaction,
-            new LocalVerifier.ReceiptKeys(List.of(receiptKey)));
+        JsonNode view;
+        try { view = JSON.readTree(receiptJson); }
+        catch (IOException | RuntimeException error) { throw PlatformSdkException.verificationFailure(); }
+        var verified = verifyReceipt(view, rawTransaction, receiptKey);
         ObjectNode bundle = JSON.createObjectNode();
         bundle.put("format", FORMAT);
         bundle.put("verificationLevel", "receipted");
@@ -144,25 +140,32 @@ public final class PortableReceipt {
         key.put("publicKey", hex(receiptKey.publicKey()));
         key.put("firstHeight", "0x" + receiptKey.firstHeight().toString(16));
         key.put("lastHeight", "0x" + receiptKey.lastHeight().toString(16));
+        bundle.set("receiptJson", view);
         return bundle;
     }
 
+    private static LocalVerifier.SequencerReceiptVerification verifyReceipt(JsonNode view,
+            byte[] rawTransaction, LocalVerifier.ReceiptKey key) {
+        require(view != null && view.isObject());
+        Set<String> fields = Set.of("rung", "txHash", "nonce", "seq", "height", "index", "timestamp",
+            "status", "returnData", "logs", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice",
+            "feeDenom", "feeAmount", "sponsor", "from", "to", "contractAddress", "vmError", "keyId", "receipt");
+        var actual = new HashSet<String>();
+        view.fieldNames().forEachRemaining(actual::add);
+        if (actual.remove("signingKey"))
+            require(MessageDigest.isEqual(hex(view, "signingKey", 32, 32), key.publicKey()));
+        require(actual.equals(fields));
+        require(view.required("logs").isArray());
+        for (JsonNode log : view.required("logs")) shape(log, Set.of("address", "topics", "data", "logIndex"));
+        byte[] canonical = hex(view, "receipt", 1, 1_048_576);
+        var keys = new LocalVerifier.ReceiptKeys(List.of(key));
+        var verified = LocalVerifier.verifySequencerReceipt(canonical, rawTransaction, keys);
+        return LocalVerifier.verifySequencerReceipt(canonical, rawTransaction, keys, view,
+            verified.receipt().previousStateRoot());
+    }
+
     private static ObjectMapper mapper() {
-        var module = new SimpleModule();
-        module.addSerializer(byte[].class, new JsonSerializer<byte[]>() {
-            @Override public void serialize(byte[] value, JsonGenerator output,
-                                             SerializerProvider provider) throws IOException {
-                output.writeString(hex(value));
-            }
-        });
-        module.addDeserializer(byte[].class, new JsonDeserializer<byte[]>() {
-            @Override public byte[] deserialize(JsonParser input, DeserializationContext context)
-                    throws IOException {
-                require(input.currentToken() == com.fasterxml.jackson.core.JsonToken.VALUE_STRING);
-                return decodeHex(input.getText(), 0, 1_048_576);
-            }
-        });
-        return JsonMapper.builder().addModule(module)
+        return JsonMapper.builder()
             .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)

@@ -4,7 +4,7 @@ use std::pin::pin;
 use std::task::{Context, Poll, Waker};
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_crypto::disclosure::bind;
+use layerx_crypto::disclosure::{bind, bind_budget_mutation, BudgetStateContext};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::payments::{Grant, Payment, TransferLeg};
 use layerx_crypto::send::{
@@ -13,13 +13,17 @@ use layerx_crypto::send::{
 };
 use layerx_crypto::SignatureMessage;
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
+use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound, UnsignedEnvelope};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
+use layerx_types::limits::{
+    IDENTIFIER_BYTES, MAX_AUTHORITY_BYTES, MAX_DID_BYTES, MAX_PAYLOAD_BYTES,
+};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_wire::activity::encode_unsigned_envelope;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{account_id_for_protocol, Domain};
+use layerx_wire::limits::MAX_MESSAGE_BYTES;
+use layerx_wire::WireError;
 use sha2::{Digest as _, Sha256};
 
 const OWNER_SEED: [u8; 32] = [0x07; 32];
@@ -113,6 +117,38 @@ fn options(
         not_before: NOT_BEFORE,
         not_after: NOT_AFTER,
     }
+}
+
+fn encode_unsigned_envelope(envelope: &UnsignedEnvelope) -> Result<Vec<u8>, WireError> {
+    const FIELD_COUNT: u8 = 11;
+
+    let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
+    encoder.structure_header_version(0x1001, envelope.protocol_version())?;
+    encoder.u8(FIELD_COUNT)?;
+    encoder.tag(1, FIELD_COUNT)?;
+    encoder.u16(envelope.protocol_version())?;
+    encoder.tag(2, FIELD_COUNT)?;
+    encoder.u32(envelope.network_id())?;
+    encoder.tag(3, FIELD_COUNT)?;
+    encoder.u32(envelope.activity_type().value())?;
+    encoder.tag(4, FIELD_COUNT)?;
+    encoder.bytes(envelope.actor_did().as_bytes(), MAX_DID_BYTES)?;
+    encoder.tag(5, FIELD_COUNT)?;
+    encoder.bytes(envelope.authority().as_bytes(), MAX_AUTHORITY_BYTES)?;
+    encoder.tag(6, FIELD_COUNT)?;
+    encoder.u64(envelope.account_sequence())?;
+    encoder.tag(7, FIELD_COUNT)?;
+    encoder.u64(envelope.timestamp_bound().not_before())?;
+    encoder.u64(envelope.timestamp_bound().not_after())?;
+    encoder.tag(8, FIELD_COUNT)?;
+    encoder.bytes(&envelope.idempotency_key().bytes(), IDENTIFIER_BYTES)?;
+    encoder.tag(9, FIELD_COUNT)?;
+    encoder.u128(envelope.fee_limit().value())?;
+    encoder.tag(10, FIELD_COUNT)?;
+    encoder.bytes(&envelope.payload_hash(), IDENTIFIER_BYTES)?;
+    encoder.tag(11, FIELD_COUNT)?;
+    encoder.bytes(envelope.payload().as_bytes(), MAX_PAYLOAD_BYTES)?;
+    Ok(encoder.finish())
 }
 
 fn envelope(case: &Case, actor: &str, key: [u8; 32]) -> (Vec<u8>, ModuleRegistry) {
@@ -341,14 +377,9 @@ fn cases(owner: &[u8; 32], peer: &[u8; 32], actor: &str) -> Vec<Case> {
     let key = idempotency("kernel vector budget fund");
     let budget = account(&format!("agent:{actor}:budget:{}", hex(&[0x42; 32])));
     let mut fund = Encoder::new(512);
-    ok(fund.u16(0x4202), "fund tag");
-    ok(fund.u16(6), "fund fields");
+    ok(fund.u16(1), "fund version");
     ok(fund.fixed(&[0x42; 32]), "fund budget id");
-    ok(fund.fixed(&owner_main), "fund from");
-    ok(fund.fixed(&budget), "fund to");
-    ok(fund.fixed(&[0; 32]), "fund asset");
     ok(fund.u128(250_000), "fund amount");
-    ok(fund.fixed(&key), "fund idempotency");
     out.push(Case {
         name: "budget-fund",
         module: ModuleId::Budget,
@@ -359,7 +390,7 @@ fn cases(owner: &[u8; 32], peer: &[u8; 32], actor: &str) -> Vec<Case> {
         accepted: true,
         from: owner_main,
         to: budget,
-        asset: [0; 32],
+        asset: TOKEN_ASSET,
         amount: 250_000,
     });
 
@@ -428,10 +459,23 @@ fn cases(owner: &[u8; 32], peer: &[u8; 32], actor: &str) -> Vec<Case> {
     out
 }
 
-fn main() {
+fn generated_vectors() -> String {
     let owner = public_key(&OWNER_SEED);
     let peer = public_key(&PEER_SEED);
     let actor = did(&owner);
+    let budget_context = BudgetStateContext {
+        budget_id: [0x42; 32],
+        owner: main_account(&owner),
+        budget_account: account(&format!("agent:{actor}:budget:{}", hex(&[0x42; 32]))),
+        asset: TOKEN_ASSET,
+        source_account: main_account(&owner),
+        native_source: false,
+        revocation_sequence: 0,
+        balance: 0,
+        state_digest: Sha256::digest(b"kernel vector budget state").into(),
+        observed_head_sequence: 0,
+        purpose_hash: [0; 32],
+    };
     let mut rendered = String::new();
     let _ = writeln!(rendered, "{{");
     let _ = writeln!(
@@ -445,28 +489,54 @@ fn main() {
     let all = cases(&owner, &peer, &actor);
     for (index, case) in all.iter().enumerate() {
         let (canonical, registry) = envelope(case, &actor, owner);
-        let accepted = bind(&canonical, &registry).is_ok();
-        assert_eq!(accepted, case.accepted, "{}: binder acceptance", case.name);
+        let disclosure = if case.module == ModuleId::Budget {
+            bind_budget_mutation(&canonical, &registry, &budget_context)
+        } else {
+            bind(&canonical, &registry)
+        };
+        assert_eq!(
+            disclosure.is_ok(),
+            case.accepted,
+            "{}: binder acceptance",
+            case.name
+        );
         if case.accepted {
-            let encoded = if case.module == ModuleId::Asset && case.ordinal == 5 {
-                encode_send_envelope(
-                    &case.payload,
-                    &options(&actor, owner, case.sequence, case.idempotency_key),
-                )
+            let encoded = if case.module == ModuleId::Budget {
+                let disclosure = ok(disclosure, case.name);
+                assert_eq!(disclosure.asset, case.asset, "{}: asset", case.name);
+                assert_eq!(
+                    disclosure.counterparties[0].account, case.from,
+                    "{}: from",
+                    case.name
+                );
+                assert_eq!(
+                    disclosure.counterparties[1].account, case.to,
+                    "{}: to",
+                    case.name
+                );
+                assert_eq!(
+                    disclosure.amounts[0].value, case.amount,
+                    "{}: amount",
+                    case.name
+                );
+                ok(disclosure.reencode(), case.name)
             } else {
-                encode_payment_envelope(
-                    case.module,
-                    case.ordinal,
-                    &case.payload,
-                    &options(&actor, owner, case.sequence, case.idempotency_key),
-                )
+                let encoded = if case.module == ModuleId::Asset && case.ordinal == 5 {
+                    encode_send_envelope(
+                        &case.payload,
+                        &options(&actor, owner, case.sequence, case.idempotency_key),
+                    )
+                } else {
+                    encode_payment_envelope(
+                        case.module,
+                        case.ordinal,
+                        &case.payload,
+                        &options(&actor, owner, case.sequence, case.idempotency_key),
+                    )
+                };
+                ok(encoded, case.name).canonical
             };
-            let encoded = ok(encoded, case.name);
-            assert_eq!(
-                encoded.canonical, canonical,
-                "{}: envelope encoder",
-                case.name
-            );
+            assert_eq!(encoded, canonical, "{}: envelope encoder", case.name);
         }
         let preimage = ok(
             SignatureMessage::new(
@@ -502,5 +572,20 @@ fn main() {
     }
     let _ = writeln!(rendered, "  ]");
     let _ = writeln!(rendered, "}}");
-    print!("{rendered}");
+    rendered
+}
+
+fn main() {
+    print!("{}", generated_vectors());
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn generated_vectors_match_pinned_file() {
+        assert_eq!(
+            super::generated_vectors().as_bytes(),
+            include_bytes!("../../kernel_activities.json")
+        );
+    }
 }

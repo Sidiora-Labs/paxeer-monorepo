@@ -351,6 +351,12 @@ pub fn receipt(
         super::NETWORK_ID,
     ));
     let material = super::ReceiptMaterial {
+        tx_hash: terminal.activity_id(),
+        receipt_hash: terminal.receipt_ref(),
+        block_height: u64::from_be_bytes(
+            authority.batch_id()[24..].try_into().expect("block height"),
+        ),
+        rung: terminal.level().rung().expect("terminal evidence rung"),
         canonical_bytes,
         authorised_batch: authority,
         verification_level: terminal.level(),

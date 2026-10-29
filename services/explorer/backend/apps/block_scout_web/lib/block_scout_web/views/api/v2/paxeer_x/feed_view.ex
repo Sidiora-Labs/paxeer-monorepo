@@ -84,6 +84,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedView do
     %{
       "market_id" => observation.market_id,
       "symbol" => Map.get(symbols, observation.market_id),
+      "accepted" => observation.accepted,
       "index_price" => integer_string(observation.index_price),
       "mark_price" => integer_string(observation.mark_price),
       "source_timestamp_ms" => observation.source_timestamp_ms,
