@@ -109281,7 +109281,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.27.4]
 title = "Serve the frozen /v2/me/notifications list and read routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["4.27.2", "4.27.3"]
@@ -113830,7 +113830,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.12.2]
 title = "Fill the flatkv state-commit config through ParseFlatKVConfig"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["5.12.1", "5.43.1"]
@@ -186308,7 +186308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1075.1]
 title = "Issue #1075: Receipt qualification accepts any manifest in the reviewed deployment history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
