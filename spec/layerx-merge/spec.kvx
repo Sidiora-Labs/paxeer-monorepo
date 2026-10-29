@@ -137428,7 +137428,7 @@ do_7 = "Attempt 3 (6ac30b0e1) implements do_1 to do_5 and its three files compil
 
 [task.8.49.2]
 title = "layerx program deploy, upgrade and wind-down submit layerxprograms transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.49.1", "8.47.2", "8.47.9", "9.1.8", "18.1121.1", "8.48.1"]
