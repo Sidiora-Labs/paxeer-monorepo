@@ -3604,8 +3604,10 @@ fn settle_terminal_submission(
     let status = outbox
         .status(idempotency_key)
         .ok_or(HumanOperationError::Refused)?;
-    if status.state.terminal() {
-        if status.state != terminal_state
+    if status.state == SubmissionState::Executed || status.state.terminal() {
+        if (status.state != terminal_state
+            && !(status.state == SubmissionState::Committed
+                && terminal_state == SubmissionState::Executed))
             || status
                 .evidence
                 .is_none_or(|evidence| evidence.receipt_ref() != terminal.receipt_ref())
@@ -12142,7 +12144,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 .submit_signed(registry, signer, correlation, 0, &bytes)
             {
                 Ok(Submission::Acknowledged(_)) => {
-                    (SubmissionState::Acknowledged, "core admission acknowledged")
+                    (SubmissionState::Submitted, "core admission acknowledged")
                 }
                 Ok(Submission::Unknown(_)) => {
                     (SubmissionState::Unknown, "submission outcome indeterminate")
@@ -12807,8 +12809,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         };
         if matches!(
             status.state,
-            SubmissionState::Submitted | SubmissionState::Acknowledged | SubmissionState::Unknown
-        ) || (status.state.terminal() && native_preparation.is_some())
+            SubmissionState::Submitted | SubmissionState::Unknown
+        ) || ((status.state == SubmissionState::Executed || status.state.terminal())
+            && native_preparation.is_some())
         {
             match self.receipt_by_idempotency_key_with_settlement(
                 peer,
@@ -12841,7 +12844,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 || served.metadata.activity_id != current.activity_id
                 || served.metadata.idempotency_key != id
                 || (served.metadata.result.code.raw() == 0)
-                    != (current.state == SubmissionState::Executed)
+                    != matches!(
+                        current.state,
+                        SubmissionState::Executed | SubmissionState::Committed
+                    )
             {
                 return Err(HumanOperationError::Refused);
             }
@@ -14426,7 +14432,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         out.fixed(&status.activity_id);
         out.text(&hex(&status.submission_id))?;
         out.u8(state_code(status.state));
-        if status.state == SubmissionState::Executed {
+        if matches!(
+            status.state,
+            SubmissionState::Executed | SubmissionState::Committed
+        ) {
             out.text(
                 &status
                     .evidence
@@ -17706,11 +17715,11 @@ fn state_code(state: SubmissionState) -> u8 {
         SubmissionState::Signed => 1,
         SubmissionState::Queued => 2,
         SubmissionState::Submitted => 3,
-        SubmissionState::Acknowledged => 4,
         SubmissionState::Unknown => 5,
         SubmissionState::Executed => 6,
         SubmissionState::Failed => 7,
-        SubmissionState::Expired | SubmissionState::Superseded => 8,
+        SubmissionState::Expired => 8,
+        SubmissionState::Committed => 9,
     }
 }
 fn verification_code(level: VerificationLevel) -> u8 {
