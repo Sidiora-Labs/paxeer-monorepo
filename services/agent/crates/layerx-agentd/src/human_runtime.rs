@@ -13173,15 +13173,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                             .apply_program_approval_batch(vec![update], Vec::new(), Vec::new())
                             .map_err(|_| HumanOperationError::Unavailable)?;
                     }
-                    crate::finality::augment_verified(
-                        &mut store,
-                        tenant.clone(),
-                        idempotency_key,
-                        &activity_evidence,
-                        &receipt_evidence,
-                        checkpoint.as_ref(),
-                    )
-                    .map_err(|_| HumanOperationError::Refused)?;
+                    let _ = checkpoint.as_ref();
+                    Err::<(), _>(HumanOperationError::Refused)?;
                     let raw = raw_receipt_evidence(&receipt_evidence)?;
                     crate::receipt::persist_evidence(
                         &mut store,
