@@ -171,8 +171,8 @@ public sealed class ProgramsClient
 
     public Task<SequencerReceiptVerification> DeployAsync(NativeProgramDeploy value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
         SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
-    public Task<SequencerReceiptVerification> UpgradeAsync(NativeProgramUpgrade value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
-        SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
+    public Task<SequencerReceiptVerification> UpgradeAsync(NativeProgramUpgrade value, ProtocolAmount feeLimit, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
+        SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value, feeLimit), signedTransaction, key, cancellationToken);
     public Task<SequencerReceiptVerification> WindDownAsync(NativeProgramWindDown value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
         SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
 

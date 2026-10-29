@@ -6,8 +6,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sidiora.layerx.sdk.verify.GeneratedReceiptContract.ReceiptCheck;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
+import java.security.Signature;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -124,6 +128,43 @@ public final class SequencerReceiptTest {
                 fieldsChanged, bytes(vector, "prevSeqHash")));
         }
         assertEquals(4, count, "every V1 vector must execute");
+    }
+
+    @Test
+    void sequencerReceiptWithTopLevelTransferSetRootIsNotAFieldsRefusal() throws Exception {
+        JsonNode vector = fixture("vector-v1-receipted-positive.json").required("cases").required(0);
+        assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verifySequencerReceipt(vector).level());
+        byte[] receipt = bytes(vector, "signedReceipt");
+        int signatureOffset = receipt.length - 64;
+        int signatureFlagOffset = signatureOffset - 4 - 1;
+        int transferSetRootOffset = signatureFlagOffset - 8 - 3 * (4 + 32) + 4;
+        int authorizationHashOffset = transferSetRootOffset + 32 + 4;
+        Arrays.fill(receipt, transferSetRootOffset, transferSetRootOffset + 32, (byte) 0x11);
+        Arrays.fill(receipt, authorizationHashOffset, authorizationHashOffset + 32, (byte) 0x22);
+
+        byte[] unsigned = Arrays.copyOf(receipt, signatureFlagOffset + 1);
+        unsigned[signatureFlagOffset] = 0;
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update("LXP/v1/receipt\0".getBytes(StandardCharsets.US_ASCII));
+        var signingKey = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
+        Signature signer = Signature.getInstance("Ed25519");
+        signer.initSign(signingKey.getPrivate());
+        signer.update(digest.digest(unsigned));
+        System.arraycopy(signer.sign(), 0, receipt, signatureOffset, 64);
+        byte[] publicKey = signingKey.getPublic().getEncoded();
+        var pin = key(vector);
+        var keys = new LocalVerifier.ReceiptKeys(List.of(new LocalVerifier.ReceiptKey(pin.keyId(),
+            Arrays.copyOfRange(publicKey, publicKey.length - 32, publicKey.length),
+            pin.firstHeight(), pin.lastHeight())));
+
+        var verified = assertDoesNotThrow(() -> LocalVerifier.verifySequencerReceipt(
+            receipt, bytes(vector, "rawTransaction"), keys),
+            "non-zero top-level transferSetRoot and authorizationHash must verify without a FIELDS refusal");
+        assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verified.level());
+        assertArrayEquals(Arrays.copyOfRange(receipt, transferSetRootOffset, transferSetRootOffset + 32),
+            verified.receipt().transferSetRoot());
+        assertArrayEquals(Arrays.copyOfRange(receipt, authorizationHashOffset, authorizationHashOffset + 32),
+            verified.receipt().authorizationHash());
     }
 
     @Test
