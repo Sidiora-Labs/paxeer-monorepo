@@ -302,12 +302,15 @@ export const SponsoredQuoteBody = SponsoredConstruction.pick({
     decimals: z.literal(6),
   })
   .strict();
-const SponsoredBudget = z.object({
-  did: z.string().min(1),
-  daily_wei: SponsorUint,
-  used_wei: SponsorUint,
-  remaining_wei: SponsorUint,
-});
+const SponsoredBudget = z
+  .object({
+    key: z.string().min(1),
+    gasLimit: SponsorUint,
+    usedGas: SponsorUint,
+    remainingGas: SponsorUint,
+    dayEnds: SponsorUint,
+  })
+  .strict();
 const executeSponsoredAbi = parseAbi([
   'function executeSponsored((address to,uint256 value,bytes data)[] calls,(address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost) quote,bytes accountSignature,bytes relayerSignature)',
 ]);
@@ -509,7 +512,12 @@ export async function walletSponsorRoutes(
       const did = await callerIdentity(parsed.data.account as Hex);
       const report = await station.status(parsed.data);
       const budget = SponsoredBudget.safeParse(report.budget);
-      if (!budget.success || budget.data.did !== did)
+      if (
+        !budget.success ||
+        budget.data.key !== did ||
+        BigInt(budget.data.usedGas) + BigInt(budget.data.remainingGas) !==
+          BigInt(budget.data.gasLimit)
+      )
         throw new StationAdapterError(502, 'gas_station_invalid_response');
       return reply
         .header('Cache-Control', 'no-store')
