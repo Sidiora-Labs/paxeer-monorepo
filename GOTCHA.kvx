@@ -10609,3 +10609,27 @@ area = "completion gates"
 symptom = "A domain completion gate reports a retired pub item present although the replacing task is done."
 cause = "The replacing task added the new item and kept the old constant for its single test caller."
 do = "Add a small retiring task that deletes the item and ports the test caller, and make the gate task require it; never relax the gate (decision.1828)."
+
+[gotcha.2168]
+area = "lxphost tests"
+symptom = "A programs call (0x00090003) driven through lxphost.ExecuteActivity returns LXP_ERR_UNAUTHORIZED_DEBIT (-207) although the payer is funded."
+cause = "ExecuteActivity builds the Activity without FeeLimit; occupancy.c refuses a signed fee limit below the execution ceiling."
+do = "Build the Activity with FeeLimit (the call tests use 100000000) and call Host.Execute directly; use the same AccountSequence to prove the -301 replay refusal (decision.1829)."
+
+[gotcha.2169]
+area = "rebased candidates"
+symptom = "A rebased candidate fails compiling a file that no longer exists at main."
+cause = "The carried candidate restored a file a later task deleted."
+do = "After the rebase, diff the tree against main for files outside the task's touches and drop any that main deleted before running the gate."
+
+[gotcha.2170]
+area = "module deletions"
+symptom = "Deleting a Rust module file yields E0583 in a file the task may not edit."
+cause = "The `mod x;` declaration lives in main.rs or lib.rs outside the deleting task's touches."
+do = "Give the deleting task the declaring file (for those lines) and make the task owning the rest of that file require it."
+
+[gotcha.2171]
+area = "spec do lines"
+symptom = "Two do lines of one task disagree on where an input lives and the attempt edits a file outside touches."
+cause = "do_1 forbade a testdata copy while do_2 said 'that testdata file'."
+do = "Resolve the contradiction with a decision and a do line naming the exact path; check new tasks for do lines that name different paths for the same input."
