@@ -138160,7 +138160,7 @@ do_6 = "Attempt 5 (b89fbfee2) stopped because read_custody_profile and read_cust
 
 [task.8.98.11]
 title = "Migrate the paxai-worker callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "18.1083.1"]
