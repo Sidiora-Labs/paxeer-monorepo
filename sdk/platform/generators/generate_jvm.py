@@ -114,7 +114,7 @@ class Plane:
         self.models = {
             key.split(".", 1)[1]: entries
             for key, entries in values.items()
-            if key.startswith(("type.", "record."))
+            if key.startswith(("type.", "record.")) and entries.get("retired") != "true"
         }
         self.scalars = {
             key.split(".", 1)[1]: entries
@@ -182,7 +182,7 @@ def operation_specs(plane: Plane) -> list[dict[str, object]]:
     mutations = {key.split(".", 1)[1] for key in plane.values if key.startswith("mutation.")}
     result = []
     for section, entries in sorted(plane.values.items()):
-        if not section.startswith("operation."):
+        if not section.startswith("operation.") or entries.get("retired") == "true":
             continue
         wire = section.split(".", 1)[1]
         request_model = entries.get("request") if isinstance(entries.get("request"), str) else None
