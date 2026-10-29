@@ -109,6 +109,12 @@ impl PreparedTransaction {
         if call.chain_id != 125 {
             return Err("wallet writes require chainId 125".into());
         }
+        if call.gas_limit == 0
+            || call.max_fee_per_gas == 0
+            || call.max_priority_fee_per_gas > call.max_fee_per_gas
+        {
+            return Err("wallet writes require positive gas and valid EIP-1559 fee bounds".into());
+        }
         let disclosure = layerx_crypto::disclosure::call::bind_call(&call, from).map_err(debug)?;
         Ok(Self {
             call,
