@@ -93,7 +93,15 @@ pub fn execute(
                         if decision.outcome != Outcome::Allow {
                             return Err(WalletToolError::Policy);
                         }
-                        run(execution.wallet.execute(prepared, execution.options))
+                        let hash = run(execution.wallet.execute(prepared, execution.options))
+                            .map_err(WalletToolError::Rpc)?;
+                        execution
+                            .wallet
+                            .wait_for(
+                                hash,
+                                execution.options.commitment,
+                                execution.options.wait_timeout,
+                            )
                             .map_err(WalletToolError::Rpc)
                     });
                 let outcome = classify(&result);

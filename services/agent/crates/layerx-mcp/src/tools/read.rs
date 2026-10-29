@@ -190,7 +190,12 @@ pub fn checkpoint(
     freshness: Freshness,
     maximum_bytes: usize,
 ) -> Result<VerifiedToolResult<CheckpointValue>, ReadToolError> {
-    let encoded_bytes = value.0.as_bytes().len();
+    let encoded_bytes = value
+        .commit
+        .as_bytes()
+        .len()
+        .checked_add(value.validator_set.as_bytes().len())
+        .ok_or(ReadToolError::Arithmetic)?;
     single(
         value,
         verification_level,
@@ -213,14 +218,21 @@ pub fn proof(
     freshness: Freshness,
     maximum_bytes: usize,
 ) -> Result<VerifiedToolResult<ProofBundle>, ReadToolError> {
-    let encoded_bytes =
-        value
-            .proofs
-            .iter()
-            .try_fold(value.target.as_bytes().len(), |sum, proof| {
-                sum.checked_add(proof.as_bytes().len())
-                    .ok_or(ReadToolError::Arithmetic)
-            })?;
+    let encoded_bytes = [
+        Some(&value.raw_transaction),
+        Some(&value.signed_receipt),
+        value.block_header.as_ref(),
+        value.receipt_inclusion.as_ref(),
+        value.commit.as_ref(),
+        value.validator_set.as_ref(),
+        value.account_proof.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .try_fold(value.receipt_digest.len(), |sum, bytes| {
+        sum.checked_add(bytes.as_bytes().len())
+            .ok_or(ReadToolError::Arithmetic)
+    })?;
     single(
         value,
         verification_level,
@@ -320,6 +332,7 @@ pub fn history(
         value: HistoryValue {
             records,
             next_cursor: None,
+            height: value.height,
         },
         verification_level,
         freshness,
