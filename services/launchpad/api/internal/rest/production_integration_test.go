@@ -22,23 +22,36 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/migrations"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 )
 
 func productionReadsFixture(t *testing.T) (*pgxpool.Pool, *store.AccountingReadModel, *broker.PostgresStream, string, json.RawMessage) {
 	t.Helper()
+	dsn := os.Getenv("API_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Fatal("API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL")
+	}
+	t.Setenv(internaltest.ExternalPostgresEnv, dsn)
 	pool := internaltest.NewPostgres(t)
 	ctx := context.Background()
 	schema := fmt.Sprintf("l22_stream_%d", time.Now().UnixNano())
-	migration, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/migrations/150002.sql")
+	sqlDB := stdlib.OpenDB(*pool.Config().ConnConfig)
+	defer sqlDB.Close()
+	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations.Migrations())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, strings.ReplaceAll(string(migration), "api_stream", schema)); err != nil {
+	if _, err = provider.Up(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, "ALTER SCHEMA api_stream RENAME TO "+pgx.Identifier{schema}.Sanitize()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

@@ -79,8 +79,8 @@ func TestGasPrice(t *testing.T) {
 	require.Nil(t, resObj["error"], "gas price RPC refused: %v", resObj["error"])
 	Ctx = Ctx.WithBlockHeight(8)
 	result := resObj["result"].(string)
-	onePointOneMinFee := "0x46492a0"
-	require.Equal(t, onePointOneMinFee, result)
+	onePointOneMinFeePlusTip := "0x3fff5ca0"
+	require.Equal(t, onePointOneMinFeePlusTip, result)
 }
 
 func TestFeeHistory(t *testing.T) {
@@ -242,7 +242,7 @@ func TestSyncingCatchingUp(t *testing.T) {
 
 func TestGasPriceLogic(t *testing.T) {
 	oneGwei := big.NewInt(1000000000)
-	onePointOneGwei := big.NewInt(1100000000)
+	onePointOneGweiPlusTip := big.NewInt(2100000000)
 	tests := []struct {
 		name                  string
 		baseFee               *big.Int
@@ -255,7 +255,7 @@ func TestGasPriceLogic(t *testing.T) {
 			baseFee:               oneGwei,
 			totalGasUsedPrevBlock: 21000,
 			medianRewardPrevBlock: oneGwei,
-			expectedGasPrice:      onePointOneGwei,
+			expectedGasPrice:      onePointOneGweiPlusTip,
 		},
 		{
 			name:                  "chain is congested",
@@ -269,7 +269,7 @@ func TestGasPriceLogic(t *testing.T) {
 			baseFee:               oneGwei,
 			totalGasUsedPrevBlock: 21000,                   // not congested
 			medianRewardPrevBlock: big.NewInt(99000000000), // very high reward
-			expectedGasPrice:      onePointOneGwei,         // gas price doesn't spike
+			expectedGasPrice:      onePointOneGweiPlusTip,  // gas price doesn't spike
 		},
 	}
 	for _, test := range tests {

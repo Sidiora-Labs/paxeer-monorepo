@@ -530,12 +530,20 @@ func NewRPCQualificationWithAttestation(ctx context.Context, client *ethclient.C
 	if o.Manifest.Status != "active" && o.Manifest.Status != "eligible" {
 		return nil, ErrQualification
 	}
-	approved := deployment.Current()
-	if o.Manifest.DeploymentVersion != approved.DeploymentVersion || o.Manifest.SourceManifestSHA256 != approved.SourceManifestSHA256 || o.Manifest.ActivationHeight != approved.ActivationHeight || len(o.Manifest.Roles) != len(approved.Roles) {
+	approved, ok := deployment.Approved(o.Manifest.ActivationHeight)
+	if !ok || o.Manifest.SchemaVersion != approved.SchemaVersion || o.Manifest.DeploymentVersion != approved.DeploymentVersion || o.Manifest.SourceManifestSHA256 != approved.SourceManifestSHA256 || o.Manifest.ChainID != approved.ChainID || o.Manifest.ActivationHeight != approved.ActivationHeight || o.Manifest.Status != approved.Status || o.Manifest.Native != approved.Native || o.Manifest.Settlement != approved.Settlement || o.Manifest.CreationFeeRaw != approved.CreationFeeRaw || o.Manifest.Governance != approved.Governance || o.Manifest.MarketModel != approved.MarketModel || o.Manifest.Graduation != approved.Graduation || o.Manifest.CoreOracleRequired != approved.CoreOracleRequired || len(o.Manifest.Roles) != len(approved.Roles) {
 		return nil, ErrQualification
 	}
 	for role, id := range approved.Roles {
 		if o.Manifest.Roles[role] != id {
+			return nil, ErrQualification
+		}
+	}
+	if o.Anchor != nil {
+		if o.Anchor.Height < approved.ActivationHeight {
+			return nil, ErrQualification
+		}
+		if next, ok := deployment.NextActivationHeight(approved.ActivationHeight); ok && o.Anchor.Height >= next {
 			return nil, ErrQualification
 		}
 	}

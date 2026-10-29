@@ -12,8 +12,11 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -42,12 +45,15 @@ type ProgramBudget struct {
 }
 
 type ProgramCall struct {
-	NativeCall     *NativeProgramCall
-	ProgramID      [32]byte
-	Calldata       []byte
-	Budget         ProgramBudget
-	Capabilities   []ProgramCapability
-	SignedActivity []byte
+	From            [20]byte
+	TransactionHash [32]byte
+	RawTransaction  []byte
+	NativeCall      *NativeProgramCall
+	ProgramID       [32]byte
+	Calldata        []byte
+	Budget          ProgramBudget
+	Capabilities    []ProgramCapability
+	SignedActivity  []byte
 }
 
 type ProgramDiscovery struct {
@@ -229,6 +235,9 @@ func (outcome *ProgramOutcome) UnmarshalJSON(encoded []byte) error {
 }
 
 type ProgramExecutionDocument struct {
+	TransactionHash string                   `json:"transaction_hash"`
+	RawTransaction  []byte                   `json:"-"`
+	ReceiptKeys     ReceiptKeys              `json:"-"`
 	State           string                   `json:"state"`
 	ActivityID      string                   `json:"activity_id"`
 	ProgramID       string                   `json:"program_id"`
@@ -262,6 +271,9 @@ type ProgramSimulationEvidence struct {
 }
 
 type ProgramSimulation struct {
+	ResultCode         int32
+	TerminalKind       uint8
+	Response           []byte
 	Committed          bool
 	Execution          ProgramExecutionDocument
 	SimulationEvidence ProgramSimulationEvidence
@@ -271,12 +283,18 @@ type ProgramSimulation struct {
 type ProgramSubmissionState string
 
 const (
+	ProgramSubmissionPrepared ProgramSubmissionState = "prepared"
+	ProgramSubmissionPending  ProgramSubmissionState = "pending"
 	ProgramSubmissionRefused  ProgramSubmissionState = "refused"
 	ProgramSubmissionUnknown  ProgramSubmissionState = "unknown"
 	ProgramSubmissionExecuted ProgramSubmissionState = "executed"
 )
 
 type ProgramSubmission struct {
+	Transaction            *ProgramTransaction
+	TransactionHash        [32]byte
+	SequencerReceipt       *SequencerReceiptVerification
+	IdempotencyResult      []byte
 	State                  ProgramSubmissionState
 	ActivityID             [32]byte
 	IdempotencyKey         string
@@ -293,6 +311,7 @@ const (
 )
 
 type VerifiedProgramReceipt struct {
+	SequencerReceipt         *SequencerReceiptVerification
 	TransferVerification     ProgramTransferVerification
 	Verification             VerifiedReceipt
 	TerminalPayload          []byte
@@ -327,7 +346,7 @@ type programCallBinding struct {
 }
 
 func validateProgramCall(call ProgramCall) error {
-	if call.Budget.Fuel == 0 || len(call.Calldata) > MaximumProgramCalldataBytes || len(call.Capabilities) > MaximumProgramCapabilities || len(call.SignedActivity) == 0 || len(call.SignedActivity) > MaximumProgramCalldataBytes {
+	if call.Budget.Fuel == 0 || len(call.Calldata) > MaximumProgramCalldataBytes || len(call.Capabilities) > MaximumProgramCapabilities || len(call.SignedActivity) > MaximumProgramCalldataBytes {
 		return newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	order := map[ProgramCapability]int{ProgramStorageRead: 1, ProgramStorageWrite: 2, ProgramTransfer: 3, ProgramEmitEvent: 4, ProgramCompose: 5}
@@ -338,6 +357,18 @@ func validateProgramCall(call ProgramCall) error {
 			return newSDKError(ErrorInvalidArgument, RetryNever)
 		}
 		prior = current
+	}
+	if call.NativeCall != nil {
+		native := call.NativeCall
+		if call.ProgramID != native.ProgramID || !bytes.Equal(call.Calldata, native.Calldata) || call.Budget.Fuel != native.Resources[0] {
+			return lifecycleInvalid()
+		}
+		if _, err := EncodeNativeProgramCall(*native); err != nil {
+			return err
+		}
+		if len(call.SignedActivity) == 0 {
+			return nil
+		}
 	}
 	_, err := bindSignedProgramCall(call)
 	return err
@@ -442,53 +473,23 @@ func programPayloadMatchesCall(payload []byte, call ProgramCall) bool {
 	return true
 }
 
-func VerifyProgramReceipt(execution ProgramExecutionDocument, authority AuthorizedBatch, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
-	return VerifyProgramReceiptWithPayers(execution, authority, nil, selectedProtocol...)
+func VerifyProgramReceipt(execution ProgramExecutionDocument, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
+	return VerifyProgramReceiptWithPayers(execution, nil, selectedProtocol...)
 }
 
 // VerifyProgramReceiptWithPayers verifies like VerifyProgramReceipt and proves
 // the offered occupancy payers, which a state-commitment receipt with a paid
 // occupancy charge requires.
-func VerifyProgramReceiptWithPayers(execution ProgramExecutionDocument, authority AuthorizedBatch, payers []OccupancyPayer, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
-	if execution.ActivityID == "" || execution.ModuleVersion < 1 || execution.ModuleVersion > 5 || !SupportsProgramGuestAbi(execution.GuestABIVersion) {
-		return VerifiedProgramReceipt{}, verificationFailure()
-	}
-	activity, err := programHex32(execution.ActivityID)
+func VerifyProgramReceiptWithPayers(execution ProgramExecutionDocument, payers []OccupancyPayer, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
+	verified, err := VerifySequencerReceipt([]byte(execution.Receipt), execution.RawTransaction, execution.ReceiptKeys)
 	if err != nil {
+		return VerifiedProgramReceipt{}, err
+	}
+	expected, ok := receiptHex(execution.TransactionHash)
+	if !ok || len(expected) != 32 || !bytes.Equal(expected, verified.Receipt.ActivityID[:]) {
 		return VerifiedProgramReceipt{}, verificationFailure()
 	}
-	receipt, err := decodeProgramHex(execution.Receipt)
-	if err != nil {
-		return VerifiedProgramReceipt{}, verificationFailure()
-	}
-	terminal, err := decodeProgramHex(execution.TerminalPayload)
-	if err != nil {
-		return VerifiedProgramReceipt{}, verificationFailure()
-	}
-	graph, err := decodeProgramHex(execution.CallGraph)
-	if err != nil {
-		return VerifiedProgramReceipt{}, verificationFailure()
-	}
-	nativeV5 := execution.GuestABIVersion == ProgramAbiV3 || execution.GuestABIVersion == ProgramAbiV4 || execution.GuestABIVersion == ProgramAbiV5
-	if nativeV5 && uint32(execution.GuestABIVersion) > execution.ModuleVersion {
-		return VerifiedProgramReceipt{}, verificationFailure()
-	}
-	verified, err := verifyReceiptOutcomeProfile(receipt, authority, nativeV5, selectedProtocol...)
-	if err != nil {
-		return VerifiedProgramReceipt{}, verificationFailure()
-	}
-	outcome := verified.Receipt.ProgramOutcome
-	terminalDigest := sha256.Sum256(terminal)
-	graphDigest := sha256.Sum256(graph)
-	declaredReceiptDigest, digestError := programHex32(execution.ReceiptDigest)
-	if digestError != nil || verified.Receipt.ActivityID != activity || verified.Receipt.BatchID != authority.BatchID || verified.Receipt.ResultingStateRoot != authority.ResultingStateRoot || verified.Receipt.ModuleID != 9 || verified.Receipt.Operation != 3 || verified.Receipt.ModuleVersion != execution.ModuleVersion || outcome == nil || outcome.ABIVersion != execution.GuestABIVersion || outcome.ResultCode != execution.ResultCode || len(graph) == 0 || terminalDigest != outcome.TerminalPayloadRoot || graphDigest != outcome.CallGraphRoot || verified.ReceiptDigest != declaredReceiptDigest {
-		return VerifiedProgramReceipt{}, verificationFailure()
-	}
-	transferVerification, accounts, terminalError := verifyProgramTerminal(execution, verified.Receipt, terminal, graph, payers)
-	if terminalError != nil {
-		return VerifiedProgramReceipt{}, verificationFailure()
-	}
-	return VerifiedProgramReceipt{Verification: verified, TerminalPayload: terminal, CallGraph: graph, TransferVerification: transferVerification, OccupancyPaymentAccounts: accounts}, nil
+	return VerifiedProgramReceipt{Verification: verified.VerifiedReceipt, SequencerReceipt: &verified}, nil
 }
 
 type programTerminalProjection struct {
@@ -1875,6 +1876,11 @@ func canonicalProgramKey(key IdempotencyKey) bool {
 }
 
 type Programs struct {
+	sender                    [20]byte
+	didID                     [32]byte
+	receiptKeys               ReceiptKeys
+	maxFeePerGas              Uint128
+	maxPriorityFeePerGas      Uint128
 	protocolVersion           uint16
 	client                    *Client
 	trustedSequencerPublicKey [32]byte
@@ -1896,6 +1902,11 @@ type programHeadObservation struct {
 }
 
 type ProgramTrustOptions struct {
+	Sender                           [20]byte
+	DIDID                            [32]byte
+	ReceiptKeys                      ReceiptKeys
+	MaxFeePerGas                     Uint128
+	MaxPriorityFeePerGas             Uint128
 	ProtocolVersion                  uint16
 	ClockMilliseconds                func() uint64
 	MaximumSimulationAgeMilliseconds uint64
@@ -1919,6 +1930,7 @@ func NewProgramsWithTrustOptions(client *Client, trustedSequencerPublicKey [32]b
 		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	return &Programs{
+		sender: options.Sender, didID: options.DIDID, receiptKeys: options.ReceiptKeys, maxFeePerGas: options.MaxFeePerGas, maxPriorityFeePerGas: options.MaxPriorityFeePerGas,
 		protocolVersion: options.ProtocolVersion,
 		client:          client, trustedSequencerPublicKey: trustedSequencerPublicKey,
 		clockMilliseconds:    options.ClockMilliseconds,
@@ -1928,154 +1940,165 @@ func NewProgramsWithTrustOptions(client *Client, trustedSequencerPublicKey [32]b
 }
 
 func (programs *Programs) Discover(ctx context.Context, program [32]byte) (ProgramDiscovery, error) {
-	id := hex.EncodeToString(program[:])
-	raw, err := programs.raw(ctx, "program.discover", false, map[string]any{"program_id": id, "requested_verification_level": "sequencer-signed"}, CallOptions{PathParameters: map[string]string{"program_id": id}})
+	if program == ([32]byte{}) {
+		return ProgramDiscovery{}, lifecycleInvalid()
+	}
+	data, err := programs.view(ctx, layerxProgramsAddress, programABI("b1ffb3d4", program[:]), [20]byte{})
 	if err != nil {
 		return ProgramDiscovery{}, err
 	}
-	var out ProgramDiscovery
-	if decodeStrict(raw, &out) != nil || !validDiscovery(out, id, programs.clockMilliseconds()) {
+	if len(data) != 192 {
 		return ProgramDiscovery{}, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
-	head, headError := decodeProgramHead(out.StateRoot, out.ObservedSequence, out.ObservedAt, out.ValidThrough)
-	if headError != nil {
+	policy, e1 := programABIUint(data, 0, 8)
+	abi, e2 := programABIUint(data, 96, 16)
+	version, e3 := programABIUint(data, 128, 32)
+	active, e4 := programABIUint(data, 160, 1)
+	if e1 != nil || e2 != nil || e3 != nil || e4 != nil || policy > 1 || version == 0 || !SupportsProgramGuestAbi(uint16(abi)) {
 		return ProgramDiscovery{}, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
-	authenticated, proofError := verifyProgramDiscoveryProof(out, programs.trustedSequencerPublicKey)
-	if proofError != nil {
-		return ProgramDiscovery{}, newSDKError(ErrorVerificationFailure, RetryNever)
+	lifecycle := "deprecated"
+	if active == 1 {
+		lifecycle = "active"
 	}
-	head.CodeHash, _ = programHex32(out.CodeHash)
-	head.ABIVersion, head.Version, head.Authenticated = out.ABIVersion, out.Version, authenticated
-	if programs.rememberHead(program, head) != nil {
-		return ProgramDiscovery{}, newSDKError(ErrorVerificationFailure, RetryNever)
-	}
-	out.Verification = "server-side-receipt-verification-only"
-	if authenticated {
-		out.Verification = "sequencer-signed-discovery-head-verified"
-	}
-	return out, nil
+	return ProgramDiscovery{ProgramID: hex.EncodeToString(program[:]), Lifecycle: lifecycle, CodeHash: hex.EncodeToString(data[64:96]), ABIVersion: uint16(abi), Version: uint32(version), Verification: "pending-state-read"}, nil
 }
 
 func (programs *Programs) Interface(ctx context.Context, program [32]byte) (ProgramInterface, error) {
-	id := hex.EncodeToString(program[:])
-	raw, err := programs.raw(ctx, "program.interface", false, map[string]any{"program_id": id, "requested_verification_level": "sequencer-signed"}, CallOptions{PathParameters: map[string]string{"program_id": id}})
+	if program == ([32]byte{}) {
+		return ProgramInterface{}, lifecycleInvalid()
+	}
+	data, err := programs.view(ctx, layerxProgramsAddress, programABI("8efc7240", program[:]), [20]byte{})
 	if err != nil {
 		return ProgramInterface{}, err
 	}
-	var out ProgramInterface
-	if decodeStrict(raw, &out) != nil || !validProgramInterface(out, id, programs.clockMilliseconds()) {
-		return ProgramInterface{}, newSDKError(ErrorDecodeFailure, RetryNever)
+	version, err := programABIUint(data, 0, 32)
+	if err != nil {
+		return ProgramInterface{}, err
 	}
-	head, headError := decodeProgramHead(out.StateRoot, out.ObservedSequence, out.ObservedAt, out.ValidThrough)
-	if headError != nil {
-		return ProgramInterface{}, newSDKError(ErrorDecodeFailure, RetryNever)
+	encoding, err := programABIBytes(data, 64, 96)
+	if err != nil {
+		return ProgramInterface{}, err
 	}
-	head.CodeHash, _ = programHex32(out.CodeHash)
-	head.ABIVersion, head.Version = out.ABIVersion, out.Version
-	prior, found := programs.rememberedHead(program)
-	if found && prior.Authenticated {
-		if prior.StateRoot != head.StateRoot || prior.Sequence != head.Sequence || prior.ObservedAt != head.ObservedAt || prior.ValidThrough != head.ValidThrough || prior.CodeHash != head.CodeHash || prior.ABIVersion != head.ABIVersion || prior.Version != head.Version {
-			return ProgramInterface{}, newSDKError(ErrorVerificationFailure, RetryNever)
-		}
-		head.Authenticated = true
-	} else if out.ABIVersion == ProgramAbiV3 || out.ABIVersion == ProgramAbiV4 || out.ABIVersion == ProgramAbiV5 {
-		return ProgramInterface{}, newSDKError(ErrorVerificationFailure, RetryNever)
-	}
-	if programs.rememberHead(program, head) != nil {
-		return ProgramInterface{}, newSDKError(ErrorVerificationFailure, RetryNever)
-	}
-	out.Verification = "server-side-receipt-verification-only"
-	return out, nil
+	value, digest := hex.EncodeToString(encoding), hex.EncodeToString(data[32:64])
+	return ProgramInterface{ProgramID: hex.EncodeToString(program[:]), Version: uint32(version), Interface: &value, InterfaceDigest: &digest, Verification: "pending-state-read"}, nil
 }
 
 func (programs *Programs) Simulate(ctx context.Context, call ProgramCall) (ProgramSimulation, error) {
-	if call.NativeCall != nil && programs.protocolVersion != 3 {
-		return ProgramSimulation{}, newSDKError(ErrorInvalidArgument, RetryNever)
-	}
-	binding, err := bindSignedProgramCall(call)
+	data, err := call.EVMCalldata(true)
 	if err != nil {
 		return ProgramSimulation{}, err
 	}
-	prior, found := programs.rememberedHead(call.ProgramID)
-	if !found {
-		return ProgramSimulation{}, newSDKError(ErrorVerificationFailure, RetryNever)
+	from := call.From
+	if from == ([20]byte{}) {
+		from = programs.sender
 	}
-	if !validProgramHeadTime(prior, programs.clockMilliseconds()) || !programCallHeadAdmitted(call, prior) {
-		return ProgramSimulation{}, newSDKError(ErrorVerificationFailure, RetryNever)
-	}
-	raw, err := programs.raw(ctx, "program.simulate", false, programCallWire(call), CallOptions{})
+	result, err := programs.view(ctx, layerxProgramsAddress, data, from)
 	if err != nil {
 		return ProgramSimulation{}, err
 	}
-	now := programs.clockMilliseconds()
-	if !programs.headIsCurrent(call.ProgramID, prior) || !validProgramHeadTime(prior, now) {
-		return ProgramSimulation{}, newSDKError(ErrorVerificationFailure, RetryNever)
+	if len(result) < 128 {
+		return ProgramSimulation{}, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
-	result, decodeError := decodeProgramSimulation(raw, call.ProgramID, binding, prior, programs.trustedSequencerPublicKey,
-		now, programs.maximumSimulationAge, programs.protocolVersion)
-	if decodeError != nil {
-		return ProgramSimulation{}, decodeError
+	code := int32(binary.BigEndian.Uint32(result[28:32]))
+	prefix := byte(0)
+	if code < 0 {
+		prefix = 255
 	}
-	if call.NativeCall != nil && result.Execution.GuestABIVersion != call.NativeCall.GuestABI {
-		return ProgramSimulation{}, newSDKError(ErrorVerificationFailure, RetryNever)
+	if !bytes.Equal(result[:28], bytes.Repeat([]byte{prefix}, 28)) {
+		return ProgramSimulation{}, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
-	if !programs.headIsCurrent(call.ProgramID, prior) || !validProgramHeadTime(prior, programs.clockMilliseconds()) {
-		return ProgramSimulation{}, newSDKError(ErrorVerificationFailure, RetryNever)
+	kind, err := programABIUint(result, 32, 8)
+	if err != nil {
+		return ProgramSimulation{}, err
 	}
-	return result, nil
+	response, err := programABIBytes(result, 64, 96)
+	if err != nil {
+		return ProgramSimulation{}, err
+	}
+	return ProgramSimulation{ResultCode: code, TerminalKind: uint8(kind), Response: response, Committed: false}, nil
 }
 
 func (programs *Programs) Submit(ctx context.Context, call ProgramCall, key IdempotencyKey) (ProgramSubmission, error) {
-	if call.NativeCall != nil && programs.protocolVersion != 3 {
+	data, err := call.EVMCalldata(false)
+	if err != nil {
+		return ProgramSubmission{}, err
+	}
+	tx, err := programs.buildTransaction(ctx, call.From, data)
+	if err != nil {
+		return ProgramSubmission{}, err
+	}
+	return ProgramSubmission{State: ProgramSubmissionPrepared, Transaction: &tx, IdempotencyKey: key.String()}, nil
+}
+
+func (programs *Programs) Receipt(ctx context.Context, key IdempotencyKey, expectedTransaction [32]byte) (ProgramSubmission, error) {
+	if !canonicalProgramKey(key) || programs.didID == ([32]byte{}) || expectedTransaction == ([32]byte{}) {
 		return ProgramSubmission{}, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
-	binding, err := bindSignedProgramCall(call)
+	keyBytes, _ := hex.DecodeString(key.String())
+	result, err := programs.view(ctx, layerxAuthAddress, programABI("2eda9f2b", programs.didID[:], keyBytes), [20]byte{})
 	if err != nil {
 		return ProgramSubmission{}, err
 	}
-	if !canonicalProgramKey(key) || key.String() != hex.EncodeToString(binding.IdempotencyKey[:]) {
-		return ProgramSubmission{}, newSDKError(ErrorIdempotencyRequired, RetryNever)
-	}
-	if call.NativeCall != nil && (call.NativeCall.GuestABI == ProgramAbiV3 || call.NativeCall.GuestABI == ProgramAbiV4 || call.NativeCall.GuestABI == ProgramAbiV5) {
-		head, found := programs.rememberedHead(call.ProgramID)
-		if !found || !programCallHeadAdmitted(call, head) || !validProgramHeadTime(head, programs.clockMilliseconds()) {
-			return ProgramSubmission{}, newSDKError(ErrorVerificationFailure, RetryNever)
-		}
-	}
-	raw, err := programs.raw(ctx, "program.call", true, programCallWire(call), CallOptions{IdempotencyKey: key})
+	recorded, err := programABIBytes(result, 0, 32)
 	if err != nil {
-		if sdkError, ok := err.(*SDKError); ok && sdkError.Code == ErrorUnknownOutcome {
-			return ProgramSubmission{State: ProgramSubmissionUnknown, ActivityID: binding.ActivityID, IdempotencyKey: key.String(), RetainedSignedActivity: append([]byte(nil), call.SignedActivity...)}, nil
-		}
 		return ProgramSubmission{}, err
 	}
-	submission, decodeError := decodeProgramSubmission(raw, &call.ProgramID, &binding.ActivityID, key.String(), call.SignedActivity, programs.trustedSequencerPublicKey, programs.protocolVersion)
-	if decodeError != nil || call.NativeCall != nil && submission.Execution != nil && submission.Execution.GuestABIVersion != call.NativeCall.GuestABI {
-		return ProgramSubmission{State: ProgramSubmissionUnknown, ActivityID: binding.ActivityID, IdempotencyKey: key.String(), RetainedSignedActivity: append([]byte(nil), call.SignedActivity...)}, nil
+	submission, err := programs.Activity(ctx, expectedTransaction)
+	if err != nil {
+		return ProgramSubmission{}, err
 	}
+	submission.IdempotencyKey, submission.IdempotencyResult = key.String(), recorded
 	return submission, nil
 }
 
-func (programs *Programs) Receipt(ctx context.Context, key IdempotencyKey, expectedActivity [32]byte) (ProgramSubmission, error) {
-	if !canonicalProgramKey(key) {
+func (programs *Programs) Activity(ctx context.Context, transaction [32]byte) (ProgramSubmission, error) {
+	if transaction == ([32]byte{}) {
 		return ProgramSubmission{}, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
-	activity := hex.EncodeToString(expectedActivity[:])
-	raw, err := programs.raw(ctx, "program.receipt", false, map[string]any{"idempotency_key": key.String(), "expected_activity_id": activity, "requested_verification_level": "sequencer-signed"}, CallOptions{PathParameters: map[string]string{"idempotency_key": key.String()}})
+	hash := "0x" + hex.EncodeToString(transaction[:])
+	var tx *struct {
+		Hash string `json:"hash"`
+	}
+	if err := programs.rpc(ctx, "eth_getTransactionByHash", []any{hash}, &tx); err != nil {
+		return ProgramSubmission{}, err
+	}
+	if tx == nil {
+		return ProgramSubmission{State: ProgramSubmissionUnknown, TransactionHash: transaction}, nil
+	}
+	if tx.Hash != hash {
+		return ProgramSubmission{}, verificationFailure()
+	}
+	var receipt json.RawMessage
+	if err := programs.rpc(ctx, "pax_sequencerReceipt", []any{hash}, &receipt); err != nil {
+		return ProgramSubmission{}, err
+	}
+	var view struct {
+		Rung string `json:"rung"`
+	}
+	if json.Unmarshal(receipt, &view) != nil {
+		return ProgramSubmission{}, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	if view.Rung == "submitted" {
+		return ProgramSubmission{State: ProgramSubmissionPending, TransactionHash: transaction}, nil
+	}
+	var raw string
+	if err := programs.rpc(ctx, "eth_getRawTransactionByHash", []any{hash}, &raw); err != nil {
+		return ProgramSubmission{}, err
+	}
+	rawBytes, ok := receiptHex(raw)
+	if !ok || receiptKeccak256(rawBytes) != transaction {
+		return ProgramSubmission{}, verificationFailure()
+	}
+	verified, err := VerifySequencerReceipt(receipt, rawBytes, programs.receiptKeys)
 	if err != nil {
 		return ProgramSubmission{}, err
 	}
-	return decodeProgramSubmission(raw, nil, &expectedActivity, key.String(), nil, programs.trustedSequencerPublicKey, programs.protocolVersion)
-}
-
-func (programs *Programs) Activity(ctx context.Context, activity [32]byte) (ProgramSubmission, error) {
-	id := hex.EncodeToString(activity[:])
-	raw, err := programs.raw(ctx, "program.activity", false, map[string]any{"activity_id": id, "requested_verification_level": "sequencer-signed"}, CallOptions{PathParameters: map[string]string{"activity_id": id}})
-	if err != nil {
-		return ProgramSubmission{}, err
+	state := ProgramSubmissionExecuted
+	if verified.Status == 0 {
+		state = ProgramSubmissionRefused
 	}
-	return decodeProgramSubmission(raw, nil, &activity, "", nil, programs.trustedSequencerPublicKey, programs.protocolVersion)
+	return ProgramSubmission{State: state, TransactionHash: transaction, SequencerReceipt: &verified}, nil
 }
 
 func (programs *Programs) raw(ctx context.Context, operation string, requiresKey bool, request any, options CallOptions) (json.RawMessage, error) {
@@ -2198,19 +2221,23 @@ func decodeProgramSubmission(raw json.RawMessage, expectedProgram *[32]byte, exp
 }
 
 func verifyExecutionAuthority(execution ProgramExecutionDocument, trustedSequencerPublicKey [32]byte, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
-	authority, err := execution.Authority.authorizedBatch()
-	if err != nil {
-		return VerifiedProgramReceipt{}, err
+	authorityBatch, authorityBatchError := programHex32(execution.Authority.BatchID)
+	_, authorityAssetError := programHex32(execution.Authority.Asset)
+	_, authorityPreviousError := programHex32(execution.Authority.PreviousStateRoot)
+	authorityResulting, authorityResultingError := programHex32(execution.Authority.ResultingStateRoot)
+	authorityPublicKey, authorityKeyError := programHex32(execution.Authority.SequencerPublicKey)
+	if authorityBatchError != nil || authorityAssetError != nil || authorityPreviousError != nil || authorityResultingError != nil || authorityKeyError != nil {
+		return VerifiedProgramReceipt{}, errors.New("invalid response authority")
 	}
-	if trustedSequencerPublicKey == ([32]byte{}) || authority.SequencerPublicKey != trustedSequencerPublicKey {
+	if trustedSequencerPublicKey == ([32]byte{}) || authorityPublicKey != trustedSequencerPublicKey {
 		return VerifiedProgramReceipt{}, errors.New("Programs sequencer authority does not match the pinned key")
 	}
 	stateRoot, rootError := programHex32(execution.StateRoot)
 	batchID, batchError := programHex32(execution.BatchID)
-	if rootError != nil || batchError != nil || stateRoot != authority.ResultingStateRoot || batchID != authority.BatchID || execution.Verification != "receipt-terminal-and-call-graph-verified" || !canonicalUnsigned(execution.GlobalSequence, 64) || !validProgramUsage(execution.Usage) {
+	if rootError != nil || batchError != nil || stateRoot != authorityResulting || batchID != authorityBatch || execution.Verification != "receipt-terminal-and-call-graph-verified" || !canonicalUnsigned(execution.GlobalSequence, 64) || !validProgramUsage(execution.Usage) {
 		return VerifiedProgramReceipt{}, errors.New("invalid Programs execution authority")
 	}
-	verified, verifyError := VerifyProgramReceipt(execution, authority, selectedProtocol...)
+	verified, verifyError := VerifyProgramReceipt(execution, selectedProtocol...)
 	if verifyError != nil {
 		return VerifiedProgramReceipt{}, verifyError
 	}
@@ -2241,9 +2268,13 @@ func verifySimulationEvidence(execution ProgramExecutionDocument, evidence Progr
 	if boundaryError != nil || activityError != nil || previousError != nil || hypotheticalError != nil || publicError != nil || signatureError != nil || len(signature) != ed25519.SignatureSize || executionActivityError != nil || executionRootError != nil || activity != executionActivity || activity != binding.ActivityID || hypothetical != executionRoot {
 		return errors.New("invalid simulation evidence")
 	}
-	authority, authorityError := execution.Authority.authorizedBatch()
+	_, authorityBatchError := programHex32(execution.Authority.BatchID)
+	_, authorityAssetError := programHex32(execution.Authority.Asset)
+	authorityPrevious, authorityPreviousError := programHex32(execution.Authority.PreviousStateRoot)
+	authorityResulting, authorityResultingError := programHex32(execution.Authority.ResultingStateRoot)
+	authorityPublicKey, authorityKeyError := programHex32(execution.Authority.SequencerPublicKey)
 	sequence, sequenceError := strconv.ParseUint(evidence.ObservedSequence, 10, 64)
-	if authorityError != nil || sequenceError != nil || sequence == math.MaxUint64 || trustedSequencerPublicKey == ([32]byte{}) || authority.SequencerPublicKey != trustedSequencerPublicKey || publicKey != trustedSequencerPublicKey || execution.Verification != "receipt-terminal-and-call-graph-verified" || authority.PreviousStateRoot != previous || previous != prior.StateRoot || authority.ResultingStateRoot != hypothetical || sequence != prior.Sequence || execution.GlobalSequence != strconv.FormatUint(sequence+1, 10) {
+	if authorityBatchError != nil || authorityAssetError != nil || authorityPreviousError != nil || authorityResultingError != nil || authorityKeyError != nil || sequenceError != nil || sequence == math.MaxUint64 || trustedSequencerPublicKey == ([32]byte{}) || authorityPublicKey != trustedSequencerPublicKey || publicKey != trustedSequencerPublicKey || execution.Verification != "receipt-terminal-and-call-graph-verified" || authorityPrevious != previous || previous != prior.StateRoot || authorityResulting != hypothetical || sequence != prior.Sequence || execution.GlobalSequence != strconv.FormatUint(sequence+1, 10) {
 		return errors.New("simulation authority mismatch")
 	}
 	expectedBoundary := sha256.Sum256(append([]byte("LayerX/emulator/simulation-boundary/v1\x00"), publicKey[:]...))
@@ -2304,18 +2335,6 @@ func currentProgramTimeMilliseconds() uint64 {
 		return 0
 	}
 	return uint64(now)
-}
-
-func (authority ProgramResponseAuthority) authorizedBatch() (AuthorizedBatch, error) {
-	batch, batchError := programHex32(authority.BatchID)
-	asset, assetError := programHex32(authority.Asset)
-	previous, previousError := programHex32(authority.PreviousStateRoot)
-	resulting, resultingError := programHex32(authority.ResultingStateRoot)
-	publicKey, keyError := programHex32(authority.SequencerPublicKey)
-	if batchError != nil || assetError != nil || previousError != nil || resultingError != nil || keyError != nil {
-		return AuthorizedBatch{}, errors.New("invalid response authority")
-	}
-	return AuthorizedBatch{BatchID: batch, Asset: asset, PreviousStateRoot: previous, ResultingStateRoot: resulting, SequencerPublicKey: publicKey}, nil
 }
 
 func verifyProgramDiscoveryProof(value ProgramDiscovery, trustedSequencerPublicKey [32]byte) (bool, error) {
@@ -2570,4 +2589,251 @@ func unwrapAppliedProgramTerminal(encoded []byte, outcome ProgramReceiptOutcome)
 		return nil, errors.New("Programs applied transfer root mismatch")
 	}
 	return inner, nil
+}
+
+const layerxProgramsAddress = "0x000000000000000000000000000000000000101d"
+const layerxAuthAddress = "0x000000000000000000000000000000000000101c"
+
+type ProgramTransaction struct {
+	Type                 string `json:"type"`
+	ChainID              string `json:"chainId"`
+	From                 string `json:"from"`
+	To                   string `json:"to"`
+	Nonce                string `json:"nonce"`
+	Gas                  string `json:"gas"`
+	MaxFeePerGas         string `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas string `json:"maxPriorityFeePerGas"`
+	Value                string `json:"value"`
+	Data                 string `json:"data"`
+	AccessList           []any  `json:"accessList"`
+}
+
+type ProgramRPCTransport struct {
+	endpoint string
+	client   *http.Client
+}
+
+func NewProgramRPCTransport(endpoint string, client *http.Client) (*ProgramRPCTransport, error) {
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.Fragment != "" {
+		return nil, lifecycleInvalid()
+	}
+	if client == nil {
+		client = &http.Client{Timeout: 30 * time.Second}
+	}
+	return &ProgramRPCTransport{endpoint: endpoint, client: client}, nil
+}
+
+func (transport *ProgramRPCTransport) Call(ctx context.Context, call TransportCall) (json.RawMessage, error) {
+	switch call.Operation {
+	case "eth_call", "eth_getTransactionCount", "eth_estimateGas", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_getTransactionByHash", "eth_getRawTransactionByHash", "pax_sequencerReceipt":
+	default:
+		return nil, lifecycleInvalid()
+	}
+	body, err := json.Marshal(struct {
+		JSONRPC string          `json:"jsonrpc"`
+		ID      uint64          `json:"id"`
+		Method  string          `json:"method"`
+		Params  json.RawMessage `json:"params"`
+	}{"2.0", 1, call.Operation, call.Request})
+	if err != nil {
+		return nil, lifecycleInvalid()
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, transport.endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, lifecycleInvalid()
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := transport.client.Do(request)
+	if err != nil {
+		return nil, transportError(ctx, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, newSDKError(ErrorTransportFailure, RetryNever)
+	}
+	payload, err := io.ReadAll(io.LimitReader(response.Body, 8*MaximumProgramCalldataBytes+1))
+	if err != nil || len(payload) > 8*MaximumProgramCalldataBytes {
+		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	var envelope struct {
+		JSONRPC string           `json:"jsonrpc"`
+		ID      uint64           `json:"id"`
+		Result  json.RawMessage  `json:"result"`
+		Error   *ProgramRPCError `json:"error"`
+	}
+	if json.Unmarshal(payload, &envelope) != nil || envelope.JSONRPC != "2.0" || envelope.ID != 1 || (envelope.Error != nil) == (len(envelope.Result) != 0) {
+		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	if envelope.Error != nil {
+		return nil, envelope.Error
+	}
+	return envelope.Result, nil
+}
+
+type ProgramRPCError struct {
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data,omitempty"`
+}
+
+func (err *ProgramRPCError) Error() string { return err.Message }
+
+func (programs *Programs) rpc(ctx context.Context, method string, params []any, out any) error {
+	if programs == nil || programs.client == nil || programs.client.transport == nil || ctx == nil {
+		return lifecycleInvalid()
+	}
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		return lifecycleInvalid()
+	}
+	raw, err := programs.client.transport.Call(ctx, TransportCall{Plane: PlaneAgent, Operation: method, Request: encoded})
+	if err != nil {
+		return err
+	}
+	if json.Unmarshal(raw, out) != nil {
+		return newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	return nil
+}
+
+func (programs *Programs) view(ctx context.Context, to string, data []byte, from [20]byte) ([]byte, error) {
+	tx := map[string]string{"to": to, "data": "0x" + hex.EncodeToString(data)}
+	if from != ([20]byte{}) {
+		tx["from"] = "0x" + hex.EncodeToString(from[:])
+	}
+	var result string
+	if err := programs.rpc(ctx, "eth_call", []any{tx, "pending"}, &result); err != nil {
+		return nil, err
+	}
+	decoded, ok := receiptHex(result)
+	if !ok || len(decoded) > MaximumProgramCalldataBytes+8192 {
+		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	return decoded, nil
+}
+
+func (programs *Programs) buildTransaction(ctx context.Context, from [20]byte, data []byte) (ProgramTransaction, error) {
+	if from == ([20]byte{}) {
+		from = programs.sender
+	}
+	if from == ([20]byte{}) {
+		return ProgramTransaction{}, lifecycleInvalid()
+	}
+	tx := ProgramTransaction{Type: "0x2", ChainID: "0x7d", From: "0x" + hex.EncodeToString(from[:]), To: layerxProgramsAddress, Value: "0x0", Data: "0x" + hex.EncodeToString(data), AccessList: []any{}}
+	if err := programs.rpc(ctx, "eth_getTransactionCount", []any{tx.From, "pending"}, &tx.Nonce); err != nil {
+		return ProgramTransaction{}, err
+	}
+	if !programQuantity(tx.Nonce, 64) {
+		return ProgramTransaction{}, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	fee, tip := programs.maxFeePerGas, programs.maxPriorityFeePerGas
+	if fee == (Uint128{}) {
+		if err := programs.rpc(ctx, "eth_gasPrice", []any{}, &tx.MaxFeePerGas); err != nil {
+			return ProgramTransaction{}, err
+		}
+	} else {
+		tx.MaxFeePerGas = programQuantity128(fee)
+	}
+	if tip == (Uint128{}) {
+		if err := programs.rpc(ctx, "eth_maxPriorityFeePerGas", []any{}, &tx.MaxPriorityFeePerGas); err != nil {
+			return ProgramTransaction{}, err
+		}
+	} else {
+		tx.MaxPriorityFeePerGas = programQuantity128(tip)
+	}
+	if !programQuantity(tx.MaxFeePerGas, 128) || !programQuantity(tx.MaxPriorityFeePerGas, 128) {
+		return ProgramTransaction{}, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	maximum, _ := new(big.Int).SetString(tx.MaxFeePerGas[2:], 16)
+	priority, _ := new(big.Int).SetString(tx.MaxPriorityFeePerGas[2:], 16)
+	if maximum.Sign() == 0 || priority.Cmp(maximum) > 0 {
+		return ProgramTransaction{}, lifecycleInvalid()
+	}
+	estimate := map[string]any{"type": tx.Type, "chainId": tx.ChainID, "from": tx.From, "to": tx.To, "nonce": tx.Nonce, "value": tx.Value, "data": tx.Data, "maxFeePerGas": tx.MaxFeePerGas, "maxPriorityFeePerGas": tx.MaxPriorityFeePerGas, "accessList": tx.AccessList}
+	if err := programs.rpc(ctx, "eth_estimateGas", []any{estimate, "pending"}, &tx.Gas); err != nil {
+		return ProgramTransaction{}, err
+	}
+	if !programQuantity(tx.Gas, 64) || tx.Gas == "0x0" {
+		return ProgramTransaction{}, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	return tx, nil
+}
+
+func programQuantity128(value Uint128) string {
+	n, _ := new(big.Int).SetString(value.String(), 10)
+	return "0x" + n.Text(16)
+}
+
+func programQuantity(value string, bits int) bool {
+	if !strings.HasPrefix(value, "0x") || len(value) < 3 || (len(value) > 3 && value[2] == '0') {
+		return false
+	}
+	for _, c := range value[2:] {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	n, ok := new(big.Int).SetString(value[2:], 16)
+	return ok && n.BitLen() <= bits
+}
+
+func programABIWord(value uint64) []byte {
+	out := make([]byte, 32)
+	binary.BigEndian.PutUint64(out[24:], value)
+	return out
+}
+
+func programABIFee(value Uint128) []byte {
+	out := make([]byte, 32)
+	binary.BigEndian.PutUint64(out[16:], value.High())
+	binary.BigEndian.PutUint64(out[24:], value.Low())
+	return out
+}
+
+func programABI(selector string, words ...[]byte) []byte {
+	out, _ := hex.DecodeString(selector)
+	for _, word := range words {
+		out = append(out, word...)
+	}
+	return out
+}
+
+func programABIDynamic(selector string, head [][]byte, positions []int, values [][]byte) []byte {
+	tail := []byte{}
+	for i, position := range positions {
+		head[position] = programABIWord(uint64(32*len(head) + len(tail)))
+		tail = append(tail, programABIWord(uint64(len(values[i])))...)
+		tail = append(tail, values[i]...)
+		tail = append(tail, make([]byte, (32-len(values[i])%32)%32)...)
+	}
+	return append(programABI(selector, head...), tail...)
+}
+
+func programABIUint(data []byte, offset, bits int) (uint64, error) {
+	if offset < 0 || offset > len(data)-32 {
+		return 0, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	n := new(big.Int).SetBytes(data[offset : offset+32])
+	if n.BitLen() > bits {
+		return 0, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	return n.Uint64(), nil
+}
+
+func programABIBytes(data []byte, offset, headSize int) ([]byte, error) {
+	start, err := programABIUint(data, offset, 64)
+	if err != nil || start != uint64(headSize) || start > uint64(len(data)) {
+		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	length, err := programABIUint(data, int(start), 64)
+	if err != nil || length > MaximumProgramCalldataBytes || start+32+(length+31)/32*32 != uint64(len(data)) {
+		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	body := data[int(start)+32 : int(start)+32+int(length)]
+	padding := data[int(start)+32+int(length):]
+	if !bytes.Equal(padding, make([]byte, len(padding))) {
+		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	return append([]byte{}, body...), nil
 }

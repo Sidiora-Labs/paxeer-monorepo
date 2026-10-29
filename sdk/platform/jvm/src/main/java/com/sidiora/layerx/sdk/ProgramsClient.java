@@ -26,6 +26,250 @@ import java.util.Set;
 import java.util.concurrent.CompletionStage;
 
 public final class ProgramsClient {
+    public static final String PROGRAMS_ADDRESS = "0x000000000000000000000000000000000000101d";
+    public static final String AUTH_ADDRESS = "0x000000000000000000000000000000000000101c";
+    public static final BigInteger CHAIN_ID = BigInteger.valueOf(125);
+
+    public record ProgramCall(ObjectNode transaction) {
+        public ProgramCall {
+            transaction = copy(transaction);
+            if (!"0x2".equals(transaction.path("type").asText())
+                    || !"0x7d".equals(transaction.path("chainId").asText())
+                    || !PROGRAMS_ADDRESS.equals(transaction.path("to").asText())
+                    || !"0x0".equals(transaction.path("value").asText())
+                    || !transaction.path("accessList").isArray() || !transaction.path("accessList").isEmpty()) invalid();
+            transaction.put("from", Programs.address(transaction.path("from").asText()));
+            for (String name : List.of("nonce", "maxPriorityFeePerGas", "maxFeePerGas", "gas"))
+                Programs.quantity(transaction.path(name));
+            if (Programs.quantity(transaction.path("maxPriorityFeePerGas")).compareTo(
+                    Programs.quantity(transaction.path("maxFeePerGas"))) > 0
+                    || Programs.quantity(transaction.path("gas")).signum() == 0) invalid();
+            Programs.data(transaction.path("data"));
+        }
+        @Override public ObjectNode transaction() { return transaction.deepCopy(); }
+        public byte[] unsignedTransaction() { return Programs.encodeTransaction(transaction, true); }
+        public byte[] signingPayload() { return Programs.encodeTransaction(transaction, false); }
+    }
+
+    public record ProgramSubmission(byte[] transactionHash, byte[] signedTransaction,
+                                    LocalVerifier.SequencerReceiptVerification receipt) {
+        public ProgramSubmission {
+            transactionHash = exactArgument(transactionHash, 32);
+            signedTransaction = signedTransaction.clone();
+            if (!MessageDigest.isEqual(transactionHash, Programs.transactionHash(signedTransaction))
+                    || receipt != null && !MessageDigest.isEqual(transactionHash, receipt.receipt().activityId())) invalidVerification();
+        }
+        @Override public byte[] transactionHash() { return transactionHash.clone(); }
+        @Override public byte[] signedTransaction() { return signedTransaction.clone(); }
+        public boolean pending() { return receipt == null; }
+    }
+
+    public record ProgramSimulation(int terminalResult, int terminalKind, byte[] response) {
+        public ProgramSimulation {
+            if (terminalKind < 1 || terminalKind > 3 || response == null || response.length > MAX_CALLDATA_BYTES) invalid();
+            response = response.clone();
+        }
+        @Override public byte[] response() { return response.clone(); }
+        public boolean committed() { return false; }
+    }
+
+    public static final class Programs {
+        private final java.net.URI endpoint;
+        private final java.net.http.HttpClient http;
+        private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+        private final java.util.concurrent.atomic.AtomicLong ids = new java.util.concurrent.atomic.AtomicLong();
+
+        public Programs(java.net.URI endpoint) {
+            this.endpoint = Objects.requireNonNull(endpoint, "endpoint");
+            if (!Set.of("http", "https").contains(endpoint.getScheme()) || endpoint.getHost() == null
+                    || endpoint.getUserInfo() != null || endpoint.getFragment() != null) invalid();
+            this.http = java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+        }
+
+        public CompletionStage<JsonNode> request(String method, ArrayNode params) {
+            long id = ids.incrementAndGet();
+            ObjectNode body = object().put("jsonrpc", "2.0").put("id", id).put("method", method);
+            body.set("params", params);
+            var request = java.net.http.HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(30))
+                .header("Content-Type", "application/json")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body.toString())).build();
+            return http.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
+                if (response.statusCode() != 200) throw new PlatformSdkException(PlatformSdkException.Code.TRANSPORT_FAILURE,
+                    PlatformSdkException.Retry.SAFE, null, null, null);
+                try {
+                    JsonNode value = json.readTree(response.body());
+                    if (value == null || !value.isObject() || !"2.0".equals(value.path("jsonrpc").asText())
+                            || !value.path("id").isIntegralNumber() || value.path("id").longValue() != id
+                            || value.has("error") == value.has("result")) throw decodeFailure();
+                    if (value.has("error")) throw new PlatformSdkException(PlatformSdkException.Code.CAPABILITY_REFUSAL,
+                        PlatformSdkException.Retry.NEVER, null, null, null);
+                    return value.get("result");
+                } catch (java.io.IOException error) { throw decodeFailure(); }
+            });
+        }
+
+        static byte[] word(BigInteger value, int bits) {
+            if (value == null || value.signum() < 0 || value.bitLength() > bits || bits > 256) invalid();
+            byte[] output = new byte[32], bytes = value.toByteArray();
+            int length = Math.min(bytes.length, 32);
+            System.arraycopy(bytes, bytes.length - length, output, 32 - length, length);
+            return output;
+        }
+        static byte[] abi(String selector, Object[] fields, int... dynamic) {
+            Set<Integer> offsets = new java.util.HashSet<>();
+            for (int index : dynamic) offsets.add(index);
+            var head = new java.io.ByteArrayOutputStream();
+            var tail = new java.io.ByteArrayOutputStream();
+            for (int index = 0; index < fields.length; index++) {
+                byte[] field = fields[index] instanceof String text ? text.getBytes(StandardCharsets.US_ASCII) : (byte[]) fields[index];
+                if (offsets.contains(index)) {
+                    head.writeBytes(word(BigInteger.valueOf(fields.length * 32L + tail.size()), 256));
+                    tail.writeBytes(word(BigInteger.valueOf(field.length), 256));
+                    tail.writeBytes(Arrays.copyOf(field, (field.length + 31) / 32 * 32));
+                } else {
+                    if (field.length != 32) invalid();
+                    head.writeBytes(field);
+                }
+            }
+            return concat(HexFormat.of().parseHex(selector), head.toByteArray(), tail.toByteArray());
+        }
+        static BigInteger number(byte[] data, int offset, int bits) {
+            if (offset < 0 || offset > data.length - 32) throw decodeFailure();
+            BigInteger number = new BigInteger(1, Arrays.copyOfRange(data, offset, offset + 32));
+            if (number.bitLength() > bits) throw decodeFailure();
+            return number;
+        }
+        static byte[] dynamic(byte[] data, int base, int index) {
+            int relative = number(data, base + index * 32, 31).intValueExact();
+            if (relative % 32 != 0 || relative < (index + 1) * 32) throw decodeFailure();
+            int offset = Math.addExact(base, relative);
+            int length = number(data, offset, 31).intValueExact();
+            int start = Math.addExact(offset, 32);
+            int padded = Math.toIntExact((length + 31L) / 32 * 32);
+            if (start > data.length - padded || length > MAX_CALLDATA_BYTES) throw decodeFailure();
+            for (int i = start + length; i < start + padded; i++) if (data[i] != 0) throw decodeFailure();
+            return Arrays.copyOfRange(data, start, start + length);
+        }
+        static byte[] concat(byte[]... parts) {
+            var out = new java.io.ByteArrayOutputStream();
+            for (byte[] part : parts) out.writeBytes(part);
+            return out.toByteArray();
+        }
+        static String selector(String signature) {
+            return HexFormat.of().formatHex(Arrays.copyOf(transactionHash(signature.getBytes(StandardCharsets.US_ASCII)), 4));
+        }
+        public static byte[] transactionHash(byte[] signed) {
+            var digest = new org.bouncycastle.crypto.digests.KeccakDigest(256);
+            digest.update(signed, 0, signed.length);
+            byte[] output = new byte[32]; digest.doFinal(output, 0); return output;
+        }
+        static String address(String value) {
+            if (value == null || !value.matches("0x[0-9a-fA-F]{40}")) invalid();
+            return value.toLowerCase(java.util.Locale.ROOT);
+        }
+        static byte[] data(JsonNode value) {
+            if (value == null || !value.isTextual() || !value.textValue().matches("0x(?:[0-9a-fA-F]{2})*")) throw decodeFailure();
+            return HexFormat.of().parseHex(value.textValue().substring(2));
+        }
+        static BigInteger quantity(JsonNode value) {
+            if (value == null || !value.isTextual() || !value.textValue().matches("0x(?:0|[1-9a-f][0-9a-f]*)")) throw decodeFailure();
+            BigInteger result = new BigInteger(value.textValue().substring(2), 16);
+            if (result.bitLength() > 256) throw decodeFailure();
+            return result;
+        }
+        static String quantity(BigInteger value) { word(value, 256); return "0x" + value.toString(16); }
+        static String hexData(byte[] data) { return "0x" + hex(data); }
+        private static byte[] magnitude(BigInteger value) {
+            if (value.signum() == 0) return new byte[0];
+            byte[] bytes = value.toByteArray();
+            return bytes[0] == 0 ? Arrays.copyOfRange(bytes, 1, bytes.length) : bytes;
+        }
+        static byte[] rlp(byte[] value, boolean list) {
+            if (!list && value.length == 1 && (value[0] & 255) < 128) return value.clone();
+            int prefix = list ? 192 : 128;
+            if (value.length <= 55) return concat(new byte[] {(byte) (prefix + value.length)}, value);
+            byte[] length = magnitude(BigInteger.valueOf(value.length));
+            return concat(new byte[] {(byte) (prefix + 55 + length.length)}, length, value);
+        }
+        static byte[] encodeTransaction(ObjectNode tx, boolean zeroSignature) {
+            var fields = new java.io.ByteArrayOutputStream();
+            for (String name : List.of("chainId", "nonce", "maxPriorityFeePerGas", "maxFeePerGas", "gas"))
+                fields.writeBytes(rlp(magnitude(quantity(tx.path(name))), false));
+            fields.writeBytes(rlp(HexFormat.of().parseHex(address(tx.path("to").asText()).substring(2)), false));
+            fields.writeBytes(rlp(magnitude(quantity(tx.path("value"))), false));
+            fields.writeBytes(rlp(data(tx.path("data")), false));
+            fields.writeBytes(rlp(new byte[0], true));
+            if (zeroSignature) for (int i = 0; i < 3; i++) fields.writeBytes(rlp(new byte[0], false));
+            return concat(new byte[] {2}, rlp(fields.toByteArray(), true));
+        }
+        private record Rlp(byte[] encoded, byte[] value, boolean list) {}
+        private static Rlp readRlp(ByteBuffer input) {
+            int start = input.position();
+            if (!input.hasRemaining()) throw decodeFailure();
+            int prefix = input.get() & 255;
+            if (prefix < 128) return new Rlp(new byte[] {(byte) prefix}, new byte[] {(byte) prefix}, false);
+            boolean list = prefix >= 192;
+            int shortBase = list ? 192 : 128, longBase = shortBase + 55;
+            int length = prefix - shortBase;
+            if (prefix > longBase) {
+                int lengthBytes = prefix - longBase;
+                if (lengthBytes > 4 || input.remaining() < lengthBytes || input.get(input.position()) == 0) throw decodeFailure();
+                long size = 0;
+                for (int i = 0; i < lengthBytes; i++) size = (size << 8) | (input.get() & 255);
+                if (size < 56 || size > MAX_CALLDATA_BYTES + 65536L) throw decodeFailure();
+                length = (int) size;
+            }
+            if (length > input.remaining()) throw decodeFailure();
+            byte[] bytes = new byte[length]; input.get(bytes);
+            if (!list && length == 1 && (bytes[0] & 255) < 128) throw decodeFailure();
+            return new Rlp(Arrays.copyOfRange(input.array(), start, input.position()), bytes, list);
+        }
+        static List<Rlp> transactionFields(byte[] transaction) {
+            if (transaction == null || transaction.length < 2 || transaction.length > MAX_CALLDATA_BYTES + 65536 || transaction[0] != 2) invalid();
+            ByteBuffer input = ByteBuffer.wrap(transaction); input.get();
+            Rlp root = readRlp(input);
+            if (!root.list() || input.hasRemaining()) throw decodeFailure();
+            ByteBuffer fields = ByteBuffer.wrap(root.value());
+            List<Rlp> result = new ArrayList<>();
+            while (fields.hasRemaining()) result.add(readRlp(fields));
+            if (result.size() != 12) throw decodeFailure();
+            for (int i = 0; i < 12; i++) if (result.get(i).list() != (i == 8)) throw decodeFailure();
+            for (int i : new int[] {0, 1, 2, 3, 4, 6, 9, 10, 11}) {
+                byte[] value = result.get(i).value();
+                if (value.length > 32 || value.length > 0 && value[0] == 0) throw decodeFailure();
+            }
+            if (!new BigInteger(1, result.get(0).value()).equals(CHAIN_ID)
+                    || !Arrays.equals(result.get(5).value(), HexFormat.of().parseHex(PROGRAMS_ADDRESS.substring(2)))
+                    || result.get(6).value().length != 0 || result.get(8).value().length != 0
+                    || result.get(1).value().length > 8 || result.get(4).value().length > 8
+                    || new BigInteger(1, result.get(4).value()).signum() == 0
+                    || new BigInteger(1, result.get(2).value()).compareTo(new BigInteger(1, result.get(3).value())) > 0
+                    || new BigInteger(1, result.get(9).value()).compareTo(BigInteger.ONE) > 0
+                    || result.get(10).value().length == 0 || result.get(11).value().length == 0) invalid();
+            BigInteger order = new BigInteger("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16);
+            if (new BigInteger(1, result.get(10).value()).compareTo(order) >= 0
+                    || new BigInteger(1, result.get(11).value()).compareTo(order.shiftRight(1)) > 0) invalid();
+            return result;
+        }
+        static byte[] transactionData(byte[] signedTransaction) { return transactionFields(signedTransaction).get(7).value().clone(); }
+        static void bind(ProgramCall expected, byte[] signedTransaction) {
+            List<Rlp> fields = transactionFields(signedTransaction);
+            var first = new java.io.ByteArrayOutputStream();
+            for (int i = 0; i < 9; i++) first.writeBytes(fields.get(i).encoded());
+            if (!Arrays.equals(expected.signingPayload(), concat(new byte[] {2}, rlp(first.toByteArray(), true)))) invalidVerification();
+            var curve = org.bouncycastle.crypto.ec.CustomNamedCurves.getByName("secp256k1");
+            BigInteger r = new BigInteger(1, fields.get(10).value()), sigS = new BigInteger(1, fields.get(11).value());
+            byte[] compressed = concat(new byte[] {(byte) (2 + new BigInteger(1, fields.get(9).value()).intValue())}, word(r, 256));
+            var point = curve.getCurve().decodePoint(compressed);
+            if (!point.multiply(curve.getN()).isInfinity()) invalidVerification();
+            BigInteger e = new BigInteger(1, transactionHash(expected.signingPayload()));
+            var publicPoint = point.multiply(sigS).subtract(curve.getG().multiply(e.mod(curve.getN()))).multiply(r.modInverse(curve.getN())).normalize();
+            byte[] publicKey = publicPoint.getEncoded(false);
+            byte[] sender = Arrays.copyOfRange(transactionHash(Arrays.copyOfRange(publicKey, 1, publicKey.length)), 12, 32);
+            if (!expected.transaction().path("from").asText().equals(hexData(sender))) invalidVerification();
+        }
+    }
+
     public static final int MAX_CALLDATA_BYTES = 1_048_576;
     public static final int MAX_CAPABILITIES = 5;
     public static final int PROGRAMS_RECEIPT_MODULE_ID = 9;
@@ -37,16 +281,7 @@ public final class ProgramsClient {
     private static final BigInteger MAX_U32 = BigInteger.ONE.shiftLeft(32).subtract(BigInteger.ONE);
     private static final BigInteger MAX_U64 = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE);
     private static final BigInteger MAX_U128 = BigInteger.ONE.shiftLeft(128).subtract(BigInteger.ONE);
-    private static final byte[] DISCOVERY_PROOF_DOMAIN =
-        "LayerX/program-discovery-proof/v1\0".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] SIMULATION_BOUNDARY_DOMAIN =
-        "LayerX/emulator/simulation-boundary/v1\0".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] SIMULATION_EVIDENCE_DOMAIN =
-        "LayerX/agent/program-simulation-evidence/v1\0".getBytes(StandardCharsets.UTF_8);
     private static final byte[] ED25519_X509_PREFIX = HexFormat.of().parseHex("302a300506032b6570032100");
-    private static final byte[] ACTIVITY_ID_DOMAIN = "LXP/v1/activity-id\0".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] PAYLOAD_HASH_DOMAIN = "LXP/v1/payload-hash\0".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] PROGRAM_CALL_DOMAIN = "LayerX/programs/call/v1\0".getBytes(StandardCharsets.UTF_8);
     private static final byte[] TRANSFER_SET_V1_DOMAIN =
         "LayerX/programs/402LXP/transfer-set/v1\0".getBytes(StandardCharsets.UTF_8);
     private static final byte[] TRANSFER_SET_V2_DOMAIN =
@@ -74,16 +309,6 @@ public final class ProgramsClient {
     private static final byte[] ACCOUNT_DERIVATION_DOMAIN =
         "LX:ACCOUNT:v1".getBytes(StandardCharsets.UTF_8);
     private static final byte[] FEE_TREASURY_LABEL = "system:fees".getBytes(StandardCharsets.UTF_8);
-    private record ActivityBinding(byte[] activityId, byte[] idempotencyKey,
-                                   BigInteger notBefore, BigInteger notAfter) {
-        private ActivityBinding {
-            activityId = activityId.clone();
-            idempotencyKey = idempotencyKey.clone();
-        }
-        @Override public byte[] activityId() { return activityId.clone(); }
-        @Override public byte[] idempotencyKey() { return idempotencyKey.clone(); }
-    }
-
     public enum Capability {
         STORAGE_READ("storage_read"), STORAGE_WRITE("storage_write"), TRANSFER("transfer"),
         EMIT_EVENT("emit_event"), COMPOSE("compose");
@@ -111,18 +336,18 @@ public final class ProgramsClient {
     }
 
     public record Call(byte[] programId, byte[] calldata, Budget budget,
-                       List<Capability> capabilities, byte[] signedActivity, NativeProgramCall nativeCall) {
-        public Call(byte[] programId, byte[] calldata, Budget budget, List<Capability> capabilities, byte[] signedActivity) {
-            this(programId, calldata, budget, capabilities, signedActivity, null);
+                       List<Capability> capabilities, byte[] signedTransaction, NativeProgramCall nativeCall) {
+        public Call(byte[] programId, byte[] calldata, Budget budget, List<Capability> capabilities, byte[] signedTransaction) {
+            this(programId, calldata, budget, capabilities, signedTransaction, null);
         }
-        public Call(NativeProgramCall nativeCall, BigInteger feeLimit, byte[] signedActivity) {
-            this(nativeCall.programId(), nativeCall.calldata(), new Budget(new BigInteger(Long.toUnsignedString(nativeCall.resources()[0])), feeLimit), List.of(), signedActivity, nativeCall);
+        public Call(NativeProgramCall nativeCall, BigInteger feeLimit, byte[] signedTransaction) {
+            this(nativeCall.programId(), nativeCall.calldata(), new Budget(new BigInteger(Long.toUnsignedString(nativeCall.resources()[0])), feeLimit), List.of(), signedTransaction, nativeCall);
         }
         public Call {
             programId = exactArgument(programId, 32);
             if (calldata == null || calldata.length > MAX_CALLDATA_BYTES || budget == null
-                    || signedActivity == null || signedActivity.length == 0
-                    || signedActivity.length > MAX_CALLDATA_BYTES || capabilities == null
+                    || signedTransaction == null || signedTransaction.length == 0
+                    || signedTransaction.length > MAX_CALLDATA_BYTES || capabilities == null
                     || capabilities.size() > MAX_CAPABILITIES || allZero(programId)) invalid();
             capabilities = List.copyOf(capabilities);
             if (capabilities.stream().anyMatch(Objects::isNull)) invalid();
@@ -130,11 +355,16 @@ public final class ProgramsClient {
                 if (capabilities.get(index - 1).ordinal() >= capabilities.get(index).ordinal()) invalid();
             }
             calldata = calldata.clone();
-            signedActivity = signedActivity.clone();
+            signedTransaction = signedTransaction.clone();
         }
         @Override public byte[] programId() { return programId.clone(); }
         @Override public byte[] calldata() { return calldata.clone(); }
-        @Override public byte[] signedActivity() { return signedActivity.clone(); }
+        @Override public byte[] signedTransaction() { return signedTransaction.clone(); }
+        public byte[] signedActivity() { return signedTransaction(); }
+        public byte[] transactionHash() {
+            Programs.transactionFields(signedTransaction);
+            return Programs.transactionHash(signedTransaction);
+        }
     }
 
     public enum Lifecycle { ACTIVE, DEPRECATED, TOMBSTONED }
@@ -157,12 +387,12 @@ public final class ProgramsClient {
                             BigInteger observedSequence, BigInteger observedAt, BigInteger validThrough,
                             String verification) {
         public Discovery {
-            programId = programId.clone(); codeHash = codeHash.clone(); receiptDigest = receiptDigest.clone(); stateRoot = stateRoot.clone();
+            programId = programId.clone(); codeHash = codeHash.clone(); receiptDigest = cloneNullable(receiptDigest); stateRoot = cloneNullable(stateRoot);
         }
         @Override public byte[] programId() { return programId.clone(); }
-        @Override public byte[] codeHash() { return codeHash.clone(); }
-        @Override public byte[] receiptDigest() { return receiptDigest.clone(); }
-        @Override public byte[] stateRoot() { return stateRoot.clone(); }
+        @Override public byte[] codeHash() { return cloneNullable(codeHash); }
+        @Override public byte[] receiptDigest() { return cloneNullable(receiptDigest); }
+        @Override public byte[] stateRoot() { return cloneNullable(stateRoot); }
     }
 
     public record Interface(byte[] programId, long version, byte[] codeHash, int abiVersion,
@@ -170,15 +400,15 @@ public final class ProgramsClient {
                             byte[] stateRoot, BigInteger observedSequence, BigInteger observedAt,
                             BigInteger validThrough, Source source, String verification) {
         public Interface {
-            programId = programId.clone(); codeHash = codeHash.clone(); interfaceBytes = interfaceBytes.clone();
-            interfaceDigest = interfaceDigest.clone(); receiptDigest = receiptDigest.clone(); stateRoot = stateRoot.clone();
+            programId = programId.clone(); codeHash = cloneNullable(codeHash); interfaceBytes = interfaceBytes.clone();
+            interfaceDigest = interfaceDigest.clone(); receiptDigest = cloneNullable(receiptDigest); stateRoot = cloneNullable(stateRoot);
         }
         @Override public byte[] programId() { return programId.clone(); }
-        @Override public byte[] codeHash() { return codeHash.clone(); }
+        @Override public byte[] codeHash() { return cloneNullable(codeHash); }
         @Override public byte[] interfaceBytes() { return interfaceBytes.clone(); }
         @Override public byte[] interfaceDigest() { return interfaceDigest.clone(); }
-        @Override public byte[] receiptDigest() { return receiptDigest.clone(); }
-        @Override public byte[] stateRoot() { return stateRoot.clone(); }
+        @Override public byte[] receiptDigest() { return cloneNullable(receiptDigest); }
+        @Override public byte[] stateRoot() { return cloneNullable(stateRoot); }
     }
 
     public record VerifiedExecution(ObjectNode document, LocalVerifier.ReceiptVerification receipt,
@@ -208,58 +438,164 @@ public final class ProgramsClient {
         public boolean committed() { return false; }
     }
 
-    public record Submission(SubmissionState state, byte[] activityId, String idempotencyKey,
-                             byte[] retainedSignedActivity, VerifiedExecution execution, ObjectNode value) {
+    public record Submission(SubmissionState state, byte[] transactionHash, String idempotencyKey,
+                             byte[] retainedSignedTransaction, LocalVerifier.SequencerReceiptVerification execution, ObjectNode value) {
         public Submission {
             Objects.requireNonNull(state, "state");
-            activityId = exactVerification(activityId, 32);
+            transactionHash = exactVerification(transactionHash, 32);
             if (!canonicalLowerHex(idempotencyKey, 32)) invalidVerification();
-            retainedSignedActivity = retainedSignedActivity == null ? null : retainedSignedActivity.clone();
+            retainedSignedTransaction = retainedSignedTransaction == null ? null : retainedSignedTransaction.clone();
             if (state == SubmissionState.UNKNOWN && execution != null
                     || state != SubmissionState.UNKNOWN && execution == null) invalidVerification();
             value = copy(value);
         }
-        @Override public byte[] activityId() { return activityId.clone(); }
-        @Override public byte[] retainedSignedActivity() {
-            return retainedSignedActivity == null ? null : retainedSignedActivity.clone();
-        }
+        @Override public byte[] transactionHash() { return transactionHash.clone(); }
+        @Override public byte[] retainedSignedTransaction() { return cloneNullable(retainedSignedTransaction); }
+        public byte[] activityId() { return transactionHash(); }
+        public byte[] retainedSignedActivity() { return retainedSignedTransaction(); }
         public boolean unknown() { return state == SubmissionState.UNKNOWN; }
     }
 
     public CompletionStage<LocalVerifier.ReceiptVerification> lifecycleReceipt(NativeProgramLifecycleRequest request) {
-        if (protocolVersion != 3) invalid();
-        return raw("program.receipt", object().put("idempotency_key", request.idempotencyKey()).put("expected_activity_id", hex(request.activityId()))
-            .put("requested_verification_level", "sequencer-signed"), Map.of("idempotency_key", request.idempotencyKey()), null).thenApply(value -> {
-                requireFields(value, "activity_id", "receipt");
-                if (!text(value, "activity_id").equals(hex(request.activityId()))) invalidVerification();
-                return LocalVerifier.verifyProgramLifecycleReceipt(boundedHex(text(value, "receipt"), false), request.activityId(), sequencerPublicKey);
-            });
+        return sequencerReceipt(request.signedActivity()).thenApply(ProgramsClient::legacyReceiptView);
     }
 
-    public CompletionStage<LocalVerifier.ReceiptVerification> deploy(NativeProgramDeploy operation, byte[] signedActivity, IdempotencyKey key) { return lifecycle(operation, signedActivity, key); }
-    public CompletionStage<LocalVerifier.ReceiptVerification> upgrade(NativeProgramUpgrade operation, byte[] signedActivity, IdempotencyKey key) { return lifecycle(operation, signedActivity, key); }
-    public CompletionStage<LocalVerifier.ReceiptVerification> windDown(NativeProgramWindDown operation, byte[] signedActivity, IdempotencyKey key) { return lifecycle(operation, signedActivity, key); }
-
-    private CompletionStage<LocalVerifier.ReceiptVerification> lifecycle(NativeProgramLifecycle operation, byte[] signedActivity, IdempotencyKey key) {
-        NativeProgramLifecycleRequest request = new NativeProgramLifecycleRequest(operation, signedActivity);
-        if (protocolVersion != 3 || key == null || !request.idempotencyKey().equals(key.value())) invalid();
-        String name = ProgramLifecycleRoutes.ORDINALS.entrySet().stream().filter(entry -> entry.getValue() == request.ordinal()).findFirst().orElseThrow().getKey();
-        return raw(name, object().put("payload", hex(request.payload())).put("signed_activity", hex(request.signedActivity())), Map.of(), key).thenApply(value -> {
-            try {
-                requireFields(value, "state", "activity_id", "receipt", "terminal_payload", "call_graph");
-                String state = text(value, "state");
-                if (!Set.of("executed", "refused").contains(state) || !text(value, "terminal_payload").isEmpty() || !text(value, "call_graph").isEmpty()
-                        || !text(value, "activity_id").equals(hex(request.activityId()))) invalidVerification();
-                var verified = LocalVerifier.verifyProgramLifecycleReceipt(boundedHex(text(value, "receipt"), false), request.activityId(), sequencerPublicKey);
-                if (state.equals("executed") != (verified.receipt().resultCode() == 0)) invalidVerification();
-                return verified;
-            } catch (RuntimeException error) {
-                throw new PlatformSdkException(PlatformSdkException.Code.UNKNOWN_OUTCOME, PlatformSdkException.Retry.UNKNOWN_OUTCOME, null, null, null);
-            }
-        });
+    public CompletionStage<ProgramCall> deploy(NativeProgramDeploy operation) {
+        return prepare(NativeProgramLifecycleRequest.calldata(operation, BigInteger.ZERO));
+    }
+    public CompletionStage<ProgramCall> upgrade(NativeProgramUpgrade operation, BigInteger feeLimit) {
+        return prepare(NativeProgramLifecycleRequest.calldata(operation, feeLimit));
+    }
+    public CompletionStage<ProgramCall> windDown(NativeProgramWindDown operation) {
+        return prepare(NativeProgramLifecycleRequest.calldata(operation, BigInteger.ZERO));
+    }
+    public CompletionStage<LocalVerifier.ReceiptVerification> deploy(NativeProgramDeploy operation, byte[] signedTransaction, IdempotencyKey key) {
+        return lifecycle(operation, signedTransaction, key);
+    }
+    public CompletionStage<LocalVerifier.ReceiptVerification> upgrade(NativeProgramUpgrade operation, byte[] signedTransaction, IdempotencyKey key) {
+        return lifecycle(operation, signedTransaction, key);
+    }
+    public CompletionStage<LocalVerifier.ReceiptVerification> windDown(NativeProgramWindDown operation, byte[] signedTransaction, IdempotencyKey key) {
+        return lifecycle(operation, signedTransaction, key);
+    }
+    private CompletionStage<LocalVerifier.ReceiptVerification> lifecycle(NativeProgramLifecycle operation, byte[] signedTransaction, IdempotencyKey key) {
+        Objects.requireNonNull(key, "key");
+        new NativeProgramLifecycleRequest(operation, signedTransaction, key);
+        return broadcast(signedTransaction).thenCompose(submission -> sequencerReceipt(submission.signedTransaction()))
+            .thenApply(ProgramsClient::legacyReceiptView);
+    }
+    private static LocalVerifier.ReceiptVerification legacyReceiptView(LocalVerifier.SequencerReceiptVerification receipt) {
+        return new LocalVerifier.ReceiptVerification(receipt.level(), receipt.receipt(), receipt.canonicalBytes(), receipt.receiptDigest());
     }
 
     private final ProductionClient client;
+    private Programs rpc;
+    private String sender;
+    private BigInteger priorityFee;
+    private BigInteger maximumFee;
+    private LocalVerifier.ReceiptKeys receiptKeys;
+    private byte[] didId;
+    private final Map<String, byte[]> submittedTransactions = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, String> submittedNonces = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public ProgramsClient(Programs rpc, String sender, BigInteger priorityFee, BigInteger maximumFee,
+                          LocalVerifier.ReceiptKeys receiptKeys, byte[] didId) {
+        this.client = null;
+        this.rpc = Objects.requireNonNull(rpc, "rpc");
+        this.sender = Programs.address(sender);
+        Programs.word(priorityFee, 256); Programs.word(maximumFee, 256);
+        if (priorityFee.compareTo(maximumFee) > 0) invalid();
+        this.priorityFee = priorityFee; this.maximumFee = maximumFee;
+        this.receiptKeys = Objects.requireNonNull(receiptKeys, "receiptKeys");
+        this.didId = exactArgument(didId, 32);
+        this.sequencerPublicKey = receiptKeys.entries().getFirst().publicKey();
+        this.protocolVersion = 3; this.clock = Clock.systemUTC();
+        this.maximumSimulationAgeMillis = BigInteger.valueOf(300_000);
+    }
+
+    private CompletionStage<JsonNode> rpc(String method, JsonNode... parameters) {
+        if (rpc == null) throw new PlatformSdkException(PlatformSdkException.Code.UNAVAILABLE_CAPABILITY,
+            PlatformSdkException.Retry.NEVER, null, null, null);
+        ArrayNode params = JsonNodeFactory.instance.arrayNode();
+        for (JsonNode parameter : parameters) params.add(parameter);
+        return rpc.request(method, params);
+    }
+    private static JsonNode string(String value) { return JsonNodeFactory.instance.textNode(value); }
+    private CompletionStage<byte[]> ethCall(String address, byte[] calldata) {
+        ObjectNode tx = object().put("to", address).put("data", Programs.hexData(calldata));
+        if (sender != null) tx.put("from", sender);
+        return rpc("eth_call", tx, string("pending")).thenApply(Programs::data);
+    }
+    private CompletionStage<ProgramCall> prepare(byte[] calldata) {
+        return rpc("eth_getTransactionCount", string(sender), string("pending")).thenCompose(nonce -> {
+            ObjectNode tx = object().put("type", "0x2").put("chainId", "0x7d").put("from", sender)
+                .put("to", PROGRAMS_ADDRESS).put("nonce", Programs.quantity(Programs.quantity(nonce)))
+                .put("maxPriorityFeePerGas", Programs.quantity(priorityFee)).put("maxFeePerGas", Programs.quantity(maximumFee))
+                .put("value", "0x0").put("data", Programs.hexData(calldata));
+            tx.putArray("accessList");
+            return rpc("eth_estimateGas", tx.deepCopy(), string("pending")).thenApply(gas -> {
+                tx.put("gas", Programs.quantity(Programs.quantity(gas)));
+                return new ProgramCall(tx);
+            });
+        });
+    }
+    public CompletionStage<ProgramCall> call(NativeProgramCall call, BigInteger feeLimit) {
+        return prepare(call.calldata(feeLimit));
+    }
+    public CompletionStage<ProgramCall> call(Call call) {
+        return call(nativeCall(call), call.budget().feeLimit());
+    }
+    private static NativeProgramCall nativeCall(Call call) {
+        Objects.requireNonNull(call, "call");
+        NativeProgramCall nativeCall = call.nativeCall() == null
+            ? NativeProgramCall.decodeSignedActivity(call.signedActivity()) : call.nativeCall();
+        if (!Arrays.equals(nativeCall.programId(), call.programId()) || !Arrays.equals(nativeCall.calldata(), call.calldata())
+                || !new BigInteger(Long.toUnsignedString(nativeCall.resources()[0])).equals(call.budget().fuel())) invalid();
+        return nativeCall;
+    }
+    public CompletionStage<ProgramSubmission> submit(ProgramCall prepared, byte[] signedTransaction) {
+        Programs.bind(prepared, signedTransaction);
+        return broadcast(signedTransaction);
+    }
+    private CompletionStage<ProgramSubmission> broadcast(byte[] signedTransaction) {
+        byte[] raw = signedTransaction.clone();
+        List<Programs.Rlp> fields = Programs.transactionFields(raw);
+        ObjectNode tx = object().put("type", "0x2").put("chainId", "0x7d").put("from", sender)
+            .put("to", PROGRAMS_ADDRESS).put("value", "0x0").put("data", Programs.hexData(fields.get(7).value()));
+        String[] quantities = {"chainId", "nonce", "maxPriorityFeePerGas", "maxFeePerGas", "gas"};
+        for (int i = 0; i < quantities.length; i++) tx.put(quantities[i], Programs.quantity(new BigInteger(1, fields.get(i).value())));
+        tx.putArray("accessList");
+        Programs.bind(new ProgramCall(tx), raw);
+        byte[] hash = Programs.transactionHash(raw);
+        String nonce = tx.path("nonce").asText();
+        String prior = submittedNonces.putIfAbsent(nonce, hex(hash));
+        if (prior != null && !prior.equals(hex(hash))) invalid();
+        submittedTransactions.put(hex(hash), raw.clone());
+        return rpc("eth_sendRawTransaction", string(Programs.hexData(raw))).thenApply(result -> {
+            if (!Arrays.equals(Programs.data(result), hash)) throw unknownOutcome();
+            return new ProgramSubmission(hash, raw, null);
+        });
+    }
+    public CompletionStage<ProgramSubmission> receipt(ProgramSubmission submission) {
+        return sequencerReceipt(submission.signedTransaction()).thenApply(receipt ->
+            new ProgramSubmission(submission.transactionHash(), submission.signedTransaction(), receipt));
+    }
+    public CompletionStage<LocalVerifier.SequencerReceiptVerification> sequencerReceipt(byte[] signedTransaction) {
+        byte[] raw = signedTransaction.clone();
+        byte[] hash = Programs.transactionHash(raw);
+        return rpc("pax_sequencerReceipt", string(Programs.hexData(hash))).thenApply(view -> {
+            if (!view.isObject() || !Arrays.equals(Programs.data(view.path("txHash")), hash)) invalidVerification();
+            String rung = view.path("rung").asText();
+            if ("submitted".equals(rung)) throw unknownOutcome();
+            if (!Set.of("receipted", "committed").contains(rung)) invalidVerification();
+            return verifyReceipt(Programs.data(view.path("receipt")), raw, receiptKeys, view);
+        });
+    }
+    public static LocalVerifier.SequencerReceiptVerification verifyReceipt(byte[] receipt, byte[] signedTransaction,
+            LocalVerifier.ReceiptKeys keys, JsonNode view) {
+        var verified = LocalVerifier.verifySequencerReceipt(receipt, signedTransaction, keys);
+        return LocalVerifier.verifySequencerReceipt(receipt, signedTransaction, keys, view, verified.receipt().previousStateRoot());
+    }
     private final byte[] sequencerPublicKey;
     private final int protocolVersion;
     private final Clock clock;
@@ -283,438 +619,102 @@ public final class ProgramsClient {
         this.maximumSimulationAgeMillis = durationMillis(maximumSimulationAge);
     }
 
-    public CompletionStage<Discovery> discover(byte[] programId) {
-        return discover(programId, SEQUENCER_SIGNED);
-    }
-
-    private record DiscoveryRead(Discovery head, byte[] deploymentReceiptDigest) {}
-
+    public CompletionStage<Discovery> discover(byte[] programId) { return discover(programId, "pending"); }
     public CompletionStage<Discovery> discover(byte[] programId, String verificationLevel) {
-        requireSequencerSigned(verificationLevel);
-        return readDiscovery(programId).thenApply(DiscoveryRead::head);
+        if (!"pending".equals(verificationLevel)) invalid();
+        byte[] id = exactArgument(programId, 32);
+        return ethCall(PROGRAMS_ADDRESS, Programs.abi("b1ffb3d4", new Object[] {id})).thenApply(data -> {
+            if (data.length != 192 || Programs.number(data, 0, 8).intValue() > 1) throw decodeFailure();
+            int active = Programs.number(data, 160, 1).intValue();
+            return new Discovery(id, active == 1 ? Lifecycle.ACTIVE : Lifecycle.DEPRECATED,
+                Programs.number(data, 128, 32).longValueExact(), Arrays.copyOfRange(data, 64, 96),
+                Programs.number(data, 96, 16).intValueExact(), null, null, null, null, null, "pending");
+        });
     }
-
-    private CompletionStage<DiscoveryRead> readDiscovery(byte[] programId) {
-        String id = hex(exactArgument(programId, 32));
-        ObjectNode body = object().put("program_id", id)
-            .put("requested_verification_level", SEQUENCER_SIGNED);
-        return raw("program.discover", body, Map.of("program_id", id), null)
-            .thenApply(value -> decodeDiscovery(value, id, BigInteger.valueOf(clock.millis())));
-    }
-
-    public CompletionStage<Interface> interfaceAt(byte[] programId) {
-        return interfaceAt(programId, SEQUENCER_SIGNED);
-    }
-
+    public CompletionStage<Interface> interfaceAt(byte[] programId) { return interfaceAt(programId, "pending"); }
     public CompletionStage<Interface> interfaceAt(byte[] programId, String verificationLevel) {
-        requireSequencerSigned(verificationLevel);
-        String id = hex(exactArgument(programId, 32));
-        ObjectNode body = object().put("program_id", id)
-            .put("requested_verification_level", SEQUENCER_SIGNED);
-        return raw("program.interface", body, Map.of("program_id", id), null)
-            .thenCompose(value -> {
-                Interface result = decodeInterface(value, id, BigInteger.valueOf(clock.millis()));
-                if (result.abiVersion() == GeneratedReceiptContract.PROGRAM_ABI_V1
-                        || result.abiVersion() == GeneratedReceiptContract.PROGRAM_ABI_V2) {
-                    return java.util.concurrent.CompletableFuture.completedFuture(result);
-                }
-                return readDiscovery(result.programId()).thenApply(discovery -> {
-                    Discovery head = discovery.head();
-                    if (!SEQUENCER_SIGNED.equals(head.verification())
-                            || discovery.deploymentReceiptDigest() == null
-                            || head.version() != result.version() || head.abiVersion() != result.abiVersion()
-                            || !MessageDigest.isEqual(head.programId(), result.programId())
-                            || !MessageDigest.isEqual(head.codeHash(), result.codeHash())
-                            || !MessageDigest.isEqual(discovery.deploymentReceiptDigest(), result.receiptDigest())
-                            || !MessageDigest.isEqual(head.stateRoot(), result.stateRoot())
-                            || !head.observedSequence().equals(result.observedSequence())
-                            || !head.observedAt().equals(result.observedAt())
-                            || !head.validThrough().equals(result.validThrough())) invalidVerification();
-                    return result;
-                });
-            });
+        if (!"pending".equals(verificationLevel)) invalid();
+        byte[] id = exactArgument(programId, 32);
+        return ethCall(PROGRAMS_ADDRESS, Programs.abi("8efc7240", new Object[] {id})).thenApply(data -> {
+            long version = Programs.number(data, 0, 32).longValueExact();
+            byte[] digest = Arrays.copyOfRange(data, 32, 64), encoding = Programs.dynamic(data, 0, 2);
+            if (!Arrays.equals(sha256(encoding), digest)) invalidVerification();
+            return new Interface(id, version, null, 0, encoding, digest, null, null, null, null, null, null, "pending");
+        }).thenCompose(iface -> discover(id).thenApply(program -> {
+            if (iface.version() != program.version()) invalidVerification();
+            return new Interface(id, iface.version(), program.codeHash(), program.abiVersion(), iface.interfaceBytes(),
+                iface.interfaceDigest(), null, null, null, null, null, null, "pending");
+        }));
     }
-
-    public CompletionStage<Simulation> simulate(Call call) {
-        Objects.requireNonNull(call, "call");
-        if (call.nativeCall() != null && protocolVersion != 3) invalid();
-        ActivityBinding activity = decodeSignedCall(call);
-        return raw("program.simulate", encode(call), Map.of(), null)
-            .thenApply(value -> {
-                Simulation result = decodeSimulation(value, call.programId(), activity, sequencerPublicKey,
-                    BigInteger.valueOf(clock.millis()), maximumSimulationAgeMillis, call);
-                bindGuestAbi(call, result.execution());
-                return result;
-            });
+    public CompletionStage<ProgramSimulation> simulate(NativeProgramCall call, BigInteger feeLimit) {
+        return ethCall(PROGRAMS_ADDRESS, call.simulateCalldata(feeLimit)).thenApply(data -> {
+            if (data.length < 128) throw decodeFailure();
+            BigInteger signed = new BigInteger(Arrays.copyOfRange(data, 0, 32));
+            int result = signed.intValueExact();
+            int kind = Programs.number(data, 32, 8).intValueExact();
+            if (kind < 1 || kind > 3) throw decodeFailure();
+            byte[] response = Programs.dynamic(data, 0, 2);
+            if (!Arrays.equals(data, Programs.abi("", new Object[] {
+                    fixedUnsigned(signed.signum() < 0 ? signed.add(BigInteger.ONE.shiftLeft(256)) : signed, 32),
+                    Programs.word(BigInteger.valueOf(kind), 8), response}, 2))) throw decodeFailure();
+            return new ProgramSimulation(result, kind, response);
+        });
     }
-
+    public CompletionStage<ProgramSimulation> simulate(Call call) {
+        return simulate(nativeCall(call), call.budget().feeLimit());
+    }
     public CompletionStage<Submission> submit(Call call, IdempotencyKey key) {
-        Objects.requireNonNull(call, "call");
-        Objects.requireNonNull(key, "key");
-        if (!canonicalLowerHex(key.value(), 32)) throw new PlatformSdkException(
-            PlatformSdkException.Code.IDEMPOTENCY_REQUIRED, PlatformSdkException.Retry.NEVER,
-            null, null, null);
-        if (call.nativeCall() != null && protocolVersion != 3) invalid();
-        ActivityBinding activity = decodeSignedCall(call);
-        if (!MessageDigest.isEqual(activity.idempotencyKey(), HexFormat.of().parseHex(key.value()))) invalid();
-        return raw("program.call", encode(call), Map.of(), key).handle((value, error) -> {
-            if (error != null) throw new java.util.concurrent.CompletionException(error);
-            try {
-                Submission result = decodeSubmission(value, call.programId(), activity.activityId(), key.value(),
-                    call.signedActivity(), sequencerPublicKey, call);
-                bindGuestAbi(call, result.execution());
-                return result;
-            } catch (PlatformSdkException failure) {
-                if (failure.code() == PlatformSdkException.Code.DECODE_FAILURE
-                        || failure.code() == PlatformSdkException.Code.VERIFICATION_FAILURE) {
-                    throw new java.util.concurrent.CompletionException(unknownOutcome());
-                }
-                throw failure;
-            }
+        if (key == null || !canonicalLowerHex(key.value(), 32)) invalid();
+        NativeProgramCall nativeCall = nativeCall(call);
+        byte[] signed = call.signedActivity();
+        if (!Arrays.equals(Programs.transactionData(signed), nativeCall.calldata(call.budget().feeLimit()))) invalid();
+        return broadcast(signed).thenApply(result -> pendingSubmission(result.transactionHash(), key.value(), signed, object()));
+    }
+    private static Submission pendingSubmission(byte[] hash, String key, byte[] raw, ObjectNode value) {
+        return new Submission(SubmissionState.UNKNOWN, hash, key, raw, null, value);
+    }
+    public CompletionStage<Submission> receipt(Call call, IdempotencyKey key) {
+        byte[] signed = call.signedActivity();
+        nativeCall(call).bindSignedActivity(signed);
+        submittedTransactions.put(hex(Programs.transactionHash(signed)), signed.clone());
+        return receipt(key, Programs.transactionHash(signed));
+    }
+    public CompletionStage<Submission> receipt(IdempotencyKey key, byte[] expectedTransactionHash) {
+        return receipt(key, expectedTransactionHash, "receipted");
+    }
+    public CompletionStage<Submission> receipt(IdempotencyKey key, byte[] expectedTransactionHash, String verificationLevel) {
+        if (key == null || !canonicalLowerHex(key.value(), 32) || !"receipted".equals(verificationLevel)) invalid();
+        byte[] hash = exactArgument(expectedTransactionHash, 32);
+        byte[] raw = submittedTransactions.get(hex(hash));
+        if (raw == null) throw new PlatformSdkException(PlatformSdkException.Code.INVALID_ARGUMENT,
+            PlatformSdkException.Retry.NEVER, null, null, null);
+        return receiptByIdempotency(key, raw).thenApply(verified -> {
+            ObjectNode value = object().put("transaction_hash", Programs.hexData(hash)).put("verification", "receipted");
+            return new Submission(verified.status() == 1 ? SubmissionState.EXECUTED : SubmissionState.REFUSED,
+                hash, key.value(), raw, verified, value);
+        });
+    }
+    public CompletionStage<LocalVerifier.SequencerReceiptVerification> receiptByIdempotency(IdempotencyKey key, byte[] signedTransaction) {
+        if (key == null || !canonicalLowerHex(key.value(), 32)) invalid();
+        byte[] raw = signedTransaction.clone();
+        return ethCall(AUTH_ADDRESS, Programs.abi(Programs.selector("resultByIdempotency(bytes32,bytes32)"),
+            new Object[] {didId, hex32(key.value())})).thenApply(data -> {
+                byte[] receipt = Programs.dynamic(data, 0, 0);
+                if (!Arrays.equals(data, Programs.abi("", new Object[] {receipt}, 0))) throw decodeFailure();
+                return LocalVerifier.verifySequencerReceipt(receipt, raw, receiptKeys);
+            });
+    }
+    public CompletionStage<JsonNode> activity(byte[] transactionHash) { return activity(transactionHash, "pending"); }
+    public CompletionStage<JsonNode> activity(byte[] transactionHash, String verificationLevel) {
+        if (!"pending".equals(verificationLevel)) invalid();
+        byte[] hash = exactArgument(transactionHash, 32);
+        return rpc("eth_getTransactionByHash", string(Programs.hexData(hash))).thenApply(value -> {
+            if (!value.isNull() && (!value.isObject() || !Arrays.equals(Programs.data(value.path("hash")), hash))) invalidVerification();
+            return value.deepCopy();
         });
     }
 
-    private static void bindGuestAbi(Call call, VerifiedExecution execution) {
-        if (execution != null && call.nativeCall() != null
-                && execution.guestAbiVersion() != call.nativeCall().guestAbi()) invalidVerification();
-    }
-
-    public CompletionStage<Submission> receipt(Call call, IdempotencyKey key) {
-        Objects.requireNonNull(call, "call");
-        Objects.requireNonNull(key, "key");
-        if (call.nativeCall() != null && protocolVersion != 3) invalid();
-        ActivityBinding binding = decodeSignedCall(call);
-        if (!canonicalLowerHex(key.value(), 32)
-                || !MessageDigest.isEqual(binding.idempotencyKey(), hex32(key.value()))) invalid();
-        ObjectNode body = object().put("idempotency_key", key.value())
-            .put("expected_activity_id", hex(binding.activityId()))
-            .put("requested_verification_level", SEQUENCER_SIGNED);
-        return raw("program.receipt", body, Map.of("idempotency_key", key.value()), null)
-            .thenApply(value -> {
-                Submission result = decodeSubmission(value, call.programId(), binding.activityId(), key.value(),
-                    call.signedActivity(), sequencerPublicKey, call);
-                bindGuestAbi(call, result.execution());
-                return result;
-            });
-    }
-
-    public CompletionStage<Submission> receipt(IdempotencyKey key, byte[] expectedActivityId) {
-        return receipt(key, expectedActivityId, SEQUENCER_SIGNED);
-    }
-
-    public CompletionStage<Submission> receipt(IdempotencyKey key, byte[] expectedActivityId,
-                                                String verificationLevel) {
-        Objects.requireNonNull(key, "key");
-        if (!canonicalLowerHex(key.value(), 32)) invalid();
-        requireSequencerSigned(verificationLevel);
-        byte[] expected = exactArgument(expectedActivityId, 32);
-        String activity = hex(expected);
-        ObjectNode body = object().put("idempotency_key", key.value())
-            .put("expected_activity_id", activity)
-            .put("requested_verification_level", SEQUENCER_SIGNED);
-        return raw("program.receipt", body, Map.of("idempotency_key", key.value()), null)
-            .thenApply(value -> decodeSubmission(value, null, expected, key.value(), null,
-                sequencerPublicKey, null));
-    }
-
-    public CompletionStage<Submission> activity(byte[] activityId) {
-        return activity(activityId, SEQUENCER_SIGNED);
-    }
-
-    public CompletionStage<Submission> activity(byte[] activityId, String verificationLevel) {
-        requireSequencerSigned(verificationLevel);
-        byte[] expected = exactArgument(activityId, 32);
-        String id = hex(expected);
-        ObjectNode body = object().put("activity_id", id)
-            .put("requested_verification_level", SEQUENCER_SIGNED);
-        return raw("program.activity", body, Map.of("activity_id", id), null)
-            .thenApply(value -> decodeSubmission(value, null, expected, null, null,
-                sequencerPublicKey, null));
-    }
-
-    public static LocalVerifier.ReceiptVerification verifyReceipt(byte[] canonicalReceipt,
-            LocalVerifier.AuthorizedReceiptBatch authorized, byte[] expectedActivityId,
-            int expectedGuestAbiVersion, byte[] terminalPayload, byte[] callGraph, int... selectedProtocol) {
-        if (expectedGuestAbiVersion != 1 && expectedGuestAbiVersion != 2) invalid();
-        LocalVerifier.ReceiptVerification verified = LocalVerifier.verifyReceiptOutcome(canonicalReceipt, authorized, selectedProtocol);
-        LocalVerifier.ProtocolReceipt receipt = verified.receipt();
-        LocalVerifier.ProgramReceiptOutcome outcome = receipt.programOutcome();
-        if (receipt.protocolVersion() == 0 || receipt.moduleId() != PROGRAMS_RECEIPT_MODULE_ID
-                || receipt.operation() != CALL_OPERATION || receipt.moduleVersion() < 1
-                || receipt.moduleVersion() > 5
-                || !Arrays.equals(receipt.activityId(), exactArgument(expectedActivityId, 32))
-                || outcome == null || outcome.abiVersion() != expectedGuestAbiVersion
-                || callGraph == null || callGraph.length == 0 || callGraph.length > MAX_CALLDATA_BYTES
-                || terminalPayload == null || terminalPayload.length > MAX_CALLDATA_BYTES
-                || !MessageDigest.isEqual(sha256(terminalPayload), outcome.terminalPayloadRoot())
-                || !MessageDigest.isEqual(sha256(callGraph), outcome.callGraphRoot())) invalidVerification();
-        return verified;
-    }
-
-    private CompletionStage<ObjectNode> raw(String operation, ObjectNode body, Map<String, String> path,
-                                             IdempotencyKey key) {
-        return client.programs(operation, body, ObjectNode.class, new ProductionClient.Options(key, path));
-    }
-
-    private DiscoveryRead decodeDiscovery(ObjectNode value, String expectedProgram, BigInteger now) {
-        if (value == null) throw decodeFailure();
-        List<String> fields = new ArrayList<>(List.of("program_id", "lifecycle", "version", "code_hash", "abi_version",
-            "receipt_digest", "state_root", "observed_sequence", "observed_at", "valid_through", "verification"));
-        boolean deployment = value.has("deployment_receipt_digest");
-        boolean proof = value.has("discovery_public_key") || value.has("discovery_signature");
-        if (deployment) fields.add("deployment_receipt_digest");
-        if (proof) { fields.add("discovery_public_key"); fields.add("discovery_signature"); }
-        requireFields(value, fields.toArray(String[]::new));
-        String lifecycle = text(value, "lifecycle");
-        BigInteger observedAt = unsigned(value.get("observed_at"), 64);
-        int abi = requiredU16(value.get("abi_version"));
-        if (!expectedProgram.equals(text(value, "program_id"))
-                || !Set.of("active", "deprecated", "tombstoned").contains(lifecycle)
-                || requiredU32(value.get("version")) == 0 || !GeneratedReceiptContract.supportsProgramGuestAbi(abi)
-                || !canonicalLowerHex(text(value, "code_hash"), 32)
-                || !canonicalLowerHex(text(value, "receipt_digest"), 32)
-                || !canonicalLowerHex(text(value, "state_root"), 32)
-                || unsigned(value.get("valid_through"), 64).compareTo(observedAt) < 0
-                || now.compareTo(unsigned(value.get("valid_through"), 64)) > 0
-                || !"registry-receipt-and-current-head-verified".equals(text(value, "verification"))) {
-            throw decodeFailure();
-        }
-        unsigned(value.get("observed_sequence"), 64);
-        byte[] deploymentDigest = deployment ? hex32(text(value, "deployment_receipt_digest")) : null;
-        if (abi != GeneratedReceiptContract.PROGRAM_ABI_V1 && abi != GeneratedReceiptContract.PROGRAM_ABI_V2
-                && (!proof || !deployment)) invalidVerification();
-        String verification = "server-side-receipt-verification-only";
-        if (proof) {
-            byte[] publicKey = hex32(text(value, "discovery_public_key"));
-            byte[] signature = boundedHex(text(value, "discovery_signature"), false);
-            byte[] digest = sha256(DISCOVERY_PROOF_DOMAIN, hex32(expectedProgram), new byte[] {1},
-                fixedUnsigned(BigInteger.valueOf(requiredU32(value.get("version"))), 4),
-                hex32(text(value, "code_hash")), fixedUnsigned(BigInteger.valueOf(abi), 2),
-                fixedUnsigned(unsigned(value.get("observed_sequence"), 64), 8), fixedUnsigned(observedAt, 8),
-                fixedUnsigned(unsigned(value.get("valid_through"), 64), 8), hex32(text(value, "state_root")));
-            if (observedAt.compareTo(now) > 0 || signature.length != 64
-                    || !MessageDigest.isEqual(publicKey, sequencerPublicKey)
-                    || !MessageDigest.isEqual(digest, hex32(text(value, "receipt_digest")))
-                    || !verifyEd25519(publicKey, signature, digest)) invalidVerification();
-            verification = SEQUENCER_SIGNED;
-        }
-        Discovery head = new Discovery(hex32(expectedProgram), Lifecycle.valueOf(lifecycle.toUpperCase(java.util.Locale.ROOT)),
-            requiredU32(value.get("version")), hex32(text(value, "code_hash")), abi,
-            hex32(text(value, "receipt_digest")), hex32(text(value, "state_root")),
-            unsigned(value.get("observed_sequence"), 64), observedAt, unsigned(value.get("valid_through"), 64),
-            verification);
-        return new DiscoveryRead(head, deploymentDigest);
-    }
-
-    private static Interface decodeInterface(ObjectNode value, String expectedProgram, BigInteger now) {
-        requireFields(value, "program_id", "version", "code_hash", "abi_version", "interface",
-            "interface_digest", "receipt_digest", "state_root", "observed_sequence", "observed_at",
-            "valid_through", "source", "verification");
-        BigInteger observedAt = unsigned(value.get("observed_at"), 64);
-        int abi = requiredU16(value.get("abi_version"));
-        if (!expectedProgram.equals(text(value, "program_id")) || requiredU32(value.get("version")) == 0
-                || !GeneratedReceiptContract.supportsProgramGuestAbi(abi) || !canonicalLowerHex(text(value, "code_hash"), 32)
-                || !canonicalLowerHex(text(value, "receipt_digest"), 32)
-                || !canonicalLowerHex(text(value, "state_root"), 32)
-                || unsigned(value.get("valid_through"), 64).compareTo(observedAt) < 0
-                || now.compareTo(unsigned(value.get("valid_through"), 64)) > 0
-                || !"deployment-interface-and-current-head-verified".equals(text(value, "verification"))) {
-            throw decodeFailure();
-        }
-        unsigned(value.get("observed_sequence"), 64);
-        byte[] interfaceBytes = boundedHex(text(value, "interface"), false);
-        if (interfaceBytes.length > MAX_INTERFACE_BYTES) throw decodeFailure();
-        byte[] interfaceDigest = hex32(text(value, "interface_digest"));
-        if (!MessageDigest.isEqual(sha256(interfaceBytes), interfaceDigest)) throw decodeFailure();
-        Source source = decodeSource(object(value, "source"));
-        return new Interface(hex32(expectedProgram), requiredU32(value.get("version")),
-            hex32(text(value, "code_hash")), abi, interfaceBytes, interfaceDigest,
-            hex32(text(value, "receipt_digest")), hex32(text(value, "state_root")),
-            unsigned(value.get("observed_sequence"), 64), observedAt, unsigned(value.get("valid_through"), 64), source,
-            "server-side-receipt-verification-only");
-    }
-
-    private static void validateSource(ObjectNode source) {
-        String status = text(source, "status");
-        switch (status) {
-            case "unpublished" -> requireFields(source, "status");
-            case "verified" -> {
-                requireFields(source, "status", "source_digest", "environment_digest", "pipeline");
-                hex32(text(source, "source_digest"));
-                hex32(text(source, "environment_digest"));
-                if (!"sha256-source-artifact-reproducible-build-v1".equals(text(source, "pipeline"))) {
-                    throw decodeFailure();
-                }
-            }
-            case "mismatch" -> {
-                requireFields(source, "status", "expected_code_hash", "reproduced_artifact_digest");
-                hex32(text(source, "expected_code_hash"));
-                hex32(text(source, "reproduced_artifact_digest"));
-            }
-            default -> throw decodeFailure();
-        }
-    }
-
-    private static Source decodeSource(ObjectNode source) {
-        validateSource(source);
-        String status = text(source, "status");
-        return switch (status) {
-            case "unpublished" -> new Source(status, null, null, null, null, null);
-            case "verified" -> new Source(status, hex32(text(source, "source_digest")),
-                hex32(text(source, "environment_digest")), text(source, "pipeline"), null, null);
-            case "mismatch" -> new Source(status, null, null, null,
-                hex32(text(source, "expected_code_hash")), hex32(text(source, "reproduced_artifact_digest")));
-            default -> throw decodeFailure();
-        };
-    }
-
     private static byte[] cloneNullable(byte[] value) { return value == null ? null : value.clone(); }
-
-    private Simulation decodeSimulation(ObjectNode value, byte[] expectedProgram,
-                                                ActivityBinding activity, byte[] pinnedKey,
-                                                BigInteger now, BigInteger maximumAge, Call expectedCall) {
-        requireFields(value, "committed", "execution", "simulation_evidence");
-        if (!value.path("committed").isBoolean() || value.path("committed").booleanValue()) {
-            throw decodeFailure();
-        }
-        ObjectNode executionDocument = object(value, "execution");
-        VerifiedExecution execution = verifyExecution(executionDocument, "simulated", false,
-            expectedProgram, activity.activityId(), null, pinnedKey, expectedCall);
-        verifySimulationEvidence(executionDocument, object(value, "simulation_evidence"), activity,
-            pinnedKey, now, maximumAge);
-        return new Simulation(value, execution);
-    }
-
-    private Submission decodeSubmission(ObjectNode value, byte[] expectedProgram,
-            byte[] expectedActivity, String expectedKey, byte[] expectedSignedActivity, byte[] pinnedKey, Call expectedCall) {
-        SubmissionState state = SubmissionState.parse(text(value, "state"));
-        if (state == SubmissionState.UNKNOWN) {
-            boolean retained = value.has("retained_signed_activity");
-            if (expectedSignedActivity != null || retained) {
-                requireFields(value, "state", "activity_id", "idempotency_key", "retained_signed_activity");
-            } else {
-                requireFields(value, "state", "activity_id", "idempotency_key");
-            }
-            byte[] activity = hex32(text(value, "activity_id"));
-            String key = text(value, "idempotency_key");
-            if (!canonicalLowerHex(key, 32) || expectedKey != null && !expectedKey.equals(key)) {
-                throw decodeFailure();
-            }
-            byte[] retainedActivity = retained
-                ? boundedHex(text(value, "retained_signed_activity"), false) : null;
-            if (expectedActivity != null && !MessageDigest.isEqual(activity, expectedActivity)
-                    || expectedSignedActivity != null && (retainedActivity == null
-                        || !MessageDigest.isEqual(retainedActivity, expectedSignedActivity))) {
-                invalidVerification();
-            }
-            return new Submission(state, activity, key, retainedActivity, null, value);
-        }
-        String key = text(value, "idempotency_key");
-        if (!canonicalLowerHex(key, 32) || expectedKey != null && !expectedKey.equals(key)) {
-            throw decodeFailure();
-        }
-        VerifiedExecution execution = verifyExecution(value, state.wire(), true, expectedProgram,
-            expectedActivity, key, pinnedKey, expectedCall);
-        String outcomeKind = text(object(value, "outcome"), "kind");
-        if (state == SubmissionState.REFUSED && !"refused".equals(outcomeKind)
-                || state == SubmissionState.EXECUTED
-                    && !Set.of("completed", "legacy_completed").contains(outcomeKind)) {
-            invalidVerification();
-        }
-        return new Submission(state, hex32(text(value, "activity_id")), key, null, execution, value);
-    }
-
-    private VerifiedExecution verifyExecution(ObjectNode document, String expectedState,
-            boolean idempotent, byte[] expectedProgram, byte[] expectedActivity, String expectedKey,
-            byte[] pinnedKey, Call expectedCall) {
-        String[] base = {"state", "activity_id", "program_id", "guest_abi_version", "module_version",
-            "batch_id", "global_sequence", "result_code", "state_root", "receipt", "receipt_digest",
-            "terminal_payload", "call_graph", "authority", "usage", "outcome", "verification"};
-        if (idempotent) {
-            String[] fields = Arrays.copyOf(base, base.length + 1);
-            fields[base.length] = "idempotency_key";
-            requireFields(document, fields);
-        } else {
-            requireFields(document, base);
-        }
-        if (!expectedState.equals(text(document, "state"))) throw decodeFailure();
-        byte[] activity = hex32(text(document, "activity_id"));
-        byte[] program = hex32(text(document, "program_id"));
-        if (expectedProgram != null && !MessageDigest.isEqual(program, expectedProgram)
-                || expectedActivity != null && !MessageDigest.isEqual(activity, expectedActivity)
-                || expectedKey != null && !expectedKey.equals(text(document, "idempotency_key"))) {
-            invalidVerification();
-        }
-        int guestAbi = requiredU16(document.get("guest_abi_version"));
-        long moduleVersion = requiredU32(document.get("module_version"));
-        int resultCode = requiredI32(document.get("result_code"));
-        BigInteger globalSequence = unsigned(document.get("global_sequence"), 64);
-        if (!GeneratedReceiptContract.supportsProgramGuestAbi(guestAbi) || moduleVersion < 1 || moduleVersion > 4
-                || !EXECUTION_VERIFICATION.equals(text(document, "verification"))) throw decodeFailure();
-        ObjectNode authority = object(document, "authority");
-        requireFields(authority, "batch_id", "asset", "previous_state_root", "resulting_state_root",
-            "sequencer_public_key");
-        byte[] batchId = hex32(text(authority, "batch_id"));
-        byte[] asset = hex32(text(authority, "asset"));
-        byte[] previousRoot = hex32(text(authority, "previous_state_root"));
-        byte[] resultingRoot = hex32(text(authority, "resulting_state_root"));
-        byte[] sequencerKey = hex32(text(authority, "sequencer_public_key"));
-        if (!MessageDigest.isEqual(batchId, hex32(text(document, "batch_id")))
-                || !MessageDigest.isEqual(resultingRoot, hex32(text(document, "state_root")))
-                || !MessageDigest.isEqual(sequencerKey, pinnedKey)) {
-            invalidVerification();
-        }
-        ObjectNode usage = object(document, "usage");
-        requireFields(usage, "cpu_fuel", "memory_bytes", "storage_read_bytes", "storage_write_bytes",
-            "output_values", "output_bytes", "fee_units");
-        BigInteger cpuFuel = unsigned(usage.get("cpu_fuel"), 64);
-        BigInteger memoryBytes = unsigned(usage.get("memory_bytes"), 64);
-        BigInteger storageReadBytes = unsigned(usage.get("storage_read_bytes"), 64);
-        BigInteger storageWriteBytes = unsigned(usage.get("storage_write_bytes"), 64);
-        long outputValues = requiredU32(usage.get("output_values"));
-        BigInteger outputBytes = unsigned(usage.get("output_bytes"), 64);
-        BigInteger feeUnits = unsigned(usage.get("fee_units"), 128);
-        ObjectNode outcomeDocument = object(document, "outcome");
-        String outcomeKind = validateOutcome(outcomeDocument);
-        byte[] receiptBytes = boundedHex(text(document, "receipt"), false);
-        byte[] terminalPayload = boundedHex(text(document, "terminal_payload"), true);
-        byte[] callGraph = boundedHex(text(document, "call_graph"), false);
-        byte[] declaredReceiptDigest = hex32(text(document, "receipt_digest"));
-        LocalVerifier.AuthorizedReceiptBatch authorized = new LocalVerifier.AuthorizedReceiptBatch(
-            batchId, asset, previousRoot, resultingRoot, sequencerKey);
-        boolean terminalV5Guest = guestAbi == GeneratedReceiptContract.PROGRAM_ABI_V3
-            || guestAbi == GeneratedReceiptContract.PROGRAM_ABI_V4;
-        if (terminalV5Guest && (protocolVersion != 3 || expectedCall == null
-                || expectedCall.nativeCall() == null
-                || expectedCall.nativeCall().guestAbi() != guestAbi
-                || !MessageDigest.isEqual(expectedCall.programId(), program))) invalidVerification();
-        LocalVerifier.ReceiptVerification verified = terminalV5Guest
-            ? LocalVerifier.verifyProgramTerminalV5Receipt(receiptBytes, authorized, activity,
-                expectedCall.nativeCall(), expectedCall.signedActivity(), outcomeDocument, terminalPayload, callGraph)
-            : verifyReceipt(receiptBytes, authorized, activity, guestAbi, terminalPayload, callGraph, protocolVersion);
-        LocalVerifier.ProtocolReceipt receipt = verified.receipt();
-        LocalVerifier.ProgramReceiptOutcome receiptOutcome = receipt.programOutcome();
-        String transferVerification = verifyTerminal(terminalPayload, callGraph, program, outcomeDocument, receipt.protocolVersion(),
-            receiptOutcome);
-        boolean kindMatches = switch (outcomeKind) {
-            case "completed" -> receiptOutcome.terminalKind() == 1
-                && requiredI32(outcomeDocument.get("code")) == receiptOutcome.resultCode();
-            case "legacy_completed" -> receiptOutcome.terminalKind() == 1
-                && requiredI32(outcomeDocument.get("code")) == receiptOutcome.resultCode();
-            case "refused" -> receiptOutcome.terminalKind() == 2 || receiptOutcome.terminalKind() == 3;
-            default -> false;
-        };
-        if (!MessageDigest.isEqual(verified.receiptDigest(), declaredReceiptDigest)
-                || !receipt.globalSequence().equals(globalSequence) || receipt.resultCode() != resultCode
-                || receiptOutcome.resultCode() != resultCode || receipt.moduleVersion() != moduleVersion
-                || !receiptOutcome.cpuFuel().equals(cpuFuel) || !receiptOutcome.memoryBytes().equals(memoryBytes)
-                || !receiptOutcome.storageReadBytes().equals(storageReadBytes)
-                || !receiptOutcome.storageWriteBytes().equals(storageWriteBytes)
-                || receiptOutcome.outputValues() != outputValues
-                || !receiptOutcome.outputBytes().equals(outputBytes)
-                || !receiptOutcome.feeUnits().equals(feeUnits) || !kindMatches) invalidVerification();
-        return new VerifiedExecution(document, verified, terminalPayload, callGraph, transferVerification);
-    }
 
     private record TerminalUsage(BigInteger cpu, BigInteger memory, BigInteger read, BigInteger write,
                                  long values, BigInteger outputBytes, BigInteger fee) {}
@@ -1720,46 +1720,6 @@ public final class ProgramsClient {
         }
     }
 
-    private static void verifySimulationEvidence(ObjectNode execution, ObjectNode evidence,
-                                                 ActivityBinding binding, byte[] pinnedKey,
-                                                 BigInteger now, BigInteger maximumAge) {
-        requireFields(evidence, "boundary_id", "activity_id", "previous_state_root",
-            "hypothetical_state_root", "observed_sequence", "observed_at", "committed", "public_key",
-            "signature");
-        if (!evidence.path("committed").isBoolean() || evidence.path("committed").booleanValue()) {
-            invalidVerification();
-        }
-        byte[] boundary = hex32(text(evidence, "boundary_id"));
-        byte[] activity = hex32(text(evidence, "activity_id"));
-        byte[] previous = hex32(text(evidence, "previous_state_root"));
-        byte[] hypothetical = hex32(text(evidence, "hypothetical_state_root"));
-        byte[] publicKey = hex32(text(evidence, "public_key"));
-        byte[] signature = boundedHex(text(evidence, "signature"), false);
-        BigInteger sequence = unsigned(evidence.get("observed_sequence"), 64);
-        BigInteger observedAt = unsigned(evidence.get("observed_at"), 64);
-        ObjectNode authority = object(execution, "authority");
-        if (signature.length != 64 || sequence.equals(MAX_U64)
-                || !MessageDigest.isEqual(activity, hex32(text(execution, "activity_id")))
-                || !MessageDigest.isEqual(activity, binding.activityId())
-                || !MessageDigest.isEqual(hypothetical, hex32(text(execution, "state_root")))
-                || !MessageDigest.isEqual(previous, hex32(text(authority, "previous_state_root")))
-                || !MessageDigest.isEqual(hypothetical, hex32(text(authority, "resulting_state_root")))
-                || !MessageDigest.isEqual(publicKey, hex32(text(authority, "sequencer_public_key")))
-                || !MessageDigest.isEqual(publicKey, pinnedKey)
-                || !unsigned(execution.get("global_sequence"), 64).equals(sequence.add(BigInteger.ONE))
-                || observedAt.compareTo(binding.notBefore()) < 0
-                || observedAt.compareTo(binding.notAfter()) > 0
-                || observedAt.compareTo(now) > 0 || now.subtract(observedAt).compareTo(maximumAge) > 0
-                || !MessageDigest.isEqual(boundary, sha256(SIMULATION_BOUNDARY_DOMAIN, publicKey))) {
-            invalidVerification();
-        }
-        ByteBuffer integers = ByteBuffer.allocate(16);
-        integers.putLong(sequence.longValue()).putLong(observedAt.longValue());
-        byte[] digest = sha256(SIMULATION_EVIDENCE_DOMAIN, boundary, activity, previous, hypothetical,
-            integers.array(), new byte[] {0});
-        if (!verifyEd25519(publicKey, signature, digest)) invalidVerification();
-    }
-
     private static ObjectNode encode(Call call) {
         ObjectNode value = object().put("program_id", hex(call.programId()))
             .put("calldata", hex(call.calldata())).put("signed_activity", hex(call.signedActivity()));
@@ -1771,82 +1731,6 @@ public final class ProgramsClient {
         ArrayNode capabilities = value.putArray("capabilities");
         call.capabilities().forEach(item -> capabilities.add(item.wire()));
         return value;
-    }
-
-    private static ActivityBinding decodeSignedCall(Call call) {
-        try {
-            byte[] signed = call.signedActivity();
-            BinaryCursor cursor = new BinaryCursor(signed);
-            int envelopeVersion = cursor.u16();
-            if ((envelopeVersion != 1 && envelopeVersion != 2 && envelopeVersion != 3) || cursor.u16() != 0x1001 || cursor.u8() != 12) {
-                throw new IllegalArgumentException();
-            }
-            cursor.tag(1);
-            int protocolVersion = cursor.u16();
-            if (protocolVersion != envelopeVersion) throw new IllegalArgumentException();
-            cursor.tag(2);
-            cursor.u32();
-            cursor.tag(3);
-            if (cursor.u32() != ((PROGRAMS_RECEIPT_MODULE_ID << 16) | CALL_OPERATION)) {
-                throw new IllegalArgumentException();
-            }
-            cursor.tag(4);
-            cursor.bounded(255, true);
-            cursor.tag(5);
-            cursor.bounded(524_288, true);
-            cursor.tag(6);
-            cursor.u64();
-            cursor.tag(7);
-            BigInteger notBefore = cursor.u64();
-            BigInteger notAfter = cursor.u64();
-            if (notAfter.compareTo(notBefore) < 0) throw new IllegalArgumentException();
-            cursor.tag(8);
-            byte[] idempotency = cursor.bounded(32, false);
-            if (idempotency.length != 32) throw new IllegalArgumentException();
-            cursor.tag(9);
-            BigInteger envelopeFee = cursor.integer(16);
-            if (call.nativeCall() != null && (envelopeVersion != 3 || !envelopeFee.equals(call.budget().feeLimit()))) throw new IllegalArgumentException();
-            cursor.tag(10);
-            byte[] payloadHash = cursor.bounded(32, false);
-            if (payloadHash.length != 32) throw new IllegalArgumentException();
-            cursor.tag(11);
-            byte[] payload = cursor.bounded(524_288, true);
-            cursor.tag(12);
-            cursor.bounded(128, true);
-            cursor.finish();
-            byte[] expectedPayload = canonicalCallPayload(call);
-            if (!MessageDigest.isEqual(payload, expectedPayload)
-                    || !MessageDigest.isEqual(payloadHash, sha256(PAYLOAD_HASH_DOMAIN, payload))) {
-                throw new IllegalArgumentException();
-            }
-            return new ActivityBinding(sha256(ACTIVITY_ID_DOMAIN, signed), idempotency,
-                notBefore, notAfter);
-        } catch (IllegalArgumentException error) {
-            invalid();
-            throw new AssertionError();
-        }
-    }
-
-    private static byte[] canonicalCallPayload(Call call) {
-        if (call.nativeCall() != null) {
-            NativeProgramCall n = call.nativeCall();
-            if (!Arrays.equals(n.programId(), call.programId()) || !Arrays.equals(n.calldata(), call.calldata())
-                || !new BigInteger(Long.toUnsignedString(n.resources()[0])).equals(call.budget().fuel()) || !call.capabilities().isEmpty()) invalid();
-            return n.encode();
-        }
-
-        byte[] calldata = call.calldata();
-        byte[] program = call.programId();
-        byte[] fuel = fixedUnsigned(call.budget().fuel(), 8);
-        byte[] fee = fixedUnsigned(call.budget().feeLimit(), 16);
-        int length = PROGRAM_CALL_DOMAIN.length + 32 + 8 + 16 + 2
-            + call.capabilities().size() + 4 + calldata.length;
-        ByteBuffer encoded = ByteBuffer.allocate(length);
-        encoded.put(PROGRAM_CALL_DOMAIN).put(program).put(fuel).put(fee)
-            .putShort((short) call.capabilities().size());
-        call.capabilities().forEach(capability -> encoded.put((byte) (capability.ordinal() + 1)));
-        encoded.putInt(calldata.length).put(calldata);
-        return encoded.array();
     }
 
     private static byte[] fixedUnsigned(BigInteger value, int length) {

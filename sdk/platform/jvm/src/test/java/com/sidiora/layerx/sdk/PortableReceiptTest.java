@@ -7,22 +7,74 @@ import com.sidiora.layerx.sdk.verify.Committed;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import com.sidiora.layerx.sdk.verify.PortableReceipt;
 import java.io.ByteArrayOutputStream;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.signers.Ed25519Signer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import static org.junit.jupiter.api.Assertions.*;
 
 public final class PortableReceiptTest {
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    @Test
+    void portableVectorV5Verifies() throws Exception {
+        JsonNode vector = fixture("vector-v5-portable.json");
+        assertEquals("vector-v5-portable", vector.required("name").textValue());
+        JsonNode bundles = vector.required("bundles");
+        assertTrue(bundles.isArray());
+        assertEquals(2, bundles.size(), "both published V5 bundles must execute");
+        var levels = new java.util.HashSet<String>();
+        List<Executable> checks = new ArrayList<>();
+        for (JsonNode bundle : bundles) {
+            String level = bundle.required("verificationLevel").textValue();
+            assertTrue(levels.add(level), "each V5 verification level must appear once");
+            checks.add(() -> {
+                byte[] encoded = encode(bundle);
+                var verified = assertDoesNotThrow(() -> PortableReceipt(bundle),
+                    "published V5 " + level + " bundle must verify without alteration");
+                assertEquals(level, verified.verificationLevel());
+                assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verified.receipted().level());
+                assertEquals(Integer.parseInt(bundle.required("receiptJson").required("status")
+                    .textValue().substring(2), 16), verified.status());
+                assertDoesNotThrow(verified::requireSuccess);
+                assertArrayEquals(bytes(bundle, "signedReceipt"), verified.receipted().canonicalBytes());
+                assertArrayEquals(bytes(bundle, "receiptDigest"), verified.receipted().receiptDigest());
+                assertArrayEquals(encoded, PortableReceipt.export(verified));
+                if (level.equals("committed")) {
+                    assertNotNull(verified.committed());
+                    assertEquals(Committed.VerificationLevel.COMMITTED, verified.committed().level());
+                    assertEquals(bundle.required("blockHeader").required("Height").longValue(),
+                        verified.committed().height());
+                } else {
+                    assertEquals("receipted", level);
+                    assertNull(verified.committed());
+                }
+            });
+        }
+        assertEquals(Set.of("receipted", "committed"), levels);
+        assertAll("published V5 bundles", checks);
+    }
+
+    private static PortableReceipt.Verification PortableReceipt(JsonNode bundle) {
+        JsonNode pin = bundle.required("receiptKey");
+        var key = new LocalVerifier.ReceiptKey(bytes(pin, "keyId"), bytes(pin, "publicKey"),
+            new BigInteger(pin.required("firstHeight").textValue().substring(2), 16),
+            new BigInteger(pin.required("lastHeight").textValue().substring(2), 16));
+        return PortableReceipt.verify(encode(bundle), new LocalVerifier.ReceiptKeys(List.of(key)));
+    }
 
     @Test
     void portableReceiptRoundTripsAtReceipted() throws Exception {
@@ -33,11 +85,11 @@ public final class PortableReceiptTest {
             var key = key(vector);
             var keys = new LocalVerifier.ReceiptKeys(List.of(key));
             byte[] exported = PortableReceipt.export(bytes(vector, "rawTransaction"),
-                bytes(vector, "signedReceipt"), key);
+                encode(vector.required("receiptJson")), key);
             JsonNode bundle = JSON.readTree(exported);
             assertEquals("layerx-receipt-proof-v2", bundle.required("format").textValue());
             assertEquals("receipted", bundle.required("verificationLevel").textValue());
-            assertEquals(6, bundle.size());
+            assertEquals(7, bundle.size());
             for (String name : List.of("rawTransaction", "signedReceipt", "receiptDigest"))
                 assertEquals(vector.required(name), bundle.required(name), name);
             assertEquals("0x" + key.firstHeight().toString(16),
@@ -56,7 +108,7 @@ public final class PortableReceiptTest {
             assertArrayEquals(bytes(vector, "receiptDigest"), verified.receipted().receiptDigest());
             assertArrayEquals(exported, PortableReceipt.export(verified));
             assertArrayEquals(exported, PortableReceipt.export(bytes(vector, "rawTransaction"),
-                verified.receipted().canonicalBytes(), key));
+                encode(vector.required("receiptJson")), key));
             byte[] copy = PortableReceipt.export(verified);
             copy[0] ^= 1;
             assertArrayEquals(exported, PortableReceipt.export(verified));
@@ -96,7 +148,7 @@ public final class PortableReceiptTest {
             count++;
             var keys = new LocalVerifier.ReceiptKeys(List.of(key(vector)));
             byte[] exported = PortableReceipt.export(bytes(vector, "rawTransaction"),
-                bytes(vector, "signedReceipt"), key(vector));
+                encode(vector.required("receiptJson")), key(vector));
             ObjectNode bundle = (ObjectNode) JSON.readTree(exported);
             ObjectNode versionOne = bundle.deepCopy();
             versionOne.put("format", "layerx-receipt-proof-v1");
@@ -111,7 +163,7 @@ public final class PortableReceiptTest {
                 ((ObjectNode) nested.required("receiptKey")).put(field, hex(new byte[32]));
                 assertRefused(() -> PortableReceipt.verify(encode(nested), keys));
             }
-            for (String field : List.of("rawTransaction", "signedReceipt", "receiptDigest", "receiptKey")) {
+            for (String field : List.of("rawTransaction", "signedReceipt", "receiptDigest", "receiptKey", "receiptJson")) {
                 ObjectNode missing = bundle.deepCopy();
                 missing.remove(field);
                 assertRefused(() -> PortableReceipt.verify(encode(missing), keys));
@@ -130,6 +182,146 @@ public final class PortableReceiptTest {
             assertRefused(() -> PortableReceipt.verify(trailing, keys));
         }
         assertEquals(4, count, "all V1 bundles must refuse the retired format and fields");
+    }
+
+    @Test
+    void portableExportMatchesPublishedVectorV5() throws Exception {
+        JsonNode published = fixture("sdk/platform/conformance/fixtures/vector-v5-portable.json").required("bundles");
+        assertEquals(2, published.size());
+        JsonNode source = null;
+        for (JsonNode vector : fixture().required("cases"))
+            if (vector.required("id").asText().equals("V1-pax-transfer")) source = vector;
+        assertNotNull(source, "the original V1 transfer must execute");
+        var pin = key(source);
+        byte[] receipted = PortableReceipt.export(bytes(source, "rawTransaction"),
+            encode(source.required("receiptJson")), pin);
+        assertArrayEquals(encode(published.get(0)), receipted);
+        var receiptedKeys = new LocalVerifier.ReceiptKeys(List.of(pin));
+        var receiptVerification = PortableReceipt.verify(receipted, receiptedKeys);
+        assertEquals("receipted", receiptVerification.verificationLevel());
+        assertEquals(1, receiptVerification.status());
+        assertArrayEquals(receipted, PortableReceipt.export(receiptVerification));
+
+        JsonNode original = fixture("daemon/committed-fixture/vectors/vector-v4-committed.json");
+        JsonNode settlement = original.required("settlement");
+        ObjectNode view = settlement.required("receipt").deepCopy();
+        view.put("rung", "receipted");
+        view.remove(List.of("blockNumber", "blockHash"));
+        JsonNode authorization = original.required("authorization");
+        var committedKey = new LocalVerifier.ReceiptKey(bytes(view, "keyId"), bytes(view, "signingKey"),
+            authorization.required("FirstBatchNumber").bigIntegerValue(),
+            authorization.required("LastBatchNumber").bigIntegerValue());
+        var validators = new ArrayList<Committed.Validator>();
+        for (JsonNode validator : settlement.required("validators"))
+            validators.add(new Committed.Validator(base64(validator.required("pub_key"), "value"),
+                Long.parseLong(validator.required("voting_power").asText())));
+        JsonNode result = settlement.required("exec_tx_result");
+        var inclusion = new Committed.ReceiptInclusion(new Committed.ExecTxResult(
+            result.path("code").asLong(0), base64(result, "data"), result.required("gas_wanted").asLong(),
+            result.required("gas_used").asLong()), cometProof(settlement.required("exec_tx_result_proof")),
+            base64(settlement.required("sequence_batch_proof"), "data"),
+            cometProof(settlement.required("sequence_batch_proof").required("proof")), List.of(),
+            cometHeader(settlement.required("header")), cometCommit(settlement.required("commit")), validators,
+            base64(settlement.required("transaction_proof"), "data"),
+            cometProof(settlement.required("transaction_proof").required("proof")));
+        byte[] raw = bytes(settlement, "raw_transaction");
+        assertArrayEquals(raw, Committed.committedEVMTransaction(inclusion.transaction()));
+        byte[] committed = PortableReceipt.export(raw, encode(view), committedKey,
+            cometHeader(settlement.required("execution_header")), inclusion,
+            cometCommit(settlement.required("execution_commit")), validators);
+        assertArrayEquals(encode(published.get(1)), committed);
+        var committedKeys = new LocalVerifier.ReceiptKeys(List.of(committedKey));
+        var committedVerification = PortableReceipt.verify(committed, committedKeys);
+        assertEquals("committed", committedVerification.verificationLevel());
+        assertEquals(10, committedVerification.committed().height());
+        assertEquals(1, committedVerification.status());
+        assertDoesNotThrow(committedVerification::requireSuccess);
+        assertArrayEquals(committed, PortableReceipt.export(committedVerification));
+
+        for (int index = 0; index < published.size(); index++) {
+            JsonNode bundle = published.get(index);
+            var keys = index == 0 ? receiptedKeys : committedKeys;
+            assertEquals(index == 0 ? "receipted" : "committed",
+                PortableReceipt.verify(encode(bundle), keys).verificationLevel());
+            ObjectNode changedView = bundle.deepCopy();
+            ((ObjectNode) changedView.required("receiptJson")).put("gasUsed", "0x0");
+            assertRefused(() -> PortableReceipt.verify(encode(changedView), keys));
+            ObjectNode missingView = bundle.deepCopy();
+            missingView.remove("receiptJson");
+            assertRefused(() -> PortableReceipt.verify(encode(missingView), keys));
+            for (String field : List.of("signedReceipt", "receiptDigest", "rawTransaction")) {
+                ObjectNode changed = bundle.deepCopy();
+                byte[] value = bytes(bundle, field); value[value.length - 1] ^= 1;
+                changed.put(field, hex(value));
+                assertRefused(() -> PortableReceipt.verify(encode(changed), keys));
+            }
+        }
+        for (String field : List.of("Transaction", "BatchTransaction")) {
+            ObjectNode changed = published.get(1).deepCopy();
+            ObjectNode evidence = (ObjectNode) changed.required("receiptInclusion");
+            byte[] value = base64(evidence, field); value[value.length - 1] ^= 1;
+            evidence.put(field, Base64.getEncoder().encodeToString(value));
+            assertRefused(() -> PortableReceipt.verify(encode(changed), committedKeys));
+        }
+        for (String field : List.of("TransactionProof", "BatchProof", "ResultProof")) {
+            ObjectNode changed = published.get(1).deepCopy();
+            ObjectNode proof = (ObjectNode) changed.required("receiptInclusion").required(field);
+            proof.put("Index", field.equals("BatchProof") ? 1 : 0);
+            assertRefused(() -> PortableReceipt.verify(encode(changed), committedKeys));
+        }
+        ObjectNode executionCommit = published.get(1).deepCopy();
+        ((ObjectNode) executionCommit.required("commit").required("Signatures").get(0))
+            .put("Signature", Base64.getEncoder().encodeToString(new byte[64]));
+        assertRefused(() -> PortableReceipt.verify(encode(executionCommit), committedKeys));
+        ObjectNode successorCommit = published.get(1).deepCopy();
+        ((ObjectNode) successorCommit.required("receiptInclusion").required("NextCommit").required("Signatures").get(0))
+            .put("Signature", Base64.getEncoder().encodeToString(new byte[64]));
+        assertRefused(() -> PortableReceipt.verify(encode(successorCommit), committedKeys));
+    }
+
+    private static Committed.Timestamp cometTime(String value) {
+        Instant time = Instant.parse(value);
+        return new Committed.Timestamp(time.getEpochSecond(), time.getNano());
+    }
+
+    private static Committed.BlockId cometBlockId(JsonNode node) {
+        return new Committed.BlockId(cometHex(node, "hash"), node.required("parts").required("total").asInt(),
+            cometHex(node.required("parts"), "hash"));
+    }
+
+    private static Committed.Header cometHeader(JsonNode node) {
+        return new Committed.Header(Long.parseLong(node.required("version").required("block").asText()),
+            Long.parseLong(node.required("version").required("app").asText()), node.required("chain_id").asText(),
+            Long.parseLong(node.required("height").asText()), cometTime(node.required("time").asText()),
+            cometBlockId(node.required("last_block_id")), cometHex(node, "last_commit_hash"), cometHex(node, "data_hash"),
+            cometHex(node, "validators_hash"), cometHex(node, "next_validators_hash"), cometHex(node, "consensus_hash"),
+            cometHex(node, "app_hash"), cometHex(node, "last_results_hash"), cometHex(node, "evidence_hash"),
+            cometHex(node, "proposer_address"));
+    }
+
+    private static Committed.Commit cometCommit(JsonNode node) {
+        var signatures = new ArrayList<Committed.CommitSignature>();
+        for (JsonNode signature : node.required("signatures"))
+            signatures.add(new Committed.CommitSignature(signature.required("block_id_flag").asInt(),
+                cometHex(signature, "validator_address"), cometTime(signature.required("timestamp").asText()),
+                base64(signature, "signature")));
+        return new Committed.Commit(Long.parseLong(node.required("height").asText()), node.required("round").asInt(),
+            cometBlockId(node.required("block_id")), signatures);
+    }
+
+    private static LocalVerifier.MerkleProof cometProof(JsonNode node) {
+        var aunts = new ArrayList<byte[]>();
+        for (JsonNode aunt : node.required("aunts")) aunts.add(Base64.getDecoder().decode(aunt.asText()));
+        return new LocalVerifier.MerkleProof(Long.parseLong(node.required("index").asText()),
+            Long.parseLong(node.required("total").asText()), aunts);
+    }
+
+    private static byte[] cometHex(JsonNode node, String field) {
+        return HexFormat.of().parseHex(node.required(field).asText());
+    }
+
+    private static byte[] base64(JsonNode node, String field) {
+        return Base64.getDecoder().decode(node.required(field).asText());
     }
 
     private static void committedRoundTrip(JsonNode vector) throws Exception {
@@ -159,7 +351,9 @@ public final class PortableReceiptTest {
         var validatorKey = new Ed25519PrivateKeyParameters(new byte[32], 0);
         var validators = List.of(new Committed.Validator(validatorKey.generatePublicKey().getEncoded(), 10));
         byte[] validatorsHash = Committed.validatorsHash(validators);
-        byte[] batchLeaf = leaf(hash(batch)), rawLeaf = leaf(hash(raw));
+        byte[] transaction = field(1, field(1, join(
+            field(1, utf8("/paxprotocol.paxchain.evm.MsgEVMTransaction")), field(2, field(1, raw)))));
+        byte[] batchLeaf = leaf(hash(batch)), rawLeaf = leaf(hash(transaction));
         var header = header(height, hash(new byte[]{1}, batchLeaf, rawLeaf), hash(new byte[0]),
             validatorsHash, new Committed.BlockId(new byte[32], 1, new byte[32]));
         var commit = commit(header, validatorKey);
@@ -169,8 +363,10 @@ public final class PortableReceiptTest {
         var inclusion = new Committed.ReceiptInclusion(result,
             new LocalVerifier.MerkleProof(1, 2, List.of(emptyResultLeaf)), batch,
             new LocalVerifier.MerkleProof(0, 2, List.of(rawLeaf)), List.of(receipt.activityId()),
-            next, commit(next, validatorKey), validators);
-        byte[] exported = PortableReceipt.export(raw, signed, key, header, inclusion, commit, validators);
+            next, commit(next, validatorKey), validators, transaction,
+            new LocalVerifier.MerkleProof(1, 2, List.of(batchLeaf)));
+        byte[] exported = PortableReceipt.export(raw, encode(vector.required("receiptJson")), key,
+            header, inclusion, commit, validators);
         var verified = PortableReceipt.verify(exported, keys);
         assertEquals("committed", verified.verificationLevel());
         assertEquals(Committed.VerificationLevel.COMMITTED, verified.committed().level());
@@ -178,15 +374,15 @@ public final class PortableReceiptTest {
         assertArrayEquals(header.hash(), verified.committed().blockHash());
         assertArrayEquals(exported, PortableReceipt.export(verified));
         ObjectNode bundle = (ObjectNode) JSON.readTree(exported);
-        assertEquals(10, bundle.size());
+        assertEquals(11, bundle.size());
         for (String field : List.of("blockHeader", "receiptInclusion", "commit", "validatorSet")) {
             ObjectNode missing = bundle.deepCopy();
             missing.remove(field);
             assertRefused(() -> PortableReceipt.verify(encode(missing), keys));
         }
         ObjectNode tampered = bundle.deepCopy();
-        ((ObjectNode) tampered.required("commit").required("signatures").get(0))
-            .put("signature", hex(new byte[64]));
+        ((ObjectNode) tampered.required("commit").required("Signatures").get(0))
+            .put("Signature", Base64.getEncoder().encodeToString(new byte[64]));
         assertRefused(() -> PortableReceipt.verify(encode(tampered), keys));
         ObjectNode downgrade = bundle.deepCopy();
         downgrade.put("verificationLevel", "receipted");
@@ -211,13 +407,20 @@ public final class PortableReceiptTest {
     }
 
     private static JsonNode fixture() throws Exception {
+        return fixture("sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");
+    }
+
+    private static JsonNode fixture(String relativePath) throws Exception {
+        Path fixturePath = Path.of(relativePath);
+        if (fixturePath.getNameCount() == 1)
+            fixturePath = Path.of("sdk/platform/conformance/fixtures").resolve(fixturePath);
         Path directory = Path.of("").toAbsolutePath();
         while (directory != null) {
-            Path path = directory.resolve("sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");
+            Path path = directory.resolve(fixturePath);
             if (Files.isRegularFile(path)) return JSON.readTree(Files.readString(path));
             directory = directory.getParent();
         }
-        throw new IllegalStateException("sequencer-receipt-v1.json not found");
+        throw new IllegalStateException(relativePath + " not found");
     }
 
     private static LocalVerifier.ReceiptKey key(JsonNode vector) {

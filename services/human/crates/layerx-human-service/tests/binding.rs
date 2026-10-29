@@ -13,13 +13,17 @@ use ed25519_dalek::{Signer as _, SigningKey as Ed25519SigningKey};
 use k256::ecdsa::SigningKey;
 use layerx_agentd::outbox::{Outbox, SubmissionState};
 use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
+    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError, EvmPrepared,
     PreparationDefaults, PrepareRequest,
 };
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit};
+use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
+use layerx_crypto::account_derivation::derive_from_seed;
+use layerx_crypto::disclosure::call::bind_call;
+use layerx_crypto::evm_transaction::recover_sender;
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::signer::{sign_disclosed, Signer};
+use layerx_crypto::send::{ledger_payment_call, CallOptions};
+use layerx_crypto::signer::{sign_disclosed_call, Signer};
 use layerx_human_service::audit::{
     AuditChain, AuditEvent, IdentityEvent, NotificationClass, SecurityChangeKind,
 };
@@ -126,10 +130,11 @@ struct InProcessAgentContract {
 
 impl InProcessAgentContract {
     fn new(root: &std::path::Path) -> Self {
+        let account = required(derive_from_seed(&[0xa5; 32], 0), "derive agent account");
         Self {
             accepted: 0,
             registry: registry(),
-            signer: LocalSigner::new([0xa5; 32]),
+            signer: LocalSigner::from_derived_account(&account),
             store: AgentStore::open(root)
                 .unwrap_or_else(|error| panic!("open agent store: {error}")),
             outbox: Outbox::default(),
@@ -139,17 +144,15 @@ impl InProcessAgentContract {
     }
 
     fn mark_executed(&mut self, submission: AgentSubmission, receipt: AgentBindingReceipt) {
-        for state in [SubmissionState::Submitted, SubmissionState::Acknowledged] {
-            self.outbox
-                .transition(
-                    &mut self.store,
-                    submission.submission_id,
-                    state,
-                    format!("binding {state:?}"),
-                    None,
-                )
-                .unwrap_or_else(|error| panic!("agent transition: {error:?}"));
-        }
+        self.outbox
+            .transition(
+                &mut self.store,
+                submission.submission_id,
+                SubmissionState::Submitted,
+                "binding submitted",
+                None,
+            )
+            .unwrap_or_else(|error| panic!("agent transition: {error:?}"));
         let signer = Ed25519SigningKey::from_bytes(&[0x35; 32]);
         let raw = support::raw_receipt_evidence(
             receipt.canonical_receipt,
@@ -189,7 +192,7 @@ impl AgentBindingContract for InProcessAgentContract {
         let mut core = VerifiedCorePreparation {
             registry: self.registry.clone(),
         };
-        let prepared = prepare_activity(
+        let authorization = prepare_activity(
             &mut core,
             PreparationDefaults {
                 timestamp_span: 30,
@@ -210,7 +213,7 @@ impl AgentBindingContract for InProcessAgentContract {
             },
         )
         .map_err(|_| AgentBindingError::ContractViolation)?;
-        if !prepared
+        if !authorization
             .disclosure
             .evm_payout_binding
             .is_some_and(|binding| {
@@ -225,31 +228,59 @@ impl AgentBindingContract for InProcessAgentContract {
         {
             return Err(AgentBindingError::ContractViolation);
         }
-        let signature = ready(sign_disclosed(
-            &self.signer,
-            &prepared.canonical_bytes,
-            &prepared.disclosure,
-            &self.registry,
-        ))
-        .map_err(|_| AgentBindingError::Refused)?;
-        let signed = attach_external_signature(&prepared, *signature.as_bytes())
-            .map_err(|_| AgentBindingError::ContractViolation)?;
-        let verified = verify_before_submit(
-            &signed,
-            &prepared,
-            &self.signer.public_key(),
-            &self.registry,
+        let from = self
+            .signer
+            .evm_address()
+            .ok_or(AgentBindingError::ContractViolation)?;
+        let disclosed = ledger_payment_call(
+            request.compiled.payload().as_bytes(),
+            &CallOptions {
+                from,
+                chain_id: u64::from(authorization.envelope.network_id()),
+                nonce: authorization.envelope.account_sequence(),
+                max_priority_fee_per_gas: 0,
+                max_fee_per_gas: authorization.envelope.fee_limit().value(),
+                gas_limit: 100_000,
+            },
         )
         .map_err(|_| AgentBindingError::ContractViolation)?;
+        let disclosure =
+            bind_call(&disclosed.call, from).map_err(|_| AgentBindingError::ContractViolation)?;
+        assert_eq!(disclosure, disclosed.disclosure);
+        let prepared = SigningPreparation {
+            transaction: EvmPrepared {
+                signing_hash: disclosed.call.signing_hash(),
+                call: disclosed.call,
+                observed_head_height: authorization.observed_head_sequence,
+            },
+            actor_address: from,
+            authorization,
+        };
+        let signature = ready(sign_disclosed_call(
+            &self.signer,
+            &prepared.transaction.call,
+            &disclosure,
+            from,
+        ))
+        .map_err(|_| AgentBindingError::Refused)?;
+        assert_eq!(signature.as_bytes().len(), 65);
+        assert_eq!(
+            recover_sender(&prepared.transaction.call, &signature)
+                .map_err(|_| AgentBindingError::ContractViolation)?,
+            from,
+        );
+        let signed = attach_external_signature(&prepared, *signature.as_bytes())
+            .map_err(|_| AgentBindingError::ContractViolation)?;
+        let verified = verify_before_submit(&signed, &prepared, &from, &self.registry)
+            .map_err(|_| AgentBindingError::ContractViolation)?;
         self.accepted = self.accepted.saturating_add(1);
-        let submission_id = request.idempotency_key.bytes();
         let activity_id = verified.activity_id();
-        self.outbox
+        let submission_id = self
+            .outbox
             .enqueue(
                 &mut self.store,
                 self.tenant.clone(),
-                submission_id,
-                verified,
+                verified.into_exact_bytes(),
             )
             .map_err(|_| AgentBindingError::Unavailable)?;
         self.outbox

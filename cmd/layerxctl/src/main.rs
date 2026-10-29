@@ -6,11 +6,13 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::process::ExitCode;
 
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError, SequencerReceipt, REVERT_CODE};
-use layerx_types::result::{KnownResult, Retriability};
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::{ReceiptCheck, ReceiptKeys, VerificationFailure};
+use layerx_types::result::{KnownResult, ResultCode, Retriability};
 
 const MAX_INPUT_BYTES: usize = 1_048_576;
 const MAX_CERTIFICATE_BYTES: usize = 65_536;
-const USAGE: &str = "usage: layerxctl read-state --rpc-url URL --to HEX40 --data HEX [--block-height N] [--ca-cert DER_FILE]\n       layerxctl submit --rpc-url URL --transaction FILE [--ca-cert DER_FILE]\n       read-state defaults to pending; submit reads binary signed EIP-1559 bytes and reports submitted until receipt verification is available; HTTPS requires a pinned DER root";
+const USAGE: &str = "usage: layerxctl read-state --rpc-url URL --to HEX40 --data HEX [--block-height N] [--ca-cert DER_FILE]\n       layerxctl submit --rpc-url URL --transaction FILE [--ca-cert DER_FILE]\n       read-state defaults to pending; submit reads binary signed EIP-1559 bytes and prints receipted only after the receipt signature verifies under a pinned receipt key and submitted otherwise; HTTPS requires a pinned DER root";
 
 fn options(arguments: &[String], submit: bool) -> Result<BTreeMap<String, String>, String> {
     let mut parsed = BTreeMap::new();
@@ -192,6 +194,53 @@ fn rpc_error(error: &SequencerError) -> String {
     format!("{{\"transport_error\":{}}}", quoted(&format!("{error:?}")))
 }
 
+fn receipt_keys(client: &SequencerEndpoint) -> Result<Vec<SequencerAuthorization>, SequencerError> {
+    client.receipt_keys().map(|keys| {
+        keys.into_iter()
+            .map(|key| {
+                SequencerAuthorization::new(
+                    key.key_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect()
+    })
+}
+
+fn verify_sequencer_signature(
+    bytes: &[u8],
+    keys: &[SequencerAuthorization],
+    transaction_hash: [u8; 32],
+) -> Result<ResultCode, VerificationFailure> {
+    let receipt =
+        layerx_proof::receipt::verify_sequencer_signature(bytes, ReceiptKeys::HeightRanges(keys))?;
+    let protocol = receipt.protocol().ok_or(VerificationFailure {
+        check: ReceiptCheck::ReceiptShape,
+    })?;
+    if protocol.activity_id() != transaction_hash {
+        return Err(VerificationFailure {
+            check: ReceiptCheck::ActivityId,
+        });
+    }
+    Ok(ResultCode::from_raw(protocol.result_code()))
+}
+
+fn registry_code(result: ResultCode) -> String {
+    let Some(known) = result.known() else {
+        return "LXP_UNKNOWN".to_owned();
+    };
+    let mut code = "LXP_".to_owned();
+    for (index, character) in format!("{known:?}").chars().enumerate() {
+        if index > 0 && character.is_ascii_uppercase() {
+            code.push('_');
+        }
+        code.push(character.to_ascii_uppercase());
+    }
+    code
+}
+
 fn submit(client: &SequencerEndpoint, raw: &[u8]) -> Result<(String, ExitCode), String> {
     let local = layerx_crypto::evm_transaction::transaction_hash(raw);
     let hash = match client.send_raw_transaction(raw) {
@@ -223,13 +272,26 @@ fn submit(client: &SequencerEndpoint, raw: &[u8]) -> Result<(String, ExitCode), 
             return Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"receipt_error\":{}}}", rpc_error(&error)), ExitCode::from(3)));
         }
     };
-    match receipt {
-        Some(SequencerReceipt::Receipted(receipt)
-            | SequencerReceipt::Committed { receipt, .. }) if !receipt.success => {
-            Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"execution\":\"reported_revert\",\"evidence\":\"unverified_json_rpc\",\"revert\":{}}}", revert_error(&receipt.return_data)), ExitCode::FAILURE))
-        }
-        _ => Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"outcome\":\"unverified\"}}"), ExitCode::from(3))),
-    }
+    let receipt = match receipt {
+        Some(SequencerReceipt::Receipted(receipt) | SequencerReceipt::Committed { receipt, .. }) => receipt,
+        _ => return Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"outcome\":\"unverified\"}}"), ExitCode::from(3))),
+    };
+    let keys = match receipt_keys(client) {
+        Ok(keys) => keys,
+        Err(error) => return Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"receipt_keys_error\":{}}}", rpc_error(&error)), ExitCode::from(3))),
+    };
+    let result = match verify_sequencer_signature(&receipt.receipt, &keys, hash) {
+        Ok(result) => result,
+        Err(failure) => return Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"verification_failure\":\"{:?}\"}}", failure.check), ExitCode::from(3))),
+    };
+    let class = match result.retriability() {
+        Retriability::Terminal => "terminal",
+        Retriability::Retriable => "retriable",
+    };
+    Ok((
+        format!("{{\"state\":\"receipted\",\"transaction_hash\":\"{hash_text}\",\"code\":\"{}\",\"result_code\":{},\"class\":\"{class}\"}}", registry_code(result), result.raw()),
+        if result.raw() == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE },
+    ))
 }
 
 fn run(arguments: &[String]) -> Result<(String, ExitCode), String> {

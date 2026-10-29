@@ -47,5 +47,5 @@ func ParseFlatKVConfig(opts interface{ Get(string) interface{} }) (config.Config
 		cfg.SnapshotKeepRecent = parsed
 	}
 
-	return cfg, cfg.Validate()
+	return cfg, nil
 }
