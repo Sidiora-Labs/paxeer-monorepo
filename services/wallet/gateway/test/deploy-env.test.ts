@@ -87,6 +87,31 @@ async function envCatalogDocumentsSequencerRpcUrl() {
   );
 }
 
+async function envCatalogMarksStationRequiredForProvisioning() {
+  const WALLET_GAS_STATION_URL = 'WALLET_GAS_STATION_URL';
+  const schema = EnvSchema.innerType().innerType();
+  expect(schema.keyof().options).toContain(WALLET_GAS_STATION_URL);
+  expect(schema.shape[WALLET_GAS_STATION_URL].isOptional()).toBe(true);
+
+  const catalog = await readFile(new URL('../../deploy/env', import.meta.url), 'utf8');
+  const entries = catalog
+    .split(/\r?\n/)
+    .filter((line) => /^WALLET_GAS_STATION_URL\s*-/.test(line));
+  expect(entries).toHaveLength(1);
+  expect(entries[0]).toContain('required for provisioning and backfill');
+  expect(entries[0]).toContain('without it, both refuse with gas_station_unconfigured');
+
+  const example = await readFile(
+    new URL('../../deploy/railway.env.example', import.meta.url),
+    'utf8'
+  );
+  const assignments = example
+    .split(/\r?\n/)
+    .filter((line) => /^WALLET_GAS_STATION_URL=/.test(line));
+  expect(assignments).toEqual([`${WALLET_GAS_STATION_URL}=`]);
+}
+
 test(railwayExampleNamesOnlyEnvSchemaKeys);
 test(envCatalogOmitsSponsorKey);
 test(envCatalogDocumentsSequencerRpcUrl);
+test(envCatalogMarksStationRequiredForProvisioning);

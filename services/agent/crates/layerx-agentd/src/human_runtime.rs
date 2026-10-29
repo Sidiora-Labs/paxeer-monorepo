@@ -9,7 +9,6 @@ use layerx_client::evidence::{
 };
 use layerx_client::receipt::{Lookup, ReceiptSelector};
 use layerx_client::submit::Submission;
-use layerx_client::Client;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::activity::{Authority, TimestampBound};
@@ -1905,7 +1904,7 @@ fn retained_activity_owner(
 /// submitted through the sole frozen LNI client.
 pub struct ProductionHumanOperations<A> {
     authority: A,
-    node: Client,
+    node: layerx_client::Client,
     store: Arc<Mutex<Store>>,
     outboxes: BTreeMap<String, Outbox>,
     prepared: BTreeMap<(String, String, String), CachedPreparation>,
@@ -4751,34 +4750,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         return Err(HumanOperationError::Refused);
                     }
                 }
-                let registry = operations.authority.registry(peer).map_err(map_core)?;
-                let store = self
-                    .store
-                    .lock()
-                    .map_err(|_| HumanOperationError::Unavailable)?;
-                let indexed = indexed_activity_owner(&store, tenant, target.activity_id())?;
-                if indexed.principal != peer.principal {
-                    return Err(HumanOperationError::Refused);
-                }
-                let retained = retained_activity_owner(
-                    &store,
-                    &registry,
-                    tenant,
-                    target.activity_id(),
-                    indexed,
-                )?;
-                let mut outbox = Outbox::default();
-                outbox
-                    .restore(&store, tenant.clone(), retained.idempotency_key)
-                    .map_err(|_| HumanOperationError::Unavailable)?;
-                let signed = outbox
-                    .exact_signed_bytes(retained.idempotency_key)
-                    .map_err(|_| HumanOperationError::Unavailable)?;
-                let decoded = layerx_wire::activity::decode_signed(signed, &registry)
-                    .map_err(|_| HumanOperationError::Refused)?;
-                if decoded.actor_did() != scope.owner.as_bytes() {
-                    return Err(HumanOperationError::Refused);
-                }
+                let config = read_rpc_config()?;
+                let endpoint = read_rpc_endpoint(&config)?;
+                operations.read_owned_transaction(peer, target.activity_id(), &endpoint)?;
                 Some(crate::tenant::ObjectOwner {
                     tenant: tenant.clone(),
                     agent: Some(principal.agent.clone()),
@@ -13238,7 +13212,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
     /// Returns an error when the request is invalid, authority is refused, or required state is unavailable.
     pub fn new(
         authority: A,
-        node: Client,
+        node: layerx_client::Client,
         store: Arc<Mutex<Store>>,
         peers: &BTreeMap<u32, (String, String)>,
         maximum_payload_bytes: usize,
@@ -14120,67 +14094,151 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let target =
             layerx_agent_api::proof::ProofBundleTarget::decode(request.selector.as_bytes())
                 .map_err(|_| HumanOperationError::Refused)?;
-        let scope = peer.subject.as_ref().ok_or(HumanOperationError::Refused)?;
         self.authority.authorize_subject(peer)?;
+        let config = read_rpc_config()?;
+        let endpoint = read_rpc_endpoint(&config)?;
+        let raw = self.read_owned_transaction(peer, target.activity_id(), &endpoint)?;
         let account = self.export_bound_account(peer)?;
-        let registry = self.authority.registry(peer).map_err(map_core)?;
+        if let layerx_agent_api::proof::ProofBundleTarget::AccountState { account_id, .. } = target
+        {
+            if account_id != account {
+                return Err(HumanOperationError::Refused);
+            }
+            return Err(HumanOperationError::Unavailable);
+        }
+        let head = endpoint
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let block = endpoint
+            .block_by_number(head)
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .ok_or(HumanOperationError::Unavailable)?;
+        let keys = endpoint
+            .receipt_keys()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let layerx_client::rpc::receipt::Lookup::Verified(receipt) =
+            layerx_client::rpc::receipt::lookup_authenticated(
+                &endpoint,
+                target.activity_id(),
+                layerx_client::rpc::receipt::LookupContext {
+                    receipt_keys: &keys,
+                },
+            )
+            .map_err(|_| HumanOperationError::Refused)?
+        else {
+            return Err(HumanOperationError::Unavailable);
+        };
+        let response = receipt_proof_operation(
+            target,
+            request.requested_rung,
+            &raw,
+            receipt.canonical_bytes(),
+            &keys,
+            config.chain_id,
+            head,
+            block.hash,
+        )?;
+        if endpoint
+            .chain_id()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            != config.chain_id
+            || endpoint
+                .receipt_keys()
+                .map_err(|_| HumanOperationError::Unavailable)?
+                != keys
+            || endpoint
+                .block_number()
+                .map_err(|_| HumanOperationError::Unavailable)?
+                != head
+            || endpoint
+                .block_by_number(head)
+                .map_err(|_| HumanOperationError::Unavailable)?
+                .as_ref()
+                .map(|b| b.hash)
+                != Some(block.hash)
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        Ok(response)
+    }
+
+    fn read_bound_address(
+        &mut self,
+        peer: &HumanPeer,
+        endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    ) -> Result<[u8; 20], HumanOperationError> {
+        let scope = peer.subject.as_ref().ok_or(HumanOperationError::Refused)?;
+        let did = Did::new(scope.owner.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
+        let identity = self
+            .subject_identity(peer, &did)
+            .map_err(|_| HumanOperationError::Refused)?;
+        if identity.frozen || identity.verification_level < VerificationLevel::CHECKPOINT_FINALISED
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        let mut addresses = Vec::new();
+        for authority in identity.authorities {
+            if let ProtocolAuthority::PrimaryKey(key) = authority {
+                if let Some(address) = endpoint
+                    .bound_address(&key)
+                    .map_err(|_| HumanOperationError::Unavailable)?
+                {
+                    if !addresses.contains(&address) {
+                        addresses.push(address);
+                    }
+                }
+            }
+        }
+        if addresses.len() != 1 {
+            return Err(HumanOperationError::Refused);
+        }
+        Ok(addresses[0])
+    }
+
+    fn read_owned_transaction(
+        &mut self,
+        peer: &HumanPeer,
+        hash: [u8; 32],
+        endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    ) -> Result<Vec<u8>, HumanOperationError> {
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
-        let activity_id = target.activity_id();
-        let (retained_activity, served_receipt) = {
+        let raw = {
             let store = self
                 .store
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
-            let indexed = indexed_activity_owner(&store, &tenant, activity_id)?;
-            if indexed.principal != peer.principal {
+            let indexed = indexed_activity_owner(&store, &tenant, hash)?;
+            if indexed.principal != peer.principal || indexed.idempotency_key != hash {
                 return Err(HumanOperationError::Refused);
             }
-            let owner = retained_activity_owner(&store, &registry, &tenant, activity_id, indexed)?;
             let mut outbox = Outbox::default();
             outbox
-                .restore(&store, tenant.clone(), owner.idempotency_key)
+                .restore(&store, tenant, indexed.idempotency_key)
                 .map_err(|_| HumanOperationError::Unavailable)?;
-            let activity = outbox
-                .exact_signed_bytes(owner.idempotency_key)
-                .map_err(|_| HumanOperationError::Unavailable)?
-                .to_vec();
-            let decoded = layerx_wire::activity::decode_signed(&activity, &registry)
-                .map_err(|_| HumanOperationError::Refused)?;
-            if decoded.actor_did() != scope.owner.as_bytes() {
+            let status = outbox.status(hash).ok_or(HumanOperationError::Refused)?;
+            if status.activity_id != hash || status.submission_id != hash {
                 return Err(HumanOperationError::Refused);
             }
-            let receipt = crate::receipt::serve(
-                &store,
-                tenant,
-                crate::receipt::ReceiptLookupKey::Activity(activity_id),
-            )
-            .map_err(|_| HumanOperationError::Unavailable)?;
-            if receipt.metadata.activity_id != activity_id
-                || receipt.metadata.idempotency_key != owner.idempotency_key
-            {
-                return Err(HumanOperationError::Refused);
-            }
-            (activity, receipt.canonical_bytes)
+            outbox
+                .exact_signed_bytes(hash)
+                .map_err(|_| HumanOperationError::Refused)?
+                .to_vec()
         };
-        crate::read::proof_bundle_owner::acquire(
-            &mut self.node,
-            &registry,
-            target,
-            request.requested_rung,
-            crate::read::proof_bundle_owner::ProofBundleScope {
-                account,
-                asset: scope.asset,
-                retained_activity: &retained_activity,
-                served_receipt: &served_receipt,
-                correlation: boundary_correlation(
-                    peer,
-                    request.selector.as_bytes(),
-                    b"read-proof-bundle",
-                ),
-            },
-        )
-        .map_err(|_| HumanOperationError::Unavailable)
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
+            .map_err(|_| HumanOperationError::Refused)?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| HumanOperationError::Refused)?;
+        if call.chain_id
+            != endpoint
+                .chain_id()
+                .map_err(|_| HumanOperationError::Unavailable)?
+            || sender != self.read_bound_address(peer, endpoint)?
+            || layerx_crypto::evm_transaction::transaction_hash(&raw) != hash
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        Ok(raw)
     }
 
     pub(crate) fn attach_budget_limiter(&mut self, limiter: Arc<BudgetLimiter>) {
@@ -14503,47 +14561,34 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 return Err(HumanOperationError::Refused);
             }
         }
-        let identity = Sha256::digest([peer.tenant.as_bytes(), peer.principal.as_bytes()].concat());
-        let correlation = u64::from_be_bytes(
-            identity[..8]
-                .try_into()
-                .map_err(|_| HumanOperationError::Refused)?,
-        );
-        let balance = self
-            .node
-            .balance(
-                account,
-                asset,
-                VerificationLevel::CHECKPOINT_FINALISED,
-                correlation,
-                authorization,
-            )
+        let _ = (currency, observed_at, authorization);
+        let config = read_rpc_config()?;
+        let endpoint = read_rpc_endpoint(&config)?;
+        let address = self.read_bound_address(peer, &endpoint)?;
+        let value = crate::read::balance(&config, address, None)
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let freshness = balance.freshness();
-        let mut out = Encoder::new();
-        out.fixed(&balance.account);
-        out.fixed(&balance.asset);
-        out.text(&currency)?;
-        out.text(&observed_at)?;
-        out.u64(age_seconds);
-        out.u128(balance.amount.value());
-        out.u8(verification_code(balance.achieved()));
-        out.u64(freshness.global_sequence);
-        out.u64(freshness.batch_number);
-        out.u64(freshness.observed_head_sequence);
-        out.fixed(&freshness.observed_checkpoint);
-        out.bytes(balance.canonical_bytes())?;
-        out.bytes(balance.proof_material())?;
-        out.finish()
+        read_json_response(balance_operation_value(
+            account,
+            asset,
+            value.amount,
+            &value.canonical_bytes,
+            value.freshness.chain_head,
+            value.freshness.value_height,
+        ))
     }
 
     fn head(&self, _peer: &HumanPeer) -> Result<HumanResponse, HumanOperationError> {
-        let head = self.node.head();
-        let mut out = Encoder::new();
-        out.u64(head.chain_sequence);
-        out.u64(head.sealed_batch);
-        out.fixed(&head.finalised_checkpoint);
-        out.finish()
+        let config = read_rpc_config()?;
+        let endpoint = read_rpc_endpoint(&config)?;
+        let height = endpoint
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        read_json_response(ordinary_read(
+            serde_json::json!({"height": height.to_string()}),
+            height,
+            height,
+            "latest",
+        ))
     }
 
     fn evidence(
@@ -15033,31 +15078,34 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         peer: &HumanPeer,
         account_id: [u8; 32],
     ) -> Result<HumanResponse, HumanOperationError> {
-        let (_, _, _, _, age, maximum_age, authorization) = self.authority.balance_context(peer)?;
-        if account_id == [0; 32] || maximum_age == 0 || age > maximum_age {
-            return Err(HumanOperationError::Unavailable);
+        if account_id != self.export_bound_account(peer)? {
+            return Err(HumanOperationError::Refused);
         }
-        let correlation = boundary_correlation(peer, &account_id, b"account-state");
-        let value = self
-            .node
-            .account(
-                account_id,
-                VerificationLevel::STATE_PROVEN,
-                correlation,
-                authorization,
-            )
+        let config = read_rpc_config()?;
+        let endpoint = read_rpc_endpoint(&config)?;
+        let address = self.read_bound_address(peer, &endpoint)?;
+        let height = endpoint
+            .block_number()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let decoded =
-            layerx_proof::state::decode_account_value(account_id, value.canonical_bytes())
-                .map_err(|_| HumanOperationError::Refused)?;
-        let mut out = Encoder::new();
-        out.fixed(&decoded.account_id);
-        out.u8(value.achieved().wire_rank());
-        out.bytes(value.canonical_bytes())?;
-        out.bytes(value.proof_material())?;
-        out.u64(value.freshness().observed_head_sequence);
-        out.finish()
+        let proof = endpoint
+            .account_proof(&address, &[], height)
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let canonical = serde_json::to_vec(&serde_json::json!({
+            "address": rpc_hex(&proof.address), "balance": rpc_hex(&proof.balance),
+            "nonce": proof.nonce.to_string(), "codeHash": rpc_hex(&proof.code_hash),
+            "storageHash": rpc_hex(&proof.storage_hash),
+            "accountProof": proof.account_proof.iter().map(|p| rpc_hex(p)).collect::<Vec<_>>()
+        }))
+        .map_err(|_| HumanOperationError::Refused)?;
+        read_json_response(ordinary_read(
+            serde_json::json!({"account": layerx_programs::hex::encode(&account_id),
+            "canonical": layerx_programs::hex::encode(&canonical), "height": height.to_string()}),
+            height,
+            height,
+            &height.to_string(),
+        ))
     }
+
     fn registry(&self, peer: &HumanPeer) -> Result<HumanResponse, HumanOperationError> {
         // Mutable authenticated authority access is intentionally required; the
         // listener calls prepare first in normal operation. A readiness owner
@@ -15380,60 +15428,58 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         request: layerx_agent_api::read::ReadRequest<layerx_agent_api::read::ModuleStateSelector>,
     ) -> Result<HumanResponse, HumanOperationError> {
         let module_id = production_module_id(&request.selector.module)?;
-        let requested = production_rung_floor(request.requested_rung);
-        let (_, _, _, _, age, maximum_age, authorization) = self.authority.balance_context(peer)?;
-        if maximum_age == 0 || age > maximum_age {
-            return Err(HumanOperationError::Unavailable);
-        }
-        let key = request.selector.key.as_bytes();
-        let correlation = boundary_correlation(peer, key, b"module-state");
-        let value = self
-            .node
-            .module_state(module_id, key, requested, correlation, authorization)
+        self.authority.authorize_subject(peer)?;
+        let config = read_rpc_config()?;
+        let endpoint = read_rpc_endpoint(&config)?;
+        let height = endpoint
+            .block_number()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        if value.achieved() < requested {
+        let mut precompile = [0u8; 20];
+        let address = 0x1000u16
+            .checked_add(module_id)
+            .ok_or(HumanOperationError::Refused)?;
+        precompile[18..].copy_from_slice(&address.to_be_bytes());
+        if module_id > 9 || request.selector.key.as_bytes().len() > 129 {
             return Err(HumanOperationError::Refused);
         }
-        let proof = value.proof_material();
-        if proof.len() > MAX_RESPONSE {
+        let mut key = module_id.to_be_bytes().to_vec();
+        key.extend_from_slice(request.selector.key.as_bytes());
+        let slot = layerx_crypto::evm_transaction::transaction_hash(&key);
+        let proof = endpoint
+            .account_proof(&precompile, &[slot], height)
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if proof.address != precompile || proof.storage.len() != 1 || proof.storage[0].key != slot {
             return Err(HumanOperationError::Refused);
         }
-        let mut out = Encoder::new();
-        out.u8(value.achieved().wire_rank());
-        out.bytes(value.canonical_bytes())?;
-        out.u32(u32::try_from(proof.len()).map_err(|_| HumanOperationError::Refused)?);
-        out.fixed(proof);
-        out.finish()
+        let canonical = proof.storage[0].value;
+        read_json_response(ordinary_read(
+            serde_json::json!({"canonical": layerx_programs::hex::encode(&canonical),
+            "height": height.to_string()}),
+            height,
+            height,
+            &height.to_string(),
+        ))
     }
     fn read_batch(
         &mut self,
         peer: &HumanPeer,
         request: layerx_agent_api::read::ReadRequest<layerx_agent_api::read::BatchRef>,
     ) -> Result<HumanResponse, HumanOperationError> {
-        let batch_number = production_batch_number(&request.selector)?;
-        let requested = production_rung_floor(request.requested_rung);
-        let achieved = VerificationLevel::SEQUENCER_SIGNED;
-        if achieved < requested {
-            return Err(HumanOperationError::Refused);
-        }
-        let correlation = boundary_correlation(peer, &batch_number.to_be_bytes(), b"batch-header");
-        let signed = self
-            .node
-            .batch_header(batch_number, correlation)
-            .map_err(production_batch_header_error)?;
-        if signed.header.batch_number() != batch_number
-            || signed.header.first_sequence() > signed.header.last_sequence()
-        {
-            return Err(HumanOperationError::Refused);
-        }
-        let mut out = Encoder::new();
-        out.u64(signed.header.batch_number());
-        out.u64(signed.header.first_sequence());
-        out.u64(signed.header.last_sequence());
-        out.u8(achieved.wire_rank());
-        out.bytes(signed.canonical_bytes())?;
-        out.finish()
+        let height = read_decimal(request.selector.as_str())?;
+        self.read_history(
+            peer,
+            layerx_agent_api::read::ReadRequest {
+                selector: layerx_agent_api::read::HistorySelector {
+                    from_height: height,
+                    to_height: height,
+                    cursor: None,
+                    page_limit: 65535,
+                },
+                requested_rung: request.requested_rung,
+            },
+        )
     }
+
     fn wait(
         &mut self,
         peer: &HumanPeer,
@@ -15638,12 +15684,70 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         peer: &HumanPeer,
         request: layerx_agent_api::read::ReadRequest<layerx_agent_api::read::HistorySelector>,
     ) -> Result<HumanResponse, HumanOperationError> {
-        request
+        self.authority.authorize_subject(peer)?;
+        let selector = request
             .selector
             .validate()
             .map_err(|_| HumanOperationError::Refused)?;
-        let _ = peer;
-        Err(HumanOperationError::Unavailable)
+        let config = read_rpc_config()?;
+        let endpoint = read_rpc_endpoint(&config)?;
+        let head = endpoint
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if selector.to_height > head {
+            return Err(HumanOperationError::Refused);
+        }
+        let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
+        let node = self.node.handshake().node();
+        let context = layerx_client::read::ReadContext {
+            interface_version: node.interface_version,
+            correlation_id: boundary_correlation(
+                peer,
+                &selector.from_height.to_be_bytes(),
+                b"rpc-history",
+            ),
+            expected_protocol_version: node.protocol_version,
+            expected_network_id: node.network_id,
+            requested: layerx_client::read::Requested::new(VerificationLevel::UNVERIFIED),
+            head: self.node.head(),
+            sequencer_authorization: authorization,
+            handshake_sequencer_key: node.authorised_sequencer_key,
+            root_selector: RootSelector::Latest,
+        };
+        let cursor = selector
+            .cursor
+            .map(|p| {
+                Ok::<crate::read::Cursor, HumanOperationError>(crate::read::Cursor {
+                    block_height: p.block_height,
+                    tx_index: u32::try_from(p.tx_index)
+                        .map_err(|_| HumanOperationError::Refused)?,
+                    log_index: u32::try_from(p.log_index)
+                        .map_err(|_| HumanOperationError::Refused)?,
+                })
+            })
+            .transpose()?;
+        let page = crate::read::history(
+            &mut HistoryRpcTransport {
+                config: &config,
+                response: None,
+            },
+            selector.from_height,
+            selector.to_height,
+            cursor,
+            crate::read::HistoryLimits {
+                maximum_items: u16::try_from(selector.page_limit)
+                    .map_err(|_| HumanOperationError::Refused)?,
+                maximum_response_bytes: MAX_RESPONSE,
+            },
+            context,
+        )
+        .map_err(|_| HumanOperationError::Unavailable)?;
+        let body = serde_json::json!({"height": page.height.to_string(), "cursor": page.next_cursor.map(|p| [p.block_height.to_string(),p.tx_index.to_string(),p.log_index.to_string()]),
+            "items": page.items.iter().map(|item| serde_json::json!({"height": item.position.block_height.to_string(),
+                "txIndex": item.position.tx_index.to_string(), "logIndex": item.position.log_index.to_string(),
+                "kind": match item.kind { layerx_client::read::HistoryKind::Activity => "Activity", layerx_client::read::HistoryKind::Receipt => "Receipt", layerx_client::read::HistoryKind::Event => "Event" },
+                "canonical": layerx_programs::hex::encode(&item.canonical), "proof": item.proof.as_ref().map(|p| layerx_programs::hex::encode(p))})).collect::<Vec<_>>()});
+        read_json_response(history_operation_value(&selector, &body, head)?)
     }
 
     fn subscription_create(
@@ -15787,164 +15891,64 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         peer: &HumanPeer,
         request: layerx_agent_api::availability::AvailabilityRequest,
     ) -> Result<HumanResponse, HumanOperationError> {
-        fn classes(
-            out: &mut Encoder,
-            tallies: &BTreeMap<(String, u8), (u32, u64)>,
-            provider: &str,
-            report: &layerx_proof::availability::ClassReport,
-        ) -> Result<(), HumanOperationError> {
-            out.u16(report.obtained.len() + report.missing.len())?;
-            for (class, complete) in report
-                .obtained
-                .iter()
-                .map(|class| (*class, true))
-                .chain(report.missing.iter().map(|class| (*class, false)))
-            {
-                let (chunks, bytes) = tallies
-                    .get(&(provider.to_owned(), class as u8))
-                    .copied()
-                    .unwrap_or((0, 0));
-                out.u8(class as u8);
-                out.u8(u8::from(complete));
-                out.u32(chunks);
-                out.u64(bytes);
-                let failure: &[u8] = if complete { b"" } else { b"missing_class" };
-                out.u32(u32::try_from(failure.len()).map_err(|_| HumanOperationError::Refused)?);
-                out.fixed(failure);
-            }
-            Ok(())
-        }
+        self.authority.authorize_subject(peer)?;
         let request = request
             .validate()
             .map_err(|_| HumanOperationError::Refused)?;
-        let layerx_agent_api::availability::AvailabilityRequest {
-            selector,
-            requested_rung,
-            maximum_bytes,
-            maximum_chunks,
-            deadline,
-        } = request;
-        let batch_number = production_batch_number(
-            &layerx_agent_api::read::BatchRef::new(selector)
-                .map_err(|_| HumanOperationError::Refused)?,
-        )?;
-        let requested = production_rung_floor(requested_rung);
-        if VerificationLevel::BATCH_INCLUDED < requested {
-            return Err(HumanOperationError::Refused);
-        }
-        let deadline_ms = deadline
-            .get()
-            .checked_mul(1000)
-            .ok_or(HumanOperationError::Refused)?;
-        let now_ms = self
+        let height = read_decimal(&request.selector)?;
+        let now = self
             .clock
             .sample(Duration::from_secs(1))
             .map_err(|_| HumanOperationError::Unavailable)?
             .unix_milliseconds;
-        let remaining_ms = deadline_ms
-            .checked_sub(now_ms)
-            .filter(|remaining| *remaining > 0)
+        let remaining = request
+            .deadline
+            .get()
+            .checked_mul(1000)
+            .and_then(|end| end.checked_sub(now))
+            .filter(|n| *n > 0)
             .ok_or(HumanOperationError::Refused)?;
-        let limits = layerx_client::availability::RetrievalLimits {
-            maximum_bytes: usize::try_from(maximum_bytes)
-                .map_err(|_| HumanOperationError::Refused)?,
-            maximum_chunks: usize::try_from(maximum_chunks)
-                .map_err(|_| HumanOperationError::Refused)?,
-            deadline: Duration::from_millis(remaining_ms),
-        };
-        let correlation = boundary_correlation(peer, &batch_number.to_be_bytes(), b"batch-header");
-        let signed = self
-            .node
-            .batch_header(batch_number, correlation)
-            .map_err(production_batch_header_error)?;
-        let header = &signed.header;
-        if header.batch_number() != batch_number {
-            return Err(HumanOperationError::Refused);
-        }
-        let context = layerx_client::availability::FetchContext {
-            interface_version: self.node.handshake().node().interface_version,
-            correlation_id: boundary_correlation(
-                peer,
-                &batch_number.to_be_bytes(),
-                b"availability-fetch",
-            ),
-            expected_batch_number: batch_number,
-            data_availability_root: header.data_availability_root(),
-            record_roots: layerx_proof::availability::RootCommitments {
-                activity: header.activity_merkle_root(),
-                receipt: header.receipt_merkle_root(),
-                event: header.event_merkle_root(),
-                oracle: header.oracle_root(),
-            },
-            limits,
-        };
-        let mut tallies: BTreeMap<(String, u8), (u32, u64)> = BTreeMap::new();
-        let mut overflow = false;
-        let outcome = self
-            .node
-            .fetch_availability(
-                layerx_client::availability::AvailabilitySelector::Batch(batch_number),
-                context,
-                |progress| {
-                    let chunk = progress.chunk.chunk();
-                    let entry = tallies
-                        .entry((progress.provider.to_owned(), chunk.class as u8))
-                        .or_insert((0, 0));
-                    match (
-                        entry.0.checked_add(1),
-                        u64::try_from(chunk.bytes.len())
-                            .ok()
-                            .and_then(|length| entry.1.checked_add(length)),
-                    ) {
-                        (Some(chunks), Some(bytes)) => *entry = (chunks, bytes),
-                        _ => overflow = true,
-                    }
-                },
-            )
-            .map_err(|error| match error {
-                layerx_client::availability::FetchError::UnavailableCapability
-                | layerx_client::availability::FetchError::DisconnectedClient
-                | layerx_client::availability::FetchError::NoProviders => {
-                    HumanOperationError::Unavailable
-                }
-                layerx_client::availability::FetchError::InvalidLimits
-                | layerx_client::availability::FetchError::InvalidSelector
-                | layerx_client::availability::FetchError::CorrelationOverflow => {
-                    HumanOperationError::Refused
-                }
-            })?;
-        if overflow {
-            return Err(HumanOperationError::Refused);
-        }
-        let mut out = Encoder::new();
-        match outcome {
-            layerx_client::availability::FetchOutcome::Complete(result) => {
-                out.u8(VerificationLevel::BATCH_INCLUDED.wire_rank());
-                out.u8(1);
-                out.text(&result.provider)?;
-                classes(&mut out, &tallies, &result.provider, &result.report.classes)?;
-                out.u16(1)?;
-                out.text(&result.provider)?;
-                classes(&mut out, &tallies, &result.provider, &result.report.classes)?;
-                out.u32(0);
-            }
-            layerx_client::availability::FetchOutcome::Partial(reports) => {
-                if VerificationLevel::UNVERIFIED < requested {
+        let mut config = read_rpc_config()?;
+        config.deadline = config.deadline.min(Duration::from_millis(remaining));
+        let endpoint = read_rpc_endpoint(&config)?;
+        let head = endpoint
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let result =
+            crate::read::availability(&endpoint, &crate::read::AvailabilityRequest { height })
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        let value = match result {
+            crate::read::AvailabilityRead::Available {
+                height,
+                transaction_count,
+                transactions_root,
+                receipts_root,
+            } => {
+                let block = endpoint
+                    .block_by_number(height)
+                    .map_err(|_| HumanOperationError::Unavailable)?
+                    .ok_or(HumanOperationError::Unavailable)?;
+                let size = block
+                    .transactions
+                    .iter()
+                    .try_fold(0u64, |sum, tx| sum.checked_add(tx.len() as u64))
+                    .ok_or(HumanOperationError::Refused)?;
+                if size > request.maximum_bytes
+                    || transaction_count > u64::from(request.maximum_chunks)
+                {
                     return Err(HumanOperationError::Refused);
                 }
-                out.u8(VerificationLevel::UNVERIFIED.wire_rank());
-                out.u8(0);
-                out.u16(0)?;
-                out.u16(reports.len())?;
-                for report in &reports {
-                    out.text(&report.provider)?;
-                    classes(&mut out, &tallies, &report.provider, &report.classes)?;
-                    let failure = format!("{:?}", report.failure);
-                    out.bytes(failure.as_bytes())?;
-                }
+                serde_json::json!({"completion": {"state": "complete", "provider": config.url},
+                    "classes": [{"class": "transactions", "complete": true, "verified_chunks": transaction_count.to_string(), "verified_bytes": size.to_string(), "failure": null}],
+                    "providers": [config.url], "height": height.to_string(),
+                    "transactions_root": rpc_hex(&transactions_root), "receipts_root": rpc_hex(&receipts_root)})
             }
-        }
-        out.finish()
+            crate::read::AvailabilityRead::Pruned { height } => {
+                serde_json::json!({"completion": {"state": "partial"},
+                "classes": [], "providers": [{"provider": config.url, "failure": "pruned"}], "height": height.to_string()})
+            }
+        };
+        read_json_response(ordinary_read(value, head, height, &height.to_string()))
     }
 
     fn capability_create(
@@ -15993,8 +15997,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 crate::capability::Dimension::Expiry,
             ));
         }
-        crate::capability::timed::check_scope(&record, &observed.scope, now_ms)
-            .map_err(|error| capability_refusal(&error))?;
+        check_capability_grant(&record, &observed.scope, now_ms)?;
         let shared = Arc::clone(&self.store);
         let stored = context
             .commit(control, |_| {
@@ -16077,8 +16080,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 crate::capability::Dimension::Expiry,
             ));
         }
-        crate::capability::timed::check_scope(&child, &observed.scope, now_ms)
-            .map_err(|error| capability_refusal(&error))?;
+        check_capability_grant(&child, &observed.scope, now_ms)?;
         let shared = Arc::clone(&self.store);
         let stored = context
             .commit(control, |_| {
@@ -16643,7 +16645,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         layerx_agent_api::budget::AuthorityResponse<crate::human::BudgetState>,
         HumanOperationError,
     > {
-        use layerx_agent_api::budget::{BudgetRecord, ProtocolBudgetView};
+        use layerx_agent_api::budget::BudgetRecord;
         let (tenant, authority) = budget_authority(
             context,
             control,
@@ -16687,57 +16689,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 }
                 other => other,
             })?;
-        let registry = self.authority.registry(peer).map_err(map_core)?;
-        let (_, signer) =
-            capability_authority_parts(&capability_session_authority(context, control)?);
-        let head = core_preparation_snapshot(&mut self.node, peer, &context.principal().agent)?
-            .observed_head_sequence;
-        let (verifier, sequencer_key, authorization) = self.budget_read_parts(peer)?;
-        let mut pipeline = NodeBudgetPipeline {
-            node: &mut self.node,
-            registry: &registry,
-            signer,
-            correlation: boundary_correlation(
-                peer,
-                request.agent_did.as_str().as_bytes(),
-                b"budget-state",
-            ),
-            authorization,
-            sequencer_key,
-            receipt_poll: BUDGET_RECEIPT_POLL,
-            receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
-        };
-        let state = crate::budget::BudgetMutationPipeline::budget_state(&mut pipeline, budget_id)
-            .map_err(budget_refusal)?;
-        let proven = verifier
-            .verify_state(&state.evidence)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let record = ProtocolBudgetRecord::decode(proven.canonical_state())
-            .map_err(|_| HumanOperationError::Refused)?;
-        if record.budget_id != budget_id {
-            return Err(HumanOperationError::Refused);
-        }
-        let balance = crate::budget::BudgetMutationPipeline::budget_balance(
-            &mut pipeline,
-            record.budget_account,
-            record.asset_id,
-        )
-        .map_err(budget_refusal)?;
-        let proven_context =
-            crate::budget::budget_state_context(&record, proven.canonical_state(), head, balance)
-                .map_err(budget_refusal)?;
-        let view =
-            ProtocolBudgetView::from_proven(&record, layerx_agent_api::verify::Rung::Receipted)
-                .map_err(budget_contract_refusal)?;
-        Ok(layerx_agent_api::budget::AuthorityResponse {
-            authority,
-            value: crate::human::BudgetState {
-                record: BudgetRecord::Protocol(view),
-                balance: proven_context.balance,
-                proven_head: proven_context.observed_head_sequence,
-                activity_id: None,
-            },
-        })
+        let value = read_committed_budget_state(budget_id)?;
+        context
+            .permit()
+            .boundary(control)
+            .map_err(rpc_commit_error)?;
+        Ok(layerx_agent_api::budget::AuthorityResponse { authority, value })
     }
 
     fn policy_dry_run_legacy(
@@ -16942,7 +16899,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
 /// as a raw proof bundle, and the created record is read as proof-gated module
 /// state so the caller can verify both against the pinned handshake authority.
 struct NodeBudgetPipeline<'a> {
-    node: &'a mut Client,
+    node: &'a mut layerx_client::Client,
     registry: &'a ModuleRegistry,
     signer: [u8; 32],
     correlation: u64,
@@ -17614,7 +17571,7 @@ fn map_core(error: CoreStateError) -> HumanOperationError {
     }
 }
 fn core_preparation_snapshot(
-    node: &mut Client,
+    node: &mut layerx_client::Client,
     peer: &HumanPeer,
     actor: &Did,
 ) -> Result<crate::prepare::legacy::CorePreparationState, HumanOperationError> {
@@ -17986,6 +17943,15 @@ pub(crate) fn capability_revoke_digest(
 /// Maps a timed capability error to the owner error. Every refusal (duplicate entry,
 /// zero window, ceiling outside assets, expiry, wider than parent or authority) carries its
 /// capability dimension; store faults stay Unavailable and every other refusal stays Refused.
+pub fn check_capability_grant(
+    capability: &crate::capability::timed::TimedCapability,
+    grant: &crate::capability::ProtocolScope,
+    now_ms: u64,
+) -> Result<(), HumanOperationError> {
+    crate::capability::timed::check_scope(capability, grant, now_ms)
+        .map_err(|error| capability_refusal(&error))
+}
+
 fn capability_refusal(error: &crate::capability::timed::TimedError) -> HumanOperationError {
     use crate::capability::timed::TimedError;
     use crate::capability::Dimension;
@@ -18467,7 +18433,7 @@ fn policy_refusal(refusal: crate::policy::PolicyDryRunRefusal) -> HumanOperation
 /// authenticated current core time.
 fn current_program_bundle(
     programs: &mut crate::ops::program::ProgramOperations,
-    node: &mut Client,
+    node: &mut layerx_client::Client,
     context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
     program: layerx_programs::ProgramId,
 ) -> Result<(u64, layerx_programs::VerifiedProgramBundle), HumanOperationError> {
@@ -20395,6 +20361,100 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     }
 }
 
+pub fn budget_state_from_get_budget(
+    budget_id: [u8; 32],
+    height: u64,
+    result: &[u8],
+    balance: u128,
+) -> Result<crate::human::BudgetState, HumanOperationError> {
+    let state = ProtocolBudgetState::decode_get_budget(budget_id, height, result)
+        .map_err(|_| HumanOperationError::Typed(crate::human::HumanRefusal::BudgetCodec))?;
+    committed_budget_state(state.record(), state.committed_height(), balance)
+}
+
+fn committed_budget_state(
+    record: &ProtocolBudgetRecord,
+    height: u64,
+    balance: u128,
+) -> Result<crate::human::BudgetState, HumanOperationError> {
+    let view = layerx_agent_api::budget::ProtocolBudgetView::from_proven(
+        record,
+        layerx_types::rung::Rung::Committed,
+    )
+    .map_err(budget_contract_refusal)?;
+    Ok(crate::human::BudgetState {
+        record: layerx_agent_api::budget::BudgetRecord::Protocol(view),
+        balance,
+        proven_head: height,
+        activity_id: None,
+    })
+}
+
+fn committed_read_endpoint(
+) -> Result<layerx_client::sequencer::SequencerEndpoint, HumanOperationError> {
+    let config = crate::node_rpc::NodeRpcConfig::from_environment()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    let certificates = rustls_native_certs::load_native_certs();
+    if !certificates.errors.is_empty() {
+        return Err(HumanOperationError::Unavailable);
+    }
+    let roots: Vec<&[u8]> = certificates
+        .certs
+        .iter()
+        .map(|cert| cert.as_ref())
+        .collect();
+    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    if endpoint
+        .chain_id()
+        .map_err(|_| HumanOperationError::Unavailable)?
+        != config.chain_id
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(endpoint)
+}
+
+fn read_committed_budget_state(
+    budget_id: [u8; 32],
+) -> Result<crate::human::BudgetState, HumanOperationError> {
+    let endpoint = committed_read_endpoint()?;
+    let height = endpoint
+        .block_number()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    let selector = layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)");
+    let mut data = selector[..4].to_vec();
+    data.extend_from_slice(&budget_id);
+    let mut pay = [0; 20];
+    pay[18..].copy_from_slice(&[0x10, 0x1b]);
+    let result = endpoint
+        .call_at(height, &pay, &data)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    let state = ProtocolBudgetState::decode_get_budget(budget_id, height, &result)
+        .map_err(|_| HumanOperationError::Typed(crate::human::HumanRefusal::BudgetCodec))?;
+    let record = state.record();
+    let selector = layerx_crypto::evm_transaction::transaction_hash(b"balanceOf(bytes32,bytes32)");
+    let mut data = selector[..4].to_vec();
+    data.extend_from_slice(&record.budget_account);
+    data.extend_from_slice(&record.asset_id);
+    let mut ledger = [0; 20];
+    ledger[18..].copy_from_slice(&[0x10, 0x1a]);
+    let balance = endpoint
+        .call_at(height, &ledger, &data)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    if balance.len() != 32 || balance[..16] != [0; 16] {
+        return Err(HumanOperationError::Typed(
+            crate::human::HumanRefusal::BudgetCodec,
+        ));
+    }
+    let balance = u128::from_be_bytes(
+        balance[16..]
+            .try_into()
+            .map_err(|_| HumanOperationError::Refused)?,
+    );
+    budget_state_from_get_budget(budget_id, height, &result, balance)
+}
+
 fn write_node() -> Result<crate::node_rpc::NodeRpc, HumanOperationError> {
     let config = crate::node_rpc::NodeRpcConfig::from_environment()
         .map_err(|_| HumanOperationError::Unavailable)?;
@@ -20577,4 +20637,413 @@ pub fn accept_raw_write(
             None,
         )
         .map_err(|_| HumanOperationError::Unavailable)
+}
+
+fn read_rpc_config() -> Result<crate::node_rpc::NodeRpcConfig, HumanOperationError> {
+    crate::node_rpc::NodeRpcConfig::from_environment().map_err(|_| HumanOperationError::Unavailable)
+}
+
+fn read_rpc_endpoint(
+    config: &crate::node_rpc::NodeRpcConfig,
+) -> Result<layerx_client::sequencer::SequencerEndpoint, HumanOperationError> {
+    let certificates = if config.url.starts_with("https://") {
+        let roots = rustls_native_certs::load_native_certs();
+        if !roots.errors.is_empty() || roots.certs.is_empty() {
+            return Err(HumanOperationError::Unavailable);
+        }
+        roots.certs
+    } else {
+        Vec::new()
+    };
+    let roots: Vec<_> = certificates.iter().map(|c| c.as_ref()).collect();
+    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    if endpoint
+        .chain_id()
+        .map_err(|_| HumanOperationError::Unavailable)?
+        != config.chain_id
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(endpoint)
+}
+
+fn rpc_hex(bytes: &[u8]) -> String {
+    format!("0x{}", layerx_programs::hex::encode(bytes))
+}
+
+fn read_decimal(text: &str) -> Result<u64, HumanOperationError> {
+    text.parse::<u64>()
+        .ok()
+        .filter(|n| n.to_string() == text)
+        .ok_or(HumanOperationError::Refused)
+}
+
+fn ordinary_read(value: Value, head: u64, height: u64, relative_to: &str) -> Value {
+    serde_json::json!({"value": value, "achieved_verification_level": null,
+        "freshness": {"chain_head": head.to_string(), "value_height": height.to_string(), "relative_to": relative_to}})
+}
+
+fn read_json_response(value: Value) -> Result<HumanResponse, HumanOperationError> {
+    let bytes = serde_json::to_vec(&value).map_err(|_| HumanOperationError::Refused)?;
+    if bytes.len() > MAX_RESPONSE {
+        return Err(HumanOperationError::Refused);
+    }
+    let mut out = Encoder::new();
+    out.bytes(&bytes)?;
+    out.finish()
+}
+
+pub fn balance_operation_value(
+    account: [u8; 32],
+    asset: [u8; 32],
+    amount: Amount,
+    canonical: &[u8],
+    chain_head: u64,
+    value_height: u64,
+) -> Value {
+    let relative = if value_height > chain_head {
+        "pending".to_owned()
+    } else {
+        value_height.to_string()
+    };
+    ordinary_read(
+        serde_json::json!({"account": layerx_programs::hex::encode(&account),
+        "asset": layerx_programs::hex::encode(&asset), "amount": amount.value().to_string(),
+        "canonical_state": layerx_programs::hex::encode(canonical),
+        "height": value_height.to_string()}),
+        chain_head,
+        value_height,
+        &relative,
+    )
+}
+
+fn read_rpc_call(
+    config: &crate::node_rpc::NodeRpcConfig,
+    method: &str,
+    params: Value,
+) -> Result<Value, HumanOperationError> {
+    let certificates = if config.url.starts_with("https://") {
+        let loaded = rustls_native_certs::load_native_certs();
+        if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+            return Err(HumanOperationError::Unavailable);
+        }
+        loaded.certs
+    } else {
+        Vec::new()
+    };
+    let roots: Vec<_> = certificates
+        .iter()
+        .map(|c| ureq::tls::Certificate::from_der(c.as_ref()).to_owned())
+        .collect();
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(config.deadline))
+        .http_status_as_error(false)
+        .max_redirects(0)
+        .tls_config(
+            ureq::tls::TlsConfig::builder()
+                .provider(ureq::tls::TlsProvider::Rustls)
+                .root_certs(ureq::tls::RootCerts::new_with_certs(&roots))
+                .build(),
+        )
+        .build()
+        .into();
+    let mut response = agent
+        .post(&config.url)
+        .header("Content-Type", "application/json")
+        .send_json(
+            serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}),
+        )
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    if response.status().as_u16() != 200 {
+        return Err(HumanOperationError::Unavailable);
+    }
+    let bytes = response
+        .body_mut()
+        .with_config()
+        .limit(MAX_RESPONSE as u64)
+        .read_to_vec()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    let body: Value = serde_json::from_slice(&bytes).map_err(|_| HumanOperationError::Refused)?;
+    if body.as_object().map(|o| o.len()) != Some(3) || body["jsonrpc"] != "2.0" || body["id"] != 1 {
+        return Err(HumanOperationError::Refused);
+    }
+    body.get("result")
+        .cloned()
+        .ok_or(HumanOperationError::Unavailable)
+}
+
+pub fn history_operation_value(
+    selector: &layerx_agent_api::read::HistorySelector,
+    result: &Value,
+    head: u64,
+) -> Result<Value, HumanOperationError> {
+    selector
+        .clone()
+        .validate()
+        .map_err(|_| HumanOperationError::Refused)?;
+    let object = result
+        .as_object()
+        .filter(|o| o.len() == 3)
+        .ok_or(HumanOperationError::Refused)?;
+    let height = read_decimal(
+        object
+            .get("height")
+            .and_then(Value::as_str)
+            .ok_or(HumanOperationError::Refused)?,
+    )?;
+    if height > head || selector.to_height > head {
+        return Err(HumanOperationError::Refused);
+    }
+    let position =
+        |value: &Value| -> Result<layerx_agent_api::read::HistoryCursor, HumanOperationError> {
+            let triple = value
+                .as_array()
+                .filter(|a| a.len() == 3)
+                .ok_or(HumanOperationError::Refused)?;
+            let get =
+                |i: usize| read_decimal(triple[i].as_str().ok_or(HumanOperationError::Refused)?);
+            Ok(layerx_agent_api::read::HistoryCursor {
+                block_height: get(0)?,
+                tx_index: get(1)?,
+                log_index: get(2)?,
+            })
+        };
+    if selector
+        .cursor
+        .is_some_and(|p| !(selector.from_height..=selector.to_height).contains(&p.block_height))
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let rows = object
+        .get("items")
+        .and_then(Value::as_array)
+        .ok_or(HumanOperationError::Refused)?;
+    if rows.len() > selector.page_limit as usize {
+        return Err(HumanOperationError::Refused);
+    }
+    let mut previous = selector.cursor;
+    for item in rows {
+        if item.as_object().map(|o| o.len()) != Some(6) {
+            return Err(HumanOperationError::Refused);
+        }
+        let p = position(&serde_json::json!([
+            item["height"],
+            item["txIndex"],
+            item["logIndex"]
+        ]))?;
+        if !(selector.from_height..=selector.to_height).contains(&p.block_height)
+            || p.block_height > height
+            || previous.is_some_and(|last| last >= p)
+            || !matches!(
+                item["kind"].as_str(),
+                Some("Activity" | "Receipt" | "Event")
+            )
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        for key in ["canonical", "proof"] {
+            if key == "proof" && item[key].is_null() {
+                continue;
+            }
+            let text = item[key].as_str().ok_or(HumanOperationError::Refused)?;
+            if text.len() % 2 != 0
+                || !text
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err(HumanOperationError::Refused);
+            }
+        }
+        previous = Some(p);
+    }
+    let cursor = object.get("cursor").ok_or(HumanOperationError::Refused)?;
+    if !cursor.is_null() && (rows.is_empty() || Some(position(cursor)?) != previous) {
+        return Err(HumanOperationError::Refused);
+    }
+    let value = serde_json::json!({"items": rows, "cursor": cursor, "next_cursor": cursor, "height": height.to_string()});
+    let response = ordinary_read(value, head, height, &height.to_string());
+    if serde_json::to_vec(&response)
+        .map_err(|_| HumanOperationError::Refused)?
+        .len()
+        > MAX_RESPONSE
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(response)
+}
+
+pub fn receipt_proof_operation(
+    target: layerx_agent_api::proof::ProofBundleTarget,
+    requested: layerx_types::rung::Rung,
+    raw: &[u8],
+    receipt: &[u8],
+    keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+    chain_id: u64,
+    head: u64,
+    block_hash: [u8; 32],
+) -> Result<
+    layerx_agent_api::read::VerifiedRead<layerx_agent_api::proof::ProofBundle>,
+    HumanOperationError,
+> {
+    use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
+    use layerx_agent_api::read::{Freshness, RelativeTo, VerifiedRead};
+    use layerx_types::rung::Rung;
+    if matches!(target, ProofBundleTarget::AccountState { .. }) || requested > Rung::Receipted {
+        return Err(HumanOperationError::Refused);
+    }
+    target.encode().map_err(|_| HumanOperationError::Refused)?;
+    let (call, _) = layerx_crypto::evm_transaction::decode_signed(raw)
+        .map_err(|_| HumanOperationError::Refused)?;
+    if call.chain_id != chain_id
+        || layerx_crypto::evm_transaction::transaction_hash(raw) != target.activity_id()
+        || block_hash == [0; 32]
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let verified = crate::finality::VerifiedReceipt::verify(target.activity_id(), receipt, keys)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let decoded = layerx_wire::receipt::decode(verified.canonical_bytes())
+        .map_err(|_| HumanOperationError::Refused)?;
+    if layerx_wire::receipt::encode(&decoded).map_err(|_| HumanOperationError::Refused)? != receipt
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let protocol = decoded.protocol().ok_or(HumanOperationError::Refused)?;
+    let height = u64::from_be_bytes(
+        protocol.batch_id()[24..]
+            .try_into()
+            .map_err(|_| HumanOperationError::Refused)?,
+    );
+    if height > head.checked_add(1).ok_or(HumanOperationError::Refused)? {
+        return Err(HumanOperationError::Refused);
+    }
+    let key = *keys
+        .iter()
+        .find(|k| k.key_id == protocol.context_hash())
+        .ok_or(HumanOperationError::Refused)?;
+    let canonical = |bytes: &[u8]| {
+        layerx_agent_api::prepare::CanonicalBytes::new(bytes.to_vec())
+            .map_err(|_| HumanOperationError::Refused)
+    };
+    let bundle = ProofBundle {
+        format: "layerx-receipt-proof-v2".into(),
+        verification_level: Rung::Receipted,
+        raw_transaction: canonical(raw)?,
+        signed_receipt: canonical(receipt)?,
+        receipt_digest: layerx_wire::hash::receipt_digest(
+            &layerx_wire::receipt::encode_unsigned(&decoded)
+                .map_err(|_| HumanOperationError::Refused)?,
+        )
+        .map_err(|_| HumanOperationError::Refused)?,
+        receipt_key: key,
+        block_header: None,
+        receipt_inclusion: None,
+        commit: None,
+        validator_set: None,
+        account_proof: None,
+    };
+    bundle
+        .validate()
+        .map_err(|_| HumanOperationError::Refused)?;
+    Ok(VerifiedRead::new(
+        bundle,
+        Rung::Receipted,
+        Freshness {
+            chain_head: head,
+            value_height: height,
+            relative_to: RelativeTo::Block {
+                height: head,
+                hash: block_hash,
+            },
+        },
+    ))
+}
+
+pub fn proof_bundle_operation_value(
+    response: &layerx_agent_api::read::VerifiedRead<layerx_agent_api::proof::ProofBundle>,
+) -> Result<Value, HumanOperationError> {
+    let bundle = &response.value;
+    bundle
+        .validate()
+        .map_err(|_| HumanOperationError::Refused)?;
+    if response.achieved_rung != bundle.verification_level {
+        return Err(HumanOperationError::Refused);
+    }
+    let relative = if response.freshness.value_height > response.freshness.chain_head {
+        "pending".to_owned()
+    } else {
+        response.freshness.value_height.to_string()
+    };
+    let key = bundle.receipt_key;
+    let mut value = serde_json::json!({"format": bundle.format, "verificationLevel": bundle.verification_level.name(),
+        "rawTransaction": rpc_hex(bundle.raw_transaction.as_bytes()), "signedReceipt": rpc_hex(bundle.signed_receipt.as_bytes()),
+        "receiptDigest": rpc_hex(&bundle.receipt_digest), "receiptKey": {"keyId": rpc_hex(&key.key_id),
+            "publicKey": rpc_hex(&key.public_key), "firstHeight": key.first_height.to_string(), "lastHeight": key.last_height.to_string()}});
+    for (name, bytes) in [
+        ("blockHeader", &bundle.block_header),
+        ("receiptInclusion", &bundle.receipt_inclusion),
+        ("commit", &bundle.commit),
+        ("validatorSet", &bundle.validator_set),
+        ("accountProof", &bundle.account_proof),
+    ] {
+        if let Some(bytes) = bytes {
+            value[name] = Value::String(rpc_hex(bytes.as_bytes()));
+        }
+    }
+    let mut result = ordinary_read(
+        value,
+        response.freshness.chain_head,
+        response.freshness.value_height,
+        &relative,
+    );
+    result["achieved_verification_level"] = Value::String(response.achieved_rung.name().into());
+    if serde_json::to_vec(&result)
+        .map_err(|_| HumanOperationError::Refused)?
+        .len()
+        > MAX_RESPONSE
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(result)
+}
+
+struct HistoryRpcTransport<'a> {
+    config: &'a crate::node_rpc::NodeRpcConfig,
+    response: Option<Vec<u8>>,
+}
+
+impl layerx_client::lni::transport::FrameTransport for HistoryRpcTransport<'_> {
+    fn send(&mut self, bytes: &[u8]) -> Result<(), layerx_client::lni::transport::TransportError> {
+        use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope};
+        use layerx_client::lni::transport::TransportError;
+        let envelope = decode_envelope(bytes).map_err(|_| TransportError::PeerShutdown)?;
+        let request: Value = serde_json::from_slice(envelope.canonical_payload)
+            .map_err(|_| TransportError::PeerShutdown)?;
+        if request["method"] != "px_getHistory" {
+            return Err(TransportError::PeerShutdown);
+        }
+        let result = read_rpc_call(self.config, "px_getHistory", request["params"].clone())
+            .map_err(|_| TransportError::PeerShutdown)?;
+        let body = serde_json::to_vec(
+            &serde_json::json!({"jsonrpc": "2.0", "id": envelope.correlation_id, "result": result}),
+        )
+        .map_err(|_| TransportError::PeerShutdown)?;
+        self.response = Some(
+            encode_envelope(Envelope {
+                version: envelope.version,
+                message_tag: 11,
+                correlation_id: envelope.correlation_id,
+                canonical_payload: &body,
+                proof_material: &[],
+            })
+            .map_err(|_| TransportError::PeerShutdown)?,
+        );
+        Ok(())
+    }
+    fn receive(&mut self) -> Result<Vec<u8>, layerx_client::lni::transport::TransportError> {
+        self.response
+            .take()
+            .ok_or(layerx_client::lni::transport::TransportError::PeerShutdown)
+    }
 }
