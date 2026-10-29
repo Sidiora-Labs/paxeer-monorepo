@@ -7,6 +7,7 @@ import com.sidiora.layerx.sdk.verify.Committed;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import com.sidiora.layerx.sdk.verify.PortableReceipt;
 import java.io.ByteArrayOutputStream;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,10 +23,58 @@ import java.util.Set;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.signers.Ed25519Signer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import static org.junit.jupiter.api.Assertions.*;
 
 public final class PortableReceiptTest {
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    @Test
+    void portableVectorV5Verifies() throws Exception {
+        JsonNode vector = fixture("vector-v5-portable.json");
+        assertEquals("vector-v5-portable", vector.required("name").textValue());
+        JsonNode bundles = vector.required("bundles");
+        assertTrue(bundles.isArray());
+        assertEquals(2, bundles.size(), "both published V5 bundles must execute");
+        var levels = new java.util.HashSet<String>();
+        List<Executable> checks = new ArrayList<>();
+        for (JsonNode bundle : bundles) {
+            String level = bundle.required("verificationLevel").textValue();
+            assertTrue(levels.add(level), "each V5 verification level must appear once");
+            checks.add(() -> {
+                byte[] encoded = encode(bundle);
+                var verified = assertDoesNotThrow(() -> PortableReceipt(bundle),
+                    "published V5 " + level + " bundle must verify without alteration");
+                assertEquals(level, verified.verificationLevel());
+                assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verified.receipted().level());
+                assertEquals(Integer.parseInt(bundle.required("receiptJson").required("status")
+                    .textValue().substring(2), 16), verified.status());
+                assertDoesNotThrow(verified::requireSuccess);
+                assertArrayEquals(bytes(bundle, "signedReceipt"), verified.receipted().canonicalBytes());
+                assertArrayEquals(bytes(bundle, "receiptDigest"), verified.receipted().receiptDigest());
+                assertArrayEquals(encoded, PortableReceipt.export(verified));
+                if (level.equals("committed")) {
+                    assertNotNull(verified.committed());
+                    assertEquals(Committed.VerificationLevel.COMMITTED, verified.committed().level());
+                    assertEquals(bundle.required("blockHeader").required("Height").longValue(),
+                        verified.committed().height());
+                } else {
+                    assertEquals("receipted", level);
+                    assertNull(verified.committed());
+                }
+            });
+        }
+        assertEquals(Set.of("receipted", "committed"), levels);
+        assertAll("published V5 bundles", checks);
+    }
+
+    private static PortableReceipt.Verification PortableReceipt(JsonNode bundle) {
+        JsonNode pin = bundle.required("receiptKey");
+        var key = new LocalVerifier.ReceiptKey(bytes(pin, "keyId"), bytes(pin, "publicKey"),
+            new BigInteger(pin.required("firstHeight").textValue().substring(2), 16),
+            new BigInteger(pin.required("lastHeight").textValue().substring(2), 16));
+        return PortableReceipt.verify(encode(bundle), new LocalVerifier.ReceiptKeys(List.of(key)));
+    }
 
     @Test
     void portableReceiptRoundTripsAtReceipted() throws Exception {
@@ -362,9 +411,12 @@ public final class PortableReceiptTest {
     }
 
     private static JsonNode fixture(String relativePath) throws Exception {
+        Path fixturePath = Path.of(relativePath);
+        if (fixturePath.getNameCount() == 1)
+            fixturePath = Path.of("sdk/platform/conformance/fixtures").resolve(fixturePath);
         Path directory = Path.of("").toAbsolutePath();
         while (directory != null) {
-            Path path = directory.resolve(relativePath);
+            Path path = directory.resolve(fixturePath);
             if (Files.isRegularFile(path)) return JSON.readTree(Files.readString(path));
             directory = directory.getParent();
         }
