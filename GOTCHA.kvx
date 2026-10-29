@@ -10675,3 +10675,87 @@ area = "agentd program reads"
 symptom = "Replacing a protocol-adapter read with eth_call breaks a caller that cross-checks state roots and bindings."
 cause = "The adapter wraps the kernel's C account-state decode and builds a proof-verified read; eth_call returns bare values."
 do = "Use eth_call only for plain operation reads; build proof-verified reads from the registry's VerifiedAccountSnapshot."
+
+[gotcha.2179]
+area = "spec symbols"
+symptom = "the gate passes and the task is still refused by the declared-symbol check"
+cause = "symbols named an enum variant path (Rung::Committed) or a deleted identifier"
+do = "symbols name plain identifiers that exist after the task: functions, types, test names"
+
+[gotcha.2180]
+area = "EIP-7702 sponsored transactions"
+symptom = "a filter on to === PAYMASTER finds no bind transaction while a from-or-to-account filter finds one"
+cause = "under EIP-7702 the sponsor sends executeSponsored to the delegated account; PAYMASTER appears only in the authorization list"
+do = "assert from === sponsor, to === account and the authorization address, never to === PAYMASTER"
+
+[gotcha.2181]
+area = "launchpad catalog selection"
+symptom = "a user-service catalog test answers 404 on follower routes"
+cause = "a /v2/profiles prefix also selects the follow operations the social service serves"
+do = "select the catalog operations by exact path per owning service and assert the selected count"
+
+[gotcha.2182]
+area = "protocol adapter codec"
+symptom = "a task assumes the account-state record decoder is C and stops for a missing Rust decoder"
+cause = "the LXPS1/LXPS2 codec is pure Rust in the adapter's ffi.rs; only read_* and read_program_state cross the FFI"
+do = "read the whole ffi.rs before ruling on what is C; move pure code rather than rewrite it"
+
+[gotcha.2183]
+area = "spec touches"
+symptom = "a type-retirement task fails to compile in a file it may not edit"
+cause = "the referencing file's only owner is already done or runs later and requires this task"
+do = "before dispatching a deletion task, grep every retired symbol across the module and add each referencing file to touches or a requires on its pending owner"
+
+[gotcha.2184]
+area = "dotnet and mvn gates"
+symptom = "verify_cmd with a test filter still fails on compile errors in tests the filter never selects"
+cause = "dotnet test and mvn test compile the whole test project before filtering"
+do = "treat every test file in the project as a compile dependency of a deletion task"
+
+[gotcha.2185]
+area = "sdkgen retired variants"
+symptom = "generated Go constants re-emit variants the schema retired"
+cause = "variants() ignores retired_variants of errors.kvx"
+do = "when a schema lists retired_variants, the generator must skip them and the generated file must carry every live variant"
+
+[gotcha.2186]
+area = "workspace --tests build_cmd"
+symptom = "a planned-test task fails its build in another crate's integration tests"
+cause = "cargo build --manifest-path <workspace> --tests compiles every member's test targets, including literals stale since a type change"
+do = "scope build_cmd to -p <crate> and the task's --test targets, and route stale literals to their file owner"
+
+[gotcha.2187]
+area = "layerxctl receipt vectors"
+symptom = "submit prints 'transaction must contain binary signed EIP-1559 (type 2) bytes' or receipt_error Malformed against a recorded vector while the test decodes correctly"
+cause = "vector_v1.go records a LegacyTx and layerx-client Fields::exact refuses the daemon's signingKey field"
+do = "check the first byte of rawTransaction and diff receiptJson keys against RECEIPTED_FIELDS before blaming the test"
+
+[gotcha.2188]
+area = "layerx-sdk streaming conformance"
+symptom = "positional-cursor tests fail while the chain checks pass"
+cause = "ResumableStream::accept has no position ordering, only chain linkage, and the task's touches held only the test file"
+do = "when a conformance task re-targets a test to new semantics, give it the implementation file and a do line mirroring the sibling SDK"
+
+[gotcha.2189]
+area = "sdk-gen schema validation"
+symptom = "major_two tests panic with 'missing type.<Request>.precompile'"
+cause = "the generator requirement was added ahead of the schema key, which a later-wave task owns"
+do = "confirm a required schema key exists at main or add requires on the schema-owning task"
+
+[gotcha.2190]
+area = "Rust module retirement"
+symptom = "removing mod x; and its re-exports per the do line leaves dozens of unresolved imports in files the task does not own"
+cause = "the do line enumerated the module's tests but not its crate::<mod>:: importers"
+do = "list every importer before writing a remove-module do line and put each in touches or a required task"
+
+[gotcha.2191]
+area = "kernel fee accounting in precompile tests"
+symptom = "a fee-balance assertion through the x/bank mirror never changes"
+cause = "the programs fee settles in kernel rows; the ledger mirror follows 0x0001xxxx legs only"
+do = "read fee balances through host.ReadBalance(ctx, payer, asset)"
+
+[gotcha.2192]
+area = "recorded x402 exchanges"
+symptom = "a routed tools/call web.fetch gets sidecar status 400 while direct fetch tests pass"
+cause = "since the re-recording the exact payload carries idempotencyKey, so the replaying seller's payload equality binds the test's key to the recorded one"
+do = "every paid call replayed against client-exchange.json takes its idempotency key from the recording; arbitrary keys only for calls refused before they are sent"

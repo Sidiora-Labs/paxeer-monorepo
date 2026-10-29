@@ -10435,3 +10435,155 @@ symbol = "restore_verified"
 observed = "Attempt 1: no change; the adapter is imported outside the touches and the budget caller needs a proof-verified read a bare eth_call cannot provide."
 assumption = "Decision.1836: touches widened; operation read via eth_call, budget read via the registry snapshot."
 severity = "major"
+
+[finding.18.1065.1.8]
+task = "18.1065.1"
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts:266"
+symbol = "provision"
+observed = "Attempt 12: the from-or-to-address filter finds the executeSponsored transaction because EIP-7702 addresses it to the delegated account, not to PAYMASTER."
+assumption = "Decision.1837: assert the sponsor-to-account transaction with the authorization to PAYMASTER."
+severity = "major"
+
+[finding.4.23.5.1]
+task = "4.23.5"
+file = "services/launchpad/user/internal/account/v2_catalog_test.go"
+symbol = "TestUserHandlerServesFrozenUserCatalog"
+observed = "A /v2/profiles prefix selects IF_FOLLOWERS and IF_FOLLOW_STATS, which the social service serves, and the user mux answers 404."
+assumption = "Select the three profile operations by exact path and exclude the follow operations."
+severity = "minor"
+
+[finding.9.94.1.2]
+task = "9.94.1"
+file = "programs/crates/layerx-programs-protocol-adapter/src/ffi.rs:262"
+symbol = "restore_verified"
+observed = "Attempt 2 stopped under do_4 (c): the record codec was presumed to be C while it is pure Rust in the adapter's ffi.rs."
+assumption = "Decision.1838: the codec moves into layerx_programs::state_record."
+severity = "major"
+
+[finding.8.41.5.1]
+task = "8.41.5"
+file = "sdk/platform/go/programs.go:476"
+symbol = "verifyExecutionAuthority"
+observed = "Attempt 4: the Go SDK still carries the AuthorizedBatch parameter and ProgramResponseAuthority.authorizedBatch in programs.go and tests outside the touches."
+assumption = "Decision.1842: the dead kernel chain and its tests leave with this task."
+severity = "major"
+
+[finding.8.46.2.1]
+task = "8.46.2"
+file = "sdk/platform/generators/src/main.rs:1379"
+symbol = "variants"
+observed = "The generator ignores retired_variants of errors.kvx:10 and lacks HumanErrorOperationRetired, contradicting do_2 and errors.kvx:9."
+assumption = "do_6 and do_7 align the generator with the schema."
+severity = "major"
+
+[finding.10.98.15.1]
+task = "10.98.15"
+file = "services/human/crates/layerx-human-service/tests/archive.rs:101"
+symbol = "archive"
+observed = "The --tests build fails in tests/archive.rs:101 and :288, stale at main with no open owner, and in tests/journey_faults.rs owned by 18.1149.1 and 10.98.11."
+assumption = "This task builds only its own test targets; archive.rs needs an owner."
+severity = "major"
+
+[finding.13.34.4.5]
+task = "13.34.4"
+file = "precompiles/layerxprograms/replay_test.go:120"
+symbol = "TestProgramsReplayedActivityReturnsStoredReceipt"
+observed = "Attempt 8 reads the fee through the x/bank mirror, which never moves because the fee settles in kernel rows only."
+assumption = "Read balances through h.host.ReadBalance."
+severity = "major"
+
+[finding.5.47.4.1]
+task = "5.47.4"
+file = "daemon/committed-fixture/vectors/vector-v1-receipted-positive.json"
+symbol = "rawTransaction"
+observed = "Attempt 3: the V1 vector is a legacy type-0 transaction refused at cmd/layerxctl/src/main.rs:316, and every V3 case answers Malformed because receiptJson carries signingKey that layerx-client RECEIPTED_FIELDS lacks."
+assumption = "Decision.1839: re-record V1 as type 2 (5.55.7) and decode signingKey (9.21.8)."
+severity = "major"
+
+[finding.8.47.8.1]
+task = "8.47.8"
+file = "services/agent/crates/layerx-sdk/src/production.rs:724"
+symbol = "ResumableStream::accept"
+observed = "Attempt 4: accept admits a log at (10,0,0) after cursor (10,0,1) and (11,1,5) after (11,2,0); it validates only chain linkage, never position."
+assumption = "The Rust stream gains the positional refusal 8.47.3 gave the Python stream."
+severity = "major"
+
+[finding.9.18.4.1]
+task = "9.18.4"
+file = "services/agent/schema/agent-api/programs.kvx:23"
+symbol = "NativeProgramDeployRequest"
+observed = "Attempts 1 to 4 refuse the canonical schema with 'missing type.NativeProgramDeployRequest.precompile'; the schema declares neither precompile nor selector."
+assumption = "Decision.1840: 9.10.2 adds the keys; 9.18.4 requires it."
+severity = "major"
+
+[finding.8.94.1.1]
+task = "8.94.1"
+file = "services/agent/crates/layerx-mcp/src/tools/read.rs:193"
+symbol = "CheckpointValue"
+observed = "Attempt 3: the CLI build fails inside layerx-mcp on the read types 9.1.1 changed, in files the attempt did not touch."
+assumption = "8.94.1 requires 18.1121.1, which ports those callers."
+severity = "major"
+
+[finding.8.94.3.1]
+task = "8.94.3"
+file = "services/platform/hosted/paxai-worker/tests/membership_recovery.rs:961"
+symbol = "ReadProof"
+observed = "Attempt 4: the services/platform --tests build fails on paxai-worker test literals naming batch_id, checkpoint and settlement, removed by 13.29.1."
+assumption = "8.98.11 do_10 ports the literals; 8.94.3 requires it."
+severity = "major"
+
+[finding.10.20.3.1]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/src/server/movement_provider.rs:21"
+symbol = "DepositRuntime"
+observed = "Attempts 1 and 2: 26 unresolved imports of the removed journeys in custody/mod.rs, agent_runtime.rs, movement_provider.rs and production_reads.rs."
+assumption = "Decision.1841: the importers retire in this task."
+severity = "major"
+
+[finding.8.42.5.1]
+task = "8.42.5"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:718"
+symbol = "verifyReceipt"
+observed = "Attempts 1 to 4: compile fails on LocalVerifier.AuthorizedReceiptBatch in ProgramsClient.java, ProgramsContractTest.java and TerminalV4Test.java; ConformanceMain.java:185-195 (the -Pconformance profile, no owner) also names the retired entry points."
+assumption = "Decision.1842 for the three files; ConformanceMain.java stays recorded until a conformance task owns it."
+severity = "major"
+
+[finding.8.42.6.1]
+task = "8.42.6"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProductionClient.java:114"
+symbol = "programs"
+observed = "Attempts 1 to 3: compile fails on ProductionTransport.ProgramsCall in ProductionClient.java and NativeLifecycleTransportTest.java, files no task owned."
+assumption = "The dead caller and the route test are deleted here."
+severity = "major"
+
+[finding.8.43.5.1]
+task = "8.43.5"
+file = "sdk/platform/dotnet/Programs.cs:343"
+symbol = "VerifyReceiptAsync"
+observed = "Attempts 1 to 3: CS0246 AuthorizedReceiptBatch at Programs.cs:343 and :617; dotnet test also compiles ProgramsContractTests.cs, which constructs the type."
+assumption = "Decision.1842: the unreachable chain and its tests leave with this task."
+severity = "major"
+
+[finding.8.43.6.1]
+task = "8.43.6"
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs:94"
+symbol = "NativeLifecycleCFixtures"
+observed = "Attempts 1 to 3: the gate fails compiling ReceiptFixtureTests.cs:94 on ProgramTransportCall, in the sibling's file."
+assumption = "8.43.6 requires 8.43.5 and deletes the fact."
+severity = "major"
+
+[finding.18.1121.1.6]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/tests/web.rs:1903"
+symbol = "assert_routed_tools"
+observed = "Attempt 9 (904a4f42a) passes 20 of 22 web tests; the two routed tests pay web.fetch with idempotency_key 5a..5a while the replaying seller admits only the recorded payload whose idempotencyKey is 36a8ff8c...."
+assumption = "The routed fetch reads the recorded USDC exact idempotency key from gateway/buyer.json; check_receipt, purpose_of and the replay comparison stay as written."
+severity = "minor"
+
+[finding.10.25.1.2]
+task = "10.25.1"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "symbols"
+observed = "Attempt 6 passes the gate test and is refused by the declared-symbol check because the symbols named the enum path Rung::Committed."
+assumption = "Symbols name evidence_gate, evidence_startup_config and the test."
+severity = "minor"
