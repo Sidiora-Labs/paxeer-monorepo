@@ -61,6 +61,9 @@ func TestVectorV1ReceiptedPositiveVerifies(t *testing.T) {
 	if err := tx.UnmarshalBinary(vector.RawTransaction); err != nil {
 		t.Fatal(err)
 	}
+	if tx.Type() != ethtypes.DynamicFeeTxType || vector.RawTransaction[0] != ethtypes.DynamicFeeTxType {
+		t.Fatal("raw transaction must be an EIP-1559 type 2 transaction beginning with 0x02")
+	}
 	canonical, err := tx.MarshalBinary()
 	if err != nil || !bytes.Equal(canonical, vector.RawTransaction) || tx.To() != nil || tx.Value().Sign() != 0 ||
 		!bytes.Equal(tx.Data(), common.FromHex(v1Creation)) || tx.GasPrice().Sign() <= 0 || tx.ChainId().Sign() <= 0 || p.EVMChainID != "0x"+tx.ChainId().Text(16) {
