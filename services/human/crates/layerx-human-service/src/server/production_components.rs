@@ -2420,13 +2420,18 @@ fn creation_material(
         .get(Table::Journeys, &evidence_key)
         .ok_or_else(ApiFailure::upstream_degraded)?;
     if source_stage == CreationStage::CapabilityNarrowing {
-        let (key, object_id, sequence, rank, recorded): ([u8; 32], [u8; 32], u64, u8, [u8; 32]) =
-            serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
+        let (key, object_id, sequence, rung_byte, recorded): (
+            [u8; 32],
+            [u8; 32],
+            u64,
+            u8,
+            [u8; 32],
+        ) = serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
         let observation = crate::agents::AgentEvidence {
             action_key: key,
             object_id,
             observed_sequence: sequence,
-            rung: match rank {
+            rung: match rung_byte {
                 0 => layerx_types::rung::Rung::Submitted,
                 1 => layerx_types::rung::Rung::Receipted,
                 2 => layerx_types::rung::Rung::Committed,
@@ -2480,26 +2485,13 @@ fn creation_material(
         crate::journeys::ReceiptLookup::Found(value) => value,
         crate::journeys::ReceiptLookup::Absent => return Err(ApiFailure::upstream_degraded()),
     };
-    if material.tx_hash != activity_id
-        || material.receipt_hash != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
-        || material.rung < layerx_types::rung::Rung::Receipted
-    {
-        return Err(ApiFailure::upstream_degraded());
-    }
-    let evidence = crate::agents::ProtocolEvidence {
-        signed_activity: signed.bytes().to_vec(),
-        actor: activity.actor_did().to_vec(),
-        owner_public_key: <[u8; 32]>::try_from(activity.authority())
-            .map_err(|_| ApiFailure::upstream_degraded())?,
-        network_id: activity.network_id(),
-        action_key,
-        activity_id,
-        receipt_bytes: material.canonical_bytes,
-        tx_hash: material.tx_hash,
-        receipt_hash: material.receipt_hash,
-        block_height: material.block_height,
-        rung: material.rung,
-    };
+    let evidence = ProductionAgentCreation::protocol_evidence(
+        signed.bytes().to_vec(),
+        <[u8; 32]>::try_from(activity.authority()).map_err(|_| ApiFailure::upstream_degraded())?,
+        agent.registry(),
+        material,
+    )
+    .map_err(|_| ApiFailure::upstream_degraded())?;
     evidence
         .verify_outcome(activity.activity_type())
         .map_err(agent_failure_from_creation_contract)?;
@@ -2510,14 +2502,19 @@ fn creation_material(
         return Err(ApiFailure::upstream_degraded());
     }
     if source_stage == CreationStage::SessionProvision {
-        let (key, object_id, sequence, rank, recorded): ([u8; 32], [u8; 32], u64, u8, [u8; 32]) =
-            serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
+        let (key, object_id, sequence, rung_byte, recorded): (
+            [u8; 32],
+            [u8; 32],
+            u64,
+            u8,
+            [u8; 32],
+        ) = serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
         if key != action_key
             || object_id != object
             || object_id == [0; 32]
             || sequence == 0
-            || rank != layerx_types::rung::Rung::Committed.wire_rank()
-            || rank != evidence.rung.wire_rank()
+            || rung_byte != layerx_types::rung::Rung::Committed.wire_rank()
+            || rung_byte != evidence.rung.wire_rank()
             || recorded != expected
         {
             return Err(ApiFailure::upstream_degraded());

@@ -742,7 +742,7 @@ fn expected_activity_type(intent: &Intent) -> Result<ActivityType, DisclosureChe
         IntentKind::PayerGrantRegistration(_) => (ModuleId::Budget, 4),
         IntentKind::BudgetCreate(_) | IntentKind::NativeBudgetCreate(_) => (ModuleId::Budget, 1),
         IntentKind::BudgetFund(_) => (ModuleId::Budget, 2),
-        IntentKind::BudgetDefund(_) => (ModuleId::Budget, 7),
+        IntentKind::BudgetDefund(_) => (ModuleId::Budget, 8),
         IntentKind::BridgeDepositCredit(_) | IntentKind::NativeCustodyCredit(_) => {
             (ModuleId::Bridge, 1)
         }
