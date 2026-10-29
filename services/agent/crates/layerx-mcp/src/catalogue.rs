@@ -401,8 +401,10 @@ pub fn input_schema(name: &str) -> Option<Value> {
 pub fn validate(name: &str, arguments: &Value) -> Result<(), ArgumentError> {
     let variant = arguments.get("variant").and_then(Value::as_str);
     if variant == Some("external_signature_v1") && name == "activity.sign" {
+        crate::binding::external_signature_request(arguments)
+            .map_err(|_| ArgumentError::Malformed("mcp.external_signature"))?;
         validate_session_schema(arguments, &external_sign_schema())?;
-        strict_hex(arguments.get("signature"), 64)?;
+        strict_hex(arguments.get("signature"), 65)?;
         strict_hex(arguments.get("preparation_ref"), 32)?;
         return Ok(());
     }
@@ -1003,15 +1005,10 @@ fn native_submit_schema() -> Value {
         json!({
             "variant": {"type": "string", "enum": ["native_send_submit_v1"]},
             "tenant": native_wire_text(), "agent": native_wire_text(),
-            "preparation_ref": native_wire_hex(32), "signature": native_wire_hex(64), "signer_public_key": native_wire_hex(32),
+            "preparation_ref": native_wire_hex(32), "signature": native_wire_hex(65), "signer_address": native_wire_hex(20),
             "approval_release_ref": {"anyOf": [native_wire_text(), {"type": "null"}]},
         }),
-        &[
-            "variant",
-            "preparation_ref",
-            "signature",
-            "signer_public_key",
-        ],
+        &["variant", "preparation_ref", "signature", "signer_address"],
     )
 }
 
@@ -1045,7 +1042,7 @@ pub(crate) fn canonical_owner(name: &str) -> bool {
 fn external_sign_schema() -> Value {
     session_object(
         json!({"variant":{"type":"string","enum":["external_signature_v1"]},
-        "preparation_ref":native_wire_hex(32),"signature":native_wire_hex(64)}),
+        "preparation_ref":native_wire_hex(32),"signature":native_wire_hex(65)}),
         &["variant", "preparation_ref", "signature"],
     )
 }
@@ -1078,14 +1075,14 @@ fn native_write_schema(name: &str) -> Option<Value> {
     Some(session_object(
         json!({"variant":{"type":"string","enum":["native_write_v1"]},
         "intent":session_object(Value::Object(props),&names),"preparation":preparation,"canonical_bytes":native_wire_bytes(None),
-        "signature":native_wire_hex(64),"signer_public_key":native_wire_hex(32)}),
+        "signature":native_wire_hex(65),"signer_address":native_wire_hex(20)}),
         &[
             "variant",
             "intent",
             "preparation",
             "canonical_bytes",
             "signature",
-            "signer_public_key",
+            "signer_address",
         ],
     ))
 }
@@ -1113,7 +1110,7 @@ fn validate_native_write(name: &str, arguments: &Value) -> Result<(), ArgumentEr
             "preparation",
             "canonical_bytes",
             "signature",
-            "signer_public_key",
+            "signer_address",
         ]
         .iter()
         .all(|k| object.contains_key(*k))
@@ -1123,8 +1120,8 @@ fn validate_native_write(name: &str, arguments: &Value) -> Result<(), ArgumentEr
     if serde_json::to_vec(arguments).map_or(true, |v| v.len() > MAX_ARGUMENT_BYTES) {
         return Err(ArgumentError::TooLarge);
     }
-    strict_hex(object.get("signature"), 64)?;
-    strict_hex(object.get("signer_public_key"), 32)?;
+    strict_hex(object.get("signature"), 65)?;
+    strict_hex(object.get("signer_address"), 20)?;
     let canonical = object
         .get("canonical_bytes")
         .and_then(Value::as_str)
