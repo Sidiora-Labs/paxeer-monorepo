@@ -1,10 +1,11 @@
+use layerx_client::rpc::evidence::checkpoint;
+use layerx_client::sequencer::SequencerEndpoint;
 use std::fmt::Debug;
 use std::fs;
 use std::future::Future;
-use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
 use std::pin::pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
@@ -16,11 +17,6 @@ use layerx_agent_api::identity::{
     AgentDid, AuthorityRef, NativeSendPurposeV1, SessionId, SignedNativeSendPurposeV1,
 };
 use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, TimestampBound};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::HandshakeConfig;
-use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::Limits;
-use layerx_client::Client;
 use layerx_human_service::audit::{AuditChain, AuditEvent, Decision};
 use layerx_human_service::custody::{
     CustodySigner, KeyId, Keystore, Operation, RemoteKmsProvider, SigningLimits,
@@ -90,15 +86,6 @@ fn id(value: &str) -> [u8; 32] {
     assert_ne!(id, [0; 32]);
     id
 }
-fn limits() -> Limits {
-    Limits {
-        maximum_frame_bytes: 1_212_416,
-        maximum_connections: 1,
-        maximum_streams: 1,
-        maximum_queued_bytes: 1_212_416,
-        deadline: Duration::from_secs(8),
-    }
-}
 fn frame_limits() -> FrameLimits {
     FrameLimits {
         maximum_frame_bytes: 1_212_416,
@@ -109,26 +96,95 @@ fn frame_limits() -> FrameLimits {
     }
 }
 fn clock(fixture: &Value) -> (u64, u64) {
-    let mut node = checked(Client::connect(ClientConfig {
-        endpoint: Path::new(text(fixture, "lni_socket")).to_path_buf(),
-        handshake: HandshakeConfig {
-            built_interface_version: Version::V1_8,
-            expected_protocol_version: 3,
-            expected_network_id: checked(number(fixture, "network_id").try_into()),
-        },
-        limits: limits(),
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 1,
-            base_delay: Duration::from_millis(1),
-            maximum_delay: Duration::from_millis(1),
-            jitter_percent: 0,
-        },
-    }));
-    let state =
-        checked(node.preparation_state(&checked(Did::new(text(fixture, "owner").as_bytes())), 1));
-    assert_ne!(state.observed_state_root, [0; 32]);
-    (state.protocol_timestamp, state.observed_head_sequence)
+    let mut agent = runtime(
+        fixture,
+        text(fixture, "principal"),
+        text(fixture, "owner"),
+        text(fixture, "account"),
+    );
+    let head = checked(agent.head());
+    let listener = checked(TcpListener::bind("127.0.0.1:0"));
+    let endpoint = checked(SequencerEndpoint::new(
+        &format!("http://{}/", checked(listener.local_addr())),
+        &[],
+    ));
+    checked(listener.set_nonblocking(true));
+    let upstream = text(fixture, "rpc_url").to_owned();
+    let height = head.chain_sequence;
+    let server = std::thread::spawn(move || {
+        let deadline = std::time::Instant::now() + Duration::from_secs(8);
+        let stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "missing sequencer head read"
+                    );
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) => panic!("sequencer head accept: {error}"),
+            }
+        };
+        checked(stream.set_read_timeout(Some(Duration::from_secs(8))));
+        checked(stream.set_write_timeout(Some(Duration::from_secs(8))));
+        let mut reader = BufReader::new(stream);
+        let mut length = None;
+        loop {
+            let mut line = String::new();
+            assert_ne!(checked(reader.read_line(&mut line)), 0);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = Some(checked(value.trim().parse::<usize>()));
+            }
+        }
+        let length = length.expect("RPC content length");
+        assert!(length <= 65_536);
+        let mut body = vec![0; length];
+        checked(reader.read_exact(&mut body));
+        let request: Value = checked(serde_json::from_slice(&body));
+        assert_eq!(request["method"], "eth_getBlockByNumber");
+        assert_eq!(
+            request["params"],
+            serde_json::json!([format!("{height:#x}"), true])
+        );
+        let mut response = checked(
+            ureq::Agent::config_builder()
+                .timeout_global(Some(Duration::from_secs(8)))
+                .build()
+                .new_agent()
+                .post(&upstream)
+                .header("Content-Type", "application/json")
+                .send(&body),
+        );
+        let answer: Value = checked(serde_json::from_slice(&checked(
+            response.body_mut().read_to_vec(),
+        )));
+        assert_eq!(answer["id"], request["id"]);
+        let root = text(&answer["result"], "stateRoot")
+            .strip_prefix("0x")
+            .expect("served sequencer state root");
+        assert_ne!(id(root), [0; 32]);
+        let answer = checked(serde_json::to_vec(&answer));
+        let mut stream = reader.into_inner();
+        checked(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", answer.len()));
+        checked(stream.write_all(&answer));
+        checked(stream.flush());
+    });
+    let observed = checked(checkpoint(&endpoint, height));
+    checked(server.join());
+    assert_eq!(observed.number, head.chain_sequence);
+    (
+        observed
+            .timestamp
+            .checked_mul(1_000)
+            .expect("protocol milliseconds"),
+        observed.number,
+    )
 }
+
 fn store(fixture: &Value) -> PrincipalStore {
     let retention = RetentionPeriod::new(number(fixture, "retention_seconds"));
     checked(PrincipalStore::open(
@@ -147,7 +203,7 @@ fn runtime(fixture: &Value, principal: &str, owner: &str, account: &str) -> Agen
     checked(
         checked(AgentRuntime::connect(
             text(fixture, "agent_socket"),
-            limits(),
+            frame_limits(),
         ))
         .for_subject(
             &checked(PrincipalId::new(principal)),
