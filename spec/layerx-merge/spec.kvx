@@ -137191,7 +137191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.48.1]
 title = "layerx wallet estimate-fee quotes through eth_estimateGas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.0.3", "7.0.2", "9.1.8", "18.1121.1"]
