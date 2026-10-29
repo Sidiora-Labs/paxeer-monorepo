@@ -194,6 +194,80 @@ public sealed class PortableReceiptTests
     }
 
     [Fact]
+    public void PortableCommittedAcceptsGoAbsentVotes()
+    {
+        using var document = LoadFixture();
+        var vector = document.RootElement.GetProperty("cases").EnumerateArray()
+            .First(value => value.GetProperty("vector").GetString() == "V1");
+        var bundle = CreateGoAbsentVotes(vector);
+        Assert.Equal("layerx-receipt-proof-v2", bundle["format"]!.GetValue<string>());
+        Assert.Equal(new long[] { 4, 3, 2, 1 }, bundle["validatorSet"]!.AsArray()
+            .Select(validator => validator!["VotingPower"]!.GetValue<long>()).ToArray());
+        foreach (var commit in BundleCommits(bundle))
+        {
+            var signatures = commit["Signatures"]!.AsArray();
+            Assert.Equal(2, signatures.Count(signature => signature!["BlockIDFlag"]!.GetValue<byte>() == 2));
+            var absent = signatures.Where(signature => signature!["BlockIDFlag"]!.GetValue<byte>() == 1).ToArray();
+            Assert.Equal(2, absent.Length);
+            foreach (var signature in absent)
+            {
+                Assert.Null(signature!["ValidatorAddress"]);
+                Assert.Null(signature["Signature"]);
+                Assert.Equal("0001-01-01T00:00:00Z", signature["Timestamp"]!.GetValue<string>());
+            }
+        }
+        Assert.Equal("committed", PortableReceipt.verify(JsonSerializer.SerializeToUtf8Bytes(bundle), Keys(vector)).VerificationLevel);
+    }
+
+    [Fact]
+    public void PortableCommittedRefusesMalformedAbsentVotes()
+    {
+        using var document = LoadFixture();
+        var vector = document.RootElement.GetProperty("cases").EnumerateArray()
+            .First(value => value.GetProperty("vector").GetString() == "V1");
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(CreateGoAbsentVotes(vector));
+        var keys = Keys(vector);
+        Assert.Equal("committed", PortableReceipt.verify(bytes, keys).VerificationLevel);
+
+        void Reject(Action<JsonObject> mutate)
+        {
+            var changed = JsonNode.Parse(bytes)!.AsObject();
+            mutate(changed);
+            Refused(() => PortableReceipt.verify(JsonSerializer.SerializeToUtf8Bytes(changed), keys));
+        }
+
+        for (var index = 0; index < 2; index++)
+        {
+            foreach (var flag in new byte[] { 2, 3 })
+                foreach (var field in new[] { "Signature", "ValidatorAddress" })
+                    Reject(bundle =>
+                    {
+                        var signature = BundleCommits(bundle)[index]["Signatures"]![0]!;
+                        signature["BlockIDFlag"] = flag;
+                        signature[field] = null;
+                    });
+            foreach (var timestamp in new[] { "0001-01-01T00:00:01Z", "0001-01-01T00:00:00.000000001Z" })
+                Reject(bundle => BundleCommits(bundle)[index]["Signatures"]![2]!["Timestamp"] = timestamp);
+            foreach (var field in new[] { "Signature", "ValidatorAddress" })
+                Reject(bundle => BundleCommits(bundle)[index]["Signatures"]![2]![field] = Convert.ToBase64String(new byte[] { 1 }));
+            Reject(bundle =>
+            {
+                var header = (index == 0 ? bundle["blockHeader"]! : bundle["receiptInclusion"]!["NextHeader"]!)
+                    .Deserialize<CometHeader>()!;
+                var commit = Sign(header, ValidatorKeys(4), 1);
+                BundleCommits(bundle)[index]["Signatures"] = JsonSerializer.SerializeToNode(commit.Signatures);
+            });
+        }
+        Reject(bundle =>
+        {
+            var header = bundle["blockHeader"]!.Deserialize<CometHeader>()!;
+            var next = bundle["receiptInclusion"]!["NextHeader"]!.Deserialize<CometHeader>()!;
+            BundleCommits(bundle)[0]["Signatures"] = JsonSerializer.SerializeToNode(Sign(header, ValidatorKeys(4), 1).Signatures);
+            BundleCommits(bundle)[1]["Signatures"] = JsonSerializer.SerializeToNode(Sign(next, ValidatorKeys(4), 1).Signatures);
+        });
+    }
+
+    [Fact]
     public void PortableReceiptRefusesVersionOneFormat()
     {
         using var document = LoadFixture();
@@ -235,14 +309,40 @@ public sealed class PortableReceiptTests
         Refused(() => PortableReceipt.verify(Encoding.UTF8.GetBytes(duplicate), keys));
     }
 
-    private static PortableReceipt CreateCommitted(JsonElement vector)
+    private static JsonObject[] BundleCommits(JsonObject bundle) =>
+        new[] { bundle["commit"]!.AsObject(), bundle["receiptInclusion"]!["NextCommit"]!.AsObject() };
+
+    private static JsonObject CreateGoAbsentVotes(JsonElement vector)
+    {
+        var bundle = JsonNode.Parse(CreateCommitted(vector, new long[] { 4, 3, 2, 1 }, 2).export())!.AsObject();
+        foreach (var commit in BundleCommits(bundle))
+        {
+            var signatures = commit["Signatures"]!.AsArray();
+            for (var index = 0; index < signatures.Count; index++)
+                if (signatures[index]!["BlockIDFlag"]!.GetValue<byte>() == 1)
+                    signatures[index] = new JsonObject
+                    {
+                        ["BlockIDFlag"] = (byte)1,
+                        ["ValidatorAddress"] = null,
+                        ["Timestamp"] = "0001-01-01T00:00:00Z",
+                        ["Signature"] = null
+                    };
+        }
+        return bundle;
+    }
+
+    private static Ed25519PrivateKeyParameters[] ValidatorKeys(int count) => Enumerable.Range(1, count)
+        .Select(index => new Ed25519PrivateKeyParameters(Enumerable.Repeat((byte)index, 32).ToArray(), 0)).ToArray();
+
+    private static PortableReceipt CreateCommitted(JsonElement vector, long[]? powers = null, int signers = 1)
     {
         var view = vector.GetProperty("receiptJson");
         var keys = Keys(vector);
         var receipt = LocalVerifier.VerifySequencerReceipt(view, Hex(vector, "rawTransaction"), keys).Receipt;
         var height = Convert.ToUInt64(view.GetProperty("height").GetString()![2..], 16);
-        var privateKey = new Ed25519PrivateKeyParameters(Enumerable.Repeat((byte)1, 32).ToArray(), 0);
-        var validators = new[] { new CometValidator(privateKey.GeneratePublicKey().GetEncoded(), 10) };
+        powers ??= new long[] { 10 };
+        var privateKeys = ValidatorKeys(powers.Length);
+        var validators = privateKeys.Select((key, index) => new CometValidator(key.GeneratePublicKey().GetEncoded(), powers[index])).ToArray();
         var batch = Join(Encoding.UTF8.GetBytes("PAXEER/v1/sequence-batch\0"), BigEndian(height),
             BigEndian(receipt.GlobalSequence), BigEndian(receipt.GlobalSequence), receipt.PreviousStateRoot,
             receipt.ResultingStateRoot, SHA256.HashData(receipt.ActivityId), receipt.ContextHash, receipt.SequencerSignature);
@@ -259,26 +359,37 @@ public sealed class PortableReceiptTests
             new(hash, 1, hash), hash, Root(transactionLeaves), Committed.ValidatorSetHash(validators),
             Committed.ValidatorSetHash(validators), hash, hash, hash, hash,
             SHA256.HashData(validators[0].PublicKey)[..20]);
-        var commit = Sign(header, privateKey);
+        var commit = Sign(header, privateKeys, signers);
         var next = header with { Height = header.Height + 1, LastBlockId = commit.BlockId, LastResultsHash = Root(resultLeaves) };
         var inclusion = new CommittedReceiptInclusion(transaction, new(2, 1, new[] { Leaf(transactionLeaves[0]) }),
             result, new(2, 1, new[] { Leaf(resultLeaves[0]) }), batch, new(2, 0, new[] { Leaf(transactionLeaves[1]) }),
-            next, Sign(next, privateKey), validators);
+            next, Sign(next, privateKeys, signers), validators);
         return PortableReceipt.export(view, Hex(vector, "rawTransaction"), keys, header, inclusion, commit, validators);
     }
 
-    private static CometCommit Sign(CometHeader header, Ed25519PrivateKeyParameters key)
+    private static CometCommit Sign(CometHeader header, IReadOnlyList<Ed25519PrivateKeyParameters> keys, int signers)
     {
         var commit = new CometCommit(header.Height, 0,
             new(Committed.HeaderHash(header), 1, SHA256.HashData(Encoding.UTF8.GetBytes("parts"))),
             Array.Empty<CometCommitSignature>());
-        var signature = new CometCommitSignature(2, SHA256.HashData(key.GeneratePublicKey().GetEncoded())[..20],
-            header.Time, Array.Empty<byte>());
-        var signer = new Ed25519Signer();
-        signer.Init(true, key);
-        var message = Committed.VoteSignBytes(header.ChainId, commit, signature);
-        signer.BlockUpdate(message, 0, message.Length);
-        return commit with { Signatures = new[] { signature with { Signature = signer.GenerateSignature() } } };
+        var signatures = new List<CometCommitSignature>();
+        for (var index = 0; index < keys.Count; index++)
+        {
+            if (index >= signers)
+            {
+                signatures.Add(new(1, Array.Empty<byte>(), new(-62135596800, 0), Array.Empty<byte>()));
+                continue;
+            }
+            var key = keys[index];
+            var signature = new CometCommitSignature(2, SHA256.HashData(key.GeneratePublicKey().GetEncoded())[..20],
+                header.Time, Array.Empty<byte>());
+            var signer = new Ed25519Signer();
+            signer.Init(true, key);
+            var message = Committed.VoteSignBytes(header.ChainId, commit, signature);
+            signer.BlockUpdate(message, 0, message.Length);
+            signatures.Add(signature with { Signature = signer.GenerateSignature() });
+        }
+        return commit with { Signatures = signatures };
     }
 
     private static byte[] WrapTransaction(byte[] transaction) => Message(1, Message(1, Join(
