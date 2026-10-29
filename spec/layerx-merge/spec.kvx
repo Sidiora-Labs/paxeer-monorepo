@@ -187490,7 +187490,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1092.1]
 title = "Issue #1092: Restore the unified history web fixture to the gateway's recorded answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187551,7 +187551,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1180.1]
 title = "Issue #1180: Carry the committed proof from the x402 seller's settlement response to the buyer's committed gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
