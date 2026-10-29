@@ -4287,6 +4287,36 @@ value = "Every pending task whose build compiles layerx-platform-cli, including 
 basis = "The CLI binary did not compile at main from 9.32.2 until 8.48.1 landed (tools/platform/cli/src/wallet.rs:331-333, :794 against services/agent/crates/layerx-sdk/src/rpc.rs:980, :1054), as decision.1846 and the findings of 8.94.1, 18.786.1, 8.50.1, 8.50.2 and 8.49.1 record; decision.1846 listed only part of the dependents."
 affects = ["8.49.1", "8.49.2", "8.49.3", "8.50.3", "8.50.4", "8.94.2", "8.48.3", "8.94.3"]
 
+[decision.1863]
+title = "The layerx-agentd lib-test compile repair rides on 18.1199.1"
+value = "Task 18.1199.1 carries every in-crate cfg(test) call site the layerx-agentd lib test target needs to compile: the two enqueue callers (services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:144-149, services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:218) move to Outbox::enqueue_with_origin, the two verify_before_submit callers (services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:126, services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:203) move to verify_kernel_before_submit, and the native prepare test (services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:2740-2741) reads nonce, not_before_height and not_after_height. 18.1200.1 and 18.1206.1 keep only their integration-test and human-service sites and require 18.1199.1; every layerx-agentd task that builds --tests requires 18.1199.1."
+basis = "The lib test target is one compile unit; at main (d00eb3ca1) it fails with seven errors left by 9.3.1 (06862bc6c, enqueue takes raw bytes and returns the transaction hash), 9.2.2 (c03f97f8e, SigningPreparation and 65-byte signatures) and 9.13.2 (71142289d, HumanPrepare heights), none of which carried its in-crate test callers (decision.1849). Only the task that adds enqueue_with_origin can port the enqueue callers, so it carries the other two slices as well; attempts 1 and 2 of 18.1199.1, 18.1205.1, 18.1206.1, 18.1221.1, 18.1228.1, 18.1230.1 and 18.1233.1 all stopped on these seven errors."
+affects = ["18.1199.1", "18.1200.1", "18.1206.1", "18.1205.1", "18.1221.1", "18.1228.1", "18.1230.1", "18.1233.1"]
+
+[decision.1864]
+title = "The layerx-human-service binding and custody test targets are ported by 18.1172.2"
+value = "services/human/crates/layerx-human-service/tests/binding.rs:157 and :408 call the six-argument raw_receipt_evidence of layerx-human-test-support (canonical receipt, pinned sequencer receipt key, previous state root, resulting state root, global sequence, signer); services/human/crates/layerx-human-service/tests/custody.rs:342 and :344 call attach_kernel_signature and verify_kernel_before_submit with the kernel Prepared, the 64-byte grant signature and the 32-byte public key. These four sites move from 10.98.10 and 10.9.1 to 18.1172.2, which lands first; every layerx-human-service task that builds --tests requires it."
+basis = "At main (d00eb3ca1) the binding and custody test targets do not compile: 10.25.2 (351e3da14) retyped raw_receipt_evidence and 9.2.2 (c03f97f8e) retyped the external signing pair without carrying these callers (decision.1849). 10.98.10 is wave 12 and 10.9.1 wave 11; attempts of 18.1195.1, 18.1196.1, 18.1204.1 and 18.1228.1 stopped on these two targets."
+affects = ["18.1172.2", "18.1195.1", "18.1196.1", "18.1204.1", "18.1228.1", "10.98.10", "10.9.1"]
+
+[decision.1865]
+title = "Launchpad keeper refusal tests assert the registered error by errors.Is and ABCI code, not pointer identity"
+value = "A keeper refusal may wrap the registered sentinel (types.ErrZeroAddress and the sdkerrors address errors) with the offending field; refusal tests assert require.ErrorIs plus the ABCIInfo codespace and code and carry no require.Same identity assertion."
+basis = "modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go:110 passes ErrorIs and :111 fails Same for zero_pool and zero_holder at main: the keeper answers a wrapped LXP_LAUNCHPAD_ZERO_ADDRESS whose codespace and code equal the sentinel's. Error-value identity is not part of the query contract; issue #1222."
+affects = ["18.1222.1"]
+
+[decision.1866]
+title = "Gas-price formula changes are gated by unit specs over the pure helpers"
+value = "tests/integration/rpc_tests specs that import readRuntimeState or spend gas (eth/eth_gasPrice.spec.ts and the other eth/ specs) run only in the chain-backed suite (npm run test:rpc, which bootstraps runtime/runtime.json against a Pax node and the geth reference); a task that changes utils/gasPriceUtils.ts is gated by a mocha unit spec over its pure expectation helpers with fixed block gas inputs and no network."
+basis = "tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts:3 and :21 read the bootstrap state and :5 (burnGasBurst) spends from bootstrapped accounts; the environment that runs the gates has neither a Pax node nor the reference geth, and attempt 1 of 18.1218.1 (a37a67b7f) stopped at readRuntimeState before any assertion ran. The formula and the idle floor are pure functions of block gas data."
+affects = ["18.1218.1"]
+
+[decision.1867]
+title = "The EVM RPC deny-list batch behaviour is implemented and gated inside core/deps/geth"
+value = "The per-member deny-list answer of decision.1853 is implemented in core/deps/geth/rpc (server.go, handler.go) and gated by tests in that module (core/deps/geth/rpc/), which is the pax-geth source tree; the root module's rpc/http_ws_parity_test.go gains the mixed-batch cases only when go.mod moves to the pax-geth release that carries the change."
+basis = "go.mod:290 replaces go-ethereum with the published pax-geth v1.15.7-pax.17, so the root module's rpc tests exercise the published module and not core/deps/geth; attempt 1 of 18.1043.1 (fc895368d) changed the local tree and its root-module test could not observe the change. Publishing a pax-geth release and bumping go.mod is an owner action outside this feature."
+affects = ["18.1043.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -16591,6 +16621,7 @@ ac_2 = "A journal file whose records were written in the v1 format opens and pro
 title = "Track custody rebalance transactions to the committed rung"
 ac_1 = "Observing a custody transaction whose sequencer receipt is Committed records rung committed with its block hash in the PaxeerSnapshot."
 ac_2 = "A Receipted observation recorded after a Committed one for the same transaction is refused with RampError::Conflict and the snapshot stays committed."
+ac_3 = "The ramp toolkit custody_rungs test target compiles against the ExecutedReceipt of layerx-client at head, including the signing_key field 9.21.8 added, and its tests pass."
 
 [req.8273]
 title = "Verify recovery settlement and custody transaction hashes against the sequencer endpoint"
@@ -65180,6 +65211,14 @@ req = "8272.2"
 scenario = "Given a snapshot at rung committed, when a receipted observation for the same hash is recorded, then the journal returns Conflict and the snapshot is unchanged."
 contract = "contracts/sequencer.md#rungs"
 test = "services/platform/ramps/toolkit/tests/custody_rungs.rs::custody_observation_never_regresses_rung (planned)"
+qualification = "UNRUN"
+
+[acceptance.8.272.3]
+feature = "8"
+req = "8272.3"
+scenario = "Given the layerx-client ExecutedReceipt at head, when the ramp toolkit test targets build and the custody_rungs target runs, then it compiles and every test passes."
+contract = "contracts/sequencer.md#rungs"
+test = "services/platform/ramps/toolkit/tests/custody_rungs.rs::custody_observation_records_committed_rung"
 qualification = "UNRUN"
 
 [acceptance.8.273.1]
@@ -134858,6 +134897,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.29.4]
+title = "Port the custody_rungs receipt fixture to the signing_key field of ExecutedReceipt"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8272.3"]
+capabilities = []
+interfaces = []
+do_1 = "In executed_receipt at services/platform/ramps/toolkit/tests/custody_rungs.rs:46-62 add the signing_key field that 9.21.8 (98b857055) added to ExecutedReceipt (services/agent/crates/layerx-client/src/sequencer.rs:105), filled the way services/agent/crates/layerx-client/tests/sequencer_receipts.rs:233-261 fills it for a decoded receipt; every other field and every assertion in the file stays as written."
+do_2 = "Change no file other than the test; the gate builds the ramp toolkit tests and runs the custody_rungs target."
+symbols = ["executed_receipt", "ExecutedReceipt"]
+touches = ["services/platform/ramps/toolkit/tests/custody_rungs.rs"]
+tests = ["services/platform/ramps/toolkit/tests/custody_rungs.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit --test custody_rungs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the test file; the custody_rungs target returns to failing its build on the missing field."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.30.1]
 title = "Validate the reference ramp configuration for the merged chain"
 status = "done"
@@ -137714,7 +137782,7 @@ title = "Move the platform authority, core, gateway and CLI uses of the kernel d
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["8.0.2", "9.0.2", "8.1.5", "9.1.8", "18.1083.1", "8.98.11", "8.48.1"]
+requires = ["8.0.2", "9.0.2", "8.1.5", "9.1.8", "18.1083.1", "8.98.11", "8.48.1", "8.29.4"]
 reqs = ["8968.1"]
 capabilities = []
 interfaces = []
@@ -147310,6 +147378,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_14 = "Port the custody modules (src/custody/gateway.rs, provider.rs, signer.rs and src/agents/create_native.rs) to bind_call and sign_disclosed_call; the onboarding and rotation modules were deleted with their codec by 9.35.1 and are excluded (decision.1813)."
 do_15 = "Task 10.98.7 do_8 ports src/custody/provider.rs, src/custody/signer.rs and src/custody/gateway.rs to the 65-byte custody signing boundary and lands first (now required); in this task those three files are read by the gate only, and do_2, do_3, do_4 and do_14 apply to src/agents/create_native.rs alone."
 do_16 = "Task 10.98.13 deletes IntentKind::{NativeOnboarding, NativeOnboardingConsent, NativeOwnerRotation} and the nine construction sites in src/agents/create_native.rs, src/server/agent_creation_native.rs, src/server/production_onboarding.rs and src/server/production_rotation.rs with the code that only fed them (decision.1849); this task requires it, keeps them deleted, and applies do_1, do_6, do_7 and do_9 to what remains of those files."
+do_17 = "The attach and verify calls at services/human/crates/layerx-human-service/tests/custody.rs:342 and :344 were ported to the kernel signing pair by 18.1172.2 (decision.1864); do_10 applies to the codec uses it names and nothing else in that file."
 
 [task.10.98.11]
 title = "Migrate the layerx-human-service callers of wiring.J44.25 (part 2)"
@@ -170808,7 +170877,7 @@ symbols = ["test_bridge_workflow_runs_app_job"]
 touches = [".github/workflows/bridge-test.yml", "tools/ci/tests/test_bridge_workflow_app.py"]
 tests = ["tools/ci/tests/test_bridge_workflow_app.py::test_bridge_workflow_runs_app_job"]
 planned_paths = ["tools/ci/tests/test_bridge_workflow_app.py"]
-build_cmd = "python3 -c \"import yaml; yaml.safe_load(open('.github/workflows/bridge-test.yml'))\""
+build_cmd = "python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' .github/workflows/bridge-test.yml"
 verify_cmd = "python3 -m pytest tools/ci/tests/test_bridge_workflow_app.py::test_bridge_workflow_runs_app_job -q"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -179951,7 +180020,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -180831,6 +180900,7 @@ ac_1 = "The committed verifier proves Tendermint inclusion over the block transa
 [req.181172]
 title = "Port the human service test fixtures to the evidence fields 10.13.1 introduced"
 ac_1 = "Every test target of layerx-human-service compiles against the 10.13.1 evidence types and the receipt material and agent runtime rung targets pass."
+ac_2 = "The binding and custody test targets of layerx-human-service compile against the six-argument raw_receipt_evidence and the kernel signing pair and their tests pass (decision.1864)."
 
 [req.181176]
 title = "Issue #1176: Verify a committed-rung receipt view in the committed-proof crate"
@@ -182264,6 +182334,14 @@ req = "181172.1"
 scenario = "Given the evidence types at head, when the human service test targets build, then all compile and the receipt material and agent runtime rung targets pass."
 contract = "contracts/README.md"
 test = "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1172.2]
+feature = "18"
+req = "181172.2"
+scenario = "Given the layerx-human-test-support and layerx-agentd signing helpers at head, when the binding and custody test targets build and run, then both compile and their tests pass."
+contract = "contracts/README.md"
+test = "services/human/crates/layerx-human-service/tests/binding.rs"
 qualification = "UNRUN"
 
 [acceptance.18.1176.1]
@@ -186992,6 +187070,37 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "The build compiles every test target of the crate (cargo build --tests), so the task owns every test file that stops compiling after 10.13.1, not only the eleven the issue listed: attempt 1 (821190a1a) ported those eleven and still failed at tests/render.rs:299 and :395 (VerifiedBudgetAfter has rung, not level; approvals/mod.rs:133) and tests/journey_faults.rs:629 (ReceiptMaterial needs tx_hash, receipt_hash, block_height and rung; journeys/engine.rs:229). Port those sites and the same ReceiptMaterial literals in tests/move_money.rs, and any remaining authorized_batch/verification_level fixture in agent_controls.rs, agent_recovery.rs, native_lifecycle.rs, export.rs, projection_rungs.rs, session_rungs.rs and session_keys.rs that the build rejects; leave a file untouched when it compiles."
 do_5 = "Attempt 3 (05c5107ff) ported the listed files and failed the build only at tests/support/withdraw_native.rs:353, a shared support module outside the earlier touches whose ReceiptMaterial literal lacks tx_hash, receipt_hash, block_height and rung (src/journeys/engine.rs:229). Every test or support file of this crate that still builds a ReceiptMaterial, VerifiedBudgetAfter or ReceiptReference::Verified literal with the retired fields is now in touches: tests/support/withdraw_native.rs (ReceiptMaterial:353). Port each literal to the landed fields (rung from the terminal evidence, tx_hash/receipt_hash/block_height from the receipt it was built from) and change nothing else in those files."
 
+[task.18.1172.2]
+title = "Port the binding and custody test callers to the six-argument raw_receipt_evidence and the kernel signing pair"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181172.2"]
+capabilities = []
+interfaces = []
+do_1 = "At services/human/crates/layerx-human-service/tests/binding.rs:157-161 call support::raw_receipt_evidence(receipt.canonical_receipt, signer.verifying_key().to_bytes(), previous_state_root, resulting_state_root, 9, &signer), taking the two state roots from the AuthorizedBatch the fixture already holds in receipt.authorized_batch (services/human/crates/layerx-human-test-support/src/lib.rs:423-430 is the signature; the pinned key must equal the signer's verifying key)."
+do_2 = "At services/human/crates/layerx-human-service/tests/binding.rs:408-416 pass fields.previous_state_root, fields.resulting_state_root and signer.verifying_key().to_bytes() in place of the AuthorizedBatch::new(...) argument, keeping the encoded receipt, the global sequence and the signer as written; drop the AuthorizedBatch import only if nothing else in the file uses it."
+do_3 = "At services/human/crates/layerx-human-service/tests/custody.rs:13 import attach_kernel_signature and verify_kernel_before_submit from layerx_agentd::sign in place of attach_external_signature and verify_before_submit, and at :342 and :344 call them with the same &prepared, *grant.signature() ([u8; 64]) and &public_key ([u8; 32]) (services/agent/crates/layerx-agentd/src/sign.rs:358 and :368 are the kernel pair; decision.1864)."
+do_4 = "Keep every assertion in both files exactly as written, change no file under src/, and leave the other test targets untouched."
+symbols = ["raw_receipt_evidence", "attach_kernel_signature", "verify_kernel_before_submit"]
+touches = ["services/human/crates/layerx-human-service/tests/binding.rs", "services/human/crates/layerx-human-service/tests/custody.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/binding.rs", "services/human/crates/layerx-human-service/tests/custody.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test binding --test custody"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the two test files; the binding and custody targets return to failing their build on the retyped helpers."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1176.1]
 title = "Issue #1176: Issue #1176: Verify a committed-rung receipt view in the committed-proof crate"
 status = "done"
@@ -187762,7 +187871,7 @@ title = "Issue #1195: Port the archive test fixture to the rung field of FundsDi
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1172.2"]
 reqs = ["181195.1"]
 capabilities = []
 interfaces = []
@@ -187792,7 +187901,7 @@ title = "Issue #1196: Port the agent_controls limit-change callers and interface
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1172.2"]
 reqs = ["181196.1"]
 capabilities = []
 interfaces = []
@@ -187862,7 +187971,7 @@ do_2 = "In submit_external_with_origin (services/agent/crates/layerx-agentd/src/
 do_3 = "In NativeEffectApprovalCarrier (services/agent/crates/layerx-agentd/src/approval/native_effect.rs) set RetainedQueuedSubmission.submission_id to the outbox key in stage_queued_submission (:318, :322 terminal.submission_ref) and stage_retained_queue (:333-341, restoring the record by transaction_hash of durable.signed_bytes() instead of the unsigned idempotency key), and in verify_owned_queue (:297-304) compare the stored key with transaction_hash(exact) and the activity's idempotency key with the durable preparation's, never with submission_id."
 do_4 = "Write activity_submission_index_tests::enqueue_with_origin_returns_the_stored_transaction_hash in services/agent/crates/layerx-agentd/src/human_runtime.rs (module at :19405) asserting the returned key equals transaction_hash of the submission bytes, that outbox.status(returned key) is Some with state Queued, and that outbox.status(submission.idempotency_key()) is None."
 symbols = ["Outbox::enqueue_with_origin", "NativeEffectApprovalCarrier::stage_queued_submission", "NativeEffectApprovalCarrier::stage_retained_queue", "enqueue_with_origin_returns_the_stored_transaction_hash"]
-touches = ["services/agent/crates/layerx-agentd/src/outbox/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/approval/native_effect.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/outbox/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs"]
 tests = ["services/agent/crates/layerx-agentd/src/human_runtime.rs::enqueue_with_origin_returns_the_stored_transaction_hash"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
@@ -187878,6 +187987,9 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 stopped because the lib test target does not compile at main (decision.1863); under decision.1849 this task also ports the in-crate callers. Port services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:144-149 and services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:218 from the removed four-argument enqueue to Outbox::enqueue_with_origin(store, tenant, idempotency_key, verified, None, None) and use the returned transaction hash as the id for every later transition, begin_transmission and status call in the same test (this is 18.1200.1 do_1 moved here; 18.1200.1 keeps the integration tests)."
+do_6 = "Replace crate::sign::verify_before_submit with crate::sign::verify_kernel_before_submit at services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:126 and services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:203, keeping the Prepared, the 64-byte signature and the 32-byte key as written (this is 18.1206.1 do_2 moved here)."
+do_7 = "In the native prepare test at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:2740-2741 read human.nonce where it read account_sequence and (human.not_before_height, human.not_after_height) where it read (not_before, not_after), the field names 9.13.2 gave HumanPrepare (services/agent/crates/layerx-agentd/src/human.rs:176); every expected value stays as written."
 
 [task.18.1200.1]
 title = "Issue #1200: Port the stale outbox test callers to the three-argument enqueue and the nine-state submission set"
@@ -187888,12 +188000,12 @@ requires = ["18.1199.1"]
 reqs = ["181200.1"]
 capabilities = []
 interfaces = []
-do_1 = "Port the in-crate modules services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:218 and src/human_runtime/subject/tests.rs:144-149 from the removed four-argument enqueue to Outbox::enqueue_with_origin(store, tenant, idempotency_key, verified, None, None) and use the returned transaction hash (task 18.1199.1) as the id for every later transition, begin_transmission and status call in the same test."
+do_1 = "The two in-crate modules (services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs and services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs) are ported by 18.1199.1 (decision.1863); this task ports only the integration tests named in do_2 and do_3 and changes nothing under src/."
 do_2 = "Add pub fn signed_transaction(id: u8) -> Vec<u8> to services/agent/crates/layerx-agentd/tests/support/mod.rs building a signed Eip1559Call with nonce id the way tests/outbox_tx_hash.rs:12-24 does, and port tests/recovery.rs:44, tests/migration.rs:136, tests/unknown.rs:228, tests/operator.rs:26 and tests/operator_route.rs:18 to Outbox::enqueue(store, tenant, signed_transaction(id)) (src/outbox/mod.rs:138), keeping the returned hash for each later call instead of [id; 32]."
 do_3 = "Replace SubmissionState::Acknowledged at tests/recovery.rs:74, :76 and tests/migration.rs:156, :190 with SubmissionState::Submitted, the stage legal_transition (src/outbox/mod.rs:543-560) allows after Submitted, and keep every other assertion in these files exactly as written."
-do_4 = "Change no source file outside the two in-crate test modules; the gate builds the lib tests and the five ported integration targets and runs them."
+do_4 = "Change no source file outside the integration test files listed in touches; the gate builds the lib tests and the five ported integration targets and runs them."
 symbols = ["signed_transaction"]
-touches = ["services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs", "services/agent/crates/layerx-agentd/tests/migration.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/operator.rs", "services/agent/crates/layerx-agentd/tests/operator_route.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs", "services/agent/crates/layerx-agentd/tests/migration.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/operator.rs", "services/agent/crates/layerx-agentd/tests/operator_route.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/recovery.rs::restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema", "services/agent/crates/layerx-agentd/tests/migration.rs::every_supported_prior_schema_migrates_forward_without_changing_core_bytes", "services/agent/crates/layerx-agentd/tests/unknown.rs::acknowledgement_loss_is_resolved_only_by_the_existing_receipt", "services/agent/crates/layerx-agentd/tests/operator.rs::catalogue_routes_every_operator_action_without_protocol_mutating_power", "services/agent/crates/layerx-agentd/tests/operator_route.rs::human_socket_operator_commands_reach_the_audited_admin_dispatch"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -187945,7 +188057,7 @@ title = "Issue #1204: Decode the capability install answer as a rung at the agen
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1172.2"]
 reqs = ["181204.1"]
 capabilities = []
 interfaces = []
@@ -187976,7 +188088,7 @@ title = "Issue #1205: Port the degraded-mode tests to rungs and the current metr
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1199.1"]
 reqs = ["181205.1"]
 capabilities = []
 interfaces = []
@@ -188007,17 +188119,17 @@ title = "Issue #1206: Move the remaining kernel-envelope signing callers to atta
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1199.1"]
 reqs = ["181206.1", "181206.2"]
 capabilities = []
 interfaces = []
 do_1 = "attach_external_signature (services/agent/crates/layerx-agentd/src/sign.rs:334) and verify_before_submit (:349) now take a SigningPreparation, a 65-byte signature and a 20-byte signer address, while attach_kernel_signature (:358) and verify_kernel_before_submit (:368) keep the kernel Prepared, 64-byte ed25519 signature and 32-byte public key form that human_runtime.rs:7499-7501 already uses; every caller below still builds a kernel Prepared and passes ed25519 bytes, so switch each one to the kernel pair with its arguments unchanged."
-do_2 = "In the crate's own cfg(test) modules replace crate::sign::verify_before_submit with crate::sign::verify_kernel_before_submit at services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:126 and services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:203."
+do_2 = "The two cfg(test) call sites under src/ (services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:126 and services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:203) are ported by 18.1199.1 (decision.1863); this task changes nothing under services/agent/crates/layerx-agentd/src/."
 do_3 = "In the integration tests change the sign imports and calls to attach_kernel_signature and verify_kernel_before_submit at services/agent/crates/layerx-agentd/tests/support/mod.rs:20, :178-180 and :302-304, tests/unknown.rs:23 and :204-206, tests/w7_owner_binding.rs:13, :160, :172, :176 and :186, and tests/budget_durable_limits.rs:36 and :265-269, keeping every assertion (including Err(SigningError::AuthorityMismatch) at w7_owner_binding.rs:172) exactly as written."
 do_4 = "In services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1010 and :1407-1410 switch the agent boundary double's attach and verify calls to the kernel pair with the same [u8; 64] signature and signer public key; leave the EIP-1559 callers (tests/binding.rs:272-274, services/agent/tests/limits/exactly_once.rs:954-959, tests/evm_signing.rs, tests/signature_binding.rs) and the custody.rs and deposit.rs sites owned by 10.98.10 untouched."
-do_5 = "Change no source file under src/ other than the two cfg(test) modules and remove no test; the gate is the existing w7_owner_binding tests a_foreign_key_signature_over_the_owner_preimage_is_refused (refused with AuthorityMismatch) and the_bound_owner_key_still_verifies, run after the whole layerx-agentd test set and the agent_controls_rungs target compile."
+do_5 = "Change no file under services/agent/crates/layerx-agentd/src/ and remove no test; the gate is the existing w7_owner_binding tests a_foreign_key_signature_over_the_owner_preimage_is_refused (refused with AuthorityMismatch) and the_bound_owner_key_still_verifies, run after the whole layerx-agentd test set and the agent_controls_rungs target compile."
 symbols = ["attach_kernel_signature", "verify_kernel_before_submit", "a_foreign_key_signature_over_the_owner_preimage_is_refused", "the_bound_owner_key_still_verifies"]
-touches = ["services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::the_bound_owner_key_still_verifies"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_controls_rungs"
@@ -188047,11 +188159,11 @@ do_1 = "In assertPaxGasPriceTracks (tests/integration/rpc_tests/utils/gasPriceUt
 do_2 = "In tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts set floorGasPrice (:25) to (floorBase * 110n) / 100n + DEFAULT_PRIORITY_FEE_WEI imported from ../utils/gasPriceUtils, so the decay test's floor comparisons at :101 and :112 pin the served formula."
 do_3 = "Rename the test at eth_gasPrice.spec.ts:56 to '[Pax] an uncongested gas price is exactly the base fee plus the 10% buffer plus the default priority fee' and the test at :78 to 'gas price rises with the base fee and keeps tracking nextBaseFee * 1.1 plus the default priority fee'; change no assertion other than the formula and leave rpc/info.go unchanged."
 symbols = ["assertPaxGasPriceTracks", "DEFAULT_PRIORITY_FEE_WEI"]
-touches = ["tests/integration/rpc_tests/utils/gasPriceUtils.ts", "tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts"]
+touches = ["tests/integration/rpc_tests/utils/gasPriceUtils.ts", "tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts", "tests/integration/rpc_tests/utils/gasPriceUtils.unit.spec.ts"]
 tests = ["tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts::eth_gasPrice"]
 planned_paths = []
 build_cmd = "cd tests/integration/rpc_tests && npx tsc --noEmit -p tsconfig.json"
-verify_cmd = "cd tests/integration/rpc_tests && npx mocha --require tsx --timeout 600000 --exit eth/eth_gasPrice.spec.ts"
+verify_cmd = "cd tests/integration/rpc_tests && npx mocha --require tsx --timeout 60000 --exit utils/gasPriceUtils.unit.spec.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-node-runtime"
@@ -188063,6 +188175,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (a37a67b7f) stopped at readRuntimeState: eth/eth_gasPrice.spec.ts needs the bootstrapped runtime and spends gas, which only the chain-backed suite provides (decision.1866). Add tests/integration/rpc_tests/utils/gasPriceUtils.unit.spec.ts, a mocha spec with no network and no readRuntimeState that exercises the pure expectation helpers of utils/gasPriceUtils.ts with fixed block gas inputs: the corrected formula on a busy block, the idle floor on an empty block, and one boundary between them; it uses only chai and the helpers' exported functions. eth/eth_gasPrice.spec.ts keeps the renamed tests of do_1 to do_3 and stays in the chain-backed suite."
 
 [task.18.1219.1]
 title = "Issue #1219: Give the failed price submission in the live-topic test the observation shape the decoder produces"
@@ -188098,7 +188211,7 @@ title = "Issue #1221: Encode the receipt lookup's achieved evidence as a write r
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1199.1"]
 reqs = ["181221.1", "181221.2"]
 capabilities = []
 interfaces = []
@@ -188153,6 +188266,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 1 (dbd1bce8e) passes every malformed-address case; zero_pool and zero_holder fail only require.Same at modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go:111 because the keeper wraps types.ErrZeroAddress (decision.1865). Delete that require.Same line and keep the ErrorIs, the ABCIInfo codespace and code equalities and every other line as written; apply the same deletion in grpc_query_has_role_test.go and grpc_query_fee_right_test.go only where they carry the same identity assertion, otherwise leave them untouched."
 
 [task.18.1223.1]
 title = "Issue #1223: Expect the timestamp-prefixed v7 notification id in the store page test"
@@ -188280,7 +188394,7 @@ title = "Issue #1228: Port the session-key revocation tests to GrantRevokedOnCha
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1199.1", "18.1172.2"]
 reqs = ["181228.1"]
 capabilities = []
 interfaces = []
@@ -188340,7 +188454,7 @@ title = "Issue #1230: Align the Go agent envelope with the daemon's version 1 JS
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1199.1"]
 reqs = ["181230.1", "181230.2"]
 capabilities = []
 interfaces = []
@@ -188403,7 +188517,7 @@ title = "Issue #1233: Read the requested asset's ledger balance for read.balance
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1199.1"]
 reqs = ["181233.1"]
 capabilities = []
 interfaces = []
@@ -188600,7 +188714,7 @@ touches = ["tools/qualification/paxeer-x/native-program-human-peer.py"]
 tests = ["tools/qualification/paxeer-x/native-program-human-peer.py::human_peer_still_answers_lxhagt01_frames"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/native-program-human-peer.py"
-verify_cmd = "grep -q \"'human_frame'\" tools/qualification/paxeer-x/native-program-human-peer.py && grep -q 'human_peer_still_answers_lxhagt01_frames' tools/qualification/paxeer-x/native-program-human-peer.py && grep -q 'services/agent/crates/layerx-agentd/tests/human_frame.rs' tools/qualification/paxeer-x/native-program-human-peer.py && grep -q \"glob('human_frame-\\*')\" tools/qualification/paxeer-x/native-program-human-peer.py"
+verify_cmd = "grep -q human_peer_still_answers_lxhagt01_frames tools/qualification/paxeer-x/native-program-human-peer.py && grep -q services/agent/crates/layerx-agentd/tests/human_frame.rs tools/qualification/paxeer-x/native-program-human-peer.py && grep -qF 'human_frame-*' tools/qualification/paxeer-x/native-program-human-peer.py && grep -qF 'glob(' tools/qualification/paxeer-x/native-program-human-peer.py && grep -q human_frame tools/qualification/paxeer-x/native-program-human-peer.py"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-tools-ops"
@@ -188656,11 +188770,11 @@ do_1 = "In serveSingleRequest (core/deps/geth/rpc/server.go:179-186) stop refusi
 do_2 = "Add TestHTTPAppliesDenyListMixedBatches to rpc/http_ws_parity_test.go beside TestHTTPAndWSAnswersMatch (:25): post the four batch bodies of TestWSAppliesDenyListMixedBatches (rpc/ws_transport_test.go:150-189) to the HTTP listener of a server built with the same deny list and assert the identical array answers, and post one single denied request and assert the single -32601 error object; TestWSAppliesDenyListMixedBatches stays as written."
 do_3 = "In spec/layerx-merge/contracts/evm-rpc.md the ws-transport pause row (:310) reads 'evm.http_enabled and evm.ws_enabled switch the transports off; evm.deny_list refuses each denied member of a batch on both transports' and the interface row (:303) keeps 'applies evm.deny_list as HTTP does'."
 symbols = ["serveSingleRequest", "handleBatch", "TestHTTPAppliesDenyListMixedBatches"]
-touches = ["core/deps/geth/rpc/server.go", "core/deps/geth/rpc/handler.go", "rpc/http_ws_parity_test.go", "spec/layerx-merge/contracts/evm-rpc.md"]
+touches = ["core/deps/geth/rpc/server.go", "core/deps/geth/rpc/handler.go", "core/deps/geth/rpc/deny_list_batch_test.go", "spec/layerx-merge/contracts/evm-rpc.md"]
 tests = ["rpc/http_ws_parity_test.go::TestHTTPAppliesDenyListMixedBatches"]
 planned_paths = []
-build_cmd = "go build ./rpc/..."
-verify_cmd = "go test -count=1 ./rpc/ -run '^(TestHTTPAppliesDenyListMixedBatches|TestWSAppliesDenyListMixedBatches)$'"
+build_cmd = "cd core/deps/geth && go build ./rpc/..."
+verify_cmd = "cd core/deps/geth && go test -count=1 ./rpc/ -run '^(TestHTTPAppliesDenyListMixedBatches|TestWSAppliesDenyListMixedBatches)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-rpc-api"
@@ -188672,6 +188786,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (fc895368d) changed core/deps/geth/rpc but gated through the root module, whose go.mod:290 uses the published pax-geth v1.15.7-pax.17 (decision.1867). Keep the server.go and handler.go changes, revert every change to rpc/http_ws_parity_test.go, and add the two tests TestHTTPAppliesDenyListMixedBatches and TestWSAppliesDenyListMixedBatches to core/deps/geth/rpc/deny_list_batch_test.go inside that module, serving one rpc.Server with a deny list over an HTTP test server and over a WebSocket test server and asserting the per-member answer of decision.1853 on both transports plus the single non-array -32601 for a single denied request."
 
 [task.18.1209.1]
 title = "Issue #1209: Match the JVM FIELDS rule to the Go and .NET verifiers term by term"
