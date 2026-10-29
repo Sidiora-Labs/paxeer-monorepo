@@ -578,6 +578,68 @@ contract ContractIntegrationTest {
         withdrawalClaims.finaliseClaim(claimId);
     }
 
+    function testClaimOnLaterBatchCancelsAfterEarlierInvalidation() public {
+        _prepareSettlement(1_000_000_000);
+        (bytes32 earlierCheckpoint,,) = _registerCheckpoint(keccak256("earlier-state"));
+        require(checkpointRegistry.checkpointBatchNumber(earlierCheckpoint) == 1, "earlier checkpoint batch");
+        WithdrawalClaims.Withdrawal memory withdrawal = _withdrawal(address(0xCA12), 100_000_000);
+        bytes32 stateRoot = withdrawalClaims.withdrawalLeaf(withdrawal);
+        (
+            bytes32 checkpointHash,
+            CanonicalCheckpoint.HeaderCommitments memory header,
+            CanonicalCheckpoint.GuarantorAttestation[] memory attestations
+        ) = _registerCheckpoint(stateRoot);
+        require(header.batchNumber == 2, "later checkpoint batch");
+        withdrawal.checkpointHash = checkpointHash;
+        WithdrawalClaims.StateProof memory proof =
+            WithdrawalClaims.StateProof({leafIndex: 0, siblings: new bytes32[](0)});
+        uint256 pendingBefore = withdrawalClaims.pendingAmount(withdrawal.assetId);
+        bytes32 claimId = withdrawalClaims.queueClaim(
+            withdrawal, stateRoot, header.epoch, header.batchNumber, header.dataAvailabilityRoot, proof, attestations
+        );
+        bytes32 nullifier = withdrawalClaims.withdrawalNullifier(withdrawal);
+        require(
+            withdrawalClaims.pendingAmount(withdrawal.assetId) == pendingBefore + withdrawal.amount,
+            "claim amount not pending"
+        );
+        require(
+            nullifierRegistry.status(nullifier) == WithdrawalNullifierRegistry.Status.Reserved, "nullifier not reserved"
+        );
+        (,,,,, CheckpointChallengeManager.Status challengeStatus) = challengeManager.challenge(checkpointHash);
+        require(challengeStatus == CheckpointChallengeManager.Status.None, "later checkpoint challenged");
+        require(checkpointRegistry.isCanonicalCheckpoint(checkpointHash), "later checkpoint not canonical");
+        vm.expectPartialRevert(WithdrawalClaims.ChallengedCheckpoint.selector);
+        withdrawalClaims.cancelChallengedClaim(claimId);
+
+        address challenger = address(0xC0FFEE);
+        vm.deal(challenger, 1 ether);
+        vm.prank(challenger);
+        challengeManager.raiseChallenge{value: 1 ether}(
+            earlierCheckpoint, CheckpointChallengeManager.Kind.DataAvailability, keccak256("earlier-missing-shard")
+        );
+        _governanceCall(
+            address(challengeManager),
+            abi.encodeCall(CheckpointChallengeManager.resolveChallenge, (earlierCheckpoint, true))
+        );
+        require(checkpointRegistry.firstInvalidatedBatch() == 1, "earlier batch not invalidated");
+        require(!checkpointRegistry.isCanonicalCheckpoint(checkpointHash), "later checkpoint remained canonical");
+        require(!checkpointRegistry.explicitlyInvalidated(checkpointHash), "later checkpoint explicitly invalidated");
+        vm.warp(challengeManager.windowClosesAt(checkpointHash));
+        vm.expectPartialRevert(WithdrawalClaims.ChallengedCheckpoint.selector);
+        withdrawalClaims.finaliseClaim(claimId);
+
+        withdrawalClaims.cancelChallengedClaim(claimId);
+        (,,,,,, WithdrawalClaims.ClaimStatus claimStatus) = withdrawalClaims.claim(claimId);
+        require(claimStatus == WithdrawalClaims.ClaimStatus.Cancelled, "later claim not cancelled");
+        require(
+            nullifierRegistry.status(nullifier) == WithdrawalNullifierRegistry.Status.Cancelled,
+            "later nullifier active"
+        );
+        require(withdrawalClaims.pendingAmount(withdrawal.assetId) == pendingBefore, "pending amount not released");
+        vm.expectPartialRevert(WithdrawalClaims.ChallengedCheckpoint.selector);
+        withdrawalClaims.cancelChallengedClaim(claimId);
+    }
+
     function testRejectedChallengeForfeitsBondToGovernance() public {
         _prepareSettlement(1_000_000_000);
         (bytes32 checkpointHash,,) = _registerCheckpoint(keccak256("unchallenged-state"));

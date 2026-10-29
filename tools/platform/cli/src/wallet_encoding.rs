@@ -6,6 +6,17 @@
 pub use layerx_crypto::payments::asset_id;
 use layerx_crypto::payments::Payment;
 
+pub fn payment_calldata(payment: &Payment, actor: &str) -> Result<Vec<u8>, String> {
+    let (module, ordinal) = payment.activity_type();
+    let payload = payment
+        .encode(actor.as_bytes())
+        .map_err(|e| e.to_string())?;
+    let decoded =
+        Payment::decode(module, ordinal, &payload, actor.as_bytes()).map_err(|e| e.to_string())?;
+    layerx_crypto::disclosure::call::encode_payment_call(&decoded, actor.as_bytes())
+        .map_err(|e| format!("{e:?}"))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetRegistration<'a> {
     pub issuer: &'a str,
