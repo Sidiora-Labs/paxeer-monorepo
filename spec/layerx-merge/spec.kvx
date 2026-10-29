@@ -187512,7 +187512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.766.1]
 title = "Issue #766: Let a withdrawal claim on any non-canonical checkpoint be cancelled"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187543,7 +187543,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.914.1]
 title = "Issue #914: Drop the perps web runtime gateway variable the app never reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187698,7 +187698,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1192.1]
 title = "Issue #1192: Accept the Go encoding of absent votes in .NET committed verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187819,7 +187819,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1197.1]
 title = "Issue #1197: Run the live LXHAGT01 frame test in the native human peer release gate and bind the frame codec to its fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187912,7 +187912,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1203.1]
 title = "Issue #1203: Refuse operator verification retries for settlement-anchored requests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188156,7 +188156,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1223.1]
 title = "Issue #1223: Expect the timestamp-prefixed v7 notification id in the store page test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188307,7 +188307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1229.1]
 title = "Issue #1229: Validate the sponsored-status budget in the gas station's own fields and gas units"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188430,7 +188430,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1234.1]
 title = "Issue #1234: Bind the prepared upgrade fee limit when submitting a signed .NET program upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188491,7 +188491,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1236.1]
 title = "Issue #1236: Keep retired Human API operations and types out of the generated JVM catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188615,7 +188615,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1215.1]
 title = "Issue #1215: Describe x402 settlement through the sequencer evidence entry points in the x402 docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188675,7 +188675,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1209.1]
 title = "Issue #1209: Match the JVM FIELDS rule to the Go and .NET verifiers term by term"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
