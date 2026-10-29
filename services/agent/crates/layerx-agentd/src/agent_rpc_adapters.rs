@@ -1245,25 +1245,7 @@ pub(crate) fn read_module_state<A: HumanAuthorityBoundary>(
     };
     let mut guard = owner.lock().map_err(|error| owner_error(id, error))?;
     let response = guard.read_module_state(context.peer(), typed);
-    owner_payload(id, response, |reader| {
-        let achieved = level(reader.u8()?)?;
-        let canonical = reader.bytes()?;
-        let proof = reader.opt_bytes()?;
-        if achieved < requested {
-            return None;
-        }
-        let mut out = Map::new();
-        out.insert("canonical_value".into(), hexv(canonical));
-        out.insert(
-            "proof".into(),
-            if proof.is_empty() {
-                Value::Null
-            } else {
-                hexv(proof)
-            },
-        );
-        Some((Value::Object(out), Some(achieved)))
-    })
+    read_response(id, response)
 }
 
 pub(crate) fn read_history<A: HumanAuthorityBoundary>(
@@ -1277,8 +1259,8 @@ pub(crate) fn read_history<A: HumanAuthorityBoundary>(
     let _ = (request.tenant, request.agent);
     let requested = requested_level(&request.requested_rung, id)?;
     let selector = HistorySelector {
-        from_height: canonical_sequence(&request.from_height, id)?.0,
-        to_height: canonical_sequence(&request.to_height, id)?.0,
+        from_height: canonical_sequence(&request.range.from_height, id)?.0,
+        to_height: canonical_sequence(&request.range.to_height, id)?.0,
         cursor: request
             .cursor
             .map(|position| {
@@ -1302,12 +1284,10 @@ pub(crate) fn read_history<A: HumanAuthorityBoundary>(
         selector,
         requested_rung: requested,
     };
-    let _ = (owner, context, typed);
-    Err(unavailable_operation(
-        id,
-        "read.history",
-        "unavailable_capability.read.history",
-    ))
+    let response = owner
+        .lock()
+        .and_then(|mut guard| guard.read_history(context.peer(), typed));
+    read_response(id, response)
 }
 
 pub(crate) fn availability_fetch<A: HumanAuthorityBoundary>(
@@ -1316,46 +1296,6 @@ pub(crate) fn availability_fetch<A: HumanAuthorityBoundary>(
     request: &Map<String, Value>,
     ctx: &DispatchContext,
 ) -> Result<Dispatched, Rejection> {
-    fn classes(reader: &mut Reader<'_>) -> Option<Value> {
-        let count = reader.u16()?;
-        let mut items = Vec::with_capacity(usize::from(count));
-        for _ in 0..count {
-            let class = match reader.u8()? {
-                1 => "activities",
-                2 => "receipts",
-                3 => "oracle",
-                4 => "state_diff",
-                5 => "recovery",
-                _ => return None,
-            };
-            let complete = match reader.u8()? {
-                0 => false,
-                1 => true,
-                _ => return None,
-            };
-            let verified_chunks = reader.u32()?;
-            let verified_bytes = reader.u64()?;
-            let failure = reader.opt_bytes()?;
-            if complete != failure.is_empty() {
-                return None;
-            }
-            let mut item = Map::new();
-            item.insert("class".into(), Value::String(class.into()));
-            item.insert("complete".into(), Value::Bool(complete));
-            item.insert("verified_chunks".into(), dec(verified_chunks));
-            item.insert("verified_bytes".into(), dec(verified_bytes));
-            item.insert(
-                "failure".into(),
-                if failure.is_empty() {
-                    Value::Null
-                } else {
-                    Value::String(std::str::from_utf8(failure).ok()?.to_owned())
-                },
-            );
-            items.push(Value::Object(item));
-        }
-        Some(Value::Array(items))
-    }
     let id = ctx.request_id;
     let request: AvailabilityWire = decode(request, id)?;
     let _ = (request.tenant, request.agent);
@@ -1384,48 +1324,7 @@ pub(crate) fn availability_fetch<A: HumanAuthorityBoundary>(
     .map_err(|_| malformed(id))?;
     let mut guard = owner.lock().map_err(|error| owner_error(id, error))?;
     let response = guard.availability_fetch(context.peer(), typed);
-    owner_payload(id, response, |reader| {
-        let achieved = level(reader.u8()?)?;
-        if achieved < requested {
-            return None;
-        }
-        let mut completion = Map::new();
-        match reader.u8()? {
-            0 => {
-                completion.insert("state".into(), Value::String("partial".into()));
-            }
-            1 => {
-                completion.insert("state".into(), Value::String("complete".into()));
-                completion.insert("provider".into(), Value::String(reader.text()?));
-            }
-            _ => return None,
-        }
-        let top = classes(reader)?;
-        let count = reader.u16()?;
-        let mut providers = Vec::with_capacity(usize::from(count));
-        for _ in 0..count {
-            let provider = reader.text()?;
-            let provider_classes = classes(reader)?;
-            let failure = reader.opt_bytes()?;
-            let mut item = Map::new();
-            item.insert("provider".into(), Value::String(provider));
-            item.insert("classes".into(), provider_classes);
-            item.insert(
-                "failure".into(),
-                if failure.is_empty() {
-                    Value::Null
-                } else {
-                    Value::String(std::str::from_utf8(failure).ok()?.to_owned())
-                },
-            );
-            providers.push(Value::Object(item));
-        }
-        let mut out = Map::new();
-        out.insert("completion".into(), Value::Object(completion));
-        out.insert("classes".into(), top);
-        out.insert("providers".into(), Value::Array(providers));
-        Some((Value::Object(out), Some(achieved)))
-    })
+    read_response(id, response)
 }
 
 pub(crate) fn capability_create<A: HumanAuthorityBoundary>(
@@ -1986,13 +1885,16 @@ pub(crate) fn read_proof_bundle<A: HumanAuthorityBoundary>(
 ) -> Result<Dispatched, Rejection> {
     use crate::agent_rpc_wire::{decode_wire, ProofBundleWire};
     let id = ctx.request_id;
-    decode_wire::<ProofBundleWire>(request, id)?.into_request(id)?;
-    let _ = (owner, context);
-    Err(unavailable_operation(
-        id,
-        "read.proof_bundle",
-        "unavailable_capability.read.proof_bundle",
-    ))
+    let typed = decode_wire::<ProofBundleWire>(request, id)?.into_request(id)?;
+    let response = owner
+        .lock()
+        .and_then(|mut guard| guard.rpc_read_proof_bundle(context, typed))
+        .map_err(|error| owner_error(id, error))?;
+    Ok(Dispatched {
+        verification: Some(VerificationStatus::Achieved(response.achieved_rung)),
+        value: crate::human_runtime::proof_bundle_operation_value(&response)
+            .map_err(|error| owner_error(id, error))?,
+    })
 }
 
 /// `export.offline`: the fact set is decoded through the shared fact grammar, the requested
@@ -2512,32 +2414,29 @@ pub(crate) fn read_batch<A: HumanAuthorityBoundary>(
     ctx: &DispatchContext,
 ) -> Result<Dispatched, Rejection> {
     let id = ctx.request_id;
+    if request.contains_key("first_sequence")
+        || request.contains_key("last_sequence")
+        || request.contains_key("batch_header")
+    {
+        return Err(rejection(
+            ErrorClass::PolicyRefusal,
+            id,
+            "read.batch_retired",
+        ));
+    }
     let request: BatchWire = decode(request, id)?;
-    let _ = (request.tenant, request.agent);
     let requested = requested_level(&request.requested_rung, id)?;
+    canonical_sequence(&request.batch, id)
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "read.batch_retired"))?;
     let typed = layerx_agent_api::read::ReadRequest {
         selector: layerx_agent_api::read::BatchRef::new(request.batch)
             .map_err(|_| malformed(id))?,
         requested_rung: requested,
     };
-    let mut guard = owner.lock().map_err(|error| owner_error(id, error))?;
-    let response = guard.read_batch(context.peer(), typed);
-    owner_payload(id, response, |reader| {
-        let batch_number = reader.u64()?;
-        let first_sequence = reader.u64()?;
-        let last_sequence = reader.u64()?;
-        let achieved = level(reader.u8()?)?;
-        let header = reader.bytes()?;
-        if first_sequence > last_sequence || achieved < requested {
-            return None;
-        }
-        let mut out = Map::new();
-        out.insert("batch_number".into(), dec(batch_number));
-        out.insert("first_sequence".into(), dec(first_sequence));
-        out.insert("last_sequence".into(), dec(last_sequence));
-        out.insert("canonical_header".into(), hexv(header));
-        Some((Value::Object(out), Some(achieved)))
-    })
+    let response = owner
+        .lock()
+        .and_then(|mut guard| guard.read_batch(context.peer(), typed));
+    read_response(id, response)
 }
 
 #[derive(Deserialize)]
@@ -2573,6 +2472,7 @@ struct WaitWire {
     #[serde(default)]
     agent: Option<String>,
     submission_ref: String,
+    #[serde(alias = "requested_verification_level")]
     requested_rung: String,
     deadline: String,
 }
@@ -2586,6 +2486,7 @@ struct ModuleStateWire {
     agent: Option<String>,
     module: String,
     key: String,
+    #[serde(alias = "requested_verification_level")]
     requested_rung: String,
 }
 
@@ -2596,12 +2497,27 @@ struct HistoryRangeWire {
     last: String,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct HistoryCursorWire {
     block_height: String,
     tx_index: String,
     log_index: String,
+}
+impl<'de> Deserialize<'de> for HistoryCursorWire {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let [block_height, tx_index, log_index] = <[String; 3]>::deserialize(deserializer)?;
+        Ok(Self {
+            block_height,
+            tx_index,
+            log_index,
+        })
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HistoryBlockRangeWire {
+    from_height: String,
+    to_height: String,
 }
 
 #[derive(Deserialize)]
@@ -2611,10 +2527,10 @@ struct HistoryWire {
     tenant: Option<String>,
     #[serde(default)]
     agent: Option<String>,
-    from_height: String,
-    to_height: String,
+    range: HistoryBlockRangeWire,
     cursor: Option<HistoryCursorWire>,
     page_limit: String,
+    #[serde(alias = "requested_verification_level")]
     requested_rung: String,
 }
 
@@ -2626,6 +2542,7 @@ struct AvailabilityWire {
     #[serde(default)]
     agent: Option<String>,
     selector: String,
+    #[serde(alias = "requested_verification_level")]
     requested_rung: String,
     maximum_bytes: String,
     maximum_chunks: String,
@@ -2641,6 +2558,7 @@ struct BatchWire {
     #[serde(default)]
     agent: Option<String>,
     batch: String,
+    #[serde(alias = "requested_verification_level")]
     requested_rung: String,
 }
 
@@ -3006,4 +2924,20 @@ impl<A: HumanAuthorityBoundary> crate::finality::VerificationProgress for OwnerW
         self.submission = Some(submission);
         Ok(rung)
     }
+}
+
+fn read_response(
+    id: RequestId,
+    response: Result<HumanResponse, HumanOperationError>,
+) -> Result<Dispatched, Rejection> {
+    owner_payload(id, response, |reader| {
+        let value: Value = serde_json::from_slice(reader.bytes()?).ok()?;
+        if !value["achieved_verification_level"].is_null()
+            || !value["value"].is_object()
+            || !value["freshness"].is_object()
+        {
+            return None;
+        }
+        Some((value, None))
+    })
 }
