@@ -1,6 +1,9 @@
 //! Authenticated bounded peer for the Human-plane agent runtime.
 
-use layerx_client::lni::transport::{FrameTransport, TransportError};
+#[path = "human_frame.rs"]
+pub mod frame;
+
+use self::frame::{HumanFrameTransport, TransportError};
 
 use crate::admin::{OperatorCommand, ProtectedMutation};
 use std::collections::BTreeMap;
@@ -1617,12 +1620,12 @@ impl<O: HumanOperations> HumanUnixServer<O> {
     }
 }
 
-struct AcceptedTransport {
+pub struct AcceptedTransport {
     stream: UnixStream,
     maximum: usize,
 }
 impl AcceptedTransport {
-    fn new(
+    pub fn new(
         stream: UnixStream,
         maximum: usize,
         deadline: Duration,
@@ -1636,12 +1639,12 @@ impl AcceptedTransport {
         Ok(Self { stream, maximum })
     }
 }
-impl FrameTransport for AcceptedTransport {
+impl HumanFrameTransport for AcceptedTransport {
     fn send(&mut self, bytes: &[u8]) -> Result<(), TransportError> {
-        layerx_client::lni::framing::write_frame(&mut self.stream, bytes, self.maximum)
+        frame::write_frame(&mut self.stream, bytes, self.maximum)
     }
     fn receive(&mut self) -> Result<Vec<u8>, TransportError> {
-        layerx_client::lni::framing::read_frame(&mut self.stream, self.maximum)
+        frame::read_frame(&mut self.stream, self.maximum)
     }
 }
 
@@ -1674,7 +1677,7 @@ fn io_error(error: &std::io::Error) -> TransportError {
 /// response. Authentication is completed before this function by the listener.
 /// # Errors
 /// Returns an error if the peer, wire data, or transport fails validation.
-pub fn serve_one<T: FrameTransport, O: HumanOperations>(
+pub fn serve_one<T: HumanFrameTransport, O: HumanOperations>(
     transport: &mut T,
     peer: &HumanPeer,
     operations: &mut O,
