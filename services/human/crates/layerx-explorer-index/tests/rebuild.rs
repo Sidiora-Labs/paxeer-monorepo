@@ -1,19 +1,12 @@
 use k256::ecdsa::{Signature, SigningKey};
-use layerx_client::availability::{AvailabilityRecords, AvailabilityResult};
-use layerx_client::head::Head;
 use layerx_crypto::secp256k1;
 use layerx_explorer_index::verify::Verifier;
-use layerx_explorer_index::{IndexError, Indexer, IngestOutcome, QueryError};
+use layerx_explorer_index::{IndexError, IndexHead, Indexer, IngestOutcome, QueryError};
 use layerx_intents::canonical::PROTOCOL_VERSION;
 use layerx_intents::canonical::{batch_header_bytes as encode_batch_header, decode_batch_header};
-use layerx_intents::vectors::small_availability_record;
-use layerx_proof::availability::{
-    verify_chunk, AvailabilityClass, Chunk, RootCommitments, VerifiedChunk,
-};
 use layerx_proof::checkpoint::{
     checkpoint_id, Attestation, Certificate, Checkpoint, GuarantorKey, SettlementDomain,
 };
-use layerx_proof::merkle::{build_leaf_hash_proof, root};
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
@@ -38,115 +31,6 @@ fn nibble(value: u8) -> u8 {
         b'a'..=b'f' => value - b'a' + 10,
         _ => panic!("non-lowercase-hex test vector"),
     }
-}
-
-fn framed(bytes: &[u8]) -> Vec<u8> {
-    let length = u32::try_from(bytes.len())
-        .unwrap_or_else(|error| panic!("fixture record too long: {error}"));
-    let mut encoded = length.to_be_bytes().to_vec();
-    encoded.extend_from_slice(bytes);
-    encoded
-}
-
-fn tagged(kind: u8, bytes: &[u8]) -> Vec<u8> {
-    let mut encoded = vec![kind];
-    encoded.extend_from_slice(&framed(bytes));
-    encoded
-}
-
-fn chunk_digest(batch_number: u64, index: u32, class: AvailabilityClass, bytes: &[u8]) -> [u8; 32] {
-    let length = u32::try_from(bytes.len())
-        .unwrap_or_else(|error| panic!("fixture chunk too long: {error}"));
-    let mut hasher = Sha256::new();
-    hasher.update(b"LXP/v1/da-chunk\0");
-    hasher.update(batch_number.to_be_bytes());
-    hasher.update(index.to_be_bytes());
-    hasher.update([class as u8]);
-    hasher.update(0_u64.to_be_bytes());
-    hasher.update(length.to_be_bytes());
-    hasher.update(bytes);
-    hasher.finalize().into()
-}
-
-fn availability_material(
-    canonical: bool,
-) -> (Vec<VerifiedChunk>, AvailabilityRecords, RootCommitments) {
-    let records = AvailabilityRecords {
-        activities: vec![b"activity-public-1".to_vec()],
-        receipts: vec![b"receipt-public-1".to_vec(), b"receipt-public-2".to_vec()],
-        events: vec![b"event-public-1".to_vec(), b"event-public-2".to_vec()],
-        oracle_inputs: vec![b"oracle-public-1".to_vec()],
-    };
-    let activities = if canonical {
-        small_availability_record(&records.activities[0])
-    } else {
-        framed(&records.activities[0])
-    };
-    let mut receipts = tagged(1, &records.receipts[0]);
-    receipts.extend_from_slice(&tagged(1, &records.receipts[1]));
-    receipts.extend_from_slice(&tagged(2, &records.events[0]));
-    receipts.extend_from_slice(&tagged(2, &records.events[1]));
-    let oracle = if canonical {
-        small_availability_record(&records.oracle_inputs[0])
-    } else {
-        framed(&records.oracle_inputs[0])
-    };
-    let sections = [
-        (AvailabilityClass::Activities, activities),
-        (AvailabilityClass::Receipts, receipts),
-        (AvailabilityClass::Oracle, oracle),
-        (AvailabilityClass::StateDiff, b"state-diff-public".to_vec()),
-        (AvailabilityClass::Recovery, b"recovery-public".to_vec()),
-    ];
-    let chunks: Vec<_> = sections
-        .into_iter()
-        .enumerate()
-        .map(|(index, (class, bytes))| {
-            let index = u32::try_from(index)
-                .unwrap_or_else(|error| panic!("fixture index overflow: {error}"));
-            Chunk {
-                batch_number: 8,
-                index,
-                class,
-                class_offset: 0,
-                claimed_hash: chunk_digest(8, index, class, &bytes),
-                bytes,
-            }
-        })
-        .collect();
-    let hashes: Vec<_> = chunks.iter().map(|chunk| chunk.claimed_hash).collect();
-    let mut verified = Vec::<VerifiedChunk>::new();
-    for (index, chunk) in chunks.into_iter().enumerate() {
-        let (proof, availability_root) = build_leaf_hash_proof(&hashes, index)
-            .unwrap_or_else(|error| panic!("fixture availability proof failed: {error:?}"));
-        if !canonical {
-            assert_eq!(availability_root, AVAILABILITY_ROOT);
-        }
-        verified.push(
-            verify_chunk(chunk, &proof, 8, &availability_root)
-                .unwrap_or_else(|error| panic!("fixture chunk failed: {error:?}")),
-        );
-    }
-    let roots = RootCommitments {
-        activity: root(&[records.activities[0].as_slice()])
-            .unwrap_or_else(|error| panic!("activity root failed: {error:?}")),
-        receipt: root(&[
-            records.receipts[0].as_slice(),
-            records.receipts[1].as_slice(),
-        ])
-        .unwrap_or_else(|error| panic!("receipt root failed: {error:?}")),
-        event: root(&[records.events[0].as_slice(), records.events[1].as_slice()])
-            .unwrap_or_else(|error| panic!("event root failed: {error:?}")),
-        oracle: root(&[records.oracle_inputs[0].as_slice()])
-            .unwrap_or_else(|error| panic!("oracle root failed: {error:?}")),
-    };
-    (verified, records, roots)
-}
-
-fn availability_result() -> AvailabilityResult {
-    let (verified, records, roots) = availability_material(true);
-    AvailabilityResult::from_verified("node-boundary".to_owned(), verified, records, roots)
-        .unwrap_or_else(|error| panic!("complete availability fixture failed: {error:?}"))
 }
 
 fn key(value: u8) -> (SigningKey, [u8; 33], [u8; 32]) {
@@ -222,7 +106,7 @@ fn attestation(
 }
 
 fn checkpoint_fixture() -> (Certificate, Vec<GuarantorKey>, [u8; 32]) {
-    let availability_root = availability_result().data_availability_root();
+    let availability_root = AVAILABILITY_ROOT;
     let mut header_bytes = decode_hex(HEADER_HEX);
     let offsets: Vec<_> = header_bytes
         .windows(32)
@@ -261,18 +145,13 @@ fn checkpoint_fixture() -> (Certificate, Vec<GuarantorKey>, [u8; 32]) {
 
 #[test]
 fn deleting_and_rebuilding_from_verified_boundary_evidence_is_identical() {
-    let availability = availability_result();
     let (certificate, keys, checkpoint_id) = checkpoint_fixture();
-    let head = Head {
+    let head = IndexHead {
         chain_sequence: 4,
         sealed_batch: 8,
         finalised_checkpoint: checkpoint_id,
     };
     let mut original = Indexer::new(head);
-    assert_eq!(
-        original.ingest_availability(&availability),
-        Ok(IngestOutcome::Inserted)
-    );
     assert_eq!(
         original.ingest_checkpoint(
             &certificate,
@@ -282,11 +161,6 @@ fn deleting_and_rebuilding_from_verified_boundary_evidence_is_identical() {
             None,
         ),
         Ok(IngestOutcome::Inserted)
-    );
-    assert!(original.freshness().is_current());
-    assert_eq!(
-        original.ingest_availability(&availability),
-        Ok(IngestOutcome::AlreadyPresent)
     );
     assert_eq!(
         original.ingest_checkpoint(
@@ -299,12 +173,6 @@ fn deleting_and_rebuilding_from_verified_boundary_evidence_is_identical() {
         Ok(IngestOutcome::AlreadyPresent)
     );
     let expected = original.snapshot();
-    assert_eq!(expected.receipts.len(), 2);
-    assert_eq!(expected.events.len(), 2);
-    assert!(expected
-        .receipts
-        .iter()
-        .all(|record| record.verification_level == VerificationLevel::CHECKPOINT_FINALISED));
 
     drop(original);
     let mut rebuilt = Indexer::new(head);
@@ -318,22 +186,7 @@ fn deleting_and_rebuilding_from_verified_boundary_evidence_is_identical() {
         ),
         Ok(IngestOutcome::Inserted)
     );
-    assert_eq!(
-        rebuilt.ingest_availability(&availability),
-        Ok(IngestOutcome::Inserted)
-    );
     assert_eq!(rebuilt.snapshot(), expected);
-    let batch = rebuilt
-        .batch(8)
-        .value
-        .unwrap_or_else(|| panic!("rebuilt batch missing"));
-    let receipt = rebuilt
-        .receipt(batch.receipt_ids[0])
-        .value
-        .unwrap_or_else(|| panic!("rebuilt receipt missing"));
-    assert_eq!(receipt.canonical_bytes, b"receipt-public-1");
-    assert!(rebuilt.batch(8).freshness.is_current());
-
     assert_rebuilt_public_queries(&rebuilt, checkpoint_id);
 }
 
@@ -349,49 +202,50 @@ fn assert_rebuilt_public_queries(rebuilt: &Indexer, checkpoint_id: [u8; 32]) {
         checkpoints.value.items[0].verification_level,
         VerificationLevel::CHECKPOINT_FINALISED
     );
-    assert!(checkpoints.freshness.is_current());
-    let batches = public
-        .batches(None, 10)
-        .unwrap_or_else(|failure| panic!("batch browse failed: {failure:?}"));
-    assert_eq!(batches.value.items.len(), 1);
-    assert_eq!(batches.value.items[0].batch_number, 8);
     assert_eq!(
-        batches.value.items[0].verification_level,
-        VerificationLevel::CHECKPOINT_FINALISED
+        checkpoints.freshness.indexed_checkpoint,
+        Some(checkpoint_id)
     );
-    assert!(batches.freshness.is_current());
     let Err(invalid) = public.batches(None, 0) else {
         panic!("zero-sized public page unexpectedly succeeded");
     };
     assert_eq!(invalid.error, QueryError::InvalidPageSize);
-    assert!(invalid.freshness.is_current());
+    assert_eq!(invalid.freshness, checkpoints.freshness);
     let Err(incomplete) = public.account_activity([5; 32], None, 10) else {
         panic!("unverified account index unexpectedly answered");
     };
     assert_eq!(
         incomplete.error,
-        QueryError::AccountIndexIncomplete { batch: 8 }
+        QueryError::IncompleteFromHead {
+            source_sealed_batch: 8,
+            indexed_through: 0,
+        }
     );
-    assert!(incomplete.freshness.is_current());
+    assert_eq!(incomplete.freshness, checkpoints.freshness);
 }
 
 #[test]
 fn freshness_and_evidence_mismatches_are_refused_without_partial_rows() {
-    let availability = availability_result();
     let (certificate, keys, checkpoint_id) = checkpoint_fixture();
-    let behind_head = Head {
+    let behind_head = IndexHead {
         chain_sequence: 3,
         sealed_batch: 7,
         finalised_checkpoint: [7; 32],
     };
     let mut behind = Indexer::new(behind_head);
     assert_eq!(
-        behind.ingest_availability(&availability),
+        behind.ingest_checkpoint(
+            &certificate,
+            &keys,
+            checkpoint_id,
+            SettlementDomain::new(31_337, [0x55; 20]),
+            None,
+        ),
         Err(IndexError::BatchAheadOfHead { batch: 8, head: 7 })
     );
-    assert_eq!(behind.snapshot().batches.len(), 0);
+    assert_eq!(behind.snapshot().checkpoints.len(), 0);
 
-    let wrong_checkpoint_head = Head {
+    let wrong_checkpoint_head = IndexHead {
         chain_sequence: 4,
         sealed_batch: 8,
         finalised_checkpoint: [9; 32],
@@ -412,7 +266,7 @@ fn freshness_and_evidence_mismatches_are_refused_without_partial_rows() {
     );
     assert_eq!(mismatched.snapshot().checkpoints.len(), 0);
 
-    let mut current = Indexer::new(Head {
+    let mut current = Indexer::new(IndexHead {
         chain_sequence: 4,
         sealed_batch: 8,
         finalised_checkpoint: checkpoint_id,
@@ -429,81 +283,21 @@ fn freshness_and_evidence_mismatches_are_refused_without_partial_rows() {
     );
     assert!(!current.freshness().is_current());
     assert_eq!(current.freshness().batches_behind(), 9);
-    assert_eq!(
-        current.ingest_availability(&availability),
-        Ok(IngestOutcome::Inserted)
-    );
-    assert!(current.freshness().is_current());
     current
-        .refresh_head(Head {
+        .refresh_head(IndexHead {
             chain_sequence: 5,
             sealed_batch: 9,
             finalised_checkpoint: [10; 32],
         })
         .unwrap_or_else(|error| panic!("head advance failed: {error:?}"));
     assert!(!current.freshness().is_current());
-    assert_eq!(current.freshness().batches_behind(), 1);
+    assert_eq!(current.freshness().batches_behind(), 10);
     assert_eq!(
-        current.refresh_head(Head {
+        current.refresh_head(IndexHead {
             chain_sequence: 4,
             sealed_batch: 8,
             finalised_checkpoint: checkpoint_id,
         }),
         Err(IndexError::HeadRegression)
-    );
-}
-
-#[test]
-fn availability_result_exposes_only_record_sets_that_reverify() {
-    let result = availability_result();
-    let mut records = result.records().clone();
-    records.receipts[0][0] ^= 1;
-    let refused = AvailabilityResult::from_verified(
-        "node-boundary".to_owned(),
-        result.chunks.clone(),
-        records,
-        result.record_roots(),
-    );
-    assert!(
-        refused.is_err(),
-        "altered receipt set must not become indexable"
-    );
-}
-
-#[test]
-fn uncounted_legacy_availability_fixture_cannot_become_indexable() {
-    let (verified, records, roots) = availability_material(false);
-    let failure =
-        AvailabilityResult::from_verified("node-boundary".to_owned(), verified, records, roots)
-            .err()
-            .unwrap_or_else(|| {
-                panic!("old uncounted sections cannot authenticate independent record arrays")
-            });
-    assert_eq!(
-        failure.check,
-        layerx_proof::availability::AvailabilityCheck::RecordEncoding
-    );
-    assert_eq!(failure.commitment, AVAILABILITY_ROOT);
-}
-
-#[test]
-fn caller_record_substitution_cannot_create_verified_availability() {
-    let result = availability_result();
-    let mut records = result.records().clone();
-    records.activities[0] = b"independent-caller-record".to_vec();
-    let mut roots = result.record_roots();
-    roots.activity = root(&[records.activities[0].as_slice()])
-        .unwrap_or_else(|error| panic!("caller record root: {error:?}"));
-    let failure = AvailabilityResult::from_verified(
-        "node-boundary".to_owned(),
-        result.chunks,
-        records,
-        roots,
-    )
-    .err()
-    .unwrap_or_else(|| panic!("caller roots must authenticate the actual chunk records"));
-    assert_eq!(
-        failure.check,
-        layerx_proof::availability::AvailabilityCheck::ActivityRoot
     );
 }

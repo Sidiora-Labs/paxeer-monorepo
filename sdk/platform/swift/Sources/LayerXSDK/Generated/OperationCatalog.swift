@@ -97,16 +97,7 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
     case humanAuthenticatorSetupBegin = "human:authenticator.setup.begin"
     case humanAuthenticatorSetupFinish = "human:authenticator.setup.finish"
     case humanAuthenticatorStatus = "human:authenticator.status"
-    case humanBindingRebind = "human:binding.rebind"
-    case humanBindingRebindAction = "human:binding.rebind.action"
-    case humanBindingStatement = "human:binding.statement"
-    case humanBindingStatus = "human:binding.status"
-    case humanBindingSubmit = "human:binding.submit"
-    case humanDepositConfirm = "human:deposit.confirm"
-    case humanDepositStart = "human:deposit.start"
     case humanEvidenceGet = "human:evidence.get"
-    case humanExitEligibility = "human:exit.eligibility"
-    case humanExitStart = "human:exit.start"
     case humanHomeSummary = "human:home.summary"
     case humanIntentPlan = "human:intent.plan"
     case humanIntentSubmit = "human:intent.submit"
@@ -156,8 +147,6 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
     case humanSupportReply = "human:support.reply"
     case humanSupportStatus = "human:support.status"
     case humanVersion = "human:version"
-    case humanWithdrawClaim = "human:withdraw.claim"
-    case humanWithdrawStart = "human:withdraw.start"
 
     public var transport: OperationTransport {
         switch self {
@@ -249,16 +238,7 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .humanAuthenticatorSetupBegin: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .humanAuthenticatorSetupFinish: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .humanAuthenticatorStatus: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
-        case .humanBindingRebind: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
-        case .humanBindingRebindAction: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
-        case .humanBindingStatement: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
-        case .humanBindingStatus: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
-        case .humanBindingSubmit: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
-        case .humanDepositConfirm: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
-        case .humanDepositStart: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .humanEvidenceGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
-        case .humanExitEligibility: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
-        case .humanExitStart: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .humanHomeSummary: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
         case .humanIntentPlan: return OperationTransport(kind: "evm", method: "eth_call", to: nil, selector: nil, perLeg: true)
         case .humanIntentSubmit: return OperationTransport(kind: "evm", method: "eth_sendRawTransaction", to: nil, selector: nil, perLeg: true)
@@ -308,8 +288,6 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .humanSupportReply: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .humanSupportStatus: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
         case .humanVersion: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
-        case .humanWithdrawClaim: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
-        case .humanWithdrawStart: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         }
     }
 
@@ -403,16 +381,7 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .humanAuthenticatorSetupBegin: return OperationDescriptor(plane: .human, name: "authenticator.setup.begin", method: .post, path: "/v1/security/authenticators/setups", requestType: "AuthenticatorSetupBegin", responseType: "AuthenticatorSetupChallenge", requiresIdempotency: false, bodyless: false)
         case .humanAuthenticatorSetupFinish: return OperationDescriptor(plane: .human, name: "authenticator.setup.finish", method: .post, path: "/v1/security/authenticators/setups/{setup_id}", requestType: "AuthenticatorSetupFinish", responseType: "AuthenticatorSetupResult", requiresIdempotency: false, bodyless: false)
         case .humanAuthenticatorStatus: return OperationDescriptor(plane: .human, name: "authenticator.status", method: .get, path: "/v1/security/authenticators", requestType: "Empty", responseType: "AuthenticatorStatus", requiresIdempotency: false, bodyless: true)
-        case .humanBindingRebind: return OperationDescriptor(plane: .human, name: "binding.rebind", method: .post, path: "/v1/wallet-binding/rebind", requestType: "RebindingSubmission", responseType: "Journey", requiresIdempotency: true, bodyless: false)
-        case .humanBindingRebindAction: return OperationDescriptor(plane: .human, name: "binding.rebind.action", method: .post, path: "/v1/wallet-binding/rebind/action", requestType: "BindingStatementRequest", responseType: "BindingRebindAction", requiresIdempotency: false, bodyless: false)
-        case .humanBindingStatement: return OperationDescriptor(plane: .human, name: "binding.statement", method: .post, path: "/v1/wallet-binding/statement", requestType: "BindingStatementRequest", responseType: "BindingStatement", requiresIdempotency: false, bodyless: false)
-        case .humanBindingStatus: return OperationDescriptor(plane: .human, name: "binding.status", method: .get, path: "/v1/wallet-binding", requestType: "Empty", responseType: "WalletBinding", requiresIdempotency: false, bodyless: true)
-        case .humanBindingSubmit: return OperationDescriptor(plane: .human, name: "binding.submit", method: .post, path: "/v1/wallet-binding", requestType: "BindingSubmission", responseType: "Journey", requiresIdempotency: true, bodyless: false)
-        case .humanDepositConfirm: return OperationDescriptor(plane: .human, name: "deposit.confirm", method: .post, path: "/v1/deposits/{journey_id}/confirm", requestType: "DepositConfirmRequest", responseType: "Journey", requiresIdempotency: false, bodyless: false)
-        case .humanDepositStart: return OperationDescriptor(plane: .human, name: "deposit.start", method: .post, path: "/v1/deposits", requestType: "DepositStartRequest", responseType: "Journey", requiresIdempotency: true, bodyless: false)
         case .humanEvidenceGet: return OperationDescriptor(plane: .human, name: "evidence.get", method: .get, path: "/v1/evidence/{evidence_id}", requestType: "Empty", responseType: "EvidenceMaterial", requiresIdempotency: false, bodyless: true)
-        case .humanExitEligibility: return OperationDescriptor(plane: .human, name: "exit.eligibility", method: .get, path: "/v1/exit/eligibility", requestType: "Empty", responseType: "ExitEligibility", requiresIdempotency: false, bodyless: true)
-        case .humanExitStart: return OperationDescriptor(plane: .human, name: "exit.start", method: .post, path: "/v1/exit", requestType: "ExitStartRequest", responseType: "Journey", requiresIdempotency: true, bodyless: false)
         case .humanHomeSummary: return OperationDescriptor(plane: .human, name: "home.summary", method: .get, path: "/v1/home", requestType: "Empty", responseType: "HomeSummary", requiresIdempotency: false, bodyless: true)
         case .humanIntentPlan: return OperationDescriptor(plane: .human, name: "intent.plan", method: .post, path: "", requestType: "PlanIntentRequest", responseType: "IntentPlan", requiresIdempotency: false, bodyless: false)
         case .humanIntentSubmit: return OperationDescriptor(plane: .human, name: "intent.submit", method: .post, path: "", requestType: "SubmitPlanRequest", responseType: "IntentSubmission", requiresIdempotency: true, bodyless: false)
@@ -462,8 +431,6 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .humanSupportReply: return OperationDescriptor(plane: .human, name: "support.reply", method: .post, path: "/v1/support/conversations/{conversation_id}/replies", requestType: "SupportReplyRequest", responseType: "SupportConversation", requiresIdempotency: true, bodyless: false)
         case .humanSupportStatus: return OperationDescriptor(plane: .human, name: "support.status", method: .get, path: "/v1/support/conversations/{conversation_id}/status", requestType: "Empty", responseType: "SupportConversationStatus", requiresIdempotency: false, bodyless: true)
         case .humanVersion: return OperationDescriptor(plane: .human, name: "version", method: .get, path: "/v1/version", requestType: "Empty", responseType: "VersionInfo", requiresIdempotency: false, bodyless: true)
-        case .humanWithdrawClaim: return OperationDescriptor(plane: .human, name: "withdraw.claim", method: .post, path: "/v1/withdrawals/{journey_id}/claim", requestType: "WithdrawClaimRequest", responseType: "Journey", requiresIdempotency: false, bodyless: false)
-        case .humanWithdrawStart: return OperationDescriptor(plane: .human, name: "withdraw.start", method: .post, path: "/v1/withdrawals", requestType: "WithdrawStartRequest", responseType: "Journey", requiresIdempotency: true, bodyless: false)
         }
     }
 }
@@ -733,35 +700,8 @@ public extension PlatformClient {
     func humanAuthenticatorStatus(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.humanAuthenticatorStatus, request: request, pathParameters: pathParameters)
     }
-    func humanBindingRebind(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanBindingRebind, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
-    }
-    func humanBindingRebindAction(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanBindingRebindAction, request: request, pathParameters: pathParameters)
-    }
-    func humanBindingStatement(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanBindingStatement, request: request, pathParameters: pathParameters)
-    }
-    func humanBindingStatus(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanBindingStatus, request: request, pathParameters: pathParameters)
-    }
-    func humanBindingSubmit(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanBindingSubmit, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
-    }
-    func humanDepositConfirm(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanDepositConfirm, request: request, pathParameters: pathParameters)
-    }
-    func humanDepositStart(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanDepositStart, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
-    }
     func humanEvidenceGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.humanEvidenceGet, request: request, pathParameters: pathParameters)
-    }
-    func humanExitEligibility(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanExitEligibility, request: request, pathParameters: pathParameters)
-    }
-    func humanExitStart(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanExitStart, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
     }
     func humanHomeSummary(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.humanHomeSummary, request: request, pathParameters: pathParameters)
@@ -910,14 +850,8 @@ public extension PlatformClient {
     func humanVersion(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.humanVersion, request: request, pathParameters: pathParameters)
     }
-    func humanWithdrawClaim(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanWithdrawClaim, request: request, pathParameters: pathParameters)
-    }
-    func humanWithdrawStart(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanWithdrawStart, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
-    }
 }
 
-private let sdkMetadata = SDKMetadata(name: "LayerXSDK", version: "0.1.0", agentOperations: 54, humanOperations: 95)
+private let sdkMetadata = SDKMetadata(name: "LayerXSDK", version: "0.1.0", agentOperations: 54, humanOperations: 84)
 
 public func platform_sdk_swift() -> SDKMetadata { sdkMetadata }

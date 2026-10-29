@@ -11,19 +11,15 @@ pub mod verify;
 use std::collections::{BTreeMap, BTreeSet};
 
 use layerx_agentd::read::LayerxdProgramBalanceReader;
-use layerx_client::availability::AvailabilityResult;
-use layerx_client::evidence::VerifiedCheckpoint;
-use layerx_client::head::Head;
 use layerx_platform_authority::AuthorityFacts;
 use layerx_programs_protocol_adapter::ProtocolAdapterError;
 use layerx_proof::availability::RootCommitments;
 use layerx_proof::checkpoint::{
-    checkpoint_id, verify_certificate, Certificate, CheckpointError, GuarantorKey,
-    SettlementDomain, ThresholdReport,
+    verify_certificate, Certificate, CheckpointError, GuarantorKey, SettlementDomain,
+    ThresholdReport,
 };
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch, ReceiptCheck};
 use layerx_types::verify::VerificationLevel;
-use sha2::{Digest as _, Sha256};
 
 pub use freshness::{Freshness, Indexed};
 use programs::{ExplorerProgram, ExplorerProgramReadError};
@@ -32,7 +28,12 @@ pub use query::{Page, PublicExplorer, QueryError, QueryFailure, Readiness, Verif
 /// Stable identity of the rebuildable public projection.
 pub const CRATE_IDENTITY: &str = "layerx-explorer-index";
 
-const RECORD_DOMAIN: &[u8] = b"layerx-explorer-record/v1\0";
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct IndexHead {
+    pub chain_sequence: u64,
+    pub sealed_batch: u64,
+    pub finalised_checkpoint: [u8; 32],
+}
 
 /// Content identity for one exact protocol-public record.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -156,7 +157,6 @@ pub enum IndexError {
         actual: [u8; 32],
     },
     Checkpoint(CheckpointError),
-    CheckpointEvidence,
     ConflictingCheckpoint {
         batch: u64,
     },
@@ -182,7 +182,6 @@ pub enum IndexError {
     ReceiptAuthorityMismatch {
         id: RecordId,
     },
-    RecordCountOverflow,
     ProgramRead(ExplorerProgramReadError),
     ProgramProtocolUnavailable(ProtocolAdapterError),
     ProgramHeadRegression {
@@ -236,7 +235,7 @@ impl ProtocolProgramIngestor {
 
 /// Rebuildable, non-authoritative projection over proof-gated boundary data.
 pub struct Indexer {
-    observed_head: Head,
+    observed_head: IndexHead,
     source_available: bool,
     checkpoints: BTreeMap<[u8; 32], CheckpointRecord>,
     checkpoints_by_batch: BTreeMap<u64, [u8; 32]>,
@@ -252,7 +251,7 @@ pub struct Indexer {
 impl Indexer {
     /// Starts an empty projection relative to the accepted node-boundary head.
     #[must_use]
-    pub const fn new(observed_head: Head) -> Self {
+    pub const fn new(observed_head: IndexHead) -> Self {
         Self {
             observed_head,
             source_available: true,
@@ -274,7 +273,7 @@ impl Indexer {
     /// # Errors
     ///
     /// Refuses chain-sequence or sealed-batch regression.
-    pub fn refresh_head(&mut self, head: Head) -> Result<(), IndexError> {
+    pub fn refresh_head(&mut self, head: IndexHead) -> Result<(), IndexError> {
         if head.chain_sequence < self.observed_head.chain_sequence
             || head.sealed_batch < self.observed_head.sealed_batch
         {
@@ -312,29 +311,6 @@ impl Indexer {
         )
         .map_err(IndexError::Checkpoint)?;
         self.insert_checkpoint(certificate, &report, registered_checkpoint_id)
-    }
-
-    /// Indexes one checkpoint that `layerx-client` retrieved over the node
-    /// boundary and already rechecked against its bonded set, settlement
-    /// registration and protocol domain. The record path is the same as
-    /// [`Indexer::ingest_checkpoint`].
-    ///
-    /// # Errors
-    ///
-    /// Refuses undecodable evidence, head-inconsistent latest checkpoints,
-    /// conflicting batch certificates and mismatched availability evidence.
-    pub fn ingest_verified_checkpoint(
-        &mut self,
-        checkpoint: &VerifiedCheckpoint,
-    ) -> Result<IngestOutcome, IndexError> {
-        let certificate = checkpoint
-            .certificate()
-            .map_err(|_| IndexError::CheckpointEvidence)?;
-        let identifier = checkpoint_id(certificate.checkpoint()).map_err(IndexError::Checkpoint)?;
-        if checkpoint.report().evidence().checkpoint_id() != Some(identifier) {
-            return Err(IndexError::CheckpointEvidence);
-        }
-        self.insert_checkpoint(&certificate, checkpoint.report(), identifier)
     }
 
     fn insert_checkpoint(
@@ -397,77 +373,6 @@ impl Indexer {
         self.checkpoints
             .insert(registered_checkpoint_id, record.clone());
         self.upgrade_batch(&record);
-        Ok(IngestOutcome::Inserted)
-    }
-
-    /// Indexes a complete data-availability result returned by `layerx-client`.
-    /// Its private construction path guarantees chunk and record-root proof
-    /// verification before this method can observe any bytes.
-    ///
-    /// # Errors
-    ///
-    /// Refuses data ahead of the accepted head, divergent batches, checkpoint
-    /// root mismatches and cross-batch record replay without partial insertion.
-    pub fn ingest_availability(
-        &mut self,
-        result: &AvailabilityResult,
-    ) -> Result<IngestOutcome, IndexError> {
-        let batch_number = result.batch_number();
-        self.require_not_ahead(batch_number)?;
-        let checkpoint = self
-            .checkpoints_by_batch
-            .get(&batch_number)
-            .and_then(|identifier| self.checkpoints.get(identifier));
-        if let Some(checkpoint) = checkpoint {
-            if checkpoint.data_availability_root != result.data_availability_root()
-                || checkpoint.record_roots != result.record_roots()
-            {
-                return Err(IndexError::AvailabilityCheckpointMismatch {
-                    batch: batch_number,
-                });
-            }
-        }
-        let level = checkpoint.map_or(VerificationLevel::UNVERIFIED, |record| {
-            record.verification_level
-        });
-        let records = result.records();
-        let activity_ids = record_ids(b"activity", &records.activities);
-        let receipt_ids = record_ids(b"receipt", &records.receipts);
-        let event_ids = record_ids(b"event", &records.events);
-        let oracle_input_ids = record_ids(b"oracle", &records.oracle_inputs);
-        let batch = BatchRecord {
-            batch_number,
-            data_availability_root: result.data_availability_root(),
-            record_roots: result.record_roots(),
-            total_availability_bytes: result.report.total_bytes,
-            activity_ids,
-            receipt_ids: receipt_ids.clone(),
-            event_ids: event_ids.clone(),
-            oracle_input_ids,
-            checkpoint_id: checkpoint.map(|record| record.checkpoint_id),
-            verification_level: level,
-        };
-        if let Some(existing) = self.batches.get(&batch_number) {
-            return if existing == &batch {
-                Ok(IngestOutcome::AlreadyPresent)
-            } else {
-                Err(IndexError::ConflictingBatch {
-                    batch: batch_number,
-                })
-            };
-        }
-        let staged_receipts = stage_records(b"receipt", batch_number, &records.receipts, level)?;
-        let staged_events = stage_records(b"event", batch_number, &records.events, level)?;
-        require_no_replay(&self.receipts, &staged_receipts)?;
-        require_no_replay(&self.events, &staged_events)?;
-        self.receipts.extend(
-            staged_receipts
-                .into_iter()
-                .map(|record| (record.id, record)),
-        );
-        self.events
-            .extend(staged_events.into_iter().map(|record| (record.id, record)));
-        self.batches.insert(batch_number, batch);
         Ok(IngestOutcome::Inserted)
     }
 
@@ -633,7 +538,7 @@ impl Indexer {
 
     /// Authoritative node-boundary head this projection is measured against.
     #[must_use]
-    pub const fn observed_head(&self) -> Head {
+    pub const fn observed_head(&self) -> IndexHead {
         self.observed_head
     }
 
@@ -968,60 +873,12 @@ fn require_matching_evidence(
     }
 }
 
-fn record_ids(kind: &[u8], records: &[Vec<u8>]) -> Vec<RecordId> {
-    records.iter().map(|bytes| record_id(kind, bytes)).collect()
-}
-
-fn stage_records(
-    kind: &[u8],
-    batch_number: u64,
-    records: &[Vec<u8>],
-    verification_level: VerificationLevel,
-) -> Result<Vec<PublicRecord>, IndexError> {
-    records
-        .iter()
-        .enumerate()
-        .map(|(ordinal, bytes)| {
-            let ordinal = u32::try_from(ordinal).map_err(|_| IndexError::RecordCountOverflow)?;
-            Ok(PublicRecord {
-                id: record_id(kind, bytes),
-                batch_number,
-                ordinal,
-                canonical_bytes: bytes.clone(),
-                verification_level,
-            })
-        })
-        .collect()
-}
-
-fn require_no_replay(
-    existing: &BTreeMap<RecordId, PublicRecord>,
-    staged: &[PublicRecord],
-) -> Result<(), IndexError> {
-    let mut in_batch = BTreeSet::new();
-    for record in staged {
-        if existing.contains_key(&record.id) || !in_batch.insert(record.id) {
-            return Err(IndexError::ReplayedPublicRecord { id: record.id });
-        }
-    }
-    Ok(())
-}
-
-fn record_id(kind: &[u8], bytes: &[u8]) -> RecordId {
-    let mut hasher = Sha256::new();
-    hasher.update(RECORD_DOMAIN);
-    hasher.update(kind);
-    hasher.update(bytes);
-    RecordId(hasher.finalize().into())
-}
-
 #[cfg(test)]
 mod program_metadata_refresh_tests {
-    use layerx_client::head::Head;
     use layerx_programs::{ProgramLifecycle, SourceStatus, UpgradePolicy};
 
     use super::programs::{ExplorerProgram, ExplorerProgramBalance, ExplorerProgramVersion};
-    use super::{verified_metadata_enrichment, IndexError, Indexer, IngestOutcome};
+    use super::{verified_metadata_enrichment, IndexError, IndexHead, Indexer, IngestOutcome};
 
     fn projected_program() -> ExplorerProgram {
         ExplorerProgram {
@@ -1063,7 +920,7 @@ mod program_metadata_refresh_tests {
 
         assert!(verified_metadata_enrichment(&prior, &current));
 
-        let mut index = Indexer::new(Head {
+        let mut index = Indexer::new(IndexHead {
             chain_sequence: 19,
             sealed_batch: 7,
             finalised_checkpoint: [0xee; 32],
@@ -1087,7 +944,7 @@ mod program_metadata_refresh_tests {
         current.value_accounts[0].balance += 1;
         assert!(!verified_metadata_enrichment(&prior, &current));
 
-        let mut index = Indexer::new(Head {
+        let mut index = Indexer::new(IndexHead {
             chain_sequence: 19,
             sealed_batch: 7,
             finalised_checkpoint: [0xee; 32],
@@ -1134,7 +991,7 @@ mod program_metadata_refresh_tests {
         current.balance_observed_at = 2_000;
         current.balance_receipt_digest = [0xcc; 32];
         current.balance_state_root = [0xdd; 32];
-        let mut index = Indexer::new(Head {
+        let mut index = Indexer::new(IndexHead {
             chain_sequence: 19,
             sealed_batch: 7,
             finalised_checkpoint: [0xee; 32],
@@ -1190,7 +1047,7 @@ mod program_metadata_refresh_tests {
         current.balance_receipt_digest = [0xcc; 32];
         current.balance_state_root = [0xdd; 32];
 
-        let mut index = Indexer::new(Head {
+        let mut index = Indexer::new(IndexHead {
             chain_sequence: 19,
             sealed_batch: 7,
             finalised_checkpoint: [0xee; 32],
@@ -1220,7 +1077,7 @@ mod program_metadata_refresh_tests {
         second.balance_receipt_digest = [0xcc; 32];
         second.balance_state_root = [0xdd; 32];
 
-        let mut index = Indexer::new(Head {
+        let mut index = Indexer::new(IndexHead {
             chain_sequence: 19,
             sealed_batch: 7,
             finalised_checkpoint: [0xee; 32],
@@ -1239,13 +1096,13 @@ mod program_metadata_refresh_tests {
 
     #[test]
     fn explorer_head_refresh_refuses_chain_regression() {
-        let mut index = Indexer::new(Head {
+        let mut index = Indexer::new(IndexHead {
             chain_sequence: 19,
             sealed_batch: 7,
             finalised_checkpoint: [0xee; 32],
         });
         assert_eq!(
-            index.refresh_head(Head {
+            index.refresh_head(IndexHead {
                 chain_sequence: 18,
                 sealed_batch: 7,
                 finalised_checkpoint: [0xee; 32],

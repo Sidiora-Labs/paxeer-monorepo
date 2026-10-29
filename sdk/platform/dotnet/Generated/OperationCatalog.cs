@@ -96,16 +96,7 @@ public enum PlatformOperation
     HumanAuthenticatorSetupBegin,
     HumanAuthenticatorSetupFinish,
     HumanAuthenticatorStatus,
-    HumanBindingRebind,
-    HumanBindingRebindAction,
-    HumanBindingStatement,
-    HumanBindingStatus,
-    HumanBindingSubmit,
-    HumanDepositConfirm,
-    HumanDepositStart,
     HumanEvidenceGet,
-    HumanExitEligibility,
-    HumanExitStart,
     HumanHomeSummary,
     HumanIntentPlan,
     HumanIntentSubmit,
@@ -154,9 +145,7 @@ public enum PlatformOperation
     HumanSupportRead,
     HumanSupportReply,
     HumanSupportStatus,
-    HumanVersion,
-    HumanWithdrawClaim,
-    HumanWithdrawStart
+    HumanVersion
 }
 
 public static class GeneratedOperationCatalog
@@ -251,16 +240,7 @@ public static class GeneratedOperationCatalog
             PlatformOperation.HumanAuthenticatorSetupBegin => new("http", "POST", null, null, false),
             PlatformOperation.HumanAuthenticatorSetupFinish => new("http", "POST", null, null, false),
             PlatformOperation.HumanAuthenticatorStatus => new("http", "GET", null, null, false),
-            PlatformOperation.HumanBindingRebind => new("http", "POST", null, null, false),
-            PlatformOperation.HumanBindingRebindAction => new("http", "POST", null, null, false),
-            PlatformOperation.HumanBindingStatement => new("http", "POST", null, null, false),
-            PlatformOperation.HumanBindingStatus => new("http", "GET", null, null, false),
-            PlatformOperation.HumanBindingSubmit => new("http", "POST", null, null, false),
-            PlatformOperation.HumanDepositConfirm => new("http", "POST", null, null, false),
-            PlatformOperation.HumanDepositStart => new("http", "POST", null, null, false),
             PlatformOperation.HumanEvidenceGet => new("http", "GET", null, null, false),
-            PlatformOperation.HumanExitEligibility => new("http", "GET", null, null, false),
-            PlatformOperation.HumanExitStart => new("http", "POST", null, null, false),
             PlatformOperation.HumanHomeSummary => new("http", "GET", null, null, false),
             PlatformOperation.HumanIntentPlan => new("evm", "eth_call", null, null, true),
             PlatformOperation.HumanIntentSubmit => new("evm", "eth_sendRawTransaction", null, null, true),
@@ -310,8 +290,6 @@ public static class GeneratedOperationCatalog
             PlatformOperation.HumanSupportReply => new("http", "POST", null, null, false),
             PlatformOperation.HumanSupportStatus => new("http", "GET", null, null, false),
             PlatformOperation.HumanVersion => new("http", "GET", null, null, false),
-            PlatformOperation.HumanWithdrawClaim => new("http", "POST", null, null, false),
-            PlatformOperation.HumanWithdrawStart => new("http", "POST", null, null, false),
         _ => throw new ArgumentOutOfRangeException(nameof(operation)),
     };
 
@@ -405,16 +383,7 @@ public static class GeneratedOperationCatalog
             PlatformOperation.HumanAuthenticatorSetupBegin => new(PlatformPlane.Human, "authenticator.setup.begin", SdkHttpMethod.Post, "/v1/security/authenticators/setups", "AuthenticatorSetupBegin", "AuthenticatorSetupChallenge", false, false),
             PlatformOperation.HumanAuthenticatorSetupFinish => new(PlatformPlane.Human, "authenticator.setup.finish", SdkHttpMethod.Post, "/v1/security/authenticators/setups/{setup_id}", "AuthenticatorSetupFinish", "AuthenticatorSetupResult", false, false),
             PlatformOperation.HumanAuthenticatorStatus => new(PlatformPlane.Human, "authenticator.status", SdkHttpMethod.Get, "/v1/security/authenticators", "Empty", "AuthenticatorStatus", false, true),
-            PlatformOperation.HumanBindingRebind => new(PlatformPlane.Human, "binding.rebind", SdkHttpMethod.Post, "/v1/wallet-binding/rebind", "RebindingSubmission", "Journey", true, false),
-            PlatformOperation.HumanBindingRebindAction => new(PlatformPlane.Human, "binding.rebind.action", SdkHttpMethod.Post, "/v1/wallet-binding/rebind/action", "BindingStatementRequest", "BindingRebindAction", false, false),
-            PlatformOperation.HumanBindingStatement => new(PlatformPlane.Human, "binding.statement", SdkHttpMethod.Post, "/v1/wallet-binding/statement", "BindingStatementRequest", "BindingStatement", false, false),
-            PlatformOperation.HumanBindingStatus => new(PlatformPlane.Human, "binding.status", SdkHttpMethod.Get, "/v1/wallet-binding", "Empty", "WalletBinding", false, true),
-            PlatformOperation.HumanBindingSubmit => new(PlatformPlane.Human, "binding.submit", SdkHttpMethod.Post, "/v1/wallet-binding", "BindingSubmission", "Journey", true, false),
-            PlatformOperation.HumanDepositConfirm => new(PlatformPlane.Human, "deposit.confirm", SdkHttpMethod.Post, "/v1/deposits/{journey_id}/confirm", "DepositConfirmRequest", "Journey", false, false),
-            PlatformOperation.HumanDepositStart => new(PlatformPlane.Human, "deposit.start", SdkHttpMethod.Post, "/v1/deposits", "DepositStartRequest", "Journey", true, false),
             PlatformOperation.HumanEvidenceGet => new(PlatformPlane.Human, "evidence.get", SdkHttpMethod.Get, "/v1/evidence/{evidence_id}", "Empty", "EvidenceMaterial", false, true),
-            PlatformOperation.HumanExitEligibility => new(PlatformPlane.Human, "exit.eligibility", SdkHttpMethod.Get, "/v1/exit/eligibility", "Empty", "ExitEligibility", false, true),
-            PlatformOperation.HumanExitStart => new(PlatformPlane.Human, "exit.start", SdkHttpMethod.Post, "/v1/exit", "ExitStartRequest", "Journey", true, false),
             PlatformOperation.HumanHomeSummary => new(PlatformPlane.Human, "home.summary", SdkHttpMethod.Get, "/v1/home", "Empty", "HomeSummary", false, true),
             PlatformOperation.HumanIntentPlan => new(PlatformPlane.Human, "intent.plan", SdkHttpMethod.Post, "", "PlanIntentRequest", "IntentPlan", false, false),
             PlatformOperation.HumanIntentSubmit => new(PlatformPlane.Human, "intent.submit", SdkHttpMethod.Post, "", "SubmitPlanRequest", "IntentSubmission", true, false),
@@ -464,14 +433,12 @@ public static class GeneratedOperationCatalog
             PlatformOperation.HumanSupportReply => new(PlatformPlane.Human, "support.reply", SdkHttpMethod.Post, "/v1/support/conversations/{conversation_id}/replies", "SupportReplyRequest", "SupportConversation", true, false),
             PlatformOperation.HumanSupportStatus => new(PlatformPlane.Human, "support.status", SdkHttpMethod.Get, "/v1/support/conversations/{conversation_id}/status", "Empty", "SupportConversationStatus", false, true),
             PlatformOperation.HumanVersion => new(PlatformPlane.Human, "version", SdkHttpMethod.Get, "/v1/version", "Empty", "VersionInfo", false, true),
-            PlatformOperation.HumanWithdrawClaim => new(PlatformPlane.Human, "withdraw.claim", SdkHttpMethod.Post, "/v1/withdrawals/{journey_id}/claim", "WithdrawClaimRequest", "Journey", false, false),
-            PlatformOperation.HumanWithdrawStart => new(PlatformPlane.Human, "withdraw.start", SdkHttpMethod.Post, "/v1/withdrawals", "WithdrawStartRequest", "Journey", true, false),
         _ => throw new ArgumentOutOfRangeException(nameof(operation)),
     };
 
     public static SdkMetadata platform_sdk_dotnet()
     {
-        return new("LayerX.Sdk", "0.1.0", 54, 95);
+        return new("LayerX.Sdk", "0.1.0", 54, 84);
     }
 }
 
@@ -653,26 +620,8 @@ public static class GeneratedPlatformClientExtensions
         client.ReadAsync(PlatformOperation.HumanAuthenticatorSetupFinish, request, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanAuthenticatorStatusAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.HumanAuthenticatorStatus, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingRebindAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanBindingRebind, request, idempotencyKey, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingRebindActionAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanBindingRebindAction, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingStatementAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanBindingStatement, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingStatusAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanBindingStatus, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingSubmitAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanBindingSubmit, request, idempotencyKey, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanDepositConfirmAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanDepositConfirm, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanDepositStartAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanDepositStart, request, idempotencyKey, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanEvidenceGetAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.HumanEvidenceGet, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanExitEligibilityAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanExitEligibility, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanExitStartAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanExitStart, request, idempotencyKey, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanHomeSummaryAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.HumanHomeSummary, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanIntentPlanAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
@@ -771,8 +720,4 @@ public static class GeneratedPlatformClientExtensions
         client.ReadAsync(PlatformOperation.HumanSupportStatus, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanVersionAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.HumanVersion, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanWithdrawClaimAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanWithdrawClaim, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanWithdrawStartAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanWithdrawStart, request, idempotencyKey, pathParameters, cancellationToken);
 }
