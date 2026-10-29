@@ -1495,7 +1495,6 @@ pub enum HumanRefusal {
     FeeSnapshotSkew,
     ExportResponseTooLarge,
     ExportLevelUnattainable,
-    ExportSettlementAnchoringUnavailable,
     Policy(crate::policy::PolicyDryRunRefusal),
     BudgetCodec,
     BudgetExpired,
@@ -1528,8 +1527,7 @@ impl HumanRefusal {
             Self::StalePinnedHead => "program.stale_head",
             Self::FeeSnapshotSkew => "projection.fee_snapshot_skew",
             Self::ExportResponseTooLarge => "export.response_too_large",
-            Self::ExportLevelUnattainable => "export.level_unattainable",
-            Self::ExportSettlementAnchoringUnavailable => "export.settlement_anchoring_unavailable",
+            Self::ExportLevelUnattainable => "export.rung_unattainable",
             Self::Policy(refusal) => refusal.code(),
             Self::BudgetCodec => "budget.codec",
             Self::BudgetExpired => "budget.expired",
@@ -1573,7 +1571,6 @@ impl HumanRefusal {
             | Self::StalePinnedHead
             | Self::FeeSnapshotSkew
             | Self::ExportLevelUnattainable => ErrorClass::VerificationFailure,
-            Self::ExportSettlementAnchoringUnavailable => ErrorClass::UnavailableCapability,
             Self::ExportResponseTooLarge
             | Self::Policy(_)
             | Self::PolicyContextMismatch(_)

@@ -1669,7 +1669,6 @@ fn typed_owner_refusals_keep_their_class_and_reason() {
     let id = RequestId(11);
     for refusal in [
         crate::human::HumanRefusal::StalePinnedHead,
-        crate::human::HumanRefusal::ExportSettlementAnchoringUnavailable,
         crate::human::HumanRefusal::BudgetAuthorizationRequired,
         crate::human::HumanRefusal::Policy(
             crate::policy::PolicyDryRunRefusal::LegacyProjectPayload,
