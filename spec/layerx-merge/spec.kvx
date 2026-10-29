@@ -108842,7 +108842,7 @@ do_6 = "The task gate is TestOwnerActionCoversV2Paths alone; TestPostgresHTTPV2O
 
 [task.4.23.5]
 title = "Pin the user account handler to the frozen user operations of the catalog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["4.23.3", "4.23.4"]
@@ -117973,7 +117973,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.7]
 title = "Re-record the V1 receipted-positive vector as an EIP-1559 transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.55.2"]
@@ -135546,7 +135546,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.41.5]
 title = "Go SDK retires kernel batch, checkpoint and settlement verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.41.2", "8.41.3", "8.47.7"]
@@ -135581,7 +135581,7 @@ do_8 = "Also delete VerifyReceipt (sdk/platform/go/verify.go:292), VerifyReceipt
 
 [task.8.41.6]
 title = "Go SDK removes the /v1/programs REST transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.41.3"]
@@ -135799,7 +135799,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.42.5]
 title = "JVM SDK retires kernel batch, checkpoint and settlement verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.42.2", "8.42.3", "8.47.7"]
@@ -136053,7 +136053,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.43.5]
 title = ".NET SDK retires kernel batch, checkpoint and settlement verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.43.2", "8.43.3", "8.47.7"]
@@ -136586,7 +136586,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.2]
 title = "Go catalogue and operations.json drop binding, deposit, exit, withdraw and settlement entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["8.46.1", "8.46.3"]
@@ -137027,7 +137027,7 @@ do_8 = "After task 18.1178.1 (issue #1178) the committed V5 bundle keeps rawTran
 
 [task.8.47.8]
 title = "Rust streaming conformance resumes eth_subscribe log streams by log position"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["8.47.3", "9.0.2"]
