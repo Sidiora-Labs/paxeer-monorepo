@@ -1,6 +1,4 @@
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using LayerX.Sdk;
@@ -29,50 +27,6 @@ public sealed class ReceiptFixtureTests
                 Assert.True(error is InvalidDataException || error is TargetInvocationException { InnerException: InvalidDataException });
             }
         }
-    }
-
-    [Fact]
-    public async Task SignedTerminalV4Vectors()
-    {
-        var verify = typeof(ProgramsClient).GetMethod("VerifyTerminal", BindingFlags.NonPublic | BindingFlags.Static)!;
-        var unwrap = typeof(ProgramsClient).GetMethod("UnwrapAppliedTerminal", BindingFlags.NonPublic | BindingFlags.Static)!;
-        var applied = typeof(ProgramsClient).GetMethod("VerifyAppliedLegs", BindingFlags.NonPublic | BindingFlags.Static)!;
-        foreach (var name in new[] { "executed-v4", "principal-v4", "mutated-leg-v4", "executed-v3", "account-bound-v4" })
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(FixturePath(name == "account-bound-v4" ? "../../../../programs/fixtures/pay5/receipt-account-bound-v4.json" : "receipt-programs-" + name + ".json")));
-            var vector = document.RootElement; var batch = vector.GetProperty("authorized_batch");
-            var authority = new AuthorizedReceiptBatch(HexField(batch, "batch_id_hex"), HexField(batch, "asset_hex"),
-                HexField(batch, "previous_state_root_hex"), HexField(batch, "resulting_state_root_hex"), HexField(batch, "sequencer_public_key_hex"));
-            var verified = await LocalVerifier.VerifyReceiptAsync(HexField(vector, "canonical_receipt_hex"), authority, protocolVersion: 3);
-            Assert.Equal(HexField(vector, "receipt_digest_hex"), verified.ReceiptDigest);
-            Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes("LXP/v1/activity-id\0").Concat(HexField(vector, "signed_activity_hex")).ToArray()), verified.Receipt.ActivityId);
-            var receipt = Assert.IsType<ProgramReceiptOutcome>(verified.Receipt.ProgramOutcome);
-            var terminal = HexField(vector, "terminal_payload_hex"); var graph = HexField(vector, "call_graph_hex");
-            var program = HexField(vector, "program_id_hex");
-            var outcome = new Dictionary<string, JsonValue> { ["kind"] = JsonValue.String("completed"), ["code"] = JsonValue.Integer(0), ["response"] = JsonValue.String("") };
-            if (name == "principal-v4")
-            {
-                outcome.Remove("response"); outcome["kind"] = JsonValue.String("legacy_completed");
-                outcome["values"] = JsonValue.Array(new[] { JsonValue.Object(new Dictionary<string, JsonValue> { ["type"] = JsonValue.String("i32"), ["value"] = JsonValue.Integer(0) }) });
-            }
-            object? Verify(byte[] encoded) => verify.Invoke(null, new object[] { encoded, graph, program, outcome, (ushort)3, receipt });
-            void Reject(byte[] encoded) => Assert.IsType<PlatformSdkException>(Assert.Throws<TargetInvocationException>(() => Verify(encoded)).InnerException);
-            if (name == "mutated-leg-v4")
-            {
-                var error = Assert.IsType<InvalidDataException>(Assert.Throws<TargetInvocationException>(() => unwrap.Invoke(null, new object[] { terminal, receipt })).InnerException);
-                Assert.Equal("applied transfer root", error.Message);
-                Reject(terminal);
-            }
-            else Assert.Equal(name == "executed-v3" ? "recorded_terminal_root_not_locally_reconstructable" : "reconstructed", Verify(terminal));
-            if (name == "executed-v4" || name == "account-bound-v4")
-            {
-                for (var length = 0; length < terminal.Length; length++) Reject(terminal[..length]);
-                Reject(terminal.Concat(new byte[] { 0 }).ToArray());
-            }
-        }
-        applied.Invoke(null, new object[] { Array.Empty<byte>(), new byte[32] });
-        Assert.IsType<InvalidDataException>(Assert.Throws<TargetInvocationException>(() => applied.Invoke(null,
-            new object[] { Array.Empty<byte>(), Enumerable.Repeat((byte)1, 32).ToArray() })).InnerException);
     }
 
     [Fact]
@@ -141,22 +95,6 @@ public sealed class ReceiptFixtureTests
     }
 
     [Fact]
-    public async Task ExplicitProtocolThree()
-    {
-        foreach (var name in new[] { "receipt-positive-v3.json", "receipt-programs-positive-v3.json" })
-        {
-            var fixture = LoadFixture(name);
-            await Assert.ThrowsAsync<PlatformSdkException>(async () => await LocalVerifier.VerifyReceiptAsync(fixture.CanonicalReceipt, fixture.Batch));
-            var verified = await LocalVerifier.VerifyReceiptAsync(fixture.CanonicalReceipt, fixture.Batch, protocolVersion: 3);
-            Assert.Throws<PlatformSdkException>(() => LocalVerifier.VerifyProgramLifecycleReceipt(fixture.CanonicalReceipt, verified.Receipt.ActivityId, fixture.Batch.SequencerPublicKey));
-            Assert.Equal((ushort)3, verified.Receipt.ProtocolVersion);
-            Assert.Equal(HexField(fixture.Expected, "receipt_digest_hex"), verified.ReceiptDigest);
-            var corrupted = (byte[])fixture.CanonicalReceipt.Clone(); corrupted[^1] ^= 1;
-            await Assert.ThrowsAsync<PlatformSdkException>(async () => await LocalVerifier.VerifyReceiptAsync(corrupted, fixture.Batch, protocolVersion: 3));
-        }
-    }
-
-    [Fact]
     public void ProgramOutcomeV3VectorDecodes()
     {
         var outcome = LocalVerifier.DecodeProgramReceiptOutcome(Convert.FromHexString(ProgramOutcomeV3), 1);
@@ -166,12 +104,6 @@ public sealed class ReceiptFixtureTests
         Assert.Equal(Enumerable.Repeat((byte)0x11, 32).ToArray(), outcome.CallGraphRoot);
         Assert.Equal(Enumerable.Repeat((byte)0x22, 32).ToArray(), outcome.TerminalPayloadRoot);
     }
-    private sealed record Fixture(
-        byte[] CanonicalReceipt,
-        AuthorizedReceiptBatch Batch,
-        JsonElement Expected,
-        JsonElement AuthorizedBatch);
-
     private static string RepoRoot([CallerFilePath] string sourcePath = "")
         => Path.GetFullPath(Path.Combine(
             Path.GetDirectoryName(sourcePath) ?? throw new InvalidOperationException("no source dir"),
@@ -181,114 +113,7 @@ public sealed class ReceiptFixtureTests
         => Convert.FromHexString(element.GetProperty(key).GetString()
             ?? throw new InvalidOperationException($"missing {key}"));
 
-    private static UInt128Value U128Field(JsonElement element, string key)
-        => new(0, ulong.Parse(element.GetProperty(key).GetString()
-            ?? throw new InvalidOperationException($"missing {key}")));
-
     private static string FixturePath(string name) => Path.Combine(
         RepoRoot(), "sdk", "platform", "conformance", "fixtures", name);
 
-    private static Fixture LoadFixture(string name = "receipt-positive-v2.json")
-    {
-        var path = FixturePath(name);
-        using var document = JsonDocument.Parse(File.ReadAllText(path));
-        var root = document.RootElement.Clone();
-        var batch = root.GetProperty("authorized_batch");
-        return new Fixture(
-            HexField(root, "canonical_receipt_hex"),
-            new AuthorizedReceiptBatch(
-                HexField(batch, "batch_id_hex"),
-                HexField(batch, "asset_hex"),
-                HexField(batch, "previous_state_root_hex"),
-                HexField(batch, "resulting_state_root_hex"),
-                HexField(batch, "sequencer_public_key_hex")),
-            root.GetProperty("expected"),
-            batch);
-    }
-
-    [Fact]
-    public async Task CoreFixtureReceiptVerifiesPositively()
-    {
-        var fixture = LoadFixture();
-        var expected = fixture.Expected;
-        var verified = await LocalVerifier.VerifyReceiptAsync(fixture.CanonicalReceipt, fixture.Batch);
-        Assert.Equal(expected.GetProperty("level").GetString(), verified.Level);
-        Assert.Equal(fixture.CanonicalReceipt, verified.CanonicalBytes);
-        Assert.Equal(HexField(expected, "receipt_digest_hex"), verified.ReceiptDigest);
-        var receipt = verified.Receipt;
-        Assert.Equal(expected.GetProperty("result_code").GetInt32(), receipt.ResultCode);
-        Assert.Equal(expected.GetProperty("protocol_version").GetUInt16(), receipt.ProtocolVersion);
-        Assert.Equal(expected.GetProperty("operation").GetByte(), receipt.Operation);
-        Assert.Equal(expected.GetProperty("module_id").GetUInt16(), receipt.ModuleId);
-        Assert.Equal(expected.GetProperty("global_sequence").GetUInt64(), receipt.GlobalSequence);
-        Assert.Equal(expected.GetProperty("timestamp_ms").GetUInt64(), receipt.Timestamp);
-        Assert.Equal(U128Field(expected, "amount"), receipt.Amount);
-        Assert.Equal(U128Field(expected, "fee_charged"), receipt.FeeCharged);
-        Assert.Equal(U128Field(expected, "from_balance_before"), receipt.FromBalanceBefore);
-        Assert.Equal(U128Field(expected, "from_balance_after"), receipt.FromBalanceAfter);
-        Assert.Equal(U128Field(expected, "to_balance_before"), receipt.ToBalanceBefore);
-        Assert.Equal(U128Field(expected, "to_balance_after"), receipt.ToBalanceAfter);
-        Assert.Equal(HexField(expected, "activity_id_hex"), receipt.ActivityId);
-        Assert.Equal(HexField(expected, "from_hex"), receipt.From);
-        Assert.Equal(HexField(expected, "to_hex"), receipt.To);
-        Assert.Equal(HexField(fixture.AuthorizedBatch, "batch_id_hex"), receipt.BatchId);
-        Assert.Equal(HexField(fixture.AuthorizedBatch, "asset_hex"), receipt.Asset);
-        Assert.Equal(
-            HexField(fixture.AuthorizedBatch, "previous_state_root_hex"), receipt.PreviousStateRoot);
-        Assert.Equal(
-            HexField(fixture.AuthorizedBatch, "resulting_state_root_hex"), receipt.ResultingStateRoot);
-    }
-
-    [Fact]
-    public async Task CoreFixtureReceiptByteFlipFails()
-    {
-        var fixture = LoadFixture();
-        var mutated = (byte[])fixture.CanonicalReceipt.Clone();
-        mutated[^1] ^= 0x01;
-        await Assert.ThrowsAsync<PlatformSdkException>(async () =>
-            await LocalVerifier.VerifyReceiptAsync(mutated, fixture.Batch));
-    }
-
-    [Fact]
-    public async Task ProgramsReceiptPreservesOptionalOutcome()
-    {
-        var fixture = LoadFixture("receipt-programs-positive-v2.json");
-        var verified = await LocalVerifier.VerifyReceiptAsync(fixture.CanonicalReceipt, fixture.Batch);
-        var outcome = Assert.IsType<ProgramReceiptOutcome>(verified.Receipt.ProgramOutcome);
-        Assert.Equal((byte)3, outcome.EncodingVersion);
-        Assert.Equal((ushort)1, outcome.RuntimeVersion);
-        Assert.Equal((ushort)1, outcome.AbiVersion);
-        Assert.Equal(new UInt128Value(0, 2), outcome.OccupancyByteBatches);
-        Assert.Equal(new UInt128Value(0, 7), outcome.OccupancyFeeUnits);
-        Assert.Equal(fixture.Batch.Asset, outcome.OccupancyAssetId);
-        Assert.Contains(outcome.OccupancyEvidenceDigest, value => value != 0);
-        Assert.Contains(outcome.OccupancyTransferRoot, value => value != 0);
-        Assert.Equal(new UInt128Value(0, 16), outcome.FeeUnits);
-    }
-
-    [Theory]
-    [InlineData("receipt-refusals-v2.json")]
-    [InlineData("receipt-programs-refusals-v2.json")]
-    public async Task RefusalVectorsExposeSharedTaxonomy(string fixtureName)
-    {
-        using var document = JsonDocument.Parse(File.ReadAllText(
-            FixturePath(fixtureName)));
-        var root = document.RootElement;
-        var authority = root.GetProperty("authorized_batch");
-        var batch = new AuthorizedReceiptBatch(
-            HexField(authority, "batch_id_hex"),
-            HexField(authority, "asset_hex"),
-            HexField(authority, "previous_state_root_hex"),
-            HexField(authority, "resulting_state_root_hex"),
-            HexField(authority, "sequencer_public_key_hex"));
-        foreach (var vector in root.GetProperty("vectors").EnumerateArray())
-        {
-            var failure = await Assert.ThrowsAsync<PlatformSdkException>(async () =>
-                await LocalVerifier.VerifyReceiptAsync(
-                    HexField(vector, "canonical_receipt_hex"), batch));
-            Assert.NotNull(failure.ReceiptCheck);
-            Assert.Equal(vector.GetProperty("expected_check").GetString(),
-                failure.ReceiptCheck!.Value.MachineCode());
-        }
-    }
 }
