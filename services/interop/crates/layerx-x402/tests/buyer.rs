@@ -8,7 +8,6 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::receipt::AuthorizedBatch;
 use layerx_x402::buyer::{
     BuiltPayment, Buyer, BuyerPaymentPlane, PaymentBuildRequest, SupportedKind,
 };
@@ -56,11 +55,11 @@ fn test_supported() -> Vec<SupportedKind> {
     vec![
         SupportedKind {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
         },
         SupportedKind {
             scheme: "402lxp".to_owned(),
-            network: "layerx:mainnet".to_owned(),
+            network: "eip155:1".to_owned(),
         },
     ]
 }
@@ -68,7 +67,7 @@ fn test_supported() -> Vec<SupportedKind> {
 fn test_requirements() -> PaymentRequirements {
     PaymentRequirements {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: "eip155:125".to_owned(),
         amount: AtomicAmount::from_u128(500),
         asset: "0x".to_owned() + &"12".repeat(32),
         pay_to: pay_to(PAYEE_ACCOUNT),
@@ -101,27 +100,38 @@ fn encode_payment_required(required: &PaymentRequired) -> String {
 }
 
 fn mock_receipt_bytes() -> Vec<u8> {
-    vec![
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
-        0x0f,
-    ]
+    receipt_fixture_bytes(&receipt_fixture()["signedReceipt"])
 }
 
-fn mock_authorized_batch() -> AuthorizedBatch {
-    AuthorizedBatch::new([1; 32], [0x12; 32], [2; 32], [3; 32], [4; 32])
-}
-
-fn pinned_receipt_keys() -> [SequencerAuthorization; 1] {
+fn receipt_fixture() -> Value {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
     .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
-    let key = &fixture["cases"]
+    fixture["cases"]
         .as_array()
         .unwrap_or_else(|| panic!("fixture cases"))
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap_or_else(|| panic!("recorded settlement"))["pinnedKey"];
+        .unwrap_or_else(|| panic!("recorded settlement"))
+        .clone()
+}
+
+fn receipt_fixture_bytes(value: &Value) -> Vec<u8> {
+    let digits = value
+        .as_str()
+        .and_then(|text| text.strip_prefix("0x"))
+        .unwrap_or_else(|| panic!("fixture hexadecimal bytes"));
+    assert_eq!(digits.len() % 2, 0);
+    (0..digits.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&digits[index..index + 2], 16).unwrap())
+        .collect()
+}
+
+fn pinned_receipt_keys() -> [SequencerAuthorization; 1] {
+    let fixture = receipt_fixture();
+    let key = &fixture["pinnedKey"];
     let field = |name: &str| {
         key[name]
             .as_str()
@@ -137,6 +147,339 @@ fn pinned_receipt_keys() -> [SequencerAuthorization; 1] {
     .unwrap_or_else(|error| panic!("receipt authorization: {error}"))]
 }
 
+fn signed_settlement() -> (
+    BuiltPayment,
+    SettlementResponse,
+    [SequencerAuthorization; 1],
+) {
+    use ed25519_dalek::{Signer as _, SigningKey};
+
+    let fixture = receipt_fixture();
+    let log = &fixture["receiptJson"]["logs"][0];
+    let mut topics: Vec<[u8; 32]> = log["topics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|topic| receipt_fixture_bytes(topic).try_into().unwrap())
+        .collect();
+    assert_eq!(topics.len(), 4);
+    let recorded_topics = topics.concat();
+    topics[1..].rotate_right(1);
+    topics[3] = account_id(PAYEE_ACCOUNT);
+    let mut receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
+    let positions: Vec<_> = receipt
+        .windows(recorded_topics.len())
+        .enumerate()
+        .filter_map(|(index, bytes)| (bytes == recorded_topics).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1);
+    receipt[positions[0]..positions[0] + recorded_topics.len()].copy_from_slice(&topics.concat());
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap();
+    let signer = SigningKey::from_bytes(&[0x72; 32]);
+    let signature_start = receipt.len() - 64;
+    receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let [pinned] = pinned_receipt_keys();
+    let keys = [SequencerAuthorization::new(
+        pinned.sequencer_id(),
+        signer.verifying_key().to_bytes(),
+        pinned.first_batch_number(),
+        pinned.last_batch_number(),
+    )];
+    let mut logs = fixture["receiptJson"]["logs"].clone();
+    logs[0]["topics"] = json!(topics
+        .iter()
+        .map(|topic| format!("0x{}", hex32(topic)))
+        .collect::<Vec<_>>());
+    let data = receipt_fixture_bytes(&log["data"]);
+    assert_eq!(data.len(), 64);
+    assert_eq!(data[32..48], [0; 16]);
+    let asset: [u8; 32] = data[..32].try_into().unwrap();
+    let amount = AtomicAmount::from_u128(u128::from_be_bytes(data[48..64].try_into().unwrap()));
+    let idempotency_key = topics[1];
+    let payer = topics[2];
+    let payment = BuiltPayment {
+        header: String::new(),
+        payload: PaymentPayload {
+            x402_version: X402_VERSION,
+            resource: None,
+            payload: json!({"idempotencyKey": hex32(&idempotency_key)}),
+            accepted: PaymentRequirements {
+                amount,
+                asset: format!("0x{}", hex32(&asset)),
+                pay_to: pay_to(PAYEE_ACCOUNT),
+                extra: Some(layerx_terms(PAYEE_ACCOUNT)),
+                ..test_requirements()
+            },
+            extensions: BTreeMap::new(),
+        },
+        idempotency_key,
+    };
+    let response = SettlementResponse {
+        success: true,
+        error_reason: None,
+        payer: Some(hex32(&payer)),
+        transaction: fixture["receiptJson"]["txHash"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+        network: payment.payload.accepted.network.clone(),
+        amount: Some(amount),
+        extensions: BTreeMap::from([(
+            "layerx".to_owned(),
+            json!({
+                "receipt": STANDARD.encode(&receipt),
+                "receiptDigest": hex32(&digest),
+                "verificationLevel": fixture["receiptJson"]["rung"],
+                "logs": logs,
+            }),
+        )]),
+    };
+    (payment, response, keys)
+}
+
+#[test]
+fn buyer_tests_capture_on_the_recorded_receipt() {
+    let fixture = receipt_fixture();
+    let (payment, response, keys) = signed_settlement();
+    let receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
+    let digest: [u8; 32] = receipt_fixture_bytes(&fixture["receiptDigest"])
+        .try_into()
+        .unwrap();
+    let transaction: [u8; 32] = receipt_fixture_bytes(&fixture["receiptJson"]["txHash"])
+        .try_into()
+        .unwrap();
+    let verified =
+        layerx_proof::receipt::verify_sequencer_signature(&receipt, &pinned_receipt_keys())
+            .unwrap();
+    assert_eq!(verified.protocol().unwrap().activity_id(), transaction);
+    assert_eq!(
+        layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap(),
+        digest
+    );
+    let mut expected_logs = fixture["receiptJson"]["logs"].clone();
+    expected_logs[0]["topics"] = json!([
+        fixture["receiptJson"]["logs"][0]["topics"][0],
+        fixture["receiptJson"]["logs"][0]["topics"][3],
+        fixture["receiptJson"]["logs"][0]["topics"][1],
+        pay_to(PAYEE_ACCOUNT),
+    ]);
+    assert_eq!(response.extensions["layerx"]["logs"], expected_logs);
+    assert_eq!(payment.payload.accepted.pay_to, pay_to(PAYEE_ACCOUNT));
+    assert_eq!(
+        payment.payload.accepted.extra.as_ref().unwrap()["layerx"]["account"],
+        PAYEE_ACCOUNT
+    );
+    let receipt = STANDARD
+        .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
+        .unwrap();
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap();
+    assert_eq!(
+        response.extensions["layerx"]["receiptDigest"],
+        hex32(&digest)
+    );
+    let verified = layerx_proof::receipt::verify_sequencer_signature(&receipt, &keys).unwrap();
+    assert_eq!(verified.protocol().unwrap().activity_id(), transaction);
+    let [pinned] = pinned_receipt_keys();
+    assert_eq!(keys[0].sequencer_id(), pinned.sequencer_id());
+    assert_eq!(keys[0].first_batch_number(), pinned.first_batch_number());
+    assert_eq!(keys[0].last_batch_number(), pinned.last_batch_number());
+    payment.payload.validate().unwrap();
+    let captured = Buyer::capture_settlement(
+        &STANDARD.encode(serde_json::to_vec(&response).unwrap()),
+        &payment,
+        &keys,
+        &TraceId::mint([0xab; 16]),
+    )
+    .unwrap_or_else(|error| panic!("recorded settlement: {error:?}"));
+    assert_eq!(captured.response, response);
+    assert_eq!(captured.canonical_receipt, receipt);
+    assert_eq!(captured.receipt_digest, digest);
+    assert_eq!(captured.transaction_hash, transaction);
+    assert_eq!(
+        captured.response.transaction,
+        fixture["receiptJson"]["txHash"]
+    );
+    assert_eq!(captured.rung, "receipted");
+}
+
+fn payment_log_settlement(
+    scheme: &str,
+    logged_idempotency_key: [u8; 32],
+) -> (
+    BuiltPayment,
+    SettlementResponse,
+    [SequencerAuthorization; 1],
+) {
+    let mut accepted = test_requirements();
+    accepted.scheme = scheme.to_owned();
+    if scheme == "metered" {
+        accepted.extra.as_mut().unwrap()["layerx"]["purposeHash"] = json!(CHALLENGE_PURPOSE);
+    }
+    signed_payment_log_settlement(accepted, logged_idempotency_key)
+}
+
+fn signed_payment_log_settlement(
+    accepted: PaymentRequirements,
+    logged_idempotency_key: [u8; 32],
+) -> (
+    BuiltPayment,
+    SettlementResponse,
+    [SequencerAuthorization; 1],
+) {
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use sha2::{Digest as _, Sha256};
+
+    let scheme = accepted.scheme.clone();
+    let fixture = receipt_fixture();
+    let recorded_log = &fixture["receiptJson"]["logs"][0];
+    let address = receipt_fixture_bytes(&recorded_log["address"]);
+    let mut recorded_body = address.clone();
+    recorded_body.push(4);
+    for topic in recorded_log["topics"].as_array().unwrap() {
+        recorded_body.extend_from_slice(&receipt_fixture_bytes(topic));
+    }
+    recorded_body.extend_from_slice(&Sha256::digest(receipt_fixture_bytes(
+        &recorded_log["data"],
+    )));
+
+    let grant = [0x8a; 32];
+    let payer = [0x6a; 32];
+    let idempotency_key = [0x5c; 32];
+    let mut data = receipt_fixture_bytes(&json!(accepted.asset));
+    data.extend_from_slice(&[0; 16]);
+    data.extend_from_slice(&accepted.amount.value().to_be_bytes());
+    let topic = if scheme == "metered" {
+        data.extend_from_slice(&logged_idempotency_key);
+        data.extend_from_slice(&[0x9b; 32]);
+        "13473d103a2d52172016c872eeae0153e254af3c21a1d987492ab737f1a34fe1"
+    } else {
+        "c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1"
+    };
+    let topics = json!([
+        format!("0x{topic}"),
+        format!(
+            "0x{}",
+            hex32(&if scheme == "metered" {
+                grant
+            } else {
+                idempotency_key
+            })
+        ),
+        format!("0x{}", hex32(&payer)),
+        pay_to(PAYEE_ACCOUNT),
+    ]);
+    let mut body = address;
+    body.push(4);
+    for topic in topics.as_array().unwrap() {
+        body.extend_from_slice(&receipt_fixture_bytes(topic));
+    }
+    body.extend_from_slice(&Sha256::digest(&data));
+    assert_eq!(body.len(), recorded_body.len());
+    let mut receipt = mock_receipt_bytes();
+    let positions: Vec<_> = receipt
+        .windows(recorded_body.len())
+        .enumerate()
+        .filter_map(|(index, bytes)| (bytes == recorded_body).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1);
+    receipt[positions[0]..positions[0] + body.len()].copy_from_slice(&body);
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap();
+    let signer = SigningKey::from_bytes(&[0x72; 32]);
+    let signature_start = receipt.len() - 64;
+    receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let [pinned] = pinned_receipt_keys();
+    let keys = [SequencerAuthorization::new(
+        pinned.sequencer_id(),
+        signer.verifying_key().to_bytes(),
+        pinned.first_batch_number(),
+        pinned.last_batch_number(),
+    )];
+    let payment = BuiltPayment {
+        header: String::new(),
+        payload: PaymentPayload {
+            x402_version: X402_VERSION,
+            resource: None,
+            payload: json!({"grantId": hex32(&grant), "idempotencyKey": hex32(&idempotency_key)}),
+            accepted,
+            extensions: BTreeMap::new(),
+        },
+        idempotency_key,
+    };
+    let mut evidence = json!({
+        "receipt": STANDARD.encode(&receipt),
+        "receiptDigest": hex32(&digest),
+        "verificationLevel": "receipted",
+        "logs": [{
+            "address": recorded_log["address"],
+            "topics": topics,
+            "data": format!("0x{}", data.iter().map(|byte| format!("{byte:02x}")).collect::<String>()),
+            "logIndex": "0x0",
+        }],
+    });
+    if scheme == "metered" {
+        evidence["purposeHash"] = json!(CHALLENGE_PURPOSE);
+    }
+    let response = SettlementResponse {
+        success: true,
+        error_reason: None,
+        payer: Some(hex32(&payer)),
+        transaction: fixture["receiptJson"]["txHash"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+        network: payment.payload.accepted.network.clone(),
+        amount: Some(payment.payload.accepted.amount),
+        extensions: BTreeMap::from([("layerx".to_owned(), evidence)]),
+    };
+    (payment, response, keys)
+}
+
+#[test]
+fn buyer_captures_a_metered_settlement_from_a_payment_drawn_log() {
+    for scheme in ["metered", "exact"] {
+        let (mut payment, response, keys) = payment_log_settlement(scheme, [0x5c; 32]);
+        for grant_id in ["8a".repeat(32), format!("0x{}", "8A".repeat(32))] {
+            payment.payload.payload["grantId"] = json!(grant_id);
+            let captured = Buyer::capture_settlement(
+                &STANDARD.encode(serde_json::to_vec(&response).unwrap()),
+                &payment,
+                &keys,
+                &TraceId::mint([0xab; 16]),
+            )
+            .unwrap_or_else(|error| panic!("{scheme} settlement: {error:?}"));
+            assert_eq!(captured.response, response);
+            assert_eq!(captured.rung, "receipted");
+            assert_eq!(
+                captured.canonical_receipt,
+                STANDARD
+                    .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
+                    .unwrap()
+            );
+            assert_eq!(
+                hex32(&captured.receipt_digest),
+                response.extensions["layerx"]["receiptDigest"]
+            );
+        }
+    }
+}
+
+#[test]
+fn buyer_refuses_a_metered_settlement_whose_idempotency_word_differs() {
+    let (payment, response, keys) = payment_log_settlement("metered", [0x5d; 32]);
+    let header = STANDARD.encode(serde_json::to_vec(&response).unwrap());
+    let trace = TraceId::mint([0xab; 16]);
+    assert_eq!(
+        Buyer::capture_settlement(&header, &payment, &keys, &trace).map_err(Traced::into_error),
+        Err(X402Error::EvidenceMismatch),
+    );
+    let mut matching_payment = payment;
+    matching_payment.idempotency_key = [0x5d; 32];
+    matching_payment.payload.payload["idempotencyKey"] = json!("5d".repeat(32));
+    let captured = Buyer::capture_settlement(&header, &matching_payment, &keys, &trace)
+        .unwrap_or_else(|error| panic!("matching idempotency word: {error:?}"));
+    assert_eq!(captured.response, response);
+}
+
 #[test]
 fn buyer_validates_supported_kinds_on_construction() {
     let valid = test_supported();
@@ -147,11 +490,11 @@ fn buyer_validates_supported_kinds_on_construction() {
     let duplicate = vec![
         SupportedKind {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
         },
         SupportedKind {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
         },
     ];
     assert!(Buyer::new(duplicate).is_err());
@@ -159,7 +502,7 @@ fn buyer_validates_supported_kinds_on_construction() {
     let too_many = (0..100)
         .map(|i| SupportedKind {
             scheme: format!("scheme{i}"),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
         })
         .collect();
     assert!(Buyer::new(too_many).is_err());
@@ -192,7 +535,7 @@ fn buyer_selects_first_supported_offer_in_seller_order() {
     let mut required = test_payment_required();
     let unsupported = PaymentRequirements {
         scheme: "unsupported".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: "eip155:125".to_owned(),
         amount: AtomicAmount::from_u128(100),
         asset: "0x".to_owned() + &"aa".repeat(32),
         pay_to: pay_to(ALTERNATE_ACCOUNT),
@@ -214,7 +557,7 @@ fn buyer_selects_first_supported_offer_in_seller_order() {
         .unwrap_or_else(|error| panic!("payment built: {error:?}"));
 
     assert_eq!(payment.payload.accepted.scheme, "exact");
-    assert_eq!(payment.payload.accepted.network, "layerx:beta");
+    assert_eq!(payment.payload.accepted.network, "eip155:125");
 }
 
 #[test]
@@ -434,8 +777,8 @@ fn buyer_capture_refuses_failed_settlement_as_success() {
         success: false,
         error_reason: Some("payment_refused".to_owned()),
         payer: None,
-        transaction: String::new(),
-        network: "layerx:beta".to_owned(),
+        transaction: format!("0x{}", "61".repeat(32)),
+        network: "eip155:125".to_owned(),
         amount: None,
         extensions: BTreeMap::new(),
     };
@@ -443,7 +786,6 @@ fn buyer_capture_refuses_failed_settlement_as_success() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&failed).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -469,8 +811,8 @@ fn buyer_capture_refuses_missing_layerx_evidence() {
         success: true,
         error_reason: None,
         payer: Some("0x".to_owned() + &"ab".repeat(32)),
-        transaction: "test".to_owned(),
-        network: "layerx:beta".to_owned(),
+        transaction: format!("0x{}", "61".repeat(32)),
+        network: "eip155:125".to_owned(),
         amount: Some(AtomicAmount::from_u128(500)),
         extensions: BTreeMap::new(),
     };
@@ -478,7 +820,6 @@ fn buyer_capture_refuses_missing_layerx_evidence() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&no_evidence).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -514,8 +855,8 @@ fn buyer_capture_refuses_wrong_verification_level() {
         success: true,
         error_reason: None,
         payer: Some("0x".to_owned() + &"ab".repeat(32)),
-        transaction: "test".to_owned(),
-        network: "layerx:beta".to_owned(),
+        transaction: format!("0x{}", "61".repeat(32)),
+        network: "eip155:125".to_owned(),
         amount: Some(AtomicAmount::from_u128(500)),
         extensions,
     };
@@ -523,7 +864,6 @@ fn buyer_capture_refuses_wrong_verification_level() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&wrong_level).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -559,8 +899,8 @@ fn buyer_capture_refuses_malformed_receipt() {
         success: true,
         error_reason: None,
         payer: Some("0x".to_owned() + &"ab".repeat(32)),
-        transaction: "test".to_owned(),
-        network: "layerx:beta".to_owned(),
+        transaction: format!("0x{}", "61".repeat(32)),
+        network: "eip155:125".to_owned(),
         amount: Some(AtomicAmount::from_u128(500)),
         extensions,
     };
@@ -568,7 +908,6 @@ fn buyer_capture_refuses_malformed_receipt() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&bad_receipt).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -580,15 +919,15 @@ fn buyer_capture_refuses_malformed_receipt() {
 fn supported_kind_equality_matches_both_scheme_and_network() {
     let kind1 = SupportedKind {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: "eip155:125".to_owned(),
     };
     let kind2 = SupportedKind {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: "eip155:125".to_owned(),
     };
     let kind3 = SupportedKind {
         scheme: "402lxp".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: "eip155:125".to_owned(),
     };
 
     assert_eq!(kind1, kind2);
@@ -657,7 +996,6 @@ fn buyer_refuses_a_layerx_offer_paying_another_accounts_identifier() {
 }
 
 const SETTLED_ASSET: [u8; 32] = [0xab; 32];
-const SETTLED_SEQUENCER_SEED: [u8; 32] = [0x51; 32];
 const SETTLED_PAYER: [u8; 32] = [0x6a; 32];
 const CHALLENGE_PURPOSE: &str = "7c3e6a0d5b1f48e29c0a6d3b7e1f5a2c9d8b4e6f0a1c3d5e7f9b2a4c6e8d0f13";
 const OTHER_PURPOSE: &str = "0d8e6c4a2b9f7e5d3c1a0f6e4b8d9c2a5f1e7b3d0a6c5e4b2d9f8a1c3e7b6d5f";
@@ -670,67 +1008,6 @@ fn hex32(bytes: &[u8; 32]) -> String {
         text.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
     }
     text
-}
-
-fn settled_receipt(signature: Option<[u8; 64]>) -> Vec<u8> {
-    use layerx_wire::encode::Encoder;
-    use layerx_wire::limits::PROTOCOL_VERSION;
-    let mut encoder = Encoder::new(4096);
-    assert_eq!(
-        encoder.structure_header_version(0x5201, PROTOCOL_VERSION),
-        Ok(())
-    );
-    assert_eq!(encoder.u16(PROTOCOL_VERSION), Ok(()));
-    assert_eq!(encoder.bytes(&[0x61; 32], 32), Ok(()));
-    assert_eq!(encoder.u64(9), Ok(()));
-    assert_eq!(encoder.bytes(&[0x62; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&[0x63; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&[0x64; 32], 32), Ok(()));
-    assert_eq!(encoder.i32(0), Ok(()));
-    assert_eq!(encoder.sequence_length(0, 512), Ok(()));
-    assert_eq!(encoder.u128(1), Ok(()));
-    assert_eq!(encoder.bytes(&[0x65; 32], 32), Ok(()));
-    assert_eq!(encoder.u16(1), Ok(()));
-    assert_eq!(encoder.u32(1), Ok(()));
-    assert_eq!(encoder.u32(1), Ok(()));
-    assert_eq!(encoder.u8(6), Ok(()));
-    assert_eq!(encoder.bytes(&SETTLED_ASSET, 32), Ok(()));
-    assert_eq!(encoder.u128(1000), Ok(()));
-    assert_eq!(encoder.bytes(&SETTLED_PAYER, 32), Ok(()));
-    assert_eq!(encoder.u128(5000), Ok(()));
-    assert_eq!(encoder.u128(4000), Ok(()));
-    assert_eq!(encoder.u64(1), Ok(()));
-    assert_eq!(encoder.bytes(&account_id(PAYEE_ACCOUNT), 32), Ok(()));
-    assert_eq!(encoder.u128(0), Ok(()));
-    assert_eq!(encoder.u128(1000), Ok(()));
-    assert_eq!(encoder.bytes(&[0x66; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&[0x67; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&[0x68; 32], 32), Ok(()));
-    assert_eq!(encoder.u64(1_000), Ok(()));
-    assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
-    if let Some(value) = signature {
-        assert_eq!(encoder.bytes(&value, 64), Ok(()));
-    }
-    encoder.finish()
-}
-
-/// A sequencer-signed receipt of a 1000-unit draw from the payer to the
-/// payee, and the batch it is authorised under.
-fn signed_settlement() -> (Vec<u8>, AuthorizedBatch) {
-    use ed25519_dalek::{Signer as _, SigningKey};
-    let key = SigningKey::from_bytes(&SETTLED_SEQUENCER_SEED);
-    let digest = layerx_wire::hash::receipt_digest(&settled_receipt(None))
-        .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
-    (
-        settled_receipt(Some(key.sign(&digest).to_bytes())),
-        AuthorizedBatch::new(
-            [0x65; 32],
-            SETTLED_ASSET,
-            [0x62; 32],
-            [0x63; 32],
-            key.verifying_key().to_bytes(),
-        ),
-    )
 }
 
 fn settled_offer(scheme: &str, purpose: Option<&str>) -> PaymentRequirements {
@@ -752,57 +1029,25 @@ fn settled_offer(scheme: &str, purpose: Option<&str>) -> PaymentRequirements {
     }
 }
 
-fn built_for(accepted: PaymentRequirements) -> BuiltPayment {
-    BuiltPayment {
-        header: "test".to_owned(),
-        payload: PaymentPayload {
-            x402_version: X402_VERSION,
-            resource: None,
-            payload: json!({"receive": "00", "idempotencyKey": "5c".repeat(32)}),
-            accepted,
-            extensions: BTreeMap::new(),
-        },
-        idempotency_key: [0x5c; 32],
-    }
-}
-
-/// The Seller's `PAYMENT-RESPONSE` for the signed settlement, repeating
-/// `purpose` in `extensions.layerx` when one is given.
-fn settlement_header(receipt: &[u8], purpose: Option<&str>) -> String {
-    let digest = hex32(
-        &layerx_proof::merkle::leaf_hash(receipt)
-            .unwrap_or_else(|error| panic!("leaf hash: {error:?}")),
-    );
-    let mut layerx = json!({
-        "receipt": STANDARD.encode(receipt),
-        "receiptDigest": digest,
-        "verificationLevel": "sequencer-signed",
-    });
-    if let (Some(purpose), Some(terms)) = (purpose, layerx.as_object_mut()) {
-        terms.insert("purposeHash".to_owned(), json!(purpose));
-    }
-    STANDARD.encode(
-        serde_json::to_vec(&json!({
-            "success": true,
-            "payer": hex32(&SETTLED_PAYER),
-            "transaction": format!("lxp:{digest}"),
-            "network": "layerx:beta",
-            "amount": "1000",
-            "extensions": {"layerx": layerx},
-        }))
-        .unwrap_or_else(|error| panic!("test input: {error:?}")),
-    )
-}
-
 fn capture(
     offer: PaymentRequirements,
     repeated: Option<&str>,
 ) -> Result<layerx_x402::buyer::CapturedSettlement, X402Error> {
-    let (receipt, _batch) = signed_settlement();
+    let (payment, mut response, keys) = signed_payment_log_settlement(offer, [0x5c; 32]);
+    let layerx = response
+        .extensions
+        .get_mut("layerx")
+        .unwrap()
+        .as_object_mut()
+        .unwrap();
+    layerx.remove("purposeHash");
+    if let Some(purpose) = repeated {
+        layerx.insert("purposeHash".to_owned(), json!(purpose));
+    }
     Buyer::capture_settlement(
-        &settlement_header(&receipt, repeated),
-        &built_for(offer),
-        &pinned_receipt_keys(),
+        &STANDARD.encode(serde_json::to_vec(&response).unwrap()),
+        &payment,
+        &keys,
         &TraceId::mint([0xab; 16]),
     )
     .map_err(Traced::into_error)
@@ -810,7 +1055,13 @@ fn capture(
 
 #[test]
 fn buyer_capture_accepts_a_grant_settlement_repeating_the_challenge_purpose() {
-    let (receipt, _) = signed_settlement();
+    let (_, response, _) = signed_payment_log_settlement(
+        settled_offer("metered", Some(CHALLENGE_PURPOSE)),
+        [0x5c; 32],
+    );
+    let receipt = STANDARD
+        .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
+        .unwrap();
     let captured = capture(
         settled_offer("metered", Some(CHALLENGE_PURPOSE)),
         Some(CHALLENGE_PURPOSE),
@@ -823,7 +1074,7 @@ fn buyer_capture_accepts_a_grant_settlement_repeating_the_challenge_purpose() {
     );
     assert_eq!(
         captured.response.transaction,
-        format!("lxp:{}", hex32(&captured.receipt_digest))
+        receipt_fixture()["receiptJson"]["txHash"]
     );
 }
 

@@ -170,8 +170,8 @@ func TestCmdQuerySurfaceNetwork(t *testing.T) {
 		{"surface/zero", cli.CmdQuerySurface, []string{zeroAddress}, "Surface", &types.QuerySurfaceRequest{Address: zeroAddress}, sdkerrors.ErrInvalidRequest, codes.InvalidArgument},
 		{"retired/address", cli.CmdQueryRetired, []string{invalidAddress}, "Retired", &types.QueryRetiredRequest{Address: invalidAddress}, sdkerrors.ErrInvalidRequest, codes.InvalidArgument},
 		{"retired/zero", cli.CmdQueryRetired, []string{zeroAddress}, "Retired", &types.QueryRetiredRequest{Address: zeroAddress}, sdkerrors.ErrInvalidRequest, codes.InvalidArgument},
-		{"has-role/contract", cli.CmdQueryHasRole, []string{invalidAddress, role, account}, "HasRole", &types.QueryHasRoleRequest{Contract: invalidAddress, Role: role, Account: account}, sdkerrors.ErrInvalidAddress, codes.Unknown},
-		{"has-role/account", cli.CmdQueryHasRole, []string{address, role, invalidAddress}, "HasRole", &types.QueryHasRoleRequest{Contract: address, Role: role, Account: invalidAddress}, sdkerrors.ErrInvalidAddress, codes.Unknown},
+		{"has-role/contract", cli.CmdQueryHasRole, []string{invalidAddress, role, account}, "HasRole", &types.QueryHasRoleRequest{Contract: invalidAddress, Role: role, Account: account}, sdkerrors.ErrInvalidRequest, codes.InvalidArgument},
+		{"has-role/account", cli.CmdQueryHasRole, []string{address, role, invalidAddress}, "HasRole", &types.QueryHasRoleRequest{Contract: address, Role: role, Account: invalidAddress}, sdkerrors.ErrInvalidRequest, codes.InvalidArgument},
 		{"has-role/role", cli.CmdQueryHasRole, []string{address, "0x01", account}, "HasRole", &types.QueryHasRoleRequest{Contract: address, Role: "0x01", Account: account}, sdkerrors.ErrInvalidRequest, codes.InvalidArgument},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -83,6 +83,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedView do
   defp prepare_observation(%PriceObservation{} = observation, symbols) do
     %{
       "market_id" => observation.market_id,
+      "accepted" => observation.accepted,
       "symbol" => Map.get(symbols, observation.market_id),
       "index_price" => integer_string(observation.index_price),
       "mark_price" => integer_string(observation.mark_price),

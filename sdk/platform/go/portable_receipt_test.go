@@ -101,6 +101,34 @@ func TestPortableReceiptRoundTripsAtReceipted(t *testing.T) {
 	})
 }
 
+func TestPortableReceiptRefusesDifferentWrappedTransaction(t *testing.T) {
+	cases := sequencerReceiptCases(t)
+	c := cases[0]
+	keys := sequencerFixtureKeys(t, c)
+	f := newCommittedFixture(t, c.ID, [4]int64{1, 1, 1, 1}, 0)
+	evidence := PortableCommittedEvidence{BlockHeader: f.header, ReceiptInclusion: f.inclusion, Commit: f.commit, ValidatorSet: f.validators}
+	p, err := ExportPortableReceipt(c.ReceiptJSON, sequencerFixtureBytes(t, c.RawTransaction), keys, &evidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	different := sequencerFixtureBytes(t, cases[1].RawTransaction)
+	if bytes.Equal(different, sequencerFixtureBytes(t, c.RawTransaction)) {
+		t.Fatal("mutation must use a different signed EVM transaction")
+	}
+	f.inclusion.Transaction = committedFixtureWrappedTransaction(different)
+	f.reanchor(t)
+	p.BlockHeader, p.ReceiptInclusion, p.Commit = &f.header, &f.inclusion, &f.commit
+	data, err := p.Export()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := VerifyPortableReceipt(data, keys)
+	var verification *VerificationError
+	if !errors.As(err, &verification) || verification.Check != ReceiptCheckRawTransaction || !errors.Is(err, ErrVerification) || result.Rung != "" || len(result.CanonicalBytes) != 0 {
+		t.Fatalf("expected raw-transaction refusal, got %+v, %v", result, err)
+	}
+}
+
 func TestPortableReceiptRefusesVersionOneFormat(t *testing.T) {
 	c := sequencerReceiptCases(t)[0]
 	keys := sequencerFixtureKeys(t, c)

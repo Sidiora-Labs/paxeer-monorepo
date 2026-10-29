@@ -529,7 +529,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
                 &value.idempotency_key.bytes(),
                 CompileField::IdempotencyKey,
             )?;
-            finish(registry, ModuleId::Budget, 7, encoder)
+            finish(registry, ModuleId::Budget, 8, encoder)
         }
         IntentKind::BridgeDepositCredit(value) => {
             header(&mut encoder, 0x4801, 7)?;

@@ -134,7 +134,8 @@ func (p PortableReceipt) verify(keys ReceiptKeys) (SequencerReceiptVerification,
 	if p.VerificationLevel == "receipted" {
 		return r, nil
 	}
-	if !bytes.Equal(raw, p.ReceiptInclusion.Transaction) {
+	wrapped, ok := committedEVMTransaction(p.ReceiptInclusion.Transaction)
+	if !ok || !bytes.Equal(raw, wrapped) {
 		return fail(ReceiptCheckRawTransaction)
 	}
 	committed, err := VerifyCommittedReceipt(r, *p.BlockHeader, *p.ReceiptInclusion, *p.Commit, p.ValidatorSet)

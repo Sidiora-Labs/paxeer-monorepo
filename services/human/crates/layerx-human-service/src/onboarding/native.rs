@@ -170,11 +170,42 @@ impl NativePlan {
 }
 
 impl OnboardingJourney {
+    /// Prepares native setup using the sender's pending nonce from ACCOUNT_SEQUENCE.
+    ///
+    /// # Errors
+    /// Refuses an unavailable nonce answer or an invalid preparation without
+    /// retaining the caller's sequence as a fallback.
+    pub fn prepare_native_agent_action(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        registry: &ModuleRegistry,
+        agent: &AgentClient,
+        runtime: &mut crate::server::agent_runtime::AgentRuntime,
+        context: &AgentPreparationContext,
+        now: u64,
+    ) -> Result<Option<AgentPrepareAction>, OnboardingError> {
+        let Some(stage) = self.next_action_stage()? else {
+            return Ok(None);
+        };
+        if self.stage(stage).preparation.is_some() {
+            return self.prepare_agent_action(scope, registry, agent, context, now);
+        }
+        let mut pending = context.clone();
+        pending.account_sequence = runtime
+            .account_sequence(&context.actor, &context.authority)
+            .map_err(|_| OnboardingError::InvalidAgentContext)?;
+        self.prepare_agent_action(scope, registry, agent, &pending, now)
+    }
+
     pub(crate) fn bootstrap_action(&self, stage: ProtocolStage) -> [u8; 32] {
         self.action_key(stage)
     }
 
-    pub(crate) fn accept_bootstrap_owner(
+    /// Accepts a native owner setup outcome after its committed rung is observed.
+    ///
+    /// # Errors
+    /// Refuses uncommitted, conflicting, or unverifiable setup evidence.
+    pub fn accept_bootstrap_owner(
         &mut self,
         scope: &mut PrincipalScope<'_>,
         stage: ProtocolStage,
