@@ -16,7 +16,7 @@ use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRe
 fn registry() -> ModuleRegistry {
     ModuleRegistry::new(&[ModuleRegistration::new(
         ModuleId::Budget,
-        &[ActivityType::new(ModuleId::Budget, 7).expect("defund activity")],
+        &[ActivityType::new(ModuleId::Budget, 8).expect("defund activity")],
     )
     .expect("budget registration")])
     .expect("module registry")

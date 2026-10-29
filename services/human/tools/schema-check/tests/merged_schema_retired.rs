@@ -115,7 +115,19 @@ fn real_schema_declares_operation_retired_error_code() {
     let expected = vec!["wallet-not-bound".to_owned(), "exit-unavailable".to_owned()];
     assert_eq!(retired_variants(), expected);
     assert_eq!(report.retired_variants.get("ErrorCode"), Some(&expected));
-    assert_eq!(report.retired_variants.len(), 1);
+    assert_eq!(
+        report
+            .retired_variants
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        [
+            "ErrorCode",
+            "EvidenceClass",
+            "JourneyKind",
+            "VerificationLevel"
+        ]
+    );
 
     let variants = parse_json(&declaration("errors.kvx", "type.ErrorCode", "variants"))
         .unwrap_or_else(|error| panic!("ErrorCode variants: {error}"));

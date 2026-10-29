@@ -15,7 +15,7 @@ export default function applyPriceUpdates(prevData: FeedMarketsResponse, updates
     let latest = market.latest;
 
     accepted.forEach((update) => {
-      const observation = update.price_update.observations.find((item) => item.market_id === market.market_id);
+      const observation = update.price_update.observations.find((item) => item.market_id === market.market_id && item.accepted === true);
 
       if (!observation) {
         return;

@@ -1,6 +1,6 @@
 import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 
-import { markets, olderUpdateHash, oldestUpdateHash, priceUpdate } from 'mocks/paxeerX/feed';
+import { markets, olderUpdateHash, oldestUpdateHash, priceUpdate, updateHash } from 'mocks/paxeerX/feed';
 import { expect, test } from 'vitest';
 
 import applyPriceUpdates from './applyPriceUpdates';
@@ -17,6 +17,7 @@ function keepsTheSameBlockSubmissionWithTheHigherUpdateIndexWhateverItsFeederSeq
       observation_count: 1,
       observations: [
         {
+          accepted: true,
           market_id: 0,
           symbol: 'BTC-USD',
           index_price: '67100000000000000000000',
@@ -63,4 +64,57 @@ function keepsTheSameBlockSubmissionWithTheHigherUpdateIndexWhateverItsFeederSeq
 test(
   'keeps the same-block submission with the higher update index whatever its feeder sequence',
   keepsTheSameBlockSubmissionWithTheHigherUpdateIndexWhateverItsFeederSequence,
+);
+
+function keepsTheAcceptedPriceWhenANewerSuccessfulSubmissionCarriesARefusedObservation() {
+  const observation = {
+    accepted: false,
+    market_id: 0,
+    symbol: 'BTC-USD',
+    index_price: '67500000000000000000000',
+    mark_price: '67505000000000000000000',
+    source_timestamp_ms: 1767323050000,
+    sequence: 9003,
+  };
+  const update: PriceUpdateItem = {
+    ...priceUpdate,
+    hash: olderUpdateHash,
+    block_number: 34800124,
+    price_update: {
+      ...priceUpdate.price_update,
+      observation_count: 1,
+      observations: [ observation ],
+    },
+  };
+  const refused = applyPriceUpdates({ ...markets, chain_head: 34800123 }, [ update ]);
+
+  expect(refused.items[0].latest).toBe(markets.items[0].latest);
+  expect(refused.items[0].latest?.update_hash).toBe(updateHash);
+  expect(refused.items[0].latest?.block_number).toBe(34800123);
+  expect(refused.chain_head).toBe(34800124);
+
+  const accepted = applyPriceUpdates(refused, [ {
+    ...update,
+    price_update: {
+      ...update.price_update,
+      observations: [ { ...observation, accepted: true } ],
+    },
+  } ]);
+
+  expect(accepted.items[0].latest).toEqual({
+    index: update.index,
+    index_price: observation.index_price,
+    mark_price: observation.mark_price,
+    source_timestamp_ms: observation.source_timestamp_ms,
+    sequence: observation.sequence,
+    update_hash: update.hash,
+    block_number: 34800124,
+    timestamp: update.timestamp,
+  });
+  expect(accepted.chain_head).toBe(34800124);
+}
+
+test(
+  'keeps the accepted price when a newer successful submission carries a refused observation',
+  keepsTheAcceptedPriceWhenANewerSuccessfulSubmissionCarriesARefusedObservation,
 );

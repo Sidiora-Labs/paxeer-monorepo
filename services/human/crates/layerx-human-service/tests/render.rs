@@ -10,7 +10,6 @@ use layerx_agent_api::prepare::{
     CanonicalBytes, DisclosedAmount as ApiDisclosedAmount, Disclosure as ApiDisclosure,
     IdempotencyRef, PreparationRef, Prepared as ApiPrepared, SigningPreimage,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agent_api::{Amount as ApiAmount, TimestampSeconds as ApiTimestamp};
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::policy::approval::{hold, ApprovalContext, ApprovalRegistry};
@@ -34,6 +33,7 @@ use layerx_types::intent::{
     PublicKey, SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use proptest::prelude::*;
 use sha2::{Digest as _, Sha256};
 
@@ -296,7 +296,7 @@ fn verified_budget(remaining: u128, observed_at_sequence: u64) -> VerifiedBudget
     evidence.update(state.observed_head_sequence().to_be_bytes());
     VerifiedBudgetAfter {
         remaining: verified_remaining,
-        level: Level::StateProven,
+        rung: Rung::Committed,
         evidence_digest: evidence.finalize().into(),
         observed_at_sequence: state.observed_head_sequence(),
     }
@@ -392,7 +392,7 @@ fn mismatched_digest_and_unverified_budget_are_refused_before_content() {
     );
     let digest = held_digest(&prepared, 7);
     let mut budget = verified_budget(990, 107);
-    budget.level = Level::Unverified;
+    budget.rung = Rung::Submitted;
     assert_eq!(
         DisclosureRenderer::render(&prepared.disclosure, digest, budget),
         Err(DisclosureRenderError::UnverifiedBudget)

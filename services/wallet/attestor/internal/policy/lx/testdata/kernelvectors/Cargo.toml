@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[[bin]]
+name = "attestor-kernel-vectors"
+path = "src/main.rs"
+
 [dependencies]
 ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["digest"] }
 layerx-crypto = { path = "../../../../../../../../services/agent/crates/layerx-crypto" }

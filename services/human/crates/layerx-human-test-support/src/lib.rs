@@ -12,10 +12,8 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::boot::Gate;
 use layerx_agentd::config::{ReceiptKeySource, StartupConfig};
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, RawStateEvidence};
+use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
 use layerx_agentd::store::TenantId;
-use layerx_client::lni::handshake::{perform, HandshakeConfig};
-use layerx_client::lni::schema::Version;
 use layerx_client::lni::transport::{self, ConnectionGate, Limits};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::send::SendDebit;
@@ -27,7 +25,6 @@ use layerx_human_service::store::{
 use layerx_intents::canonical::execution_batch_id as wire_execution_batch_id;
 use layerx_intents::canonical::PROTOCOL_VERSION;
 use layerx_proof::merkle::build_proof;
-use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::intent::{AuthorizationSignature, PublicKey, SendAuthorization};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
@@ -40,6 +37,8 @@ use evidence_node::{EvidenceNode, FRAME_BYTES};
 
 pub const EVIDENCE_NETWORK_ID: u32 = 42;
 const EVIDENCE_CHAIN_ID: u64 = 125;
+
+pub type RawReceiptEvidence = layerx_agentd::protocol_evidence::RawReceiptEvidence;
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -121,6 +120,14 @@ pub fn evidence_registry() -> ModuleRegistry {
 /// Panics if authority-file creation or authority-gate validation fails.
 #[must_use]
 pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
+    let config = evidence_startup_config(receipt_signer);
+    Gate::new(&config).unwrap_or_else(|error| panic!("authority gate: {error:?}"))
+}
+
+/// # Panics
+/// Panics if authority-file creation or tenant construction fails.
+#[must_use]
+pub fn evidence_startup_config(receipt_signer: &SigningKey) -> StartupConfig {
     let receipt_key = receipt_signer.verifying_key().to_bytes();
     let authority_path = directory("evidence-authority").with_extension("csv");
     let authority_source = format!(
@@ -133,7 +140,7 @@ pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
     std::fs::set_permissions(&authority_path, std::fs::Permissions::from_mode(0o600))
         .unwrap_or_else(|error| panic!("authority source permissions: {error}"));
     let tenant = TenantId::new("human-evidence").unwrap_or_else(|error| panic!("tenant: {error}"));
-    let config = StartupConfig {
+    StartupConfig {
         network_id: EVIDENCE_NETWORK_ID,
         node_endpoint: String::from("http://127.0.0.1:1/"),
         expected_chain_id: EVIDENCE_CHAIN_ID,
@@ -146,10 +153,9 @@ pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
             tenant.clone(),
             PathBuf::from("/etc/layerx/human-signer.kvx"),
         )]),
-        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::STATE_PROVEN)]),
+        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::CHECKPOINT_FINALISED)]),
         receipt_key_source: ReceiptKeySource::PinnedFile(authority_path),
-    };
-    Gate::new(&config).unwrap_or_else(|error| panic!("authority gate: {error:?}"))
+    }
 }
 
 /// # Panics
@@ -310,7 +316,7 @@ pub fn connect_evidence_node(socket_path: &Path) -> transport::Uds {
 }
 
 /// # Panics
-/// Panics if the node handshake, evidence authority, or worker completion fails.
+/// Panics if node readiness, evidence authority, or worker completion fails.
 #[must_use]
 pub fn evidence_verifier(receipt_signer: &SigningKey) -> EvidenceAuthority {
     let mut gate = evidence_gate(receipt_signer);
@@ -320,25 +326,6 @@ pub fn evidence_verifier(receipt_signer: &SigningKey) -> EvidenceAuthority {
     readiness_server
         .join()
         .unwrap_or_else(|_| panic!("readiness node panicked"));
-    let node = evidence_node(receipt_signer, "evidence-admission", 1);
-    let (socket_path, server) = serve_evidence_node(node, "evidence-handshake");
-    let mut transport = connect_evidence_node(&socket_path);
-    perform(
-        &mut transport,
-        &HandshakeConfig {
-            built_interface_version: Version::V1_3,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: EVIDENCE_NETWORK_ID,
-        },
-        None,
-    )
-    .unwrap_or_else(|error| panic!("accepted handshake: {error:?}"));
-    drop(transport);
-    let node = server
-        .join()
-        .unwrap_or_else(|_| panic!("evidence node panicked"));
-    assert!(!node.fail_stopped());
-    let _ = std::fs::remove_file(socket_path);
     gate.evidence_authority()
         .unwrap_or_else(|error| panic!("evidence authority: {error:?}"))
         .clone()
@@ -431,22 +418,24 @@ pub fn sign_send(
 }
 
 /// # Panics
-/// Panics if the signer differs from the authorized batch key or proof construction fails.
+/// Panics if the signer differs from the pinned receipt key or proof construction fails.
 #[must_use]
 pub fn raw_receipt_evidence(
     canonical_receipt: Vec<u8>,
-    authorised_batch: AuthorizedBatch,
+    pinned_sequencer_receipt_key: [u8; 32],
+    previous_state_root: [u8; 32],
+    resulting_state_root: [u8; 32],
     global_sequence: u64,
     signer: &SigningKey,
 ) -> RawReceiptEvidence {
     assert_eq!(
-        authorised_batch.sequencer_public_key(),
+        pinned_sequencer_receipt_key,
         signer.verifying_key().to_bytes()
     );
     let leaves = [canonical_receipt.as_slice()];
     let (proof, receipt_root) =
         build_proof(&leaves, 0).unwrap_or_else(|error| panic!("receipt proof: {error:?}"));
-    let sequencer_id = signer.verifying_key().to_bytes();
+    let sequencer_id = pinned_sequencer_receipt_key;
     let decoded = layerx_intents::canonical::decode_receipt(&canonical_receipt)
         .unwrap_or_else(|error| panic!("canonical receipt: {error:?}"));
     let protocol = decoded
@@ -454,8 +443,8 @@ pub fn raw_receipt_evidence(
         .unwrap_or_else(|| panic!("protocol receipt required"));
     assert_eq!(protocol.global_sequence(), global_sequence);
     let header = canonical_header(
-        authorised_batch.previous_state_root(),
-        authorised_batch.resulting_state_root(),
+        previous_state_root,
+        resulting_state_root,
         protocol.activity_root(),
         receipt_root,
         global_sequence,

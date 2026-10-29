@@ -308,7 +308,9 @@ func (s Store) List(ctx context.Context, account string, limit int) ([]InboxItem
 
 type InboxPageItem struct {
 	InboxItem
-	V2ID string
+	V2ID          string
+	ReadAt        *time.Time
+	DeliveryState string
 }
 
 type InboxPage struct {
@@ -337,10 +339,11 @@ func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cu
 		}
 		after, afterID = createdAt, id
 	}
-	rows, err := s.DB.QueryContext(ctx, `SELECT document,`+v2_id+`::text,created_at,id FROM discovery_notifications.inbox
-		WHERE account_id=$1 AND ($2 = false OR read_at IS NULL)
-		AND ($3::timestamptz IS NULL OR created_at<$3 OR (created_at=$3 AND id>$4))
-		ORDER BY created_at DESC,id LIMIT $5`, account, unreadOnly, after, afterID, limit+1)
+	rows, err := s.DB.QueryContext(ctx, `SELECT i.document,i.`+v2_id+`::text,i.created_at,i.id,i.read_at,o.deliveries,o.terminal
+		FROM discovery_notifications.inbox i JOIN discovery_notifications.outbox o ON o.id=i.id
+		WHERE i.account_id=$1 AND ($2 = false OR i.read_at IS NULL)
+		AND ($3::timestamptz IS NULL OR i.created_at<$3 OR (i.created_at=$3 AND i.id>$4))
+		ORDER BY i.created_at DESC,i.id LIMIT $5`, account, unreadOnly, after, afterID, limit+1)
 	if err != nil {
 		return InboxPage{}, err
 	}
@@ -351,9 +354,12 @@ func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cu
 	for rows.Next() {
 		var item InboxPageItem
 		var document []byte
+		var deliveries []byte
+		var readAt sql.NullTime
+		var terminal bool
 		var createdAt time.Time
 		var id string
-		if err = rows.Scan(&document, &item.V2ID, &createdAt, &id); err != nil {
+		if err = rows.Scan(&document, &item.V2ID, &createdAt, &id, &readAt, &deliveries, &terminal); err != nil {
 			return InboxPage{}, err
 		}
 		if len(page.Items) == limit {
@@ -362,6 +368,26 @@ func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cu
 		}
 		if err = json.Unmarshal(document, &item.InboxItem); err != nil {
 			return InboxPage{}, err
+		}
+		if item.Read && readAt.Valid {
+			item.ReadAt = &readAt.Time
+		}
+		var attempts []DeliveryAttempt
+		if err = json.Unmarshal(deliveries, &attempts); err != nil {
+			return InboxPage{}, err
+		}
+		item.DeliveryState = "pending"
+		if terminal {
+			item.DeliveryState = "failed"
+		}
+		if len(attempts) == 0 {
+			item.DeliveryState = "sent"
+		}
+		for _, attempt := range attempts {
+			if attempt.State == "accepted" {
+				item.DeliveryState = "sent"
+				break
+			}
 		}
 		page.Items = append(page.Items, item)
 		lastCreatedAt, lastID = createdAt, id

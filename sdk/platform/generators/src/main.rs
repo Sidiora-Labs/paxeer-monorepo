@@ -557,7 +557,15 @@ fn variants(sections: &Sections, section: &str) -> Result<Vec<String>, String> {
         .get(section)
         .and_then(|entries| entries.get("variants"))
         .ok_or_else(|| format!("missing {section}.variants"))?;
-    layerx_platform_kvx::string_list(value)
+    let mut variants = layerx_platform_kvx::string_list(value)?;
+    if let Some(retired) = sections
+        .get(section)
+        .and_then(|entries| entries.get("retired_variants"))
+    {
+        let retired = layerx_platform_kvx::string_list(retired)?;
+        variants.retain(|variant| !retired.contains(variant));
+    }
+    Ok(variants)
 }
 
 fn go_identifier(value: &str) -> String {

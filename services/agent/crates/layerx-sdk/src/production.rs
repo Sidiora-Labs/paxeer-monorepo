@@ -679,6 +679,23 @@ impl StreamCursor {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    #[must_use]
+    pub fn log_position(&self) -> Option<(u64, u32, u32)> {
+        let value = self.as_str();
+        if value.len() != 32
+            || !value
+                .bytes()
+                .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            return None;
+        }
+        Some((
+            u64::from_str_radix(&value[..16], 16).ok()?,
+            u32::from_str_radix(&value[16..24], 16).ok()?,
+            u32::from_str_radix(&value[24..], 16).ok()?,
+        ))
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -732,12 +749,19 @@ impl ResumableStream {
             ));
         }
         let mut expected = self.cursor.clone();
+        let mut position = expected
+            .log_position()
+            .ok_or_else(|| ProductionError::new(SdkErrorCode::DecodeFailure, RetryClass::Never))?;
         let mut page_ids = BTreeSet::new();
         for event in &page.events {
+            let event_position = event.cursor.log_position().ok_or_else(|| {
+                ProductionError::new(SdkErrorCode::DecodeFailure, RetryClass::Never)
+            })?;
             if event.event_id.is_empty()
                 || event.previous_cursor != expected
                 || self.seen.contains(&event.event_id)
                 || !page_ids.insert(event.event_id.clone())
+                || event_position <= position
             {
                 return Err(ProductionError::new(
                     SdkErrorCode::DecodeFailure,
@@ -745,6 +769,7 @@ impl ResumableStream {
                 ));
             }
             expected = event.cursor.clone();
+            position = event_position;
         }
         if page.next_cursor != expected {
             return Err(ProductionError::new(
