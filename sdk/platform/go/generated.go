@@ -361,7 +361,50 @@ func (operation HumanOperation) RequiresIdempotency() bool {
 	}
 }
 
+type EVMOperationMetadata struct {
+	Method   string
+	To       string
+	Selector string
+	PerLeg   bool
+}
+
+func (operation AgentOperation) EVMMetadata() (EVMOperationMetadata, bool) {
+	switch operation {
+	case AgentOperationProgramActivity:
+		return EVMOperationMetadata{Method: "eth_getTransactionByHash", To: "", Selector: ""}, true
+	case AgentOperationProgramCall:
+		return EVMOperationMetadata{Method: "eth_sendRawTransaction", To: "0x000000000000000000000000000000000000101d", Selector: "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"}, true
+	case AgentOperationProgramDeploy:
+		return EVMOperationMetadata{Method: "eth_sendRawTransaction", To: "0x000000000000000000000000000000000000101d", Selector: "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"}, true
+	case AgentOperationProgramDiscover:
+		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101d", Selector: "getProgram(bytes32)"}, true
+	case AgentOperationProgramInterface:
+		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101d", Selector: "getInterface(bytes32)"}, true
+	case AgentOperationProgramReceipt:
+		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101c", Selector: "resultByIdempotency(bytes32,bytes32)"}, true
+	case AgentOperationProgramSimulate:
+		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101d", Selector: "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"}, true
+	case AgentOperationProgramUpgrade:
+		return EVMOperationMetadata{Method: "eth_sendRawTransaction", To: "0x000000000000000000000000000000000000101d", Selector: "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"}, true
+	case AgentOperationProgramWindDown:
+		return EVMOperationMetadata{Method: "eth_sendRawTransaction", To: "0x000000000000000000000000000000000000101d", Selector: "deprecate(bytes32,bytes32,uint64)"}, true
+	default:
+		return EVMOperationMetadata{}, false
+	}
+}
+
+func (operation HumanOperation) EVMMetadata() (EVMOperationMetadata, bool) {
+	switch operation {
+	case HumanOperationIntentPlan, HumanOperationIntentSubmit:
+		metadata, ok := operation.Metadata()
+		return EVMOperationMetadata{Method: metadata.Method, PerLeg: metadata.PerLeg}, ok
+	default:
+		return EVMOperationMetadata{}, false
+	}
+}
+
 type HumanOperationMetadata struct {
+	PerLeg   bool
 	Method   string
 	Path     string
 	Request  string
@@ -461,9 +504,9 @@ func (operation HumanOperation) Metadata() (HumanOperationMetadata, bool) {
 	case HumanOperationHomeSummary:
 		return HumanOperationMetadata{Method: "GET", Path: "/v1/home", Request: "Empty", Response: "HomeSummary"}, true
 	case HumanOperationIntentPlan:
-		return HumanOperationMetadata{Method: "POST", Path: "/v1/intents/plan", Request: "PlanIntentRequest", Response: "IntentPlan"}, true
+		return HumanOperationMetadata{Method: "eth_call", Path: "", Request: "PlanIntentRequest", Response: "IntentPlan", PerLeg: true}, true
 	case HumanOperationIntentSubmit:
-		return HumanOperationMetadata{Method: "POST", Path: "/v1/intents/submit", Request: "SubmitPlanRequest", Response: "IntentSubmission"}, true
+		return HumanOperationMetadata{Method: "eth_sendRawTransaction", Path: "", Request: "SubmitPlanRequest", Response: "IntentSubmission", PerLeg: true}, true
 	case HumanOperationJourneyGet:
 		return HumanOperationMetadata{Method: "GET", Path: "/v1/journeys/{journey_id}", Request: "Empty", Response: "Journey"}, true
 	case HumanOperationJourneyList:

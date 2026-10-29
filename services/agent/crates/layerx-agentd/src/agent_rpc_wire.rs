@@ -58,6 +58,44 @@ pub(crate) fn decode_wire<W: DeserializeOwned>(
     decode(request, id)
 }
 
+pub(crate) fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
+    use layerx_agent_api::{agent_api_schema_v1, ContractVersion, Sequence, VersionResponse};
+
+    let id = body
+        .get(4..12)
+        .and_then(|bytes| <[u8; 8]>::try_from(bytes).ok())
+        .map_or(RequestId(0), |bytes| RequestId(u64::from_be_bytes(bytes)));
+    let frame: &[u8; 19] = body.try_into().map_err(|_| malformed(id))?;
+    if frame[12..15] != [0; 3] {
+        return Err(malformed(id));
+    }
+    let header = ContractVersion {
+        major: u16::from_be_bytes([frame[0], frame[1]]),
+        minor: u16::from_be_bytes([frame[2], frame[3]]),
+    };
+    let supported = ContractVersion {
+        major: u16::from_be_bytes([frame[15], frame[16]]),
+        minor: u16::from_be_bytes([frame[17], frame[18]]),
+    };
+    let schema = agent_api_schema_v1();
+    if header.major != schema.version.major || supported.major != schema.version.major {
+        return Err(Rejection::new(
+            layerx_agent_api::error::ErrorClass::ProtocolIncompatibility,
+            id,
+            "envelope.version",
+        ));
+    }
+    if header != supported {
+        return Err(malformed(id));
+    }
+    Ok(VersionResponse {
+        request_id: Sequence(id.0),
+        contract: schema.version,
+        node_interface_major: schema.node_interface_major,
+    }
+    .encode())
+}
+
 /// Fixed-order JSON of a converted request, used as the canonical digest bytes.
 pub(crate) trait Canonical {
     fn canonical(&self) -> Value;
