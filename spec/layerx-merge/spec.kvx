@@ -136660,7 +136660,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.7]
 title = "JVM generated schema drops deposit, exit, withdraw and settlement anchoring"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.46.6"]
@@ -158450,7 +158450,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.30.3]
 title = "Derive replay authority from an ICS23-proved host receipt under the block app hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["13.30.1", "13.30.2"]
