@@ -121,6 +121,14 @@ pub fn evidence_registry() -> ModuleRegistry {
 /// Panics if authority-file creation or authority-gate validation fails.
 #[must_use]
 pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
+    let config = evidence_startup_config(receipt_signer);
+    Gate::new(&config).unwrap_or_else(|error| panic!("authority gate: {error:?}"))
+}
+
+/// # Panics
+/// Panics if authority-file creation or tenant construction fails.
+#[must_use]
+pub fn evidence_startup_config(receipt_signer: &SigningKey) -> StartupConfig {
     let receipt_key = receipt_signer.verifying_key().to_bytes();
     let authority_path = directory("evidence-authority").with_extension("csv");
     let authority_source = format!(
@@ -133,7 +141,7 @@ pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
     std::fs::set_permissions(&authority_path, std::fs::Permissions::from_mode(0o600))
         .unwrap_or_else(|error| panic!("authority source permissions: {error}"));
     let tenant = TenantId::new("human-evidence").unwrap_or_else(|error| panic!("tenant: {error}"));
-    let config = StartupConfig {
+    StartupConfig {
         network_id: EVIDENCE_NETWORK_ID,
         node_endpoint: String::from("http://127.0.0.1:1/"),
         expected_chain_id: EVIDENCE_CHAIN_ID,
@@ -146,10 +154,9 @@ pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
             tenant.clone(),
             PathBuf::from("/etc/layerx/human-signer.kvx"),
         )]),
-        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::STATE_PROVEN)]),
+        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::CHECKPOINT_FINALISED)]),
         receipt_key_source: ReceiptKeySource::PinnedFile(authority_path),
-    };
-    Gate::new(&config).unwrap_or_else(|error| panic!("authority gate: {error:?}"))
+    }
 }
 
 /// # Panics

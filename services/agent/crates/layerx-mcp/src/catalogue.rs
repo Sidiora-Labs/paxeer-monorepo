@@ -1012,15 +1012,33 @@ fn native_submit_schema() -> Value {
     )
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeAliasTarget {
+    pub module: layerx_types::payload::ModuleId,
+    pub ordinal: u16,
+    pub address: [u8; 20],
+}
+
+pub fn native_alias_target(name: &str) -> Option<NativeAliasTarget> {
+    let (ordinal, suffix) = match name {
+        "wallet.send" | "token.transfer" => (5, 0x101a_u16),
+        "token.create" => (1, 0x101a),
+        "token.mint" => (10, 0x101a),
+        "grant.issue" => (7, 0x101b),
+        "grant.draw" => (6, 0x101b),
+        _ => return None,
+    };
+    let mut address = [0; 20];
+    address[18..].copy_from_slice(&suffix.to_be_bytes());
+    Some(NativeAliasTarget {
+        module: layerx_types::payload::ModuleId::Asset,
+        ordinal,
+        address,
+    })
+}
+
 pub(crate) fn native_alias_ordinal(name: &str) -> Option<u16> {
-    match name {
-        "wallet.send" | "token.transfer" => Some(5),
-        "token.create" => Some(1),
-        "token.mint" => Some(10),
-        "grant.issue" => Some(7),
-        "grant.draw" => Some(6),
-        _ => None,
-    }
+    native_alias_target(name).map(|target| target.ordinal)
 }
 
 pub(crate) fn canonical_owner(name: &str) -> bool {
