@@ -10825,3 +10825,15 @@ area = "wave planning"
 symptom = "A programme gate task that runs make workspace-build fails on compile breaks owned by much later tasks."
 cause = "The gate task sat at wave 6 while the binaries it builds are ported at waves 10 to 21."
 do = "Give workspace-build gate tasks requires on every compile-port task and a wave after them (decision.1847)."
+
+[gotcha.2204]
+area = "spec authoring"
+symptom = "An interface note that was wrong in one block was wrong in 61 opcode blocks of the same protocol family and in two contract tables."
+cause = "The opcode blocks of a protocol family copy the family note verbatim and the contract tables reproduce interfaces.kvx by hand, so a stale cite multiplies."
+do = "When an interface note changes, replace it in every block of the family and in both contract tables in one edit, asserting the copy count before writing."
+
+[gotcha.2205]
+area = "agent refusal vocabulary"
+symptom = "Deleting a refusal variant from one enum broke the build in a file the task did not own, although nothing ever constructed the matching error."
+cause = "A never-constructed error variant still anchors a match arm in the runtime, an entry in a test list in the dispatcher and reason and class assertions in an integration test."
+do = "Before retiring a variant, grep the whole crate and its tests for the identifier, list every arm, list entry and assertion as caller sites in the task, and delete the dead producer variant with them."
