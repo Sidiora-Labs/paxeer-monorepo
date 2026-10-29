@@ -12,7 +12,11 @@ mod files {
     use std::time::{Duration, Instant};
 
     use super::MAX_INPUT_BYTES as MAX_MESSAGE_BYTES;
+    use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_types::result::KnownResult;
+    use layerx_wire::encode::Encoder;
+    use layerx_wire::hash::receipt_digest;
+    use layerx_wire::limits::PROTOCOL_VERSION;
 
     static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
     const TARGET: &str = "0x0000000000000000000000000000000000000123";
@@ -372,7 +376,7 @@ mod files {
         ] {
             assert!(text.contains(option));
         }
-        assert!(text.contains("submitted until receipt verification is available"));
+        assert!(text.contains("prints receipted only after the receipt signature verifies under a pinned receipt key and submitted otherwise"));
         assert!(!text.contains("--socket"));
         Ok(())
     }
@@ -453,7 +457,11 @@ mod files {
         Ok(())
     }
 
-    fn answer_send(listener: &TcpListener, answer: &str) -> Result<String, Box<dyn Error>> {
+    fn answer_send(
+        listener: &TcpListener,
+        method: &str,
+        answer: &str,
+    ) -> Result<String, Box<dyn Error>> {
         let (stream, _) = listener.accept()?;
         let mut reader = BufReader::new(stream);
         let mut length = 0_usize;
@@ -470,7 +478,7 @@ mod files {
         let mut body = vec![0_u8; length];
         reader.read_exact(&mut body)?;
         let body = String::from_utf8(body)?;
-        assert!(body.contains("\"method\":\"eth_sendRawTransaction\""));
+        assert!(body.contains(&format!("\"method\":\"{method}\"")));
         let id: u64 = body
             .split_once("\"id\":")
             .ok_or("request has no id")?
@@ -499,7 +507,8 @@ mod files {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
         let url = format!("http://{}/", listener.local_addr()?);
         let server = std::thread::spawn(move || {
-            answer_send(&listener, answer).map_err(|error| error.to_string())
+            answer_send(&listener, "eth_sendRawTransaction", answer)
+                .map_err(|error| error.to_string())
         });
         let output = ctl(&[
             "submit",
@@ -518,6 +527,427 @@ mod files {
             "0x{}",
             hex(&layerx_crypto::evm_transaction::transaction_hash(raw))
         )
+    }
+
+    fn encoded_receipt(
+        transaction: [u8; 32],
+        key_id: [u8; 32],
+        height: [u8; 32],
+        result: i32,
+        signature: Option<[u8; 64]>,
+    ) -> Vec<u8> {
+        let mut encoder = Encoder::new(4096);
+        assert_eq!(
+            encoder.structure_header_version(0x5201, PROTOCOL_VERSION),
+            Ok(())
+        );
+        assert_eq!(encoder.u16(PROTOCOL_VERSION), Ok(()));
+        assert_eq!(encoder.bytes(&transaction, 32), Ok(()));
+        assert_eq!(encoder.u64(7), Ok(()));
+        assert_eq!(encoder.bytes(&[2; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(&[3; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(&[4; 32], 32), Ok(()));
+        assert_eq!(encoder.i32(result), Ok(()));
+        assert_eq!(encoder.sequence_length(0, 512), Ok(()));
+        assert_eq!(encoder.u128(1), Ok(()));
+        assert_eq!(encoder.bytes(&height, 32), Ok(()));
+        assert_eq!(encoder.u16(1), Ok(()));
+        assert_eq!(encoder.u32(1), Ok(()));
+        assert_eq!(encoder.u32(1), Ok(()));
+        assert_eq!(encoder.u8(1), Ok(()));
+        assert_eq!(encoder.bytes(&[5; 32], 32), Ok(()));
+        assert_eq!(encoder.u128(25), Ok(()));
+        assert_eq!(encoder.bytes(&[6; 32], 32), Ok(()));
+        assert_eq!(encoder.u128(100), Ok(()));
+        assert_eq!(encoder.u128(75), Ok(()));
+        assert_eq!(encoder.u64(1), Ok(()));
+        assert_eq!(encoder.bytes(&[7; 32], 32), Ok(()));
+        assert_eq!(encoder.u128(10), Ok(()));
+        assert_eq!(encoder.u128(35), Ok(()));
+        assert_eq!(encoder.bytes(&[8; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(&[9; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(&key_id, 32), Ok(()));
+        assert_eq!(encoder.u64(1_000), Ok(()));
+        assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
+        if let Some(signature) = signature {
+            assert_eq!(encoder.bytes(&signature, 64), Ok(()));
+        }
+        encoder.finish()
+    }
+
+    fn signed_receipt(
+        signer: &SigningKey,
+        transaction: [u8; 32],
+        key_id: [u8; 32],
+        height: [u8; 32],
+        result: i32,
+    ) -> Result<Vec<u8>, Box<dyn Error>> {
+        let unsigned = encoded_receipt(transaction, key_id, height, result, None);
+        let digest =
+            receipt_digest(&unsigned).map_err(|error| format!("receipt digest: {error:?}"))?;
+        Ok(encoded_receipt(
+            transaction,
+            key_id,
+            height,
+            result,
+            Some(signer.sign(&digest).to_bytes()),
+        ))
+    }
+
+    fn pinned_key(key_id: [u8; 32], public_key: [u8; 32], first: u64, last: u64) -> String {
+        format!("[{{\"keyId\":\"0x{}\",\"publicKey\":\"0x{}\",\"firstHeight\":\"{first:#x}\",\"lastHeight\":\"{last:#x}\"}}]", hex(&key_id), hex(&public_key))
+    }
+
+    fn submit_receipt(bytes: &[u8], keys: &str, committed: bool) -> Result<Output, Box<dyn Error>> {
+        let directory = Directory::new()?;
+        let path = directory.0.join("transaction");
+        let raw = [0x02, 0xf8, 0x6b];
+        fs::write(&path, raw)?;
+        let hash = transaction_hash(&raw);
+        let rung = if committed { "committed" } else { "receipted" };
+        let landing = if committed {
+            format!(
+                ",\"blockNumber\":\"0x96\",\"blockHash\":\"0x{}\"",
+                hex(&[10; 32])
+            )
+        } else {
+            String::new()
+        };
+        let receipt = format!(
+            "{{\"rung\":\"{rung}\",\"txHash\":\"{hash}\",\"nonce\":\"0x1\",\"seq\":\"0x7\",\"height\":\"0x96\",\"index\":\"0x0\",\"timestamp\":\"0x3e8\",\"status\":\"0x1\",\"returnData\":\"0x\",\"logs\":[],\"gasUsed\":\"0x5208\",\"cumulativeGasUsed\":\"0x5208\",\"effectiveGasPrice\":\"0x1\",\"feeDenom\":\"upax\",\"feeAmount\":\"0x5208\",\"sponsor\":\"0x{}\",\"from\":\"0x{}\",\"to\":\"0x{}\",\"contractAddress\":\"0x{}\",\"vmError\":\"\",\"keyId\":\"0x{}\",\"receipt\":\"0x{}\"{landing}}}",
+            hex(&[0; 20]), hex(&[6; 20]), hex(&[7; 20]), hex(&[0; 20]), hex(&[11; 32]), hex(bytes)
+        );
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        let url = format!("http://{}/", listener.local_addr()?);
+        let exchanges = [
+            (
+                "eth_sendRawTransaction",
+                "[\"0x02f86b\"]".to_owned(),
+                format!("\"{hash}\""),
+            ),
+            ("pax_sequencerReceipt", format!("[\"{hash}\"]"), receipt),
+            ("px_getReceiptKeys", "[]".to_owned(), keys.to_owned()),
+        ];
+        let server = std::thread::spawn(move || -> Result<(), String> {
+            for (method, params, result) in exchanges {
+                let answer = format!("{{\"jsonrpc\":\"2.0\",\"id\":{{id}},\"result\":{result}}}");
+                let body =
+                    answer_send(&listener, method, &answer).map_err(|error| error.to_string())?;
+                assert!(body.contains(&format!("\"params\":{params}")));
+            }
+            Ok(())
+        });
+        let output = ctl(&[
+            "submit",
+            "--rpc-url",
+            &url,
+            "--transaction",
+            path.to_str().ok_or("path is not UTF-8")?,
+        ])?;
+        server.join().map_err(|_| "server thread panicked")??;
+        assert!(
+            output.stderr.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        Ok(output)
+    }
+
+    struct RecordedSubmit {
+        name: String,
+        expected: String,
+        raw: String,
+        hash: String,
+        receipt: String,
+        keys: String,
+    }
+
+    fn recorded_submissions(vector: &str) -> Result<Vec<RecordedSubmit>, Box<dyn Error>> {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../daemon/committed-fixture/vectors")
+            .join(vector);
+        let output = Command::new("python3")
+            .args([
+                "-c",
+                r#"
+import base64
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    vector = json.load(source)
+
+keys = []
+for key in vector["receiptKeys"]:
+    if "key_id" in key:
+        key = {
+            "keyId": "0x" + base64.b64decode(key["key_id"], validate=True).hex(),
+            "publicKey": "0x" + base64.b64decode(key["public_key"], validate=True).hex(),
+            "firstHeight": key["first_height"],
+            "lastHeight": key["last_height"],
+        }
+    keys.append({
+        "keyId": key["keyId"],
+        "publicKey": key["publicKey"],
+        "firstHeight": hex(key["firstHeight"]),
+        "lastHeight": hex(key["lastHeight"]),
+    })
+
+entries = vector["cases"] if "cases" in vector else [{
+    "name": vector["name"],
+    "expected": "receipted",
+    "receiptJson": vector["receiptJson"],
+}]
+for entry in entries:
+    print(entry["name"])
+    print(entry["expected"])
+    print(vector["rawTransaction"])
+    print(vector["receiptJson"]["txHash"])
+    print(json.dumps(entry["receiptJson"], separators=(",", ":")))
+    print(json.dumps(keys, separators=(",", ":")))
+"#,
+            ])
+            .arg(path)
+            .output()?;
+        if !output.status.success() {
+            return Err(format!(
+                "reading {vector}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        let text = String::from_utf8(output.stdout)?;
+        let lines: Vec<_> = text.lines().collect();
+        let entries = lines.chunks_exact(6);
+        assert!(entries.remainder().is_empty(), "incomplete vector entry");
+        Ok(entries
+            .map(|entry| RecordedSubmit {
+                name: entry[0].to_owned(),
+                expected: entry[1].to_owned(),
+                raw: entry[2].to_owned(),
+                hash: entry[3].to_owned(),
+                receipt: entry[4].to_owned(),
+                keys: entry[5].to_owned(),
+            })
+            .collect())
+    }
+
+    fn submit_recorded(entry: &RecordedSubmit) -> Result<Output, Box<dyn Error>> {
+        let directory = Directory::new()?;
+        let path = directory.0.join("transaction");
+        let raw = unhex(&entry.raw)?;
+        assert_eq!(transaction_hash(&raw), entry.hash, "{}", entry.name);
+        fs::write(&path, raw)?;
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        listener.set_nonblocking(true)?;
+        let url = format!("http://{}/", listener.local_addr()?);
+        let exchanges = [
+            (
+                "eth_sendRawTransaction",
+                format!("[\"{}\"]", entry.raw),
+                format!("\"{}\"", entry.hash),
+            ),
+            (
+                "pax_sequencerReceipt",
+                format!("[\"{}\"]", entry.hash),
+                entry.receipt.clone(),
+            ),
+            ("px_getReceiptKeys", "[]".to_owned(), entry.keys.clone()),
+        ];
+        let (finished, completion) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || -> Result<(), String> {
+            for (method, params, result) in exchanges {
+                let answer = format!("{{\"jsonrpc\":\"2.0\",\"id\":{{id}},\"result\":{result}}}");
+                loop {
+                    if completion.try_recv().is_ok() {
+                        return Ok(());
+                    }
+                    match answer_send(&listener, method, &answer) {
+                        Ok(body) => {
+                            assert!(body.contains(&format!("\"params\":{params}")));
+                            break;
+                        }
+                        Err(error)
+                            if error.downcast_ref::<std::io::Error>().is_some_and(|error| {
+                                error.kind() == std::io::ErrorKind::WouldBlock
+                            }) =>
+                        {
+                            std::thread::sleep(Duration::from_millis(1));
+                        }
+                        Err(error) => return Err(error.to_string()),
+                    }
+                }
+            }
+            Ok(())
+        });
+        let output = ctl(&[
+            "submit",
+            "--rpc-url",
+            &url,
+            "--transaction",
+            path.to_str().ok_or("path is not UTF-8")?,
+        ]);
+        let _ = finished.send(());
+        server.join().map_err(|_| "server thread panicked")??;
+        output
+    }
+
+    #[test]
+    fn submit_verifies_the_recorded_v1_vector() -> TestResult {
+        let entries = recorded_submissions("vector-v1-receipted-positive.json")?;
+        assert_eq!(entries.len(), 1);
+        let entry = &entries[0];
+        assert_eq!(entry.expected, "receipted");
+        let output = submit_recorded(entry)?;
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{}: expected receipted for transaction {} (raw prefix {:?}); stdout {:?}, stderr {:?}",
+            entry.name,
+            entry.hash,
+            entry.raw.get(..4),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout)?;
+        assert_eq!(json_string(&text, "state")?, entry.expected);
+        assert_eq!(json_string(&text, "transaction_hash")?, entry.hash);
+        Ok(())
+    }
+
+    #[test]
+    fn submit_refuses_every_recorded_v3_mutation() -> TestResult {
+        let entries = recorded_submissions("vector-v3-receipt-refusals.json")?;
+        let expected = [
+            "key-id-not-pinned",
+            "height-outside-range",
+            "activity-id-not-raw-hash",
+            "sequence-hash-mismatch",
+            "tampered-log",
+            "non-canonical-receipt-bytes",
+        ];
+        assert_eq!(entries.len(), expected.len());
+        let mut seen = std::collections::BTreeSet::new();
+        let mut failures = Vec::new();
+        for entry in entries {
+            assert!(expected.contains(&entry.name.as_str()), "{}", entry.name);
+            assert!(seen.insert(entry.name.clone()), "{}", entry.name);
+            assert!(!entry.expected.is_empty(), "{}", entry.name);
+            let output = submit_recorded(&entry)?;
+            let text = String::from_utf8(output.stdout)?;
+            let conforms = output.status.code() == Some(3)
+                && output.stderr.is_empty()
+                && json_string(&text, "state").is_ok_and(|state| state == "submitted")
+                && json_string(&text, "transaction_hash").is_ok_and(|hash| hash == entry.hash)
+                && if entry.name == "activity-id-not-raw-hash" {
+                    text.contains("\"receipt_error\":{\"transport_error\":\"Malformed\"}")
+                } else {
+                    json_string(&text, "verification_failure")
+                        .is_ok_and(|failure| !failure.is_empty())
+                };
+            if !conforms {
+                failures.push(format!(
+                    "{} ({}): expected submitted with a named verification_failure; exit {:?}, stdout {text:?}, stderr {:?}",
+                    entry.name,
+                    entry.expected,
+                    output.status.code(),
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+        Ok(())
+    }
+
+    #[test]
+    fn submit_reports_receipted_only_with_a_pinned_key_signature() -> TestResult {
+        let signer = SigningKey::from_bytes(&[0x47; 32]);
+        let key_id = [11; 32];
+        let transaction = layerx_crypto::evm_transaction::transaction_hash(&[0x02, 0xf8, 0x6b]);
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&150_u64.to_be_bytes());
+        let bytes = signed_receipt(&signer, transaction, key_id, height, 0)?;
+        for (first, last, committed) in [
+            (100, 200, false),
+            (150, 200, false),
+            (100, 150, false),
+            (150, 150, true),
+        ] {
+            let keys = pinned_key(key_id, signer.verifying_key().to_bytes(), first, last);
+            let output = submit_receipt(&bytes, &keys, committed)?;
+            assert_eq!(output.status.code(), Some(0));
+            assert_eq!(String::from_utf8(output.stdout)?, format!("{{\"state\":\"receipted\",\"transaction_hash\":\"0x{}\",\"code\":\"LXP_OK\",\"result_code\":0,\"class\":\"terminal\"}}\n", hex(&transaction)));
+        }
+        for keys in [
+            "[]".to_owned(),
+            pinned_key([12; 32], signer.verifying_key().to_bytes(), 100, 200),
+            pinned_key(
+                key_id,
+                SigningKey::from_bytes(&[0x49; 32])
+                    .verifying_key()
+                    .to_bytes(),
+                100,
+                200,
+            ),
+            pinned_key(key_id, signer.verifying_key().to_bytes(), 151, 200),
+            pinned_key(key_id, signer.verifying_key().to_bytes(), 100, 149),
+        ] {
+            let output = submit_receipt(&bytes, &keys, false)?;
+            assert_eq!(output.status.code(), Some(3));
+            assert_eq!(String::from_utf8(output.stdout)?, format!("{{\"state\":\"submitted\",\"transaction_hash\":\"0x{}\",\"verification_failure\":\"SequencerSignature\"}}\n", hex(&transaction)));
+        }
+        for (result, code, class) in [
+            (-400, "LXP_INSUFFICIENT_BALANCE", "retriable"),
+            (-300, "LXP_SEQUENCE_GAP", "terminal"),
+        ] {
+            let bytes = signed_receipt(&signer, transaction, key_id, height, result)?;
+            let keys = pinned_key(key_id, signer.verifying_key().to_bytes(), 100, 200);
+            let output = submit_receipt(&bytes, &keys, false)?;
+            assert_eq!(output.status.code(), Some(1));
+            assert_eq!(String::from_utf8(output.stdout)?, format!("{{\"state\":\"receipted\",\"transaction_hash\":\"0x{}\",\"code\":\"{code}\",\"result_code\":{result},\"class\":\"{class}\"}}\n", hex(&transaction)));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn submit_names_the_failing_verification_step() -> TestResult {
+        let signer = SigningKey::from_bytes(&[0x48; 32]);
+        let key_id = [11; 32];
+        let keys = pinned_key(key_id, signer.verifying_key().to_bytes(), 100, 200);
+        let transaction = layerx_crypto::evm_transaction::transaction_hash(&[0x02, 0xf8, 0x6b]);
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&150_u64.to_be_bytes());
+        let mut tampered = signed_receipt(&signer, transaction, key_id, height, 0)?;
+        let last = tampered.last_mut().ok_or("empty signed receipt")?;
+        *last ^= 1;
+        let mut invalid_height = height;
+        invalid_height[0] = 1;
+        for (bytes, check) in [
+            (vec![0xff], "Decode"),
+            (
+                encoded_receipt(transaction, key_id, height, 0, None),
+                "MissingSignature",
+            ),
+            (tampered, "SequencerSignature"),
+            (
+                signed_receipt(&signer, transaction, key_id, invalid_height, 0)?,
+                "BatchId",
+            ),
+            (
+                signed_receipt(&signer, [0; 32], key_id, height, 0)?,
+                "ActivityId",
+            ),
+            (
+                signed_receipt(&signer, [13; 32], key_id, height, 0)?,
+                "ActivityId",
+            ),
+        ] {
+            let output = submit_receipt(&bytes, &keys, false)?;
+            assert_eq!(output.status.code(), Some(3), "{check}");
+            assert_eq!(String::from_utf8(output.stdout)?, format!("{{\"state\":\"submitted\",\"transaction_hash\":\"0x{}\",\"verification_failure\":\"{check}\"}}\n", hex(&transaction)));
+        }
+        Ok(())
     }
 
     #[test]

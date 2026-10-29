@@ -49,6 +49,7 @@ export type SignKind =
   | 'eip712'
   | 'personal_message'
   | 'eth_sign_digest'
+  | 'eip7702_authorization'
   | 'lx_send_authorization'
   | 'lx_bind'
   | 'lx_grant';
@@ -60,6 +61,7 @@ export const KIND_CURVES: Record<SignKind, Curve> = {
   eip712: 'secp256k1',
   personal_message: 'secp256k1',
   eth_sign_digest: 'secp256k1',
+  eip7702_authorization: 'secp256k1',
   lx_send_authorization: 'ed25519',
   lx_bind: 'ed25519',
   lx_grant: 'ed25519',
@@ -147,6 +149,7 @@ export type SignPayload =
   | { kind: 'eip712'; typedData: string }
   | { kind: 'personal_message'; message: Hex }
   | { kind: 'eth_sign_digest'; digest: Hex; construction: ConstructionWire }
+  | { kind: 'eip7702_authorization'; construction: ConstructionWire }
   | { kind: 'lx_send_authorization'; activity: Hex; disclosure: ActivityDisclosureWire; approval: ActivityApprovalWire }
   | { kind: 'lx_bind'; message: Hex }
   | { kind: 'lx_grant'; grant: GrantWire };
@@ -465,6 +468,9 @@ export function signRequestBody(sessionId: string, keyId: string, signers: strin
     case 'personal_message':
     case 'lx_bind':
       return { ...base, message: bareHex(payload.message) };
+    case 'eip7702_authorization':
+      if (payload.construction.kind !== 'eip7702_authorization') throw new Error('authorization construction required');
+      return { ...base, kind: 'eth_sign_digest', digest: bareHex(constructionDigest(payload.construction)), construction: payload.construction };
     case 'eth_sign_digest':
       return { ...base, digest: bareHex(payload.digest), construction: payload.construction };
     case 'lx_send_authorization':
@@ -669,7 +675,7 @@ export class AttestorClient {
         return {endpoint:node.endpoint,nodeId:id,latencyMs:node.latencyMs};
       });
     }
-    const kind = input.payload.kind;
+    const kind = input.payload.kind === 'eip7702_authorization' ? 'eth_sign_digest' : input.payload.kind;
     const curve = KIND_CURVES[kind];
     let sessionId = input.payload.kind === 'lx_send_authorization' ? input.payload.approval.session_id : randomUUID();
     let participants = members.map((m) => m.nodeId);
@@ -1168,7 +1174,7 @@ function parseEvmReview(value: unknown, nodeId: string): EvmReviewWire {
     || typeof answer.to !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(answer.to)
     || typeof answer.value !== 'string' || !/^(0|[1-9][0-9]{0,77})$/.test(answer.value) || BigInt(answer.value) >= (1n << 256n)
     || typeof answer.data !== 'string' || !/^0x(?:[0-9a-fA-F]{2})*$/.test(answer.data) || answer.data.length > 2_097_154
-    || typeof answer.method !== 'string' || !answer.method || typeof answer.destination !== 'string'
+    || typeof answer.method !== 'string' || (answer.data !== '0x' && !answer.method) || typeof answer.destination !== 'string'
     || typeof answer.signing_hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(answer.signing_hash)
     || !Number.isSafeInteger(answer.chain_id) || answer.chain_id <= 0
     || !Number.isSafeInteger(answer.audit_sequence) || answer.audit_sequence < 1) {

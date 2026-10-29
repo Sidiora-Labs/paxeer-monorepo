@@ -37,7 +37,7 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
     [successful, failed] =
       store(block, [
         submission(0, [Map.put(observation(0, 5), :accepted, false), observation(2, 7)]),
-        submission(1, [observation(0, 6)]) |> Map.put(:status, 0)
+        submission(1, [Map.put(observation(0, 6), :accepted, false)]) |> Map.put(:status, 0)
       ])
 
     Enum.each(
@@ -65,13 +65,17 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
     assert_receive %Broadcast{
       topic: "paxeer_x_feed:new_update",
       event: "new_update",
-      payload: %{"hash" => ^failed, "status" => "error"}
+      payload: %{
+        "hash" => ^failed,
+        "status" => "error",
+        "price_update" => %{"observations" => [%{"market_id" => 0, "accepted" => false}]}
+      }
     }
 
     assert_receive %Broadcast{
       topic: "paxeer_x_feed:market:2",
       event: "new_update",
-      payload: %{"update_hash" => ^successful}
+      payload: %{"update_hash" => ^successful, "sequence" => 7}
     }
 
     refute_receive %Broadcast{topic: "paxeer_x_feed:market:2"}
@@ -265,6 +269,7 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
   defp observation(market_id, value) do
     %{
       market_id: market_id,
+      accepted: true,
       sequence: value,
       index_price: value * 1_000_000_000_000_000_000,
       mark_price: (value + 1) * 1_000_000_000_000_000_000,

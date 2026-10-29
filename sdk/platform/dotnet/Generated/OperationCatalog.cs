@@ -1,7 +1,10 @@
-// Generated from agent-api and human-api. Do not hand-edit.
+// Generated from sdk/platform/conformance/operations.json. Do not hand-edit.
 #nullable enable
 
 namespace LayerX.Sdk;
+
+public sealed record OperationTransport(
+    string Kind, string Method, string? To, string? Selector, bool PerLeg);
 
 public enum PlatformOperation
 {
@@ -93,16 +96,7 @@ public enum PlatformOperation
     HumanAuthenticatorSetupBegin,
     HumanAuthenticatorSetupFinish,
     HumanAuthenticatorStatus,
-    HumanBindingRebind,
-    HumanBindingRebindAction,
-    HumanBindingStatement,
-    HumanBindingStatus,
-    HumanBindingSubmit,
-    HumanDepositConfirm,
-    HumanDepositStart,
     HumanEvidenceGet,
-    HumanExitEligibility,
-    HumanExitStart,
     HumanHomeSummary,
     HumanIntentPlan,
     HumanIntentSubmit,
@@ -151,13 +145,154 @@ public enum PlatformOperation
     HumanSupportRead,
     HumanSupportReply,
     HumanSupportStatus,
-    HumanVersion,
-    HumanWithdrawClaim,
-    HumanWithdrawStart
+    HumanVersion
 }
 
 public static class GeneratedOperationCatalog
 {
+    public static OperationTransport Transport(this PlatformOperation operation) => operation switch
+    {
+            PlatformOperation.AgentAgentRegister => new("http", "POST", null, null, false),
+            PlatformOperation.AgentApprovalApprove => new("http", "POST", null, null, false),
+            PlatformOperation.AgentApprovalGet => new("http", "POST", null, null, false),
+            PlatformOperation.AgentApprovalList => new("http", "POST", null, null, false),
+            PlatformOperation.AgentApprovalReject => new("http", "POST", null, null, false),
+            PlatformOperation.AgentAvailabilityFetch => new("http", "POST", null, null, false),
+            PlatformOperation.AgentBudgetCreate => new("http", "POST", null, null, false),
+            PlatformOperation.AgentBudgetFund => new("http", "POST", null, null, false),
+            PlatformOperation.AgentBudgetList => new("http", "POST", null, null, false),
+            PlatformOperation.AgentBudgetReconciliation => new("http", "POST", null, null, false),
+            PlatformOperation.AgentBudgetRevoke => new("http", "POST", null, null, false),
+            PlatformOperation.AgentBudgetState => new("http", "POST", null, null, false),
+            PlatformOperation.AgentCapabilityAttenuate => new("http", "POST", null, null, false),
+            PlatformOperation.AgentCapabilityCreate => new("http", "POST", null, null, false),
+            PlatformOperation.AgentCapabilityList => new("http", "POST", null, null, false),
+            PlatformOperation.AgentCapabilityRevoke => new("http", "POST", null, null, false),
+            PlatformOperation.AgentExportOffline => new("http", "POST", null, null, false),
+            PlatformOperation.AgentFaucetClaim => new("http", "POST", null, null, false),
+            PlatformOperation.AgentMcpInvoke => new("http", "POST", null, null, false),
+            PlatformOperation.AgentPolicyDryRun => new("http", "POST", null, null, false),
+            PlatformOperation.AgentPrepare => new("http", "POST", null, null, false),
+            PlatformOperation.AgentProgramActivity => new("evm", "eth_getTransactionByHash", null, null, false),
+            PlatformOperation.AgentProgramCall => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)", false),
+            PlatformOperation.AgentProgramDeploy => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)", false),
+            PlatformOperation.AgentProgramDiscover => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "getProgram(bytes32)", false),
+            PlatformOperation.AgentProgramInterface => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "getInterface(bytes32)", false),
+            PlatformOperation.AgentProgramReceipt => new("evm", "eth_call", "0x000000000000000000000000000000000000101c", "resultByIdempotency(bytes32,bytes32)", false),
+            PlatformOperation.AgentProgramSimulate => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)", false),
+            PlatformOperation.AgentProgramUpgrade => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)", false),
+            PlatformOperation.AgentProgramWindDown => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "deprecate(bytes32,bytes32,uint64)", false),
+            PlatformOperation.AgentProject => new("http", "POST", null, null, false),
+            PlatformOperation.AgentReadAccount => new("http", "POST", null, null, false),
+            PlatformOperation.AgentReadBalance => new("http", "POST", null, null, false),
+            PlatformOperation.AgentReadBatch => new("http", "POST", null, null, false),
+            PlatformOperation.AgentReadCheckpoint => new("http", "POST", null, null, false),
+            PlatformOperation.AgentReadHistory => new("http", "POST", null, null, false),
+            PlatformOperation.AgentReadModuleState => new("http", "POST", null, null, false),
+            PlatformOperation.AgentReadProofBundle => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSessionClose => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSessionList => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSessionOpen => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSessionRefresh => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSign => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSubmit => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSubscriptionAcknowledge => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSubscriptionCreate => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSubscriptionDelete => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSubscriptionHealth => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSubscriptionList => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSubscriptionPause => new("http", "POST", null, null, false),
+            PlatformOperation.AgentSubscriptionResume => new("http", "POST", null, null, false),
+            PlatformOperation.AgentTenantReadiness => new("http", "POST", null, null, false),
+            PlatformOperation.AgentTrack => new("http", "POST", null, null, false),
+            PlatformOperation.AgentWait => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAccountBalance => new("http", "GET", null, null, false),
+            PlatformOperation.HumanAccountCreate => new("http", "POST", null, null, false),
+            PlatformOperation.HumanActivityEntry => new("http", "GET", null, null, false),
+            PlatformOperation.HumanActivityExportEvidence => new("http", "POST", null, null, false),
+            PlatformOperation.HumanActivityExportStatement => new("http", "POST", null, null, false),
+            PlatformOperation.HumanActivityQuery => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentArchive => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentCreate => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentGet => new("http", "GET", null, null, false),
+            PlatformOperation.HumanAgentLimit => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentList => new("http", "GET", null, null, false),
+            PlatformOperation.HumanAgentPause => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentReclaim => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentRecover => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentResume => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentRotate => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentRotationDisclosure => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAgentRotationStart => new("http", "POST", null, null, false),
+            PlatformOperation.HumanApprovalApprove => new("http", "POST", null, null, false),
+            PlatformOperation.HumanApprovalGet => new("http", "GET", null, null, false),
+            PlatformOperation.HumanApprovalList => new("http", "GET", null, null, false),
+            PlatformOperation.HumanApprovalProgramApprove => new("http", "POST", null, null, false),
+            PlatformOperation.HumanApprovalProgramBudget => new("http", "GET", null, null, false),
+            PlatformOperation.HumanApprovalProgramDisclosure => new("http", "POST", null, null, false),
+            PlatformOperation.HumanApprovalProgramGet => new("http", "GET", null, null, false),
+            PlatformOperation.HumanApprovalProgramList => new("http", "GET", null, null, false),
+            PlatformOperation.HumanApprovalProgramMaterial => new("http", "GET", null, null, false),
+            PlatformOperation.HumanApprovalProgramReject => new("http", "POST", null, null, false),
+            PlatformOperation.HumanApprovalReject => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAuthenticatorBackupRotate => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAuthenticatorDisable => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAuthenticatorSetupBegin => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAuthenticatorSetupFinish => new("http", "POST", null, null, false),
+            PlatformOperation.HumanAuthenticatorStatus => new("http", "GET", null, null, false),
+            PlatformOperation.HumanEvidenceGet => new("http", "GET", null, null, false),
+            PlatformOperation.HumanHomeSummary => new("http", "GET", null, null, false),
+            PlatformOperation.HumanIntentPlan => new("evm", "eth_call", null, null, true),
+            PlatformOperation.HumanIntentSubmit => new("evm", "eth_sendRawTransaction", null, null, true),
+            PlatformOperation.HumanJourneyGet => new("http", "GET", null, null, false),
+            PlatformOperation.HumanJourneyList => new("http", "GET", null, null, false),
+            PlatformOperation.HumanJourneyPage => new("http", "GET", null, null, false),
+            PlatformOperation.HumanMoveCommit => new("http", "POST", null, null, false),
+            PlatformOperation.HumanMoveQuote => new("http", "POST", null, null, false),
+            PlatformOperation.HumanNativeSendAccessBegin => new("http", "POST", null, null, false),
+            PlatformOperation.HumanNativeSendAccessConfirm => new("http", "POST", null, null, false),
+            PlatformOperation.HumanNotificationList => new("http", "GET", null, null, false),
+            PlatformOperation.HumanNotificationPreferencesGet => new("http", "GET", null, null, false),
+            PlatformOperation.HumanNotificationPreferencesSet => new("http", "POST", null, null, false),
+            PlatformOperation.HumanNotificationRead => new("http", "POST", null, null, false),
+            PlatformOperation.HumanOnboardingResume => new("http", "POST", null, null, false),
+            PlatformOperation.HumanOnboardingStatus => new("http", "GET", null, null, false),
+            PlatformOperation.HumanPasskeyAssertBegin => new("http", "POST", null, null, false),
+            PlatformOperation.HumanPasskeyAssertFinish => new("http", "POST", null, null, false),
+            PlatformOperation.HumanPasskeyRegisterBegin => new("http", "POST", null, null, false),
+            PlatformOperation.HumanPasskeyRegisterFinish => new("http", "POST", null, null, false),
+            PlatformOperation.HumanProfileGet => new("http", "GET", null, null, false),
+            PlatformOperation.HumanProfileUpdate => new("http", "PATCH", null, null, false),
+            PlatformOperation.HumanSecurityAction => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSecurityKeyExportBegin => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSecurityKeyExportFinish => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSecurityPasskeyList => new("http", "GET", null, null, false),
+            PlatformOperation.HumanSecurityPasskeyRegisterBegin => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSecurityPasskeyRegisterFinish => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSecurityPasskeyRevoke => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSecurityRecoveryReveal => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSecuritySessionRevoke => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSecuritySessionRevokeAll => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSessionFeePolicy => new("http", "GET", null, null, false),
+            PlatformOperation.HumanSessionList => new("http", "GET", null, null, false),
+            PlatformOperation.HumanSessionOpen => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSessionRefresh => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSessionRevoke => new("http", "DELETE", null, null, false),
+            PlatformOperation.HumanSessionRevokeAll => new("http", "POST", null, null, false),
+            PlatformOperation.HumanStepupBegin => new("http", "POST", null, null, false),
+            PlatformOperation.HumanStepupFinish => new("http", "POST", null, null, false),
+            PlatformOperation.HumanStreamNext => new("http", "GET", null, null, false),
+            PlatformOperation.HumanStreamOpen => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSupportCreate => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSupportFeedback => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSupportList => new("http", "GET", null, null, false),
+            PlatformOperation.HumanSupportRead => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSupportReply => new("http", "POST", null, null, false),
+            PlatformOperation.HumanSupportStatus => new("http", "GET", null, null, false),
+            PlatformOperation.HumanVersion => new("http", "GET", null, null, false),
+        _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+    };
+
     public static OperationDescriptor Descriptor(this PlatformOperation operation) => operation switch
     {
             PlatformOperation.AgentAgentRegister => new(PlatformPlane.Agent, "agent.register", SdkHttpMethod.Post, "", "AgentRegistration", "AuthorityResponse<AgentRecord>", true, false),
@@ -181,15 +316,15 @@ public static class GeneratedOperationCatalog
             PlatformOperation.AgentMcpInvoke => new(PlatformPlane.Agent, "mcp.invoke", SdkHttpMethod.Post, "", "McpInvokeRequest", "object", true, false),
             PlatformOperation.AgentPolicyDryRun => new(PlatformPlane.Agent, "policy.dry_run", SdkHttpMethod.Post, "", "object", "PolicyDryRunResult", false, false),
             PlatformOperation.AgentPrepare => new(PlatformPlane.Agent, "prepare", SdkHttpMethod.Post, "", "PrepareRequest", "Prepared", true, false),
-            PlatformOperation.AgentProgramActivity => new(PlatformPlane.Agent, "program.activity", SdkHttpMethod.Get, "/v1/programs/activities/{activity_id}", "ProgramActivitySelector", "ProgramSubmission", false, false),
-            PlatformOperation.AgentProgramCall => new(PlatformPlane.Agent, "program.call", SdkHttpMethod.Post, "/v1/programs/call", "ProgramCallRequest", "ProgramSubmission", true, false),
-            PlatformOperation.AgentProgramDeploy => new(PlatformPlane.Agent, "program.deploy", SdkHttpMethod.Post, "/v1/programs/deploy", "NativeProgramDeployRequest", "ProgramLifecycleResponse", true, false),
-            PlatformOperation.AgentProgramDiscover => new(PlatformPlane.Agent, "program.discover", SdkHttpMethod.Get, "/v1/programs/registry/{program_id}", "ProgramSelector", "VerifiedProgramDiscovery", false, false),
-            PlatformOperation.AgentProgramInterface => new(PlatformPlane.Agent, "program.interface", SdkHttpMethod.Get, "/v1/programs/registry/{program_id}/interface", "ProgramSelector", "VerifiedProgramInterface", false, false),
-            PlatformOperation.AgentProgramReceipt => new(PlatformPlane.Agent, "program.receipt", SdkHttpMethod.Get, "/v1/programs/receipts/by-idempotency/{idempotency_key}", "ProgramReceiptSelector", "ProgramReceiptResponse", false, false),
-            PlatformOperation.AgentProgramSimulate => new(PlatformPlane.Agent, "program.simulate", SdkHttpMethod.Post, "/v1/programs/simulate", "ProgramCallRequest", "ProgramSimulation", false, false),
-            PlatformOperation.AgentProgramUpgrade => new(PlatformPlane.Agent, "program.upgrade", SdkHttpMethod.Post, "/v1/programs/upgrade", "NativeProgramUpgradeRequest", "ProgramLifecycleResponse", true, false),
-            PlatformOperation.AgentProgramWindDown => new(PlatformPlane.Agent, "program.wind-down", SdkHttpMethod.Post, "/v1/programs/wind-down", "NativeProgramWindDownRequest", "ProgramLifecycleResponse", true, false),
+            PlatformOperation.AgentProgramActivity => new(PlatformPlane.Agent, "program.activity", SdkHttpMethod.Post, "", "ProgramActivitySelector", "ProgramSubmission", false, false),
+            PlatformOperation.AgentProgramCall => new(PlatformPlane.Agent, "program.call", SdkHttpMethod.Post, "", "ProgramCallRequest", "ProgramSubmission", true, false),
+            PlatformOperation.AgentProgramDeploy => new(PlatformPlane.Agent, "program.deploy", SdkHttpMethod.Post, "", "NativeProgramDeployRequest", "ProgramLifecycleResponse", true, false),
+            PlatformOperation.AgentProgramDiscover => new(PlatformPlane.Agent, "program.discover", SdkHttpMethod.Post, "", "ProgramSelector", "VerifiedProgramDiscovery", false, false),
+            PlatformOperation.AgentProgramInterface => new(PlatformPlane.Agent, "program.interface", SdkHttpMethod.Post, "", "ProgramSelector", "VerifiedProgramInterface", false, false),
+            PlatformOperation.AgentProgramReceipt => new(PlatformPlane.Agent, "program.receipt", SdkHttpMethod.Post, "", "ProgramReceiptSelector", "ProgramReceiptResponse", false, false),
+            PlatformOperation.AgentProgramSimulate => new(PlatformPlane.Agent, "program.simulate", SdkHttpMethod.Post, "", "ProgramCallRequest", "ProgramSimulation", false, false),
+            PlatformOperation.AgentProgramUpgrade => new(PlatformPlane.Agent, "program.upgrade", SdkHttpMethod.Post, "", "NativeProgramUpgradeRequest", "ProgramLifecycleResponse", true, false),
+            PlatformOperation.AgentProgramWindDown => new(PlatformPlane.Agent, "program.wind-down", SdkHttpMethod.Post, "", "NativeProgramWindDownRequest", "ProgramLifecycleResponse", true, false),
             PlatformOperation.AgentProject => new(PlatformPlane.Agent, "project", SdkHttpMethod.Post, "", "FeeProjectionRequest", "ProjectionResult", false, false),
             PlatformOperation.AgentReadAccount => new(PlatformPlane.Agent, "read.account", SdkHttpMethod.Post, "", "object", "VerifiedRead<AccountValue>", false, false),
             PlatformOperation.AgentReadBalance => new(PlatformPlane.Agent, "read.balance", SdkHttpMethod.Post, "", "object", "VerifiedRead<BalanceValue>", false, false),
@@ -248,19 +383,10 @@ public static class GeneratedOperationCatalog
             PlatformOperation.HumanAuthenticatorSetupBegin => new(PlatformPlane.Human, "authenticator.setup.begin", SdkHttpMethod.Post, "/v1/security/authenticators/setups", "AuthenticatorSetupBegin", "AuthenticatorSetupChallenge", false, false),
             PlatformOperation.HumanAuthenticatorSetupFinish => new(PlatformPlane.Human, "authenticator.setup.finish", SdkHttpMethod.Post, "/v1/security/authenticators/setups/{setup_id}", "AuthenticatorSetupFinish", "AuthenticatorSetupResult", false, false),
             PlatformOperation.HumanAuthenticatorStatus => new(PlatformPlane.Human, "authenticator.status", SdkHttpMethod.Get, "/v1/security/authenticators", "Empty", "AuthenticatorStatus", false, true),
-            PlatformOperation.HumanBindingRebind => new(PlatformPlane.Human, "binding.rebind", SdkHttpMethod.Post, "/v1/wallet-binding/rebind", "RebindingSubmission", "Journey", true, false),
-            PlatformOperation.HumanBindingRebindAction => new(PlatformPlane.Human, "binding.rebind.action", SdkHttpMethod.Post, "/v1/wallet-binding/rebind/action", "BindingStatementRequest", "BindingRebindAction", false, false),
-            PlatformOperation.HumanBindingStatement => new(PlatformPlane.Human, "binding.statement", SdkHttpMethod.Post, "/v1/wallet-binding/statement", "BindingStatementRequest", "BindingStatement", false, false),
-            PlatformOperation.HumanBindingStatus => new(PlatformPlane.Human, "binding.status", SdkHttpMethod.Get, "/v1/wallet-binding", "Empty", "WalletBinding", false, true),
-            PlatformOperation.HumanBindingSubmit => new(PlatformPlane.Human, "binding.submit", SdkHttpMethod.Post, "/v1/wallet-binding", "BindingSubmission", "Journey", true, false),
-            PlatformOperation.HumanDepositConfirm => new(PlatformPlane.Human, "deposit.confirm", SdkHttpMethod.Post, "/v1/deposits/{journey_id}/confirm", "DepositConfirmRequest", "Journey", false, false),
-            PlatformOperation.HumanDepositStart => new(PlatformPlane.Human, "deposit.start", SdkHttpMethod.Post, "/v1/deposits", "DepositStartRequest", "Journey", true, false),
             PlatformOperation.HumanEvidenceGet => new(PlatformPlane.Human, "evidence.get", SdkHttpMethod.Get, "/v1/evidence/{evidence_id}", "Empty", "EvidenceMaterial", false, true),
-            PlatformOperation.HumanExitEligibility => new(PlatformPlane.Human, "exit.eligibility", SdkHttpMethod.Get, "/v1/exit/eligibility", "Empty", "ExitEligibility", false, true),
-            PlatformOperation.HumanExitStart => new(PlatformPlane.Human, "exit.start", SdkHttpMethod.Post, "/v1/exit", "ExitStartRequest", "Journey", true, false),
             PlatformOperation.HumanHomeSummary => new(PlatformPlane.Human, "home.summary", SdkHttpMethod.Get, "/v1/home", "Empty", "HomeSummary", false, true),
-            PlatformOperation.HumanIntentPlan => new(PlatformPlane.Human, "intent.plan", SdkHttpMethod.Post, "/v1/intents/plan", "PlanIntentRequest", "IntentPlan", false, false),
-            PlatformOperation.HumanIntentSubmit => new(PlatformPlane.Human, "intent.submit", SdkHttpMethod.Post, "/v1/intents/submit", "SubmitPlanRequest", "IntentSubmission", true, false),
+            PlatformOperation.HumanIntentPlan => new(PlatformPlane.Human, "intent.plan", SdkHttpMethod.Post, "", "PlanIntentRequest", "IntentPlan", false, false),
+            PlatformOperation.HumanIntentSubmit => new(PlatformPlane.Human, "intent.submit", SdkHttpMethod.Post, "", "SubmitPlanRequest", "IntentSubmission", true, false),
             PlatformOperation.HumanJourneyGet => new(PlatformPlane.Human, "journey.get", SdkHttpMethod.Get, "/v1/journeys/{journey_id}", "Empty", "Journey", false, true),
             PlatformOperation.HumanJourneyList => new(PlatformPlane.Human, "journey.list", SdkHttpMethod.Get, "/v1/journeys", "Empty", "JourneyPage", false, true),
             PlatformOperation.HumanJourneyPage => new(PlatformPlane.Human, "journey.page", SdkHttpMethod.Get, "/v1/journeys/page/{cursor}", "Empty", "JourneyPage", false, true),
@@ -307,14 +433,12 @@ public static class GeneratedOperationCatalog
             PlatformOperation.HumanSupportReply => new(PlatformPlane.Human, "support.reply", SdkHttpMethod.Post, "/v1/support/conversations/{conversation_id}/replies", "SupportReplyRequest", "SupportConversation", true, false),
             PlatformOperation.HumanSupportStatus => new(PlatformPlane.Human, "support.status", SdkHttpMethod.Get, "/v1/support/conversations/{conversation_id}/status", "Empty", "SupportConversationStatus", false, true),
             PlatformOperation.HumanVersion => new(PlatformPlane.Human, "version", SdkHttpMethod.Get, "/v1/version", "Empty", "VersionInfo", false, true),
-            PlatformOperation.HumanWithdrawClaim => new(PlatformPlane.Human, "withdraw.claim", SdkHttpMethod.Post, "/v1/withdrawals/{journey_id}/claim", "WithdrawClaimRequest", "Journey", false, false),
-            PlatformOperation.HumanWithdrawStart => new(PlatformPlane.Human, "withdraw.start", SdkHttpMethod.Post, "/v1/withdrawals", "WithdrawStartRequest", "Journey", true, false),
         _ => throw new ArgumentOutOfRangeException(nameof(operation)),
     };
 
     public static SdkMetadata platform_sdk_dotnet()
     {
-        return new("LayerX.Sdk", "0.1.0", 54, 95);
+        return new("LayerX.Sdk", "0.1.0", 54, 84);
     }
 }
 
@@ -496,26 +620,8 @@ public static class GeneratedPlatformClientExtensions
         client.ReadAsync(PlatformOperation.HumanAuthenticatorSetupFinish, request, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanAuthenticatorStatusAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.HumanAuthenticatorStatus, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingRebindAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanBindingRebind, request, idempotencyKey, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingRebindActionAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanBindingRebindAction, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingStatementAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanBindingStatement, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingStatusAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanBindingStatus, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanBindingSubmitAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanBindingSubmit, request, idempotencyKey, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanDepositConfirmAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanDepositConfirm, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanDepositStartAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanDepositStart, request, idempotencyKey, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanEvidenceGetAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.HumanEvidenceGet, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanExitEligibilityAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanExitEligibility, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanExitStartAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanExitStart, request, idempotencyKey, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanHomeSummaryAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.HumanHomeSummary, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanIntentPlanAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
@@ -614,8 +720,4 @@ public static class GeneratedPlatformClientExtensions
         client.ReadAsync(PlatformOperation.HumanSupportStatus, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
     public static Task<JsonValue> HumanVersionAsync(this PlatformClient client, JsonValue? request = null, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.HumanVersion, request ?? JsonValue.EmptyObject, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanWithdrawClaimAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.HumanWithdrawClaim, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> HumanWithdrawStartAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.MutateAsync(PlatformOperation.HumanWithdrawStart, request, idempotencyKey, pathParameters, cancellationToken);
 }

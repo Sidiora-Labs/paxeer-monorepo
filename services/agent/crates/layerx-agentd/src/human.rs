@@ -57,69 +57,69 @@ fn trace_envelope(frame: Vec<u8>) -> Result<(Option<String>, Vec<u8>), HumanProt
     Ok((Some(trace.to_owned()), request))
 }
 
-const PREPARE: u8 = 1;
-const SUBMIT: u8 = 2;
-const TRACK: u8 = 3;
-const RECEIPT_LOOKUP: u8 = 4;
-const REGISTRY: u8 = 5;
-const APPROVAL_LIST: u8 = 9;
-const APPROVAL_GET: u8 = 10;
-const APPROVAL_APPROVE: u8 = 11;
-const APPROVAL_REJECT: u8 = 12;
+pub const PREPARE: u8 = 1;
+pub const SUBMIT: u8 = 2;
+pub const TRACK: u8 = 3;
+pub const RECEIPT_LOOKUP: u8 = 4;
+pub const REGISTRY: u8 = 5;
+pub const APPROVAL_LIST: u8 = 9;
+pub const APPROVAL_GET: u8 = 10;
+pub const APPROVAL_APPROVE: u8 = 11;
+pub const APPROVAL_REJECT: u8 = 12;
 // Reserved lifecycle range. These values are part of the Human peer wire
 // contract and must not be reused by ordinary activity operations.
-const IDENTITY_RESOLVE: u8 = 20;
-const LEASE_MAP: u8 = 21;
-const OWNER_VALIDATE: u8 = 22;
-const OWNER_INSTALL: u8 = 23;
-const AGENT_LIST: u8 = 24;
-const AGENT_GET: u8 = 25;
-const AGENT_CONTROL: u8 = 26;
-const AGENT_LIMIT: u8 = 27;
-const AGENT_OWNER_ROTATED: u8 = 43;
-const AGENT_JOURNEY: u8 = 28;
-const AGENT_ARCHIVE: u8 = 29;
-const CAPABILITY_INSTALL: u8 = 30;
-const AGENT_CONTEXT: u8 = 31;
-const AGENT_BUDGET_STATE: u8 = 32;
-const AGENT_KEY_POLICY: u8 = 33;
-const AGENT_SESSION_SNAPSHOT: u8 = 34;
-const AGENT_SESSION_SUSPEND: u8 = 35;
-const AGENT_SESSION_BIND: u8 = 36;
-const AGENT_LIFECYCLE_PUBLISH: u8 = 37;
-const AGENT_SESSION_RESTRICT: u8 = 38;
-const ACCOUNT_SEQUENCE: u8 = 13;
-const BALANCE: u8 = 6;
-const NATIVE_FEE_POLICY: u8 = 39;
-const SESSION_FEE_STATE: u8 = 40;
-const SESSION_SEED_PREPARE: u8 = 41;
-const ACCOUNT_STATE: u8 = 42;
-const SUBJECT: u8 = 44;
-const OPERATOR: u8 = 45;
-const APPROVAL_LIST_FACTS_V2: u8 = 46;
-const APPROVAL_GET_FACTS_V2: u8 = 47;
-const APPROVAL_BUDGET_AFTER_V2: u8 = 48;
-const MANAGED_EVIDENCE_BY_DIGEST_V2: u8 = 49;
-const NATIVE_APPROVAL_LIST_FACTS_V2: u8 = 50;
-const NATIVE_APPROVAL_GET_FACTS_V2: u8 = 51;
-const NATIVE_PROGRAM_APPROVAL_LIST_V5: u8 = 58;
-const NATIVE_PROGRAM_APPROVAL_GET_V5: u8 = 59;
-const NATIVE_PROGRAM_APPROVAL_MATERIAL_V5: u8 = 60;
-const NATIVE_PROGRAM_APPROVAL_BUDGET_V5: u8 = 61;
-const NATIVE_PROGRAM_APPROVAL_DECIDE_V5: u8 = 62;
-const NATIVE_EFFECT_APPROVAL_LIST_V3: u8 = 52;
-const NATIVE_EFFECT_APPROVAL_GET_V3: u8 = 53;
-const NATIVE_EFFECT_APPROVAL_DECIDE_V3: u8 = 54;
-const NATIVE_EFFECT_APPROVAL_MATERIAL_V4: u8 = 55;
-const NATIVE_EFFECT_APPROVAL_BUDGET_V4: u8 = 56;
-const AGENT_BUDGET_PROOF_V4: u8 = 57;
-const NATIVE_SEND_PREVIEW_V1: u8 = 63;
-const NATIVE_OWNER_CONTEXT_V1: u8 = 64;
-const NATIVE_JOURNEY_ENVELOPE_V1: u8 = 65;
-const NATIVE_SEND_OWNER_PREVIEW_V1: u8 = 66;
-const NATIVE_SEND_ENVELOPE_V1: u8 = 67;
-const HEAD: u8 = 7;
-const EVIDENCE: u8 = 8;
+pub const IDENTITY_RESOLVE: u8 = 20;
+pub const LEASE_MAP: u8 = 21;
+pub const OWNER_VALIDATE: u8 = 22;
+pub const OWNER_INSTALL: u8 = 23;
+pub const AGENT_LIST: u8 = 24;
+pub const AGENT_GET: u8 = 25;
+pub const AGENT_CONTROL: u8 = 26;
+pub const AGENT_LIMIT: u8 = 27;
+pub const AGENT_OWNER_ROTATED: u8 = 43;
+pub const AGENT_JOURNEY: u8 = 28;
+pub const AGENT_ARCHIVE: u8 = 29;
+pub const CAPABILITY_INSTALL: u8 = 30;
+pub const AGENT_CONTEXT: u8 = 31;
+pub const AGENT_BUDGET_STATE: u8 = 32;
+pub const AGENT_KEY_POLICY: u8 = 33;
+pub const AGENT_SESSION_SNAPSHOT: u8 = 34;
+pub const AGENT_SESSION_SUSPEND: u8 = 35;
+pub const AGENT_SESSION_BIND: u8 = 36;
+pub const AGENT_LIFECYCLE_PUBLISH: u8 = 37;
+pub const AGENT_SESSION_RESTRICT: u8 = 38;
+pub const ACCOUNT_SEQUENCE: u8 = 13;
+pub const BALANCE: u8 = 6;
+pub const NATIVE_FEE_POLICY: u8 = 39;
+pub const SESSION_FEE_STATE: u8 = 40;
+pub const SESSION_SEED_PREPARE: u8 = 41;
+pub const ACCOUNT_STATE: u8 = 42;
+pub const SUBJECT: u8 = 44;
+pub const OPERATOR: u8 = 45;
+pub const APPROVAL_LIST_FACTS_V2: u8 = 46;
+pub const APPROVAL_GET_FACTS_V2: u8 = 47;
+pub const APPROVAL_BUDGET_AFTER_V2: u8 = 48;
+pub const MANAGED_EVIDENCE_BY_DIGEST_V2: u8 = 49;
+pub const NATIVE_APPROVAL_LIST_FACTS_V2: u8 = 50;
+pub const NATIVE_APPROVAL_GET_FACTS_V2: u8 = 51;
+pub const NATIVE_PROGRAM_APPROVAL_LIST_V5: u8 = 58;
+pub const NATIVE_PROGRAM_APPROVAL_GET_V5: u8 = 59;
+pub const NATIVE_PROGRAM_APPROVAL_MATERIAL_V5: u8 = 60;
+pub const NATIVE_PROGRAM_APPROVAL_BUDGET_V5: u8 = 61;
+pub const NATIVE_PROGRAM_APPROVAL_DECIDE_V5: u8 = 62;
+pub const NATIVE_EFFECT_APPROVAL_LIST_V3: u8 = 52;
+pub const NATIVE_EFFECT_APPROVAL_GET_V3: u8 = 53;
+pub const NATIVE_EFFECT_APPROVAL_DECIDE_V3: u8 = 54;
+pub const NATIVE_EFFECT_APPROVAL_MATERIAL_V4: u8 = 55;
+pub const NATIVE_EFFECT_APPROVAL_BUDGET_V4: u8 = 56;
+pub const AGENT_BUDGET_PROOF_V4: u8 = 57;
+pub const NATIVE_SEND_PREVIEW_V1: u8 = 63;
+pub const NATIVE_OWNER_CONTEXT_V1: u8 = 64;
+pub const NATIVE_JOURNEY_ENVELOPE_V1: u8 = 65;
+pub const NATIVE_SEND_OWNER_PREVIEW_V1: u8 = 66;
+pub const NATIVE_SEND_ENVELOPE_V1: u8 = 67;
+pub const HEAD: u8 = 7;
+pub const EVIDENCE: u8 = 8;
 const MAX_TEXT: usize = 255;
 const MAX_BYTES: usize = 1_048_576;
 
@@ -177,14 +177,26 @@ pub struct HumanPrepare {
     pub activity_type: u32,
     pub actor: String,
     pub authority: String,
-    pub account_sequence: u64,
-    pub not_before: u64,
-    pub not_after: u64,
+    pub nonce: u64,
+    pub not_before_height: u64,
+    pub not_after_height: u64,
     pub idempotency_key: String,
     pub fee_limit: u128,
     pub payload: Vec<u8>,
     pub payload_hash: [u8; 32],
     pub capability_id: Option<[u8; 32]>,
+}
+
+impl HumanPrepare {
+    pub fn validate_pending_nonce(&self, pending: u64) -> Result<(), HumanRefusal> {
+        if self.nonce != pending {
+            return Err(HumanRefusal::StaleNonce {
+                expected: self.nonce,
+                pending,
+            });
+        }
+        Ok(())
+    }
 }
 
 pub struct HumanNativeOwnerContextRequestV1 {
@@ -354,11 +366,48 @@ pub struct HumanCapabilityInstall {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HumanFinalizationEvidence {
     pub action_key: [u8; 32],
-    pub activity_id: [u8; 32],
-    pub receipt_digest: [u8; 32],
-    pub observed_sequence: u64,
-    pub verification: u8,
+    pub tx_hash: [u8; 32],
+    pub receipt_hash: [u8; 32],
+    pub observed_height: u64,
+    pub rung: u8,
     pub finalized_at: u64,
+}
+
+impl HumanFinalizationEvidence {
+    fn validate(&self) -> Result<(), HumanProtocolError> {
+        if self.action_key == [0; 32]
+            || self.finalized_at == 0
+            || self.rung == layerx_types::rung::Rung::Submitted.wire_rank()
+        {
+            return Err(HumanProtocolError::Malformed);
+        }
+        validate_transaction_evidence(
+            self.tx_hash,
+            self.receipt_hash,
+            self.observed_height,
+            self.rung,
+        )
+    }
+}
+
+fn validate_transaction_evidence(
+    tx_hash: [u8; 32],
+    receipt_hash: [u8; 32],
+    observed_height: u64,
+    rung: u8,
+) -> Result<(), HumanProtocolError> {
+    use layerx_types::rung::Rung;
+    if tx_hash == [0; 32] || rung > Rung::Committed.wire_rank() {
+        return Err(HumanProtocolError::Malformed);
+    }
+    if rung == Rung::Submitted.wire_rank() {
+        if receipt_hash != [0; 32] || observed_height != 0 {
+            return Err(HumanProtocolError::Malformed);
+        }
+    } else if receipt_hash == [0; 32] || observed_height == 0 {
+        return Err(HumanProtocolError::Malformed);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -515,7 +564,7 @@ pub enum HumanRequest {
     Head,
     Evidence {
         idempotency_key: [u8; 32],
-        expected_activity_id: [u8; 32],
+        tx_hash: [u8; 32],
     },
     IdentityResolve {
         agent: String,
@@ -639,6 +688,31 @@ impl HumanResponse {
     #[must_use]
     pub fn bytes(&self) -> &[u8] {
         &self.0
+    }
+
+    #[must_use]
+    pub fn pending_nonce(nonce: u64) -> Self {
+        Self(nonce.to_be_bytes().to_vec())
+    }
+
+    #[must_use]
+    pub fn head(height: u64) -> Self {
+        Self(height.to_be_bytes().to_vec())
+    }
+
+    pub fn evidence(
+        tx_hash: [u8; 32],
+        receipt_hash: [u8; 32],
+        observed_height: u64,
+        rung: layerx_types::rung::Rung,
+    ) -> Result<Self, HumanProtocolError> {
+        validate_transaction_evidence(tx_hash, receipt_hash, observed_height, rung.wire_rank())?;
+        let mut bytes = Vec::with_capacity(73);
+        bytes.extend_from_slice(&tx_hash);
+        bytes.extend_from_slice(&receipt_hash);
+        bytes.extend_from_slice(&observed_height.to_be_bytes());
+        bytes.push(rung.wire_rank());
+        Self::new(bytes)
     }
 }
 
@@ -944,7 +1018,7 @@ pub trait HumanOperations {
         &mut self,
         peer: &HumanPeer,
         idempotency_key: [u8; 32],
-        expected_activity_id: [u8; 32],
+        tx_hash: [u8; 32],
     ) -> Result<HumanResponse, HumanOperationError>;
     /// # Errors
     /// Returns an error if authorization or operation validation fails, or required state is unavailable.
@@ -1416,11 +1490,11 @@ impl PolicyContextField {
 /// Terminal refusals whose reason the caller must be able to distinguish.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HumanRefusal {
+    StaleNonce { expected: u64, pending: u64 },
     StalePinnedHead,
     FeeSnapshotSkew,
     ExportResponseTooLarge,
     ExportLevelUnattainable,
-    ExportSettlementAnchoringUnavailable,
     Policy(crate::policy::PolicyDryRunRefusal),
     BudgetCodec,
     BudgetExpired,
@@ -1449,11 +1523,11 @@ impl HumanRefusal {
     #[must_use]
     pub const fn reason(self) -> &'static str {
         match self {
+            Self::StaleNonce { .. } => "prepare.stale_nonce",
             Self::StalePinnedHead => "program.stale_head",
             Self::FeeSnapshotSkew => "projection.fee_snapshot_skew",
             Self::ExportResponseTooLarge => "export.response_too_large",
-            Self::ExportLevelUnattainable => "export.level_unattainable",
-            Self::ExportSettlementAnchoringUnavailable => "export.settlement_anchoring_unavailable",
+            Self::ExportLevelUnattainable => "export.rung_unattainable",
             Self::Policy(refusal) => refusal.code(),
             Self::BudgetCodec => "budget.codec",
             Self::BudgetExpired => "budget.expired",
@@ -1493,10 +1567,10 @@ impl HumanRefusal {
     pub const fn class(self) -> layerx_agent_api::error::ErrorClass {
         use layerx_agent_api::error::ErrorClass;
         match self {
-            Self::StalePinnedHead | Self::FeeSnapshotSkew | Self::ExportLevelUnattainable => {
-                ErrorClass::VerificationFailure
-            }
-            Self::ExportSettlementAnchoringUnavailable => ErrorClass::UnavailableCapability,
+            Self::StaleNonce { .. }
+            | Self::StalePinnedHead
+            | Self::FeeSnapshotSkew
+            | Self::ExportLevelUnattainable => ErrorClass::VerificationFailure,
             Self::ExportResponseTooLarge
             | Self::Policy(_)
             | Self::PolicyContextMismatch(_)
@@ -1691,22 +1765,7 @@ pub fn serve_one<T: HumanFrameTransport, O: HumanOperations>(
     let request = decode_request(frame)?;
     let _context = TraceContext(REQUEST_TRACE.with(|current| current.replace(trace.clone())));
     let result = dispatch_request(request, peer, operations);
-    let mut response = Vec::with_capacity(64);
-    response.extend_from_slice(MAGIC);
-    match result {
-        Ok(payload) => {
-            response.push(0);
-            response.extend_from_slice(payload.bytes());
-        }
-        Err(
-            HumanOperationError::Refused
-            | HumanOperationError::CapabilityRefused(_)
-            | HumanOperationError::Typed(_),
-        ) => {
-            response.push(1);
-        }
-        Err(HumanOperationError::Unavailable) => response.push(2),
-    }
+    let mut response = encode_response(result);
     if let Some(trace) = trace {
         eprintln!("human_request trace={trace} outcome={}", response[8]);
         let length = u32::try_from(response.len()).map_err(|_| HumanProtocolError::Malformed)?;
@@ -1725,7 +1784,32 @@ pub fn serve_one<T: HumanFrameTransport, O: HumanOperations>(
         .map_err(HumanProtocolError::Transport)
 }
 
-fn decode_request(bytes: Vec<u8>) -> Result<HumanRequest, HumanProtocolError> {
+pub fn encode_response(result: Result<HumanResponse, HumanOperationError>) -> Vec<u8> {
+    let mut response = MAGIC.to_vec();
+    match result {
+        Ok(payload) => {
+            response.push(0);
+            response.extend_from_slice(payload.bytes());
+        }
+        Err(HumanOperationError::Typed(HumanRefusal::StaleNonce { expected, pending })) => {
+            response.push(1);
+            let reason = b"prepare.stale_nonce";
+            response.extend_from_slice(&(reason.len() as u32).to_be_bytes());
+            response.extend_from_slice(reason);
+            response.extend_from_slice(&expected.to_be_bytes());
+            response.extend_from_slice(&pending.to_be_bytes());
+        }
+        Err(
+            HumanOperationError::Refused
+            | HumanOperationError::CapabilityRefused(_)
+            | HumanOperationError::Typed(_),
+        ) => response.push(1),
+        Err(HumanOperationError::Unavailable) => response.push(2),
+    }
+    response
+}
+
+pub fn decode_request(bytes: Vec<u8>) -> Result<HumanRequest, HumanProtocolError> {
     let mut reader = Reader::new(bytes);
     if reader.fixed::<8>()? != *MAGIC {
         return Err(HumanProtocolError::Malformed);
@@ -1951,22 +2035,13 @@ fn text_list(reader: &mut Reader, maximum: usize) -> Result<Vec<String>, HumanPr
 fn finalization(reader: &mut Reader) -> Result<HumanFinalizationEvidence, HumanProtocolError> {
     let value = HumanFinalizationEvidence {
         action_key: reader.fixed()?,
-        activity_id: reader.fixed()?,
-        receipt_digest: reader.fixed()?,
-        observed_sequence: reader.u64()?,
-        verification: reader.u8()?,
+        tx_hash: reader.fixed()?,
+        receipt_hash: reader.fixed()?,
+        observed_height: reader.u64()?,
+        rung: reader.u8()?,
         finalized_at: reader.u64()?,
     };
-    if value.action_key == [0; 32]
-        || value.activity_id == [0; 32]
-        || value.receipt_digest == [0; 32]
-        || value.observed_sequence == 0
-        || value.verification < 4
-        || value.verification > 5
-        || value.finalized_at == 0
-    {
-        return Err(HumanProtocolError::Malformed);
-    }
+    value.validate()?;
     Ok(value)
 }
 
@@ -2099,7 +2174,24 @@ fn dispatch_request<O: HumanOperations>(
             operations.authorize_subject(&scoped)?;
             dispatch_request(*request, &scoped, operations)
         }
-        HumanRequest::Prepare(request) => operations.prepare(peer, request),
+        HumanRequest::Prepare(request) => {
+            let pending = operations.account_sequence(
+                peer,
+                &request.operation.actor,
+                &request.operation.authority,
+            )?;
+            let pending = u64::from_be_bytes(
+                pending
+                    .bytes()
+                    .try_into()
+                    .map_err(|_| HumanOperationError::Unavailable)?,
+            );
+            request
+                .operation
+                .validate_pending_nonce(pending)
+                .map_err(HumanOperationError::Typed)?;
+            operations.prepare(peer, request)
+        }
         HumanRequest::Submit(request) => operations.submit_external(peer, request),
         HumanRequest::Track { submission_ref } => operations.track(peer, &submission_ref),
         HumanRequest::ReceiptLookup {
@@ -2246,8 +2338,8 @@ fn dispatch_request<O: HumanOperations>(
         HumanRequest::Head => operations.head(peer),
         HumanRequest::Evidence {
             idempotency_key,
-            expected_activity_id,
-        } => operations.evidence(peer, idempotency_key, expected_activity_id),
+            tx_hash,
+        } => operations.evidence(peer, idempotency_key, tx_hash),
         HumanRequest::IdentityResolve { agent } => operations.identity_resolve(peer, &agent),
         HumanRequest::LeaseMap {
             not_before_unix_ms,
@@ -2400,9 +2492,9 @@ fn decode_operation(
                 activity_type: reader.u32()?,
                 actor: reader.text()?,
                 authority: reader.text()?,
-                account_sequence: reader.u64()?,
-                not_before: reader.u64()?,
-                not_after: reader.u64()?,
+                nonce: reader.u64()?,
+                not_before_height: reader.u64()?,
+                not_after_height: reader.u64()?,
                 idempotency_key: reader.text()?,
                 fee_limit: reader.u128()?,
                 payload: reader.bytes()?,
@@ -2449,9 +2541,9 @@ fn decode_operation(
                 activity_type: reader.u32()?,
                 actor: reader.text()?,
                 authority: reader.text()?,
-                account_sequence: reader.u64()?,
-                not_before: reader.u64()?,
-                not_after: reader.u64()?,
+                nonce: reader.u64()?,
+                not_before_height: reader.u64()?,
+                not_after_height: reader.u64()?,
                 idempotency_key: reader.text()?,
                 fee_limit: reader.u128()?,
                 payload: reader.bytes()?,
@@ -2504,9 +2596,9 @@ fn decode_operation(
                     activity_type: reader.u32()?,
                     actor: reader.text()?,
                     authority: reader.text()?,
-                    account_sequence: reader.u64()?,
-                    not_before: reader.u64()?,
-                    not_after: reader.u64()?,
+                    nonce: reader.u64()?,
+                    not_before_height: reader.u64()?,
+                    not_after_height: reader.u64()?,
                     idempotency_key: reader.text()?,
                     fee_limit: reader.u128()?,
                     payload: reader.bytes()?,
@@ -2781,7 +2873,7 @@ fn decode_operation_1(
         HEAD => HumanRequest::Head,
         EVIDENCE => HumanRequest::Evidence {
             idempotency_key: reader.fixed()?,
-            expected_activity_id: reader.fixed()?,
+            tx_hash: reader.fixed()?,
         },
         IDENTITY_RESOLVE => HumanRequest::IdentityResolve {
             agent: reader.text()?,

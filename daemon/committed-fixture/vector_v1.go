@@ -213,8 +213,8 @@ func recordV1(n *node) (any, error) {
 	if err := n.client.CallContext(ctx, &nonce, "eth_getTransactionCount", from, "pending"); err != nil {
 		return nil, err
 	}
-	tx, err := ethtypes.SignNewTx(key, ethtypes.LatestSignerForChainID(chainID.ToInt()), &ethtypes.LegacyTx{
-		Nonce: uint64(nonce), GasPrice: new(big.Int).Set(n.gasPrice), Gas: 200000,
+	tx, err := ethtypes.SignNewTx(key, ethtypes.LatestSignerForChainID(chainID.ToInt()), &ethtypes.DynamicFeeTx{
+		ChainID: chainID.ToInt(), Nonce: uint64(nonce), GasTipCap: new(big.Int), GasFeeCap: new(big.Int).Set(n.gasPrice), Gas: 200000,
 		Value: new(big.Int), Data: common.FromHex(v1Creation),
 	})
 	if err != nil {

@@ -2,12 +2,13 @@ use std::{collections::BTreeMap, fs, path::Path};
 
 use layerx_client::evidence::{verify_arbiter_admission_v3, VerifiedAdmissionPrestate};
 use layerx_programs_arbiter::{
-    AuthenticatedCatalogue, BoundaryProof, ReplayError, VerifiedReplay, VerifiedReplayAuthority,
+    ics23::decode_existence, AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, ReplayError,
+    VerifiedReplay, VerifiedReplayAuthority,
 };
 use layerx_programs_runtime::portable_replay::PortableReplayRecord;
 use layerx_proof::{
     inclusion::{verify_header, verify_receipt, SequencerAuthorization, VerifiedBatchHeader},
-    merkle::{decode_proof, Proof},
+    merkle::decode_proof,
     receipt::{
         verify_outcome_maintained_chain, verify_program_preexecution_rejection_maintained_chain,
         AuthorizedBatch, MaintainedOutcomeEvidence, VerifiedReceipt,
@@ -32,10 +33,150 @@ fn hash(v: &Value, key: &str) -> [u8; 32] {
         u8::from_str_radix(&s[2 * i..2 * i + 2], 16).expect("native pinned hash")
     })
 }
+fn hex(v: &Value, key: &str) -> Vec<u8> {
+    let text = field(v, key);
+    assert_eq!(text.len() % 2, 0, "complete fixture hex bytes");
+    (0..text.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).expect("fixture hex byte"))
+        .collect()
+}
+
+fn committed_vector() -> Value {
+    serde_json::from_str(include_str!(
+        "../../../tests/vectors/ics23-receipt-keys-app-hash.json"
+    ))
+    .expect("committed receipt-key list and multistore proof vector")
+}
+
+fn chain_commit(entry: &Value) -> ChainCommitProof {
+    let commit = ChainCommitProof {
+        height: entry["height"].as_u64().expect("committed block height"),
+        app_hash: hash(entry, "app_hash"),
+        store_root: hash(entry, "store_root"),
+        multistore_proof: hex(entry, "multistore_proof"),
+        receipt_key: hex(entry, "key"),
+        receipt_proof: decode_existence(&hex(entry, "proof"))
+            .expect("host receipt-key list existence proof"),
+    };
+    assert_eq!(commit.receipt_proof.value, hex(entry, "value"));
+    commit
+}
+
+#[test]
+fn chain_commit_proof_verifies_pinned_receipt_keys_under_app_hash() {
+    let vector = committed_vector();
+    let entries = vector["entries"].as_array().expect("host entries");
+    assert!(!entries.is_empty(), "committed receipt-key list proofs");
+    for entry in entries {
+        let commit = chain_commit(entry);
+        let keys = commit
+            .receipt_keys()
+            .expect("app-hash authenticated receipt keys");
+        assert_eq!(keys.len(), 2, "complete pinned host key list");
+        let value = hex(entry, "value");
+        for (key, encoded) in keys.iter().zip(value.chunks_exact(80)) {
+            assert_eq!(key.sequencer_id().as_slice(), &encoded[..32]);
+            assert_eq!(key.public_key().as_slice(), &encoded[32..64]);
+            assert_eq!(key.first_batch_number().to_be_bytes(), encoded[64..72]);
+            assert_eq!(key.last_batch_number().to_be_bytes(), encoded[72..80]);
+        }
+        let bytes = hex(entry, "receipt");
+        let receipt = layerx_proof::receipt::verify_sequencer_signature(&bytes, keys.as_slice())
+            .expect("receipt signature under the ICS23-proved pinned key list");
+        let protocol = receipt.protocol().expect("host protocol receipt");
+        let mut batch_id = [0; 32];
+        batch_id[24..].copy_from_slice(&commit.height.to_be_bytes());
+        assert_eq!(
+            protocol.batch_id(),
+            batch_id,
+            "receipt's committed block height"
+        );
+        let covering: Vec<_> = keys
+            .iter()
+            .filter(|key| {
+                key.sequencer_id() == protocol.context_hash()
+                    && key.first_batch_number() <= commit.height
+                    && commit.height <= key.last_batch_number()
+            })
+            .collect();
+        assert_eq!(
+            covering.len(),
+            1,
+            "unique pinned signer covering the receipt height"
+        );
+        assert_eq!(covering[0].sequencer_id(), [0xa1; 32]);
+        let public = "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737";
+        let expected: [u8; 32] = std::array::from_fn(|i| {
+            u8::from_str_radix(&public[2 * i..2 * i + 2], 16).expect("pinned public key")
+        });
+        assert_eq!(covering[0].public_key(), expected);
+        commit
+            .verify_receipt_bytes(&bytes)
+            .expect("committed host receipt");
+    }
+}
+
+#[test]
+fn authority_refuses_receipt_proof_for_another_app_hash() {
+    let vector = committed_vector();
+    let entries = vector["entries"].as_array().expect("host entries");
+    assert!(!entries.is_empty(), "committed receipt-key list proofs");
+    for entry in entries {
+        let commit = chain_commit(entry);
+        commit.receipt_keys().expect("valid host receipt-key proof");
+        let mut wrong_app_hash = commit.clone();
+        wrong_app_hash.app_hash[0] ^= 1;
+        assert!(matches!(
+            wrong_app_hash.receipt_keys(),
+            Err(ReplayError::Receipt)
+        ));
+        let mut wrong_value = commit.clone();
+        wrong_value.receipt_proof.value[0] ^= 1;
+        assert!(matches!(
+            wrong_value.receipt_keys(),
+            Err(ReplayError::Receipt)
+        ));
+        let mut wrong_key = commit.clone();
+        wrong_key.receipt_key[0] ^= 1;
+        assert!(matches!(
+            wrong_key.receipt_keys(),
+            Err(ReplayError::Receipt)
+        ));
+        let mut wrong_proof = commit.clone();
+        wrong_proof.receipt_proof.leaf.prefix[0] ^= 1;
+        assert!(matches!(
+            wrong_proof.receipt_keys(),
+            Err(ReplayError::Receipt)
+        ));
+        let bytes = hex(entry, "receipt");
+        let mut wrong_signature = bytes.clone();
+        *wrong_signature.last_mut().expect("receipt signature") ^= 1;
+        assert!(matches!(
+            commit.verify_receipt_bytes(&wrong_signature),
+            Err(ReplayError::Receipt)
+        ));
+        let decoded = layerx_wire::receipt::decode(&bytes).expect("canonical host receipt");
+        let batch_id = decoded.protocol().expect("protocol receipt").batch_id();
+        let offsets: Vec<_> = bytes
+            .windows(32)
+            .enumerate()
+            .filter_map(|(i, window)| (window == batch_id).then_some(i))
+            .collect();
+        assert_eq!(offsets.len(), 1, "unique encoded receipt height");
+        let mut uncovered_height = bytes.clone();
+        uncovered_height[offsets[0] + 24..offsets[0] + 32].copy_from_slice(&1_u64.to_be_bytes());
+        assert!(matches!(
+            commit.verify_receipt_bytes(&uncovered_height),
+            Err(ReplayError::Receipt)
+        ));
+    }
+}
+
 fn verified(
     v: &Value,
     authorization: &SequencerAuthorization,
-) -> (VerifiedReceipt, VerifiedBatchHeader, Proof) {
+) -> (VerifiedReceipt, VerifiedBatchHeader) {
     let bytes = read(v, "receipt_path");
     let header = read(v, "header_path");
     let signature: [u8; 64] = read(v, "header_signature_path")
@@ -109,14 +250,14 @@ fn verified(
     let mut bad_signature = signature;
     bad_signature[0] ^= 1;
     assert!(verify_header(&header, &bad_signature, authorization).is_err());
-    (verified, signed, proof)
+    (verified, signed)
 }
 
 struct Capture {
     path: String,
     receipt: VerifiedReceipt,
     header: VerifiedBatchHeader,
-    receipt_proof: Proof,
+    receipt_proof: ChainCommitProof,
     admission: VerifiedAdmissionPrestate,
 }
 struct Fixture {
@@ -157,7 +298,11 @@ impl Fixture {
             .expect("actual captures")
             .iter()
             .map(|v| {
-                let (receipt, header, receipt_proof) = verified(v, &authorization);
+                let (receipt, header) = verified(v, &authorization);
+                let receipt_proof = chain_commit(&v["chain_commit"]);
+                receipt_proof
+                    .verify_receipt(&receipt)
+                    .expect("genuine app-hash authenticated receipt keys");
                 let admission = verify_arbiter_admission_v3(&read(v, "v3_path"), &receipt, network)
                     .expect("genuine sealed V3 prestate");
                 if admission.activity().activity_type().module()
@@ -264,14 +409,8 @@ fn canonical_native_authority_matches_authenticated_historical_facts() {
             &trusted.receipt_proof,
         )
         .is_err());
-        let mut siblings = trusted.receipt_proof.siblings().to_vec();
-        siblings.first_mut().expect("real nonempty receipt proof")[0] ^= 1;
-        let bad_proof = Proof::new(
-            trusted.receipt_proof.leaf_index(),
-            trusted.receipt_proof.leaf_count(),
-            siblings,
-        )
-        .expect("same canonical Merkle proof shape");
+        let mut bad_proof = trusted.receipt_proof.clone();
+        bad_proof.receipt_proof.leaf.prefix[0] ^= 1;
         assert!(VerifiedReplayAuthority::derive(
             &trusted.receipt,
             &trusted.admission,

@@ -58,6 +58,44 @@ pub(crate) fn decode_wire<W: DeserializeOwned>(
     decode(request, id)
 }
 
+pub(crate) fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
+    use layerx_agent_api::{agent_api_schema_v1, ContractVersion, Sequence, VersionResponse};
+
+    let id = body
+        .get(4..12)
+        .and_then(|bytes| <[u8; 8]>::try_from(bytes).ok())
+        .map_or(RequestId(0), |bytes| RequestId(u64::from_be_bytes(bytes)));
+    let frame: &[u8; 19] = body.try_into().map_err(|_| malformed(id))?;
+    if frame[12..15] != [0; 3] {
+        return Err(malformed(id));
+    }
+    let header = ContractVersion {
+        major: u16::from_be_bytes([frame[0], frame[1]]),
+        minor: u16::from_be_bytes([frame[2], frame[3]]),
+    };
+    let supported = ContractVersion {
+        major: u16::from_be_bytes([frame[15], frame[16]]),
+        minor: u16::from_be_bytes([frame[17], frame[18]]),
+    };
+    let schema = agent_api_schema_v1();
+    if header.major != schema.version.major || supported.major != schema.version.major {
+        return Err(Rejection::new(
+            layerx_agent_api::error::ErrorClass::ProtocolIncompatibility,
+            id,
+            "envelope.version",
+        ));
+    }
+    if header != supported {
+        return Err(malformed(id));
+    }
+    Ok(VersionResponse {
+        request_id: Sequence(id.0),
+        contract: schema.version,
+        node_interface_major: schema.node_interface_major,
+    }
+    .encode())
+}
+
 /// Fixed-order JSON of a converted request, used as the canonical digest bytes.
 pub(crate) trait Canonical {
     fn canonical(&self) -> Value;
@@ -425,9 +463,9 @@ pub(crate) fn native_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,
@@ -593,9 +631,9 @@ pub(crate) fn native_effect_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,
@@ -810,9 +848,9 @@ pub(crate) fn native_send_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,

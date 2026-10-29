@@ -234,7 +234,11 @@ contract WithdrawalClaims is ReentrancyLock, LayerXComponent {
     function cancelChallengedClaim(bytes32 claimId) external nonReentrant {
         Claim storage item = claim[claimId];
         (,,,,, CheckpointChallengeManager.Status status) = challengeManager.challenge(item.checkpointHash);
-        if (item.status != ClaimStatus.Pending || status != CheckpointChallengeManager.Status.Upheld) {
+        if (
+            item.status != ClaimStatus.Pending
+                || (status != CheckpointChallengeManager.Status.Upheld
+                    && registry.isCanonicalCheckpoint(item.checkpointHash))
+        ) {
             revert ChallengedCheckpoint();
         }
         item.status = ClaimStatus.Cancelled;

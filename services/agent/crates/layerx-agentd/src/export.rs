@@ -123,7 +123,6 @@ pub struct ProducedExport {
 pub enum ExportProduceError {
     UnavailableCapability(layerx_agent_api::error::ApiError),
     Facts(FactRefError),
-    SettlementAnchoringUnavailable,
     NotOwned {
         fact: usize,
     },
