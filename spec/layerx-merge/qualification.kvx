@@ -10059,3 +10059,59 @@ symbol = "SequencerBlock"
 observed = "Attempts 1 to 5 pass budget_call and stop in the wider dependents build with E0063 missing receipts_root in the layerx-client tests (9.5.3, e841fd694); the task's own files are complete."
 assumption = "Not a task defect; the task re-qualifies once 9.5.9 lands."
 severity = "major"
+
+[finding.18.964.1.2]
+task = "18.964.1"
+file = "sdk/launchpad/shared/config/deployment/current.json"
+symbol = "Current"
+observed = "Attempts 1 to 4 pin deployment.Current(), which since 16ee6fd09 describes the v6.12.0 generation (activation 37220320) while the recorded chain-125 fixture holds the erc1967 generation whose runtime hashes validateCode (rpc.go:922, :952) compares; no spec task touched the deployment package."
+assumption = "Decision.1814 adds a reviewed history with Approved(activationHeight) in 18.1075.1, which 18.964.1 now requires."
+severity = "major"
+
+[finding.12.6.3.2]
+task = "12.6.3"
+file = "services/wallet/gateway/src/provision/state.ts:519-542"
+symbol = "provisionAccount"
+observed = "Attempts 1 and 2 could not express 'charged to the DID being bound': the station resolves budget keys by account (station.rs:664-693) and requires budget_key(account) == quote.did (station.rs:911); the gateway attestor client lacks the eip7702_authorization sign kind and account_provisioning has no station columns."
+assumption = "Decision.1815 keys the sponsored bind by the account, adds migration 020 and the sign kind, and gates the task on a loopback station endpoint."
+severity = "major"
+
+[finding.10.92.1.2]
+task = "10.92.1"
+file = "services/human/crates/layerx-human-service/src/server/production_reads.rs:378-392"
+symbol = "VerifiedLegEvidence"
+observed = "Attempts 1 and 2 had no signed receipt bytes, receipt key entry or inclusion height in the leg evidence, so PortableReceiptV2::export could not be built; the evidence structs belong to 10.2.4 (wave 14)."
+assumption = "Decision.1816 extends the evidence in 10.2.4 and moves 10.92.1 behind it (wave 15) with a layerx-portable path dependency."
+severity = "major"
+
+[finding.4.23.3.2]
+task = "4.23.3"
+file = "services/launchpad/user/internal/account/account_test.go:59"
+symbol = "fixture"
+observed = "Attempt 1 and the sibling tasks 4.23.4, 4.24.3 and 4.24.7 stopped on fixtures reading handoffs/L35/schema.sql and integration/migrations, which have no commit in any ref; the account_* tables and api_stream have no tracked DDL."
+assumption = "Decision.1817 tracks the schema as embedded goose migrations in 4.23.6 and makes the TestPostgres* tests release gates."
+severity = "major"
+
+[finding.4.27.4.2]
+task = "4.27.4"
+file = "services/launchpad/notifications/schema.sql:8"
+symbol = "v2_id"
+observed = "Attempt 1: the frozen Notification schema requires a UUIDv7 notificationId and a required wallet; 4.27.2's md5(id)::uuid shape fails the pattern and nothing sets Wallet."
+assumption = "Decision.1818 redefines v2_id and sources wallet from X-Actor-Wallet; schema.sql and store.go join the touches."
+severity = "major"
+
+[finding.5.12.2.2]
+task = "5.12.2"
+file = "storage/config/flatkv_parse.go:52"
+symbol = "ParseFlatKVConfig"
+observed = "Attempt 1: Validate refuses DataDir == '' and no toml key sets it, so every ParseFlatKVConfig call errors and the planned panic would stop every node at init; 5.43.1's tests assert that error."
+assumption = "Decision.1819 moves validation to store construction; flatkv_parse.go and its test join the touches."
+severity = "major"
+
+[finding.8.51.2.2]
+task = "8.51.2"
+file = ".github/workflows/platform.yml:1552"
+symbol = "release-verification"
+observed = "Attempts 1 to 4: committed_pipeline() panics because the retention upload step carries if: always(), which the release validator (main.rs:1026-1032) does not admit on verification steps."
+assumption = "The workflow line is deleted (No Weakening forbids widening the validator); platform.yml joins the touches and 16.5.6 follows by its requires."
+severity = "minor"
