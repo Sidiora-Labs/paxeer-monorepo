@@ -57,6 +57,7 @@ defmodule BlockScoutWeb.Notifier do
 
   @check_broadcast_sequence_period 500
   @api_true [api?: true]
+  @price_update_live_window 10
 
   case @chain_type do
     :arbitrum ->
@@ -695,7 +696,9 @@ defmodule BlockScoutWeb.Notifier do
         FeedView.prepare_update(update, symbols, block_height)
       )
 
-      Enum.each(update.observations, fn observation ->
+      update.observations
+      |> Enum.filter(&(update.status == 1 and &1.accepted))
+      |> Enum.each(fn observation ->
         Endpoint.broadcast(
           "paxeer_x_feed:market:#{observation.market_id}",
           "new_update",
@@ -704,22 +707,30 @@ defmodule BlockScoutWeb.Notifier do
       end)
     end)
 
-    Endpoint.broadcast("transactions:new_transaction", "transaction", %{transaction: length(updates)})
+    live_updates = Enum.filter(updates, &(&1.block_number >= block_height - @price_update_live_window))
 
-    average_block_time = AverageBlockTime.average_block_time()
+    if live_updates != [] do
+      Endpoint.broadcast("transactions:new_transaction", "transaction", %{transaction: length(live_updates)})
 
-    updates
-    |> Enum.map(& &1.block_hash)
-    |> Enum.uniq()
-    |> Enum.each(fn block_hash ->
-      case Repo.get_by(Block, hash: block_hash, consensus: true) do
-        nil ->
-          :ok
+      average_block_time = AverageBlockTime.average_block_time()
 
-        block ->
-          Endpoint.broadcast("blocks:new_block", "new_block", block_params_v2(preload_block(block), average_block_time))
-      end
-    end)
+      live_updates
+      |> Enum.map(& &1.block_hash)
+      |> Enum.uniq()
+      |> Enum.each(fn block_hash ->
+        case Repo.get_by(Block, hash: block_hash, consensus: true) do
+          nil ->
+            :ok
+
+          block ->
+            Endpoint.broadcast(
+              "blocks:new_block",
+              "new_block",
+              block_params_v2(preload_block(block), average_block_time)
+            )
+        end
+      end)
+    end
   end
 
   defp broadcast_rewards(rewards) do

@@ -1,5 +1,106 @@
-#[path = "support/canonical_owner.rs"]
-mod canonical_owner;
+mod canonical_owner {
+    use std::fmt::Debug;
+
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_crypto::SignatureMessage;
+    use layerx_intents::canonical;
+    use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
+    use layerx_types::amount::Amount;
+    use layerx_types::ids::{Did, IdempotencyKey};
+    use layerx_types::payload::{ModuleRegistration, ModuleRegistry, Payload};
+    use sha2::{Digest as _, Sha256};
+
+    pub struct SignedOwner {
+        pub bytes: Vec<u8>,
+        pub id: [u8; 32],
+        pub public_key: [u8; 32],
+        pub actor: Vec<u8>,
+    }
+
+    fn checked<T, E: Debug>(value: Result<T, E>) -> T {
+        value.unwrap_or_else(|error| panic!("canonical owner encoding: {error:?}"))
+    }
+
+    pub fn sign(
+        payload: &Payload,
+        action_key: [u8; 32],
+        version: u16,
+        network: u32,
+    ) -> SignedOwner {
+        let signer = SigningKey::from_bytes(&[0x68; 32]);
+        let public_key = signer.verifying_key().to_bytes();
+        let actor = b"did:layerx:owner-receipt-fixture".to_vec();
+        let mut builder = EnvelopeBuilder::new();
+        checked(builder.protocol_version(version));
+        checked(builder.network_id(network));
+        checked(builder.activity_type(payload.activity_type()));
+        checked(builder.actor_did(checked(Did::new(&actor))));
+        checked(builder.authority(checked(Authority::owner(&public_key))));
+        checked(builder.account_sequence(1));
+        checked(builder.timestamp_bound(checked(TimestampBound::new(900, 2000))));
+        checked(builder.idempotency_key(IdempotencyKey::new(action_key)));
+        checked(builder.fee_limit(Amount::from_u128(10)));
+        checked(builder.payload_hash(checked(canonical::payload_hash_for(payload))));
+        checked(builder.payload(payload.clone()));
+        let unsigned = checked(builder.build());
+        let canonical = checked(canonical::unsigned_envelope_bytes(&unsigned));
+        let digest = checked(SignatureMessage::new(
+            canonical::Domain::SignaturePreimage,
+            version,
+            network,
+            &canonical,
+        ))
+        .digest();
+        let signature = signer.sign(&digest).to_bytes();
+        let bytes = checked(canonical::signed_envelope_bytes(
+            &unsigned.attach_signature(checked(Signature::new(&signature))),
+        ));
+        let registry = checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
+            payload.activity_type().module(),
+            &[payload.activity_type()],
+        ))]));
+        let decoded = checked(canonical::decode_signed_activity(&bytes, &registry));
+        SignedOwner {
+            id: checked(canonical::activity_id(&decoded)),
+            bytes,
+            public_key,
+            actor,
+        }
+    }
+
+    pub fn assert_outcome(
+        evidence: &layerx_human_service::agents::ProtocolEvidence,
+        kind: layerx_types::payload::ActivityType,
+        authorized_batch: &layerx_proof::receipt::AuthorizedBatch,
+    ) {
+        checked(evidence.bound_activity(kind));
+        let receipt = checked(evidence.verify_outcome(kind));
+        let protocol = receipt.protocol().expect("protocol receipt");
+        assert_eq!(evidence.tx_hash, protocol.activity_id());
+        assert_eq!(evidence.tx_hash, evidence.activity_id);
+        assert_eq!(evidence.rung, layerx_types::rung::Rung::Committed);
+        assert_eq!(
+            &protocol.batch_id()[24..],
+            &evidence.block_height.to_be_bytes()
+        );
+        assert_eq!(
+            evidence.receipt_hash,
+            <[u8; 32]>::from(Sha256::digest(&evidence.receipt_bytes))
+        );
+        checked(layerx_proof::receipt::verify_native_owner_outcome(
+            &evidence.receipt_bytes,
+            authorized_batch,
+            &layerx_proof::receipt::NativeOwnerOutcomeContext {
+                canonical_activity: &evidence.signed_activity,
+                actor: &evidence.actor,
+                action_key: evidence.action_key,
+                activity_type: kind,
+                owner_public_key: evidence.owner_public_key,
+                network_id: evidence.network_id,
+            },
+        ));
+    }
+}
 
 use layerx_human_test_support as support;
 
@@ -26,10 +127,12 @@ use layerx_human_service::agents::{
     ProtocolEvidence, PurposePresetCatalog, SessionProvision, StageState,
 };
 use layerx_human_service::custody::{EnvelopeKms, Keystore};
+use layerx_human_service::server::schema::ApiSchema;
 use layerx_human_service::store::{PrincipalStore, TenancyDigest};
 use layerx_intents::{DisclosureCheck, IntentKind};
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use serde_json::json;
 use sha2::{Digest as _, Sha256};
@@ -112,7 +215,7 @@ fn catalog(purpose: &str, ceiling: u128) -> PurposePresetCatalog {
         "version": "operator-policy-2026-08",
         "presets": [{
             "id": purpose,
-            "activity_types": [activity(ModuleId::Asset, 5).value()],
+            "call_selectors": ["0xa9059cbb", "0x095ea7b3"],
             "counterparties": [counterparty],
             "assets": [asset],
             "amount_ceiling": ceiling,
@@ -137,6 +240,12 @@ fn catalog(purpose: &str, ceiling: u128) -> PurposePresetCatalog {
 fn request(purpose: &str) -> CreateAgentRequest {
     CreateAgentRequest::new("Treasury helper", purpose, 1_000, "LXP")
         .unwrap_or_else(|error| panic!("request: {error}"))
+        .with_activity_types(
+            catalog(purpose, 2_000)
+                .activity_types(purpose)
+                .unwrap_or_else(|error| panic!("purpose activity types: {error}")),
+        )
+        .unwrap_or_else(|error| panic!("request activity types: {error}"))
 }
 
 fn context(marker: u8) -> CreationContext {
@@ -218,7 +327,7 @@ impl InProcessAgentLayer {
             action_key,
             object_id,
             observed_sequence: CORE_SEQUENCE,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: Rung::Committed,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest(stage);
@@ -540,11 +649,14 @@ fn receipt(action: &ProtocolAction) -> ProtocolEvidence {
     );
     let marker = stage as u8 + 11;
     let previous_state_root = [marker; 32];
+    let block_height = CORE_SEQUENCE;
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&block_height.to_be_bytes());
     let fields = ReceiptFields {
         activity_id: owner.id,
         previous_state_root,
         resulting_state_root: [marker.saturating_add(1); 32],
-        batch_id: support::execution_batch_id(previous_state_root, owner.id, CORE_SEQUENCE),
+        batch_id,
         asset: [0; 32],
         operation: 0,
         module: match stage {
@@ -571,17 +683,23 @@ fn receipt(action: &ProtocolAction) -> ProtocolEvidence {
         network_id: NETWORK_ID,
         action_key,
         activity_id: owner.id,
+        receipt_hash: Sha256::digest(&receipt_bytes).into(),
         receipt_bytes,
-        authorized_batch: AuthorizedBatch::new(
+        tx_hash: owner.id,
+        block_height,
+        rung: Rung::Committed,
+    };
+    canonical_owner::assert_outcome(
+        &evidence,
+        action.compiled.activity_type(),
+        &AuthorizedBatch::new(
             fields.batch_id,
             fields.asset,
             fields.previous_state_root,
             fields.resulting_state_root,
             signer.verifying_key().to_bytes(),
         ),
-        verification_level: VerificationLevel::SEQUENCER_SIGNED,
-    };
-    canonical_owner::assert_outcome(&evidence, action.compiled.activity_type());
+    );
     evidence
 }
 
@@ -903,6 +1021,19 @@ fn crash_after_each_real_effect_replays_the_same_durable_object() {
 fn purpose_authority_comes_from_configuration_and_monthly_limit_only_narrows_it() {
     let catalog = catalog("vendor-payments", 750);
     assert_eq!(catalog.version(), "operator-policy-2026-08");
+    assert_eq!(
+        catalog
+            .activity_types("vendor-payments")
+            .expect("purpose activity types"),
+        vec![layerx_types::programs_activity::activity_type(
+            layerx_types::programs_activity::CALL_ORDINAL,
+        )
+        .expect("programs call activity")],
+    );
+    assert!(matches!(
+        catalog.activity_types("unconfigured"),
+        Err(layerx_human_service::agents::AgentCreationError::UnknownPurpose)
+    ));
     assert!(CreateAgentRequest::new("helper", "unconfigured", 1, "LXP").is_ok());
 
     let mut fixture = Fixture::new("agent-create-config");
@@ -947,7 +1078,79 @@ fn purpose_authority_comes_from_configuration_and_monthly_limit_only_narrows_it(
         .unwrap_or_else(|| panic!("configured capability missing"));
     assert_eq!(capability.amount_ceiling, 750);
     assert_eq!(
+        capability.activity_types,
+        BTreeSet::from([layerx_types::programs_activity::CALL_ORDINAL]),
+    );
+    assert_eq!(
         capability.purposes,
         BTreeSet::from(["vendor-payments".to_owned()])
+    );
+}
+
+#[test]
+fn agents_route_admits_three_fields_and_refuses_undeclared_activity_types() {
+    let schema = ApiSchema::v1().expect("human API schema");
+    let route = schema
+        .route("POST", "/v1/agents")
+        .expect("agents route")
+        .expect("declared agents route");
+    assert_eq!(route.operation.name, "agent.create");
+    let body = json!({
+        "name": "Treasury helper",
+        "purpose": "treasury",
+        "monthly_limit": {"amount": "1000", "currency": "LXP"}
+    });
+    let admitted = schema
+        .decode_request(route.operation, Some(body.clone()))
+        .expect("documented three-field request");
+    let catalog = catalog("treasury", 2_000);
+    let purpose = admitted["purpose"].as_str().expect("purpose");
+    let derived = catalog
+        .activity_types(purpose)
+        .expect("purpose activity types");
+    let creation = CreateAgentRequest::new(
+        admitted["name"].as_str().expect("name"),
+        purpose,
+        admitted["monthly_limit"]["amount"]
+            .as_str()
+            .expect("amount")
+            .parse()
+            .expect("monthly amount"),
+        admitted["monthly_limit"]["currency"]
+            .as_str()
+            .expect("currency"),
+    )
+    .expect("creation request")
+    .with_activity_types(derived.clone())
+    .expect("derived creation activity types");
+    let mut fixture = Fixture::new("agent-create-schema-route");
+    let alice = principal("alice");
+    let mut scope = fixture.store.principal(&alice).expect("principal scope");
+    let journey = CreationJourney::start(&mut scope, &creation, &context(0x71), &catalog, 1)
+        .expect("schema-admitted request reaches creation");
+    assert_eq!(journey.status().state, CreationState::GettingReady);
+    assert_eq!(
+        journey.projection().activity_types,
+        derived
+            .iter()
+            .map(|value| value.value())
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(
+        journey.projection().call_selectors,
+        vec!["0xa9059cbb", "0x095ea7b3"],
+    );
+
+    let mut undeclared = body;
+    undeclared["activity_types"] = json!(derived
+        .iter()
+        .map(|value| value.value())
+        .collect::<Vec<_>>());
+    let refusal = schema
+        .decode_request(route.operation, Some(undeclared))
+        .expect_err("activity_types must remain undeclared");
+    assert_eq!(
+        refusal.detail(),
+        "request.activity_types is not declared in this schema version",
     );
 }

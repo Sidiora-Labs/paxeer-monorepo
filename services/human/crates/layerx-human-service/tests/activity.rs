@@ -206,6 +206,15 @@ fn real_receipt_material() -> ([u8; 32], Vec<u8>, AuthorizedBatch) {
     let verified = verify_receipt(&canonical, &authorised)
         .unwrap_or_else(|error| panic!("real receipt verification: {error:?}"));
     assert_eq!(verified.level(), VerificationLevel::SEQUENCER_SIGNED);
+    assert_eq!(
+        verified
+            .receipt()
+            .protocol()
+            .expect("protocol receipt")
+            .activity_id(),
+        fields.activity_id
+    );
+    assert_eq!(verified.canonical_bytes(), canonical);
     (
         Sha256::digest(verified.canonical_bytes()).into(),
         canonical,
