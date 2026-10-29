@@ -384,6 +384,26 @@ pub struct OwnerEnvironment {
     pub native_send_profile: bool,
 }
 
+pub fn external_signature_request(arguments: &Value) -> Result<Value, BoundaryRefusal> {
+    let refuse = || BoundaryRefusal::Malformed("mcp.external_signature".into());
+    arguments
+        .get("signature")
+        .and_then(Value::as_str)
+        .ok_or_else(refuse)?
+        .parse::<layerx_agent_api::submit::SignatureBytes>()
+        .map_err(|_| refuse())?;
+    let mut request = arguments.clone();
+    let object = request.as_object_mut().ok_or_else(refuse)?;
+    if object
+        .remove("variant")
+        .and_then(|value| value.as_str().map(str::to_owned))
+        != Some("external_signature_v1".to_owned())
+    {
+        return Err(refuse());
+    }
+    Ok(request)
+}
+
 struct OwnerBoundary<F> {
     registry: Option<layerx_types::payload::ModuleRegistry>,
     inner: Option<DaemonBoundary>,
@@ -438,11 +458,7 @@ where
         if tool.name == "activity.sign"
             && arguments.get("variant").and_then(Value::as_str) == Some("external_signature_v1")
         {
-            let mut request = arguments.clone();
-            request
-                .as_object_mut()
-                .ok_or_else(|| BoundaryRefusal::Malformed("mcp.external_signature".into()))?
-                .remove("variant");
+            let request = external_signature_request(arguments)?;
             return (self.owner)(
                 layerx_agentd::tenant::Operation::Sign,
                 &self.credential,
