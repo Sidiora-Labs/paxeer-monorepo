@@ -158898,7 +158898,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.4]
 title = "Prove a replayed 0x101D activity at a reused actor sequence is refused without a second charge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.24.1", "13.21.8", "18.1073.1", "18.1130.1"]
