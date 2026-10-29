@@ -23,7 +23,7 @@ fn label(kind: MetricKind) -> MetricLabel {
         MetricKind::SubmissionOutcome => MetricLabel::Executed,
         MetricKind::UnknownPopulation => MetricLabel::Unknown,
         MetricKind::UnknownAge => MetricLabel::AgeAtLeastMinute,
-        MetricKind::VerificationLevel => MetricLabel::StateProven,
+        MetricKind::Rung => MetricLabel::Receipted,
         MetricKind::BoundaryLatency | MetricKind::DegradedState => MetricLabel::BoundaryReady,
         MetricKind::ErrorClass => MetricLabel::InternalFailure,
         MetricKind::PolicyDecision => MetricLabel::Allowed,
