@@ -108551,7 +108551,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.22.5]
 title = "Forward frozen voice-room and stream templates to the social and livestream upstreams"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["4.22.4", "4.32.3", "4.30.5", "4.30.6"]
@@ -136592,7 +136592,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.6]
 title = "JVM generated schema builds per-leg intents, drops settlement evidence and the binding operations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["8.46.4", "8.46.3"]
@@ -139302,7 +139302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.9.3]
 title = "Answer identity, capability, session and budget operations on chain state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["9.9.2", "9.7.2", "9.0.2", "9.1.8", "18.1131.1"]
