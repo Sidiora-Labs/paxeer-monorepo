@@ -414,7 +414,8 @@ static int sandbox_stage_begin_accepts_lifecycle(void)
     return fixture_destroy(f);
 }
 
-static int sandbox_execute_refusal_propagates(void)
+static int sandbox_execute_admission_refusal(int corrupt_digest,
+                                             lxp_result expected_result)
 {
     static const uint8_t wasm[] = {
         0,97,115,109,1,0,0,0,1,12,2,96,2,127,127,1,127,96,1,127,1,127,
@@ -480,7 +481,8 @@ static int sandbox_execute_refusal_propagates(void)
     LXP_CASE_CHECK(lxp_programs_sandbox_read(&f->ctx, f->lease_id, 0U,
                                              &lease, &lease_length) == LXP_OK);
     LXP_CASE_CHECK(lxp_hash_sha256(lease, lease_length, payload + offset) == LXP_OK);
-    payload[offset] ^= 1U; offset += 32U;
+    if (corrupt_digest) payload[offset] ^= 1U;
+    offset += 32U;
     (void)memcpy(payload + offset, f->escrow->id, 32U); offset += 32U;
     (void)memcpy(payload + offset, f->asset.asset_id, 32U); offset += 32U;
     LXP_CASE_CHECK(lx_account_id_from_string((const uint8_t *)"system:fees",
@@ -504,13 +506,24 @@ static int sandbox_execute_refusal_propagates(void)
     put_u32(payload + call_offset - 4U, (uint32_t)(offset - call_offset));
     staged_count = f->ctx.staged_count;
     effect_count = f->effects.count;
-    LXP_CASE_CHECK(execute_payload(f, payload, offset, LXP_ERR_NON_CANONICAL) == 0);
+    LXP_CASE_CHECK(execute_payload(f, payload, offset, expected_result) == 0);
     LXP_CASE_CHECK(f->ctx.staged_count == staged_count && f->ctx.staged_reserve == 0U);
     LXP_CASE_CHECK(f->effects.count == effect_count);
-    LXP_CASE_CHECK(f->tenant->balance.lo == 900U && f->escrow->balance.lo == 100U);
+    LXP_CASE_CHECK(f->tenant->balance.hi == 0U && f->tenant->balance.lo == 900U);
+    LXP_CASE_CHECK(f->escrow->balance.hi == 0U && f->escrow->balance.lo == 100U);
     LXP_CASE_CHECK(fixture_destroy(f) == 0);
     free(arena_bytes);
     return 0;
+}
+
+static int sandbox_execute_refusal_propagates(void)
+{
+    return sandbox_execute_admission_refusal(1, LXP_ERR_CONTEXT_MISMATCH);
+}
+
+static int sandbox_execute_unpayable_charge_is_named(void)
+{
+    return sandbox_execute_admission_refusal(0, LXP_ERR_FEE_UNPAYABLE);
 }
 
 int main(int argc, char **argv)
@@ -521,7 +534,9 @@ int main(int argc, char **argv)
         { "sandbox_fund_activate_native", sandbox_fund_activate_native },
         { "sandbox_stage_begin_accepts_lifecycle",
           sandbox_stage_begin_accepts_lifecycle },
-        { "sandbox_execute_refusal_propagates", sandbox_execute_refusal_propagates }
+        { "sandbox_execute_refusal_propagates", sandbox_execute_refusal_propagates },
+        { "sandbox_execute_unpayable_charge_is_named",
+          sandbox_execute_unpayable_charge_is_named }
     };
     return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]),
                                argc, argv);
