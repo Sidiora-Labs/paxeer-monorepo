@@ -10825,3 +10825,9 @@ area = "wave planning"
 symptom = "A programme gate task that runs make workspace-build fails on compile breaks owned by much later tasks."
 cause = "The gate task sat at wave 6 while the binaries it builds are ported at waves 10 to 21."
 do = "Give workspace-build gate tasks requires on every compile-port task and a wave after them (decision.1847)."
+
+[gotcha.2204]
+area = "spec authoring"
+symptom = "An interface note that was wrong in one block was wrong in 61 opcode blocks of the same protocol family and in two contract tables."
+cause = "The opcode blocks of a protocol family copy the family note verbatim and the contract tables reproduce interfaces.kvx by hand, so a stale cite multiplies."
+do = "When an interface note changes, replace it in every block of the family and in both contract tables in one edit, asserting the copy count before writing."
