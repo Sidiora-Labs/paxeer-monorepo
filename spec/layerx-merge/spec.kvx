@@ -146627,7 +146627,7 @@ do_12 = "Attempt 3 failed compiling services/human/crates/layerx-explorer-index/
 
 [task.10.98.2]
 title = "Migrate the layerx-human-kms callers of wiring.J44.21 (wave 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.2", "9.1.7", "9.1.8", "18.1119.1"]
@@ -150680,7 +150680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.34.8]
 title = "Retire the LAYERX-PAYER-DID constant of x-websearch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["11.34.7"]
@@ -178714,7 +178714,7 @@ qualification = "UNRUN"
 
 [task.18.964.1]
 title = "Issue #964: Replay the historical chain-125 launchpad market against its own deployment manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1075.1"]
