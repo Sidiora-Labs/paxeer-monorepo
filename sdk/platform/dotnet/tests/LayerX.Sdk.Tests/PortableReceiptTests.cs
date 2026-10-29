@@ -14,6 +14,61 @@ namespace LayerX.Sdk.Tests;
 public sealed class PortableReceiptTests
 {
     [Fact]
+    public void PortableVectorV5Verifies()
+    {
+        using var document = LoadConformance("vector-v5-portable.json");
+        using var positive = LoadConformance("vector-v1-receipted-positive.json");
+        using var committed = LoadConformance("vector-v4-committed.json");
+        var bundles = document.RootElement.GetProperty("bundles").EnumerateArray().ToArray();
+        var sources = new[] { positive.RootElement.GetProperty("cases")[0], committed.RootElement.GetProperty("positive") };
+        Assert.Equal(2, bundles.Length);
+        Assert.Equal(new[] { "receipted", "committed" },
+            bundles.Select(bundle => bundle.GetProperty("verificationLevel").GetString()).ToArray());
+        Assert.Multiple(bundles.Select<JsonElement, Action>((bundle, index) => () =>
+        {
+            var source = sources[index];
+            Assert.Equal("layerx-receipt-proof-v2", bundle.GetProperty("format").GetString());
+            Assert.Equal(source.GetProperty("expected").GetProperty("rung").GetString(),
+                bundle.GetProperty("verificationLevel").GetString());
+            foreach (var field in new[] { "rawTransaction", "signedReceipt", "receiptDigest" })
+                Assert.Equal(source.GetProperty(field).GetString(), bundle.GetProperty(field).GetString());
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse(source.GetProperty("receiptJson").GetRawText()),
+                JsonNode.Parse(bundle.GetProperty("receiptJson").GetRawText())));
+            var keys = Keys(source);
+            var pin = Assert.Single(keys.Pinned);
+            var carriedKey = bundle.GetProperty("receiptKey");
+            Assert.Equal(pin.KeyId, Hex(carriedKey, "keyId"));
+            Assert.Equal(pin.PublicKey, Hex(carriedKey, "publicKey"));
+            Assert.Equal("0x" + pin.FirstHeight.ToString("x"), carriedKey.GetProperty("firstHeight").GetString());
+            Assert.Equal("0x" + pin.LastHeight.ToString("x"), carriedKey.GetProperty("lastHeight").GetString());
+            var receipted = LocalVerifier.VerifySequencerReceipt(bundle.GetProperty("receiptJson"),
+                Hex(bundle, "rawTransaction"), keys);
+            Assert.Equal(Hex(bundle, "receiptDigest"), receipted.ReceiptDigest);
+            var verified = PortableReceipt(bundle, keys);
+            Assert.Equal(bundle.GetProperty("verificationLevel").GetString(), verified.VerificationLevel);
+            Assert.Equal(Hex(bundle, "signedReceipt"), verified.Verification.CanonicalBytes);
+            Assert.Equal(Hex(bundle, "receiptDigest"), verified.Verification.ReceiptDigest);
+            Assert.Equal(Hex(bundle.GetProperty("receiptJson"), "returnData"), verified.Verification.ReturnData);
+            Assert.Equal(Convert.ToUInt32(bundle.GetProperty("receiptJson").GetProperty("status").GetString()![2..], 16),
+                verified.Verification.Status);
+            Assert.Equal(Encoding.UTF8.GetBytes(bundle.GetRawText()), verified.export());
+        }).ToArray());
+
+        static LayerX.Sdk.PortableReceipt PortableReceipt(JsonElement bundle, ReceiptKeys keys)
+        {
+            try
+            {
+                return LayerX.Sdk.PortableReceipt.verify(Encoding.UTF8.GetBytes(bundle.GetRawText()), keys);
+            }
+            catch (PlatformSdkException error)
+            {
+                throw new Xunit.Sdk.XunitException(
+                    $"Published V5 {bundle.GetProperty("verificationLevel").GetString()} bundle failed verification: {error}");
+            }
+        }
+    }
+
+    [Fact]
     public void PortableReceiptRoundTripsAtReceipted()
     {
         using var document = LoadFixture();
