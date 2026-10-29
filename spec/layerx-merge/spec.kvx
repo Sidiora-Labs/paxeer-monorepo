@@ -3993,6 +3993,42 @@ value = "lni::*, client::Client and ClientConfig, head::Head and HeadTracker are
 basis = "The J44.20, J44.21 and J44.25 inventories over the agent-boundary, authority, core, node probe, paxai-worker, registry, indexer, explorer-index, human-kms, human-service, human-test-support and layerx-intents crates"
 affects = ["task.8.98.1", "task.8.98.2", "task.8.98.3", "task.8.98.4", "task.8.98.5", "task.8.98.6", "task.8.98.9", "task.8.98.10", "task.8.98.11", "task.8.98.12", "task.8.98.13", "task.10.98.1", "task.10.98.2", "task.10.98.4", "task.10.98.5", "task.10.98.6", "task.10.98.7", "task.10.98.8", "task.10.98.9", "task.10.98.10", "task.10.98.11", "task.10.98.12", "task.10.98.13", "task.10.98.14"]
 
+[decision.1814]
+title = "Receipt qualification accepts the reviewed deployment history keyed by activation height"
+value = "The launchpad deployment package embeds a history set beside current.json (sdk/launchpad/shared/config/deployment/history/, first entry paxeer125-a35ff7c6f532d2f9 at activation 32226215, identical to 145164d70) with deployment.Approved(activationHeight) as the lookup; receipt qualification (services/launchpad/indexer/internal/receipt/rpc.go:533-539) compares a manifest field by field against the history entry with its activation height and refuses anything outside the set. A qualified anchor sits at or above its manifest's activation height (services/launchpad/indexer/internal/runtimedocs/runtimedocs.go:190) and below the next entry's, so one generation never qualifies another's blocks. Recording a market after 37220320 under v6.12.0 needs a live node and is a release concern."
+basis = "18.964.1 attempts 1 to 4: Current() moved to the v6.12.0 generation at 16ee6fd09 while the recorded chain-125 fixture holds the erc1967 generation whose runtime hashes validateCode compares; issue #1075 asked for history-by-manifest or current-only"
+affects = ["task.18.1075.1", "task.18.964.1", "req.181075", "req.18964"]
+
+[decision.1815]
+title = "The sponsored provisioning bind is keyed by the account being bound"
+value = "The gateway quotes and submits the provisioning bind with batch.account set to the provisioned address and no DID; the gas station charges BudgetKey::account(address) under its own budget resolution (station.rs:664-693) and re-keys it to the DID once the bind lands, so station.rs is untouched. The provisioning row records the station quote nonce, batch nonce and transaction hash (migration 020). The task gate drives a loopback station endpoint honouring the quote and submit contract (service.rs:380-395, :1150-1176) with WALLET_GAS_STATION_URL unset; a real station is a release gate under decision.1806."
+basis = "12.6.3 attempts 1 and 2: the station never receives a DID and submit requires budget_key(account) == quote.did (station.rs:911); the gateway attestor client lacks the eip7702_authorization sign kind the station Authorization needs"
+affects = ["task.12.6.3", "task.12.9.2"]
+
+[decision.1816]
+title = "Receipt evidence carries the signed receipt, its key entry and the inclusion height"
+value = "ReceiptMaterial and VerifiedLegEvidence (services/human/crates/layerx-human-service/src/journeys/engine.rs:229-249) carry signed_receipt, the signing ReceiptKeys entry (key id, ed25519 public key, first and last height) and the inclusion height from the rung evidence of 9.4.1; the layerx-receipt answer of production_reads.rs encodes PortableReceiptV2::export(signed_receipt, &key_entry, inclusion_height) (services/interop/crates/layerx-portable/src/receipt.rs:164), receipted at Rung::Receipted and committed at Rung::Committed, and layerx-human-service depends on layerx-portable by workspace path."
+basis = "10.92.1 attempts 1 and 2: the evidence held only canonical bytes, authorised batch, digest, tx hash, height and rung, which cannot build PortableReceiptV2; 10.2.4 owns engine.rs, agent_runtime.rs and production_reads.rs"
+affects = ["task.10.92.1", "task.10.2.4", "task.9.4.1"]
+
+[decision.1817]
+title = "The launchpad tracked schema is the per-service embedded goose migration set"
+value = "Every launchpad service's schema lives in services/launchpad/<service>/migrations/NNNNN_*.sql embedded through go:embed and applied by the service's migrate package; the untracked launchpad/spec, handoffs/L35/schema.sql and integration/migrations are not a source. The account_* tables and api_stream get tracked DDL (4.23.6); Postgres fixtures apply the embedded set under USER_TEST_DATABASE_URL and API_TEST_DATABASE_URL, and every TestPostgres* test is a database release gate under decision.1806 while task gates are network-free (route registration, owner action coverage, catalog lookup, embedded set checks)."
+basis = "4.23.3, 4.23.4, 4.24.3 and 4.24.7 stopped on fixtures reading handoffs/L35/schema.sql and integration/migrations, which have no commit in any ref; 21 Go files still reference them"
+affects = ["task.4.23.6", "task.4.23.3", "task.4.23.4", "task.4.24.3", "task.4.24.7", "req.4252"]
+
+[decision.1818]
+title = "The frozen notification contract is canonical for notificationId and wallet"
+value = "notificationId is a UUIDv7-shaped stored generated uuid (created_at millisecond epoch in the first 48 bits, version nibble 7, variant bits 10, remaining bits from md5(id)) and wallet is the gateway's X-Actor-Wallet header, 0x plus 40 hex, required; a request without it answers 400 INVALID_REQUEST. The md5(id)::uuid shape of 4.27.2 is replaced in schema.sql and store.go by 4.27.4."
+basis = "4.27.4 attempt 1: the frozen $defs/Notification requires both fields and AdaptV2Notifications copies a wallet nothing sets"
+affects = ["task.4.27.4", "task.4.27.2"]
+
+[decision.1819]
+title = "FlatKV config validation happens at store construction, not at parse"
+value = "ParseFlatKVConfig (storage/config/flatkv_parse.go) returns the parsed config with only per-key cast errors; the full Validate runs at flatkv/store.go:230 after composite/store.go:133 sets DataDir. The 5.43.1 tests assert parsed and default values and the cast error instead of 'data dir is required'."
+basis = "5.12.2 attempt 1: Validate refuses DataDir == '' and no toml key sets it, so every ParseFlatKVConfig call errors and the planned panic would stop every node at init"
+affects = ["task.5.12.2", "task.5.43.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -13123,6 +13159,7 @@ ac_2 = "A malformed POST /v2/auth/challenges answers a body that the shared Vali
 title = "Add frozen v2 watchlist and profile-patch envelope adapters to the user account package"
 ac_1 = "AdaptV2Watchlist (services/launchpad/user/internal/account/v2_wire.go (planned)) returns bytes that the shared ValidateJSON (sdk/launchpad/shared/interfaces/v2/validators.gen.go:29) accepts as WatchlistGetResponse (sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json:26927) and that carry the input entries in order."
 ac_2 = "AdaptV2ProfilePatch (services/launchpad/user/internal/account/v2_wire.go (planned)) returns bytes accepted as ProfilePatchResponse (sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json:19713)."
+ac_3 = "The account_* tables of services/launchpad/user/internal/account/store.go and the api_stream table have tracked DDL as embedded goose migrations (services/launchpad/user/migrations/00002_account_store.sql, services/launchpad/api/migrations/00001_api_stream.sql) and the Postgres fixtures of account_test.go and production_integration_test.go apply them under USER_TEST_DATABASE_URL and API_TEST_DATABASE_URL."
 
 [req.4253]
 title = "Add frozen v2 owner envelope adapters for preferences, devices, exports and deletion"
@@ -55674,6 +55711,14 @@ req = "4252.2"
 scenario = "Given a stored profile with display name and bio, when AdaptV2ProfilePatch builds the body, then ValidateJSON(\"ProfilePatchResponse\", body) returns nil and the revision equals the stored revision"
 contract = "contracts/services.md#launchpad-user"
 test = "services/launchpad/user/internal/account/v2_wire_test.go::TestAdaptV2ProfilePatchMatchesFrozenSchema (planned)"
+qualification = "UNRUN"
+
+[acceptance.4.252.3]
+feature = "4"
+req = "4252.3"
+scenario = "Given the user and api services, when their embedded migration sets are read, then 00002_account_store.sql creates every account_* table store.go queries and 00001_api_stream.sql creates api_stream, without a database"
+contract = "contracts/services.md#launchpad-user"
+test = "services/launchpad/user/migrations/migrations_test.go::TestEmbeddedMigrationsIncludeAccountStore (planned)"
 qualification = "UNRUN"
 
 [acceptance.4.253.1]
@@ -108577,7 +108622,7 @@ title = "Serve the frozen v2 watchlist and profile-patch routes from the user se
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["4.23.1"]
+requires = ["4.23.1", "4.23.6"]
 reqs = ["4254.1", "4254.2"]
 capabilities = ["4.23.3"]
 interfaces = ["interface.4.http-user-get-v2-me-watchlist-j29", "interface.4.http-user-put-v2-me-watchlist-pool-address-j29", "interface.4.http-user-delete-v2-me-watchlist-pool-address-j29", "interface.4.http-user-patch-v2-profiles-wallet-j29"]
@@ -108585,12 +108630,12 @@ do_1 = "HTTP.Handler (services/launchpad/user/internal/account/http.go:37) regis
 do_2 = "Create services/launchpad/user/internal/account/v2_watchlist_http.go (planned) with watchV2Get, watchV2Put, watchV2Delete and profileV2Patch: each reuses watchSnapshot (services/launchpad/user/internal/account/http.go:243) or the v1 write path of watchPut (services/launchpad/user/internal/account/http.go:355) and profilePatch (services/launchpad/user/internal/account/http.go:159) and writes the bytes of AdaptV2Watchlist, AdaptV2WatchPut or AdaptV2ProfilePatch; DELETE answers 204 with no body."
 do_3 = "Register \"GET /v2/me/watchlist\", \"PUT /v2/me/watchlist/{poolAddress}\", \"DELETE /v2/me/watchlist/{poolAddress}\" and \"PATCH /v2/profiles/{wallet}\" in HTTP.Handler after the v1 watchlist block (services/launchpad/user/internal/account/http.go:45)."
 do_4 = "Create services/launchpad/user/internal/account/v2_watchlist_http_test.go (planned) with TestPostgresHTTPV2Watchlist and TestPostgresHTTPV2ProfilePatch using the httpRequest helper (services/launchpad/user/internal/account/http_test.go:19) against the same real PostgreSQL store TestPostgresHTTPFrozenWatchlist uses (services/launchpad/user/internal/account/http_test.go:120)."
-symbols = ["watchV2Get", "watchV2Put", "watchV2Delete", "profileV2Patch", "TestPostgresHTTPV2Watchlist", "TestPostgresHTTPV2ProfilePatch"]
+symbols = ["watchV2Get", "watchV2Put", "watchV2Delete", "profileV2Patch", "TestPostgresHTTPV2Watchlist", "TestPostgresHTTPV2ProfilePatch", "TestV2WatchlistRoutesRegistered"]
 touches = ["services/launchpad/user/internal/account/http.go", "services/launchpad/user/internal/account/v2_watchlist_http.go", "services/launchpad/user/internal/account/v2_watchlist_http_test.go"]
-tests = ["services/launchpad/user/internal/account/v2_watchlist_http_test.go::TestPostgresHTTPV2Watchlist", "services/launchpad/user/internal/account/v2_watchlist_http_test.go::TestPostgresHTTPV2ProfilePatch"]
+tests = ["services/launchpad/user/internal/account/v2_watchlist_http_test.go::TestPostgresHTTPV2Watchlist", "services/launchpad/user/internal/account/v2_watchlist_http_test.go::TestPostgresHTTPV2ProfilePatch", "services/launchpad/user/internal/account/v2_watchlist_http_test.go::TestV2WatchlistRoutesRegistered"]
 planned_paths = ["services/launchpad/user/internal/account/v2_watchlist_http.go", "services/launchpad/user/internal/account/v2_watchlist_http_test.go"]
 build_cmd = "cd services/launchpad/user && go build ./..."
-verify_cmd = "cd services/launchpad/user && go test -count=1 ./internal/account/ -run '^(TestPostgresHTTPV2Watchlist|TestPostgresHTTPV2ProfilePatch)$'"
+verify_cmd = "cd services/launchpad/user && go test -count=1 ./internal/account/ -run '^(TestV2WatchlistRoutesRegistered)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -108602,13 +108647,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "The task gate is TestV2WatchlistRoutesRegistered (services/launchpad/user/internal/account/v2_watchlist_http_test.go, planned): for each of the four v2 method and path pairs of do_1 to do_3, ServeMux.Handler(r) returns the registered pattern without a store call; TestPostgresHTTPV2Watchlist and TestPostgresHTTPV2ProfilePatch stay in the file as the database release gate under USER_TEST_DATABASE_URL over the embedded migrations of 4.23.6 (decisions 1806 and 1817)."
 
 [task.4.23.4]
 title = "Serve the frozen v2 preferences, devices, exports and deletion routes from the user service"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["4.23.2"]
+requires = ["4.23.2", "4.23.6"]
 reqs = ["4255.1", "4255.2", "4255.3"]
 capabilities = ["4.23.4"]
 interfaces = ["interface.4.http-user-get-v2-me-preferences-j29", "interface.4.http-user-patch-v2-me-preferences-j29", "interface.4.http-user-put-v2-me-devices-device-id-j29", "interface.4.http-user-delete-v2-me-devices-device-id-j29", "interface.4.http-user-post-v2-me-exports-j29", "interface.4.http-user-get-v2-me-exports-job-id-j29", "interface.4.http-user-post-v2-me-deletion-requests-j29", "interface.4.http-user-get-v2-me-deletion-requests-job-id-j29", "interface.4.go-user-owner-action-j29"]
@@ -108622,7 +108668,7 @@ touches = ["services/launchpad/user/internal/account/preferences_http.go", "serv
 tests = ["services/launchpad/user/internal/account/v2_owner_http_test.go::TestPostgresHTTPV2OwnerPreferencesAndDevices", "services/launchpad/user/internal/account/v2_owner_http_test.go::TestPostgresHTTPV2OwnerExportsAndDeletion", "services/launchpad/user/internal/account/v2_owner_http_test.go::TestOwnerActionCoversV2Paths"]
 planned_paths = ["services/launchpad/user/internal/account/v2_owner_http.go", "services/launchpad/user/internal/account/v2_owner_http_test.go"]
 build_cmd = "cd services/launchpad/user && go build ./..."
-verify_cmd = "cd services/launchpad/user && go test -count=1 ./internal/account/ -run '^(TestPostgresHTTPV2OwnerPreferencesAndDevices|TestPostgresHTTPV2OwnerExportsAndDeletion|TestOwnerActionCoversV2Paths)$'"
+verify_cmd = "cd services/launchpad/user && go test -count=1 ./internal/account/ -run '^(TestOwnerActionCoversV2Paths)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -108634,6 +108680,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "The task gate is TestOwnerActionCoversV2Paths alone; TestPostgresHTTPV2OwnerPreferencesAndDevices and TestPostgresHTTPV2OwnerExportsAndDeletion stay in the file as the database release gate under USER_TEST_DATABASE_URL over the embedded migrations of 4.23.6 (decisions 1806 and 1817)."
 
 [task.4.23.5]
 title = "Pin the user account handler to the frozen user operations of the catalog"
@@ -108657,6 +108704,37 @@ gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
 rollback = "Delete the golden test file; no production path changes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.4.23.6]
+title = "Track the launchpad account and api stream schema as embedded goose migrations"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["4.23.1", "4.23.2", "4.24.1"]
+reqs = ["4252.3"]
+capabilities = []
+interfaces = []
+do_1 = "The schema the user account store queries (account_watch, account_state, account_job, account_consent and the other account_* tables of services/launchpad/user/internal/account/store.go:16) and the api_stream table have no tracked DDL: launchpad/spec, handoffs/L35/schema.sql and integration/migrations were never committed (384f41641 removed the last of launchpad/spec), yet account_test.go:30-32 and :59 and 21 other files still read them. The canonical tracked schema is the per-service embedded goose directory services/launchpad/<service>/migrations/NNNNN_*.sql (services/launchpad/user/migrations/migrations.go:10, applied by services/launchpad/user/internal/migrate/migrate.go:33; the same pattern in indexer, trading-charts, metadata, livestream, pnl-tracker, social and stats-workers) (decision.1817)."
+do_2 = "Add services/launchpad/user/migrations/00002_account_store.sql (planned) creating every account_* table and index store.go queries, and services/launchpad/api/migrations/00001_api_stream.sql with migrations.go (planned) embedding it the way services/launchpad/user/migrations/migrations.go does."
+do_3 = "Repoint fixture() (services/launchpad/user/internal/account/account_test.go:59) and productionReadsFixture (services/launchpad/api/internal/rest/production_integration_test.go:37) at the embedded migrations applied into the per-test schema, and replace the L35_TEST_POSTGRES guard (account_test.go:30-32) with USER_TEST_DATABASE_URL and API_TEST_DATABASE_URL, the *_TEST_DATABASE_URL family of services/launchpad/notifications/phase2_test.go:18; the TestPostgres* tests stay the launchpad database release gate under decision.1806."
+do_4 = "Add TestEmbeddedMigrationsIncludeAccountStore (services/launchpad/user/migrations/migrations_test.go, planned) asserting the embedded set contains 00002_account_store.sql and that it parses as goose Up and Down sections creating the account_* tables, and TestEmbeddedMigrationsIncludeAPIStream (services/launchpad/api/migrations/migrations_test.go, planned) likewise for api_stream; neither opens a database."
+symbols = ["Migrations", "TestEmbeddedMigrationsIncludeAccountStore", "TestEmbeddedMigrationsIncludeAPIStream"]
+touches = ["services/launchpad/user/migrations/00002_account_store.sql", "services/launchpad/user/migrations/migrations_test.go", "services/launchpad/api/migrations/00001_api_stream.sql", "services/launchpad/api/migrations/migrations.go", "services/launchpad/api/migrations/migrations_test.go", "services/launchpad/user/internal/account/account_test.go", "services/launchpad/api/internal/rest/production_integration_test.go"]
+tests = ["services/launchpad/user/migrations/migrations_test.go::TestEmbeddedMigrationsIncludeAccountStore", "services/launchpad/api/migrations/migrations_test.go::TestEmbeddedMigrationsIncludeAPIStream"]
+planned_paths = ["services/launchpad/user/migrations/00002_account_store.sql", "services/launchpad/user/migrations/migrations_test.go", "services/launchpad/api/migrations/00001_api_stream.sql", "services/launchpad/api/migrations/migrations.go", "services/launchpad/api/migrations/migrations_test.go"]
+build_cmd = "cd services/launchpad/user && go build ./... && cd ../api && go build ./..."
+verify_cmd = "cd services/launchpad/user && go test -count=1 ./migrations/ -run '^TestEmbeddedMigrationsIncludeAccountStore$' && cd ../api && go test -count=1 ./migrations/ -run '^TestEmbeddedMigrationsIncludeAPIStream$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Delete the planned migration files and tests and revert the two fixture edits; the tests again look for the untracked L35 schema."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -108731,19 +108809,19 @@ title = "Repoint the frozen response schema test to the catalog and the generate
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["4.24.1"]
+requires = ["4.24.1", "4.23.6"]
 reqs = ["4259.1"]
 capabilities = ["4.24.3"]
 interfaces = []
 do_1 = "frozenV2Operation (services/launchpad/api/internal/rest/frozen_response_schema_test.go:23) reads the absent v2 openapi.json and schema-definitions.json (services/launchpad/api/internal/rest/frozen_response_schema_test.go:26), so TestFrozenV2ResponseSchemasMatchHandlerBytes (services/launchpad/api/internal/rest/frozen_response_schema_test.go:83) fails before any handler runs."
 do_2 = "Rewrite frozenV2Operation to look the operation up in internaltest.FrozenV2Operations() (services/launchpad/api/internal/internaltest/frozen_catalog.go (planned)) by path and operation id and return its Response name, which the shared ValidateJSON (sdk/launchpad/shared/interfaces/v2/validators.gen.go:29) already embeds through the schema document of sdk/launchpad/shared/interfaces/v2/validators.gen.go:20."
 do_3 = "Keep the authorization check by reading the catalog's authenticated field instead of x-authorization, and keep every handler-byte assertion of the test unchanged. The current field is read at services/launchpad/api/internal/rest/frozen_response_schema_test.go:44."
-symbols = ["frozenV2Operation", "TestFrozenV2ResponseSchemasMatchHandlerBytes"]
+symbols = ["frozenV2Operation", "TestFrozenV2ResponseSchemasMatchHandlerBytes", "TestFrozenV2OperationLooksUpCatalog"]
 touches = ["services/launchpad/api/internal/rest/frozen_response_schema_test.go"]
-tests = ["services/launchpad/api/internal/rest/frozen_response_schema_test.go::TestFrozenV2ResponseSchemasMatchHandlerBytes"]
+tests = ["services/launchpad/api/internal/rest/frozen_response_schema_test.go::TestFrozenV2ResponseSchemasMatchHandlerBytes", "services/launchpad/api/internal/rest/frozen_response_schema_test.go::TestFrozenV2OperationLooksUpCatalog"]
 planned_paths = []
 build_cmd = "cd services/launchpad/api && go build ./..."
-verify_cmd = "cd services/launchpad/api && go test -count=1 ./internal/rest/ -run '^(TestFrozenV2ResponseSchemasMatchHandlerBytes)$'"
+verify_cmd = "cd services/launchpad/api && go test -count=1 ./internal/rest/ -run '^(TestFrozenV2OperationLooksUpCatalog)$'"
 gate_kind = "existing"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -108755,6 +108833,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Split the test: TestFrozenV2OperationLooksUpCatalog (planned, same file) asserts frozenV2Operation resolves every mounted v2 path and operation id in internaltest.FrozenV2Operations() to its Response name and authenticated flag without a database, and is the task gate; TestFrozenV2ResponseSchemasMatchHandlerBytes keeps the handler-byte cases over the embedded migrations of 4.23.6 as the release gate under API_TEST_DATABASE_URL (decisions 1806 and 1817)."
 
 [task.4.24.4]
 title = "Declare the frozen api operations that production answers as not configured"
@@ -108853,7 +108932,7 @@ title = "Pin the api development chain reads to the launchpad precompile ABIs"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["4.24.3", "4.0.2"]
+requires = ["4.24.3", "4.0.2", "4.23.6"]
 reqs = ["4263.1", "4263.2"]
 capabilities = ["4.24.7"]
 interfaces = []
@@ -108877,6 +108956,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The productionReadsFixture it shares (services/launchpad/api/internal/rest/production_integration_test.go:37) applies the embedded migrations of 4.23.6 under API_TEST_DATABASE_URL; nothing else changes (decision.1817)."
 
 [task.4.24.8]
 title = "Mount the frozen alert routes and the wallet resolver in the api discovery registration"
@@ -109202,7 +109282,7 @@ do_3 = "Register PUT /v2/me/notifications/{notificationId}/read: parse the UUID,
 do_4 = "Mount \"/v2/me/notifications\" and \"/v2/me/notifications/\" to r.Notifications.Handler() and \"/v2/squads\", \"/v2/squads/\", \"/v2/me/alerts\" and \"/v2/me/alerts/\" to the discovery handler branch in HTTPRuntime.Handler (services/launchpad/notifications/runtime.go:257)."
 do_5 = "Create services/launchpad/notifications/v2_http_test.go (planned) with TestPostgresV2NotificationsListAndRead and TestV2NotificationsRejectsInvalidQuery."
 symbols = ["Handler", "HTTPRuntime.Handler", "TestPostgresV2NotificationsListAndRead", "TestV2NotificationsRejectsInvalidQuery"]
-touches = ["services/launchpad/notifications/http.go", "services/launchpad/notifications/runtime.go", "services/launchpad/notifications/v2_http_test.go"]
+touches = ["services/launchpad/notifications/http.go", "services/launchpad/notifications/runtime.go", "services/launchpad/notifications/v2_http_test.go", "services/launchpad/notifications/schema.sql", "services/launchpad/notifications/store.go"]
 tests = ["services/launchpad/notifications/v2_http_test.go::TestPostgresV2NotificationsListAndRead", "services/launchpad/notifications/v2_http_test.go::TestV2NotificationsRejectsInvalidQuery"]
 planned_paths = ["services/launchpad/notifications/v2_http_test.go"]
 build_cmd = "cd services/launchpad/notifications && go build ./..."
@@ -109218,6 +109298,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "The frozen $defs/Notification (sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json) requires notificationId as a UUIDv7 (version nibble 7, variant 8 to b) and wallet as 0x plus 40 hex, both required; 4.27.2 shipped v2_id GENERATED ALWAYS AS (md5(id)::uuid) (services/launchpad/notifications/schema.sql:8) and nothing sets Wallet in AdaptV2Notifications (v2_wire.go:38-56). Decision.1818: redefine v2_id as a stored generated uuid whose first 48 bits are the created_at millisecond epoch, version nibble 7, variant bits 10 and the remaining bits from md5(id) (the unique index notification_v2_id kept, SetReadV2 unchanged, ListPage still selecting v2_id::text at store.go:340), and set Wallet from the gateway's X-Actor-Wallet header (injected at services/launchpad/gateway/internal/proxy/rest.go:25), answering 400 INVALID_REQUEST when it is absent or not 0x plus 40 hex; TestPostgresV2NotificationsListAndRead asserts every notificationId matches the frozen pattern and wallet echoes the header."
 
 [task.4.27.5]
 title = "Pin the notifications handler to the frozen notification catalog"
@@ -113750,7 +113831,7 @@ do_2 = "Panic with the ParseFlatKVConfig error wrapped with the key section name
 do_3 = "Leave the memiavl reads of parseSCConfigs at node/paxdb.go:101-120 unchanged; ParseFlatKVConfig starts from the flatkv defaults so an absent key keeps its default."
 do_4 = "Write node/paxdb_flatkv_test.go (planned) in package app with the three tests below."
 symbols = ["parseSCConfigs", "ParseFlatKVConfig", "TestParseSCConfigsReadsFlatKVKeys", "TestParseSCConfigsKeepsFlatKVDefaults", "TestParseSCConfigsPanicsOnBadFlatKVValue"]
-touches = ["node/paxdb.go", "node/paxdb_flatkv_test.go"]
+touches = ["node/paxdb.go", "node/paxdb_flatkv_test.go", "storage/config/flatkv_parse.go", "storage/config/flatkv_parse_test.go"]
 tests = ["node/paxdb_flatkv_test.go::TestParseSCConfigsReadsFlatKVKeys", "node/paxdb_flatkv_test.go::TestParseSCConfigsKeepsFlatKVDefaults", "node/paxdb_flatkv_test.go::TestParseSCConfigsPanicsOnBadFlatKVValue"]
 planned_paths = ["node/paxdb_flatkv_test.go"]
 build_cmd = "go build ./node/..."
@@ -113766,6 +113847,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "ParseFlatKVConfig ends with return cfg, cfg.Validate() (storage/config/flatkv_parse.go:52) and Validate refuses DataDir == '' (flatkv/config/config.go:154) while no toml key sets a directory, so every call errors and do_2's panic would stop every node (tests/testutil/keeper/evm.go:25 builds the app at init); 5.43.1's tests assert that error (storage/config/flatkv_parse_test.go:33, :41, :71). Decision.1819: ParseFlatKVConfig returns the parsed config without calling Validate, keeping only the per-key cast errors; the full Validate stays at flatkv/store.go:230 after composite/store.go:133 sets DataDir. The three flatkv_parse_test.go tests assert NoError and the parsed or default values and the invalid-values test asserts the '<key>: ' cast error; do_1 to do_3 hold unchanged."
 
 [task.5.12.3]
 title = "Round-trip the state-commit keys from the app.toml template"
@@ -133604,7 +133686,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Verify buyer payments and captured settlements as portable receipts"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.23.1", "8.22.1", "8.22.2", "10.92.1", "8.22.7"]
 reqs = ["8250.1", "8250.2", "8250.3"]
 capabilities = ["8.23.2"]
@@ -133641,7 +133723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Build buyer grant headers from signed 0x101A draw transactions"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.23.2", "8.22.5", "8.22.7"]
 reqs = ["8251.1", "8251.2", "8251.3"]
 capabilities = ["8.23.3"]
@@ -133875,7 +133957,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Produce conformance receipts as signed sequencer receipts over EIP-1559 transactions"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.22.4", "8.23.2", "8.33.1", "8.22.7"]
 reqs = ["8258.1", "8258.2", "8258.3"]
 capabilities = ["8.26.1"]
@@ -133909,7 +133991,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the in-process conformance scenarios on rungs and transaction hashes"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.26.1", "8.24.3", "8.25.2", "8.23.3", "8.22.7"]
 reqs = ["8259.1", "8259.2"]
 capabilities = ["8.26.2"]
@@ -133944,7 +134026,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Drive service conformance and connected acceptance with receipt keys and EVM preparations"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.26.1", "8.33.2", "8.34.1", "8.34.3", "8.22.7"]
 reqs = ["8260.1", "8260.2"]
 capabilities = ["8.26.3"]
@@ -133978,7 +134060,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Replace the kernel receive and draw payment fixtures with a 0x101A draw fixture"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.22.5", "8.21.1", "8.23.2", "8.22.7"]
 reqs = ["8261.1", "8261.2"]
 capabilities = ["8.26.4"]
@@ -134009,7 +134091,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Replace the kernel batch and checkpoint fixtures with a committed rung fixture"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.22.2", "8.26.1", "8.22.7"]
 reqs = ["8262.1", "8262.2"]
 capabilities = ["8.26.5"]
@@ -134076,7 +134158,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Move the conformance service account offers to eip155 and the receipted rung"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.26.1", "8.26.3", "8.23.1"]
 reqs = ["8294.1", "8294.2"]
 capabilities = ["8.26.7"]
@@ -134888,7 +134970,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Pay from the buyer agent on eip155 and report the receipt rung"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.33.1", "8.23.2"]
 reqs = ["8287.1", "8287.2"]
 capabilities = ["8.33.4"]
@@ -134955,7 +135037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Drive the reference application runner with receipt keys instead of a receipt authority"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.33.1", "8.33.4"]
 reqs = ["8290.1"]
 capabilities = ["8.34.2"]
@@ -135020,7 +135102,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Qualify reference application outcomes by rung and transaction hash"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 15
 requires = ["8.34.2"]
 reqs = ["8291.1"]
 capabilities = ["8.34.4"]
@@ -137162,7 +137244,7 @@ do_2 = "Delete the per-architecture replay check at tools/platform/release/src/m
 do_3 = "Delete the replay-matrix expectations at tools/platform/release/tests/registries.rs:147-155, :208 and :702-720, including replay_on_a_single_architecture_is_refused at :712."
 do_4 = "Add release_pipeline_has_no_replay_gate to tools/platform/release/tests/registries.rs:1."
 symbols = ["ReleaseGate"]
-touches = ["tools/platform/release/src/main.rs", "tools/platform/release/tests/registries.rs"]
+touches = ["tools/platform/release/src/main.rs", "tools/platform/release/tests/registries.rs", ".github/workflows/platform.yml"]
 tests = ["tools/platform/release/tests/registries.rs::release_pipeline_has_no_replay_gate"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-release"
@@ -137178,6 +137260,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "committed_pipeline() (tools/platform/release/tests/registries.rs:28) panics because the release validator (tools/platform/release/src/main.rs:1026-1032) admits only the TAG_CONDITION startsWith(github.ref, 'refs/tags/sdk-v') (:53) on verification steps and the release-verification job step 'Retain the actual published-package integration line counts' (.github/workflows/platform.yml:1551-1556) carries if: always(). The validator is not widened: delete the if: always() line at platform.yml:1552 so the retention upload runs only after the preceding gate steps succeed; release_pipeline_has_no_replay_gate asserts committed_pipeline() accepts the workflow and lists no replay gate. 16.5.6 edits platform.yml:501-538 after this task by its requires."
 
 [task.8.93.1]
 title = "Drop custody and anchor from the proxied explorer capabilities answer"
@@ -143192,7 +143275,7 @@ title = "Carry rungs, receipts and nonces in journey legs and receipt material"
 status = "pending"
 mode = "BUILD"
 wave = 14
-requires = ["10.8.1", "10.8.2", "10.8.3", "10.13.5", "10.6.1", "10.2.7", "9.1.8", "18.1119.1"]
+requires = ["10.8.1", "10.8.2", "10.8.3", "10.13.5", "10.6.1", "10.2.7", "9.1.8", "18.1119.1", "9.4.1"]
 reqs = ["10054.2"]
 capabilities = ["10.2.4"]
 interfaces = ["interface.10.rs-human-service-journeys-engine-journey-leg", "interface.10.rs-human-service-journeys-engine-journey-leg-new", "interface.10.rs-human-service-journeys-engine-journey-kind", "interface.10.rs-human-service-journeys-engine-agent-preparation", "interface.10.rs-human-service-journeys-engine-journey-engine-verified-leg-evidence", "interface.10.rs-human-service-onboarding-agent-preparation-context", "interface.10.rs-human-service-onboarding-agent-preparation-context-new", "interface.10.rs-human-service-onboarding-agent-stage-outcome"]
@@ -143218,6 +143301,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "ReceiptMaterial (services/human/crates/layerx-human-service/src/journeys/engine.rs:229-237, decoded by decode_receipt at src/server/agent_runtime.rs:4256-4285) and VerifiedLegEvidence (engine.rs:243-249) also carry signed_receipt: Vec<u8>, the signing ReceiptKeys entry (key id, ed25519 public key, first and last height) and the inclusion height, taken from the rung evidence 9.4.1 reports; production_reads.rs:378-392 keeps answering from VerifiedLegEvidence and 10.92.1 consumes the new fields (decision.1816)."
 
 [task.10.2.5]
 title = "Carry rungs in activity entry detail and finality references"
@@ -146250,8 +146334,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Serve layerx-receipt evidence as receipt-proof v2 from evidence.get"
 status = "pending"
 mode = "BUILD"
-wave = 6
-requires = ["10.0.1", "8.0.1", "9.1.8", "18.1119.1"]
+wave = 15
+requires = ["10.0.1", "8.0.1", "9.1.8", "18.1119.1", "10.2.4"]
 reqs = ["10961.1", "10961.2"]
 capabilities = []
 interfaces = []
@@ -146260,7 +146344,7 @@ do_1 = "Replace the kernel receipt answer at services/human/crates/layerx-human-
 do_2 = "Derive verification from the receipt rung: receipted when only the sequencer receipt verifies, committed when the covering block commit also verifies; any other evidence class keeps its answer at services/human/crates/layerx-human-service/src/server/production_reads.rs:385-388."
 do_3 = "Write services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs (planned) with the two tests below."
 symbols = ["evidence_get_returns_receipt_proof_v2", "evidence_get_marks_committed_receipts"]
-touches = ["services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs", "services/human/Cargo.toml", "services/human/Cargo.lock", "services/human/crates/layerx-human-service/Cargo.toml"]
 tests = ["services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs::evidence_get_returns_receipt_proof_v2", "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs::evidence_get_marks_committed_receipts"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -146276,6 +146360,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The receipt bytes are PortableReceiptV2::export(signed_receipt, &key_entry, inclusion_height) (services/interop/crates/layerx-portable/src/receipt.rs:164) encoded to JSON, over the signed receipt bytes, the signing ReceiptKeys entry and the inclusion height that 10.2.4 adds to ReceiptMaterial and VerifiedLegEvidence (decision.1816); add layerx-portable as a workspace path dependency (services/human/Cargo.toml, services/human/crates/layerx-human-service/Cargo.toml and services/human/Cargo.lock) the way layerx-mirror is declared at services/human/Cargo.toml:34. The two tests build the evidence through the public journeys API and assert content_type, verification (receipted at Rung::Receipted, committed at Rung::Committed) and that PortableReceiptV2::from_json parses bytes_base64."
 
 [task.10.95.1]
 title = "Rebuild the observed journey balances on the denom and amount AssetBalance"
@@ -151710,19 +151795,19 @@ reqs = ["12026.1", "12026.2"]
 capabilities = ["12.6.3"]
 interfaces = ["interface.12.http-gw-post-v1-wallet-provision"]
 do_1 = "Replace sponsor: LocalAccount | null in ProvisionDeps (services/wallet/gateway/src/provision/state.ts:58) with station: GasStationClient | null (planned in services/wallet/gateway/src/sponsor/station.ts), built by provisionDepsFromEnv (services/wallet/gateway/src/routes/wallet.ts:52)."
-do_2 = "Replace the top-up branch that answers sponsor_unconfigured (services/wallet/gateway/src/provision/state.ts:519-542) with a station-sponsored bindLayerX submission (services/wallet/gateway/src/provision/bind.ts:325) charged to the DID being bound, persisting the station quote nonce and transaction hash on the account_provisioning row."
+do_2 = "Replace the top-up branch that answers sponsor_unconfigured (services/wallet/gateway/src/provision/state.ts:519-542) with a station-sponsored bindLayerX submission (services/wallet/gateway/src/provision/bind.ts:325) keyed by the account being bound: the gateway quotes and submits with batch.account set to the provisioned address and no DID, the station charges BudgetKey::account(address) under its own budget resolution (gas-station station.rs:664-693) and re-keys it to the DID once the bind lands; station.rs is untouched (decision.1815). Persist the station quote nonce, batch nonce and transaction hash on the account_provisioning row."
 do_3 = "Keep the bind message and the ed25519 DID signature of signBindWithAttestors (services/wallet/gateway/src/provision/bind.ts:243)."
 do_4 = "Add provisionBindIsStationSponsored and provisionRefusesWithoutStation to services/wallet/gateway/test/provisioning-station.test.ts (planned)."
 symbols = ["ProvisionDeps", "provisionDepsFromEnv", "GasStationClient", "provisionBindIsStationSponsored", "provisionRefusesWithoutStation"]
-touches = ["services/wallet/gateway/src/provision/state.ts", "services/wallet/gateway/src/routes/wallet.ts", "services/wallet/gateway/test/provisioning-station.test.ts"]
+touches = ["services/wallet/gateway/src/provision/state.ts", "services/wallet/gateway/src/routes/wallet.ts", "services/wallet/gateway/test/provisioning-station.test.ts", "services/wallet/gateway/migrations/020_provisioning_station.sql", "services/wallet/gateway/src/attestor/client.ts", "services/wallet/gateway/src/provision/bind.ts"]
 tests = ["services/wallet/gateway/test/provisioning-station.test.ts::provisionBindIsStationSponsored", "services/wallet/gateway/test/provisioning-station.test.ts::provisionRefusesWithoutStation"]
-planned_paths = ["services/wallet/gateway/test/provisioning-station.test.ts"]
+planned_paths = ["services/wallet/gateway/test/provisioning-station.test.ts", "services/wallet/gateway/migrations/020_provisioning_station.sql"]
 build_cmd = "pnpm --dir services/wallet/gateway exec tsc -p tsconfig.json --noEmit"
 verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/provisioning-station.test.ts -t '(?:^|\\s)(provisionBindIsStationSponsored|provisionRefusesWithoutStation)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-wallet"
-rollback = "Revert the touched gateway files; the gateway keeps its HEAD behaviour because no stored row or migration depends on the change."
+rollback = "Revert the touched gateway files and roll back migration 020; the routes keep their HEAD behaviour and no production row depends on the two nullable columns."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -151730,6 +151815,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Add services/wallet/gateway/migrations/020_provisioning_station.sql (planned) with nullable station_quote_nonce and station_batch_nonce on account_provisioning (bind_tx_hash carries the station transaction hash); add the eip7702_authorization sign kind to the gateway attestor client (services/wallet/gateway/src/attestor/client.ts:146-152; the attestor serves it at services/wallet/attestor/internal/policy/policy.go:29 and internal/server/sign.go:216-231) for the single Authorization with delegate equal to the paymaster and nonce equal to the account nonce that the station requires (station.rs:903-906) and the 65-byte account signature; add the sponsored-bind request constructor beside bindLayerX in services/wallet/gateway/src/provision/bind.ts following the quote body {account, nonce, calls, maxTokenAmount, gasCost, chainId, token, decimals} (gas-station service.rs:380-395) and the submit body {call, authorization, batch, accountSignature, relayerSignature} (service.rs:1150-1176)."
+do_6 = "The gate runs with WALLET_GAS_STATION_URL unset: provisionRefusesWithoutStation drives provisionAccount with station null and expects 503 gas_station_unconfigured; provisionBindIsStationSponsored drives provisionAccount with a GasStationClient pointed at a loopback station endpoint over the provisioning.test.ts fixture (the in-process chain, the ephemeral Postgres and the attestor built in beforeAll) honouring the quote and submit contract above, exactly as test/sponsor-station.test.ts:39-60 and 12.9.2 do_4 already do; a real station is a release gate under decision.1806."
 
 [task.12.6.4]
 title = "Backfill provisions through the station-sponsored bind path"
@@ -178457,24 +178544,24 @@ title = "Issue #964: Replay the historical chain-125 launchpad market against it
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1075.1"]
 reqs = ["18964.1"]
 capabilities = []
 interfaces = []
-do_1 = "Add services/launchpad/indexer/internal/runtimedocs/testdata/paxeer125-a35ff7c6f532d2f9.json containing, byte for byte, the deployment manifest that was current when the replayed market was created (git show 145164d70:launchpad/shared/config/deployment/current.json, deploymentVersion paxeer125-a35ff7c6f532d2f9, activationHeight 32226215), which is the source manifest named by sourceManifestSha256 in sdk/launchpad/shared/config/deployment/current.json:4."
+do_1 = "Build realInputs from the historical manifest in the shared deployment history, deployment.Approved(32226215) (sdk/launchpad/shared/config/deployment/history/paxeer125-a35ff7c6f532d2f9.json, added by 18.1075.1), the manifest current when the replayed market was created (git show 145164d70:launchpad/shared/config/deployment/current.json); no runtimedocs testdata copy is written."
 do_2 = "In realInputs (services/launchpad/indexer/internal/runtimedocs/paxeer_test.go:51-73) replace deployment.Current() with deployment.Parse of that testdata file, failing the test on a parse error, so the anchor 33963715 (services/launchpad/indexer/internal/runtimedocs/paxeer_test.go:35) is at or above the manifest activation height and ReceiptOptions (services/launchpad/indexer/internal/runtimedocs/runtimedocs.go:190-193) accepts the inputs."
 do_3 = "Keep the production activation guard in ReceiptOptions and the recorded anchor, block heights and hashes unchanged."
 do_4 = "The test is the existing TestPaxeerReportedIdentityQualifiesRealMarket (services/launchpad/indexer/internal/runtimedocs/paxeer_test.go:101), which must now pass its realAuthority setup (services/launchpad/indexer/internal/runtimedocs/paxeer_test.go:75-89) and reach its creation, buy, sell and claim qualification assertions."
 symbols = ["realInputs", "TestPaxeerReportedIdentityQualifiesRealMarket"]
-touches = ["services/launchpad/indexer/internal/runtimedocs/paxeer_test.go", "services/launchpad/indexer/internal/runtimedocs/testdata/paxeer125-a35ff7c6f532d2f9.json"]
+touches = ["services/launchpad/indexer/internal/runtimedocs/paxeer_test.go"]
 tests = ["services/launchpad/indexer/internal/runtimedocs/paxeer_test.go::TestPaxeerReportedIdentityQualifiesRealMarket"]
-planned_paths = ["services/launchpad/indexer/internal/runtimedocs/testdata/paxeer125-a35ff7c6f532d2f9.json"]
+planned_paths = []
 build_cmd = "cd services/launchpad && go build ./indexer/internal/runtimedocs/..."
 verify_cmd = "cd services/launchpad && go test -count=1 ./indexer/internal/runtimedocs/ -run '^(TestPaxeerReportedIdentityQualifiesRealMarket)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
-rollback = "Delete the testdata manifest and revert paxeer_test.go; the replay test again pairs the anchor with the current manifest."
+rollback = "Revert paxeer_test.go; the replay test again pairs the anchor with the current manifest."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -178482,6 +178569,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempts 1 to 4 pinned Current(): since 16ee6fd09 (2026-10-20) current.json describes the v6.12.0 generation (activation 37220320, surface roles, Treasury, LaunchpadPrecompile) while the recorded fixture (chainfixture/testdata/paxeer125-market.jsonl.gz, 81 eth_getCode records) holds the erc1967 generation, and validateCode (services/launchpad/indexer/internal/receipt/rpc.go:922, :952) compares runtime hashes at the qualified block, so only the historical manifest is coherent with the recording. 18.1075.1 makes it an approved manifest; this task changes paxeer_test.go only."
 
 [req.18964]
 title = "Replay the historical chain-125 launchpad market against its own deployment manifest"
@@ -180198,6 +180286,10 @@ ac_1 = "bind_call discloses a Pay budgetDefund(bytes32,uint128) call as Budget a
 title = "Compile and disclose the budget defund as kernel activity 0x00030008"
 ac_1 = "A compiled budget defund carries activity type 0x00030008, the intents disclosure names the same type, and the compile, differential, live_kinds and reclaim_nonces tests pass with that expectation."
 
+[req.181075]
+title = "Receipt qualification accepts the reviewed deployment history, not only the current manifest"
+ac_1 = "NewRPCQualificationWithAttestation (services/launchpad/indexer/internal/receipt/rpc.go:526) accepts a manifest equal to any entry of the embedded deployment history (sdk/launchpad/shared/config/deployment/history/, looked up by activation height through deployment.Approved) for anchors inside that entry's generation, and refuses manifests outside the set and anchors outside the generation."
+
 [acceptance.18.1066.1]
 feature = "18"
 req = "181066.1"
@@ -181516,6 +181608,14 @@ req = "181188.1"
 scenario = "Given a v1 budget_defund intent, when layerx-intents compiles and discloses it, then the activity type is Budget ordinal 8, the agent disclosure admits it, and the compile, differential, live_kinds and reclaim_nonces tests pass."
 contract = "contracts/README.md"
 test = "services/human/crates/layerx-intents/tests/compile.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1075.1]
+feature = "18"
+req = "181075.1"
+scenario = "Given the paxeer125-a35ff7c6f532d2f9 history entry and an anchor between its activation height and the next entry's, when NewRPCQualificationWithAttestation runs with that manifest, then it is accepted; with one changed role address or an anchor in the next generation it is refused"
+contract = "contracts/launchpad.md#precompile-go"
+test = "services/launchpad/indexer/internal/receipt/rpc_test.go::TestReceiptQualificationAcceptsHistoricalManifest (planned)"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -186184,6 +186284,36 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
 rollback = "Revert the two source files, the four tests and the vectors; the defund returns to ordinal 7."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1075.1]
+title = "Issue #1075: Receipt qualification accepts any manifest in the reviewed deployment history"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181075.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add sdk/launchpad/shared/config/deployment/history/paxeer125-a35ff7c6f532d2f9.json (planned), byte for byte the manifest that was current when the replayed chain-125 market was created (git show 145164d70:launchpad/shared/config/deployment/current.json: deploymentVersion paxeer125-a35ff7c6f532d2f9, activationHeight 32226215, the same sourceManifestSha256 and role addresses as current.json, erc1967 proxy roles, no Treasury and no LaunchpadPrecompile); embed the history directory beside current.json in sdk/launchpad/shared/config/deployment/manifest.go (go:embed at :27) and add Approved(activationHeight uint64) (Manifest, bool) returning the history entry with that activation height, Current() included."
+do_2 = "In NewRPCQualificationWithAttestation (services/launchpad/indexer/internal/receipt/rpc.go:526, guard at :533-539) compare o.Manifest field by field against deployment.Approved(o.Manifest.ActivationHeight) instead of deployment.Current(), refusing a manifest outside the set with the existing error text; a qualified anchor must be at or above its manifest's activation height (services/launchpad/indexer/internal/runtimedocs/runtimedocs.go:190, kept) and below the activation height of the next history entry, so one manifest generation never qualifies another generation's blocks (decision.1814)."
+do_3 = "Add TestReceiptQualificationAcceptsHistoricalManifest and TestReceiptQualificationRefusesManifestOutsideHistory to services/launchpad/indexer/internal/receipt/rpc_test.go: the historical manifest with an anchor inside its generation is accepted; the same manifest with one changed role address, a manifest whose activation height matches no history entry, and an anchor at or above the next generation's activation height are refused."
+symbols = ["Approved", "NewRPCQualificationWithAttestation", "TestReceiptQualificationAcceptsHistoricalManifest", "TestReceiptQualificationRefusesManifestOutsideHistory"]
+touches = ["sdk/launchpad/shared/config/deployment/manifest.go", "sdk/launchpad/shared/config/deployment/history/paxeer125-a35ff7c6f532d2f9.json", "services/launchpad/indexer/internal/receipt/rpc.go", "services/launchpad/indexer/internal/receipt/rpc_test.go"]
+tests = ["services/launchpad/indexer/internal/receipt/rpc_test.go::TestReceiptQualificationAcceptsHistoricalManifest", "services/launchpad/indexer/internal/receipt/rpc_test.go::TestReceiptQualificationRefusesManifestOutsideHistory"]
+planned_paths = ["sdk/launchpad/shared/config/deployment/history/paxeer125-a35ff7c6f532d2f9.json"]
+build_cmd = "cd services/launchpad && go build ./indexer/internal/receipt/..."
+verify_cmd = "cd services/launchpad && go test -count=1 ./indexer/internal/receipt/ -run '^(TestReceiptQualificationAcceptsHistoricalManifest|TestReceiptQualificationRefusesManifestOutsideHistory)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Delete the history file and revert manifest.go, rpc.go and rpc_test.go; qualification again pins Current()."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
