@@ -139867,7 +139867,7 @@ do_6 = "At 92a5690c0 human_frame_round_trips_with_a_length_prefix passes and hum
 
 [task.9.13.2]
 title = "Carry nonces, heights and rungs in the human peer operations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.13.1", "9.2.1", "9.4.1", "10.0.2", "10.13.3", "9.1.8", "18.1131.1"]
