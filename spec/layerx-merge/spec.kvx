@@ -140104,7 +140104,7 @@ do_7 = "Attempt 5 (894bf85c1) renamed the fields and updated the four constructo
 
 [task.9.13.3]
 title = "Retire the settlement anchoring refusal from the human peer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["9.13.2", "9.6.1", "9.1.8", "18.1131.1"]
