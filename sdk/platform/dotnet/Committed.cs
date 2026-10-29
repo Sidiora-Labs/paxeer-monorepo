@@ -264,11 +264,13 @@ public static class Committed
             var signature = commit.Signatures[i];
             if (signature.BlockIdFlag == 1)
             {
-                Require(signature.Signature.Length == 0 && signature.ValidatorAddress.Length == 0 &&
+                Require((signature.Signature is null || signature.Signature.Length == 0) &&
+                    (signature.ValidatorAddress is null || signature.ValidatorAddress.Length == 0) &&
                     signature.Timestamp.Seconds == -62135596800 && signature.Timestamp.Nanoseconds == 0);
                 continue;
             }
-            Require(signature.BlockIdFlag is 2 or 3 && signature.Signature.Length == 64 &&
+            Require(signature.BlockIdFlag is 2 or 3 && signature.Signature is not null &&
+                signature.ValidatorAddress is not null && signature.Signature.Length == 64 &&
                 Equal(signature.ValidatorAddress, SHA256.HashData(validator.PublicKey).AsSpan(0, 20)));
             var verifier = new Ed25519Signer();
             verifier.Init(false, new Ed25519PublicKeyParameters(validator.PublicKey, 0));
