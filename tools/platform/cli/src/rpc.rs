@@ -580,7 +580,13 @@ mod tests {
                 .filter_map(|entry| entry["name"].as_str())
                 .collect::<Vec<_>>(),
             [
-                "lx_register",
+                "px_register",
+                "px_getCommit",
+                "px_getValidators",
+                "px_getReceiptKeys",
+                "px_getSequenceBatch",
+                "px_requestFunds",
+                "pax_sequencerReceipt",
                 "lx_requestFunds",
                 "lx_getAccount",
                 "lx_getBalance",
@@ -604,11 +610,12 @@ mod tests {
                 "px_getBalances",
                 "px_listAssets",
                 "px_getNetwork",
-                "lx_getHistory",
                 "px_getHistory",
                 "px_getUnifiedHistory",
+                "px_listHolderRecords",
                 "px_getCapabilities",
                 "px_getRouteCatalogue",
+                "lx_getWalletCaps",
             ]
         );
         let description = |method: &str| -> Result<&str, String> {
