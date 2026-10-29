@@ -138370,7 +138370,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.2.2]
 title = "Sign prepared transactions with secp256k1 and 65-byte signatures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.0.1", "9.2.1", "9.4.1", "9.1.8", "18.1131.1"]
@@ -139862,7 +139862,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.17.1]
 title = "Label metrics and tenant errors by rung and node availability"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.4.1", "9.12.2", "9.1.8", "18.1131.1"]
