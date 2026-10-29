@@ -6,7 +6,7 @@ use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::read::{
     FeeProjection, FeeProjectionRequest, Freshness, ProjectionResult, RelativeTo,
 };
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::{Rung, VerificationStatus};
 use layerx_agent_api::Amount;
 use serde_json::{json, Value};
 
@@ -63,7 +63,7 @@ pub(crate) fn require_unverified_status(
     status: &VerificationStatus,
     operation: Operation,
 ) -> Result<(), EnvelopeError> {
-    if *status == VerificationStatus::Achieved(Level::Unverified) {
+    if *status == VerificationStatus::Achieved(Rung::Submitted) {
         Ok(())
     } else {
         Err(violation(operation))

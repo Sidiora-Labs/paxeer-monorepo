@@ -15,7 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
 use layerx_agent_api::idempotency::Key;
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
-use layerx_agent_api::verify::{ApiSuccess, Level, Rung, VerificationStatus};
+use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
 use layerx_sdk::agent_envelope::{
     canonical_u64, decode_native_approval, decode_native_approval_list, decode_native_preparation,
     decode_proof_bundle_request, decode_proof_bundle_response, decode_response,
@@ -314,17 +314,17 @@ fn load() -> Result<(Probe, Vec<String>), Failure> {
 
 fn verification_json(status: &VerificationStatus) -> Value {
     match status {
-        VerificationStatus::Achieved(level) => {
-            json!({"state": "achieved", "level": format!("{level:?}")})
+        VerificationStatus::Achieved(rung) => {
+            json!({"state": "achieved", "rung": rung.name()})
         }
-        VerificationStatus::Unverified {
+        VerificationStatus::Below {
             requested,
             achieved,
             reason,
         } => json!({
             "state": "unverified",
-            "requested": format!("{requested:?}"),
-            "achieved": format!("{achieved:?}"),
+            "requested": requested.name(),
+            "achieved": achieved.name(),
             "reason": reason.as_str(),
         }),
     }
@@ -560,7 +560,7 @@ impl Probe {
         let (_, outcome) = self.query_case("read", "read.account")?;
         let success = outcome.map_err(|error| format!("read failed: {error:?}"))?;
         match success.verification_status {
-            VerificationStatus::Achieved(level) if level > Level::Unverified => {}
+            VerificationStatus::Achieved(rung) if rung > Rung::Submitted => {}
             status => return Err(format!("read verification not achieved: {status:?}").into()),
         }
         let read = catalogued("read.account")?;
@@ -585,8 +585,8 @@ impl Probe {
         let (_, outcome) = self.query_case("program_read", "program.interface")?;
         let success = outcome.map_err(|error| format!("program_read failed: {error:?}"))?;
         match &success.verification_status {
-            VerificationStatus::Achieved(level) if *level > Level::Unverified => Ok(()),
-            VerificationStatus::Unverified { reason, .. }
+            VerificationStatus::Achieved(rung) if *rung > Rung::Submitted => Ok(()),
+            VerificationStatus::Below { reason, .. }
                 if reason.as_str() == "server_side_receipt_verification_only" =>
             {
                 Ok(())
@@ -1449,7 +1449,7 @@ fn proof_bundle_decoder_negatives(
     let changed = ApiSuccess {
         request_id: response.request_id,
         value: response.value.clone(),
-        verification_status: VerificationStatus::Achieved(Level::Unverified),
+        verification_status: VerificationStatus::Achieved(Rung::Submitted),
     };
     if decode_proof_bundle_response(&typed_request, &changed).is_some() {
         return Err("SDK accepted disagreement between outer and inner verification levels".into());
@@ -1476,7 +1476,7 @@ fn proof_bundle_decoder_negatives(
             .ok_or("bundle not object")?
             .remove(name);
     }
-    receipt_response.verification_status = VerificationStatus::Achieved(Level::BatchIncluded);
+    receipt_response.verification_status = VerificationStatus::Achieved(Rung::Receipted);
     if decode_proof_bundle_response(&higher_request, &receipt_response).is_none() {
         return Err("SDK refused the receipted evidence before the promotion check".into());
     }

@@ -10843,3 +10843,9 @@ area = "spec authoring"
 symptom = "A task's do line asserted a wire layout (a rung byte in the BALANCE answer) that the landed writer never emits, and four attempts stopped on it without a gate run."
 cause = "The do line was written from another task's promise instead of the landed writer, and the interface block pins only the opcode, not the layout."
 do = "Before writing a do line that names a wire layout, read the landed writer and the requirement that governs it, and cite the writer's lines; where the interface pins no layout, say so and name the writer as the authority."
+
+[gotcha.2207]
+area = "spec authoring"
+symptom = "A verify_cmd written with escaped double quotes reached sh with the backslashes intact and failed with a syntax error before any check ran; a build_cmd of another task carried the same shape."
+cause = "The gate runner hands the kvx command string to sh verbatim; kvx escaping is not undone for build_cmd and verify_cmd."
+do = "Write build_cmd and verify_cmd with single quotes only, use grep -F for literal patterns, and pass file names to python3 -c through sys.argv instead of quoting them inside the program."

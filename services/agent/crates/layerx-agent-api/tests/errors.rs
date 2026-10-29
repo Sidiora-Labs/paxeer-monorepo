@@ -4,9 +4,8 @@ use layerx_agent_api::error::{ApiError, ErrorClass, RequestId};
 use layerx_agent_api::idempotency::{
     classify_repeat, BodyDigest, IdempotencyOutcome, IdempotentMutation, Key,
 };
-use layerx_agent_api::verify::{ApiSuccess, Level, VerificationStatus};
+use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
 use layerx_types::error::ErrorClass as LayerErrorClass;
-use layerx_types::verify::VerificationLevel;
 
 const SCHEMA: &str = include_str!("../../../schema/agent-api/errors.kvx");
 
@@ -88,32 +87,17 @@ fn repeats_return_original_and_changed_bodies_conflict() {
 
 #[test]
 fn verification_lattice_and_success_status_are_explicit() {
-    let levels = [
-        Level::Unverified,
-        Level::SequencerSigned,
-        Level::BatchIncluded,
-        Level::StateProven,
-        Level::CheckpointFinalised,
-        Level::SettlementAnchored,
-    ];
-    assert!(levels.windows(2).all(|pair| pair[0] < pair[1]));
-    assert_eq!(
-        Level::from(VerificationLevel::UNVERIFIED),
-        Level::Unverified
-    );
-    assert_eq!(
-        Level::from(VerificationLevel::SETTLEMENT_ANCHORED),
-        Level::SettlementAnchored
-    );
+    let rungs = [Rung::Submitted, Rung::Receipted, Rung::Committed];
+    assert!(rungs.windows(2).all(|pair| pair[0] < pair[1]));
 
     let success = ApiSuccess {
         request_id: RequestId(12),
         value: "balance",
-        verification_status: VerificationStatus::Achieved(Level::StateProven),
+        verification_status: VerificationStatus::Achieved(Rung::Receipted),
     };
     assert_eq!(
         success.verification_status,
-        VerificationStatus::Achieved(Level::StateProven)
+        VerificationStatus::Achieved(Rung::Receipted)
     );
     assert!(SCHEMA.contains("required = [\"request_id\",\"value\",\"verification_status\"]"));
     assert!(SCHEMA.contains("shortfall is never silently downgraded"));

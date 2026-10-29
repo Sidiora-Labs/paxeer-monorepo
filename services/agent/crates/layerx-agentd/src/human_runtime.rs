@@ -18496,9 +18496,6 @@ fn export_refusal(error: crate::export::ExportProduceError) -> HumanOperationErr
     use layerx_proof::export::CompleteExportError as Complete;
     match error {
         Produce::UnavailableCapability(_) => HumanOperationError::Unavailable,
-        Produce::SettlementAnchoringUnavailable => {
-            HumanOperationError::Typed(HumanRefusal::ExportSettlementAnchoringUnavailable)
-        }
         Produce::Verification(Complete::RungNotAchieved { .. }) => {
             HumanOperationError::Typed(HumanRefusal::ExportLevelUnattainable)
         }
