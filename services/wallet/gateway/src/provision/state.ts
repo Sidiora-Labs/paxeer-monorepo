@@ -2,23 +2,17 @@ import { createPrivateKey, sign } from 'node:crypto';
 import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import type { Pool } from 'pg';
-import { bytesToHex, getAddress, type Hex, type LocalAccount, type TransactionSerializableEIP1559 } from 'viem';
+import { bytesToHex, getAddress, type Hex } from 'viem';
 import { NonceConflictError, RpcPool, TransactionRejectedError } from '../rpc/pool.js';
 import { NonceStore, broadcastReserved } from '../nonce/store.js';
 import {
   WalletArchivedError,
   agentWalletUserId,
   findArchivedWallet,
-  getSigningAccountForRow,
-  getMigrationAwareSigningAccountForRow,
   type WalletKind,
-  type WalletRow,
 } from '../db/wallets.js';
 import {
-  ADDR_PRECOMPILE,
   AttestorDaemonClient,
-  bindLayerX,
-  bindLayerXCalldata,
   bindMessage,
   broadcastOnce,
   didFromPublicKey,
@@ -27,14 +21,20 @@ import {
   readBindNonce,
   readUnifiedAccount,
   signBindWithAttestors,
-  signTransactionWithAttestors,
   transactionHash,
   verifyEd25519,
   waitForReceipt,
+  sponsoredBindRequest,
+  provisioningStationConfig,
+  type SponsoredBindRequest,
+  type SignBody,
 } from './bind.js';
 
 import { CustodyAuthorityError, publishCustodyAuthority } from '../agent/authority.js';
-import type { AgentOriginalRequest, AgentReauthorization } from '../attestor/client.js';
+import type { AgentOriginalRequest, AgentReauthorization, Authorisation } from '../attestor/client.js';
+import { GasStationClient as StationClient, StationAdapterError } from '../sponsor/station.js';
+
+export type GasStationClient = StationClient;
 
 export type ProvisionState =
   | 'new'
@@ -55,7 +55,7 @@ export interface ProvisionDeps {
   rpc: RpcPool;
   attestors: AttestorDaemonClient | null;
   nonces: NonceStore;
-  sponsor: LocalAccount | null;
+  station: GasStationClient | null;
   chainId: number;
   gasCapWei: bigint;
   receiptTimeoutMs: number;
@@ -115,6 +115,9 @@ interface ProvisionRow {
   bind_max_fee_wei: string | null;
   bind_raw_tx: Hex | null;
   bind_tx_hash: Hex | null;
+  station_quote_nonce: string | null;
+  station_batch_nonce: string | null;
+  station_request: SponsoredBindRequest | null;
   refusal_reason: string | null;
 }
 
@@ -229,7 +232,8 @@ async function loadRow(pool: Pool, userId: string, kind: WalletKind): Promise<Pr
   const { rows } = await pool.query<ProvisionRow>(
     `select id::text, user_id, kind, wallet_id, state, evm_key_generation, ed_key_generation, evm_key_id, ed_key_id,
             ed_public_key, did, main_account_id, bind_nonce::text, bind_signature, topup_raw_tx, topup_tx_hash,
-            topup_value_wei::text, bind_gas::text, bind_max_fee_wei::text, bind_raw_tx, bind_tx_hash, refusal_reason
+            topup_value_wei::text, bind_gas::text, bind_max_fee_wei::text, bind_raw_tx, bind_tx_hash, refusal_reason,
+            station_quote_nonce::text, station_batch_nonce::text, station_request
        from account_provisioning where user_id = $1 and kind = $2`,
     [userId, kind],
   );
@@ -373,33 +377,33 @@ async function storeIdentity(deps: ProvisionDeps, row: ProvisionRow, wallet: Wal
   Object.assign(row, { state: 'identity', ed_key_id: edKeyId, ed_public_key: publicKey, did, main_account_id: main });
 }
 
-async function signBindTransaction(
-  deps: ProvisionDeps,
-  subject: ProvisionSubject,
-  wallet: WalletRecord,
-  tx: TransactionSerializableEIP1559,
-): Promise<Hex | null> {
-  if (wallet.migrated_at || !wallet.encrypted_private_key) {
-    if (!wallet.attestor_key_id) throw new ProvisionError('wallet_key_missing', 503, 'wallet has no attestor key');
-    if (subject.kind === 'agent') {
-      const principal = await loadPrincipal(deps.pool, subject.did);
-      if (!subject.custody || subject.custody.origin.did !== subject.did) {
-        throw new ProvisionError('agent_request_required', 401, 'binding requires the original signed agent request');
-      }
-      const account = await getMigrationAwareSigningAccountForRow(wallet as unknown as WalletRow, {
-        scheme: 'agent_request', publicKey: principal.public_key, ...subject.custody,
-      }, undefined, undefined, { subject: subject.did, route: '/v1/agent/provision', requestHash: wallet.id });
-      return account.signTransaction(tx);
-    }
-    if (!subject.token) return null;
-    return signTransactionWithAttestors(requireAttestors(deps), wallet.attestor_key_id, getAddress(wallet.address), tx, subject.token);
+async function signStationPayload(
+  deps: ProvisionDeps, subject: ProvisionSubject, wallet: WalletRecord, payload: SignBody,
+) {
+  if (!wallet.attestor_key_id) throw new ProvisionError('wallet_key_missing', 503, 'sponsored provisioning requires attestor custody');
+  let authorisation: Authorisation;
+  if (subject.kind === 'standard') {
+    if (!subject.token) throw new ProvisionError('owner_required', 401, 'the owner must authorise the sponsored binding');
+    authorisation = { scheme: 'supabase_jwt', token: subject.token };
+  } else {
+    if (!subject.custody || subject.custody.origin.did !== subject.did)
+      throw new ProvisionError('agent_request_required', 401, 'binding requires the original signed agent request');
+    const principal = await loadPrincipal(deps.pool, subject.did);
+    authorisation = { scheme: 'agent_request', publicKey: principal.public_key, ...subject.custody };
   }
-  if (!wallet.encrypted_private_key) throw new ProvisionError('wallet_key_missing', 500, 'wallet holds no signing key');
-  const account = await getSigningAccountForRow(wallet as unknown as WalletRow);
-  return account.signTransaction(tx);
+  return requireAttestors(deps).signAuthorized(wallet.attestor_key_id, payload, authorisation);
 }
 
 export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSubject): Promise<ProvisionResult> {
+  if (!deps.station) {
+    throw new ProvisionError('gas_station_unconfigured', 503, 'no gas station is configured');
+  }
+  try {
+    deps.station.requireConfiguredUrl();
+  } catch (err) {
+    if (err instanceof StationAdapterError) throw new ProvisionError(err.code, err.status, err.message);
+    throw err;
+  }
   let userId: string;
   let kind: WalletKind;
   let principal: AgentPrincipal | null = null;
@@ -484,108 +488,37 @@ export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSu
       Object.assign(row, { state: 'bind_signed', bind_nonce: nonce.toString(), bind_signature: signature });
     }
 
-    if (row.state === 'bind_signed') {
-      let gas = row.bind_gas ? BigInt(row.bind_gas) : null;
-      let maxFee = row.bind_max_fee_wei ? BigInt(row.bind_max_fee_wei) : null;
-      if (gas === null || maxFee === null) {
-        const data = bindLayerXCalldata(row.ed_public_key!, row.bind_signature!);
-        const estimate = BigInt(await deps.rpc.request<Hex>('eth_estimateGas', [{ from: address, to: ADDR_PRECOMPILE, data }]));
+    if (row.state === 'bind_signed' || row.state === 'funded') {
+      if (subject.kind === 'standard' && !subject.token) return result(row, wallet, 'owner');
+      if (!row.station_request) {
+        const config = provisioningStationConfig();
         const f = await fees(deps.rpc);
-        gas = estimate;
-        maxFee = f.maxFeePerGas;
-        await updateRow(deps.pool, row.id, { bind_gas: gas.toString(), bind_max_fee_wei: maxFee.toString() });
-        row.bind_gas = gas.toString();
-        row.bind_max_fee_wei = maxFee.toString();
-      }
-      const required = gas * maxFee;
-      if (row.topup_raw_tx) {
-        const hash = await rebroadcastSetup(deps, row.topup_raw_tx as Hex, async () => {
-          await updateRow(deps.pool, row.id, { topup_raw_tx: null, topup_tx_hash: null, topup_value_wei: null });
-          Object.assign(row, { topup_raw_tx: null, topup_tx_hash: null, topup_value_wei: null });
+        const gasCost = config.gasLimit * f.maxFeePerGas;
+        if (gasCost > deps.gasCapWei)
+          throw new ProvisionError('setup_gas_over_cap', 503, `binding needs ${gasCost} wei, above the setup gas cap ${deps.gasCapWei}`);
+        const signerWallet = wallet;
+        const request = await sponsoredBindRequest({
+          station: deps.station, rpc: deps.rpc, chainId: deps.chainId, address,
+          publicKey: row.ed_public_key!, signature: row.bind_signature!, gasCost,
+          paymaster: config.paymaster, maxTokenAmount: config.maxTokenAmount,
+          sign: payload => signStationPayload(deps, subject, signerWallet, payload),
         });
-        const receipt = await waitForReceipt(deps.rpc, hash, deps.receiptTimeoutMs, deps.receiptPollMs);
-        if (receipt.status !== 'success') throw new ProvisionError('topup_reverted', 502, 'sponsor top-up transaction reverted');
-      } else {
-        const balance = BigInt(await deps.rpc.request<Hex>('eth_getBalance', [address, 'latest']));
-        if (balance < required) {
-          if (required > deps.gasCapWei) {
-            throw new ProvisionError('setup_gas_over_cap', 503, `binding needs ${required} wei, above the setup gas cap ${deps.gasCapWei}`);
-          }
-          const { rows: paid } = await deps.pool.query(
-            `select 1 from account_setup_audit where event = 'topup' and address = $1 limit 1`,
-            [address.toLowerCase()],
-          );
-          if (paid.length > 0) throw new ProvisionError('topup_already_paid', 409, 'this address already received its setup top-up');
-          const sponsor = deps.sponsor;
-          if (!sponsor) throw new ProvisionError('sponsor_unconfigured', 503, 'no setup sponsor key is configured');
-          const value = required - balance;
-          const f = await fees(deps.rpc);
-          const sent = await sendSetupTransaction(deps, sponsor.address, (nonce) => sponsor.signTransaction({
-              type: 'eip1559',
-              chainId: deps.chainId,
-              nonce,
-              to: address,
-              value,
-              gas: 21_000n,
-              maxFeePerGas: f.maxFeePerGas,
-              maxPriorityFeePerGas: f.maxPriorityFeePerGas,
-            }), async (signed) => {
-            const fields = signed === null
-              ? { topup_raw_tx: null, topup_tx_hash: null, topup_value_wei: null }
-              : { topup_raw_tx: signed, topup_tx_hash: transactionHash(signed), topup_value_wei: value.toString() };
-            await updateRow(deps.pool, row.id, fields);
-            Object.assign(row, fields);
-          });
-          await recordAudit(deps.pool, { walletId: wallet!.id, address, event: 'topup', txHash: sent.hash, valueWei: value, gas, maxFeeWei: maxFee });
-          if (sent.error !== null) throw sent.error;
-          const receipt = await waitForReceipt(deps.rpc, sent.hash, deps.receiptTimeoutMs, deps.receiptPollMs);
-          if (receipt.status !== 'success') throw new ProvisionError('topup_reverted', 502, 'sponsor top-up transaction reverted');
-        }
-      }
-      await updateRow(deps.pool, row.id, { state: 'funded' });
-      row.state = 'funded';
-    }
-
-    let justSent: Hex | null = null;
-    if (row.state === 'funded') {
-      const f = await fees(deps.rpc);
-      const maxFee = BigInt(row.bind_max_fee_wei!);
-      const priority = f.maxPriorityFeePerGas < maxFee ? f.maxPriorityFeePerGas : maxFee;
-      const signerWallet = wallet;
-      const sent = await sendSetupTransaction(deps, address, async (nonce) => {
-        const tx = bindLayerX({
-          chainId: deps.chainId,
-          address,
-          publicKey: row.ed_public_key!,
-          signature: row.bind_signature!,
-          nonce,
-          gas: BigInt(row.bind_gas!),
-          maxFeePerGas: maxFee,
-          maxPriorityFeePerGas: priority,
-        });
-        const signed = await signBindTransaction(deps, subject, signerWallet, tx);
-        if (!signed) throw new ProvisionError('owner_required', 401, 'the wallet owner must authorise the binding transaction');
-        return signed;
-      }, async (signed) => {
-        const fields = signed === null
-          ? { state: 'funded' as const, bind_raw_tx: null, bind_tx_hash: null }
-          : { state: 'bind_sent' as const, bind_raw_tx: signed, bind_tx_hash: transactionHash(signed) };
+        const fields = { station_request: request, station_quote_nonce: request.batch.quote.quoteNonce,
+          station_batch_nonce: request.batch.nonce, bind_gas: config.gasLimit.toString(), bind_max_fee_wei: f.maxFeePerGas.toString() };
         await updateRow(deps.pool, row.id, fields);
         Object.assign(row, fields);
-      }).catch(async (err) => {
-        if (err instanceof ProvisionError && err.code === 'owner_required') return null;
-        throw err;
-      });
-      if (!sent) return result(row, wallet, 'owner');
-      if (sent.error !== null) throw sent.error;
-      justSent = sent.hash;
+      }
+      const submitted = await deps.station.submit(row.station_request);
+      if (typeof submitted.transactionHash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(submitted.transactionHash))
+        throw new StationAdapterError(502, 'gas_station_invalid_response');
+      const fields = { state: 'bind_sent' as const, bind_tx_hash: submitted.transactionHash as Hex };
+      await updateRow(deps.pool, row.id, fields);
+      Object.assign(row, fields);
     }
 
     if (row.state === 'bind_sent') {
-      const hash = justSent ?? await rebroadcastSetup(deps, row.bind_raw_tx! as Hex, async () => {
-        await updateRow(deps.pool, row.id, { state: 'funded', bind_raw_tx: null, bind_tx_hash: null });
-        Object.assign(row, { state: 'funded', bind_raw_tx: null, bind_tx_hash: null });
-      });
+      if (!row.bind_tx_hash) throw new ProvisionError('bind_transaction_missing', 503, 'binding submission has no transaction hash');
+      const hash = row.bind_tx_hash;
       const receipt = await waitForReceipt(deps.rpc, hash, deps.receiptTimeoutMs, deps.receiptPollMs);
       await recordAudit(deps.pool, {
         walletId: wallet.id,
@@ -607,6 +540,9 @@ export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSu
     }
 
     return result(row, wallet);
+  } catch (err) {
+    if (err instanceof StationAdapterError) throw new ProvisionError(err.code, err.status, err.message);
+    throw err;
   } finally {
     await unlock();
   }
