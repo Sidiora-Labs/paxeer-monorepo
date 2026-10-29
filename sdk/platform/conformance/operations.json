@@ -214,92 +214,117 @@
     {
       "plane": "agent",
       "name": "program.activity",
-      "method": "GET",
-      "path": "/v1/programs/activities/{activity_id}",
+      "method": "eth_getTransactionByHash",
+      "path": "",
       "request": "ProgramActivitySelector",
       "response": "ProgramSubmission",
       "idempotency": false,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm"
     },
     {
       "plane": "agent",
       "name": "program.call",
-      "method": "POST",
-      "path": "/v1/programs/call",
+      "method": "eth_sendRawTransaction",
+      "path": "",
       "request": "ProgramCallRequest",
       "response": "ProgramSubmission",
       "idempotency": true,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "to": "0x000000000000000000000000000000000000101d",
+      "selector": "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"
     },
     {
       "plane": "agent",
       "name": "program.deploy",
-      "method": "POST",
-      "path": "/v1/programs/deploy",
+      "method": "eth_sendRawTransaction",
+      "path": "",
       "request": "NativeProgramDeployRequest",
       "response": "ProgramLifecycleResponse",
       "idempotency": true,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "to": "0x000000000000000000000000000000000000101d",
+      "selector": "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"
     },
     {
       "plane": "agent",
       "name": "program.discover",
-      "method": "GET",
-      "path": "/v1/programs/registry/{program_id}",
+      "method": "eth_call",
+      "path": "",
       "request": "ProgramSelector",
       "response": "VerifiedProgramDiscovery",
       "idempotency": false,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "to": "0x000000000000000000000000000000000000101d",
+      "selector": "getProgram(bytes32)"
     },
     {
       "plane": "agent",
       "name": "program.interface",
-      "method": "GET",
-      "path": "/v1/programs/registry/{program_id}/interface",
+      "method": "eth_call",
+      "path": "",
       "request": "ProgramSelector",
       "response": "VerifiedProgramInterface",
       "idempotency": false,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "to": "0x000000000000000000000000000000000000101d",
+      "selector": "getInterface(bytes32)"
     },
     {
       "plane": "agent",
       "name": "program.receipt",
-      "method": "GET",
-      "path": "/v1/programs/receipts/by-idempotency/{idempotency_key}",
+      "method": "eth_call",
+      "path": "",
       "request": "ProgramReceiptSelector",
       "response": "ProgramReceiptResponse",
       "idempotency": false,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "to": "0x000000000000000000000000000000000000101c",
+      "selector": "resultByIdempotency(bytes32,bytes32)"
     },
     {
       "plane": "agent",
       "name": "program.simulate",
-      "method": "POST",
-      "path": "/v1/programs/simulate",
+      "method": "eth_call",
+      "path": "",
       "request": "ProgramCallRequest",
       "response": "ProgramSimulation",
       "idempotency": false,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "to": "0x000000000000000000000000000000000000101d",
+      "selector": "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"
     },
     {
       "plane": "agent",
       "name": "program.upgrade",
-      "method": "POST",
-      "path": "/v1/programs/upgrade",
+      "method": "eth_sendRawTransaction",
+      "path": "",
       "request": "NativeProgramUpgradeRequest",
       "response": "ProgramLifecycleResponse",
       "idempotency": true,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "to": "0x000000000000000000000000000000000000101d",
+      "selector": "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"
     },
     {
       "plane": "agent",
       "name": "program.wind-down",
-      "method": "POST",
-      "path": "/v1/programs/wind-down",
+      "method": "eth_sendRawTransaction",
+      "path": "",
       "request": "NativeProgramWindDownRequest",
       "response": "ProgramLifecycleResponse",
       "idempotency": true,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "to": "0x000000000000000000000000000000000000101d",
+      "selector": "deprecate(bytes32,bytes32,uint64)"
     },
     {
       "plane": "agent",
@@ -994,22 +1019,26 @@
     {
       "plane": "human",
       "name": "intent.plan",
-      "method": "POST",
-      "path": "/v1/intents/plan",
+      "method": "eth_call",
+      "path": "",
       "request": "PlanIntentRequest",
       "response": "IntentPlan",
       "idempotency": false,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "per_leg": true
     },
     {
       "plane": "human",
       "name": "intent.submit",
-      "method": "POST",
-      "path": "/v1/intents/submit",
+      "method": "eth_sendRawTransaction",
+      "path": "",
       "request": "SubmitPlanRequest",
       "response": "IntentSubmission",
       "idempotency": true,
-      "bodyless": false
+      "bodyless": false,
+      "transport": "evm",
+      "per_leg": true
     },
     {
       "plane": "human",
