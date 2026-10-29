@@ -10115,3 +10115,75 @@ symbol = "release-verification"
 observed = "Attempts 1 to 4: committed_pipeline() panics because the retention upload step carries if: always(), which the release validator (main.rs:1026-1032) does not admit on verification steps."
 assumption = "The workflow line is deleted (No Weakening forbids widening the validator); platform.yml joins the touches and 16.5.6 follows by its requires."
 severity = "minor"
+
+[finding.18.1121.1.3]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:590"
+symbol = "PAYER_DID"
+observed = "Attempt 6 (aed26448d): build, daemon_bound (11) and read (4) tests pass; 16 web tests fail because the tool sends LAYERX-PAYER-DID over eip155:1337 while the seller recordings carry LAYERX-PAYER-ADDRESS on eip155:125."
+assumption = "Decision.1820 names the payer by address in the web binding and replays the recordings as recorded."
+severity = "major"
+
+[finding.9.3.3.1]
+task = "9.3.3"
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs:61"
+symbol = "unknown_submission_resolves_to_executed_from_a_signed_receipt"
+observed = "Attempts 1 to 4 panic for a missing PAXEER_X_UNKNOWN_RECEIPT_LOOKUP_FIXTURE before any assertion; the gate names tests that require an owned real sequencer."
+assumption = "Decision.1821 moves the gate tests to a loopback sequencer endpoint and keeps the real variant as a release gate."
+severity = "major"
+
+[finding.8.44.1.2]
+task = "8.44.1"
+file = "sdk/platform/swift/Package.swift"
+symbol = "swift-build"
+observed = "Attempts 1 to 5 stopped before the package build because the Swift toolchain could not load libxml2.so.2 in the environment that runs the gates."
+assumption = "The environment now installs the toolchain's missing shared libraries before the build step; attempt 6 carries the attempt 5 candidate unchanged."
+severity = "minor"
+
+[finding.13.27.1.9]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+symbol = "prepareSandboxExecute"
+observed = "Attempt 27 fails with LXP_ERR_CONTEXT_MISMATCH (-213) because the interface bytes carry ABI 1 while deploy and call carry abiVersion 3; the runtime's interface check (ffi_interface.rs:469-474, :549-552) rejects the mismatch."
+assumption = "The test writes ABI 3 in the interface field; no kernel or runtime change (do_11)."
+severity = "major"
+
+[finding.13.34.4.3]
+task = "13.34.4"
+file = "precompiles/layerxprograms/submit.go:52"
+symbol = "submit"
+observed = "Attempt 6 could not present a reused actor sequence through submit, which derives the sequence itself (:61, :65, :88); the test cannot assert the refusal that way."
+assumption = "Decision.1822 drives both calls through lxphost.ExecuteActivity and drops the receipt-by-hash readback."
+severity = "major"
+
+[finding.13.30.3.3]
+task = "13.30.3"
+file = "programs/crates/layerx-programs-arbiter/src/authority.rs:24-42"
+symbol = "derive"
+observed = "Attempt 5 failed the crate build: epoch and batch reads moved onto VerifiedAdmissionPrestate, which has no such accessors, and step.rs:411-422 and market.rs:148-201 still passed header and receipt_proof; main builds the crate and it is not on known-broken-crates.json."
+assumption = "Decision.1823 keeps the header parameter, replaces only the receipt proof and adds step.rs and market.rs to the task."
+severity = "major"
+
+[finding.10.98.5.2]
+task = "10.98.5"
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs:4-6"
+symbol = "no_retired_layerx_client_module_paths"
+observed = "Attempt 3 left the six src files clean; 11 retired paths remain in the three node-fixture tests, which 10.4.3 already recorded must stay on layerx_client::lni until AgentRuntime::connect leaves lni::transport::Limits (10.3.1)."
+assumption = "Decision.1824 scopes the scan to the src files and moves the three tests to 10.98.15 after 10.3.1."
+severity = "minor"
+
+[finding.10.98.7.1]
+task = "10.98.7"
+file = "services/human/crates/layerx-human-kms/src/attestor.rs:793"
+symbol = "sign_activity"
+observed = "Attempt 4 keeps layerx_crypto::disclosure::bind in src/attestor.rs and tests/attestor.rs:863 because do_3 forbade a behaviour change and bind_call signs 65-byte EVM calls; the scan fails on both files."
+assumption = "Decision.1825 lets sign_activity take the Eip1559Call and from and the tests assert the EVM call API (do_6)."
+severity = "major"
+
+[finding.10.98.9.2]
+task = "10.98.9"
+file = "services/human/crates/layerx-human-service/tests/binding.rs:142"
+symbol = "mark_executed"
+observed = "Attempt 3 fails to compile the test with 5 errors: SubmissionState::Acknowledged, sign_disclosed_call over Prepared, attach_external_signature and verify_before_submit over Prepared and a 32-byte key, Outbox::enqueue with 4 arguments; all are the retired layerx_agentd API."
+assumption = "Decision.1825 rewrites the test against SigningPreparation, the 20-byte signer address and enqueue(store, tenant, raw) (do_5)."
+severity = "major"
