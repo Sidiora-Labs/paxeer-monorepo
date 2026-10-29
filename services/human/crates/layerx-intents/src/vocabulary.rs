@@ -89,10 +89,7 @@ impl Intent {
 pub enum IntentKind {
     /// Onboarding: register a DID and primary key in the governance identity registry.
     DidRegistration(DidRegistration),
-    NativeOnboardingConsent(layerx_crypto::onboarding::OnboardingConsent),
-    NativeOnboarding(layerx_crypto::onboarding::SponsoredRegistration),
     NativeBudgetCreate(crate::NativeBudgetCreate),
-    NativeOwnerRotation(layerx_crypto::rotation::OwnerRotation),
     NativeAssetAccountOpen(AssetId),
     /// Identity security: announce a governance identity-key rotation.
     KeyRotation(KeyRotation),
@@ -131,9 +128,6 @@ impl IntentKind {
     pub const fn module(&self) -> ModuleId {
         match self {
             Self::DidRegistration(_)
-            | Self::NativeOnboardingConsent(_)
-            | Self::NativeOnboarding(_)
-            | Self::NativeOwnerRotation(_)
             | Self::KeyRotation(_)
             | Self::RecoveryRegistration(_)
             | Self::EvmPayoutBinding(_)

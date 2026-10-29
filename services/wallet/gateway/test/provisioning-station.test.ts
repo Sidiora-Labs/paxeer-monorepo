@@ -16,7 +16,7 @@ import type { SponsoredBindRequest } from '../src/provision/bind.js';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 import { startIdentityProvider, type IdentityProvider } from './support/identity.js';
-import { ADDR, BIND_SELECTOR, TestChain } from './support/chain.js';
+import { ADDR, BIND_SELECTOR, TestChain, type Receipt } from './support/chain.js';
 import { KERNEL_POLICY } from './e2e/attestors.js';
 import type { SequencerReceiptResult } from '../src/rpc/pool.js';
 
@@ -332,7 +332,7 @@ afterAll(async () => {
 }, 120_000);
 
 
-async function provisionBindIsStationSponsored(): Promise<void> {
+async function exerciseStationProvisioning(scenario: 'response_lost' | 'expired' | 'unresolved'): Promise<void> {
   const { GasStationClient } = await import('../src/sponsor/station.js');
   const { constructionDigest, sponsorQuoteDigest } = await import('../src/attestor/client.js');
   const { env } = await import('../src/env.js');
@@ -346,6 +346,10 @@ async function provisionBindIsStationSponsored(): Promise<void> {
   let issued: SponsoredBindRequest['batch']['quote'] | undefined;
   let failAfterSubmit = true;
   let submittedHash: Hex | null = null;
+  let stationNow = Math.floor(Date.now() / 1000);
+  let unavailable = scenario !== 'response_lost';
+  let heldReceipt: Receipt | undefined;
+  const sentBefore = chain.sent.length;
   const server = createHttpServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -361,9 +365,17 @@ async function provisionBindIsStationSponsored(): Promise<void> {
           expect(body.calls[0].to).toBe(ADDR);
           expect(body.calls[0].value).toBe('0');
           expect(body.calls[0].data.slice(0,10)).toBe(BIND_SELECTOR);
+          if (quoteRequests.length > 0) {
+            expect(scenario).toBe('expired');
+            const cleared = await base.pool.query(`select station_request, station_quote_nonce, station_batch_nonce,
+              bind_gas, bind_max_fee_wei from account_provisioning where wallet_id =
+              (select id from wallets where lower(address) = lower($1))`, [body.account]);
+            expect(cleared.rows).toEqual([{ station_request: null, station_quote_nonce: null,
+              station_batch_nonce: null, bind_gas: null, bind_max_fee_wei: null }]);
+          }
           quoteRequests.push(body);
           issued = { sponsor: sponsor.address, token: body.token, maxTokenAmount: body.maxTokenAmount,
-            tokenAmount: '100', deadline: String(Math.floor(Date.now()/1000)+300), quoteNonce: '7', gasCost: body.gasCost, decimals: 6 };
+            tokenAmount: '100', deadline: String(stationNow+300), quoteNonce: String(6+quoteRequests.length), gasCost: body.gasCost, decimals: 6 };
           const construction = { kind: 'sponsored_batch', chainId: body.chainId, account: body.account, nonce: body.nonce, calls: body.calls, quote: issued };
           const relayerSignature = await sponsor.sign({ hash: sponsorQuoteDigest(construction) });
           res.writeHead(200, { 'content-type': 'application/json' });
@@ -392,18 +404,34 @@ async function provisionBindIsStationSponsored(): Promise<void> {
         expect(decoded.args![3]).toBe(request.relayerSignature);
         expect(request.call.to).toBe(request.batch.account);
         expect(request.call.value).toBe('0');
-        const persisted = await base.pool.query('select station_quote_nonce::text, station_batch_nonce::text, station_request from account_provisioning where station_quote_nonce = 7');
+        const persisted = await base.pool.query(`select station_quote_nonce::text, station_batch_nonce::text, station_request
+          from account_provisioning where wallet_id = (select id from wallets where lower(address) = lower($1))`, [request.batch.account]);
         expect(persisted.rows).toHaveLength(1);
-        expect(persisted.rows[0]).toEqual({station_quote_nonce:'7',station_batch_nonce:'0',station_request:request});
+        expect(persisted.rows[0]).toEqual({station_quote_nonce:request.batch.quote.quoteNonce,station_batch_nonce:'0',station_request:request});
+        if (unavailable) {
+          res.writeHead(503, {'content-type':'application/json'});
+          res.end(JSON.stringify({error:'gas_station_unavailable'}));
+          return;
+        }
+        if (!submittedHash && BigInt(request.batch.quote.deadline) < BigInt(stationNow)) {
+          res.writeHead(422, {'content-type':'application/json'});
+          res.end(JSON.stringify({error:'expired_quote'}));
+          return;
+        }
         if (!submittedHash) {
-          const raw = await sponsor.signTransaction({ type:'eip7702', chainId:CHAIN_ID, nonce:0, to:request.call.to, value:0n,
+          const raw = await sponsor.signTransaction({ type:'eip7702', chainId:CHAIN_ID, nonce:chain.nonces.get(sponsor.address.toLowerCase()) ?? 0, to:request.call.to, value:0n,
             data:request.call.data, gas:200000n, maxFeePerGas:BigInt(request.batch.quote.gasCost)/200000n, maxPriorityFeePerGas:chain.tip,
             authorizationList:[{...authorization,chainId:Number(authorization.chainId),nonce:Number(authorization.nonce)}] });
           submittedHash = await base.rpc.sendRawTransaction(raw);
           sponsoredHashes.add(submittedHash);
           expect(chain['applyBind'](request.batch.account.toLowerCase(), request.batch.calls[0]!.data)).toBe(true);
+          if (scenario === 'expired') {
+            heldReceipt = chain.receipts.get(submittedHash);
+            expect(heldReceipt).toBeDefined();
+            chain.receipts.delete(submittedHash);
+          }
         }
-        if (failAfterSubmit) {
+        if (scenario === 'response_lost' && failAfterSubmit) {
           failAfterSubmit = false;
           res.writeHead(503, {'content-type':'application/json'});
           res.end(JSON.stringify({error:'gas_station_unavailable'}));
@@ -445,6 +473,74 @@ async function provisionBindIsStationSponsored(): Promise<void> {
     expect(endpointErrors).toEqual([]);
     expect(first.statusCode,first.body).toBe(503);
     expect(first.json()).toMatchObject({error:'gas_station_unavailable'});
+    if (scenario !== 'response_lost') {
+      const saved = (await deps.pool.query(`select station_request::text, station_quote_nonce::text,
+        station_batch_nonce::text, bind_gas::text, bind_max_fee_wei::text, state
+        from account_provisioning where user_id = $1`, [userId])).rows[0]!;
+      expect(saved.state).toBe('bind_signed');
+      expect(saved.station_request).toBeTruthy();
+      expect(saved.station_quote_nonce).toBe('7');
+      expect(saved.station_batch_nonce).toBe('0');
+      expect(saved.bind_gas).toBe('200000');
+      expect(BigInt(saved.bind_max_fee_wei)).toBeGreaterThan(0n);
+      expect(chain.sent).toHaveLength(sentBefore);
+      const auditFiles = endpoints.map((_, i) => join(workDir, `node-${i + 1}-data`, 'audit', 'audit.log'));
+      const signingBefore = auditFiles.map(path => readFileSync(path));
+      expect(signingBefore.some(log => log.includes(Buffer.from('sign.eth_sign_digest')))).toBe(true);
+      const stationUrl = `http://127.0.0.1:${address.port}`;
+      const restarted = { ...routesModule.provisionDepsFromEnv()!, station: new GasStationClient(stationUrl), receiptTimeoutMs: 0 };
+      if (scenario === 'unresolved') {
+        await expect(stateModule.provisionAccount(restarted, { kind: 'standard', userId, token }))
+          .rejects.toMatchObject({ status: 503, code: 'gas_station_unavailable' });
+        expect(endpointErrors).toEqual([]);
+        expect((await deps.pool.query(`select station_request::text, station_quote_nonce::text,
+          station_batch_nonce::text, bind_gas::text, bind_max_fee_wei::text, state
+          from account_provisioning where user_id = $1`, [userId])).rows[0]).toEqual(saved);
+        expect(auditFiles.map(path => readFileSync(path))).toEqual(signingBefore);
+        expect(quoteRequests).toHaveLength(1);
+        expect(submitRequests).toHaveLength(2);
+        expect(submitRequests[1]).toEqual(submitRequests[0]);
+        expect(chain.sent).toHaveLength(sentBefore);
+        unavailable = false;
+        const completed = await stateModule.provisionAccount(restarted, { kind: 'standard', userId, token });
+        expect(completed.state).toBe('active');
+        expect(endpointErrors).toEqual([]);
+        expect(auditFiles.map(path => readFileSync(path))).toEqual(signingBefore);
+        expect(quoteRequests).toHaveLength(1);
+        expect(submitRequests).toHaveLength(3);
+        expect(submitRequests[2]).toEqual(submitRequests[0]);
+        expect((await deps.pool.query('select station_request::text from account_provisioning where user_id = $1', [userId])).rows[0]!.station_request)
+          .toBe(saved.station_request);
+      } else {
+        stationNow = Number(submitRequests[0]!.batch.quote.deadline) + 1;
+        unavailable = false;
+        await new Promise<void>((resolveClose, reject) => server.close(error => error ? reject(error) : resolveClose()));
+        await new Promise<void>(resolveListen => server.listen(address.port, '127.0.0.1', resolveListen));
+        const currentToken = await idp.mintUserToken(userId);
+        await expect(stateModule.provisionAccount(restarted, { kind: 'standard', userId, token: currentToken }))
+          .rejects.toThrow('has no receipt after 0 ms');
+        expect(endpointErrors).toEqual([]);
+        const requoted = (await deps.pool.query('select * from account_provisioning where user_id = $1', [userId])).rows[0]!;
+        expect(requoted.state).toBe('bind_sent');
+        expect(requoted.bind_tx_hash).toBe(submittedHash);
+        expect(requoted.station_quote_nonce).toBe('8');
+        expect(requoted.station_batch_nonce).toBe('0');
+        expect(requoted.bind_gas).toBe('200000');
+        expect(requoted.station_request).toEqual(submitRequests[2]);
+        expect(quoteRequests).toHaveLength(2);
+        expect(submitRequests).toHaveLength(3);
+        expect(submitRequests[1]).toEqual(submitRequests[0]);
+        expect(submitRequests[2]!.batch.quote.quoteNonce).not.toBe(submitRequests[0]!.batch.quote.quoteNonce);
+        expect(submitRequests[2]!.accountSignature).not.toBe(submitRequests[0]!.accountSignature);
+        expect(submitRequests[2]!.batch.calls).toEqual(submitRequests[0]!.batch.calls);
+        expect(auditFiles.map(path => readFileSync(path))).not.toEqual(signingBefore);
+        chain.receipts.set(submittedHash!, heldReceipt!);
+        expect((await stateModule.provisionAccount(restarted, { kind: 'standard', userId, token: currentToken })).state).toBe('active');
+        expect(submitRequests).toHaveLength(3);
+      }
+      expect(chain.sent).toHaveLength(sentBefore + 1);
+      return;
+    }
     const response = await api.inject({method:'POST',url:'/v1/wallet/provision',headers:{authorization:`Bearer ${token}`}});
     expect(endpointErrors).toEqual([]);
     expect(response.statusCode,response.body).toBe(200);
@@ -483,6 +579,18 @@ async function provisionBindIsStationSponsored(): Promise<void> {
   }
 }
 
+async function provisionBindIsStationSponsored(): Promise<void> {
+  await exerciseStationProvisioning('response_lost');
+}
+
+async function provisionRequotesAfterUnsubmittedQuoteExpires(): Promise<void> {
+  await exerciseStationProvisioning('expired');
+}
+
+async function provisionKeepsUnresolvedStationRequest(): Promise<void> {
+  await exerciseStationProvisioning('unresolved');
+}
+
 async function provisionRefusesWithoutStation(): Promise<void> {
   const { env } = await import('../src/env.js');
   const { GasStationClient } = await import('../src/sponsor/station.js');
@@ -506,3 +614,6 @@ async function provisionRefusesWithoutStation(): Promise<void> {
 
 test(provisionBindIsStationSponsored, provisionBindIsStationSponsored, LONG);
 test(provisionRefusesWithoutStation, provisionRefusesWithoutStation);
+
+test(provisionRequotesAfterUnsubmittedQuoteExpires, provisionRequotesAfterUnsubmittedQuoteExpires, LONG);
+test(provisionKeepsUnresolvedStationRequest, provisionKeepsUnresolvedStationRequest, LONG);

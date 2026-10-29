@@ -880,7 +880,7 @@ fn transfer_error_tag(error: TransferLawError) -> u8 {
         TransferLawError::AmountOverflow => 4,
         TransferLawError::InvariantViolation => 5,
         TransferLawError::CapabilityEscalation => 6,
-        TransferLawError::KernelRefused => 7,
+        TransferLawError::KernelRefused | TransferLawError::Kernel(_) => 7,
         TransferLawError::ReceiptInvalid => 8,
         TransferLawError::ReceiptMismatch => 9,
         TransferLawError::StaleStorage => 10,
@@ -1995,12 +1995,12 @@ impl KernelTransferPrimitive for CKernel {
                     .map_err(|_| TransferLawError::InvalidTransferSet)?,
             )
         })
-        .map_err(|_| TransferLawError::ReceiptMismatch)?;
+        .map_err(TransferLawError::Kernel)?;
         for (index, leg) in transfers.legs().iter().enumerate() {
             submit_kernel_transfer_leg(self.token, index, leg)?;
         }
         c_ok(unsafe { layerx_programs_call_transfer_apply(self.token) })
-            .map_err(|_| TransferLawError::ReceiptMismatch)?;
+            .map_err(TransferLawError::Kernel)?;
         if program_spend.is_some()
             && !crate::ffi_transfer::program_spend_consumed(program_spend_token)
         {
@@ -2885,7 +2885,7 @@ pub extern "C" fn layerx_programs_call_begin(
                 .map_err(|_| NON_CANONICAL)?;
         let sandbox = unsafe { layerx_programs_call_sandbox_context(token) } == OK;
         if sandbox {
-            if unsafe {
+            let status = unsafe {
                 layerx_programs_call_sandbox_admit(
                     token,
                     batch_number,
@@ -2896,9 +2896,9 @@ pub extern "C" fn layerx_programs_call_begin(
                             .map_err(|_| LENGTH_LIMIT)?,
                     ),
                 )
-            } != OK
-            {
-                return Err(NON_CANONICAL);
+            };
+            if status != OK {
+                return Err(status);
             }
         } else if maximum_fee > signed_fee {
             return Err(NON_CANONICAL);

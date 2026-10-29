@@ -463,9 +463,9 @@ pub(crate) fn native_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,
@@ -631,9 +631,9 @@ pub(crate) fn native_effect_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,
@@ -848,9 +848,9 @@ pub(crate) fn native_send_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,
@@ -2737,8 +2737,8 @@ mod native_contract_tests {
         assert_eq!(human.activity_type, 0x0009_0001);
         assert_eq!(human.actor, "did:layerx:alice");
         assert_eq!(human.authority, "owner-primary");
-        assert_eq!(human.account_sequence, 4);
-        assert_eq!((human.not_before, human.not_after), (10, 20));
+        assert_eq!(human.nonce, 4);
+        assert_eq!((human.not_before_height, human.not_after_height), (10, 20));
         assert_eq!(human.idempotency_key, "88".repeat(32));
         assert_eq!(human.fee_limit, 123);
         assert_eq!(human.payload, [1, 2]);

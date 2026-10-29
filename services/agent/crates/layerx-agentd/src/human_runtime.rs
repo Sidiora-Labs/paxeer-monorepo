@@ -5558,9 +5558,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     actor: actor.clone(),
                     authority,
                     activity_type: activity,
-                    expected_account_sequence: Some(human.account_sequence),
+                    expected_account_sequence: Some(human.nonce),
                     timestamp_bound: Some(
-                        TimestampBound::new(human.not_before, human.not_after)
+                        TimestampBound::new(human.not_before_height, human.not_after_height)
                             .map_err(|_| HumanOperationError::Refused)?,
                     ),
                     fee_limit: Some(Amount::from_u128(human.fee_limit)),
@@ -5834,9 +5834,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     actor: actor.clone(),
                     authority,
                     activity_type: activity,
-                    expected_account_sequence: Some(human.account_sequence),
+                    expected_account_sequence: Some(human.nonce),
                     timestamp_bound: Some(
-                        TimestampBound::new(human.not_before, human.not_after)
+                        TimestampBound::new(human.not_before_height, human.not_after_height)
                             .map_err(|_| HumanOperationError::Refused)?,
                     ),
                     fee_limit: Some(Amount::from_u128(human.fee_limit)),
@@ -10167,7 +10167,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                     let authority = operations.authority.authorized_activity(
                         &bound,
                         &signed_activity,
-                        evidence.activity_id,
+                        evidence.tx_hash,
                     )?;
                     (identity, authority, registry)
                 };
@@ -12318,7 +12318,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .ok_or(HumanOperationError::Refused)?;
         let verified = verify_evm_write(&cached, &request.operation.signature)?;
         let prepared = cached.prepared;
-        let submission_id = verified.activity_id();
+        let activity_id = verified.activity_id();
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let mut store = self
@@ -12341,7 +12341,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 }
             }
         }
-        self.outboxes
+        let submission_id = self
+            .outboxes
             .entry(peer.tenant.clone())
             .or_default()
             .enqueue_with_origin(
@@ -12353,6 +12354,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 Some(peer.principal.as_str()),
             )
             .map_err(|_| HumanOperationError::Unavailable)?;
+        if submission_id != activity_id {
+            return Err(HumanOperationError::Refused);
+        }
         let preparation_id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
         let durable_key = crate::prepare::DurablePreparation::store_key(&tenant, preparation_id)
             .map_err(|_| HumanOperationError::Refused)?;
@@ -14926,9 +14930,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         if gate.is_none() {
             self.require_unversioned_policy_binding(peer)?;
         }
-        let timestamp =
-            TimestampBound::new(request.operation.not_before, request.operation.not_after)
-                .map_err(|_| HumanOperationError::Refused)?;
+        let timestamp = TimestampBound::new(
+            request.operation.not_before_height,
+            request.operation.not_after_height,
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
         let budget_context = self.budget_mutation_context(
             peer,
             activity_type,
@@ -14953,7 +14959,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 actor,
                 authority,
                 activity_type,
-                expected_account_sequence: Some(request.operation.account_sequence),
+                expected_account_sequence: Some(request.operation.nonce),
                 timestamp_bound: Some(timestamp),
                 fee_limit: Some(Amount::from_u128(request.operation.fee_limit)),
                 idempotency_key: IdempotencyKey::new(
@@ -17773,9 +17779,9 @@ fn legacy_prepare_digest(request: &HumanPrepare) -> [u8; 32] {
     digest.update(request.activity_type.to_be_bytes());
     hash_text(&mut digest, request.actor.as_bytes());
     hash_text(&mut digest, request.authority.as_bytes());
-    digest.update(request.account_sequence.to_be_bytes());
-    digest.update(request.not_before.to_be_bytes());
-    digest.update(request.not_after.to_be_bytes());
+    digest.update(request.nonce.to_be_bytes());
+    digest.update(request.not_before_height.to_be_bytes());
+    digest.update(request.not_after_height.to_be_bytes());
     hash_text(&mut digest, request.idempotency_key.as_bytes());
     digest.update(request.fee_limit.to_be_bytes());
     digest.update(request.payload_hash);
@@ -18494,9 +18500,6 @@ fn export_refusal(error: crate::export::ExportProduceError) -> HumanOperationErr
     use layerx_proof::export::CompleteExportError as Complete;
     match error {
         Produce::UnavailableCapability(_) => HumanOperationError::Unavailable,
-        Produce::SettlementAnchoringUnavailable => {
-            HumanOperationError::Typed(HumanRefusal::ExportSettlementAnchoringUnavailable)
-        }
         Produce::Verification(Complete::RungNotAchieved { .. }) => {
             HumanOperationError::Typed(HumanRefusal::ExportLevelUnattainable)
         }
@@ -19532,6 +19535,37 @@ mod activity_submission_index_tests {
     ) -> Result<OwnedSubmission, HumanOperationError> {
         let indexed = indexed_activity_owner(store, tenant, activity_id)?;
         retained_activity_owner(store, registry, tenant, activity_id, indexed)
+    }
+
+    #[test]
+    fn enqueue_with_origin_returns_the_stored_transaction_hash() {
+        let root = std::env::temp_dir().join(format!(
+            "lxp-activity-submission-stored-transaction-hash-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        let mut store = must(Store::open(root.join("store")));
+        let tenant = must(TenantId::new("tenant-a"));
+        let (_, submission) = signed_submission();
+        let mut outbox = Outbox::default();
+        let stored_key = must(outbox.enqueue_with_origin(
+            &mut store,
+            tenant,
+            submission.idempotency_key(),
+            submission.clone(),
+            None,
+            Some("operator"),
+        ));
+        assert_eq!(
+            stored_key,
+            layerx_crypto::evm_transaction::transaction_hash(submission.exact_bytes())
+        );
+        let status = outbox.status(stored_key).expect("stored submission");
+        assert_eq!(status.submission_id, stored_key);
+        assert_eq!(status.state, SubmissionState::Queued);
+        assert!(outbox.status(submission.idempotency_key()).is_none());
+        drop(store);
+        must(std::fs::remove_dir_all(root));
     }
 
     #[test]

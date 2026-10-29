@@ -6,7 +6,7 @@
 //! to finalize. The maintenance loop reconciles fenced leases and submits result commitments
 //! and membership heartbeats through the programs precompile.
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_client::head::Head;
+use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::{
         acknowledgment_digest, decode_service, sign_status, verify_request, verify_signed_metadata,
@@ -643,10 +643,14 @@ fn refresh_authority(service: &Service, config: &Config) -> Result<(), ServiceEr
             state,
             facts: &facts,
             finality: &finality,
-            head: Head {
-                chain_sequence: observation.observed_sequence,
-                sealed_batch: observation.sealed_height,
-                finalised_checkpoint: observation.block_hash,
+            head: PxNetworkHead {
+                network_id: "paxeer".to_owned(),
+                paxeer: PxPaxeerHead {
+                    chain_id: 125,
+                    latest_block: observation.sealed_height,
+                },
+                layerx: None,
+                latest_committed_height: observation.sealed_height,
             },
             owner: observation.owner.evidence()?,
             roster: observation.roster.as_deref(),

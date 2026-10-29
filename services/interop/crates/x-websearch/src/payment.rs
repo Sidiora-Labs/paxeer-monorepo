@@ -2335,6 +2335,7 @@ impl<'Plane> Plane<'Plane> {
             return Err("receipt_mismatch");
         }
         Ok(PlanePaymentOutcome::Executed(ExecutedPayment {
+            committed: None,
             evidence: SequencerEvidence {
                 transaction_hash: answer.tx_hash,
                 signed_receipt: bytes,

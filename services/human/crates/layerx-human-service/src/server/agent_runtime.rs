@@ -604,7 +604,7 @@ pub struct VerifiedBalance {
     pub observed_at: String,
     pub age_seconds: u64,
     pub amount: u128,
-    pub verification: u8,
+    pub verification: Option<Rung>,
     pub global_sequence: u64,
     pub batch_number: u64,
     pub observed_head_sequence: u64,
@@ -1895,36 +1895,101 @@ impl AgentRuntime {
     /// Refuses unavailable or unauthenticated balance evidence.
     pub fn balance(&mut self) -> Result<VerifiedBalance, AgentBoundaryError> {
         let mut reader = self.exchange(&Writer::new(BALANCE).finish())?;
-        let value = VerifiedBalance {
-            account: reader.fixed()?,
-            asset: reader.fixed()?,
-            currency: reader.text()?,
-            observed_at: reader.text()?,
-            age_seconds: reader.u64()?,
-            amount: reader.u128()?,
-            verification: reader.u8()?,
-            global_sequence: reader.u64()?,
-            batch_number: reader.u64()?,
-            observed_head_sequence: reader.u64()?,
-            observed_checkpoint: reader.fixed()?,
-            canonical_bytes: reader.bytes()?,
-            proof_material: reader.bytes()?,
+        let response = reader.bytes()?;
+        reader.finish()?;
+        let json: serde_json::Value =
+            serde_json::from_slice(&response).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let text = |pointer: &str| {
+            json.pointer(pointer)
+                .and_then(serde_json::Value::as_str)
+                .ok_or(AgentBoundaryError::CorruptResponse)
         };
-        if !matches!(value.verification, 4 | 5)
-            || value.account == [0; 32]
-            || value.asset == [0; 32]
-            || value.currency.is_empty()
-            || value.observed_at.is_empty()
-            || value.canonical_bytes.is_empty()
-            || value.proof_material.is_empty()
-            || self.subject.as_ref().is_some_and(|subject| {
-                value.account != subject.account_id || value.asset != subject.asset_id
-            })
+        let decimal = |pointer: &str| -> Result<u64, AgentBoundaryError> {
+            let raw = text(pointer)?;
+            let number = raw
+                .parse::<u64>()
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            if number.to_string() != raw {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            Ok(number)
+        };
+        let verification = match json.get("achieved_verification_level") {
+            Some(serde_json::Value::Null) => None,
+            Some(serde_json::Value::String(name)) => {
+                Some(Rung::from_name(name).ok_or(AgentBoundaryError::CorruptResponse)?)
+            }
+            _ => return Err(AgentBoundaryError::CorruptResponse),
+        };
+        let account = decode_hex32(text("/value/account")?)
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let asset =
+            decode_hex32(text("/value/asset")?).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let amount_text = text("/value/amount")?;
+        let amount = amount_text
+            .parse::<u128>()
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let canonical_text = text("/value/canonical_state")?;
+        if canonical_text.is_empty()
+            || canonical_text.len() % 2 != 0
+            || !canonical_text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        reader.finish()?;
-        Ok(value)
+        let canonical_bytes = canonical_text
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                let digit = |b: u8| if b <= b'9' { b - b'0' } else { b - b'a' + 10 };
+                digit(pair[0]) * 16 + digit(pair[1])
+            })
+            .collect();
+        let height = decimal("/value/height")?;
+        let chain_head = decimal("/freshness/chain_head")?;
+        let value_height = decimal("/freshness/value_height")?;
+        let relative = text("/freshness/relative_to")?;
+        let expected_relative = if value_height > chain_head {
+            "pending".to_owned()
+        } else {
+            value_height.to_string()
+        };
+        if account == [0; 32]
+            || asset == [0; 32]
+            || amount.to_string() != amount_text
+            || height != value_height
+            || relative != expected_relative
+            || self
+                .subject
+                .as_ref()
+                .is_some_and(|subject| account != subject.account_id || asset != subject.asset_id)
+        {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let policy = self.native_fee_policy()?;
+        if policy.asset_id != asset {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| AgentBoundaryError::Unavailable)?
+            .as_secs();
+        Ok(VerifiedBalance {
+            account,
+            asset,
+            currency: policy.currency,
+            observed_at: crate::time::rfc3339(now),
+            age_seconds: 0,
+            amount,
+            verification,
+            global_sequence: value_height,
+            batch_number: 0,
+            observed_head_sequence: chain_head,
+            observed_checkpoint: [0; 32],
+            canonical_bytes,
+            proof_material: response,
+        })
     }
 
     /// # Errors
