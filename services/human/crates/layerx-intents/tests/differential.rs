@@ -58,7 +58,7 @@ fn registry() -> ModuleRegistry {
                 activity(ModuleId::Budget, 1),
                 activity(ModuleId::Budget, 2),
                 activity(ModuleId::Budget, 4),
-                activity(ModuleId::Budget, 7),
+                activity(ModuleId::Budget, 8),
             ],
         )
         .unwrap_or_else(|error| panic!("budget: {error:?}")),
