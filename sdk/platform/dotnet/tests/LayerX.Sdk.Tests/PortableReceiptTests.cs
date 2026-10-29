@@ -130,6 +130,39 @@ public sealed class PortableReceiptTests
     }
 
     [Fact]
+    public void PortableExportNormalizesCommittedRpcView()
+    {
+        using var settlement = LoadConformance("vector-v4-committed.json");
+        using var published = LoadConformance("vector-v5-portable.json");
+        using var recorded = LoadCommittedFixture();
+        var vector = settlement.RootElement.GetProperty("positive");
+        var view = recorded.RootElement.GetProperty("settlement").GetProperty("receipt");
+        Assert.Equal("committed", view.GetProperty("rung").GetString());
+        var expected = published.RootElement.GetProperty("bundles").EnumerateArray()
+            .Single(bundle => bundle.GetProperty("verificationLevel").GetString() == "committed");
+        var keys = Keys(vector);
+        var raw = Hex(vector, "rawTransaction");
+        var header = vector.GetProperty("blockHeader").Deserialize<CometHeader>()!;
+        var inclusion = vector.GetProperty("receiptInclusion").Deserialize<CommittedReceiptInclusion>()!;
+        var commit = vector.GetProperty("commit").Deserialize<CometCommit>()!;
+        var validators = vector.GetProperty("validatorSet").Deserialize<CometValidator[]>()!;
+        var exported = PortableReceipt.export(view, raw, keys, header, inclusion, commit, validators).export();
+        Assert.Equal(Encoding.UTF8.GetBytes(expected.GetRawText()), exported);
+        Assert.Equal("committed", PortableReceipt.verify(exported, keys).VerificationLevel);
+
+        void Reject(Action<JsonObject> mutate)
+        {
+            var changed = JsonNode.Parse(view.GetRawText())!.AsObject();
+            mutate(changed);
+            Refused(() => PortableReceipt.export(JsonSerializer.SerializeToElement(changed), raw, keys,
+                header, inclusion, commit, validators));
+        }
+        Reject(receipt => receipt["blockHash"] = "0x" + new string('0', 64));
+        Reject(receipt => receipt["blockNumber"] = "0xb");
+        Refused(() => PortableReceipt.export(view, raw, keys));
+    }
+
+    [Fact]
     public void PortableExportMatchesPublishedVectorV5()
     {
         using var settlement = LoadConformance("vector-v4-committed.json");
@@ -319,6 +352,9 @@ public sealed class PortableReceiptTests
 
     private static JsonDocument LoadConformance(string name, [CallerFilePath] string source = "") => JsonDocument.Parse(File.ReadAllText(
         Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../../conformance/fixtures", name))));
+
+    private static JsonDocument LoadCommittedFixture([CallerFilePath] string source = "") => JsonDocument.Parse(File.ReadAllText(
+        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json"))));
 
     private static JsonDocument LoadFixture([CallerFilePath] string source = "") => JsonDocument.Parse(File.ReadAllText(
         Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../../conformance/fixtures/sequencer-receipt-v1.json"))));
