@@ -619,7 +619,7 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
     digest.update(encode(None));
     let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
     let canonical_bytes = encode(Some(signature.to_bytes()));
-    ReceiptMaterial {
+    let material = ReceiptMaterial {
         authorised_batch: AuthorizedBatch::new(
             batch,
             ASSET,
@@ -633,7 +633,18 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
         tx_hash: activity_id,
         block_height: sequence,
         rung: layerx_types::rung::Rung::Receipted,
-    }
+    };
+    let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
+        .unwrap_or_else(|error| panic!("intent receipt: {error:?}"));
+    let protocol = receipt.protocol().expect("protocol intent receipt");
+    assert_eq!(material.tx_hash, protocol.activity_id());
+    assert_eq!(material.block_height, protocol.global_sequence());
+    assert_eq!(
+        material.receipt_hash,
+        <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+    );
+    assert_eq!(material.rung, layerx_types::rung::Rung::Receipted);
+    material
 }
 
 fn push_u16(output: &mut Vec<u8>, value: u16) {

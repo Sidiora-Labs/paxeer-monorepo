@@ -20,6 +20,7 @@ use layerx_types::payload::ModuleRegistry;
 use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::receipt::{decode, encode};
+use sha2::{Digest as _, Sha256};
 
 const TRACE: &str = "trc_0123456789abcdef0123456789abcdef";
 const MAX_FRAME: usize = 4096;
@@ -167,7 +168,6 @@ fn runtime_decodes_rung_bytes_zero_one_two_and_refuses_three() {
 #[test]
 fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
     let tx_hash = [0x31; 32];
-    let receipt_hash = [0x42; 32];
     let observed_height = 0x0102_0304_0506_0708_u64;
     let key = checked(SigningKey::from_bytes((&[0x53; 32]).into()));
     let (signature, recovery) = checked(key.sign_prehash_recoverable(&tx_hash));
@@ -180,6 +180,7 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
     replay.extend_from_slice(&[0x73; 32]);
     replay.extend_from_slice(&[0x74; 32]);
     let canonical_bytes = checked(encode(&checked(decode(&replay))));
+    let receipt_hash = Sha256::digest(&canonical_bytes).into();
     let batch_fields = [[0x71; 32], [0x72; 32], [0x73; 32], [0x74; 32], [0x75; 32]];
     let expected = ReceiptMaterial {
         canonical_bytes: canonical_bytes.clone(),

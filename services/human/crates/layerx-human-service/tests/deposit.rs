@@ -716,7 +716,7 @@ impl RealCreditAgent {
         digest.update(&unsigned);
         canonical[signature_offset..]
             .copy_from_slice(&signer.sign(&<[u8; 32]>::from(digest.finalize())).to_bytes());
-        Ok(ReceiptMaterial {
+        let material = ReceiptMaterial {
             authorised_batch: AuthorizedBatch::new(
                 hex_array(CHECKPOINT_ID_HEX),
                 ASSET,
@@ -730,7 +730,18 @@ impl RealCreditAgent {
             tx_hash: activity_id,
             block_height: 9,
             rung: layerx_types::rung::Rung::Receipted,
-        })
+        };
+        let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
+            .unwrap_or_else(|error| panic!("deposit receipt: {error:?}"));
+        let protocol = receipt.protocol().expect("protocol deposit receipt");
+        assert_eq!(material.tx_hash, protocol.activity_id());
+        assert_eq!(material.block_height, protocol.global_sequence());
+        assert_eq!(
+            material.receipt_hash,
+            <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+        );
+        assert_eq!(material.rung, layerx_types::rung::Rung::Receipted);
+        Ok(material)
     }
 
     fn tracked(

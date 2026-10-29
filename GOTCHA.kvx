@@ -10414,3 +10414,42 @@ detail = "layerx-x402 model.rs:19 binds LayerX offers to eip155:125 and refuses 
 title = "The KMS no longer signs kernel activity envelopes"
 detail = "Since 843ee0252 (10.11.7) layerx-human-kms sign (src/server.rs:158-184) admits only an unsigned EIP-1559 type-2 call whose bind_call disclosure and Keccak256 digest match call.signing_hash(), and refuses the kernel envelope with its SHA-256 LXP/v1/signature-preimage digest (status 1); provider tests that still build unsigned_envelope_bytes must port to evm_signing_request (tests/provider.rs:716-730). Keystore::authorize_send in layerx-human-service still sends the retired operation-11 SendPlanAuthorization until 10.0.3 lands (#1169)."
 
+[gotcha.2135]
+title = "Shell variables cannot be task symbols"
+detail = "cg spec done runs a graph check over every entry of a task's symbols list and refuses a name the symbol graph has not indexed; shell variables such as FILE_VARIABLES in docker/platform-gateway/entrypoint.sh are never indexed (18.1174.1 attempt 1 passed its tests and was refused on that check alone). Name shell-script identifiers in do steps and touches only, and keep symbols to indexed functions and types."
+
+[gotcha.2136]
+area = "programs sandbox"
+symptom = "sandboxExecute is refused LXP_ERR_NON_CANONICAL although admission, the stored lease, the funded escrow and the ABI and fee-schedule gates all pass."
+cause = "The fee debit from the lease escrow is a program-source leg; transfer_source_validate (src/modules/programs/call.c:2203-2219) needs a registerAccount binding for the seed sandbox-lease-escrow/v1 NUL || lease_id, and settle_call (host_ffi.rs:762-764) reports the AUTH_SCOPE refusal as NON_CANONICAL."
+do = "Open the escrow through registerAccount before sandboxFund; a hand-seeded module value account is not a bound program account."
+
+[gotcha.2137]
+area = "x402 gateway"
+symptom = "x-websearch metered and exact draws answer payment_invalid for every request after a refused one that reused the idempotency key."
+cause = "The x402 seller keys the gateway translation by the payload idempotencyKey (layerx-x402/src/seller.rs:180-195) and GatewayCore refuses a repeated key with different content (layerx-interop-gateway/src/gateway.rs:462-469); x-websearch kept one GatewayCore for the gate lifetime."
+do = "Build a GatewayCore per settlement as layerx-interop-service does per request; durable idempotency belongs to PaymentStore."
+
+[gotcha.2138]
+area = "sdk portable receipt"
+symptom = "The JVM and .NET portable receipt verifiers refuse the published V5 vector that the Go verifier accepts."
+cause = "The vector's wire layout is the Go encoding (receiptJson present; PascalCase, base64, integer-array and RFC3339 committed evidence); contracts/clients.md no longer lists the portable v2 fields, so the other SDKs followed older field lists."
+do = "Treat sdk/platform/go/portable_receipt.go and sdk/platform/go/committed.go as the wire reference for portable v2 bundles until the contract states it."
+
+[gotcha.2139]
+area = "explorer openapi"
+symptom = "Explorer controller tests fail schema validation after a view starts emitting a new field."
+cause = "OpenApiSpex schemas declare additionalProperties: false and BlockScoutWeb.TestApiSchemaAssertions validates every json_response against them; services/explorer/swagger.yaml is a generated copy of the same schemas."
+do = "Add the field to the schema module and to swagger.yaml in the same change as the view."
+
+[gotcha.2140]
+area = "launchpad fixtures"
+symptom = "Go, Node and shell tests fail opening launchpad/spec/production-system/integration/contracts/v1/*.json."
+cause = "384f41641 removed the whole launchpad/ tree; the six frozen v1 fixtures live under sdk/launchpad/protocol/contracts/v1/ (decision.1803)."
+do = "Read the fixtures from sdk/launchpad/protocol/contracts/v1/; readers of files already absent before the removal stay under decision.421."
+
+[gotcha.2141]
+area = "programs call terminal"
+symptom = "A refused LX_PROGRAMS_CALL reports result_code -736 whatever the guest returned, and a test matching LXP/program-execution/v5 at the start of the terminal payload fails."
+cause = "-736 is LXP_ERR_PROGRAM_REFUSED (include/layerx/lxp_result.h:142) and under protocol v3 the terminal payload is wrapped as LXP/programs/terminal-applied-legs/v1 NUL + u32 detail length + detail + u32 legs (src/modules/programs/call.c:1531-1570)."
+do = "Unwrap the terminal-applied-legs prefix before matching the guest output, as tests/programs/test_call_activity.c:72-83 does."
