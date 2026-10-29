@@ -109044,7 +109044,7 @@ do_4 = "The productionReadsFixture it shares (services/launchpad/api/internal/re
 
 [task.4.24.8]
 title = "Mount the frozen alert routes and the wallet resolver in the api discovery registration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["4.24.6", "4.36.3"]
@@ -136562,7 +136562,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.5]
 title = ".NET and Swift operation catalogues route program and intent operations to EVM calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["8.46.1"]
