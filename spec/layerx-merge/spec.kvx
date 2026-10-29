@@ -185743,7 +185743,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1185.1]
 title = "Issue #1185: .NET SDK portable receipt verifier decodes committed evidence in the published layerx-receipt-proof-v2 encoding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185774,7 +185774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1182.1]
 title = "Issue #1182: Restore the six frozen v1 launchpad contract fixtures under the protocol module and repoint the launchpad service tests that read them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
