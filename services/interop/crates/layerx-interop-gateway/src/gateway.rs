@@ -10,10 +10,8 @@ use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::merkle::leaf_hash;
 use layerx_proof::receipt::{
-    verify, verify_sequencer_signature, AuthorizedBatch, ReceiptCheck, ReceiptKeys,
-    VerificationFailure,
+    verify_sequencer_signature, ReceiptCheck, ReceiptKeys, VerificationFailure,
 };
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog, SequencerLogRefusal};
 use sha3::{Digest as _, Keccak256};
@@ -495,34 +493,6 @@ impl GatewayCore {
         Ok(TranslationStatus::Pending)
     }
 
-    /// Terminates one state-changing translation in a receipt-verified
-    /// `LayerX` operation. The canonical receipt bytes come from the plane's
-    /// payload authorities and are verified here through the protocol's
-    /// offline verifier; the adapter supplies no payload bytes of its own and
-    /// no other path can mark a state-changing translation successful.
-    ///
-    /// # Errors
-    ///
-    /// Refuses unknown translations, read-only translations, closed
-    /// translations, conflicting repeated settlements, and every receipt that
-    /// fails the protocol verifier, leaving the translation pending.
-    pub fn settle_with_receipt(
-        &mut self,
-        principal: &PrincipalId,
-        idempotency_key: [u8; 32],
-        canonical_receipt: &[u8],
-        authorised: &AuthorizedBatch,
-        trace: &TraceId,
-        now: u64,
-    ) -> Result<TranslationStatus, Traced<GatewayError>> {
-        self.settle_verified(principal, idempotency_key, trace, now, || {
-            let verified =
-                verify(canonical_receipt, authorised).map_err(GatewayError::ReceiptRejected)?;
-            leaf_hash(verified.canonical_bytes())
-                .map_err(|_| GatewayError::Corrupt("receipt cannot be digested"))
-        })
-    }
-
     /// Terminates one state-changing translation on a sequencer-signed
     /// `ProtocolReceipt` v2. The receipt signature is verified against the
     /// height-ranged `ReceiptKeys` list, the served logs are bound to the
@@ -533,11 +503,10 @@ impl GatewayCore {
     ///
     /// # Errors
     ///
-    /// Refuses unknown, read-only, closed and conflicting translations as
-    /// [`Self::settle_with_receipt`] does, a receipt the signature verifier
-    /// rejects, logs that disagree with the signed effects, and a receipt
-    /// without exactly one matching payment log, leaving the translation
-    /// pending.
+    /// Refuses unknown, read-only, closed and conflicting translations, a
+    /// receipt the signature verifier rejects, logs that disagree with the
+    /// signed effects, and a receipt without exactly one matching payment
+    /// log, leaving the translation pending.
     #[allow(clippy::too_many_arguments)]
     pub fn settle_with_sequencer_receipt(
         &mut self,
