@@ -65,13 +65,17 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
     assert_receive %Broadcast{
       topic: "paxeer_x_feed:new_update",
       event: "new_update",
-      payload: %{"hash" => ^failed, "status" => "error"}
+      payload: %{
+        "hash" => ^failed,
+        "status" => "error",
+        "price_update" => %{"observations" => [%{"market_id" => 0, "accepted" => true}]}
+      }
     }
 
     assert_receive %Broadcast{
       topic: "paxeer_x_feed:market:2",
       event: "new_update",
-      payload: %{"update_hash" => ^successful}
+      payload: %{"update_hash" => ^successful, "sequence" => 7}
     }
 
     refute_receive %Broadcast{topic: "paxeer_x_feed:market:2"}
@@ -265,6 +269,7 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
   defp observation(market_id, value) do
     %{
       market_id: market_id,
+      accepted: true,
       sequence: value,
       index_price: value * 1_000_000_000_000_000_000,
       mark_price: (value + 1) * 1_000_000_000_000_000_000,

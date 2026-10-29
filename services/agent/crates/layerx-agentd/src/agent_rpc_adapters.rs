@@ -823,7 +823,7 @@ pub(crate) fn submit<A: HumanAuthorityBoundary>(
     request: &serde_json::Map<String, serde_json::Value>,
     ctx: &DispatchContext,
 ) -> Result<Dispatched, Rejection> {
-    use crate::agent_rpc_dispatch::{decode_observation, dispatched, human_submit, mutation_key};
+    use crate::agent_rpc_dispatch::{decode_submitted, dispatched, human_submit, mutation_key};
     let id = ctx.request_id;
     let typed = human_submit(decode(request, id)?, id)?;
     let envelope = crate::human::MutationEnvelope {
@@ -835,7 +835,7 @@ pub(crate) fn submit<A: HumanAuthorityBoundary>(
     let response = owner
         .lock()
         .and_then(|mut guard| guard.rpc_submit_external(context, envelope));
-    dispatched(id, response, decode_observation)
+    dispatched(id, response, decode_submitted)
 }
 
 pub(crate) fn session_refresh<A: HumanAuthorityBoundary>(
@@ -940,12 +940,49 @@ pub(crate) fn wait<A: HumanAuthorityBoundary>(
 ) -> Result<Dispatched, Rejection> {
     let id = ctx.request_id;
     let typed = wait_request(request, id)?;
-    let _ = (owner, context, typed);
-    Err(unavailable_operation(
-        id,
-        "track.wait",
-        "unavailable_capability.track.wait",
-    ))
+    use crate::agent_rpc_dispatch::{submission_key, wait_write_answer};
+    let hash = submission_key(typed.submission_ref.as_str(), id)?;
+    let started = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|time| u64::try_from(time.as_millis()).ok())
+        .ok_or_else(|| malformed(id))?;
+    let deadline = typed
+        .deadline
+        .get()
+        .checked_mul(1000)
+        .ok_or_else(|| malformed(id))?
+        .max(started);
+    let mut progress = OwnerWriteProgress {
+        owner: owner.clone(),
+        peer: context.peer().clone(),
+        reference: typed.submission_ref.as_str().to_owned(),
+        request_id: id,
+        started: std::time::Instant::now(),
+        first_observation_ms: started,
+        submission: None,
+    };
+    let result = crate::finality::wait_for_rung(
+        &mut progress,
+        hash,
+        typed.requested_rung,
+        started,
+        deadline,
+        100,
+    )
+    .map_err(|_| {
+        rejection(
+            ErrorClass::VerificationFailure,
+            id,
+            "wait.progress_unavailable",
+        )
+    })?;
+    let submission = progress.submission.ok_or_else(|| malformed(id))?;
+    let (value, verification) = wait_write_answer(submission, result, id)?;
+    Ok(Dispatched {
+        value,
+        verification: Some(verification),
+    })
 }
 
 fn wait_request(
@@ -1604,7 +1641,7 @@ fn budget_record_wire(
     head: u64,
     activity_id: Option<&[u8; 32]>,
 ) -> (Value, Option<VerificationStatus>) {
-    let level = crate::agent_rpc_dispatch::level_name;
+    let level = crate::agent_rpc_dispatch::rung_name;
     let (mut value, verification) = match record {
         BudgetRecord::Protocol(view) => (
             serde_json::json!({
@@ -2706,5 +2743,45 @@ mod tests {
         let refusal = wait_request(&retired, RequestId(9)).unwrap_err();
         assert_eq!(refusal.reason, "envelope.unknown_field");
         assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
+    }
+}
+
+struct OwnerWriteProgress<A> {
+    owner: SharedAgentOwner<A>,
+    peer: crate::human::HumanPeer,
+    reference: String,
+    request_id: RequestId,
+    started: std::time::Instant,
+    first_observation_ms: u64,
+    submission: Option<Value>,
+}
+
+impl<A: HumanAuthorityBoundary> crate::finality::VerificationProgress for OwnerWriteProgress<A> {
+    fn rung_at(
+        &mut self,
+        hash: [u8; 32],
+        observed_at_ms: u64,
+    ) -> Result<Rung, crate::finality::FinalityError> {
+        use crate::finality::FinalityError;
+        if crate::agent_rpc_dispatch::submission_key(&self.reference, self.request_id).ok()
+            != Some(hash)
+        {
+            return Err(FinalityError::ProgressUnavailable);
+        }
+        let due = std::time::Duration::from_millis(
+            observed_at_ms.saturating_sub(self.first_observation_ms),
+        );
+        if let Some(remaining) = due.checked_sub(self.started.elapsed()) {
+            std::thread::sleep(remaining);
+        }
+        let response = self
+            .owner
+            .track(&self.peer, &self.reference)
+            .map_err(|_| FinalityError::ProgressUnavailable)?;
+        let (submission, rung) =
+            crate::agent_rpc_dispatch::decode_write_answer(self.request_id, response)
+                .map_err(|_| FinalityError::ProgressUnavailable)?;
+        self.submission = Some(submission);
+        Ok(rung)
     }
 }

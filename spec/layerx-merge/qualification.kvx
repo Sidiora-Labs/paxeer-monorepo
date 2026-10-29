@@ -10115,3 +10115,27 @@ symbol = "release-verification"
 observed = "Attempts 1 to 4: committed_pipeline() panics because the retention upload step carries if: always(), which the release validator (main.rs:1026-1032) does not admit on verification steps."
 assumption = "The workflow line is deleted (No Weakening forbids widening the validator); platform.yml joins the touches and 16.5.6 follows by its requires."
 severity = "minor"
+
+[finding.18.1121.1.3]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:590"
+symbol = "PAYER_DID"
+observed = "Attempt 6 (aed26448d): build, daemon_bound (11) and read (4) tests pass; 16 web tests fail because the tool sends LAYERX-PAYER-DID over eip155:1337 while the seller recordings carry LAYERX-PAYER-ADDRESS on eip155:125."
+assumption = "Decision.1820 names the payer by address in the web binding and replays the recordings as recorded."
+severity = "major"
+
+[finding.9.3.3.1]
+task = "9.3.3"
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs:61"
+symbol = "unknown_submission_resolves_to_executed_from_a_signed_receipt"
+observed = "Attempts 1 to 4 panic for a missing PAXEER_X_UNKNOWN_RECEIPT_LOOKUP_FIXTURE before any assertion; the gate names tests that require an owned real sequencer."
+assumption = "Decision.1821 moves the gate tests to a loopback sequencer endpoint and keeps the real variant as a release gate."
+severity = "major"
+
+[finding.8.44.1.2]
+task = "8.44.1"
+file = "sdk/platform/swift/Package.swift"
+symbol = "swift-build"
+observed = "Attempts 1 to 5 stopped before the package build because the Swift toolchain could not load libxml2.so.2 in the environment that runs the gates."
+assumption = "The environment now installs the toolchain's missing shared libraries before the build step; attempt 6 carries the attempt 5 candidate unchanged."
+severity = "minor"
