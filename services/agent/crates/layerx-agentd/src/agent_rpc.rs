@@ -21,7 +21,7 @@ use crate::tenant::{self, surface_for, AuthorizationError, ObjectOwner, Operatio
 
 pub const ENVELOPE_VERSION: u8 = 1;
 pub const MAX_BODY_BYTES: usize = 1_048_576;
-const BOOTSTRAP_OPERATIONS: &[Operation] = &[Operation::AgentRegister, Operation::SessionOpen];
+const BOOTSTRAP_OPERATIONS: &[Operation] = &[];
 const RETIRED_OPERATIONS: &[Operation] = &[Operation::FaucetClaim];
 
 #[derive(Deserialize)]
@@ -132,12 +132,9 @@ pub fn dispatch_target(
             request_id,
             "unavailable_capability.faucet.claim",
         )),
-        Operation::AgentRegister | Operation::SessionOpen => Err(Rejection::new(
-            ErrorClass::PolicyRefusal,
-            request_id,
-            "refused_pending_bootstrap_artifact",
-        )),
-        Operation::ApprovalApprove
+        Operation::AgentRegister
+        | Operation::SessionOpen
+        | Operation::ApprovalApprove
         | Operation::ApprovalGet
         | Operation::ApprovalList
         | Operation::ApprovalReject

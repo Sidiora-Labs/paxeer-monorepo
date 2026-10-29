@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::frame::{ConnectionGate, FrameTransport, Limits, Uds};
+use crate::frame::{ConnectionGate, FrameTransport, Uds};
 use layerx_agent_api::idempotency::IdempotentMutation;
 use layerx_agent_api::prepare::{PreparationRef, PrepareRequest};
 use layerx_agent_api::submit::SubmitRequest;
@@ -118,7 +118,7 @@ const MAX_TRANSITIONS: usize = 64;
 pub struct AgentRuntime {
     endpoint: PathBuf,
     gate: ConnectionGate,
-    limits: Limits,
+    limits: crate::frame::Limits,
     registry: ModuleRegistry,
     subject: Option<Subject>,
     native_journey: Option<(super::native_send::HumanOwnerNativeContextV1, u64)>,
@@ -2054,13 +2054,16 @@ impl AgentRuntime {
     /// core-negotiated module registry.
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.
-    pub fn connect(endpoint: impl AsRef<Path>, limits: Limits) -> Result<Self, AgentBoundaryError> {
+    pub fn connect(
+        endpoint: impl AsRef<Path>,
+        limits: crate::frame::Limits,
+    ) -> Result<Self, AgentBoundaryError> {
         Self::connect_peer(endpoint, limits)
     }
 
     fn connect_peer(
         endpoint: impl AsRef<Path>,
-        limits: Limits,
+        limits: crate::frame::Limits,
     ) -> Result<Self, AgentBoundaryError> {
         let empty = ModuleRegistry::new(&[]).map_err(|_| AgentBoundaryError::Refused)?;
         let mut runtime = Self::new(endpoint, limits, empty)?;
@@ -2104,7 +2107,7 @@ impl AgentRuntime {
     /// Refuses invalid connection limits or an empty endpoint.
     pub fn new(
         endpoint: impl AsRef<Path>,
-        limits: Limits,
+        limits: crate::frame::Limits,
         registry: ModuleRegistry,
     ) -> Result<Self, AgentBoundaryError> {
         let endpoint = endpoint.as_ref();
@@ -4485,7 +4488,7 @@ mod subject_tests {
             .unwrap_or_else(|_| panic!("registry"));
         AgentRuntime::new(
             "/tmp/lxp-subject-wire.sock",
-            Limits {
+            crate::frame::Limits {
                 maximum_frame_bytes: MAX_BYTES,
                 maximum_connections: 2,
                 maximum_streams: 1,

@@ -10587,3 +10587,251 @@ symbol = "symbols"
 observed = "Attempt 6 passes the gate test and is refused by the declared-symbol check because the symbols named the enum path Rung::Committed."
 assumption = "Symbols name evidence_gate, evidence_startup_config and the test."
 severity = "minor"
+
+[finding.13.27.1.11]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go:293"
+symbol = "TestProgramsSandboxExecuteEmitsUsage"
+observed = "Attempt 29 (18e0e0955): the ordinary ABI-v3 call settles with status 0 and kind 1 and answers the 516-byte terminal receipt envelope, which the ladder expected to be empty."
+assumption = "Assert status and kind only; the response bytes are the guest's answer."
+severity = "minor"
+
+[finding.10.98.1.3]
+task = "10.98.1"
+file = "services/human/crates/layerx-explorer-index/src/lib.rs:14"
+symbol = "ingest_availability"
+observed = "Attempt 4 (9356f5b91): head::Head, evidence::VerifiedCheckpoint and availability::* remain in lib.rs, rebuild.rs and verify.rs; do_9's import-only wording contradicts decision.1813 for paths without a twin."
+assumption = "Decision.1843: local IndexHead, delete the two LNI-only ingest paths; the crate is deleted at wave 30."
+severity = "major"
+
+[finding.8.98.6.2]
+task = "8.98.6"
+file = "services/platform/hosted/core/src/public_reads.rs:54"
+symbol = "snapshot_context"
+observed = "Attempt 4 (bae0b02cf): payments, evidence, head and read paths remain in public_reads.rs because the rpc twins take a PxEndpoint the core crate does not yet build."
+assumption = "8.98.5 do_5 introduces the endpoint; 8.98.6 requires it and ports per decision.1843."
+severity = "major"
+
+[finding.8.98.10.3]
+task = "8.98.10"
+file = "services/platform/hosted/core/src/lib.rs:428"
+symbol = "read_custody_profile"
+observed = "Attempt 5 (b89fbfee2): the probe cannot drop lni/read while core's read_custody_profile and read_custody_asset still take a FrameTransport and ReadContext."
+assumption = "8.98.10 requires 8.98.5, which ports those reads."
+severity = "major"
+
+[finding.10.98.13.2]
+task = "10.98.13"
+file = "services/human/crates/layerx-intents/src/compile.rs:140"
+symbol = "compile"
+observed = "Attempt 4 (b7320f3b2): nine E0599 on the deleted IntentKind variants in compile.rs and cases in tests/live_kinds.rs, outside the touches; nine construction sites in layerx-human-service remain."
+assumption = "compile.rs and live_kinds.rs join 10.98.13; the human-service sites go to 10.98.10, which requires it."
+severity = "major"
+
+[finding.9.13.2.2]
+task = "9.13.2"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:5587"
+symbol = "HumanPrepare"
+observed = "Attempt 5 (894bf85c1): 17 uses of the renamed HumanPrepare and HumanFinalizationEvidence fields in human_runtime.rs and managed_agent.rs, outside the touches."
+assumption = "Both files join the touches for the renames only."
+severity = "major"
+
+[finding.9.7.3.1]
+task = "9.7.3"
+file = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:101"
+symbol = "agent_register_prepares_bind_layerx"
+observed = "Attempt 3: the test expects bindLayerX at 0x101C while plan_bind and precompiles/addr serve it at 0x1004; session.open is refused as InvalidRequest because OperationClass::for_operation answers None."
+assumption = "Decision.1844: 0x1004 for the bind, OperationClass::Prepare for both bootstrap operations."
+severity = "major"
+
+[finding.9.21.8.1]
+task = "9.21.8"
+file = "services/agent/crates/layerx-client/tests/sequencer.rs:113"
+symbol = "expected_receipt"
+observed = "Attempt 1: E0063 missing signing_key in the crate's existing receipt literal, outside the touches."
+assumption = "tests/sequencer.rs joins the touches."
+severity = "minor"
+
+[finding.10.20.3.2]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/src/server/production_onboarding.rs:33"
+symbol = "onboarding_sponsor_principal"
+observed = "Attempt 4 removed the ProductionComponents field production_onboarding.rs reads at five sites outside the task."
+assumption = "The field stays as at main."
+severity = "minor"
+
+[finding.10.98.15.2]
+task = "10.98.15"
+file = "services/human/crates/layerx-human-service/tests/session_rungs.rs:376"
+symbol = "InvalidationReason::SessionKeyRevoked"
+observed = "Attempt 4's --tests build fails in tests/session_rungs.rs:376 on a variant InvalidationReason no longer has; stale at main, no open owner."
+assumption = "The task builds only its own test targets (do_6); session_rungs.rs needs an owner."
+severity = "major"
+
+[finding.13.30.4.1]
+task = "13.30.4"
+file = "programs/crates/layerx-programs-arbiter/tests/verified_step.rs:181"
+symbol = "Fixture::load"
+observed = "Attempt 3: NotPresent for LAYERX_AUTHENTICATED_REPLAY_INPUTS; the corpus the qualification tool supplies is outside the repository and the environment that runs the gates."
+assumption = "Decision.1845: a keeper-generated vector under programs/tests/vectors/."
+severity = "major"
+
+[finding.13.30.5.1]
+task = "13.30.5"
+file = "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs:208"
+symbol = "Fixture::load"
+observed = "Attempt 3: NotPresent for LAYERX_MARKET_SANDBOX_INPUTS; same external corpus as 13.30.4."
+assumption = "Decision.1845: a keeper-generated vector under programs/tests/vectors/."
+severity = "major"
+
+[finding.8.44.1.4]
+task = "8.44.1"
+file = "sdk/platform/swift/Package.swift"
+symbol = "swift build"
+observed = "Attempt 8 (a432b9253): swift-build exits 127 because the environment that runs the gates lacks libicuuc.so.74 for the Swift 6.0.3 toolchain."
+assumption = "Environment fix; the candidate is re-qualified unchanged once the library is present."
+severity = "minor"
+
+[finding.10.98.15.3]
+task = "10.98.15"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "task.10.98.15 verify_cmd"
+observed = "Attempt 5 (14b440de0): the gate passed --exact twice and the test harness exited before running a test."
+assumption = "Gate text defect; the gate now names both tests after one --exact and the same candidate re-qualifies."
+severity = "minor"
+
+[finding.9.94.1.3]
+task = "9.94.1"
+file = "services/agent/crates/layerx-mcp/src/tools/read.rs"
+symbol = "layerx-mcp tools"
+observed = "Attempt 3 failed the build with seven errors in layerx-mcp src/tools/read.rs, wallet.rs and web.rs, outside the task's files."
+assumption = "Cross-task break already ported by 18.1121.1 at main; the task now requires it."
+severity = "minor"
+
+[finding.18.1001.1.2]
+task = "18.1001.1"
+file = "services/wallet/gateway/test/e2e/attestors.ts:290"
+symbol = "attestors"
+observed = "Attempt 4 could not start the attestors on a base that predated 18.1065.1 and rewrote chain.ts beyond its do lines; its do_1, do_3 and do_4 cite stale lines."
+assumption = "Restart from the current main with do_5's line map."
+severity = "minor"
+
+[finding.8.98.11.1]
+task = "8.98.11"
+file = "services/platform/hosted/paxai-worker/src/main.rs:646"
+symbol = "head::Head"
+observed = "Attempt 2 leaves paxai-worker src/main.rs and tests/job_admission.rs building the retired layerx_client head::Head."
+assumption = "Both files join the touches and build PxNetworkHead (px.rs:83-94); the candidate continues."
+severity = "minor"
+
+[finding.8.51.2.3]
+task = "8.51.2"
+file = "tools/platform/release/registries.kvx:15"
+symbol = "registries"
+observed = "Attempt 5: registries.kvx still lists layerx-wire after 16.4.2 removed it from platform.yml, and the `if: always()` removed at platform.yml:94 was the wrong one (:1552 intended)."
+assumption = "registries.kvx joins the touches; the candidate continues with do_6."
+severity = "minor"
+
+[finding.8.48.1.2]
+task = "8.48.1"
+file = "tools/platform/cli/src/wallet.rs:794"
+symbol = "execute_write"
+observed = "Attempts 2 and 3 cannot build: execute_write still calls RpcClient::send_activity, removed by 9.32.2; the removal was 8.48.2's, which required 8.48.1, so neither task could build."
+assumption = "decision.1846: 8.48.1 lands the whole wallet.rs port; 8.48.2 qualifies it."
+severity = "major"
+
+[finding.8.94.1.2]
+task = "8.94.1"
+file = "tools/platform/cli/src/wallet.rs:331"
+symbol = "estimate_fee, execute_write"
+observed = "Attempt 5 builds layerx-platform-cli, which has not compiled at main since 9.32.2 (wallet.rs:331-333, :794); the candidate's own files compile."
+assumption = "Pre-existing at main; the task now requires 8.48.1 and re-qualifies once it lands."
+severity = "minor"
+
+[finding.18.786.1.1]
+task = "18.786.1"
+file = "tools/platform/cli/src/wallet.rs:331"
+symbol = "estimate_fee, execute_write"
+observed = "Attempt 6 builds layerx-platform-cli, which has not compiled at main since 9.32.2 (wallet.rs:331-333, :794); the candidate's own files compile."
+assumption = "Pre-existing at main; the task now requires 8.48.1 and re-qualifies once it lands."
+severity = "minor"
+
+[finding.8.50.1.1]
+task = "8.50.1"
+file = "tools/platform/cli/src/wallet.rs:331"
+symbol = "estimate_fee, execute_write"
+observed = "Attempt 2 builds layerx-platform-cli, which has not compiled at main since 9.32.2 (wallet.rs:331-333, :794); the candidate's own files compile."
+assumption = "Pre-existing at main; the task now requires 8.48.1 and re-qualifies once it lands."
+severity = "minor"
+
+[finding.8.50.2.1]
+task = "8.50.2"
+file = "tools/platform/cli/src/wallet.rs:331"
+symbol = "estimate_fee, execute_write"
+observed = "Attempt 2 builds layerx-platform-cli, which has not compiled at main since 9.32.2 (wallet.rs:331-333, :794); the candidate's own files compile."
+assumption = "Pre-existing at main; the task now requires 8.48.1 and re-qualifies once it lands."
+severity = "minor"
+
+[finding.17.5.1.4]
+task = "17.5.1"
+file = "services/agent/crates/layerx-agentd/src/main.rs:2050"
+symbol = "NativeReadRoute::new"
+observed = "Attempt 6: make workspace-build fails in the layerx-agentd binary (main.rs:785, :1775, :1974, :2050; payer.rs:389, :441), unported since 9.5.7, 9.6.1 and 10.11.5; the test file is right."
+assumption = "Pre-existing at main; new task 9.98.1 ports the binary and 17.5.1 requires it and 8.48.1 (decision.1847)."
+severity = "major"
+
+[finding.17.5.2.3]
+task = "17.5.2"
+file = "services/agent/crates/layerx-agentd/src/main.rs:785"
+symbol = "ExportTrustSource::new"
+observed = "Attempt 6: the same layerx-agentd binary break as 17.5.1, then platform-build fails in tools/platform/cli/src/wallet.rs."
+assumption = "Pre-existing at main; the task requires 9.98.1 and 8.48.1 (decision.1847)."
+severity = "major"
+
+[finding.8.41.8.1]
+task = "8.41.8"
+file = "services/human/schema/human-api/golden/intent.plan.request.json:2"
+symbol = "verifyHumanVectors"
+observed = "Attempt 5: the intent.plan and intent.submit goldens name HTTP methods and paths while generated.go:466-469 routes them as per-leg EVM calls with no path, so the conformance command fails at main too."
+assumption = "decision.1848: EVM-routed operations are checked against their generated EVM method and per-leg flag; the candidate continues."
+severity = "major"
+
+[finding.10.98.13.3]
+task = "10.98.13"
+file = "services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:164"
+symbol = "IntentKind::NativeOnboarding"
+observed = "Attempt 5 deleted the variants and the dependent crate layerx-human-service fails at nine construction sites owned by 10.98.10, which requires 10.98.13."
+assumption = "decision.1849: 10.98.13 deletes the sites; 10.98.10 keeps them deleted."
+severity = "major"
+
+[finding.10.98.7.3]
+task = "10.98.7"
+file = "services/human/crates/layerx-human-service/src/server/agent_creation.rs:338"
+symbol = "attach_signature"
+observed = "Attempt 7: the 65-byte SignatureGrant no longer fits owner_activity::attach_signature([u8; 64]) at four sites outside the touches, and rustfmt on production_components.rs reformatted its child module production_owner_tests.rs."
+assumption = "decision.1849: 10.98.13 deletes three sites, 10.98.7 ports agent_creation.rs:338 and owner_activity.rs; the child module stays identical."
+severity = "major"
+
+[finding.10.20.3.3]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-movement-provider/src/service.rs:404"
+symbol = "deposit, withdrawal and exit handlers"
+observed = "Attempt 5 (4c3b0a0df) builds and the dependent crate layerx-human-movement-provider fails with 112 errors in five files owned by 10.10.1 and 10.10.2 (later waves)."
+assumption = "decision.1849: the task retires those paths in the provider; the candidate continues."
+severity = "major"
+
+[finding.10.98.1.4]
+task = "10.98.1"
+file = "services/human/crates/layerx-explorer-index/src/main.rs:1221"
+symbol = "IndexHead"
+observed = "Attempt 5 (d3e155883) followed do_13 and the package binary src/main.rs, excluded by do_11 and owned by 10.27.1, no longer compiles at :1118, :1161, :1221 and :1398."
+assumption = "decision.1849: src/main.rs joins the touches with do_14; the candidate continues."
+severity = "major"
+
+[finding.13.27.1.12]
+task = "13.27.1"
+file = "src/modules/programs/sandbox.c:104"
+symbol = "layerx_programs_sandbox_admit_host"
+observed = "Attempt 30 (4b77fc397): the plain ABI-v3 call settles and the funded sandboxExecute reverts LXP_ERR_NON_CANONICAL; every host refusal on the sandbox path collapses to that code, so the refusing site cannot be read from the result."
+assumption = "do_14 fixes the second output assertion and records the revert; a host or kernel defect that collapses distinct refusals into NON_CANONICAL is outside this task."
+severity = "major"
