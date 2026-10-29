@@ -144188,7 +144188,7 @@ do_5 = "The custody sign at services/human/crates/layerx-human-service/src/journ
 
 [task.10.13.6]
 title = "Carry rungs in agent controls and archive fund-disposition evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "10.13.1", "10.2.7", "9.1.8", "18.1119.1"]
