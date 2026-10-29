@@ -133,8 +133,7 @@ public final class LocalVerifier {
         if (receipt.globalSequence().signum() == 0 || receipt.timestamp().signum() == 0
                 || receipt.moduleId() <= 11 || receipt.moduleVersion() != 1
                 || receipt.parameterVersion() != 0
-                || receipt.programOutcome() != null || receipt.resultCode() < 0 || receipt.resultCode() > 1
-                || !allZero(receipt.transferSetRoot()) || !allZero(receipt.authorizationHash()))
+                || receipt.programOutcome() != null || receipt.resultCode() < 0 || receipt.resultCode() > 1)
             fail(ReceiptCheck.FIELDS);
         verifySequencerEffectLayout(receipt);
         if (!equal(receipt.resultingStateRoot(), sha256(

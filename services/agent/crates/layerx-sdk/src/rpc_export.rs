@@ -217,7 +217,7 @@ impl AgentEnvelopeTransport {
             rung_from_wire(&read["achieved_rung"], operation)?,
             decode_freshness(&read["freshness"], operation)?,
         );
-        if !matches!(success.verification_status, VerificationStatus::Achieved(level) if level.rung() == Some(read.achieved_rung))
+        if !matches!(success.verification_status, VerificationStatus::Achieved(rung) if rung == read.achieved_rung)
         {
             return Err(violation(operation));
         }

@@ -5,10 +5,13 @@ use std::io::Read;
 use std::os::unix::fs::OpenOptionsExt;
 use std::process::ExitCode;
 
-use layerx_client::sequencer::{SequencerEndpoint, SequencerError, SequencerReceipt, REVERT_CODE};
+use layerx_client::sequencer::{
+    ExecutedReceipt, SequencerEndpoint, SequencerError, SequencerReceipt, REVERT_CODE,
+};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{ReceiptCheck, ReceiptKeys, VerificationFailure};
 use layerx_types::result::{KnownResult, ResultCode, Retriability};
+use sha2::{Digest, Sha256};
 
 const MAX_INPUT_BYTES: usize = 1_048_576;
 const MAX_CERTIFICATE_BYTES: usize = 65_536;
@@ -209,20 +212,123 @@ fn receipt_keys(client: &SequencerEndpoint) -> Result<Vec<SequencerAuthorization
     })
 }
 
+enum SubmitReceiptFailure {
+    Check(ReceiptCheck),
+    ReceiptView,
+}
+
+impl From<VerificationFailure> for SubmitReceiptFailure {
+    fn from(failure: VerificationFailure) -> Self {
+        Self::Check(failure.check)
+    }
+}
+
+impl std::fmt::Display for SubmitReceiptFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Check(check) => write!(formatter, "{check:?}"),
+            Self::ReceiptView => formatter.write_str("ReceiptView"),
+        }
+    }
+}
+
 fn verify_sequencer_signature(
-    bytes: &[u8],
+    view: &ExecutedReceipt,
     keys: &[SequencerAuthorization],
     transaction_hash: [u8; 32],
-) -> Result<ResultCode, VerificationFailure> {
-    let receipt =
-        layerx_proof::receipt::verify_sequencer_signature(bytes, ReceiptKeys::HeightRanges(keys))?;
-    let protocol = receipt.protocol().ok_or(VerificationFailure {
-        check: ReceiptCheck::ReceiptShape,
-    })?;
+) -> Result<ResultCode, SubmitReceiptFailure> {
+    let receipt = layerx_proof::receipt::verify_sequencer_signature(
+        &view.receipt,
+        ReceiptKeys::HeightRanges(keys),
+    )?;
+    let protocol = receipt
+        .protocol()
+        .ok_or(SubmitReceiptFailure::Check(ReceiptCheck::ReceiptShape))?;
     if protocol.activity_id() != transaction_hash {
-        return Err(VerificationFailure {
-            check: ReceiptCheck::ActivityId,
-        });
+        return Err(SubmitReceiptFailure::Check(ReceiptCheck::ActivityId));
+    }
+    let mut chain = Sha256::new();
+    chain.update(b"PAXEER/v1/sequence\0");
+    chain.update(protocol.previous_state_root());
+    chain.update(protocol.global_sequence().to_be_bytes());
+    chain.update(protocol.activity_id());
+    let resulting: [u8; 32] = chain.finalize().into();
+    if protocol.resulting_state_root() != resulting {
+        return Err(SubmitReceiptFailure::Check(
+            ReceiptCheck::ResultingStateRoot,
+        ));
+    }
+    let batch_id = protocol.batch_id();
+    let height = u64::from_be_bytes(
+        batch_id[24..]
+            .try_into()
+            .map_err(|_| SubmitReceiptFailure::ReceiptView)?,
+    );
+    let key = keys
+        .iter()
+        .find(|key| key.sequencer_id() == protocol.context_hash())
+        .ok_or(SubmitReceiptFailure::ReceiptView)?;
+    if view.tx_hash != protocol.activity_id()
+        || view.seq != protocol.global_sequence()
+        || view.height != height
+        || view.success != (protocol.result_code() == 0)
+        || view.key_id != protocol.context_hash()
+        || view.signing_key != key.public_key()
+    {
+        return Err(SubmitReceiptFailure::ReceiptView);
+    }
+    let (summary, logs) = protocol
+        .effects()
+        .split_first()
+        .ok_or(SubmitReceiptFailure::ReceiptView)?;
+    let summary_body = summary.body();
+    if summary.module_id() != 12
+        || summary.ordinal() != 0
+        || summary.event_type() != 0
+        || summary.kind() != 1
+        || summary.monetary()
+        || summary.transfer_set_root() != [0; 32]
+        || summary_body.len() < 109
+        || logs.len() != view.logs.len()
+    {
+        return Err(SubmitReceiptFailure::ReceiptView);
+    }
+    let log_count = u32::from_be_bytes(
+        summary_body[104..108]
+            .try_into()
+            .map_err(|_| SubmitReceiptFailure::ReceiptView)?,
+    );
+    if usize::try_from(log_count).ok() != Some(logs.len()) {
+        return Err(SubmitReceiptFailure::ReceiptView);
+    }
+    for (index, (effect, log)) in logs.iter().zip(&view.logs).enumerate() {
+        let body = effect.body();
+        if effect.module_id() != 12
+            || usize::from(effect.ordinal()) != index + 1
+            || effect.event_type() != 0
+            || effect.kind() != 3
+            || effect.monetary()
+            || effect.transfer_set_root() != [0; 32]
+            || body.len() < 21
+        {
+            return Err(SubmitReceiptFailure::ReceiptView);
+        }
+        let topics = usize::from(body[20]);
+        let data_hash: [u8; 32] = Sha256::digest(&log.data).into();
+        if topics > 4
+            || body.len() != 21 + 32 * topics + 32
+            || log.address.as_slice() != &body[..20]
+            || log.topics.len() != topics
+            || !log
+                .topics
+                .iter()
+                .zip(body[21..21 + 32 * topics].chunks_exact(32))
+                .all(|(topic, signed)| topic.as_slice() == signed)
+            || data_hash.as_slice() != &body[21 + 32 * topics..]
+            || usize::try_from(log.log_index).ok() != Some(index)
+        {
+            return Err(SubmitReceiptFailure::ReceiptView);
+        }
     }
     Ok(ResultCode::from_raw(protocol.result_code()))
 }
@@ -280,9 +386,9 @@ fn submit(client: &SequencerEndpoint, raw: &[u8]) -> Result<(String, ExitCode), 
         Ok(keys) => keys,
         Err(error) => return Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"receipt_keys_error\":{}}}", rpc_error(&error)), ExitCode::from(3))),
     };
-    let result = match verify_sequencer_signature(&receipt.receipt, &keys, hash) {
+    let result = match verify_sequencer_signature(&receipt, &keys, hash) {
         Ok(result) => result,
-        Err(failure) => return Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"verification_failure\":\"{:?}\"}}", failure.check), ExitCode::from(3))),
+        Err(failure) => return Ok((format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{hash_text}\",\"verification_failure\":\"{failure}\"}}"), ExitCode::from(3))),
     };
     let class = match result.retriability() {
         Retriability::Terminal => "terminal",
