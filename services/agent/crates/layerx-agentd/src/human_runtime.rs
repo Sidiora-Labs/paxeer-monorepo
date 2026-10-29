@@ -12318,7 +12318,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .ok_or(HumanOperationError::Refused)?;
         let verified = verify_evm_write(&cached, &request.operation.signature)?;
         let prepared = cached.prepared;
-        let submission_id = verified.activity_id();
+        let activity_id = verified.activity_id();
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let mut store = self
@@ -12341,7 +12341,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 }
             }
         }
-        self.outboxes
+        let submission_id = self
+            .outboxes
             .entry(peer.tenant.clone())
             .or_default()
             .enqueue_with_origin(
@@ -12353,6 +12354,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 Some(peer.principal.as_str()),
             )
             .map_err(|_| HumanOperationError::Unavailable)?;
+        if submission_id != activity_id {
+            return Err(HumanOperationError::Refused);
+        }
         let preparation_id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
         let durable_key = crate::prepare::DurablePreparation::store_key(&tenant, preparation_id)
             .map_err(|_| HumanOperationError::Refused)?;
@@ -18496,9 +18500,6 @@ fn export_refusal(error: crate::export::ExportProduceError) -> HumanOperationErr
     use layerx_proof::export::CompleteExportError as Complete;
     match error {
         Produce::UnavailableCapability(_) => HumanOperationError::Unavailable,
-        Produce::SettlementAnchoringUnavailable => {
-            HumanOperationError::Typed(HumanRefusal::ExportSettlementAnchoringUnavailable)
-        }
         Produce::Verification(Complete::RungNotAchieved { .. }) => {
             HumanOperationError::Typed(HumanRefusal::ExportLevelUnattainable)
         }
@@ -19534,6 +19535,37 @@ mod activity_submission_index_tests {
     ) -> Result<OwnedSubmission, HumanOperationError> {
         let indexed = indexed_activity_owner(store, tenant, activity_id)?;
         retained_activity_owner(store, registry, tenant, activity_id, indexed)
+    }
+
+    #[test]
+    fn enqueue_with_origin_returns_the_stored_transaction_hash() {
+        let root = std::env::temp_dir().join(format!(
+            "lxp-activity-submission-stored-transaction-hash-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        let mut store = must(Store::open(root.join("store")));
+        let tenant = must(TenantId::new("tenant-a"));
+        let (_, submission) = signed_submission();
+        let mut outbox = Outbox::default();
+        let stored_key = must(outbox.enqueue_with_origin(
+            &mut store,
+            tenant,
+            submission.idempotency_key(),
+            submission.clone(),
+            None,
+            Some("operator"),
+        ));
+        assert_eq!(
+            stored_key,
+            layerx_crypto::evm_transaction::transaction_hash(submission.exact_bytes())
+        );
+        let status = outbox.status(stored_key).expect("stored submission");
+        assert_eq!(status.submission_id, stored_key);
+        assert_eq!(status.state, SubmissionState::Queued);
+        assert!(outbox.status(submission.idempotency_key()).is_none());
+        drop(store);
+        must(std::fs::remove_dir_all(root));
     }
 
     #[test]
