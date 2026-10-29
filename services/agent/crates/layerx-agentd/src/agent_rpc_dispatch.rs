@@ -376,62 +376,40 @@ fn state_name(value: u8) -> Option<&'static str> {
     })
 }
 
+fn decode_read_json(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let value: Value = serde_json::from_slice(reader.bytes()?).ok()?;
+    let freshness = value.get("freshness")?;
+    for field in ["chain_head", "value_height"] {
+        let text = freshness.get(field)?.as_str()?;
+        if text.parse::<u64>().ok()?.to_string() != text {
+            return None;
+        }
+    }
+    if !value.get("achieved_verification_level")?.is_null() {
+        return None;
+    }
+    Some((value, None))
+}
+
 fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    let mut out = Map::new();
-    out.insert("chain_sequence".into(), dec(reader.u64()?));
-    out.insert("sealed_batch".into(), dec(reader.u64()?));
-    out.insert("finalised_checkpoint".into(), hexv(&reader.fixed::<32>()?));
-    Some((Value::Object(out), None))
+    decode_read_json(reader)
 }
 
 fn decode_account_state(
     reader: &mut Reader<'_>,
     account_id: [u8; 32],
 ) -> Option<(Value, Option<Rung>)> {
-    let observed = reader.fixed::<32>()?;
-    let achieved = rung(reader.u8()?)?;
-    let value = reader.bytes()?;
-    let proof = reader.bytes()?;
-    let sequence = reader.u64()?;
-    if observed != account_id || achieved < Rung::Committed || sequence == 0 {
-        return None;
-    }
-    let mut out = Map::new();
-    out.insert("account_id".into(), hexv(&observed));
-    out.insert("canonical_value".into(), hexv(value));
-    out.insert("proof".into(), hexv(proof));
-    out.insert("sequence".into(), dec(sequence));
-    Some((Value::Object(out), Some(achieved)))
+    let result = decode_read_json(reader)?;
+    (result.0["value"]["account"] == hexv(&account_id)).then_some(result)
 }
 
 fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    let mut out = Map::new();
-    let account = reader.fixed::<32>()?;
-    let asset = reader.fixed::<32>()?;
-    let currency = reader.text()?;
-    let observed_at = reader.text()?;
-    out.insert("age_seconds".into(), dec(reader.u64()?));
-    out.insert("amount".into(), dec(reader.u128()?));
-    let achieved = rung(reader.u8()?)?;
-    out.insert("global_sequence".into(), dec(reader.u64()?));
-    out.insert("batch_number".into(), dec(reader.u64()?));
-    out.insert("observed_head_sequence".into(), dec(reader.u64()?));
-    out.insert("observed_checkpoint".into(), hexv(&reader.fixed::<32>()?));
-    out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
-    out.insert("proof_material".into(), hexv(reader.bytes()?));
-    if achieved < Rung::Committed
-        || account == [0; 32]
-        || asset == [0; 32]
-        || currency.is_empty()
-        || observed_at.is_empty()
-    {
+    let result = decode_read_json(reader)?;
+    let text = result.0["value"]["amount"].as_str()?;
+    if text.parse::<u128>().ok()?.to_string() != text {
         return None;
     }
-    out.insert("account".into(), hexv(&account));
-    out.insert("asset".into(), hexv(&asset));
-    out.insert("currency".into(), Value::String(currency));
-    out.insert("observed_at".into(), Value::String(observed_at));
-    Some((Value::Object(out), Some(achieved)))
+    Some(result)
 }
 
 pub(crate) fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
@@ -851,7 +829,27 @@ struct ReadAccountRequest {
     tenant: Option<String>,
     #[serde(default, skip_serializing)]
     agent: Option<String>,
+    #[serde(alias = "account")]
     account_id: String,
+    #[serde(
+        default,
+        alias = "requested_rung",
+        skip_serializing_if = "Option::is_none"
+    )]
+    requested_verification_level: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ReadBalanceRequest {
+    #[serde(default, skip_serializing)]
+    tenant: Option<String>,
+    #[serde(default, skip_serializing)]
+    agent: Option<String>,
+    account: String,
+    asset: String,
+    #[serde(alias = "requested_rung")]
+    requested_verification_level: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -1043,7 +1041,10 @@ pub(crate) fn canonical_request_bytes(
         Operation::ReadAccount => {
             named(operation, &decode::<ReadAccountRequest>(request, id)?, id)?
         }
-        Operation::ReadBalance | Operation::ReadCheckpoint => {
+        Operation::ReadBalance => {
+            named(operation, &decode::<ReadBalanceRequest>(request, id)?, id)?
+        }
+        Operation::ReadCheckpoint => {
             named(operation, &decode::<CoordinatesOnly>(request, id)?, id)?
         }
         Operation::Track => named(operation, &decode::<TrackRequest>(request, id)?, id)?,
@@ -1307,21 +1308,24 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             let request: ReadAccountRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
             let account_id = hex32(&request.account_id, id)?;
+            if let Some(level) = &request.requested_verification_level {
+                Rung::from_name(level).ok_or_else(|| malformed(id))?;
+            }
             dispatched(id, owner.account_state(peer, account_id), |reader| {
                 decode_account_state(reader, account_id)
             })
         }
         Operation::ReadBalance => {
-            let request: CoordinatesOnly = decode(request, id)?;
+            let request: ReadBalanceRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
-            let error =
-                layerx_agent_api::error::ApiError::unavailable_capability(id, "read.balance")
-                    .expect("static operation name");
-            Err(Rejection {
-                class: error.class,
-                retriability: error.retriability,
-                request_id: id,
-                reason: "unavailable_capability.read.balance",
+            let account = hex32(&request.account, id)?;
+            let asset = hex32(&request.asset, id)?;
+            Rung::from_name(&request.requested_verification_level).ok_or_else(|| malformed(id))?;
+            dispatched(id, owner.balance(peer), |reader| {
+                let result = decode_balance(reader)?;
+                (result.0["value"]["account"] == hexv(&account)
+                    && result.0["value"]["asset"] == hexv(&asset))
+                .then_some(result)
             })
         }
         Operation::ReadCheckpoint => {
