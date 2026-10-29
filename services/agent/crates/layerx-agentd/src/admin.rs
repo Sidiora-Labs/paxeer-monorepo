@@ -530,10 +530,22 @@ impl Surface {
             context,
             OperatorCommand::RetryVerification(backlog.idempotency_key),
         )?;
-        finality::wait_for_level(
+        let requested = match backlog.requested {
+            VerificationLevel::UNVERIFIED | VerificationLevel::SEQUENCER_SIGNED => {
+                layerx_types::rung::Rung::Submitted
+            }
+            VerificationLevel::BATCH_INCLUDED | VerificationLevel::STATE_PROVEN => {
+                layerx_types::rung::Rung::Receipted
+            }
+            VerificationLevel::CHECKPOINT_FINALISED | VerificationLevel::SETTLEMENT_ANCHORED => {
+                layerx_types::rung::Rung::Committed
+            }
+            _ => return Err(AdminError::Verification(FinalityError::ProgressUnavailable)),
+        };
+        finality::wait_for_rung(
             progress,
             backlog.idempotency_key,
-            backlog.requested,
+            requested,
             started_at_ms,
             deadline_ms,
             poll_interval_ms,
