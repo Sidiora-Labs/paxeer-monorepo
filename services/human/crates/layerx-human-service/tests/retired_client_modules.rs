@@ -1,6 +1,15 @@
 #[test]
 fn no_retired_layerx_client_module_paths() {
     let sources = [
+        ("tests/evidence_node.rs", include_str!("evidence_node.rs")),
+        (
+            "tests/native_send_producer.rs",
+            include_str!("native_send_producer.rs"),
+        ),
+        (
+            "tests/native_journey_approval.rs",
+            include_str!("native_journey_approval.rs"),
+        ),
         (
             "src/bin/layerx-human-kms-gateway.rs",
             include_str!("../src/bin/layerx-human-kms-gateway.rs"),
@@ -26,6 +35,7 @@ fn no_retired_layerx_client_module_paths() {
     let retired_modules = [
         "lni",
         "client",
+        "Client",
         "head",
         "resolver",
         "handover",

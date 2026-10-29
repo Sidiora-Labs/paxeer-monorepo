@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use layerx_client::evidence::VerifiedAdmissionPrestate;
+
 use layerx_program_sdk::arbiter::{MarketBillingCommitment, MarketSandboxProfile};
 use layerx_program_sdk::AccountId;
 use layerx_programs_market::{arbitration, attest, decode_lease, decode_offer, decode_usage_claim};
@@ -16,10 +17,11 @@ use layerx_programs_runtime::{
 };
 use layerx_proof::inclusion::VerifiedBatchHeader;
 use layerx_proof::receipt::VerifiedReceipt;
-use layerx_proof::state_witness::StateWitness;
 use sha2::{Digest, Sha256};
 
-use crate::{AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, VerifiedReplayAuthority};
+use crate::{
+    ics23, AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, VerifiedReplayAuthority,
+};
 
 const MAX_BYTES: usize = 1_048_576;
 const MAX_NAMESPACE_VALUES_BYTES: usize = 64 * MAX_BYTES;
@@ -56,32 +58,41 @@ pub enum MarketStepVerdict {
 }
 
 pub struct NativeNamespaceProof<'a> {
-    pub head: &'a StateWitness,
+    pub head: &'a ics23::ExistenceProof,
+    pub store_root: [u8; 32],
+    pub multistore_proof: &'a [u8],
     pub manifest: &'a [u8],
     pub value_blobs: &'a BTreeMap<[u8; 32], Vec<u8>>,
 }
 impl NativeNamespaceProof<'_> {
-    fn verify(
+    pub fn verify(
         &self,
-        root: [u8; 32],
+        app_hash: [u8; 32],
         program: [u8; 32],
     ) -> Result<BTreeMap<Vec<u8>, Vec<u8>>, MarketEvidenceError> {
         let mut namespace = program.to_vec();
         namespace.push(1);
-        self.verify_namespace(root, &namespace)
+        self.verify_namespace(app_hash, &namespace)
     }
     fn verify_namespace(
         &self,
-        root: [u8; 32],
+        app_hash: [u8; 32],
         namespace: &[u8],
     ) -> Result<BTreeMap<Vec<u8>, Vec<u8>>, MarketEvidenceError> {
-        let mut key = b"progstor".to_vec();
+        let mut key = vec![1, 0, 9];
+        key.extend_from_slice(b"progstor");
         key.extend_from_slice(namespace);
-        if self.head.module_id != 9
-            || self.head.key != key
+        if self.head.key != key
             || self.head.value.len() != 38
-            || self.head.verify(root).is_err()
             || self.manifest.len() > MAX_BYTES
+            || crate::multistore::verify_store_root(
+                "lxphost",
+                self.store_root,
+                self.multistore_proof,
+                app_hash,
+            )
+            .is_err()
+            || ics23::verify_existence(self.head, self.store_root, &key, &self.head.value).is_err()
         {
             return Err(MarketEvidenceError::Storage);
         }
@@ -140,16 +151,19 @@ impl NativeNamespaceProof<'_> {
     }
 }
 
+pub struct MarketAdmissionEvidence<'a> {
+    pub prestate: &'a VerifiedAdmissionPrestate,
+    pub header: &'a VerifiedBatchHeader,
+}
+
 pub struct MarketReplayEvidence<'a> {
     pub expected_market_program: [u8; 32],
     pub tenant_receipt: &'a VerifiedReceipt,
-    pub tenant_admission: &'a VerifiedAdmissionPrestate,
-    pub tenant_header: &'a VerifiedBatchHeader,
-    pub tenant_receipt_proof: &'a ChainCommitProof,
+    pub tenant_admission: MarketAdmissionEvidence<'a>,
+    pub tenant_commit: &'a ChainCommitProof,
     pub provider_receipt: &'a VerifiedReceipt,
-    pub provider_admission: &'a VerifiedAdmissionPrestate,
-    pub provider_header: &'a VerifiedBatchHeader,
-    pub provider_receipt_proof: &'a ChainCommitProof,
+    pub provider_admission: MarketAdmissionEvidence<'a>,
+    pub provider_commit: &'a ChainCommitProof,
     pub tenant_state: NativeNamespaceProof<'a>,
     pub provider_state: NativeNamespaceProof<'a>,
     pub code_blobs: &'a BTreeMap<[u8; 32], Vec<u8>>,
@@ -160,6 +174,45 @@ pub struct MarketReplayEvidence<'a> {
     pub final_boundary: &'a BoundaryProof,
 }
 
+pub struct MarketCommittedNamespaces<'a> {
+    pub program: [u8; 32],
+    pub tenant_receipt: &'a [u8],
+    pub provider_receipt: &'a [u8],
+    pub tenant_commit: &'a ChainCommitProof,
+    pub provider_commit: &'a ChainCommitProof,
+    pub tenant_state: NativeNamespaceProof<'a>,
+    pub provider_state: NativeNamespaceProof<'a>,
+}
+
+pub struct AuthenticatedMarketNamespaces {
+    pub tenant: BTreeMap<Vec<u8>, Vec<u8>>,
+    pub provider: BTreeMap<Vec<u8>, Vec<u8>>,
+}
+
+impl MarketCommittedNamespaces<'_> {
+    pub fn verify(&self) -> Result<AuthenticatedMarketNamespaces, MarketStepVerdict> {
+        self.authenticate()
+            .map_err(MarketStepVerdict::InvalidEvidence)
+    }
+
+    fn authenticate(&self) -> Result<AuthenticatedMarketNamespaces, MarketEvidenceError> {
+        self.tenant_commit
+            .verify_receipt_bytes(self.tenant_receipt)
+            .map_err(|_| MarketEvidenceError::Admission)?;
+        self.provider_commit
+            .verify_receipt_bytes(self.provider_receipt)
+            .map_err(|_| MarketEvidenceError::Admission)?;
+        Ok(AuthenticatedMarketNamespaces {
+            tenant: self
+                .tenant_state
+                .verify(self.tenant_commit.app_hash, self.program)?,
+            provider: self
+                .provider_state
+                .verify(self.provider_commit.app_hash, self.program)?,
+        })
+    }
+}
+
 pub struct VerifiedMarketSandbox {
     profile: MarketSandboxProfile,
     billing: MarketBillingCommitment,
@@ -167,6 +220,17 @@ pub struct VerifiedMarketSandbox {
     authority: MarketSandboxReplayAuthority,
 }
 impl VerifiedMarketSandbox {
+    pub fn evaluate_step(
+        evidence: MarketReplayEvidence<'_>,
+        pre: &BoundaryProof,
+        post: &BoundaryProof,
+    ) -> MarketStepVerdict {
+        match Self::verify(evidence) {
+            Ok(sandbox) => sandbox.verify_step(pre, post),
+            Err(error) => MarketStepVerdict::InvalidEvidence(error),
+        }
+    }
+
     pub fn verify(evidence: MarketReplayEvidence<'_>) -> Result<Self, MarketEvidenceError> {
         let tenant = evidence
             .tenant_receipt
@@ -178,38 +242,48 @@ impl VerifiedMarketSandbox {
             .receipt()
             .protocol()
             .ok_or(MarketEvidenceError::Receipt)?;
-        check_receipt(evidence.tenant_receipt, evidence.tenant_admission)?;
-        check_receipt(evidence.provider_receipt, evidence.provider_admission)?;
+        check_receipt(evidence.tenant_receipt, evidence.tenant_admission.prestate)?;
+        check_receipt(
+            evidence.provider_receipt,
+            evidence.provider_admission.prestate,
+        )?;
         if tenant.global_sequence() >= provider.global_sequence()
-            || evidence.tenant_admission.network_id() != evidence.provider_admission.network_id()
+            || evidence.tenant_admission.prestate.network_id()
+                != evidence.provider_admission.prestate.network_id()
             || evidence.expected_market_program == [0; 32]
         {
             return Err(MarketEvidenceError::Admission);
         }
         let tenant_authority = VerifiedReplayAuthority::derive_program_call(
             evidence.tenant_receipt,
-            evidence.tenant_admission,
-            evidence.tenant_header,
-            evidence.tenant_receipt_proof,
+            evidence.tenant_admission.prestate,
+            evidence.tenant_admission.header,
+            evidence.tenant_commit,
         )
         .map_err(|_| MarketEvidenceError::Admission)?;
         let provider_authority = VerifiedReplayAuthority::derive_program_call(
             evidence.provider_receipt,
-            evidence.provider_admission,
-            evidence.provider_header,
-            evidence.provider_receipt_proof,
+            evidence.provider_admission.prestate,
+            evidence.provider_admission.header,
+            evidence.provider_commit,
         )
         .map_err(|_| MarketEvidenceError::Admission)?;
-        let tenant_records = evidence.tenant_state.verify(
-            tenant.resulting_state_root(),
+        let namespaces = MarketCommittedNamespaces {
+            program: evidence.expected_market_program,
+            tenant_receipt: evidence.tenant_receipt.canonical_bytes(),
+            provider_receipt: evidence.provider_receipt.canonical_bytes(),
+            tenant_commit: evidence.tenant_commit,
+            provider_commit: evidence.provider_commit,
+            tenant_state: evidence.tenant_state,
+            provider_state: evidence.provider_state,
+        }
+        .authenticate()?;
+        let tenant_records = namespaces.tenant;
+        let provider_records = namespaces.provider;
+        let tenant_call = market_calldata(
+            evidence.tenant_admission.prestate,
             evidence.expected_market_program,
         )?;
-        let provider_records = evidence.provider_state.verify(
-            provider.resulting_state_root(),
-            evidence.expected_market_program,
-        )?;
-        let tenant_call =
-            market_calldata(evidence.tenant_admission, evidence.expected_market_program)?;
         if tenant_call.get(..2) != Some(&[1, arbitration::AUTHORIZE_SANDBOX_PROFILE]) {
             return Err(MarketEvidenceError::Profile);
         }
@@ -222,7 +296,7 @@ impl VerifiedMarketSandbox {
         )?;
         if profile_bytes != &tenant_call[2..]
             || profile.market_program != evidence.expected_market_program
-            || profile.network_id != evidence.tenant_admission.network_id()
+            || profile.network_id != evidence.tenant_admission.prestate.network_id()
             || profile.tenant != tenant_authority.principal()
         {
             return Err(MarketEvidenceError::Profile);
@@ -236,7 +310,7 @@ impl VerifiedMarketSandbox {
             return Err(MarketEvidenceError::Profile);
         }
         let provider_call = market_calldata(
-            evidence.provider_admission,
+            evidence.provider_admission.prestate,
             evidence.expected_market_program,
         )?;
         if provider_call.len() < 34
@@ -302,7 +376,7 @@ impl VerifiedMarketSandbox {
             evidence.expected_market_program,
             sealed,
             namespace,
-            evidence.tenant_header.header().batch_number(),
+            evidence.tenant_admission.header.header().batch_number(),
         )
         .map_err(|_| MarketEvidenceError::Profile)?;
         let provider_offer = decode_offer(cell(
@@ -330,7 +404,7 @@ impl VerifiedMarketSandbox {
             &billing,
             billing.profile_digest,
             AccountId::new(profile.provider).map_err(|_| MarketEvidenceError::Billing)?,
-            evidence.provider_header.header().batch_number(),
+            evidence.provider_admission.header.header().batch_number(),
         )
         .map_err(|_| MarketEvidenceError::Billing)?;
         if claim != expected_claim {
@@ -364,6 +438,7 @@ impl VerifiedMarketSandbox {
         baseline_key.extend_from_slice(&namespace_bytes);
         let baseline_records = evidence
             .tenant_admission
+            .prestate
             .legacy()
             .legacy()
             .program_records();
@@ -373,7 +448,7 @@ impl VerifiedMarketSandbox {
         ) {
             (None, None) => BTreeMap::new(),
             (Some(head), Some(proof)) if head == &proof.head.value => {
-                proof.verify_namespace(evidence.tenant_admission.state_root(), &namespace_bytes)?
+                proof.verify_namespace(evidence.tenant_commit.app_hash, &namespace_bytes)?
             }
             _ => return Err(MarketEvidenceError::Baseline),
         };
@@ -409,7 +484,7 @@ impl VerifiedMarketSandbox {
             return Err(MarketEvidenceError::Profile);
         }
         let catalogue =
-            AuthenticatedCatalogue::verify(evidence.tenant_admission, evidence.code_blobs)
+            AuthenticatedCatalogue::verify(evidence.tenant_admission.prestate, evidence.code_blobs)
                 .map_err(|_| MarketEvidenceError::Catalogue)?;
         let module = catalogue
             .program_module(program)
@@ -428,9 +503,9 @@ impl VerifiedMarketSandbox {
             return Err(MarketEvidenceError::Code);
         }
         let fees = selected_fees(
-            evidence.tenant_admission,
+            evidence.tenant_admission.prestate,
             profile.fee_schedule_version,
-            evidence.tenant_header.header().batch_number(),
+            evidence.tenant_admission.header.header().batch_number(),
         )?;
         let limits = profile.limits;
         let authority = MarketSandboxReplayAuthority {

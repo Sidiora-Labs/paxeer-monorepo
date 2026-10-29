@@ -10795,3 +10795,39 @@ area = "Swift gate environment"
 symptom = "swift-build exits 127: libicuuc.so.74 cannot open"
 cause = "the Swift 6.0.3 Ubuntu 24.04 toolchain needs ICU 74 while the gate image carries a newer ICU"
 do = "the runner's compat step installs libicu74 from the noble pool beside libxml2; rebuild the image after editing the runner"
+
+[gotcha.2199]
+area = "spec authoring"
+symptom = "A cargo test gate exits at once with 'Option exact given more than once' and no test runs."
+cause = "The verify_cmd listed --exact before each test name; libtest takes --exact once followed by every name."
+do = "Write `-- --exact name_a name_b`; lint gates for a repeated --exact before committing."
+
+[gotcha.2200]
+area = "task scoping"
+symptom = "A task that deletes or retypes a definition passes its own test and fails the dependents build on callers another, later task owns; the two tasks block each other."
+cause = "Ownership split a definition from its callers across crates (10.98.13/10.98.10, 10.98.7, 10.20.3 and the movement provider, 10.98.1 and its binary, 8.48.1/8.48.2 on wallet.rs)."
+do = "The deleting or retyping task carries every caller in dependent crates; the former owner requires it and keeps the new shape (decision.1849). Check dependents when writing touches."
+
+[gotcha.2201]
+area = "rust formatting"
+symptom = "The scope check flags a file the task never edited after rustfmt ran on a declared file."
+cause = "rustfmt follows #[path] child modules (production_components.rs -> production_owner.rs -> production_owner_tests.rs) and reformatted a child that is not rustfmt-clean at main."
+do = "Format only files whose child modules are declared too, or restore undeclared children before committing; name the child module in the do line when a declared file has one."
+
+[gotcha.2202]
+area = "conformance vectors"
+symptom = "A conformance command fails at main because a human golden's method and path disagree with generated metadata."
+cause = "An operation was re-routed to per-leg EVM calls (no HTTP path) while its HTTP golden still documents the request shape."
+do = "Compare EVM-routed operations against their generated EVM method and per-leg flag, not against the golden method and path (decision.1848)."
+
+[gotcha.2203]
+area = "wave planning"
+symptom = "A programme gate task that runs make workspace-build fails on compile breaks owned by much later tasks."
+cause = "The gate task sat at wave 6 while the binaries it builds are ported at waves 10 to 21."
+do = "Give workspace-build gate tasks requires on every compile-port task and a wave after them (decision.1847)."
+
+[gotcha.2204]
+area = "spec authoring"
+symptom = "An interface note that was wrong in one block was wrong in 61 opcode blocks of the same protocol family and in two contract tables."
+cause = "The opcode blocks of a protocol family copy the family note verbatim and the contract tables reproduce interfaces.kvx by hand, so a stale cite multiplies."
+do = "When an interface note changes, replace it in every block of the family and in both contract tables in one edit, asserting the copy count before writing."
