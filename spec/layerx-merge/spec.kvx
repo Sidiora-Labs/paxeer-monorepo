@@ -136105,7 +136105,7 @@ do_7 = "dotnet test compiles the whole test project before filtering, so also de
 
 [task.8.43.6]
 title = ".NET SDK removes the /v1/programs REST transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.43.3", "8.43.5"]
@@ -136792,7 +136792,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.8]
 title = ".NET and Swift operation catalogues drop binding, deposit, exit and withdraw operations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.46.5", "8.46.2"]
@@ -139932,7 +139932,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.14.1]
 title = "Accept 65-byte external signatures in the MCP activity tools"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["9.2.2", "9.2.3", "9.1.8", "18.1121.1"]
@@ -146879,7 +146879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.98.4]
 title = "Migrate the layerx-human-service callers of wiring.J44.21 (wave 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.2", "9.1.8", "18.1119.1"]
