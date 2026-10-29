@@ -135694,7 +135694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.41.8]
 title = "Go conformance command runs the V1-V5 vector files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.47.7", "8.46.3", "8.46.2"]
@@ -146849,7 +146849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.98.1]
 title = "Migrate the layerx-explorer-index callers of wiring.J44.21"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.2", "9.1.8", "18.1119.1", "18.1153.1"]
