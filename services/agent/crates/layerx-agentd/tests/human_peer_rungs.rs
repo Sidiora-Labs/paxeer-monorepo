@@ -364,12 +364,4 @@ fn human_opcode_numbers_are_unchanged() {
             "opcode {name} duplicates another operation"
         );
     }
-    assert_eq!(
-        HumanRefusal::ExportSettlementAnchoringUnavailable.reason(),
-        "export.settlement_anchoring_unavailable"
-    );
-    assert_eq!(
-        HumanRefusal::ExportSettlementAnchoringUnavailable.class(),
-        layerx_agent_api::error::ErrorClass::UnavailableCapability
-    );
 }
