@@ -145635,7 +145635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.21.7]
 title = "Human intents compile budget fund, create and defund to the kernel canonical payloads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.98.13", "18.1188.1"]
@@ -187666,7 +187666,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1189.1]
 title = "Issue #1189: Build the committed-rung test fixtures with the wrapped block transaction and retire the legacy inclusion constructor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
