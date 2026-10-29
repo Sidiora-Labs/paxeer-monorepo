@@ -10579,3 +10579,33 @@ area = "J44.25 ports"
 symptom = "A 'rename-only' port from bind or sign_disclosed to bind_call or sign_disclosed_call stalls for attempts on 'cannot preserve behaviour'."
 cause = "The replacement is the EVM call API: Eip1559Call plus a 20-byte from, 65-byte signatures, SigningPreparation instead of Prepared; behaviour changes by design."
 do = "Write the task so the tests assert the new API's behaviour and drop the 'behaviour unchanged' clause (decision.1825)."
+
+[gotcha.2163]
+area = "program drivers"
+symptom = "A program call at the next height fails with -736 and a callback-failure terminal (stage 05, status -3) although the guest never ran."
+cause = "The driver incremented the fixture height without finalising the occupancy batch; prepare_positions requires batch == last_finalized_batch + 1."
+do = "Call lxp_programs_finalize_occupancy_batch_selected and refresh current_state_root before every height increment (decision.1826)."
+
+[gotcha.2164]
+area = "x402 buyers"
+symptom = "Every metered web test fails with OfferMismatch(payer) after the payer header moved to LAYERX-PAYER-ADDRESS."
+cause = "The buyer still derived its payer accounts from the DID naming while the seller's offers carry the ledger accountId of the address."
+do = "Derive the accounts through eth_call accountId(owner, asset) with the address left-padded to 32 bytes, plus the PAX naming special case (decision.1827)."
+
+[gotcha.2165]
+area = "spec touches"
+symptom = "A task changes a signature, an error type or struct field names and the crate build fails in files the task may not edit."
+cause = "The callers were left out of touches; attempts repeat the same compile errors (9.2.4, 9.5.9, 9.13.2, 10.3.1)."
+do = "Before changing a public signature, grep its callers and add them to the task's touches with one do line; record the finding once, not per attempt."
+
+[gotcha.2166]
+area = "agentd tests"
+symptom = "A test suite that includes layerx-agentd tests/support/mod.rs by path fails with E0308 on attach_external_signature and verify_before_submit."
+cause = "The shared support helpers still use the retired Prepared and 64-byte signature API."
+do = "Port the helper sites to SigningPreparation, 65-byte signatures and the 20-byte signer address; add the support file to the task's touches."
+
+[gotcha.2167]
+area = "completion gates"
+symptom = "A domain completion gate reports a retired pub item present although the replacing task is done."
+cause = "The replacing task added the new item and kept the old constant for its single test caller."
+do = "Add a small retiring task that deletes the item and ports the test caller, and make the gate task require it; never relax the gate (decision.1828)."
