@@ -7,7 +7,7 @@ use layerx_agent_api::proof::ProofBundle;
 use layerx_agent_api::read::{
     AccountRef, BalanceValue, CheckpointValue, Freshness, HistoryCursor, HistoryValue, RelativeTo,
 };
-use layerx_agent_api::verify::Level;
+use layerx_agent_api::verify::Rung;
 use layerx_agent_api::Amount;
 use layerx_mcp::tools::read::{
     availability, balance, checkpoint, history, proof, receipt, Continuation, Pagination,
@@ -59,7 +59,7 @@ fn proof_bundle() -> ProofBundle {
 }
 
 #[test]
-fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
+fn every_read_shape_carries_its_rung_and_the_exact_height_freshness() {
     let expected_freshness = freshness();
     let balance_result = balance(
         BalanceValue {
@@ -70,12 +70,12 @@ fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
             canonical_state: bytes(b"core-balance"),
             height: 117,
         },
-        Level::StateProven,
+        None,
         expected_freshness.clone(),
         1024,
     )
     .unwrap_or_else(|error| panic!("balance: {error:?}"));
-    assert_eq!(balance_result.verification_level, Level::StateProven);
+    assert_eq!(balance_result.rung, None);
     assert_eq!(balance_result.freshness, expected_freshness);
     assert!(balance_result.page.complete);
 
@@ -83,13 +83,14 @@ fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
         ReceiptValue {
             canonical_receipt: bytes(b"core-receipt"),
             evidence_ids: vec![[1; 32]],
+            height: 117,
         },
-        Level::BatchIncluded,
+        Some(Rung::Receipted),
         freshness(),
         1024,
     )
     .unwrap_or_else(|error| panic!("receipt: {error:?}"));
-    assert_eq!(receipt_result.verification_level, Level::BatchIncluded);
+    assert_eq!(receipt_result.rung, Some(Rung::Receipted));
 
     let checkpoint_result = checkpoint(
         CheckpointValue {
@@ -97,19 +98,16 @@ fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
             validator_set: bytes(b"core-validators"),
             height: 117,
         },
-        Level::CheckpointFinalised,
+        Some(Rung::Committed),
         freshness(),
         1024,
     )
     .unwrap_or_else(|error| panic!("checkpoint: {error:?}"));
-    assert_eq!(
-        checkpoint_result.verification_level,
-        Level::CheckpointFinalised
-    );
+    assert_eq!(checkpoint_result.rung, Some(Rung::Committed));
 
-    let proof_result = proof(proof_bundle(), Level::StateProven, freshness(), 1024)
+    let proof_result = proof(proof_bundle(), Some(Rung::Committed), freshness(), 1024)
         .unwrap_or_else(|error| panic!("proof: {error:?}"));
-    assert_eq!(proof_result.verification_level, Level::StateProven);
+    assert_eq!(proof_result.rung, Some(Rung::Committed));
 
     let provider =
         ProviderRef::new("provider-a").unwrap_or_else(|error| panic!("provider: {error:?}"));
@@ -125,7 +123,7 @@ fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
             }],
             providers: Vec::new(),
         },
-        Level::BatchIncluded,
+        None,
         freshness(),
         1024,
     )
@@ -142,7 +140,7 @@ fn unverified_or_evidence_free_values_never_enter_a_fact_result() {
                 validator_set: bytes(b"core-validators"),
                 height: 117,
             },
-            Level::Unverified,
+            Some(Rung::Submitted),
             freshness(),
             1024,
         ),
@@ -153,8 +151,9 @@ fn unverified_or_evidence_free_values_never_enter_a_fact_result() {
             ReceiptValue {
                 canonical_receipt: bytes(b"receipt"),
                 evidence_ids: Vec::new(),
+                height: 117,
             },
-            Level::SequencerSigned,
+            Some(Rung::Receipted),
             freshness(),
             1024,
         ),
@@ -173,7 +172,7 @@ fn history_truncation_is_explicit_and_uses_snapshot_bound_stable_cursors() {
     };
     let first = history(
         &all.clone(),
-        Level::BatchIncluded,
+        None,
         freshness(),
         query,
         snapshot,
@@ -192,7 +191,7 @@ fn history_truncation_is_explicit_and_uses_snapshot_bound_stable_cursors() {
     assert_eq!(cursor.offset, 2);
     let second = history(
         &all,
-        Level::BatchIncluded,
+        None,
         freshness(),
         query,
         snapshot,
@@ -214,7 +213,7 @@ fn history_truncation_is_explicit_and_uses_snapshot_bound_stable_cursors() {
                 next_cursor: None,
                 height: 117,
             },
-            Level::BatchIncluded,
+            Some(Rung::Receipted),
             freshness(),
             query,
             snapshot,
@@ -237,7 +236,7 @@ fn upstream_core_pagination_is_never_misreported_as_complete() {
             }),
             height: 117,
         },
-        Level::BatchIncluded,
+        None,
         freshness(),
         [1; 32],
         [2; 32],
