@@ -10489,3 +10489,27 @@ area = "spec waves"
 symptom = "A spec edit that moves a task to a later wave, or adds a requires edge, parses cleanly yet no task is admitted afterwards."
 cause = "Parsing the plan does not validate it; the admission step also refuses any task whose requirement sits in a later wave and any requires cycle, and then runs without admitting anything."
 do = "Before committing a wave or requires change, check that no dependant sits in an earlier wave than its requirement and that the requires graph has no cycle; when a task must wait for another, move the dependants too or drop the edge."
+
+[gotcha.2148]
+area = "rust crates"
+symptom = "A task passes its own test and the wider build of the crate's dependents fails with E0063 missing field on a struct literal."
+cause = "A library struct gained a field (SequencerBlock.receipts_root, layerx-client src/sequencer.rs:200) and the sibling test binaries of the same crate still spell the old literal; cargo test -p crate --test name builds only the named binary."
+do = "When a struct gains a field, port every struct literal in the crate's tests in the same task; build the crate with --tests before qualifying."
+
+[gotcha.2149]
+area = "sdk verifiers"
+symptom = "A portable receipt vector verifies in Go and .NET and the JVM verifier refuses it."
+cause = "The JVM FIELDS rule carried a term the other verifiers do not (operation != 2, LocalVerifier.java:185-190), over-fitted to the asset transfer receipt it was written against."
+do = "Mirror the Go and .NET field rules term by term; a committed settlement receipt has moduleId 12 and operation 0 (decision.1807)."
+
+[gotcha.2150]
+area = "spec authoring"
+symptom = "A task step names a diagnostic facility or helper that is not in the tree and attempts stall looking for it."
+cause = "The step was written from a design, not from the code; readers then search for the facility instead of narrowing the fault."
+do = "Replace the step with an assertion ladder over the real reads and handlers (ReadAccount, ReadProgramAccount, the registered call handler) that stops at the first failing assertion and records it."
+
+[gotcha.2151]
+area = "budget payloads"
+symptom = "A budget fund vector or compiler emits a 0x4202 six-field 180-byte payload and the kernel or layerx-crypto refuses it."
+cause = "The tagged 0x42xx layout is stale; the kernel canonical fund payload is type 0x00030002 with v1 50 bytes or v2 58 bytes (lx_budget_codec.c:173-196), as layerx-crypto and modules/layerxpay/types/payload_budget.go encode; binding a budget mutation needs bind_budget_mutation with a BudgetStateContext."
+do = "Encode the kernel layout (decision.1811) and bind with the budget state context; the wallet policy, its vectors and the intent compiler must agree with the kernel codec."
