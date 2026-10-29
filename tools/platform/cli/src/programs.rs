@@ -308,6 +308,12 @@ pub fn inspect_artifact(path: &Path) -> Result<Value, String> {
     }))
 }
 
+pub struct EvmLifecycleRequest<'a> {
+    pub program_id: &'a str,
+    pub fee_limit: &'a str,
+    pub key_file: &'a Path,
+}
+
 pub struct DeployRequest<'a> {
     pub artifact: &'a Path,
     pub upgrade_authority: Option<&'a str>,
@@ -316,9 +322,8 @@ pub struct DeployRequest<'a> {
 
 pub fn deploy(
     client: &Client,
-    request: &CallRequest<'_>,
+    request: &EvmLifecycleRequest<'_>,
     deployment: &DeployRequest<'_>,
-    previous_state_root: &str,
 ) -> Result<Value, String> {
     let inspected = inspect_artifact(deployment.artifact)?;
     gate_artifact(deployment.artifact)?;
@@ -345,7 +350,7 @@ pub fn deploy(
     }
     .encode()
     .map_err(|error| format!("invalid native deployment: {error:?}"))?;
-    let mut result = submit_lifecycle(client, request, 1, &payload, previous_state_root)?;
+    let mut result = submit_lifecycle(client, request, 1, &payload)?;
     result["artifact"] = inspected;
     result["typed_interface"] = json!(interface.is_some());
     Ok(result)
@@ -362,9 +367,8 @@ pub struct UpgradeRequest<'a> {
 
 pub fn upgrade(
     client: &Client,
-    request: &CallRequest<'_>,
+    request: &EvmLifecycleRequest<'_>,
     upgrade: &UpgradeRequest<'_>,
-    previous_state_root: &str,
 ) -> Result<Value, String> {
     inspect_artifact(upgrade.artifact)?;
     gate_artifact(upgrade.artifact)?;
@@ -405,14 +409,13 @@ pub fn upgrade(
     }
     .encode()
     .map_err(|error| format!("invalid native upgrade: {error:?}"))?;
-    submit_lifecycle(client, request, 2, &payload, previous_state_root)
+    submit_lifecycle(client, request, 2, &payload)
 }
 
 pub fn wind_down(
     client: &Client,
-    request: &CallRequest<'_>,
+    request: &EvmLifecycleRequest<'_>,
     operation: ProgramWindDownOperation<'_>,
-    previous_state_root: &str,
 ) -> Result<Value, String> {
     let payload = NativeProgramWindDown {
         program_id: ProgramId::new(fixed_hex("program id", request.program_id)?),
@@ -420,7 +423,7 @@ pub fn wind_down(
     }
     .encode()
     .map_err(|error| format!("invalid native wind-down: {error:?}"))?;
-    submit_lifecycle(client, request, 7, &payload, previous_state_root)
+    submit_lifecycle(client, request, 7, &payload)
 }
 
 fn read_program_file(path: &Path) -> Result<Vec<u8>, String> {
@@ -501,44 +504,154 @@ fn merge_abi(declared: &mut Option<u16>, abi: u16) -> Result<(), String> {
     Ok(())
 }
 
-fn submit_lifecycle(
-    client: &Client,
-    request: &CallRequest<'_>,
+pub(crate) fn lifecycle_calldata(
     ordinal: u16,
     payload: &[u8],
-    previous_state_root: &str,
-) -> Result<Value, String> {
-    validate_idempotency_key(request.idempotency_key)?;
-    let root = fixed_hex("previous state root", previous_state_root)?;
-    let key = fixed_hex("sequencer public key", request.sequencer_public_key)?;
-    let signed = signed_program_with_signer(request, ordinal, payload, || {
-        Ok(SigningKey::from_bytes(&*crate::credential::key_seed(
-            request.key_name,
-        )?))
-    })?;
-    let route = match ordinal {
-        1 => "/v1/programs/deploy",
-        2 => "/v1/programs/upgrade",
-        7 => "/v1/programs/wind-down",
+    fee_limit: &str,
+) -> Result<Vec<u8>, String> {
+    let invalid = |error| format!("invalid lifecycle payload: {error:?}");
+    let fee = fee_limit
+        .parse::<u128>()
+        .map_err(|_| "program fee limit must be an unsigned 128-bit integer")?;
+    let (selector, mut words, bodies) = match ordinal {
+        1 => {
+            let value = NativeProgramDeploy::decode(payload).map_err(invalid)?;
+            let (policy, authority) = match value.policy {
+                ProgramUpgradePolicy::Immutable => (0, [0; 32]),
+                ProgramUpgradePolicy::Authority(authority) => (1, authority),
+            };
+            (
+                [0xbd, 0xe3, 0xff, 0x66],
+                vec![
+                    value.program_id.bytes(),
+                    abi_word(u128::from(value.guest_abi)),
+                    abi_word(policy),
+                    authority,
+                    value.new_hash,
+                    [0; 32],
+                    [0; 32],
+                ],
+                vec![(5, value.interface.unwrap_or_default()), (6, value.wasm)],
+            )
+        }
+        2 => {
+            let value = NativeProgramUpgrade::decode(payload).map_err(invalid)?;
+            let flags = u128::from(!value.migration_hook.is_empty())
+                | (u128::from(value.clear_interface) << 1);
+            (
+                [0xa8, 0x60, 0x92, 0x9f],
+                vec![
+                    value.program_id.bytes(),
+                    abi_word(u128::from(value.guest_abi)),
+                    abi_word(flags),
+                    value.old_hash,
+                    value.new_hash,
+                    [0; 32],
+                    [0; 32],
+                    [0; 32],
+                    abi_word(fee),
+                ],
+                vec![
+                    (5, value.migration_hook),
+                    (6, value.interface.unwrap_or_default()),
+                    (7, value.wasm),
+                ],
+            )
+        }
+        7 => {
+            let value = NativeProgramWindDown::decode(payload).map_err(invalid)?;
+            let id = value.program_id.bytes();
+            match value.operation {
+                ProgramWindDownOperation::Route {
+                    account,
+                    asset,
+                    destination,
+                    seed,
+                } => (
+                    [0x23, 0x33, 0x0d, 0xd5],
+                    vec![id, account, asset, destination, [0; 32]],
+                    vec![(4, seed)],
+                ),
+                ProgramWindDownOperation::Deprecate {
+                    exit_program,
+                    deadline_batch,
+                } => (
+                    [0x86, 0xba, 0x1a, 0x99],
+                    vec![id, exit_program, abi_word(u128::from(deadline_batch))],
+                    vec![],
+                ),
+                ProgramWindDownOperation::Tombstone => ([0xa5, 0x12, 0xf1, 0xa9], vec![id], vec![]),
+                ProgramWindDownOperation::Exit { account } => {
+                    ([0x4d, 0xc5, 0x07, 0x30], vec![id, account], vec![])
+                }
+                ProgramWindDownOperation::BoundedExit {
+                    account,
+                    maximum_exit_amount,
+                } => (
+                    [0xad, 0xe5, 0xd9, 0xe6],
+                    vec![id, account, abi_word(maximum_exit_amount)],
+                    vec![],
+                ),
+            }
+        }
         _ => return Err("unsupported lifecycle ordinal".into()),
     };
-    let response = client.post_activity(route, &signed, Some(request.idempotency_key))?;
-    refuse_transport_response(&response)?;
-    let activity = validate_signed_program(ordinal, payload, &signed)?;
-    let expected =
-        activity_id(&activity).map_err(|error| format!("invalid activity: {error:?}"))?;
-    if response
-        .get("result")
-        .unwrap_or(&response)
-        .get("state")
-        .and_then(Value::as_str)
-        == Some("unknown")
-    {
-        return Ok(json!({"activity_id":hex_encode(&expected),
-            "idempotency_key":request.idempotency_key, "signed_activity":hex_encode(&signed),
-            "outcome":{"status":"unknown"}, "failure":response.get("failure")}));
+    let mut tail = Vec::new();
+    for (index, body) in bodies {
+        words[index] = abi_word((words.len() * 32 + tail.len()) as u128);
+        tail.extend_from_slice(&abi_word(body.len() as u128));
+        tail.extend_from_slice(body);
+        tail.resize(tail.len().next_multiple_of(32), 0);
     }
-    verify_lifecycle_result(ordinal, expected, root, key, &response)
+    let mut data = selector.to_vec();
+    for word in words {
+        data.extend_from_slice(&word);
+    }
+    data.extend_from_slice(&tail);
+    Ok(data)
+}
+
+fn abi_word(value: u128) -> [u8; 32] {
+    let mut word = [0; 32];
+    word[16..].copy_from_slice(&value.to_be_bytes());
+    word
+}
+
+fn submit_lifecycle(
+    client: &Client,
+    request: &EvmLifecycleRequest<'_>,
+    ordinal: u16,
+    payload: &[u8],
+) -> Result<Value, String> {
+    let data = lifecycle_calldata(ordinal, payload, request.fee_limit)?;
+    let raw = prepare_program_transaction(client, data, request.key_file)?;
+    submit_lifecycle_transaction(client, &raw)
+}
+
+pub(crate) fn submit_lifecycle_transaction(client: &Client, raw: &[u8]) -> Result<Value, String> {
+    let submitted = submit_program_transaction(client, raw)?;
+    let hash = submitted["tx_hash"]
+        .as_str()
+        .ok_or("submission omitted transaction hash")?;
+    let receipt = sequencer_receipt(client, hash).map_err(|error| {
+        format!("transaction {hash} submitted; sequencer receipt unavailable: {error}")
+    })?;
+    lifecycle_receipt_result(hash, &receipt)
+}
+
+pub(crate) fn lifecycle_receipt_result(hash: &str, receipt: &Value) -> Result<Value, String> {
+    let expected = transaction_hash(hash)?;
+    let returned = receipt["txHash"]
+        .as_str()
+        .ok_or_else(|| format!("transaction {hash}: sequencer receipt omitted txHash"))?;
+    if transaction_hash(returned)? != expected {
+        return Err("sequencer receipt names another transaction".into());
+    }
+    let rung = receipt["rung"]
+        .as_str()
+        .and_then(layerx_types::rung::Rung::from_name)
+        .ok_or("sequencer receipt omitted a valid rung")?;
+    Ok(json!({"txHash":returned, "rung":rung.name(), "sequencer_receipt":receipt}))
 }
 
 fn verify_lifecycle_result(
@@ -1250,8 +1363,17 @@ pub fn call(
     request: &EvmCallRequest<'_>,
     key_file: &Path,
 ) -> Result<Value, String> {
-    use layerx_crypto::evm_transaction::Eip1559Call;
     let data = call_calldata(request, CALL_SELECTOR)?;
+    let raw = prepare_program_transaction(client, data, key_file)?;
+    submit_program_transaction(client, &raw)
+}
+
+fn prepare_program_transaction(
+    client: &Client,
+    data: Vec<u8>,
+    key_file: &Path,
+) -> Result<Vec<u8>, String> {
+    use layerx_crypto::evm_transaction::Eip1559Call;
     let (secret, address) = evm_key(key_file)?;
     let from = format!("0x{}", hex_encode(&address));
     let chain_id = u64::try_from(rpc_quantity(client, "eth_chainId", json!([]))?)
@@ -1282,8 +1404,7 @@ pub fn call(
         to: fixed_hex("programs address", &PROGRAMS_ADDRESS[2..])?,
         data,
     };
-    let raw = sign_program_transaction(&transaction, &secret, &address)?;
-    submit_program_transaction(client, &raw)
+    sign_program_transaction(&transaction, &secret, &address)
 }
 
 pub(crate) fn sign_program_transaction(
