@@ -184,7 +184,7 @@ public final class LocalVerifier {
         if (!equal(transactionHash, receipt.activityId())) fail(ReceiptCheck.RAW_TRANSACTION);
         if (receipt.globalSequence().signum() == 0 || receipt.timestamp().signum() == 0
                 || receipt.moduleId() <= 11 || receipt.moduleVersion() != 1
-                || receipt.parameterVersion() != 0 || receipt.operation() != 2
+                || receipt.parameterVersion() != 0
                 || receipt.programOutcome() != null || receipt.resultCode() < 0 || receipt.resultCode() > 1
                 || !allZero(receipt.transferSetRoot()) || !allZero(receipt.authorizationHash()))
             fail(ReceiptCheck.FIELDS);

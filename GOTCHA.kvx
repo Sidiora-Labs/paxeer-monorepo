@@ -10513,3 +10513,27 @@ area = "budget payloads"
 symptom = "A budget fund vector or compiler emits a 0x4202 six-field 180-byte payload and the kernel or layerx-crypto refuses it."
 cause = "The tagged 0x42xx layout is stale; the kernel canonical fund payload is type 0x00030002 with v1 50 bytes or v2 58 bytes (lx_budget_codec.c:173-196), as layerx-crypto and modules/layerxpay/types/payload_budget.go encode; binding a budget mutation needs bind_budget_mutation with a BudgetStateContext."
 do = "Encode the kernel layout (decision.1811) and bind with the budget state context; the wallet policy, its vectors and the intent compiler must agree with the kernel codec."
+
+[gotcha.2152]
+area = "launchpad replay fixtures"
+symptom = "A recorded chain-125 market replay fails receipt qualification although the recording is byte-exact."
+cause = "deployment.Current() moved to a new contract generation (16ee6fd09, v6.12.0) and validateCode compares runtime hashes at the qualified block, so the current manifest can never qualify blocks recorded under the previous generation."
+do = "Qualify with the history entry whose activation height covers the anchor (deployment.Approved, decision.1814); never pin Current() in a replay test."
+
+[gotcha.2153]
+area = "flatkv config"
+symptom = "ParseFlatKVConfig returns 'data dir is required' for every call and a parse-time panic would stop every node."
+cause = "Validation ran at parse while DataDir is assigned later at store construction (composite/store.go:133, flatkv/store.go:230)."
+do = "Validate where the full config exists; parse functions return cast errors only (decision.1819)."
+
+[gotcha.2154]
+area = "release workflow"
+symptom = "committed_pipeline() panics on the platform workflow and release_pipeline_has_no_replay_gate cannot run."
+cause = "A verification step carried if: always(), which the release validator admits only as the sdk-v tag condition."
+do = "Delete the condition on the workflow step; never widen the validator (No Weakening)."
+
+[gotcha.2155]
+area = "launchpad tests"
+symptom = "A launchpad Postgres test reads handoffs/L35/schema.sql or integration/migrations and fails before any assertion."
+cause = "Those paths were never committed to any ref; the tracked schema is each service's embedded goose migration set."
+do = "Apply services/launchpad/<service>/migrations through the service's migrate package under <SERVICE>_TEST_DATABASE_URL (decision.1817); task gates stay network-free."
