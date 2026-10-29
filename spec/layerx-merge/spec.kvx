@@ -188166,7 +188166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1218.1]
 title = "Issue #1218: Track the eth_gasPrice integration suite to the base fee plus 10% plus the default priority fee"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
