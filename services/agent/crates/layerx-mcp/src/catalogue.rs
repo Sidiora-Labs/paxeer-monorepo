@@ -224,21 +224,24 @@ pub const WEB_TOOLS: [ToolDefinition; 3] = [
         name: "web.search",
         kind: ToolKind::Write,
         required_scope: "write:web:search",
-        mutation: "one 402LXP payment to the configured x-websearch sidecar",
+        mutation:
+            "one layerxpay payExact payment or budget draw to the configured x-websearch sidecar",
         evidence: "sequencer-signed settlement receipt and untrusted search results",
     },
     ToolDefinition {
         name: "web.fetch",
         kind: ToolKind::Write,
         required_scope: "write:web:fetch",
-        mutation: "one 402LXP payment to the configured x-websearch sidecar",
+        mutation:
+            "one layerxpay payExact payment or budget draw to the configured x-websearch sidecar",
         evidence: "sequencer-signed settlement receipt and digest-checked untrusted page text",
     },
     ToolDefinition {
         name: "web.content",
         kind: ToolKind::Write,
         required_scope: "write:web:content",
-        mutation: "one 402LXP payment to the configured x-websearch sidecar",
+        mutation:
+            "one layerxpay payExact payment or budget draw to the configured x-websearch sidecar",
         evidence: "sequencer-signed settlement receipt and digest-checked untrusted stored content",
     },
 ];
