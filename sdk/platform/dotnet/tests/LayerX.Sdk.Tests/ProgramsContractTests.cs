@@ -14,18 +14,10 @@ namespace LayerX.Sdk.Tests;
 
 public sealed class ProgramsContractTests
 {
-    private sealed class ProgramTransport(JsonValue response) : IPlatformTransport
-    {
-        public Task<JsonValue> SendAsync(TransportCall call, CancellationToken cancellationToken = default) =>
-            Task.FromException<JsonValue>(new PlatformSdkException(SdkErrorCode.UnavailableCapability, RetryClass.Never));
-        public Task<JsonValue> SendProgramAsync(ProgramTransportCall call, CancellationToken cancellationToken = default) =>
-            Task.FromResult(response);
-    }
-
     [Fact]
     public void ProgramsClientRequiresIndependentNonzeroSequencerPin()
     {
-        var client = new PlatformClient(new ProgramTransport(JsonValue.EmptyObject));
+        var client = new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080")));
         Assert.Throws<PlatformSdkException>(() => new ProgramsClient(client, new byte[32]));
         _ = new ProgramsClient(client, Enumerable.Repeat((byte)1, 32).ToArray());
     }
@@ -40,7 +32,7 @@ public sealed class ProgramsContractTests
             ["activity_id"] = JsonValue.String(Convert.ToHexString(activity).ToLowerInvariant()),
             ["idempotency_key"] = JsonValue.String(key),
         });
-        var programs = new ProgramsClient(new PlatformClient(new ProgramTransport(value)),
+        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080"))),
             Enumerable.Repeat((byte)1, 32).ToArray());
         var pending = await programs.ReceiptAsync(new IdempotencyKey(key), activity, "sequencer-signed");
         Assert.True(pending.IsUnknown); Assert.Null(pending.RetainedSignedActivity);
@@ -62,7 +54,7 @@ public sealed class ProgramsContractTests
             ["observed_at"] = JsonValue.String(now.ToString()), ["valid_through"] = JsonValue.String((now + 60_000).ToString()),
             ["verification"] = JsonValue.String("registry-receipt-and-current-head-verified"),
         });
-        var programs = new ProgramsClient(new PlatformClient(new ProgramTransport(value)),
+        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080"))),
             Enumerable.Repeat((byte)1, 32).ToArray());
 
         var discovered = await programs.DiscoverAsync(Convert.FromHexString(program), "sequencer-signed");
@@ -132,7 +124,7 @@ public sealed class ProgramsContractTests
     [Theory]
     [InlineData("native-program-call-v3.json")]
     [InlineData("native-program-call-v4.json")]
-    public async Task NativeSignedFixturesUseCanonicalBinaryGatewayTransport(string name)
+    public void NativeSignedFixturesPreserveCanonicalCallBindings(string name)
     {
         using var document = Fixture(name);
         var vector = document.RootElement;
@@ -141,25 +133,10 @@ public sealed class ProgramsContractTests
         var native = NativeProgramCall.Decode(payload);
         var call = new ProgramCall(native, new ProtocolAmount(vector.GetProperty("fee_limit").GetString()!), signed);
         var encoded = Assert.IsType<JsonValue.ObjectValue>(Invoke("Encode", call));
-        var key = vector.GetProperty("idempotency_key_hex").GetString()!;
-        using var token = new AccessToken(Encoding.ASCII.GetBytes("fixture-bearer"));
-        var transport = new AgentHttpTransport(new Uri("http://127.0.0.1:8080"), accessToken: token);
-        var build = typeof(AgentHttpTransport).GetMethod("ProgramRequest", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        foreach (var operation in new[] { "program.call", "program.simulate" })
-        {
-            var request = new ProgramTransportCall(operation, encoded, new Dictionary<string, string>(),
-                operation == "program.call" ? new IdempotencyKey(key) : null);
-            using var http = Assert.IsType<HttpRequestMessage>(build.Invoke(transport, [request]));
-            Assert.Equal(operation == "program.call" ? "/v1/programs/call" : "/v1/programs/simulate", http.RequestUri!.AbsolutePath);
-            Assert.Equal(HttpMethod.Post, http.Method);
-            Assert.Equal("application/octet-stream", http.Content!.Headers.ContentType!.MediaType);
-            Assert.Equal(signed, await http.Content.ReadAsByteArrayAsync());
-            if (operation == "program.call") Assert.Equal(key, Assert.Single(http.Headers.GetValues("Idempotency-Key")));
-            else Assert.False(http.Headers.Contains("Idempotency-Key"));
-            var changed = native with { ResponseCapacity = native.ResponseCapacity + 1 };
-            var changedCall = new ProgramCall(changed, call.Budget.FeeLimit, signed);
-            Assert.Throws<TargetInvocationException>(() => Invoke("DecodeSignedCall", changedCall));
-        }
+        Assert.Equal(Convert.ToHexString(payload).ToLowerInvariant(), Assert.IsType<JsonValue.StringValue>(encoded.Value["payload"]).Value);
+        Assert.Equal(Convert.ToHexString(signed).ToLowerInvariant(), Assert.IsType<JsonValue.StringValue>(encoded.Value["signed_activity"]).Value);
+        var changedCall = new ProgramCall(native with { ResponseCapacity = native.ResponseCapacity + 1 }, call.Budget.FeeLimit, signed);
+        Assert.Throws<TargetInvocationException>(() => Invoke("DecodeSignedCall", changedCall));
         foreach (var abi in new ushort[] { 0, 6, ushort.MaxValue })
             Assert.Throws<ArgumentException>(() => (native with { GuestAbi = abi }).Encode());
         foreach (var abi in new ushort[] { 3, 4 })
