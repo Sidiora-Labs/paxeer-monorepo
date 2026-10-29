@@ -1973,24 +1973,89 @@ impl AgentRuntime {
         Ok(())
     }
 
+    pub fn receipt_keys(
+        endpoint: &layerx_paxeer_client::EndpointConfig,
+    ) -> Result<Vec<layerx_client::sequencer::ReceiptKeyEntry>, AgentBoundaryError> {
+        use layerx_paxeer_client::{raw_call, Json};
+        let value = raw_call(endpoint, "px_getReceiptKeys", &[])
+            .map_err(|_| AgentBoundaryError::Unavailable)?;
+        let Json::Array(rows) = value else {
+            return Err(AgentBoundaryError::CorruptResponse);
+        };
+        let mut seen = std::collections::BTreeSet::new();
+        let mut keys = Vec::new();
+        for row in rows {
+            let Json::Object(fields) = &row else {
+                return Err(AgentBoundaryError::CorruptResponse);
+            };
+            if fields.len() != 4
+                || fields.iter().any(|(name, _)| {
+                    !matches!(
+                        name.as_str(),
+                        "keyId" | "publicKey" | "firstHeight" | "lastHeight"
+                    )
+                })
+            {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            let fixed = |name: &str| -> Result<[u8; 32], AgentBoundaryError> {
+                let text = row
+                    .member(name)
+                    .and_then(Json::as_text)
+                    .and_then(|s| s.strip_prefix("0x"))
+                    .ok_or(AgentBoundaryError::CorruptResponse)?;
+                if text.len() != 64 || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
+                    return Err(AgentBoundaryError::CorruptResponse);
+                }
+                let mut bytes = [0; 32];
+                for (index, byte) in bytes.iter_mut().enumerate() {
+                    *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+                        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                }
+                Ok(bytes)
+            };
+            let height = |name: &str| -> Result<u64, AgentBoundaryError> {
+                let text = row
+                    .member(name)
+                    .and_then(Json::as_text)
+                    .and_then(|s| s.strip_prefix("0x"))
+                    .ok_or(AgentBoundaryError::CorruptResponse)?;
+                if text.is_empty()
+                    || text.len() > 16
+                    || !text.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    || (text.len() > 1 && text.starts_with('0'))
+                {
+                    return Err(AgentBoundaryError::CorruptResponse);
+                }
+                u64::from_str_radix(text, 16).map_err(|_| AgentBoundaryError::CorruptResponse)
+            };
+            let key = layerx_client::sequencer::ReceiptKeyEntry {
+                key_id: fixed("keyId")?,
+                public_key: fixed("publicKey")?,
+                first_height: height("firstHeight")?,
+                last_height: height("lastHeight")?,
+            };
+            if key.key_id == [0; 32]
+                || key.public_key == [0; 32]
+                || key.first_height > key.last_height
+                || !seen.insert(key.key_id)
+            {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            keys.push(key);
+        }
+        if keys.is_empty() {
+            return Err(AgentBoundaryError::Unavailable);
+        }
+        Ok(keys)
+    }
+
     /// Connects to the authenticated agent peer and adopts only its
     /// core-negotiated module registry.
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.
-    pub fn connect(
-        endpoint: impl AsRef<Path>,
-        limits: layerx_client::lni::transport::Limits,
-    ) -> Result<Self, AgentBoundaryError> {
-        Self::connect_peer(
-            endpoint,
-            Limits {
-                maximum_frame_bytes: limits.maximum_frame_bytes,
-                maximum_connections: limits.maximum_connections,
-                maximum_streams: limits.maximum_streams,
-                maximum_queued_bytes: limits.maximum_queued_bytes,
-                deadline: limits.deadline,
-            },
-        )
+    pub fn connect(endpoint: impl AsRef<Path>, limits: Limits) -> Result<Self, AgentBoundaryError> {
+        Self::connect_peer(endpoint, limits)
     }
 
     fn connect_peer(
