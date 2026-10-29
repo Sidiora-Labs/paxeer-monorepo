@@ -714,25 +714,6 @@ public final class ProgramsClient {
         });
     }
 
-    public static LocalVerifier.ReceiptVerification verifyReceipt(byte[] canonicalReceipt,
-            LocalVerifier.AuthorizedReceiptBatch authorized, byte[] expectedActivityId,
-            int expectedGuestAbiVersion, byte[] terminalPayload, byte[] callGraph, int... selectedProtocol) {
-        if (expectedGuestAbiVersion != 1 && expectedGuestAbiVersion != 2) invalid();
-        LocalVerifier.ReceiptVerification verified = LocalVerifier.verifyReceiptOutcome(canonicalReceipt, authorized, selectedProtocol);
-        LocalVerifier.ProtocolReceipt receipt = verified.receipt();
-        LocalVerifier.ProgramReceiptOutcome outcome = receipt.programOutcome();
-        if (receipt.protocolVersion() == 0 || receipt.moduleId() != PROGRAMS_RECEIPT_MODULE_ID
-                || receipt.operation() != CALL_OPERATION || receipt.moduleVersion() < 1
-                || receipt.moduleVersion() > 5
-                || !Arrays.equals(receipt.activityId(), exactArgument(expectedActivityId, 32))
-                || outcome == null || outcome.abiVersion() != expectedGuestAbiVersion
-                || callGraph == null || callGraph.length == 0 || callGraph.length > MAX_CALLDATA_BYTES
-                || terminalPayload == null || terminalPayload.length > MAX_CALLDATA_BYTES
-                || !MessageDigest.isEqual(sha256(terminalPayload), outcome.terminalPayloadRoot())
-                || !MessageDigest.isEqual(sha256(callGraph), outcome.callGraphRoot())) invalidVerification();
-        return verified;
-    }
-
     private static byte[] cloneNullable(byte[] value) { return value == null ? null : value.clone(); }
 
     private record TerminalUsage(BigInteger cpu, BigInteger memory, BigInteger read, BigInteger write,

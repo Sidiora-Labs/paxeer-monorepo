@@ -959,76 +959,6 @@
       },
       {
         "plane": "human",
-        "name": "binding.rebind",
-        "method": "POST",
-        "path": "/v1/wallet-binding/rebind",
-        "request": "RebindingSubmission",
-        "response": "Journey",
-        "idempotency": true,
-        "bodyless": false
-      },
-      {
-        "plane": "human",
-        "name": "binding.rebind.action",
-        "method": "POST",
-        "path": "/v1/wallet-binding/rebind/action",
-        "request": "BindingStatementRequest",
-        "response": "BindingRebindAction",
-        "idempotency": false,
-        "bodyless": false
-      },
-      {
-        "plane": "human",
-        "name": "binding.statement",
-        "method": "POST",
-        "path": "/v1/wallet-binding/statement",
-        "request": "BindingStatementRequest",
-        "response": "BindingStatement",
-        "idempotency": false,
-        "bodyless": false
-      },
-      {
-        "plane": "human",
-        "name": "binding.status",
-        "method": "GET",
-        "path": "/v1/wallet-binding",
-        "request": "Empty",
-        "response": "WalletBinding",
-        "idempotency": false,
-        "bodyless": true
-      },
-      {
-        "plane": "human",
-        "name": "binding.submit",
-        "method": "POST",
-        "path": "/v1/wallet-binding",
-        "request": "BindingSubmission",
-        "response": "Journey",
-        "idempotency": true,
-        "bodyless": false
-      },
-      {
-        "plane": "human",
-        "name": "deposit.confirm",
-        "method": "POST",
-        "path": "/v1/deposits/{journey_id}/confirm",
-        "request": "DepositConfirmRequest",
-        "response": "Journey",
-        "idempotency": false,
-        "bodyless": false
-      },
-      {
-        "plane": "human",
-        "name": "deposit.start",
-        "method": "POST",
-        "path": "/v1/deposits",
-        "request": "DepositStartRequest",
-        "response": "Journey",
-        "idempotency": true,
-        "bodyless": false
-      },
-      {
-        "plane": "human",
         "name": "evidence.get",
         "method": "GET",
         "path": "/v1/evidence/{evidence_id}",
@@ -1036,26 +966,6 @@
         "response": "EvidenceMaterial",
         "idempotency": false,
         "bodyless": true
-      },
-      {
-        "plane": "human",
-        "name": "exit.eligibility",
-        "method": "GET",
-        "path": "/v1/exit/eligibility",
-        "request": "Empty",
-        "response": "ExitEligibility",
-        "idempotency": false,
-        "bodyless": true
-      },
-      {
-        "plane": "human",
-        "name": "exit.start",
-        "method": "POST",
-        "path": "/v1/exit",
-        "request": "ExitStartRequest",
-        "response": "Journey",
-        "idempotency": true,
-        "bodyless": false
       },
       {
         "plane": "human",
@@ -1526,26 +1436,6 @@
         "response": "VersionInfo",
         "idempotency": false,
         "bodyless": true
-      },
-      {
-        "plane": "human",
-        "name": "withdraw.claim",
-        "method": "POST",
-        "path": "/v1/withdrawals/{journey_id}/claim",
-        "request": "WithdrawClaimRequest",
-        "response": "Journey",
-        "idempotency": false,
-        "bodyless": false
-      },
-      {
-        "plane": "human",
-        "name": "withdraw.start",
-        "method": "POST",
-        "path": "/v1/withdrawals",
-        "request": "WithdrawStartRequest",
-        "response": "Journey",
-        "idempotency": true,
-        "bodyless": false
       }
     ],
     "O57": [

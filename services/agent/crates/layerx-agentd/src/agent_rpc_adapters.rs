@@ -606,7 +606,7 @@ pub(crate) fn budget_list<A: HumanAuthorityBoundary>(
     };
     let mut guard = owner.lock().map_err(|error| owner_error(id, error))?;
     let response = guard.budget_list(context.peer(), typed);
-    owner_payload(id, response, |reader| {
+    let listed = owner_payload(id, response, |reader| {
         let count = reader.u16()?;
         let mut budgets = Vec::with_capacity(usize::from(count));
         for _ in 0..count {
@@ -620,6 +620,42 @@ pub(crate) fn budget_list<A: HumanAuthorityBoundary>(
         let mut out = Map::new();
         out.insert("budgets".into(), Value::Array(budgets));
         Some((Value::Object(out), None))
+    })?;
+    let mut value = listed.value;
+    let budgets = value
+        .get_mut("budgets")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| rejection(ErrorClass::InternalFault, id, "owner.response_malformed"))?;
+    let mut committed = !budgets.is_empty();
+    for budget in budgets {
+        let budget_id = budget
+            .get("budget_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| rejection(ErrorClass::InternalFault, id, "owner.response_malformed"))?;
+        let target = layerx_agent_api::budget::BudgetTarget {
+            tenant: layerx_agent_api::identity::TenantId::new(principal.tenant.as_str())
+                .map_err(|_| malformed(id))?,
+            agent_did: layerx_agent_api::identity::AgentDid::new(
+                std::str::from_utf8(principal.agent.as_bytes()).map_err(|_| malformed(id))?,
+            )
+            .map_err(|_| malformed(id))?,
+            budget_id: layerx_agent_api::budget::BudgetId::new(budget_id)
+                .map_err(|_| malformed(id))?,
+        };
+        let control = guard.session_control.clone();
+        let response = guard
+            .budget_state(context, &control, target)
+            .map_err(|error| owner_error(id, error))?;
+        let (state, verification) = budget_state_operation(&response);
+        committed &= verification == Some(VerificationStatus::Achieved(Rung::Committed));
+        budget
+            .as_object_mut()
+            .ok_or_else(|| malformed(id))?
+            .insert("state".into(), state);
+    }
+    Ok(Dispatched {
+        value,
+        verification: committed.then_some(VerificationStatus::Achieved(Rung::Committed)),
     })
 }
 
@@ -636,44 +672,7 @@ pub(crate) fn budget_reconciliation<A: HumanAuthorityBoundary>(
     request: &Map<String, Value>,
     ctx: &DispatchContext,
 ) -> Result<Dispatched, Rejection> {
-    let id = ctx.request_id;
-    let wire: WireBudgetTarget = decode(request, id)?;
-    let principal = context.principal();
-    if principal.tenant.as_str() != wire.tenant
-        || principal.agent.as_bytes() != wire.agent_did.as_bytes()
-    {
-        return Err(rejection(
-            ErrorClass::PolicyRefusal,
-            id,
-            "envelope.coordinate_mismatch",
-        ));
-    }
-    let budget_id = hex32(&wire.budget_id, id)?;
-    let typed = layerx_agent_api::budget::BudgetTarget {
-        tenant: layerx_agent_api::identity::TenantId::new(wire.tenant)
-            .map_err(|_| malformed(id))?,
-        agent_did: layerx_agent_api::identity::AgentDid::new(wire.agent_did)
-            .map_err(|_| malformed(id))?,
-        budget_id: layerx_agent_api::budget::BudgetId::new(wire.budget_id)
-            .map_err(|_| malformed(id))?,
-    };
-    let response = {
-        let mut guard = owner
-            .lock()
-            .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
-        guard.rpc_budget_reconciliation(context, typed)
-    }
-    .map_err(|error| owner_error(id, error))?;
-    decode_budget_state(&response, budget_id)
-        .ok_or_else(|| rejection(ErrorClass::InternalFault, id, "owner.response_malformed"))
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct WireBudgetTarget {
-    tenant: String,
-    agent_did: String,
-    budget_id: String,
+    budget_state(owner, context, request, ctx)
 }
 
 const fn rejection(class: ErrorClass, request_id: RequestId, reason: &'static str) -> Rejection {
@@ -725,6 +724,17 @@ fn hex32(text: &str, request_id: RequestId) -> Result<[u8; 32], Rejection> {
         out[index] = u8::from_str_radix(text, 16).map_err(|_| malformed(request_id))?;
     }
     Ok(out)
+}
+
+pub fn capability_operation_error(request_id: RequestId, error: HumanOperationError) -> Rejection {
+    match error {
+        HumanOperationError::CapabilityRefused(_) => rejection(
+            ErrorClass::CapabilityRefusal,
+            request_id,
+            "capability.exceeds_grant",
+        ),
+        other => owner_error(request_id, other),
+    }
 }
 
 fn owner_error(request_id: RequestId, error: HumanOperationError) -> Rejection {
@@ -802,43 +812,6 @@ impl<'a> Reader<'a> {
     fn finish(&self) -> Option<()> {
         (self.offset == self.bytes.len()).then_some(())
     }
-}
-
-fn decode_budget_state(response: &HumanResponse, budget_id: [u8; 32]) -> Option<Dispatched> {
-    let mut reader = Reader {
-        bytes: response.bytes(),
-        offset: 0,
-    };
-    let returned: [u8; 32] = reader.fixed()?;
-    if returned != budget_id {
-        return None;
-    }
-    let revocation_sequence = reader.u64()?;
-    let observed_head_sequence = reader.u64()?;
-    let achieved = level(reader.u8()?)?;
-    let evidence_digest: [u8; 32] = reader.fixed()?;
-    let receipt_digest: [u8; 32] = reader.fixed()?;
-    let checkpoint_digest: [u8; 32] = reader.fixed()?;
-    let age_sequences = reader.u64()?;
-    let maximum_age_sequences = reader.u64()?;
-    let remaining = reader.u128()?;
-    let asset: [u8; 32] = reader.fixed()?;
-    reader.finish()?;
-    let mut value = Map::new();
-    value.insert("budget_id".into(), hexv(&returned));
-    value.insert("revocation_sequence".into(), dec(revocation_sequence));
-    value.insert("observed_head_sequence".into(), dec(observed_head_sequence));
-    value.insert("evidence_digest".into(), hexv(&evidence_digest));
-    value.insert("receipt_digest".into(), hexv(&receipt_digest));
-    value.insert("checkpoint_digest".into(), hexv(&checkpoint_digest));
-    value.insert("age_sequences".into(), dec(age_sequences));
-    value.insert("maximum_age_sequences".into(), dec(maximum_age_sequences));
-    value.insert("remaining".into(), dec(remaining));
-    value.insert("asset".into(), hexv(&asset));
-    Some(Dispatched {
-        value: Value::Object(value),
-        verification: Some(VerificationStatus::Achieved(achieved)),
-    })
 }
 
 pub(crate) fn approval_list_native<A: HumanAuthorityBoundary>(
@@ -1346,7 +1319,7 @@ pub(crate) fn capability_create<A: HumanAuthorityBoundary>(
     let response = owner
         .lock()
         .and_then(|mut guard| guard.rpc_capability_create(context, envelope))
-        .map_err(|error| owner_error(id, error))?;
+        .map_err(|error| capability_operation_error(id, error))?;
     Ok(Dispatched {
         value: capability_record_value(id, response.bytes())?,
         verification: None,
@@ -1372,7 +1345,7 @@ pub(crate) fn capability_attenuate<A: HumanAuthorityBoundary>(
     let response = owner
         .lock()
         .and_then(|mut guard| guard.rpc_capability_attenuate(context, envelope))
-        .map_err(|error| owner_error(id, error))?;
+        .map_err(|error| capability_operation_error(id, error))?;
     Ok(Dispatched {
         value: capability_record_value(id, response.bytes())?,
         verification: None,
@@ -1834,11 +1807,21 @@ pub(crate) fn budget_state<A: HumanAuthorityBoundary>(
             guard.budget_state(context, &control, typed)
         })
         .map_err(|error| owner_error(id, error))?;
+    let (value, verification) = budget_state_operation(&response);
+    Ok(Dispatched {
+        value,
+        verification,
+    })
+}
+
+pub fn budget_state_operation(
+    response: &AuthorityResponse<crate::human::BudgetState>,
+) -> (Value, Option<VerificationStatus>) {
     let state = &response.value;
     let (record, verification) =
         budget_record_wire(&state.record, state.proven_head, state.activity_id.as_ref());
-    Ok(Dispatched {
-        value: serde_json::json!({
+    (
+        serde_json::json!({
             "authority": authority_wire(&response.authority),
             "value": {
                 "record": record,
@@ -1848,7 +1831,7 @@ pub(crate) fn budget_state<A: HumanAuthorityBoundary>(
             },
         }),
         verification,
-    })
+    )
 }
 
 fn freshness_value(freshness: &Freshness) -> Value {

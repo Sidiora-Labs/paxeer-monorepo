@@ -13,11 +13,8 @@ use std::thread;
 use std::time::Duration;
 
 use layerx_agentd::read::{LayerxdProgramBalanceReader, ProgramAuthority};
-use layerx_client::availability::{
-    AvailabilitySelector, FetchContext, FetchOutcome, RetrievalLimits,
-};
+use layerx_client::availability::RetrievalLimits;
 use layerx_client::client::{Client, ClientConfig, ReconnectPolicy};
-use layerx_client::evidence::{CheckpointSelector, EvidenceError};
 use layerx_client::handover::SequencerHistory;
 use layerx_client::lni::handshake::HandshakeConfig;
 use layerx_client::lni::schema::Version;
@@ -32,13 +29,12 @@ use layerx_explorer_index::unified::{
     AccountIdentifier, ActivityWindow, GatewayEndpoint, UnifiedAccountProfile, UnifiedAccountQuery,
     UnifiedAccountReader, UnifiedAvailabilityFailure, UnifiedQueryError,
 };
-use layerx_explorer_index::{Indexer, ProtocolProgramIngestor, QueryError, RecordId};
+use layerx_explorer_index::{IndexHead, Indexer, ProtocolProgramIngestor, QueryError, RecordId};
 use layerx_programs::{
     hex, BuildPlan, DeploymentJournal, DeploymentProof, DeploymentRecord, JournalReadAuthority,
     ObservedHead, ProgramId, ProgramLifecycle, ProtocolDeploymentVerifier, Registry, RegistryError,
     ReproducibleBuild, SourceStatus, UpgradePolicy,
 };
-use layerx_proof::availability::RootCommitments;
 use serde_json::Value;
 
 const HEADER_LIMIT: usize = 16 * 1024;
@@ -50,8 +46,6 @@ const GENESIS_TRUST_LIMIT: u64 = 1024 * 1024;
 const CURSOR_DOMAIN: &str = "layerx-explorer-cursor/v1";
 const RETRY_BASE: Duration = Duration::from_millis(500);
 const RETRY_MAX: Duration = Duration::from_secs(30);
-const AVAILABILITY_BYTES: usize = 64 * 1024 * 1024;
-const AVAILABILITY_CHUNKS: usize = 256;
 const HISTORY_BYTES: usize = 64 * 1024 * 1024;
 const BOUNDARY_DEADLINE: Duration = Duration::from_secs(10);
 
@@ -1100,67 +1094,6 @@ fn ingest_batch(
             return Err("sequencer history did not advance".to_owned());
         }
     }
-    if !lock(index).has_checkpoint(batch) {
-        let id = next()?;
-        match boundary
-            .client
-            .checkpoint_evidence(CheckpointSelector::Batch(batch), id)
-        {
-            Ok(checkpoint) => {
-                let certificate = checkpoint
-                    .certificate()
-                    .map_err(|error| format!("checkpoint certificate refused: {error:?}"))?;
-                ingestion
-                    .finality
-                    .verify(&certificate, checkpoint.set_version())
-                    .map_err(|_| "checkpoint publication verification refused".to_owned())?;
-                lock(index)
-                    .ingest_verified_checkpoint(&checkpoint)
-                    .map_err(|error| format!("checkpoint refused: {error:?}"))?;
-            }
-            Err(EvidenceError::Unavailable) => {}
-            Err(error) => return Err(format!("checkpoint refused: {error:?}")),
-        }
-    }
-    if !lock(index).has_batch(batch) {
-        let id = next()?;
-        let signed = boundary
-            .client
-            .batch_header_with_history(batch, id, &boundary.history)
-            .map_err(|error| format!("batch header unavailable: {error:?}"))?;
-        let header = &signed.header;
-        let id = next()?;
-        let outcome = boundary
-            .client
-            .fetch_availability(
-                AvailabilitySelector::Batch(batch),
-                FetchContext {
-                    interface_version: boundary.client.handshake().node().interface_version,
-                    correlation_id: id,
-                    expected_batch_number: batch,
-                    data_availability_root: header.data_availability_root(),
-                    record_roots: RootCommitments {
-                        activity: header.activity_merkle_root(),
-                        receipt: header.receipt_merkle_root(),
-                        event: header.event_merkle_root(),
-                        oracle: header.oracle_root(),
-                    },
-                    limits: RetrievalLimits {
-                        maximum_bytes: AVAILABILITY_BYTES,
-                        maximum_chunks: AVAILABILITY_CHUNKS,
-                        deadline: BOUNDARY_DEADLINE,
-                    },
-                },
-                |_| {},
-            )
-            .map_err(|error| format!("availability unavailable: {error:?}"))?;
-        let FetchOutcome::Complete(result) = outcome else {
-            return Ok(BatchOutcome::Incomplete("availability_partial".to_owned()));
-        };
-        lock(index)
-            .ingest_availability(&result)
-            .map_err(|error| format!("availability refused: {error:?}"))?;
-    }
     if lock(index).is_receipt_verified(batch) {
         return Ok(BatchOutcome::Verified);
     }
@@ -1218,7 +1151,11 @@ fn ingest_cycle(
         .ok_or_else(|| "node boundary unavailable".to_owned())?;
     let head = active.client.head();
     lock(index)
-        .refresh_head(head)
+        .refresh_head(IndexHead {
+            chain_sequence: head.chain_sequence,
+            sealed_batch: head.sealed_batch,
+            finalised_checkpoint: head.finalised_checkpoint,
+        })
         .map_err(|error| format!("node head refused: {error:?}"))?;
     let mut batch = 1;
     while batch <= head.sealed_batch {
@@ -1395,7 +1332,11 @@ fn serve(config: &Config, ingestion: IngestionConfig, clock: &dyn Clock) -> Resu
     if restored_through > head.sealed_batch {
         return Err("explorer cursor is ahead of the authoritative source head".to_owned());
     }
-    let index = Indexer::new(head);
+    let index = Indexer::new(IndexHead {
+        chain_sequence: head.chain_sequence,
+        sealed_batch: head.sealed_batch,
+        finalised_checkpoint: head.finalised_checkpoint,
+    });
     let listener = TcpListener::bind(&config.listen)
         .map_err(|error| format!("explorer program listener failed: {error}"))?;
     eprintln!("explorer-ingest restored_cursor={restored_through} rebuilding_from=1");

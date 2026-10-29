@@ -10633,3 +10633,201 @@ area = "spec do lines"
 symptom = "Two do lines of one task disagree on where an input lives and the attempt edits a file outside touches."
 cause = "do_1 forbade a testdata copy while do_2 said 'that testdata file'."
 do = "Resolve the contradiction with a decision and a do line naming the exact path; check new tasks for do lines that name different paths for the same input."
+
+[gotcha.2172]
+area = "programs precompile tests"
+symptom = "registerAccount reverts LXP_VERSION_UNSUPPORTED for a program deployed at ABI 3 although the payload is well formed."
+cause = "ABI 3 account registration reads the program-account-profile record (and through it the program-owner record); production code never writes them and a missing record is reported as VERSION_UNSUPPORTED."
+do = "Seed program-owner NUL || id = {1} || principal and program-account-profile NUL || id = {2} || principal under module prefix {1, 0, 9} before registerAccount, as view_accounts_test.go does."
+
+[gotcha.2173]
+area = "layerx-mcp web tool"
+symptom = "Every metered offer is refused with 'the web offer does not bind the purpose'."
+cause = "The tool hashes the receiver DID key into the purpose while x-websearch has hashed the 20-byte receiver EVM address since 11.34.3."
+do = "Hash PURPOSE_DOMAIN || receiver_address; pin the receiver address in the web config because the offer does not carry it."
+
+[gotcha.2174]
+area = "layerx-mcp web tool"
+symptom = "Exact-scheme receipts are refused as PaymentArtifact(receipt) although the recording is genuine."
+cause = "The receipt is a 0x101A payExact program receipt; payer, payee, asset and amount live in its PaymentExact log, not in asset-module protocol facts."
+do = "Verify the logs with layerx_proof::sequencer_logs::verify_logs and read exactly one PaymentExact log, as the seller's verify_receipt does."
+
+[gotcha.2175]
+area = "agentd StartupConfig"
+symptom = "A test-support change to Rung::Committed fails E0308 against verification_defaults."
+cause = "StartupConfig.verification_defaults is keyed by VerificationLevel, not Rung; only its rung() maps onto the three rungs."
+do = "Pick the VerificationLevel whose rung() is the wanted rung (CHECKPOINT_FINALISED for Committed) and assert the mapping in the test."
+
+[gotcha.2176]
+area = "arbiter authority tests"
+symptom = "A gate test that must run from an in-tree vector demands native_admission and native_replay captures."
+cause = "Deriving a VerifiedReplayAuthority needs a Programs-module receipt and a v3 admission prestate that only the native corpus provides."
+do = "Keep corpus-bound derivations as release gates (decision.1806) and give the task gate a proof-level test the vector can satisfy."
+
+[gotcha.2177]
+area = "wallet gateway e2e"
+symptom = "After the station-sponsored bind landed, the e2e finds no bind transaction from the provisioned address."
+cause = "The bind is an executeSponsored transaction from the station relayer to the paymaster with the address inside the batch."
+do = "Assert the relayer transaction and its decoded batch, not a transaction from the address."
+
+[gotcha.2178]
+area = "agentd program reads"
+symptom = "Replacing a protocol-adapter read with eth_call breaks a caller that cross-checks state roots and bindings."
+cause = "The adapter wraps the kernel's C account-state decode and builds a proof-verified read; eth_call returns bare values."
+do = "Use eth_call only for plain operation reads; build proof-verified reads from the registry's VerifiedAccountSnapshot."
+
+[gotcha.2179]
+area = "spec symbols"
+symptom = "the gate passes and the task is still refused by the declared-symbol check"
+cause = "symbols named an enum variant path (Rung::Committed) or a deleted identifier"
+do = "symbols name plain identifiers that exist after the task: functions, types, test names"
+
+[gotcha.2180]
+area = "EIP-7702 sponsored transactions"
+symptom = "a filter on to === PAYMASTER finds no bind transaction while a from-or-to-account filter finds one"
+cause = "under EIP-7702 the sponsor sends executeSponsored to the delegated account; PAYMASTER appears only in the authorization list"
+do = "assert from === sponsor, to === account and the authorization address, never to === PAYMASTER"
+
+[gotcha.2181]
+area = "launchpad catalog selection"
+symptom = "a user-service catalog test answers 404 on follower routes"
+cause = "a /v2/profiles prefix also selects the follow operations the social service serves"
+do = "select the catalog operations by exact path per owning service and assert the selected count"
+
+[gotcha.2182]
+area = "protocol adapter codec"
+symptom = "a task assumes the account-state record decoder is C and stops for a missing Rust decoder"
+cause = "the LXPS1/LXPS2 codec is pure Rust in the adapter's ffi.rs; only read_* and read_program_state cross the FFI"
+do = "read the whole ffi.rs before ruling on what is C; move pure code rather than rewrite it"
+
+[gotcha.2183]
+area = "spec touches"
+symptom = "a type-retirement task fails to compile in a file it may not edit"
+cause = "the referencing file's only owner is already done or runs later and requires this task"
+do = "before dispatching a deletion task, grep every retired symbol across the module and add each referencing file to touches or a requires on its pending owner"
+
+[gotcha.2184]
+area = "dotnet and mvn gates"
+symptom = "verify_cmd with a test filter still fails on compile errors in tests the filter never selects"
+cause = "dotnet test and mvn test compile the whole test project before filtering"
+do = "treat every test file in the project as a compile dependency of a deletion task"
+
+[gotcha.2185]
+area = "sdkgen retired variants"
+symptom = "generated Go constants re-emit variants the schema retired"
+cause = "variants() ignores retired_variants of errors.kvx"
+do = "when a schema lists retired_variants, the generator must skip them and the generated file must carry every live variant"
+
+[gotcha.2186]
+area = "workspace --tests build_cmd"
+symptom = "a planned-test task fails its build in another crate's integration tests"
+cause = "cargo build --manifest-path <workspace> --tests compiles every member's test targets, including literals stale since a type change"
+do = "scope build_cmd to -p <crate> and the task's --test targets, and route stale literals to their file owner"
+
+[gotcha.2187]
+area = "layerxctl receipt vectors"
+symptom = "submit prints 'transaction must contain binary signed EIP-1559 (type 2) bytes' or receipt_error Malformed against a recorded vector while the test decodes correctly"
+cause = "vector_v1.go records a LegacyTx and layerx-client Fields::exact refuses the daemon's signingKey field"
+do = "check the first byte of rawTransaction and diff receiptJson keys against RECEIPTED_FIELDS before blaming the test"
+
+[gotcha.2188]
+area = "layerx-sdk streaming conformance"
+symptom = "positional-cursor tests fail while the chain checks pass"
+cause = "ResumableStream::accept has no position ordering, only chain linkage, and the task's touches held only the test file"
+do = "when a conformance task re-targets a test to new semantics, give it the implementation file and a do line mirroring the sibling SDK"
+
+[gotcha.2189]
+area = "sdk-gen schema validation"
+symptom = "major_two tests panic with 'missing type.<Request>.precompile'"
+cause = "the generator requirement was added ahead of the schema key, which a later-wave task owns"
+do = "confirm a required schema key exists at main or add requires on the schema-owning task"
+
+[gotcha.2190]
+area = "Rust module retirement"
+symptom = "removing mod x; and its re-exports per the do line leaves dozens of unresolved imports in files the task does not own"
+cause = "the do line enumerated the module's tests but not its crate::<mod>:: importers"
+do = "list every importer before writing a remove-module do line and put each in touches or a required task"
+
+[gotcha.2191]
+area = "kernel fee accounting in precompile tests"
+symptom = "a fee-balance assertion through the x/bank mirror never changes"
+cause = "the programs fee settles in kernel rows; the ledger mirror follows 0x0001xxxx legs only"
+do = "read fee balances through host.ReadBalance(ctx, payer, asset)"
+
+[gotcha.2192]
+area = "recorded x402 exchanges"
+symptom = "a routed tools/call web.fetch gets sidecar status 400 while direct fetch tests pass"
+cause = "since the re-recording the exact payload carries idempotencyKey, so the replaying seller's payload equality binds the test's key to the recorded one"
+do = "every paid call replayed against client-exchange.json takes its idempotency key from the recording; arbitrary keys only for calls refused before they are sent"
+
+[gotcha.2193]
+area = "layerxprograms call output"
+symptom = "a test expecting empty response bytes from a settled call fails with a 516-byte 'LXP/programs/terminal-applied-legs/v1' blob"
+cause = "callHandler packs outcome.Response, which for the market guest is the terminal receipt envelope"
+do = "assert status and kind; decode the response as the guest's answer, never as empty"
+
+[gotcha.2194]
+area = "precompile addresses"
+symptom = "a bootstrap test pins bindLayerX at 0x101C and the client prepares 0x1004"
+cause = "bindLayerX belongs to the addr precompile (0x1004); layerxauth (0x101C) serves grantSession"
+do = "check precompiles/<name>/*.go for the method before pinning an address in a spec line or test"
+
+[gotcha.2195]
+area = "agentd operation classes"
+symptom = "require_session_credential answers InvalidRequest for an operation that carries a credential"
+cause = "OperationClass::for_operation returns None for operations the bootstrap refusal list used to cover"
+do = "when a task lifts a bootstrap refusal, classify the operation in tenant.rs in the same task"
+
+[gotcha.2196]
+area = "arbiter ICS23 tests"
+symptom = "cargo test panics with NotPresent on LAYERX_*_INPUTS"
+cause = "the tests load a corpus the qualification tools generate from evidence outside the repository"
+do = "give the gate a keeper-generated vector under programs/tests/vectors/, as 13.30.3 did; never a fabricated corpus"
+
+[gotcha.2197]
+area = "98-family ports"
+symptom = "a worker stops on 'change only import paths' when the rpc twin has another shape"
+cause = "the import-only do line predates decision.1813's rewrite-or-delete rule"
+do = "decision.1843: rewrite over the twin or delete; port files a later task deletes no further than build and scan need"
+
+[gotcha.2198]
+area = "Swift gate environment"
+symptom = "swift-build exits 127: libicuuc.so.74 cannot open"
+cause = "the Swift 6.0.3 Ubuntu 24.04 toolchain needs ICU 74 while the gate image carries a newer ICU"
+do = "the runner's compat step installs libicu74 from the noble pool beside libxml2; rebuild the image after editing the runner"
+
+[gotcha.2199]
+area = "spec authoring"
+symptom = "A cargo test gate exits at once with 'Option exact given more than once' and no test runs."
+cause = "The verify_cmd listed --exact before each test name; libtest takes --exact once followed by every name."
+do = "Write `-- --exact name_a name_b`; lint gates for a repeated --exact before committing."
+
+[gotcha.2200]
+area = "task scoping"
+symptom = "A task that deletes or retypes a definition passes its own test and fails the dependents build on callers another, later task owns; the two tasks block each other."
+cause = "Ownership split a definition from its callers across crates (10.98.13/10.98.10, 10.98.7, 10.20.3 and the movement provider, 10.98.1 and its binary, 8.48.1/8.48.2 on wallet.rs)."
+do = "The deleting or retyping task carries every caller in dependent crates; the former owner requires it and keeps the new shape (decision.1849). Check dependents when writing touches."
+
+[gotcha.2201]
+area = "rust formatting"
+symptom = "The scope check flags a file the task never edited after rustfmt ran on a declared file."
+cause = "rustfmt follows #[path] child modules (production_components.rs -> production_owner.rs -> production_owner_tests.rs) and reformatted a child that is not rustfmt-clean at main."
+do = "Format only files whose child modules are declared too, or restore undeclared children before committing; name the child module in the do line when a declared file has one."
+
+[gotcha.2202]
+area = "conformance vectors"
+symptom = "A conformance command fails at main because a human golden's method and path disagree with generated metadata."
+cause = "An operation was re-routed to per-leg EVM calls (no HTTP path) while its HTTP golden still documents the request shape."
+do = "Compare EVM-routed operations against their generated EVM method and per-leg flag, not against the golden method and path (decision.1848)."
+
+[gotcha.2203]
+area = "wave planning"
+symptom = "A programme gate task that runs make workspace-build fails on compile breaks owned by much later tasks."
+cause = "The gate task sat at wave 6 while the binaries it builds are ported at waves 10 to 21."
+do = "Give workspace-build gate tasks requires on every compile-port task and a wave after them (decision.1847)."
+
+[gotcha.2204]
+area = "spec authoring"
+symptom = "An interface note that was wrong in one block was wrong in 61 opcode blocks of the same protocol family and in two contract tables."
+cause = "The opcode blocks of a protocol family copy the family note verbatim and the contract tables reproduce interfaces.kvx by hand, so a stale cite multiplies."
+do = "When an interface note changes, replace it in every block of the family and in both contract tables in one edit, asserting the copy count before writing."
