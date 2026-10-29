@@ -7,6 +7,8 @@ use std::pin::pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
+use ed25519_dalek::{Signature, Signer as _, SigningKey};
+
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
@@ -137,6 +139,7 @@ struct InstalledSession {
 }
 
 struct CoreRotation {
+    tx_hash: [u8; 32],
     current: [u8; 32],
     pending: [u8; 32],
     effective_at: u64,
@@ -314,7 +317,7 @@ impl AgentSessionContract for AgentLayer {
             revocation_sequence: self.revocation_sequence,
             protocol_time: self.now,
             core_sequence: self.core_sequence,
-            verification_level: VerificationLevel::STATE_PROVEN,
+            rung: layerx_types::rung::Rung::Committed,
         })
     }
 
@@ -395,7 +398,7 @@ impl AgentSessionContract for AgentLayer {
             daemon_session_id: grant_id,
             protocol_sequence: self.core_sequence,
             observed_at: self.now,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: layerx_types::rung::Rung::Receipted,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest();
@@ -461,7 +464,7 @@ impl AgentSessionContract for AgentLayer {
             reason,
             observed_sequence: self.core_sequence,
             observed_at: self.now,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: layerx_types::rung::Rung::Receipted,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest();
@@ -484,7 +487,15 @@ impl AgentSessionContract for AgentLayer {
             return Err(AgentContractError::Refused("rotation intent mismatch"));
         }
         self.last_rotation_payload_hash = Some(submission.compiled.payload_hash());
+        let signing_key = SigningKey::from_bytes(&[0x91; 32]);
+        let message = submission.compiled.payload_hash();
+        let signature = signing_key.sign(&message).to_bytes();
+        let transaction = [message.as_slice(), signature.as_slice()].concat();
+        let tx_hash = Sha256::digest(&transaction).into();
+        fs::write(self.root.join("rotation-transaction"), transaction)
+            .map_err(|_| AgentContractError::Unavailable)?;
         self.rotation = Some(CoreRotation {
+            tx_hash,
             current: submission.current_public_key,
             pending: submission.pending_public_key,
             effective_at: submission.effective_at,
@@ -494,6 +505,7 @@ impl AgentSessionContract for AgentLayer {
         });
         self.core_sequence = self.core_sequence.saturating_add(1);
         let mut evidence = RotationEvidence {
+            tx_hash,
             payload_hash: submission.compiled.payload_hash(),
             pending_public_key: submission.pending_public_key,
             effective_at: submission.effective_at,
@@ -501,7 +513,7 @@ impl AgentSessionContract for AgentLayer {
             effective_sequence: submission.effective_sequence,
             observed_sequence: self.core_sequence,
             observed_at: self.now,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: layerx_types::rung::Rung::Receipted,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest();
@@ -518,7 +530,23 @@ impl AgentSessionContract for AgentLayer {
             .rotation
             .as_ref()
             .ok_or(AgentContractError::Refused("rotation missing"))?;
+        let transaction = fs::read(self.root.join("rotation-transaction"))
+            .map_err(|_| AgentContractError::Unavailable)?;
+        if transaction.len() != 96 {
+            return Err(AgentContractError::Refused("invalid signed rotation"));
+        }
+        let signature = Signature::from_slice(&transaction[32..])
+            .map_err(|_| AgentContractError::Refused("invalid rotation signature"))?;
+        SigningKey::from_bytes(&[0x91; 32])
+            .verifying_key()
+            .verify_strict(&transaction[..32], &signature)
+            .map_err(|_| AgentContractError::Refused("rotation signature refused"))?;
+        let tx_hash = Sha256::digest(&transaction).into();
+        if tx_hash != rotation.tx_hash {
+            return Err(AgentContractError::Refused("rotation transaction changed"));
+        }
         Ok(RotationObservation {
+            tx_hash,
             primary_public_key: if rotation.committed {
                 rotation.pending
             } else {
@@ -531,7 +559,7 @@ impl AgentSessionContract for AgentLayer {
             effective_sequence: rotation.effective_sequence,
             observed_at: self.now,
             observed_sequence: self.core_sequence,
-            verification_level: VerificationLevel::STATE_PROVEN,
+            rung: layerx_types::rung::Rung::Committed,
         })
     }
 }

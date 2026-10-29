@@ -2,6 +2,7 @@
 // as decimal strings and must never pass through a float.
 
 export interface PriceObservation {
+  accepted: boolean;
   market_id: number;
   symbol: string | null;
   index_price: string;

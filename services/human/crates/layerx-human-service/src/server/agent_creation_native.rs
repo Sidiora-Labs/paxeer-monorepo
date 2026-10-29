@@ -376,25 +376,13 @@ impl ProductionAgentCreation<'_> {
             ReceiptLookup::Absent => return Ok(None),
             ReceiptLookup::Found(value) => value,
         };
-        if material.tx_hash != activity_id
-            || material.receipt_hash != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
-            || material.rung < layerx_types::rung::Rung::Receipted
-        {
-            return Err(AgentFailure::Refused("retained receipt metadata differs"));
-        }
-        Ok(Some(ProtocolEvidence {
-            actor: activity.actor_did().to_vec(),
-            owner_public_key: descriptor.public_key,
-            network_id: activity.network_id(),
-            signed_activity: bytes,
-            action_key: action.action_key,
-            activity_id,
-            receipt_bytes: material.canonical_bytes,
-            tx_hash: material.tx_hash,
-            receipt_hash: material.receipt_hash,
-            block_height: material.block_height,
-            rung: material.rung,
-        }))
+        ProductionAgentCreation::protocol_evidence(
+            bytes,
+            descriptor.public_key,
+            self.runtime.registry(),
+            material,
+        )
+        .map(Some)
     }
 
     fn native_action(

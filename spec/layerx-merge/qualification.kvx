@@ -9875,3 +9875,187 @@ symbol = "configure_with"
 observed = "Attempt 12 (d2aa1cd26) built and failed 30 of 35 payment tests with one root: the harness offers eip155:1337 (valid.json:52 through configure_with) and layerx-x402 model.rs:180-193 (e556c8b04, between attempts 11 and 12) refuses extra.layerx on any network but eip155:125, so Seller::new answers 503 payment_unavailable before any challenge; do_3 forbade moving the three chain-bound assertions."
 assumption = "Ruling: the recorded eip155:125 binding governs; do_12 moves the harness and the three assertions to chain 125 at equal strength, a port of the landed contract, with no change to layerx-x402."
 severity = "major"
+
+[finding.18.1156.1.6]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:874"
+symbol = "signing_request"
+observed = "Attempt 8 (f759ae9ca) passed 6 of 15 provider tests; seven failures send the kernel activity envelope with a SHA-256 preimage that sign refuses since 843ee0252 (10.11.7), one is Keystore::authorize_send still serializing the retired SendPlanAuthorization (issue #1169, owned by 10.0.3 do_6), one is the 2 s fixture deadline under fifteen concurrent attestor clusters."
+assumption = "Ruling: the seven sites port to the landed EIP-1559 contract inside touches (owner_bootstrap.rs included, deleted later by 10.21.4), the deadlines rise to 30 s, and the task requires 10.0.3 at wave 11 rather than splitting #1169 out, since a split would collide with 10.0.3 on custody/evm.rs; the kernel fee-grant, session-grant, onboarding and native-operation disclosure checks that bind_call does not carry are retired coverage under decision.1005 unless an owner rules otherwise."
+severity = "major"
+
+[finding.18.1174.1.1]
+task = "18.1174.1"
+file = "docker/platform-gateway/entrypoint.sh"
+symbol = "FILE_VARIABLES"
+observed = "Attempt 1 (28d44fbbd) built and passed all four env_example tests, and the done record was refused only by the graph check: FILE_VARIABLES is a shell variable in entrypoint.sh, which the symbol graph does not index."
+assumption = "The symbol list keeps only the indexed Python functions; the shell variable stays named in do_1 and touches, and attempt 2 reruns the same candidate."
+severity = "minor"
+
+[finding.8.42.8.1]
+task = "8.42.8"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:184-188"
+symbol = "shape"
+observed = "Attempt 4 fails portableVectorV5Verifies on both bundles because shape requires the document's key set to equal RECEIPTED_FIELDS or COMMITTED_FIELDS (:30-34), which omit receiptJson, and Committed.java decodes a camelCase hex model without the Transaction field, while the published V5 bundles carry receiptJson and Go-encoded committed evidence (sdk/platform/go/committed.go:15-87)."
+assumption = "Verifier defect, not a vector defect (the Go verifier of 8.47.7 authored the vector); 18.1184.1 (issue #1184) ports the verifier and 8.42.8 requires it."
+severity = "major"
+
+[finding.8.43.8.1]
+task = "8.43.8"
+file = "sdk/platform/dotnet/PortableReceipt.cs:96-109"
+symbol = "verify"
+observed = "Attempt 4 passes the receipted bundle and fails the committed bundle at the blockHeader decode: Committed.cs:21-23 and the camelCase hex readers do not match the published encoding (PascalCase, base64, integer arrays, RFC3339, Transaction and successor fields), and neither Committed.Verify nor PortableReceipt.verify binds rawTransaction to receiptInclusion.Transaction (sdk/platform/go/committed.go:230)."
+assumption = "Verifier defect; 18.1185.1 (issue #1185) ports the committed decode and verification and 8.43.8 requires it."
+severity = "major"
+
+[finding.18.1149.1.2]
+task = "18.1149.1"
+file = "services/human/crates/layerx-human-service/src/journeys/engine.rs:964-990"
+symbol = "sign_in_scope"
+observed = "At 384f41641 the engine and the reclaim fixtures sign 64-byte kernel-envelope signatures while SignatureBytes::new (layerx-agent-api/src/write.rs:78) requires 65 bytes, and the compiled defund 0x00030007 (layerx-intents/src/compile.rs:532) is refused at layerx-crypto/src/disclosure.rs:553 because :962 admits Budget 2, 8, 9 and lx_budget.h:23 defines defund as 0x00030008."
+assumption = "Two product defects, not fixture defects: the ordinal belongs to 18.1188.1 (issue #1188) and the leg form to the EIP-1559 migration (decision.1805; 10.13.5, 10.0.3, 18.1186.1), after which 18.1149.1 reworks the fixtures."
+severity = "major"
+
+[finding.9.3.1.3]
+task = "9.3.1"
+file = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:46"
+symbol = "ReadinessNode::new"
+observed = "At ff3ecfb5a7 committed_is_reached_only_from_executed panics 'real isolated Paxeer chain id is required: NotPresent' because support::evidence_verifier() boots a ReadinessNode from LAYERX_TEST_PAXEER_CHAIN_ID; no in-tree target exports LAYERX_TEST_PAXEER_* for make agent-test or run-real-node-tests.sh, only tools/qualification/paxeer-x/caps-codecs.py:51-54 does, so the 13 agentd tests using evidence_verifier run only under that script."
+assumption = "Pre-existing release-gate gap, not a task defect; the task test moves to EvidenceAuthority::pinned_to_handshake under decision.1806 and the gap stays recorded for the release harness."
+severity = "major"
+
+[finding.9.13.1.1]
+task = "9.13.1"
+file = "services/agent/crates/layerx-agentd/tests/human_frame.rs:102"
+symbol = "human_peer_still_answers_lxhagt01_frames"
+observed = "At 92a5690c0 the live test panics 'genuine native_program_human_peer fixture is required'; every HumanOperations implementation needs a Client connected over a live LNI socket (human_runtime.rs:2338, :8525, :13223) and dispatch_request (human.rs:2050) consults it for every request, so serve_one has no node-free path."
+assumption = "Acceptance 9.46.2 is verified at release with the native-program-human-peer fixture (decision.1806); the task gate is the codec round trip."
+severity = "minor"
+
+[finding.10.13.6.2]
+task = "10.13.6"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:2468"
+symbol = "drive_archive_reclaim"
+observed = "At 9af35d565 the archive test advances a Reclaim journey through the agent contract before confirming the archive and the live submit contract refuses the 64-byte leg signature with Malformed('signature') (layerx-agent-api/src/write.rs:78); the controls test passes."
+assumption = "The reclaim leg form is decision.1805 and belongs to 10.13.5, 10.0.3 and 18.1149.1; the archive rung gate is verified against disposition evidence at each rung without a reclaim journey."
+severity = "major"
+
+[finding.13.27.1.8]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+symbol = "TestProgramsSandboxExecuteEmitsUsage"
+observed = "At 2b59a8369 (attempt 26) the stored v3 lease decodes canonically and the funded sandbox execute is still refused; the refusal sits in transfer_source_validate (src/modules/programs/call.c:2202-2222) or in guest execution, and the diagnostic facility do_6 relies on is not in the tree."
+assumption = "do_10 narrows the gate with an assertion ladder over ReadAccount, ReadProgramAccount and the registered call handler; a refusal of ABI 2 for program-account sources at call.c:2203 is a kernel defect for a new task."
+severity = "major"
+
+[finding.18.1121.1.2]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/tests/web.rs:72"
+symbol = "fixture"
+observed = "At 285b05c97 (attempt 4) 18 web tests panic 'fixture field /exact/USDC/receipt': 18.1129.1 (33be5948f) re-recorded the exact entries of gateway/buyer.json to {idempotencyKey, receiptDigest, txHash, verificationLevel} and the tool payload at src/tools/web.rs:866-881 still sends {receipt, receiptDigest, verificationLevel}; main is red for the crate."
+assumption = "Cross-task break; do_7 ports the exact payload and the test reads to the re-recorded fixture."
+severity = "major"
+
+[finding.18.1173.1.1]
+task = "18.1173.1"
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/price_feed.ex:120-145"
+symbol = "Latest"
+observed = "At 8e69eaf83 (attempt 4) four schema assertions fail with 'Unexpected field: index': feed_view.ex:112 emits index since 18.896.1 (7803f0470) and the Latest schema and the swagger PaxeerXPriceMarketUpdate component (services/explorer/swagger.yaml:18640-18683) lack it."
+assumption = "Pre-existing schema gap; do_7 adds the property to both schemas and nothing else changes."
+severity = "minor"
+
+[finding.11.5.3.1]
+task = "11.5.3"
+file = "services/interop/crates/layerx-x402/tests/buyer.rs:228"
+symbol = "signed_settlement"
+observed = "At 1ef7e58fd (attempt 4) buyer_tests_capture_on_the_recorded_receipt fails with ProfileMismatch: the recorded settlement binds payTo to the topic keccak256('vector payee account'), which layerx_terms (src/model.rs:215-217) cannot bind, and the topics are out of order."
+assumption = "do_4 rebuilds the settlement on the 11.3.1 precedent (tests/seller.rs:648-662, :771-790) with topics [topic, reference, from, to]."
+severity = "major"
+
+[finding.8.43.8.2]
+task = "8.43.8"
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:251"
+symbol = "LoadFixture"
+observed = "Attempt 4 conflicts with main: 18.1185.1 (dd9b28672) rewrote PortableReceiptTests.cs with LoadConformance(name) at :265 and LoadFixture() at :268 while the task added LoadFixture(name) at :251; finding 8.43.8.1 is resolved by that revision."
+assumption = "do_4 adds PortableVectorV5Verifies to the rewritten file using LoadConformance and leaves SequencerReceiptTests.cs as main has it."
+severity = "minor"
+
+[finding.18.911.1.9]
+task = "18.911.1"
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs:2558-2626"
+symbol = "settle_call_occupancy"
+observed = "At 6681fda7a (attempt 17) both op 14 COMMIT_SANDBOX_BILLING acceptances return -736 with callback stage 5 status -3: settle_call_occupancy answers LXP_ERR_NON_CANONICAL at one of :2574, :2599, :2615 or :2619 for the occupancy record the market guest writes at programs/crates/layerx-programs-market/src/lib.rs:978-1035; the host file is outside this task's touches."
+assumption = "Host defect split into 18.911.2, which 18.911.1 now requires; the attestation test is otherwise complete."
+severity = "major"
+
+[finding.18.1184.1.1]
+task = "18.1184.1"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:185-190"
+symbol = "FIELDS"
+observed = "Attempts 2 to 4 fail portableExportMatchesPublishedVectorV5 because the FIELDS rule refuses operation != 2 (8.42.1, ac0302bba) while the V4/V5 committed settlement receipt carries moduleId 12 and operation 0; the Go and .NET verifiers have no operation term and accept the vector of 8.47.7 (89a10387b)."
+assumption = "Decision.1807 drops the operation term; do_5 applies it and the vectors stay."
+severity = "major"
+
+[finding.7.19.6.2]
+task = "7.19.6"
+file = "rpc/info_test.go:292-300"
+symbol = "expectedGasPrice"
+observed = "The attempt stopped on a disagreement between the planned test's gas price expectation and the eth_gasPrice answer on the uncongested package server (rpc/info.go:130-145)."
+assumption = "Decision.1808 fixes the answer as next base fee times 110 over 100 plus defaultPriorityFeePerGas; do_4 aligns the differing side."
+severity = "minor"
+
+[finding.4.10.5.2]
+task = "4.10.5"
+file = "modules/launchpad/keeper/grpc_query.go"
+symbol = "AirdropClaimed"
+observed = "The attempt stopped on the status to assert for a malformed address: the keeper paths and the CLI expectations (modules/launchpad/client/cli/query_airdrop_test.go:161, :183-184; query_surface_test.go:173-174) disagreed."
+assumption = "Decision.1809 fixes codes.InvalidArgument and a 400-class REST status; do_4 aligns the paths."
+severity = "minor"
+
+[finding.13.34.4.2]
+task = "13.34.4"
+file = "precompiles/layerxprograms/replay_test.go"
+symbol = "TestProgramsReplayedActivityReturnsStoredReceipt"
+observed = "The original req.13294 ac_1 drove an idempotency-key replay through ReadIdempotentReceipt, whose 0x04 rows are no longer written since 1.2.1 and are deleted by 1.25.1 and 1.25.2 (decision.1718)."
+assumption = "Decision.1810 restates ac_1 against the actor-sequence guard (LXP_ERR_SEQUENCE_REUSED); do_2 and do_3 are rewritten."
+severity = "major"
+
+[finding.11.1.4.4]
+task = "11.1.4"
+file = "services/interop/crates/layerx-migrate/src/lib.rs:586-591"
+symbol = "MigrationPlaneResult::Executed"
+observed = "The owner-ruling hold on the layerx-migrate caller of settle_with_receipt is moot: do_5 already ports that caller to the sequencer evidence rung."
+assumption = "No further ruling; the task proceeds as written."
+severity = "minor"
+
+[finding.12.18.2.2]
+task = "12.18.2"
+file = "services/wallet/attestor/internal/policy/lx/testdata/kernel_activities.json"
+symbol = "budget-fund"
+observed = "Attempt 2 shows the pinned 0x4202 six-field 180-byte budget-fund vector disagrees with the kernel canonical payload (type 0x00030002, v1 50 bytes or v2 58 bytes, lx_budget_codec.c:173-196) and that bind without a BudgetStateContext refuses every (Budget, 2); the wallet policy (lx.go:64-65, :1161-1187) and the human intent compiler (compile.rs:502-514, disclosure.rs:388-399) encode the same stale layout."
+assumption = "Decision.1811 makes the kernel codec canonical; the vector is regenerated here, the policy is 12.18.3 and the compiler is 10.21.7."
+severity = "major"
+
+[finding.13.30.3.2]
+task = "13.30.3"
+file = "programs/crates/layerx-programs-arbiter/src/authority.rs:55-58"
+symbol = "derive"
+observed = "do_3 and do_4 relied on 0x04 idempotent receipt rows that are no longer written (1.2.1) and are deleted by 1.25.1 and 1.25.2 (decision.1718); the admission prestate still supplies epoch, batch number and fee history, so do_5 removed too much."
+assumption = "Decision.1812 proves the receipt from the pinned receipt key list under app_hash; do_3 to do_5, ac_1 and ac_2 and the planned vector are restated."
+severity = "major"
+
+[finding.9.5.3.2]
+task = "9.5.3"
+file = "services/agent/crates/layerx-client/tests/batch_rpc.rs:129"
+symbol = "SequencerBlock"
+observed = "At e841fd694 the task added receipts_root to SequencerBlock (src/sequencer.rs:200) and left the struct literals at tests/batch_rpc.rs:129 and tests/evidence_rpc.rs:165 without it; the crate's tests fail to compile with E0063 and every dependent task's wider build is red."
+assumption = "Cross-task break fixed by 9.5.9; 18.1186.1 waits for it before its wider build can pass."
+severity = "major"
+
+[finding.18.1186.1.1]
+task = "18.1186.1"
+file = "services/agent/crates/layerx-client/tests/evidence_rpc.rs:165"
+symbol = "SequencerBlock"
+observed = "Attempts 1 to 5 pass budget_call and stop in the wider dependents build with E0063 missing receipts_root in the layerx-client tests (9.5.3, e841fd694); the task's own files are complete."
+assumption = "Not a task defect; the task re-qualifies once 9.5.9 lands."
+severity = "major"
