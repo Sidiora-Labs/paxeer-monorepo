@@ -147198,7 +147198,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.1.4]
 title = "Retire GatewayCore::settle_with_receipt and its AuthorizedBatch tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.3.1", "11.7.1", "11.8.1", "11.9.1", "11.4.1"]
