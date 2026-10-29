@@ -45,9 +45,17 @@ pub struct VerifiedBudgetProof {
     maximum_age_sequences: u64,
     digest: [u8; 32],
     canonical_export_bytes: Vec<u8>,
+    committed_height: u64,
+    get_budget_result: Vec<u8>,
 }
 
 impl VerifiedBudgetProof {
+    pub const fn committed_height(&self) -> u64 {
+        self.committed_height
+    }
+    pub fn get_budget_result(&self) -> &[u8] {
+        &self.get_budget_result
+    }
     pub const fn budget_id(&self) -> [u8; 32] {
         self.budget_id
     }
@@ -96,6 +104,8 @@ impl VerifiedBudgetProof {
 #[serde(deny_unknown_fields)]
 struct Export {
     schema: String,
+    committed_height: u64,
+    get_budget_result: String,
     tenant: String,
     principal: String,
     protocol_version: u16,
@@ -206,7 +216,7 @@ fn id(value: &str) -> Result<[u8; 32], BudgetProofError> {
         .map_err(|_| BudgetProofError::Refused)
 }
 
-pub fn verify_budget_proof(
+fn verify_native_budget_proof(
     export: &[u8],
     budget_id: [u8; 32],
     trust: &BudgetProofTrust<'_>,
@@ -214,10 +224,9 @@ pub fn verify_budget_proof(
     require(!export.is_empty() && export.len() <= MAX_BUDGET_PROOF_BYTES && budget_id != [0; 32])?;
     let value: Export = serde_json::from_slice(export).map_err(|_| BudgetProofError::Refused)?;
     require(
-        value.schema == "layerx.human.budget-proof.v1"
+        value.schema == "layerx.human.budget-proof.v2"
             && value.tenant == trust.tenant
             && value.principal == trust.principal
-            && value.protocol_version == 3
             && value.protocol_version == trust.protocol_version
             && value.network_id == trust.network_id
             && value.lni_interface_version.major == 1
@@ -342,6 +351,18 @@ pub fn verify_budget_proof(
         .ok_or(BudgetProofError::Refused)?;
     let record = super::ProtocolBudgetRecord::decode_state(&key, canonical)
         .map_err(|_| BudgetProofError::Refused)?;
+    let get_budget_result = bytes(&value.get_budget_result)?;
+    let committed = super::ProtocolBudgetState::decode_get_budget(
+        budget_id,
+        value.committed_height,
+        &get_budget_result,
+    )
+    .map_err(|_| BudgetProofError::Refused)?;
+    require(
+        value.committed_height != 0
+            && value.committed_height == trust.head.sealed_batch
+            && committed.record() == &record,
+    )?;
     let source = record.source_account.unwrap_or(record.owner);
     require(
         id(&value.accounts.owner)? == record.owner
@@ -457,5 +478,121 @@ pub fn verify_budget_proof(
         maximum_age_sequences: state.maximum_age_sequences,
         digest: Sha256::digest(export).into(),
         canonical_export_bytes: export.to_vec(),
+        committed_height: value.committed_height,
+        get_budget_result,
     })
+}
+
+pub trait BudgetProofVerifier {
+    type Verified;
+    fn verify(
+        &self,
+        export: &[u8],
+        budget_id: [u8; 32],
+    ) -> Result<Self::Verified, BudgetProofError>;
+}
+
+pub fn verify_budget_proof<T: BudgetProofVerifier>(
+    export: &[u8],
+    budget_id: [u8; 32],
+    trust: &T,
+) -> Result<T::Verified, BudgetProofError> {
+    trust.verify(export, budget_id)
+}
+
+impl BudgetProofVerifier for BudgetProofTrust<'_> {
+    type Verified = VerifiedBudgetProof;
+    fn verify(
+        &self,
+        export: &[u8],
+        budget_id: [u8; 32],
+    ) -> Result<Self::Verified, BudgetProofError> {
+        verify_native_budget_proof(export, budget_id, self)
+    }
+}
+
+pub struct CommittedBudgetProofTrust<'a> {
+    pub tenant: &'a str,
+    pub principal: &'a str,
+    pub owner_account: [u8; 32],
+    pub state: &'a super::ProtocolBudgetState<super::accounting::CommittedBudgetEvidence>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CommittedExport {
+    schema: String,
+    tenant: String,
+    principal: String,
+    budget_id: String,
+    committed_height: u64,
+    get_budget_result: String,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct VerifiedCommittedBudgetProof {
+    record: super::ProtocolBudgetRecord,
+    committed_height: u64,
+    get_budget_result: Vec<u8>,
+    canonical_export_bytes: Vec<u8>,
+}
+
+impl VerifiedCommittedBudgetProof {
+    pub const fn committed_height(&self) -> u64 {
+        self.committed_height
+    }
+    pub const fn budget_id(&self) -> [u8; 32] {
+        self.record.budget_id
+    }
+    pub const fn asset(&self) -> [u8; 32] {
+        self.record.asset_id
+    }
+    pub const fn record(&self) -> &super::ProtocolBudgetRecord {
+        &self.record
+    }
+    pub fn get_budget_result(&self) -> &[u8] {
+        &self.get_budget_result
+    }
+    pub fn canonical_export_bytes(&self) -> &[u8] {
+        &self.canonical_export_bytes
+    }
+}
+
+impl BudgetProofVerifier for CommittedBudgetProofTrust<'_> {
+    type Verified = VerifiedCommittedBudgetProof;
+    fn verify(
+        &self,
+        export: &[u8],
+        budget_id: [u8; 32],
+    ) -> Result<Self::Verified, BudgetProofError> {
+        require(
+            !export.is_empty() && export.len() <= MAX_BUDGET_PROOF_BYTES && budget_id != [0; 32],
+        )?;
+        let value: CommittedExport =
+            serde_json::from_slice(export).map_err(|_| BudgetProofError::Refused)?;
+        require(
+            value.schema == "layerx.human.budget-proof.v2"
+                && value.tenant == self.tenant
+                && value.principal == self.principal
+                && id(&value.budget_id)? == budget_id
+                && value.committed_height != 0
+                && value.committed_height == self.state.committed_height()
+                && self.state.record().owner == self.owner_account
+                && self.state.record().budget_id == budget_id,
+        )?;
+        let result = bytes(&value.get_budget_result)?;
+        let state = super::ProtocolBudgetState::decode_get_budget(
+            budget_id,
+            value.committed_height,
+            &result,
+        )
+        .map_err(|_| BudgetProofError::Refused)?;
+        require(state.record() == self.state.record())?;
+        Ok(VerifiedCommittedBudgetProof {
+            record: state.record().clone(),
+            committed_height: state.committed_height(),
+            get_budget_result: result,
+            canonical_export_bytes: export.to_vec(),
+        })
+    }
 }
