@@ -3927,6 +3927,18 @@ value = "An x-websearch payment assertion that names a retired lx_* RPC is porte
 basis = "Fourteen assertions at tests/payment.rs still name RPCs the landed gateway tasks retired, and the payee loop at :3520-3533 expected a PAX sub-account against do_7 and the x402 model (18.1129.1 attempt 11)."
 affects = ["18.1129.1"]
 
+[decision.1803]
+title = "The removed launchpad production-system spec tree is retired with its qualification tooling inputs; the six frozen v1 contract fixtures move under the protocol module"
+value = "384f41641 removed launchpad/ entirely, launchpad/spec/production-system/** included. The six frozen v1 contract fixtures that tests still consume (accounting-cases.json, capabilities.json, chain/abi-catalog.json, chain/client-deployment.json, chain/event-authorities.json, chain/golden-fixtures.json) are restored byte-identical at sdk/launchpad/protocol/contracts/v1/ and their test readers repointed there. tools/launchpad/production, tools/launchpad/production/bootstrap/check-registry.json and services/launchpad/metadata/internal/metadata/qualify_wire.py read the removed spec tree as a whole and are not repointed; decision.421 extends to every path under launchpad/spec/production-system/."
+basis = "384f41641; sdk/launchpad/protocol holds the launchpad chain-contract catalog and generator inputs; issue #1182"
+affects = ["task.18.1182.1", "task.18.1182.2"]
+
+[decision.1804]
+title = "Program value leaves a program account only through program-executed paths; the 0x101D transfer activity moves caller-sourced legs"
+value = "principal_authorizes_from (src/modules/programs/transfer.c:41-54) is canonical: a transfer leg sourced from a program account under the caller's principal is refused LXP_ERR_AUTH_SCOPE, and program-owned value moves only through call and sandbox settlement legs that transfer_source_validate (src/modules/programs/call.c:2203-2219) admits for registered program accounts. req.13292 ac_2 is restated to legs sourced from caller-owned accounts, with the program-sourced refusal asserted."
+basis = "finding 13.34.2.1; src/modules/programs/transfer.c:41-54; src/modules/programs/call.c:2203-2219"
+affects = ["task.13.34.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -19792,7 +19804,7 @@ ac_1 = "programs/tests/differential/parallel.c compares sequential and parallel 
 [req.13292]
 title = "Run the programs conservation suite against 0x101D calls"
 ac_1 = "Across deploy, call, transfer and sandboxFund through 0x101D the sum of bank balances of the fee asset over every program, caller and fee account is unchanged, the invariant programs/tests/conservation/run.sh:9-40 checks through kernel make targets at HEAD."
-ac_2 = "transfer through 0x101D moves value legs between program accounts with the total of each asset unchanged and refuses a leg exceeding the source balance."
+ac_2 = "transfer through 0x101D moves value legs sourced from caller-owned accounts into program accounts with the total of each asset unchanged, refuses a leg exceeding the source balance, and refuses a leg sourced from a program account with LXP_ERR_AUTH_SCOPE: program value leaves a program account only through program-executed paths."
 
 [req.13293]
 title = "Fuzz 0x101D argument decoding against the ABI for panics and non-canonical input"
@@ -135525,7 +135537,7 @@ title = "JVM SDK receipt tests read the published V1-V3 and V5 vector files"
 status = "pending"
 mode = "BUILD"
 wave = 17
-requires = ["8.47.7", "8.42.7"]
+requires = ["8.47.7", "8.42.7", "18.1184.1"]
 reqs = ["8508.1", "8508.2"]
 capabilities = ["8.42.8"]
 interfaces = []
@@ -135773,7 +135785,7 @@ title = ".NET SDK receipt tests read the published V1-V3 and V5 vector files"
 status = "pending"
 mode = "BUILD"
 wave = 17
-requires = ["8.47.7", "8.43.7"]
+requires = ["8.47.7", "8.43.7", "18.1185.1"]
 reqs = ["8510.1", "8510.2"]
 capabilities = ["8.43.8"]
 interfaces = []
@@ -157447,6 +157459,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Keep the fee account seeded at the identity sequence the host reads (ReadIdentitySequence, as gas_bound_test.go:18 and bank_parity_test.go:56 do) and pass the payload's expected_sequence as the kernel defines it (src/modules/programs/sandbox.c:236-241, checked at :686-690); re-seeding the fee account to the upcoming global sequence turned the escrow refusal into LXP_FATAL_INVARIANT. With 18.1163.1 landed the -208 escrow refusal is gone. If sandboxExecute still reverts with LXP_FATAL_INVARIANT, emit the harness diagnostic line (sandbox diagnostic: <site> = <code>) for the sandbox.c sites :373, :389, :417, :428, :431 and :456 and stop with the site named."
 do_7 = "Attempt 23 (92b530b58) kept the identity-sequence seeding and the kernel answered LXP_ERR_NON_CANONICAL before any sequence check. sandboxExecute runs the call through lxp_programs_call_execute (src/modules/programs/sandbox.c:405-410), whose admission layerx_programs_call_sandbox_admit (sandbox.c:94-107) asks the host's admit_host (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:470-540) to decode the lease (sandbox state kind 0) and its escrow (kind 1) under the key prefix the activation fixture writes (precompiles/layerxprograms/method_sandbox_activate_test.go:78, the fifth byte is the kind) and to match the payload's fee_destination and expected_lease_digest against that lease; the call payload must also decode as a program call (lxp_programs_call_decode, sandbox.c:265). Build TestProgramsSandboxExecuteEmitsUsage on the real lifecycle instead of hand-seeded state: seed the funded lease as newSandboxActivationFixture does, submit sandboxActivate through the registered handler so the kernel stages the Active lease, escrow and ledger states, read the Active lease back from the store, set expected_lease_digest to the sha256 of those bytes, take escrow_account, asset, fee_destination, fee_schedule_version and fee_schedule from the same lease terms, pass as callPayload the EncodeCallPayload (precompiles/layerxprograms/payload_call.go:14) of the program programsCallFixture (precompiles/layerxprograms/method_call_test.go:20) installs, and keep expected_sequence as the previous step defines. If the kernel still refuses, record the code and the last state the store held and stop; change no kernel or host source."
 do_8 = "Attempt 24 (b58b6019d) reached layerx_programs_call_begin (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2706) with an ABI-v1 inner call, which the sandbox gate at ffi_call.rs:2796-2803 refuses with NON_CANONICAL before admit_host runs; a sandboxed call must carry guest ABI 2-5 (tests/daemon/lxp_test_market_sandbox_profile.c:183,196). In precompiles/layerxprograms/method_sandbox_execute_test.go stop using programsCallFixture's call payload: on the fixture's harness run seedDeployMetering (method_deploy_test.go:60) and deploy the layerx_call+layerx_reserve wasm of bank_parity_test.go:23-39 as a new program id with abiVersion 2 through the deploy handler; use that id as host_program in sandboxFund and in the lease terms; build callPayload with EncodeCallPayload(program, 2, 'layerx_call', []byte{0, 0xff}, []byte{0, 1, 3}, access, 64, budget) (payload_call.go:14). Keep the lifecycle seeding, digest and expected_sequence of do_7. Change no kernel or host source."
+do_9 = "Debiting the sandbox fee from the lease escrow is a program-source transfer leg: transfer_source_validate (src/modules/programs/call.c:2203-2219) refuses it unless lxp_programs_account_lookup (src/modules/programs/accounts.c:530-557) finds a program-account binding for the host program and the seed 'sandbox-lease-escrow/v1' NUL || lease_id, and settle_call (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:762-764) reports that refusal as LXP_ERR_NON_CANONICAL. In precompiles/layerxprograms/method_sandbox_execute_test.go, after deploying the ABI-v2 host program and before sandboxFund, open the escrow through the registerAccount handler (precompiles/layerxprograms/method_account.go:10) as registerAccount(program, 1, asset, seed), as bank_parity_test.go:42-55 does, and check with ReadProgramAccount that its AccountID equals the escrow id; remove the hand-seeded escrow account row. Keep the lifecycle seeding, digest, expected_sequence 1 and the ABI-v2 call payload of do_7 and do_8 unchanged, and change no kernel or host source."
 
 [task.13.27.2]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -158198,7 +158211,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.2]
 title = "Run the programs conservation suite against 0x101D calls"
-status = "blocked"
+status = "pending"
 mode = "BUILD"
 wave = 18
 requires = ["13.24.1", "13.25.1", "13.27.2", "13.32.2", "18.1073.1", "18.1130.1"]
@@ -158225,6 +158238,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "TestProgramsTransferConservesProgramValue sources every leg from caller-owned accounts into registered program accounts, asserts the per-asset total unchanged and the over-balance leg refused, and asserts that a leg sourced from a program account is refused LXP_ERR_AUTH_SCOPE (decision.1804; principal_authorizes_from at src/modules/programs/transfer.c:41-54); change no kernel source."
 
 [task.13.34.3]
 title = "Fuzz 0x101D argument decoding against the ABI for panics and non-canonical input"
@@ -172386,7 +172400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167", "181171", "181172", "181176", "181177", "181173", "181174", "181175", "181178"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167", "181171", "181172", "181176", "181177", "181173", "181174", "181175", "181178", "181184", "181185", "181182", "181183"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -175946,6 +175960,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "The attestation run without a mode flag writes under PAXEER_X_EVIDENCE_DIR, which must name a caller-owned 0700 directory outside the checkout (tools/qualification/paxeer-x/program_market_attestation.py:276-285); the gate supplies one with mktemp -d. Do not relax the driver's requirement and do not point it inside the repository."
 do_7 = "In main of tests/programs/test_market_attestation.c call setvbuf(stdout, NULL, _IOLBF, 0) before the first report so every case line reaches the driver's native.log even when the process ends abnormally; the gate prints that log on failure. Attempt 10 built both stages and the native run yielded no case line at all, which main does only by returning 2 before native-deploy (fopen, calloc, executed_public_key or initialize failing) or by dying with its stdout buffer unflushed; read the surfaced log, fix the cause inside the task's touches if it lies there, otherwise record it as a finding and stop."
 do_8 = "The -3 that attempts 14 and 15 saw on every register-offer case is STATUS_BOUNDS (programs/sdk/rust/src/error.rs:23), not NON_CANONICAL: every REGISTER_OFFER decode failure and register() refusal is STATUS_INVALID -2 (lib.rs:433-497, :303-322), so the failure precedes register(). The host returns STATUS_BOUNDS for AbiError::Storage (programs/crates/layerx-programs-runtime/src/host/mod.rs, the Storage arm) and for a context read over capacity (host/context.rs:42-43), which the guest's first calls Context::batch_height (lib.rs:848), principal() (:849, :691) and the OFFER_PREFIX absent() read (:682-688) hit. Isolate that fixture-side cause first: the ABI-v5 module registration (test_market_attestation.c:199), the raw kv-put owner profile (:413-437) and the access declaration (:320-362) must match what those host calls read; fix the fixture, not the guest or host."
+do_9 = "Every refused LX_PROGRAMS_CALL under protocol v3 carries result_code LXP_ERR_PROGRAM_REFUSED (-736, include/layerx/lxp_result.h:142; programs/crates/layerx-programs-runtime/src/ffi_call.rs:415), and its terminal payload is wrapped as 'LXP/programs/terminal-applied-legs/v1' NUL + u32 detail length + detail + u32 legs (src/modules/programs/call.c:1531-1570), so the model 1 and model 2 register refusal checks of tests/programs/test_market_attestation.c unwrap that prefix before matching 'LXP/program-execution/v5' NUL and the I32(-2) output, as tests/programs/test_call_activity.c:72-83 does. On every unexpected FAILURE terminal, invoke prints the unwrapped guest output code and any trailing callback detail. The op 14 COMMIT_SANDBOX_BILLING refusal on the live and restored fixtures (programs/examples/market-attestation lib.rs:978-1035, arbitration.rs:48-133) is then read from that output: a guest -2 means a profile_request or billing_request field is corrected in the test; a host callback stage is recorded as a finding with no guest or host source changed. The -3 of attempts 14 and 15 was the host's LXP_ERR_NON_CANONICAL raised before the guest ran, not STATUS_BOUNDS."
 
 [req.18911]
 title = "The kernel market attestation test follows the fraud-provable billing path"
@@ -179014,7 +179029,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 11
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179916,6 +179931,23 @@ ac_1 = "A settled response whose evidence rung is Committed carries blockNumber 
 [req.181178]
 title = "Bind the portable receipt's raw transaction through the wrapped block transaction"
 ac_1 = "VerifyPortableReceipt accepts a committed bundle whose rawTransaction is the signed EVM transaction and whose receiptInclusion.transaction is the block transaction wrapping it, refuses one whose block transaction wraps a different EVM transaction, and every portable and committed receipt test in sdk/platform/go passes."
+
+[req.181184]
+title = "JVM SDK portable receipt verifier accepts the published layerx-receipt-proof-v2 wire layout (receiptJson and Go-encoded committed evidence)"
+ac_1 = "The JVM portable receipt verifier accepts both bundles of sdk/platform/conformance/fixtures/vector-v5-portable.json, verifies the receipt from receiptJson under the pinned key, decodes committed evidence in the Go encoding of sdk/platform/go/committed.go and binds rawTransaction to the included transaction."
+
+[req.181185]
+title = ".NET SDK portable receipt verifier decodes committed evidence in the published layerx-receipt-proof-v2 encoding"
+ac_1 = "The .NET portable receipt verifier decodes committed evidence in the Go encoding of sdk/platform/go/committed.go, verifies it with the rules of VerifyCommittedReceipt, binds rawTransaction to the included transaction and accepts the committed bundle of sdk/platform/conformance/fixtures/vector-v5-portable.json."
+
+[req.181182]
+title = "Restore the six frozen v1 launchpad contract fixtures under the protocol module and repoint the launchpad service tests that read them"
+ac_1 = "The six frozen v1 contract fixtures exist under sdk/launchpad/protocol/contracts/v1/ byte-identical to their last committed content and every services/launchpad test that reads them opens them at that path."
+ac_2 = "Every sdk/launchpad test and script that reads a restored fixture opens it under sdk/launchpad/protocol/contracts/v1/ and passes."
+
+[req.181183]
+title = "Bind the launchpad release provenance check to the monorepo off-chain images workflow instead of the removed launchpad workflows"
+ac_1 = "The launchpad release provenance check requires .github/workflows/offchain-images.yml as a release source input and binds the workflow digest to it, and its policy and phase-2 tests read that workflow."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -181181,6 +181213,46 @@ contract = "contracts/perps-data.md#websocket"
 test = "sdk/platform/go/portable_receipt_test.go"
 qualification = "UNRUN"
 
+[acceptance.18.1184.1]
+feature = "18"
+req = "181184.1"
+scenario = "Given vector-v5-portable.json, when the JVM SDK exports the V1 V1-pax-transfer case and the V4 settlement evidence, then the bytes equal the two published bundles and both verify."
+contract = "contracts/perps-data.md#websocket"
+test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java"
+qualification = "UNRUN"
+
+[acceptance.18.1185.1]
+feature = "18"
+req = "181185.1"
+scenario = "Given vector-v5-portable.json, when the .NET SDK exports the V4 settlement evidence, then the bytes equal the published committed bundle and it verifies."
+contract = "contracts/perps-data.md#websocket"
+test = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs"
+qualification = "UNRUN"
+
+[acceptance.18.1182.1]
+feature = "18"
+req = "181182.1"
+scenario = "Given the fixtures restored under sdk/launchpad/protocol/contracts/v1/, when the indexer decode tests run, then the frozen golden receipt replay and the frozen emitter family layouts pass against the restored abi-catalog.json and golden-fixtures.json."
+contract = "contracts/launchpad.md#precompile-go"
+test = "services/launchpad/indexer/internal/decode/golden_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1182.2]
+feature = "18"
+req = "181182.2"
+scenario = "Given the restored fixtures, when the shared capabilities, deployment and interfaces tests run, then the frozen ids, the frozen deployment and the accounting wire corpus are read from sdk/launchpad/protocol/contracts/v1/ and pass."
+contract = "contracts/launchpad.md#precompile-go"
+test = "sdk/launchpad/shared/config/capabilities/catalog_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1183.1]
+feature = "18"
+req = "181183.1"
+scenario = "Given main without launchpad/.github/workflows, when the supply-chain policy and phase-2 tests run, then the publication-bypass test inspects .github/workflows/offchain-images.yml, the provenance test digests it, and both pass."
+contract = "contracts/launchpad.md#precompile-go"
+test = "services/launchpad/security/supplychain/test_policy.py"
+qualification = "UNRUN"
+
 [task.18.1066.1]
 title = "Issue #1066: Refresh every embedded precompile ABI copy in the attestor policy that differs from its repository ABI"
 status = "done"
@@ -182126,6 +182198,7 @@ do_9 = "Re-pin the conformance suite after re-recording: CONFORMANCE_VECTOR_COUN
 do_10 = "Port the assertions that still name the retired lx_* RPCs to their native successors at equal strength (decision 1802): tests/payment.rs:1229, :1572, :1600-1603, :1609, :1758 and :1766 (receipt_unknown), :2204 and :2212 (the fee test at :2130), :2736, :2750 and :2765-2768 (the eth_call counts 3, 8 and 8), :3520 (account_calls), the DID payer header of the grants test at :1673, :3562-3563 and :3576-3577; each ported assertion checks the same property against the native requests the gateway now records (eth_estimateGas, eth_sendRawTransaction, pax_sequencerReceipt and eth_call) with the counts the recorder observes, and do_3 keeps every assertion not named by do_5 to do_11."
 do_11 = "Teach the gateway recorder that writes tests/fixtures/gateway/refusals.json the native rules each refused draw now issues (the eth_estimateGas, eth_sendRawTransaction and pax_sequencerReceipt triple the metered recordings carry) for the refused-other-receipt, refused-untrusted, refused-failed, refused-other-activity and refused-amount entries of tests/payment.rs:1723-1727, so draws_the_gateway_does_not_settle_release_nothing meets its recorded refusals instead of payment_pending. RECEIVER_SEQUENCE (:2506) renders as the 32-byte word equal to the in-file RECEIVER_SECRET and fails the reproduction test's secret check; move it and the colliding counter words to values no in-file key equals only if read_payer_grant (src/payment.rs:208-249) ignores the words they change, otherwise report the collision by line."
 do_12 = "The x402 model binds LayerX offers to eip155:125 (services/interop/crates/layerx-x402/src/model.rs:19, :180-193, landed e556c8b04 by 18.1162.1), so the harness settles on chain 125: in configure_with (services/interop/crates/x-websearch/tests/payment.rs:375-392) set config['evm']['chain_id'] = json!(125) after the endpoint override, as src/payment.rs:2729 already does, and leave tests/fixtures/config/valid.json untouched (tests/config.rs:92 asserts its 1337); answer every harness eth_chainId rule with '0x7d' (:2576, :2710, :3675, :3690, :3705), construct every SettlementRpc::new with 125 (:2653, :2716, :3678, :3693, :3711) and every LedgerTransaction with chain_id: 125 (:1931, :3234, :3350); port the three chain-bound assertions at equal strength, :1217 expecting 'eip155:125', :3452 expecting 125 and :3453 appending [0x7d, 0x80, 0x80], which do_3 otherwise forbids. Then re-record (do_8) and re-pin (do_9). Line numbers are main's; locate by symbol in the attempt tree."
+do_13 = "The x402 seller keys its gateway translation by the payload's idempotencyKey (services/interop/crates/layerx-x402/src/seller.rs:180-195), and GatewayCore refuses a repeated key with different content even after a refusal (services/interop/crates/layerx-interop-gateway/src/gateway.rs:462-469), so the gate-lifetime GatewayCore at services/interop/crates/x-websearch/src/payment.rs:1149, :1224-1228 and :1248 turns every later use of a refused key into the Err that :1467 answers as payment_invalid. Open a GatewayCore with the x402 adapter registered for each settlement at src/payment.rs:1438-1440, as layerx-interop-service/src/server.rs:1062-1069 does per request, and leave durable idempotency to PaymentStore. In Plane::run (src/payment.rs:2072-2080), refuse a stored metered record whose offer differs from offer_record(request) as idempotency_conflict, checked before the request_mismatch comparison that the resource-only mismatches at tests/payment.rs:1596 and :1834 keep."
 
 [task.18.1130.1]
 title = "Issue #1130: Seed the active programs fee record in the layerxprograms harness and the lxphost program fixtures"
@@ -185468,7 +185541,7 @@ do_3 = "Write the top-level test 'a refused observation moves no market price on
 do_4 = "In services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs, where the updates endpoint's observations are asserted, also assert the accepted field (true for the stored accepted observation)."
 do_5 = "Change nothing in PriceFeed queries, Explorer.PaxeerX.CosmosRest or the indexer fetcher, and remove no test."
 symbols = ["prepare_observation", "broadcast_price_updates"]
-touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/price_feed.ex", "services/explorer/swagger.yaml"]
 tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs::a refused observation moves no market price on the live topics"]
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -185484,6 +185557,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "The Observation schema (services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/price_feed.ex:11-24, additionalProperties: false) gains accepted as a required boolean, and the PaxeerXPriceObservation component of services/explorer/swagger.yaml gains the same property and required entry (the document deploy/tools/gen-swagger.py --spex emits from that schema), so the controller tests validated through BlockScoutWeb.TestApiSchemaAssertions admit the field FeedView emits (feed_view.ex:87); keep every other property and the additionalProperties: false of both."
 
 [task.18.1173.2]
 title = "Issue #1173: Take a market's latest price only from an accepted observation in the explorer feed"
@@ -185628,6 +185702,158 @@ gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-wallet"
 rollback = "Revert chain.ts and delete the new test; TestChain returns to answering -32601 and every gateway test that broadcasts fails with 502 again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1184.1]
+title = "Issue #1184: JVM SDK portable receipt verifier accepts the published layerx-receipt-proof-v2 wire layout (receiptJson and Go-encoded committed evidence)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181184.1"]
+capabilities = []
+interfaces = []
+do_1 = "In sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java add receiptJson to RECEIPTED_FIELDS and COMMITTED_FIELDS (:30-34). In verify (:83) verify the receipt from receiptJson with rawTransaction under the pinned key, as sdk/platform/go/portable_receipt.go:124 does, and require signedReceipt and receiptDigest to equal the canonical bytes and digest of that verification; have export emit receiptJson."
+do_2 = "In sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/Committed.java decode blockHeader, receiptInclusion, commit and validatorSet in the encoding of sdk/platform/go/committed.go:15-87: PascalCase names, base64 byte strings, 32-byte arrays as integer arrays, RFC3339 timestamps, and a ReceiptInclusion of Transaction, TransactionProof, Result, ResultProof, BatchTransaction, BatchProof, NextHeader, NextCommit and NextValidators."
+do_3 = "Verify that evidence with the rules of VerifyCommittedReceipt (sdk/platform/go/committed.go:96): transaction proof under the execution header's DataHash, batch proof, result proof under NextHeader.LastResultsHash, and the execution and successor commits; require rawTransaction to equal the EVM transaction wrapped by receiptInclusion.Transaction as committedEVMTransaction (sdk/platform/go/committed.go:230) unwraps it."
+do_4 = "Add portableExportMatchesPublishedVectorV5 to sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java: export the V1 V1-pax-transfer case and the V4 settlement evidence and compare the result byte for byte with the two bundles of sdk/platform/conformance/fixtures/vector-v5-portable.json, then verify both; change no vector and remove no test."
+symbols = []
+touches = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/Committed.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java::portableExportMatchesPublishedVectorV5"]
+planned_paths = []
+build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests compile"
+verify_cmd = "mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='PortableReceiptTest#portableExportMatchesPublishedVectorV5' -Dsurefire.failIfNoSpecifiedTests=true"
+gate_kind = "planned"
+sandbox_profile = "jvm"
+owner_role = "fm-platform"
+rollback = "Revert PortableReceipt.java, Committed.java and the test; the verifier returns to the field-set shape check without receiptJson."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1185.1]
+title = "Issue #1185: .NET SDK portable receipt verifier decodes committed evidence in the published layerx-receipt-proof-v2 encoding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181185.1"]
+capabilities = []
+interfaces = []
+do_1 = "In sdk/platform/dotnet/Committed.cs replace the CometHeader, CometBlockId, CometCommit, CometCommitSignature, CometValidator and CommittedReceiptInclusion wire shapes (:21-23) with the encoding of sdk/platform/go/committed.go:15-87: PascalCase names, base64 byte strings, 32-byte arrays as integer arrays, RFC3339 timestamps, and Transaction, TransactionProof, Result, ResultProof, BatchTransaction, BatchProof, NextHeader, NextCommit and NextValidators; in sdk/platform/dotnet/PortableReceipt.cs:96-109 decode the four committed fields with matching options instead of camelCase hex."
+do_2 = "Rework Committed.Verify (sdk/platform/dotnet/Committed.cs:30) to follow VerifyCommittedReceipt (sdk/platform/go/committed.go:96): transaction proof under DataHash, batch proof, result proof under NextHeader.LastResultsHash, and the execution and successor commits; drop the ActivityIds input."
+do_3 = "In PortableReceipt.verify require rawTransaction to equal the EVM transaction wrapped by receiptInclusion.Transaction, as committedEVMTransaction (sdk/platform/go/committed.go:230) unwraps it, before committed verification."
+do_4 = "Add PortableExportMatchesPublishedVectorV5 to sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs: export the V4 settlement evidence and compare it byte for byte with the committed bundle of sdk/platform/conformance/fixtures/vector-v5-portable.json, then verify it; change no vector and remove no test."
+symbols = []
+touches = ["sdk/platform/dotnet/Committed.cs", "sdk/platform/dotnet/PortableReceipt.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs"]
+tests = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs::PortableExportMatchesPublishedVectorV5"]
+planned_paths = []
+build_cmd = "dotnet build sdk/platform/dotnet/LayerX.Sdk.csproj"
+verify_cmd = "dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName=LayerX.Sdk.Tests.PortableReceiptTests.PortableExportMatchesPublishedVectorV5'"
+gate_kind = "planned"
+sandbox_profile = "dotnet"
+owner_role = "fm-platform"
+rollback = "Revert Committed.cs, PortableReceipt.cs and the test; the verifier returns to the camelCase hex committed model."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1182.1]
+title = "Issue #1182: Restore the six frozen v1 launchpad contract fixtures under the protocol module and repoint the launchpad service tests that read them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181182.1"]
+capabilities = []
+interfaces = []
+do_1 = "Restore accounting-cases.json, capabilities.json, chain/abi-catalog.json, chain/client-deployment.json, chain/event-authorities.json and chain/golden-fixtures.json byte-identical to their last committed content (the parent of 384f41641, under launchpad/spec/production-system/integration/contracts/v1/) at sdk/launchpad/protocol/contracts/v1/ with the same relative layout; the sha256 of each restored file equals the sha256 of the removed file."
+do_2 = "Repoint the services/launchpad readers from ../../../../../launchpad/spec/production-system/integration/contracts/v1/ to ../../../../../sdk/launchpad/protocol/contracts/v1/: services/launchpad/indexer/internal/decode/golden_test.go:38, registry_test.go:20, correlation_test.go:14, optional_test.go:58, internal/chainreader/creation_test.go:14 and :105, creation_reported_hash_test.go:25, creation_resolution_test.go:28, historical_test.go:374 and :458, internal/processor/replay_postgres_test.go:104, internal/receipt/qualified_test.go:51 and services/launchpad/stats-workers/internal/projectionstats/authority_test.go:14 and :105; change no expected value and remove no assertion."
+do_3 = "Leave every reader of a file that was already absent before 384f41641 (schema-definitions.json, openapi.json, asyncapi.json, codegen-manifest.json, catalog-map.json, examples.json) as it is; decision.421 and decision.1803 govern them."
+symbols = []
+touches = ["sdk/launchpad/protocol/contracts/v1/accounting-cases.json", "sdk/launchpad/protocol/contracts/v1/capabilities.json", "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json", "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json", "sdk/launchpad/protocol/contracts/v1/chain/event-authorities.json", "sdk/launchpad/protocol/contracts/v1/chain/golden-fixtures.json", "services/launchpad/indexer/internal/decode/golden_test.go", "services/launchpad/indexer/internal/decode/registry_test.go", "services/launchpad/indexer/internal/decode/correlation_test.go", "services/launchpad/indexer/internal/decode/optional_test.go", "services/launchpad/indexer/internal/chainreader/creation_test.go", "services/launchpad/indexer/internal/chainreader/creation_reported_hash_test.go", "services/launchpad/indexer/internal/chainreader/creation_resolution_test.go", "services/launchpad/indexer/internal/chainreader/historical_test.go", "services/launchpad/indexer/internal/processor/replay_postgres_test.go", "services/launchpad/indexer/internal/receipt/qualified_test.go", "services/launchpad/stats-workers/internal/projectionstats/authority_test.go"]
+tests = ["services/launchpad/indexer/internal/decode/golden_test.go::TestFrozenGoldenReceiptReplay", "services/launchpad/indexer/internal/decode/registry_test.go::TestFrozenEmitterFamilyLayouts"]
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./internal/decode/ ./internal/chainreader/ ./internal/receipt/ ./internal/processor/"
+verify_cmd = "cd services/launchpad/indexer && go test -count=1 ./internal/decode/ -run '^(TestFrozenGoldenReceiptReplay|TestFrozenEmitterFamilyLayouts)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Delete sdk/launchpad/protocol/contracts/v1/ and restore the previous paths in the eleven test files."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1182.2]
+title = "Issue #1182: Repoint the launchpad SDK tests to the restored v1 contract fixtures"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1182.1"]
+reqs = ["181182.2"]
+capabilities = []
+interfaces = []
+do_1 = "Repoint sdk/launchpad/shared/config/capabilities/catalog_test.go:31 and :157, sdk/launchpad/shared/config/deployment/manifest_test.go:27, sdk/launchpad/shared/interfaces/v1/types_test.go:172, sdk/launchpad/shared/config/deployment/tests/generate.test.sh:10 and sdk/launchpad/packages/production-contracts/test/contracts.test.mjs:43 from launchpad/spec/production-system/integration/contracts/v1/ to sdk/launchpad/protocol/contracts/v1/, keeping each file name and the chain/ sub-directory; change no expected value and remove no assertion."
+do_2 = "Leave sdk/launchpad/packages/sdk/test/generation.test.py as it is: it reads codegen-manifest.json, schema-definitions.json, openapi.json and asyncapi.json, which decision.421 and decision.1803 govern."
+symbols = []
+touches = ["sdk/launchpad/shared/config/capabilities/catalog_test.go", "sdk/launchpad/shared/config/deployment/manifest_test.go", "sdk/launchpad/shared/interfaces/v1/types_test.go", "sdk/launchpad/shared/config/deployment/tests/generate.test.sh", "sdk/launchpad/packages/production-contracts/test/contracts.test.mjs"]
+tests = ["sdk/launchpad/shared/config/capabilities/catalog_test.go::TestFrozenIDsAndPrerequisitesMatchBaseline", "sdk/launchpad/shared/config/deployment/manifest_test.go::TestCurrentMatchesFrozenDeployment", "sdk/launchpad/shared/interfaces/v1/types_test.go::TestAccountingWireCorpus"]
+planned_paths = []
+build_cmd = "go -C sdk/launchpad/shared vet ./config/capabilities/ ./config/deployment/ ./interfaces/v1/"
+verify_cmd = "go -C sdk/launchpad/shared test -count=1 ./config/capabilities/ ./config/deployment/ ./interfaces/v1/ -run '^(TestFrozenIDsAndPrerequisitesMatchBaseline|TestCurrentMatchesFrozenDeployment|TestAccountingWireCorpus)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Restore the previous paths in the five files."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1183.1]
+title = "Issue #1183: Bind the launchpad release provenance check to the monorepo off-chain images workflow instead of the removed launchpad workflows"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181183.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/launchpad/security/supplychain/check_phase2.py:376 replace launchpad/.github/workflows/ci.yml and launchpad/.github/workflows/release.yml in the required release source inputs with .github/workflows/offchain-images.yml, the workflow that builds and publishes the launchpad images (its paths filter lists services/launchpad/**, sdk/launchpad/** and deploy/launchpad/**); at :380 bind expected['workflow'] to the digest of .github/workflows/offchain-images.yml."
+do_2 = "In services/launchpad/security/supplychain/test_phase2.py:273 digest .github/workflows/offchain-images.yml for the expected workflow of the provenance statement."
+do_3 = "Rewrite test_workflow_publication_bypass_removed (services/launchpad/security/supplychain/test_policy.py:194-201) against .github/workflows/offchain-images.yml: the images job declares needs: [plan] and the digests job declares needs: [plan, images] with needs.plan.result == 'success', so no image is built and no digest recorded without the plan job's checks; every uses: line is pinned to a 40-hex commit with a version comment; keep at least the current five assertions."
+do_4 = "Change nothing in policy.py, provenance.py or phase2.schema.json and remove no test."
+symbols = []
+touches = ["services/launchpad/security/supplychain/check_phase2.py", "services/launchpad/security/supplychain/test_phase2.py", "services/launchpad/security/supplychain/test_policy.py"]
+tests = ["services/launchpad/security/supplychain/test_policy.py::test_workflow_publication_bypass_removed", "services/launchpad/security/supplychain/test_phase2.py::test_provenance_material_rotation_and_duplicate_are_rejected"]
+planned_paths = []
+build_cmd = "python3 -m py_compile services/launchpad/security/supplychain/check_phase2.py services/launchpad/security/supplychain/test_phase2.py services/launchpad/security/supplychain/test_policy.py"
+verify_cmd = "python3 -m pytest services/launchpad/security/supplychain/test_policy.py services/launchpad/security/supplychain/test_phase2.py -k 'test_workflow_publication_bypass_removed or test_provenance_material_rotation_and_duplicate_are_rejected' -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the three files; the check and tests return to naming the removed launchpad workflows."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
