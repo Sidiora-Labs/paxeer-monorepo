@@ -13,7 +13,6 @@ use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did};
 use layerx_types::intent::{BudgetId, PeriodLength, PurposeHash, RolloverPolicy, TimestampSeconds};
 use layerx_types::payload::{ModuleId, ModuleRegistry};
-use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use crate::custody::{
@@ -23,6 +22,8 @@ use crate::custody::{
 use crate::store::PrincipalId;
 
 use super::{AgentCreationContract, AgentFailure, CreationStage, ProtocolAction, ProtocolEvidence};
+
+pub type Rung = layerx_types::rung::Rung;
 
 const ACTION_DOMAIN: &[u8] = b"layerx-human/agent-control-action/v1";
 const BUDGET_DOMAIN: &[u8] = b"layerx-human/agent-limit-budget/v1";
@@ -530,10 +531,14 @@ impl<B: AgentControlContract> AgentControls<B> {
     /// disclosure failures, unverified receipts, and malformed app evidence.
     pub fn change_limit(
         &mut self,
+        authority_rung: Rung,
         registry: &ModuleRegistry,
         request: LimitChangeRequest,
         observed_at: u64,
     ) -> Result<AgentControlView, AgentControlError> {
+        if authority_rung != Rung::Committed {
+            return Err(AgentControlError::EvidenceConflict);
+        }
         if let Some(completed) = self.completed_limit_changes.get(&request.idempotency_key) {
             return if completed.request == request {
                 Ok(completed.view.clone())
