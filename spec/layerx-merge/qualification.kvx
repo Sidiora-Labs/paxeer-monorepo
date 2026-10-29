@@ -10883,3 +10883,43 @@ symbol = "estimate_fee"
 observed = "Attempt 4 (b5268e502): build exit 101 on three pre-existing errors in wallet.rs (estimate_fee type mismatch, into_value on u64, missing send_activity)."
 assumption = "Task 8.48.1 ports wallet.rs under decision.1846; 8.49.1 now requires it at wave 18."
 severity = "blocking"
+
+[finding.18.1001.1.4]
+task = "18.1001.1"
+file = "services/wallet/gateway/src/attestor/client.ts:1177"
+symbol = "parseEvmReview"
+observed = "Attempt 5 at 6d36722e2 (verify exit 1): POST /v1/wallet/evm/review answered 502 evm_review_invalid for the gate test's calldata-free native transfer because the attestor reports method '' (policy/evm/decode.go:209-215) and parseEvmReview requires a non-empty method; the receipt path was never reached."
+assumption = "Pre-existing at main since 4f69cf9b4 and outside the touches (finding.12.10.4.1 deferred it to 12.14.3, which never ruled); 18.1001.3 fixes the parser under decision.1860 and 18.1001.1 requires it."
+severity = "blocking"
+
+[finding.10.14.1.2]
+task = "10.14.1"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1896-1925"
+symbol = "AgentRuntime::balance"
+observed = "Attempt 4 (b3dc80674) ran no gate: the daemon BALANCE writer (human_runtime.rs:14570-14577, task 9.5.6) answers one length-prefixed JSON object with achieved_verification_level null while the human-service decoder still reads the retired binary layout and refuses every byte but 4 and 5, so every real BALANCE round trip at main is CorruptResponse."
+assumption = "Pre-existing writer-decoder mismatch at main; do_7 of 10.14.1 rewrites the decoder to the landed JSON layout under decision.1859."
+severity = "blocking"
+
+[finding.5.47.4.2]
+task = "5.47.4"
+file = "cmd/layerxctl/src/main.rs:212-228"
+symbol = "verify_sequencer_signature"
+observed = "Attempt 5 (bc1339486): build exit 0, verify exit 1; V1 and three of six V3 mutations pass; sequence-hash-mismatch and tampered-log are accepted as receipted and activity-id-not-raw-hash is refused as Malformed by layerx-client before the activity-id check."
+assumption = "Product gaps in submit, not in the test; 5.47.4 now owns main.rs, Cargo.toml and Cargo.lock under decision.1861 and continues from the candidate."
+severity = "blocking"
+
+[finding.9.13.3.2]
+task = "9.13.3"
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py:2071"
+symbol = "agent_operation_envelope.py"
+observed = "The release qualification script still expects the retired reason code export.settlement_anchoring_unavailable that 9.13.3 deletes."
+assumption = "Owner task 16.11.9 (pending, wave 29) updates the script; recorded so the release gate is not read as a 9.13.3 defect."
+severity = "advisory"
+
+[finding.9.1.4.2]
+task = "9.1.4"
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs:1062-1087"
+symbol = "VerificationStatus"
+observed = "Attempt 3 (9dacfee4a) retyped VerificationStatus as a parallel enum over Rung while layerx-sdk still names Level in six files and the two in-crate tests errors.rs and rung.rs keep Level cases."
+assumption = "decision.1857 makes VerificationStatus an alias of RungStatus and do_7 carries the SDK and test callers; the dependents gate of layerx-sdk is expected to pass once they are ported."
+severity = "blocking"
