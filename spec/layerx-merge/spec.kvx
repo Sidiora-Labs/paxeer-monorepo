@@ -138478,7 +138478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.4.1]
 title = "Report finality as rungs with receipt keys and block commit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["9.0.1", "9.12.1", "9.3.1", "9.1.8", "18.1131.1"]
