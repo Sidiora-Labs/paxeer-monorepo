@@ -137330,7 +137330,7 @@ do_7 = "Keep attempt 3's estimate_fee port (tools/platform/cli/src/wallet.rs:323
 
 [task.8.48.2]
 title = "layerx wallet send, open-account and token writes submit EVM transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.48.1", "8.0.3", "9.0.2", "9.1.8", "18.1121.1"]
@@ -188698,7 +188698,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1193.1]
 title = "Issue #1193: Run the live human_frame serve_one test in the native Programs peer release gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188759,7 +188759,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1043.1]
 title = "Issue #1043: Answer a batch that contains a denied method per member over HTTP as over WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
