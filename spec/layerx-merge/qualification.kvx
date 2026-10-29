@@ -10995,3 +10995,27 @@ symbol = "verify_cmd"
 observed = "The verify_cmd carried escaped double quotes which reached sh verbatim and failed with a syntax error before any check ran (attempt 1, a40e94440)."
 assumption = "Rewritten with single quotes and grep -F; 16.95.2 build_cmd had the same shape and is rewritten."
 severity = "minor"
+
+[finding.13.30.3.5]
+task = "13.30.3"
+file = "programs/crates/layerx-programs-arbiter/tests/verified_step.rs"
+symbol = "VerifiedReplayAuthority::derive"
+observed = "Commit aaacf6f8a retyped VerifiedReplayAuthority::derive and VerifiedReplay::verify_with_batch_context to take &ChainCommitProof and ported tests/authority_from_prestate.rs; the nine calls in tests/verified_step.rs (:378, :395, :407, :422, :433, :505, :518, :531, :544) still pass a Merkle Proof and that test target does not compile at main, which stopped 13.27.5 attempts 1-3 (90a380a89, db2c3c330, 46baa99e1) before their verify ran although they touch no arbiter source."
+assumption = "13.30.4 rewrites the fixture loader and both tests of that file (its do_4) and carries the port; until it lands the target is recorded as broken at the base and attributed to no other task."
+severity = "major"
+
+[finding.9.16.2.1]
+task = "9.16.2"
+file = "services/wallet/deploy/attestor-policy.json"
+symbol = "selectors"
+observed = "The production attestor policy lists for 0x101a only send 0x2bb1ae7c; payExact 0x78ea11db and draw 0x2e89490f are absent, so a production attestor refuses the web payer's exact payment and draw with selector_not_allowed even after decision.1868 moves them to the ledger (owner tasks 12.3.1, 12.3.3, 12.8.1, 12.8.2 are done)."
+assumption = "9.16.2 adds the two selectors (new do line); 9.98.1's own gate supplies them through the test cluster's policy document."
+severity = "major"
+
+[finding.9.15.1.1]
+task = "9.15.1"
+file = "services/platform/hosted/gateway/src/rpc_faucet.rs"
+symbol = "claim_params"
+observed = "8.2.1 serves px_requestFunds only through the gateway faucet module with params [DID, hex32 signer key] under an authenticated session (:60, :259), while 9.15.1 do_2 and attempt 4 (7bf9501be) sent [address, amount] to a node endpoint read from an unnamed environment variable; the two parameter shapes cannot both hold."
+assumption = "Resolved by decision.1869: the tool carries the gateway's shape and its test serves px_requestFunds on a loopback listener."
+severity = "major"

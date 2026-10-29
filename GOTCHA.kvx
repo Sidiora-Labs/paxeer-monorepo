@@ -10849,3 +10849,9 @@ area = "spec authoring"
 symptom = "A verify_cmd written with escaped double quotes reached sh with the backslashes intact and failed with a syntax error before any check ran; a build_cmd of another task carried the same shape."
 cause = "The gate runner hands the kvx command string to sh verbatim; kvx escaping is not undone for build_cmd and verify_cmd."
 do = "Write build_cmd and verify_cmd with single quotes only, use grep -F for literal patterns, and pass file names to python3 -c through sys.argv instead of quoting them inside the program."
+
+[gotcha.2208]
+area = "qualification"
+symptom = "A task that touched only runtime and host crates was stopped three times before its verify ran because a dependent crate's test target did not compile; the errors were in a test file the task never touched."
+cause = "A retyping commit ported one test file of the dependent crate and left another behind, so the test target was already broken at the base revision; the dependents check attributed the break to the next task that touched anything upstream."
+do = "Before attributing a dependents failure to a task, check the same target at the base revision; a break present at the base is recorded once against the owning task in qualification.kvx and the target is left out of the dependents check until that owner lands."
