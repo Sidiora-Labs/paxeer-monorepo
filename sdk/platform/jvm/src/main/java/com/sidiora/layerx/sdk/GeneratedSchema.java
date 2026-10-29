@@ -1411,16 +1411,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(class_, "class");
             }
         }
-        public record DepositConfirmRequest(String wallet_transaction) implements SchemaTypes.GeneratedResponse {
-            public DepositConfirmRequest {
-                Objects.requireNonNull(wallet_transaction, "wallet_transaction");
-            }
-        }
-        public record DepositStartRequest(HumanModels.Money money) implements SchemaTypes.GeneratedResponse {
-            public DepositStartRequest {
-                Objects.requireNonNull(money, "money");
-            }
-        }
         public record Device(String device_id, String label, String platform) implements SchemaTypes.GeneratedResponse {
             public Device {
                 Objects.requireNonNull(device_id, "device_id");
@@ -1447,8 +1437,6 @@ public final class GeneratedSchema {
             REFUSED_BY_PROTOCOL("refused-by-protocol"),
             REFUSED_BY_LIMIT("refused-by-limit"),
             QUOTE_EXPIRED("quote-expired"),
-            WALLET_NOT_BOUND("wallet-not-bound"),
-            EXIT_UNAVAILABLE("exit-unavailable"),
             ALREADY_DECIDED("already-decided"),
             HOLD_EXPIRED("hold-expired"),
             HOLD_DEFECTIVE("hold-defective"),
@@ -1497,16 +1485,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");
                 Objects.requireNonNull(verification, "verification");
-            }
-        }
-        public record ExitEligibility(boolean eligible, String copy_key, String withdraw_instead_path) implements SchemaTypes.GeneratedResponse {
-            public ExitEligibility {
-                Objects.requireNonNull(copy_key, "copy_key");
-            }
-        }
-        public record ExitStartRequest(String confirmation) implements SchemaTypes.GeneratedResponse {
-            public ExitStartRequest {
-                Objects.requireNonNull(confirmation, "confirmation");
             }
         }
         public record ExportArtefact(String export_id, HumanModels.ExportKind kind, String download_path, String content_type, String created_at, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
@@ -1670,9 +1648,6 @@ public final class GeneratedSchema {
         }
         public enum JourneyKind {
             ONBOARDING("onboarding"),
-            DEPOSIT("deposit"),
-            WITHDRAW("withdraw"),
-            EXIT("exit"),
             MOVE("move"),
             AGENT_CREATE("agent-create"),
             AGENT_FUND("agent-fund"),
@@ -2282,14 +2257,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(source_head, "source_head");
             }
         }
-        public record RebindingSubmission(String address, String statement, String signature, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse {
-            public RebindingSubmission {
-                Objects.requireNonNull(address, "address");
-                Objects.requireNonNull(statement, "statement");
-                Objects.requireNonNull(signature, "signature");
-                Objects.requireNonNull(step_up, "step_up");
-            }
-        }
         public record Refusal(HumanModels.RefusedBy refused_by, String copy_key, boolean money_left, String change_path) implements SchemaTypes.GeneratedResponse {
             public Refusal {
                 Objects.requireNonNull(refused_by, "refused_by");
@@ -2639,17 +2606,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(copy_key, "copy_key");
                 Objects.requireNonNull(from_address, "from_address");
                 Objects.requireNonNull(to_sign_base64, "to_sign_base64");
-            }
-        }
-        public record WithdrawClaimRequest(String claim_signature) implements SchemaTypes.GeneratedResponse {
-            public WithdrawClaimRequest {
-                Objects.requireNonNull(claim_signature, "claim_signature");
-            }
-        }
-        public record WithdrawStartRequest(HumanModels.Money money, String destination) implements SchemaTypes.GeneratedResponse {
-            public WithdrawStartRequest {
-                Objects.requireNonNull(money, "money");
-                Objects.requireNonNull(destination, "destination");
             }
         }
     }
@@ -3984,42 +3940,6 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<AuthenticatorStatusRequest, AuthenticatorStatusResponse> AUTHENTICATOR_STATUS = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "authenticator.status", false, AuthenticatorStatusRequest.class, AuthenticatorStatusResponse.class);
-        public record DepositConfirmRequest(String wallet_transaction) implements SchemaTypes.GeneratedRequest {
-            public DepositConfirmRequest {
-                Objects.requireNonNull(wallet_transaction, "wallet_transaction");
-            }
-        }
-        public record DepositConfirmResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse {
-            public DepositConfirmResponse {
-                Objects.requireNonNull(journey_id, "journey_id");
-                Objects.requireNonNull(kind, "kind");
-                Objects.requireNonNull(state, "state");
-                Objects.requireNonNull(state_copy_key, "state_copy_key");
-                stages = List.copyOf(Objects.requireNonNull(stages, "stages"));
-                evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
-                Objects.requireNonNull(started_at, "started_at");
-                Objects.requireNonNull(updated_at, "updated_at");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<DepositConfirmRequest, DepositConfirmResponse> DEPOSIT_CONFIRM = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "deposit.confirm", false, DepositConfirmRequest.class, DepositConfirmResponse.class);
-        public record DepositStartRequest(HumanModels.Money money) implements SchemaTypes.GeneratedRequest {
-            public DepositStartRequest {
-                Objects.requireNonNull(money, "money");
-            }
-        }
-        public record DepositStartResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse {
-            public DepositStartResponse {
-                Objects.requireNonNull(journey_id, "journey_id");
-                Objects.requireNonNull(kind, "kind");
-                Objects.requireNonNull(state, "state");
-                Objects.requireNonNull(state_copy_key, "state_copy_key");
-                stages = List.copyOf(Objects.requireNonNull(stages, "stages"));
-                evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
-                Objects.requireNonNull(started_at, "started_at");
-                Objects.requireNonNull(updated_at, "updated_at");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<DepositStartRequest, DepositStartResponse> DEPOSIT_START = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "deposit.start", true, DepositStartRequest.class, DepositStartResponse.class);
         public record EvidenceGetRequest() implements SchemaTypes.GeneratedRequest {
         }
         public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64) implements SchemaTypes.GeneratedResponse {
@@ -4032,32 +3952,6 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<EvidenceGetRequest, EvidenceGetResponse> EVIDENCE_GET = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "evidence.get", false, EvidenceGetRequest.class, EvidenceGetResponse.class);
-        public record ExitEligibilityRequest() implements SchemaTypes.GeneratedRequest {
-        }
-        public record ExitEligibilityResponse(boolean eligible, String copy_key, String withdraw_instead_path) implements SchemaTypes.GeneratedResponse {
-            public ExitEligibilityResponse {
-                Objects.requireNonNull(copy_key, "copy_key");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<ExitEligibilityRequest, ExitEligibilityResponse> EXIT_ELIGIBILITY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "exit.eligibility", false, ExitEligibilityRequest.class, ExitEligibilityResponse.class);
-        public record ExitStartRequest(String confirmation) implements SchemaTypes.GeneratedRequest {
-            public ExitStartRequest {
-                Objects.requireNonNull(confirmation, "confirmation");
-            }
-        }
-        public record ExitStartResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse {
-            public ExitStartResponse {
-                Objects.requireNonNull(journey_id, "journey_id");
-                Objects.requireNonNull(kind, "kind");
-                Objects.requireNonNull(state, "state");
-                Objects.requireNonNull(state_copy_key, "state_copy_key");
-                stages = List.copyOf(Objects.requireNonNull(stages, "stages"));
-                evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
-                Objects.requireNonNull(started_at, "started_at");
-                Objects.requireNonNull(updated_at, "updated_at");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<ExitStartRequest, ExitStartResponse> EXIT_START = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "exit.start", true, ExitStartRequest.class, ExitStartResponse.class);
         public record HomeSummaryRequest() implements SchemaTypes.GeneratedRequest {
         }
         public record HomeSummaryResponse(HumanModels.AccountBalance balance, List<HumanModels.Agent> agents, List<HumanModels.ApprovalSummary> approvals, List<HumanModels.ActivityEntryDetail> recent_activity, List<HumanModels.ProgramApprovalSummary> program_approvals) implements SchemaTypes.GeneratedResponse {
@@ -4688,43 +4582,6 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<VersionRequest, VersionResponse> VERSION = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "version", false, VersionRequest.class, VersionResponse.class);
-        public record WithdrawClaimRequest(String claim_signature) implements SchemaTypes.GeneratedRequest {
-            public WithdrawClaimRequest {
-                Objects.requireNonNull(claim_signature, "claim_signature");
-            }
-        }
-        public record WithdrawClaimResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse {
-            public WithdrawClaimResponse {
-                Objects.requireNonNull(journey_id, "journey_id");
-                Objects.requireNonNull(kind, "kind");
-                Objects.requireNonNull(state, "state");
-                Objects.requireNonNull(state_copy_key, "state_copy_key");
-                stages = List.copyOf(Objects.requireNonNull(stages, "stages"));
-                evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
-                Objects.requireNonNull(started_at, "started_at");
-                Objects.requireNonNull(updated_at, "updated_at");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<WithdrawClaimRequest, WithdrawClaimResponse> WITHDRAW_CLAIM = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "withdraw.claim", false, WithdrawClaimRequest.class, WithdrawClaimResponse.class);
-        public record WithdrawStartRequest(HumanModels.Money money, String destination) implements SchemaTypes.GeneratedRequest {
-            public WithdrawStartRequest {
-                Objects.requireNonNull(money, "money");
-                Objects.requireNonNull(destination, "destination");
-            }
-        }
-        public record WithdrawStartResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse {
-            public WithdrawStartResponse {
-                Objects.requireNonNull(journey_id, "journey_id");
-                Objects.requireNonNull(kind, "kind");
-                Objects.requireNonNull(state, "state");
-                Objects.requireNonNull(state_copy_key, "state_copy_key");
-                stages = List.copyOf(Objects.requireNonNull(stages, "stages"));
-                evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
-                Objects.requireNonNull(started_at, "started_at");
-                Objects.requireNonNull(updated_at, "updated_at");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<WithdrawStartRequest, WithdrawStartResponse> WITHDRAW_START = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "withdraw.start", true, WithdrawStartRequest.class, WithdrawStartResponse.class);
     }
     public static final Map<String, SchemaTypes.TypedOperation<?, ?>> AGENT = Map.ofEntries(
         Map.entry("agent.register", AgentOperations.AGENT_REGISTER ),
@@ -4816,11 +4673,7 @@ public final class GeneratedSchema {
         Map.entry("authenticator.setup.begin", HumanOperations.AUTHENTICATOR_SETUP_BEGIN ),
         Map.entry("authenticator.setup.finish", HumanOperations.AUTHENTICATOR_SETUP_FINISH ),
         Map.entry("authenticator.status", HumanOperations.AUTHENTICATOR_STATUS ),
-        Map.entry("deposit.confirm", HumanOperations.DEPOSIT_CONFIRM ),
-        Map.entry("deposit.start", HumanOperations.DEPOSIT_START ),
         Map.entry("evidence.get", HumanOperations.EVIDENCE_GET ),
-        Map.entry("exit.eligibility", HumanOperations.EXIT_ELIGIBILITY ),
-        Map.entry("exit.start", HumanOperations.EXIT_START ),
         Map.entry("home.summary", HumanOperations.HOME_SUMMARY ),
         Map.entry("intent.plan", HumanOperations.INTENT_PLAN ),
         Map.entry("intent.submit", HumanOperations.INTENT_SUBMIT ),
@@ -4869,7 +4722,5 @@ public final class GeneratedSchema {
         Map.entry("support.read", HumanOperations.SUPPORT_READ ),
         Map.entry("support.reply", HumanOperations.SUPPORT_REPLY ),
         Map.entry("support.status", HumanOperations.SUPPORT_STATUS ),
-        Map.entry("version", HumanOperations.VERSION ),
-        Map.entry("withdraw.claim", HumanOperations.WITHDRAW_CLAIM ),
-        Map.entry("withdraw.start", HumanOperations.WITHDRAW_START ));
+        Map.entry("version", HumanOperations.VERSION ));
 }

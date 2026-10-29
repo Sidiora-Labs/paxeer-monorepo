@@ -9,9 +9,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::frame::Limits;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
-use layerx_client::lni::transport::Limits;
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest};
 use layerx_crypto::signer::Signer as _;
@@ -23,7 +23,6 @@ use layerx_paxeer_client::{
     raw_call, EmergencyExit, EndpointConfig, EndpointTransport, ExitConfig, ExitEligibility,
 };
 use layerx_proof::checkpoint::SettlementDomain;
-use layerx_proof::export::OfflineExport;
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount as ProtocolAmount;
 use layerx_types::ids::Did;
@@ -43,7 +42,7 @@ use sha2::{Digest as _, Sha256};
 use super::agent_creation::ProductionAgentCreation;
 use crate::activity::{
     verification_status, AppliedFilters, EvidenceBundle, EvidenceExport, Feed, FeedCursor,
-    FilterDraft, PageRequest, ReceiptAuthority,
+    FilterDraft, PageRequest, ReceiptExport,
 };
 use crate::agents::{
     CreateAgentRequest, CreationContext, CreationJourney, PurposePresetCatalog,
@@ -326,18 +325,7 @@ impl ProductionComponentsConfig {
             agent_owner_account: required("LAYERX_HUMAN_AGENT_OWNER_ACCOUNT")?,
             agent_recovery_root: secret32("LAYERX_HUMAN_AGENT_RECOVERY_ROOT")?,
             agent_recovery_threshold: number("LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD")?,
-            paxeer_endpoint: EndpointConfig {
-                url: required("LAYERX_HUMAN_PAXEER_RPC_URL")?,
-                request_timeout: Duration::from_secs(number(
-                    "LAYERX_HUMAN_PAXEER_RPC_TIMEOUT_SECONDS",
-                )?),
-                transport: EndpointTransport::PinnedTls {
-                    trust_anchor_der: read_nonempty(&absolute(
-                        "LAYERX_HUMAN_PAXEER_TRUST_ANCHOR_DER",
-                    )?)?,
-                },
-                expected_chain_id: number("LAYERX_HUMAN_PAXEER_CHAIN_ID")?,
-            },
+            paxeer_endpoint: paxeer_endpoint_from_environment()?,
             paxeer_finality_endpoints: finality_endpoints()?,
             paxeer_minimum_agreement: finality_minimum_agreement()?,
             exit_required_confirmations: number("LAYERX_HUMAN_EXIT_REQUIRED_CONFIRMATIONS")?,
@@ -3504,6 +3492,17 @@ fn finality_minimum_agreement() -> Result<usize, String> {
         return Err("Paxeer finality requires at least two independent endpoints".to_owned());
     }
     Ok(minimum)
+}
+
+pub(super) fn paxeer_endpoint_from_environment() -> Result<EndpointConfig, String> {
+    Ok(EndpointConfig {
+        url: required("LAYERX_HUMAN_PAXEER_RPC_URL")?,
+        request_timeout: Duration::from_secs(number("LAYERX_HUMAN_PAXEER_RPC_TIMEOUT_SECONDS")?),
+        transport: EndpointTransport::PinnedTls {
+            trust_anchor_der: read_nonempty(&absolute("LAYERX_HUMAN_PAXEER_TRUST_ANCHOR_DER")?)?,
+        },
+        expected_chain_id: number("LAYERX_HUMAN_PAXEER_CHAIN_ID")?,
+    })
 }
 
 fn finality_endpoints() -> Result<Vec<EndpointConfig>, String> {
@@ -7133,7 +7132,6 @@ impl ProductionComponents {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let mut exports = Vec::new();
-        let mut entries = Vec::new();
         for id in &ids {
             let entry = Feed::entry(scope, id)
                 .map_err(|error| activity_feed_failure(&error))?
@@ -7143,26 +7141,23 @@ impl ProductionComponents {
                     .canonical()
                     .ok_or_else(ApiFailure::upstream_degraded)?
                     .to_vec();
-                let authority = receipt
-                    .authority()
-                    .copied()
-                    .ok_or_else(ApiFailure::upstream_degraded)?;
                 let digest: [u8; 32] = sha2::Sha256::digest(&canonical).into();
                 if hex_bytes(&digest) != receipt.reference() {
                     return Err(ApiFailure::upstream_degraded());
                 }
-                let fact = EvidenceBundle::receipt_fact(id, canonical, authority)
+                let fact = receipt
+                    .export_fact(id)
                     .map_err(|_| ApiFailure::upstream_degraded())?;
-                exports.push(OfflineExport {
+                exports.push(ReceiptExport {
                     receipts: vec![fact],
                     inclusions: Vec::new(),
                     checkpoints: Vec::new(),
                     derived_aggregates: Vec::new(),
                 });
             }
-            entries.push(entry);
         }
-        let receipt_authority = ReceiptAuthority::from_entries(&entries);
+        let receipt_keys =
+            AgentRuntime::receipt_keys(&self.paxeer_endpoint).map_err(agent_failure)?;
         let head = self
             .principal_agent(scope)?
             .head()
@@ -7174,8 +7169,7 @@ impl ProductionComponents {
                 &filters,
                 &ids,
                 exports,
-                self.settlement_domain,
-                &receipt_authority,
+                &receipt_keys,
                 self.now()?,
                 head.chain_sequence,
             )
@@ -7183,13 +7177,9 @@ impl ProductionComponents {
         let bytes = bundle.encode().map_err(activity_export_failure)?;
         let digest: [u8; 32] = sha2::Sha256::digest(&bytes).into();
         let text = hex_bytes(&digest);
-        let verification =
-            super::production_reads::verification_label(&verification_status(bundle.verify(
-                digest,
-                scope.principal(),
-                self.settlement_domain,
-                &receipt_authority,
-            )))?;
+        let verification = super::production_reads::verification_label(&verification_status(
+            bundle.verify(digest, scope.principal(), &receipt_keys),
+        ))?;
         scope
             .put(
                 Table::Cache,
