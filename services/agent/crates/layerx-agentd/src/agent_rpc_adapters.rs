@@ -152,12 +152,23 @@ pub(crate) fn subscription_health<A: HumanAuthorityBoundary>(
     let id = ctx.request_id;
     let wire: crate::agent_rpc_wire::SubscriptionTargetWire = decode(request, id)?;
     let typed = wire.into_request(id)?;
-    let response = owner
-        .lock()
-        .and_then(|mut guard| guard.rpc_subscription_health(context, typed))
+    let mut guard = owner.lock().map_err(|error| owner_error(id, error))?;
+    let response = guard
+        .rpc_subscription_health(context, typed.clone())
         .map_err(|error| owner_error(id, error))?;
+    let store = guard.session_control.store();
+    let store = store
+        .lock()
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let positions =
+        SubscriptionCursorSnapshot::read(&store, &typed, Some(&context.permit().credential()), id)?;
+    let mut value = subscription_health_value(id, response.bytes())?;
+    value
+        .as_object_mut()
+        .ok_or_else(|| malformed(id))?
+        .extend(positions.health_fields());
     Ok(Dispatched {
-        value: subscription_health_value(id, response.bytes())?,
+        value,
         verification: None,
     })
 }
@@ -171,13 +182,224 @@ pub(crate) fn subscription_acknowledge<A: HumanAuthorityBoundary>(
     let id = ctx.request_id;
     let wire: crate::agent_rpc_wire::CursorAcknowledgementWire = decode(request, id)?;
     let typed = wire.into_request(id)?;
-    let response = owner
-        .lock()
-        .and_then(|mut guard| guard.rpc_subscription_acknowledge(context, typed))
-        .map_err(|error| owner_error(id, error))?;
+    let mut guard = owner.lock().map_err(|error| owner_error(id, error))?;
+    let response = match guard.rpc_subscription_acknowledge(context, typed.clone()) {
+        Ok(response) => response,
+        Err(HumanOperationError::Refused) => {
+            context
+                .permit()
+                .boundary(&guard.session_control)
+                .map_err(|_| owner_error(id, HumanOperationError::Refused))?;
+            let target = layerx_agent_api::subscription::SubscriptionTarget {
+                scope: typed.scope,
+                subscription_id: typed.subscription_id,
+            };
+            let store = guard.session_control.store();
+            let store = store
+                .lock()
+                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+            let positions = SubscriptionCursorSnapshot::read(
+                &store,
+                &target,
+                Some(&context.permit().credential()),
+                id,
+            )?;
+            return Err(positions.acknowledgement_error(typed.cursor.into(), id));
+        }
+        Err(error) => return Err(owner_error(id, error)),
+    };
     Ok(Dispatched {
         value: subscription_record_value(id, response.bytes())?,
         verification: None,
+    })
+}
+
+pub struct SubscriptionCursorSnapshot {
+    last_delivered: crate::events::subscription::Cursor,
+    ingest_watermark: Option<crate::events::subscription::Cursor>,
+}
+
+impl SubscriptionCursorSnapshot {
+    pub fn read(
+        store: &crate::store::Store,
+        target: &layerx_agent_api::subscription::SubscriptionTarget,
+        credential: Option<&crate::session::SessionCredential>,
+        id: RequestId,
+    ) -> Result<Self, Rejection> {
+        use crate::store::{ObjectKind, StorageClass, TenantId, TenantKey};
+        let corrupt = || {
+            rejection(
+                ErrorClass::InternalFault,
+                id,
+                "subscription.cursor_state_malformed",
+            )
+        };
+        let refused = || owner_error(id, HumanOperationError::Refused);
+        let tenant = TenantId::new(target.scope.tenant.as_str()).map_err(|_| refused())?;
+        let key = TenantKey::new(
+            tenant.clone(),
+            ObjectKind::Subscription,
+            target.subscription_id.as_str().as_bytes().to_vec(),
+        )
+        .map_err(|_| corrupt())?;
+        let record = store.get(&key).ok_or_else(refused)?;
+        if record.class() != StorageClass::LocalOnly {
+            return Err(corrupt());
+        }
+        let mut reader = Reader {
+            bytes: record.bytes(),
+            offset: 0,
+        };
+        let magic = reader.take(4).ok_or_else(corrupt)?;
+        if magic == b"LXS2" || magic == b"LXSB" {
+            return Err(rejection(
+                ErrorClass::PolicyRefusal,
+                id,
+                "subscription.cursor_reset_required",
+            ));
+        }
+        if magic != b"LXS3" {
+            return Err(corrupt());
+        }
+        for expected in [
+            target.subscription_id.as_str(),
+            target.scope.tenant.as_str(),
+            target.scope.agent.as_str(),
+            target.scope.capability.as_str(),
+        ] {
+            if reader.text().ok_or_else(corrupt)? != expected {
+                return Err(refused());
+            }
+        }
+        match reader.u8().ok_or_else(corrupt)? {
+            0 if credential.is_none() => {}
+            0 => return Err(refused()),
+            1 => {
+                let session = reader.fixed::<32>().ok_or_else(corrupt)?;
+                let token = reader.fixed::<32>().ok_or_else(corrupt)?;
+                let generation = reader.u64().ok_or_else(corrupt)?;
+                if !credential.is_some_and(|credential| {
+                    credential.tenant() == &tenant
+                        && credential.session_id().0 == session
+                        && credential.token_id() == token
+                        && credential.generation() == generation
+                }) {
+                    return Err(refused());
+                }
+            }
+            _ => return Err(corrupt()),
+        }
+        reader.text().ok_or_else(corrupt)?;
+        let start = subscription_binary_cursor(&mut reader).ok_or_else(corrupt)?;
+        let mut last_delivered = subscription_binary_cursor(&mut reader).ok_or_else(corrupt)?;
+        if last_delivered < start {
+            return Err(corrupt());
+        }
+        let count = reader.u32().ok_or_else(corrupt)?;
+        for _ in 0..count {
+            let delivered = subscription_binary_cursor(&mut reader).ok_or_else(corrupt)?;
+            if delivered <= last_delivered {
+                return Err(corrupt());
+            }
+            last_delivered = delivered;
+        }
+        subscription_flag(&mut reader).ok_or_else(corrupt)?;
+        match reader.u8().ok_or_else(corrupt)? {
+            0 => {}
+            1 => {
+                reader.take(26).ok_or_else(corrupt)?;
+            }
+            2 => {
+                reader.take(24).ok_or_else(corrupt)?;
+            }
+            _ => return Err(corrupt()),
+        }
+        if reader.u8().ok_or_else(corrupt)? != 0 {
+            return Err(refused());
+        }
+        let key = TenantKey::new(
+            tenant,
+            ObjectKind::Configuration,
+            b"event-ingestion-watermark".to_vec(),
+        )
+        .map_err(|_| corrupt())?;
+        let ingest_watermark = match store.get(&key) {
+            None => None,
+            Some(value) => {
+                if value.class() != StorageClass::LocalOnly {
+                    return Err(corrupt());
+                }
+                let mut reader = Reader {
+                    bytes: value.bytes(),
+                    offset: 0,
+                };
+                if reader.take(4).ok_or_else(corrupt)? != b"LXEW" {
+                    return Err(corrupt());
+                }
+                let ingested = subscription_flag(&mut reader).ok_or_else(corrupt)?;
+                let last = reader.u64().ok_or_else(corrupt)?;
+                let next = reader.u64().ok_or_else(corrupt)?;
+                let positioned = subscription_flag(&mut reader).ok_or_else(corrupt)?;
+                let position = subscription_binary_cursor(&mut reader).ok_or_else(corrupt)?;
+                reader.finish().ok_or_else(corrupt)?;
+                if (ingested && last.checked_add(1) != Some(next))
+                    || (positioned && !ingested)
+                    || (!positioned
+                        && (position.block_height != 0
+                            || position.tx_index != 0
+                            || position.log_index != 0))
+                {
+                    return Err(corrupt());
+                }
+                positioned.then_some(position)
+            }
+        };
+        Ok(Self {
+            last_delivered,
+            ingest_watermark,
+        })
+    }
+
+    pub fn health_fields(&self) -> Map<String, Value> {
+        Map::from_iter([
+            (
+                "last_delivered".into(),
+                subscription_position_value(self.last_delivered),
+            ),
+            (
+                "ingest_watermark".into(),
+                self.ingest_watermark
+                    .map_or(Value::Null, subscription_position_value),
+            ),
+        ])
+    }
+
+    pub fn acknowledgement_error(
+        &self,
+        cursor: crate::events::subscription::Cursor,
+        id: RequestId,
+    ) -> Rejection {
+        if cursor > self.last_delivered {
+            rejection(ErrorClass::PolicyRefusal, id, "subscription.cursor_ahead")
+        } else {
+            owner_error(id, HumanOperationError::Refused)
+        }
+    }
+}
+
+fn subscription_binary_cursor(
+    reader: &mut Reader<'_>,
+) -> Option<crate::events::subscription::Cursor> {
+    Some(crate::events::subscription::Cursor {
+        block_height: reader.u64()?,
+        tx_index: reader.u32()?,
+        log_index: reader.u32()?,
+    })
+}
+
+fn subscription_position_value(cursor: crate::events::subscription::Cursor) -> Value {
+    serde_json::json!({
+        "block_height": dec(cursor.block_height), "tx_index": dec(cursor.tx_index), "log_index": dec(cursor.log_index),
     })
 }
 
