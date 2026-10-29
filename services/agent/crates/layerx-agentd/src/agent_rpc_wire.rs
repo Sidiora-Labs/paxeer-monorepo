@@ -2737,8 +2737,8 @@ mod native_contract_tests {
         assert_eq!(human.activity_type, 0x0009_0001);
         assert_eq!(human.actor, "did:layerx:alice");
         assert_eq!(human.authority, "owner-primary");
-        assert_eq!(human.account_sequence, 4);
-        assert_eq!((human.not_before, human.not_after), (10, 20));
+        assert_eq!(human.nonce, 4);
+        assert_eq!((human.not_before_height, human.not_after_height), (10, 20));
         assert_eq!(human.idempotency_key, "88".repeat(32));
         assert_eq!(human.fee_limit, 123);
         assert_eq!(human.payload, [1, 2]);
