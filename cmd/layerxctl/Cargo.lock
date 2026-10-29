@@ -626,6 +626,7 @@ dependencies = [
  "layerx-types",
  "layerx-wire",
  "libc",
+ "sha2",
 ]
 
 [[package]]
