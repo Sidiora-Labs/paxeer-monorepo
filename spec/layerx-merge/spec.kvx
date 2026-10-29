@@ -187646,7 +187646,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1194.1]
 title = "Issue #1194: Export the receipted receipt view from a committed RPC answer so .NET bundles import in Go"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
