@@ -34,6 +34,124 @@ pub struct DispatchContext {
     pub peer: HumanPeer,
 }
 
+pub struct PreparedBootstrapTransaction {
+    pub transaction: Eip1559Call,
+    pub signed_transaction: Vec<u8>,
+    pub tx_hash: [u8; 32],
+    pub bound_address: [u8; 20],
+}
+
+fn prepare_bootstrap_transaction(
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+    chain_id: u64,
+    fees: layerx_client::account_binding::BindFees,
+    call: crate::prepare::evm::PrecompileCall,
+    bound_address: [u8; 20],
+    id: RequestId,
+) -> Result<PreparedBootstrapTransaction, Rejection> {
+    if chain_id == 0 || fees.gas_limit == 0 || fees.max_fee_per_gas < fees.max_priority_fee_per_gas
+    {
+        return Err(malformed(id));
+    }
+    let transaction = Eip1559Call {
+        chain_id,
+        nonce: fees.evm_nonce,
+        max_priority_fee_per_gas: fees.max_priority_fee_per_gas,
+        max_fee_per_gas: fees.max_fee_per_gas,
+        gas_limit: fees.gas_limit,
+        to: call.target.address(),
+        data: call.encode().map_err(|_| malformed(id))?,
+    };
+    let secret = account
+        .evm_secret()
+        .ok_or_else(|| rejection(ErrorClass::PolicyRefusal, id, "binding.evm_key_unavailable"))?;
+    let signed_transaction = transaction.sign(secret).map_err(|_| malformed(id))?;
+    Ok(PreparedBootstrapTransaction {
+        tx_hash: transaction_hash(&signed_transaction),
+        transaction,
+        signed_transaction,
+        bound_address,
+    })
+}
+
+pub fn agent_register(
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+    chain_id: u64,
+    bind_nonce: u64,
+    fees: layerx_client::account_binding::BindFees,
+    id: RequestId,
+) -> Result<PreparedBootstrapTransaction, Rejection> {
+    use layerx_client::account_binding::{plan_bind, sign_bind_transaction, BindError, BindPlan};
+    if chain_id == 0 || fees.gas_limit == 0 || fees.max_fee_per_gas < fees.max_priority_fee_per_gas
+    {
+        return Err(malformed(id));
+    }
+    let BindPlan::Bind(call) =
+        plan_bind(account, chain_id, None, bind_nonce).map_err(|_| malformed(id))?
+    else {
+        return Err(malformed(id));
+    };
+    call.signed_binding().verify().map_err(|_| malformed(id))?;
+    let signed_transaction =
+        sign_bind_transaction(account, chain_id, &call, fees).map_err(|error| match error {
+            BindError::EvmKeyUnavailable => {
+                rejection(ErrorClass::PolicyRefusal, id, "binding.evm_key_unavailable")
+            }
+            _ => malformed(id),
+        })?;
+    let (transaction, _) = decode_signed(&signed_transaction).map_err(|_| malformed(id))?;
+    Ok(PreparedBootstrapTransaction {
+        tx_hash: transaction_hash(&signed_transaction),
+        transaction,
+        signed_transaction,
+        bound_address: account.evm_address(),
+    })
+}
+
+pub fn session_open(
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+    registry: &crate::session_keys::SessionKeyRegistry,
+    issued: &layerx_crypto::session::IssuedSessionKey,
+    chain_id: u64,
+    expiry_sequence: u64,
+    purpose: [u8; 32],
+    fees: layerx_client::account_binding::BindFees,
+    id: RequestId,
+) -> Result<PreparedBootstrapTransaction, Rejection> {
+    use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+    if expiry_sequence == 0 {
+        return Err(malformed(id));
+    }
+    let decoded = layerx_crypto::session::decode_session_key(&issued.registration_payload)
+        .map_err(|_| malformed(id))?;
+    if decoded != *issued {
+        return Err(malformed(id));
+    }
+    let key = registry
+        .load(issued.grant_id, issued.clone())
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "session.key_unavailable"))?;
+    let mut expiry = [0; 32];
+    expiry[24..].copy_from_slice(&expiry_sequence.to_be_bytes());
+    key.with_secret(|_| ())
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "session.key_unavailable"))?;
+    prepare_bootstrap_transaction(
+        account,
+        chain_id,
+        fees,
+        PrecompileCall {
+            target: PrecompileTarget::Auth,
+            selector: [0x11, 0x07, 0xb4, 0x9e],
+            arguments: vec![
+                AbiArgument::Bytes(issued.registration_payload.clone()),
+                AbiArgument::Word(expiry),
+                AbiArgument::Word(purpose),
+            ],
+        },
+        key.evm_address(),
+        id,
+    )
+}
+
 /// `verification` is `Some` only when the decoded owner payload carries a verification level;
 /// payloads without one (head, approval records) report `None` and no level is invented.
 pub(crate) struct Dispatched {
@@ -962,9 +1080,9 @@ pub(crate) fn human_prepare(
             .map_err(|_| noncanonical(request_id))?,
         actor: request.actor,
         authority: request.authority,
-        account_sequence: decimal_u64(&request.account_sequence, request_id)?,
-        not_before: decimal_u64(&request.not_before, request_id)?,
-        not_after: decimal_u64(&request.not_after, request_id)?,
+        nonce: decimal_u64(&request.account_sequence, request_id)?,
+        not_before_height: decimal_u64(&request.not_before, request_id)?,
+        not_after_height: decimal_u64(&request.not_after, request_id)?,
         idempotency_key: request.idempotency_key,
         fee_limit: decimal_u128(&request.fee_limit, request_id)?,
         payload: hex_bytes(&request.payload, request_id)?,

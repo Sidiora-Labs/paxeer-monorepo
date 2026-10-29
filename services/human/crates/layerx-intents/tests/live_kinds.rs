@@ -1,6 +1,4 @@
 use layerx_crypto::authority_grant::AuthorityGrant;
-use layerx_crypto::onboarding::SponsoredRegistration;
-use layerx_crypto::rotation::OwnerRotation;
 use layerx_crypto::send::SendDebit;
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
 use layerx_crypto::signer::{LocalSigner, Signer};
@@ -299,9 +297,6 @@ fn live_intents() -> Vec<Intent> {
         )),
     ];
 
-    let consent = checked(SponsoredRegistration::from_signed_consent(include_bytes!(
-        "../../../../../tests/fixtures/authority/provider-subject/onboarding.activity"
-    )));
     let issued = checked(issue_session_key(&SessionKeyRequest {
         fee_budget: None,
         purpose: SessionPurpose::Activity,
@@ -330,8 +325,6 @@ fn live_intents() -> Vec<Intent> {
         .map(|pair| checked(u8::from_str_radix(checked(std::str::from_utf8(pair)), 16)))
         .collect::<Vec<_>>();
     intents.extend([
-        Intent::v3(IntentKind::NativeOnboardingConsent(consent.consent.clone())),
-        Intent::v3(IntentKind::NativeOnboarding(consent)),
         Intent::v3(IntentKind::NativeBudgetCreate(NativeBudgetCreate {
             budget_id: [0x31; 32],
             budget_account: account(&format!("agent:did:key:managed:budget:{}", "31".repeat(32))),
@@ -347,13 +340,6 @@ fn live_intents() -> Vec<Intent> {
             rollover: 1,
             source_account: account(&format!("agent:did:key:managed:asset:{}", "42".repeat(32))),
             source_sequence: 7,
-        })),
-        Intent::v3(IntentKind::NativeOwnerRotation(OwnerRotation::Announce {
-            owner: checked(Did::new(b"did:key:managed")),
-            pending_public_key: LocalSigner::new([21; 32]).public_key(),
-            begin: 10,
-            end: 20,
-            effective_sequence: 3,
         })),
         Intent::v3(IntentKind::NativeAssetAccountOpen(asset())),
         Intent::v1(IntentKind::SessionGrant(checked(SessionGrant::new(
@@ -389,28 +375,25 @@ fn live_intents() -> Vec<Intent> {
 fn kind_index(kind: &IntentKind) -> usize {
     match kind {
         IntentKind::DidRegistration(_) => 0,
-        IntentKind::NativeOnboardingConsent(_) => 1,
-        IntentKind::NativeOnboarding(_) => 2,
-        IntentKind::NativeBudgetCreate(_) => 3,
-        IntentKind::NativeOwnerRotation(_) => 4,
-        IntentKind::NativeAssetAccountOpen(_) => 5,
-        IntentKind::KeyRotation(_) => 6,
-        IntentKind::RecoveryRegistration(_) => 7,
-        IntentKind::EvmPayoutBinding(_) => 8,
-        IntentKind::SessionGrant(_) => 9,
-        IntentKind::AuthorityGrant(_) => 10,
-        IntentKind::SessionRevoke(_) => 11,
-        IntentKind::LxpSend(_) => 12,
-        IntentKind::LxpReceive(_) => 13,
-        IntentKind::PayerGrantRegistration(_) => 14,
-        IntentKind::BudgetCreate(_) => 15,
-        IntentKind::BudgetFund(_) => 16,
-        IntentKind::BudgetDefund(_) => 17,
-        IntentKind::BridgeDepositCredit(_) => 18,
-        IntentKind::NativeCustodyCredit(_) => 19,
-        IntentKind::NativeReceive(_) => 20,
-        IntentKind::BridgeWithdrawRequest(_) => 21,
-        IntentKind::Perps(_) => 22,
+        IntentKind::NativeBudgetCreate(_) => 1,
+        IntentKind::NativeAssetAccountOpen(_) => 2,
+        IntentKind::KeyRotation(_) => 3,
+        IntentKind::RecoveryRegistration(_) => 4,
+        IntentKind::EvmPayoutBinding(_) => 5,
+        IntentKind::SessionGrant(_) => 6,
+        IntentKind::AuthorityGrant(_) => 7,
+        IntentKind::SessionRevoke(_) => 8,
+        IntentKind::LxpSend(_) => 9,
+        IntentKind::LxpReceive(_) => 10,
+        IntentKind::PayerGrantRegistration(_) => 11,
+        IntentKind::BudgetCreate(_) => 12,
+        IntentKind::BudgetFund(_) => 13,
+        IntentKind::BudgetDefund(_) => 14,
+        IntentKind::BridgeDepositCredit(_) => 15,
+        IntentKind::NativeCustodyCredit(_) => 16,
+        IntentKind::NativeReceive(_) => 17,
+        IntentKind::BridgeWithdrawRequest(_) => 18,
+        IntentKind::Perps(_) => 19,
     }
 }
 
@@ -418,7 +401,7 @@ fn kind_index(kind: &IntentKind) -> usize {
 fn every_remaining_intent_kind_compiles() {
     let registry = registry();
     let intents = live_intents();
-    let mut covered = [false; 23];
+    let mut covered = [false; 20];
     for intent in &intents {
         let index = kind_index(intent.kind());
         assert!(
