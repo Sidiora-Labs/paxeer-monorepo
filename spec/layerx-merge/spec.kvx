@@ -176254,7 +176254,7 @@ do_9 = "Every refused LX_PROGRAMS_CALL under protocol v3 carries result_code LXP
 
 [task.18.911.2]
 title = "Issue #911: settle_call_occupancy admits the market sandbox billing commit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
