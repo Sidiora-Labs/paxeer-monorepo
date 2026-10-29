@@ -224,21 +224,24 @@ pub const WEB_TOOLS: [ToolDefinition; 3] = [
         name: "web.search",
         kind: ToolKind::Write,
         required_scope: "write:web:search",
-        mutation: "one 402LXP payment to the configured x-websearch sidecar",
+        mutation:
+            "one layerxpay payExact payment or budget draw to the configured x-websearch sidecar",
         evidence: "sequencer-signed settlement receipt and untrusted search results",
     },
     ToolDefinition {
         name: "web.fetch",
         kind: ToolKind::Write,
         required_scope: "write:web:fetch",
-        mutation: "one 402LXP payment to the configured x-websearch sidecar",
+        mutation:
+            "one layerxpay payExact payment or budget draw to the configured x-websearch sidecar",
         evidence: "sequencer-signed settlement receipt and digest-checked untrusted page text",
     },
     ToolDefinition {
         name: "web.content",
         kind: ToolKind::Write,
         required_scope: "write:web:content",
-        mutation: "one 402LXP payment to the configured x-websearch sidecar",
+        mutation:
+            "one layerxpay payExact payment or budget draw to the configured x-websearch sidecar",
         evidence: "sequencer-signed settlement receipt and digest-checked untrusted stored content",
     },
 ];
@@ -401,8 +404,10 @@ pub fn input_schema(name: &str) -> Option<Value> {
 pub fn validate(name: &str, arguments: &Value) -> Result<(), ArgumentError> {
     let variant = arguments.get("variant").and_then(Value::as_str);
     if variant == Some("external_signature_v1") && name == "activity.sign" {
+        crate::binding::external_signature_request(arguments)
+            .map_err(|_| ArgumentError::Malformed("mcp.external_signature"))?;
         validate_session_schema(arguments, &external_sign_schema())?;
-        strict_hex(arguments.get("signature"), 64)?;
+        strict_hex(arguments.get("signature"), 65)?;
         strict_hex(arguments.get("preparation_ref"), 32)?;
         return Ok(());
     }
@@ -1003,27 +1008,40 @@ fn native_submit_schema() -> Value {
         json!({
             "variant": {"type": "string", "enum": ["native_send_submit_v1"]},
             "tenant": native_wire_text(), "agent": native_wire_text(),
-            "preparation_ref": native_wire_hex(32), "signature": native_wire_hex(64), "signer_public_key": native_wire_hex(32),
+            "preparation_ref": native_wire_hex(32), "signature": native_wire_hex(65), "signer_address": native_wire_hex(20),
             "approval_release_ref": {"anyOf": [native_wire_text(), {"type": "null"}]},
         }),
-        &[
-            "variant",
-            "preparation_ref",
-            "signature",
-            "signer_public_key",
-        ],
+        &["variant", "preparation_ref", "signature", "signer_address"],
     )
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeAliasTarget {
+    pub module: layerx_types::payload::ModuleId,
+    pub ordinal: u16,
+    pub address: [u8; 20],
+}
+
+pub fn native_alias_target(name: &str) -> Option<NativeAliasTarget> {
+    let (ordinal, suffix) = match name {
+        "wallet.send" | "token.transfer" => (5, 0x101a_u16),
+        "token.create" => (1, 0x101a),
+        "token.mint" => (10, 0x101a),
+        "grant.issue" => (7, 0x101b),
+        "grant.draw" => (6, 0x101b),
+        _ => return None,
+    };
+    let mut address = [0; 20];
+    address[18..].copy_from_slice(&suffix.to_be_bytes());
+    Some(NativeAliasTarget {
+        module: layerx_types::payload::ModuleId::Asset,
+        ordinal,
+        address,
+    })
+}
+
 pub(crate) fn native_alias_ordinal(name: &str) -> Option<u16> {
-    match name {
-        "wallet.send" | "token.transfer" => Some(5),
-        "token.create" => Some(1),
-        "token.mint" => Some(10),
-        "grant.issue" => Some(7),
-        "grant.draw" => Some(6),
-        _ => None,
-    }
+    native_alias_target(name).map(|target| target.ordinal)
 }
 
 pub(crate) fn canonical_owner(name: &str) -> bool {
@@ -1045,7 +1063,7 @@ pub(crate) fn canonical_owner(name: &str) -> bool {
 fn external_sign_schema() -> Value {
     session_object(
         json!({"variant":{"type":"string","enum":["external_signature_v1"]},
-        "preparation_ref":native_wire_hex(32),"signature":native_wire_hex(64)}),
+        "preparation_ref":native_wire_hex(32),"signature":native_wire_hex(65)}),
         &["variant", "preparation_ref", "signature"],
     )
 }
@@ -1078,14 +1096,14 @@ fn native_write_schema(name: &str) -> Option<Value> {
     Some(session_object(
         json!({"variant":{"type":"string","enum":["native_write_v1"]},
         "intent":session_object(Value::Object(props),&names),"preparation":preparation,"canonical_bytes":native_wire_bytes(None),
-        "signature":native_wire_hex(64),"signer_public_key":native_wire_hex(32)}),
+        "signature":native_wire_hex(65),"signer_address":native_wire_hex(20)}),
         &[
             "variant",
             "intent",
             "preparation",
             "canonical_bytes",
             "signature",
-            "signer_public_key",
+            "signer_address",
         ],
     ))
 }
@@ -1113,7 +1131,7 @@ fn validate_native_write(name: &str, arguments: &Value) -> Result<(), ArgumentEr
             "preparation",
             "canonical_bytes",
             "signature",
-            "signer_public_key",
+            "signer_address",
         ]
         .iter()
         .all(|k| object.contains_key(*k))
@@ -1123,8 +1141,8 @@ fn validate_native_write(name: &str, arguments: &Value) -> Result<(), ArgumentEr
     if serde_json::to_vec(arguments).map_or(true, |v| v.len() > MAX_ARGUMENT_BYTES) {
         return Err(ArgumentError::TooLarge);
     }
-    strict_hex(object.get("signature"), 64)?;
-    strict_hex(object.get("signer_public_key"), 32)?;
+    strict_hex(object.get("signature"), 65)?;
+    strict_hex(object.get("signer_address"), 20)?;
     let canonical = object
         .get("canonical_bytes")
         .and_then(Value::as_str)

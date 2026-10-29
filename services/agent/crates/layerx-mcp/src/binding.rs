@@ -11,6 +11,7 @@ use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::config::{read_protected_source, ProtectedSourceError};
 use layerx_agentd::policy::approval::ApprovalRegistry;
+use layerx_agentd::prepare::evm::PrecompileCall;
 use layerx_agentd::prepare::PreparationLifecycle;
 use layerx_agentd::session::{SessionCredential, SessionId, SessionRegistry};
 use layerx_agentd::session_control::{McpInvocationIdentity, SessionControl};
@@ -61,7 +62,7 @@ const WEB_KEYS: [&str; 11] = [
     "payer_address",
     "receiver_address",
     "network",
-    "sequencer_public_key",
+    "receipt_key_index",
     "sequencer_id",
     "first_batch_number",
     "last_batch_number",
@@ -263,7 +264,7 @@ struct WebBinding {
     payer_address: String,
     receiver_address: [u8; 20],
     network: String,
-    sequencer_public_key: [u8; 32],
+    receipt_key_index: Vec<layerx_proof::inclusion::SequencerAuthorization>,
     sequencer_id: [u8; 32],
     first_batch_number: u64,
     last_batch_number: u64,
@@ -319,18 +320,35 @@ impl WebPayer for SharedPayer {
             .validate_search_quote(asset, amount)
     }
 
-    fn grant(&mut self, terms: &GrantTerms) -> Result<Vec<u8>, WebPayerError> {
+    fn grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
         self.0
             .lock()
             .map_err(|_| WebPayerError::Unavailable)?
             .grant(terms)
     }
 
-    fn pay(&mut self, terms: &ExactTerms) -> Result<ExactPayment, WebPayerError> {
+    fn pay(&mut self, terms: &ExactTerms) -> Result<PrecompileCall, WebPayerError> {
         self.0
             .lock()
             .map_err(|_| WebPayerError::Unavailable)?
             .pay(terms)
+    }
+    fn draw(
+        &mut self,
+        terms: &GrantTerms,
+        grant_id: [u8; 32],
+    ) -> Result<PrecompileCall, WebPayerError> {
+        self.0
+            .lock()
+            .map_err(|_| WebPayerError::Unavailable)?
+            .draw(terms, grant_id)
+    }
+
+    fn submit(&mut self, call: &PrecompileCall) -> Result<ExactPayment, WebPayerError> {
+        self.0
+            .lock()
+            .map_err(|_| WebPayerError::Unavailable)?
+            .submit(call)
     }
 }
 
@@ -382,6 +400,26 @@ pub struct OwnerEnvironment {
     pub head_sequence: u64,
     pub native_effect_profile: bool,
     pub native_send_profile: bool,
+}
+
+pub fn external_signature_request(arguments: &Value) -> Result<Value, BoundaryRefusal> {
+    let refuse = || BoundaryRefusal::Malformed("mcp.external_signature".into());
+    arguments
+        .get("signature")
+        .and_then(Value::as_str)
+        .ok_or_else(refuse)?
+        .parse::<layerx_agent_api::submit::SignatureBytes>()
+        .map_err(|_| refuse())?;
+    let mut request = arguments.clone();
+    let object = request.as_object_mut().ok_or_else(refuse)?;
+    if object
+        .remove("variant")
+        .and_then(|value| value.as_str().map(str::to_owned))
+        != Some("external_signature_v1".to_owned())
+    {
+        return Err(refuse());
+    }
+    Ok(request)
 }
 
 struct OwnerBoundary<F> {
@@ -438,11 +476,7 @@ where
         if tool.name == "activity.sign"
             && arguments.get("variant").and_then(Value::as_str) == Some("external_signature_v1")
         {
-            let mut request = arguments.clone();
-            request
-                .as_object_mut()
-                .ok_or_else(|| BoundaryRefusal::Malformed("mcp.external_signature".into()))?
-                .remove("variant");
+            let request = external_signature_request(arguments)?;
             return (self.owner)(
                 layerx_agentd::tenant::Operation::Sign,
                 &self.credential,
@@ -1013,7 +1047,11 @@ impl Binding {
             &web.payer_address,
             web.receiver_address,
             &web.network,
-            web.sequencer_public_key,
+            web.receipt_key_index
+                .iter()
+                .find(|key| key.sequencer_id() == web.sequencer_id)
+                .ok_or_else(|| malformed("field web.receipt_key_index has no selected key"))?
+                .public_key(),
             web.sequencer_id,
             web.first_batch_number,
             web.last_batch_number,
@@ -1141,6 +1179,11 @@ fn web_binding(declared: &Value) -> Result<WebBinding, BindingError> {
     let web = declared
         .as_object()
         .ok_or_else(|| malformed("field web must be an object"))?;
+    if web.contains_key("sequencer_public_key") {
+        return Err(malformed(
+            "field web.sequencer_public_key is retired; use receipt_key_index",
+        ));
+    }
     closed(web, &WEB_KEYS, "web")?;
     let pending_attempts = u8::try_from(unsigned(web, "pending_attempts")?)
         .map_err(|_| malformed("field web.pending_attempts is outside its unsigned range"))?;
@@ -1160,7 +1203,7 @@ fn web_binding(declared: &Value) -> Result<WebBinding, BindingError> {
         payer_address: text(web, "payer_address")?.to_owned(),
         receiver_address,
         network: text(web, "network")?.to_owned(),
-        sequencer_public_key: digest::<32>(web, "sequencer_public_key")?,
+        receipt_key_index: receipt_key_index(web)?,
         sequencer_id: digest::<32>(web, "sequencer_id")?,
         first_batch_number: unsigned(web, "first_batch_number")?,
         last_batch_number: unsigned(web, "last_batch_number")?,
@@ -1200,8 +1243,14 @@ fn web_binding(declared: &Value) -> Result<WebBinding, BindingError> {
     {
         return Err(malformed("field web.network is invalid"));
     }
-    if binding.sequencer_public_key == [0; 32] {
-        return Err(malformed("field web.sequencer_public_key is invalid"));
+    if !binding.receipt_key_index.iter().any(|key| {
+        key.sequencer_id() == binding.sequencer_id
+            && key.first_batch_number() <= binding.first_batch_number
+            && key.last_batch_number() >= binding.last_batch_number
+    }) {
+        return Err(malformed(
+            "field web.receipt_key_index does not cover the selected receipt range",
+        ));
     }
     if binding.sequencer_id == [0; 32] {
         return Err(malformed("field web.sequencer_id is invalid"));
@@ -1216,4 +1265,46 @@ fn web_binding(declared: &Value) -> Result<WebBinding, BindingError> {
         return Err(malformed("field web.pending_attempts is outside 1 to 10"));
     }
     Ok(binding)
+}
+
+fn receipt_key_index(
+    web: &Map<String, Value>,
+) -> Result<Vec<layerx_proof::inclusion::SequencerAuthorization>, BindingError> {
+    let entries = web
+        .get("receipt_key_index")
+        .and_then(Value::as_array)
+        .filter(|entries| !entries.is_empty() && entries.len() <= 64)
+        .ok_or_else(|| malformed("field web.receipt_key_index must be a nonempty key index"))?;
+    let mut result = Vec::with_capacity(entries.len());
+    for value in entries {
+        let entry = value
+            .as_object()
+            .ok_or_else(|| malformed("field web.receipt_key_index entry must be an object"))?;
+        closed(
+            entry,
+            &["keyId", "publicKey", "firstHeight", "lastHeight"],
+            "web.receipt_key_index",
+        )?;
+        let id = digest::<32>(entry, "keyId")?;
+        let public_key = digest::<32>(entry, "publicKey")?;
+        let first = unsigned(entry, "firstHeight")?;
+        let last = unsigned(entry, "lastHeight")?;
+        if id == [0; 32]
+            || public_key == [0; 32]
+            || first > last
+            || result
+                .iter()
+                .any(|key: &layerx_proof::inclusion::SequencerAuthorization| {
+                    key.sequencer_id() == id
+                })
+        {
+            return Err(malformed(
+                "field web.receipt_key_index has an invalid or repeated key",
+            ));
+        }
+        result.push(layerx_proof::inclusion::SequencerAuthorization::new(
+            id, public_key, first, last,
+        ));
+    }
+    Ok(result)
 }

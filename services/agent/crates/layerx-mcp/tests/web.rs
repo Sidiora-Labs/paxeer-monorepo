@@ -19,6 +19,7 @@ use layerx_agentd::identity::{
 use layerx_agentd::policy::approval::{
     ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
 };
+use layerx_agentd::prepare::evm::PrecompileCall;
 use layerx_agentd::prepare::PreparationLifecycle;
 use layerx_agentd::session::{open, OpenRequest, SessionCredential, SessionId, SessionRegistry};
 use layerx_agentd::session_control::SessionControl;
@@ -478,13 +479,17 @@ impl RecordedPayer {
 }
 
 impl WebPayer for RecordedPayer {
-    fn grant(&mut self, terms: &GrantTerms) -> Result<Vec<u8>, WebPayerError> {
+    fn grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
         self.grants.push(terms.clone());
-        Ok(self.grant.clone())
+        Ok(terms.prepare_budget())
     }
 
-    fn pay(&mut self, terms: &ExactTerms) -> Result<ExactPayment, WebPayerError> {
+    fn pay(&mut self, terms: &ExactTerms) -> Result<PrecompileCall, WebPayerError> {
         self.payments.push(terms.clone());
+        Ok(terms.prepare_pay_exact())
+    }
+
+    fn submit(&mut self, _call: &PrecompileCall) -> Result<ExactPayment, WebPayerError> {
         Ok(self.payment.clone())
     }
 }
@@ -1730,7 +1735,10 @@ fn opened_session(
             "payer_address": PAYER_ADDRESS,
             "receiver_address": format!("0x{}", hex(&receiver_address())),
             "network": NETWORK,
-            "sequencer_public_key": hex(&sequencer_key()),
+            "receipt_key_index": [{
+                "keyId": hex(&sequencer_id), "publicKey": hex(&sequencer_key()),
+                "firstHeight": first_batch_number, "lastHeight": last_batch_number,
+            }],
             "sequencer_id": hex(&sequencer_id),
             "first_batch_number": first_batch_number,
             "last_batch_number": last_batch_number,

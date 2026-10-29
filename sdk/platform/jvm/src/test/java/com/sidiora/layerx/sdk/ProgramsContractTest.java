@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,90 +32,7 @@ public final class ProgramsContractTest {
     private static final String LAYERX_SECRET = "lxp_live_" + "a1".repeat(32);
 
     @Test
-    void programsRoutesUseDirectPathsCanonicalGetBodiesAndLayerXKey() throws Exception {
-        var credential = new HttpProductionTransport.LayerXKeyCredential("test_key",
-            new SecretBytes(LAYERX_SECRET.getBytes(StandardCharsets.US_ASCII)));
-        var transport = new HttpProductionTransport(HttpClient.newHttpClient(), JSON,
-            URI.create("http://127.0.0.1:8080"), URI.create("http://127.0.0.1:9090/rpc"),
-            Duration.ofSeconds(1), credential);
-        ObjectNode selector = JSON.createObjectNode().put("program_id", HEX32)
-            .put("requested_verification_level", "sequencer-signed");
-        HttpRequest discover = transport.programRequest(new ProductionTransport.ProgramsCall(
-            "program.discover", selector, SchemaTypes.PathParameters.of("program_id", HEX32), null));
-        assertEquals("GET", discover.method());
-        assertEquals("/v1/programs/registry/" + HEX32, discover.uri().getPath());
-        assertTrue(discover.bodyPublisher().isPresent());
-        assertTrue(discover.bodyPublisher().orElseThrow().contentLength() > 0);
-        assertEquals("LayerX-Key test_key:" + LAYERX_SECRET,
-            discover.headers().firstValue("Authorization").orElseThrow());
-        assertFalse(discover.headers().firstValue("Idempotency-Key").isPresent());
-
-        HttpRequest interfaceRequest = transport.programRequest(new ProductionTransport.ProgramsCall(
-            "program.interface", selector, SchemaTypes.PathParameters.of("program_id", HEX32), null));
-        assertEquals("GET", interfaceRequest.method());
-        assertEquals("/v1/programs/registry/" + HEX32 + "/interface", interfaceRequest.uri().getPath());
-
-        ObjectNode call = JSON.createObjectNode().put("program_id", HEX32).put("calldata", "")
-            .put("signed_activity", "00");
-        call.putObject("budget").put("fuel", "1").put("fee_limit", "0");
-        call.putArray("capabilities");
-        HttpRequest submission = transport.programRequest(new ProductionTransport.ProgramsCall(
-            "program.call", call, SchemaTypes.PathParameters.none(), new IdempotencyKey(HEX32)));
-        assertEquals("POST", submission.method());
-        assertEquals("/v1/programs/call", submission.uri().getPath());
-        assertEquals(HEX32, submission.headers().firstValue("Idempotency-Key").orElseThrow());
-
-        HttpRequest simulation = transport.programRequest(new ProductionTransport.ProgramsCall(
-            "program.simulate", call, SchemaTypes.PathParameters.none(), null));
-        assertEquals("POST", simulation.method());
-        assertEquals("/v1/programs/simulate", simulation.uri().getPath());
-
-        ObjectNode receiptSelector = JSON.createObjectNode().put("idempotency_key", HEX32)
-            .put("expected_activity_id", OTHER_HEX32)
-            .put("requested_verification_level", "sequencer-signed");
-        HttpRequest receipt = transport.programRequest(new ProductionTransport.ProgramsCall(
-            "program.receipt", receiptSelector,
-            SchemaTypes.PathParameters.of("idempotency_key", HEX32), null));
-        assertEquals("GET", receipt.method());
-        assertEquals("/v1/programs/receipts/by-idempotency/" + HEX32, receipt.uri().getPath());
-
-        ObjectNode activitySelector = JSON.createObjectNode().put("activity_id", OTHER_HEX32)
-            .put("requested_verification_level", "sequencer-signed");
-        HttpRequest activity = transport.programRequest(new ProductionTransport.ProgramsCall(
-            "program.activity", activitySelector,
-            SchemaTypes.PathParameters.of("activity_id", OTHER_HEX32), null));
-        assertEquals("GET", activity.method());
-        assertEquals("/v1/programs/activities/" + OTHER_HEX32, activity.uri().getPath());
-
-        selector.put("unexpected", true);
-        assertThrows(PlatformSdkException.class, () -> transport.programRequest(
-            new ProductionTransport.ProgramsCall("program.discover", selector,
-                SchemaTypes.PathParameters.of("program_id", HEX32), null)));
-        credential.close();
-    }
-
-    @Test
-    void programsTransportRejectsBearerCredentialAndNonCanonicalCallKey() {
-        var bearer = new HttpProductionTransport.BearerCredential(
-            new SecretBytes("token".getBytes(StandardCharsets.US_ASCII)));
-        var transport = new HttpProductionTransport(HttpClient.newHttpClient(), JSON,
-            URI.create("http://localhost:8080"), URI.create("http://localhost:9090"),
-            Duration.ofSeconds(1), bearer);
-        ObjectNode call = JSON.createObjectNode().put("program_id", HEX32);
-        var nonCanonical = new ProductionTransport.ProgramsCall("program.call", call,
-            SchemaTypes.PathParameters.none(), new IdempotencyKey("ABC"));
-        PlatformSdkException invalid = assertThrows(PlatformSdkException.class,
-            () -> transport.programRequest(nonCanonical));
-        assertEquals(PlatformSdkException.Code.IDEMPOTENCY_REQUIRED, invalid.code());
-
-        var read = new ProductionTransport.ProgramsCall("program.activity",
-            JSON.createObjectNode().put("activity_id", HEX32)
-                .put("requested_verification_level", "sequencer-signed"),
-            SchemaTypes.PathParameters.of("activity_id", HEX32), null);
-        PlatformSdkException refused = assertThrows(PlatformSdkException.class,
-            () -> transport.programRequest(read));
-        assertEquals(PlatformSdkException.Code.CAPABILITY_REFUSAL, refused.code());
-        bearer.close();
+    void productionTransportRejectsRedirects() {
         assertThrows(PlatformSdkException.class, () -> new HttpProductionTransport(
             HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).build(), JSON,
             URI.create("http://localhost:8080"), URI.create("http://localhost:9090"),
@@ -250,7 +166,7 @@ public final class ProgramsContractTest {
             java.util.HexFormat.of().parseHex(HEX32)).toCompletableFuture().join();
         assertTrue(result.unknown());
         assertEquals(OTHER_HEX32, result.idempotencyKey());
-        assertEquals("program.receipt", transport.call.operation());
+        assertEquals("program.receipt", transport.call.operation().wireName());
         assertEquals(OTHER_HEX32, transport.call.pathParameters().require("idempotency_key"));
 
         unknown.put("activity_id", OTHER_HEX32);
@@ -395,42 +311,21 @@ public final class ProgramsContractTest {
     }
 
     @Test
-    void nativeKernelCallFixturesReachTheBinaryGatewayAdapterWithoutReencoding() throws Exception {
-        var credential = new HttpProductionTransport.LayerXKeyCredential("test_key",
-            new SecretBytes(LAYERX_SECRET.getBytes(StandardCharsets.US_ASCII)));
-        var transport = new HttpProductionTransport(HttpClient.newHttpClient(), JSON,
-            URI.create("http://127.0.0.1:8080"), URI.create("http://127.0.0.1:9090/rpc"),
-            Duration.ofSeconds(1), credential);
-        var encoder = ProgramsClient.class.getDeclaredMethod("encode", ProgramsClient.Call.class);
-        encoder.setAccessible(true);
-        try {
-            for (String name : List.of("native-program-call-v3.json", "native-program-call-v4.json")) {
-                JsonNode fixture = fixture(name);
-                byte[] payload = fixtureBytes(fixture, "payload_hex");
-                byte[] signed = fixtureBytes(fixture, "signed_activity_hex");
-                NativeProgramCall nativeCall = NativeProgramCall.decode(payload);
-                assertArrayEquals(payload, nativeCall.encode());
-                assertArrayEquals(fixtureBytes(fixture, "idempotency_key_hex"),
-                    NativeProgramLifecycleRequest.bind(3, payload, signed));
-                var call = new ProgramsClient.Call(nativeCall,
-                    new BigInteger(fixture.path("fee_limit").asText()), signed);
-                ObjectNode body = (ObjectNode) encoder.invoke(null, call);
-                for (String operation : List.of("program.simulate", "program.call")) {
-                    HttpRequest request = transport.programRequest(new ProductionTransport.ProgramsCall(
-                        operation, body, SchemaTypes.PathParameters.none(), operation.equals("program.call")
-                            ? new IdempotencyKey(fixture.path("idempotency_key_hex").asText()) : null));
-                    assertEquals("application/octet-stream", request.headers().firstValue("Content-Type").orElseThrow());
-                    assertEquals(operation.equals("program.call") ? "/v1/programs/call" : "/v1/programs/simulate",
-                        request.uri().getPath());
-                    assertArrayEquals(signed, publishedBody(request));
-                }
-                for (int unsupported : new int[] {0, 6, 65535}) {
-                    byte[] invalidPayload = payload.clone();
-                    ByteBuffer.wrap(invalidPayload).putShort(32, (short) unsupported);
-                    assertThrows(IllegalArgumentException.class, () -> NativeProgramCall.decode(invalidPayload));
-                }
+    void nativeKernelCallFixturesPreserveCanonicalPayloadsAndRejectUnsupportedAbis() throws Exception {
+        for (String name : List.of("native-program-call-v3.json", "native-program-call-v4.json")) {
+            JsonNode fixture = fixture(name);
+            byte[] payload = fixtureBytes(fixture, "payload_hex");
+            byte[] signed = fixtureBytes(fixture, "signed_activity_hex");
+            NativeProgramCall nativeCall = NativeProgramCall.decode(payload);
+            assertArrayEquals(payload, nativeCall.encode());
+            assertArrayEquals(fixtureBytes(fixture, "idempotency_key_hex"),
+                NativeProgramLifecycleRequest.bind(3, payload, signed));
+            for (int unsupported : new int[] {0, 6, 65535}) {
+                byte[] invalidPayload = payload.clone();
+                ByteBuffer.wrap(invalidPayload).putShort(32, (short) unsupported);
+                assertThrows(IllegalArgumentException.class, () -> NativeProgramCall.decode(invalidPayload));
             }
-        } finally { credential.close(); }
+        }
     }
 
     private static JsonNode fixture(String name) throws Exception {
@@ -440,20 +335,6 @@ public final class ProgramsContractTest {
 
     private static byte[] fixtureBytes(JsonNode value, String name) {
         return HexFormat.of().parseHex(value.path(name).asText());
-    }
-
-    private static byte[] publishedBody(HttpRequest request) {
-        var result = new CompletableFuture<byte[]>();
-        var body = new java.io.ByteArrayOutputStream();
-        request.bodyPublisher().orElseThrow().subscribe(new java.util.concurrent.Flow.Subscriber<ByteBuffer>() {
-            public void onSubscribe(java.util.concurrent.Flow.Subscription subscription) { subscription.request(Long.MAX_VALUE); }
-            public void onNext(ByteBuffer buffer) {
-                byte[] part = new byte[buffer.remaining()]; buffer.get(part); body.writeBytes(part);
-            }
-            public void onError(Throwable error) { result.completeExceptionally(error); }
-            public void onComplete() { result.complete(body.toByteArray()); }
-        });
-        return result.join();
     }
 
     private static byte[] programPayload(byte[] programId, byte[] calldata, byte[] ignoredKey) {
@@ -597,14 +478,10 @@ public final class ProgramsContractTest {
 
     private static final class CapturingTransport implements ProductionTransport {
         private ObjectNode response;
-        private ProgramsCall call;
+        private Call call;
         private CapturingTransport(ObjectNode response) { this.response = response; }
 
         @Override public <T> CompletionStage<T> call(Call call, JavaType responseType) {
-            return CompletableFuture.failedFuture(new AssertionError("legacy transport used"));
-        }
-
-        @Override public <T> CompletionStage<T> callPrograms(ProgramsCall call, JavaType responseType) {
             this.call = call;
             @SuppressWarnings("unchecked") T value = (T) response;
             return CompletableFuture.completedFuture(value);
