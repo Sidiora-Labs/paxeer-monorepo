@@ -135947,7 +135947,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.43.8]
 title = ".NET SDK receipt tests read the published V1-V3 and V5 vector files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.47.7", "8.43.7", "18.1185.1"]
@@ -147632,7 +147632,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.5.3]
 title = "Move the x402 buyer tests off AuthorizedBatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["11.5.2"]
@@ -152773,7 +152773,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.18.2]
 title = "Kernel vector generator stops importing the deleted layerx_wire activity codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.3.3"]
@@ -186080,7 +186080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1184.1]
 title = "Issue #1184: JVM SDK portable receipt verifier accepts the published layerx-receipt-proof-v2 wire layout (receiptJson and Go-encoded committed evidence)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
