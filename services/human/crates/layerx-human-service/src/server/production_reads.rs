@@ -14,8 +14,9 @@ use crate::notify::ActivityEntryId;
 use crate::notify::JourneyId;
 use crate::store::PrincipalScope;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_proof::checkpoint::SettlementDomain;
-use layerx_proof::receipt::AuthorizedBatch;
+use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
@@ -73,10 +74,10 @@ pub(super) fn activity_entry_json(
             .ok_or_else(ApiFailure::upstream_degraded)?;
         let digest =
             decode_digest(receipt.reference()).ok_or_else(ApiFailure::upstream_degraded)?;
-        let row = receipt.authority().map(|authority| ReceiptRow {
+        let row = Some(ReceiptRow {
             entry_id: id.clone(),
             canonical: bytes,
-            authority,
+            rung: receipt.rung(),
         });
         labels.insert(
             receipt.reference().to_owned(),
@@ -352,15 +353,8 @@ fn evidence_get(
     if let Some(row) = scope.get(crate::store::Table::Cache, &bundle_key) {
         let bundle =
             EvidenceBundle::decode(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
-        let receipt_authority = bundle
-            .receipt_authority(scope)
-            .map_err(|error| feed_failure(&error))?;
-        let status = verification_status(bundle.verify(
-            expected,
-            scope.principal(),
-            settlement_domain,
-            &receipt_authority,
-        ));
+        let receipt_keys = receipt_keys()?;
+        let status = verification_status(bundle.verify(expected, scope.principal(), &receipt_keys));
         let verification = verification_label(&status)?;
         return Ok(response(
             json!({"evidence_id":id,"class":"local-journey-state","verification":verification,"content_type":"application/vnd.layerx.evidence-bundle","bytes_base64":STANDARD.encode(row.bytes())}),
@@ -382,7 +376,7 @@ fn evidence_get(
             Some(ReceiptRow {
                 entry_id,
                 canonical: &evidence.canonical_receipt,
-                authority: &evidence.authorised_batch,
+                rung: Rung::Receipted,
             }),
             expected,
         )?;
@@ -412,17 +406,11 @@ pub(super) fn journey_json(
             .receipt_material()
             .get(index)
             .and_then(Option::as_deref);
-        let authority = status
-            .receipt_authorities()
-            .get(index)
-            .and_then(Option::as_ref);
-        let row = material
-            .zip(authority)
-            .map(|(canonical, authority)| ReceiptRow {
-                entry_id: entry_id.clone(),
-                canonical,
-                authority,
-            });
+        let row = material.map(|canonical| ReceiptRow {
+            entry_id: entry_id.clone(),
+            canonical,
+            rung: Rung::Receipted,
+        });
         let verification = receipt_label(scope, settlement_domain, row, digest)?;
         references.push(Some(evidence_ref(digest, verification)));
     }
@@ -451,7 +439,7 @@ pub(super) fn custody_receipt_label(
     let row = found.as_ref().map(|(entry_id, evidence)| ReceiptRow {
         entry_id: entry_id.clone(),
         canonical: &evidence.canonical_receipt,
-        authority: &evidence.authorised_batch,
+        rung: Rung::Receipted,
     });
     receipt_label(scope, settlement_domain, row, digest)
 }
@@ -466,27 +454,39 @@ pub(super) fn verification_label(status: &VerificationStatus) -> Result<&'static
     }
 }
 
+fn receipt_keys() -> Result<Vec<ReceiptKeyEntry>, ApiFailure> {
+    let endpoint = super::production_components::paxeer_endpoint_from_environment()
+        .map_err(|_| ApiFailure::unavailable())?;
+    super::agent_runtime::AgentRuntime::receipt_keys(&endpoint)
+        .map_err(|_| ApiFailure::unavailable())
+}
+
 struct ReceiptRow<'a> {
     entry_id: ActivityEntryId,
     canonical: &'a [u8],
-    authority: &'a AuthorizedBatch,
+    rung: Rung,
 }
 
 fn receipt_label(
-    scope: &PrincipalScope<'_>,
-    settlement_domain: SettlementDomain,
+    _scope: &PrincipalScope<'_>,
+    _settlement_domain: SettlementDomain,
     row: Option<ReceiptRow<'_>>,
     digest: [u8; 32],
 ) -> Result<&'static str, ApiFailure> {
     let status = match row {
-        Some(row) => verification_status(EvidenceBundle::verify_receipt(
-            row.entry_id,
-            row.canonical,
-            row.authority,
-            digest,
-            scope.principal(),
-            settlement_domain,
-        )),
+        Some(row) => verification_status(
+            EvidenceBundle::receipt_fact(&row.entry_id, row.canonical.to_vec(), row.rung).and_then(
+                |mut fact| {
+                    fact.receipt_hash = digest;
+                    let keys = receipt_keys().map_err(|_| {
+                        VerifyError::Unavailable(ExportError::AuthorityUnavailable {
+                            reference: hex(&digest),
+                        })
+                    })?;
+                    EvidenceBundle::verify_receipt(&fact, &keys)
+                },
+            ),
+        ),
         None => verification_status(Err(VerifyError::Unavailable(
             ExportError::AuthorityUnavailable {
                 reference: hex(&digest),
