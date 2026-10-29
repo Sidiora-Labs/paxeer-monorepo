@@ -11019,3 +11019,35 @@ symbol = "claim_params"
 observed = "8.2.1 serves px_requestFunds only through the gateway faucet module with params [DID, hex32 signer key] under an authenticated session (:60, :259), while 9.15.1 do_2 and attempt 4 (7bf9501be) sent [address, amount] to a node endpoint read from an unnamed environment variable; the two parameter shapes cannot both hold."
 assumption = "Resolved by decision.1869: the tool carries the gateway's shape and its test serves px_requestFunds on a loopback listener."
 severity = "major"
+
+[finding.13.27.5.1]
+task = "13.27.5"
+file = "programs/crates/layerx-programs-arbiter/tests/verified_step.rs"
+symbol = "VerifiedReplayAuthority::derive"
+observed = "Attempts 1-3 (90a380a89, db2c3c330) built, then the dependents check cargo check --locked --manifest-path programs/Cargo.toml --all-targets exited 101 with nine E0308 at verified_step.rs:378-544 passing &Proof where aaacf6f8a (13.30.3) made derive and verify_with_batch_context take &ChainCommitProof; log /out/logs/dependents-1.log."
+assumption = "Pre-existing since aaacf6f8a; 13.30.4 rewrites the file; the crate is left out of the dependents check until 13.30.4 is on main."
+severity = "blocker"
+
+[finding.18.1172.2.1]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/src/activity/mod.rs"
+symbol = "ReceiptEvidence::level"
+observed = "Attempt 1 build: cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests exited 101 with 15 errors (E0412, E0432, E0433) on layerx_agent_api::verify::Level in the library since b20ecde23 (9.1.4); log /out/logs/build-1.log."
+assumption = "Pre-existing at main; repaired by 10.2.8 (decision.1870), which this task now requires."
+severity = "blocker"
+
+[finding.18.1230.1.1]
+task = "18.1230.1"
+file = "services/agent/crates/layerx-agentd/tests/budget_create.rs"
+symbol = "ExecutedReceipt"
+observed = "Attempt 4 build: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests exited 101 with E0063 missing signing_key at budget_create.rs:18 (since 98b857055, 9.21.8) and four E0308 at tests/support/mod.rs:178-304 on attach_external_signature and verify_before_submit (since c03f97f8e, 9.2.2); log /out/logs/build-1.log."
+assumption = "Pre-existing at main; 18.1206.1 carries both slices (decision.1871) and the agentd test tasks now require it."
+severity = "blocker"
+
+[finding.8.29.4.1]
+task = "8.29.4"
+file = "services/platform/ramps/toolkit/tests/engine_legs.rs"
+symbol = "order"
+observed = "Attempts 1-3 build: cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit --tests exited 101 with E0063 missing payer_grant_purpose at engine_legs.rs:51 since 430d83c17 (18.1027.1); log /out/logs/build-1.log."
+assumption = "Pre-existing at main; repaired by 8.29.5 (decision.1871), which this task now requires."
+severity = "blocker"
