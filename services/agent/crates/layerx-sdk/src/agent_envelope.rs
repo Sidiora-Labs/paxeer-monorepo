@@ -15,7 +15,7 @@ use layerx_agent_api::idempotency::{IdempotentMutation, Key};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
 use layerx_agent_api::read::{ReadRequest, VerifiedRead};
-use layerx_agent_api::verify::{ApiSuccess, Level, Rung, VerificationStatus};
+use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
 
 use layerx_types::result::ResultCode;
 use serde_json::{json, Map, Value};
@@ -308,7 +308,7 @@ impl AgentEnvelopeTransport {
             recovery_reason,
         };
         value.validate().map_err(|_| invalid())?;
-        if response.verification_status != VerificationStatus::Achieved(Level::Unverified) {
+        if response.verification_status != VerificationStatus::Achieved(Rung::Submitted) {
             return Err(invalid());
         }
         Ok(native_success(response, value))
@@ -1058,16 +1058,16 @@ pub fn decode_response(
 fn verification_status(value: &Value) -> Option<VerificationStatus> {
     let status = value.as_object()?;
     match status.get("state")?.as_str()? {
-        "achieved" if exact_fields(status, &["state", "level"]) => {
-            Some(VerificationStatus::Achieved(level(status.get("level")?)?))
+        "achieved" if exact_fields(status, &["state", "rung"]) => {
+            Some(VerificationStatus::Achieved(rung(status.get("rung")?)?))
         }
         "unverified" if exact_fields(status, &["state", "requested", "achieved", "reason"]) => {
-            let requested = level(status.get("requested")?)?;
-            let achieved = level(status.get("achieved")?)?;
+            let requested = rung(status.get("requested")?)?;
+            let achieved = rung(status.get("achieved")?)?;
             if achieved >= requested {
                 return None;
             }
-            Some(VerificationStatus::Unverified {
+            Some(VerificationStatus::Below {
                 requested,
                 achieved,
                 reason: reason(status.get("reason")?)?,
@@ -1077,16 +1077,8 @@ fn verification_status(value: &Value) -> Option<VerificationStatus> {
     }
 }
 
-fn level(value: &Value) -> Option<Level> {
-    Some(match value.as_str()? {
-        "Unverified" => Level::Unverified,
-        "SequencerSigned" => Level::SequencerSigned,
-        "BatchIncluded" => Level::BatchIncluded,
-        "StateProven" => Level::StateProven,
-        "CheckpointFinalised" => Level::CheckpointFinalised,
-        "SettlementAnchored" => Level::SettlementAnchored,
-        _ => return None,
-    })
+fn rung(value: &Value) -> Option<Rung> {
+    Rung::from_name(value.as_str()?)
 }
 
 fn request_id(value: &Value) -> Option<RequestId> {
@@ -1466,7 +1458,7 @@ pub fn decode_proof_bundle_response(
         return None;
     }
     let achieved = Rung::from_name(read.get("achieved_rung")?.as_str()?)?;
-    if !matches!(response.verification_status, VerificationStatus::Achieved(level) if level.rung() == Some(achieved))
+    if !matches!(response.verification_status, VerificationStatus::Achieved(rung) if rung == achieved)
     {
         return None;
     }

@@ -9,7 +9,7 @@ use layerx_agent_api::budget::{
 use layerx_agent_api::error::RequestId;
 use layerx_agent_api::idempotency::Key;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef, TenantId};
-use layerx_agent_api::verify::{Level, Rung, VerificationStatus};
+use layerx_agent_api::verify::{Rung, VerificationStatus};
 use layerx_agent_api::{Amount, BudgetLimit};
 use serde_json::{json, Map, Value};
 
@@ -545,11 +545,11 @@ impl AgentEnvelopeTransport {
         let record = decode_entry(&state["record"], operation, false)?;
         let proven_head = decimal(&state["proven_head"], operation)?;
         let activity_id = optional_bytes32(&state["activity_id"], operation)?;
-        let status_level = match &record.record {
-            BudgetRecord::Protocol(view) => Some(view.achieved_rung),
-            BudgetRecord::Daemon(_) => Level::Unverified.rung(),
+        let status_rung = match &record.record {
+            BudgetRecord::Protocol(view) => view.achieved_rung,
+            BudgetRecord::Daemon(_) => Rung::Submitted,
         };
-        if !matches!(success.verification_status, VerificationStatus::Achieved(level) if level.rung() == status_level)
+        if !matches!(success.verification_status, VerificationStatus::Achieved(rung) if rung == status_rung)
             || encode_hex(record_budget_id(&record.record)) != request.budget_id.as_str()
             || proven_head != record.head
             || activity_id != record.activity_id

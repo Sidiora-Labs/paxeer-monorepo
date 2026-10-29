@@ -191,6 +191,7 @@ fn settle(accepted: &PaymentRequirements) -> (String, SettlementResponse, Vec<Se
     let signer = SigningKey::from_bytes(&[0x72; 32]);
     let digest = layerx_wire::hash::receipt_digest(&receipt(&logs, None)).unwrap();
     let executed = ExecutedPayment {
+        committed: None,
         evidence: SequencerEvidence {
             transaction_hash: TRANSACTION,
             signed_receipt: receipt(&logs, Some(signer.sign(&digest).to_bytes())),
