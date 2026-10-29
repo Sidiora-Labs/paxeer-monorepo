@@ -138382,7 +138382,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.3.1]
 title = "Key the outbox by transaction hash with a Committed state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.0.1", "9.2.1", "9.1.8", "18.1131.1"]
@@ -139398,7 +139398,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.13.1]
 title = "Move the human peer frame codec into agentd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.13.3", "9.1.8", "18.1131.1"]
@@ -185937,7 +185937,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1188.1]
 title = "Issue #1188: Compile and disclose the budget defund as kernel activity 0x00030008"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
