@@ -108,9 +108,6 @@ export async function walletRoutes(
   app.post('/v1/wallet/provision', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user!.id;
     try {
-      if (!opts.provision?.station && !env.WALLET_GAS_STATION_URL) {
-        throw new ProvisionError('gas_station_unconfigured', 503, 'no gas station is configured');
-      }
       const provision = deps();
       if (!provision) {
         if (env.WALLET_IDENTITY_BINDING_TENANT) {
