@@ -116854,7 +116854,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.47.4]
 title = "Conformance of layerxctl submit against the recorded receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.47.3", "5.55.2", "5.55.4", "5.55.7", "9.21.8"]
@@ -137325,7 +137325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.49.1]
 title = "layerx program call and simulate use 0x101D and receipt get takes a transaction hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.46.1", "8.0.3", "9.1.8", "18.1121.1", "8.48.1"]
@@ -137423,7 +137423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.50.1]
 title = "layerx wallet watch subscribes with eth_subscribe logs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["7.0.2", "8.0.2", "9.1.8", "18.1121.1", "8.48.1"]
@@ -137455,7 +137455,7 @@ do_5 = "Attempt 2 builds layerx-platform-cli while estimate_fee (tools/platform/
 
 [task.8.50.2]
 title = "layerx faucet claims through the router faucet route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.0.3", "9.1.8", "18.1121.1", "8.48.1"]
@@ -137647,7 +137647,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.94.1]
 title = "Check the platform CLI uses no retired layerx_client module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.0.2", "9.0.2", "9.1.8", "18.1121.1", "8.48.1"]
@@ -138612,7 +138612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.1.4]
 title = "Retire Level and the settlement-domain vocabulary from agent-api"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["9.0.2", "9.6.1", "9.17.1", "9.14.2", "9.1.7", "9.35.4", "9.0.1", "9.1.3"]
@@ -176532,7 +176532,7 @@ qualification = "UNRUN"
 
 [task.18.786.1]
 title = "Issue #786: Resync the CLI published-contract fixture with the gateway OpenRPC document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["9.1.8", "18.1121.1", "8.48.1"]
@@ -187238,7 +187238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1001.3]
 title = "Issue #1001: parseEvmReview admits the attestor's empty method for a calldata-free native transfer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -188066,7 +188066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1219.1]
 title = "Issue #1219: Give the failed price submission in the live-topic test the observation shape the decoder produces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188185,7 +188185,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1224.1]
 title = "Issue #1224: Make unreadOnly return exactly the notifications the list reports as unread"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188215,7 +188215,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1225.1]
 title = "Issue #1225: Build the api_stream and account fixtures from the tracked migrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
