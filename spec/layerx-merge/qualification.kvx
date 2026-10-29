@@ -10187,3 +10187,75 @@ symbol = "mark_executed"
 observed = "Attempt 3 fails to compile the test with 5 errors: SubmissionState::Acknowledged, sign_disclosed_call over Prepared, attach_external_signature and verify_before_submit over Prepared and a 32-byte key, Outbox::enqueue with 4 arguments; all are the retired layerx_agentd API."
 assumption = "Decision.1825 rewrites the test against SigningPreparation, the 20-byte signer address and enqueue(store, tenant, raw) (do_5)."
 severity = "major"
+
+[finding.18.911.1.10]
+task = "18.911.1"
+file = "tests/programs/test_market_attestation.c"
+symbol = "advance_batch"
+observed = "Attempt 18 fails two op-14 cases with -736 (callback-failure stage 05 status -3): the driver increments the height without finalising the occupancy batch, so settlement sees BatchRegression."
+assumption = "Decision.1826: the driver finalises the batch before advancing; no host change."
+severity = "major"
+
+[finding.18.1121.1.4]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:753"
+symbol = "payer_accounts"
+observed = "Attempt 7: daemon_bound and read tests pass; the metered web tests fail with OfferMismatch(payer) because the accounts derive from payer_did while the recorded offers carry the address-bound ledger account."
+assumption = "Decision.1827: derive the accounts through accountId(owner, asset) of the payer address."
+severity = "major"
+
+[finding.9.20.1.1]
+task = "9.20.1"
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs:178"
+symbol = "attach_external_signature"
+observed = "Attempt 1: four E0308 errors; the shared test support still calls the retired Prepared/64-byte signing API after 18.1131.1."
+assumption = "The support module joins the task's touches and is ported to SigningPreparation (do_N)."
+severity = "major"
+
+[finding.9.2.4.1]
+task = "9.2.4"
+file = "services/agent/crates/layerx-agentd/src/session_control.rs:687"
+symbol = "prepare"
+observed = "Attempts 2 and 3: E0277 because prepare's error type changed to OwnerRotation while the caller converts with ? into HumanOperationError."
+assumption = "Task-introduced; session_control.rs joins the touches (do_N)."
+severity = "major"
+
+[finding.9.5.9.1]
+task = "9.5.9"
+file = "services/agent/crates/layerx-client/tests/sequencer.rs:803"
+symbol = "SequencerBlock"
+observed = "Attempts 2 and 3: E0063 missing receipts_root in a third struct literal outside the task's touches."
+assumption = "tests/sequencer.rs joins the touches (do_3)."
+severity = "minor"
+
+[finding.10.3.1.2]
+task = "10.3.1"
+file = "services/human/crates/layerx-human-service/src/server/production_reads.rs:356"
+symbol = "verification_status"
+observed = "Attempt 3: three errors (E0599, E0061 x2) at the export verify callers after the settlement-domain-free signature change."
+assumption = "production_reads.rs joins the touches (do_N)."
+severity = "major"
+
+[finding.9.13.2.1]
+task = "9.13.2"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:962"
+symbol = "HumanPrepare"
+observed = "Attempt 4: six E0560 errors; the HumanPrepare constructors in agent_rpc_dispatch.rs and agent_rpc_wire.rs kept the old field names after the rename."
+assumption = "Both files join the touches (do_N)."
+severity = "major"
+
+[finding.11.0.9.1]
+task = "11.0.9"
+file = "services/interop/crates/x-websearch/src/payment.rs:59"
+symbol = "PAYER_DID"
+observed = "Attempt 1: the completion gate reports the retired surface interface.11.rs-xws-payer-did present; 11.34.7 kept the constant."
+assumption = "Decision.1828: 11.34.8 retires it and 11.0.9 requires it; the gate is unchanged."
+severity = "major"
+
+[finding.8.44.1.3]
+task = "8.44.1"
+file = "sdk/platform/swift/Package.swift"
+symbol = "swift-build"
+observed = "Attempt 6: the toolchain still cannot load libxml2.so.2 after the library install because the environment that runs the gates ships libxml2 under a newer soname."
+assumption = "The environment now provides the toolchain's libxml2.so.2 before the build; attempt 7 carries the attempt 5 candidate unchanged."
+severity = "minor"
