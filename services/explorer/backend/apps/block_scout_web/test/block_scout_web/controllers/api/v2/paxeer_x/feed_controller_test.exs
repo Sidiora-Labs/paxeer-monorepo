@@ -40,6 +40,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
                "update_hash" => latest,
                "block_number" => 11,
                "timestamp" => iso(newer.timestamp),
+               "index" => 0,
                "index_price" => price(101),
                "mark_price" => price(102),
                "source_timestamp_ms" => 1_792_636_042_101,
@@ -88,8 +89,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
                  "observations" => [
                    %{
                      "market_id" => 0,
-                     "symbol" => "BTC-USD",
                      "accepted" => true,
+                     "symbol" => "BTC-USD",
                      "index_price" => price(5),
                      "mark_price" => price(6),
                      "source_timestamp_ms" => 1_792_636_042_005,
@@ -97,8 +98,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
                    },
                    %{
                      "market_id" => 2,
-                     "symbol" => "SOL-USD",
                      "accepted" => true,
+                     "symbol" => "SOL-USD",
                      "index_price" => price(7),
                      "mark_price" => price(8),
                      "source_timestamp_ms" => 1_792_636_042_007,
@@ -169,7 +170,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
       assert response["hash"] == hash
       assert response["index"] == 2
       assert response["price_update"]["observation_count"] == 1
-      assert [%{"accepted" => true}] = response["price_update"]["observations"]
+      assert [%{"market_id" => 0, "accepted" => true}] = response["price_update"]["observations"]
     end
 
     test "answers 404 for an unknown hash", %{conn: conn} do
@@ -433,6 +434,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
   defp observation(market_id, value) do
     %{
       market_id: market_id,
+      accepted: true,
       sequence: value,
       index_price: value * 1_000_000_000_000_000_000,
       mark_price: (value + 1) * 1_000_000_000_000_000_000,

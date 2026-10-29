@@ -256,7 +256,9 @@ func (r *HTTPRuntime) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/v2/discovery/notifications", r.Notifications.Handler())
 	mux.Handle("/v2/discovery/notifications/", r.Notifications.Handler())
-	mux.Handle("/v2/discovery/", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	mux.Handle("/v2/me/notifications", r.Notifications.Handler())
+	mux.Handle("/v2/me/notifications/", r.Notifications.Handler())
+	discoveryHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if r.Config.Pools == nil && (strings.HasPrefix(req.URL.Path, "/v2/discovery/feed") || strings.HasPrefix(req.URL.Path, "/v2/discovery/callouts")) {
 			respond(w, nil, ErrUnavailable)
 			return
@@ -269,7 +271,10 @@ func (r *HTTPRuntime) Handler() http.Handler {
 		h := r.Discovery
 		h.Feed.Signer = discovery.CursorSigner{Key: []byte(key)}
 		h.Handler().ServeHTTP(w, req)
-	}))
+	})
+	for _, path := range []string{"/v2/discovery/", "/v2/squads", "/v2/squads/", "/v2/me/alerts", "/v2/me/alerts/"} {
+		mux.Handle(path, discoveryHandler)
+	}
 	return mux
 }
 func (r *HTTPRuntime) InternalHandler() http.Handler { return r.Notifications.InternalHandler() }

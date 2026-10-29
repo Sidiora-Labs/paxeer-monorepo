@@ -526,8 +526,10 @@ func (apiError *humanAPIError) sdkError(trace string) *SDKError {
 }
 
 const agentEnvelopePath = "/v1/agent/rpc"
-const agentEnvelopeVersion = 1
+const agentEnvelopeVersion = 2
 const maximumAgentEnvelopeRequestBytes = 1048576
+
+type version int
 
 type AgentSessionCredential struct {
 	tenant     string
@@ -593,7 +595,7 @@ type agentEnvelopeCredential struct {
 }
 
 type agentEnvelope struct {
-	Version        int                      `json:"version"`
+	Version        version                  `json:"version"`
 	RequestID      string                   `json:"request_id"`
 	Operation      string                   `json:"operation"`
 	Request        json.RawMessage          `json:"request"`
@@ -750,13 +752,19 @@ func decodeAgentEnvelopeResponse(status int, encoded []byte, requestID string) (
 	if strictErr != nil || fields == nil {
 		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
+	var responseVersion version
+	if json.Unmarshal(fields["version"], &responseVersion) != nil || responseVersion != agentEnvelopeVersion {
+		result := newSDKError(ErrorProtocolIncompatible, RetryNever)
+		result.ServiceCode = "envelope.version"
+		return nil, result
+	}
 	var echoed string
 	if json.Unmarshal(fields["request_id"], &echoed) != nil {
 		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
 	if _, failed := fields["class"]; failed {
 		// A refusal issued before the envelope parsed carries request_id "0".
-		if echoed != requestID && echoed != "0" || status >= 200 && status < 300 || !exactFields(fields, "class", "protocol_result_code", "retriability", "request_id", "reason") {
+		if echoed != requestID && echoed != "0" || status >= 200 && status < 300 || !exactFields(fields, "version", "class", "protocol_result_code", "retriability", "request_id", "reason") {
 			return nil, newSDKError(ErrorDecodeFailure, RetryNever)
 		}
 		result := decodeProgramAgentError(fields)
@@ -768,7 +776,7 @@ func decodeAgentEnvelopeResponse(status int, encoded []byte, requestID string) (
 		result.ServiceCode = reason
 		return nil, result
 	}
-	if echoed != requestID || status != http.StatusOK || !exactFields(fields, "request_id", "value", "verification_status") {
+	if echoed != requestID || status != http.StatusOK || !exactFields(fields, "version", "request_id", "value", "verification_status") {
 		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
 	value := fields["value"]

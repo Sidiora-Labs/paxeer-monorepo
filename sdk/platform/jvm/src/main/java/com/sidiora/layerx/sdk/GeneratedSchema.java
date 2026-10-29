@@ -18,6 +18,18 @@ import java.util.Set;
 
 public final class GeneratedSchema {
     private GeneratedSchema() {}
+    public record ProgramTransport(String rpcMethod, String to, List<String> calls) {
+        public ProgramTransport {
+            Objects.requireNonNull(rpcMethod, "rpcMethod");
+            Objects.requireNonNull(to, "to");
+            calls = List.copyOf(Objects.requireNonNull(calls, "calls"));
+        }
+    }
+    public static ProgramTransport programTransport(SchemaTypes.Operation operation) {
+        Objects.requireNonNull(operation, "operation");
+        if (operation.plane() != OperationCatalog.Plane.AGENT) throw PlatformSdkException.invalidArgument();
+        return GeneratedContract.AGENT_OPERATIONS.transport(operation.wireName());
+    }
     public static final class AgentModels {
         private AgentModels() {}
         public record AgentHttpCredential(String tenant, String session_id, String token_id, @JsonSerialize(using = ToStringSerializer.class) @JsonDeserialize(using = SchemaTypes.DecimalU64Deserializer.class) BigInteger generation) implements SchemaTypes.GeneratedResponse {
@@ -380,7 +392,7 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(arguments, "arguments");
             }
         }
-        public record McpNativeWriteV1(JsonNode variant, JsonNode intent, JsonNode preparation, JsonNode canonical_bytes, JsonNode signature, JsonNode signer_public_key) implements SchemaTypes.GeneratedResponse {
+        public record McpNativeWriteV1(JsonNode variant, JsonNode intent, AgentModels.NativePrepareResultV1 preparation, JsonNode canonical_bytes, JsonNode signature, JsonNode signer_public_key) implements SchemaTypes.GeneratedResponse {
             public McpNativeWriteV1 {
                 Objects.requireNonNull(variant, "variant");
                 Objects.requireNonNull(intent, "intent");
@@ -512,13 +524,16 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(purpose, "purpose");
             }
         }
-        public record NativePrepareResultV1(String version, String preparation_id, String canonical_bytes, String signing_preimage, AgentModels.NativeActivityV1 activity, boolean approval_required, String approval_id) implements SchemaTypes.GeneratedResponse {
+        public record NativePrepareResultV1(BigInteger chainId, BigInteger nonce, BigInteger gas, String to, String data) implements SchemaTypes.GeneratedResponse {
             public NativePrepareResultV1 {
-                Objects.requireNonNull(version, "version");
-                Objects.requireNonNull(preparation_id, "preparation_id");
-                Objects.requireNonNull(canonical_bytes, "canonical_bytes");
-                Objects.requireNonNull(signing_preimage, "signing_preimage");
-                Objects.requireNonNull(activity, "activity");
+                Objects.requireNonNull(chainId, "chainId");
+                SchemaTypes.protocolU64(chainId);
+                Objects.requireNonNull(nonce, "nonce");
+                SchemaTypes.protocolU64(nonce);
+                Objects.requireNonNull(gas, "gas");
+                SchemaTypes.protocolU64(gas);
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(data, "data");
             }
         }
         public record NativeProgramCallFields(AgentModels.ProgramGuestAbi guest_abi, JsonNode entrypoint, JsonNode capabilities_hex, JsonNode access_declaration_hex, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long response_capacity, JsonNode resources) implements SchemaTypes.GeneratedResponse {
@@ -3006,13 +3021,16 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(payload_hash, "payload_hash");
             }
         }
-        public record PrepareResponse(JsonNode preparation_ref, JsonNode unsigned_canonical_bytes, JsonNode signing_preimage, JsonNode disclosure, JsonNode expiry) implements SchemaTypes.GeneratedResponse {
+        public record PrepareResponse(BigInteger chainId, BigInteger nonce, BigInteger gas, String to, String data) implements SchemaTypes.GeneratedResponse {
             public PrepareResponse {
-                Objects.requireNonNull(preparation_ref, "preparation_ref");
-                Objects.requireNonNull(unsigned_canonical_bytes, "unsigned_canonical_bytes");
-                Objects.requireNonNull(signing_preimage, "signing_preimage");
-                Objects.requireNonNull(disclosure, "disclosure");
-                Objects.requireNonNull(expiry, "expiry");
+                Objects.requireNonNull(chainId, "chainId");
+                SchemaTypes.protocolU64(chainId);
+                Objects.requireNonNull(nonce, "nonce");
+                SchemaTypes.protocolU64(nonce);
+                Objects.requireNonNull(gas, "gas");
+                SchemaTypes.protocolU64(gas);
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(data, "data");
             }
         }
         public static final SchemaTypes.TypedOperation<PrepareRequest, PrepareResponse> PREPARE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "prepare", true, PrepareRequest.class, PrepareResponse.class);
@@ -3030,6 +3048,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramActivityRequest, ProgramActivityResponse> PROGRAM_ACTIVITY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.activity", false, ProgramActivityRequest.class, ProgramActivityResponse.class);
+        public static final ProgramTransport PROGRAM_ACTIVITY_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.activity");
         public record ProgramCallRequest(JsonNode program_id, JsonNode calldata, AgentModels.ProgramCallBudget budget, JsonNode capabilities, JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramCallRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3047,6 +3066,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramCallRequest, ProgramCallResponse> PROGRAM_CALL = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.call", true, ProgramCallRequest.class, ProgramCallResponse.class);
+        public static final ProgramTransport PROGRAM_CALL_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.call");
         public record ProgramDeployRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramDeployRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -3060,6 +3080,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramDeployRequest, ProgramDeployResponse> PROGRAM_DEPLOY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.deploy", true, ProgramDeployRequest.class, ProgramDeployResponse.class);
+        public static final ProgramTransport PROGRAM_DEPLOY_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.deploy");
         public record ProgramDiscoverRequest(JsonNode program_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramDiscoverRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3083,6 +3104,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramDiscoverRequest, ProgramDiscoverResponse> PROGRAM_DISCOVER = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.discover", false, ProgramDiscoverRequest.class, ProgramDiscoverResponse.class);
+        public static final ProgramTransport PROGRAM_DISCOVER_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.discover");
         public record ProgramInterfaceRequest(JsonNode program_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramInterfaceRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3107,6 +3129,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramInterfaceRequest, ProgramInterfaceResponse> PROGRAM_INTERFACE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.interface", false, ProgramInterfaceRequest.class, ProgramInterfaceResponse.class);
+        public static final ProgramTransport PROGRAM_INTERFACE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.interface");
         public record ProgramReceiptRequest(JsonNode idempotency_key, JsonNode expected_activity_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramReceiptRequest {
                 Objects.requireNonNull(idempotency_key, "idempotency_key");
@@ -3122,6 +3145,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramReceiptResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramReceiptRequest, ProgramReceiptResponse> PROGRAM_RECEIPT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.receipt", false, ProgramReceiptRequest.class, ProgramReceiptResponse.class);
+        public static final ProgramTransport PROGRAM_RECEIPT_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.receipt");
         public record ProgramSimulateRequest(JsonNode program_id, JsonNode calldata, AgentModels.ProgramCallBudget budget, JsonNode capabilities, JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramSimulateRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3139,6 +3163,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramSimulateRequest, ProgramSimulateResponse> PROGRAM_SIMULATE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.simulate", false, ProgramSimulateRequest.class, ProgramSimulateResponse.class);
+        public static final ProgramTransport PROGRAM_SIMULATE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.simulate");
         public record ProgramUpgradeRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramUpgradeRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -3152,6 +3177,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramUpgradeRequest, ProgramUpgradeResponse> PROGRAM_UPGRADE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.upgrade", true, ProgramUpgradeRequest.class, ProgramUpgradeResponse.class);
+        public static final ProgramTransport PROGRAM_UPGRADE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.upgrade");
         public record ProgramWindDownRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramWindDownRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -3165,6 +3191,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramWindDownRequest, ProgramWindDownResponse> PROGRAM_WIND_DOWN = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.wind-down", true, ProgramWindDownRequest.class, ProgramWindDownResponse.class);
+        public static final ProgramTransport PROGRAM_WIND_DOWN_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.wind-down");
         public record ProjectRequest(JsonNode protocol_activity_type, JsonNode canonical_bytes, JsonNode execution_units, JsonNode storage_units) implements SchemaTypes.GeneratedRequest {
             public ProjectRequest {
                 Objects.requireNonNull(protocol_activity_type, "protocol_activity_type");
