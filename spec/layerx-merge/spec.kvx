@@ -144995,7 +144995,7 @@ do_5 = "NativeSendPreviewV1 is decoded from the peer answer at services/human/cr
 
 [task.10.14.1]
 title = "Answer home summary and account balance with the balance rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["10.13.4", "10.15.4", "9.1.8", "18.1119.1", "9.13.2", "9.5.6"]
