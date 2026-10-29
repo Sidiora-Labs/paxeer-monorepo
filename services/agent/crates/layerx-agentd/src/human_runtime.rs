@@ -15993,8 +15993,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 crate::capability::Dimension::Expiry,
             ));
         }
-        crate::capability::timed::check_scope(&record, &observed.scope, now_ms)
-            .map_err(|error| capability_refusal(&error))?;
+        check_capability_grant(&record, &observed.scope, now_ms)?;
         let shared = Arc::clone(&self.store);
         let stored = context
             .commit(control, |_| {
@@ -16077,8 +16076,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 crate::capability::Dimension::Expiry,
             ));
         }
-        crate::capability::timed::check_scope(&child, &observed.scope, now_ms)
-            .map_err(|error| capability_refusal(&error))?;
+        check_capability_grant(&child, &observed.scope, now_ms)?;
         let shared = Arc::clone(&self.store);
         let stored = context
             .commit(control, |_| {
@@ -16643,7 +16641,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         layerx_agent_api::budget::AuthorityResponse<crate::human::BudgetState>,
         HumanOperationError,
     > {
-        use layerx_agent_api::budget::{BudgetRecord, ProtocolBudgetView};
+        use layerx_agent_api::budget::BudgetRecord;
         let (tenant, authority) = budget_authority(
             context,
             control,
@@ -16687,57 +16685,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 }
                 other => other,
             })?;
-        let registry = self.authority.registry(peer).map_err(map_core)?;
-        let (_, signer) =
-            capability_authority_parts(&capability_session_authority(context, control)?);
-        let head = core_preparation_snapshot(&mut self.node, peer, &context.principal().agent)?
-            .observed_head_sequence;
-        let (verifier, sequencer_key, authorization) = self.budget_read_parts(peer)?;
-        let mut pipeline = NodeBudgetPipeline {
-            node: &mut self.node,
-            registry: &registry,
-            signer,
-            correlation: boundary_correlation(
-                peer,
-                request.agent_did.as_str().as_bytes(),
-                b"budget-state",
-            ),
-            authorization,
-            sequencer_key,
-            receipt_poll: BUDGET_RECEIPT_POLL,
-            receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
-        };
-        let state = crate::budget::BudgetMutationPipeline::budget_state(&mut pipeline, budget_id)
-            .map_err(budget_refusal)?;
-        let proven = verifier
-            .verify_state(&state.evidence)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let record = ProtocolBudgetRecord::decode(proven.canonical_state())
-            .map_err(|_| HumanOperationError::Refused)?;
-        if record.budget_id != budget_id {
-            return Err(HumanOperationError::Refused);
-        }
-        let balance = crate::budget::BudgetMutationPipeline::budget_balance(
-            &mut pipeline,
-            record.budget_account,
-            record.asset_id,
-        )
-        .map_err(budget_refusal)?;
-        let proven_context =
-            crate::budget::budget_state_context(&record, proven.canonical_state(), head, balance)
-                .map_err(budget_refusal)?;
-        let view =
-            ProtocolBudgetView::from_proven(&record, layerx_agent_api::verify::Rung::Receipted)
-                .map_err(budget_contract_refusal)?;
-        Ok(layerx_agent_api::budget::AuthorityResponse {
-            authority,
-            value: crate::human::BudgetState {
-                record: BudgetRecord::Protocol(view),
-                balance: proven_context.balance,
-                proven_head: proven_context.observed_head_sequence,
-                activity_id: None,
-            },
-        })
+        let value = read_committed_budget_state(budget_id)?;
+        context
+            .permit()
+            .boundary(control)
+            .map_err(rpc_commit_error)?;
+        Ok(layerx_agent_api::budget::AuthorityResponse { authority, value })
     }
 
     fn policy_dry_run_legacy(
@@ -17986,6 +17939,15 @@ pub(crate) fn capability_revoke_digest(
 /// Maps a timed capability error to the owner error. Every refusal (duplicate entry,
 /// zero window, ceiling outside assets, expiry, wider than parent or authority) carries its
 /// capability dimension; store faults stay Unavailable and every other refusal stays Refused.
+pub fn check_capability_grant(
+    capability: &crate::capability::timed::TimedCapability,
+    grant: &crate::capability::ProtocolScope,
+    now_ms: u64,
+) -> Result<(), HumanOperationError> {
+    crate::capability::timed::check_scope(capability, grant, now_ms)
+        .map_err(|error| capability_refusal(&error))
+}
+
 fn capability_refusal(error: &crate::capability::timed::TimedError) -> HumanOperationError {
     use crate::capability::timed::TimedError;
     use crate::capability::Dimension;
@@ -20393,6 +20355,100 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .map_err(rpc_commit_error)?;
         Ok((activity_id, receipt))
     }
+}
+
+pub fn budget_state_from_get_budget(
+    budget_id: [u8; 32],
+    height: u64,
+    result: &[u8],
+    balance: u128,
+) -> Result<crate::human::BudgetState, HumanOperationError> {
+    let state = ProtocolBudgetState::decode_get_budget(budget_id, height, result)
+        .map_err(|_| HumanOperationError::Typed(crate::human::HumanRefusal::BudgetCodec))?;
+    committed_budget_state(state.record(), state.committed_height(), balance)
+}
+
+fn committed_budget_state(
+    record: &ProtocolBudgetRecord,
+    height: u64,
+    balance: u128,
+) -> Result<crate::human::BudgetState, HumanOperationError> {
+    let view = layerx_agent_api::budget::ProtocolBudgetView::from_proven(
+        record,
+        layerx_types::rung::Rung::Committed,
+    )
+    .map_err(budget_contract_refusal)?;
+    Ok(crate::human::BudgetState {
+        record: layerx_agent_api::budget::BudgetRecord::Protocol(view),
+        balance,
+        proven_head: height,
+        activity_id: None,
+    })
+}
+
+fn committed_read_endpoint(
+) -> Result<layerx_client::sequencer::SequencerEndpoint, HumanOperationError> {
+    let config = crate::node_rpc::NodeRpcConfig::from_environment()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    let certificates = rustls_native_certs::load_native_certs();
+    if !certificates.errors.is_empty() {
+        return Err(HumanOperationError::Unavailable);
+    }
+    let roots: Vec<&[u8]> = certificates
+        .certs
+        .iter()
+        .map(|cert| cert.as_ref())
+        .collect();
+    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    if endpoint
+        .chain_id()
+        .map_err(|_| HumanOperationError::Unavailable)?
+        != config.chain_id
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(endpoint)
+}
+
+fn read_committed_budget_state(
+    budget_id: [u8; 32],
+) -> Result<crate::human::BudgetState, HumanOperationError> {
+    let endpoint = committed_read_endpoint()?;
+    let height = endpoint
+        .block_number()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    let selector = layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)");
+    let mut data = selector[..4].to_vec();
+    data.extend_from_slice(&budget_id);
+    let mut pay = [0; 20];
+    pay[18..].copy_from_slice(&[0x10, 0x1b]);
+    let result = endpoint
+        .call_at(height, &pay, &data)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    let state = ProtocolBudgetState::decode_get_budget(budget_id, height, &result)
+        .map_err(|_| HumanOperationError::Typed(crate::human::HumanRefusal::BudgetCodec))?;
+    let record = state.record();
+    let selector = layerx_crypto::evm_transaction::transaction_hash(b"balanceOf(bytes32,bytes32)");
+    let mut data = selector[..4].to_vec();
+    data.extend_from_slice(&record.budget_account);
+    data.extend_from_slice(&record.asset_id);
+    let mut ledger = [0; 20];
+    ledger[18..].copy_from_slice(&[0x10, 0x1a]);
+    let balance = endpoint
+        .call_at(height, &ledger, &data)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    if balance.len() != 32 || balance[..16] != [0; 16] {
+        return Err(HumanOperationError::Typed(
+            crate::human::HumanRefusal::BudgetCodec,
+        ));
+    }
+    let balance = u128::from_be_bytes(
+        balance[16..]
+            .try_into()
+            .map_err(|_| HumanOperationError::Refused)?,
+    );
+    budget_state_from_get_budget(budget_id, height, &result, balance)
 }
 
 fn write_node() -> Result<crate::node_rpc::NodeRpc, HumanOperationError> {
