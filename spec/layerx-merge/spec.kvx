@@ -135853,7 +135853,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.8.42.6]
 title = "JVM SDK removes the /v1/programs REST transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.42.3", "8.42.5"]
