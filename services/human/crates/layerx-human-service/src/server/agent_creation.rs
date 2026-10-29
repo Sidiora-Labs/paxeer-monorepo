@@ -12,16 +12,15 @@ use layerx_crypto::signer::Signer as _;
 use layerx_intents::{Intent, IntentKind, SessionGrant};
 use layerx_sdk::Client;
 use layerx_types::payload::ModuleRegistry;
-use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
 use crate::agents::{
     AgentCreationContract, AgentEvidence, AgentFailure, CapabilityProvision, CreationProjection,
-    CreationStage, ProtocolAction, ProtocolEvidence, ScopedAgentCreationContract, SessionProvision,
+    CreationStage, ProtocolAction, ScopedAgentCreationContract, SessionProvision,
 };
 use crate::custody::{CustodySigner, Operation, SignAuthorization, SignRequest};
-use crate::journeys::{AgentBoundary, AgentBoundaryError, ReceiptLookup};
+use crate::journeys::{AgentBoundary, AgentBoundaryError, ReceiptLookup, ReceiptMaterial};
 use crate::store::PrincipalScope;
 use crate::trace::TraceId;
 
@@ -29,6 +28,9 @@ use super::agent_runtime::{
     AgentCapabilityInstall, AgentLifecycleSeed, AgentOwnerInstall, AgentRuntime,
 };
 use super::poll_once_ready;
+
+pub type Rung = layerx_types::rung::Rung;
+pub type ProtocolEvidence = crate::agents::ProtocolEvidence;
 
 const PREPARE_DOMAIN: &[u8] = b"layerx-human-journey-prepare/v1";
 const SUBMIT_DOMAIN: &[u8] = b"layerx-human-journey-submit/v1";
@@ -445,25 +447,12 @@ impl<'a> ProductionAgentCreation<'a> {
                 ReceiptLookup::Absent => return Err(AgentFailure::Unavailable),
             },
         };
-        if receipt.tx_hash != activity_id
-            || receipt.receipt_hash != <[u8; 32]>::from(Sha256::digest(&receipt.canonical_bytes))
-            || receipt.rung < layerx_types::rung::Rung::Receipted
-        {
-            return Err(AgentFailure::Refused("creation receipt metadata differs"));
-        }
-        Ok(ProtocolEvidence {
-            actor: self.actor.as_str().as_bytes().to_vec(),
-            owner_public_key: public_key,
-            network_id,
+        Self::protocol_evidence(
             signed_activity,
-            action_key,
-            activity_id: observation.activity_id,
-            receipt_bytes: receipt.canonical_bytes,
-            tx_hash: receipt.tx_hash,
-            receipt_hash: receipt.receipt_hash,
-            block_height: receipt.block_height,
-            rung: receipt.rung,
-        })
+            public_key,
+            self.runtime.registry(),
+            receipt,
+        )
     }
 
     ///
@@ -519,6 +508,41 @@ impl<'a> ProductionAgentCreation<'a> {
                 started_at,
             },
         )
+    }
+
+    /// Binds a runtime transaction receipt to its canonical signed owner activity.
+    /// # Errors
+    /// Refuses changed owner authority, transaction identity, receipt hash or missing receipt rung.
+    pub fn protocol_evidence(
+        signed_activity: Vec<u8>,
+        owner_public_key: [u8; 32],
+        registry: &ModuleRegistry,
+        material: ReceiptMaterial,
+    ) -> Result<ProtocolEvidence, AgentFailure> {
+        let activity = layerx_intents::owner_activity::verify(&signed_activity, registry)
+            .map_err(|_| AgentFailure::Refused("invalid signed creation activity"))?;
+        let activity_id = layerx_intents::canonical::activity_id(&activity)
+            .map_err(|_| AgentFailure::Refused("invalid creation activity identity"))?;
+        if activity.authority() != owner_public_key
+            || material.tx_hash != activity_id
+            || material.receipt_hash != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+            || !matches!(material.rung, Rung::Receipted | Rung::Committed)
+        {
+            return Err(AgentFailure::Refused("creation receipt metadata differs"));
+        }
+        Ok(ProtocolEvidence {
+            actor: activity.actor_did().to_vec(),
+            owner_public_key,
+            network_id: activity.network_id(),
+            action_key: activity.idempotency_key(),
+            activity_id,
+            signed_activity,
+            receipt_bytes: material.canonical_bytes,
+            tx_hash: material.tx_hash,
+            receipt_hash: material.receipt_hash,
+            block_height: material.block_height,
+            rung: material.rung,
+        })
     }
 
     ///
@@ -719,11 +743,11 @@ impl AgentCreationContract for ProductionAgentCreation<'_> {
             purposes: request.purposes.into_iter().collect(),
             expiry_sequence: request.expiry_sequence,
         };
-        let (object_id, observed_sequence, rank, receipt_digest) = self
+        let (object_id, observed_sequence, rung_byte, receipt_digest) = self
             .runtime
             .capability_install(&install)
             .map_err(map_boundary)?;
-        let rung = match rank {
+        let rung = match rung_byte {
             0 => Rung::Submitted,
             1 => Rung::Receipted,
             2 => Rung::Committed,
