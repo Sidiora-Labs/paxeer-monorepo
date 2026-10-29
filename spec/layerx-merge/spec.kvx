@@ -108943,7 +108943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.24.6]
 title = "Mount the frozen squads and me-notifications routes in the api discovery registration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["4.24.5", "4.26.4", "4.27.4"]
@@ -109347,7 +109347,7 @@ do_6 = "The frozen $defs/Notification (sdk/launchpad/packages/production-contrac
 
 [task.4.27.5]
 title = "Pin the notifications handler to the frozen notification catalog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["4.27.4"]
@@ -109377,7 +109377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.27.6]
 title = "Pin the notifications runtime mounts to the frozen notification paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["4.27.4"]
@@ -113896,7 +113896,7 @@ do_5 = "ParseFlatKVConfig ends with return cfg, cfg.Validate() (storage/config/f
 
 [task.5.12.3]
 title = "Round-trip the state-commit keys from the app.toml template"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.12.2"]
@@ -116134,7 +116134,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.43.3]
 title = "Round-trip the flatkv settings from paxd app.toml into ParseFlatKVConfig"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.43.1", "5.0.2", "5.12.2"]
@@ -139224,7 +139224,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.9.2]
 title = "Create, fund and revoke budgets on layerxpay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["9.9.1", "9.2.3", "2.0.2", "9.1.8", "18.1131.1"]
@@ -152763,7 +152763,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.16.3]
 title = "Deploy catalog documents WALLET_GAS_STATION_URL as required for provisioning"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3", "12.6.3"]
