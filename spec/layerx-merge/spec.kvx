@@ -187959,7 +187959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1199.1]
 title = "Issue #1199: Key native submissions and their approval binding by the transaction hash the outbox stores"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188666,7 +188666,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1239.1]
 title = "Issue #1239: Report deprecated and tombstoned programs from the wind-down status in Go, JVM and .NET discovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
