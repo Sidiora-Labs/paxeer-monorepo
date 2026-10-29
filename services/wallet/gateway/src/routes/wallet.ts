@@ -289,6 +289,25 @@ export const SponsoredStatusBody = z
     relayerSignature: SponsorSignature,
   })
   .strict();
+export const SponsoredQuoteBody = SponsoredConstruction.pick({
+  chainId: true,
+  account: true,
+  nonce: true,
+  calls: true,
+})
+  .extend({
+    maxTokenAmount: SponsorUint,
+    gasCost: SponsorUint,
+    token: SponsorAddress,
+    decimals: z.literal(6),
+  })
+  .strict();
+const SponsoredBudget = z.object({
+  did: z.string().min(1),
+  daily_wei: SponsorUint,
+  used_wei: SponsorUint,
+  remaining_wei: SponsorUint,
+});
 const executeSponsoredAbi = parseAbi([
   'function executeSponsored((address to,uint256 value,bytes data)[] calls,(address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost) quote,bytes accountSignature,bytes relayerSignature)',
 ]);
@@ -451,6 +470,28 @@ export async function walletSponsorRoutes(
           : 'pending';
     return { tx_hash: hash, status, station: report };
   }
+  app.post('/v1/wallet/sponsored/quote', { preHandler: requireAuth }, async (req, reply) => {
+    const parsed = SponsoredQuoteBody.safeParse(req.body);
+    if (!parsed.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+    try {
+      const wallet = await owned(req, parsed.data.account);
+      if (BigInt(parsed.data.chainId) !== BigInt(wallet.chain_id))
+        throw new StationAdapterError(403, 'sponsored_construction_mismatch');
+      await callerIdentity(parsed.data.account as Hex);
+      return reply.header('Cache-Control', 'no-store').send(await station.quote(parsed.data));
+    } catch (error) {
+      if (error instanceof StationAdapterError) {
+        if (error.code === 'budget_exhausted')
+          return reply
+            .header('Cache-Control', 'no-store')
+            .code(429)
+            .send({ error: 'budget_exhausted', detail: error.code });
+        return reply.code(error.status).send({ error: error.code });
+      }
+      throw error;
+    }
+  });
   app.post('/v1/wallet/sponsored/status', { preHandler: requireAuth }, async (req, reply) => {
     const parsed = SponsoredStatusBody.safeParse(req.body);
     if (!parsed.success)
@@ -458,9 +499,13 @@ export async function walletSponsorRoutes(
     try {
       await owned(req, parsed.data.account, true);
       const did = await callerIdentity(parsed.data.account as Hex);
+      const report = await station.status(parsed.data);
+      const budget = SponsoredBudget.safeParse(report.budget);
+      if (!budget.success || budget.data.did !== did)
+        throw new StationAdapterError(502, 'gas_station_invalid_response');
       return reply
         .header('Cache-Control', 'no-store')
-        .send({ ...statusBody(await station.status(parsed.data)), did });
+        .send({ ...statusBody(report), did, budget: budget.data });
     } catch (error) {
       if (error instanceof StationAdapterError)
         return reply.code(error.status).send({ error: error.code, status: 'pending' });
