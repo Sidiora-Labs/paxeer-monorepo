@@ -8,7 +8,6 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::receipt::AuthorizedBatch;
 use layerx_x402::buyer::{
     BuiltPayment, Buyer, BuyerPaymentPlane, PaymentBuildRequest, SupportedKind,
 };
@@ -130,21 +129,9 @@ fn receipt_fixture_bytes(value: &Value) -> Vec<u8> {
         .collect()
 }
 
-fn mock_authorized_batch() -> AuthorizedBatch {
-    AuthorizedBatch::new([1; 32], [0x12; 32], [2; 32], [3; 32], [4; 32])
-}
-
 fn pinned_receipt_keys() -> [SequencerAuthorization; 1] {
-    let fixture: Value = serde_json::from_str(include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-    ))
-    .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
-    let key = &fixture["cases"]
-        .as_array()
-        .unwrap_or_else(|| panic!("fixture cases"))
-        .iter()
-        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap_or_else(|| panic!("recorded settlement"))["pinnedKey"];
+    let fixture = receipt_fixture();
+    let key = &fixture["pinnedKey"];
     let field = |name: &str| {
         key[name]
             .as_str()
@@ -158,6 +145,161 @@ fn pinned_receipt_keys() -> [SequencerAuthorization; 1] {
         &key["lastHeight"].to_string(),
     )
     .unwrap_or_else(|error| panic!("receipt authorization: {error}"))]
+}
+
+fn signed_settlement() -> (
+    BuiltPayment,
+    SettlementResponse,
+    [SequencerAuthorization; 1],
+) {
+    use ed25519_dalek::{Signer as _, SigningKey};
+
+    let fixture = receipt_fixture();
+    let log = &fixture["receiptJson"]["logs"][0];
+    let mut topics: Vec<[u8; 32]> = log["topics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|topic| receipt_fixture_bytes(topic).try_into().unwrap())
+        .collect();
+    assert_eq!(topics.len(), 4);
+    let recorded_topics = topics.concat();
+    topics[1..].rotate_right(1);
+    topics[3] = account_id(PAYEE_ACCOUNT);
+    let mut receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
+    let positions: Vec<_> = receipt
+        .windows(recorded_topics.len())
+        .enumerate()
+        .filter_map(|(index, bytes)| (bytes == recorded_topics).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1);
+    receipt[positions[0]..positions[0] + recorded_topics.len()].copy_from_slice(&topics.concat());
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap();
+    let signer = SigningKey::from_bytes(&[0x72; 32]);
+    let signature_start = receipt.len() - 64;
+    receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let [pinned] = pinned_receipt_keys();
+    let keys = [SequencerAuthorization::new(
+        pinned.sequencer_id(),
+        signer.verifying_key().to_bytes(),
+        pinned.first_batch_number(),
+        pinned.last_batch_number(),
+    )];
+    let mut logs = fixture["receiptJson"]["logs"].clone();
+    logs[0]["topics"] = json!(topics
+        .iter()
+        .map(|topic| format!("0x{}", hex32(topic)))
+        .collect::<Vec<_>>());
+    let data = receipt_fixture_bytes(&log["data"]);
+    assert_eq!(data.len(), 64);
+    assert_eq!(data[32..48], [0; 16]);
+    let asset: [u8; 32] = data[..32].try_into().unwrap();
+    let amount = AtomicAmount::from_u128(u128::from_be_bytes(data[48..64].try_into().unwrap()));
+    let idempotency_key = topics[1];
+    let payer = topics[2];
+    let payment = BuiltPayment {
+        header: String::new(),
+        payload: PaymentPayload {
+            x402_version: X402_VERSION,
+            resource: None,
+            payload: json!({"idempotencyKey": hex32(&idempotency_key)}),
+            accepted: PaymentRequirements {
+                amount,
+                asset: format!("0x{}", hex32(&asset)),
+                pay_to: pay_to(PAYEE_ACCOUNT),
+                extra: Some(layerx_terms(PAYEE_ACCOUNT)),
+                ..test_requirements()
+            },
+            extensions: BTreeMap::new(),
+        },
+        idempotency_key,
+    };
+    let response = SettlementResponse {
+        success: true,
+        error_reason: None,
+        payer: Some(hex32(&payer)),
+        transaction: fixture["receiptJson"]["txHash"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+        network: payment.payload.accepted.network.clone(),
+        amount: Some(amount),
+        extensions: BTreeMap::from([(
+            "layerx".to_owned(),
+            json!({
+                "receipt": STANDARD.encode(&receipt),
+                "receiptDigest": hex32(&digest),
+                "verificationLevel": fixture["receiptJson"]["rung"],
+                "logs": logs,
+            }),
+        )]),
+    };
+    (payment, response, keys)
+}
+
+#[test]
+fn buyer_tests_capture_on_the_recorded_receipt() {
+    let fixture = receipt_fixture();
+    let (payment, response, keys) = signed_settlement();
+    let receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
+    let digest: [u8; 32] = receipt_fixture_bytes(&fixture["receiptDigest"])
+        .try_into()
+        .unwrap();
+    let transaction: [u8; 32] = receipt_fixture_bytes(&fixture["receiptJson"]["txHash"])
+        .try_into()
+        .unwrap();
+    let verified =
+        layerx_proof::receipt::verify_sequencer_signature(&receipt, &pinned_receipt_keys())
+            .unwrap();
+    assert_eq!(verified.protocol().unwrap().activity_id(), transaction);
+    assert_eq!(
+        layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap(),
+        digest
+    );
+    let mut expected_logs = fixture["receiptJson"]["logs"].clone();
+    expected_logs[0]["topics"] = json!([
+        fixture["receiptJson"]["logs"][0]["topics"][0],
+        fixture["receiptJson"]["logs"][0]["topics"][3],
+        fixture["receiptJson"]["logs"][0]["topics"][1],
+        pay_to(PAYEE_ACCOUNT),
+    ]);
+    assert_eq!(response.extensions["layerx"]["logs"], expected_logs);
+    assert_eq!(payment.payload.accepted.pay_to, pay_to(PAYEE_ACCOUNT));
+    assert_eq!(
+        payment.payload.accepted.extra.as_ref().unwrap()["layerx"]["account"],
+        PAYEE_ACCOUNT
+    );
+    let receipt = STANDARD
+        .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
+        .unwrap();
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap();
+    assert_eq!(
+        response.extensions["layerx"]["receiptDigest"],
+        hex32(&digest)
+    );
+    let verified = layerx_proof::receipt::verify_sequencer_signature(&receipt, &keys).unwrap();
+    assert_eq!(verified.protocol().unwrap().activity_id(), transaction);
+    let [pinned] = pinned_receipt_keys();
+    assert_eq!(keys[0].sequencer_id(), pinned.sequencer_id());
+    assert_eq!(keys[0].first_batch_number(), pinned.first_batch_number());
+    assert_eq!(keys[0].last_batch_number(), pinned.last_batch_number());
+    payment.payload.validate().unwrap();
+    let captured = Buyer::capture_settlement(
+        &STANDARD.encode(serde_json::to_vec(&response).unwrap()),
+        &payment,
+        &keys,
+        &TraceId::mint([0xab; 16]),
+    )
+    .unwrap_or_else(|error| panic!("recorded settlement: {error:?}"));
+    assert_eq!(captured.response, response);
+    assert_eq!(captured.canonical_receipt, receipt);
+    assert_eq!(captured.receipt_digest, digest);
+    assert_eq!(captured.transaction_hash, transaction);
+    assert_eq!(
+        captured.response.transaction,
+        fixture["receiptJson"]["txHash"]
+    );
+    assert_eq!(captured.rung, "receipted");
 }
 
 fn payment_log_settlement(
@@ -644,7 +786,6 @@ fn buyer_capture_refuses_failed_settlement_as_success() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&failed).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -679,7 +820,6 @@ fn buyer_capture_refuses_missing_layerx_evidence() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&no_evidence).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -724,7 +864,6 @@ fn buyer_capture_refuses_wrong_verification_level() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&wrong_level).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -769,7 +908,6 @@ fn buyer_capture_refuses_malformed_receipt() {
     let encoded = STANDARD.encode(
         serde_json::to_vec(&bad_receipt).unwrap_or_else(|error| panic!("test input: {error:?}")),
     );
-    let _batch = mock_authorized_batch();
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);

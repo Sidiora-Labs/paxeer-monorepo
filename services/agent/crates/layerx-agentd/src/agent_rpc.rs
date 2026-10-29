@@ -22,7 +22,7 @@ use crate::tenant::{self, surface_for, AuthorizationError, ObjectOwner, Operatio
 pub const ENVELOPE_VERSION: u8 = 1;
 pub const MAX_BODY_BYTES: usize = 1_048_576;
 const BOOTSTRAP_OPERATIONS: &[Operation] = &[Operation::AgentRegister, Operation::SessionOpen];
-const RETIRED_OPERATIONS: &[&str] = &["faucet.claim"];
+const RETIRED_OPERATIONS: &[Operation] = &[Operation::FaucetClaim];
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -118,6 +118,79 @@ fn parse_hex32(value: &str) -> Option<[u8; 32]> {
     Some(out)
 }
 
+/// Resolves a catalogue operation to the owner dispatcher or its declared refusal.
+///
+/// # Errors
+/// Returns the retired-capability or bootstrap-artifact refusal for gated operations.
+pub fn dispatch_target(
+    operation: Operation,
+    request_id: RequestId,
+) -> Result<Operation, Rejection> {
+    match operation {
+        Operation::FaucetClaim => Err(Rejection::new(
+            ErrorClass::UnavailableCapability,
+            request_id,
+            "unavailable_capability.faucet.claim",
+        )),
+        Operation::AgentRegister | Operation::SessionOpen => Err(Rejection::new(
+            ErrorClass::PolicyRefusal,
+            request_id,
+            "refused_pending_bootstrap_artifact",
+        )),
+        Operation::ApprovalApprove
+        | Operation::ApprovalGet
+        | Operation::ApprovalList
+        | Operation::ApprovalReject
+        | Operation::AvailabilityFetch
+        | Operation::BudgetCreate
+        | Operation::BudgetFund
+        | Operation::BudgetList
+        | Operation::BudgetReconciliation
+        | Operation::BudgetRevoke
+        | Operation::BudgetState
+        | Operation::CapabilityAttenuate
+        | Operation::CapabilityCreate
+        | Operation::CapabilityList
+        | Operation::CapabilityRevoke
+        | Operation::ExportOffline
+        | Operation::McpInvoke
+        | Operation::PolicyDryRun
+        | Operation::Prepare
+        | Operation::ProgramActivity
+        | Operation::ProgramCall
+        | Operation::ProgramDeploy
+        | Operation::ProgramDiscover
+        | Operation::ProgramInterface
+        | Operation::ProgramReceipt
+        | Operation::ProgramSimulate
+        | Operation::ProgramUpgrade
+        | Operation::ProgramWindDown
+        | Operation::Project
+        | Operation::ReadAccount
+        | Operation::ReadBalance
+        | Operation::ReadBatch
+        | Operation::ReadCheckpoint
+        | Operation::ReadHistory
+        | Operation::ReadModuleState
+        | Operation::ReadProofBundle
+        | Operation::SessionClose
+        | Operation::SessionList
+        | Operation::SessionRefresh
+        | Operation::Sign
+        | Operation::Submit
+        | Operation::SubscriptionAcknowledge
+        | Operation::SubscriptionCreate
+        | Operation::SubscriptionDelete
+        | Operation::SubscriptionHealth
+        | Operation::SubscriptionList
+        | Operation::SubscriptionPause
+        | Operation::SubscriptionResume
+        | Operation::TenantReadiness
+        | Operation::Track
+        | Operation::Wait => Ok(operation),
+    }
+}
+
 fn lookup(name: &str) -> Option<Operation> {
     Operation::ALL
         .iter()
@@ -163,13 +236,6 @@ pub fn decode(body: &[u8]) -> Result<Envelope, Rejection> {
             "envelope.version",
         ));
     }
-    if RETIRED_OPERATIONS.contains(&wire.operation.as_str()) {
-        return Err(Rejection::new(
-            ErrorClass::UnavailableCapability,
-            request_id,
-            "unavailable_capability.faucet.claim",
-        ));
-    }
     let operation = lookup(&wire.operation).ok_or_else(|| {
         Rejection::new(
             ErrorClass::ProtocolIncompatibility,
@@ -177,6 +243,9 @@ pub fn decode(body: &[u8]) -> Result<Envelope, Rejection> {
             "envelope.unknown_operation",
         )
     })?;
+    if RETIRED_OPERATIONS.contains(&operation) {
+        dispatch_target(operation, request_id)?;
+    }
     let idempotency_key = match (operation.mutating(), wire.idempotency_key.as_deref()) {
         (true, Some(text)) => Some(parse_hex32(text).filter(|key| *key != [0; 32]).ok_or_else(
             || {
@@ -397,7 +466,12 @@ pub fn http_status(rejection: &Rejection) -> u16 {
         }
         ErrorClass::IdempotencyConflict => 409,
         ErrorClass::UnavailableCapability => 503,
-        _ => 500,
+        ErrorClass::TransportFailure
+        | ErrorClass::Deadline
+        | ErrorClass::CoreRejection
+        | ErrorClass::VerificationFailure
+        | ErrorClass::RateLimit
+        | ErrorClass::InternalFault => 500,
     }
 }
 
@@ -721,6 +795,14 @@ fn idempotency_refusal(request_id: RequestId, error: IdempotencyError) -> Reject
     }
 }
 
+/// Answers the binary contract-version exchange using the generated schema.
+///
+/// # Errors
+/// Returns `ProtocolIncompatibility` for malformed frames or an unsupported contract major.
+pub fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
+    crate::agent_rpc_wire::version_exchange(body)
+}
+
 /// Serves one agent RPC request body through the shared owner: decode (retired operations are
 /// refused there), degraded refusal, session authorization with the permit held through the
 /// owner effect, durable idempotency for every dispatched mutation outside the prepare and
@@ -732,18 +814,24 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
     owner: &SharedAgentOwner<A>,
     body: &[u8],
 ) -> AgentRpcResponse {
+    if body.first() == Some(&0) {
+        return match version_exchange(body) {
+            Ok(answer) => AgentRpcResponse {
+                status: 200,
+                body: answer.to_vec(),
+            },
+            Err(rejection) => rejected(&rejection),
+        };
+    }
     let envelope = match decode(body) {
         Ok(envelope) => envelope,
         Err(rejection) => return rejected(&rejection),
     };
     let request_id = envelope.request_id;
-    if BOOTSTRAP_OPERATIONS.contains(&envelope.operation) {
-        return rejected(&Rejection::new(
-            ErrorClass::PolicyRefusal,
-            request_id,
-            "refused_pending_bootstrap_artifact",
-        ));
-    }
+    let operation = match dispatch_target(envelope.operation, request_id) {
+        Ok(operation) => operation,
+        Err(rejection) => return rejected(&rejection),
+    };
     let (permit, core_sequence, bound, control) = match envelope.credential {
         Some(_) => match authorized(owner, &envelope) {
             Ok(authorized) => authorized,
@@ -766,13 +854,13 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
         idempotency_key: envelope.idempotency_key,
         peer: context_peer.peer().clone(),
     };
-    let journey = matches!(envelope.operation, Operation::Prepare | Operation::Submit);
+    let journey = matches!(operation, Operation::Prepare | Operation::Submit);
     let Some(key) = envelope.idempotency_key.filter(|_| !journey) else {
         let result = dispatch_operation(
             owner,
             &permit,
             &context_peer,
-            envelope.operation,
+            operation,
             &envelope.request,
             &context,
         );
@@ -781,18 +869,17 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
         drop(permit);
         return response;
     };
-    let request_bytes =
-        match canonical_request_bytes(envelope.operation, &envelope.request, request_id) {
-            Ok(Some(bytes)) => bytes,
-            Ok(None) => {
-                return rejected(&Rejection::new(
-                    ErrorClass::UnavailableCapability,
-                    request_id,
-                    "idempotency.unsupported_operation",
-                ));
-            }
-            Err(rejection) => return rejected(&rejection),
-        };
+    let request_bytes = match canonical_request_bytes(operation, &envelope.request, request_id) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => {
+            return rejected(&Rejection::new(
+                ErrorClass::UnavailableCapability,
+                request_id,
+                "idempotency.unsupported_operation",
+            ));
+        }
+        Err(rejection) => return rejected(&rejection),
+    };
     let store = match owner.idempotency(&permit.principal().tenant) {
         Ok(store) => store,
         Err(_) => return rejected(&owner_unavailable(request_id)),
@@ -811,7 +898,7 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
             owner,
             &permit,
             &context_peer,
-            envelope.operation,
+            operation,
             &envelope.request,
             &context,
         )
