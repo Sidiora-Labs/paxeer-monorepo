@@ -108520,7 +108520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.22.4]
 title = "Forward the frozen v2 watchlist, profile patch and owner templates to the user upstream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["4.22.2", "4.23.3", "4.23.4"]
@@ -135379,7 +135379,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.41.3]
 title = "Go SDK program operations submit to layerxprograms 0x101D"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.41.1", "8.46.1", "8.47.1", "8.47.2", "8.0.3"]
@@ -135627,7 +135627,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.42.3]
 title = "JVM SDK program operations submit to layerxprograms 0x101D"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.42.1", "8.46.1", "8.47.1", "8.47.2", "8.0.3"]
@@ -136501,7 +136501,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.3]
 title = "operations.json is keyed by the O1-O79 operation identifiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["8.46.1"]
@@ -138607,7 +138607,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.2.4]
 title = "Refuse agent key rotation with rotation_unsupported"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["9.2.2", "9.1.8", "18.1131.1"]
@@ -139052,7 +139052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.5.9]
 title = "Port the layerx-client sequencer test initializers to the receipts root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.5.3"]
@@ -146726,7 +146726,7 @@ do_6 = "Attempt 2's gate lists the remaining retired paths: src/server/agent_run
 
 [task.10.98.5]
 title = "Migrate the layerx-human-service callers of wiring.J44.21"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.2", "9.1.8", "18.1119.1"]
@@ -146871,7 +146871,7 @@ do_7 = "src/server.rs carries no retired path; port the fixtures of services/hum
 
 [task.10.98.9]
 title = "Migrate the layerx-human-service callers of wiring.J44.25 (wave 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.2", "9.1.8", "18.1119.1", "18.1172.1"]
@@ -152202,7 +152202,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.9.3]
 title = "Sponsored submit answers the signed sequencer receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["12.9.2", "12.5.1"]
@@ -176391,7 +176391,7 @@ qualification = "UNRUN"
 
 [task.18.911.1]
 title = "Issue #911: Move fraud-provable market attestation positives to the billing commit and assert the plain usage commit is refused"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1105.1", "18.911.2"]
