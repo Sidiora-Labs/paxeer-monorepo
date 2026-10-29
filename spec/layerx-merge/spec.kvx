@@ -146871,7 +146871,7 @@ do_7 = "src/server.rs carries no retired path; port the fixtures of services/hum
 
 [task.10.98.9]
 title = "Migrate the layerx-human-service callers of wiring.J44.25 (wave 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.2", "9.1.8", "18.1119.1", "18.1172.1"]
@@ -152202,7 +152202,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.9.3]
 title = "Sponsored submit answers the signed sequencer receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["12.9.2", "12.5.1"]
