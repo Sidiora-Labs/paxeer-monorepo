@@ -1134,6 +1134,7 @@ fn serve_evm(stream: &mut TcpStream, answers: &Value, sent: &Mutex<Vec<Vec<u8>>>
 impl Evm {
     fn start() -> Checked<Self> {
         let answers = read_json(&fixtures().join("evm.json"))?;
+        decode_request_view(&answers)?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let sent = Arc::new(Mutex::new(Vec::new()));
@@ -1146,6 +1147,21 @@ impl Evm {
         });
         Ok(Self { address, sent })
     }
+}
+
+fn decode_request_view(answers: &Value) -> Checked {
+    let answer = bytes(answers, "/eth_call")?;
+    assert_eq!(answer.len(), 11 * 32);
+    assert_eq!(
+        x_websearch::submit::decode_request_view(&answer, 9),
+        Some(x_websearch::submit::RequestView {
+            request_id: 9,
+            status: x_websearch::submit::STATUS_PENDING,
+            level: LEVEL_SINGLE,
+            attestor: signer_address(&attestor_key(1)?),
+        })
+    );
+    Ok(())
 }
 
 /// Posts fulfil for `ready` against the loopback EVM endpoint and checks the

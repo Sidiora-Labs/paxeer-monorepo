@@ -2277,6 +2277,29 @@ lxp_result layerx_programs_call_transfer_apply(uint64_t token)
                                      value->ctx->ledger_admission.bound ?
                                          value->ctx->ledger_admission.account_id :
                                          value->authority->principal);
+    if (sequence_account == NULL && !value->ctx->ledger_admission.bound) {
+        uint8_t (*account_ids)[32];
+        size_t account_count = 0U;
+        lxp_result status;
+        if (runtime->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY)
+            return LXP_ERR_NON_CANONICAL;
+        account_ids = calloc(runtime->accounts->count + 1U, sizeof(*account_ids));
+        if (account_ids == NULL) return LXP_ERR_ARENA_EXHAUSTED;
+        status = lx_account_list_did(runtime->accounts,
+                                      value->authority->principal,
+                                      account_ids, runtime->accounts->count,
+                                      &account_count);
+        for (index = 0U; status == LXP_OK && index < account_count; ++index) {
+            lx_account *account = account_by_id(runtime->accounts,
+                                                account_ids[index]);
+            if (account != NULL && account->kind == LX_ACCOUNT_AGENT_MAIN) {
+                sequence_account = account;
+                break;
+            }
+        }
+        free(account_ids);
+        if (status != LXP_OK) return status;
+    }
     if (sequence_account == NULL) return LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
     for (index = 0U; index < set->leg_count; ++index) {
         lxp_result status = transfer_source_validate(value, (uint16_t)index);

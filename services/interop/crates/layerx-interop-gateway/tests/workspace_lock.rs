@@ -16,7 +16,6 @@ const MEMBERS: &[(&str, &str)] = member_manifests!(
     "layerx-gas-station",
     "layerx-interop-gateway",
     "layerx-interop-service",
-    "layerx-intent-ingester",
     "layerx-fiat",
     "layerx-migrate",
     "layerx-mirror",

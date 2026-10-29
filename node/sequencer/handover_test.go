@@ -348,3 +348,105 @@ func TestHandoverOpenBlockEqual(t *testing.T) {
 	entries = accepterWALEntries(t, sb.dir)
 	require.Equal(t, result.Lease, entries[len(entries)-1])
 }
+
+func handoverEmptyOpenAfterCommit(t *testing.T) *driverHarness {
+	t.Helper()
+	f := newDriverHarness(t, 2, wal.DefaultConfig().SegmentSizeLimit)
+	_, err := f.repl.Release(context.Background(), &wal.Lease{Epoch: 23})
+	require.NoError(t, err)
+	require.NoError(t, f.driver.OnCommit(committedTip, f.h.app.CommitMultiStore().LastCommitID().Hash))
+	_, tx := transfer(t, f.sender, 0, utils.NewSigner().EvmAddress, big.NewInt(1))
+	held, err := f.queue.Hold(f.sender.EvmAddress, 0, tx)
+	require.NoError(t, err)
+	require.False(t, held)
+	require.Equal(t, sourceLastSeq+1, f.lastSeq)
+	hash := f.commit(t, openHeight)
+	require.NoError(t, f.driver.OnCommit(openHeight, hash))
+	entries := driverEntries(t, f.dir)
+	kinds := make([]wal.EntryKind, len(entries))
+	for i, entry := range entries {
+		kinds[i] = entry.Kind()
+	}
+	require.Equal(t, []wal.EntryKind{
+		wal.KindLease, wal.KindCommitted, wal.KindOpen, wal.KindAccept,
+		wal.KindSeal, wal.KindCommitted, wal.KindOpen,
+	}, kinds)
+	require.Equal(t, &wal.Committed{
+		Height: uint64(openHeight), LastSeq: f.lastSeq, AppHash: [32]byte(hash),
+	}, f.w.LastCommitted())
+	require.Equal(t, f.w.LastCommitted(), f.sw.LastCommitted())
+	require.Equal(t, uint64(openHeight+1), entries[len(entries)-1].(*wal.Open).Height)
+	require.Equal(t, openHeight+1, f.h.openCtx().BlockHeight())
+	require.Equal(t, openHeight+1, f.sb.openCtx().BlockHeight())
+	require.Equal(t, f.lastSeq, f.standby.LastSeq())
+	return f
+}
+
+func TestHandoverEmptyOpenAfterCommit(t *testing.T) {
+	for _, reconnect := range []bool{false, true} {
+		name := "connected"
+		if reconnect {
+			name = "reconnected"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := handoverEmptyOpenAfterCommit(t)
+			if reconnect {
+				f.repl.Close()
+			}
+			primaryBefore := driverEntries(t, f.dir)
+			standbyBefore := driverEntries(t, f.sdir)
+			key := failoverKey(t, &standby{s: f.standby}, 1, 100, openHeight+1)
+			expiry := uint64(f.h.openCtx().BlockTime().UnixMilli()) + 30_000
+			result, err := sequencer.Handover(context.Background(), sequencer.HandoverConfig{
+				Primary: f.h.exec, Replicator: f.repl, Standby: f.standby,
+				Key: key, OpenHeight: openHeight + 1, ExpiryMs: expiry,
+			})
+			require.NoError(t, err)
+			require.Equal(t, sequencer.HandoverResult{
+				Lease: &wal.Lease{Epoch: 24, KeyID: testKeyID, ExpiryMs: expiry}, LastSeq: f.lastSeq,
+			}, result)
+			require.Equal(t, uint64(23), f.repl.Epoch())
+			require.Equal(t, f.lastSeq, f.standby.LastSeq())
+			require.Equal(t, primaryBefore, driverEntries(t, f.dir))
+			require.Equal(t, append(standbyBefore, result.Lease), driverEntries(t, f.sdir))
+			_, nextTx := transfer(t, f.sender, 1, utils.NewSigner().EvmAddress, big.NewInt(2))
+			accepted, err := f.h.exec.Accept(nextTx)
+			require.ErrorIs(t, err, sequencer.ErrLeaseFenced)
+			require.Nil(t, accepted)
+			next, err := f.sb.exec.Accept(nextTx)
+			require.NoError(t, err)
+			require.Equal(t, f.lastSeq+1, next.Seq)
+			require.Equal(t, openHeight+1, next.Height)
+			_, err = f.repl.Drain(context.Background())
+			require.ErrorIs(t, err, sequencer.ErrFenced)
+		})
+	}
+}
+
+func TestDrainRetainedFrontierAfterCommit(t *testing.T) {
+	f := handoverEmptyOpenAfterCommit(t)
+	ack, err := f.repl.Drain(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: f.lastSeq}, ack)
+	_, tx := transfer(t, f.sender, 1, utils.NewSigner().EvmAddress, big.NewInt(2))
+	accepted, err := f.h.exec.Accept(tx)
+	require.NoError(t, err)
+	receipt, err := receiptBytes(accepted)
+	require.NoError(t, err)
+	l := listen(t)
+	t.Cleanup(func() { _ = l.Close() })
+	go func() { _ = f.standby.Serve(l) }()
+	conn, err := net.DialTimeout("tcp", l.Addr().String(), replicationTimeout)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: f.lastSeq + 1},
+		standbyLeaseExchange(t, conn, &wal.Accept{
+			Seq: accepted.Seq, Height: uint64(accepted.Height), Tx: tx, Receipt: receipt,
+		}))
+	before := driverEntries(t, f.sdir)
+	ack, err = f.repl.Drain(context.Background())
+	require.ErrorIs(t, err, sequencer.ErrNoAck)
+	require.Equal(t, sequencer.Ack{}, ack)
+	require.Equal(t, before, driverEntries(t, f.sdir))
+	require.NoError(t, f.standby.Err())
+}

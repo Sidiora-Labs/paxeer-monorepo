@@ -990,7 +990,7 @@ jobs:
     env:
       LAYERX_RELEASE_REGISTRY: go-modules
       LAYERX_RELEASE_DISTRIBUTION: https://proxy.golang.org
-      LAYERX_RELEASE_PACKAGES: github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go
+      LAYERX_RELEASE_PACKAGES: github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}
       LAYERX_RELEASE_OUTPUT: build/release/go-modules
     steps:
@@ -1049,15 +1049,15 @@ jobs:
           LAYERX_RELEASE_GPG_PASSPHRASE: ${{ secrets.LAYERX_RELEASE_GPG_PASSPHRASE }}
         run: |
           test -n "$LAYERX_RELEASE_GO_TAG_TOKEN"
-          tag=${LAYERX_RELEASE_PACKAGES#github.com/Sidiora-Labs/LayerX-Network/}/v$LAYERX_RELEASE_VERSION
+          tag=sdk/platform/go/v$LAYERX_RELEASE_VERSION
           git config user.name "LayerX release pipeline"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
           git config gpg.program "$RUNNER_TEMP/gpg-loopback"
           git config user.signingkey "$LAYERX_RELEASE_GPG_KEY_ID"
           git tag -s "$tag" -m "LayerX Go SDK $LAYERX_RELEASE_VERSION from $GITHUB_SHA" "$GITHUB_SHA"
           git tag --verify "$tag" 2>&1 | tee "$LAYERX_RELEASE_OUTPUT/tag-signature.txt"
-          repository=${LAYERX_RELEASE_PACKAGES%/platform/sdk/go}
-          git push "https://x-access-token:$LAYERX_RELEASE_GO_TAG_TOKEN@$repository.git" "refs/tags/platform/sdk/go/v$LAYERX_RELEASE_VERSION"
+          repository=${LAYERX_RELEASE_PACKAGES%/sdk/platform/go}
+          git push "https://x-access-token:$LAYERX_RELEASE_GO_TAG_TOKEN@$repository.git" "refs/tags/sdk/platform/go/v$LAYERX_RELEASE_VERSION"
           echo published=true >> "$LAYERX_RELEASE_OUTPUT/publication.txt"
       - name: Install the module from the proxy through the checksum database and verify it byte for byte
         if: startsWith(github.ref, 'refs/tags/sdk-v')

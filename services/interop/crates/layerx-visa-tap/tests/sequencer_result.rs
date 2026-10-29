@@ -1,8 +1,12 @@
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_visa_tap::{MerchantOperationResult, TapError};
 use serde_json::Value;
+use sha2::{Digest as _, Sha256};
 
 fn bytes(value: &Value) -> Vec<u8> {
     let hex = value
@@ -23,7 +27,7 @@ fn fixed<const N: usize>(value: &Value) -> [u8; N] {
     bytes(value).try_into().expect("fixture field length")
 }
 
-fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
@@ -79,11 +83,57 @@ fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 3
     )
 }
 
+fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+    let (mut evidence, keys, _) = recorded_legacy_payment();
+    assert_eq!(evidence.logs.len(), 1);
+    let original = &evidence.logs[0];
+    let mut topics = original.topics().to_vec();
+    topics[1..].rotate_right(1);
+    let payment = SequencerLog::new(
+        original.address(),
+        topics,
+        original.data().to_vec(),
+        original.log_index(),
+    );
+    let body = |log: &SequencerLog| {
+        let mut bytes = log.address().to_vec();
+        bytes.push(4);
+        for topic in log.topics() {
+            bytes.extend_from_slice(topic);
+        }
+        bytes.extend_from_slice(&Sha256::digest(log.data()));
+        bytes
+    };
+    let original_body = body(original);
+    let mut unsigned = evidence.signed_receipt[..evidence.signed_receipt.len() - 69].to_vec();
+    let offsets: Vec<_> = unsigned
+        .windows(original_body.len())
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == original_body.as_slice()).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one canonical signed log");
+    unsigned[offsets[0]..offsets[0] + original_body.len()].copy_from_slice(&body(&payment));
+    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    assert_eq!(signer.verifying_key().to_bytes(), keys[0].public_key());
+    let mut digest = Sha256::new();
+    digest.update(b"LXP/v1/receipt\0");
+    digest.update(&unsigned);
+    digest.update([0]);
+    let signature = signer.sign(&digest.finalize()).to_bytes();
+    unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
+    unsigned.extend_from_slice(&signature);
+    evidence.signed_receipt = unsigned;
+    evidence.logs = vec![payment];
+    let receipt_digest =
+        canonical_receipt_digest(&evidence.signed_receipt).expect("native-order receipt digest");
+    (evidence, keys, receipt_digest)
+}
+
 #[test]
 fn from_receipt_reads_the_pay_exact_log() {
     let (evidence, keys, receipt_digest) = recorded_payment();
     assert_eq!(evidence.logs.len(), 1);
-    let reference = evidence.logs[0].topics()[3];
+    let reference = evidence.logs[0].topics()[1];
     let result = MerchantOperationResult::from_receipt(&evidence, &keys, reference);
     assert_eq!(
         result,
@@ -108,8 +158,8 @@ fn from_receipt_reads_the_pay_exact_log() {
         let mut topics = log.topics().to_vec();
         let mut data = log.data().to_vec();
         match field {
-            0 => topics[1][0] ^= 1,
-            1 => topics[2][0] ^= 1,
+            0 => topics[2][0] ^= 1,
+            1 => topics[3][0] ^= 1,
             2 => data[0] ^= 1,
             3 => data[63] ^= 1,
             _ => unreachable!(),
@@ -126,7 +176,7 @@ fn from_receipt_reads_the_pay_exact_log() {
 #[test]
 fn visa_result_digest_is_the_recorded_receipt_digest() {
     let (evidence, keys, recorded_digest) = recorded_payment();
-    let reference = evidence.logs[0].topics()[3];
+    let reference = evidence.logs[0].topics()[1];
     let result = MerchantOperationResult::from_receipt(&evidence, &keys, reference)
         .expect("recorded payment must verify");
     let MerchantOperationResult::ReceiptVerified { receipt_digest, .. } = result else {
@@ -138,12 +188,22 @@ fn visa_result_digest_is_the_recorded_receipt_digest() {
 #[test]
 fn from_receipt_refuses_another_reference() {
     let (evidence, keys, _) = recorded_payment();
-    let reference = evidence.logs[0].topics()[3];
+    let reference = evidence.logs[0].topics()[1];
     assert!(MerchantOperationResult::from_receipt(&evidence, &keys, reference).is_ok());
     let mut other_reference = reference;
     other_reference[0] ^= 1;
     assert_eq!(
         MerchantOperationResult::from_receipt(&evidence, &keys, other_reference),
+        Err(TapError::ReceiptMismatch)
+    );
+}
+
+#[test]
+fn from_receipt_refuses_the_legacy_topic_order() {
+    let (evidence, keys, _) = recorded_legacy_payment();
+    let reference = evidence.logs[0].topics()[3];
+    assert_eq!(
+        MerchantOperationResult::from_receipt(&evidence, &keys, reference),
         Err(TapError::ReceiptMismatch)
     );
 }

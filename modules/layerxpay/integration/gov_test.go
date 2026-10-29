@@ -7,17 +7,13 @@ import (
 	"time"
 
 	layerxgovtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
-	pay "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay"
-	paykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/kv"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
@@ -25,26 +21,17 @@ import (
 )
 
 func TestPayParamsThroughLayerXProposal(t *testing.T) {
-	payKey := sdk.NewKVStoreKey(paytypes.StoreKey)
-	hostKey := sdk.NewKVStoreKey("lxphost")
-	w := app.NewTestWrapper(t, time.Unix(1800000000, 0).UTC(), ed25519.GenPrivKey().PubKey(), false,
-		func(base *baseapp.BaseApp) {
-			base.MountStores(payKey, hostKey)
-		})
+	w := app.NewTestWrapper(t, time.Unix(1800000000, 0).UTC(), ed25519.GenPrivKey().PubKey(), false)
+	t.Cleanup(func() { require.NoError(t, w.App.Close()) })
 	ctx := w.Ctx
-	registry := w.App.InterfaceRegistry()
-	paytypes.RegisterInterfaces(registry)
-	host, err := lxphost.NewHost(lxphost.Config{
-		StoreKey: hostKey, NetworkID: 7, ParameterVersion: 1,
-		TimestampWindowMs: 60000, GasLimit: 1000000,
-	})
-	require.NoError(t, err)
-	t.Cleanup(host.Close)
-	keeper, err := paykeeper.NewKeeper(w.App.AppCodec(), payKey, hostKey, host,
-		&w.App.EvmKeeper, w.App.LayerXCustodyKeeper, layerxgovtypes.GovernanceAuthority())
-	require.NoError(t, err)
-	queryRouter := baseapp.NewQueryServerTestHelper(ctx, registry)
-	pay.NewAppModule(keeper).RegisterServices(module.NewConfigurator(w.App.AppCodec(), w.App.MsgServiceRouter(), queryRouter))
+	keeper := w.App.LayerXPayKeeper
+	require.NotNil(t, keeper)
+	hostKey := w.App.GetKey(app.LayerXHostStoreKey)
+	require.NotNil(t, hostKey)
+	queryRouter := &baseapp.QueryServiceTestHelper{
+		GRPCQueryRouter: w.App.GRPCQueryRouter(),
+		Ctx:             ctx,
+	}
 	query := paytypes.NewQueryClient(queryRouter)
 	assertParams := func(expected paytypes.Params) {
 		t.Helper()

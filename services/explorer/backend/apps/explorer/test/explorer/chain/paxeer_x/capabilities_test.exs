@@ -21,6 +21,12 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
 
   @addr_precompile "0x0000000000000000000000000000000000001004"
   @get_unified_account "0x357feed6" <> String.duplicate("0", 64)
+  @view_calls %{
+    "0x0000000000000000000000000000000000001015" => "0xb71d031c" <> String.duplicate("0", 64),
+    "0x0000000000000000000000000000000000001016" => "0xb187bd26"
+  }
+  @view_word "0x" <> String.duplicate("0", 64)
+  @reverted %{error: %{code: -32_000, message: "execution reverted"}}
 
   # `(address, string, bytes32, bytes32)` as the addr precompile returns it for
   # an account with no binding: four head words, then the empty `paxAddr`.
@@ -34,6 +40,87 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
   @bytecode "0x60806040523480156100105760006000fd"
 
   setup :verify_on_exit!
+
+  test "reads exchange and bridge as live when their view calls answer one word and absent when they revert" do
+    set_mox_global()
+
+    live = %{result: @view_word}
+    node = start_supervised!({Agent, fn -> {live, live, "0x"} end})
+
+    stub(EthereumJSONRPC.Mox, :json_rpc, fn
+      %{method: "eth_blockNumber", params: []}, _options ->
+        {:ok, @head}
+
+      requests, _options when is_list(requests) ->
+        {exchange, bridge, code} = Agent.get(node, & &1)
+
+        assert length(requests) == 4
+        assert requests |> Enum.map(& &1.id) |> Enum.uniq() |> length() == 4
+
+        responses =
+          Enum.map(requests, fn
+            %{id: id, method: "eth_call", params: [%{to: address, data: data}, block]}
+            when is_map_key(@view_calls, address) ->
+              assert Map.fetch!(@view_calls, address) == data
+              assert block == @head_quantity
+
+              response =
+                case address do
+                  "0x0000000000000000000000000000000000001015" -> exchange
+                  "0x0000000000000000000000000000000000001016" -> bridge
+                end
+
+              response |> Map.put(:id, id) |> Map.put(:jsonrpc, "2.0")
+
+            request ->
+              answer(request, code, %{result: @unified_account_answer})
+          end)
+
+        {:ok, Enum.reverse(responses)}
+    end)
+
+    start_supervised!(Capabilities)
+
+    for {exchange, bridge, code, exchange_live, bridge_live, launchpad_live} <- [
+          {live, live, "0x", true, true, false},
+          {live, live, @bytecode, true, true, true},
+          {@reverted, live, @bytecode, false, true, true},
+          {live, @reverted, @bytecode, true, false, true},
+          {@reverted, @reverted, @bytecode, false, false, true},
+          {@reverted, @reverted, "0x", false, false, false}
+        ] do
+      Agent.update(node, fn _ -> {exchange, bridge, code} end)
+
+      assert {:ok, snapshot} = Capabilities.refresh()
+      assert snapshot.exchange == exchange_live
+      assert snapshot.bridge == bridge_live
+      assert snapshot.launchpad == launchpad_live
+      assert snapshot.unified_account
+      assert %DateTime{} = snapshot.checked_at
+      assert Capabilities.all() == snapshot
+      assert Capabilities.live?(:exchange) == exchange_live
+      assert Capabilities.live?(:bridge) == bridge_live
+      assert Capabilities.live?(:launchpad) == launchpad_live
+    end
+
+    Agent.update(node, fn _ -> {live, live, @bytecode} end)
+    assert {:ok, stored} = Capabilities.refresh()
+
+    for surface <- [:exchange, :bridge],
+        malformed <- ["0x", "0x01", @view_word <> "00", "0x" <> String.duplicate("z", 64), nil] do
+      response = %{result: malformed}
+
+      Agent.update(node, fn _ ->
+        case surface do
+          :exchange -> {response, live, @bytecode}
+          :bridge -> {live, response, @bytecode}
+        end
+      end)
+
+      assert {:error, {^surface, {:unexpected_response, %{result: ^malformed}}}} = Capabilities.refresh()
+      assert Capabilities.all() == stored
+    end
+  end
 
   describe "probe/1" do
     test "reads the surfaces the chain does not carry yet as absent" do
@@ -169,7 +256,7 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
       {:ok, @head}
     end)
     |> expect(:json_rpc, fn requests, _options when is_list(requests) ->
-      assert length(requests) == map_size(@code_addresses) + 1
+      assert length(requests) == map_size(@view_calls) + 2
 
       {:ok, Enum.map(requests, &answer(&1, code, unified_account_answer))}
     end)
@@ -181,9 +268,23 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
          _unified_account_answer
        ) do
     assert Map.has_key?(@code_addresses, address)
+    assert address == "0x0000000000000000000000000000000000001017"
     assert block == @head_quantity
 
     %{id: id, jsonrpc: "2.0", result: code}
+  end
+
+  defp answer(
+         %{id: id, method: "eth_call", params: [%{to: to, data: data}, block]},
+         code,
+         _unified_account_answer
+       )
+       when is_map_key(@view_calls, to) do
+    assert data == Map.fetch!(@view_calls, to)
+    assert block == @head_quantity
+
+    response = if code == "0x", do: @reverted, else: %{result: @view_word}
+    response |> Map.put(:id, id) |> Map.put(:jsonrpc, "2.0")
   end
 
   defp answer(

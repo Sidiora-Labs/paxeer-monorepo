@@ -2,7 +2,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
   use BlockScoutWeb.ConnCase
 
   alias Explorer.Chain.Address
-  alias Explorer.Chain.PaxeerX.{AccountBinding, Anchor, CustodyEvent, Receipt}
+  alias Explorer.Chain.PaxeerX.{AccountBinding, Anchor, Receipt}
   alias Explorer.Repo
   alias OpenApiSpex.{Cast, MediaType, Operation, PathItem, Response, Schema}
 
@@ -12,10 +12,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
 
   @paxeer_x_paths [
     "/v2/addresses/{address_hash_param}/unified",
-    "/v2/paxeer-x/anchors",
+    "/v2/paxeer-x/archive/anchors",
     "/v2/paxeer-x/capabilities",
-    "/v2/paxeer-x/receipts",
-    "/v2/paxeer-x/receipts/{id}",
+    "/v2/paxeer-x/archive/receipts",
+    "/v2/paxeer-x/archive/receipts/{id}",
     "/v2/transactions/{transaction_hash_param}/status"
   ]
 
@@ -39,7 +39,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     test "reject a unified account document that lost a field", %{conn: conn} do
       address = insert(:address)
       block = insert(:block, number: 300)
-      transaction = :transaction |> insert() |> with_block(block)
+      transaction = :transaction |> insert(from_address: address) |> with_block(block)
 
       insert_binding(address, block, transaction)
 
@@ -68,8 +68,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     test "reject an anchors page that lost a field", %{conn: conn} do
       insert_anchor(3)
 
-      response = json_response(get(conn, "/api/v2/paxeer-x/anchors"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/anchors")
+      response = json_response(get(conn, "/api/v2/paxeer-x/archive/anchors"), 200)
+      {spec, schema} = declared_schema("/v2/paxeer-x/archive/anchors")
 
       assert_absent_rejected(response, schema, spec)
       assert_absent_rejected_in_list(response, "items", schema, spec)
@@ -85,8 +85,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     test "reject a receipts page that lost a field", %{conn: conn} do
       insert_receipt(4)
 
-      response = json_response(get(conn, "/api/v2/paxeer-x/receipts"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/receipts")
+      response = json_response(get(conn, "/api/v2/paxeer-x/archive/receipts"), 200)
+      {spec, schema} = declared_schema("/v2/paxeer-x/archive/receipts")
 
       assert_absent_rejected(response, schema, spec)
       assert_absent_rejected_in_list(response, "items", schema, spec)
@@ -95,8 +95,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     test "reject one receipt that lost a field", %{conn: conn} do
       insert_receipt(4)
 
-      response = json_response(get(conn, "/api/v2/paxeer-x/receipts/#{receipt_id(4)}"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/receipts/{id}")
+      response = json_response(get(conn, "/api/v2/paxeer-x/archive/receipts/#{receipt_id(4)}"), 200)
+      {spec, schema} = declared_schema("/v2/paxeer-x/archive/receipts/{id}")
 
       assert_absent_rejected(response, schema, spec)
     end
@@ -190,9 +190,31 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
         Map.new(fields)
       )
 
-    %CustodyEvent{}
-    |> CustodyEvent.changeset(attributes)
-    |> Repo.insert!()
+    Repo.query!(
+      """
+      INSERT INTO lx_custody_events (
+        transaction_hash, log_index, block_hash, block_number, block_consensus,
+        kind, direction, asset_id, amount, address_hash, account, inserted_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6::lx_custody_event_kind, $7::lx_custody_event_direction,
+        decode(substr($8, 3), 'hex'), $9, decode(substr($10, 3), 'hex'),
+        decode(substr($11, 3), 'hex'), NOW(), NOW()
+      )
+      """,
+      [
+        attributes.transaction_hash.bytes,
+        attributes.log_index,
+        attributes.block_hash.bytes,
+        attributes.block_number,
+        attributes.block_consensus,
+        to_string(attributes.kind),
+        to_string(attributes.direction),
+        attributes.asset_id,
+        attributes[:amount],
+        attributes[:address_hash],
+        attributes[:account]
+      ]
+    )
   end
 
   defp insert_anchor(batch_number) do
@@ -216,7 +238,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     }
 
     %Anchor{}
-    |> Anchor.changeset(attributes)
+    |> Ecto.Changeset.cast(attributes, Map.keys(attributes))
     |> Repo.insert!()
   end
 
@@ -237,7 +259,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     }
 
     %Receipt{}
-    |> Receipt.changeset(attributes)
+    |> Ecto.Changeset.cast(attributes, Map.keys(attributes))
     |> Repo.insert!()
   end
 

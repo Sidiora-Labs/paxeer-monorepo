@@ -3,9 +3,105 @@ package graphql
 import (
 	"context"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 )
+
+func TestMarketMarginTiers(t *testing.T) {
+	databaseURL := os.Getenv("PERPS_DATA_TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Fatal("PERPS_DATA_TEST_DATABASE_URL is unset")
+	}
+	db := openPerpsDB(t, databaseURL)
+	if _, err := db.Exec(`DELETE FROM perps.market_tiers;
+DELETE FROM perps.markets;
+INSERT INTO perps.markets (market_id, name, symbol, oracle_symbol, max_leverage,
+    maintenance_margin_bps, max_open_interest, enabled, source) VALUES
+    (7, 'Bitcoin', 'BTC', 'BTC', 100, 5, 1000, true, 'chain'),
+    (13, 'Ether', 'ETH', 'ETH', 50, 10, 2000, true, 'chain'),
+    (29, 'No tiers', 'NONE', 'NONE', 30, 5, 1000, false, 'seed');
+INSERT INTO perps.market_tiers
+    (market_id, tier, lower_bound_usd, max_leverage, maintenance_bps, deduction_usd, refreshed_block) VALUES
+    (7, 10, 115792089237316195423570985008687907853269984665640564039457584007913129639935,
+        1000000000000000000, 500, 9007199254740993, 42),
+    (13, 0, 0, 50000000000000000000, 100, 0, 42),
+    (7, 2, 9007199254740993, 20000000000000000000, 100, 1000000000000000000, 42),
+    (7, 0, 0, 100000000000000000000, 50, 0, 42)`); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := NewSchema(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSchemaField(t, schema, "Market", "marginTiers", "[MarginTier!]!", nil)
+	assertSchemaFields(t, schema, "MarginTier", map[string]string{
+		"tier": "Int!", "lowerBoundUsd": "BigInt!", "maxLeverage": "BigInt!",
+		"maintenanceBps": "BigInt!", "deductionUsd": "BigInt!",
+	})
+	check(t, schema, `{ markets { marketId marginTiers { tier maxLeverage maintenanceBps } } }`,
+		`{"markets":[
+{"marketId":7,"marginTiers":[{"tier":0,"maxLeverage":"100000000000000000000","maintenanceBps":"50"},{"tier":2,"maxLeverage":"20000000000000000000","maintenanceBps":"100"},{"tier":10,"maxLeverage":"1000000000000000000","maintenanceBps":"500"}]},
+{"marketId":13,"marginTiers":[{"tier":0,"maxLeverage":"50000000000000000000","maintenanceBps":"100"}]},
+{"marketId":29,"marginTiers":[]}]}`)
+	const btcTiers = `[{"tier":0,"lowerBoundUsd":"0","maxLeverage":"100000000000000000000","maintenanceBps":"50","deductionUsd":"0"},
+{"tier":2,"lowerBoundUsd":"9007199254740993","maxLeverage":"20000000000000000000","maintenanceBps":"100","deductionUsd":"1000000000000000000"},
+{"tier":10,"lowerBoundUsd":"115792089237316195423570985008687907853269984665640564039457584007913129639935","maxLeverage":"1000000000000000000","maintenanceBps":"500","deductionUsd":"9007199254740993"}]`
+	check(t, schema, `{ market(marketId: 7) { marginTiers { tier lowerBoundUsd maxLeverage maintenanceBps deductionUsd } } }`,
+		`{"market":{"marginTiers":`+btcTiers+`}}`)
+	check(t, schema, `{ market(marketId: 7) { first: marginTiers { tier lowerBoundUsd maxLeverage maintenanceBps deductionUsd } second: marginTiers { tier lowerBoundUsd maxLeverage maintenanceBps deductionUsd } } }`,
+		`{"market":{"first":`+btcTiers+`,"second":`+btcTiers+`}}`)
+
+	ctx := context.Background()
+	resolver := &Resolver{DB: db}
+	markets, err := resolver.Markets(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(markets) != 3 {
+		t.Fatalf("markets = %d, want 3", len(markets))
+	}
+	if _, err := markets[0].MarginTiers(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE perps.market_tiers SET maintenance_bps = 125 WHERE market_id = 13`); err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	cachedCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	for _, market := range markets {
+		tiers, err := market.MarginTiers(cachedCtx)
+		if err != nil {
+			t.Fatalf("cached tiers for market %d attempted another read: %v", market.MarketID, err)
+		}
+		switch market.MarketID {
+		case 7:
+			if len(tiers) != 3 || tiers[0].Tier != 0 || tiers[1].Tier != 2 || tiers[2].Tier != 10 {
+				t.Fatalf("BTC tiers = %+v, want tiers 0, 2, 10", tiers)
+			}
+		case 13:
+			want := []*MarginTier{{Tier: 0, LowerBoundUsd: "0", MaxLeverage: "50000000000000000000", MaintenanceBps: "100", DeductionUsd: "0"}}
+			if !reflect.DeepEqual(tiers, want) {
+				t.Fatalf("ETH tiers = %+v, want the batch loaded before the update", tiers)
+			}
+		case 29:
+			if tiers == nil || len(tiers) != 0 {
+				t.Fatalf("missing tiers = %v, want a non-null empty list", tiers)
+			}
+		}
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	check(t, schema, `{ markets { marketId marginTiers { tier maintenanceBps } } }`,
+		`{"markets":[{"marketId":7,"marginTiers":[{"tier":0,"maintenanceBps":"50"},{"tier":2,"maintenanceBps":"100"},{"tier":10,"maintenanceBps":"500"}]},{"marketId":13,"marginTiers":[{"tier":0,"maintenanceBps":"125"}]},{"marketId":29,"marginTiers":[]}]}`)
+}
 
 func TestMarketConfigFields(t *testing.T) {
 	databaseURL := os.Getenv("PERPS_DATA_TEST_DATABASE_URL")

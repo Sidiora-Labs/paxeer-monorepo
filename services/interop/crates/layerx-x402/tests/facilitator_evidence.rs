@@ -3,6 +3,12 @@ use std::collections::BTreeMap;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_committed_proof::{
+    commit::{BlockIdFlag, Commit, CommitSig},
+    committed::verify_committed,
+    header::{BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp, Validator},
+    CommittedProof,
+};
 use layerx_interop_gateway::adapter::{
     AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec, SpecVersion,
 };
@@ -17,11 +23,11 @@ use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_x402::facilitator::{
-    Facilitator, FacilitatorKind, FacilitatorRequest, SequencerFacilitatorPlane,
-    SettlementIdentity, SettlementStep, SupportedResponse,
+    Facilitator, FacilitatorCommitment, FacilitatorKind, FacilitatorRequest,
+    SequencerFacilitatorPlane, SettlementIdentity, SettlementStep, SupportedResponse,
 };
 use layerx_x402::model::{
-    account_identifiers, AtomicAmount, PaymentPayload, PaymentRequirements, X402_VERSION,
+    account_identifiers, AtomicAmount, PaymentPayload, PaymentRequirements, X402Error, X402_VERSION,
 };
 use serde_json::{json, Value};
 
@@ -205,14 +211,13 @@ fn facilitator_settles_receipted_evidence() {
     let log = &evidence.logs[0];
     let mut topics = log.topics().to_vec();
     let payee = array(&format!("0x{}", request.payment_requirements.pay_to));
-    replace(&mut evidence.signed_receipt, &topics[2], &payee);
-    topics[2] = payee;
+    let recorded_topics = topics.concat();
+    topics = vec![topics[0], identity.idempotency_key, topics[1], payee];
     replace(
         &mut evidence.signed_receipt,
-        &topics[3],
-        &identity.idempotency_key,
+        &recorded_topics,
+        &topics.concat(),
     );
-    topics[3] = identity.idempotency_key;
     evidence.logs = vec![SequencerLog::new(
         log.address(),
         topics,
@@ -276,9 +281,32 @@ fn facilitator_settles_receipted_evidence() {
     // produce a successful settlement or advance the gateway record.
     let mut corrupt = evidence.clone();
     corrupt.signed_receipt[signature_start] ^= 1;
+    let mut legacy = evidence.clone();
+    let log = &legacy.logs[0];
+    let native_topics = log.topics().to_vec();
+    let mut topics = native_topics.clone();
+    topics[1..].rotate_left(1);
+    replace(
+        &mut legacy.signed_receipt,
+        &native_topics.concat(),
+        &topics.concat(),
+    );
+    legacy.logs = vec![SequencerLog::new(
+        log.address(),
+        topics,
+        log.data().to_vec(),
+        log.log_index(),
+    )];
+    let digest = canonical_receipt_digest(&legacy.signed_receipt)
+        .unwrap_or_else(|error| panic!("legacy receipt digest: {error}"));
+    legacy.signed_receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let verified = verify_sequencer_signature(&legacy.signed_receipt, keys.as_slice())
+        .unwrap_or_else(|error| panic!("legacy signature: {error:?}"));
+    assert!(verify_logs(&verified, legacy.logs.clone()).is_ok());
     for (evidence, keys) in [
         (evidence.clone(), recorded_keys),
         (corrupt, keys.clone()),
+        (legacy, keys.clone()),
         (recorded_evidence(&case), receipt_keys(&case)),
     ] {
         let (facilitator, mut gateway, principal, trace) = context();
@@ -367,5 +395,343 @@ fn facilitator_pending_reports_the_relayed_hash() {
             .unwrap_or_else(|error| panic!("transaction form refusal: {error}"));
         assert!(!response.is_valid);
         assert_eq!(response.invalid_reason.as_deref(), Some("transaction_form"));
+    }
+}
+
+fn committed_string<'a>(value: &'a Value, field: &str) -> &'a str {
+    value[field]
+        .as_str()
+        .unwrap_or_else(|| panic!("missing string {field}"))
+}
+
+fn committed_number(value: &Value, field: &str) -> u64 {
+    value[field]
+        .as_u64()
+        .unwrap_or_else(|| panic!("missing unsigned number {field}"))
+}
+
+fn committed_signed(value: &Value, field: &str) -> i64 {
+    value[field]
+        .as_i64()
+        .unwrap_or_else(|| panic!("missing signed number {field}"))
+}
+
+fn committed_array<'a>(value: &'a Value, field: &str) -> &'a [Value] {
+    value[field]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing array {field}"))
+}
+
+fn committed_hex_bytes(hex: &str) -> Vec<u8> {
+    let hex = hex
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("missing hex prefix"));
+    assert!(hex.is_ascii());
+    assert_eq!(hex.len() % 2, 0);
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| {
+            u8::from_str_radix(&hex[i..i + 2], 16)
+                .unwrap_or_else(|error| panic!("invalid vector hex: {error}"))
+        })
+        .collect()
+}
+
+fn committed_bytes(value: &Value, field: &str) -> Vec<u8> {
+    committed_hex_bytes(committed_string(value, field))
+}
+
+fn committed_fixed<const N: usize>(value: &Value, field: &str) -> [u8; N] {
+    committed_bytes(value, field)
+        .try_into()
+        .unwrap_or_else(|_| panic!("incorrect byte length for {field}"))
+}
+
+fn committed_timestamp(value: &Value) -> Timestamp {
+    Timestamp {
+        seconds: committed_signed(value, "seconds"),
+        nanos: committed_number(value, "nanos")
+            .try_into()
+            .unwrap_or_else(|_| panic!("timestamp nanos overflow")),
+    }
+}
+
+fn committed_block_id(value: &Value) -> BlockId {
+    BlockId {
+        hash: committed_bytes(value, "hash"),
+        part_set_header: PartSetHeader {
+            total: committed_number(&value["parts"], "total")
+                .try_into()
+                .unwrap_or_else(|_| panic!("part count overflow")),
+            hash: committed_bytes(&value["parts"], "hash"),
+        },
+    }
+}
+
+fn committed_header(value: &Value) -> Header {
+    Header {
+        version: ConsensusVersion {
+            block: committed_number(&value["version"], "block"),
+            app: committed_number(&value["version"], "app"),
+        },
+        chain_id: committed_string(value, "chain_id").to_owned(),
+        height: committed_signed(value, "height"),
+        time: committed_timestamp(&value["time"]),
+        last_block_id: committed_block_id(&value["last_block_id"]),
+        last_commit_hash: committed_bytes(value, "last_commit_hash"),
+        data_hash: committed_bytes(value, "data_hash"),
+        validators_hash: committed_fixed(value, "validators_hash"),
+        next_validators_hash: committed_bytes(value, "next_validators_hash"),
+        consensus_hash: committed_bytes(value, "consensus_hash"),
+        app_hash: committed_bytes(value, "app_hash"),
+        last_results_hash: committed_bytes(value, "last_results_hash"),
+        evidence_hash: committed_bytes(value, "evidence_hash"),
+        proposer_address: committed_bytes(value, "proposer_address"),
+    }
+}
+
+fn committed_commit(value: &Value) -> Commit {
+    Commit {
+        height: committed_number(value, "height"),
+        round: committed_signed(value, "round")
+            .try_into()
+            .unwrap_or_else(|_| panic!("commit round overflow")),
+        block_id: committed_block_id(&value["block_id"]),
+        signatures: committed_array(value, "signatures")
+            .iter()
+            .map(|vote| CommitSig {
+                block_id_flag: match committed_number(vote, "block_id_flag") {
+                    1 => BlockIdFlag::Absent,
+                    2 => BlockIdFlag::Commit,
+                    3 => BlockIdFlag::Nil,
+                    flag => panic!("unknown block id flag {flag}"),
+                },
+                validator_address: committed_bytes(vote, "validator_address"),
+                timestamp: committed_timestamp(&vote["timestamp"]),
+                signature: if vote["signature"].is_null() {
+                    None
+                } else {
+                    Some(committed_fixed(vote, "signature"))
+                },
+            })
+            .collect(),
+    }
+}
+
+fn committed_proof(case: &Value) -> CommittedProof {
+    let batch = &case["batchProof"];
+    assert_eq!(committed_string(batch, "leafEncoding"), "sha256-tx");
+    assert_eq!(
+        committed_bytes(batch, "rootHash"),
+        committed_bytes(&case["executionHeader"], "data_hash")
+    );
+    CommittedProof {
+        header: committed_header(&case["header"]),
+        commit: committed_commit(&case["commit"]),
+        execution_header: committed_header(&case["executionHeader"]),
+        batch_transaction: committed_bytes(batch, "data"),
+        batch_total: committed_number(batch, "total"),
+        batch_index: committed_number(batch, "index"),
+        batch_aunts: committed_array(batch, "aunts")
+            .iter()
+            .map(|aunt| {
+                committed_hex_bytes(aunt.as_str().unwrap())
+                    .try_into()
+                    .unwrap()
+            })
+            .collect(),
+        signed_receipt: committed_bytes(case, "signedReceipt"),
+        activity_ids: vec![committed_fixed(&case["receiptJson"], "txHash")],
+    }
+}
+
+#[test]
+fn facilitator_reports_committed_only_with_a_proof() {
+    let vectors: Value = serde_json::from_str(include_str!(
+        "../../../specs/conformance/committed/vector-v4-committed.json"
+    ))
+    .unwrap_or_else(|error| panic!("committed fixture: {error}"));
+    let case = committed_array(&vectors, "cases")
+        .iter()
+        .find(|case| case["id"] == "committed-payExact")
+        .unwrap_or_else(|| panic!("recorded committed payment"));
+    let mut proof = committed_proof(case);
+    let validators: Vec<_> = committed_array(case, "validators")
+        .iter()
+        .map(|validator| Validator {
+            pub_key: committed_fixed(validator, "pub_key"),
+            voting_power: committed_signed(validator, "voting_power"),
+        })
+        .collect();
+    let chain_id = text(&vectors["provenance"]["chainId"]).to_owned();
+    let mut evidence = recorded_evidence(case);
+    let recorded_keys = receipt_keys(case);
+    let verified = verify_sequencer_signature(&evidence.signed_receipt, recorded_keys.as_slice())
+        .unwrap_or_else(|error| panic!("recorded signature: {error:?}"));
+    assert!(verify_logs(&verified, evidence.logs.clone()).is_ok());
+    let recorded_digest = canonical_receipt_digest(&evidence.signed_receipt)
+        .unwrap_or_else(|error| panic!("recorded digest: {error}"));
+    let block = verify_committed(recorded_digest, &proof, &validators, &chain_id)
+        .unwrap_or_else(|error| panic!("recorded commitment: {error}"));
+    assert_eq!(block.number, 10);
+    assert_eq!(block.hash, array(text(&case["receiptJson"]["blockHash"])));
+    evidence.rung = SettlementRung::Committed {
+        block_number: block.number,
+        block_hash: block.hash,
+    };
+
+    let transaction = text(&case["receiptJson"]["txHash"]);
+    let mut request = request(transaction);
+    let log = &evidence.logs[1];
+    request.payment_requirements.asset = format!(
+        "0x{}",
+        log.data()[..32]
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    );
+    request.payment_requirements.amount = AtomicAmount::from_u128(u128::from_be_bytes(
+        log.data()[48..]
+            .try_into()
+            .unwrap_or_else(|_| panic!("payment amount")),
+    ));
+    request.payment_payload.accepted = request.payment_requirements.clone();
+    let (_, _, principal, _) = context();
+    let stable = [0x42; 32];
+    let identity = SettlementIdentity::derive(&principal, &request, stable, SettlementStep::Single)
+        .unwrap_or_else(|error| panic!("identity: {error}"));
+
+    // Bind the recorded payment output to this facilitator request, preserving
+    // the recorded activity, sequence chain, batch and consensus proof.
+    let mut topics = log.topics().to_vec();
+    let original_topics = topics.concat();
+    topics[1] = identity.idempotency_key;
+    topics[3] = array(&format!("0x{}", request.payment_requirements.pay_to));
+    replace(
+        &mut evidence.signed_receipt,
+        &original_topics,
+        &topics.concat(),
+    );
+    evidence.logs[1] =
+        SequencerLog::new(log.address(), topics, log.data().to_vec(), log.log_index());
+    let signer = SigningKey::from_bytes(&[0x72; 32]);
+    let digest = canonical_receipt_digest(&evidence.signed_receipt)
+        .unwrap_or_else(|error| panic!("bound receipt digest: {error}"));
+    let signature_start = evidence.signed_receipt.len() - 64;
+    evidence.signed_receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let keys = vec![SequencerAuthorization::new(
+        array(text(&case["pinnedKey"]["keyId"])),
+        signer.verifying_key().to_bytes(),
+        block.number,
+        block.number,
+    )];
+    proof.signed_receipt = evidence.signed_receipt.clone();
+    let commitment = FacilitatorCommitment {
+        proof,
+        validators,
+        chain_id,
+    };
+
+    for supplied in [None, Some(commitment.clone())] {
+        let (facilitator, mut gateway, principal, trace) = context();
+        let has_proof = supplied.is_some();
+        let mut plane = SequencerFacilitatorPlane::new(evidence.clone(), keys.clone());
+        if let Some(supplied) = supplied {
+            plane = plane.with_committed_proof(supplied);
+        }
+        let response = facilitator
+            .settle(
+                &mut gateway,
+                &principal,
+                &request,
+                stable,
+                SettlementStep::Single,
+                &mut plane,
+                &trace,
+                1,
+            )
+            .unwrap_or_else(|error| panic!("settlement: {error}"));
+        assert!(response.success);
+        assert_eq!(response.transaction, transaction);
+        assert_eq!(response.amount, Some(request.payment_requirements.amount));
+        let layerx = &response.extensions["layerx"];
+        assert_eq!(layerx["receipt"], STANDARD.encode(&evidence.signed_receipt));
+        assert_eq!(
+            array::<32>(&format!("0x{}", text(&layerx["receiptDigest"]))),
+            digest
+        );
+        if has_proof {
+            assert_eq!(layerx["verificationLevel"], "committed");
+            assert_eq!(layerx["blockNumber"], "0xa");
+            assert_eq!(array::<32>(text(&layerx["blockHash"])), block.hash);
+        } else {
+            assert_eq!(layerx["verificationLevel"], "receipted");
+            assert!(layerx.get("blockNumber").is_none());
+            assert!(layerx.get("blockHash").is_none());
+            let wire = serde_json::to_value(&response).unwrap();
+            assert!(wire["extensions"]["layerx"].get("blockNumber").is_none());
+            assert!(wire["extensions"]["layerx"].get("blockHash").is_none());
+        }
+        assert_eq!(response.validate_wire(), Ok(()));
+        assert_eq!(
+            gateway.translation(&principal, identity.idempotency_key),
+            Some(TranslationStatus::ReceiptVerified {
+                receipt_digest: digest
+            })
+        );
+    }
+
+    let mut bad_aunt = commitment.clone();
+    bad_aunt.proof.batch_aunts[0][0] ^= 1;
+    let mut bad_signature = commitment.clone();
+    bad_signature.proof.commit.signatures[0]
+        .signature
+        .as_mut()
+        .unwrap()[0] ^= 1;
+    let mut unrelated_receipt = commitment.clone();
+    unrelated_receipt.proof.signed_receipt = bytes(text(&case["signedReceipt"]));
+    let mut wrong_chain = commitment.clone();
+    wrong_chain.chain_id.push('x');
+    let mut wrong_validators = commitment.clone();
+    wrong_validators.validators[0].pub_key[0] ^= 1;
+    let mut wrong_hash = evidence.clone();
+    wrong_hash.rung = SettlementRung::Committed {
+        block_number: block.number,
+        block_hash: [0x55; 32],
+    };
+    let mut wrong_height = evidence.clone();
+    wrong_height.rung = SettlementRung::Committed {
+        block_number: block.number + 1,
+        block_hash: block.hash,
+    };
+    for (evidence, supplied) in [
+        (evidence.clone(), bad_aunt),
+        (evidence.clone(), bad_signature),
+        (evidence.clone(), unrelated_receipt),
+        (evidence.clone(), wrong_chain),
+        (evidence, wrong_validators),
+        (wrong_hash, commitment.clone()),
+        (wrong_height, commitment),
+    ] {
+        let (facilitator, mut gateway, principal, trace) = context();
+        let mut plane =
+            SequencerFacilitatorPlane::new(evidence, keys.clone()).with_committed_proof(supplied);
+        let error = facilitator
+            .settle(
+                &mut gateway,
+                &principal,
+                &request,
+                stable,
+                SettlementStep::Single,
+                &mut plane,
+                &trace,
+                1,
+            )
+            .unwrap_err();
+        assert_eq!(error.into_error(), X402Error::EvidenceMismatch);
+        assert_eq!(
+            gateway.translation(&principal, identity.idempotency_key),
+            Some(TranslationStatus::Pending)
+        );
     }
 }

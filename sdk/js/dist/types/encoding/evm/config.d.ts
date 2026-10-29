@@ -1,7 +1,7 @@
 import type { GeneratedType } from "@cosmjs/proto-signing";
 import type { ChainConfig as ChainConfig_type } from "../../types/evm";
 import type { MessageFns } from "../common";
-export interface ChainConfig extends ChainConfig_type {
+export interface ChainConfig extends Omit<ChainConfig_type, "paxSstoreSetGasEip2200"> {
     pax_sstore_set_gas_eip2200: number;
 }
 export declare const ChainConfig: MessageFns<ChainConfig, "paxprotocol.paxchain.evm.ChainConfig">;

@@ -25,10 +25,10 @@ use layerx_platform_gateway::store::{
     Reservation, ReservationRequest,
 };
 use layerx_platform_gateway::{
-    authenticate_gateway_key, native_explorer_public_route, pay_timing, production_route,
-    verify_live_receipt, verify_program_operation, verify_program_simulation_operation,
-    verify_submission, AccessError, AuthorityFacts, GatewayError, IssuedKey,
-    NativeExplorerPublicRoute, PrincipalId, ProductionRoute, Quota, VerifiedSubmission,
+    authenticate_gateway_key, pay_timing, production_route, verify_live_receipt,
+    verify_program_operation, verify_program_simulation_operation, verify_submission, AccessError,
+    AuthorityFacts, GatewayError, IssuedKey, PrincipalId, ProductionRoute, Quota,
+    VerifiedSubmission,
 };
 use layerx_types::amount::Amount;
 use layerx_types::intent::{
@@ -3616,6 +3616,11 @@ fn route_with_peer(
     request: &IncomingRequest,
     peer: Option<SocketAddr>,
 ) -> OutgoingResponse {
+    public_reads::bind_client(
+        &config.trusted_proxies,
+        peer,
+        request.headers.get("x-forwarded-for").map(String::as_str),
+    );
     let program_request = programs_request_path(&request.method, &request.path);
     let trace_id = trace(request);
     if request.headers.contains_key("x-layerx-principal")

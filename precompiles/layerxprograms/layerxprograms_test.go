@@ -95,6 +95,7 @@ func TestProgramsExecuteUnknownMethodRefused(t *testing.T) {
 		{"getProgram", []interface{}{[32]byte{1}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			executor := lp.NewTestExecutorWithHandlers(nil, nil, lp.HandlerTable{})
 			method := lp.ProgramsABI.Methods[tc.name]
 			packed, err := method.Inputs.Pack(tc.args...)
 			require.NoError(t, err)

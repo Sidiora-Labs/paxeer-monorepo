@@ -28,6 +28,14 @@ as the JSON-RPC method `lx_requestFunds`
 `faucet.request` (`tools/platform/cli/src/toolset.rs:38-44`). See
 [Public JSON-RPC](gateway-rpc.md) and [CLI](cli.md).
 
+For `lx_requestFunds`, a starter credit amount that the faucet cannot fund
+exactly returns JSON-RPC code `-32001`, message `Starter credit unavailable`,
+and `error.data.code` `starter_credit_amount_unrepresentable`. This refusal
+sends no service claim and consumes no per-minute claim slot. If the faucet
+reports funding a different amount from the grant, the method returns
+`-32603`, message `Starter credit amount mismatch`, and `error.data.code`
+`starter_credit_amount_mismatch`.
+
 The image is `ghcr.io/sidiora-labs/layerx-faucet:0.1.0`, user
 `4020:4020`, entrypoint `/usr/local/bin/layerx-faucet`
 (`docker/platform-faucet/Dockerfile:5-11`;

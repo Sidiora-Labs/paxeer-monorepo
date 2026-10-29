@@ -282,8 +282,13 @@ impl Seller {
         Ok(SellerOutcome::Refused { header, response })
     }
 
+    /// Translates an executed payment into a settlement after verifying its
+    /// signed receipt, logs and binding to an already opened gateway translation.
+    ///
+    /// # Errors
+    /// Returns a refusal for invalid evidence, mismatched terms or gateway state.
     #[allow(clippy::too_many_arguments)]
-    fn settled(
+    pub fn settled(
         gateway: &mut GatewayCore,
         principal: &PrincipalId,
         idempotency_key: [u8; 32],
@@ -354,10 +359,33 @@ impl Seller {
         let mut layerx = json!({
             "receipt": STANDARD.encode(&evidence.signed_receipt),
             "receiptDigest": digest_text,
-            "verificationLevel": evidence.rung.label()
+            "verificationLevel": evidence.rung.label(),
+            "logs": verified.logs().iter().map(|log| json!({
+                "address": prefixed_hex(&log.address()),
+                "topics": log.topics().iter().map(|topic| prefixed_hex(topic)).collect::<Vec<_>>(),
+                "data": prefixed_hex(log.data()),
+                "logIndex": format!("0x{:x}", log.log_index()),
+            })).collect::<Vec<_>>()
         });
         if let (Some(purpose), Some(terms)) = (purpose, layerx.as_object_mut()) {
             terms.insert("purposeHash".to_owned(), Value::String(purpose));
+        }
+        if let (
+            SettlementRung::Committed {
+                block_number,
+                block_hash,
+            },
+            Some(terms),
+        ) = (evidence.rung, layerx.as_object_mut())
+        {
+            terms.insert(
+                "blockNumber".to_owned(),
+                Value::String(format!("0x{block_number:x}")),
+            );
+            terms.insert(
+                "blockHash".to_owned(),
+                Value::String(prefixed_hex(&block_hash)),
+            );
         }
         let mut extensions = BTreeMap::new();
         extensions.insert("layerx".to_owned(), layerx);
@@ -438,7 +466,7 @@ fn pay_exact_matches(
     if payments.next().is_some() {
         return Err(X402Error::EvidenceMismatch);
     }
-    let [_, payer, recipient, reference] = payment.topics() else {
+    let [_, reference, payer, recipient] = payment.topics() else {
         return Err(X402Error::EvidenceMismatch);
     };
     if reference != idempotency_key
@@ -559,6 +587,17 @@ fn hex(bytes: &[u8; 32]) -> String {
     output
 }
 
+fn prefixed_hex(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(2 + bytes.len() * 2);
+    output.push_str("0x");
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    for byte in bytes {
+        output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    output
+}
+
 fn safe_reason(reason: &str) -> String {
     let valid = !reason.is_empty()
         && reason.len() <= 64
@@ -634,7 +673,7 @@ pub(crate) mod tests {
         data.extend_from_slice(&1000_u128.to_be_bytes());
         SequencerLog::new(
             ledger,
-            vec![signature, [0x71; 32], recipient, [0x74; 32]],
+            vec![signature, [0x74; 32], [0x71; 32], recipient],
             data,
             0,
         )

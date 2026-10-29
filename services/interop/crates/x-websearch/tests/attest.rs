@@ -22,11 +22,11 @@ use x_websearch::config::FetchLimits;
 use x_websearch::content::ContentStore;
 use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
-use x_websearch::kernel::{
+use x_websearch::keys::{KeyFiles, KeyRefusal, KeyRole};
+use x_websearch::program::{
     observation_bytes, program_record, ProgramExchange, ProgramRequest, MAX_OBSERVATION_SIGNATURES,
     OBSERVATION_HEADER_BYTES,
 };
-use x_websearch::keys::{KeyFiles, KeyRefusal, KeyRole};
 use x_websearch::search::{self, SearchResult};
 use x_websearch::watch::{
     decode_requested, hex0x, keccak, requested_topic, unhex0x, EvmError, EvmRpc, RequestWatcher,

@@ -656,14 +656,33 @@ fn transfer_log(log_index: u64) -> SequencerLog {
 }
 
 fn payment_exact_log(log_index: u64, payment_reference: [u8; 32]) -> SequencerLog {
+    let abi: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../precompiles/layerxledger/abi.json"
+    )))
+    .unwrap();
+    let event = abi
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["name"] == "PaymentExact")
+        .unwrap();
+    let mut topics = vec![keccak256(
+        b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)",
+    )];
+    for input in event["inputs"].as_array().unwrap() {
+        if input["indexed"] == true {
+            topics.push(match input["name"].as_str().unwrap() {
+                "paymentReference" => payment_reference,
+                "from" => PAYER,
+                "to" => PAYEE,
+                name => panic!("unexpected indexed PaymentExact field: {name}"),
+            });
+        }
+    }
     SequencerLog::new(
         LEDGER_ADDRESS,
-        vec![
-            keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"),
-            PAYER,
-            PAYEE,
-            payment_reference,
-        ],
+        topics,
         [ASSET, abi_amount(PAID_AMOUNT)].concat(),
         log_index,
     )
@@ -883,6 +902,41 @@ fn a_payment_exact_receipt_matched_by_payment_reference_settles_the_translation(
         .settle_with_sequencer_receipt(&alice, key, &receipt, logs, &in_range_keys(), &trace, 12)
         .unwrap_or_else(|error| panic!("replayed settle: {error}"));
     assert_eq!(replay, settled);
+}
+
+#[test]
+fn a_payment_exact_receipt_with_legacy_topic_order_is_refused() {
+    let mut core = registered_core();
+    let alice = principal("alice");
+    let key = [0x81; 32];
+    assert_ne!(key, PAYER);
+    assert_ne!(key, PAYEE);
+    assert_ne!(PAYER, PAYEE);
+    pending_state_changing(&mut core, &alice, 0x81);
+    let native = payment_exact_log(0, key);
+    let mut topics = native.topics().to_vec();
+    assert_eq!(&topics[1..], &[key, PAYER, PAYEE]);
+    topics[1..].rotate_left(1);
+    let logs = vec![SequencerLog::new(
+        native.address(),
+        topics,
+        native.data().to_vec(),
+        0,
+    )];
+    let receipt = signed_sequencer_receipt(&logs);
+    let result = core
+        .settle_with_sequencer_receipt(
+            &alice,
+            key,
+            &receipt,
+            logs,
+            &in_range_keys(),
+            &TraceId::mint([0x81; 16]),
+            11,
+        )
+        .map_err(|error| *error.error());
+    assert_eq!(result, Err(SequencerSettlementError::PaymentUnmatched));
+    assert_nothing_recorded(&core, &alice, key);
 }
 
 #[test]

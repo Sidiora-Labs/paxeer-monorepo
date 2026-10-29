@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"strings"
@@ -19,8 +20,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/prometheus/client_golang/prometheus"
 
 	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 )
 
 // Precompile is the address of the perpetuals precompile.
@@ -31,6 +35,9 @@ const (
 	RetryInterval = 60 * time.Second
 	// MaxMarkets bounds the totalMarkets() count a refresh accepts.
 	MaxMarkets = 1024
+
+	perps_markets_refresh_height         = "perps_markets_refresh_height"
+	perps_markets_refresh_failures_total = "perps_markets_refresh_failures_total"
 )
 
 // ErrChainValue reports a precompile answer the refresh cannot store.
@@ -92,6 +99,14 @@ type chainMarket struct {
 	maxOpenInterest      string
 	enabled              bool
 	config               marketConfig
+	tiers                []marginTier
+}
+
+type marginTier struct {
+	LowerBoundUsd  *big.Int
+	MaxLeverage    *big.Int
+	MaintenanceBps *big.Int
+	DeductionUsd   *big.Int
 }
 
 type marketConfig struct {
@@ -125,59 +140,111 @@ type caller struct {
 	at     *big.Int
 }
 
-// Refresh reads totalMarkets(), getMarket(id), getMarketConfig(id) and getFees()
-// from the precompile at the latest height, then writes the chain values,
-// including decimals and market configuration, in one transaction. On any
-// failure the stored rows are left unchanged.
+// Refresh reads totalMarkets(), getMarket(id), getMarketConfig(id),
+// getMarginTiers(id) and getFees() from the precompile at the latest height,
+// then writes the chain values, including market configuration and tiers, in
+// one transaction. On any failure the stored rows are left unchanged.
 func Refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) error {
+	_, err := refresh(ctx, db, client)
+	return err
+}
+
+func refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) (int64, error) {
 	c, height, err := latest(ctx, client)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	out, err := c.call(ctx, "totalMarkets")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	count, err := field[*big.Int](out, 0, "totalMarkets")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if !count.IsUint64() || count.Uint64() > MaxMarkets {
-		return fmt.Errorf("%w: totalMarkets %s above %d", ErrChainValue, count, MaxMarkets)
+		return 0, fmt.Errorf("%w: totalMarkets %s above %d", ErrChainValue, count, MaxMarkets)
 	}
 	list := make([]chainMarket, 0, count.Uint64())
 	for id := range count.Uint64() {
 		m, err := c.market(ctx, id)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		m.config, err = c.getMarketConfig(ctx, id)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		if m.config.Symbol != m.symbol {
-			return fmt.Errorf("%w: getMarketConfig(%d) symbol %q differs from getMarket symbol %q", ErrChainValue, id, m.config.Symbol, m.symbol)
+			return 0, fmt.Errorf("%w: getMarketConfig(%d) symbol %q differs from getMarket symbol %q", ErrChainValue, id, m.config.Symbol, m.symbol)
+		}
+		m.tiers, err = c.getMarginTiers(ctx, id)
+		if err != nil {
+			return 0, err
 		}
 		list = append(list, m)
 	}
 	f, err := c.fees(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("markets: begin: %w", err)
+		return 0, fmt.Errorf("markets: begin: %w", err)
 	}
 	if err := writeMarkets(ctx, tx, list, height); err != nil {
-		return errors.Join(err, tx.Rollback())
+		return 0, errors.Join(err, tx.Rollback())
 	}
 	if err := writeFees(ctx, tx, f, height); err != nil {
-		return errors.Join(err, tx.Rollback())
+		return 0, errors.Join(err, tx.Rollback())
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("markets: commit: %w", err)
+		return 0, fmt.Errorf("markets: commit: %w", err)
 	}
-	return nil
+	return height, nil
+}
+
+func Run(ctx context.Context, db *sql.DB, client *ethclient.Client, interval time.Duration, metrics *telemetry.Metrics) error {
+	if interval <= 0 {
+		return errors.New("markets: refresh interval must be positive")
+	}
+	height := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: perps_markets_refresh_height,
+		Help: "Block height of the last successful markets refresh.",
+	})
+	failures := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: perps_markets_refresh_failures_total,
+		Help: "Failed markets refresh attempts.",
+	})
+	for _, collector := range []prometheus.Collector{height, failures} {
+		if err := metrics.Register(collector); err != nil {
+			return fmt.Errorf("markets: register metric: %w", err)
+		}
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		wait := interval
+		block, err := refresh(ctx, db, client)
+		if err != nil {
+			failures.Inc()
+			wait = RetryInterval
+			if ctx.Err() == nil {
+				slog.WarnContext(ctx, "markets: refresh failed", slog.Any("err", err), slog.Duration("retry_in", wait))
+			}
+		} else {
+			height.Set(float64(block))
+		}
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 // FeeConfig reads getFees() from the precompile at the latest height and
@@ -195,29 +262,28 @@ func FeeConfig(ctx context.Context, db *sql.DB, client *ethclient.Client) error 
 	return writeFees(ctx, db, f, height)
 }
 
-// Retry runs Refresh until it succeeds, waiting RetryInterval after each
-// failure. failed, when set, receives each refresh error and the wait before
-// the next attempt. Retry returns nil on success and the context error when
-// ctx ends first.
-func Retry(ctx context.Context, db *sql.DB, client *ethclient.Client, failed func(err error, retryIn time.Duration)) error {
-	for {
-		err := Refresh(ctx, db, client)
-		if err == nil {
-			return nil
+func Check(db *sql.DB, maxAge time.Duration) httpx.Check {
+	return func(ctx context.Context) error {
+		if maxAge <= 0 {
+			return errors.New("markets: maximum refresh age must be positive")
 		}
-		if ctx.Err() != nil {
-			return ctx.Err()
+		var block sql.NullInt64
+		var refreshedAt sql.NullTime
+		if err := db.QueryRowContext(ctx, `SELECT m.refreshed_block, b.time
+FROM (SELECT MAX(refreshed_block) AS refreshed_block FROM perps.markets WHERE source = 'chain') m
+LEFT JOIN perps.blocks b ON b.number = m.refreshed_block`).Scan(&block, &refreshedAt); err != nil {
+			return fmt.Errorf("markets: read refresh age: %w", err)
 		}
-		if failed != nil {
-			failed(err, RetryInterval)
+		if !block.Valid {
+			return errors.New("markets: no chain refresh")
 		}
-		timer := time.NewTimer(RetryInterval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
+		if !refreshedAt.Valid {
+			return fmt.Errorf("markets: refresh block %d has not been indexed", block.Int64)
 		}
+		if age := time.Since(refreshedAt.Time); age > maxAge {
+			return fmt.Errorf("markets: refresh block %d is %s old, maximum %s", block.Int64, age, maxAge)
+		}
+		return nil
 	}
 }
 
@@ -323,6 +389,29 @@ func (c *caller) getMarketConfig(ctx context.Context, id uint64) (marketConfig, 
 	return config, nil
 }
 
+func (c *caller) getMarginTiers(ctx context.Context, id uint64) ([]marginTier, error) {
+	method := fmt.Sprintf("getMarginTiers(%d)", id)
+	out, err := c.call(ctx, "getMarginTiers", new(big.Int).SetUint64(id))
+	if err != nil {
+		return nil, err
+	}
+	var decoded struct{ Tiers []marginTier }
+	if err := c.abi.Methods["getMarginTiers"].Outputs.Copy(&decoded, out); err != nil {
+		return nil, fmt.Errorf("%w: decode %s: %v", ErrChainValue, method, err)
+	}
+	if len(decoded.Tiers) > math.MaxInt16+1 {
+		return nil, fmt.Errorf("%w: %s has %d tiers, above smallint index", ErrChainValue, method, len(decoded.Tiers))
+	}
+	for i, tier := range decoded.Tiers {
+		for _, value := range []*big.Int{tier.LowerBoundUsd, tier.MaxLeverage, tier.MaintenanceBps, tier.DeductionUsd} {
+			if value == nil || value.Sign() < 0 || value.BitLen() > 256 {
+				return nil, fmt.Errorf("%w: %s tier %d has an invalid uint256", ErrChainValue, method, i)
+			}
+		}
+	}
+	return decoded.Tiers, nil
+}
+
 func (c *caller) fees(ctx context.Context) (fees, error) {
 	out, err := c.call(ctx, "getFees")
 	if err != nil {
@@ -353,11 +442,19 @@ func writeMarkets(ctx context.Context, tx *sql.Tx, list []chainMarket, height in
 		if err != nil {
 			return fmt.Errorf("markets: update market %s: %w", m.id, err)
 		}
-		if n == 1 {
-			continue
+		if n == 0 {
+			if _, err := tx.ExecContext(ctx, insertMarketSQL, append(args, m.symbol)...); err != nil {
+				return fmt.Errorf("markets: insert market %s: %w", m.id, err)
+			}
 		}
-		if _, err := tx.ExecContext(ctx, insertMarketSQL, append(args, m.symbol)...); err != nil {
-			return fmt.Errorf("markets: insert market %s: %w", m.id, err)
+		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.market_tiers WHERE market_id = $1`, m.id); err != nil {
+			return fmt.Errorf("markets: delete tiers for market %s: %w", m.id, err)
+		}
+		for i, tier := range m.tiers {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO perps.market_tiers (market_id, tier, lower_bound_usd, max_leverage, maintenance_bps, deduction_usd, refreshed_block) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				m.id, i, tier.LowerBoundUsd.String(), tier.MaxLeverage.String(), tier.MaintenanceBps.String(), tier.DeductionUsd.String(), height); err != nil {
+				return fmt.Errorf("markets: insert tier %d for market %s: %w", i, m.id, err)
+			}
 		}
 	}
 	return nil

@@ -618,8 +618,8 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
     digest.update(b"LXP/v1/receipt\0");
     digest.update(encode(None));
     let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
-    ReceiptMaterial {
-        canonical_bytes: encode(Some(signature.to_bytes())),
+    let canonical_bytes = encode(Some(signature.to_bytes()));
+    let material = ReceiptMaterial {
         authorised_batch: AuthorizedBatch::new(
             batch,
             ASSET,
@@ -628,7 +628,23 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
             signer.verifying_key().to_bytes(),
         ),
         verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
-    }
+        receipt_hash: Sha256::digest(&canonical_bytes).into(),
+        canonical_bytes,
+        tx_hash: activity_id,
+        block_height: sequence,
+        rung: layerx_types::rung::Rung::Receipted,
+    };
+    let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
+        .unwrap_or_else(|error| panic!("intent receipt: {error:?}"));
+    let protocol = receipt.protocol().expect("protocol intent receipt");
+    assert_eq!(material.tx_hash, protocol.activity_id());
+    assert_eq!(material.block_height, protocol.global_sequence());
+    assert_eq!(
+        material.receipt_hash,
+        <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+    );
+    assert_eq!(material.rung, layerx_types::rung::Rung::Receipted);
+    material
 }
 
 fn push_u16(output: &mut Vec<u8>, value: u16) {

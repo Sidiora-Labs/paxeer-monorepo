@@ -120,20 +120,30 @@ func simulateFixture(t *testing.T, refused bool) (*testChain, *Host, testActor, 
 }
 
 func TestSimulateMatchesExecuteReceipt(t *testing.T) {
-	for _, refused := range []bool{false, true} {
-		name := "zero_fee_budget"
-		if refused {
-			name = "refusal"
-		}
-		t.Run(name, func(t *testing.T) {
-			chain, host, _, activity, authority := simulateFixture(t, refused)
+	for _, tc := range []struct {
+		name    string
+		refused bool
+		bound   bool
+	}{
+		{name: "zero_fee_budget"},
+		{name: "refusal", refused: true},
+		{name: "bound_unsigned_zero_fee_budget", bound: true},
+		{name: "bound_unsigned_refusal", refused: true, bound: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			chain, host, _, activity, authority := simulateFixture(t, tc.refused)
+			if tc.bound {
+				activity.Signature = nil
+				authority.Bound = true
+				require.True(t, binding_authority(activity, authority))
+			}
 			ctx := chain.context(2, resolutionBlockTime, 46)
 			// Execute on a sibling cache gives both calls the same initial state.
 			executedCtx, _ := ctx.CacheContext()
 			executed, err := host.Execute(executedCtx, activity, authority)
 			require.NoError(t, err)
 			expectedCode := Code(-207)
-			if refused {
+			if tc.refused {
 				expectedCode = Code(-7)
 			}
 			require.Equal(t, expectedCode, executed.ResultCode)
@@ -158,29 +168,134 @@ func TestSimulateMatchesExecuteReceipt(t *testing.T) {
 }
 
 func TestSimulateLeavesStoreUnchanged(t *testing.T) {
-	chain, host, actor, activity, authority := simulateFixture(t, false)
+	for _, bound := range []bool{false, true} {
+		name := "signed"
+		if bound {
+			name = "bound_unsigned"
+		}
+		t.Run(name, func(t *testing.T) {
+			chain, host, actor, activity, authority := simulateFixture(t, false)
+			if bound {
+				activity.Signature = nil
+				authority.Bound = true
+				require.True(t, binding_authority(activity, authority))
+			}
+			root := chain.commit()
+			before := chain.dump()
+			sequence := append([]byte(nil), chain.get([]byte{lastSequenceKey})...)
+			actorSequence := append([]byte(nil), chain.get(identitySequenceKey(actor.id))...)
+			ctx := chain.context(2, resolutionBlockTime, 46)
+
+			for i := 0; i < 2; i++ {
+				receipt, err := host.Simulate(ctx, activity, authority)
+				require.Equal(t, before, chain.dump())
+				require.Equal(t, sequence, chain.get([]byte{lastSequenceKey}))
+				require.Equal(t, actorSequence, chain.get(identitySequenceKey(actor.id)))
+				next, sequenceErr := NextSequence(ctx, chain.key)
+				require.NoError(t, sequenceErr)
+				require.Equal(t, uint64(46), next)
+				require.Equal(t, root, chain.commit())
+				require.NoError(t, err)
+				require.Equal(t, Code(-207), receipt.ResultCode)
+			}
+
+			executed := execute(t, host, ctx, activity, authority)
+			require.Equal(t, Code(-207), executed.ResultCode)
+			require.Equal(t, uint64(46), executed.GlobalSequence)
+			require.Equal(t, uint64(46), binary.BigEndian.Uint64(chain.get([]byte{lastSequenceKey})))
+			require.NotEqual(t, root, chain.commit())
+		})
+	}
+}
+
+func TestSimulateBindingAuthorityRefusals(t *testing.T) {
+	chain, host, actor, signed, authority := simulateFixture(t, false)
+	intruder := newTestActor(t, 0x64)
 	root := chain.commit()
 	before := chain.dump()
 	sequence := append([]byte(nil), chain.get([]byte{lastSequenceKey})...)
 	actorSequence := append([]byte(nil), chain.get(identitySequenceKey(actor.id))...)
 	ctx := chain.context(2, resolutionBlockTime, 46)
 
-	for i := 0; i < 2; i++ {
-		receipt, err := host.Simulate(ctx, activity, authority)
-		require.Equal(t, before, chain.dump())
-		require.Equal(t, sequence, chain.get([]byte{lastSequenceKey}))
-		require.Equal(t, actorSequence, chain.get(identitySequenceKey(actor.id)))
-		next, sequenceErr := NextSequence(ctx, chain.key)
-		require.NoError(t, sequenceErr)
-		require.Equal(t, uint64(46), next)
-		require.Equal(t, root, chain.commit())
-		require.NoError(t, err)
-		require.Equal(t, Code(-207), receipt.ResultCode)
-	}
+	for _, tc := range []struct {
+		name   string
+		change func(*Activity, *KernelAuthority)
+		code   Code
+	}{
+		{
+			name: "unbound_unsigned",
+			change: func(activity *Activity, authority *KernelAuthority) {
+				authority.Bound = false
+			},
+			code: Code(-201),
+		},
+		{
+			name: "wrong_verified_key",
+			change: func(activity *Activity, authority *KernelAuthority) {
+				authority.VerifiedKey = intruder.public
+			},
+			code: Code(-201),
+		},
+		{
+			name: "wrong_actor",
+			change: func(activity *Activity, authority *KernelAuthority) {
+				authority.Actor = intruder.id
+			},
+			code: Code(-204),
+		},
+		{
+			name: "wrong_principal",
+			change: func(activity *Activity, authority *KernelAuthority) {
+				authority.Principal = intruder.id
+			},
+			code: Code(-204),
+		},
+		{
+			name: "unregistered_owner_key",
+			change: func(activity *Activity, authority *KernelAuthority) {
+				activity.AuthorityKey = intruder.public
+				authority.VerifiedKey = intruder.public
+			},
+			code: Code(-204),
+		},
+		{
+			name: "unbound_bad_signature",
+			change: func(activity *Activity, authority *KernelAuthority) {
+				activity.Signature = append([]byte(nil), signed.Signature...)
+				activity.Signature[0] ^= 1
+				authority.Bound = false
+			},
+			code: Code(-201),
+		},
+		{
+			name: "bound_bad_signature",
+			change: func(activity *Activity, authority *KernelAuthority) {
+				activity.Signature = append([]byte(nil), signed.Signature...)
+				activity.Signature[0] ^= 1
+			},
+			code: Code(-201),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			activity, candidate := signed, authority
+			activity.Signature = nil
+			candidate.Bound = true
+			tc.change(&activity, &candidate)
 
-	executed := execute(t, host, ctx, activity, authority)
-	require.Equal(t, Code(-207), executed.ResultCode)
-	require.Equal(t, uint64(46), executed.GlobalSequence)
-	require.Equal(t, uint64(46), binary.BigEndian.Uint64(chain.get([]byte{lastSequenceKey})))
-	require.NotEqual(t, root, chain.commit())
+			executedCtx, _ := ctx.CacheContext()
+			executed, executeErr := host.Execute(executedCtx, activity, candidate)
+			require.Equal(t, tc.code, executeErr)
+			require.Equal(t, Receipt{}, executed)
+			simulated, simulateErr := host.Simulate(ctx, activity, candidate)
+			require.Equal(t, tc.code, simulateErr)
+			require.Equal(t, Receipt{}, simulated)
+			require.Equal(t, before, chain.dump())
+			require.Equal(t, sequence, chain.get([]byte{lastSequenceKey}))
+			require.Equal(t, actorSequence, chain.get(identitySequenceKey(actor.id)))
+			next, err := NextSequence(ctx, chain.key)
+			require.NoError(t, err)
+			require.Equal(t, uint64(46), next)
+			require.Equal(t, root, chain.commit())
+		})
+	}
 }

@@ -489,10 +489,9 @@ fn sequencer_evidence(
         })
         .collect();
     let payee = account_id(MERCHANT_ACCOUNT);
-    replace(&mut receipt, &topics[2], &payee);
-    topics[2] = payee;
-    replace(&mut receipt, &topics[3], &idempotency_key);
-    topics[3] = idempotency_key;
+    let recorded_topics = topics.concat();
+    topics = vec![topics[0], idempotency_key, topics[1], payee];
+    replace(&mut receipt, &recorded_topics, &topics.concat());
     let mut data = vec![5; 32];
     data.extend_from_slice(&[0; 16]);
     data.extend_from_slice(&25_u128.to_be_bytes());

@@ -2868,13 +2868,13 @@ paxd-version-check:
 		fi && \
 		echo "paxd-version-check: $$got"
 
-paxeer-lint:
+paxeer-lint: paxeer-tools-install
 	$(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) lint
 
 paxeer-test:
 	GOPROXY=off $(PAXEER_MAKE) test
 
-paxeer-ci:
+paxeer-ci: paxeer-tools-install
 	GOPROXY=off $(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) ci
 
 workspace-inventory-check:
@@ -3152,7 +3152,7 @@ programs-build:
 
 .PHONY: programs-release-build
 $(PROGRAMS_RELEASE_RUNTIME_LIB) programs-release-build:
-	cd programs && $(PROGRAMS_WORKSPACE_CARGO) build --locked --release -p layerx-programs-sandbox --features layerx-programs-sandbox/host-ffi --manifest-path '$(PROGRAMS_DIR)/Cargo.toml'
+	cd programs && $(PROGRAMS_WORKSPACE_CARGO) build --locked --release --config 'profile.release.panic="unwind"' -p layerx-programs-sandbox --features layerx-programs-sandbox/host-ffi --manifest-path '$(PROGRAMS_DIR)/Cargo.toml'
 
 programs-lint: programs-module-boundaries
 	cd programs && $(PROGRAMS_CARGO) clippy --locked --workspace --all-targets --features layerx-programs-sandbox/host-ffi -- -D warnings
@@ -3195,6 +3195,18 @@ $(BUILD_DIR)/tests/programs_monetary_law: tests/programs/test_monetary_law.c \
 		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+
+$(BUILD_DIR)/tests/programs_transfer_principal: tests/programs/test_transfer_principal.c \
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+
+$(BUILD_DIR)/tests/programs_call_escrow_principal: tests/programs/test_call_escrow_principal.c \
+		src/modules/programs/call.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_call_activity: tests/programs/test_call_activity.c \
@@ -3367,6 +3379,8 @@ test-paxai-native-gaps: $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps
 programs-core-test: $(BUILD_DIR)/tests/programs_registration \
 		$(BUILD_DIR)/tests/programs_lifecycle \
 		$(BUILD_DIR)/tests/programs_monetary_law \
+		$(BUILD_DIR)/tests/programs_transfer_principal \
+		$(BUILD_DIR)/tests/programs_call_escrow_principal \
 		$(BUILD_DIR)/tests/programs_call_activity \
 		$(BUILD_DIR)/tests/programs_metered_call \
 		$(BUILD_DIR)/tests/programs_occupancy_batch \
@@ -3376,6 +3390,8 @@ programs-core-test: $(BUILD_DIR)/tests/programs_registration \
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_registration
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_lifecycle
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_monetary_law
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_transfer_principal
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_call_escrow_principal
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_call_activity
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_metered_call
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_occupancy_batch

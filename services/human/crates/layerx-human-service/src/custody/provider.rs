@@ -4,9 +4,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use layerx_client::lni::transport::{
-    ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls, TransportError,
-};
+use crate::frame::{ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls, TransportError};
 use layerx_crypto::disclosure::{bind, Disclosure};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::{sign_disclosed, Signer as _};

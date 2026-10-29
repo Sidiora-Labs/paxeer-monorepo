@@ -23,11 +23,11 @@ func ValidatePage(offset, limit uint64) error {
 
 func ParseHexAddress(field, value string) (common.Address, error) {
 	if !strings.HasPrefix(value, "0x") || !common.IsHexAddress(value) {
-		return common.Address{}, fmt.Errorf("%w: %s must be a 0x-prefixed 40-hex-digit address", sdkerrors.ErrInvalidAddress, field)
+		return common.Address{}, sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "%s must be a 0x-prefixed 40-hex-digit address", field)
 	}
 	address := common.HexToAddress(value)
 	if address == (common.Address{}) {
-		return common.Address{}, fmt.Errorf("%w: %s must not be the zero address", ErrZeroAddress, field)
+		return common.Address{}, sdkerrors.Wrapf(ErrZeroAddress, "%s must not be the zero address", field)
 	}
 	return address, nil
 }

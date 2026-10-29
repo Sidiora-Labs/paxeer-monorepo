@@ -537,6 +537,38 @@ func TestPositionsPartialCloseRoundsToLot(t *testing.T) {
 	require.Equal(t, false, fields[0]["isFullClose"])
 }
 
+func TestPositionsPartialCloseAtUnalignedMarkFillsLot(t *testing.T) {
+	for _, method := range []string{"partialClose", "closePositionWithParams"} {
+		t.Run(method, func(t *testing.T) {
+			e := newPositionsEnv(t, 100_000_000)
+			id := e.open()
+			e.cancelAsk()
+			e.rest(e.ctx(), positionsBidderC, true, 61_000)
+			e.setMark(new(big.Int).Add(positionsE18(61_000), big.NewInt(1)))
+			before, ok := e.position(positionsTraderA)
+			require.True(t, ok)
+			require.Equal(t, positionsWord(t, "16500000000000000"), before.SizeBase)
+
+			if method == "partialClose" {
+				e.mustCall(positionsTraderA, method, id, positionsE18(500))
+			} else {
+				e.mustCall(positionsTraderA, method, id, positionsE18(500), positionsE18(61_000), uint64(0))
+			}
+
+			after, ok := e.position(positionsTraderA)
+			require.True(t, ok)
+			require.Equal(t, id, after.ID.ToBig())
+			require.Equal(t, positionsWord(t, "8310000000000000"), after.SizeBase)
+			require.Equal(t, positionsWord(t, "8190000000000000"), *new(uint256.Int).Sub(&before.SizeBase, &after.SizeBase))
+			_, fields := e.perpsLogs("PositionClosed")
+			require.Len(t, fields, 1)
+			require.Equal(t, new(big.Int).Div(positionsE18(49_959), big.NewInt(100)), fields[0]["closedSizeUsd"])
+			require.Equal(t, positionsE18(61_000), fields[0]["exitPrice"])
+			require.Equal(t, false, fields[0]["isFullClose"])
+		})
+	}
+}
+
 func TestPositionsClosePositionWithParamsBounds(t *testing.T) {
 	e := newPositionsEnv(t, 100_000_000)
 	id := e.open()

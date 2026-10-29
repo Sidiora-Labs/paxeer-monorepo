@@ -5,7 +5,9 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"math"
+	"math/big"
 	"math/bits"
 	"time"
 )
@@ -121,13 +123,14 @@ func VerifyCommittedReceipt(receiptVerification SequencerReceiptVerification, bl
 	if _, ok := committedVerifyCommit(i.NextHeader, i.NextCommit, i.NextValidators); !ok {
 		return fail("committed-next-commit")
 	}
-	if len(i.Transaction) == 0 || len(i.Transaction) > maximumMessageBytes || receiptKeccak256(i.Transaction) != r.ActivityID ||
+	transaction, transactionOK := committedEVMTransaction(i.Transaction)
+	if !transactionOK || receiptKeccak256(transaction) != r.ActivityID ||
 		i.TransactionProof.Index <= 0 || i.TransactionProof.Index != i.ResultProof.Index ||
 		i.TransactionProof.Total != i.ResultProof.Total || i.BatchProof.Total != i.TransactionProof.Total ||
 		i.BatchProof.Index != 0 || uint64(i.TransactionProof.Index) != uint64(binary.BigEndian.Uint32(r.Effects[0].Body[24:28])) ||
-		!committedVerifyProof(i.Transaction, i.TransactionProof, blockHeader.DataHash) ||
+		!committedVerifyTransactionProof(i.Transaction, i.TransactionProof, blockHeader.DataHash) ||
 		!committedVerifyProof(i.Result.bytes(), i.ResultProof, i.NextHeader.LastResultsHash) ||
-		!committedVerifyProof(i.BatchTransaction, i.BatchProof, blockHeader.DataHash) {
+		!committedVerifyTransactionProof(i.BatchTransaction, i.BatchProof, blockHeader.DataHash) {
 		return fail("committed-inclusion")
 	}
 	var status int32
@@ -158,6 +161,317 @@ func VerifyCommittedReceipt(receiptVerification SequencerReceiptVerification, bl
 	result.Rung = "committed"
 	result.Level = "committed"
 	return Committed{SequencerReceiptVerification: result, Height: uint64(blockHeader.Height), BlockHash: hash, VotingPower: power}, nil
+}
+
+type committedProtoValue struct {
+	wire   uint64
+	data   []byte
+	number uint64
+}
+
+type committedProto map[uint64][]committedProtoValue
+
+func committedDecodeProto(data []byte) (committedProto, bool) {
+	fields := make(committedProto)
+	for len(data) > 0 {
+		tag, n := binary.Uvarint(data)
+		if n <= 0 || tag>>3 == 0 || tag>>3 > (1<<29)-1 {
+			return nil, false
+		}
+		data = data[n:]
+		value := committedProtoValue{wire: tag & 7}
+		switch value.wire {
+		case 0:
+			value.number, n = binary.Uvarint(data)
+			if n <= 0 {
+				return nil, false
+			}
+			data = data[n:]
+		case 1, 5:
+			n = 8
+			if value.wire == 5 {
+				n = 4
+			}
+			if len(data) < n {
+				return nil, false
+			}
+			value.data, data = data[:n], data[n:]
+		case 2:
+			length, count := binary.Uvarint(data)
+			if count <= 0 || length > uint64(len(data)-count) {
+				return nil, false
+			}
+			data = data[count:]
+			value.data, data = data[:int(length)], data[int(length):]
+		default:
+			return nil, false
+		}
+		fields[tag>>3] = append(fields[tag>>3], value)
+	}
+	return fields, true
+}
+
+func (p committedProto) single(field, wire uint64) (committedProtoValue, bool) {
+	values := p[field]
+	if len(values) == 0 {
+		return committedProtoValue{wire: wire}, true
+	}
+	return values[0], len(values) == 1 && values[0].wire == wire
+}
+
+func (p committedProto) message(field uint64) (committedProto, bool) {
+	v, ok := p.single(field, 2)
+	if !ok || len(v.data) == 0 {
+		return nil, false
+	}
+	return committedDecodeProto(v.data)
+}
+
+func committedEVMTransaction(blockTransaction []byte) ([]byte, bool) {
+	if len(blockTransaction) == 0 || len(blockTransaction) > maximumMessageBytes {
+		return nil, false
+	}
+	tx, ok := committedDecodeProto(blockTransaction)
+	if !ok {
+		return nil, false
+	}
+	body, ok := tx.message(1)
+	if !ok || len(body[1]) == 0 || body[1][0].wire != 2 {
+		return nil, false
+	}
+	message, ok := committedDecodeProto(body[1][0].data)
+	if !ok {
+		return nil, false
+	}
+	typeURL, ok := message.single(1, 2)
+	if !ok {
+		return nil, false
+	}
+	switch string(typeURL.data) {
+	case "/paxprotocol.paxchain.evm.MsgEVMTransaction", "/ethermint.evm.v1.MsgEthereumTx":
+	default:
+		return nil, false
+	}
+	wrapped, ok := message.message(2)
+	if !ok {
+		return nil, false
+	}
+	data, ok := wrapped.single(1, 2)
+	if !ok || len(data.data) == 0 {
+		return nil, false
+	}
+	if data.data[0] >= 0xc0 || data.data[0] >= 1 && data.data[0] <= 4 {
+		return data.data, true
+	}
+	transaction, ok := committedDecodeProto(data.data)
+	if !ok {
+		return nil, false
+	}
+	kind, ok := transaction.single(1, 2)
+	if !ok {
+		return nil, false
+	}
+	fields, ok := transaction.message(2)
+	if !ok {
+		return nil, false
+	}
+	return committedEncodeEVM(string(kind.data), fields)
+}
+
+func committedRLP(data []byte, list bool) []byte {
+	prefix := byte(0x80)
+	if list {
+		prefix = 0xc0
+	} else if len(data) == 1 && data[0] < 0x80 {
+		return append([]byte(nil), data...)
+	}
+	if len(data) <= 55 {
+		return append([]byte{prefix + byte(len(data))}, data...)
+	}
+	length := new(big.Int).SetUint64(uint64(len(data))).Bytes()
+	out := append([]byte{prefix + 55 + byte(len(length))}, length...)
+	return append(out, data...)
+}
+
+func committedEncodeEVM(kind string, fields committedProto) ([]byte, bool) {
+	var txType byte
+	var layout string
+	switch kind {
+	case "/paxprotocol.paxchain.eth.LegacyTx":
+		layout = "uduhdrbbb"
+	case "/paxprotocol.paxchain.eth.AccessListTx":
+		txType, layout = 1, "duduhdrabbb"
+	case "/paxprotocol.paxchain.eth.DynamicFeeTx":
+		txType, layout = 2, "dudduhdrabbb"
+	case "/paxprotocol.paxchain.eth.BlobTx":
+		txType, layout = 3, "dudduhdradx_bbb"
+	case "/paxprotocol.paxchain.eth.SetCodeTx":
+		txType, layout = 4, "dudduhdraobbb"
+	default:
+		return nil, false
+	}
+	var payload []byte
+	field := uint64(0)
+	for _, format := range layout {
+		field++
+		if format == '_' {
+			continue
+		}
+		var encoded []byte
+		if format == 'a' || format == 'x' || format == 'o' {
+			var ok bool
+			encoded, ok = committedEVMList(fields[field], format)
+			if !ok {
+				return nil, false
+			}
+		} else {
+			wire := uint64(2)
+			if format == 'u' {
+				wire = 0
+			}
+			v, ok := fields.single(field, wire)
+			if !ok {
+				return nil, false
+			}
+			value := v.data
+			switch format {
+			case 'u':
+				value = new(big.Int).SetUint64(v.number).Bytes()
+			case 'd':
+				if len(value) > 0 {
+					if len(value) > 78 {
+						return nil, false
+					}
+					for _, digit := range value {
+						if digit < '0' || digit > '9' {
+							return nil, false
+						}
+					}
+					n, valid := new(big.Int).SetString(string(value), 10)
+					if !valid || n.BitLen() > 256 {
+						return nil, false
+					}
+					value = n.Bytes()
+				}
+			case 'h':
+				if len(value) > 0 {
+					if len(value) != 42 || !bytes.HasPrefix(value, []byte("0x")) {
+						return nil, false
+					}
+					var err error
+					value, err = hex.DecodeString(string(value[2:]))
+					if err != nil {
+						return nil, false
+					}
+				}
+			case 'b':
+				if len(value) > 32 {
+					return nil, false
+				}
+				value = bytes.TrimLeft(value, "\x00")
+			}
+			encoded = committedRLP(value, false)
+		}
+		payload = append(payload, encoded...)
+	}
+	encoded := committedRLP(payload, true)
+	if txType != 0 {
+		encoded = append([]byte{txType}, encoded...)
+	}
+	return encoded, true
+}
+
+func committedEVMList(values []committedProtoValue, kind rune) ([]byte, bool) {
+	var payload []byte
+	for _, value := range values {
+		if value.wire != 2 {
+			return nil, false
+		}
+		if kind == 'x' {
+			if len(value.data) != 32 {
+				return nil, false
+			}
+			payload = append(payload, committedRLP(value.data, false)...)
+			continue
+		}
+		fields, ok := committedDecodeProto(value.data)
+		if !ok {
+			return nil, false
+		}
+		if kind == 'o' {
+			encoded, ok := committedEncodeEVMAuthorization(fields)
+			if !ok {
+				return nil, false
+			}
+			payload = append(payload, encoded...)
+			continue
+		}
+		address, ok := fields.single(1, 2)
+		if !ok || len(address.data) != 42 || !bytes.HasPrefix(address.data, []byte("0x")) {
+			return nil, false
+		}
+		decoded, err := hex.DecodeString(string(address.data[2:]))
+		if err != nil {
+			return nil, false
+		}
+		var keys []byte
+		for _, key := range fields[2] {
+			if key.wire != 2 || len(key.data) != 66 || !bytes.HasPrefix(key.data, []byte("0x")) {
+				return nil, false
+			}
+			decodedKey, err := hex.DecodeString(string(key.data[2:]))
+			if err != nil {
+				return nil, false
+			}
+			keys = append(keys, committedRLP(decodedKey, false)...)
+		}
+		tuple := append(committedRLP(decoded, false), committedRLP(keys, true)...)
+		payload = append(payload, committedRLP(tuple, true)...)
+	}
+	return committedRLP(payload, true), true
+}
+
+func committedEncodeEVMAuthorization(fields committedProto) ([]byte, bool) {
+	var payload []byte
+	for _, spec := range []struct {
+		field  uint64
+		format byte
+	}{{1, 'd'}, {2, 'h'}, {3, 'u'}, {4, 'b'}, {5, 'b'}, {6, 'b'}} {
+		v, valid := fields.single(spec.field, 2)
+		if spec.format == 'u' {
+			v, valid = fields.single(spec.field, 0)
+		}
+		if !valid {
+			return nil, false
+		}
+		data := v.data
+		switch spec.format {
+		case 'd':
+			n, valid := new(big.Int).SetString(string(data), 10)
+			if !valid || n.Sign() < 0 || n.BitLen() > 256 {
+				return nil, false
+			}
+			data = n.Bytes()
+		case 'h':
+			if len(data) != 42 || !bytes.HasPrefix(data, []byte("0x")) {
+				return nil, false
+			}
+			var err error
+			data, err = hex.DecodeString(string(data[2:]))
+			if err != nil {
+				return nil, false
+			}
+		case 'u':
+			data = new(big.Int).SetUint64(v.number).Bytes()
+		case 'b':
+			if len(data) > 32 {
+				return nil, false
+			}
+			data = bytes.TrimLeft(data, "\x00")
+		}
+		payload = append(payload, committedRLP(data, false)...)
+	}
+	return committedRLP(payload, true), true
 }
 
 func committedVarint(field uint64, value uint64) []byte {
@@ -243,6 +557,11 @@ func committedRoot(leaves [][]byte) [32]byte {
 	}
 	split := committedSplit(int64(len(leaves)))
 	return committedInner(committedRoot(leaves[:split]), committedRoot(leaves[split:]))
+}
+
+func committedVerifyTransactionProof(transaction []byte, proof CommittedProof, root []byte) bool {
+	hash := sha256.Sum256(transaction)
+	return committedVerifyProof(hash[:], proof, root)
 }
 
 func committedVerifyProof(leaf []byte, proof CommittedProof, root []byte) bool {

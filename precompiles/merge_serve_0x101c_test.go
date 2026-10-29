@@ -15,8 +15,8 @@ func TestMergeServes0x101C(t *testing.T) {
 	address := common.HexToAddress("0x000000000000000000000000000000000000101C")
 	entry := precompiles.MergeAddress{Address: address, Name: "layerxauth"}
 	require.Contains(t, precompiles.MergeAddressTable, entry)
-	MissingMergeConstructors(t, address)
-	RegisterMergeConstructor(t, address)
+	missingMergeConstructors0x101C(t, address)
+	registerMergeConstructor0x101C(t, address)
 
 	testApp := testkeeper.EVMTestApp
 	ctx, _ := testApp.GetContextForDeliverTx([]byte{}).CacheContext()
@@ -26,28 +26,28 @@ func TestMergeServes0x101C(t *testing.T) {
 
 	for _, tracing := range []bool{false, true} {
 		blockCtx := ctx.WithIsTracing(tracing)
-		CustomPrecompiles(t, &testApp.EvmKeeper, blockCtx.WithBlockHeight(planHeight-1), entry, false)
-		CustomPrecompiles(t, &testApp.EvmKeeper, blockCtx.WithBlockHeight(planHeight), entry, true)
-		CustomPrecompiles(t, &testApp.EvmKeeper, blockCtx.WithBlockHeight(planHeight+1), entry, true)
-		CustomPrecompiles(t, &testApp.EvmKeeper, blockCtx.WithBlockHeight(planHeight-1), entry, false)
+		customPrecompiles0x101C(t, &testApp.EvmKeeper, blockCtx.WithBlockHeight(planHeight-1), entry, false)
+		customPrecompiles0x101C(t, &testApp.EvmKeeper, blockCtx.WithBlockHeight(planHeight), entry, true)
+		customPrecompiles0x101C(t, &testApp.EvmKeeper, blockCtx.WithBlockHeight(planHeight+1), entry, true)
+		customPrecompiles0x101C(t, &testApp.EvmKeeper, blockCtx.WithBlockHeight(planHeight-1), entry, false)
 	}
 }
 
-func MissingMergeConstructors(t *testing.T, address common.Address) {
+func missingMergeConstructors0x101C(t *testing.T, address common.Address) {
 	t.Helper()
 	for _, entry := range precompiles.MissingMergeConstructors() {
 		require.NotEqual(t, address, entry.Address, "0x101C must have its real constructor registered by node imports")
 	}
 }
 
-func RegisterMergeConstructor(t *testing.T, address common.Address) {
+func registerMergeConstructor0x101C(t *testing.T, address common.Address) {
 	t.Helper()
 	require.EqualError(t,
 		precompiles.RegisterMergeConstructor(address, nil),
 		"nil merge constructor for "+address.Hex())
 }
 
-func CustomPrecompiles(t *testing.T, keeper *evmkeeper.Keeper, ctx sdk.Context, entry precompiles.MergeAddress, active bool) {
+func customPrecompiles0x101C(t *testing.T, keeper *evmkeeper.Keeper, ctx sdk.Context, entry precompiles.MergeAddress, active bool) {
 	t.Helper()
 	served := keeper.CustomPrecompiles(ctx)
 	if !active {

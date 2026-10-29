@@ -1365,6 +1365,7 @@ dependencies = [
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "serde_json",
  "sha2 0.10.9",
  "sha3",
 ]

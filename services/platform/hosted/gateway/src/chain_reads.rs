@@ -156,62 +156,25 @@ fn transaction_zero_aunts(leaves: &[[u8; 32]], aunts: &mut Vec<[u8; 32]>) {
     }
 }
 
-fn protobuf_varint(input: &mut &[u8]) -> Option<u64> {
-    let mut value = 0_u64;
-    for shift in (0..70).step_by(7) {
-        let (&byte, rest) = input.split_first()?;
-        *input = rest;
-        if shift == 63 && byte > 1 {
-            return None;
-        }
-        value |= u64::from(byte & 0x7f) << shift;
-        if byte & 0x80 == 0 {
-            return Some(value);
-        }
-    }
-    None
-}
-
-fn protobuf_bytes(mut input: &[u8], field: u64) -> Option<Vec<&[u8]>> {
-    let mut values = Vec::new();
-    while !input.is_empty() {
-        let key = protobuf_varint(&mut input)?;
-        if key >> 3 == 0 || key >> 3 > 0x1fff_ffff {
-            return None;
-        }
-        if key >> 3 == field && key & 7 != 2 {
-            return None;
-        }
-        let length = match key & 7 {
-            0 => {
-                protobuf_varint(&mut input)?;
-                continue;
-            }
-            1 => 8,
-            2 => usize::try_from(protobuf_varint(&mut input)?).ok()?,
-            5 => 4,
-            _ => return None,
-        };
-        let value = input.get(..length)?;
-        input = input.get(length..)?;
-        if key >> 3 == field {
-            values.push(value);
-        }
-    }
-    Some(values)
-}
-
-fn is_sequence_batch(tx: &[u8]) -> Option<bool> {
-    let bodies = protobuf_bytes(tx, 1)?;
-    let [body] = bodies.as_slice() else {
+fn is_sequence_batch(tx: &[u8], height: u64) -> Option<bool> {
+    const DOMAIN: &[u8] = b"PAXEER/v1/sequence-batch\0";
+    if !tx.starts_with(DOMAIN) {
         return Some(false);
-    };
-    let messages = protobuf_bytes(body, 1)?;
-    let [message] = messages.as_slice() else {
-        return Some(false);
-    };
-    let urls = protobuf_bytes(message, 1)?;
-    Some(urls.as_slice() == [b"/paxeer.sequencer.v1.MsgSequenceBatch".as_slice()])
+    }
+    let fields: &[u8; 3 * 8 + 4 * 32 + 64] = tx.get(DOMAIN.len()..)?.try_into().ok()?;
+    let batch_height = u64::from_be_bytes(fields[..8].try_into().ok()?);
+    let from_seq = u64::from_be_bytes(fields[8..16].try_into().ok()?);
+    let to_seq = u64::from_be_bytes(fields[16..24].try_into().ok()?);
+    let previous_seq = from_seq.checked_sub(1)?;
+    if batch_height != height || to_seq < previous_seq {
+        return None;
+    }
+    if to_seq == previous_seq
+        && (fields[24..56] != fields[56..88] || fields[88..120] != Sha256::digest([])[..])
+    {
+        return None;
+    }
+    Some(true)
 }
 
 #[allow(non_snake_case)]
@@ -265,7 +228,7 @@ fn px_getSequenceBatch(config: &Config, id: &Value, height: u64) -> Value {
     }
     let batch = transactions
         .first()
-        .map_or(Some(false), |tx| is_sequence_batch(tx));
+        .map_or(Some(false), |tx| is_sequence_batch(tx, height));
     match batch {
         None => invalid(),
         Some(false) => {

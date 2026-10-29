@@ -31,7 +31,7 @@ type HandoverResult struct {
 func (r *Replicator) Drain(ctx context.Context) (Ack, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	_, lastSeq := r.retainedSeqs(len(r.retained))
+	lastSeq := r.lastSeq
 	ack, err := r.replicate(ctx, r.window(), lastSeq)
 	if err != nil {
 		return Ack{}, err

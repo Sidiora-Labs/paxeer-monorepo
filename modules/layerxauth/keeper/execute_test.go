@@ -1,4 +1,4 @@
-package keeper
+package keeper_test
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
@@ -15,28 +16,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func authExecuteActor(t *testing.T, f *authViewFixture) Actor {
+func authExecuteActor(t *testing.T, f *authViewFixture) keeper.Actor {
 	t.Helper()
-	f.ctx = f.ctx.WithChainID("hyperpax_125-1")
+	*f.Context() = f.Context().WithChainID("hyperpax_125-1")
 	caller := common.Address{0x26, 0x64, 1}
 	evm := &testkeeper.EVMTestApp.EvmKeeper
-	message, err := evmtypes.LayerXBindMessage(evm.ChainID(f.ctx), caller, 0)
+	message, err := evmtypes.LayerXBindMessage(evm.ChainID(*f.Context()), caller, 0)
 	require.NoError(t, err)
 	var signature [ed25519.SignatureSize]byte
-	copy(signature[:], ed25519.Sign(f.private, message))
-	_, err = evm.BindLayerX(f.ctx, caller, f.public, signature)
+	copy(signature[:], ed25519.Sign(f.Private(), message))
+	_, err = evm.BindLayerX(*f.Context(), caller, *f.Public(), signature)
 	require.NoError(t, err)
-	actor, err := f.keeper.Actor(f.ctx, caller)
+	actor, err := f.Keeper().Actor(*f.Context(), caller)
 	require.NoError(t, err)
 	require.True(t, actor.Authority.Bound)
-	require.Equal(t, f.didID, actor.Authority.Actor)
+	require.Equal(t, *f.DIDID(), actor.Authority.Actor)
 	return actor
 }
 
 func authExecutePayload(t *testing.T, f *authViewFixture, method string) ([]byte, [32]byte) {
 	t.Helper()
 	if method == "revoke" {
-		return types.EncodeRevokePayload(f.capabilityID, 1, 44), f.capabilityID
+		return types.EncodeRevokePayload(*f.CapabilityID(), 1, 44), *f.CapabilityID()
 	}
 	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{74}, ed25519.SeedSize))
 	var key [32]byte
@@ -44,11 +45,11 @@ func authExecutePayload(t *testing.T, f *authViewFixture, method string) ([]byte
 	kind := byte(3)
 	if method == "session" {
 		kind = 2
-		f.delegate = key
+		*f.Delegate() = key
 	} else {
-		f.capabilityKey = key
+		*f.CapabilityKey() = key
 	}
-	body := f.grantBody(kind)
+	body := f.GrantBody(kind)
 	id, err := codec.DomainHash(codec.DomainAuthorityHash, body)
 	require.NoError(t, err)
 	var payload []byte
@@ -78,35 +79,35 @@ func TestAuthExecuteIdempotentReplay(t *testing.T) {
 			actor := authExecuteActor(t, f)
 			payload, grantID := authExecutePayload(t, f, method)
 			key := [32]byte{0x64}
-			paramsBefore := authViewStores(f.ctx, f.harness.key)
-			result, err := f.keeper.execute(f.ctx, actor, payload, key)
+			paramsBefore := authViewStores(*f.Context(), f.StoreKey())
+			result, err := f.Keeper().Execute(*f.Context(), actor, payload, key)
 			require.NoError(t, err)
 			require.Equal(t, lxphost.Code(0), result.ResultCode)
 			require.Equal(t, uint64(44), result.GlobalSequence)
-			require.Equal(t, f.timestamp, result.Timestamp)
+			require.Equal(t, f.Timestamp(), result.Timestamp)
 			require.NotEmpty(t, result.Encoded)
 			require.NotEmpty(t, result.Events)
-			grant, err := f.keeper.GetGrant(f.ctx, grantID)
+			grant, err := f.Keeper().GetGrant(*f.Context(), grantID)
 			require.NoError(t, err)
 			require.NotEmpty(t, grant)
-			stored, err := f.keeper.ResultByIdempotency(f.ctx, actor.DIDKey, key)
+			stored, err := f.Keeper().ResultByIdempotency(*f.Context(), actor.DIDKey, key)
 			require.NoError(t, err)
 			require.Equal(t, authExecuteSignedReceipt(t, result.Receipt), stored)
-			before := authViewStores(f.ctx, f.hostKey, f.harness.key)
+			before := authViewStores(*f.Context(), f.HostKey(), f.StoreKey())
 
-			_, err = f.keeper.execute(f.ctx, actor, payload, key)
+			_, err = f.Keeper().Execute(*f.Context(), actor, payload, key)
 			require.ErrorIs(t, err, types.ErrIdempotentReplay)
-			require.Equal(t, before, authViewStores(f.ctx, f.hostKey, f.harness.key))
-			again, err := f.keeper.GetGrant(f.ctx, grantID)
+			require.Equal(t, before, authViewStores(*f.Context(), f.HostKey(), f.StoreKey()))
+			again, err := f.Keeper().GetGrant(*f.Context(), grantID)
 			require.NoError(t, err)
 			require.Equal(t, grant, again)
-			stored, err = f.keeper.ResultByIdempotency(f.ctx, actor.DIDKey, key)
+			stored, err = f.Keeper().ResultByIdempotency(*f.Context(), actor.DIDKey, key)
 			require.NoError(t, err)
 			require.Equal(t, authExecuteSignedReceipt(t, result.Receipt), stored)
-			next, err := lxphost.NextSequence(f.ctx, f.hostKey)
+			next, err := lxphost.NextSequence(*f.Context(), f.HostKey())
 			require.NoError(t, err)
 			require.Equal(t, uint64(45), next)
-			require.Equal(t, paramsBefore, authViewStores(f.ctx, f.harness.key))
+			require.Equal(t, paramsBefore, authViewStores(*f.Context(), f.StoreKey()))
 		})
 	}
 }
@@ -115,32 +116,32 @@ func TestAuthExecuteSequenceReused(t *testing.T) {
 	f := newAuthViewFixture(t)
 	actor := authExecuteActor(t, f)
 	payload, grantID := authExecutePayload(t, f, "capability")
-	first, err := f.keeper.execute(f.ctx, actor, payload, [32]byte{0x65})
+	first, err := f.Keeper().Execute(*f.Context(), actor, payload, [32]byte{0x65})
 	require.NoError(t, err)
 	require.Equal(t, lxphost.Code(0), first.ResultCode)
 	require.Equal(t, uint64(44), first.GlobalSequence)
-	grant, err := f.keeper.GetGrant(f.ctx, grantID)
+	grant, err := f.Keeper().GetGrant(*f.Context(), grantID)
 	require.NoError(t, err)
-	require.Equal(t, f.grantBody(3), grant)
-	paramsBefore := authViewStores(f.ctx, f.harness.key)
+	require.Equal(t, f.GrantBody(3), grant)
+	paramsBefore := authViewStores(*f.Context(), f.StoreKey())
 	key := [32]byte{0x66}
 
-	refused, err := f.keeper.execute(f.ctx, actor, payload, key)
+	refused, err := f.Keeper().Execute(*f.Context(), actor, payload, key)
 	require.ErrorIs(t, err, types.ErrSequenceReused)
 	require.Equal(t, lxphost.Code(-301), refused.ResultCode)
 	require.Equal(t, uint64(45), refused.GlobalSequence)
 	require.NotEmpty(t, refused.Encoded)
-	again, err := f.keeper.GetGrant(f.ctx, grantID)
+	again, err := f.Keeper().GetGrant(*f.Context(), grantID)
 	require.NoError(t, err)
 	require.Equal(t, grant, again)
-	stored, err := f.keeper.ResultByIdempotency(f.ctx, actor.DIDKey, key)
+	stored, err := f.Keeper().ResultByIdempotency(*f.Context(), actor.DIDKey, key)
 	require.NoError(t, err)
 	require.Equal(t, authExecuteSignedReceipt(t, refused.Receipt), stored)
-	next, err := lxphost.NextSequence(f.ctx, f.hostKey)
+	next, err := lxphost.NextSequence(*f.Context(), f.HostKey())
 	require.NoError(t, err)
 	require.Equal(t, uint64(46), next)
-	accountSequence, err := f.host.ReadIdentitySequence(f.ctx, actor.DID)
+	accountSequence, err := f.Host().ReadIdentitySequence(*f.Context(), actor.DID)
 	require.NoError(t, err)
 	require.Equal(t, uint64(5), accountSequence)
-	require.Equal(t, paramsBefore, authViewStores(f.ctx, f.harness.key))
+	require.Equal(t, paramsBefore, authViewStores(*f.Context(), f.StoreKey()))
 }

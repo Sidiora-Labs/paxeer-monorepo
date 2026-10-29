@@ -1,32 +1,12 @@
-use std::sync::Arc;
-use std::time::Duration;
-
-use layerx_types::clock::{Clock, Deadline};
-
-use layerx_client::availability::{
-    AvailabilitySelector, FetchContext, FetchOutcome, RetrievalLimits,
-};
-use layerx_client::evidence::{CheckpointSelector, ProofBundleSelector, VerifiedProofBundle};
-use layerx_client::read::{HistoryKind, HistoryPage};
-use layerx_client::Client;
+use layerx_client::rpc::{evidence, history, receipt};
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
 use layerx_programs::hex;
-use layerx_proof::availability::RootCommitments;
-use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::merkle::Proof;
-use layerx_types::account::AccountId;
-use layerx_types::ids::Did;
-use layerx_types::payload::ModuleRegistry;
-use layerx_types::verify::VerificationLevel;
-use layerx_wire::activity::{decode_signed, Activity};
-use layerx_wire::hash;
-use layerx_wire::receipt::decode_batch_header;
-use layerx_wire::receipt::ProtocolReceipt;
 use serde_json::{json, Value};
-use sha2::{Digest as _, Sha256};
-use zeroize::Zeroizing;
+
+use super::{availability, AvailabilityRead, AvailabilityReadError, AvailabilityRequest, Cursor};
 
 const MAX_RESULT_BYTES: usize = 240 * 1024;
-const MAX_AVAILABILITY_BYTES: usize = 96 * 1024;
+const MAX_HISTORY_ITEMS: u16 = 256;
 
 #[derive(Debug)]
 pub enum NativeReadError {
@@ -35,259 +15,67 @@ pub enum NativeReadError {
     ResultTooLarge,
     Unavailable,
     Verification,
-    Connection(layerx_client::client::ConnectionError),
-    Preparation(layerx_client::lni::preparation::PreparationStateError),
-    AccountEvidence(layerx_client::read::ReadError),
-    HistoryEvidence(layerx_client::read::ReadError),
+    Connection(SequencerError),
+    Receipt(receipt::ReceiptError),
+    Availability(AvailabilityReadError),
+    Evidence(evidence::EvidenceError),
 }
 
 pub struct NativeReadRoute {
-    client: Client,
-    sequencer_history: Option<layerx_client::handover::SequencerHistory>,
-    checkpoint_verifier: Option<layerx_paxeer_verifier::PaxeerCheckpointVerifier>,
-    actor: Did,
-    cursor_key: Zeroizing<String>,
-    correlation: u64,
-    deadline: Deadline,
-    clock: Arc<dyn Clock>,
+    client: SequencerEndpoint,
+    receipt_keys: Vec<ReceiptKeyEntry>,
+    chain_id: u64,
 }
 
 impl NativeReadRoute {
-    /// # Errors
-    /// Rejects an empty actor or a cursor authentication key below the bearer bound.
-    pub fn new(
-        client: Client,
-        actor: Did,
-        cursor_key: String,
-        clock: Arc<dyn Clock>,
-    ) -> Result<Self, NativeReadError> {
-        if actor.as_bytes().is_empty() || cursor_key.len() < 32 {
-            return Err(NativeReadError::InvalidRequest);
-        }
-        Ok(Self {
+    pub fn new(client: SequencerEndpoint, chain_id: u64) -> Self {
+        Self {
             client,
-            sequencer_history: None,
-            checkpoint_verifier: None,
-            actor,
-            cursor_key: Zeroizing::new(cursor_key),
-            correlation: 10_000,
-            deadline: Deadline::start(clock.as_ref(), Duration::from_secs(10))
-                .map_err(|_| NativeReadError::Unavailable)?,
-            clock,
-        })
-    }
-
-    /// Loads the explicit protected Paxeer trust policy before activating historical reads.
-    ///
-    /// # Errors
-    /// Refuses unsafe file ownership or permissions, malformed policy and insecure transport.
-    pub fn with_protected_finality(
-        mut self,
-        path: &std::path::Path,
-    ) -> Result<Self, NativeReadError> {
-        if self.sequencer_history.is_some() || self.checkpoint_verifier.is_some() {
-            return Err(NativeReadError::InvalidRequest);
+            receipt_keys: Vec::new(),
+            chain_id,
         }
-        let bytes = crate::config::read_protected_source(path, 1_048_576)
-            .map_err(|_| NativeReadError::InvalidRequest)?;
-        let policy = layerx_client::handover::decode_finality_policy(&bytes)
-            .map_err(|_| NativeReadError::InvalidRequest)?;
-        self.checkpoint_verifier = Some(
-            layerx_paxeer_verifier::PaxeerCheckpointVerifier::new(policy)
-                .map_err(|_| NativeReadError::InvalidRequest)?,
-        );
-        Ok(self)
     }
 
-    /// Binds public historical reads to an explicitly configured protected genesis artifact.
-    ///
-    /// # Errors
-    /// Refuses unprotected files, substituted native witness data and incomplete history.
-    pub fn with_protected_genesis(
-        mut self,
-        path: &std::path::Path,
-    ) -> Result<Self, NativeReadError> {
-        let bytes = crate::config::read_protected_source(
-            path,
-            layerx_wire::handover::GENESIS_TRUST_MAX_BYTES,
-        )
-        .map_err(|_| NativeReadError::InvalidRequest)?;
-        let pins = layerx_wire::handover::decode_genesis_trust(&bytes)
-            .map_err(|_| NativeReadError::Verification)?;
-        let policy = self
-            .checkpoint_verifier
-            .as_ref()
-            .ok_or(NativeReadError::InvalidRequest)?
-            .policy();
-        if pins.network_id != self.client.handshake().node().network_id
-            || self.client.handshake().node().protocol_version != 3
-            || policy.protocol_version != 3
-            || policy.network_id != pins.network_id
-            || policy.canonical_genesis_root != pins.canonical_state_root
+    fn check_chain(&self) -> Result<(), NativeReadError> {
+        if self
+            .client
+            .chain_id()
+            .map_err(NativeReadError::Connection)?
+            != self.chain_id
         {
             return Err(NativeReadError::Verification);
         }
-        self.sequencer_history = Some(
-            layerx_client::handover::SequencerHistory::from_genesis_artifact(
-                &bytes,
-                pins.network_id,
-                pins.canonical_state_root,
-                pins.initial_sequencer_key,
-            )
-            .map_err(|_| NativeReadError::Verification)?,
-        );
-        self.deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(10))
-            .map_err(|_| NativeReadError::Unavailable)?;
-        self.refresh_history()?;
-        Ok(self)
-    }
-
-    /// Refreshes fully verified history before exporting its signed authority projection.
-    /// # Errors
-    /// Refuses unavailable clocks, transports, history or independent finality.
-    pub fn signed_authority(
-        &mut self,
-    ) -> Result<Option<layerx_proof::signed_authority::SignedAuthorityHistory>, NativeReadError>
-    {
-        if self.sequencer_history.is_none() {
-            return Ok(None);
-        }
-        self.deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(10))
-            .map_err(|_| NativeReadError::Unavailable)?;
-        self.client
-            .reconnect()
-            .map_err(NativeReadError::Connection)?;
-        self.refresh_history()?;
-        Ok(self
-            .sequencer_history
-            .as_ref()
-            .map(|history| history.signed_authority().clone()))
-    }
-
-    fn refresh_history(&mut self) -> Result<(), NativeReadError> {
-        if self.sequencer_history.is_none() {
-            return Ok(());
-        }
-        let target = self.client.head().sealed_batch;
-        loop {
-            let verified = self
-                .sequencer_history
-                .as_ref()
-                .and_then(layerx_client::handover::SequencerHistory::verified_head)
-                .map_or(0, |head| head.header().batch_number());
-            if verified > target {
-                return Err(NativeReadError::Verification);
-            }
-            if verified == target {
-                return Ok(());
-            }
-            let correlation = self.next_id()?;
-            self.client
-                .reconnect()
-                .map_err(NativeReadError::Connection)?;
-            let remaining = self.remaining()?;
-            self.client
-                .advance_sequencer_history_with_finality(
-                    self.sequencer_history
-                        .as_mut()
-                        .ok_or(NativeReadError::Verification)?,
-                    correlation,
-                    RetrievalLimits {
-                        maximum_bytes: layerx_wire::handover::MAX_RECOVERY_BYTES,
-                        maximum_chunks: 4096,
-                        deadline: remaining,
-                    },
-                    self.checkpoint_verifier.as_ref(),
-                )
-                .map_err(|_| NativeReadError::Verification)?;
-            self.correlation = self
-                .correlation
-                .checked_add(2)
-                .ok_or(NativeReadError::Unavailable)?;
-        }
-    }
-
-    fn native_proof(
-        &mut self,
-        selector: ProofBundleSelector,
-        correlation: u64,
-        registry: &ModuleRegistry,
-    ) -> Result<VerifiedProofBundle, NativeReadError> {
-        let result = if let Some(history) = &self.sequencer_history {
-            self.client
-                .proof_bundle_with_history(selector, correlation, registry, history)
-        } else {
-            self.client.proof_bundle(selector, correlation, registry)
-        };
-        result.map_err(|_| NativeReadError::Verification)
-    }
-
-    fn native_header(
-        &mut self,
-        batch: u64,
-        correlation: u64,
-    ) -> Result<layerx_client::batch::SignedBatchHeader, NativeReadError> {
-        let result = if let Some(history) = &self.sequencer_history {
-            self.client
-                .batch_header_with_history(batch, correlation, history)
-        } else {
-            self.client.batch_header(batch, correlation)
-        };
-        result.map_err(|_| NativeReadError::Verification)
-    }
-
-    fn remaining(&mut self) -> Result<Duration, NativeReadError> {
-        let remaining = self
-            .deadline
-            .remaining(self.clock.as_ref())
-            .map_err(|_| NativeReadError::Unavailable)?;
-        if remaining.is_zero() {
-            return Err(NativeReadError::Unavailable);
-        }
-        Ok(remaining)
-    }
-
-    fn next_id(&mut self) -> Result<u64, NativeReadError> {
-        self.remaining()?;
-        self.correlation = self
-            .correlation
-            .checked_add(1)
-            .ok_or(NativeReadError::Unavailable)?;
-        Ok(self.correlation)
+        Ok(())
     }
 
     /// # Errors
-    /// Refuses malformed selectors, unavailable node evidence and all verification failures.
-    pub fn read(&mut self, path: &str) -> Result<Value, NativeReadError> {
-        let path = path
-            .strip_prefix("/v1/reads/")
-            .ok_or(NativeReadError::InvalidRequest)?;
-        let (kind, selector) = path
-            .split_once('/')
-            .ok_or(NativeReadError::InvalidRequest)?;
-        self.deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(10))
-            .map_err(|_| NativeReadError::Unavailable)?;
-        self.client
-            .reconnect()
-            .map_err(NativeReadError::Connection)?;
-        self.refresh_history()?;
-        if self.sequencer_history.is_some() {
-            self.client
-                .reconnect()
-                .map_err(NativeReadError::Connection)?;
-        }
-        let correlation = self.next_id()?;
-        let registry = self
+    /// Refuses unavailable or empty published receipt keys without using stale authority.
+    pub fn signed_authority(&mut self) -> Result<Vec<ReceiptKeyEntry>, NativeReadError> {
+        self.check_chain()?;
+        let keys = self
             .client
-            .preparation_state(&self.actor, correlation)
-            .map_err(NativeReadError::Preparation)?
-            .module_registry;
+            .receipt_keys()
+            .map_err(NativeReadError::Connection)?;
+        if keys.is_empty() {
+            return Err(NativeReadError::Verification);
+        }
+        self.receipt_keys = keys;
+        Ok(self.receipt_keys.clone())
+    }
+
+    /// # Errors
+    /// Refuses malformed selectors, unknown read kinds and invalid node evidence.
+    pub fn read(&mut self, path: &str) -> Result<Value, NativeReadError> {
+        let (kind, selector) = path
+            .strip_prefix("/v1/reads/")
+            .and_then(|path| path.split_once('/'))
+            .ok_or(NativeReadError::InvalidRequest)?;
         let value = match kind {
-            "receipt" => self.proof(digest(selector)?, true, &registry)?,
-            "proof" => self.proof(digest(selector)?, false, &registry)?,
+            "receipt" => self.receipt(digest(selector)?)?,
+            "proof" => self.proof(digest(selector)?)?,
             "checkpoint" => self.checkpoint(number(selector)?)?,
             "availability" => self.availability(number(selector)?)?,
-            "history" => self.history(selector, &registry)?,
+            "history" => self.history(selector)?,
             _ => return Err(NativeReadError::InvalidRequest),
         };
         if serde_json::to_vec(&value)
@@ -300,342 +88,134 @@ impl NativeReadRoute {
         Ok(value)
     }
 
-    fn proof(
-        &mut self,
-        activity: [u8; 32],
-        receipt: bool,
-        registry: &ModuleRegistry,
-    ) -> Result<Value, NativeReadError> {
-        let selector = if receipt {
-            ProofBundleSelector::Receipt(activity)
-        } else {
-            ProofBundleSelector::Activity(activity)
-        };
-        let correlation = self.next_id()?;
-        let verified = self.native_proof(selector, correlation, registry)?;
-        proof_json(&verified, self.client.head().chain_sequence)
+    fn receipt(&mut self, transaction_hash: [u8; 32]) -> Result<Value, NativeReadError> {
+        self.signed_authority()?;
+        let lookup = receipt::lookup_authenticated(
+            &self.client,
+            transaction_hash,
+            receipt::LookupContext {
+                receipt_keys: &self.receipt_keys,
+            },
+        )
+        .map_err(NativeReadError::Receipt)?;
+        match lookup {
+            receipt::Lookup::Absent => Err(NativeReadError::Unavailable),
+            receipt::Lookup::Submitted { tx_hash, nonce } => Ok(json!({
+                "transaction_hash": hex::encode(&tx_hash), "nonce": nonce,
+                "receipt": null, "key_index": null, "rung": "submitted"
+            })),
+            receipt::Lookup::Verified(verified) => {
+                let execution = verified.execution();
+                let key_index = self
+                    .receipt_keys
+                    .iter()
+                    .position(|key| {
+                        key.key_id == execution.key_id
+                            && key.first_height <= execution.height
+                            && execution.height <= key.last_height
+                    })
+                    .ok_or(NativeReadError::Verification)?;
+                Ok(json!({
+                    "transaction_hash": hex::encode(&transaction_hash),
+                    "receipt": hex::encode(verified.canonical_bytes()),
+                    "key_index": key_index,
+                    "receipt_key": key_json(&self.receipt_keys[key_index]),
+                    "rung": layerx_types::rung::Rung::Receipted.name(),
+                    "height": verified.height(), "tx_index": execution.index,
+                    "freshness": {"value_height": verified.height(), "relative_to": "Block"}
+                }))
+            }
+        }
     }
 
-    fn checkpoint(&mut self, batch: u64) -> Result<Value, NativeReadError> {
-        let correlation = self.next_id()?;
-        let checkpoint = self
-            .client
-            .checkpoint_evidence(CheckpointSelector::Batch(batch), correlation)
-            .map_err(|_| NativeReadError::Verification)?;
-        let availability = self.availability(batch)?;
-        if availability["complete"].as_bool() != Some(true) {
-            return Err(NativeReadError::Unavailable);
-        }
-        let header = decode_batch_header(checkpoint.canonical_header())
-            .map_err(|_| NativeReadError::Verification)?;
-        if availability["header_hex"].as_str()
-            != Some(hex::encode(checkpoint.canonical_header()).as_str())
-        {
+    fn proof(&mut self, transaction_hash: [u8; 32]) -> Result<Value, NativeReadError> {
+        let mut proof = self.receipt(transaction_hash)?;
+        if proof["rung"] != "receipted" {
             return Err(NativeReadError::Verification);
         }
+        proof["kind"] = json!("receipt");
+        proof["proof_type"] = json!("sequencer_signature");
+        Ok(proof)
+    }
+
+    fn checkpoint(&self, height: u64) -> Result<Value, NativeReadError> {
+        self.check_chain()?;
+        let block =
+            evidence::checkpoint(&self.client, height).map_err(NativeReadError::Evidence)?;
         Ok(json!({
-            "batch_number": batch.to_string(),
-            "checkpoint_hex": hex::encode(checkpoint.checkpoint_bytes()),
-            "context_hex": hex::encode(checkpoint.context_bytes()),
-            "header_hex": hex::encode(checkpoint.canonical_header()),
-            "verification_level": checkpoint.report().level().wire_rank(),
-            "availability_obtained": true,
-            "complete": true,
-            "freshness": {"observed_sequence": self.client.head().chain_sequence,
-                "batch_number": batch, "observed_at": header.timestamp_ms()}
+            "height": block.number, "block_hash": hex::encode(&block.hash),
+            "parent_hash": hex::encode(&block.parent_hash), "timestamp": block.timestamp,
+            "transactions_root": hex::encode(&block.transactions_root),
+            "receipts_root": hex::encode(&block.receipts_root),
+            "rung": null, "verified": false
         }))
     }
 
-    fn availability(&mut self, batch: u64) -> Result<Value, NativeReadError> {
-        let correlation = self.next_id()?;
-        let signed = self.native_header(batch, correlation)?;
-        let header = &signed.header;
-        let correlation = self.next_id()?;
-        let context = FetchContext {
-            interface_version: self.client.handshake().node().interface_version,
-            correlation_id: correlation,
-            expected_batch_number: batch,
-            data_availability_root: header.data_availability_root(),
-            record_roots: RootCommitments {
-                activity: header.activity_merkle_root(),
-                receipt: header.receipt_merkle_root(),
-                event: header.event_merkle_root(),
-                oracle: header.oracle_root(),
-            },
-            limits: RetrievalLimits {
-                maximum_bytes: MAX_AVAILABILITY_BYTES,
-                maximum_chunks: 256,
-                deadline: self.remaining()?,
-            },
-        };
-        let mut chunks = Vec::new();
-        let outcome = self
-            .client
-            .fetch_availability(AvailabilitySelector::Batch(batch), context, |progress| {
-                let chunk = progress.chunk.chunk();
-                chunks.push(json!({"provider": progress.provider, "index": chunk.index,
-                "class": chunk.class as u8, "offset": chunk.class_offset.to_string(),
-                "bytes_hex": hex::encode(&chunk.bytes), "digest": hex::encode(&chunk.claimed_hash),
-                "verified": true}));
-            })
-            .map_err(|_| NativeReadError::Unavailable)?;
-        let (complete, failures) = match outcome {
-            FetchOutcome::Complete(_) => (true, Vec::new()),
-            FetchOutcome::Partial(reports) => (false, reports.into_iter().map(|report| json!({
-                "provider": report.provider, "verified_chunks": report.verified_chunks,
-                "verified_bytes": report.verified_bytes, "failure": format!("{:?}", report.failure),
-                "missing_classes": report.classes.missing.iter().map(|class| *class as u8).collect::<Vec<_>>()
-            })).collect()),
-        };
-        Ok(
-            json!({"batch_number": batch.to_string(), "header_hex": hex::encode(signed.canonical_bytes()),
-            "header_signature": hex::encode(&signed.signature), "sequencer_public_key": hex::encode(&signed.sequencer_public_key),
-            "availability_root": hex::encode(&header.data_availability_root()), "complete": complete,
-            "chunks": chunks, "provider_failures": failures,
-            "verification_level": if complete { VerificationLevel::BATCH_INCLUDED.wire_rank() } else { VerificationLevel::UNVERIFIED.wire_rank() },
-            "freshness": {"observed_sequence": self.client.head().chain_sequence, "batch_number": batch,
-                "observed_at": header.timestamp_ms()}}),
-        )
+    fn availability(&self, height: u64) -> Result<Value, NativeReadError> {
+        self.check_chain()?;
+        let result = availability(&self.client, &AvailabilityRequest { height })
+            .map_err(NativeReadError::Availability)?;
+        Ok(match result {
+            AvailabilityRead::Available {
+                height,
+                transactions_root,
+                receipts_root,
+                transaction_count,
+            } => json!({
+                "height": height, "transactions_root": hex::encode(&transactions_root),
+                "receipts_root": hex::encode(&receipts_root), "transaction_count": transaction_count,
+                "complete": true, "rung": null
+            }),
+            AvailabilityRead::Pruned { height } => {
+                json!({"height": height, "complete": false, "pruned": true, "rung": null})
+            }
+        })
     }
 
-    fn history(
-        &mut self,
-        selector: &str,
-        registry: &ModuleRegistry,
-    ) -> Result<Value, NativeReadError> {
+    fn history(&self, selector: &str) -> Result<Value, NativeReadError> {
         let (account, query) = selector
             .split_once('?')
             .ok_or(NativeReadError::InvalidRequest)?;
-        let account = digest(account)?;
-        if account == [0; 32] {
+        if account.is_empty() || account.contains('/') || account.len() > 256 {
             return Err(NativeReadError::InvalidRequest);
         }
         let (limit, cursor) = history_query(query)?;
-        let head = self.client.head();
-        let (start, end) = match cursor {
-            Some(cursor) => self.decode_cursor(account, cursor)?,
-            None => (1, head.chain_sequence),
-        };
-        if end > head.chain_sequence || start == 0 || start > end.saturating_add(1) {
-            return Err(NativeReadError::CursorMismatch);
+        self.check_chain()?;
+        let page = history::history(&self.client, account, cursor, Some(limit))
+            .map_err(NativeReadError::Connection)?;
+        if page.items.len() > usize::from(limit) {
+            return Err(NativeReadError::ResultTooLarge);
         }
-        if start > end {
-            return Ok(
-                json!({"account": hex::encode(&account), "items": [], "complete": true,
-                "cursor": null, "scanned_items": 0, "verification_level": VerificationLevel::BATCH_INCLUDED.wire_rank(),
-                "freshness": {"observed_sequence": head.chain_sequence}}),
-            );
+        if page.indexed_height > page.chain_height {
+            return Err(NativeReadError::Verification);
         }
-        let (authorization, term_end) = if let Some(history) = &self.sequencer_history {
-            (
-                history
-                    .authorization_for_sequence(start)
-                    .map_err(|_| NativeReadError::Verification)?,
-                history
-                    .sequence_interval_end(start)
-                    .map_err(|_| NativeReadError::Verification)?
-                    .min(end),
-            )
-        } else {
-            let correlation = self.next_id()?;
-            let signed = self.native_header(head.sealed_batch, correlation)?;
-            (
-                SequencerAuthorization::new(
-                    signed.sequencer_id,
-                    signed.sequencer_public_key,
-                    0,
-                    head.sealed_batch,
-                ),
-                end,
-            )
-        };
-        let correlation = self.next_id()?;
-        let page = if let Some(history) = &self.sequencer_history {
-            self.client.history_with_history(
-                layerx_client::read::HistoryRange {
-                    start_sequence: start,
-                    end_sequence: term_end,
-                    page_bound: limit,
-                    cursor: None,
-                },
-                VerificationLevel::BATCH_INCLUDED,
-                correlation,
-                history,
-            )
-        } else {
-            self.client.history(
-                start,
-                term_end,
-                limit,
-                None,
-                VerificationLevel::BATCH_INCLUDED,
-                correlation,
-                authorization,
-            )
-        }
-        .map_err(NativeReadError::HistoryEvidence)?;
-        self.history_json(account, (end, term_end), page, registry, authorization)
-    }
-
-    fn history_json(
-        &mut self,
-        account: [u8; 32],
-        window: (u64, u64),
-        page: HistoryPage,
-        registry: &ModuleRegistry,
-        authorization: SequencerAuthorization,
-    ) -> Result<Value, NativeReadError> {
-        let (end, term_end) = window;
-        let mut items = Vec::new();
-        let mut size = 0_usize;
-        let mut next = page
-            .cursor
-            .map(layerx_client::read::HistoryCursor::next_sequence)
-            .or_else(|| (term_end < end).then(|| term_end + 1));
-        let mut scanned = 0_usize;
-        for item in page.items {
-            let selected = match item.kind {
-                HistoryKind::Activity => {
-                    let activity = decode_signed(item.canonical_bytes(), registry)
-                        .map_err(|_| NativeReadError::Verification)?;
-                    let id =
-                        hash::activity_id(&activity).map_err(|_| NativeReadError::Verification)?;
-                    let correlation = self.next_id()?;
-                    let receipt =
-                        self.native_proof(ProofBundleSelector::Receipt(id), correlation, registry)?;
-                    let decoded = layerx_wire::receipt::decode(receipt.canonical_bytes())
-                        .map_err(|_| NativeReadError::Verification)?;
-                    let protocol = decoded.protocol().ok_or(NativeReadError::Verification)?;
-                    if protocol.global_sequence() != item.global_sequence {
-                        return Err(NativeReadError::Verification);
-                    }
-                    let receipt_value = proof_json(&receipt, self.client.head().chain_sequence)?;
-                    receipt_mentions_account(protocol, &activity, account)?.then(|| json!({
-                        "global_sequence": item.global_sequence.to_string(), "kind": "activity",
-                        "activity_id": hex::encode(&id), "canonical_hex": hex::encode(item.canonical_bytes()),
-                        "receipt": receipt_value,
-                        "verification_level": item.achieved().wire_rank()}))
-                }
-                HistoryKind::Receipt => self.maintenance(
-                    item.canonical_bytes(),
-                    account,
-                    item.global_sequence,
-                    authorization,
-                )?,
-                HistoryKind::Event => return Err(NativeReadError::Verification),
-            };
-            if let Some(value) = selected {
-                let bytes = serde_json::to_vec(&value)
-                    .map_err(|_| NativeReadError::Verification)?
-                    .len();
-                if size
-                    .checked_add(bytes)
-                    .ok_or(NativeReadError::ResultTooLarge)?
-                    > MAX_RESULT_BYTES - 2048
-                {
-                    if items.is_empty() {
-                        return Err(NativeReadError::ResultTooLarge);
-                    }
-                    next = Some(item.global_sequence);
-                    break;
-                }
-                size += bytes;
-                items.push(value);
-            }
-            scanned += 1;
-        }
-        let cursor = next.map(|next| hex::encode(&self.encode_cursor(account, next, end)));
-        Ok(
-            json!({"account": hex::encode(&account), "items": items, "complete": cursor.is_none(),
-            "cursor": cursor, "scanned_items": scanned, "verification_level": VerificationLevel::BATCH_INCLUDED.wire_rank(),
-            "freshness": {"observed_sequence": self.client.head().chain_sequence, "snapshot_end_sequence": end}}),
-        )
-    }
-
-    fn maintenance(
-        &mut self,
-        bytes: &[u8],
-        account: [u8; 32],
-        sequence: u64,
-        authorization: SequencerAuthorization,
-    ) -> Result<Option<Value>, NativeReadError> {
-        let maintenance = layerx_wire::batch_maintenance::decode_maintenance(bytes)
-            .map_err(|_| NativeReadError::Verification)?;
-        let record = maintenance.occupancy();
-        if record.payers.is_empty() {
-            return maintenance_json(bytes, None, sequence);
-        }
-        let correlation = self.next_id()?;
-        let evidence = if let Some(history) = &self.sequencer_history {
-            self.client.account_with_history(
-                account,
-                VerificationLevel::BATCH_INCLUDED,
-                correlation,
-                history,
-            )
-        } else {
-            self.client.account(
-                account,
-                VerificationLevel::BATCH_INCLUDED,
-                correlation,
-                authorization,
-            )
-        }
-        .map_err(NativeReadError::AccountEvidence)?;
-        let payer = maintenance_payer(
-            account,
-            evidence.canonical_bytes(),
-            self.client.handshake().node().protocol_version,
-        )?;
-        maintenance_json(bytes, payer, sequence)
-    }
-
-    fn encode_cursor(&self, account: [u8; 32], next: u64, end: u64) -> [u8; 32] {
-        let mut cursor = [0_u8; 32];
-        cursor[..8].copy_from_slice(&next.to_be_bytes());
-        cursor[8..16].copy_from_slice(&end.to_be_bytes());
-        let mut digest = Sha256::new();
-        digest.update(b"LX:MCP:HISTORY:CURSOR:v1");
-        digest.update(self.cursor_key.as_bytes());
-        digest.update(account);
-        digest.update(&cursor[..16]);
-        cursor[16..].copy_from_slice(&digest.finalize()[..16]);
-        cursor
-    }
-
-    fn decode_cursor(&self, account: [u8; 32], text: &str) -> Result<(u64, u64), NativeReadError> {
-        let cursor = digest(text)?;
-        let next = u64::from_be_bytes(
-            cursor[..8]
-                .try_into()
-                .map_err(|_| NativeReadError::CursorMismatch)?,
-        );
-        let end = u64::from_be_bytes(
-            cursor[8..16]
-                .try_into()
-                .map_err(|_| NativeReadError::CursorMismatch)?,
-        );
-        let expected = self.encode_cursor(account, next, end);
-        if !layerx_crypto::ct::eq(&cursor, &expected) {
-            return Err(NativeReadError::CursorMismatch);
-        }
-        Ok((next, end))
+        Ok(json!({
+            "account": account, "items": page.items, "cursor": page.next_cursor,
+            "complete": page.next_cursor.is_none(), "rung": null,
+            "freshness": {"chain_head": page.chain_height,
+                "value_height": page.indexed_height, "relative_to": "Block"}
+        }))
     }
 }
 
-fn digest(value: &str) -> Result<[u8; 32], NativeReadError> {
-    hex::decode_digest(value).map_err(|_| NativeReadError::InvalidRequest)
+fn key_json(key: &ReceiptKeyEntry) -> Value {
+    json!({"key_id": hex::encode(&key.key_id), "public_key": hex::encode(&key.public_key),
+        "first_height": key.first_height, "last_height": key.last_height})
 }
 
-fn number(value: &str) -> Result<u64, NativeReadError> {
-    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+fn digest(text: &str) -> Result<[u8; 32], NativeReadError> {
+    hex::decode_digest(text.strip_prefix("0x").unwrap_or(text))
+        .map_err(|_| NativeReadError::InvalidRequest)
+}
+
+fn number(text: &str) -> Result<u64, NativeReadError> {
+    if text.is_empty()
+        || !text.bytes().all(|byte| byte.is_ascii_digit())
+        || (text.len() > 1 && text.starts_with('0'))
+    {
         return Err(NativeReadError::InvalidRequest);
     }
-    value
-        .parse()
-        .ok()
-        .filter(|value| *value != 0)
-        .ok_or(NativeReadError::InvalidRequest)
+    text.parse().map_err(|_| NativeReadError::InvalidRequest)
 }
 
 fn history_query(query: &str) -> Result<(u16, Option<&str>), NativeReadError> {
@@ -650,148 +230,16 @@ fn history_query(query: &str) -> Result<(u16, Option<&str>), NativeReadError> {
                 limit = Some(
                     u16::try_from(number(value)?)
                         .ok()
-                        .filter(|value| *value <= 256)
+                        .filter(|limit| *limit > 0 && *limit <= MAX_HISTORY_ITEMS)
                         .ok_or(NativeReadError::InvalidRequest)?,
                 );
             }
             "cursor" if cursor.is_none() => {
-                digest(value)?;
+                Cursor::from_hex(value).map_err(|_| NativeReadError::CursorMismatch)?;
                 cursor = Some(value);
             }
             _ => return Err(NativeReadError::InvalidRequest),
         }
     }
     Ok((limit.ok_or(NativeReadError::InvalidRequest)?, cursor))
-}
-
-fn proof_value(proof: &Proof) -> Value {
-    json!({"leaf_index": proof.leaf_index(), "leaf_count": proof.leaf_count(),
-        "siblings": proof.siblings().iter().map(|bytes| hex::encode(bytes)).collect::<Vec<_>>()})
-}
-
-fn proof_json(bundle: &VerifiedProofBundle, observed: u64) -> Result<Value, NativeReadError> {
-    let (kind, activity, proof) = match bundle {
-        VerifiedProofBundle::Activity {
-            activity_id, proof, ..
-        } => ("activity", activity_id, proof),
-        VerifiedProofBundle::Receipt {
-            activity_id, proof, ..
-        } => ("receipt", activity_id, proof),
-        _ => return Err(NativeReadError::Verification),
-    };
-    let signed = bundle.signed_header();
-    let header =
-        decode_batch_header(&signed.canonical_bytes).map_err(|_| NativeReadError::Verification)?;
-    Ok(
-        json!({"kind": kind, "activity_id": hex::encode(activity), "canonical_hex": hex::encode(bundle.canonical_bytes()),
-        "proof": proof_value(proof), "header_hex": hex::encode(&signed.canonical_bytes),
-        "header_signature": hex::encode(&signed.signature), "sequencer_public_key": hex::encode(&signed.public_key),
-        "verification_level": VerificationLevel::BATCH_INCLUDED.wire_rank(), "complete": true,
-        "freshness": {"observed_sequence": observed, "batch_number": header.batch_number(), "observed_at": header.timestamp_ms()}}),
-    )
-}
-
-fn actor_main_account(actor: &[u8], protocol: u16) -> Result<[u8; 32], NativeReadError> {
-    let did = std::str::from_utf8(actor).map_err(|_| NativeReadError::Verification)?;
-    let name = AccountId::parse(&format!("agent:{did}:main"))
-        .map_err(|_| NativeReadError::Verification)?;
-    hash::account_id_for_protocol(&name, protocol).map_err(|_| NativeReadError::Verification)
-}
-
-fn receipt_mentions_account(
-    receipt: &ProtocolReceipt,
-    activity: &Activity,
-    account: [u8; 32],
-) -> Result<bool, NativeReadError> {
-    if account == [0; 32] {
-        return Err(NativeReadError::InvalidRequest);
-    }
-    let directly_named = receipt.from() == account
-        || receipt.to() == account
-        || actor_main_account(activity.actor_did(), activity.protocol_version())? == account;
-    if receipt.module_id() != 8
-        || activity.activity_type().ordinal() != 1
-        || receipt.result_code() != 0
-    {
-        return Ok(directly_named);
-    }
-    let payload = activity.payload();
-    if payload.len() < 368
-        || payload.len() > layerx_types::limits::MAX_PAYLOAD_BYTES
-        || &payload[..5] != b"LXDC3"
-        || &payload[363..368] != b"LXLB1"
-        || payload[327..359] != Sha256::digest(&payload[363..])[..]
-        || payload[359..363] != 2_u32.to_be_bytes()
-    {
-        return Err(NativeReadError::Verification);
-    }
-    let payload_hash = Sha256::digest(&payload[..363]);
-    let expected = [
-        &payload[43..139],
-        &payload[191..207],
-        &payload[5..37],
-        &payload_hash[..],
-    ]
-    .concat();
-    let mut deposits = receipt
-        .effects()
-        .iter()
-        .filter(|effect| effect.module_id() == 8 && effect.event_type() == 1 && !effect.monetary());
-    let deposit = deposits.next().ok_or(NativeReadError::Verification)?;
-    if deposits.next().is_some() || deposit.body().len() != 208 || deposit.body()[..176] != expected
-    {
-        return Err(NativeReadError::Verification);
-    }
-    Ok(directly_named || deposit.body()[64..96] == account)
-}
-
-struct MaintenancePayer {
-    principal: [u8; 32],
-    asset: [u8; 32],
-}
-
-fn maintenance_payer(
-    account: [u8; 32],
-    value: &[u8],
-    protocol: u16,
-) -> Result<Option<MaintenancePayer>, NativeReadError> {
-    let decoded = layerx_proof::state::decode_account_value(account, value)
-        .map_err(|_| NativeReadError::Verification)?;
-    let Some(asset) = decoded.asset else {
-        return Ok(None);
-    };
-    let name = std::str::from_utf8(&decoded.name).map_err(|_| NativeReadError::Verification)?;
-    let Some(agent) = name.strip_prefix("agent:") else {
-        return Ok(None);
-    };
-    let did = if let Some(did) = agent.strip_suffix(":main") {
-        did
-    } else if let Some((did, _)) = agent.rsplit_once(":asset:") {
-        did
-    } else {
-        return Ok(None);
-    };
-    let did = Did::new(did.as_bytes()).map_err(|_| NativeReadError::Verification)?;
-    let principal =
-        hash::did_id_for_protocol(&did, protocol).map_err(|_| NativeReadError::Verification)?;
-    Ok(Some(MaintenancePayer {
-        principal,
-        asset: asset.asset_id,
-    }))
-}
-
-fn maintenance_json(
-    bytes: &[u8],
-    payer: Option<MaintenancePayer>,
-    sequence: u64,
-) -> Result<Option<Value>, NativeReadError> {
-    let maintenance = layerx_wire::batch_maintenance::decode_maintenance(bytes)
-        .map_err(|_| NativeReadError::Verification)?;
-    let record = maintenance.occupancy();
-    if record.global_sequence != sequence {
-        return Err(NativeReadError::Verification);
-    }
-    Ok(payer.is_some_and(|expected| record.occupancy_asset_id == expected.asset && record.payers.iter().any(|payer| payer.principal == expected.principal)).then(|| json!({
-        "global_sequence": sequence.to_string(), "kind": "maintenance", "canonical_hex": hex::encode(bytes),
-        "verification_level": VerificationLevel::BATCH_INCLUDED.wire_rank()})))
 }

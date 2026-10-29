@@ -1,8 +1,8 @@
 package keeper
 
 import (
-	"encoding/hex"
 	"fmt"
+	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	tokenfactorytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
@@ -44,7 +44,8 @@ func (k *IssuerBindingKeeper) bindIssuerDenom(ctx sdk.Context, assetID [32]byte,
 	if k.store(ctx).Has(key) {
 		return types.ErrAssetAlreadyRegistered
 	}
-	denom, err := k.issuerKeeper.CreateDenom(ctx, authtypes.NewModuleAddress(types.ModuleName).String(), hex.EncodeToString(assetID[:]))
+	subdenom := fmt.Sprintf("%043s", new(big.Int).SetBytes(assetID[:]).Text(62))
+	denom, err := k.issuerKeeper.CreateDenom(ctx, authtypes.NewModuleAddress(types.ModuleName).String(), subdenom)
 	if err != nil {
 		return err
 	}

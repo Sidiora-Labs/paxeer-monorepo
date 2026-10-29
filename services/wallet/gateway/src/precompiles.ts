@@ -28,33 +28,45 @@ export const PRECOMPILE_ADDRESSES = {
   p256: '0x0000000000000000000000000000000000001011',
 } as const satisfies Record<string, `0x${string}`>;
 
-/**
- * Route keys whose address the node does not serve. No precompile constructor
- * for 0x0901-0x0908 is linked into the node, so these addresses hold no code:
- * a read fails and a payable write would leave its value at a codeless address.
- * Builders and reads for them throw PrecompileNotServedError until the node
- * serves them.
- */
+/** Route keys without a linked constructor in node/precompiles.go. */
 export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set([
-  'orob',
-  'clearing',
   'oracle',
-  'pofq',
   'scheduler',
   'streams',
-  'teeAttestor',
-  'eip712',
 ] as const);
+
+export function unservedPrecompileAt(
+  to: string | undefined,
+): keyof typeof PRECOMPILE_ADDRESSES | null {
+  if (to === undefined) return null;
+  const address = to.toLowerCase();
+  for (const key of UNSERVED_PRECOMPILES) {
+    if (PRECOMPILE_ADDRESSES[key].toLowerCase() === address) return key;
+  }
+  return null;
+}
 
 export class PrecompileNotServedError extends Error {
   constructor(public readonly precompile: keyof typeof PRECOMPILE_ADDRESSES) {
-    super(`precompile ${precompile} at ${PRECOMPILE_ADDRESSES[precompile]} is not served by the node`);
+    super(
+      `precompile ${precompile} at ${PRECOMPILE_ADDRESSES[precompile]} is not served by the node`,
+    );
   }
 }
 
 export function servedAddress(key: keyof typeof PRECOMPILE_ADDRESSES): `0x${string}` {
   if (UNSERVED_PRECOMPILES.has(key)) throw new PrecompileNotServedError(key);
   return PRECOMPILE_ADDRESSES[key];
+}
+
+const servedPrecompiles = new Set<keyof typeof PRECOMPILE_ADDRESSES>();
+
+export async function ensureServed(key: keyof typeof PRECOMPILE_ADDRESSES): Promise<void> {
+  const address = servedAddress(key);
+  if (servedPrecompiles.has(key)) return;
+  const code = await publicClient().getCode({ address });
+  if (!code || code === '0x') throw new PrecompileNotServedError(key);
+  servedPrecompiles.add(key);
 }
 
 /** TEE attestation families — order matches x/attestor/types/keys.go + ITEEAttestor.sol. */
@@ -65,6 +77,14 @@ export const TEE_FAMILIES = {
   intel_sgx: 3,
 } as const;
 export type TeeFamilyName = keyof typeof TEE_FAMILIES;
+
+export function precompileAddressBook() {
+  const keys = Object.keys(PRECOMPILE_ADDRESSES) as (keyof typeof PRECOMPILE_ADDRESSES)[];
+  const served = Object.fromEntries(
+    keys.map((key) => [key, !UNSERVED_PRECOMPILES.has(key)]),
+  ) as Record<keyof typeof PRECOMPILE_ADDRESSES, boolean>;
+  return { addresses: PRECOMPILE_ADDRESSES, served, tee_families: TEE_FAMILIES };
+}
 
 export interface BuiltCall {
   to: `0x${string}`;
@@ -359,6 +379,7 @@ export const scheduler = {
     deposit: string;
     active: boolean;
   } | null> {
+    await ensureServed('scheduler');
     const r = (await publicClient().readContract({
       address: servedAddress('scheduler'),
       abi: SCHEDULER_ABI,
@@ -387,6 +408,7 @@ export const scheduler = {
     };
   },
   async pending(creator: `0x${string}`): Promise<string[]> {
+    await ensureServed('scheduler');
     const r = (await publicClient().readContract({
       address: servedAddress('scheduler'),
       abi: SCHEDULER_ABI,
@@ -447,6 +469,7 @@ export const streams = {
     };
   },
   async accrued(streamId: bigint): Promise<string> {
+    await ensureServed('streams');
     const r = (await publicClient().readContract({
       address: servedAddress('streams'),
       abi: STREAMS_ABI,
@@ -456,6 +479,7 @@ export const streams = {
     return r.toString();
   },
   async getStream(streamId: bigint): Promise<Record<string, string | boolean> | null> {
+    await ensureServed('streams');
     const r = (await publicClient().readContract({
       address: servedAddress('streams'),
       abi: STREAMS_ABI,
@@ -495,6 +519,7 @@ export const streams = {
 
 export const eip712 = {
   async hashTypedData(domainSeparator: Hex, structHash: Hex): Promise<Hex> {
+    await ensureServed('eip712');
     return (await publicClient().readContract({
       address: servedAddress('eip712'),
       abi: EIP712_ABI,
@@ -508,6 +533,7 @@ export const eip712 = {
     chainId: bigint;
     verifyingContract: `0x${string}`;
   }): Promise<Hex> {
+    await ensureServed('eip712');
     return (await publicClient().readContract({
       address: servedAddress('eip712'),
       abi: EIP712_ABI,
@@ -516,6 +542,7 @@ export const eip712 = {
     })) as Hex;
   },
   async recoverTypedSigner(domainSeparator: Hex, structHash: Hex, signature: Hex): Promise<Hex> {
+    await ensureServed('eip712');
     return (await publicClient().readContract({
       address: servedAddress('eip712'),
       abi: EIP712_ABI,
@@ -562,6 +589,7 @@ function shapeAttestation(r: {
 
 export const teeAttestor = {
   async verify(family: number, quote: Hex): Promise<Attestation> {
+    await ensureServed('teeAttestor');
     const r = (await publicClient().readContract({
       address: servedAddress('teeAttestor'),
       abi: TEE_ATTESTOR_ABI,
@@ -571,6 +599,7 @@ export const teeAttestor = {
     return shapeAttestation(r);
   },
   async verifyAndExpect(family: number, quote: Hex, expectedReportData: Hex): Promise<Attestation> {
+    await ensureServed('teeAttestor');
     const r = (await publicClient().readContract({
       address: servedAddress('teeAttestor'),
       abi: TEE_ATTESTOR_ABI,
@@ -580,6 +609,7 @@ export const teeAttestor = {
     return shapeAttestation(r);
   },
   async rootOf(family: number, index: bigint): Promise<Hex> {
+    await ensureServed('teeAttestor');
     return (await publicClient().readContract({
       address: servedAddress('teeAttestor'),
       abi: TEE_ATTESTOR_ABI,
@@ -588,6 +618,7 @@ export const teeAttestor = {
     })) as Hex;
   },
   async rootCount(family: number): Promise<string> {
+    await ensureServed('teeAttestor');
     const r = (await publicClient().readContract({
       address: servedAddress('teeAttestor'),
       abi: TEE_ATTESTOR_ABI,

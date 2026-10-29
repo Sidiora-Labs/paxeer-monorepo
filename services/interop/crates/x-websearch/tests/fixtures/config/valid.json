@@ -38,8 +38,14 @@
   },
   "gateway": {
     "endpoint": "http://127.0.0.1:8547/rpc",
-    "sequencer_id": "2a7d1c5e9b3f4a6d8c0e2f4a6b8d0c2e4f6a8b0d2c4e6f8a0b2d4c6e8f0a2b4d",
-    "sequencer_public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+    "receipt_keys": [
+      {
+        "key_id": "2a7d1c5e9b3f4a6d8c0e2f4a6b8d0c2e4f6a8b0d2c4e6f8a0b2d4c6e8f0a2b4d",
+        "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        "first_height": 0,
+        "last_height": 18446744073709551615
+      }
+    ]
   },
   "evm": {
     "endpoint": "http://127.0.0.1:8545",

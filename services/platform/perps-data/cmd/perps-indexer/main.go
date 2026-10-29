@@ -51,6 +51,8 @@ const (
 	shutdownTimeout     = 5 * time.Second
 	readHeaderTimeout   = 5 * time.Second
 	cometTimeout        = 2 * time.Second
+	marketsInterval     = 60 * time.Second
+	marketsMaxAge       = 2 * marketsInterval
 	holderPrefix        = "perps-indexer-"
 	holderEntropyBytes  = 8
 	natsConnectionName  = "perps-indexer"
@@ -163,9 +165,7 @@ func run(logger *slog.Logger) error {
 	client := ethclient.NewClient(rc)
 	defer client.Close()
 	go func() {
-		err := markets.Retry(ctx, db, client, func(err error, retryIn time.Duration) {
-			logger.Warn("markets refresh failed", slog.Any("err", err), slog.Duration("retry_in", retryIn))
-		})
+		err := markets.Run(ctx, db, client, marketsInterval, metrics)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			logger.Warn("markets refresh stopped", slog.Any("err", err))
 		}
@@ -173,6 +173,7 @@ func run(logger *slog.Logger) error {
 
 	mux := http.NewServeMux()
 	checks := ix.Checks()
+	checks["markets"] = markets.Check(db, marketsMaxAge)
 	checks["quarantine"] = func(ctx context.Context) error {
 		n, err := outbox.Quarantined(ctx)
 		if err != nil {

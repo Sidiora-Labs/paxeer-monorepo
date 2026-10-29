@@ -14,11 +14,10 @@ use x_websearch::config::FetchLimits;
 use x_websearch::content::ContentStore;
 use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
-use x_websearch::kernel::decode_request_record;
 use x_websearch::payment::{hex, unhex};
 use x_websearch::program::{
-    observation_bytes, program_record, register, ProgramAttestor, ProgramExchange, ProgramRelay,
-    ProgramRequest, Step,
+    decode_request_record, observation_bytes, program_record, register, ProgramAttestor,
+    ProgramExchange, ProgramRelay, ProgramRequest, Step,
 };
 use x_websearch::submit::{
     fulfil_program_calldata, fulfil_program_gas_limit, Fees, Journal, JournalState, Outcome,

@@ -154,6 +154,7 @@ def checkpoint_policy(receipt_keys_file):
     if not isinstance(keys, list) or not keys:
         refuse("--receipt-keys-file must contain a nonempty JSON array")
     windows = []
+    receipt_keys = []
     for index, key in enumerate(keys):
         field = "--receipt-keys-file entry %d" % index
         if not isinstance(key, dict) or set(key) != {
@@ -163,10 +164,14 @@ def checkpoint_policy(receipt_keys_file):
             "lastHeight",
         }:
             refuse("%s must contain keyId, publicKey, firstHeight and lastHeight" % field)
-        for name in ("keyId", "publicKey"):
+        identities = {}
+        for name, target in (
+            ("keyId", "sequencer_id_hex"),
+            ("publicKey", "public_key_hex"),
+        ):
             if not isinstance(key[name], str):
                 refuse("%s %s must be hexadecimal text" % (field, name))
-            hexadecimal(key[name], "%s %s" % (field, name), 32)
+            identities[target] = hexadecimal(key[name], "%s %s" % (field, name), 32)
         first, last = key["firstHeight"], key["lastHeight"]
         if (
             type(first) is not int
@@ -175,10 +180,11 @@ def checkpoint_policy(receipt_keys_file):
         ):
             refuse("%s must have a positive uint64 height range in order" % field)
         windows.append((first, last))
+        receipt_keys.append({**identities, "first_height": first, "last_height": last})
     ordered = sorted(windows)
     if any(right[0] <= left[1] for left, right in zip(ordered, ordered[1:])):
         refuse("--receipt-keys-file contains overlapping height ranges")
-    return keys
+    return receipt_keys
 
 
 def main(argv):
@@ -189,6 +195,7 @@ def main(argv):
     parser.add_argument("--status-listen", required=True)
     parser.add_argument("--paxeer-endpoint", action="append", default=[])
     parser.add_argument("--paxeer-chain-id", type=int, required=True)
+    parser.add_argument("--paxeer-genesis-hash", required=True)
     parser.add_argument("--receipt-keys-file", required=True)
     parser.add_argument("--ethereum-endpoint", action="append", default=[])
     parser.add_argument("--ethereum-chain-id", type=int, required=True)
@@ -267,6 +274,9 @@ def main(argv):
         "paxeer": {
             "rpc": endpoints(arguments.paxeer_endpoint, "--paxeer-endpoint"),
             "chain_id": arguments.paxeer_chain_id,
+            "genesis_hash_hex": hexadecimal(
+                arguments.paxeer_genesis_hash, "--paxeer-genesis-hash", 32
+            ),
             "receipt_keys": receipt_keys,
         },
         "ethereum": {

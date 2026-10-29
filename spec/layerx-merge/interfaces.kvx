@@ -520120,8 +520120,8 @@ contract = "contracts/clients.md#wallet-sdk"
 [interface.12.ts-sdk-balances-j50]
 kind = "ts_export"
 path = "sdk/wallet/src/types.ts"
-line = 0
-signature = "export interface Balances { account: string; height: string; balances: BankBalance[] }"
+line = 261
+signature = "export interface Balances { account: UnifiedAccountDocument; height: string; balances: BankBalance[] }"
 callers = []
 status = "new"
 contract = "contracts/clients.md#wallet-sdk"
@@ -520294,8 +520294,8 @@ contract = "contracts/clients.md#wallet-sdk"
 [interface.12.ts-sdk-chain-account-j50]
 kind = "ts_export"
 path = "sdk/wallet/src/types.ts"
-line = 0
-signature = "export interface ChainAccount { account: string; paxeer: { address: string; balance: string; nonce: string; height: string } }"
+line = 251
+signature = "export interface ChainAccount { account: UnifiedAccountDocument; paxeer: { address: string; balance: string; nonce: string; height: string } }"
 callers = []
 status = "new"
 contract = "contracts/clients.md#wallet-sdk"

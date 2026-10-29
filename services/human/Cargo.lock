@@ -1120,6 +1120,7 @@ dependencies = [
  "sha2",
  "sha3",
  "subtle",
+ "ureq",
  "zeroize",
 ]
 
@@ -1135,6 +1136,7 @@ dependencies = [
  "layerx-intents",
  "layerx-proof",
  "layerx-types",
+ "serde_json",
  "sha2",
 ]
 
@@ -1172,8 +1174,6 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",

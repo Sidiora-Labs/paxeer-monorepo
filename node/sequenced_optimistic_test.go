@@ -8,6 +8,7 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -66,7 +67,7 @@ func TestOptimisticProcessingAdoptsSequencedBlock(t *testing.T) {
 	txs[0] = signedBatch(t, 1, 2, zeroSeqHash, last[:], root[:], sequencerKeyID)
 	hash := sha256.Sum256([]byte(t.Name()))
 	header := &tmproto.Header{
-		ChainID: sequencedChainID, Height: 2, Time: at.Add(2 * time.Second), ProposerAddress: sequencerLeader,
+		ChainID: sequencedChainID, Height: 2, Time: at.Add(2 * time.Second), ProposerAddress: crypto.AddressHash(sequencerLeader),
 	}
 	proposal := &abci.RequestProcessProposal{Hash: hash[:], Header: header, Txs: txs}
 	finalize := &abci.RequestFinalizeBlock{Hash: hash[:], Header: header, Txs: txs}

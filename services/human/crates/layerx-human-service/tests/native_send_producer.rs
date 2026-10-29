@@ -3,7 +3,7 @@ use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, Ti
 use layerx_client::client::{ClientConfig, ReconnectPolicy};
 use layerx_client::lni::handshake::HandshakeConfig;
 use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::Limits;
+use layerx_client::lni::transport::Limits as LniLimits;
 use layerx_client::Client;
 use layerx_human_service::custody::{
     CustodySigner, KeyId, Keystore, NativeConsent, NativeConsentRequest, Operation,
@@ -85,8 +85,8 @@ fn id(value: &str) -> [u8; 32] {
     id
 }
 
-fn limits() -> Limits {
-    Limits {
+fn limits() -> LniLimits {
+    LniLimits {
         maximum_frame_bytes: 1_212_416,
         maximum_connections: 1,
         maximum_streams: 1,

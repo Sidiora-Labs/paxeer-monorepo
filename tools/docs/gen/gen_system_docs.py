@@ -64,7 +64,7 @@ def gen_routes():
 
 # EVM JSON-RPC --------------------------------------------------------------
 
-CTOR = re.compile(r"func (New\w+)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\(?\*?(\w+)[^{\n]*\{")
+CTOR = re.compile(r"func ([Nn]ew\w+)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\(?\*?(\w+)[^{\n]*\{")
 METHOD = re.compile(r"^func \(\w+ \*?(\w+)\) ([A-Z]\w*)\((.*?)\)\s*(.*?)\s*\{\s*$", re.M)
 STRUCT = re.compile(r"^type (\w+) struct \{\n(.*?)^\}", re.M | re.S)
 
@@ -81,12 +81,15 @@ def gen_rpc():
         for typ, body in STRUCT.findall(text):
             embeds[typ] = re.findall(r"^\t\*?([A-Z]\w*)\s*$", body, re.M)
     server = read(rpc / "server.go")
-    variables = dict(re.findall(r"(\w+)(?:, \w+)? :?= (New\w+)\(", server))
+    variables = dict(re.findall(r"(\w+)(?:, \w+)? :?= ([Nn]ew\w+)\(", server))
+    closures = dict(re.findall(r"(\w+) := func\([^)]*\)\s*\*(\w+)\s*\{", server))
 
     def resolve(expr):
         if expr.startswith("&"):
             return expr[1:]
-        if expr.startswith("New"):
+        if expr in closures:
+            return closures[expr]
+        if expr.startswith(("New", "new")):
             return ctors.get(expr)
         return ctors.get(variables.get(expr, ""))
 
@@ -135,13 +138,16 @@ def abi_signature(entry):
 
 def gen_precompiles():
     out = [HEADER, "# Precompile ABIs\n\n",
-           "Source: `precompiles/<name>/abi.json`, the address constants in `precompiles/<name>/*.go` and the "
+           "Source: `precompiles/<name>/*abi*.json` and `precompiles/<name>/abi/abi.json`, "
+           "the address constants in `precompiles/<name>/*.go` and the "
            "Solidity interfaces in `contracts/src/precompiles/`.\n"]
     addr_re = re.compile(r'(\w*Address)\s*=\s*"(0x[0-9a-fA-F]{40})"')
     rows = []
     sections = []
-    for abi_path in sorted((ROOT / "precompiles").glob("*/*abi*.json")):
-        pkg = abi_path.parent
+    precompiles = ROOT / "precompiles"
+    abi_paths = set(precompiles.glob("*/*abi*.json")) | set(precompiles.glob("*/abi/abi.json"))
+    for abi_path in sorted(abi_paths):
+        pkg = abi_path.parent.parent if abi_path.parent.name == "abi" else abi_path.parent
         addresses = sorted({a for src in go_sources(pkg) for _, a in addr_re.findall(read(src))})
         entries = json.loads(read(abi_path))
         rows.append([pkg.name, f"`{rel(abi_path)}`", ", ".join(f"`{a}`" for a in addresses) or "-",

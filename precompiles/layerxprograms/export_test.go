@@ -6,10 +6,13 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 type CallContext = callContext
 type ProgramsGate = programsGate
+type Handler = handler
+type HandlerTable = handlerTable
 
 var (
 	GasTable                   = gasTable
@@ -23,11 +26,22 @@ var (
 	EmitReceiptEvents          = emitReceiptEvents
 	CheckCall                  = checkCall
 	ErrGateUnknownMethod       = errGateUnknownMethod
+	DecodeArgs                 = decodeArgs
 )
 
 func NewTestExecutor(host *lxphost.Host, evm *evmkeeper.Keeper) *PrecompileExecutor {
 	return &PrecompileExecutor{host: host, evmKeeper: evm}
 }
+
+func RegisterInto(t HandlerTable, name string, h Handler) { t.register(name, h) }
+
+func NewTestExecutorWithHandlers(host *lxphost.Host, evm *evmkeeper.Keeper, t HandlerTable) *PrecompileExecutor {
+	return &PrecompileExecutor{host: host, evmKeeper: evm, handlers: t}
+}
+
+func (call callContext) Caller() common.Address { return call.caller }
+func (call callContext) Method() *abi.Method    { return call.method }
+func (call callContext) EVM() *vm.EVM           { return call.evm }
 
 func (p *PrecompileExecutor) TestEVMKeeper() *evmkeeper.Keeper { return p.evmKeeper }
 func (p *PrecompileExecutor) SetTestHost(host *lxphost.Host)   { p.host = host }

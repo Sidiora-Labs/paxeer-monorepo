@@ -366,8 +366,9 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
         if payments.next().is_some()
             || log.topics().len() != 4
             || log.data().len() != 64
-            || log.topics()[1] != payment.payer_receipt_account
-            || log.topics()[2] != payment.payee_receipt_account
+            || log.topics()[1] != payment.idempotency_key()
+            || log.topics()[2] != payment.payer_receipt_account
+            || log.topics()[3] != payment.payee_receipt_account
             || log.data()[..32] != payment.asset
             || log.data()[32..48] != [0; 16]
             || log.data()[48..] != payment.amount.to_be_bytes()

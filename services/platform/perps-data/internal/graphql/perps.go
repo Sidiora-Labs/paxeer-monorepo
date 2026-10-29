@@ -135,6 +135,19 @@ type Market struct {
 	Enabled      bool
 	CreatedAt    *DateTime
 	states       *marketStateLoader
+	tiers        *marginTiers
+}
+
+type MarginTier struct {
+	Tier           int32
+	LowerBoundUsd  BigInt
+	MaxLeverage    BigInt
+	MaintenanceBps BigInt
+	DeductionUsd   BigInt
+}
+
+func (m *Market) MarginTiers(ctx context.Context) ([]*MarginTier, error) {
+	return m.tiers.get(ctx, m.MarketID)
 }
 
 type marketSubscriptions struct{ *Resolver }
@@ -971,8 +984,10 @@ func (r *Resolver) withStates(list []*Market) []*Market {
 		ids[i] = m.MarketID
 	}
 	l := &marketStateLoader{r: r, ids: ids}
+	tiers := &marginTiers{r: r, ids: ids}
 	for _, m := range list {
 		m.states = l
+		m.tiers = tiers
 	}
 	return list
 }
@@ -991,6 +1006,48 @@ func (r *Resolver) Markets(ctx context.Context) ([]*Market, error) {
 		return nil, err
 	}
 	return r.withStates(list), nil
+}
+
+type marginTiers struct {
+	r    *Resolver
+	ids  []int32
+	once sync.Once
+	byID map[int32][]*MarginTier
+	err  error
+}
+
+func (l *marginTiers) get(ctx context.Context, id int32) ([]*MarginTier, error) {
+	l.once.Do(func() { l.byID, l.err = l.load(ctx) })
+	if l.err != nil {
+		return nil, l.err
+	}
+	return l.byID[id], nil
+}
+
+func (l *marginTiers) load(ctx context.Context) (map[int32][]*MarginTier, error) {
+	rows, err := l.r.DB.QueryContext(ctx, `SELECT market_id, tier, lower_bound_usd::text,
+    max_leverage::text, maintenance_bps::text, deduction_usd::text
+FROM perps.market_tiers WHERE market_id = ANY($1::numeric[]) ORDER BY market_id, tier`, pq.Array(distinct(l.ids)))
+	if err != nil {
+		return nil, fmt.Errorf("market margin tiers: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[int32][]*MarginTier, len(l.ids))
+	for _, id := range l.ids {
+		out[id] = []*MarginTier{}
+	}
+	for rows.Next() {
+		var id int32
+		tier := &MarginTier{}
+		if err := rows.Scan(&id, &tier.Tier, &tier.LowerBoundUsd, &tier.MaxLeverage, &tier.MaintenanceBps, &tier.DeductionUsd); err != nil {
+			return nil, fmt.Errorf("market margin tiers: %w", err)
+		}
+		out[id] = append(out[id], tier)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("market margin tiers: %w", err)
+	}
+	return out, nil
 }
 
 // marketLoader loads the markets of one answer's positions in one query.
@@ -1543,9 +1600,9 @@ FROM perps.mark_prices WHERE market_id = $1::numeric ORDER BY `+newest+` LIMIT $
 		})
 }
 
-// VaultBalanceHistory merges the collateral balances of deposits and
-// withdrawals (vaultType 0) and the insurance balances of draws (vaultType 1),
-// both in USDL.
+// VaultBalanceHistory merges the aggregate collateral held by the perps module
+// across all accounts (vaultType 0) and the insurance balances of draws
+// (vaultType 1), both in USDL.
 func (r *Resolver) VaultBalanceHistory(ctx context.Context, args struct {
 	TokenAddress *string
 	VaultType    *int32
@@ -1560,9 +1617,12 @@ func (r *Resolver) VaultBalanceHistory(ctx context.Context, args struct {
 	return collect(ctx, r.DB, "vaultBalanceHistory", `SELECT row_id, `+hexSQL("$1::bytea")+`, vault_type, vault_type_name,
     new_balance::text, amount::text, is_increase, block, `+hexSQL("tx_hash")+`, block_time
 FROM (
-    SELECT row_id, 0 AS vault_type, 'collateral' AS vault_type_name, new_balance, amount, kind = 'deposited' AS is_increase,
+    SELECT row_id, 0 AS vault_type, 'collateral' AS vault_type_name,
+        SUM(CASE kind WHEN 'deposited' THEN amount WHEN 'withdrawn' THEN -amount ELSE 0 END)
+            OVER (ORDER BY block, tx_index, log_index, sub ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS new_balance,
+        amount, kind = 'deposited' AS is_increase,
         block, tx_index, log_index, sub, tx_hash, block_time
-    FROM perps.collateral_events WHERE new_balance IS NOT NULL
+    FROM perps.collateral_events
     UNION ALL
     SELECT row_id, 1, 'insurance', new_balance, amount, false, block, tx_index, log_index, sub, tx_hash, block_time
     FROM perps.insurance_events WHERE kind = 'draw' AND new_balance IS NOT NULL AND amount IS NOT NULL

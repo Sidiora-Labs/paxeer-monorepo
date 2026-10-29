@@ -5,8 +5,14 @@ use layerx_bridge_relayer::receipt::{
     ReceiptError, ReceiptLog, ReceiptView, Rung, SequencerReceipt,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::{
+    verify_sequencer_signature, ReceiptCheck, ReceiptKeys, VerificationFailure,
+};
+use layerx_proof::sequencer_logs::{LogField, SequencerLogRefusal};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use sha2::{Digest as _, Sha256};
+use sha3::Keccak256;
 
 fn must<T, E: Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
@@ -355,4 +361,172 @@ fn receipt_bytes_must_verify_under_the_key_window_for_their_height() {
         tampered.verify(&[pin]),
         Err(ReceiptError::Mismatch("keyId"))
     );
+}
+
+#[test]
+fn the_shared_sequencer_receipt_vector_decodes_and_verifies() {
+    #[derive(Deserialize)]
+    struct Vector {
+        cases: Vec<Case>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Case {
+        id: String,
+        raw_transaction: String,
+        prev_seq_hash: String,
+        receipt_json: Value,
+        pinned_key: Pin,
+        expected: Expected,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Pin {
+        key_id: String,
+        public_key: String,
+        first_height: u64,
+        last_height: u64,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Expected {
+        rung: Option<String>,
+        refused_at: Option<String>,
+        verifier: String,
+    }
+
+    let vector: Vector = must(serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))));
+    assert!(
+        !vector.cases.is_empty(),
+        "shared receipt vector has no cases"
+    );
+
+    for case in vector.cases {
+        let classification = match case.id.as_str() {
+            "V1-pax-transfer"
+            | "V1-erc20-approve"
+            | "V1-layerxledger-pay-exact"
+            | "V1-layerxbridge-bridge-out"
+            | "V2-layerxledger-revert" => ("accepts", None),
+            "V3-key-not-pinned" | "V3-height-outside-key-range" => {
+                ("SequencerSignature", Some("R3"))
+            }
+            "V3-activity-id-not-raw-hash" => ("accepts", Some("R4")),
+            "V3-tampered-log" => ("accepts", Some("R5")),
+            "V3-seq-hash-mismatch" => ("accepts", Some("R6")),
+            "V3-non-canonical-bytes" => ("Decode", Some("R2")),
+            other => panic!("unclassified shared receipt case {other}"),
+        };
+        assert_eq!(
+            (
+                case.expected.verifier.as_str(),
+                case.expected.refused_at.as_deref()
+            ),
+            classification,
+            "{}: unexpected verifier or refusal rule",
+            case.id
+        );
+        let pin = SequencerAuthorization::new(
+            array(&case.pinned_key.key_id),
+            array(&case.pinned_key.public_key),
+            case.pinned_key.first_height,
+            case.pinned_key.last_height,
+        );
+        let receipt = SequencerReceipt::decode(&case.receipt_json)
+            .unwrap_or_else(|error| panic!("{}: decode: {error}", case.id));
+        let view = receipt
+            .view
+            .as_ref()
+            .unwrap_or_else(|| panic!("{}: receipt has no view", case.id));
+        for (field, actual) in [("seq", view.seq), ("height", view.height)] {
+            let expected = case.receipt_json[field]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}: missing {field}", case.id));
+            assert_eq!(
+                actual,
+                must(hex::parse_quantity(expected)),
+                "{}: {field}",
+                case.id
+            );
+        }
+        let verification = receipt.verify(&[pin]);
+        match case.expected.refused_at.as_deref() {
+            Some("R2") => assert_eq!(
+                verification,
+                Err(ReceiptError::Verification(VerificationFailure {
+                    check: ReceiptCheck::Decode,
+                })),
+                "{}: R2 must fail decoding the signed receipt bytes",
+                case.id
+            ),
+            Some("R3") => assert_eq!(
+                verification,
+                Err(ReceiptError::Verification(VerificationFailure {
+                    check: ReceiptCheck::SequencerSignature,
+                })),
+                "{}: R3 must fail signature authorization",
+                case.id
+            ),
+            Some("R5") => assert_eq!(
+                verification,
+                Err(ReceiptError::Logs(SequencerLogRefusal::Log {
+                    index: 0,
+                    field: LogField::Data,
+                })),
+                "{}: R5 must detect the tampered log view",
+                case.id
+            ),
+            None | Some("R4" | "R6") => {
+                verification.unwrap_or_else(|error| panic!("{}: verify: {error}", case.id));
+                if case.expected.refused_at.is_none() {
+                    let rung = match case.expected.rung.as_deref() {
+                        Some("receipted") => Rung::Receipted,
+                        Some("committed") => Rung::Committed,
+                        other => panic!("{}: unexpected accepted rung {other:?}", case.id),
+                    };
+                    assert_eq!(receipt.rung, rung, "{}", case.id);
+                }
+            }
+            other => panic!("{}: unclassified refusal {other:?}", case.id),
+        }
+
+        if case.expected.verifier == "accepts" {
+            let raw_transaction = must(hex::decode(&case.raw_transaction));
+            let raw_hash: [u8; 32] = Keccak256::digest(&raw_transaction).into();
+            assert_eq!(
+                raw_hash == receipt.tx_hash,
+                case.expected.refused_at.as_deref() != Some("R4"),
+                "{}: R4 raw transaction hash binding",
+                case.id
+            );
+
+            let verified = must(verify_sequencer_signature(
+                &view.receipt,
+                ReceiptKeys::HeightRanges(&[pin]),
+            ));
+            let protocol = verified
+                .protocol()
+                .unwrap_or_else(|| panic!("{}: missing protocol receipt", case.id));
+            let previous_hash: [u8; 32] = array(&case.prev_seq_hash);
+            let mut sequence_hash = Sha256::new();
+            sequence_hash.update(b"PAXEER/v1/sequence\0");
+            sequence_hash.update(previous_hash);
+            sequence_hash.update(protocol.global_sequence().to_be_bytes());
+            sequence_hash.update(protocol.activity_id());
+            let resulting_hash: [u8; 32] = sequence_hash.finalize().into();
+            assert_eq!(
+                protocol.previous_state_root() == previous_hash
+                    && protocol.resulting_state_root() == resulting_hash,
+                case.expected.refused_at.as_deref() != Some("R6"),
+                "{}: R6 sequence hash chain",
+                case.id
+            );
+        }
+    }
 }

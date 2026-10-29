@@ -1,8 +1,7 @@
 use ed25519_dalek::{Signer as _, SigningKey as EdSigningKey};
 use layerx_agentd::read::{
     checkpoint, proof_bundle, validator_set_hash, BlockCommit, BlockId, CheckpointHeader,
-    CheckpointReadError, CommitTimestamp, CommitValidator, CommitVote, ProofBundleKind,
-    ProofBundleRequest,
+    CheckpointReadError, CommitTimestamp, CommitValidator, CommitVote, ProofBundleRequest,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::{build_proof, Proof};
@@ -135,19 +134,51 @@ fn verified_checkpoint_derives_block_commit_without_anchor_escalation() {
     assert_eq!(served.rung, Rung::Committed);
 
     let fixture = inclusion_fixture();
-    let bundle = proof_bundle(&ProofBundleRequest {
-        kind: ProofBundleKind::State,
-        canonical_leaf_bytes: &fixture.state,
-        proof: &fixture.state_proof,
-        named_root: fixture.state_root,
-        header_bytes: &fixture.header,
-        header_signature: fixture.header_signature,
-        authorization: &fixture.authorization,
+    let receipt = layerx_agentd::receipt::TransactionReceiptEvidence {
+        metadata: layerx_agentd::receipt::TransactionReceiptMetadata {
+            transaction_hash: layerx_crypto::evm_transaction::transaction_hash(&fixture.state),
+            block_height: header.height,
+            tx_index: 0,
+            status: true,
+            gas_used: 0,
+            logs_bloom: [0; 256],
+            receipt_signature: [0; 65],
+            rung: Rung::Committed,
+        },
+        canonical_receipt: fixture.state.clone(),
+    };
+    let receipt_public_key = fixture.authorization.sequencer_id();
+    let request = ProofBundleRequest {
+        target: layerx_agent_api::proof::ProofBundleTarget::Receipt(
+            receipt.metadata.transaction_hash,
+        ),
+        requested_rung: Rung::Committed,
+        raw_transaction: &fixture.state,
+        receipt: &receipt,
+        receipt_public_key: &receipt_public_key,
+        receipt_proof: &[],
+        receipts_root: fixture.state_root,
+        chain_id: "paxeer-test",
+        header: &header,
+        commit: None,
+        validators: &validators,
+        account_proof: None,
+    };
+    let error =
+        proof_bundle(&request).expect_err("receipt bundle cannot provide the committed rung");
+    assert_eq!(error, CheckpointReadError::BelowRequestedRung);
+    assert_eq!(error.reason(), "read.below_requested_rung");
+
+    let mut uncommitted_receipt = receipt.clone();
+    uncommitted_receipt.metadata.rung = Rung::Receipted;
+    let error = proof_bundle(&ProofBundleRequest {
+        receipt: &uncommitted_receipt,
+        commit: Some(&commit),
+        ..request
     })
-    .unwrap_or_else(|error| panic!("proof bundle: {error:?}"));
-    assert_eq!(bundle.named_root, fixture.state_root);
-    assert_eq!(bundle.batch_number, 8);
-    assert_eq!(bundle.verification_level, VerificationLevel::STATE_PROVEN);
+    .expect_err("commit requires a committed receipt");
+    assert_eq!(error, CheckpointReadError::NotCommitted);
+    assert_eq!(error.reason(), "read.not_committed");
 }
 
 #[test]

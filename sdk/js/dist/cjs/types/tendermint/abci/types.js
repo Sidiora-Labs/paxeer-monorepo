@@ -1,12 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TxRecordTxAction = exports.ResponseVerifyVoteExtensionVerifyStatus = exports.ResponseProcessProposalProposalStatus = exports.ResponseApplySnapshotChunkResult = exports.ResponseOfferSnapshotResult = exports.MisbehaviorType = exports.CheckTxType = void 0;
-var CheckTxType;
-(function (CheckTxType) {
-    CheckTxType[CheckTxType["NEW"] = 0] = "NEW";
-    CheckTxType[CheckTxType["RECHECK"] = 1] = "RECHECK";
-    CheckTxType[CheckTxType["UNRECOGNIZED"] = -1] = "UNRECOGNIZED";
-})(CheckTxType || (exports.CheckTxType = CheckTxType = {}));
+exports.TxRecordTxAction = exports.ResponseVerifyVoteExtensionVerifyStatus = exports.ResponseProcessProposalProposalStatus = exports.ResponseApplySnapshotChunkResult = exports.ResponseOfferSnapshotResult = exports.MisbehaviorType = void 0;
 var MisbehaviorType;
 (function (MisbehaviorType) {
     MisbehaviorType[MisbehaviorType["UNKNOWN"] = 0] = "UNKNOWN";

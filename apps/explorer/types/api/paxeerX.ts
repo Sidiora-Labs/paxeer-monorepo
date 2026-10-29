@@ -20,23 +20,14 @@ export interface PaxeerXAsset {
   decimals: number | null;
 }
 
-// One balance per asset: `total` is authoritative for display, `parts` explains where it sits.
-export interface PaxeerXBalanceParts {
-  chain: string;
-  custody: string;
-  kernel: string;
-}
-
+// One balance per asset: `total` is authoritative for display.
 export interface PaxeerXBalance {
   asset: PaxeerXAsset;
   total: string;
-  parts: PaxeerXBalanceParts;
 }
 
 // Activity rows sit on the same status ladder as transactions and kernel receipts.
 export type PaxeerXStatus = PaxeerXStatusRung;
-
-export type PaxeerXActivitySide = 'chain' | 'kernel';
 
 export interface PaxeerXActivityItem {
   kind: string;
@@ -44,7 +35,6 @@ export interface PaxeerXActivityItem {
   block_number: number;
   ordinal: number;
   status: PaxeerXStatus;
-  side: PaxeerXActivitySide;
   timestamp: string | null;
   asset: PaxeerXAsset | null;
   amount: string | null;

@@ -2,6 +2,7 @@
 import type { RpcTransactionReceipt } from 'viem';
 
 import type { AddressParam } from 'types/api/addressParams';
+import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 import type { Transaction } from 'types/api/transaction';
 
 import * as addressMock from 'mocks/address/address';
@@ -500,3 +501,5 @@ export const rpcTxReceipt: RpcTransactionReceipt = {
 
 // A price update reaches the transaction lists as the price feed item, without the EVM-only fields.
 export const priceUpdate = feedMock.priceUpdate as unknown as Transaction;
+
+export const priceUpdateItem: PriceUpdateItem = feedMock.priceUpdate;

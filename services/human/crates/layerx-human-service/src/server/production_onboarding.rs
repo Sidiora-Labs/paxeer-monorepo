@@ -316,17 +316,16 @@ impl ProductionComponents {
             if activity.network_id() != self.network_id {
                 return Err(ApiFailure::forbidden());
             }
-            let evidence = crate::agents::ProtocolEvidence {
-                actor: self.agent_actor.as_str().as_bytes().to_vec(),
-                owner_public_key: key.public_key,
-                network_id: self.network_id,
-                signed_activity: signed,
-                action_key: activity.idempotency_key(),
-                activity_id,
-                receipt_bytes: material.canonical_bytes,
-                authorized_batch: material.authorised_batch,
-                verification_level: material.verification_level,
-            };
+            if activity.actor_did() != self.agent_actor.as_str().as_bytes() {
+                return Err(ApiFailure::upstream_degraded());
+            }
+            let evidence = ProductionAgentCreation::protocol_evidence(
+                signed,
+                key.public_key,
+                &registry,
+                material,
+            )
+            .map_err(|_| ApiFailure::upstream_degraded())?;
             journey
                 .accept_bootstrap_owner(&mut scope, stage, &evidence, &registry, trace, observed_at)
                 .map_err(|_| ApiFailure::upstream_degraded())?;

@@ -529,7 +529,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
                 &value.idempotency_key.bytes(),
                 CompileField::IdempotencyKey,
             )?;
-            finish(registry, ModuleId::Budget, 7, encoder)
+            finish(registry, ModuleId::Budget, 8, encoder)
         }
         IntentKind::BridgeDepositCredit(value) => {
             header(&mut encoder, 0x4801, 7)?;
@@ -554,11 +554,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             )?;
             finish(registry, ModuleId::Bridge, 1, encoder)
         }
-        IntentKind::NativeCustodyCredit(value)
-        | IntentKind::ExchangeMarginDeposit(crate::precompile::ExchangeMarginDeposit {
-            credit: value,
-            ..
-        }) => {
+        IntentKind::NativeCustodyCredit(value) => {
             if intent.version() != IntentVersion::V1 {
                 return Err(CompileError::wire(
                     CompileField::Version,
@@ -571,11 +567,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             fixed(&mut encoder, value.payload(), CompileField::DepositProof)?;
             finish(registry, ModuleId::Bridge, 1, encoder)
         }
-        IntentKind::BridgeWithdrawRequest(value)
-        | IntentKind::ExchangeMarginWithdraw(crate::precompile::ExchangeMarginWithdraw {
-            request: value,
-            ..
-        }) => {
+        IntentKind::BridgeWithdrawRequest(value) => {
             if intent.version() != IntentVersion::V2 {
                 return Err(CompileError::wire(
                     CompileField::Version,
@@ -601,21 +593,6 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             finish(registry, ModuleId::Asset, 9, encoder)
         }
         IntentKind::Perps(payload) => perps(intent, registry, payload),
-        IntentKind::ExchangeOrder(value) => perps(intent, registry, value.payload()),
-        IntentKind::ExchangeCancel(value) => perps(intent, registry, value.payload()),
-        IntentKind::ExchangeSettle(value) => perps(intent, registry, value.payload()),
-        IntentKind::BridgeIn(_)
-        | IntentKind::BridgeOut(_)
-        | IntentKind::LaunchpadCreate(_)
-        | IntentKind::LaunchpadSwap(_)
-        | IntentKind::LaunchpadAirdropExecute(_)
-        | IntentKind::LaunchpadFeeStrategy(_)
-        | IntentKind::LaunchpadFeesBurn(_)
-        | IntentKind::LaunchpadFeesClaim(_)
-        | IntentKind::LaunchpadLpRewards(_) => Err(CompileError {
-            field: CompileField::ActivityType,
-            reason: CompileErrorReason::SettledOnPaxeer,
-        }),
     }
 }
 

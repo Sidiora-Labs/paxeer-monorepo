@@ -2,9 +2,27 @@ package keeper
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
+
+type airdropEpochQueryError struct {
+	err error
+}
+
+func (e airdropEpochQueryError) Error() string { return e.err.Error() }
+
+func (e airdropEpochQueryError) Unwrap() error { return e.err }
+
+func (e airdropEpochQueryError) Cause() error {
+	var root *sdkerrors.Error
+	if errors.As(e.err, &root) {
+		return root
+	}
+	return e.err
+}
 
 func (q Querier) AirdropEpoch(goCtx context.Context, req *types.QueryAirdropEpochRequest) (*types.QueryAirdropEpochResponse, error) {
 	ctx, err := queryContext(goCtx, req)
@@ -20,7 +38,7 @@ func (q Querier) AirdropEpoch(goCtx context.Context, req *types.QueryAirdropEpoc
 	}
 	record, found, err := q.GetPoolAirdropEpoch(ctx, pool, req.Epoch)
 	if err != nil {
-		return nil, err
+		return nil, airdropEpochQueryError{err: err}
 	}
 	if !found {
 		return &types.QueryAirdropEpochResponse{Found: false}, nil
