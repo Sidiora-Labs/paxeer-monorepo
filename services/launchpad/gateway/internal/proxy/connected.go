@@ -483,6 +483,8 @@ func SocialConnectedRoutes() []ConnectedRoute {
 		"/v2/social/follow/{followee}": "PUT DELETE", "/v2/social/pool/{poolAddress}/comments": "GET POST", "/v2/social/comments/{id}": "PATCH DELETE", "/v2/social/comments/{id}/hide": "POST", "/v2/social/comments/{id}/like": "PUT DELETE", "/v2/social/callouts/{id}/references": "POST", "/v2/social/me/social/privacy": "GET PATCH", "/v2/social/me/social/blocks/{wallet}": "PUT DELETE",
 		"/v2/safety/reports": "POST", "/v2/safety/cases": "GET", "/v2/safety/cases/{caseId}": "PATCH", "/v2/safety/cases/{caseId}/bans": "POST", "/v2/safety/cases/{caseId}/restore": "POST", "/v2/safety/appeals": "POST", "/v2/safety/appeals/{appealId}": "GET", "/v2/safety/appeals/{appealId}/reverse-ban": "POST",
 		"/v2/voice-rooms": "POST", "/v2/voice-rooms/{roomId}/start": "POST", "/v2/voice-rooms/{roomId}/end": "POST", "/v2/voice-rooms/{roomId}/moderation-actions": "POST", "/v2/voice-rooms/{roomId}/prompt": "GET", "/v2/voice-rooms/{roomId}/tickets": "POST", "/v2/voice-rooms/{roomId}/recording": "GET POST", "/v2/voice-rooms/{roomId}/recording/object": "GET", "/v2/voice-rooms/{roomId}/recording/consent": "POST", "/v2/voice-rooms/{roomId}/recording/start": "POST", "/v2/voice-rooms/{roomId}/recording/stop": "POST", "/v2/voice-rooms/{roomId}/speaker-requests": "POST", "/v2/voice-rooms/{roomId}/speakers": "POST", "/v2/voice-rooms/{roomId}/leave": "POST",
+		"/v3/voice-rooms": "POST", "/v3/voice-rooms/{roomId}/moderation-actions": "POST", "/v3/voice-rooms/{roomId}/tickets": "POST",
+		"/v2/voice-rooms/{roomId}": "GET", "/v2/voice-rooms/{roomId}:end": "POST", "/v2/voice-rooms/{roomId}:leave": "POST",
 	}
 	paths := make([]string, 0, len(methods))
 	for path := range methods {
@@ -521,13 +523,20 @@ func LivestreamConnectedRoutes() []ConnectedRoute {
 		{Method: http.MethodGet, Template: "/v2/streams/{streamId}/private-playback", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/ingest-credential", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/ingest-key", Authenticate: true},
+		{Method: http.MethodGet, Template: "/v2/streams"},
+		{Method: http.MethodPost, Template: "/v2/streams/{streamId}:start", Authenticate: true},
+		{Method: http.MethodPost, Template: "/v2/streams/{streamId}:end", Authenticate: true},
+		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/viewers:heartbeat"},
+		{Method: http.MethodPost, Template: "/v2/provider-webhooks/livepeer"},
 	}
 }
 
 func UserConnectedRoutes() []ConnectedRoute {
 	methods := map[string]string{
-		"/v2/profiles/{wallet}": "GET", "/v2/profiles:batch": "GET", "/v3/profiles/{wallet}": "GET PATCH", "/v3/me/preferences": "GET PATCH", "/v1/me/preferences": "GET PATCH", "/v2/me/preferences": "GET PATCH", "/v1/me/devices": "GET", "/v1/me/devices/{deviceId}": "PUT DELETE", "/v1/me/exports": "POST", "/v1/me/exports/{jobId}": "GET", "/v2/me/exports/{jobId}/download": "GET", "/v1/me/deletion-requests": "POST", "/v1/me/deletion-requests/{jobId}": "GET", "/v1/profiles/{wallet}": "GET PATCH",
+		"/v2/profiles/{wallet}": "GET PATCH", "/v2/profiles:batch": "GET", "/v3/profiles/{wallet}": "GET PATCH", "/v3/me/preferences": "GET PATCH", "/v1/me/preferences": "GET PATCH", "/v2/me/preferences": "GET PATCH", "/v1/me/devices": "GET", "/v1/me/devices/{deviceId}": "PUT DELETE", "/v1/me/exports": "POST", "/v1/me/exports/{jobId}": "GET", "/v2/me/exports/{jobId}/download": "GET", "/v1/me/deletion-requests": "POST", "/v1/me/deletion-requests/{jobId}": "GET", "/v1/profiles/{wallet}": "GET PATCH",
 		"/v1/me/watchlist": "GET", "/v1/me/watchlist/{poolAddress}": "PUT DELETE",
+		"/v2/me/watchlist": "GET", "/v2/me/watchlist/{poolAddress}": "PUT DELETE",
+		"/v2/me/devices/{deviceId}": "PUT DELETE", "/v2/me/exports": "POST", "/v2/me/exports/{jobId}": "GET", "/v2/me/deletion-requests": "POST", "/v2/me/deletion-requests/{jobId}": "GET",
 	}
 	paths := make([]string, 0, len(methods))
 	for path := range methods {

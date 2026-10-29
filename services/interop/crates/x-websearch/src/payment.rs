@@ -56,7 +56,6 @@ pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE: &str = "PAYMENT-RESPONSE";
 /// Names the buyer's EVM address so metered offers can be bound to its accounts.
 pub const PAYER_ADDRESS: &str = "LAYERX-PAYER-ADDRESS";
-pub const PAYER_DID: &str = "LAYERX-PAYER-DID";
 pub const COMMITMENT: &str = "executed";
 pub const METERED: &str = "metered";
 pub const EXACT: &str = "exact";
