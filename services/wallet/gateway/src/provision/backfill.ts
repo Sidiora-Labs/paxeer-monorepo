@@ -1,5 +1,7 @@
 import { getAddress } from 'viem';
-import { ProvisionError, ProvisionRefusedError, provisionAccount, type ProvisionDeps, type ProvisionSubject } from './state.js';
+import { ProvisionError, ProvisionRefusedError, provisionAccount, type ProvisionDeps as StateProvisionDeps, type ProvisionSubject } from './state.js';
+
+export type ProvisionDeps = StateProvisionDeps;
 
 export type BackfillOutcome =
   | 'bound'
@@ -40,6 +42,10 @@ interface Candidate {
 }
 
 export async function backfillAccounts(deps: ProvisionDeps, opts: BackfillOptions): Promise<BackfillReport> {
+  if (!deps.station) {
+    throw new ProvisionError('gas_station_unconfigured', 503, 'no gas station is configured');
+  }
+  deps.station.requireConfiguredUrl();
   if (!Number.isInteger(opts.batchSize) || opts.batchSize < 1 || opts.batchSize > 500) {
     throw new Error('backfill batch size must be between 1 and 500');
   }
