@@ -151868,7 +151868,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.6.3]
 title = "Provisioning sponsors the bind through the gas station in place of the top-up"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["12.6.2", "12.9.1"]
