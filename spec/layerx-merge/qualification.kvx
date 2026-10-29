@@ -9907,3 +9907,11 @@ symbol = "verify"
 observed = "Attempt 4 passes the receipted bundle and fails the committed bundle at the blockHeader decode: Committed.cs:21-23 and the camelCase hex readers do not match the published encoding (PascalCase, base64, integer arrays, RFC3339, Transaction and successor fields), and neither Committed.Verify nor PortableReceipt.verify binds rawTransaction to receiptInclusion.Transaction (sdk/platform/go/committed.go:230)."
 assumption = "Verifier defect; 18.1185.1 (issue #1185) ports the committed decode and verification and 8.43.8 requires it."
 severity = "major"
+
+[finding.18.1149.1.2]
+task = "18.1149.1"
+file = "services/human/crates/layerx-human-service/src/journeys/engine.rs:964-990"
+symbol = "sign_in_scope"
+observed = "At 384f41641 the engine and the reclaim fixtures sign 64-byte kernel-envelope signatures while SignatureBytes::new (layerx-agent-api/src/write.rs:78) requires 65 bytes, and the compiled defund 0x00030007 (layerx-intents/src/compile.rs:532) is refused at layerx-crypto/src/disclosure.rs:553 because :962 admits Budget 2, 8, 9 and lx_budget.h:23 defines defund as 0x00030008."
+assumption = "Two product defects, not fixture defects: the ordinal belongs to 18.1188.1 (issue #1188) and the leg form to the EIP-1559 migration (decision.1805; 10.13.5, 10.0.3, 18.1186.1), after which 18.1149.1 reworks the fixtures."
+severity = "major"

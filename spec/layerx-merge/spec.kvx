@@ -3939,6 +3939,12 @@ value = "principal_authorizes_from (src/modules/programs/transfer.c:41-54) is ca
 basis = "finding 13.34.2.1; src/modules/programs/transfer.c:41-54; src/modules/programs/call.c:2203-2219"
 affects = ["task.13.34.2"]
 
+[decision.1805]
+title = "Journey legs are EIP-1559 transactions with 65-byte signatures; the reclaim and archive defund leg is the Pay budgetDefund call"
+value = "After 437cafb36 the submit contract (services/agent/crates/layerx-agent-api/src/write.rs:78) carries only EIP-1559 type-2 transactions signed with 65-byte r||s||v secp256k1 signatures; the kernel activity envelope and the 64-byte custody signature are not a submit payload. The reclaim and archive defund leg is the Pay precompile budgetDefund(bytes32,uint128) call at 0x101B, disclosed by bind_call (18.1186.1), prepared by layerx_agentd::prepare::evm::prepare_bound from the pending nonce and signed through sign_disclosed_call; the transaction hash is the activity id. The journey engine and the submit path migrate first (10.13.5, 10.0.3) and the reclaim fixtures follow (18.1149.1). Where a kernel envelope is still compiled, the defund ordinal is 8 (18.1188.1)."
+basis = "18.1149.1 attempts 1-2 and 10.98.9 attempt 1: Malformed('signature') at write.rs:89-95 for 64-byte signatures; services/agent/crates/layerx-crypto/src/disclosure.rs:553 and :962 refuse 0x00030007; the human KMS sign (services/human/crates/layerx-human-kms/src/server.rs:158-184) admits only an unsigned EIP-1559 call with its bind_call disclosure; bind_call (disclosure/call.rs:508, decode_method :226) has no Pay arm; prepare_bound at services/agent/crates/layerx-agentd/src/prepare/mod.rs:325; issues #1149, #1186, #1188"
+affects = ["task.18.1149.1", "task.18.1186.1", "task.18.1188.1", "task.10.13.5", "task.10.13.6", "task.10.0.3", "task.10.98.9", "task.10.98.10"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -142754,7 +142760,7 @@ title = "Integrate intent plan, submit and send signing with EIP-1559 transactio
 status = "pending"
 mode = "BUILD"
 wave = 11
-requires = ["10.20.3", "10.11.5", "10.15.4", "10.7.1", "9.1.8", "18.1119.1"]
+requires = ["10.20.3", "10.11.5", "10.15.4", "10.7.1", "9.1.8", "18.1119.1", "18.1186.1"]
 reqs = ["10040.1", "10040.2"]
 capabilities = ["10.7.2"]
 interfaces = ["interface.10.rs-human-service-journeys-intent-submit-start-kernel-journey"]
@@ -142782,6 +142788,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Keystore::authorize_send (services/human/crates/layerx-human-service/src/custody/evm.rs:212-227) serializes a SendPlanAuthorization as KMS operation 11, which sign_send_now (src/server/production_components.rs:8701-8760) and the local KMS send::digest (services/human/crates/layerx-human-kms/src/send.rs:22-46) parse as an EIP-1559 send authorization since 10.11.5; authorize_kernel_send (:8630-8658) and the send route's attestor branch (:1882-1891) build on it, so every kernel send authorization is refused at the parse step. Port them to the AttestorSendAuthorization shape (EvmPlanAuthorization plus the recipient and amount disclosure, bank 0x1001 transfer) or delete them with the kernel journey, so no path in the service sends the retired payload. Issue #1169."
+do_7 = "execute_agent_reclaim (services/human/crates/layerx-human-service/src/server/production_components.rs:4176) and archive_defund (:8109) build the reclaim and archive defund leg as the Pay budgetDefund call of decision.1805 with the pending nonce and record its transaction hash as finalization evidence; these two legs and sign_send_now (:8691) sign through sign_disclosed_call with the bind_call disclosure (18.1186.1)."
 
 [task.10.0.4]
 title = "Report retired operations from the client generator and pin the regenerated client"
@@ -144144,16 +144151,16 @@ title = "Carry EIP-1559 transactions instead of kernel activity envelopes in the
 status = "pending"
 mode = "BUILD"
 wave = 11
-requires = ["10.13.4", "10.0.1", "10.20.3", "9.1.8", "18.1119.1"]
+requires = ["10.13.4", "10.0.1", "10.20.3", "9.1.8", "18.1119.1", "18.1186.1"]
 reqs = ["10047.1", "10047.2"]
 capabilities = ["10.13.5"]
 interfaces = []
 do_1 = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:297 and :308 decode, and :2378, :2382, :4742, :4877 and :5111 encode, kernel activity envelopes with `layerx_wire::activity`; carry unsigned and signed EIP-1559 type-2 transaction bytes instead."
-do_2 = "services/human/crates/layerx-human-service/src/journeys/engine.rs:1837 decodes a prepared leg with `layerx_wire::activity::decode_unsigned`; decode the prepared leg as an unsigned type-2 transaction and read its nonce, `to`, value and calldata."
+do_2 = "services/human/crates/layerx-human-service/src/journeys/engine.rs:1852 decodes a prepared leg with layerx_wire::activity::decode_unsigned; decode the prepared leg as an unsigned type-2 transaction and read its nonce, to, value and calldata, and make validate_preparation (:1527) compare those fields and the fees against the leg instead of the kernel activity type, payload, payload hash and account sequence."
 do_3 = "services/human/crates/layerx-human-service/src/journeys/engine.rs:2089 names the emergency-exit leg kind for prepared legs; delete that arm, the exit journey being deleted by task 10.8.3."
 do_4 = "Create services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs (planned) exchanging prepared and signed transactions with a real peer socket served by the test."
 symbols = ["AgentRuntime", "decode_unsigned", "TransactionType2"]
-touches = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs"]
+touches = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs::runtime_prepares_an_unsigned_type2_transaction", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs::engine_refuses_a_kernel_activity_envelope_leg"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -144169,12 +144176,13 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "The custody sign at services/human/crates/layerx-human-service/src/journeys/engine.rs:964-990 passes unsigned_canonical_bytes and the disclosure to custody, and the human KMS signs only an unsigned EIP-1559 call whose bind_call disclosure matches (services/human/crates/layerx-human-kms/src/server.rs:158-184); make the prepared leg bytes the unsigned type-2 call and the disclosure bind_call's (18.1186.1 for the budgetDefund leg), carry the 65-byte signature in SignedEvidence (:980-986) as SignatureBytes::new requires (services/agent/crates/layerx-agent-api/src/write.rs:78), and widen KmsSignFuture and sign_disclosed (services/human/crates/layerx-human-service/src/custody/provider.rs:490-491, :706) to the 65-byte AgentSignature unless 10.98.5 has already landed that width, in which case take it."
 
 [task.10.13.6]
 title = "Carry rungs in agent controls and archive fund-disposition evidence"
 status = "pending"
 mode = "BUILD"
-wave = 7
+wave = 12
 requires = ["10.0.1", "10.13.1", "10.2.7", "9.1.8", "18.1119.1", "18.1149.1"]
 reqs = ["10015.1", "10015.2"]
 capabilities = ["10.13.6"]
@@ -172400,7 +172408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167", "181171", "181172", "181176", "181177", "181173", "181174", "181175", "181178", "181184", "181185", "181182", "181183"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167", "181171", "181172", "181176", "181177", "181173", "181174", "181175", "181178", "181184", "181185", "181182", "181183", "181186", "181188"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -179029,7 +179037,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 11
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179819,7 +179827,7 @@ ac_1 = "The wallet_identity_e2e test target of layerx-human-service resolves ure
 
 [req.181149]
 title = "The reclaim test target passes in full against the pending-nonce reclaim agent"
-ac_1 = "All five tests of the layerx-human-service reclaim target pass: the journey fixtures sign the activity the service prepares, or a recorded contract divergence names the prepared and signed bytes."
+ac_1 = "All five tests of the layerx-human-service reclaim target pass: the reclaim legs are EIP-1559 budgetDefund transactions signed with 65-byte signatures through the disclosure path, the fixtures sign what the service prepares and the receipt names the transaction hash as the activity id."
 
 [req.18680]
 title = "The variable helper provisions the stats service's inline mTLS key as raw multi-line PEM"
@@ -179948,6 +179956,14 @@ ac_2 = "Every sdk/launchpad test and script that reads a restored fixture opens 
 [req.181183]
 title = "Bind the launchpad release provenance check to the monorepo off-chain images workflow instead of the removed launchpad workflows"
 ac_1 = "The launchpad release provenance check requires .github/workflows/offchain-images.yml as a release source input and binds the workflow digest to it, and its policy and phase-2 tests read that workflow."
+
+[req.181186]
+title = "Disclose the Pay precompile budgetDefund call in bind_call so a budget defund can be signed"
+ac_1 = "bind_call discloses a Pay budgetDefund(bytes32,uint128) call as Budget activity 8 with the sender as actor, the budget id as counterparty and the amount, refuses non-canonical encodings, and sign_disclosed_call signs it with a 65-byte signature that recovers the sender."
+
+[req.181188]
+title = "Compile and disclose the budget defund as kernel activity 0x00030008"
+ac_1 = "A compiled budget defund carries activity type 0x00030008, the intents disclosure names the same type, and the compile, differential, live_kinds and reclaim_nonces tests pass with that expectation."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -180984,7 +181000,7 @@ qualification = "UNRUN"
 [acceptance.18.1149.1]
 feature = "18"
 req = "181149.1"
-scenario = "Given the reclaim agent that starts from the pending nonce, when the reclaim test target runs, then the journey fixtures are accepted by the boundary and the signature check and all five tests pass."
+scenario = "Given the reclaim agent that starts from the pending nonce and an engine that carries EIP-1559 legs, when the reclaim test target runs, then the fixtures sign the budgetDefund transaction the service prepares with a 65-byte signature, the live submit contract accepts it, the receipt names its transaction hash and all five tests pass."
 contract = "contracts/README.md"
 test = "services/human/crates/layerx-human-service/tests/reclaim.rs"
 qualification = "UNRUN"
@@ -181251,6 +181267,22 @@ req = "181183.1"
 scenario = "Given main without launchpad/.github/workflows, when the supply-chain policy and phase-2 tests run, then the publication-bypass test inspects .github/workflows/offchain-images.yml, the provenance test digests it, and both pass."
 contract = "contracts/launchpad.md#precompile-go"
 test = "services/launchpad/security/supplychain/test_policy.py"
+qualification = "UNRUN"
+
+[acceptance.18.1186.1]
+feature = "18"
+req = "181186.1"
+scenario = "Given an EIP-1559 call to the Pay precompile carrying budgetDefund(budgetId, amount), when bind_call discloses it and sign_disclosed_call signs it, then the disclosure names Budget activity 8, the sender, the budget id and the amount, the 65-byte signature recovers the sender, and a trailing byte, non-zero padding, a zero amount or another selector is refused."
+contract = "contracts/agent-ts-sdk.md#history"
+test = "services/agent/crates/layerx-crypto/tests/budget_call.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1188.1]
+feature = "18"
+req = "181188.1"
+scenario = "Given a v1 budget_defund intent, when layerx-intents compiles and discloses it, then the activity type is Budget ordinal 8, the agent disclosure admits it, and the compile, differential, live_kinds and reclaim_nonces tests pass."
+contract = "contracts/README.md"
+test = "services/human/crates/layerx-intents/tests/compile.rs"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -184782,20 +184814,20 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.18.1149.1]
-title = "Issue #1149: Issue #1149: Make the reclaim journey fixtures sign the activity the pending-nonce reclaim agent prepares, or record the contract divergence"
+title = "Issue #1149: Sign the reclaim journey legs as EIP-1559 budgetDefund transactions so the reclaim test target passes against the live submit contract"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["18.1142.1"]
+wave = 12
+requires = ["18.1142.1", "18.1186.1", "18.1188.1", "10.13.5", "10.0.3"]
 reqs = ["181149.1"]
 capabilities = []
 interfaces = []
-do_1 = "In services/human/crates/layerx-human-service/tests/journey_faults.rs (included by tests/reclaim.rs:1) trace why the agent boundary refuses transition 1 of jrn_reclaimbudget (every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity panics at tests/reclaim.rs:136) and why verify_before_submit reports Malformed('signature') (services/agent/crates/layerx-agent-api/src/write.rs:89-95) in acknowledgement_gap_faults_converge_without_resubmitting_unknown and crashes_after_every_durable_stage_resume_with_one_effect_per_leg (journey_faults.rs:855), starting from the pending-nonce semantics 0a78c10ba introduced (src/agents/reclaim.rs:64-73; tests/reclaim_nonces.rs:42-80 shows the context the service accepts)."
-do_2 = "If the fixtures diverged from the reclaim contract, update the prepare and sign helpers of journey_faults.rs (ACCOUNT_SEQUENCE at :56 used at :136 and :151, the external signature attached at :412-418, the receipt encoder at :628-675) so they sign the activity the service now prepares; keep every assertion of tests/reclaim.rs and tests/journey_faults.rs and remove no test."
-do_3 = "If the service diverged from the reclaim contract (the nonce it prepares is not the one the signed activity must carry), stop and record the divergence with the exact prepared and signed bytes; change no file under src/."
-do_4 = "Qualify with the whole reclaim test target; all five tests must pass."
-symbols = []
-touches = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs"]
+do_1 = "Attempts at 384f41641 recorded the divergence the earlier do_3 asked for: the journey fixtures (tests/journey_faults.rs:412-418, :647) and the engine (src/journeys/engine.rs:964-990) sign 64-byte kernel-envelope signatures while the live submit contract requires a 65-byte secp256k1 signature (services/agent/crates/layerx-agent-api/src/write.rs:78; verify_before_submit :89-95 reports Malformed('signature')), and the defund leg 0x00030007 is refused at services/agent/crates/layerx-crypto/src/disclosure.rs:553 (:962 admits Budget 2, 8, 9). Decision.1805 rules the leg form; this task runs after 10.13.5 and 10.0.3 have made the engine and the submit path carry type-2 transactions, after 18.1186.1 (Pay budgetDefund disclosure) and after 18.1188.1 (ordinal 8)."
+do_2 = "Build the reclaim leg as the Pay precompile budgetDefund(bytes32,uint128) call (precompiles/layerxpay/budget.go:105; address 0x101B, layerx_agentd::prepare::evm::PrecompileTarget::Pay at services/agent/crates/layerx-agentd/src/prepare/mod.rs:20-36) prepared by prepare_bound (services/agent/crates/layerx-agentd/src/prepare/mod.rs:325) from an EvmPreparationState (services/agent/crates/layerx-agentd/src/prepare/mod.rs:12) whose pending_nonce is ReclaimAgentContext::nonce (src/agents/reclaim.rs:64-73) and whose fees come from the leg; Reclaim::start (src/agents/reclaim.rs:236-330, JourneyLeg::new at :311) carries that nonce and the fee limit into the leg in the shape 10.13.5 gives JourneyLeg."
+do_3 = "In the fixtures sign the prepared call with a secp256k1 test signer through layerx_crypto::signer::sign_disclosed_call (services/agent/crates/layerx-crypto/src/signer.rs:276) with the bind_call disclosure (18.1186.1); the 65-byte AgentSignature replaces the [u8; 64] signature at tests/journey_faults.rs:412 and the receipt signature parameter of encode_receipt (:647), the signed payload is assemble (services/agent/crates/layerx-crypto/src/evm_transaction.rs:223), the activity id the receipt names is transaction_hash of the raw transaction (:297), and decode_signed with recover_sender (:241, :307) checks the sender is the agent wallet; keep every assertion of tests/reclaim.rs and tests/journey_faults.rs and remove no test."
+do_4 = "If the engine after 10.13.5 still cannot carry the defund leg, stop and record the exact prepared and signed bytes; change no file under src/ other than src/agents/reclaim.rs."
+symbols = ["Reclaim::start", "prepare_bound", "sign_disclosed_call", "transaction_hash"]
+touches = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
@@ -184803,7 +184835,7 @@ verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p l
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
-rollback = "Revert the two test files; the reclaim target returns to three failing tests."
+rollback = "Revert the two test files and src/agents/reclaim.rs; the reclaim target returns to three failing tests."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -184811,6 +184843,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Qualify with the whole reclaim test target; all five tests must pass."
 
 [task.18.680.1]
 title = "Issue #680: Let the variable helper accept a multi-line value for a name ending in _PEM while keeping it masked"
@@ -185854,6 +185887,67 @@ gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-launchpad"
 rollback = "Revert the three files; the check and tests return to naming the removed launchpad workflows."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1186.1]
+title = "Issue #1186: Disclose the Pay precompile budgetDefund call in bind_call so a budget defund can be signed"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181186.1"]
+capabilities = []
+interfaces = []
+do_1 = "In decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:226) add a branch for the Pay precompile, the address with suffix 0x10, 0x1b that target() (:222) matches and PrecompileTarget::Pay yields (services/agent/crates/layerx-agentd/src/prepare/mod.rs:34): selector ledger_selector('budgetDefund(bytes32,uint128)') (:124) with exactly 64 argument bytes, a 32-byte budget id and a uint128 amount left-padded with 16 zero bytes, decodes to ConstructMethod::PayBudgetDefund { budget: [u8; 32], amount: u128 }, a new variant of the enum at :6; non-zero padding, a zero amount, trailing bytes and any other selector on that address are refused the way the Ledger arm refuses them."
+do_2 = "In fields (services/agent/crates/layerx-crypto/src/disclosure/call.rs:355) map PayBudgetDefund to activity_type ActivityType::new(ModuleId::Budget, 8) (include/layerx/lx_budget.h:23 LX_BUDGET_DEFUND = 0x00030008; services/agent/crates/layerx-crypto/src/disclosure.rs:962 admits Budget ordinals 2, 8 and 9), actor the sender, counterparties the budget id, amounts the amount, asset absent because the calldata carries none; leave every Ledger and BankSend mapping unchanged."
+do_3 = "Create services/agent/crates/layerx-crypto/tests/budget_call.rs (planned) with bind_call_discloses_budget_defund (build the Eip1559Call to the Pay address with the ABI-encoded call, bind_call with a 20-byte sender, assert the activity type, actor, counterparty and amount, then sign_disclosed_call (services/agent/crates/layerx-crypto/src/signer.rs:276) with a LocalSigner, assemble (services/agent/crates/layerx-crypto/src/evm_transaction.rs:223) and recover_sender (:307) returns the sender from the 65-byte signature) and bind_call_refuses_noncanonical_budget_defund (a trailing byte, non-zero padding, a zero amount and an unknown Pay selector are each refused)."
+do_4 = "Change nothing in services/agent/crates/layerx-crypto/tests/disclosure_call.rs and remove no test; callers that match ConstructMethod::BankSend behind a wildcard arm (services/human/crates/layerx-human-kms/src/send.rs:68) keep compiling."
+symbols = ["bind_call", "decode_method", "ConstructMethod::PayBudgetDefund"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/budget_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/budget_call.rs::bind_call_discloses_budget_defund", "services/agent/crates/layerx-crypto/tests/budget_call.rs::bind_call_refuses_noncanonical_budget_defund"]
+planned_paths = ["services/agent/crates/layerx-crypto/tests/budget_call.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test budget_call"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test budget_call"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert disclosure/call.rs and delete tests/budget_call.rs; Pay calls return to being refused at disclosure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1188.1]
+title = "Issue #1188: Compile and disclose the budget defund as kernel activity 0x00030008"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181188.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-intents/src/compile.rs:532 finish the BudgetDefund arm with ModuleId::Budget ordinal 8 (include/layerx/lx_budget.h:23 LX_BUDGET_DEFUND = 0x00030008; services/agent/crates/layerx-crypto/src/disclosure.rs:962 admits Budget ordinals 2, 8 and 9 and :553 refuses 7); header(&mut encoder, 0x4207, 7) at :517 is the payload tag and field count and stays."
+do_2 = "In services/human/crates/layerx-intents/src/disclosure.rs:745 map IntentKind::BudgetDefund to (ModuleId::Budget, 8)."
+do_3 = "Update the expectations at services/human/crates/layerx-intents/tests/compile.rs:85, services/human/crates/layerx-intents/tests/differential.rs:61, services/human/crates/layerx-intents/tests/live_kinds.rs:77 and services/human/crates/layerx-human-service/tests/reclaim_nonces.rs:19 to ordinal 8; if [vector.budget_defund] of services/human/crates/layerx-intents/vectors/v1.kvx:71 or services/human/crates/layerx-intents/vectors/v2.kvx:71 carries the activity type, regenerate that entry only; keep every other assertion and remove no test."
+symbols = ["compile", "IntentKind::BudgetDefund"]
+touches = ["services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/disclosure.rs", "services/human/crates/layerx-intents/tests/compile.rs", "services/human/crates/layerx-intents/tests/differential.rs", "services/human/crates/layerx-intents/tests/live_kinds.rs", "services/human/crates/layerx-intents/vectors/v1.kvx", "services/human/crates/layerx-intents/vectors/v2.kvx", "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs"]
+tests = ["services/human/crates/layerx-intents/tests/compile.rs", "services/human/crates/layerx-intents/tests/differential.rs", "services/human/crates/layerx-intents/tests/live_kinds.rs", "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test compile --test differential --test live_kinds && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim_nonces"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the two source files, the four tests and the vectors; the defund returns to ordinal 7."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2

@@ -10453,3 +10453,21 @@ area = "programs call terminal"
 symptom = "A refused LX_PROGRAMS_CALL reports result_code -736 whatever the guest returned, and a test matching LXP/program-execution/v5 at the start of the terminal payload fails."
 cause = "-736 is LXP_ERR_PROGRAM_REFUSED (include/layerx/lxp_result.h:142) and under protocol v3 the terminal payload is wrapped as LXP/programs/terminal-applied-legs/v1 NUL + u32 detail length + detail + u32 legs (src/modules/programs/call.c:1531-1570)."
 do = "Unwrap the terminal-applied-legs prefix before matching the guest output, as tests/programs/test_call_activity.c:72-83 does."
+
+[gotcha.2142]
+area = "agentd prepare"
+symptom = "A directory listing of services/agent/crates/layerx-agentd/src/prepare/ shows no evm.rs, and layerx_agentd::prepare::evm::prepare_bound looks absent."
+cause = "prepare/mod.rs declares pub mod evm inline at :3 (EvmPreparationState :12, PrecompileTarget :20, prepare_bound :325) and re-exports it at :396."
+do = "Grep for the symbol before concluding a module path is wrong; an inline module has no file of its own."
+
+[gotcha.2143]
+area = "budget defund"
+symptom = "A compiled budget defund is refused at the agent boundary as an unsupported activity."
+cause = "layerx-intents compiles and discloses the defund as Budget ordinal 7 (compile.rs:532, disclosure.rs:745) while lx_budget.h:23 defines LX_BUDGET_DEFUND = 0x00030008 and layerx-crypto disclosure.rs:962 admits Budget 2, 8, 9 only."
+do = "Use ordinal 8 for the kernel defund (18.1188.1); under decision.1805 the reclaim leg is the Pay budgetDefund call, not a kernel envelope."
+
+[gotcha.2144]
+area = "human kms signing"
+symptom = "A journey leg signed through custody is refused by the live submit contract with Malformed('signature')."
+cause = "The production KMS sign (layerx-human-kms/src/server.rs:158-184) admits only an unsigned EIP-1559 call with its bind_call disclosure and the submit contract requires a 65-byte signature (layerx-agent-api/src/write.rs:78); the engine (engine.rs:964-990) and the local envelope signer still produce 64-byte kernel-envelope signatures."
+do = "Carry type-2 transactions end to end (decision.1805); do not widen or truncate the signature to make a kernel envelope pass."
