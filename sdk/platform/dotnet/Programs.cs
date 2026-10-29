@@ -5,6 +5,8 @@ using System.Globalization;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using Org.BouncyCastle.Crypto.Digests;
 
 namespace LayerX.Sdk;
 
@@ -20,6 +22,8 @@ public sealed record ProgramCall
     public ProgramBudget Budget { get; }
     public IReadOnlyList<ProgramCapability> Capabilities { get; }
     public byte[] SignedActivity { get; }
+    public byte[] SignedTransaction => SignedActivity.ToArray();
+    public byte[] TransactionHash => Programs.TransactionHash(SignedTransaction);
 
     public ProgramCall(byte[] programId, byte[] calldata, ProgramBudget budget,
         IEnumerable<ProgramCapability> capabilities, byte[] signedActivity)
@@ -36,6 +40,22 @@ public sealed record ProgramCall
     {
         _ = nativeCall.Encode(); NativeCall = nativeCall;
     }
+    public ProgramCall(NativeProgramCall nativeCall, ProtocolAmount feeLimit)
+    {
+        ArgumentNullException.ThrowIfNull(nativeCall);
+        _ = nativeCall.Encode(); NativeCall = nativeCall;
+        ProgramId = nativeCall.ProgramId.ToArray(); Calldata = nativeCall.Calldata.ToArray();
+        Budget = new ProgramBudget(nativeCall.Resources[0], feeLimit);
+        Capabilities = Array.Empty<ProgramCapability>(); SignedActivity = [];
+    }
+
+    public byte[] EncodeCalldata(bool simulate = false) =>
+        (NativeCall ?? throw Invalid()).EncodeCalldata(Budget.FeeLimit, simulate);
+
+    public UnsignedProgramTransaction BuildTransaction(string sender, ulong nonce, ulong gas,
+        BigInteger maxFeePerGas, BigInteger maxPriorityFeePerGas) =>
+        new(sender, EncodeCalldata(), nonce, gas, maxFeePerGas, maxPriorityFeePerGas);
+
     private static PlatformSdkException Invalid() => new(SdkErrorCode.InvalidArgument, RetryClass.Never);
 }
 
@@ -73,71 +93,103 @@ public sealed class VerifiedProgramExecution
     }
 }
 
-public sealed record ProgramSimulation(JsonValue Value, VerifiedProgramExecution Execution);
+public sealed record ProgramSimulation(JsonValue Value, int TerminalResult, byte TerminalKind, byte[] Response);
 public sealed class ProgramSubmission
 {
     public JsonValue Value { get; }
     public string State { get; }
     public bool IsUnknown => State == "unknown";
-    public byte[] ActivityId { get; }
+    public byte[] TransactionHash { get; }
+    public byte[] ActivityId => TransactionHash.ToArray();
+    public SequencerReceiptVerification? SequencerReceipt { get; }
     public string IdempotencyKey { get; }
     public byte[]? RetainedSignedActivity { get; }
+    public byte[]? RetainedSignedTransaction => RetainedSignedActivity?.ToArray();
     public VerifiedProgramExecution? Execution { get; }
     internal ProgramSubmission(JsonValue value, string state, byte[] activityId, string idempotencyKey,
         byte[]? retainedSignedActivity, VerifiedProgramExecution? execution)
     {
-        Value = value; State = state; ActivityId = activityId.ToArray(); IdempotencyKey = idempotencyKey;
+        Value = value; State = state; TransactionHash = activityId.ToArray(); IdempotencyKey = idempotencyKey;
         RetainedSignedActivity = retainedSignedActivity?.ToArray(); Execution = execution;
     }
+    internal ProgramSubmission(JsonValue value, string state, byte[] transactionHash, string idempotencyKey,
+        byte[]? signedTransaction, SequencerReceiptVerification? receipt, bool evm)
+        : this(value, state, transactionHash, idempotencyKey, signedTransaction, null)
+    {
+        SequencerReceipt = receipt;
+    }
+
 }
 
 public sealed class ProgramsClient
 {
-    public async Task<ReceiptVerification> LifecycleReceiptAsync(NativeProgramLifecycleRequest request, CancellationToken cancellationToken = default)
+    private readonly Programs? _rpc;
+    private readonly ReceiptKeys? _receiptKeys;
+    private readonly byte[]? _didId;
+    private Programs Rpc => _rpc ?? throw new PlatformSdkException(SdkErrorCode.UnavailableCapability, RetryClass.Never);
+
+    public ProgramsClient(Programs rpc, ReceiptKeys? receiptKeys = null, byte[]? didId = null)
     {
-        if (_protocolVersion != 3) throw Invalid();
-        var response = await _client.ProgramAsync("program.receipt", JsonValue.Object(new Dictionary<string, JsonValue>
-        {
-            ["idempotency_key"] = JsonValue.String(request.IdempotencyKey),
-            ["expected_activity_id"] = JsonValue.String(Identifier(request.ActivityId)),
-            ["requested_verification_level"] = JsonValue.String("sequencer-signed")
-        }), pathParameters: new Dictionary<string, string> { ["idempotency_key"] = request.IdempotencyKey }, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var map = Map(response); RequireFields(map, ["activity_id", "receipt"]);
-        if (!Fixed(Bytes(map, "activity_id", 32, true), request.ActivityId)) throw Verify();
-        return LocalVerifier.VerifyProgramLifecycleReceipt(Bytes(map, "receipt", MaximumProgramBytes), request.ActivityId, _sequencerPublicKey);
+        _rpc = rpc ?? throw Invalid(); _receiptKeys = receiptKeys;
+        if (didId is not null && didId.Length != 32) throw Invalid();
+        _didId = didId?.ToArray(); _sequencerPublicKey = []; _protocolVersion = 3;
+        _timeProvider = TimeProvider.System; _maximumSimulationAgeMilliseconds = 300_000;
     }
 
-    public Task<ReceiptVerification> DeployAsync(NativeProgramDeploy value, byte[] signedActivity, IdempotencyKey key, CancellationToken cancellationToken = default) => LifecycleAsync(value, signedActivity, key, cancellationToken);
-    public Task<ReceiptVerification> UpgradeAsync(NativeProgramUpgrade value, byte[] signedActivity, IdempotencyKey key, CancellationToken cancellationToken = default) => LifecycleAsync(value, signedActivity, key, cancellationToken);
-    public Task<ReceiptVerification> WindDownAsync(NativeProgramWindDown value, byte[] signedActivity, IdempotencyKey key, CancellationToken cancellationToken = default) => LifecycleAsync(value, signedActivity, key, cancellationToken);
+    public Task<UnsignedProgramTransaction> CallAsync(ProgramCall call, string sender,
+        BigInteger maxFeePerGas, BigInteger maxPriorityFeePerGas, CancellationToken cancellationToken = default) =>
+        BuildTransactionAsync(call.EncodeCalldata(), sender, maxFeePerGas, maxPriorityFeePerGas, cancellationToken);
 
-    private async Task<ReceiptVerification> LifecycleAsync(INativeProgramLifecycle operation, byte[] signedActivity, IdempotencyKey key, CancellationToken cancellationToken)
+    public Task<UnsignedProgramTransaction> DeployAsync(NativeProgramDeploy value, string sender,
+        BigInteger maxFeePerGas, BigInteger maxPriorityFeePerGas, CancellationToken cancellationToken = default) =>
+        BuildTransactionAsync(new NativeProgramLifecycleRequest(value).Payload, sender, maxFeePerGas, maxPriorityFeePerGas, cancellationToken);
+
+    public Task<UnsignedProgramTransaction> UpgradeAsync(NativeProgramUpgrade value, ProtocolAmount feeLimit, string sender,
+        BigInteger maxFeePerGas, BigInteger maxPriorityFeePerGas, CancellationToken cancellationToken = default) =>
+        BuildTransactionAsync(new NativeProgramLifecycleRequest(value, feeLimit).Payload, sender, maxFeePerGas, maxPriorityFeePerGas, cancellationToken);
+
+    public Task<UnsignedProgramTransaction> WindDownAsync(NativeProgramWindDown value, string sender,
+        BigInteger maxFeePerGas, BigInteger maxPriorityFeePerGas, CancellationToken cancellationToken = default) =>
+        BuildTransactionAsync(new NativeProgramLifecycleRequest(value).Payload, sender, maxFeePerGas, maxPriorityFeePerGas, cancellationToken);
+
+    private async Task<UnsignedProgramTransaction> BuildTransactionAsync(byte[] data, string sender,
+        BigInteger maxFeePerGas, BigInteger maxPriorityFeePerGas, CancellationToken cancellationToken)
     {
-        var request = new NativeProgramLifecycleRequest(operation, signedActivity);
-        if (_protocolVersion != 3 || !key.IsValid || key.Value != request.IdempotencyKey) throw Invalid();
-        var name = ProgramLifecycleRoutes.Ordinals.Single(entry => entry.Value == request.Ordinal).Key;
-        var response = await _client.ProgramAsync(name, JsonValue.Object(new Dictionary<string, JsonValue>
-        {
-            ["payload"] = JsonValue.String(Convert.ToHexString(request.Payload).ToLowerInvariant()),
-            ["signed_activity"] = JsonValue.String(Convert.ToHexString(request.SignedActivity).ToLowerInvariant())
-        }), key, cancellationToken: cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var map = Map(response); RequireFields(map, ["state", "activity_id", "receipt", "terminal_payload", "call_graph"]);
-            var state = Text(map, "state");
-            if (state is not ("executed" or "refused") || Text(map, "terminal_payload") != "" || Text(map, "call_graph") != "" || !Fixed(Bytes(map, "activity_id", 32, true), request.ActivityId)) throw Verify();
-            var verified = LocalVerifier.VerifyProgramLifecycleReceipt(Bytes(map, "receipt", MaximumProgramBytes), request.ActivityId, _sequencerPublicKey);
-            if ((state == "executed") != (verified.Receipt.ResultCode == 0)) throw Verify();
-            return verified;
-        }
-        catch { throw new PlatformSdkException(SdkErrorCode.UnknownOutcome, RetryClass.UnknownOutcome); }
+        Programs.Address(sender);
+        var nonce = Programs.Quantity(await Rpc.SendAsync("eth_getTransactionCount", [JsonValue.String(sender), JsonValue.String("pending")], cancellationToken).ConfigureAwait(false));
+        var transaction = new UnsignedProgramTransaction(sender, data, checked((ulong)nonce), 0, maxFeePerGas, maxPriorityFeePerGas);
+        var gas = Programs.Quantity(await Rpc.SendAsync("eth_estimateGas", [transaction.ToJson(includeGas: false), JsonValue.String("pending")], cancellationToken).ConfigureAwait(false));
+        return new UnsignedProgramTransaction(sender, data, checked((ulong)nonce), checked((ulong)gas), maxFeePerGas, maxPriorityFeePerGas);
+    }
+
+    public Task<SequencerReceiptVerification> SubmitAsync(NativeProgramLifecycleRequest request, byte[] signedTransaction,
+        IdempotencyKey key, CancellationToken cancellationToken = default) =>
+        SubmitLifecycleAsync(request, signedTransaction, key, cancellationToken);
+
+    public Task<SequencerReceiptVerification> LifecycleReceiptAsync(NativeProgramLifecycleRequest request, CancellationToken cancellationToken = default) =>
+        ReadReceiptAsync(request.TransactionHash, request.SignedTransaction, cancellationToken);
+
+    public Task<SequencerReceiptVerification> DeployAsync(NativeProgramDeploy value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
+        SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
+    public Task<SequencerReceiptVerification> UpgradeAsync(NativeProgramUpgrade value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
+        SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
+    public Task<SequencerReceiptVerification> WindDownAsync(NativeProgramWindDown value, byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken = default) =>
+        SubmitLifecycleAsync(new NativeProgramLifecycleRequest(value), signedTransaction, key, cancellationToken);
+
+    private async Task<SequencerReceiptVerification> SubmitLifecycleAsync(NativeProgramLifecycleRequest request,
+        byte[] signedTransaction, IdempotencyKey key, CancellationToken cancellationToken)
+    {
+        if (!Hex32(key.Value)) throw Invalid();
+        _ = ReceiptPins();
+        Programs.BindTransaction(signedTransaction, request.Payload);
+        var hash = await SendTransactionAsync(signedTransaction, cancellationToken).ConfigureAwait(false);
+        return await ReadReceiptAsync(hash, signedTransaction, cancellationToken).ConfigureAwait(false);
     }
 
     public const ushort ReceiptModuleId = 9; public const byte CallOperation = 3;
     private const int MaximumProgramBytes = 1_048_576;
     private const int MaximumInterfaceBytes = 952;
     private static readonly int MaximumCallGraphBytes = Encoding.UTF8.GetByteCount("LayerX/programs/call-graph/v1\0") + 32 + 16 + 8 + 64 * 68;
-    private readonly PlatformClient _client;
     private readonly byte[] _sequencerPublicKey;
     private readonly ushort _protocolVersion;
     private readonly TimeProvider _timeProvider;
@@ -166,7 +218,7 @@ public sealed class ProgramsClient
     {
         if (protocolVersion != 2 && protocolVersion != 3) throw Invalid();
         _protocolVersion = protocolVersion;
-        _client = client ?? throw Invalid();
+        ArgumentNullException.ThrowIfNull(client);
         if (sequencerPublicKey?.Length != 32 || sequencerPublicKey.All(value => value == 0)) throw Invalid();
         _sequencerPublicKey = sequencerPublicKey.ToArray(); _timeProvider = timeProvider ?? TimeProvider.System;
         var age = maximumSimulationAge ?? TimeSpan.FromMinutes(5);
@@ -176,86 +228,116 @@ public sealed class ProgramsClient
 
     public async Task<ProgramDiscovery> DiscoverAsync(byte[] programId, string verificationLevel, CancellationToken cancellationToken = default)
     {
-        var id = Identifier(programId); var value = await _client.ProgramAsync("program.discover", JsonValue.Object(new Dictionary<string, JsonValue>
-        { ["program_id"] = JsonValue.String(id), ["requested_verification_level"] = JsonValue.String(Level(verificationLevel)) }),
-            pathParameters: new Dictionary<string, string> { ["program_id"] = id }, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return (ProgramDiscovery)VerifyDiscovery(value, id, false, NowMilliseconds());
+        _ = Identifier(programId); _ = Level(verificationLevel);
+        var data = await Rpc.CallAsync(Programs.AddressValue, ProgramsAbi.Encode("b1ffb3d4", ProgramsAbi.Fixed(programId)), cancellationToken).ConfigureAwait(false);
+        if (data.Length != 192) throw Decode();
+        _ = ProgramsAbi.ReadWord(data, 0, 8);
+        var abi = checked((ushort)ProgramsAbi.ReadWord(data, 3, 16));
+        var version = checked((uint)ProgramsAbi.ReadWord(data, 4, 32));
+        var active = ProgramsAbi.ReadWord(data, 5, 1) == 1;
+        return new(programId.ToArray(), active ? ProgramLifecycle.Active : ProgramLifecycle.Tombstoned, version,
+            data[64..96], abi, [], [], 0, 0, 0, "pending-eth-call");
     }
+
     public async Task<ProgramInterface> InterfaceAsync(byte[] programId, string verificationLevel, CancellationToken cancellationToken = default)
     {
-        var id = Identifier(programId);
-        var value = await _client.ProgramAsync("program.interface", JsonValue.Object(new Dictionary<string, JsonValue>
-        { ["program_id"] = JsonValue.String(id), ["requested_verification_level"] = JsonValue.String(Level(verificationLevel)) }),
-            pathParameters: new Dictionary<string, string> { ["program_id"] = id }, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var result = (ProgramInterface)VerifyDiscovery(value, id, true, NowMilliseconds());
-        if (result.AbiVersion is GeneratedReceiptContract.ProgramAbiV3 or GeneratedReceiptContract.ProgramAbiV4)
-        {
-            var head = await DiscoverAsync(programId, verificationLevel, cancellationToken).ConfigureAwait(false);
-            if (head.Verification != "sequencer-signed-discovery-head" || head.DeploymentReceiptDigest is null ||
-                !Fixed(head.ProgramId, result.ProgramId) || head.Version != result.Version ||
-                head.AbiVersion != result.AbiVersion || !Fixed(head.CodeHash, result.CodeHash) ||
-                !Fixed(head.StateRoot, result.StateRoot) || head.ObservedSequence != result.ObservedSequence ||
-                head.ObservedAt != result.ObservedAt || head.ValidThrough != result.ValidThrough ||
-                !Fixed(head.DeploymentReceiptDigest, result.ReceiptDigest)) throw Verify();
-        }
-        return result;
+        _ = Identifier(programId); _ = Level(verificationLevel);
+        var data = await Rpc.CallAsync(Programs.AddressValue, ProgramsAbi.Encode("8efc7240", ProgramsAbi.Fixed(programId)), cancellationToken).ConfigureAwait(false);
+        var version = checked((uint)ProgramsAbi.ReadWord(data, 0, 32));
+        var encoding = ProgramsAbi.ReadBytes(data, 2, 96, MaximumInterfaceBytes);
+        var digest = data[32..64];
+        if (!Fixed(SHA256.HashData(encoding), digest)) throw Verify();
+        var head = await DiscoverAsync(programId, verificationLevel, cancellationToken).ConfigureAwait(false);
+        if (head.Version != version || !InterfaceHeaderBound(encoding, head.CodeHash, head.AbiVersion)) throw Verify();
+        return new(programId.ToArray(), version, head.CodeHash, head.AbiVersion, encoding, digest, [], [], 0, 0, 0,
+            new ProgramSource.Unpublished(), "pending-eth-call");
     }
-    public async Task<ProgramSimulation> SimulateAsync(ProgramCall call, CancellationToken cancellationToken = default)
+
+    public Task<ProgramSimulation> SimulateAsync(ProgramCall call, CancellationToken cancellationToken = default) =>
+        SimulateCoreAsync(call, null, cancellationToken);
+
+    public Task<ProgramSimulation> SimulateAsync(ProgramCall call, string sender, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(call); if (call.NativeCall is not null && _protocolVersion != 3) throw Invalid();
-        var binding = DecodeSignedCall(call);
-        var value = await _client.ProgramAsync("program.simulate", Encode(call), cancellationToken: cancellationToken).ConfigureAwait(false);
-        var execution = await VerifySimulationAsync(value, call.ProgramId, binding, cancellationToken).ConfigureAwait(false);
-        VerifyRequestedAbi(call, execution);
-        return new(value, execution);
+        Programs.Address(sender);
+        return SimulateCoreAsync(call, sender, cancellationToken);
     }
+
+    private async Task<ProgramSimulation> SimulateCoreAsync(ProgramCall call, string? sender, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        var data = await Rpc.CallAsync(Programs.AddressValue, call.EncodeCalldata(simulate: true), cancellationToken, sender).ConfigureAwait(false);
+        var result = ProgramsAbi.ReadWord(data, 0);
+        var signed = result >= (BigInteger.One << 255) ? result - (BigInteger.One << 256) : result;
+        if (signed < int.MinValue || signed > int.MaxValue) throw Decode();
+        var kind = checked((byte)ProgramsAbi.ReadWord(data, 1, 8));
+        if (kind is < 1 or > 3) throw Decode();
+        var response = ProgramsAbi.ReadBytes(data, 2, 96, MaximumProgramBytes);
+        return new(JsonValue.String(Programs.Hex(data)), (int)signed, kind, response);
+    }
+
     public async Task<ProgramSubmission> SubmitAsync(ProgramCall call, IdempotencyKey idempotencyKey, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(call); if (!Hex32(idempotencyKey.Value)) throw Invalid();
-        if (call.NativeCall is not null && _protocolVersion != 3) throw Invalid();
-        var binding = DecodeSignedCall(call); var key = Convert.FromHexString(idempotencyKey.Value);
-        if (!CryptographicOperations.FixedTimeEquals(binding.IdempotencyKey, key)) throw Invalid();
-        JsonValue value;
-        try
-        {
-            value = await _client.ProgramAsync("program.call", Encode(call), idempotencyKey,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-        catch (PlatformSdkException error) when (error.Code == SdkErrorCode.UnknownOutcome)
-        {
-            return UnknownSubmission(binding.ActivityId, idempotencyKey.Value, call.SignedActivity);
-        }
-        try
-        {
-            var submission = await VerifySubmissionAsync(value, call.ProgramId, binding.ActivityId, idempotencyKey.Value,
-                call.SignedActivity, cancellationToken).ConfigureAwait(false);
-            if (submission.Execution is { } execution) VerifyRequestedAbi(call, execution);
-            return submission;
-        }
-        catch (PlatformSdkException error) when (error.Code is SdkErrorCode.DecodeFailure or SdkErrorCode.VerificationFailure)
-        {
-            return UnknownSubmission(binding.ActivityId, idempotencyKey.Value, call.SignedActivity);
-        }
+        ArgumentNullException.ThrowIfNull(call);
+        if (!Hex32(idempotencyKey.Value)) throw Invalid();
+        _ = ReceiptPins();
+        var raw = call.SignedTransaction;
+        Programs.BindTransaction(raw, call.EncodeCalldata());
+        var hash = await SendTransactionAsync(raw, cancellationToken).ConfigureAwait(false);
+        var value = await Rpc.SendAsync("pax_sequencerReceipt", [JsonValue.String(Programs.Hex(hash))], cancellationToken).ConfigureAwait(false);
+        if (value is JsonValue.NullValue || Map(value).TryGetValue("rung", out var rung) && rung is JsonValue.StringValue { Value: "submitted" })
+            return new(value, "pending", hash, idempotencyKey.Value, raw, null, true);
+        var receipt = VerifyReceiptAsync(value, raw, ReceiptPins());
+        return new(value, receipt.Status == 1 ? "executed" : "refused", hash, idempotencyKey.Value, raw, receipt, true);
     }
-    public async Task<ProgramSubmission> ReceiptAsync(IdempotencyKey idempotencyKey, byte[] expectedActivityId, string verificationLevel, CancellationToken cancellationToken = default)
+
+    public async Task<ProgramSubmission> ReceiptAsync(IdempotencyKey idempotencyKey, byte[] expectedTransactionHash, string verificationLevel, CancellationToken cancellationToken = default)
     {
-        if (!Hex32(idempotencyKey.Value)) throw Invalid(); var activity = Identifier(expectedActivityId);
-        var value = await _client.ProgramAsync("program.receipt", JsonValue.Object(new Dictionary<string, JsonValue>
-        {
-            ["idempotency_key"] = JsonValue.String(idempotencyKey.Value),
-            ["expected_activity_id"] = JsonValue.String(activity),
-            ["requested_verification_level"] = JsonValue.String(Level(verificationLevel))
-        }),
-            pathParameters: new Dictionary<string, string> { ["idempotency_key"] = idempotencyKey.Value }, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return await VerifySubmissionAsync(value, null, expectedActivityId, idempotencyKey.Value, null, cancellationToken).ConfigureAwait(false);
+        if (!Hex32(idempotencyKey.Value) || _didId is null) throw Invalid();
+        _ = Identifier(expectedTransactionHash); _ = Level(verificationLevel);
+        var data = ProgramsAbi.Encode("2eda9f2b", ProgramsAbi.Fixed(_didId), ProgramsAbi.Fixed(Convert.FromHexString(idempotencyKey.Value)));
+        var output = await Rpc.CallAsync(Programs.AuthAddress, data, cancellationToken).ConfigureAwait(false);
+        var recorded = ProgramsAbi.ReadBytes(output, 0, 32, MaximumProgramBytes);
+        var submission = await ActivityAsync(expectedTransactionHash, verificationLevel, cancellationToken).ConfigureAwait(false);
+        if (recorded.Length > 0 && (submission.SequencerReceipt is null || !Fixed(recorded, submission.SequencerReceipt.CanonicalBytes))) throw Verify();
+        return new(submission.Value, submission.State, expectedTransactionHash, idempotencyKey.Value,
+            submission.RetainedSignedActivity, submission.SequencerReceipt, true);
     }
-    public async Task<ProgramSubmission> ActivityAsync(byte[] activityId, string verificationLevel, CancellationToken cancellationToken = default)
+
+    public async Task<ProgramSubmission> ActivityAsync(byte[] transactionHash, string verificationLevel, CancellationToken cancellationToken = default)
     {
-        var id = Identifier(activityId);
-        var value = await _client.ProgramAsync("program.activity", JsonValue.Object(new Dictionary<string, JsonValue>
-        { ["activity_id"] = JsonValue.String(id), ["requested_verification_level"] = JsonValue.String(Level(verificationLevel)) }),
-            pathParameters: new Dictionary<string, string> { ["activity_id"] = id }, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return await VerifySubmissionAsync(value, null, activityId, null, null, cancellationToken).ConfigureAwait(false);
+        _ = Identifier(transactionHash); _ = Level(verificationLevel);
+        var transaction = await Rpc.SendAsync("eth_getTransactionByHash", [JsonValue.String(Programs.Hex(transactionHash))], cancellationToken).ConfigureAwait(false);
+        if (transaction is JsonValue.NullValue) return new(transaction, "unknown", transactionHash, "", null, null, true);
+        var map = Map(transaction);
+        if (!Fixed(Programs.Unhex(Text(map, "hash")), transactionHash)) throw Verify();
+        var rawValue = await Rpc.SendAsync("eth_getRawTransactionByHash", [JsonValue.String(Programs.Hex(transactionHash))], cancellationToken).ConfigureAwait(false);
+        var raw = Programs.Data(rawValue); Programs.RequireSignedTransaction(raw);
+        if (!Fixed(Programs.TransactionHash(raw), transactionHash)) throw Verify();
+        var view = await Rpc.SendAsync("pax_sequencerReceipt", [JsonValue.String(Programs.Hex(transactionHash))], cancellationToken).ConfigureAwait(false);
+        if (view is JsonValue.NullValue || Map(view).TryGetValue("rung", out var rung) && rung is JsonValue.StringValue { Value: "submitted" })
+            return new(view, "pending", transactionHash, "", raw, null, true);
+        var receipt = VerifyReceiptAsync(view, raw, ReceiptPins());
+        return new(view, receipt.Status == 1 ? "executed" : "refused", transactionHash, "", raw, receipt, true);
+    }
+
+    public static SequencerReceiptVerification VerifyReceiptAsync(JsonValue view, byte[] rawTransaction, ReceiptKeys keys) =>
+        LocalVerifier.VerifySequencerReceipt(JsonSerializer.SerializeToUtf8Bytes(view), rawTransaction, keys);
+
+    private ReceiptKeys ReceiptPins() => _receiptKeys ?? throw Verify();
+
+    private async Task<byte[]> SendTransactionAsync(byte[] raw, CancellationToken cancellationToken)
+    {
+        Programs.RequireSignedTransaction(raw);
+        var expected = Programs.TransactionHash(raw);
+        var result = await Rpc.SendAsync("eth_sendRawTransaction", [JsonValue.String(Programs.Hex(raw))], cancellationToken).ConfigureAwait(false);
+        if (!Fixed(Programs.Data(result), expected)) throw Verify();
+        return expected;
+    }
+
+    private async Task<SequencerReceiptVerification> ReadReceiptAsync(byte[] hash, byte[] raw, CancellationToken cancellationToken)
+    {
+        var view = await Rpc.SendAsync("pax_sequencerReceipt", [JsonValue.String(Programs.Hex(hash))], cancellationToken).ConfigureAwait(false);
+        return VerifyReceiptAsync(view, raw, ReceiptPins());
     }
 
     public static async ValueTask<ReceiptVerification> VerifyReceiptAsync(byte[] canonicalReceipt, AuthorizedReceiptBatch authorized,
@@ -497,7 +579,7 @@ public sealed class ProgramsClient
         if (abi is GeneratedReceiptContract.ProgramAbiV3 or GeneratedReceiptContract.ProgramAbiV4 && !signed) throw Verify();
         return new ProgramDiscovery(program, lifecycle, version, codeHash, abi, receiptDigest, stateRoot,
             observedSequence, observedAt, validThrough, signed ? "sequencer-signed-discovery-head" : "server-side-receipt-verification-only")
-            { DeploymentReceiptDigest = deployment };
+        { DeploymentReceiptDigest = deployment };
     }
 
     private static bool InterfaceHeaderBound(byte[] bytes, byte[] codeHash, ushort abi)
@@ -1399,7 +1481,7 @@ public sealed class ProgramsClient
     }
     private static string Capability(ProgramCapability value) => value switch { ProgramCapability.StorageRead => "storage_read", ProgramCapability.StorageWrite => "storage_write", ProgramCapability.Transfer => "transfer", ProgramCapability.EmitEvent => "emit_event", ProgramCapability.Compose => "compose", _ => throw Invalid() };
     private static string Identifier(byte[] value) => value?.Length == 32 ? Convert.ToHexString(value).ToLowerInvariant() : throw Invalid();
-    private static string Level(string value) => value == "sequencer-signed" ? value : throw Invalid();
+    private static string Level(string value) => value is "sequencer-signed" or "receipted" ? value : throw Invalid();
     private static bool Hex32(string value) => value.Length == 64 && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
     private static PlatformSdkException Invalid() => new(SdkErrorCode.InvalidArgument, RetryClass.Never);
     private static PlatformSdkException Decode() => new(SdkErrorCode.DecodeFailure, RetryClass.Never);
@@ -1445,5 +1527,241 @@ public sealed class ProgramsClient
         }
         internal byte[] Rest() => Take(_bytes.Length - _offset);
         internal void Finish() { if (_offset != _bytes.Length) throw new InvalidDataException(); }
+    }
+}
+
+public sealed class UnsignedProgramTransaction
+{
+    private readonly byte[] _data;
+    public int Type => 2;
+    public ulong ChainId => 125;
+    public string To => Programs.AddressValue;
+    public string From { get; }
+    public byte[] Data => _data.ToArray();
+    public ulong Nonce { get; }
+    public ulong Gas { get; }
+    public BigInteger MaxFeePerGas { get; }
+    public BigInteger MaxPriorityFeePerGas { get; }
+    public BigInteger Value => BigInteger.Zero;
+
+    public UnsignedProgramTransaction(string sender, byte[] data, ulong nonce, ulong gas,
+        BigInteger maxFeePerGas, BigInteger maxPriorityFeePerGas)
+    {
+        Programs.Address(sender);
+        if (data.Length < 4 || maxPriorityFeePerGas < 0 || maxFeePerGas < maxPriorityFeePerGas || maxFeePerGas >= (BigInteger.One << 256))
+            throw new ArgumentException("Invalid EIP-1559 transaction");
+        From = sender; _data = data.ToArray(); Nonce = nonce; Gas = gas;
+        MaxFeePerGas = maxFeePerGas; MaxPriorityFeePerGas = maxPriorityFeePerGas;
+    }
+
+    public JsonValue ToJson(bool includeGas = true)
+    {
+        var fields = new Dictionary<string, JsonValue>
+        {
+            ["type"] = JsonValue.String("0x2"),
+            ["chainId"] = JsonValue.String("0x7d"),
+            ["from"] = JsonValue.String(From),
+            ["to"] = JsonValue.String(To),
+            ["nonce"] = JsonValue.String(Programs.Quantity(Nonce)),
+            ["value"] = JsonValue.String("0x0"),
+            ["maxFeePerGas"] = JsonValue.String(Programs.Quantity(MaxFeePerGas)),
+            ["maxPriorityFeePerGas"] = JsonValue.String(Programs.Quantity(MaxPriorityFeePerGas)),
+            ["data"] = JsonValue.String(Programs.Hex(_data)),
+            ["accessList"] = JsonValue.Array([])
+        };
+        if (includeGas) fields["gas"] = JsonValue.String(Programs.Quantity(Gas));
+        return JsonValue.Object(fields);
+    }
+
+    public byte[] SigningPayload => [2, .. ProgramRlp.List(
+        ProgramRlp.Integer(ChainId), ProgramRlp.Integer(Nonce), ProgramRlp.Integer(MaxPriorityFeePerGas),
+        ProgramRlp.Integer(MaxFeePerGas), ProgramRlp.Integer(Gas), ProgramRlp.Bytes(Programs.Unhex(To)),
+        ProgramRlp.Integer(0), ProgramRlp.Bytes(_data), ProgramRlp.List())];
+}
+
+public sealed class Programs : IDisposable
+{
+    public const string AddressValue = "0x000000000000000000000000000000000000101d";
+    public const string AuthAddress = "0x000000000000000000000000000000000000101c";
+    private readonly Uri _endpoint;
+    private readonly HttpClient _http;
+    private readonly bool _ownsHttp;
+    private long _id;
+
+    public Programs(Uri endpoint, HttpClient? httpClient = null)
+    {
+        if (!endpoint.IsAbsoluteUri || endpoint.Scheme is not ("http" or "https") ||
+            !string.IsNullOrEmpty(endpoint.UserInfo) || !string.IsNullOrEmpty(endpoint.Fragment)) throw new ArgumentException("RPC endpoint");
+        _endpoint = endpoint; _ownsHttp = httpClient is null;
+        _http = httpClient ?? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+    }
+
+    public async Task<JsonValue> SendAsync(string method, IReadOnlyList<JsonValue> parameters, CancellationToken cancellationToken = default)
+    {
+        var id = Interlocked.Increment(ref _id);
+        var request = JsonValue.Object(new Dictionary<string, JsonValue>
+        {
+            ["jsonrpc"] = JsonValue.String("2.0"),
+            ["id"] = JsonValue.Integer(id),
+            ["method"] = JsonValue.String(method),
+            ["params"] = JsonValue.Array(parameters)
+        });
+        try
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, _endpoint)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json")
+            };
+            using var response = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var buffer = new MemoryStream(); var block = new byte[8192]; int read;
+            while ((read = await stream.ReadAsync(block, cancellationToken).ConfigureAwait(false)) != 0)
+            {
+                if (buffer.Length + read > 4 * 1_048_576) throw new PlatformSdkException(SdkErrorCode.DecodeFailure, RetryClass.Never);
+                buffer.Write(block, 0, read);
+            }
+            var decoded = JsonSerializer.Deserialize<JsonValue>(buffer.ToArray()) as JsonValue.ObjectValue;
+            if (decoded is null || !decoded.Value.TryGetValue("jsonrpc", out var version) || version is not JsonValue.StringValue { Value: "2.0" } ||
+                !decoded.Value.TryGetValue("id", out var responseId) || responseId is not JsonValue.IntegerValue number || number.Value != id ||
+                decoded.Value.ContainsKey("error") == decoded.Value.ContainsKey("result"))
+                throw new PlatformSdkException(SdkErrorCode.DecodeFailure, RetryClass.Never);
+            if (decoded.Value.ContainsKey("error")) throw new PlatformSdkException(SdkErrorCode.CoreRejection, RetryClass.Never);
+            return decoded.Value["result"];
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (PlatformSdkException) { throw; }
+        catch (JsonException) { throw new PlatformSdkException(SdkErrorCode.DecodeFailure, RetryClass.Never); }
+        catch (Exception error) when (error is HttpRequestException or IOException or OperationCanceledException)
+        {
+            throw method == "eth_sendRawTransaction"
+                ? new PlatformSdkException(SdkErrorCode.UnknownOutcome, RetryClass.UnknownOutcome)
+                : new PlatformSdkException(SdkErrorCode.TransportFailure, RetryClass.Safe);
+        }
+    }
+
+    public async Task<byte[]> CallAsync(string to, byte[] data, CancellationToken cancellationToken = default, string? sender = null)
+    {
+        Address(to);
+        var fields = new Dictionary<string, JsonValue>
+        {
+            ["to"] = JsonValue.String(to),
+            ["data"] = JsonValue.String(Hex(data))
+        };
+        if (sender is not null) { Address(sender); fields["from"] = JsonValue.String(sender); }
+        var call = JsonValue.Object(fields);
+        return Data(await SendAsync("eth_call", [call, JsonValue.String("pending")], cancellationToken).ConfigureAwait(false));
+    }
+
+    public static byte[] TransactionHash(byte[] signedTransaction)
+    {
+        RequireSignedTransaction(signedTransaction);
+        var digest = new KeccakDigest(256); digest.BlockUpdate(signedTransaction, 0, signedTransaction.Length);
+        var output = new byte[32]; digest.DoFinal(output, 0); return output;
+    }
+    internal static void Address(string value)
+    {
+        if (Unhex(value).Length != 20) throw new ArgumentException("EVM address");
+    }
+    internal static string Hex(byte[] value) => "0x" + Convert.ToHexString(value).ToLowerInvariant();
+    internal static byte[] Unhex(string value)
+    {
+        if (!value.StartsWith("0x", StringComparison.Ordinal) || value.Length % 2 != 0) throw new ArgumentException("RPC DATA");
+        return Convert.FromHexString(value[2..]);
+    }
+    internal static byte[] Data(JsonValue value) => value is JsonValue.StringValue text ? Unhex(text.Value) : throw new ArgumentException("RPC DATA");
+    internal static string Quantity(BigInteger value)
+    {
+        if (value < 0) throw new ArgumentException("RPC QUANTITY");
+        return "0x" + (value == 0 ? "0" : value.ToString("x", CultureInfo.InvariantCulture).TrimStart('0'));
+    }
+    internal static BigInteger Quantity(JsonValue value)
+    {
+        if (value is not JsonValue.StringValue text || text.Value.Length < 3 || !text.Value.StartsWith("0x", StringComparison.Ordinal) ||
+            text.Value.Length > 3 && text.Value[2] == '0' || text.Value[2..].Any(c => !(c is >= '0' and <= '9' or >= 'a' and <= 'f')))
+            throw new ArgumentException("RPC QUANTITY");
+        return BigInteger.Parse("0" + text.Value[2..], NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
+    }
+    internal static void RequireSignedTransaction(byte[] raw) => _ = ProgramRlp.Transaction(raw);
+    internal static void BindTransaction(byte[] raw, byte[] expectedData)
+    {
+        var fields = ProgramRlp.Transaction(raw);
+        if (!fields[5].SequenceEqual(Unhex(AddressValue)) || !fields[7].SequenceEqual(expectedData) || fields[6].Length != 0)
+            throw new ArgumentException("Signed transaction does not match the program operation");
+    }
+    public void Dispose() { if (_ownsHttp) _http.Dispose(); }
+}
+
+internal static class ProgramRlp
+{
+    internal static byte[] Integer(BigInteger value) => Bytes(value == 0 ? [] : value.ToByteArray(true, true));
+    internal static byte[] Bytes(byte[] value) => value.Length == 1 && value[0] < 0x80 ? value.ToArray() : Wrap(value, 0x80);
+    internal static byte[] List(params byte[][] fields) => Wrap(fields.SelectMany(value => value).ToArray(), 0xc0);
+    private static byte[] Wrap(byte[] value, int start)
+    {
+        if (value.Length < 56) return [(byte)(start + value.Length), .. value];
+        var size = new BigInteger(value.Length).ToByteArray(true, true);
+        return [(byte)(start + 55 + size.Length), .. size, .. value];
+    }
+    internal static byte[][] Transaction(byte[] raw)
+    {
+        if (raw.Length < 2 || raw.Length > 4 * 1_048_576 || raw[0] != 2) throw new ArgumentException("Signed EIP-1559 transaction required");
+        var offset = 1; var root = Read(raw, ref offset, raw.Length, true);
+        if (offset != raw.Length) throw new ArgumentException("RLP trailing bytes");
+        var fields = new List<byte[]>(); var cursor = 0;
+        while (cursor < root.Length)
+        {
+            var list = root[cursor] >= 0xc0;
+            if (list != (fields.Count == 8)) throw new ArgumentException("EIP-1559 field type");
+            fields.Add(Read(root, ref cursor, root.Length, list));
+        }
+        if (fields.Count != 12) throw new ArgumentException("EIP-1559 field count");
+        BigInteger Number(int index, int size)
+        {
+            var bytes = fields[index];
+            if (bytes.Length > size || bytes.Length > 0 && bytes[0] == 0) throw new ArgumentException("EIP-1559 integer");
+            return new BigInteger(bytes, true, true);
+        }
+        if (Number(0, 32) != 125 || Number(1, 8) > ulong.MaxValue || Number(2, 32) > Number(3, 32) ||
+            Number(4, 8) == 0 || fields[5].Length != 20 || Number(6, 32) != 0 || Number(9, 1) > 1 ||
+            Number(10, 32) == 0 || Number(11, 32) == 0) throw new ArgumentException("EIP-1559 fields");
+        ValidateAccessList(fields[8]);
+        return fields.ToArray();
+    }
+    private static void ValidateAccessList(byte[] bytes)
+    {
+        var offset = 0;
+        while (offset < bytes.Length)
+        {
+            var entry = Read(bytes, ref offset, bytes.Length, true); var cursor = 0;
+            if (Read(entry, ref cursor, entry.Length, false).Length != 20) throw new ArgumentException("Access-list address");
+            var keys = Read(entry, ref cursor, entry.Length, true);
+            if (cursor != entry.Length) throw new ArgumentException("Access-list entry");
+            var keyOffset = 0;
+            while (keyOffset < keys.Length)
+                if (Read(keys, ref keyOffset, keys.Length, false).Length != 32) throw new ArgumentException("Access-list key");
+        }
+    }
+    private static byte[] Read(byte[] bytes, ref int offset, int end, bool list)
+    {
+        if (offset >= end) throw new ArgumentException("RLP truncated");
+        var prefix = bytes[offset++];
+        if (prefix < 0x80)
+        {
+            if (list) throw new ArgumentException("RLP list expected");
+            return [prefix];
+        }
+        if ((prefix >= 0xc0) != list) throw new ArgumentException("RLP type");
+        var start = list ? 0xc0 : 0x80; var length = prefix - start;
+        if (length > 55)
+        {
+            var size = length - 55;
+            if (size > 4 || offset > end - size || bytes[offset] == 0) throw new ArgumentException("RLP length");
+            length = 0;
+            for (var i = 0; i < size; i++) length = checked(length * 256 + bytes[offset++]);
+            if (length < 56) throw new ArgumentException("RLP noncanonical length");
+        }
+        if (offset > end - length || !list && length == 1 && bytes[offset] < 0x80) throw new ArgumentException("RLP value");
+        var result = bytes.AsSpan(offset, length).ToArray(); offset += length; return result;
     }
 }

@@ -5,9 +5,11 @@ use std::time::Duration;
 
 use layerx_client::rpc::evidence::{self, EvidenceError, ProofBundle, Rung};
 use layerx_client::sequencer::{
-    AccountProof, RpcRefusal, SequencerBlock, SequencerEndpoint, SequencerError, StorageProof,
+    AccountProof, RpcRefusal, SequencerEndpoint, SequencerError, StorageProof,
 };
 use serde_json::{json, Value};
+
+type SequencerBlock = layerx_client::sequencer::SequencerBlock;
 
 trait Must<T> {
     fn must(self) -> T;
@@ -50,6 +52,7 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
         "parentHash": hex(&[0xbc; 32]),
         "timestamp": "0x67a1b2c3",
         "transactionsRoot": hex(&[0xde; 32]),
+        "receiptsRoot": hex(&[0xf0; 32]),
         "transactions": []
     });
     let proof_params = json!([hex(&address), [hex(&slots[0])], "0x1234"]);
@@ -168,6 +171,7 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
         parent_hash: [0xbc; 32],
         timestamp: 0x67a1_b2c3,
         transactions_root: [0xde; 32],
+        receipts_root: [0xf0; 32],
         transactions: vec![],
     };
     let expected_bundle = ProofBundle {

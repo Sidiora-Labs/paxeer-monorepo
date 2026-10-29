@@ -10059,3 +10059,379 @@ symbol = "SequencerBlock"
 observed = "Attempts 1 to 5 pass budget_call and stop in the wider dependents build with E0063 missing receipts_root in the layerx-client tests (9.5.3, e841fd694); the task's own files are complete."
 assumption = "Not a task defect; the task re-qualifies once 9.5.9 lands."
 severity = "major"
+
+[finding.18.964.1.2]
+task = "18.964.1"
+file = "sdk/launchpad/shared/config/deployment/current.json"
+symbol = "Current"
+observed = "Attempts 1 to 4 pin deployment.Current(), which since 16ee6fd09 describes the v6.12.0 generation (activation 37220320) while the recorded chain-125 fixture holds the erc1967 generation whose runtime hashes validateCode (rpc.go:922, :952) compares; no spec task touched the deployment package."
+assumption = "Decision.1814 adds a reviewed history with Approved(activationHeight) in 18.1075.1, which 18.964.1 now requires."
+severity = "major"
+
+[finding.12.6.3.2]
+task = "12.6.3"
+file = "services/wallet/gateway/src/provision/state.ts:519-542"
+symbol = "provisionAccount"
+observed = "Attempts 1 and 2 could not express 'charged to the DID being bound': the station resolves budget keys by account (station.rs:664-693) and requires budget_key(account) == quote.did (station.rs:911); the gateway attestor client lacks the eip7702_authorization sign kind and account_provisioning has no station columns."
+assumption = "Decision.1815 keys the sponsored bind by the account, adds migration 020 and the sign kind, and gates the task on a loopback station endpoint."
+severity = "major"
+
+[finding.10.92.1.2]
+task = "10.92.1"
+file = "services/human/crates/layerx-human-service/src/server/production_reads.rs:378-392"
+symbol = "VerifiedLegEvidence"
+observed = "Attempts 1 and 2 had no signed receipt bytes, receipt key entry or inclusion height in the leg evidence, so PortableReceiptV2::export could not be built; the evidence structs belong to 10.2.4 (wave 14)."
+assumption = "Decision.1816 extends the evidence in 10.2.4 and moves 10.92.1 behind it (wave 15) with a layerx-portable path dependency."
+severity = "major"
+
+[finding.4.23.3.2]
+task = "4.23.3"
+file = "services/launchpad/user/internal/account/account_test.go:59"
+symbol = "fixture"
+observed = "Attempt 1 and the sibling tasks 4.23.4, 4.24.3 and 4.24.7 stopped on fixtures reading handoffs/L35/schema.sql and integration/migrations, which have no commit in any ref; the account_* tables and api_stream have no tracked DDL."
+assumption = "Decision.1817 tracks the schema as embedded goose migrations in 4.23.6 and makes the TestPostgres* tests release gates."
+severity = "major"
+
+[finding.4.27.4.2]
+task = "4.27.4"
+file = "services/launchpad/notifications/schema.sql:8"
+symbol = "v2_id"
+observed = "Attempt 1: the frozen Notification schema requires a UUIDv7 notificationId and a required wallet; 4.27.2's md5(id)::uuid shape fails the pattern and nothing sets Wallet."
+assumption = "Decision.1818 redefines v2_id and sources wallet from X-Actor-Wallet; schema.sql and store.go join the touches."
+severity = "major"
+
+[finding.5.12.2.2]
+task = "5.12.2"
+file = "storage/config/flatkv_parse.go:52"
+symbol = "ParseFlatKVConfig"
+observed = "Attempt 1: Validate refuses DataDir == '' and no toml key sets it, so every ParseFlatKVConfig call errors and the planned panic would stop every node at init; 5.43.1's tests assert that error."
+assumption = "Decision.1819 moves validation to store construction; flatkv_parse.go and its test join the touches."
+severity = "major"
+
+[finding.8.51.2.2]
+task = "8.51.2"
+file = ".github/workflows/platform.yml:1552"
+symbol = "release-verification"
+observed = "Attempts 1 to 4: committed_pipeline() panics because the retention upload step carries if: always(), which the release validator (main.rs:1026-1032) does not admit on verification steps."
+assumption = "The workflow line is deleted (No Weakening forbids widening the validator); platform.yml joins the touches and 16.5.6 follows by its requires."
+severity = "minor"
+
+[finding.18.1121.1.3]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:590"
+symbol = "PAYER_DID"
+observed = "Attempt 6 (aed26448d): build, daemon_bound (11) and read (4) tests pass; 16 web tests fail because the tool sends LAYERX-PAYER-DID over eip155:1337 while the seller recordings carry LAYERX-PAYER-ADDRESS on eip155:125."
+assumption = "Decision.1820 names the payer by address in the web binding and replays the recordings as recorded."
+severity = "major"
+
+[finding.9.3.3.1]
+task = "9.3.3"
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs:61"
+symbol = "unknown_submission_resolves_to_executed_from_a_signed_receipt"
+observed = "Attempts 1 to 4 panic for a missing PAXEER_X_UNKNOWN_RECEIPT_LOOKUP_FIXTURE before any assertion; the gate names tests that require an owned real sequencer."
+assumption = "Decision.1821 moves the gate tests to a loopback sequencer endpoint and keeps the real variant as a release gate."
+severity = "major"
+
+[finding.8.44.1.2]
+task = "8.44.1"
+file = "sdk/platform/swift/Package.swift"
+symbol = "swift-build"
+observed = "Attempts 1 to 5 stopped before the package build because the Swift toolchain could not load libxml2.so.2 in the environment that runs the gates."
+assumption = "The environment now installs the toolchain's missing shared libraries before the build step; attempt 6 carries the attempt 5 candidate unchanged."
+severity = "minor"
+
+[finding.13.27.1.9]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+symbol = "prepareSandboxExecute"
+observed = "Attempt 27 fails with LXP_ERR_CONTEXT_MISMATCH (-213) because the interface bytes carry ABI 1 while deploy and call carry abiVersion 3; the runtime's interface check (ffi_interface.rs:469-474, :549-552) rejects the mismatch."
+assumption = "The test writes ABI 3 in the interface field; no kernel or runtime change (do_11)."
+severity = "major"
+
+[finding.13.34.4.3]
+task = "13.34.4"
+file = "precompiles/layerxprograms/submit.go:52"
+symbol = "submit"
+observed = "Attempt 6 could not present a reused actor sequence through submit, which derives the sequence itself (:61, :65, :88); the test cannot assert the refusal that way."
+assumption = "Decision.1822 drives both calls through lxphost.ExecuteActivity and drops the receipt-by-hash readback."
+severity = "major"
+
+[finding.13.30.3.3]
+task = "13.30.3"
+file = "programs/crates/layerx-programs-arbiter/src/authority.rs:24-42"
+symbol = "derive"
+observed = "Attempt 5 failed the crate build: epoch and batch reads moved onto VerifiedAdmissionPrestate, which has no such accessors, and step.rs:411-422 and market.rs:148-201 still passed header and receipt_proof; main builds the crate and it is not on known-broken-crates.json."
+assumption = "Decision.1823 keeps the header parameter, replaces only the receipt proof and adds step.rs and market.rs to the task."
+severity = "major"
+
+[finding.10.98.5.2]
+task = "10.98.5"
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs:4-6"
+symbol = "no_retired_layerx_client_module_paths"
+observed = "Attempt 3 left the six src files clean; 11 retired paths remain in the three node-fixture tests, which 10.4.3 already recorded must stay on layerx_client::lni until AgentRuntime::connect leaves lni::transport::Limits (10.3.1)."
+assumption = "Decision.1824 scopes the scan to the src files and moves the three tests to 10.98.15 after 10.3.1."
+severity = "minor"
+
+[finding.10.98.7.1]
+task = "10.98.7"
+file = "services/human/crates/layerx-human-kms/src/attestor.rs:793"
+symbol = "sign_activity"
+observed = "Attempt 4 keeps layerx_crypto::disclosure::bind in src/attestor.rs and tests/attestor.rs:863 because do_3 forbade a behaviour change and bind_call signs 65-byte EVM calls; the scan fails on both files."
+assumption = "Decision.1825 lets sign_activity take the Eip1559Call and from and the tests assert the EVM call API (do_6)."
+severity = "major"
+
+[finding.10.98.9.2]
+task = "10.98.9"
+file = "services/human/crates/layerx-human-service/tests/binding.rs:142"
+symbol = "mark_executed"
+observed = "Attempt 3 fails to compile the test with 5 errors: SubmissionState::Acknowledged, sign_disclosed_call over Prepared, attach_external_signature and verify_before_submit over Prepared and a 32-byte key, Outbox::enqueue with 4 arguments; all are the retired layerx_agentd API."
+assumption = "Decision.1825 rewrites the test against SigningPreparation, the 20-byte signer address and enqueue(store, tenant, raw) (do_5)."
+severity = "major"
+
+[finding.18.911.1.10]
+task = "18.911.1"
+file = "tests/programs/test_market_attestation.c"
+symbol = "advance_batch"
+observed = "Attempt 18 fails two op-14 cases with -736 (callback-failure stage 05 status -3): the driver increments the height without finalising the occupancy batch, so settlement sees BatchRegression."
+assumption = "Decision.1826: the driver finalises the batch before advancing; no host change."
+severity = "major"
+
+[finding.18.1121.1.4]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:753"
+symbol = "payer_accounts"
+observed = "Attempt 7: daemon_bound and read tests pass; the metered web tests fail with OfferMismatch(payer) because the accounts derive from payer_did while the recorded offers carry the address-bound ledger account."
+assumption = "Decision.1827: derive the accounts through accountId(owner, asset) of the payer address."
+severity = "major"
+
+[finding.9.20.1.1]
+task = "9.20.1"
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs:178"
+symbol = "attach_external_signature"
+observed = "Attempt 1: four E0308 errors; the shared test support still calls the retired Prepared/64-byte signing API after 18.1131.1."
+assumption = "The support module joins the task's touches and is ported to SigningPreparation (do_N)."
+severity = "major"
+
+[finding.9.2.4.1]
+task = "9.2.4"
+file = "services/agent/crates/layerx-agentd/src/session_control.rs:687"
+symbol = "prepare"
+observed = "Attempts 2 and 3: E0277 because prepare's error type changed to OwnerRotation while the caller converts with ? into HumanOperationError."
+assumption = "Task-introduced; session_control.rs joins the touches (do_N)."
+severity = "major"
+
+[finding.9.5.9.1]
+task = "9.5.9"
+file = "services/agent/crates/layerx-client/tests/sequencer.rs:803"
+symbol = "SequencerBlock"
+observed = "Attempts 2 and 3: E0063 missing receipts_root in a third struct literal outside the task's touches."
+assumption = "tests/sequencer.rs joins the touches (do_3)."
+severity = "minor"
+
+[finding.10.3.1.2]
+task = "10.3.1"
+file = "services/human/crates/layerx-human-service/src/server/production_reads.rs:356"
+symbol = "verification_status"
+observed = "Attempt 3: three errors (E0599, E0061 x2) at the export verify callers after the settlement-domain-free signature change."
+assumption = "production_reads.rs joins the touches (do_N)."
+severity = "major"
+
+[finding.9.13.2.1]
+task = "9.13.2"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:962"
+symbol = "HumanPrepare"
+observed = "Attempt 4: six E0560 errors; the HumanPrepare constructors in agent_rpc_dispatch.rs and agent_rpc_wire.rs kept the old field names after the rename."
+assumption = "Both files join the touches (do_N)."
+severity = "major"
+
+[finding.11.0.9.1]
+task = "11.0.9"
+file = "services/interop/crates/x-websearch/src/payment.rs:59"
+symbol = "PAYER_DID"
+observed = "Attempt 1: the completion gate reports the retired surface interface.11.rs-xws-payer-did present; 11.34.7 kept the constant."
+assumption = "Decision.1828: 11.34.8 retires it and 11.0.9 requires it; the gate is unchanged."
+severity = "major"
+
+[finding.8.44.1.3]
+task = "8.44.1"
+file = "sdk/platform/swift/Package.swift"
+symbol = "swift-build"
+observed = "Attempt 6: the toolchain still cannot load libxml2.so.2 after the library install because the environment that runs the gates ships libxml2 under a newer soname."
+assumption = "The environment now provides the toolchain's libxml2.so.2 before the build; attempt 7 carries the attempt 5 candidate unchanged."
+severity = "minor"
+
+[finding.13.34.4.4]
+task = "13.34.4"
+file = "precompiles/layerxprograms/replay_test.go:48"
+symbol = "ExecuteActivity"
+observed = "Attempt 7: the first call returns -207 because ExecuteActivity leaves FeeLimit zero and the kernel refuses a fee limit below the execution ceiling."
+assumption = "Decision.1829: the test builds the Activity with FeeLimit and drives Host.Execute."
+severity = "major"
+
+[finding.10.98.7.2]
+task = "10.98.7"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:8856"
+symbol = "sign_activity"
+observed = "Attempt 5: the KMS crate builds; the human-service caller of sign_activity keeps the old five-argument form and the 64-byte width, so the dependent crate fails."
+assumption = "The call site joins the touches (do_N)."
+severity = "major"
+
+[finding.8.98.6.1]
+task = "8.98.6"
+file = "services/platform/hosted/core/src/main.rs:1"
+symbol = "caps_reads"
+observed = "Attempt 3: E0583 after deleting caps_reads.rs; the module declaration lives in main.rs outside the touches."
+assumption = "main.rs joins the touches; 8.98.5 requires 8.98.6."
+severity = "major"
+
+[finding.8.98.5.2]
+task = "8.98.5"
+file = "services/platform/hosted/core/src/lib.rs:432"
+symbol = "VerifiedEffectiveAsset"
+observed = "Attempt 3: nine errors referencing rpc items layerx-client does not export (transport, RootSelector, VerifiedEffectiveAsset, verify_*_evidence, account::module_state)."
+assumption = "do_N lists the real rpc surface; mapping per decision.1813."
+severity = "major"
+
+[finding.8.98.7.2]
+task = "8.98.7"
+file = "services/platform/hosted/gateway/tests/local/build.rs:20"
+symbol = "LAYERX_TEST_CORE_BIN"
+observed = "Attempt 3 ran an earlier build command compiling tests/local, whose build script requires a parent-built core binary and panicked."
+assumption = "The gate now builds only the scan target; compiling tests/local is a release gate."
+severity = "minor"
+
+[finding.8.98.8.2]
+task = "8.98.8"
+file = "services/platform/hosted/gateway/tests/local/build.rs:20"
+symbol = "LAYERX_TEST_CORE_BIN"
+observed = "Attempt 3: same build-script requirement as 8.98.7."
+assumption = "Same resolution as 8.98.7."
+severity = "minor"
+
+[finding.8.98.10.2]
+task = "8.98.10"
+file = "services/platform/hosted/node/tests/probe/src/main.rs"
+symbol = "no_retired_layerx_client_module_paths"
+observed = "Attempt 4: five retired paths remain (lni, client, head, caps, read); the port was not finished."
+assumption = "The gate's list is the worklist (do_N)."
+severity = "minor"
+
+[finding.10.98.2.1]
+task = "10.98.2"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs"
+symbol = "no_retired_layerx_client_module_paths_w2"
+observed = "Attempt 2: provider.rs still names layerx_client::lni."
+assumption = "Worklist in do_N."
+severity = "minor"
+
+[finding.10.98.4.1]
+task = "10.98.4"
+file = "services/human/crates/layerx-human-service/tests/withdraw.rs"
+symbol = "no_retired_layerx_client_module_paths_w2"
+observed = "Attempt 2: agent_runtime.rs (lni) and tests/withdraw.rs (submit, evidence) still name retired paths."
+assumption = "Worklist in do_N."
+severity = "minor"
+
+[finding.10.98.6.1]
+task = "10.98.6"
+file = "services/human/crates/layerx-human-test-support/src/evidence_node.rs"
+symbol = "no_retired_layerx_client_module_paths"
+observed = "Attempt 2: evidence_node.rs still names layerx_client::lni."
+assumption = "Worklist in do_N; waits for 10.25.4."
+severity = "minor"
+
+[finding.10.98.1.2]
+task = "10.98.1"
+file = "services/human/crates/layerx-explorer-index/src/mirror.rs:59"
+symbol = "MirrorVerifier"
+observed = "Attempt 3 compiled src/mirror.rs, deleted at main by 18.1153.1; the candidate restored it."
+assumption = "Rebase; the file stays deleted (do_N)."
+severity = "minor"
+
+[finding.10.98.13.1]
+task = "10.98.13"
+file = "services/human/crates/layerx-explorer-index/src/mirror.rs:59"
+symbol = "MirrorVerifier"
+observed = "Attempt 3's dependents check failed in layerx-explorer-index src/mirror.rs before 18.1153.1 landed."
+assumption = "Rebase; the file stays deleted (do_N)."
+severity = "minor"
+
+[finding.18.964.1.3]
+task = "18.964.1"
+file = "services/launchpad/indexer/internal/runtimedocs/paxeer_test.go:51"
+symbol = "realInputs"
+observed = "Attempt 5 wrote a runtimedocs testdata copy of the historical manifest, outside the task's files; do_1 and do_2 disagreed."
+assumption = "Decision.1830: load from the shared deployment history."
+severity = "minor"
+
+[finding.8.42.8.2]
+task = "8.42.8"
+file = "sdk/platform/jvm"
+symbol = "portableVectorV5Verifies"
+observed = "Attempt 4 (00:16Z) predates 18.1184.1's JVM verifier; local verification of the V5 vector failed."
+assumption = "Re-qualified on current main after 18.1184.1."
+severity = "minor"
+
+[finding.18.1065.1.6]
+task = "18.1065.1"
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+symbol = "reports every readiness component up"
+observed = "Attempt 10 predates 12.6.3; the readiness list came back empty."
+assumption = "Re-qualified on current main after 12.6.3."
+severity = "minor"
+
+[finding.18.1151.1.6]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:276"
+symbol = "owner send authorization"
+observed = "Attempt 10: both key-management providers refuse the kernel send authorization (issue #1169) until 10.0.3 ports the callers."
+assumption = "Waits for 10.0.3 (requires)."
+severity = "major"
+
+[finding.13.27.1.10]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go:211"
+symbol = "registerAccount"
+observed = "Attempt 28: the opt-in registerAccount reverts LXP_VERSION_UNSUPPORTED because the program carries ABI 3 and no account-profile record exists."
+assumption = "Decision.1831: the test seeds the owner and profile records and deploys at ABI 3."
+severity = "major"
+
+[finding.18.1121.1.5]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:1263"
+symbol = "purpose_of"
+observed = "Attempt 8: 12 web tests refuse OfferMismatch(purpose) and 4 refuse PaymentArtifact(receipt); the tool hashes the DID key and checks an asset-module send while the seller hashes the receiver address and reads the PaymentExact log."
+assumption = "Decision.1832: receiver_address in WebConfig; check_receipt mirrors verify_receipt."
+severity = "major"
+
+[finding.10.25.1.1]
+task = "10.25.1"
+file = "services/human/crates/layerx-human-test-support/src/lib.rs:157"
+symbol = "verification_defaults"
+observed = "Attempts 2 and 3: E0308, BTreeMap<TenantId, Rung> where StartupConfig expects BTreeMap<TenantId, VerificationLevel>."
+assumption = "Decision.1833: VerificationLevel::CHECKPOINT_FINALISED, whose rung() is Committed."
+severity = "major"
+
+[finding.13.30.3.4]
+task = "13.30.3"
+file = "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:132"
+symbol = "Fixture::load"
+observed = "Attempt 6: both gate tests panic because the loader demands native_admission and native_replay captures the in-tree vector does not carry."
+assumption = "Decision.1834: the gate tests verify receipt_keys from the vector; derive over a genuine receipt is a release gate."
+severity = "major"
+
+[finding.18.1065.1.7]
+task = "18.1065.1"
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts:267"
+symbol = "provision"
+observed = "Attempt 11: provisioning reaches active and bound; the assertion expects a bind transaction from the address, which the station-sponsored flow never sends."
+assumption = "Decision.1835: the e2e asserts the executeSponsored transaction."
+severity = "major"
+
+[finding.9.94.1.1]
+task = "9.94.1"
+file = "services/agent/crates/layerx-agentd/src/read/program_node.rs:268"
+symbol = "restore_verified"
+observed = "Attempt 1: no change; the adapter is imported outside the touches and the budget caller needs a proof-verified read a bare eth_call cannot provide."
+assumption = "Decision.1836: touches widened; operation read via eth_call, budget read via the registry snapshot."
+severity = "major"

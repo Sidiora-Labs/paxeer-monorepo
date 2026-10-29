@@ -4,12 +4,73 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 
 	layerx "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
 )
+
+type operationDescriptor struct {
+	Plane       string `json:"plane"`
+	Name        string `json:"name"`
+	Method      string `json:"method"`
+	Path        string `json:"path"`
+	Request     string `json:"request"`
+	Response    string `json:"response"`
+	Idempotency bool   `json:"idempotency"`
+	Bodyless    bool   `json:"bodyless"`
+}
+
+type operations map[string][]operationDescriptor
+
+func (catalog *operations) UnmarshalJSON(encoded []byte) error {
+	decoder := json.NewDecoder(strings.NewReader(string(encoded)))
+	opening, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	if opening != json.Delim('{') {
+		return fmt.Errorf("operations must be keyed by contract ID")
+	}
+	result := make(operations)
+	validID := regexp.MustCompile(`^O([1-9]|[1-7][0-9])$`)
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		id, ok := token.(string)
+		if !ok || !validID.MatchString(id) {
+			return fmt.Errorf("invalid operation ID %v", token)
+		}
+		if _, exists := result[id]; exists {
+			return fmt.Errorf("duplicate operation ID %s", id)
+		}
+		var descriptors []operationDescriptor
+		if err := decoder.Decode(&descriptors); err != nil {
+			return fmt.Errorf("%s: %w", id, err)
+		}
+		if len(descriptors) == 0 {
+			return fmt.Errorf("%s has no SDK operations", id)
+		}
+		result[id] = descriptors
+	}
+	if _, err := decoder.Token(); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return fmt.Errorf("unexpected data after operations: %v", err)
+	}
+	if len(result) == 0 {
+		return fmt.Errorf("operation catalogue is empty")
+	}
+	*catalog = result
+	return nil
+}
 
 type requestVector struct {
 	Method  string                     `json:"method"`
@@ -34,12 +95,71 @@ type responseVector struct {
 func main() {
 	repo := flag.String("repo", "../../..", "LayerX repository root")
 	flag.Parse()
+	ids, err := verifyOperationParity(*repo)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "layerx-go-conformance:", err)
+		os.Exit(1)
+	}
 	if err := verifyHumanVectors(*repo); err != nil {
 		fmt.Fprintln(os.Stderr, "layerx-go-conformance:", err)
 		os.Exit(1)
 	}
 	metadata := layerx.PlatformSDKGo()
-	fmt.Printf("agent_operations=%d human_operations=%d human_golden_triplets=%d\n", metadata.AgentOperations, metadata.HumanOperations, metadata.HumanOperations)
+	fmt.Printf("agent_operations=%d human_operations=%d human_golden_triplets=%d operation_ids=%s\n", metadata.AgentOperations, metadata.HumanOperations, metadata.HumanOperations, strings.Join(ids, ","))
+}
+
+func verifyOperationParity(repo string) ([]string, error) {
+	catalog, err := readJSON[struct {
+		Schema     int        `json:"schema"`
+		Operations operations `json:"operations"`
+	}](filepath.Join(repo, "sdk", "platform", "conformance", "operations.json"))
+	if err != nil {
+		return nil, err
+	}
+	if catalog.Schema != 1 || len(catalog.Operations) == 0 {
+		return nil, fmt.Errorf("invalid operation catalogue schema or missing operations")
+	}
+	seen := make(map[string]string)
+	ids := make([]string, 0, len(catalog.Operations))
+	for id := range catalog.Operations {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		for _, entry := range catalog.Operations[id] {
+			key := entry.Plane + ":" + entry.Name
+			if previous, exists := seen[key]; exists {
+				return nil, fmt.Errorf("%s: operation %s already belongs to %s", id, key, previous)
+			}
+			seen[key] = id
+			switch entry.Plane {
+			case "agent":
+				operation := layerx.AgentOperation(entry.Name)
+				if !operation.Valid() || operation.RequiresIdempotency() != entry.Idempotency {
+					return nil, fmt.Errorf("%s: agent SDK diverges for %s", id, entry.Name)
+				}
+			case "human":
+				operation := layerx.HumanOperation(entry.Name)
+				metadata, ok := operation.Metadata()
+				if !ok || metadata.Method != entry.Method || metadata.Path != entry.Path || metadata.Request != entry.Request || metadata.Response != entry.Response || operation.RequiresIdempotency() != entry.Idempotency || entry.Bodyless != (metadata.Request == "Empty") {
+					return nil, fmt.Errorf("%s: human SDK diverges for %s", id, entry.Name)
+				}
+			default:
+				return nil, fmt.Errorf("%s: unknown SDK plane %q", id, entry.Plane)
+			}
+		}
+	}
+	for _, operation := range layerx.AllAgentOperations() {
+		if _, exists := seen["agent:"+string(operation)]; !exists {
+			return nil, fmt.Errorf("agent SDK operation %s has no contract ID", operation)
+		}
+	}
+	for _, operation := range layerx.AllHumanOperations() {
+		if _, exists := seen["human:"+string(operation)]; !exists {
+			return nil, fmt.Errorf("human SDK operation %s has no contract ID", operation)
+		}
+	}
+	return ids, nil
 }
 
 func verifyHumanVectors(repo string) error {

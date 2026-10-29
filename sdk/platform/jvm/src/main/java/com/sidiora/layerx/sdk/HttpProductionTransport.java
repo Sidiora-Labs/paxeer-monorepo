@@ -328,7 +328,7 @@ public final class HttpProductionTransport implements ProductionTransport {
         return builder.build();
     }
 
-    private byte[] agentEnvelope(Call call, String requestId, boolean mutating) throws IOException {
+    byte[] agentEnvelope(Call call, String requestId, boolean mutating) throws IOException {
         String operation = call.operation().wireName();
         OperationCatalog.requireKnown(OperationCatalog.Plane.AGENT, operation);
         if (!call.pathParameters().values().isEmpty()) throw PlatformSdkException.invalidArgument();
@@ -343,7 +343,7 @@ public final class HttpProductionTransport implements ProductionTransport {
         if (!bootstrap && session == null) throw new PlatformSdkException(
             PlatformSdkException.Code.CAPABILITY_REFUSAL, PlatformSdkException.Retry.NEVER, null, null, null);
         var body = mapper.createObjectNode();
-        body.put("version", 1);
+        body.put("version", 2);
         body.put("request_id", requestId);
         body.put("operation", operation);
         body.set("request", call.request());
@@ -568,16 +568,20 @@ public final class HttpProductionTransport implements ProductionTransport {
         try {
             JsonNode envelope = mapper.readTree(encoded);
             if (envelope == null || !envelope.isObject()) throw decodeFailure(null);
+            if (!version(envelope.get("version"))) {
+                throw new PlatformSdkException(PlatformSdkException.Code.PROTOCOL_INCOMPATIBILITY,
+                    PlatformSdkException.Retry.NEVER, null, null, null);
+            }
             if (envelope.has("class")) {
                 if (status < 400 || status > 599 || !exactFields(envelope,
-                        "class", "protocol_result_code", "retriability", "request_id", "reason")) {
+                        "version", "class", "protocol_result_code", "retriability", "request_id", "reason")) {
                     throw decodeFailure(null);
                 }
                 String echoed = envelope.get("request_id").textValue();
                 if (!requestId.equals(echoed) && !"0".equals(echoed)) throw decodeFailure(null);
                 throw agentServiceError(envelope);
             }
-            if (status != 200 || !exactFields(envelope, "request_id", "value", "verification_status")
+            if (status != 200 || !exactFields(envelope, "version", "request_id", "value", "verification_status")
                     || !requestId.equals(envelope.get("request_id").textValue())
                     || !validAgentVerification(envelope.get("verification_status"))) {
                 throw decodeFailure(null);
@@ -592,6 +596,10 @@ public final class HttpProductionTransport implements ProductionTransport {
         } catch (IOException | IllegalArgumentException error) {
             throw decodeFailure(null);
         }
+    }
+
+    private static boolean version(JsonNode value) {
+        return value != null && value.isIntegralNumber() && value.canConvertToInt() && value.intValue() == 2;
     }
 
     private static boolean validAgentVerification(JsonNode verification) {

@@ -10,7 +10,12 @@ publish = false
 libc = "0.2"
 layerx-client = { path = "../../services/agent/crates/layerx-client" }
 layerx-types = { path = "../../services/agent/crates/layerx-types" }
+layerx-proof = { path = "../../services/agent/crates/layerx-proof" }
 layerx-crypto = { path = "../../services/agent/crates/layerx-crypto" }
+
+[dev-dependencies]
+ed25519-dalek = "=2.2.0"
+layerx-wire = { path = "../../services/agent/crates/layerx-wire" }
 
 [workspace]
 

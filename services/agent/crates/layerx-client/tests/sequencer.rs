@@ -720,6 +720,7 @@ const BLOCK_HASH: &str = "0x4b1f2c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c
 const PARENT_HASH: &str = "0x9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b";
 const TRANSACTIONS_ROOT: &str =
     "0x1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d";
+const RECEIPTS_ROOT: &str = "0x4444444444444444444444444444444444444444444444444444444444444444";
 
 /// The EIP-155 example: nonce 9, 20 gwei, 21000 gas, 1 ether to 0x3535..35
 /// on chain 1, signed with the key 0x4646..46.
@@ -787,7 +788,7 @@ fn dynamic_fee_transaction(index: u64) -> (Vec<u8>, String) {
 
 fn block(transactions: &str) -> String {
     format!(
-        r#""result":{{"number":"0x3e8","hash":"{BLOCK_HASH}","parentHash":"{PARENT_HASH}","timestamp":"0x67a1b2c3","transactionsRoot":"{TRANSACTIONS_ROOT}","gasLimit":"0x1c9c380","gasUsed":"0x1a9f8","miner":"0x0000000000000000000000000000000000000000","transactions":[{transactions}]}}"#
+        r#""result":{{"number":"0x3e8","hash":"{BLOCK_HASH}","parentHash":"{PARENT_HASH}","timestamp":"0x67a1b2c3","transactionsRoot":"{TRANSACTIONS_ROOT}","receiptsRoot":"{RECEIPTS_ROOT}","gasLimit":"0x1c9c380","gasUsed":"0x1a9f8","miner":"0x0000000000000000000000000000000000000000","transactions":[{transactions}]}}"#
     )
 }
 
@@ -806,6 +807,7 @@ fn full_block_decodes_raw_transactions_in_index_order() {
             parent_hash: decode32(PARENT_HASH),
             timestamp: 0x67a1_b2c3,
             transactions_root: decode32(TRANSACTIONS_ROOT),
+            receipts_root: decode32(RECEIPTS_ROOT),
             transactions: vec![unhex(LEGACY_RAW), dynamic_raw],
         }))
     );

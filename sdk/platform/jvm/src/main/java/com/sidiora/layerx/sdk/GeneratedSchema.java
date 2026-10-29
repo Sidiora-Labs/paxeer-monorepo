@@ -18,6 +18,18 @@ import java.util.Set;
 
 public final class GeneratedSchema {
     private GeneratedSchema() {}
+    public record ProgramTransport(String rpcMethod, String to, List<String> calls) {
+        public ProgramTransport {
+            Objects.requireNonNull(rpcMethod, "rpcMethod");
+            Objects.requireNonNull(to, "to");
+            calls = List.copyOf(Objects.requireNonNull(calls, "calls"));
+        }
+    }
+    public static ProgramTransport programTransport(SchemaTypes.Operation operation) {
+        Objects.requireNonNull(operation, "operation");
+        if (operation.plane() != OperationCatalog.Plane.AGENT) throw PlatformSdkException.invalidArgument();
+        return GeneratedContract.AGENT_OPERATIONS.transport(operation.wireName());
+    }
     public static final class AgentModels {
         private AgentModels() {}
         public record AgentHttpCredential(String tenant, String session_id, String token_id, @JsonSerialize(using = ToStringSerializer.class) @JsonDeserialize(using = SchemaTypes.DecimalU64Deserializer.class) BigInteger generation) implements SchemaTypes.GeneratedResponse {
@@ -380,7 +392,7 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(arguments, "arguments");
             }
         }
-        public record McpNativeWriteV1(JsonNode variant, JsonNode intent, JsonNode preparation, JsonNode canonical_bytes, JsonNode signature, JsonNode signer_public_key) implements SchemaTypes.GeneratedResponse {
+        public record McpNativeWriteV1(JsonNode variant, JsonNode intent, AgentModels.NativePrepareResultV1 preparation, JsonNode canonical_bytes, JsonNode signature, JsonNode signer_public_key) implements SchemaTypes.GeneratedResponse {
             public McpNativeWriteV1 {
                 Objects.requireNonNull(variant, "variant");
                 Objects.requireNonNull(intent, "intent");
@@ -512,33 +524,31 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(purpose, "purpose");
             }
         }
-        public record NativePrepareResultV1(String version, String preparation_id, String canonical_bytes, String signing_preimage, AgentModels.NativeActivityV1 activity, boolean approval_required, String approval_id) implements SchemaTypes.GeneratedResponse {
+        public record NativePrepareResultV1(BigInteger chainId, BigInteger nonce, BigInteger gas, String to, String data) implements SchemaTypes.GeneratedResponse {
             public NativePrepareResultV1 {
-                Objects.requireNonNull(version, "version");
-                Objects.requireNonNull(preparation_id, "preparation_id");
-                Objects.requireNonNull(canonical_bytes, "canonical_bytes");
-                Objects.requireNonNull(signing_preimage, "signing_preimage");
-                Objects.requireNonNull(activity, "activity");
+                Objects.requireNonNull(chainId, "chainId");
+                SchemaTypes.protocolU64(chainId);
+                Objects.requireNonNull(nonce, "nonce");
+                SchemaTypes.protocolU64(nonce);
+                Objects.requireNonNull(gas, "gas");
+                SchemaTypes.protocolU64(gas);
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(data, "data");
             }
         }
-        public record NativeProgramCallFields(AgentModels.ProgramGuestAbi guest_abi, JsonNode entrypoint, JsonNode capabilities_hex, JsonNode access_declaration_hex, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long response_capacity, JsonNode resources) implements SchemaTypes.GeneratedResponse {
+        public record NativeProgramCallFields(String to, String data, BigInteger chainId) implements SchemaTypes.GeneratedResponse {
             public NativeProgramCallFields {
-                Objects.requireNonNull(guest_abi, "guest_abi");
-                Objects.requireNonNull(entrypoint, "entrypoint");
-                Objects.requireNonNull(capabilities_hex, "capabilities_hex");
-                Objects.requireNonNull(access_declaration_hex, "access_declaration_hex");
-                SchemaTypes.protocolBoundedLong(response_capacity, 0, 4294967295L);
-                Objects.requireNonNull(resources, "resources");
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(data, "data");
+                Objects.requireNonNull(chainId, "chainId");
+                SchemaTypes.protocolU64(chainId);
+                if (!ProgramsClient.PROGRAMS_ADDRESS.equals(to)) throw new IllegalArgumentException("invalid program target");
             }
         }
-        public record NativeProgramCallRequest(JsonNode payload_encoding, JsonNode program_id, JsonNode calldata, AgentModels.ProgramCallBudget budget, JsonNode signed_activity, AgentModels.NativeProgramCallFields native_call) implements SchemaTypes.GeneratedResponse {
+        public record NativeProgramCallRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedResponse {
             public NativeProgramCallRequest {
-                Objects.requireNonNull(payload_encoding, "payload_encoding");
-                Objects.requireNonNull(program_id, "program_id");
-                Objects.requireNonNull(calldata, "calldata");
-                Objects.requireNonNull(budget, "budget");
-                Objects.requireNonNull(signed_activity, "signed_activity");
                 Objects.requireNonNull(native_call, "native_call");
+                Objects.requireNonNull(signed_transaction, "signed_transaction");
             }
         }
         public record NativeProgramDeploy(JsonNode program_id, AgentModels.ProgramGuestAbi guest_abi, JsonNode policy, JsonNode authority, JsonNode new_hash, JsonNode wasm, @JsonProperty("interface") JsonNode interface_) implements SchemaTypes.GeneratedResponse {
@@ -551,9 +561,10 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(wasm, "wasm");
             }
         }
-        public record NativeProgramDeployRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedResponse {
+        public record NativeProgramDeployRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedResponse {
             public NativeProgramDeployRequest {
-                Objects.requireNonNull(signed_activity, "signed_activity");
+                Objects.requireNonNull(native_call, "native_call");
+                Objects.requireNonNull(signed_transaction, "signed_transaction");
             }
         }
         public record NativeProgramUpgrade(JsonNode program_id, AgentModels.ProgramGuestAbi guest_abi, JsonNode old_hash, JsonNode new_hash, JsonNode migration_hook, JsonNode clear_interface, JsonNode wasm, @JsonProperty("interface") JsonNode interface_) implements SchemaTypes.GeneratedResponse {
@@ -567,9 +578,10 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(wasm, "wasm");
             }
         }
-        public record NativeProgramUpgradeRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedResponse {
+        public record NativeProgramUpgradeRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedResponse {
             public NativeProgramUpgradeRequest {
-                Objects.requireNonNull(signed_activity, "signed_activity");
+                Objects.requireNonNull(native_call, "native_call");
+                Objects.requireNonNull(signed_transaction, "signed_transaction");
             }
         }
         public enum NativeProgramWindDown {
@@ -585,9 +597,10 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record NativeProgramWindDownRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedResponse {
+        public record NativeProgramWindDownRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedResponse {
             public NativeProgramWindDownRequest {
-                Objects.requireNonNull(signed_activity, "signed_activity");
+                Objects.requireNonNull(native_call, "native_call");
+                Objects.requireNonNull(signed_transaction, "signed_transaction");
             }
         }
         public record NativeRegistrationPrepareRequestV1(String variant, AgentModels.NativeActivityV1 activity, String actor, String authority, String account_sequence, String not_before, String not_after, String idempotency_key, String fee_limit, String payload, String payload_hash, String capability_id, AgentModels.SignedNativePreparationPurposeV1 purpose, AgentModels.NativeLocalGrantConsentV1 local_grant) implements SchemaTypes.GeneratedResponse {
@@ -928,16 +941,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(policy_version, "policy_version");
             }
         }
-        public enum SettlementDomain {
-            PAXEER("Paxeer");
-            private final String wire;
-            SettlementDomain(String wire) { this.wire = wire; }
-            @JsonValue public String wire() { return wire; }
-            @JsonCreator public static SettlementDomain fromWire(String wire) {
-                for (SettlementDomain value : values()) if (value.wire.equals(wire)) return value;
-                throw new IllegalArgumentException("unknown schema variant");
-            }
-        }
         public record SignedNativePreparationPurposeV1(AgentModels.NativePreparationPurposeV1 purpose, String owner_public_key, String signature) implements SchemaTypes.GeneratedResponse {
             public SignedNativePreparationPurposeV1 {
                 Objects.requireNonNull(purpose, "purpose");
@@ -1121,7 +1124,7 @@ public final class GeneratedSchema {
     }
     public static final class HumanModels {
         private HumanModels() {}
-        public record AccountBalance(String account_id, HumanModels.Money money, HumanModels.VerificationLevel verification, HumanModels.ProtocolFreshness freshness, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
+        public record AccountBalance(String account_id, HumanModels.Money money, HumanModels.HumanVerificationLevel verification, HumanModels.ProtocolFreshness freshness, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
             public AccountBalance {
                 Objects.requireNonNull(account_id, "account_id");
                 Objects.requireNonNull(money, "money");
@@ -1243,7 +1246,7 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(money, "money");
             }
         }
-        public record AgentSpend(String period_start, String period_end, HumanModels.Money spent, HumanModels.Money remaining, HumanModels.VerificationLevel verification, String reconciliation_copy_key) implements SchemaTypes.GeneratedResponse {
+        public record AgentSpend(String period_start, String period_end, HumanModels.Money spent, HumanModels.Money remaining, HumanModels.HumanVerificationLevel verification, String reconciliation_copy_key) implements SchemaTypes.GeneratedResponse {
             public AgentSpend {
                 Objects.requireNonNull(period_start, "period_start");
                 Objects.requireNonNull(period_end, "period_end");
@@ -1398,44 +1401,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(remask_at, "remask_at");
             }
         }
-        public record BindingRebindAction(HumanModels.BindingStatement binding, String confirms) implements SchemaTypes.GeneratedResponse {
-            public BindingRebindAction {
-                Objects.requireNonNull(binding, "binding");
-                Objects.requireNonNull(confirms, "confirms");
-            }
-        }
-        public enum BindingState {
-            NONE("none"),
-            BINDING("binding"),
-            BOUND("bound"),
-            REBINDING("rebinding");
-            private final String wire;
-            BindingState(String wire) { this.wire = wire; }
-            @JsonValue public String wire() { return wire; }
-            @JsonCreator public static BindingState fromWire(String wire) {
-                for (BindingState value : values()) if (value.wire.equals(wire)) return value;
-                throw new IllegalArgumentException("unknown schema variant");
-            }
-        }
-        public record BindingStatement(String statement, String address, String expires_at) implements SchemaTypes.GeneratedResponse {
-            public BindingStatement {
-                Objects.requireNonNull(statement, "statement");
-                Objects.requireNonNull(address, "address");
-                Objects.requireNonNull(expires_at, "expires_at");
-            }
-        }
-        public record BindingStatementRequest(String address) implements SchemaTypes.GeneratedResponse {
-            public BindingStatementRequest {
-                Objects.requireNonNull(address, "address");
-            }
-        }
-        public record BindingSubmission(String address, String statement, String signature) implements SchemaTypes.GeneratedResponse {
-            public BindingSubmission {
-                Objects.requireNonNull(address, "address");
-                Objects.requireNonNull(statement, "statement");
-                Objects.requireNonNull(signature, "signature");
-            }
-        }
         public record ChannelPreference(boolean enabled, List<HumanModels.ClassToggle> classes) implements SchemaTypes.GeneratedResponse {
             public ChannelPreference {
                 classes = List.copyOf(Objects.requireNonNull(classes, "classes"));
@@ -1446,12 +1411,12 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(class_, "class");
             }
         }
-        public record DepositConfirmRequest(String wallet_transaction, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record DepositConfirmRequest(String wallet_transaction) implements SchemaTypes.GeneratedResponse {
             public DepositConfirmRequest {
                 Objects.requireNonNull(wallet_transaction, "wallet_transaction");
             }
         }
-        public record DepositStartRequest(HumanModels.Money money, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record DepositStartRequest(HumanModels.Money money) implements SchemaTypes.GeneratedResponse {
             public DepositStartRequest {
                 Objects.requireNonNull(money, "money");
             }
@@ -1518,7 +1483,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record EvidenceMaterial(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.VerificationLevel verification, String content_type, String bytes_base64, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceMaterial(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64) implements SchemaTypes.GeneratedResponse {
             public EvidenceMaterial {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");
@@ -1527,19 +1492,19 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(bytes_base64, "bytes_base64");
             }
         }
-        public record EvidenceRef(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.VerificationLevel verification, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceRef(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification) implements SchemaTypes.GeneratedResponse {
             public EvidenceRef {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");
                 Objects.requireNonNull(verification, "verification");
             }
         }
-        public record ExitEligibility(boolean eligible, String copy_key, String withdraw_instead_path, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record ExitEligibility(boolean eligible, String copy_key, String withdraw_instead_path) implements SchemaTypes.GeneratedResponse {
             public ExitEligibility {
                 Objects.requireNonNull(copy_key, "copy_key");
             }
         }
-        public record ExitStartRequest(String confirmation, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record ExitStartRequest(String confirmation) implements SchemaTypes.GeneratedResponse {
             public ExitStartRequest {
                 Objects.requireNonNull(confirmation, "confirmation");
             }
@@ -1596,8 +1561,7 @@ public final class GeneratedSchema {
             }
         }
         public enum IntentDomain {
-            PAXEER("paxeer"),
-            LAYERX("layerx");
+            PAXEER("paxeer");
             private final String wire;
             IntentDomain(String wire) { this.wire = wire; }
             @JsonValue public String wire() { return wire; }
@@ -1606,7 +1570,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record IntentEndpoint(HumanModels.IntentEndpointKind kind, String account) implements SchemaTypes.GeneratedResponse {
+        public record IntentEndpoint(HumanModels.IntentEndpointKind kind, String account, String layerx_public_key, String evm_address, HumanModels.IntentAddressResolution resolution) implements SchemaTypes.GeneratedResponse {
             public IntentEndpoint {
                 Objects.requireNonNull(kind, "kind");
             }
@@ -1624,7 +1588,27 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record IntentLeg(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long index, String mechanism, HumanModels.IntentDomain domain, HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, HumanModels.Money money, HumanModels.Money fee) implements SchemaTypes.GeneratedResponse {
+        public record IntentAddressResolution(String to, String data, BigInteger chainId, String result) implements SchemaTypes.GeneratedResponse {
+            public IntentAddressResolution {
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(data, "data");
+                Objects.requireNonNull(chainId, "chainId");
+                SchemaTypes.protocolU64(chainId);
+                Objects.requireNonNull(result, "result");
+            }
+        }
+        public record IntentPayment(String from, String to, String assetId, ProtocolAmount amount, BigInteger sequence, String paymentReference) implements SchemaTypes.GeneratedResponse {
+            public IntentPayment {
+                Objects.requireNonNull(from, "from");
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(assetId, "assetId");
+                Objects.requireNonNull(amount, "amount");
+                Objects.requireNonNull(sequence, "sequence");
+                SchemaTypes.protocolU64(sequence);
+                Objects.requireNonNull(paymentReference, "paymentReference");
+            }
+        }
+        public record IntentLeg(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long index, String mechanism, HumanModels.IntentDomain domain, HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, HumanModels.Money money, HumanModels.Money fee, HumanModels.IntentPayment payment, String to, String data, BigInteger chainId) implements SchemaTypes.GeneratedResponse {
             public IntentLeg {
                 Objects.requireNonNull(mechanism, "mechanism");
                 Objects.requireNonNull(domain, "domain");
@@ -1632,6 +1616,10 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(destination, "destination");
                 Objects.requireNonNull(money, "money");
                 Objects.requireNonNull(fee, "fee");
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(data, "data");
+                Objects.requireNonNull(chainId, "chainId");
+                SchemaTypes.protocolU64(chainId);
             }
         }
         public record IntentLegBinding(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long leg_index, String action_key, String actor, String authority, String relationship, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long account_sequence, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long not_before, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long not_after, HumanModels.Money fee_limit) implements SchemaTypes.GeneratedResponse {
@@ -1659,12 +1647,13 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(authority, "authority");
             }
         }
-        public record IntentSubmission(String journey_id, String plan_digest, String state, String state_copy_key) implements SchemaTypes.GeneratedResponse {
+        public record IntentSubmission(String journey_id, String plan_digest, String state, String state_copy_key, List<HumanModels.IntentLeg> legs) implements SchemaTypes.GeneratedResponse {
             public IntentSubmission {
                 Objects.requireNonNull(journey_id, "journey_id");
                 Objects.requireNonNull(plan_digest, "plan_digest");
                 Objects.requireNonNull(state, "state");
                 Objects.requireNonNull(state_copy_key, "state_copy_key");
+                legs = List.copyOf(Objects.requireNonNull(legs, "legs"));
             }
         }
         public record Journey(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse {
@@ -1681,7 +1670,6 @@ public final class GeneratedSchema {
         }
         public enum JourneyKind {
             ONBOARDING("onboarding"),
-            WALLET_BINDING("wallet-binding"),
             DEPOSIT("deposit"),
             WITHDRAW("withdraw"),
             EXIT("exit"),
@@ -1892,7 +1880,6 @@ public final class GeneratedSchema {
             CLAIM_READY("claim-ready"),
             SECURITY_NEW_DEVICE("security-new-device"),
             SECURITY_RECOVERY("security-recovery"),
-            SECURITY_WALLET_REBINDING("security-wallet-rebinding"),
             SECURITY_KEY_ROTATION("security-key-rotation"),
             SERVICE_STATUS("service-status");
             private final String wire;
@@ -2037,7 +2024,7 @@ public final class GeneratedSchema {
         }
         public record ProfileUpdate(String display_name, String avatar_url) implements SchemaTypes.GeneratedResponse {
         }
-        public record ProgramApprovalBudget(String approval_id, String held_digest, String budget_id, String asset_id, String source_account, ProtocolAmount remaining, ProtocolAmount observed_head_sequence, ProtocolAmount age_sequences, ProtocolAmount maximum_age_sequences, boolean within_bound, boolean terminal, HumanModels.VerificationLevel verification, String proof_digest, String receipt_digest, String checkpoint_digest, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
+        public record ProgramApprovalBudget(String approval_id, String held_digest, String budget_id, String asset_id, String source_account, ProtocolAmount remaining, ProtocolAmount observed_head_sequence, ProtocolAmount age_sequences, ProtocolAmount maximum_age_sequences, boolean within_bound, boolean terminal, HumanModels.HumanVerificationLevel verification, String proof_digest, String receipt_digest, String checkpoint_digest, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
             public ProgramApprovalBudget {
                 Objects.requireNonNull(approval_id, "approval_id");
                 Objects.requireNonNull(held_digest, "held_digest");
@@ -2431,16 +2418,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(revoked_at, "revoked_at");
             }
         }
-        public enum SettlementDomain {
-            PAXEER("paxeer");
-            private final String wire;
-            SettlementDomain(String wire) { this.wire = wire; }
-            @JsonValue public String wire() { return wire; }
-            @JsonCreator public static SettlementDomain fromWire(String wire) {
-                for (SettlementDomain value : values()) if (value.wire.equals(wire)) return value;
-                throw new IllegalArgumentException("unknown schema variant");
-            }
-        }
         public record SpendLimit(HumanModels.Money monthly, HumanModels.LimitEnforcement enforcement, String enforcement_copy_key) implements SchemaTypes.GeneratedResponse {
             public SpendLimit {
                 Objects.requireNonNull(monthly, "monthly");
@@ -2632,21 +2609,19 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(remask_at, "remask_at");
             }
         }
-        public enum VerificationLevel {
+        public enum HumanVerificationLevel {
             UNVERIFIED("unverified"),
             RECEIPT_VERIFIED("receipt-verified"),
-            CHECKPOINT_FINALISED("checkpoint-finalised"),
-            PAXEER_FINALISED("paxeer-finalised"),
-            SETTLEMENT_ANCHORED("settlement-anchored");
+            BLOCK_COMMITTED("block-committed");
             private final String wire;
-            VerificationLevel(String wire) { this.wire = wire; }
+            HumanVerificationLevel(String wire) { this.wire = wire; }
             @JsonValue public String wire() { return wire; }
-            @JsonCreator public static VerificationLevel fromWire(String wire) {
-                for (VerificationLevel value : values()) if (value.wire.equals(wire)) return value;
+            @JsonCreator public static HumanVerificationLevel fromWire(String wire) {
+                for (HumanVerificationLevel value : values()) if (value.wire.equals(wire)) return value;
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record VerifiedMoney(HumanModels.Money money, HumanModels.VerificationLevel verification) implements SchemaTypes.GeneratedResponse {
+        public record VerifiedMoney(HumanModels.Money money, HumanModels.HumanVerificationLevel verification) implements SchemaTypes.GeneratedResponse {
             public VerifiedMoney {
                 Objects.requireNonNull(money, "money");
                 Objects.requireNonNull(verification, "verification");
@@ -2658,12 +2633,7 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(service, "service");
             }
         }
-        public record WalletBinding(HumanModels.BindingState state, String address, String bound_at, HumanModels.EvidenceRef evidence) implements SchemaTypes.GeneratedResponse {
-            public WalletBinding {
-                Objects.requireNonNull(state, "state");
-            }
-        }
-        public record WalletSignRequest(String stage_id, String copy_key, String from_address, String to_sign_base64, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record WalletSignRequest(String stage_id, String copy_key, String from_address, String to_sign_base64) implements SchemaTypes.GeneratedResponse {
             public WalletSignRequest {
                 Objects.requireNonNull(stage_id, "stage_id");
                 Objects.requireNonNull(copy_key, "copy_key");
@@ -2671,12 +2641,12 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(to_sign_base64, "to_sign_base64");
             }
         }
-        public record WithdrawClaimRequest(String claim_signature, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record WithdrawClaimRequest(String claim_signature) implements SchemaTypes.GeneratedResponse {
             public WithdrawClaimRequest {
                 Objects.requireNonNull(claim_signature, "claim_signature");
             }
         }
-        public record WithdrawStartRequest(HumanModels.Money money, String destination, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record WithdrawStartRequest(HumanModels.Money money, String destination) implements SchemaTypes.GeneratedResponse {
             public WithdrawStartRequest {
                 Objects.requireNonNull(money, "money");
                 Objects.requireNonNull(destination, "destination");
@@ -3006,13 +2976,16 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(payload_hash, "payload_hash");
             }
         }
-        public record PrepareResponse(JsonNode preparation_ref, JsonNode unsigned_canonical_bytes, JsonNode signing_preimage, JsonNode disclosure, JsonNode expiry) implements SchemaTypes.GeneratedResponse {
+        public record PrepareResponse(BigInteger chainId, BigInteger nonce, BigInteger gas, String to, String data) implements SchemaTypes.GeneratedResponse {
             public PrepareResponse {
-                Objects.requireNonNull(preparation_ref, "preparation_ref");
-                Objects.requireNonNull(unsigned_canonical_bytes, "unsigned_canonical_bytes");
-                Objects.requireNonNull(signing_preimage, "signing_preimage");
-                Objects.requireNonNull(disclosure, "disclosure");
-                Objects.requireNonNull(expiry, "expiry");
+                Objects.requireNonNull(chainId, "chainId");
+                SchemaTypes.protocolU64(chainId);
+                Objects.requireNonNull(nonce, "nonce");
+                SchemaTypes.protocolU64(nonce);
+                Objects.requireNonNull(gas, "gas");
+                SchemaTypes.protocolU64(gas);
+                Objects.requireNonNull(to, "to");
+                Objects.requireNonNull(data, "data");
             }
         }
         public static final SchemaTypes.TypedOperation<PrepareRequest, PrepareResponse> PREPARE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "prepare", true, PrepareRequest.class, PrepareResponse.class);
@@ -3030,6 +3003,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramActivityRequest, ProgramActivityResponse> PROGRAM_ACTIVITY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.activity", false, ProgramActivityRequest.class, ProgramActivityResponse.class);
+        public static final ProgramTransport PROGRAM_ACTIVITY_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.activity");
         public record ProgramCallRequest(JsonNode program_id, JsonNode calldata, AgentModels.ProgramCallBudget budget, JsonNode capabilities, JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramCallRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3047,6 +3021,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramCallRequest, ProgramCallResponse> PROGRAM_CALL = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.call", true, ProgramCallRequest.class, ProgramCallResponse.class);
+        public static final ProgramTransport PROGRAM_CALL_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.call");
         public record ProgramDeployRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramDeployRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -3060,6 +3035,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramDeployRequest, ProgramDeployResponse> PROGRAM_DEPLOY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.deploy", true, ProgramDeployRequest.class, ProgramDeployResponse.class);
+        public static final ProgramTransport PROGRAM_DEPLOY_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.deploy");
         public record ProgramDiscoverRequest(JsonNode program_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramDiscoverRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3083,6 +3059,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramDiscoverRequest, ProgramDiscoverResponse> PROGRAM_DISCOVER = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.discover", false, ProgramDiscoverRequest.class, ProgramDiscoverResponse.class);
+        public static final ProgramTransport PROGRAM_DISCOVER_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.discover");
         public record ProgramInterfaceRequest(JsonNode program_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramInterfaceRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3107,6 +3084,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramInterfaceRequest, ProgramInterfaceResponse> PROGRAM_INTERFACE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.interface", false, ProgramInterfaceRequest.class, ProgramInterfaceResponse.class);
+        public static final ProgramTransport PROGRAM_INTERFACE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.interface");
         public record ProgramReceiptRequest(JsonNode idempotency_key, JsonNode expected_activity_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramReceiptRequest {
                 Objects.requireNonNull(idempotency_key, "idempotency_key");
@@ -3122,6 +3100,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramReceiptResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramReceiptRequest, ProgramReceiptResponse> PROGRAM_RECEIPT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.receipt", false, ProgramReceiptRequest.class, ProgramReceiptResponse.class);
+        public static final ProgramTransport PROGRAM_RECEIPT_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.receipt");
         public record ProgramSimulateRequest(JsonNode program_id, JsonNode calldata, AgentModels.ProgramCallBudget budget, JsonNode capabilities, JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramSimulateRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3139,6 +3118,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramSimulateRequest, ProgramSimulateResponse> PROGRAM_SIMULATE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.simulate", false, ProgramSimulateRequest.class, ProgramSimulateResponse.class);
+        public static final ProgramTransport PROGRAM_SIMULATE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.simulate");
         public record ProgramUpgradeRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramUpgradeRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -3152,6 +3132,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramUpgradeRequest, ProgramUpgradeResponse> PROGRAM_UPGRADE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.upgrade", true, ProgramUpgradeRequest.class, ProgramUpgradeResponse.class);
+        public static final ProgramTransport PROGRAM_UPGRADE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.upgrade");
         public record ProgramWindDownRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramWindDownRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -3165,6 +3146,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramWindDownRequest, ProgramWindDownResponse> PROGRAM_WIND_DOWN = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.wind-down", true, ProgramWindDownRequest.class, ProgramWindDownResponse.class);
+        public static final ProgramTransport PROGRAM_WIND_DOWN_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.wind-down");
         public record ProjectRequest(JsonNode protocol_activity_type, JsonNode canonical_bytes, JsonNode execution_units, JsonNode storage_units) implements SchemaTypes.GeneratedRequest {
             public ProjectRequest {
                 Objects.requireNonNull(protocol_activity_type, "protocol_activity_type");
@@ -3509,7 +3491,7 @@ public final class GeneratedSchema {
         private HumanOperations() {}
         public record AccountBalanceRequest() implements SchemaTypes.GeneratedRequest {
         }
-        public record AccountBalanceResponse(String account_id, HumanModels.Money money, HumanModels.VerificationLevel verification, HumanModels.ProtocolFreshness freshness, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
+        public record AccountBalanceResponse(String account_id, HumanModels.Money money, HumanModels.HumanVerificationLevel verification, HumanModels.ProtocolFreshness freshness, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
             public AccountBalanceResponse {
                 Objects.requireNonNull(account_id, "account_id");
                 Objects.requireNonNull(money, "money");
@@ -3832,7 +3814,7 @@ public final class GeneratedSchema {
         public static final SchemaTypes.TypedOperation<ApprovalProgramApproveRequest, ApprovalProgramApproveResponse> APPROVAL_PROGRAM_APPROVE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "approval.program.approve", true, ApprovalProgramApproveRequest.class, ApprovalProgramApproveResponse.class);
         public record ApprovalProgramBudgetRequest() implements SchemaTypes.GeneratedRequest {
         }
-        public record ApprovalProgramBudgetResponse(String approval_id, String held_digest, String budget_id, String asset_id, String source_account, ProtocolAmount remaining, ProtocolAmount observed_head_sequence, ProtocolAmount age_sequences, ProtocolAmount maximum_age_sequences, boolean within_bound, boolean terminal, HumanModels.VerificationLevel verification, String proof_digest, String receipt_digest, String checkpoint_digest, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
+        public record ApprovalProgramBudgetResponse(String approval_id, String held_digest, String budget_id, String asset_id, String source_account, ProtocolAmount remaining, ProtocolAmount observed_head_sequence, ProtocolAmount age_sequences, ProtocolAmount maximum_age_sequences, boolean within_bound, boolean terminal, HumanModels.HumanVerificationLevel verification, String proof_digest, String receipt_digest, String checkpoint_digest, List<HumanModels.EvidenceRef> evidence) implements SchemaTypes.GeneratedResponse {
             public ApprovalProgramBudgetResponse {
                 Objects.requireNonNull(approval_id, "approval_id");
                 Objects.requireNonNull(held_digest, "held_digest");
@@ -4002,81 +3984,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<AuthenticatorStatusRequest, AuthenticatorStatusResponse> AUTHENTICATOR_STATUS = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "authenticator.status", false, AuthenticatorStatusRequest.class, AuthenticatorStatusResponse.class);
-        public record BindingRebindRequest(String address, String statement, String signature, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest {
-            public BindingRebindRequest {
-                Objects.requireNonNull(address, "address");
-                Objects.requireNonNull(statement, "statement");
-                Objects.requireNonNull(signature, "signature");
-                Objects.requireNonNull(step_up, "step_up");
-            }
-        }
-        public record BindingRebindResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse {
-            public BindingRebindResponse {
-                Objects.requireNonNull(journey_id, "journey_id");
-                Objects.requireNonNull(kind, "kind");
-                Objects.requireNonNull(state, "state");
-                Objects.requireNonNull(state_copy_key, "state_copy_key");
-                stages = List.copyOf(Objects.requireNonNull(stages, "stages"));
-                evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
-                Objects.requireNonNull(started_at, "started_at");
-                Objects.requireNonNull(updated_at, "updated_at");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<BindingRebindRequest, BindingRebindResponse> BINDING_REBIND = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "binding.rebind", true, BindingRebindRequest.class, BindingRebindResponse.class);
-        public record BindingRebindActionRequest(String address) implements SchemaTypes.GeneratedRequest {
-            public BindingRebindActionRequest {
-                Objects.requireNonNull(address, "address");
-            }
-        }
-        public record BindingRebindActionResponse(HumanModels.BindingStatement binding, String confirms) implements SchemaTypes.GeneratedResponse {
-            public BindingRebindActionResponse {
-                Objects.requireNonNull(binding, "binding");
-                Objects.requireNonNull(confirms, "confirms");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<BindingRebindActionRequest, BindingRebindActionResponse> BINDING_REBIND_ACTION = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "binding.rebind.action", false, BindingRebindActionRequest.class, BindingRebindActionResponse.class);
-        public record BindingStatementRequest(String address) implements SchemaTypes.GeneratedRequest {
-            public BindingStatementRequest {
-                Objects.requireNonNull(address, "address");
-            }
-        }
-        public record BindingStatementResponse(String statement, String address, String expires_at) implements SchemaTypes.GeneratedResponse {
-            public BindingStatementResponse {
-                Objects.requireNonNull(statement, "statement");
-                Objects.requireNonNull(address, "address");
-                Objects.requireNonNull(expires_at, "expires_at");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<BindingStatementRequest, BindingStatementResponse> BINDING_STATEMENT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "binding.statement", false, BindingStatementRequest.class, BindingStatementResponse.class);
-        public record BindingStatusRequest() implements SchemaTypes.GeneratedRequest {
-        }
-        public record BindingStatusResponse(HumanModels.BindingState state, String address, String bound_at, HumanModels.EvidenceRef evidence) implements SchemaTypes.GeneratedResponse {
-            public BindingStatusResponse {
-                Objects.requireNonNull(state, "state");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<BindingStatusRequest, BindingStatusResponse> BINDING_STATUS = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "binding.status", false, BindingStatusRequest.class, BindingStatusResponse.class);
-        public record BindingSubmitRequest(String address, String statement, String signature) implements SchemaTypes.GeneratedRequest {
-            public BindingSubmitRequest {
-                Objects.requireNonNull(address, "address");
-                Objects.requireNonNull(statement, "statement");
-                Objects.requireNonNull(signature, "signature");
-            }
-        }
-        public record BindingSubmitResponse(String journey_id, HumanModels.JourneyKind kind, HumanModels.JourneyState state, String state_copy_key, List<HumanModels.JourneyStage> stages, List<HumanModels.EvidenceRef> evidence, String started_at, String updated_at, HumanModels.Refusal refusal, HumanModels.WalletSignRequest wallet_request) implements SchemaTypes.GeneratedResponse {
-            public BindingSubmitResponse {
-                Objects.requireNonNull(journey_id, "journey_id");
-                Objects.requireNonNull(kind, "kind");
-                Objects.requireNonNull(state, "state");
-                Objects.requireNonNull(state_copy_key, "state_copy_key");
-                stages = List.copyOf(Objects.requireNonNull(stages, "stages"));
-                evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
-                Objects.requireNonNull(started_at, "started_at");
-                Objects.requireNonNull(updated_at, "updated_at");
-            }
-        }
-        public static final SchemaTypes.TypedOperation<BindingSubmitRequest, BindingSubmitResponse> BINDING_SUBMIT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "binding.submit", true, BindingSubmitRequest.class, BindingSubmitResponse.class);
-        public record DepositConfirmRequest(String wallet_transaction, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedRequest {
+        public record DepositConfirmRequest(String wallet_transaction) implements SchemaTypes.GeneratedRequest {
             public DepositConfirmRequest {
                 Objects.requireNonNull(wallet_transaction, "wallet_transaction");
             }
@@ -4094,7 +4002,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<DepositConfirmRequest, DepositConfirmResponse> DEPOSIT_CONFIRM = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "deposit.confirm", false, DepositConfirmRequest.class, DepositConfirmResponse.class);
-        public record DepositStartRequest(HumanModels.Money money, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedRequest {
+        public record DepositStartRequest(HumanModels.Money money) implements SchemaTypes.GeneratedRequest {
             public DepositStartRequest {
                 Objects.requireNonNull(money, "money");
             }
@@ -4114,7 +4022,7 @@ public final class GeneratedSchema {
         public static final SchemaTypes.TypedOperation<DepositStartRequest, DepositStartResponse> DEPOSIT_START = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "deposit.start", true, DepositStartRequest.class, DepositStartResponse.class);
         public record EvidenceGetRequest() implements SchemaTypes.GeneratedRequest {
         }
-        public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.VerificationLevel verification, String content_type, String bytes_base64, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64) implements SchemaTypes.GeneratedResponse {
             public EvidenceGetResponse {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");
@@ -4126,13 +4034,13 @@ public final class GeneratedSchema {
         public static final SchemaTypes.TypedOperation<EvidenceGetRequest, EvidenceGetResponse> EVIDENCE_GET = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "evidence.get", false, EvidenceGetRequest.class, EvidenceGetResponse.class);
         public record ExitEligibilityRequest() implements SchemaTypes.GeneratedRequest {
         }
-        public record ExitEligibilityResponse(boolean eligible, String copy_key, String withdraw_instead_path, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedResponse {
+        public record ExitEligibilityResponse(boolean eligible, String copy_key, String withdraw_instead_path) implements SchemaTypes.GeneratedResponse {
             public ExitEligibilityResponse {
                 Objects.requireNonNull(copy_key, "copy_key");
             }
         }
         public static final SchemaTypes.TypedOperation<ExitEligibilityRequest, ExitEligibilityResponse> EXIT_ELIGIBILITY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "exit.eligibility", false, ExitEligibilityRequest.class, ExitEligibilityResponse.class);
-        public record ExitStartRequest(String confirmation, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedRequest {
+        public record ExitStartRequest(String confirmation) implements SchemaTypes.GeneratedRequest {
             public ExitStartRequest {
                 Objects.requireNonNull(confirmation, "confirmation");
             }
@@ -4188,12 +4096,13 @@ public final class GeneratedSchema {
                 bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
             }
         }
-        public record IntentSubmitResponse(String journey_id, String plan_digest, String state, String state_copy_key) implements SchemaTypes.GeneratedResponse {
+        public record IntentSubmitResponse(String journey_id, String plan_digest, String state, String state_copy_key, List<HumanModels.IntentLeg> legs) implements SchemaTypes.GeneratedResponse {
             public IntentSubmitResponse {
                 Objects.requireNonNull(journey_id, "journey_id");
                 Objects.requireNonNull(plan_digest, "plan_digest");
                 Objects.requireNonNull(state, "state");
                 Objects.requireNonNull(state_copy_key, "state_copy_key");
+                legs = List.copyOf(Objects.requireNonNull(legs, "legs"));
             }
         }
         public static final SchemaTypes.TypedOperation<IntentSubmitRequest, IntentSubmitResponse> INTENT_SUBMIT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "intent.submit", true, IntentSubmitRequest.class, IntentSubmitResponse.class);
@@ -4779,7 +4688,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<VersionRequest, VersionResponse> VERSION = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "version", false, VersionRequest.class, VersionResponse.class);
-        public record WithdrawClaimRequest(String claim_signature, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedRequest {
+        public record WithdrawClaimRequest(String claim_signature) implements SchemaTypes.GeneratedRequest {
             public WithdrawClaimRequest {
                 Objects.requireNonNull(claim_signature, "claim_signature");
             }
@@ -4797,7 +4706,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<WithdrawClaimRequest, WithdrawClaimResponse> WITHDRAW_CLAIM = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "withdraw.claim", false, WithdrawClaimRequest.class, WithdrawClaimResponse.class);
-        public record WithdrawStartRequest(HumanModels.Money money, String destination, HumanModels.SettlementDomain settlement_domain) implements SchemaTypes.GeneratedRequest {
+        public record WithdrawStartRequest(HumanModels.Money money, String destination) implements SchemaTypes.GeneratedRequest {
             public WithdrawStartRequest {
                 Objects.requireNonNull(money, "money");
                 Objects.requireNonNull(destination, "destination");
@@ -4907,11 +4816,6 @@ public final class GeneratedSchema {
         Map.entry("authenticator.setup.begin", HumanOperations.AUTHENTICATOR_SETUP_BEGIN ),
         Map.entry("authenticator.setup.finish", HumanOperations.AUTHENTICATOR_SETUP_FINISH ),
         Map.entry("authenticator.status", HumanOperations.AUTHENTICATOR_STATUS ),
-        Map.entry("binding.rebind", HumanOperations.BINDING_REBIND ),
-        Map.entry("binding.rebind.action", HumanOperations.BINDING_REBIND_ACTION ),
-        Map.entry("binding.statement", HumanOperations.BINDING_STATEMENT ),
-        Map.entry("binding.status", HumanOperations.BINDING_STATUS ),
-        Map.entry("binding.submit", HumanOperations.BINDING_SUBMIT ),
         Map.entry("deposit.confirm", HumanOperations.DEPOSIT_CONFIRM ),
         Map.entry("deposit.start", HumanOperations.DEPOSIT_START ),
         Map.entry("evidence.get", HumanOperations.EVIDENCE_GET ),
