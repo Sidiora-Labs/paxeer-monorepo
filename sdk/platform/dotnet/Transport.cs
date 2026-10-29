@@ -665,6 +665,7 @@ public sealed record AgentEnvelopeResult(string RequestId, JsonValue Value, Json
 
 public sealed class AgentEnvelopeTransport : IPlatformTransport, IDisposable
 {
+    private const int EnvelopeVersion = 2;
     public const string RoutePath = "/v1/agent/rpc";
     public const string DaemonRoutePath = "/rpc";
     public const int MaximumRequestBytes = 1_048_576;
@@ -800,7 +801,7 @@ public sealed class AgentEnvelopeTransport : IPlatformTransport, IDisposable
         using (var writer = new Utf8JsonWriter(buffer))
         {
             writer.WriteStartObject();
-            writer.WriteNumber("version", 1);
+            writer.WriteNumber("version", EnvelopeVersion);
             writer.WriteString("request_id", requestId);
             writer.WriteString("operation", descriptor.Name);
             writer.WritePropertyName("request");
@@ -840,15 +841,17 @@ public sealed class AgentEnvelopeTransport : IPlatformTransport, IDisposable
         catch (PlatformSdkException) { throw Decode(requestId); }
         if (document is not JsonValue.ObjectValue map) throw Decode(requestId);
         var envelope = map.Value;
+        if (!envelope.TryGetValue("version", out var responseVersion) ||
+            responseVersion is not JsonValue.IntegerValue { Value: EnvelopeVersion }) throw Decode(requestId);
         if (envelope.ContainsKey("class"))
         {
             if (status is >= 200 and < 300 ||
-                !Exact(envelope, "class", "protocol_result_code", "retriability", "request_id", "reason")) throw Decode(requestId);
+                !Exact(envelope, "version", "class", "protocol_result_code", "retriability", "request_id", "reason")) throw Decode(requestId);
             var echoed = TryText(envelope, "request_id");
             if (echoed != requestId && echoed != "0") throw Decode(requestId);
             throw ServiceError(envelope, requestId);
         }
-        if (status != 200 || !Exact(envelope, "request_id", "value", "verification_status") ||
+        if (status != 200 || !Exact(envelope, "version", "request_id", "value", "verification_status") ||
             TryText(envelope, "request_id") != requestId || envelope["value"] is JsonValue.NullValue ||
             !ValidVerification(envelope["verification_status"])) throw Decode(requestId);
         return new AgentEnvelopeResult(requestId, envelope["value"], envelope["verification_status"]);
