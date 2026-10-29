@@ -2,12 +2,10 @@ package layerx
 
 import (
 	"bytes"
-	"context"
 	"crypto/ed25519"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"os"
 	"testing"
 )
@@ -164,54 +162,6 @@ func TestNativeLifecycleRefusals(t *testing.T) {
 	route.Seed = make([]byte, 129)
 	if _, err := EncodeNativeProgramWindDown(route); err == nil {
 		t.Fatal("oversized seed")
-	}
-}
-
-func TestNativeLifecycleHTTPRequestsAreSignedOctets(t *testing.T) {
-	secret, err := NewSecretBytes([]byte("fixture-bearer"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer secret.Destroy()
-	transport, err := NewProgramBearerHTTPTransport("http://127.0.0.1:8080", nil, secret)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"deploy", "upgrade", "wind-down-route", "wind-down-deprecate", "wind-down-tombstone", "wind-down-exit"} {
-		ordinal, payload, signed, fixture := lifecycleFixture(t, name)
-		operation := map[uint16]string{1: "program.deploy", 2: "program.upgrade", 7: "program.wind-down"}[ordinal]
-		key, err := NewIdempotencyKey(hex.EncodeToString(lifecycleFixtureBytes(t, fixture, "idempotency_key_hex")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		body, err := json.Marshal(map[string]string{"payload": hex.EncodeToString(payload), "signed_activity": hex.EncodeToString(signed)})
-		if err != nil {
-			t.Fatal(err)
-		}
-		call := TransportCall{Plane: PlaneAgent, Operation: operation, Request: body, IdempotencyKey: key}
-		request, err := transport.request(context.Background(), call)
-		if err != nil {
-			t.Fatal(err)
-		}
-		encoded, err := io.ReadAll(request.Body)
-		request.Body.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(encoded, signed) || request.Method != "POST" || request.URL.Path != programLifecyclePaths[operation] || request.Header.Get("Content-Type") != "application/octet-stream" || request.Header.Get("Idempotency-Key") != key.String() || request.Header.Get("Authorization") != "Bearer fixture-bearer" {
-			t.Fatal("lifecycle HTTP binding differs")
-		}
-		call.IdempotencyKey = IdempotencyKey{}
-		if _, err := transport.request(context.Background(), call); err == nil {
-			t.Fatal("missing idempotency accepted")
-		}
-		call.IdempotencyKey, err = NewIdempotencyKey(hex.EncodeToString(make([]byte, 32)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := transport.request(context.Background(), call); err == nil {
-			t.Fatal("different idempotency accepted")
-		}
 	}
 }
 

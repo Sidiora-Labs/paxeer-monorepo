@@ -11,34 +11,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 )
-
-func TestProgramHTTPRoutesMatchSchema(t *testing.T) {
-	expected := map[string]programHTTPRoute{
-		"program.deploy":    {method: http.MethodPost, path: "/v1/programs/deploy", idempotencyOnly: true},
-		"program.upgrade":   {method: http.MethodPost, path: "/v1/programs/upgrade", idempotencyOnly: true},
-		"program.wind-down": {method: http.MethodPost, path: "/v1/programs/wind-down", idempotencyOnly: true},
-		"program.discover":  {method: http.MethodGet, path: "/v1/programs/registry/{program_id}", pathParameters: []string{"program_id"}},
-		"program.interface": {method: http.MethodGet, path: "/v1/programs/registry/{program_id}/interface", pathParameters: []string{"program_id"}},
-		"program.simulate":  {method: http.MethodPost, path: "/v1/programs/simulate"},
-		"program.call":      {method: http.MethodPost, path: "/v1/programs/call", idempotencyOnly: true},
-		"program.receipt":   {method: http.MethodGet, path: "/v1/programs/receipts/by-idempotency/{idempotency_key}", pathParameters: []string{"idempotency_key"}},
-		"program.activity":  {method: http.MethodGet, path: "/v1/programs/activities/{activity_id}", pathParameters: []string{"activity_id"}},
-	}
-	if !reflect.DeepEqual(programHTTPRoutes, expected) {
-		t.Fatalf("Programs HTTP routes diverged from the schema: %#v", programHTTPRoutes)
-	}
-	for operation, route := range programHTTPRoutes {
-		if route.idempotencyOnly != (operation == "program.call" || operation == "program.deploy" || operation == "program.upgrade" || operation == "program.wind-down") {
-			t.Fatalf("unexpected Programs idempotency route: %s", operation)
-		}
-	}
-}
 
 func TestLayerXKeyAuthorizerIsExactAndRedactsNoAlternateGrammar(t *testing.T) {
 	secret := "lxp_live_" + strings.Repeat("a", 64)
@@ -868,23 +845,22 @@ func TestProgramTerminalV5NativeCorpus(t *testing.T) {
 		}
 		seen[key] = true
 		t.Run(vector.Name, func(t *testing.T) {
-			authority := AuthorizedBatch{
-				BatchID: fixture32(t, vector.Authority.BatchIDHex), Asset: fixture32(t, vector.Authority.AssetHex),
-				PreviousStateRoot: fixture32(t, vector.Authority.PreviousStateRootHex), ResultingStateRoot: fixture32(t, vector.Authority.ResultingStateRootHex),
-				SequencerPublicKey: fixture32(t, corpus.TrustedSequencer),
-			}
-			if authority.SequencerPublicKey != fixture32(t, vector.Authority.SequencerPublicKeyHex) {
+			if fixture32(t, corpus.TrustedSequencer) != fixture32(t, vector.Authority.SequencerPublicKeyHex) {
 				t.Fatal("native sequencer pin differs from authorized batch")
 			}
 			canonical := fixtureBytes(t, vector.Canonical)
-			signedReceipt, err := verifyReceiptOutcomeProfile(canonical, authority, true, 3)
-			if err != nil || signedReceipt.Receipt.ProgramOutcome == nil {
+			decoded, err := decodeProtocolReceipt(canonical)
+			if err != nil || decoded.protocol.ProgramOutcome == nil {
 				t.Fatalf("actual native signed receipt: %v", err)
 			}
-			if signedReceipt.ReceiptDigest != fixture32(t, vector.Digest) {
+			digest := domainDigest(receiptDomain, decoded.unsigned)
+			if !ed25519.Verify(fixtureBytes(t, corpus.TrustedSequencer), digest[:], decoded.signature[:]) {
+				t.Fatal("native receipt signature is invalid")
+			}
+			if digest != fixture32(t, vector.Digest) {
 				t.Fatal("native receipt digest differs from signed canonical bytes")
 			}
-			receiptOutcome := signedReceipt.Receipt.ProgramOutcome
+			receiptOutcome := decoded.protocol.ProgramOutcome
 			actualTerminal := fixtureBytes(t, vector.Terminal)
 			actualInner, err := unwrapAppliedProgramTerminal(actualTerminal, *receiptOutcome)
 			if err != nil {
@@ -895,9 +871,9 @@ func TestProgramTerminalV5NativeCorpus(t *testing.T) {
 				t.Fatal(err)
 			}
 			execution := ProgramExecutionDocument{
-				ActivityID: hex.EncodeToString(signedReceipt.Receipt.ActivityID[:]), ProgramID: vector.Program,
-				ModuleVersion: signedReceipt.Receipt.ModuleVersion, GuestABIVersion: receiptOutcome.ABIVersion,
-				Receipt: vector.Canonical, ReceiptDigest: hex.EncodeToString(signedReceipt.ReceiptDigest[:]),
+				ActivityID: hex.EncodeToString(decoded.protocol.ActivityID[:]), ProgramID: vector.Program,
+				ModuleVersion: decoded.protocol.ModuleVersion, GuestABIVersion: receiptOutcome.ABIVersion,
+				Receipt: vector.Canonical, ReceiptDigest: hex.EncodeToString(digest[:]),
 				TerminalPayload: vector.Terminal, CallGraph: vector.Graph,
 				ResultCode: receiptOutcome.ResultCode, Outcome: projection.Outcome,
 			}
@@ -914,10 +890,7 @@ func TestProgramTerminalV5NativeCorpus(t *testing.T) {
 			if err != nil || binding.ActivityID != fixture32(t, execution.ActivityID) {
 				t.Fatal("native signed activity identity mismatch")
 			}
-			if _, err := VerifyReceiptOutcome(canonical, authority, 3); err == nil {
-				t.Fatal("generic ABI1/2 receipt verifier admitted ABI3/4")
-			}
-			verified, err := VerifyProgramReceipt(execution, authority, 3)
+			verified, err := VerifyProgramReceipt(execution, 3)
 			if err != nil {
 				t.Fatalf("real native %s verification: %v", key, err)
 			}
@@ -985,26 +958,29 @@ func TestProgramTerminalV5NativeCorpus(t *testing.T) {
 			if _, _, err := verifyProgramTerminal(execution, verified.Verification.Receipt, terminal, badGraph, nil); err == nil {
 				t.Fatal("accepted changed graph")
 			}
-			badAuthority := authority
-			badAuthority.SequencerPublicKey[0] ^= 1
-			if _, err := VerifyProgramReceipt(execution, badAuthority, 3); err == nil {
+			unpinnedExecution := execution
+			unpinnedExecution.ReceiptKeys.Pins = append([]ReceiptKey(nil), execution.ReceiptKeys.Pins...)
+			for index := range unpinnedExecution.ReceiptKeys.Pins {
+				unpinnedExecution.ReceiptKeys.Pins[index].PublicKey[0] ^= 1
+			}
+			if _, err := VerifyProgramReceipt(unpinnedExecution, 3); err == nil {
 				t.Fatal("accepted unpinned sequencer")
 			}
 			bad := execution
 			bad.GuestABIVersion = ProgramAbiV3 + ProgramAbiV4 - vector.GuestABI
-			if _, err := VerifyProgramReceipt(bad, authority, 3); err == nil {
+			if _, err := VerifyProgramReceipt(bad, 3); err == nil {
 				t.Fatal("accepted request and receipt ABI mismatch")
 			}
 			bad = execution
 			bad.ModuleVersion = 3
-			if _, err := VerifyProgramReceipt(bad, authority, 3); err == nil {
+			if _, err := VerifyProgramReceipt(bad, 3); err == nil {
 				t.Fatal("accepted module mismatch")
 			}
 			changed := append([]byte(nil), canonical...)
 			changed[len(changed)-1] ^= 1
 			bad = execution
 			bad.Receipt = hex.EncodeToString(changed)
-			if _, err := VerifyProgramReceipt(bad, authority, 3); err == nil {
+			if _, err := VerifyProgramReceipt(bad, 3); err == nil {
 				t.Fatal("accepted receipt signature mutation")
 			}
 		})

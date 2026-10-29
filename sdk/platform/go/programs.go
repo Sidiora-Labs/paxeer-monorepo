@@ -473,14 +473,14 @@ func programPayloadMatchesCall(payload []byte, call ProgramCall) bool {
 	return true
 }
 
-func VerifyProgramReceipt(execution ProgramExecutionDocument, authority AuthorizedBatch, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
-	return VerifyProgramReceiptWithPayers(execution, authority, nil, selectedProtocol...)
+func VerifyProgramReceipt(execution ProgramExecutionDocument, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
+	return VerifyProgramReceiptWithPayers(execution, nil, selectedProtocol...)
 }
 
 // VerifyProgramReceiptWithPayers verifies like VerifyProgramReceipt and proves
 // the offered occupancy payers, which a state-commitment receipt with a paid
 // occupancy charge requires.
-func VerifyProgramReceiptWithPayers(execution ProgramExecutionDocument, authority AuthorizedBatch, payers []OccupancyPayer, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
+func VerifyProgramReceiptWithPayers(execution ProgramExecutionDocument, payers []OccupancyPayer, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
 	verified, err := VerifySequencerReceipt([]byte(execution.Receipt), execution.RawTransaction, execution.ReceiptKeys)
 	if err != nil {
 		return VerifiedProgramReceipt{}, err
@@ -2221,19 +2221,23 @@ func decodeProgramSubmission(raw json.RawMessage, expectedProgram *[32]byte, exp
 }
 
 func verifyExecutionAuthority(execution ProgramExecutionDocument, trustedSequencerPublicKey [32]byte, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
-	authority, err := execution.Authority.authorizedBatch()
-	if err != nil {
-		return VerifiedProgramReceipt{}, err
+	authorityBatch, authorityBatchError := programHex32(execution.Authority.BatchID)
+	_, authorityAssetError := programHex32(execution.Authority.Asset)
+	_, authorityPreviousError := programHex32(execution.Authority.PreviousStateRoot)
+	authorityResulting, authorityResultingError := programHex32(execution.Authority.ResultingStateRoot)
+	authorityPublicKey, authorityKeyError := programHex32(execution.Authority.SequencerPublicKey)
+	if authorityBatchError != nil || authorityAssetError != nil || authorityPreviousError != nil || authorityResultingError != nil || authorityKeyError != nil {
+		return VerifiedProgramReceipt{}, errors.New("invalid response authority")
 	}
-	if trustedSequencerPublicKey == ([32]byte{}) || authority.SequencerPublicKey != trustedSequencerPublicKey {
+	if trustedSequencerPublicKey == ([32]byte{}) || authorityPublicKey != trustedSequencerPublicKey {
 		return VerifiedProgramReceipt{}, errors.New("Programs sequencer authority does not match the pinned key")
 	}
 	stateRoot, rootError := programHex32(execution.StateRoot)
 	batchID, batchError := programHex32(execution.BatchID)
-	if rootError != nil || batchError != nil || stateRoot != authority.ResultingStateRoot || batchID != authority.BatchID || execution.Verification != "receipt-terminal-and-call-graph-verified" || !canonicalUnsigned(execution.GlobalSequence, 64) || !validProgramUsage(execution.Usage) {
+	if rootError != nil || batchError != nil || stateRoot != authorityResulting || batchID != authorityBatch || execution.Verification != "receipt-terminal-and-call-graph-verified" || !canonicalUnsigned(execution.GlobalSequence, 64) || !validProgramUsage(execution.Usage) {
 		return VerifiedProgramReceipt{}, errors.New("invalid Programs execution authority")
 	}
-	verified, verifyError := VerifyProgramReceipt(execution, authority, selectedProtocol...)
+	verified, verifyError := VerifyProgramReceipt(execution, selectedProtocol...)
 	if verifyError != nil {
 		return VerifiedProgramReceipt{}, verifyError
 	}
@@ -2264,9 +2268,13 @@ func verifySimulationEvidence(execution ProgramExecutionDocument, evidence Progr
 	if boundaryError != nil || activityError != nil || previousError != nil || hypotheticalError != nil || publicError != nil || signatureError != nil || len(signature) != ed25519.SignatureSize || executionActivityError != nil || executionRootError != nil || activity != executionActivity || activity != binding.ActivityID || hypothetical != executionRoot {
 		return errors.New("invalid simulation evidence")
 	}
-	authority, authorityError := execution.Authority.authorizedBatch()
+	_, authorityBatchError := programHex32(execution.Authority.BatchID)
+	_, authorityAssetError := programHex32(execution.Authority.Asset)
+	authorityPrevious, authorityPreviousError := programHex32(execution.Authority.PreviousStateRoot)
+	authorityResulting, authorityResultingError := programHex32(execution.Authority.ResultingStateRoot)
+	authorityPublicKey, authorityKeyError := programHex32(execution.Authority.SequencerPublicKey)
 	sequence, sequenceError := strconv.ParseUint(evidence.ObservedSequence, 10, 64)
-	if authorityError != nil || sequenceError != nil || sequence == math.MaxUint64 || trustedSequencerPublicKey == ([32]byte{}) || authority.SequencerPublicKey != trustedSequencerPublicKey || publicKey != trustedSequencerPublicKey || execution.Verification != "receipt-terminal-and-call-graph-verified" || authority.PreviousStateRoot != previous || previous != prior.StateRoot || authority.ResultingStateRoot != hypothetical || sequence != prior.Sequence || execution.GlobalSequence != strconv.FormatUint(sequence+1, 10) {
+	if authorityBatchError != nil || authorityAssetError != nil || authorityPreviousError != nil || authorityResultingError != nil || authorityKeyError != nil || sequenceError != nil || sequence == math.MaxUint64 || trustedSequencerPublicKey == ([32]byte{}) || authorityPublicKey != trustedSequencerPublicKey || publicKey != trustedSequencerPublicKey || execution.Verification != "receipt-terminal-and-call-graph-verified" || authorityPrevious != previous || previous != prior.StateRoot || authorityResulting != hypothetical || sequence != prior.Sequence || execution.GlobalSequence != strconv.FormatUint(sequence+1, 10) {
 		return errors.New("simulation authority mismatch")
 	}
 	expectedBoundary := sha256.Sum256(append([]byte("LayerX/emulator/simulation-boundary/v1\x00"), publicKey[:]...))
@@ -2327,18 +2335,6 @@ func currentProgramTimeMilliseconds() uint64 {
 		return 0
 	}
 	return uint64(now)
-}
-
-func (authority ProgramResponseAuthority) authorizedBatch() (AuthorizedBatch, error) {
-	batch, batchError := programHex32(authority.BatchID)
-	asset, assetError := programHex32(authority.Asset)
-	previous, previousError := programHex32(authority.PreviousStateRoot)
-	resulting, resultingError := programHex32(authority.ResultingStateRoot)
-	publicKey, keyError := programHex32(authority.SequencerPublicKey)
-	if batchError != nil || assetError != nil || previousError != nil || resultingError != nil || keyError != nil {
-		return AuthorizedBatch{}, errors.New("invalid response authority")
-	}
-	return AuthorizedBatch{BatchID: batch, Asset: asset, PreviousStateRoot: previous, ResultingStateRoot: resulting, SequencerPublicKey: publicKey}, nil
 }
 
 func verifyProgramDiscoveryProof(value ProgramDiscovery, trustedSequencerPublicKey [32]byte) (bool, error) {
