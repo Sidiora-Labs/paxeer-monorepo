@@ -148781,7 +148781,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.15.2]
 title = "Guard the workspace against the retired batch settlement path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["11.1.4", "11.18.1"]
@@ -185909,7 +185909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1173.1]
 title = "Issue #1173: Carry observation acceptance on the live price feed and keep refused rows off the market topics"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
