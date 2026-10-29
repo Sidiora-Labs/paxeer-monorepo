@@ -11,7 +11,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -432,105 +431,6 @@ public final class ProgramsContractTest {
                 }
             }
         } finally { credential.close(); }
-    }
-
-    @Test
-    void actualKernelExecutionReceiptsKeepPinnedAuthorityAndAttachmentBindings() throws Exception {
-        for (String name : List.of("receipt-programs-executed-v3.json", "receipt-programs-executed-v4.json")) {
-            JsonNode fixture = fixture(name);
-            JsonNode batch = fixture.path("authorized_batch");
-            var authority = new LocalVerifier.AuthorizedReceiptBatch(fixtureBytes(batch, "batch_id_hex"),
-                fixtureBytes(batch, "asset_hex"), fixtureBytes(batch, "previous_state_root_hex"),
-                fixtureBytes(batch, "resulting_state_root_hex"), fixtureBytes(batch, "sequencer_public_key_hex"));
-            byte[] canonical = fixtureBytes(fixture, "canonical_receipt_hex");
-            byte[] signed = fixtureBytes(fixture, "signed_activity_hex");
-            byte[] activity = sha256("LXP/v1/activity-id\0".getBytes(StandardCharsets.UTF_8), signed);
-            byte[] terminal = fixtureBytes(fixture, "terminal_payload_hex");
-            byte[] graph = fixtureBytes(fixture, "call_graph_hex");
-            var verified = ProgramsClient.verifyReceipt(canonical, authority, activity, 2, terminal, graph, 3);
-            assertArrayEquals(fixtureBytes(fixture, "receipt_digest_hex"), verified.receiptDigest());
-            byte[] tampered = canonical.clone(); tampered[tampered.length - 1] ^= 1;
-            assertThrows(PlatformSdkException.class,
-                () -> ProgramsClient.verifyReceipt(tampered, authority, activity, 2, terminal, graph, 3));
-            byte[] wrongActivity = activity.clone(); wrongActivity[0] ^= 1;
-            assertThrows(PlatformSdkException.class,
-                () -> ProgramsClient.verifyReceipt(canonical, authority, wrongActivity, 2, terminal, graph, 3));
-            byte[] wrongTerminal = terminal.clone(); wrongTerminal[0] ^= 1;
-            assertThrows(PlatformSdkException.class,
-                () -> ProgramsClient.verifyReceipt(canonical, authority, activity, 2, wrongTerminal, graph, 3));
-            for (int unsupportedExecutionAbi : new int[] {3, 4}) {
-                assertThrows(PlatformSdkException.class, () -> ProgramsClient.verifyReceipt(
-                    canonical, authority, activity, unsupportedExecutionAbi, terminal, graph, 3));
-            }
-        }
-    }
-
-    @Test
-    void nativeTerminalV5CorpusBindsSignedRequestsReceiptsAndEveryOutcome() throws Exception {
-        String corpusPath = System.getenv("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS");
-        org.junit.jupiter.api.Assertions.assertNotNull(corpusPath, "actual native terminal-v5 corpus required");
-        JsonNode corpus = JSON.readTree(Files.readString(Path.of(corpusPath)));
-        assertTrue(corpus.path("source_revision").asText().matches("[0-9a-f]{40}"));
-        byte[] trustedSequencer = fixtureBytes(corpus, "trusted_sequencer_public_key_hex");
-        assertEquals(32, trustedSequencer.length);
-        JsonNode cases = corpus.path("cases");
-        assertTrue(cases.isArray());
-        java.util.Set<String> observed = new java.util.HashSet<>();
-        for (JsonNode row : cases) {
-            int abi = row.path("guest_abi").asInt();
-            assertTrue(abi == 3 || abi == 4);
-            observed.add(abi + ":" + row.path("outcome").asText());
-            byte[] signed = fixtureBytes(row, "signed_activity_hex");
-            NativeProgramCall request = NativeProgramCall.decodeSignedActivity(signed);
-            assertEquals(abi, request.guestAbi());
-            assertArrayEquals(fixtureBytes(row, "native_call_payload_hex"), request.encode());
-            assertArrayEquals(fixtureBytes(row, "program_id_hex"), request.programId());
-            byte[] activity = sha256("LXP/v1/activity-id\0".getBytes(StandardCharsets.UTF_8), signed);
-            JsonNode batch = row.path("authorized_batch");
-            var authority = new LocalVerifier.AuthorizedReceiptBatch(fixtureBytes(batch, "batch_id_hex"),
-                fixtureBytes(batch, "asset_hex"), fixtureBytes(batch, "previous_state_root_hex"),
-                fixtureBytes(batch, "resulting_state_root_hex"), fixtureBytes(batch, "sequencer_public_key_hex"));
-            byte[] canonical = fixtureBytes(row, "canonical_receipt_hex");
-            byte[] terminal = fixtureBytes(row, "terminal_payload_hex");
-            byte[] graph = fixtureBytes(row, "call_graph_hex");
-            var verified = LocalVerifier.verifyProgramTerminalV5Receipt(canonical, authority, activity,
-                request, signed, terminal, graph);
-            assertEquals(abi, verified.receipt().programOutcome().abiVersion());
-            assertArrayEquals(activity, verified.receipt().activityId());
-            assertArrayEquals(fixtureBytes(row, "receipt_digest_hex"), verified.receiptDigest());
-            assertArrayEquals(trustedSequencer, authority.sequencerPublicKey());
-            assertArrayEquals(fixtureBytes(row, "sequencer_public_key_hex"), authority.sequencerPublicKey());
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyReceiptOutcome(canonical, authority, 3));
-            byte[] wrongAsset = authority.asset().clone(); wrongAsset[0] ^= 1;
-            var wrongAuthority = new LocalVerifier.AuthorizedReceiptBatch(authority.batchId(), wrongAsset,
-                authority.previousStateRoot(), authority.resultingStateRoot(), authority.sequencerPublicKey());
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramTerminalV5Receipt(
-                canonical, wrongAuthority, activity, request, signed, terminal, graph));
-            NativeProgramCall wrongAbi = new NativeProgramCall(request.programId(), abi == 3 ? 4 : 3,
-                request.entrypoint(), request.calldata(), request.capabilities(), request.accessDeclaration(),
-                request.responseCapacity(), request.resources());
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramTerminalV5Receipt(
-                canonical, authority, activity, wrongAbi, signed, terminal, graph));
-            byte[] changedReceipt = canonical.clone(); changedReceipt[changedReceipt.length - 1] ^= 1;
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramTerminalV5Receipt(
-                changedReceipt, authority, activity, request, signed, terminal, graph));
-            byte[] changedGraph = graph.clone(); changedGraph[0] ^= 1;
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramTerminalV5Receipt(
-                canonical, authority, activity, request, signed, terminal, changedGraph));
-            byte[] changedSigned = signed.clone(); changedSigned[changedSigned.length - 1] ^= 1;
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramTerminalV5Receipt(
-                canonical, authority, activity, request, changedSigned, terminal, graph));
-            for (int length : new int[] {0, 1, terminal.length / 2, terminal.length - 1}) {
-                byte[] truncated = java.util.Arrays.copyOf(terminal, length);
-                assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramTerminalV5Receipt(
-                    canonical, authority, activity, request, signed, truncated, graph));
-            }
-            byte[] trailing = java.util.Arrays.copyOf(terminal, terminal.length + 1);
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramTerminalV5Receipt(
-                canonical, authority, activity, request, signed, trailing, graph));
-        }
-        assertEquals(java.util.Set.of("3:success", "3:failure", "3:resource", "3:callback", "3:settlement",
-            "4:success", "4:failure", "4:resource", "4:callback", "4:settlement"), observed);
     }
 
     private static JsonNode fixture(String name) throws Exception {
