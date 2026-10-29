@@ -108691,7 +108691,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.23.3]
 title = "Serve the frozen v2 watchlist and profile-patch routes from the user service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["4.23.1", "4.23.6"]
@@ -108723,7 +108723,7 @@ do_5 = "The task gate is TestV2WatchlistRoutesRegistered (services/launchpad/use
 
 [task.4.23.4]
 title = "Serve the frozen v2 preferences, devices, exports and deletion routes from the user service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["4.23.2", "4.23.6"]
@@ -135399,7 +135399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.41.4]
 title = "Go SDK agent operation envelope at major 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["8.41.1", "9.0.2"]
@@ -136425,7 +136425,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.1]
 title = "Go catalogue and operations.json route program and intent operations to EVM calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["8.45.1", "9.0.2"]
@@ -138685,7 +138685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.3.3]
 title = "Resolve unknown submissions through pax_sequencerReceipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["9.3.1", "9.3.2", "9.4.2", "9.1.8", "18.1131.1"]
@@ -151964,7 +151964,7 @@ do_6 = "The gate runs with WALLET_GAS_STATION_URL unset: provisionRefusesWithout
 
 [task.12.6.4]
 title = "Backfill provisions through the station-sponsored bind path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["12.6.3"]
@@ -152148,7 +152148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.9.2]
 title = "Sponsored quote route answers budget_exhausted and status reports the DID budget"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["12.6.3", "12.9.1"]
