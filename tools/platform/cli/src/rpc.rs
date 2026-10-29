@@ -86,6 +86,9 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         .as_array()
         .ok_or("RPC parameters must be positional")?;
     match method {
+        "eth_estimateGas" => estimate_gas_params(args)?,
+        "eth_gasPrice" if args.is_empty() => {}
+        "eth_gasPrice" => return Err("eth_gasPrice takes no parameters".into()),
         "px_register" => registration_params(args)?,
         "lx_requestFunds" => faucet_params(args)?,
         "lx_getNodeInfo" if args.is_empty() => {}
@@ -177,6 +180,95 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         }
     }
     Ok(json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
+}
+
+fn ethereum_quantity(value: &str) -> bool {
+    value.strip_prefix("0x").is_some_and(|digits| {
+        (1..=64).contains(&digits.len())
+            && (digits == "0" || !digits.starts_with('0'))
+            && digits
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+fn ethereum_data(value: &Value, bytes: Option<usize>) -> bool {
+    value
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .is_some_and(|digits| {
+            digits.len() <= 1_048_576
+                && digits.len().is_multiple_of(2)
+                && bytes.is_none_or(|bytes| digits.len() == bytes * 2)
+                && digits
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+}
+
+fn estimate_gas_params(args: &[Value]) -> Result<(), String> {
+    let invalid = || {
+        "eth_estimateGas requires an EIP-1559 transaction object and pending block tag".to_owned()
+    };
+    let [Value::Object(tx), Value::String(block)] = args else {
+        return Err(invalid());
+    };
+    let quantities = [
+        "chainId",
+        "nonce",
+        "maxPriorityFeePerGas",
+        "maxFeePerGas",
+        "gas",
+        "value",
+    ];
+    if block != "pending"
+        || tx.get("type").and_then(Value::as_str) != Some("0x2")
+        || quantities.iter().any(|field| {
+            !tx.get(*field)
+                .and_then(Value::as_str)
+                .is_some_and(ethereum_quantity)
+        })
+        || tx.get("chainId").and_then(Value::as_str) == Some("0x0")
+        || !tx
+            .get("data")
+            .is_some_and(|value| ethereum_data(value, None))
+        || tx
+            .get("to")
+            .is_some_and(|value| !ethereum_data(value, Some(20)))
+        || tx
+            .get("from")
+            .is_some_and(|value| !ethereum_data(value, Some(20)))
+        || tx.keys().any(|field| {
+            !quantities.contains(&field.as_str())
+                && !matches!(
+                    field.as_str(),
+                    "type" | "data" | "to" | "from" | "accessList"
+                )
+        })
+    {
+        return Err(invalid());
+    }
+    let access = tx
+        .get("accessList")
+        .and_then(Value::as_array)
+        .ok_or_else(invalid)?;
+    for entry in access {
+        let entry = entry
+            .as_object()
+            .filter(|entry| entry.len() == 2)
+            .ok_or_else(invalid)?;
+        if !entry
+            .get("address")
+            .is_some_and(|value| ethereum_data(value, Some(20)))
+            || !entry
+                .get("storageKeys")
+                .and_then(Value::as_array)
+                .is_some_and(|keys| keys.iter().all(|key| ethereum_data(key, Some(32))))
+        {
+            return Err(invalid());
+        }
+    }
+    Ok(())
 }
 
 fn program_events_query(args: &[Value]) -> Result<(&str, u64, u64), String> {
@@ -345,6 +437,13 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
             .ok_or("malformed RPC error message")?;
         return Err(json!({"code":code,"message":message,"data":error.get("data")}).to_string());
     }
+    if matches!(method, "eth_estimateGas" | "eth_gasPrice") {
+        return response
+            .get("result")
+            .filter(|value| value.as_str().is_some_and(ethereum_quantity))
+            .cloned()
+            .ok_or_else(|| format!("{method} returned an invalid Ethereum quantity"));
+    }
     if method == "lx_subscribe" {
         return response
             .get("result")
@@ -481,7 +580,13 @@ mod tests {
                 .filter_map(|entry| entry["name"].as_str())
                 .collect::<Vec<_>>(),
             [
-                "lx_register",
+                "px_register",
+                "px_getCommit",
+                "px_getValidators",
+                "px_getReceiptKeys",
+                "px_getSequenceBatch",
+                "px_requestFunds",
+                "pax_sequencerReceipt",
                 "lx_requestFunds",
                 "lx_getAccount",
                 "lx_getBalance",
@@ -505,11 +610,12 @@ mod tests {
                 "px_getBalances",
                 "px_listAssets",
                 "px_getNetwork",
-                "lx_getHistory",
                 "px_getHistory",
                 "px_getUnifiedHistory",
+                "px_listHolderRecords",
                 "px_getCapabilities",
                 "px_getRouteCatalogue",
+                "lx_getWalletCaps",
             ]
         );
         let description = |method: &str| -> Result<&str, String> {

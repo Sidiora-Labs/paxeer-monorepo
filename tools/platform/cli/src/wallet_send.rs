@@ -3,6 +3,15 @@ use serde_json::{json, Value};
 
 use crate::wallet_signing::{PreparedPayment, SigningFacts};
 
+pub fn payment_call(
+    payload: &[u8],
+    options: &layerx_crypto::send::CallOptions,
+) -> Result<layerx_crypto::evm_transaction::Eip1559Call, String> {
+    layerx_crypto::send::ledger_payment_call(payload, options)
+        .map(|disclosed| disclosed.call)
+        .map_err(|e| format!("{e:?}"))
+}
+
 #[derive(Clone, Debug)]
 pub struct Send {
     pub from: [u8; 32],
