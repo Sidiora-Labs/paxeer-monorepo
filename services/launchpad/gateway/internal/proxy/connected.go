@@ -253,6 +253,14 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if p.audience == "livestream" && selected.Template == "/v2/provider-webhooks/livepeer" {
+		if values := r.Header.Values("Livepeer-Signature"); len(values) == 1 {
+			req.Header.Set("Livepeer-Signature", values[0])
+		} else if len(values) > 1 {
+			connectedError(w, 400, "ambiguous_header")
+			return
+		}
+	}
 	if principal.Wallet != "" {
 		if authorization := r.Header.Get("Authorization"); authorization != "" {
 			req.Header.Set("Authorization", authorization)
