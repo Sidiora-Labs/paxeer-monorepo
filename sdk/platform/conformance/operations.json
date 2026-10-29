@@ -1,1524 +1,1578 @@
 {
   "schema": 1,
-  "operations": [
-    {
-      "plane": "agent",
-      "name": "agent.register",
-      "method": "POST",
-      "path": "",
-      "request": "AgentRegistration",
-      "response": "AuthorityResponse<AgentRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "approval.approve",
-      "method": "POST",
-      "path": "",
-      "request": "ApprovalApproveRequest",
-      "response": "ApprovalDecision",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "approval.get",
-      "method": "POST",
-      "path": "",
-      "request": "ApprovalGetRequest",
-      "response": "ApprovalRecord",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "approval.list",
-      "method": "POST",
-      "path": "",
-      "request": "ApprovalListRequest",
-      "response": "ApprovalPage",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "approval.reject",
-      "method": "POST",
-      "path": "",
-      "request": "ApprovalRejectRequest",
-      "response": "ApprovalDecision",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "availability.fetch",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<AvailabilityReport>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "budget.create",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<BudgetRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "budget.fund",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<BudgetRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "budget.list",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<BudgetRecords>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "budget.reconciliation",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<BudgetReconciliation>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "budget.revoke",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<BudgetRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "budget.state",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<BudgetState>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "capability.attenuate",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<CapabilityRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "capability.create",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<CapabilityRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "capability.list",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<CapabilityRecords>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "capability.revoke",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "AuthorityResponse<CapabilityRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "export.offline",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<OfflineExport>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "faucet.claim",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "FaucetGrant",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "mcp.invoke",
-      "method": "POST",
-      "path": "",
-      "request": "McpInvokeRequest",
-      "response": "object",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "policy.dry_run",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "PolicyDryRunResult",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "prepare",
-      "method": "POST",
-      "path": "",
-      "request": "PrepareRequest",
-      "response": "Prepared",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "program.activity",
-      "method": "eth_getTransactionByHash",
-      "path": "",
-      "request": "ProgramActivitySelector",
-      "response": "ProgramSubmission",
-      "idempotency": false,
-      "bodyless": false,
-      "transport": "evm"
-    },
-    {
-      "plane": "agent",
-      "name": "program.call",
-      "method": "eth_sendRawTransaction",
-      "path": "",
-      "request": "ProgramCallRequest",
-      "response": "ProgramSubmission",
-      "idempotency": true,
-      "bodyless": false,
-      "transport": "evm",
-      "to": "0x000000000000000000000000000000000000101d",
-      "selector": "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"
-    },
-    {
-      "plane": "agent",
-      "name": "program.deploy",
-      "method": "eth_sendRawTransaction",
-      "path": "",
-      "request": "NativeProgramDeployRequest",
-      "response": "ProgramLifecycleResponse",
-      "idempotency": true,
-      "bodyless": false,
-      "transport": "evm",
-      "to": "0x000000000000000000000000000000000000101d",
-      "selector": "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"
-    },
-    {
-      "plane": "agent",
-      "name": "program.discover",
-      "method": "eth_call",
-      "path": "",
-      "request": "ProgramSelector",
-      "response": "VerifiedProgramDiscovery",
-      "idempotency": false,
-      "bodyless": false,
-      "transport": "evm",
-      "to": "0x000000000000000000000000000000000000101d",
-      "selector": "getProgram(bytes32)"
-    },
-    {
-      "plane": "agent",
-      "name": "program.interface",
-      "method": "eth_call",
-      "path": "",
-      "request": "ProgramSelector",
-      "response": "VerifiedProgramInterface",
-      "idempotency": false,
-      "bodyless": false,
-      "transport": "evm",
-      "to": "0x000000000000000000000000000000000000101d",
-      "selector": "getInterface(bytes32)"
-    },
-    {
-      "plane": "agent",
-      "name": "program.receipt",
-      "method": "eth_call",
-      "path": "",
-      "request": "ProgramReceiptSelector",
-      "response": "ProgramReceiptResponse",
-      "idempotency": false,
-      "bodyless": false,
-      "transport": "evm",
-      "to": "0x000000000000000000000000000000000000101c",
-      "selector": "resultByIdempotency(bytes32,bytes32)"
-    },
-    {
-      "plane": "agent",
-      "name": "program.simulate",
-      "method": "eth_call",
-      "path": "",
-      "request": "ProgramCallRequest",
-      "response": "ProgramSimulation",
-      "idempotency": false,
-      "bodyless": false,
-      "transport": "evm",
-      "to": "0x000000000000000000000000000000000000101d",
-      "selector": "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"
-    },
-    {
-      "plane": "agent",
-      "name": "program.upgrade",
-      "method": "eth_sendRawTransaction",
-      "path": "",
-      "request": "NativeProgramUpgradeRequest",
-      "response": "ProgramLifecycleResponse",
-      "idempotency": true,
-      "bodyless": false,
-      "transport": "evm",
-      "to": "0x000000000000000000000000000000000000101d",
-      "selector": "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"
-    },
-    {
-      "plane": "agent",
-      "name": "program.wind-down",
-      "method": "eth_sendRawTransaction",
-      "path": "",
-      "request": "NativeProgramWindDownRequest",
-      "response": "ProgramLifecycleResponse",
-      "idempotency": true,
-      "bodyless": false,
-      "transport": "evm",
-      "to": "0x000000000000000000000000000000000000101d",
-      "selector": "deprecate(bytes32,bytes32,uint64)"
-    },
-    {
-      "plane": "agent",
-      "name": "project",
-      "method": "POST",
-      "path": "",
-      "request": "FeeProjectionRequest",
-      "response": "ProjectionResult",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "read.account",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<AccountValue>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "read.balance",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<BalanceValue>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "read.batch",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<BatchValue>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "read.checkpoint",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<CheckpointValue>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "read.history",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<HistoryValue>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "read.module_state",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<ModuleStateValue>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "read.proof_bundle",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "VerifiedRead<ProofBundle>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "session.close",
-      "method": "POST",
-      "path": "",
-      "request": "SessionClose",
-      "response": "AuthorityResponse<SessionRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "session.list",
-      "method": "POST",
-      "path": "",
-      "request": "SessionList",
-      "response": "AuthorityResponse<SessionRecords>",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "session.open",
-      "method": "POST",
-      "path": "",
-      "request": "SessionOpen",
-      "response": "AuthorityResponse<SessionRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "session.refresh",
-      "method": "POST",
-      "path": "",
-      "request": "SessionRefresh",
-      "response": "AuthorityResponse<SessionRecord>",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "sign",
-      "method": "POST",
-      "path": "",
-      "request": "SignRequest",
-      "response": "Signed",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "submit",
-      "method": "POST",
-      "path": "",
-      "request": "SubmitRequest",
-      "response": "TrackedSubmission",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "subscription.acknowledge",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "object",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "subscription.create",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "SubscriptionRecord",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "subscription.delete",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "object",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "subscription.health",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "SubscriptionHealth",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "subscription.list",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "SubscriptionRecord[]",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "subscription.pause",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "object",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "subscription.resume",
-      "method": "POST",
-      "path": "",
-      "request": "object",
-      "response": "object",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "tenant.readiness",
-      "method": "POST",
-      "path": "",
-      "request": "TenantReadinessRequest",
-      "response": "TenantReadiness",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "track",
-      "method": "POST",
-      "path": "",
-      "request": "TrackRequest",
-      "response": "TrackedSubmission",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "agent",
-      "name": "wait",
-      "method": "POST",
-      "path": "",
-      "request": "WaitRequest",
-      "response": "WaitResult",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "account.balance",
-      "method": "GET",
-      "path": "/v1/account/balance",
-      "request": "Empty",
-      "response": "AccountBalance",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "account.create",
-      "method": "POST",
-      "path": "/v1/accounts",
-      "request": "AccountCreateRequest",
-      "response": "AccountCreation",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "activity.entry",
-      "method": "GET",
-      "path": "/v1/activity/{entry_id}",
-      "request": "Empty",
-      "response": "ActivityEntryDetail",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "activity.export.evidence",
-      "method": "POST",
-      "path": "/v1/activity/exports/evidence",
-      "request": "ExportEvidenceRequest",
-      "response": "ExportArtefact",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "activity.export.statement",
-      "method": "POST",
-      "path": "/v1/activity/exports/statement",
-      "request": "ExportStatementRequest",
-      "response": "ExportArtefact",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "activity.query",
-      "method": "POST",
-      "path": "/v1/activity/query",
-      "request": "ActivityQueryRequest",
-      "response": "ActivityPage",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "agent.archive",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/archive",
-      "request": "AgentArchiveRequest",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "agent.create",
-      "method": "POST",
-      "path": "/v1/agents",
-      "request": "AgentCreateRequest",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "agent.get",
-      "method": "GET",
-      "path": "/v1/agents/{agent_id}",
-      "request": "Empty",
-      "response": "Agent",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "agent.limit",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/limit",
-      "request": "AgentLimitRequest",
-      "response": "Agent",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "agent.list",
-      "method": "GET",
-      "path": "/v1/agents",
-      "request": "Empty",
-      "response": "AgentPage",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "agent.pause",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/pause",
-      "request": "Empty",
-      "response": "Agent",
-      "idempotency": true,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "agent.reclaim",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/reclaim",
-      "request": "AgentReclaimRequest",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "agent.recover",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/recover",
-      "request": "Empty",
-      "response": "KeyChallenge",
-      "idempotency": true,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "agent.resume",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/resume",
-      "request": "Empty",
-      "response": "Agent",
-      "idempotency": true,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "agent.rotate",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/rotate",
-      "request": "Empty",
-      "response": "KeyChallenge",
-      "idempotency": true,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "agent.rotation.disclosure",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/rotation/disclosure",
-      "request": "OwnerRotationDisclosureRequest",
-      "response": "SecurityAction",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "agent.rotation.start",
-      "method": "POST",
-      "path": "/v1/agents/{agent_id}/rotation",
-      "request": "OwnerRotationRequest",
-      "response": "KeyChallenge",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "approval.approve",
-      "method": "POST",
-      "path": "/v1/approvals/{approval_id}/approve",
-      "request": "ApprovalApproveRequest",
-      "response": "ApprovalDecision",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "approval.get",
-      "method": "GET",
-      "path": "/v1/approvals/{approval_id}",
-      "request": "Empty",
-      "response": "ApprovalDetail",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "approval.list",
-      "method": "GET",
-      "path": "/v1/approvals",
-      "request": "Empty",
-      "response": "ApprovalPage",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "approval.program.approve",
-      "method": "POST",
-      "path": "/v1/program-approvals/{approval_id}/approve",
-      "request": "ProgramApprovalDecisionRequest",
-      "response": "ProgramApprovalDecision",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "approval.program.budget",
-      "method": "GET",
-      "path": "/v1/program-approvals/{approval_id}/budget",
-      "request": "Empty",
-      "response": "ProgramApprovalBudget",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "approval.program.disclosure",
-      "method": "POST",
-      "path": "/v1/program-approvals/{approval_id}/disclosure",
-      "request": "ProgramApprovalDisclosureRequest",
-      "response": "ProgramApprovalDisclosure",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "approval.program.get",
-      "method": "GET",
-      "path": "/v1/program-approvals/{approval_id}",
-      "request": "Empty",
-      "response": "ProgramApprovalDetail",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "approval.program.list",
-      "method": "GET",
-      "path": "/v1/program-approvals/page/{cursor}",
-      "request": "Empty",
-      "response": "ProgramApprovalPage",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "approval.program.material",
-      "method": "GET",
-      "path": "/v1/program-approvals/{approval_id}/material",
-      "request": "Empty",
-      "response": "ProgramApprovalMaterial",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "approval.program.reject",
-      "method": "POST",
-      "path": "/v1/program-approvals/{approval_id}/reject",
-      "request": "ProgramApprovalDecisionRequest",
-      "response": "ProgramApprovalDecision",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "approval.reject",
-      "method": "POST",
-      "path": "/v1/approvals/{approval_id}/reject",
-      "request": "Empty",
-      "response": "ApprovalDecision",
-      "idempotency": true,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "authenticator.backup.rotate",
-      "method": "POST",
-      "path": "/v1/security/authenticators/backup-codes",
-      "request": "BackupCodeRotation",
-      "response": "BackupCodeSet",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "authenticator.disable",
-      "method": "POST",
-      "path": "/v1/security/authenticators/{authenticator_id}/disable",
-      "request": "AuthenticatorDisable",
-      "response": "AuthenticatorStatus",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "authenticator.setup.begin",
-      "method": "POST",
-      "path": "/v1/security/authenticators/setups",
-      "request": "AuthenticatorSetupBegin",
-      "response": "AuthenticatorSetupChallenge",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "authenticator.setup.finish",
-      "method": "POST",
-      "path": "/v1/security/authenticators/setups/{setup_id}",
-      "request": "AuthenticatorSetupFinish",
-      "response": "AuthenticatorSetupResult",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "authenticator.status",
-      "method": "GET",
-      "path": "/v1/security/authenticators",
-      "request": "Empty",
-      "response": "AuthenticatorStatus",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "binding.rebind",
-      "method": "POST",
-      "path": "/v1/wallet-binding/rebind",
-      "request": "RebindingSubmission",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "binding.rebind.action",
-      "method": "POST",
-      "path": "/v1/wallet-binding/rebind/action",
-      "request": "BindingStatementRequest",
-      "response": "BindingRebindAction",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "binding.statement",
-      "method": "POST",
-      "path": "/v1/wallet-binding/statement",
-      "request": "BindingStatementRequest",
-      "response": "BindingStatement",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "binding.status",
-      "method": "GET",
-      "path": "/v1/wallet-binding",
-      "request": "Empty",
-      "response": "WalletBinding",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "binding.submit",
-      "method": "POST",
-      "path": "/v1/wallet-binding",
-      "request": "BindingSubmission",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "deposit.confirm",
-      "method": "POST",
-      "path": "/v1/deposits/{journey_id}/confirm",
-      "request": "DepositConfirmRequest",
-      "response": "Journey",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "deposit.start",
-      "method": "POST",
-      "path": "/v1/deposits",
-      "request": "DepositStartRequest",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "evidence.get",
-      "method": "GET",
-      "path": "/v1/evidence/{evidence_id}",
-      "request": "Empty",
-      "response": "EvidenceMaterial",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "exit.eligibility",
-      "method": "GET",
-      "path": "/v1/exit/eligibility",
-      "request": "Empty",
-      "response": "ExitEligibility",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "exit.start",
-      "method": "POST",
-      "path": "/v1/exit",
-      "request": "ExitStartRequest",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "home.summary",
-      "method": "GET",
-      "path": "/v1/home",
-      "request": "Empty",
-      "response": "HomeSummary",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "intent.plan",
-      "method": "eth_call",
-      "path": "",
-      "request": "PlanIntentRequest",
-      "response": "IntentPlan",
-      "idempotency": false,
-      "bodyless": false,
-      "transport": "evm",
-      "per_leg": true
-    },
-    {
-      "plane": "human",
-      "name": "intent.submit",
-      "method": "eth_sendRawTransaction",
-      "path": "",
-      "request": "SubmitPlanRequest",
-      "response": "IntentSubmission",
-      "idempotency": true,
-      "bodyless": false,
-      "transport": "evm",
-      "per_leg": true
-    },
-    {
-      "plane": "human",
-      "name": "journey.get",
-      "method": "GET",
-      "path": "/v1/journeys/{journey_id}",
-      "request": "Empty",
-      "response": "Journey",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "journey.list",
-      "method": "GET",
-      "path": "/v1/journeys",
-      "request": "Empty",
-      "response": "JourneyPage",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "journey.page",
-      "method": "GET",
-      "path": "/v1/journeys/page/{cursor}",
-      "request": "Empty",
-      "response": "JourneyPage",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "move.commit",
-      "method": "POST",
-      "path": "/v1/moves",
-      "request": "MoveCommitRequest",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "move.quote",
-      "method": "POST",
-      "path": "/v1/moves/quote",
-      "request": "MoveQuoteRequest",
-      "response": "MoveQuote",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "native.send.access.begin",
-      "method": "POST",
-      "path": "/v1/native/send/access/begin",
-      "request": "NativeSendAccessRequest",
-      "response": "NativeSendAccessDisclosure",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "native.send.access.confirm",
-      "method": "POST",
-      "path": "/v1/native/send/access/confirm",
-      "request": "NativeSendAccessConfirmation",
-      "response": "NativeSendAccessResult",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "notification.list",
-      "method": "GET",
-      "path": "/v1/notifications",
-      "request": "Empty",
-      "response": "NotificationPage",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "notification.preferences.get",
-      "method": "GET",
-      "path": "/v1/notifications/preferences",
-      "request": "Empty",
-      "response": "NotificationPreferences",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "notification.preferences.set",
-      "method": "POST",
-      "path": "/v1/notifications/preferences",
-      "request": "NotificationPreferences",
-      "response": "NotificationPreferences",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "notification.read",
-      "method": "POST",
-      "path": "/v1/notifications/{notification_id}/read",
-      "request": "Empty",
-      "response": "NotificationSummary",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "onboarding.resume",
-      "method": "POST",
-      "path": "/v1/onboarding/resume",
-      "request": "Empty",
-      "response": "Journey",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "onboarding.status",
-      "method": "GET",
-      "path": "/v1/onboarding",
-      "request": "Empty",
-      "response": "Journey",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "passkey.assert.begin",
-      "method": "POST",
-      "path": "/v1/passkeys/assertions",
-      "request": "PasskeyAssertionBegin",
-      "response": "PasskeyAssertionChallenge",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "passkey.assert.finish",
-      "method": "POST",
-      "path": "/v1/passkeys/assertions/{assertion_id}",
-      "request": "PasskeyAssertionFinish",
-      "response": "PasskeyAssertion",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "passkey.register.begin",
-      "method": "POST",
-      "path": "/v1/passkeys/registrations",
-      "request": "PasskeyRegistrationBegin",
-      "response": "PasskeyRegistrationChallenge",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "passkey.register.finish",
-      "method": "POST",
-      "path": "/v1/passkeys/registrations/{registration_id}",
-      "request": "PasskeyRegistrationFinish",
-      "response": "Passkey",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "profile.get",
-      "method": "GET",
-      "path": "/v1/profile",
-      "request": "Empty",
-      "response": "Profile",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "profile.update",
-      "method": "PATCH",
-      "path": "/v1/profile",
-      "request": "ProfileUpdate",
-      "response": "Profile",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.action",
-      "method": "POST",
-      "path": "/v1/security/actions",
-      "request": "SecurityActionRequest",
-      "response": "SecurityAction",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.key-export.begin",
-      "method": "POST",
-      "path": "/v1/security/key-export/begin",
-      "request": "KeyExportBegin",
-      "response": "KeyExportChallenge",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.key-export.finish",
-      "method": "POST",
-      "path": "/v1/security/key-export/finish",
-      "request": "KeyExportFinish",
-      "response": "ExportedPrimaryKey",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.passkey.list",
-      "method": "GET",
-      "path": "/v1/security/passkeys",
-      "request": "Empty",
-      "response": "PasskeyList",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "security.passkey.register.begin",
-      "method": "POST",
-      "path": "/v1/security/passkeys/registrations",
-      "request": "SecurityPasskeyRegistrationBegin",
-      "response": "PasskeyRegistrationChallenge",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.passkey.register.finish",
-      "method": "POST",
-      "path": "/v1/security/passkeys/registrations/{registration_id}",
-      "request": "SecurityPasskeyRegistrationFinish",
-      "response": "Passkey",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.passkey.revoke",
-      "method": "POST",
-      "path": "/v1/security/passkeys/{passkey_id}/revoke",
-      "request": "SecurityPasskeyRevocation",
-      "response": "PasskeyList",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.recovery.reveal",
-      "method": "POST",
-      "path": "/v1/security/recovery/evidence",
-      "request": "SecurityRecoveryReveal",
-      "response": "TimedSecret",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.session.revoke",
-      "method": "POST",
-      "path": "/v1/security/sessions/{session_id}/revoke",
-      "request": "SecuritySessionRevocation",
-      "response": "SessionRevocation",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "security.session.revoke-all",
-      "method": "POST",
-      "path": "/v1/security/sessions/revoke-all",
-      "request": "SecuritySessionRevocation",
-      "response": "SessionRevocation",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "session.fee-policy",
-      "method": "GET",
-      "path": "/v1/sessions/fee-policy",
-      "request": "Empty",
-      "response": "NativeFeeAsset",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "session.list",
-      "method": "GET",
-      "path": "/v1/sessions",
-      "request": "Empty",
-      "response": "SessionList",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "session.open",
-      "method": "POST",
-      "path": "/v1/sessions",
-      "request": "SessionOpenRequest",
-      "response": "Session",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "session.refresh",
-      "method": "POST",
-      "path": "/v1/sessions/refresh",
-      "request": "Empty",
-      "response": "Session",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "session.revoke",
-      "method": "DELETE",
-      "path": "/v1/sessions/{session_id}",
-      "request": "Empty",
-      "response": "SessionRevocation",
-      "idempotency": true,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "session.revoke-all",
-      "method": "POST",
-      "path": "/v1/sessions/revoke-all",
-      "request": "Empty",
-      "response": "SessionRevocation",
-      "idempotency": true,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "stepup.begin",
-      "method": "POST",
-      "path": "/v1/step-up",
-      "request": "StepUpRequest",
-      "response": "StepUpChallenge",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "stepup.finish",
-      "method": "POST",
-      "path": "/v1/step-up/{challenge_id}",
-      "request": "StepUpFinish",
-      "response": "StepUpEvidence",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "stream.next",
-      "method": "GET",
-      "path": "/v1/stream/{cursor}",
-      "request": "Empty",
-      "response": "StreamPage",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "stream.open",
-      "method": "POST",
-      "path": "/v1/stream",
-      "request": "Empty",
-      "response": "StreamPosition",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "support.create",
-      "method": "POST",
-      "path": "/v1/support/conversations",
-      "request": "SupportCreateRequest",
-      "response": "SupportConversation",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "support.feedback",
-      "method": "POST",
-      "path": "/v1/support/conversations/{conversation_id}/feedback",
-      "request": "SupportFeedbackRequest",
-      "response": "SupportConversation",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "support.list",
-      "method": "GET",
-      "path": "/v1/support/conversations",
-      "request": "Empty",
-      "response": "SupportConversationPage",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "support.read",
-      "method": "POST",
-      "path": "/v1/support/conversations/{conversation_id}/read",
-      "request": "SupportReadRequest",
-      "response": "SupportConversationStatus",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "support.reply",
-      "method": "POST",
-      "path": "/v1/support/conversations/{conversation_id}/replies",
-      "request": "SupportReplyRequest",
-      "response": "SupportConversation",
-      "idempotency": true,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "support.status",
-      "method": "GET",
-      "path": "/v1/support/conversations/{conversation_id}/status",
-      "request": "Empty",
-      "response": "SupportConversationStatus",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "version",
-      "method": "GET",
-      "path": "/v1/version",
-      "request": "Empty",
-      "response": "VersionInfo",
-      "idempotency": false,
-      "bodyless": true
-    },
-    {
-      "plane": "human",
-      "name": "withdraw.claim",
-      "method": "POST",
-      "path": "/v1/withdrawals/{journey_id}/claim",
-      "request": "WithdrawClaimRequest",
-      "response": "Journey",
-      "idempotency": false,
-      "bodyless": false
-    },
-    {
-      "plane": "human",
-      "name": "withdraw.start",
-      "method": "POST",
-      "path": "/v1/withdrawals",
-      "request": "WithdrawStartRequest",
-      "response": "Journey",
-      "idempotency": true,
-      "bodyless": false
-    }
-  ]
+  "operations": {
+    "O1": [
+      {
+        "plane": "agent",
+        "name": "prepare",
+        "method": "POST",
+        "path": "",
+        "request": "PrepareRequest",
+        "response": "Prepared",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O3": [
+      {
+        "plane": "agent",
+        "name": "sign",
+        "method": "POST",
+        "path": "",
+        "request": "SignRequest",
+        "response": "Signed",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O5": [
+      {
+        "plane": "agent",
+        "name": "submit",
+        "method": "POST",
+        "path": "",
+        "request": "SubmitRequest",
+        "response": "TrackedSubmission",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O9": [
+      {
+        "plane": "agent",
+        "name": "track",
+        "method": "POST",
+        "path": "",
+        "request": "TrackRequest",
+        "response": "TrackedSubmission",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O10": [
+      {
+        "plane": "agent",
+        "name": "wait",
+        "method": "POST",
+        "path": "",
+        "request": "WaitRequest",
+        "response": "WaitResult",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O11": [
+      {
+        "plane": "agent",
+        "name": "project",
+        "method": "POST",
+        "path": "",
+        "request": "FeeProjectionRequest",
+        "response": "ProjectionResult",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O12": [
+      {
+        "plane": "agent",
+        "name": "read.account",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<AccountValue>",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "read.balance",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<BalanceValue>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O13": [
+      {
+        "plane": "agent",
+        "name": "read.module_state",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<ModuleStateValue>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O14": [
+      {
+        "plane": "agent",
+        "name": "read.history",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<HistoryValue>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O15": [
+      {
+        "plane": "agent",
+        "name": "read.batch",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<BatchValue>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O16": [
+      {
+        "plane": "agent",
+        "name": "read.checkpoint",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<CheckpointValue>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O17": [
+      {
+        "plane": "agent",
+        "name": "read.proof_bundle",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<ProofBundle>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O18": [
+      {
+        "plane": "agent",
+        "name": "availability.fetch",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<AvailabilityReport>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O19": [
+      {
+        "plane": "agent",
+        "name": "export.offline",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "VerifiedRead<OfflineExport>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O20": [
+      {
+        "plane": "agent",
+        "name": "budget.create",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<BudgetRecord>",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "budget.fund",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<BudgetRecord>",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "budget.revoke",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<BudgetRecord>",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O22": [
+      {
+        "plane": "agent",
+        "name": "budget.list",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<BudgetRecords>",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "budget.reconciliation",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<BudgetReconciliation>",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "budget.state",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<BudgetState>",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O23": [
+      {
+        "plane": "agent",
+        "name": "approval.approve",
+        "method": "POST",
+        "path": "",
+        "request": "ApprovalApproveRequest",
+        "response": "ApprovalDecision",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "approval.get",
+        "method": "POST",
+        "path": "",
+        "request": "ApprovalGetRequest",
+        "response": "ApprovalRecord",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "approval.list",
+        "method": "POST",
+        "path": "",
+        "request": "ApprovalListRequest",
+        "response": "ApprovalPage",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "approval.reject",
+        "method": "POST",
+        "path": "",
+        "request": "ApprovalRejectRequest",
+        "response": "ApprovalDecision",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "policy.dry_run",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "PolicyDryRunResult",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O24": [
+      {
+        "plane": "agent",
+        "name": "capability.attenuate",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<CapabilityRecord>",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "capability.create",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<CapabilityRecord>",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "capability.list",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<CapabilityRecords>",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "capability.revoke",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "AuthorityResponse<CapabilityRecord>",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O25": [
+      {
+        "plane": "agent",
+        "name": "session.close",
+        "method": "POST",
+        "path": "",
+        "request": "SessionClose",
+        "response": "AuthorityResponse<SessionRecord>",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "session.list",
+        "method": "POST",
+        "path": "",
+        "request": "SessionList",
+        "response": "AuthorityResponse<SessionRecords>",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "session.open",
+        "method": "POST",
+        "path": "",
+        "request": "SessionOpen",
+        "response": "AuthorityResponse<SessionRecord>",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "session.refresh",
+        "method": "POST",
+        "path": "",
+        "request": "SessionRefresh",
+        "response": "AuthorityResponse<SessionRecord>",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O26": [
+      {
+        "plane": "agent",
+        "name": "agent.register",
+        "method": "POST",
+        "path": "",
+        "request": "AgentRegistration",
+        "response": "AuthorityResponse<AgentRecord>",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O28": [
+      {
+        "plane": "agent",
+        "name": "faucet.claim",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "FaucetGrant",
+        "idempotency": false,
+        "bodyless": false
+      }
+    ],
+    "O29": [
+      {
+        "plane": "agent",
+        "name": "subscription.acknowledge",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "object",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "subscription.create",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "SubscriptionRecord",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "subscription.delete",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "object",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "subscription.health",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "SubscriptionHealth",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "subscription.list",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "SubscriptionRecord[]",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "subscription.pause",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "object",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "subscription.resume",
+        "method": "POST",
+        "path": "",
+        "request": "object",
+        "response": "object",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O30": [
+      {
+        "plane": "agent",
+        "name": "program.call",
+        "method": "eth_sendRawTransaction",
+        "path": "",
+        "request": "ProgramCallRequest",
+        "response": "ProgramSubmission",
+        "idempotency": true,
+        "bodyless": false,
+        "transport": "evm",
+        "to": "0x000000000000000000000000000000000000101d",
+        "selector": "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"
+      },
+      {
+        "plane": "agent",
+        "name": "program.simulate",
+        "method": "eth_call",
+        "path": "",
+        "request": "ProgramCallRequest",
+        "response": "ProgramSimulation",
+        "idempotency": false,
+        "bodyless": false,
+        "transport": "evm",
+        "to": "0x000000000000000000000000000000000000101d",
+        "selector": "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"
+      }
+    ],
+    "O31": [
+      {
+        "plane": "agent",
+        "name": "program.deploy",
+        "method": "eth_sendRawTransaction",
+        "path": "",
+        "request": "NativeProgramDeployRequest",
+        "response": "ProgramLifecycleResponse",
+        "idempotency": true,
+        "bodyless": false,
+        "transport": "evm",
+        "to": "0x000000000000000000000000000000000000101d",
+        "selector": "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"
+      },
+      {
+        "plane": "agent",
+        "name": "program.upgrade",
+        "method": "eth_sendRawTransaction",
+        "path": "",
+        "request": "NativeProgramUpgradeRequest",
+        "response": "ProgramLifecycleResponse",
+        "idempotency": true,
+        "bodyless": false,
+        "transport": "evm",
+        "to": "0x000000000000000000000000000000000000101d",
+        "selector": "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"
+      },
+      {
+        "plane": "agent",
+        "name": "program.wind-down",
+        "method": "eth_sendRawTransaction",
+        "path": "",
+        "request": "NativeProgramWindDownRequest",
+        "response": "ProgramLifecycleResponse",
+        "idempotency": true,
+        "bodyless": false,
+        "transport": "evm",
+        "to": "0x000000000000000000000000000000000000101d",
+        "selector": "deprecate(bytes32,bytes32,uint64)"
+      }
+    ],
+    "O32": [
+      {
+        "plane": "agent",
+        "name": "program.activity",
+        "method": "eth_getTransactionByHash",
+        "path": "",
+        "request": "ProgramActivitySelector",
+        "response": "ProgramSubmission",
+        "idempotency": false,
+        "bodyless": false,
+        "transport": "evm"
+      },
+      {
+        "plane": "agent",
+        "name": "program.discover",
+        "method": "eth_call",
+        "path": "",
+        "request": "ProgramSelector",
+        "response": "VerifiedProgramDiscovery",
+        "idempotency": false,
+        "bodyless": false,
+        "transport": "evm",
+        "to": "0x000000000000000000000000000000000000101d",
+        "selector": "getProgram(bytes32)"
+      },
+      {
+        "plane": "agent",
+        "name": "program.interface",
+        "method": "eth_call",
+        "path": "",
+        "request": "ProgramSelector",
+        "response": "VerifiedProgramInterface",
+        "idempotency": false,
+        "bodyless": false,
+        "transport": "evm",
+        "to": "0x000000000000000000000000000000000000101d",
+        "selector": "getInterface(bytes32)"
+      },
+      {
+        "plane": "agent",
+        "name": "program.receipt",
+        "method": "eth_call",
+        "path": "",
+        "request": "ProgramReceiptSelector",
+        "response": "ProgramReceiptResponse",
+        "idempotency": false,
+        "bodyless": false,
+        "transport": "evm",
+        "to": "0x000000000000000000000000000000000000101c",
+        "selector": "resultByIdempotency(bytes32,bytes32)"
+      }
+    ],
+    "O48": [
+      {
+        "plane": "agent",
+        "name": "mcp.invoke",
+        "method": "POST",
+        "path": "",
+        "request": "McpInvokeRequest",
+        "response": "object",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "agent",
+        "name": "tenant.readiness",
+        "method": "POST",
+        "path": "",
+        "request": "TenantReadinessRequest",
+        "response": "TenantReadiness",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "account.balance",
+        "method": "GET",
+        "path": "/v1/account/balance",
+        "request": "Empty",
+        "response": "AccountBalance",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "account.create",
+        "method": "POST",
+        "path": "/v1/accounts",
+        "request": "AccountCreateRequest",
+        "response": "AccountCreation",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "activity.entry",
+        "method": "GET",
+        "path": "/v1/activity/{entry_id}",
+        "request": "Empty",
+        "response": "ActivityEntryDetail",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "activity.export.evidence",
+        "method": "POST",
+        "path": "/v1/activity/exports/evidence",
+        "request": "ExportEvidenceRequest",
+        "response": "ExportArtefact",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "activity.export.statement",
+        "method": "POST",
+        "path": "/v1/activity/exports/statement",
+        "request": "ExportStatementRequest",
+        "response": "ExportArtefact",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "activity.query",
+        "method": "POST",
+        "path": "/v1/activity/query",
+        "request": "ActivityQueryRequest",
+        "response": "ActivityPage",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "agent.archive",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/archive",
+        "request": "AgentArchiveRequest",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "agent.create",
+        "method": "POST",
+        "path": "/v1/agents",
+        "request": "AgentCreateRequest",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "agent.get",
+        "method": "GET",
+        "path": "/v1/agents/{agent_id}",
+        "request": "Empty",
+        "response": "Agent",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "agent.limit",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/limit",
+        "request": "AgentLimitRequest",
+        "response": "Agent",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "agent.list",
+        "method": "GET",
+        "path": "/v1/agents",
+        "request": "Empty",
+        "response": "AgentPage",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "agent.pause",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/pause",
+        "request": "Empty",
+        "response": "Agent",
+        "idempotency": true,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "agent.reclaim",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/reclaim",
+        "request": "AgentReclaimRequest",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "agent.recover",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/recover",
+        "request": "Empty",
+        "response": "KeyChallenge",
+        "idempotency": true,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "agent.resume",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/resume",
+        "request": "Empty",
+        "response": "Agent",
+        "idempotency": true,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "agent.rotate",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/rotate",
+        "request": "Empty",
+        "response": "KeyChallenge",
+        "idempotency": true,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "agent.rotation.disclosure",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/rotation/disclosure",
+        "request": "OwnerRotationDisclosureRequest",
+        "response": "SecurityAction",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "agent.rotation.start",
+        "method": "POST",
+        "path": "/v1/agents/{agent_id}/rotation",
+        "request": "OwnerRotationRequest",
+        "response": "KeyChallenge",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "approval.approve",
+        "method": "POST",
+        "path": "/v1/approvals/{approval_id}/approve",
+        "request": "ApprovalApproveRequest",
+        "response": "ApprovalDecision",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "approval.get",
+        "method": "GET",
+        "path": "/v1/approvals/{approval_id}",
+        "request": "Empty",
+        "response": "ApprovalDetail",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "approval.list",
+        "method": "GET",
+        "path": "/v1/approvals",
+        "request": "Empty",
+        "response": "ApprovalPage",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "approval.program.approve",
+        "method": "POST",
+        "path": "/v1/program-approvals/{approval_id}/approve",
+        "request": "ProgramApprovalDecisionRequest",
+        "response": "ProgramApprovalDecision",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "approval.program.budget",
+        "method": "GET",
+        "path": "/v1/program-approvals/{approval_id}/budget",
+        "request": "Empty",
+        "response": "ProgramApprovalBudget",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "approval.program.disclosure",
+        "method": "POST",
+        "path": "/v1/program-approvals/{approval_id}/disclosure",
+        "request": "ProgramApprovalDisclosureRequest",
+        "response": "ProgramApprovalDisclosure",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "approval.program.get",
+        "method": "GET",
+        "path": "/v1/program-approvals/{approval_id}",
+        "request": "Empty",
+        "response": "ProgramApprovalDetail",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "approval.program.list",
+        "method": "GET",
+        "path": "/v1/program-approvals/page/{cursor}",
+        "request": "Empty",
+        "response": "ProgramApprovalPage",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "approval.program.material",
+        "method": "GET",
+        "path": "/v1/program-approvals/{approval_id}/material",
+        "request": "Empty",
+        "response": "ProgramApprovalMaterial",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "approval.program.reject",
+        "method": "POST",
+        "path": "/v1/program-approvals/{approval_id}/reject",
+        "request": "ProgramApprovalDecisionRequest",
+        "response": "ProgramApprovalDecision",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "approval.reject",
+        "method": "POST",
+        "path": "/v1/approvals/{approval_id}/reject",
+        "request": "Empty",
+        "response": "ApprovalDecision",
+        "idempotency": true,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "authenticator.backup.rotate",
+        "method": "POST",
+        "path": "/v1/security/authenticators/backup-codes",
+        "request": "BackupCodeRotation",
+        "response": "BackupCodeSet",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "authenticator.disable",
+        "method": "POST",
+        "path": "/v1/security/authenticators/{authenticator_id}/disable",
+        "request": "AuthenticatorDisable",
+        "response": "AuthenticatorStatus",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "authenticator.setup.begin",
+        "method": "POST",
+        "path": "/v1/security/authenticators/setups",
+        "request": "AuthenticatorSetupBegin",
+        "response": "AuthenticatorSetupChallenge",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "authenticator.setup.finish",
+        "method": "POST",
+        "path": "/v1/security/authenticators/setups/{setup_id}",
+        "request": "AuthenticatorSetupFinish",
+        "response": "AuthenticatorSetupResult",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "authenticator.status",
+        "method": "GET",
+        "path": "/v1/security/authenticators",
+        "request": "Empty",
+        "response": "AuthenticatorStatus",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "binding.rebind",
+        "method": "POST",
+        "path": "/v1/wallet-binding/rebind",
+        "request": "RebindingSubmission",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "binding.rebind.action",
+        "method": "POST",
+        "path": "/v1/wallet-binding/rebind/action",
+        "request": "BindingStatementRequest",
+        "response": "BindingRebindAction",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "binding.statement",
+        "method": "POST",
+        "path": "/v1/wallet-binding/statement",
+        "request": "BindingStatementRequest",
+        "response": "BindingStatement",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "binding.status",
+        "method": "GET",
+        "path": "/v1/wallet-binding",
+        "request": "Empty",
+        "response": "WalletBinding",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "binding.submit",
+        "method": "POST",
+        "path": "/v1/wallet-binding",
+        "request": "BindingSubmission",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "deposit.confirm",
+        "method": "POST",
+        "path": "/v1/deposits/{journey_id}/confirm",
+        "request": "DepositConfirmRequest",
+        "response": "Journey",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "deposit.start",
+        "method": "POST",
+        "path": "/v1/deposits",
+        "request": "DepositStartRequest",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "evidence.get",
+        "method": "GET",
+        "path": "/v1/evidence/{evidence_id}",
+        "request": "Empty",
+        "response": "EvidenceMaterial",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "exit.eligibility",
+        "method": "GET",
+        "path": "/v1/exit/eligibility",
+        "request": "Empty",
+        "response": "ExitEligibility",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "exit.start",
+        "method": "POST",
+        "path": "/v1/exit",
+        "request": "ExitStartRequest",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "home.summary",
+        "method": "GET",
+        "path": "/v1/home",
+        "request": "Empty",
+        "response": "HomeSummary",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "journey.get",
+        "method": "GET",
+        "path": "/v1/journeys/{journey_id}",
+        "request": "Empty",
+        "response": "Journey",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "journey.list",
+        "method": "GET",
+        "path": "/v1/journeys",
+        "request": "Empty",
+        "response": "JourneyPage",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "journey.page",
+        "method": "GET",
+        "path": "/v1/journeys/page/{cursor}",
+        "request": "Empty",
+        "response": "JourneyPage",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "move.commit",
+        "method": "POST",
+        "path": "/v1/moves",
+        "request": "MoveCommitRequest",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "move.quote",
+        "method": "POST",
+        "path": "/v1/moves/quote",
+        "request": "MoveQuoteRequest",
+        "response": "MoveQuote",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "native.send.access.begin",
+        "method": "POST",
+        "path": "/v1/native/send/access/begin",
+        "request": "NativeSendAccessRequest",
+        "response": "NativeSendAccessDisclosure",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "native.send.access.confirm",
+        "method": "POST",
+        "path": "/v1/native/send/access/confirm",
+        "request": "NativeSendAccessConfirmation",
+        "response": "NativeSendAccessResult",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "notification.list",
+        "method": "GET",
+        "path": "/v1/notifications",
+        "request": "Empty",
+        "response": "NotificationPage",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "notification.preferences.get",
+        "method": "GET",
+        "path": "/v1/notifications/preferences",
+        "request": "Empty",
+        "response": "NotificationPreferences",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "notification.preferences.set",
+        "method": "POST",
+        "path": "/v1/notifications/preferences",
+        "request": "NotificationPreferences",
+        "response": "NotificationPreferences",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "notification.read",
+        "method": "POST",
+        "path": "/v1/notifications/{notification_id}/read",
+        "request": "Empty",
+        "response": "NotificationSummary",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "onboarding.resume",
+        "method": "POST",
+        "path": "/v1/onboarding/resume",
+        "request": "Empty",
+        "response": "Journey",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "onboarding.status",
+        "method": "GET",
+        "path": "/v1/onboarding",
+        "request": "Empty",
+        "response": "Journey",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "passkey.assert.begin",
+        "method": "POST",
+        "path": "/v1/passkeys/assertions",
+        "request": "PasskeyAssertionBegin",
+        "response": "PasskeyAssertionChallenge",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "passkey.assert.finish",
+        "method": "POST",
+        "path": "/v1/passkeys/assertions/{assertion_id}",
+        "request": "PasskeyAssertionFinish",
+        "response": "PasskeyAssertion",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "passkey.register.begin",
+        "method": "POST",
+        "path": "/v1/passkeys/registrations",
+        "request": "PasskeyRegistrationBegin",
+        "response": "PasskeyRegistrationChallenge",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "passkey.register.finish",
+        "method": "POST",
+        "path": "/v1/passkeys/registrations/{registration_id}",
+        "request": "PasskeyRegistrationFinish",
+        "response": "Passkey",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "profile.get",
+        "method": "GET",
+        "path": "/v1/profile",
+        "request": "Empty",
+        "response": "Profile",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "profile.update",
+        "method": "PATCH",
+        "path": "/v1/profile",
+        "request": "ProfileUpdate",
+        "response": "Profile",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.action",
+        "method": "POST",
+        "path": "/v1/security/actions",
+        "request": "SecurityActionRequest",
+        "response": "SecurityAction",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.key-export.begin",
+        "method": "POST",
+        "path": "/v1/security/key-export/begin",
+        "request": "KeyExportBegin",
+        "response": "KeyExportChallenge",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.key-export.finish",
+        "method": "POST",
+        "path": "/v1/security/key-export/finish",
+        "request": "KeyExportFinish",
+        "response": "ExportedPrimaryKey",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.passkey.list",
+        "method": "GET",
+        "path": "/v1/security/passkeys",
+        "request": "Empty",
+        "response": "PasskeyList",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "security.passkey.register.begin",
+        "method": "POST",
+        "path": "/v1/security/passkeys/registrations",
+        "request": "SecurityPasskeyRegistrationBegin",
+        "response": "PasskeyRegistrationChallenge",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.passkey.register.finish",
+        "method": "POST",
+        "path": "/v1/security/passkeys/registrations/{registration_id}",
+        "request": "SecurityPasskeyRegistrationFinish",
+        "response": "Passkey",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.passkey.revoke",
+        "method": "POST",
+        "path": "/v1/security/passkeys/{passkey_id}/revoke",
+        "request": "SecurityPasskeyRevocation",
+        "response": "PasskeyList",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.recovery.reveal",
+        "method": "POST",
+        "path": "/v1/security/recovery/evidence",
+        "request": "SecurityRecoveryReveal",
+        "response": "TimedSecret",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.session.revoke",
+        "method": "POST",
+        "path": "/v1/security/sessions/{session_id}/revoke",
+        "request": "SecuritySessionRevocation",
+        "response": "SessionRevocation",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "security.session.revoke-all",
+        "method": "POST",
+        "path": "/v1/security/sessions/revoke-all",
+        "request": "SecuritySessionRevocation",
+        "response": "SessionRevocation",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "session.fee-policy",
+        "method": "GET",
+        "path": "/v1/sessions/fee-policy",
+        "request": "Empty",
+        "response": "NativeFeeAsset",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "session.list",
+        "method": "GET",
+        "path": "/v1/sessions",
+        "request": "Empty",
+        "response": "SessionList",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "session.open",
+        "method": "POST",
+        "path": "/v1/sessions",
+        "request": "SessionOpenRequest",
+        "response": "Session",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "session.refresh",
+        "method": "POST",
+        "path": "/v1/sessions/refresh",
+        "request": "Empty",
+        "response": "Session",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "session.revoke",
+        "method": "DELETE",
+        "path": "/v1/sessions/{session_id}",
+        "request": "Empty",
+        "response": "SessionRevocation",
+        "idempotency": true,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "session.revoke-all",
+        "method": "POST",
+        "path": "/v1/sessions/revoke-all",
+        "request": "Empty",
+        "response": "SessionRevocation",
+        "idempotency": true,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "stepup.begin",
+        "method": "POST",
+        "path": "/v1/step-up",
+        "request": "StepUpRequest",
+        "response": "StepUpChallenge",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "stepup.finish",
+        "method": "POST",
+        "path": "/v1/step-up/{challenge_id}",
+        "request": "StepUpFinish",
+        "response": "StepUpEvidence",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "stream.next",
+        "method": "GET",
+        "path": "/v1/stream/{cursor}",
+        "request": "Empty",
+        "response": "StreamPage",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "stream.open",
+        "method": "POST",
+        "path": "/v1/stream",
+        "request": "Empty",
+        "response": "StreamPosition",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "support.create",
+        "method": "POST",
+        "path": "/v1/support/conversations",
+        "request": "SupportCreateRequest",
+        "response": "SupportConversation",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "support.feedback",
+        "method": "POST",
+        "path": "/v1/support/conversations/{conversation_id}/feedback",
+        "request": "SupportFeedbackRequest",
+        "response": "SupportConversation",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "support.list",
+        "method": "GET",
+        "path": "/v1/support/conversations",
+        "request": "Empty",
+        "response": "SupportConversationPage",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "support.read",
+        "method": "POST",
+        "path": "/v1/support/conversations/{conversation_id}/read",
+        "request": "SupportReadRequest",
+        "response": "SupportConversationStatus",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "support.reply",
+        "method": "POST",
+        "path": "/v1/support/conversations/{conversation_id}/replies",
+        "request": "SupportReplyRequest",
+        "response": "SupportConversation",
+        "idempotency": true,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "support.status",
+        "method": "GET",
+        "path": "/v1/support/conversations/{conversation_id}/status",
+        "request": "Empty",
+        "response": "SupportConversationStatus",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "version",
+        "method": "GET",
+        "path": "/v1/version",
+        "request": "Empty",
+        "response": "VersionInfo",
+        "idempotency": false,
+        "bodyless": true
+      },
+      {
+        "plane": "human",
+        "name": "withdraw.claim",
+        "method": "POST",
+        "path": "/v1/withdrawals/{journey_id}/claim",
+        "request": "WithdrawClaimRequest",
+        "response": "Journey",
+        "idempotency": false,
+        "bodyless": false
+      },
+      {
+        "plane": "human",
+        "name": "withdraw.start",
+        "method": "POST",
+        "path": "/v1/withdrawals",
+        "request": "WithdrawStartRequest",
+        "response": "Journey",
+        "idempotency": true,
+        "bodyless": false
+      }
+    ],
+    "O57": [
+      {
+        "plane": "human",
+        "name": "intent.plan",
+        "method": "eth_call",
+        "path": "",
+        "request": "PlanIntentRequest",
+        "response": "IntentPlan",
+        "idempotency": false,
+        "bodyless": false,
+        "transport": "evm",
+        "per_leg": true
+      },
+      {
+        "plane": "human",
+        "name": "intent.submit",
+        "method": "eth_sendRawTransaction",
+        "path": "",
+        "request": "SubmitPlanRequest",
+        "response": "IntentSubmission",
+        "idempotency": true,
+        "bodyless": false,
+        "transport": "evm",
+        "per_leg": true
+      }
+    ]
+  }
 }
