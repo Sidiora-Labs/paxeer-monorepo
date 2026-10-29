@@ -49,7 +49,10 @@ impl RpcClient {
     /// # Errors
     /// Refuses unsupported methods, invalid parameters, transport failures and RPC errors.
     pub fn call(&self, method: &str, params: &Value) -> Result<Value, String> {
-        if matches!(method, "lx_subscribe" | "lx_unsubscribe") {
+        if matches!(
+            method,
+            "eth_subscribe" | "eth_unsubscribe" | "lx_subscribe" | "lx_unsubscribe"
+        ) {
             return Err(format!(
                 "rpc_transport_required: {method} requires authenticated WebSocket transport"
             ));
@@ -151,6 +154,15 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
                 return Err("lx_estimateFee requires canonical_hex".into());
             };
             canonical_hex(canonical)?;
+        }
+        "eth_subscribe" => logs_subscription_params(args)?,
+        "eth_unsubscribe" => {
+            let [Value::String(subscription)] = args.as_slice() else {
+                return Err("eth_unsubscribe requires one subscription identifier".into());
+            };
+            if subscription.is_empty() || subscription.len() > 128 {
+                return Err("invalid subscription identifier".into());
+            }
         }
         "lx_subscribe" => subscription_params(args)?,
         "lx_unsubscribe" => {
@@ -444,7 +456,7 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
             .cloned()
             .ok_or_else(|| format!("{method} returned an invalid Ethereum quantity"));
     }
-    if method == "lx_subscribe" {
+    if matches!(method, "eth_subscribe" | "lx_subscribe") {
         return response
             .get("result")
             .filter(|value| {
@@ -455,7 +467,7 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
             .cloned()
             .ok_or_else(|| "invalid subscription identifier".to_owned());
     }
-    if method == "lx_unsubscribe" {
+    if matches!(method, "eth_unsubscribe" | "lx_unsubscribe") {
         return response
             .get("result")
             .filter(|value| value.as_bool() == Some(true))
@@ -467,6 +479,48 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
         .filter(|value| value.is_object())
         .cloned()
         .ok_or_else(|| format!("{method} returned a non-object result"))
+}
+
+fn logs_subscription_params(args: &[Value]) -> Result<(), String> {
+    let [Value::String(kind), Value::Object(filter)] = args else {
+        return Err("eth_subscribe requires logs and an address/topics filter".into());
+    };
+    let hex = |value: &Value, bytes: usize| {
+        value.as_str().is_some_and(|value| {
+            value.strip_prefix("0x").is_some_and(|value| {
+                value.len() == bytes * 2 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+        })
+    };
+    let address = filter.get("address").is_some_and(|address| {
+        hex(address, 20)
+            || address.as_array().is_some_and(|addresses| {
+                !addresses.is_empty() && addresses.iter().all(|address| hex(address, 20))
+            })
+    });
+    let topics = filter.get("topics").is_none_or(|topics| {
+        topics.as_array().is_some_and(|topics| {
+            topics.len() <= 4
+                && topics.iter().all(|topic| {
+                    topic.is_null()
+                        || hex(topic, 32)
+                        || topic.as_array().is_some_and(|alternatives| {
+                            !alternatives.is_empty()
+                                && alternatives.iter().all(|topic| hex(topic, 32))
+                        })
+                })
+        })
+    });
+    if kind != "logs"
+        || filter
+            .keys()
+            .any(|key| !matches!(key.as_str(), "address" | "topics"))
+        || !address
+        || !topics
+    {
+        return Err("invalid eth_subscribe logs address/topics filter".into());
+    }
+    Ok(())
 }
 
 fn subscription_params(args: &[Value]) -> Result<(), String> {
@@ -580,7 +634,13 @@ mod tests {
                 .filter_map(|entry| entry["name"].as_str())
                 .collect::<Vec<_>>(),
             [
-                "lx_register",
+                "px_register",
+                "px_getCommit",
+                "px_getValidators",
+                "px_getReceiptKeys",
+                "px_getSequenceBatch",
+                "px_requestFunds",
+                "pax_sequencerReceipt",
                 "lx_requestFunds",
                 "lx_getAccount",
                 "lx_getBalance",
@@ -604,11 +664,12 @@ mod tests {
                 "px_getBalances",
                 "px_listAssets",
                 "px_getNetwork",
-                "lx_getHistory",
                 "px_getHistory",
                 "px_getUnifiedHistory",
+                "px_listHolderRecords",
                 "px_getCapabilities",
                 "px_getRouteCatalogue",
+                "lx_getWalletCaps",
             ]
         );
         let description = |method: &str| -> Result<&str, String> {

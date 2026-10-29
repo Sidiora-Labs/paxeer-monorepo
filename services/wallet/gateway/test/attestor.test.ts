@@ -490,6 +490,31 @@ describe('AttestorClient over mutual TLS', () => {
   }
   it(reviewEvmTransactionRequiresQuorumAgreement);
 
+  async function parseEvmReviewAdmitsNativeTransferWithoutMethod(): Promise<void> {
+    attestorNodes[3]!.ready = false;
+    attestorNodes[4]!.ready = false;
+    expectedToken = await mintToken(reviewOwner);
+    const client = newClient();
+    const input = { keyId: walletFixture.key_id, sessionId: randomUUID(), transaction: recorded[0]!.request.transaction!,
+      owner: reviewOwner, token: expectedToken };
+    try {
+      for (const node of attestorNodes) {
+        node.evmReviewOverrides = { data: '0x', method: '', destination: '' };
+      }
+      await expect(client.reviewEvmTransaction(input)).resolves.toMatchObject({ data: '0x', method: '', destination: '' });
+
+      for (const node of attestorNodes) {
+        node.evmReviewOverrides = { data: '0xa9059cbb', method: '' };
+      }
+      await expect(client.reviewEvmTransaction({ ...input, sessionId: randomUUID() })).rejects.toMatchObject({
+        code: 'evm_review_invalid',
+      });
+    } finally {
+      client.stop();
+    }
+  }
+  it(parseEvmReviewAdmitsNativeTransferWithoutMethod);
+
   async function reviewEvmTransactionRefusesEd25519Key(): Promise<void> {
     const client = newClient();
     try {
