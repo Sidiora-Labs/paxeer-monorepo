@@ -10835,3 +10835,51 @@ symbol = "layerx_programs_sandbox_admit_host"
 observed = "Attempt 30 (4b77fc397): the plain ABI-v3 call settles and the funded sandboxExecute reverts LXP_ERR_NON_CANONICAL; every host refusal on the sandbox path collapses to that code, so the refusing site cannot be read from the result."
 assumption = "do_14 fixes the second output assertion and records the revert; a host or kernel defect that collapses distinct refusals into NON_CANONICAL is outside this task."
 severity = "major"
+
+[finding.13.27.1.13]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+symbol = "TestProgramsSandboxExecuteEmitsUsage"
+observed = "Attempt 31 (20157a74a): build exit 0; verify exit 1; the plain ABI-v3 call settles at :298 and the funded sandboxExecute reverts LXP_NON_CANONICAL at :312 with every admission input matching the stored lease."
+assumption = "The refusing check is unreadable while every sandbox host refusal collapses to one code; task 13.27.5 (decision.1856) names it and 13.27.1 continues from this candidate afterwards."
+severity = "blocking"
+
+[finding.18.1001.1.3]
+task = "18.1001.1"
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+symbol = "evmReviewApproveSignReturnsReceipt"
+observed = "Attempt 5 (6d36722e2): build exit 0; verify exit 1; POST /v1/wallet/evm/review answered 502 attestor_session_refused code evm_review_invalid at :345 before any receipt check ran."
+assumption = "The attestor's authenticated EVM review evidence check and the test fixture disagree independently of this task's changes; under triage for the owning task."
+severity = "blocking"
+
+[finding.9.1.4.1]
+task = "9.1.4"
+file = "services/agent/crates/layerx-agent-api/build.rs"
+symbol = "build.rs:407"
+observed = "Attempt 4 (137af8754): build exit 101; build.rs:407 panics 'invalid schema: missing the type.SettlementDomain claim vocabulary' after the task deletes the retired vocabulary; build.rs is outside the task's touches."
+assumption = "The schema generator must stop requiring the retired vocabulary in the same task under decision.1849; ruling pending on the owner of build.rs."
+severity = "blocking"
+
+[finding.9.13.3.1]
+task = "9.13.3"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "export_refusal"
+observed = "Attempt 3 (e5cab353b): build exit 101; E0599 at human_runtime.rs:18500, the export_refusal arm still names HumanRefusal::ExportSettlementAnchoringUnavailable."
+assumption = "This task now carries the four caller sites (do_4)."
+severity = "blocking"
+
+[finding.9.94.1.4]
+task = "9.94.1"
+file = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+symbol = "payer.rs"
+observed = "Attempt 5 (b741034ab): build exit 101 on 22 pre-existing errors in layerx-agentd-host payer.rs and layerx-agentd main.rs against the ported APIs."
+assumption = "Task 9.98.1 ports both files; 9.94.1 now requires it."
+severity = "blocking"
+
+[finding.8.49.1.1]
+task = "8.49.1"
+file = "tools/platform/cli/src/wallet.rs"
+symbol = "estimate_fee"
+observed = "Attempt 4 (b5268e502): build exit 101 on three pre-existing errors in wallet.rs (estimate_fee type mismatch, into_value on u64, missing send_activity)."
+assumption = "Task 8.48.1 ports wallet.rs under decision.1846; 8.49.1 now requires it at wave 18."
+severity = "blocking"

@@ -4245,6 +4245,12 @@ value = "The human BudgetFund intent (services/human/crates/layerx-intents/src/v
 basis = "src/modules/budget/lx_budget_codec.c:173-196 decodes both layouts; src/modules/budget/lx_budget_module.c:194-196 treats only v2 as the native-source path and :227-234 requires payload.source_sequence to equal the source account's next sequence, a value the human intent and its resolver (services/human/crates/layerx-human-service/src/journeys/resolver.rs:900) do not hold; decision.1811 names either layout canonical; issue #1207."
 affects = ["10.21.7"]
 
+[decision.1856]
+title = "A sandboxExecute host refusal reverts with the result code of the refusing check"
+value = "Every host refusal on the sandboxExecute path (admission in programs/crates/layerx-programs-sandbox/src/host_ffi.rs admit_host, the final reserve, validate_settlement_context, settle_call and the kernel escrow debit) returns the registered code of the check that refused (LXP_ERR_CONTEXT_MISMATCH, TERMS_MISMATCH, NOT_YET_VALID, EXPIRED, SEQUENCE_MISMATCH, FEE_LIMIT, FEE_UNPAYABLE, CONSERVATION, OVERFLOW, AUTH_SCOPE, ESCROW_STATE, DUPLICATE_ENTRY, LENGTH_LIMIT or the kernel's own code), carried unchanged through src/modules/programs/sandbox.c and the runtime to the 0x101D revert string; LXP_ERR_NON_CANONICAL is reserved for a lease, escrow or ledger state that does not decode, a sandbox token or operation precondition and a host fault. Refused sandbox receipts therefore carry the refusing code as result_code; 0x101D is served only from MergeUpgrade, so no live receipt changes. Task 13.27.5 lands this and task 13.27.1 requires it."
+basis = "Attempt 31 of 13.27.1 (20157a74a) and attempt 30 before it reverted LXP_ERR_NON_CANONICAL with every admission input verified against the stored lease; sandbox.c:104-107, host_ffi.rs:20, :660, :1025 and the ReceiptMismatch mapping at programs/crates/layerx-programs-runtime/src/ffi_call.rs:1990-2003 collapse every refusal to one code, so the refusing check cannot be read from the revert; include/layerx/lxp_result.h:30-162 already registers a code for each check and the Go mirrors render them all."
+affects = ["13.27.5", "13.27.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20001,6 +20007,7 @@ ac_2 = "exitValueBounded (precompiles/layerxprograms/abi.json:155) with maxAmoun
 title = "Serve sandboxExecute with its fee limit and usage receipt"
 ac_1 = "sandboxExecute (precompiles/layerxprograms/abi.json:777) submits sandbox operation 1 (src/modules/programs/sandbox.c:163) with its feeLimit and emits SandboxUsageReceipt."
 ac_2 = "sandboxExecute with a zero asset reverts with LXP_NON_CANONICAL before submission, the refusal of src/modules/programs/sandbox.c:239-262."
+ac_3 = "A sandboxExecute that the host refuses at admission, settlement context or escrow settlement reverts with the result code of the refusing check: LXP_CONTEXT_MISMATCH when the payload's lease id, escrow, asset, fee destination or expected lease digest differs from the stored lease, LXP_TERMS_MISMATCH when the payload's fee schedule differs from the lease schedule, LXP_NOT_YET_VALID or LXP_EXPIRED when the batch lies outside the lease window, LXP_FEE_UNPAYABLE when the admitted or reserved charge exceeds the remaining escrow, LXP_SEQUENCE_MISMATCH when the expected sequence is not the ledger receipt count plus one, LXP_AUTH_SCOPE when the escrow charge authority is refused, LXP_ESCROW_STATE when the escrow does not permit the exact fee, and the kernel's own code when the escrow debit is refused by the kernel. LXP_NON_CANONICAL is reserved for a lease, escrow or ledger state that does not decode, a sandbox token or operation precondition, and a host fault."
 
 [req.13269]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -75131,6 +75138,14 @@ req = "13268.2"
 scenario = "Given a bound caller, when sandboxExecute runs with the zero asset, then the call reverts with reason starting LXP_NON_CANONICAL and the account sequence is unchanged"
 contract = "contracts/programs.md#layerxprograms-0x101d"
 test = "precompiles/layerxprograms/method_sandbox_execute_test.go::TestProgramsSandboxExecuteZeroAssetReverts (planned)"
+qualification = "UNRUN"
+
+[acceptance.13.268.3]
+feature = "13"
+req = "13268.3"
+scenario = "Given a funded sandbox lease, when sandboxExecute is admitted with a corrupted expected lease digest, then the call reverts with LXP_CONTEXT_MISMATCH rather than LXP_NON_CANONICAL and staged effects and balances are unchanged"
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_refusal_propagates"
 qualification = "UNRUN"
 
 [acceptance.13.269.1]
@@ -137275,8 +137290,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "layerx program call and simulate use 0x101D and receipt get takes a transaction hash"
 status = "pending"
 mode = "BUILD"
-wave = 17
-requires = ["8.46.1", "8.0.3", "9.1.8", "18.1121.1"]
+wave = 18
+requires = ["8.46.1", "8.0.3", "9.1.8", "18.1121.1", "8.48.1"]
 reqs = ["8537.1", "8537.2", "8537.3"]
 capabilities = ["8.49.1"]
 interfaces = ["interface.8.cli-cli-layerx-program-call", "interface.8.cli-cli-layerx-program-simulate", "interface.8.cli-cli-layerx-receipt-get"]
@@ -137303,6 +137318,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 4 (b5268e502) failed to build layerx-platform-cli on three errors in tools/platform/cli/src/wallet.rs (an estimate_fee type mismatch, into_value called on a u64 and a missing send_activity method), a file this task does not touch; decision.1846 gives that port to task 8.48.1, now required. Qualify on a revision that includes it and change nothing in wallet.rs."
 
 [task.8.49.2]
 title = "layerx program deploy, upgrade and wind-down submit layerxprograms transactions"
@@ -139991,7 +140007,7 @@ do_1 = "services/agent/crates/layerx-agentd/src/human.rs:1453 maps ExportSettlem
 do_2 = "services/agent/crates/layerx-agentd/src/human.rs:1452 export.level_unattainable becomes export.rung_unattainable."
 do_3 = "Create services/agent/crates/layerx-agentd/tests/human_peer_retired.rs (planned)."
 symbols = ["HumanOperationError"]
-touches = ["services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/tests/human_peer_retired.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/export.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/tests/human_peer_rungs.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs::export_above_committed_is_rung_unattainable"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
@@ -140007,6 +140023,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 3 (e5cab353b) deleted the variant and the build then failed at services/agent/crates/layerx-agentd/src/human_runtime.rs:18500, which still constructs HumanOperationError::Typed(HumanRefusal::ExportSettlementAnchoringUnavailable) for ExportProduceError::SettlementAnchoringUnavailable; under decision.1849 this task carries the callers: delete the never-constructed variant SettlementAnchoringUnavailable from ExportProduceError (services/agent/crates/layerx-agentd/src/export.rs:126) and its arm in export_refusal (human_runtime.rs:18499-18501), drop the ExportSettlementAnchoringUnavailable entry from the refusal list of typed_owner_refusals_keep_their_class_and_reason (services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1672), and remove the two reason and class assertions on it in services/agent/crates/layerx-agentd/tests/human_peer_rungs.rs:367-374 while the opcode assertions stay."
 
 [task.9.14.1]
 title = "Accept 65-byte external signatures in the MCP activity tools"
@@ -142942,7 +142959,7 @@ title = "Read program balances through eth_call on 0x101D in agentd instead of t
 status = "pending"
 mode = "BUILD"
 wave = 14
-requires = ["9.0.2", "6.0.2", "9.1.8", "18.1131.1", "18.1121.1"]
+requires = ["9.0.2", "6.0.2", "9.1.8", "18.1131.1", "18.1121.1", "9.98.1"]
 reqs = ["9973.1"]
 capabilities = []
 interfaces = []
@@ -142970,6 +142987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 1 made no change: the adapter is also imported by services/agent/crates/layerx-agentd/src/read/program_balances.rs:4 and src/read/program_node.rs:10 (ProtocolProgramStateRead::restore_verified and restore_verified_profile2 at :268 and :277, ProtocolAdapterError throughout), ops/program.rs reads it twice (:994 current_value_accounts and :1077 discover), and the budget caller program_source (services/agent/crates/layerx-agentd/src/budget/program_sources.rs:424-449) needs VerifiedProgramBalanceRead (programs/crates/layerx-programs-registry/src/lib.rs:343) with state root, freshness, bindings and value accounts cross-checked against caps.all_accounts(), which no bare eth_call carries. layerx-programs-protocol-adapter is an FFI wrapper (src/ffi.rs) over the kernel's C account-state decode that then calls Registry::read_value_accounts (registry lib.rs:1016, :1041) over a VerifiedAccountSnapshot (registry account_state.rs:189, verify at :516). Ruling (decision.1836): (a) the program operation reads at ops/program.rs:994 and :1077 switch to eth_call getValueAccount(bytes32 programId, bytes32 accountId) on 0x000000000000000000000000000000000000101D (LayerXPrograms.sol:184; handler precompiles/layerxprograms/view_accounts.go:84-100 answers (balance, true) or (0, false) when the account is absent, the bool being existence) at the committed height through node_rpc.rs:148 call_at, and return plain balances, which is acceptance 9.973.1's RPC-fake scenario; (b) the budget path keeps VerifiedProgramBalanceRead, built in src/read/program_node.rs by decoding the node's account-state response in Rust into the registry's VerifiedAccountSnapshot and calling Registry::read_value_accounts or read_value_accounts_profile2, with an agentd error type in place of ProtocolAdapterError in program_node.rs and program_balances.rs and the re-exports of src/read/mod.rs and the two uses of src/main.rs (:31, :2003) following; program_sources.rs is not edited and its checks stay byte for byte; (c) if the registry crate offers no Rust decoder for the account-state payload, stop and record the interface gap as implemented-not-qualified rather than weaken the budget checks or copy the C decoder; (d) the dependency lines of do_2 go only once no import remains, and the lock refresh stays offline."
 do_5 = "Attempt 2 stopped under do_4 (c) reporting no Rust decoder, but the account-state record codec is pure Rust inside the adapter: programs/crates/layerx-programs-protocol-adapter/src/ffi.rs holds RECORD_MAGIC LXPS1 and PROFILE2_RECORD_MAGIC LXPS2, ProtocolProgramStateRead (:202), ProtocolAdapterError, Cursor, the take_*/put_* helpers (:456-830), restore_inner (:403), restore_verified (:262), restore_verified_profile2 (:292, a Cursor walk with no C call) and canonical_encode; only the read_* functions at :930-1205 and read_program_state cross the C boundary. Move the codec into a new pub mod state_record at programs/crates/layerx-programs-registry/src/state_record.rs (re-exported from programs/crates/layerx-programs-registry/src/lib.rs), make programs/crates/layerx-programs-protocol-adapter/src/ffi.rs and src/lib.rs re-export ProtocolProgramStateRead, ProtocolAdapterError, restore_verified and restore_verified_profile2 from layerx_programs::state_record so the other adapter dependents compile unchanged, and point services/agent/crates/layerx-agentd/src/read/program_node.rs at layerx_programs::state_record. Delete the C-backed reader in services/agent/crates/layerx-agentd/src/read/program_balances.rs (ProtocolProgramBalanceReader, program_balances_from_protocol) and its re-exports in src/read/mod.rs, keeping program_balances() and the ProgramValueBalance, ProgramBalanceFreshness and ProgramBalanceRead types; then the adapter dependency lines of do_2 go and the lock refresh stays offline. Behaviour of the codec is byte-identical: move the code, do not rewrite it (decision.1838)."
 do_6 = "Attempt 3 failed to build with seven errors in services/agent/crates/layerx-mcp/src/tools/read.rs, wallet.rs and web.rs, files this task does not touch; task 18.1121.1 (now required) ported them at main. Qualify on a revision that includes it and change nothing under layerx-mcp."
+do_7 = "Attempt 5 (b741034ab) failed to build on 22 errors in services/agent/crates/layerx-agentd-host/src/payer.rs and services/agent/crates/layerx-agentd/src/main.rs against the ported payment, export and native-read APIs, files task 9.98.1 (decision.1847, now required) ports. Qualify on a revision that includes it and change nothing in payer.rs."
 
 [task.9.98.1]
 title = "layerx-agentd binary compiles against the ported read, export and payment APIs"
@@ -158197,7 +158215,7 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1", "13.27.5"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
@@ -158231,7 +158249,7 @@ do_10 = "Attempt 26 (2b59a8369) shows the stored v3 lease is canonical (programs
 do_11 = "Attempt 27 failed with LXP_ERR_CONTEXT_MISMATCH (-213) because the test's interface bytes carry ABI 1 while the deploy and call payloads carry abiVersion 3: the runtime rejects interface.abi != abi in layerx_programs_interface_validate (programs/crates/layerx-programs-runtime/src/ffi_interface.rs:469-474, at deploy via src/modules/programs/deploy.c:329) and in validate_binding (ffi_interface.rs:549-552, at call via ffi_call.rs:3002 with the deploy record's ABI). In prepareSandboxExecute of precompiles/layerxprograms/method_sandbox_execute_test.go write the interface ABI u16 (the field right after the 32-byte code hash) as 3, equal to EncodeDeployPayload(program, 3, ...) and EncodeCallPayload(..., 3, ...); the capability-11 entry also requires ABI 3 or 4 (ffi_interface.rs:238). No kernel, runtime or bridge change: method_sandbox_execute.go passes the payload through unchanged."
 do_12 = "Attempt 28 reverts at the escrow registerAccount with LXP_VERSION_UNSUPPORTED: lxp_programs_account_guest_validate (src/modules/programs/accounts.c:432-449) admits ABI 2 at :443 without a profile, while ABI 3 needs protocol version 3 (:444, already the harness default at precompiles/layerxprograms/submit_test.go:66) and a program-account-profile record; when lxp_programs_account_profile_read (:403-425) finds none it answers UNKNOWN_FIELD, which :446-448 reports as VERSION_UNSUPPORTED. No production code writes the program-owner or program-account-profile records; only tests seed them (precompiles/layerxprograms/view_accounts_test.go:79-80, precompiles/layerxprograms/method_quote_test.go:24 quoteModuleKey). In precompiles/layerxprograms/method_sandbox_execute_test.go, before the first registerAccount, write into h.stateDB.Ctx().KVStore(h.key) under the module prefix {1, 0, 9} (accountViewModuleKey, view_accounts_test.go:50) the record program-owner NUL || program = {1} || authority.Principal (PROGRAM_OWNER_RECORD_BYTES, accounts.c:344-362) and the record program-account-profile NUL || program = {2} || authority.Principal (accounts.c:403-425); then deploy the program once at ABI 3 with the interface ABI u16 (the field after the 32-byte code hash) equal to 3, and delete the ABI-2 deploy, the registerAccount(program, uint8(2), asset, seed) opt-in and the profile assertion (attempt 28 test :190-218). The opt-in path (account_profile_opt_in_validate, accounts.c:451-478) reads the owner record at :469 as well, so it cannot replace the seeded records. The escrow stays registerAccount(program, uint8(1), asset, seed) per do_9; EncodeDeployPayload, EncodeCallPayload and the interface all carry ABI 3 per do_11, which also closes the -213 CONTEXT_MISMATCH of attempt 27 (decision.1831)."
 do_13 = "Attempt 29 (18e0e0955) reached the ordinary ABI-v3 call, which settled with status 0 and kind 1; callHandler (precompiles/layerxprograms/method_call.go:45) packs outcome.Response as the third output and the market guest answers the terminal receipt envelope ('LXP/programs/terminal-applied-legs/v1' ...), so the ladder's expectation of empty response bytes at method_sandbox_execute_test.go:293 is wrong. Assert only plainOutput[0] == int32(0) and plainOutput[1] == uint8(1), as determinism_test.go:183-184 does, then continue to the sandboxExecute call and the SandboxUsageReceipt assertions; nothing else changes."
-do_14 = "Attempt 30 (4b77fc397) settled the identical ABI-v3 payload through the call handler, and the funded sandboxExecute then reverted LXP_ERR_NON_CANONICAL. Every host refusal on the sandbox path reports that code: admit_host (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:480-570, collapsed at src/modules/programs/sandbox.c:104-107 and by the panic guard at host_ffi.rs:20), the final reserve (:612-660), validate_settlement_context (:662-700) and the escrow settlement (:770-774). The test's lease id, escrow, asset, fee destination, digest, fee schedule v1, batch 100 and expected_sequence 1 already match the stored lease. Change the sandboxExecute output assertion at precompiles/layerxprograms/method_sandbox_execute_test.go:317 the same way as do_13: assert only output[0] == int32(0) and output[1] == uint8(1). Keep everything else. If sandboxExecute still reverts NON_CANONICAL, record the revert with the three stored states and stop; the refusal is a host or kernel defect outside this task."
+do_14 = "Attempt 30 (4b77fc397) settled the identical ABI-v3 payload through the call handler, and the funded sandboxExecute then reverted LXP_ERR_NON_CANONICAL. Every host refusal on the sandbox path reports that code: admit_host (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:480-570, collapsed at src/modules/programs/sandbox.c:104-107 and by the panic guard at host_ffi.rs:20), the final reserve (:612-660), validate_settlement_context (:662-700) and the escrow settlement (:770-774). The test's lease id, escrow, asset, fee destination, digest, fee schedule v1, batch 100 and expected_sequence 1 already match the stored lease. Change the sandboxExecute output assertion at precompiles/layerxprograms/method_sandbox_execute_test.go:317 the same way as do_13: assert only output[0] == int32(0) and output[1] == uint8(1). Keep everything else. If sandboxExecute still reverts, the revert string names the refusing check (task 13.27.5, decision.1856); record that code with the three stored states and stop."
 
 [task.13.27.2]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -158322,6 +158340,40 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
 rollback = "Revert the touched files; 0x101D is served only from MergeUpgrade and only through the constructor registered in precompiles/layerxprograms, so reverting removes the method."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.13.27.5]
+title = "Report each sandboxExecute host refusal with its own result code"
+status = "pending"
+mode = "BUILD"
+wave = 16
+requires = ["18.887.1", "18.1163.1", "13.27.3"]
+reqs = ["13268.3"]
+capabilities = []
+interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
+do_1 = "In src/modules/programs/sandbox.c:93-107 (layerx_programs_call_sandbox_admit) bind the result of layerx_programs_sandbox_admit_host to an lxp_result and return it when it is a registered, non-fatal error (lxp_result_is_registered and lxp_result_is_fatal, include/layerx/lxp_result.h:168-174), returning LXP_ERR_NON_CANONICAL only for an unregistered or fatal value; return LXP_ERR_LENGTH_LIMIT for the effect-capacity branch at :101-104 and keep LXP_ERR_NON_CANONICAL for the token, operation and host_reserved branch at :98-100."
+do_2 = "In programs/crates/layerx-programs-runtime/src/ffi_call.rs:2887-2900 bind the layerx_programs_call_sandbox_admit status and return Err(status) instead of Err(NON_CANONICAL); the non-sandbox branch at :2901-2903 is unchanged."
+do_3 = "In programs/crates/layerx-programs-sandbox/src/host_ffi.rs add the consts CONTEXT_MISMATCH -213, TERMS_MISMATCH -724, NOT_YET_VALID -304, EXPIRED -303, SEQUENCE_MISMATCH -305, FEE_LIMIT -600, FEE_UNPAYABLE -602, CONSERVATION -405, OVERFLOW -500, AUTH_SCOPE -204, ESCROW_STATE -700, DUPLICATE_ENTRY -8 beside OK and NON_CANONICAL (:16-17), and in admit_host (:480-570) return CONTEXT_MISMATCH at :490-496, TERMS_MISMATCH at :498-514, NOT_YET_VALID for observed_batch < prior_batch and EXPIRED for observed_batch >= expiry at :518-520, CONSERVATION at :522-526, FEE_LIMIT when admitted_charge is None and FEE_UNPAYABLE when maximum_charge > remaining at :527-537, AUTH_SCOPE at :547-560 and DUPLICATE_ENTRY at :561-565; state decode (:486-488), activity id, principal and digest failures (:538-546) keep NON_CANONICAL."
+do_4 = "In the same file return CONTEXT_MISMATCH, SEQUENCE_MISMATCH and TERMS_MISMATCH from validate_settlement_context (:662-700) at :669-677, :678-681 and :682-698; in layerx_programs_sandbox_final_reserve_host (:601-660) return CONTEXT_MISMATCH at :613-617, OVERFLOW at :619-631, CONSERVATION at :636-640, FEE_UNPAYABLE at :641-654 and end with map_or_else(|error| error, |()| OK) at :660; in settle_call (:715-820) return CONTEXT_MISMATCH at :726-731, NOT_YET_VALID at :739-741, OVERFLOW for the checked arithmetic at :742-747 and :767-769 and in execution_fee (:819-840) and cumulative_usage (:842-884), ESCROW_STATE at :770-771 and :792-803, and end layerx_programs_sandbox_settle_call_rust (:988-1025) with map_or_else(|error| error, |()| OK); guarded (:19-21), the outcome byte check (:775-780) and publish_settlement (:889-985) keep NON_CANONICAL."
+do_5 = "In programs/crates/layerx-programs-runtime/src/transfer.rs add the variant Kernel(i32) to TransferLawError (:1664-1677) with a Display arm (:1679-1700) rendering the code, and in ffi_call.rs apply_and_verify_402lxp_set (:1985-2003) map the c_ok errors of layerx_programs_call_transfer_begin (:1990-1997) and layerx_programs_call_transfer_apply (:2002-2003) to TransferLawError::Kernel(status) instead of ReceiptMismatch; every existing match on TransferLawError gains the arm so the crate keeps compiling. In host_ffi.rs:772-774 map Kernel(code) to code and every other variant to AUTH_SCOPE."
+do_6 = "In tests/codec/lxp_test_sandbox_lifecycle.c sandbox_execute_refusal_propagates (:417-510) assert at :507 that the execute payload with the corrupted expected digest of :483 returns LXP_ERR_CONTEXT_MISMATCH, and add the case sandbox_execute_unpayable_charge_is_named beside it in the case table (:524): the same fixture with an admission budget whose maximum fee exceeds the funded escrow of 100 (budget cpu 39 priced 1 at :426-428, escrow balance 100 at :510) returns LXP_ERR_FEE_UNPAYABLE and leaves staged_count, effects and the tenant and escrow balances unchanged as :508-510 assert."
+do_7 = "Change no Go source: precompiles/common/lxp_errors.go:41-172, modules/lxphost/code_names.go:7-134 and precompiles/layerxprograms/errors.go:21-31 already render every code this task returns. Do not touch precompiles/layerxprograms/method_sandbox_execute.go or method_sandbox_execute_test.go; task 13.27.1 adds this task to its requires and continues from its candidate, where the revert string then names the refusing check."
+symbols = ["layerx_programs_call_sandbox_admit", "admit_host", "validate_settlement_context", "settle_call", "layerx_programs_sandbox_final_reserve_host", "layerx_programs_sandbox_settle_call_rust", "TransferLawError::Kernel", "sandbox_execute_refusal_propagates", "sandbox_execute_unpayable_charge_is_named"]
+touches = ["src/modules/programs/sandbox.c", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/transfer.rs", "programs/crates/layerx-programs-sandbox/src/host_ffi.rs", "tests/codec/lxp_test_sandbox_lifecycle.c"]
+tests = ["tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_refusal_propagates", "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_unpayable_charge_is_named"]
+planned_paths = []
+build_cmd = "make -C . programs-release-build"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_lifecycle && ./build/tests/kernel/codec/lxp_test_sandbox_lifecycle sandbox_execute_refusal_propagates sandbox_execute_unpayable_charge_is_named"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the five touched files; every sandbox host refusal again reports LXP_ERR_NON_CANONICAL and the kernel debit again collapses to ReceiptMismatch."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
