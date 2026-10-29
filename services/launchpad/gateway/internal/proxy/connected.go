@@ -526,8 +526,10 @@ func LivestreamConnectedRoutes() []ConnectedRoute {
 
 func UserConnectedRoutes() []ConnectedRoute {
 	methods := map[string]string{
-		"/v2/profiles/{wallet}": "GET", "/v2/profiles:batch": "GET", "/v3/profiles/{wallet}": "GET PATCH", "/v3/me/preferences": "GET PATCH", "/v1/me/preferences": "GET PATCH", "/v2/me/preferences": "GET PATCH", "/v1/me/devices": "GET", "/v1/me/devices/{deviceId}": "PUT DELETE", "/v1/me/exports": "POST", "/v1/me/exports/{jobId}": "GET", "/v2/me/exports/{jobId}/download": "GET", "/v1/me/deletion-requests": "POST", "/v1/me/deletion-requests/{jobId}": "GET", "/v1/profiles/{wallet}": "GET PATCH",
+		"/v2/profiles/{wallet}": "GET PATCH", "/v2/profiles:batch": "GET", "/v3/profiles/{wallet}": "GET PATCH", "/v3/me/preferences": "GET PATCH", "/v1/me/preferences": "GET PATCH", "/v2/me/preferences": "GET PATCH", "/v1/me/devices": "GET", "/v1/me/devices/{deviceId}": "PUT DELETE", "/v1/me/exports": "POST", "/v1/me/exports/{jobId}": "GET", "/v2/me/exports/{jobId}/download": "GET", "/v1/me/deletion-requests": "POST", "/v1/me/deletion-requests/{jobId}": "GET", "/v1/profiles/{wallet}": "GET PATCH",
 		"/v1/me/watchlist": "GET", "/v1/me/watchlist/{poolAddress}": "PUT DELETE",
+		"/v2/me/watchlist": "GET", "/v2/me/watchlist/{poolAddress}": "PUT DELETE",
+		"/v2/me/devices/{deviceId}": "PUT DELETE", "/v2/me/exports": "POST", "/v2/me/exports/{jobId}": "GET", "/v2/me/deletion-requests": "POST", "/v2/me/deletion-requests/{jobId}": "GET",
 	}
 	paths := make([]string, 0, len(methods))
 	for path := range methods {
