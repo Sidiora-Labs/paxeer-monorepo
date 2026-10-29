@@ -145558,7 +145558,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.25.1]
 title = "Default the evidence gate tenant to the committed rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["10.25.3", "9.0.2", "9.1.8", "18.1119.1"]
