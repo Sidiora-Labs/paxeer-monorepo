@@ -27,7 +27,8 @@ use crate::listener::ListenerConfig;
 use crate::server::{DeploymentMode, ReadOnly, Server, ToolDefinition, WebBoundary, WebRoute};
 use crate::stdio::{Bound, DaemonClientSession, Session};
 use crate::tools::web::{
-    ExactTerms, GrantTerms, SidecarEndpoint, WebConfig, WebPayer, WebPayerError, WebToolError,
+    ExactPayment, ExactTerms, GrantTerms, SidecarEndpoint, WebConfig, WebPayer, WebPayerError,
+    WebToolError,
 };
 
 const MAX_DOCUMENT_BYTES: usize = 65_536;
@@ -55,10 +56,15 @@ const AGENT_KEYS: [&str; 4] = ["endpoint", "bearer_file", "probe_program", "read
 const READINESS_KEYS: [&str; 3] = ["endpoint", "gateway_key_file", "trust_anchors"];
 const LIMIT_KEYS: [&str; 6] = ["id", "name", "scope", "scope_id", "ceiling", "consumed"];
 const LISTENER_KEYS: [&str; 5] = ["socket", "owner_uid", "owner_gid", "mode", "admitted_uids"];
-const WEB_KEYS: [&str; 6] = [
+const WEB_KEYS: [&str; 11] = [
     "endpoint",
+    "payer_address",
+    "receiver_address",
     "network",
     "sequencer_public_key",
+    "sequencer_id",
+    "first_batch_number",
+    "last_batch_number",
     "timeout_ms",
     "pending_attempts",
     "approval_threshold",
@@ -254,8 +260,13 @@ fn readiness_refusal(error: EnvelopeError) -> BoundaryRefusal {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct WebBinding {
     endpoint: String,
+    payer_address: String,
+    receiver_address: [u8; 20],
     network: String,
     sequencer_public_key: [u8; 32],
+    sequencer_id: [u8; 32],
+    first_batch_number: u64,
+    last_batch_number: u64,
     timeout: Duration,
     pending_attempts: u8,
     approval_threshold: u128,
@@ -315,7 +326,7 @@ impl WebPayer for SharedPayer {
             .grant(terms)
     }
 
-    fn pay(&mut self, terms: &ExactTerms) -> Result<Vec<u8>, WebPayerError> {
+    fn pay(&mut self, terms: &ExactTerms) -> Result<ExactPayment, WebPayerError> {
         self.0
             .lock()
             .map_err(|_| WebPayerError::Unavailable)?
@@ -400,18 +411,45 @@ where
             return inner.execute(tool, arguments);
         }
         if crate::catalogue::native_alias_ordinal(tool.name).is_some() {
-            let registry=self.registry.as_ref().ok_or_else(||BoundaryRefusal::Unavailable("mcp.native_owner_environment".into()))?;
-            return crate::tools::write::execute_native_alias(tool.name,arguments,registry,self.idempotency_key,
-                |operation,request|(self.owner)(operation,&self.credential,request,self.idempotency_key).map_err(owner_refusal));
+            let registry = self.registry.as_ref().ok_or_else(|| {
+                BoundaryRefusal::Unavailable("mcp.native_owner_environment".into())
+            })?;
+            return crate::tools::write::execute_native_alias(
+                tool.name,
+                arguments,
+                registry,
+                self.idempotency_key,
+                |operation, request| {
+                    (self.owner)(operation, &self.credential, request, self.idempotency_key)
+                        .map_err(owner_refusal)
+                },
+            );
         }
-        if tool.name=="activity.disclose" {
-            let request=json!({"variant":"native_disclosure_v1","canonical_bytes":arguments.get("canonical_bytes")});
-            return (self.owner)(layerx_agentd::tenant::Operation::Prepare,&self.credential,&request,self.idempotency_key).map_err(owner_refusal);
+        if tool.name == "activity.disclose" {
+            let request = json!({"variant":"native_disclosure_v1","canonical_bytes":arguments.get("canonical_bytes")});
+            return (self.owner)(
+                layerx_agentd::tenant::Operation::Prepare,
+                &self.credential,
+                &request,
+                self.idempotency_key,
+            )
+            .map_err(owner_refusal);
         }
-        if tool.name=="activity.sign" && arguments.get("variant").and_then(Value::as_str)==Some("external_signature_v1") {
-            let mut request=arguments.clone();
-            request.as_object_mut().ok_or_else(||BoundaryRefusal::Malformed("mcp.external_signature".into()))?.remove("variant");
-            return (self.owner)(layerx_agentd::tenant::Operation::Sign,&self.credential,&request,self.idempotency_key).map_err(owner_refusal);
+        if tool.name == "activity.sign"
+            && arguments.get("variant").and_then(Value::as_str) == Some("external_signature_v1")
+        {
+            let mut request = arguments.clone();
+            request
+                .as_object_mut()
+                .ok_or_else(|| BoundaryRefusal::Malformed("mcp.external_signature".into()))?
+                .remove("variant");
+            return (self.owner)(
+                layerx_agentd::tenant::Operation::Sign,
+                &self.credential,
+                &request,
+                self.idempotency_key,
+            )
+            .map_err(owner_refusal);
         }
         let operation = crate::server::tool_operation(tool.name)
             .ok_or(BoundaryRefusal::NotServed(tool.name))?;
@@ -851,7 +889,9 @@ impl Binding {
             self.mode,
         )
         .map_err(DaemonInvocationError::Authority)?;
-        server.restrict_native_owners(environment.as_ref()).map_err(DaemonInvocationError::Authority)?;
+        server
+            .restrict_native_owners(environment.as_ref())
+            .map_err(DaemonInvocationError::Authority)?;
         if tool == "mcp.describe" {
             if arguments
                 .as_object()
@@ -865,7 +905,7 @@ impl Binding {
                 .describe_for_release(core_sequence, identity)
                 .map_err(DaemonInvocationError::Authority);
         }
-        let canonical_owner=crate::catalogue::canonical_owner(tool);
+        let canonical_owner = crate::catalogue::canonical_owner(tool);
         let inner = if canonical_owner {
             None
         } else {
@@ -894,7 +934,7 @@ impl Binding {
             })
         };
         let mut boundary = OwnerBoundary {
-            registry: environment.map(|environment|environment.registry),
+            registry: environment.map(|environment| environment.registry),
             inner,
             credential,
             core_sequence,
@@ -970,8 +1010,13 @@ impl Binding {
         let config = WebConfig::new(
             &web.endpoint,
             payer_did,
+            &web.payer_address,
+            web.receiver_address,
             &web.network,
             web.sequencer_public_key,
+            web.sequencer_id,
+            web.first_batch_number,
+            web.last_batch_number,
             web.timeout,
             web.pending_attempts,
         )
@@ -1099,16 +1144,41 @@ fn web_binding(declared: &Value) -> Result<WebBinding, BindingError> {
     closed(web, &WEB_KEYS, "web")?;
     let pending_attempts = u8::try_from(unsigned(web, "pending_attempts")?)
         .map_err(|_| malformed("field web.pending_attempts is outside its unsigned range"))?;
+    let receiver = text(web, "receiver_address")?
+        .strip_prefix("0x")
+        .filter(|address| {
+            address.len() == 40 && address.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+        .ok_or_else(|| malformed("field web.receiver_address is invalid"))?;
+    let mut receiver_address = [0_u8; 20];
+    for (index, byte) in receiver_address.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&receiver[index * 2..index * 2 + 2], 16)
+            .map_err(|_| malformed("field web.receiver_address is invalid"))?;
+    }
     let binding = WebBinding {
         endpoint: text(web, "endpoint")?.to_owned(),
+        payer_address: text(web, "payer_address")?.to_owned(),
+        receiver_address,
         network: text(web, "network")?.to_owned(),
         sequencer_public_key: digest::<32>(web, "sequencer_public_key")?,
+        sequencer_id: digest::<32>(web, "sequencer_id")?,
+        first_batch_number: unsigned(web, "first_batch_number")?,
+        last_batch_number: unsigned(web, "last_batch_number")?,
         timeout: Duration::from_millis(unsigned(web, "timeout_ms")?),
         pending_attempts,
         approval_threshold: wide(web, "approval_threshold")?,
     };
     SidecarEndpoint::parse(&binding.endpoint)
         .map_err(|_| malformed("field web.endpoint is invalid"))?;
+    if !binding
+        .payer_address
+        .strip_prefix("0x")
+        .is_some_and(|address| {
+            address.len() == 40 && address.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+    {
+        return Err(malformed("field web.payer_address is invalid"));
+    }
     if let Some(rest) = binding.endpoint.strip_prefix("http://[") {
         let (_, tail) = rest
             .split_once(']')
@@ -1132,6 +1202,12 @@ fn web_binding(declared: &Value) -> Result<WebBinding, BindingError> {
     }
     if binding.sequencer_public_key == [0; 32] {
         return Err(malformed("field web.sequencer_public_key is invalid"));
+    }
+    if binding.sequencer_id == [0; 32] {
+        return Err(malformed("field web.sequencer_id is invalid"));
+    }
+    if binding.first_batch_number > binding.last_batch_number {
+        return Err(malformed("field web.sequencer_batch_range is invalid"));
     }
     if binding.timeout.is_zero() || binding.timeout > Duration::from_secs(60) {
         return Err(malformed("field web.timeout_ms is outside 1 to 60000"));

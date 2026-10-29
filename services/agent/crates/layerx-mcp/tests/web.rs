@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
-use std::io::{BufRead as _, BufReader, Write as _};
+use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
@@ -30,24 +30,26 @@ use layerx_mcp::catalogue::{self, ArgumentError, WEB_TOOLS};
 use layerx_mcp::server::{Server, WebBoundary, WebRoute};
 use layerx_mcp::stdio::{Bound, Session};
 use layerx_mcp::tools::web::{
-    canonical_bytes, content_digest, web_tool, Currency, ExactTerms, GrantTerms, Scheme,
-    WebApproval, WebCall, WebConfig, WebContent, WebFetch, WebOperation, WebOutcome, WebPayer,
-    WebPayerError, WebResult, WebSearch, WebSettlement, WebToolError,
+    canonical_bytes, content_digest, web_tool, Currency, ExactPayment, ExactTerms, GrantTerms,
+    Scheme, WebApproval, WebCall, WebConfig, WebContent, WebFetch, WebOperation, WebOutcome,
+    WebPayer, WebPayerError, WebResult, WebSearch, WebSettlement, WebToolError,
 };
+use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_types::ids::Did;
 use layerx_types::verify::VerificationLevel;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
-const NETWORK: &str = "eip155:1337";
+const NETWORK: &str = "eip155:125";
+const PAYER_ADDRESS: &str = "0xabababababababababababababababababababab";
 const RECORDED_FETCH_URL: &str = "https://paxeer.app/data.json";
 const RECORDED_FETCH_TARGET: &str = "/fetch?url=https%3A%2F%2Fpaxeer.app%2Fdata.json";
 const SEARCH_RECEIPT_DIGEST: &str =
-    "8d7d6aacef0e15991060d10b9228a7b2531262cde05c10e650f48fd9b4c9a4e1";
-const SEARCH_PAYER: &str = "bf7730f1c6b226001b40e138b2f0e3b7982245fe211fd17332d5cbe7c23cc967";
+    "bf3bed8ebfcf831428adfef58df46aa663eae776ad520e8c53fd5cbed2dba939";
+const SEARCH_PAYER: &str = "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505";
 const FETCH_RECEIPT_DIGEST: &str =
-    "289ac16ceaf47010c2eb38f5bf421132b688cc76f7d279a67776835f5a569576";
+    "963665d177be7494053fd9eb9ebb3263bb1ad85c140c10710eeac8e9ed4d3103";
 const TAMPERED_PAYER: &str = "4aa4897f08c81fcd9b003dfb8f4a369a9ed828f91ab228e04b14e02f03727aaf";
 const ROUTED_FETCH_URL: &str = "https://paxeer.app/index.html";
 const OTHER_PURPOSE: &str = "0d8e6c4a2b9f7e5d3c1a0f6e4b8d9c2a5f1e7b3d0a6c5e4b2d9f8a1c3e7b6d5f";
@@ -169,6 +171,7 @@ struct Incoming {
     method: String,
     target: String,
     headers: Vec<(String, String)>,
+    body: Vec<u8>,
 }
 
 fn read_request(stream: &TcpStream) -> Option<Incoming> {
@@ -189,10 +192,17 @@ fn read_request(stream: &TcpStream) -> Option<Incoming> {
         let (name, value) = header.split_once(':')?;
         headers.push((name.trim().to_owned(), value.trim().to_owned()));
     }
+    let length = headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("Content-Length"))
+        .map_or(Some(0), |(_, length)| length.parse::<usize>().ok())?;
+    let mut body = vec![0; length];
+    reader.read_exact(&mut body).ok()?;
     Some(Incoming {
         method,
         target,
         headers,
+        body,
     })
 }
 
@@ -234,8 +244,8 @@ fn recorded<'a>(exchange: &'a [Value], incoming: &Incoming, target: &str) -> Opt
             return false;
         }
         let payer_matches = request["headers"]
-            .get("LAYERX-PAYER-DID")
-            .is_none_or(|payer| header(incoming, "LAYERX-PAYER-DID") == payer.as_str());
+            .get("LAYERX-PAYER-ADDRESS")
+            .is_none_or(|payer| header(incoming, "LAYERX-PAYER-ADDRESS") == payer.as_str());
         let signature_matches =
             request["headers"]
                 .get("PAYMENT-SIGNATURE")
@@ -262,6 +272,43 @@ fn answer(mut stream: TcpStream, exchange: &[Value], script: &Script, signatures
     let Some(incoming) = read_request(&stream) else {
         return;
     };
+    if incoming.method == "POST" && incoming.target == "/rpc" {
+        let request: Value = serde_json::from_slice(&incoming.body)
+            .unwrap_or_else(|error| panic!("accountId request: {error}"));
+        assert_eq!(request["jsonrpc"], "2.0");
+        assert_eq!(request["method"], "eth_call");
+        let data = text(&request, "/params/0/data");
+        let owner = format!("{}{}", "0".repeat(24), &PAYER_ADDRESS[2..]);
+        let asset = data
+            .strip_prefix(&format!("0x3f050cbc{owner}"))
+            .unwrap_or_else(|| panic!("accountId owner and selector"));
+        assert_eq!(asset.len(), 64);
+        assert_eq!(
+            request["params"],
+            json!([{
+            "to": "0x000000000000000000000000000000000000101a",
+            "data": data,
+        }, "pending"])
+        );
+        let gateway = fixture("gateway/metered.json");
+        let grant = gateway["ledger"]["grants"]
+            .as_array()
+            .and_then(|grants| {
+                grants.iter().find(|grant| {
+                    grant["canonical"]
+                        .as_str()
+                        .is_some_and(|bytes| bytes.get(192..256) == Some(asset))
+                })
+            })
+            .unwrap_or_else(|| panic!("recorded payer account for {asset}"));
+        let canonical = text(grant, "/canonical");
+        let response = json!({
+            "jsonrpc": "2.0", "id": request["id"],
+            "result": format!("0x{}", &canonical[64..128]),
+        });
+        respond(&mut stream, 200, &[], response.to_string().as_bytes());
+        return;
+    }
     if script.challenge_content && incoming.target.starts_with("/content/") {
         let challenge = exchange
             .iter()
@@ -399,7 +446,7 @@ fn respond(stream: &mut TcpStream, status: u16, headers: &[(String, String)], bo
 /// sequencer-signed receipt the recorded requests carry.
 struct RecordedPayer {
     grant: Vec<u8>,
-    receipt: Vec<u8>,
+    payment: ExactPayment,
     grants: Vec<GrantTerms>,
     payments: Vec<ExactTerms>,
 }
@@ -409,9 +456,7 @@ impl RecordedPayer {
         let buyer = fixture("gateway/buyer.json");
         Self {
             grant: unhex(text(&buyer, "/grants/SID")),
-            receipt: STANDARD
-                .decode(text(&buyer, "/exact/USDC/receipt"))
-                .unwrap_or_else(|error| panic!("receipt: {error}")),
+            payment: recorded_payment(&buyer["exact"]["USDC"]),
             grants: Vec::new(),
             payments: Vec::new(),
         }
@@ -424,9 +469,9 @@ impl RecordedPayer {
         }
     }
 
-    fn with_receipt(receipt: Vec<u8>) -> Self {
+    fn with_payment(payment: ExactPayment) -> Self {
         Self {
-            receipt,
+            payment,
             ..Self::new()
         }
     }
@@ -438,9 +483,74 @@ impl WebPayer for RecordedPayer {
         Ok(self.grant.clone())
     }
 
-    fn pay(&mut self, terms: &ExactTerms) -> Result<Vec<u8>, WebPayerError> {
+    fn pay(&mut self, terms: &ExactTerms) -> Result<ExactPayment, WebPayerError> {
         self.payments.push(terms.clone());
-        Ok(self.receipt.clone())
+        Ok(self.payment.clone())
+    }
+}
+
+fn recorded_payment(payload: &Value) -> ExactPayment {
+    let tx_hash = text(payload, "/txHash");
+    let gateway = fixture("gateway/exact.json");
+    let result = gateway["endpoints"]["gateway"]["*"]
+        .as_array()
+        .and_then(|calls| {
+            calls.iter().find(|call| {
+                call["method"] == "pax_sequencerReceipt" && call["params"] == json!([tx_hash])
+            })
+        })
+        .map(|call| &call["result"])
+        .unwrap_or_else(|| panic!("recorded receipt for {tx_hash}"));
+    assert_eq!(text(result, "/txHash"), tx_hash);
+    let receipt = unhex(
+        text(result, "/receipt")
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("receipt hex prefix")),
+    );
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)
+        .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
+    assert_eq!(hex(&digest), text(payload, "/receiptDigest"));
+    let logs = result["logs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("recorded receipt logs"))
+        .iter()
+        .map(|log| {
+            let bytes = |value: &str| {
+                unhex(
+                    value
+                        .strip_prefix("0x")
+                        .unwrap_or_else(|| panic!("log hex prefix")),
+                )
+            };
+            let address = bytes(text(log, "/address"))
+                .try_into()
+                .unwrap_or_else(|_| panic!("20-byte log address"));
+            let topics = log["topics"]
+                .as_array()
+                .unwrap_or_else(|| panic!("log topics"))
+                .iter()
+                .map(|topic| {
+                    bytes(topic.as_str().unwrap_or_else(|| panic!("log topic")))
+                        .try_into()
+                        .unwrap_or_else(|_| panic!("32-byte log topic"))
+                })
+                .collect();
+            let data = bytes(text(log, "/data"));
+            let index = text(log, "/logIndex")
+                .strip_prefix("0x")
+                .and_then(|index| u64::from_str_radix(index, 16).ok())
+                .unwrap_or_else(|| panic!("log index"));
+            SequencerLog::new(address, topics, data, index)
+        })
+        .collect();
+    ExactPayment {
+        tx_hash: unhex32(
+            tx_hash
+                .strip_prefix("0x")
+                .unwrap_or_else(|| panic!("transaction hash hex prefix")),
+        ),
+        receipt,
+        logs,
     }
 }
 
@@ -488,16 +598,52 @@ fn sequencer_key() -> [u8; 32] {
     unhex32(text(&fixture("gateway/buyer.json"), "/sequencerPublicKey"))
 }
 
+fn sequencer_authorization() -> ([u8; 32], u64, u64) {
+    let buyer = fixture("gateway/buyer.json");
+    (
+        unhex32(text(&buyer, "/sequencerId")),
+        buyer["firstBatchNumber"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("fixture field /firstBatchNumber")),
+        buyer["lastBatchNumber"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("fixture field /lastBatchNumber")),
+    )
+}
+
 fn config(replay: &Replay, key: [u8; 32]) -> WebConfig {
+    let (sequencer_id, first_batch_number, last_batch_number) = sequencer_authorization();
+    let exchange = fixture("client-exchange.json");
     WebConfig::new(
         &replay.endpoint(),
         &payer_did(),
-        NETWORK,
+        text(
+            &exchange,
+            "/exchange/0/request/headers/LAYERX-PAYER-ADDRESS",
+        ),
+        receiver_address(),
+        text(
+            &exchange,
+            "/exchange/0/response/headers/PAYMENT-REQUIRED/accepts/0/network",
+        ),
         key,
+        sequencer_id,
+        first_batch_number,
+        last_batch_number,
         Duration::from_secs(5),
         3,
     )
     .unwrap_or_else(|error| panic!("config: {error:?}"))
+}
+
+fn receiver_address() -> [u8; 20] {
+    let metered = fixture("gateway/metered.json");
+    let address = text(&metered, "/ledger/receiverAddress")
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("receiver address hex prefix"));
+    unhex(address)
+        .try_into()
+        .unwrap_or_else(|_| panic!("20-byte receiver address"))
 }
 
 fn context() -> ApprovalContext {
@@ -544,7 +690,10 @@ fn fetch_call() -> WebCall {
         }),
         currency: Currency::Usdc,
         scheme: Scheme::Exact,
-        idempotency_key: [0x5a; 32],
+        idempotency_key: unhex32(text(
+            &fixture("gateway/buyer.json"),
+            "/exact/USDC/idempotencyKey",
+        )),
     }
 }
 
@@ -756,17 +905,14 @@ fn recorded_exact_fetches_settle_in_each_currency() {
         let vector = &vectors()[position];
         let replay = Replay::start(Script::default());
         let registry = ApprovalRegistry::default();
-        let receipt = STANDARD
-            .decode(text(&buyer, &format!("/exact/{code}/receipt")))
-            .unwrap_or_else(|error| panic!("receipt: {error}"));
-        let mut payer = RecordedPayer::with_receipt(receipt);
+        let mut payer = RecordedPayer::with_payment(recorded_payment(&buyer["exact"][code]));
         let call = WebCall {
             operation: WebOperation::Fetch(WebFetch {
                 url: text(vector, "/payload").to_owned(),
             }),
             currency,
             scheme: Scheme::Exact,
-            idempotency_key: [0x5c; 32],
+            idempotency_key: unhex32(text(&buyer, &format!("/exact/{code}/idempotencyKey"))),
         };
         let outcome = web_tool(
             &config(&replay, sequencer_key()),
@@ -1108,14 +1254,12 @@ fn payer_artifacts_that_do_not_bind_the_offer_are_never_sent() {
         matches!(refused, Err(WebToolError::PaymentArtifact("grant"))),
         "{refused:?}"
     );
-    let receipt = STANDARD
-        .decode(text(&buyer, "/refusedExact/otherPayee/receipt"))
-        .unwrap_or_else(|error| panic!("receipt: {error}"));
+    let payment = recorded_payment(&buyer["refusedExact"]["otherPayee"]);
     let refused = web_tool(
         &config,
         &fetch_call(),
         &approval(&registry, u128::MAX),
-        &mut RecordedPayer::with_receipt(receipt),
+        &mut RecordedPayer::with_payment(payment),
     );
     assert!(
         matches!(refused, Err(WebToolError::PaymentArtifact("receipt"))),
@@ -1224,6 +1368,7 @@ fn web_tools_are_listed_as_untrusted_output() {
 #[test]
 fn configuration_fails_closed_naming_the_field() {
     let key = sequencer_key();
+    let (sequencer_id, first_batch_number, last_batch_number) = sequencer_authorization();
     let did = payer_did();
     let second = Duration::from_secs(1);
     let refused = |result: Result<WebConfig, WebToolError>| match result {
@@ -1234,8 +1379,13 @@ fn configuration_fails_closed_naming_the_field() {
         refused(WebConfig::new(
             "https://paxeer.app",
             &did,
+            PAYER_ADDRESS,
+            receiver_address(),
             NETWORK,
             key,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
             second,
             1
         )),
@@ -1245,8 +1395,13 @@ fn configuration_fails_closed_naming_the_field() {
         refused(WebConfig::new(
             "http://127.0.0.1:1/path",
             &did,
+            PAYER_ADDRESS,
+            receiver_address(),
             NETWORK,
             key,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
             second,
             1
         )),
@@ -1256,8 +1411,13 @@ fn configuration_fails_closed_naming_the_field() {
         refused(WebConfig::new(
             "http://127.0.0.1:1",
             "payer",
+            PAYER_ADDRESS,
+            receiver_address(),
             NETWORK,
             key,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
             second,
             1
         )),
@@ -1267,8 +1427,13 @@ fn configuration_fails_closed_naming_the_field() {
         refused(WebConfig::new(
             "http://127.0.0.1:1",
             &did,
+            PAYER_ADDRESS,
+            receiver_address(),
             "layerx:1",
             key,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
             second,
             1
         )),
@@ -1278,8 +1443,13 @@ fn configuration_fails_closed_naming_the_field() {
         refused(WebConfig::new(
             "http://127.0.0.1:1",
             &did,
+            PAYER_ADDRESS,
+            receiver_address(),
             NETWORK,
             [0; 32],
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
             second,
             1
         )),
@@ -1289,8 +1459,13 @@ fn configuration_fails_closed_naming_the_field() {
         refused(WebConfig::new(
             "http://127.0.0.1:1",
             &did,
+            PAYER_ADDRESS,
+            receiver_address(),
             NETWORK,
             key,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
             Duration::ZERO,
             1
         )),
@@ -1300,8 +1475,13 @@ fn configuration_fails_closed_naming_the_field() {
         refused(WebConfig::new(
             "http://127.0.0.1:1",
             &did,
+            PAYER_ADDRESS,
+            receiver_address(),
             NETWORK,
             key,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
             second,
             0
         )),
@@ -1516,6 +1696,7 @@ fn opened_session(
     threshold: u128,
     root: &Path,
 ) -> Session<layerx_mcp::binding::DaemonBoundary> {
+    let (sequencer_id, first_batch_number, last_batch_number) = sequencer_authorization();
     let (store, _, credential, _) = enrol(root);
     drop(store);
     let token = secret(root, "session-token", &hex(&credential.token_id()));
@@ -1546,8 +1727,13 @@ fn opened_session(
         },
         "web": {
             "endpoint": replay.endpoint(),
+            "payer_address": PAYER_ADDRESS,
+            "receiver_address": format!("0x{}", hex(&receiver_address())),
             "network": NETWORK,
             "sequencer_public_key": hex(&sequencer_key()),
+            "sequencer_id": hex(&sequencer_id),
+            "first_batch_number": first_batch_number,
+            "last_batch_number": last_batch_number,
             "timeout_ms": 5_000,
             "pending_attempts": 3,
             "approval_threshold": threshold.to_string(),
@@ -1714,7 +1900,10 @@ fn assert_routed_tools<B: ToolBoundary>(
                 "url": ROUTED_FETCH_URL,
                 "currency": "USDC",
                 "scheme": "exact",
-                "idempotency_key": "5a".repeat(32),
+                "idempotency_key": hex(&unhex32(text(
+                    &fixture("gateway/buyer.json"),
+                    "/exact/USDC/idempotencyKey",
+                ))),
             }),
         ),
         "web.fetch",
@@ -1750,7 +1939,14 @@ fn assert_routed_tools<B: ToolBoundary>(
     assert_eq!(stored["content"]["text"], text(&vector, "/text"));
     assert_eq!(replay.signatures(), 2);
 
-    for key in [metered_key(), [0x5a; 32], [0x5b; 32]] {
+    for key in [
+        metered_key(),
+        unhex32(text(
+            &fixture("gateway/buyer.json"),
+            "/exact/USDC/idempotencyKey",
+        )),
+        [0x5b; 32],
+    ] {
         assert!(approvals
             .ticket(key)
             .unwrap_or_else(|error| panic!("ticket: {error:?}"))
