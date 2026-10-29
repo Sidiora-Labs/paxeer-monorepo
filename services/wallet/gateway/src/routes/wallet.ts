@@ -323,6 +323,14 @@ export async function walletSponsorRoutes(
   opts: WalletSponsorRoutesOptions = {}
 ): Promise<void> {
   const station = new GasStationClient(opts.stationUrl);
+  async function sequencerReceipt(hash: string | null) {
+    try {
+      const receipt = hash === null ? null : await sharedRpcPool().sequencerReceipt(hash as Hex);
+      return { receipt, rung: receipt === null ? ('submitted' as const) : receipt.rung };
+    } catch {
+      throw new StationAdapterError(503, 'sequencer_receipt_unavailable');
+    }
+  }
   async function callerIdentity(account: Hex): Promise<string> {
     station.requireConfiguredUrl();
     const rpc = opts.rpc ?? sharedRpcPool();
@@ -612,6 +620,7 @@ export async function walletSponsorRoutes(
         relayerSignature: body.relayer_signature,
       };
       let hash: Hex | null = null;
+      let answer: ReturnType<typeof statusBody>;
       try {
         const submitted = await station.submit(stationBody);
         if (
@@ -623,24 +632,29 @@ export async function walletSponsorRoutes(
       } catch (error) {
         if (!(error instanceof StationAdapterError) || error.status < 500) throw error;
         try {
-          return reply
-            .header('Cache-Control', 'no-store')
-            .send({ ...statusBody(await station.status(identity)), did });
+          answer = statusBody(await station.status(identity));
         } catch {
           throw error;
         }
-      }
-      try {
         return reply
           .header('Cache-Control', 'no-store')
-          .send({ ...statusBody(await station.status(identity), hash), did });
-      } catch (error) {
-        if (error instanceof StationAdapterError)
-          return reply
-            .header('Cache-Control', 'no-store')
-            .send({ tx_hash: hash, status: 'pending', station: null, did });
-        throw error;
+          .send({ ...answer, did, ...(await sequencerReceipt(answer.tx_hash)) });
       }
+      try {
+        answer = statusBody(await station.status(identity), hash);
+      } catch (error) {
+        if (!(error instanceof StationAdapterError)) throw error;
+        return reply.header('Cache-Control', 'no-store').send({
+          tx_hash: hash,
+          status: 'pending',
+          station: null,
+          did,
+          ...(await sequencerReceipt(hash)),
+        });
+      }
+      return reply
+        .header('Cache-Control', 'no-store')
+        .send({ ...answer, did, ...(await sequencerReceipt(answer.tx_hash)) });
     } catch (error) {
       if (error instanceof StationAdapterError)
         return reply.code(error.status).send({ error: error.code, status: 'pending' });
