@@ -144188,7 +144188,7 @@ do_5 = "The custody sign at services/human/crates/layerx-human-service/src/journ
 
 [task.10.13.6]
 title = "Carry rungs in agent controls and archive fund-disposition evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "10.13.1", "10.2.7", "9.1.8", "18.1119.1"]
@@ -158228,7 +158228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.2]
 title = "Run the programs conservation suite against 0x101D calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.24.1", "13.25.1", "13.27.2", "13.32.2", "18.1073.1", "18.1130.1"]
@@ -185846,7 +185846,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1182.2]
 title = "Issue #1182: Repoint the launchpad SDK tests to the restored v1 contract fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1182.1"]
