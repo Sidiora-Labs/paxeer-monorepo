@@ -9915,3 +9915,27 @@ symbol = "sign_in_scope"
 observed = "At 384f41641 the engine and the reclaim fixtures sign 64-byte kernel-envelope signatures while SignatureBytes::new (layerx-agent-api/src/write.rs:78) requires 65 bytes, and the compiled defund 0x00030007 (layerx-intents/src/compile.rs:532) is refused at layerx-crypto/src/disclosure.rs:553 because :962 admits Budget 2, 8, 9 and lx_budget.h:23 defines defund as 0x00030008."
 assumption = "Two product defects, not fixture defects: the ordinal belongs to 18.1188.1 (issue #1188) and the leg form to the EIP-1559 migration (decision.1805; 10.13.5, 10.0.3, 18.1186.1), after which 18.1149.1 reworks the fixtures."
 severity = "major"
+
+[finding.9.3.1.3]
+task = "9.3.1"
+file = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:46"
+symbol = "ReadinessNode::new"
+observed = "At ff3ecfb5a7 committed_is_reached_only_from_executed panics 'real isolated Paxeer chain id is required: NotPresent' because support::evidence_verifier() boots a ReadinessNode from LAYERX_TEST_PAXEER_CHAIN_ID; no in-tree target exports LAYERX_TEST_PAXEER_* for make agent-test or run-real-node-tests.sh, only tools/qualification/paxeer-x/caps-codecs.py:51-54 does, so the 13 agentd tests using evidence_verifier run only under that script."
+assumption = "Pre-existing release-gate gap, not a task defect; the task test moves to EvidenceAuthority::pinned_to_handshake under decision.1806 and the gap stays recorded for the release harness."
+severity = "major"
+
+[finding.9.13.1.1]
+task = "9.13.1"
+file = "services/agent/crates/layerx-agentd/tests/human_frame.rs:102"
+symbol = "human_peer_still_answers_lxhagt01_frames"
+observed = "At 92a5690c0 the live test panics 'genuine native_program_human_peer fixture is required'; every HumanOperations implementation needs a Client connected over a live LNI socket (human_runtime.rs:2338, :8525, :13223) and dispatch_request (human.rs:2050) consults it for every request, so serve_one has no node-free path."
+assumption = "Acceptance 9.46.2 is verified at release with the native-program-human-peer fixture (decision.1806); the task gate is the codec round trip."
+severity = "minor"
+
+[finding.10.13.6.2]
+task = "10.13.6"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:2468"
+symbol = "drive_archive_reclaim"
+observed = "At 9af35d565 the archive test advances a Reclaim journey through the agent contract before confirming the archive and the live submit contract refuses the 64-byte leg signature with Malformed('signature') (layerx-agent-api/src/write.rs:78); the controls test passes."
+assumption = "The reclaim leg form is decision.1805 and belongs to 10.13.5, 10.0.3 and 18.1149.1; the archive rung gate is verified against disposition evidence at each rung without a reclaim journey."
+severity = "major"

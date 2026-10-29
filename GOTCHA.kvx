@@ -10471,3 +10471,21 @@ area = "human kms signing"
 symptom = "A journey leg signed through custody is refused by the live submit contract with Malformed('signature')."
 cause = "The production KMS sign (layerx-human-kms/src/server.rs:158-184) admits only an unsigned EIP-1559 call with its bind_call disclosure and the submit contract requires a 65-byte signature (layerx-agent-api/src/write.rs:78); the engine (engine.rs:964-990) and the local envelope signer still produce 64-byte kernel-envelope signatures."
 do = "Carry type-2 transactions end to end (decision.1805); do not widen or truncate the signature to make a kernel envelope pass."
+
+[gotcha.2145]
+area = "agentd tests"
+symptom = "An agentd test that verifies a receipt or state leaf panics at tests/support/real_authority.rs:46 'real isolated Paxeer chain id is required: NotPresent'."
+cause = "support::evidence_verifier() (tests/support/mod.rs:466) is chain-bound: evidence_authority -> try_evidence_authority_mode -> ReadinessNode::new (:1432) reads LAYERX_TEST_PAXEER_CHAIN_ID and binds a responder; only tools/qualification/paxeer-x/caps-codecs.py exports that environment."
+do = "Build the verifier with EvidenceAuthority::pinned_to_handshake(layerx_wire::limits::PROTOCOL_VERSION, 42, SigningKey::from_bytes(&[0x3a; 32]).verifying_key().to_bytes()) (src/protocol_evidence.rs:606), the key and network id support::raw_receipt and raw_state_leaf use; never export chain variables without a chain."
+
+[gotcha.2146]
+area = "agentd human peer"
+symptom = "A test that calls serve_one needs a HumanOperations and every implementation requires a connected layerx_client::Client over a live LNI socket."
+cause = "SharedAgentOwner, UnifiedAgentOwner and ProductionHumanOperations (src/human_runtime.rs:2338, :8525, :13223) all take the Client and dispatch_request (src/human.rs:2050) consults operations for every request; there is no node-free constructor."
+do = "Verify serve_one only through the PAXEER_X_NATIVE_PROGRAM_HUMAN_PEER_FIXTURE release gate (tools/qualification/paxeer-x/native-program-human-peer.py); task gates cover the codec; write no HumanOperations test double (decision.1806)."
+
+[gotcha.2147]
+area = "spec waves"
+symptom = "A spec edit that moves a task to a later wave, or adds a requires edge, parses cleanly yet no task is admitted afterwards."
+cause = "Parsing the plan does not validate it; the admission step also refuses any task whose requirement sits in a later wave and any requires cycle, and then runs without admitting anything."
+do = "Before committing a wave or requires change, check that no dependant sits in an earlier wave than its requirement and that the requires graph has no cycle; when a task must wait for another, move the dependants too or drop the edge."
