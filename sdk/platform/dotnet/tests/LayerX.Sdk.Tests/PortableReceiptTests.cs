@@ -67,11 +67,75 @@ public sealed class PortableReceiptTests
         Assert.Equal(Hex(cases[0], "receiptDigest"), verified.Verification.ReceiptDigest);
         Assert.Equal(committedBytes, verified.export());
         var tampered = JsonNode.Parse(committedBytes)!.AsObject();
-        tampered["commit"]!["signatures"]![0]!["signature"] = "0x" + new string('0', 128);
+        tampered["commit"]!["Signatures"]![0]!["Signature"] = Convert.ToBase64String(new byte[64]);
         Refused(() => PortableReceipt.verify(JsonSerializer.SerializeToUtf8Bytes(tampered), Keys(cases[0])));
         tampered = JsonNode.Parse(committedBytes)!.AsObject();
-        tampered["receiptInclusion"]!["batchProof"]!["siblings"]![0] = "0x" + new string('0', 64);
+        tampered["receiptInclusion"]!["BatchProof"]!["Aunts"]![0] = new JsonArray(Enumerable.Repeat(0, 32).Select(value => System.Text.Json.Nodes.JsonValue.Create(value)).ToArray());
         Refused(() => PortableReceipt.verify(JsonSerializer.SerializeToUtf8Bytes(tampered), Keys(cases[0])));
+    }
+
+    [Fact]
+    public void PortableExportMatchesPublishedVectorV5()
+    {
+        using var settlement = LoadConformance("vector-v4-committed.json");
+        using var published = LoadConformance("vector-v5-portable.json");
+        var vector = settlement.RootElement.GetProperty("positive");
+        var expected = published.RootElement.GetProperty("bundles").EnumerateArray()
+            .Single(bundle => bundle.GetProperty("verificationLevel").GetString() == "committed");
+        var expectedBytes = Encoding.UTF8.GetBytes(expected.GetRawText());
+        var keys = Keys(vector);
+        var header = vector.GetProperty("blockHeader").Deserialize<CometHeader>()!;
+        var inclusion = vector.GetProperty("receiptInclusion").Deserialize<CommittedReceiptInclusion>()!;
+        var commit = vector.GetProperty("commit").Deserialize<CometCommit>()!;
+        var validators = vector.GetProperty("validatorSet").Deserialize<CometValidator[]>()!;
+        Assert.Equal(153256047, commit.Signatures[0].Timestamp.Nanoseconds);
+        Assert.Equal(245437229, inclusion.NextCommit.Signatures[0].Timestamp.Nanoseconds);
+        var exported = PortableReceipt.export(vector.GetProperty("receiptJson"), Hex(vector, "rawTransaction"),
+            keys, header, inclusion, commit, validators).export();
+        Assert.Equal(expectedBytes, exported);
+        foreach (var bytes in new[] { expectedBytes, exported })
+        {
+            var verified = PortableReceipt.verify(bytes, keys);
+            Assert.Equal("committed", verified.VerificationLevel);
+            Assert.Equal(1U, verified.Verification.Status);
+            Assert.Equal(Hex(vector, "signedReceipt"), verified.Verification.CanonicalBytes);
+            Assert.Equal(Hex(vector, "receiptDigest"), verified.Verification.ReceiptDigest);
+            Assert.Equal(Hex(vector.GetProperty("receiptJson"), "returnData"), verified.Verification.ReturnData);
+            Assert.Equal(bytes, verified.export());
+        }
+
+        void Reject(Action<JsonObject> mutate)
+        {
+            var changed = JsonNode.Parse(expectedBytes)!.AsObject();
+            mutate(changed);
+            Refused(() => PortableReceipt.verify(JsonSerializer.SerializeToUtf8Bytes(changed), keys));
+        }
+        Reject(bundle => bundle["receiptInclusion"]!["Transaction"] = Convert.ToBase64String(Hex(vector, "rawTransaction")));
+        Reject(bundle => bundle["receiptInclusion"]!["Transaction"] = Convert.ToBase64String(WrapTransaction(new byte[] { 2, 0xc0 })));
+        Reject(bundle => bundle["receiptInclusion"]!["TransactionProof"]!["Index"] = 0);
+        Reject(bundle => bundle["receiptInclusion"]!["TransactionProof"]!["Total"] = 3);
+        Reject(bundle => bundle["receiptInclusion"]!["TransactionProof"]!["Aunts"]![0]![0] = 0);
+        Reject(bundle => bundle["receiptInclusion"]!["ResultProof"]!["Aunts"]![0]![0] = 0);
+        Reject(bundle => bundle["receiptInclusion"]!["BatchProof"]!["Aunts"]![0]![0] = 0);
+        Reject(bundle => bundle["receiptInclusion"]!["Result"]!["GasWanted"] = inclusion.Result.GasUsed - 1);
+        Reject(bundle => bundle["receiptInclusion"]!["NextCommit"]!["Signatures"]![0]!["Signature"] = Convert.ToBase64String(new byte[64]));
+        Reject(bundle => bundle["commit"]!["Signatures"]![0]!["Signature"] = Convert.ToBase64String(new byte[64]));
+        Reject(bundle => bundle["commit"]!["Signatures"]![0]!["BlockIDFlag"] = 1);
+        Reject(bundle => bundle["blockHeader"]!["Time"] = "2026-10-28T20:44:36.174000001Z");
+        Reject(bundle => bundle["validatorSet"]![0]!["PublicKey"]!.AsArray().RemoveAt(0));
+        Reject(bundle => bundle["validatorSet"]![0]!["PublicKey"] = Convert.ToBase64String(validators[0].PublicKey));
+        Reject(bundle => bundle["receiptInclusion"]!["ActivityIds"] = new JsonArray());
+        using var receipted = LoadFixture();
+        var typed = receipted.RootElement.GetProperty("cases").EnumerateArray()
+            .First(value => value.GetProperty("vector").GetString() == "V1");
+        var wrappedTyped = CreateCommitted(typed).export();
+        Assert.Equal("committed", PortableReceipt.verify(wrappedTyped, Keys(typed)).VerificationLevel);
+
+        var signed = LocalVerifier.VerifySequencerReceipt(vector.GetProperty("receiptJson"), Hex(vector, "rawTransaction"), keys);
+        Refused(() => Committed.Verify(signed with { Status = 0 }, header, inclusion, commit, validators));
+        Refused(() => Committed.Verify(signed with { ReceiptDigest = new byte[32] }, header, inclusion, commit, validators));
+        Refused(() => Committed.Verify(signed with { Receipt = signed.Receipt with { GlobalSequence = signed.Receipt.GlobalSequence + 1 } },
+            header, inclusion, commit, validators));
     }
 
     [Fact]
@@ -127,7 +191,8 @@ public sealed class PortableReceiptTests
         var batch = Join(Encoding.UTF8.GetBytes("PAXEER/v1/sequence-batch\0"), BigEndian(height),
             BigEndian(receipt.GlobalSequence), BigEndian(receipt.GlobalSequence), receipt.PreviousStateRoot,
             receipt.ResultingStateRoot, SHA256.HashData(receipt.ActivityId), receipt.ContextHash, receipt.SequencerSignature);
-        var transactionLeaves = new[] { SHA256.HashData(batch), SHA256.HashData(Hex(vector, "rawTransaction")) };
+        var transaction = WrapTransaction(Hex(vector, "rawTransaction"));
+        var transactionLeaves = new[] { SHA256.HashData(batch), SHA256.HashData(transaction) };
         var gas = BinaryPrimitives.ReadUInt64BigEndian(receipt.Effects[0].Body);
         var response = Join(Number(1, gas), Blob(2, Encoding.UTF8.GetBytes(view.GetProperty("vmError").GetString()!)),
             Blob(3, Hex(view, "returnData")), Blob(4, Encoding.UTF8.GetBytes(view.GetProperty("txHash").GetString()!)));
@@ -141,9 +206,9 @@ public sealed class PortableReceiptTests
             SHA256.HashData(validators[0].PublicKey)[..20]);
         var commit = Sign(header, privateKey);
         var next = header with { Height = header.Height + 1, LastBlockId = commit.BlockId, LastResultsHash = Root(resultLeaves) };
-        var inclusion = new CommittedReceiptInclusion(batch, new(0, 2, new[] { Leaf(transactionLeaves[1]) }),
-            new[] { receipt.ActivityId }, result, new(1, 2, new[] { Leaf(resultLeaves[0]) }), next,
-            Sign(next, privateKey), validators);
+        var inclusion = new CommittedReceiptInclusion(transaction, new(2, 1, new[] { Leaf(transactionLeaves[0]) }),
+            result, new(2, 1, new[] { Leaf(resultLeaves[0]) }), batch, new(2, 0, new[] { Leaf(transactionLeaves[1]) }),
+            next, Sign(next, privateKey), validators);
         return PortableReceipt.export(view, Hex(vector, "rawTransaction"), keys, header, inclusion, commit, validators);
     }
 
@@ -160,6 +225,10 @@ public sealed class PortableReceiptTests
         signer.BlockUpdate(message, 0, message.Length);
         return commit with { Signatures = new[] { signature with { Signature = signer.GenerateSignature() } } };
     }
+
+    private static byte[] WrapTransaction(byte[] transaction) => Message(1, Message(1, Join(
+        Blob(1, Encoding.UTF8.GetBytes("/paxprotocol.paxchain.evm.MsgEVMTransaction")),
+        Message(2, Blob(1, transaction)))));
 
     private static byte[] Root(byte[][] leaves) => SHA256.HashData(Join(new byte[] { 1 }, Leaf(leaves[0]), Leaf(leaves[1])));
     private static byte[] Leaf(byte[] bytes) => SHA256.HashData(Join(new byte[] { 0 }, bytes));
@@ -192,6 +261,9 @@ public sealed class PortableReceiptTests
     }
 
     private static byte[] Hex(JsonElement value, string name) => Convert.FromHexString(value.GetProperty(name).GetString()![2..]);
+
+    private static JsonDocument LoadConformance(string name, [CallerFilePath] string source = "") => JsonDocument.Parse(File.ReadAllText(
+        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../../conformance/fixtures", name))));
 
     private static JsonDocument LoadFixture([CallerFilePath] string source = "") => JsonDocument.Parse(File.ReadAllText(
         Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../../conformance/fixtures/sequencer-receipt-v1.json"))));

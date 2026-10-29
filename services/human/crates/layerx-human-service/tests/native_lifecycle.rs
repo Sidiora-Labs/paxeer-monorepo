@@ -31,6 +31,7 @@ fn evidence() -> ProtocolEvidence {
     let protocol = authenticated
         .protocol()
         .unwrap_or_else(|| panic!("missing native receipt"));
+    assert_eq!(protocol.operation(), 0);
     let public = SigningKey::from_bytes(&[0x11; 32])
         .verifying_key()
         .to_bytes();
@@ -63,15 +64,11 @@ fn native_lifecycle_binds_distinct_action_and_activity_without_inventing_finalit
     assert_ne!(evidence.action_key, evidence.activity_id);
     let original = checked(evidence.bound_activity(kind));
     assert_eq!(original.idempotency_key(), evidence.action_key);
-    let verified = checked(evidence.verify_outcome(kind));
     assert_eq!(evidence.rung, Rung::Receipted);
-    assert_eq!(
-        verified
-            .protocol()
-            .unwrap_or_else(|| panic!("missing protocol"))
-            .operation(),
-        0
-    );
+    assert!(matches!(
+        evidence.verify_outcome(kind),
+        Err(AgentFailure::Unavailable)
+    ));
     assert!(matches!(
         ProductionAgentCreation::finalization_evidence(&evidence, ModuleId::Governance, 5, 1000),
         Err(AgentFailure::Refused(

@@ -30,8 +30,24 @@ const submission = (blockNumber: number, hashByte: string, overrides?: Partial<P
     ...feedMock.priceUpdate.price_update,
     observation_count: 2,
     observations: [
-      { market_id: 0, symbol: 'BTC-USD', index_price: newBtcIndexPrice, mark_price: feedMock.btcMarkPrice, source_timestamp_ms: 1767323050000, sequence: 9100 },
-      { market_id: 17, symbol: 'SOL-USD', index_price: solIndexPrice, mark_price: solMarkPrice, source_timestamp_ms: 1767323050000, sequence: 9101 },
+      {
+        accepted: true,
+        market_id: 0,
+        symbol: 'BTC-USD',
+        index_price: newBtcIndexPrice,
+        mark_price: feedMock.btcMarkPrice,
+        source_timestamp_ms: 1767323050000,
+        sequence: 9100,
+      },
+      {
+        accepted: true,
+        market_id: 17,
+        symbol: 'SOL-USD',
+        index_price: solIndexPrice,
+        mark_price: solMarkPrice,
+        source_timestamp_ms: 1767323050000,
+        sequence: 9101,
+      },
     ],
   },
   ...overrides,
@@ -124,7 +140,15 @@ describe('PaxeerXFeed live updates', () => {
           ...feedMock.priceUpdate.price_update,
           observation_count: 1,
           observations: [
-            { market_id: 0, symbol: 'BTC-USD', index_price: '1', mark_price: '1', source_timestamp_ms: 1767323049000, sequence: 9099 },
+            {
+              accepted: true,
+              market_id: 0,
+              symbol: 'BTC-USD',
+              index_price: '1',
+              mark_price: '1',
+              source_timestamp_ms: 1767323049000,
+              sequence: 9099,
+            },
           ],
         },
       }));
