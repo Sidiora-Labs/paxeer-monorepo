@@ -10837,3 +10837,9 @@ area = "agent refusal vocabulary"
 symptom = "Deleting a refusal variant from one enum broke the build in a file the task did not own, although nothing ever constructed the matching error."
 cause = "A never-constructed error variant still anchors a match arm in the runtime, an entry in a test list in the dispatcher and reason and class assertions in an integration test."
 do = "Before retiring a variant, grep the whole crate and its tests for the identifier, list every arm, list entry and assertion as caller sites in the task, and delete the dead producer variant with them."
+
+[gotcha.2206]
+area = "spec authoring"
+symptom = "A task's do line asserted a wire layout (a rung byte in the BALANCE answer) that the landed writer never emits, and four attempts stopped on it without a gate run."
+cause = "The do line was written from another task's promise instead of the landed writer, and the interface block pins only the opcode, not the layout."
+do = "Before writing a do line that names a wire layout, read the landed writer and the requirement that governs it, and cite the writer's lines; where the interface pins no layout, say so and name the writer as the authority."
