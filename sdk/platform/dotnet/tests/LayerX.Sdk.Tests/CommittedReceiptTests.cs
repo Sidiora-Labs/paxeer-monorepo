@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using LayerX.Sdk;
+using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Signers;
 using Xunit;
@@ -14,7 +15,7 @@ public sealed class CommittedReceiptTests
 {
     private sealed record Fixture(SequencerReceiptVerification Receipt, CometHeader Header,
         CommittedReceiptInclusion Inclusion, CometCommit Commit, CometValidator[] Validators,
-        Ed25519PrivateKeyParameters[] Keys, byte[][] ResultLeaves);
+        Ed25519PrivateKeyParameters[] Keys, byte[][] ResultLeaves, byte[][] RawTransactions);
 
     [Fact]
     public void CommittedRungAcceptsTwoThirdsCommit()
@@ -148,9 +149,34 @@ public sealed class CommittedReceiptTests
                 ResultsCommit = Sign(next, fixture.Keys, 3)
             }
         });
-        var ids = fixture.Inclusion.ActivityIds.Select(bytes => bytes.ToArray()).ToArray();
-        ids[0][0] ^= 1;
-        Refused(fixture with { Inclusion = fixture.Inclusion with { ActivityIds = ids } });
+        var selected = (int)fixture.Inclusion.TransactionProof.Index - 1;
+        var rawTransaction = fixture.RawTransactions[(selected + 1) % fixture.RawTransactions.Length];
+        var transaction = WrapTransaction(rawTransaction);
+        var keccak = new KeccakDigest(256);
+        keccak.BlockUpdate(rawTransaction, 0, rawTransaction.Length);
+        var transactionHash = new byte[32];
+        keccak.DoFinal(transactionHash, 0);
+        Assert.NotEqual(fixture.Receipt.Receipt.ActivityId, transactionHash);
+        var transactions = fixture.RawTransactions.Select(WrapTransaction).ToArray();
+        transactions[selected] = transaction;
+        var txLeaves = new[] { SHA256.HashData(fixture.Inclusion.BatchTransaction) }
+            .Concat(transactions.Select(value => SHA256.HashData(value))).ToArray();
+        var header = fixture.Header with { DataHash = Root(txLeaves) };
+        var commit = Sign(header, fixture.Keys, 3);
+        next = fixture.Inclusion.ResultsHeader with { LastBlockId = commit.BlockId };
+        Refused(fixture with
+        {
+            Header = header,
+            Commit = commit,
+            Inclusion = fixture.Inclusion with
+            {
+                Transaction = transaction,
+                TransactionProof = Proof(txLeaves, selected + 1),
+                BatchProof = Proof(txLeaves, 0),
+                ResultsHeader = next,
+                ResultsCommit = Sign(next, fixture.Keys, 3)
+            }
+        });
     }
 
     private static SequencerReceiptVerification Verify(Fixture fixture) => Committed.Verify(
@@ -187,7 +213,10 @@ public sealed class CommittedReceiptTests
         var digest = SHA256.HashData(Join(unsignedBatch[..domainLength], Encoding.UTF8.GetBytes(chain), unsignedBatch[domainLength..]));
         var batch = Join(unsignedBatch, receipt.Receipt.ContextHash, SignBytes(new Ed25519PrivateKeyParameters(
             Enumerable.Repeat((byte)0x5e, 32).ToArray(), 0), digest));
-        var txLeaves = new[] { SHA256.HashData(batch) }.Concat(batchVectors.Select(value => SHA256.HashData(Hex(value, "rawTransaction")))).ToArray();
+        var rawTransactions = batchVectors.Select(value => Hex(value, "rawTransaction")).ToArray();
+        var transactions = rawTransactions.Select(WrapTransaction).ToArray();
+        var txLeaves = new[] { SHA256.HashData(batch) }
+            .Concat(transactions.Select(value => SHA256.HashData(value))).ToArray();
         var results = batchVectors.Select(value => Result(value.GetProperty("receiptJson"))).ToArray();
         var resultLeaves = new[] { Array.Empty<byte>() }.Concat(results.Select(EncodeResult)).ToArray();
         var header = new CometHeader(11, 1, chain, (long)height, new(1700000000, 123456789),
@@ -203,9 +232,10 @@ public sealed class CommittedReceiptTests
             LastResultsHash = Root(resultLeaves),
             Time = new(1700000001, 123456789)
         };
-        var inclusion = new CommittedReceiptInclusion(batch, Proof(txLeaves, 0), ids, results[selected],
-            Proof(resultLeaves, selected + 1), next, Sign(next, keys, 3), validators);
-        return new(receipt, header, inclusion, commit, validators, keys, resultLeaves);
+        var inclusion = new CommittedReceiptInclusion(transactions[selected], Proof(txLeaves, selected + 1),
+            results[selected], Proof(resultLeaves, selected + 1), batch, Proof(txLeaves, 0),
+            next, Sign(next, keys, 3), validators);
+        return new(receipt, header, inclusion, commit, validators, keys, resultLeaves, rawTransactions);
     }
 
     private static Fixture Reanchor(Fixture fixture, CometExecutionResult result)
@@ -253,7 +283,7 @@ public sealed class CommittedReceiptTests
             Array.Empty<CometCommitSignature>());
         var signatures = keys.Select((key, index) =>
         {
-            if (index >= signers) return new CometCommitSignature(1, Array.Empty<byte>(), new(0, 0), Array.Empty<byte>());
+            if (index >= signers) return new CometCommitSignature(1, Array.Empty<byte>(), new(-62135596800, 0), Array.Empty<byte>());
             var signature = new CometCommitSignature(2, SHA256.HashData(key.GeneratePublicKey().GetEncoded())[..20],
                 new(1700000000, 124456789 + index * 1000000), Array.Empty<byte>());
             return signature with { Signature = SignBytes(key, Committed.VoteSignBytes(header.ChainId, commit, signature)) };
@@ -311,6 +341,10 @@ public sealed class CommittedReceiptTests
             Assert.Equal(Convert.FromHexString(result.GetProperty("protobuf").GetString()!), Committed.EncodeResult(value));
         }
     }
+
+    private static byte[] WrapTransaction(byte[] transaction) => Message(1, Message(1, Join(
+        Blob(1, Encoding.UTF8.GetBytes("/paxprotocol.paxchain.evm.MsgEVMTransaction")),
+        Message(2, Blob(1, transaction)))));
 
     private static MerkleProof Proof(byte[][] leaves, int index)
     {
