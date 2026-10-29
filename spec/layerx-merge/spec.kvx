@@ -158570,7 +158570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.5]
 title = "Report each sandboxExecute host refusal with its own result code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["18.887.1", "18.1163.1", "13.27.3"]
