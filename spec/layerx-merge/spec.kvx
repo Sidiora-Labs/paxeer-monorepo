@@ -158228,7 +158228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.2]
 title = "Run the programs conservation suite against 0x101D calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.24.1", "13.25.1", "13.27.2", "13.32.2", "18.1073.1", "18.1130.1"]
@@ -185846,7 +185846,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1182.2]
 title = "Issue #1182: Repoint the launchpad SDK tests to the restored v1 contract fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1182.1"]
