@@ -15,12 +15,11 @@ use layerx_programs_runtime::{
     ProgramId, ProgramReplayProfile, ProgramResolver, ResourceBudget, Storage, StorageNamespace,
 };
 use layerx_proof::inclusion::VerifiedBatchHeader;
-use layerx_proof::merkle::Proof;
 use layerx_proof::receipt::VerifiedReceipt;
 use layerx_proof::state_witness::StateWitness;
 use sha2::{Digest, Sha256};
 
-use crate::{AuthenticatedCatalogue, BoundaryProof, VerifiedReplayAuthority};
+use crate::{AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, VerifiedReplayAuthority};
 
 const MAX_BYTES: usize = 1_048_576;
 const MAX_NAMESPACE_VALUES_BYTES: usize = 64 * MAX_BYTES;
@@ -146,11 +145,11 @@ pub struct MarketReplayEvidence<'a> {
     pub tenant_receipt: &'a VerifiedReceipt,
     pub tenant_admission: &'a VerifiedAdmissionPrestate,
     pub tenant_header: &'a VerifiedBatchHeader,
-    pub tenant_receipt_proof: &'a Proof,
+    pub tenant_receipt_proof: &'a ChainCommitProof,
     pub provider_receipt: &'a VerifiedReceipt,
     pub provider_admission: &'a VerifiedAdmissionPrestate,
     pub provider_header: &'a VerifiedBatchHeader,
-    pub provider_receipt_proof: &'a Proof,
+    pub provider_receipt_proof: &'a ChainCommitProof,
     pub tenant_state: NativeNamespaceProof<'a>,
     pub provider_state: NativeNamespaceProof<'a>,
     pub code_blobs: &'a BTreeMap<[u8; 32], Vec<u8>>,
