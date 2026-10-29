@@ -108023,7 +108023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.5]
 title = "Prove the launchpad registry REST routes against a live network"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -129251,7 +129251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.6]
 title = "Check ethclient fee suggestions and fee history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.14.1"]
@@ -138497,7 +138497,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.2.3]
 title = "Route the write adapters through eth_sendRawTransaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["9.2.1", "9.2.2", "9.3.1", "9.4.1", "9.1.8", "18.1131.1"]
@@ -152818,7 +152818,7 @@ do_4 = "Attempt 2 shows the 0x4202 six-field 180-byte budget-fund layout pinned 
 
 [task.12.18.3]
 title = "Wallet policy decodes the kernel canonical budget fund payload"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["12.18.2"]
