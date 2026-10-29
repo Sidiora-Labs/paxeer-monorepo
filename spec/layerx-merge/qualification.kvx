@@ -10923,3 +10923,75 @@ symbol = "VerificationStatus"
 observed = "Attempt 3 (9dacfee4a) retyped VerificationStatus as a parallel enum over Rung while layerx-sdk still names Level in six files and the two in-crate tests errors.rs and rung.rs keep Level cases."
 assumption = "decision.1857 makes VerificationStatus an alias of RungStatus and do_7 carries the SDK and test callers; the dependents gate of layerx-sdk is expected to pass once they are ported."
 severity = "blocking"
+
+[finding.9.3.1.4]
+task = "9.3.1"
+file = "services/agent/crates/layerx-agentd/src/outbox/mod.rs"
+symbol = "Outbox::enqueue"
+observed = "Commit 06862bc6c retyped enqueue to (store, tenant, raw bytes) returning the transaction hash; the in-crate callers at services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:144-149 and services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:218 still pass four arguments and the lib test target does not compile at main."
+assumption = "18.1199.1 carries the two callers (decision.1863); the published task is not reopened."
+severity = "blocker"
+
+[finding.9.2.2.2]
+task = "9.2.2"
+file = "services/agent/crates/layerx-agentd/src/sign.rs"
+symbol = "attach_external_signature"
+observed = "Commit c03f97f8e retyped the external signing pair to SigningPreparation with 65-byte signatures; the kernel callers at services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:126, services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:203, services/human/crates/layerx-human-service/tests/custody.rs:342 and :344 were not moved to the kernel pair and two test targets do not compile at main."
+assumption = "18.1199.1 carries the agentd sites and 18.1172.2 the custody sites (decisions 1863 and 1864)."
+severity = "blocker"
+
+[finding.9.13.2.3]
+task = "9.13.2"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs"
+symbol = "native_human_prepare"
+observed = "Commit 71142289d renamed the HumanPrepare fields to nonce, not_before_height and not_after_height; the test at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:2740-2741 still reads account_sequence, not_before and not_after."
+assumption = "18.1199.1 carries the test (decision.1863)."
+severity = "major"
+
+[finding.10.25.2.1]
+task = "10.25.2"
+file = "services/human/crates/layerx-human-test-support/src/lib.rs"
+symbol = "raw_receipt_evidence"
+observed = "Commit 351e3da14 gave raw_receipt_evidence six parameters; the callers at services/human/crates/layerx-human-service/tests/binding.rs:157 and :408 still pass four and the binding target does not compile at main."
+assumption = "18.1172.2 carries the callers (decision.1864)."
+severity = "blocker"
+
+[finding.9.21.8.2]
+task = "9.21.8"
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+symbol = "ExecutedReceipt"
+observed = "Commit 98b857055 added signing_key to ExecutedReceipt; the literal at services/platform/ramps/toolkit/tests/custody_rungs.rs:47 does not set it and the ramp toolkit test build fails, which stopped 8.94.3 attempt 5 (23109fc55)."
+assumption = "8.29.4 carries the fixture; 8.94.3 requires it."
+severity = "blocker"
+
+[finding.18.1218.1.1]
+task = "18.1218.1"
+file = "tests/integration/rpc_tests/eth/eth_gasPrice.spec.ts"
+symbol = "readRuntimeState"
+observed = "Attempt 1 (a37a67b7f) built and then stopped at readRuntimeState: the spec needs runtime/runtime.json from the chain-backed bootstrap and spends gas, which the environment that runs the gates cannot provide."
+assumption = "The task is gated by a unit spec over the pure helpers (decision.1866); the chain-backed spec keeps its renamed tests."
+severity = "major"
+
+[finding.18.1043.1.1]
+task = "18.1043.1"
+file = "go.mod"
+symbol = "github.com/paxeer-network/pax-geth"
+observed = "go.mod:290 pins the published pax-geth v1.15.7-pax.17, so attempt 1 (fc895368d) changed core/deps/geth/rpc and its root-module test observed the published code instead."
+assumption = "The change is implemented and gated inside core/deps/geth (decision.1867); the root parity test follows the next pax-geth release, an owner action."
+severity = "major"
+
+[finding.18.1222.1.1]
+task = "18.1222.1"
+file = "modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go"
+symbol = "TestQueryAirdropClaimedRefusals"
+observed = "The zero_pool and zero_holder cases fail require.Same at :111 at main because the keeper wraps types.ErrZeroAddress; ErrorIs and the ABCI code equalities pass."
+assumption = "Identity is not part of the contract; the line is removed under decision.1865."
+severity = "minor"
+
+[finding.18.1193.1.1]
+task = "18.1193.1"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "verify_cmd"
+observed = "The verify_cmd carried escaped double quotes which reached sh verbatim and failed with a syntax error before any check ran (attempt 1, a40e94440)."
+assumption = "Rewritten with single quotes and grep -F; 16.95.2 build_cmd had the same shape and is rewritten."
+severity = "minor"
