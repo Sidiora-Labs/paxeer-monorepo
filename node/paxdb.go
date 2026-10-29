@@ -112,6 +112,12 @@ func parseSCConfigs(appOpts servertypes.AppOptions) config.StateCommitConfig {
 	scConfig.MemIAVLConfig.SnapshotPrefetchThreshold = cast.ToFloat64(appOpts.Get(FlagSCSnapshotPrefetchThreshold))
 	scConfig.MemIAVLConfig.SnapshotWriteRateMBps = cast.ToInt(appOpts.Get(FlagSCSnapshotWriteRateMBps))
 
+	flatKVConfig, err := config.ParseFlatKVConfig(appOpts)
+	if err != nil {
+		panic(fmt.Errorf("error reading state-commit.flatkv config: %w", err))
+	}
+	scConfig.FlatKVConfig = flatKVConfig
+
 	if wm := cast.ToString(appOpts.Get(FlagSCWriteMode)); wm != "" {
 		parsedWM, err := config.ParseWriteMode(wm)
 		if err != nil {
