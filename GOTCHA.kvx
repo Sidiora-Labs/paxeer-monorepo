@@ -10633,3 +10633,45 @@ area = "spec do lines"
 symptom = "Two do lines of one task disagree on where an input lives and the attempt edits a file outside touches."
 cause = "do_1 forbade a testdata copy while do_2 said 'that testdata file'."
 do = "Resolve the contradiction with a decision and a do line naming the exact path; check new tasks for do lines that name different paths for the same input."
+
+[gotcha.2172]
+area = "programs precompile tests"
+symptom = "registerAccount reverts LXP_VERSION_UNSUPPORTED for a program deployed at ABI 3 although the payload is well formed."
+cause = "ABI 3 account registration reads the program-account-profile record (and through it the program-owner record); production code never writes them and a missing record is reported as VERSION_UNSUPPORTED."
+do = "Seed program-owner NUL || id = {1} || principal and program-account-profile NUL || id = {2} || principal under module prefix {1, 0, 9} before registerAccount, as view_accounts_test.go does."
+
+[gotcha.2173]
+area = "layerx-mcp web tool"
+symptom = "Every metered offer is refused with 'the web offer does not bind the purpose'."
+cause = "The tool hashes the receiver DID key into the purpose while x-websearch has hashed the 20-byte receiver EVM address since 11.34.3."
+do = "Hash PURPOSE_DOMAIN || receiver_address; pin the receiver address in the web config because the offer does not carry it."
+
+[gotcha.2174]
+area = "layerx-mcp web tool"
+symptom = "Exact-scheme receipts are refused as PaymentArtifact(receipt) although the recording is genuine."
+cause = "The receipt is a 0x101A payExact program receipt; payer, payee, asset and amount live in its PaymentExact log, not in asset-module protocol facts."
+do = "Verify the logs with layerx_proof::sequencer_logs::verify_logs and read exactly one PaymentExact log, as the seller's verify_receipt does."
+
+[gotcha.2175]
+area = "agentd StartupConfig"
+symptom = "A test-support change to Rung::Committed fails E0308 against verification_defaults."
+cause = "StartupConfig.verification_defaults is keyed by VerificationLevel, not Rung; only its rung() maps onto the three rungs."
+do = "Pick the VerificationLevel whose rung() is the wanted rung (CHECKPOINT_FINALISED for Committed) and assert the mapping in the test."
+
+[gotcha.2176]
+area = "arbiter authority tests"
+symptom = "A gate test that must run from an in-tree vector demands native_admission and native_replay captures."
+cause = "Deriving a VerifiedReplayAuthority needs a Programs-module receipt and a v3 admission prestate that only the native corpus provides."
+do = "Keep corpus-bound derivations as release gates (decision.1806) and give the task gate a proof-level test the vector can satisfy."
+
+[gotcha.2177]
+area = "wallet gateway e2e"
+symptom = "After the station-sponsored bind landed, the e2e finds no bind transaction from the provisioned address."
+cause = "The bind is an executeSponsored transaction from the station relayer to the paymaster with the address inside the batch."
+do = "Assert the relayer transaction and its decoded batch, not a transaction from the address."
+
+[gotcha.2178]
+area = "agentd program reads"
+symptom = "Replacing a protocol-adapter read with eth_call breaks a caller that cross-checks state roots and bindings."
+cause = "The adapter wraps the kernel's C account-state decode and builds a proof-verified read; eth_call returns bare values."
+do = "Use eth_call only for plain operation reads; build proof-verified reads from the registry's VerifiedAccountSnapshot."

@@ -10387,3 +10387,51 @@ symbol = "owner send authorization"
 observed = "Attempt 10: both key-management providers refuse the kernel send authorization (issue #1169) until 10.0.3 ports the callers."
 assumption = "Waits for 10.0.3 (requires)."
 severity = "major"
+
+[finding.13.27.1.10]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go:211"
+symbol = "registerAccount"
+observed = "Attempt 28: the opt-in registerAccount reverts LXP_VERSION_UNSUPPORTED because the program carries ABI 3 and no account-profile record exists."
+assumption = "Decision.1831: the test seeds the owner and profile records and deploys at ABI 3."
+severity = "major"
+
+[finding.18.1121.1.5]
+task = "18.1121.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:1263"
+symbol = "purpose_of"
+observed = "Attempt 8: 12 web tests refuse OfferMismatch(purpose) and 4 refuse PaymentArtifact(receipt); the tool hashes the DID key and checks an asset-module send while the seller hashes the receiver address and reads the PaymentExact log."
+assumption = "Decision.1832: receiver_address in WebConfig; check_receipt mirrors verify_receipt."
+severity = "major"
+
+[finding.10.25.1.1]
+task = "10.25.1"
+file = "services/human/crates/layerx-human-test-support/src/lib.rs:157"
+symbol = "verification_defaults"
+observed = "Attempts 2 and 3: E0308, BTreeMap<TenantId, Rung> where StartupConfig expects BTreeMap<TenantId, VerificationLevel>."
+assumption = "Decision.1833: VerificationLevel::CHECKPOINT_FINALISED, whose rung() is Committed."
+severity = "major"
+
+[finding.13.30.3.4]
+task = "13.30.3"
+file = "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:132"
+symbol = "Fixture::load"
+observed = "Attempt 6: both gate tests panic because the loader demands native_admission and native_replay captures the in-tree vector does not carry."
+assumption = "Decision.1834: the gate tests verify receipt_keys from the vector; derive over a genuine receipt is a release gate."
+severity = "major"
+
+[finding.18.1065.1.7]
+task = "18.1065.1"
+file = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts:267"
+symbol = "provision"
+observed = "Attempt 11: provisioning reaches active and bound; the assertion expects a bind transaction from the address, which the station-sponsored flow never sends."
+assumption = "Decision.1835: the e2e asserts the executeSponsored transaction."
+severity = "major"
+
+[finding.9.94.1.1]
+task = "9.94.1"
+file = "services/agent/crates/layerx-agentd/src/read/program_node.rs:268"
+symbol = "restore_verified"
+observed = "Attempt 1: no change; the adapter is imported outside the touches and the budget caller needs a proof-verified read a bare eth_call cannot provide."
+assumption = "Decision.1836: touches widened; operation read via eth_call, budget read via the registry snapshot."
+severity = "major"
