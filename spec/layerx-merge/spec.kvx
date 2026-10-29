@@ -147322,7 +147322,7 @@ do_4 = "Scan only: after the requires tasks land the files in touches carry no r
 
 [task.10.98.13]
 title = "Migrate the layerx-intents callers of wiring.J44.25 (wave 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.2", "9.1.7", "9.1.8", "18.1119.1", "18.1153.1"]
@@ -147395,7 +147395,7 @@ do_9 = "Task 10.98.7 lands the 65-byte attach of services/human/crates/layerx-in
 
 [task.10.98.15]
 title = "Rewrite the layerx-human-service node-fixture tests against the sequencer RPC"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["10.3.1", "10.98.5", "10.4.3", "18.1119.1"]
