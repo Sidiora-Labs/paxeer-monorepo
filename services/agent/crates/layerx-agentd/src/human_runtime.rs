@@ -658,10 +658,10 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .as_ref()
             .try_into()
             .map_err(|_| HumanOperationError::Refused)?;
-        let signed = attach_external_signature(&prepared, signature)
+        let signed = attach_kernel_signature(&prepared, signature)
             .map_err(|_| HumanOperationError::Refused)?;
         let verified =
-            verify_before_submit(&signed, &prepared, &signer_public_key, &cached.registry)
+            verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &cached.registry)
                 .map_err(|_| HumanOperationError::Refused)?;
         let activity_id = verified.activity_id();
         let permit = context.permit();
@@ -758,7 +758,7 @@ fn restored_subscriptions(
 }
 use crate::session_keys::SessionKeyRegistry;
 use crate::sign::{
-    attach_external_signature, validate_issued_session, verify_before_submit,
+    attach_kernel_signature, validate_issued_session, verify_kernel_before_submit,
     ProvisionedSessionKey, VerifiedSubmission,
 };
 use crate::store::{key, ObjectKind, StorageClass, Store, TenantId, TenantKey};
@@ -3350,8 +3350,9 @@ fn settle_retained_native_effect(
         .signed_bytes()
         .map_err(|_| HumanOperationError::Refused)?
         .ok_or(HumanOperationError::Refused)?;
-    let submission = crate::sign::verify_before_submit(&signed, &prepared, &public, registry)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let submission =
+        crate::sign::verify_kernel_before_submit(&signed, &prepared, &public, registry)
+            .map_err(|_| HumanOperationError::Refused)?;
     let (reservation, witness) =
         match crate::budget::program_settlement::read_retained_native_effect_debit_settlement(
             registry,
@@ -3465,8 +3466,9 @@ fn settle_retained_native_program_call(
         .signed_bytes()
         .map_err(|_| refused())?
         .ok_or_else(refused)?;
-    let submission = crate::sign::verify_before_submit(&signed, &prepared, &public_key, registry)
-        .map_err(|_| refused())?;
+    let submission =
+        crate::sign::verify_kernel_before_submit(&signed, &prepared, &public_key, registry)
+            .map_err(|_| refused())?;
     let signed_activity = layerx_wire::activity::decode_signed(submission.exact_bytes(), registry)
         .map_err(|_| refused())?;
     let lifecycle_exit = signed_activity.protocol_version() == 3
@@ -7508,9 +7510,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .as_slice()
             .try_into()
             .map_err(|_| HumanOperationError::Refused)?;
-        let signed = attach_external_signature(&cached.prepared, signature)
+        let signed = attach_kernel_signature(&cached.prepared, signature)
             .map_err(|_| HumanOperationError::Refused)?;
-        let verified = verify_before_submit(
+        let verified = verify_kernel_before_submit(
             &signed,
             &cached.prepared,
             &request.operation.signer_public_key,
@@ -7727,9 +7729,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .as_slice()
             .try_into()
             .map_err(|_| HumanOperationError::Refused)?;
-        let signed = attach_external_signature(&cached.prepared, signature)
+        let signed = attach_kernel_signature(&cached.prepared, signature)
             .map_err(|_| HumanOperationError::Refused)?;
-        let verified = verify_before_submit(
+        let verified = verify_kernel_before_submit(
             &signed,
             &cached.prepared,
             &request.operation.signer_public_key,
@@ -7948,9 +7950,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .as_slice()
             .try_into()
             .map_err(|_| HumanOperationError::Refused)?;
-        let signed = attach_external_signature(&cached.prepared, signature)
+        let signed = attach_kernel_signature(&cached.prepared, signature)
             .map_err(|_| HumanOperationError::Refused)?;
-        let verified = verify_before_submit(
+        let verified = verify_kernel_before_submit(
             &signed,
             &cached.prepared,
             &request.operation.signer_public_key,
@@ -8190,9 +8192,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .as_slice()
                 .try_into()
                 .map_err(|_| HumanOperationError::Refused)?;
-            let signed = attach_external_signature(&cached.prepared, signature)
+            let signed = attach_kernel_signature(&cached.prepared, signature)
                 .map_err(|_| HumanOperationError::Refused)?;
-            let verified = verify_before_submit(
+            let verified = verify_kernel_before_submit(
                 &signed,
                 &cached.prepared,
                 &request.operation.signer_public_key,
@@ -12002,10 +12004,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             HumanOperationError::Typed(crate::human::HumanRefusal::BudgetContextMismatch),
         )?;
         let (signature, signer) = owner_signature(&cached.prepared, carrier)?;
-        let signed = attach_external_signature(&cached.prepared, signature)
+        let signed = attach_kernel_signature(&cached.prepared, signature)
             .map_err(|_| HumanOperationError::Refused)?;
-        let submission = verify_before_submit(&signed, &cached.prepared, &signer, &cached.registry)
-            .map_err(|_| HumanOperationError::Refused)?;
+        let submission =
+            verify_kernel_before_submit(&signed, &cached.prepared, &signer, &cached.registry)
+                .map_err(|_| HumanOperationError::Refused)?;
         let mutation = crate::budget::budget_mutation_identity(
             submission.exact_bytes(),
             &cached.registry,
@@ -12103,9 +12106,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .get(prepared_key)
             .cloned()
             .ok_or(HumanOperationError::Refused)?;
-        let signed = attach_external_signature(&cached.prepared, signature)
+        let signed = attach_kernel_signature(&cached.prepared, signature)
             .map_err(|_| HumanOperationError::Refused)?;
-        let verified_submission = verify_before_submit(
+        let verified_submission = verify_kernel_before_submit(
             &signed,
             &cached.prepared,
             signer_public_key,
@@ -12318,9 +12321,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .as_slice()
             .try_into()
             .map_err(|_| HumanOperationError::Refused)?;
-        let signed = attach_external_signature(&prepared, signature)
+        let signed = attach_kernel_signature(&prepared, signature)
             .map_err(|_| HumanOperationError::Refused)?;
-        let verified = verify_before_submit(
+        let verified = verify_kernel_before_submit(
             &signed,
             &prepared,
             &request.operation.signer_public_key,
@@ -14694,11 +14697,15 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     return Err(HumanOperationError::Refused);
                 }
                 let (signature, signer) = owner_signature(&cached.prepared, carrier)?;
-                let signed = attach_external_signature(&cached.prepared, signature)
+                let signed = attach_kernel_signature(&cached.prepared, signature)
                     .map_err(|_| HumanOperationError::Refused)?;
-                let submission =
-                    verify_before_submit(&signed, &cached.prepared, &signer, &cached.registry)
-                        .map_err(|_| HumanOperationError::Refused)?;
+                let submission = verify_kernel_before_submit(
+                    &signed,
+                    &cached.prepared,
+                    &signer,
+                    &cached.registry,
+                )
+                .map_err(|_| HumanOperationError::Refused)?;
                 if submission.idempotency_key() != key {
                     return Err(HumanOperationError::Refused);
                 }
@@ -19494,7 +19501,7 @@ mod activity_submission_index_tests {
             },
         };
         let key: [u8; 32] = must(activity.authority().try_into());
-        let verified = must(crate::sign::verify_before_submit(
+        let verified = must(crate::sign::verify_kernel_before_submit(
             bytes, &prepared, &key, &registry,
         ));
         (registry, verified)
@@ -20332,8 +20339,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .authority()
                 .try_into()
                 .map_err(|_| HumanOperationError::Refused)?;
-            let verified = verify_before_submit(signed, &prepared, &signer_public_key, &registry)
-                .map_err(|_| HumanOperationError::Refused)?;
+            let verified =
+                verify_kernel_before_submit(signed, &prepared, &signer_public_key, &registry)
+                    .map_err(|_| HumanOperationError::Refused)?;
             let submit = HumanSubmit {
                 preparation_ref: hex(&preparation_id),
                 signature,
