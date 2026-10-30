@@ -109472,7 +109472,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.24.3]
 title = "Repoint the frozen response schema test to the catalog and the generated validators"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["4.24.1", "4.23.6"]
@@ -138242,7 +138242,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.94.5]
 title = "Port the platform core to the ledger call builders via payments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.94.4", "8.10.1"]
@@ -138302,7 +138302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.94.7]
 title = "Port the CLI send preparation to the ledger call builders via payments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.94.4", "8.48.1"]
