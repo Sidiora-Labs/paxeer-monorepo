@@ -43,6 +43,7 @@ use crate::human::{
     HumanCapabilityInstall, HumanFinalizationEvidence, HumanOperationError, HumanOperations,
     HumanOwnerInstall, HumanPeer, HumanPrepare, HumanResponse, HumanSubmit, MutationEnvelope,
 };
+use crate::human_node::HumanNode;
 use crate::identity::{self, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority};
 use crate::managed_agent::{self, ManagedAgent};
 use crate::outbox::{
@@ -100,7 +101,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         credential: &crate::session::SessionCredential,
         owner_public_key: [u8; 32],
     ) -> Result<ModuleRegistry, HumanOperationError> {
-        let head = self.lock_operations()?.node.head().chain_sequence;
+        let head = self
+            .lock_operations()?
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .number;
         let control = self.session_control.clone();
         let permit = control
             .authorize(
@@ -1905,6 +1911,7 @@ fn retained_activity_owner(
 pub struct ProductionHumanOperations<A> {
     authority: A,
     node: layerx_client::Client,
+    chain: Box<dyn HumanNode>,
     store: Arc<Mutex<Store>>,
     outboxes: BTreeMap<String, Outbox>,
     prepared: BTreeMap<(String, String, String), CachedPreparation>,
@@ -2231,7 +2238,11 @@ impl<A: HumanAuthorityBoundary> SharedAgentOwner<A> {
     pub fn current_core_sequence(&self) -> Result<u64, HumanOperationError> {
         let owner = self.lock()?;
         let operations = owner.lock_operations()?;
-        Ok(operations.node.head().chain_sequence)
+        Ok(operations
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .number)
     }
 
     pub fn mcp_clock(&self) -> Result<Arc<dyn layerx_types::clock::Clock>, HumanOperationError> {
@@ -2248,12 +2259,13 @@ impl<A: HumanAuthorityBoundary> SharedAgentOwner<A> {
         let mut owner = self.lock()?;
         owner.mcp_native_web_registry(credential, owner_public_key)?;
         let ops = owner.lock_operations()?;
-        let node = ops.node.handshake().node();
-        let key = node.authorised_sequencer_key;
-        if node.protocol_version != 3 || key == [0; 32] {
+        if ops.node.handshake().node().protocol_version != 3 {
             return Err(HumanOperationError::Refused);
         }
-        Ok(key)
+        ops.chain
+            .receipt_key_at_head()
+            .map(|key| key.public_key)
+            .map_err(|_| HumanOperationError::Unavailable)
     }
 
     pub fn mcp_native_web_registry(
@@ -4947,7 +4959,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let node = operations.node.handshake().node();
         Ok((
             self.degraded.status().mode == crate::degraded::Mode::Healthy,
-            node.network_id,
+            u32::try_from(
+                operations
+                    .chain
+                    .chain_id()
+                    .map_err(|_| HumanOperationError::Unavailable)?,
+            )
+            .map_err(|_| HumanOperationError::Refused)?,
             node.protocol_version,
         ))
     }
@@ -12256,7 +12274,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             || layerx_wire::hash::activity_id(&activity)
                 .map_err(|_| HumanOperationError::Refused)?
                 != expected_activity
-            || activity.network_id() != self.node.handshake().node().network_id
+            || u64::from(activity.network_id())
+                != self
+                    .chain
+                    .chain_id()
+                    .map_err(|_| HumanOperationError::Unavailable)?
             || activity.protocol_version() != self.node.handshake().node().protocol_version
         {
             return Err(HumanOperationError::Refused);
@@ -12306,7 +12328,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let held = sessions
             .read()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let core_sequence = self.node.head().chain_sequence;
+        let core_sequence = self
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .number;
         let record = held
             .get(&origin.session.tenant, origin.session.session_id)
             .ok_or(HumanOperationError::Refused)?;
@@ -13190,6 +13216,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
     pub fn new(
         authority: A,
         node: layerx_client::Client,
+        chain: Box<dyn HumanNode>,
         store: Arc<Mutex<Store>>,
         peers: &BTreeMap<u32, (String, String)>,
         maximum_payload_bytes: usize,
@@ -13240,6 +13267,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         Ok(Self {
             authority,
             node,
+            chain,
             store,
             outboxes,
             prepared: BTreeMap::new(),
@@ -15595,7 +15623,11 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         }
         let target =
             session_id_hex(request.session_id.as_str()).ok_or(HumanOperationError::Refused)?;
-        let current_sequence = self.node.head().chain_sequence;
+        let current_sequence = self
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .number;
         let (replacement, _) = control
             .refresh_session_authorized(context.permit(), SessionId(target), current_sequence)
             .map_err(UnifiedAgentOwner::<A>::session_writer_error)?;
@@ -15640,7 +15672,11 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         }
         let target =
             session_id_hex(request.session_id.as_str()).ok_or(HumanOperationError::Refused)?;
-        let current_sequence = self.node.head().chain_sequence;
+        let current_sequence = self
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .number;
         control
             .close_session_authorized(context.permit(), SessionId(target), current_sequence)
             .map_err(UnifiedAgentOwner::<A>::session_writer_error)?;
@@ -15668,31 +15704,14 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
             .selector
             .validate()
             .map_err(|_| HumanOperationError::Refused)?;
-        let config = read_rpc_config()?;
-        let endpoint = read_rpc_endpoint(&config)?;
-        let head = endpoint
-            .block_number()
-            .map_err(|_| HumanOperationError::Unavailable)?;
+        let head = self
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .number;
         if selector.to_height > head {
             return Err(HumanOperationError::Refused);
         }
-        let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
-        let node = self.node.handshake().node();
-        let context = layerx_client::read::ReadContext {
-            interface_version: node.interface_version,
-            correlation_id: boundary_correlation(
-                peer,
-                &selector.from_height.to_be_bytes(),
-                b"rpc-history",
-            ),
-            expected_protocol_version: node.protocol_version,
-            expected_network_id: node.network_id,
-            requested: layerx_client::read::Requested::new(VerificationLevel::UNVERIFIED),
-            head: self.node.head(),
-            sequencer_authorization: authorization,
-            handshake_sequencer_key: node.authorised_sequencer_key,
-            root_selector: RootSelector::Latest,
-        };
         let cursor = selector
             .cursor
             .map(|p| {
@@ -15706,10 +15725,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
             })
             .transpose()?;
         let page = crate::read::history(
-            &mut HistoryRpcTransport {
-                config: &config,
-                response: None,
-            },
+            self.chain.as_mut(),
             selector.from_height,
             selector.to_height,
             cursor,
@@ -15718,7 +15734,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                     .map_err(|_| HumanOperationError::Refused)?,
                 maximum_response_bytes: MAX_RESPONSE,
             },
-            context,
+            None,
         )
         .map_err(|_| HumanOperationError::Unavailable)?;
         let body = serde_json::json!({"height": page.height.to_string(), "cursor": page.next_cursor.map(|p| [p.block_height.to_string(),p.tx_index.to_string(),p.log_index.to_string()]),
@@ -16320,10 +16336,14 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
             .trust(registry.clone())
             .map_err(|_| HumanOperationError::Unavailable)?;
         let node = self.node.handshake().node().clone();
+        let receipt_key = self
+            .chain
+            .receipt_key_at_head()
+            .map_err(|_| HumanOperationError::Unavailable)?;
         let authority = EvidenceAuthority::pinned_to_handshake(
             node.protocol_version,
             node.network_id,
-            node.authorised_sequencer_key,
+            receipt_key.public_key,
         )
         .map_err(|_| HumanOperationError::Refused)?;
         let anchors = texts
@@ -16341,9 +16361,8 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
             first_correlation: boundary_correlation(peer, &anchors, b"export-offline"),
             availability_deadline: *availability_deadline,
         };
-        let produced =
-            crate::export::produce(&mut self.node, &context, &request.selector, requested)
-                .map_err(export_refusal)?;
+        let produced = crate::export::produce(&context, &request.selector, requested)
+            .map_err(export_refusal)?;
         layerx_agent_api::export::check_export_response(&request, &produced.response)
             .map_err(|_| HumanOperationError::Refused)?;
         Ok(produced.response)
@@ -21027,61 +21046,6 @@ pub fn balance_operation_value(
     )
 }
 
-fn read_rpc_call(
-    config: &crate::node_rpc::NodeRpcConfig,
-    method: &str,
-    params: Value,
-) -> Result<Value, HumanOperationError> {
-    let certificates = if config.url.starts_with("https://") {
-        let loaded = rustls_native_certs::load_native_certs();
-        if loaded.certs.is_empty() || !loaded.errors.is_empty() {
-            return Err(HumanOperationError::Unavailable);
-        }
-        loaded.certs
-    } else {
-        Vec::new()
-    };
-    let roots: Vec<_> = certificates
-        .iter()
-        .map(|c| ureq::tls::Certificate::from_der(c.as_ref()).to_owned())
-        .collect();
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(config.deadline))
-        .http_status_as_error(false)
-        .max_redirects(0)
-        .tls_config(
-            ureq::tls::TlsConfig::builder()
-                .provider(ureq::tls::TlsProvider::Rustls)
-                .root_certs(ureq::tls::RootCerts::new_with_certs(&roots))
-                .build(),
-        )
-        .build()
-        .into();
-    let mut response = agent
-        .post(&config.url)
-        .header("Content-Type", "application/json")
-        .send_json(
-            serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}),
-        )
-        .map_err(|_| HumanOperationError::Unavailable)?;
-    if response.status().as_u16() != 200 {
-        return Err(HumanOperationError::Unavailable);
-    }
-    let bytes = response
-        .body_mut()
-        .with_config()
-        .limit(MAX_RESPONSE as u64)
-        .read_to_vec()
-        .map_err(|_| HumanOperationError::Unavailable)?;
-    let body: Value = serde_json::from_slice(&bytes).map_err(|_| HumanOperationError::Refused)?;
-    if body.as_object().map(|o| o.len()) != Some(3) || body["jsonrpc"] != "2.0" || body["id"] != 1 {
-        return Err(HumanOperationError::Refused);
-    }
-    body.get("result")
-        .cloned()
-        .ok_or(HumanOperationError::Unavailable)
-}
-
 pub fn history_operation_value(
     selector: &layerx_agent_api::read::HistorySelector,
     result: &Value,
@@ -21315,46 +21279,6 @@ pub fn proof_bundle_operation_value(
         return Err(HumanOperationError::Refused);
     }
     Ok(result)
-}
-
-struct HistoryRpcTransport<'a> {
-    config: &'a crate::node_rpc::NodeRpcConfig,
-    response: Option<Vec<u8>>,
-}
-
-impl layerx_client::lni::transport::FrameTransport for HistoryRpcTransport<'_> {
-    fn send(&mut self, bytes: &[u8]) -> Result<(), layerx_client::lni::transport::TransportError> {
-        use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope};
-        use layerx_client::lni::transport::TransportError;
-        let envelope = decode_envelope(bytes).map_err(|_| TransportError::PeerShutdown)?;
-        let request: Value = serde_json::from_slice(envelope.canonical_payload)
-            .map_err(|_| TransportError::PeerShutdown)?;
-        if request["method"] != "px_getHistory" {
-            return Err(TransportError::PeerShutdown);
-        }
-        let result = read_rpc_call(self.config, "px_getHistory", request["params"].clone())
-            .map_err(|_| TransportError::PeerShutdown)?;
-        let body = serde_json::to_vec(
-            &serde_json::json!({"jsonrpc": "2.0", "id": envelope.correlation_id, "result": result}),
-        )
-        .map_err(|_| TransportError::PeerShutdown)?;
-        self.response = Some(
-            encode_envelope(Envelope {
-                version: envelope.version,
-                message_tag: 11,
-                correlation_id: envelope.correlation_id,
-                canonical_payload: &body,
-                proof_material: &[],
-            })
-            .map_err(|_| TransportError::PeerShutdown)?,
-        );
-        Ok(())
-    }
-    fn receive(&mut self) -> Result<Vec<u8>, layerx_client::lni::transport::TransportError> {
-        self.response
-            .take()
-            .ok_or(layerx_client::lni::transport::TransportError::PeerShutdown)
-    }
 }
 
 fn program_rpc_error(error: crate::ops::program::ProgramRpcOperationError) -> HumanOperationError {
