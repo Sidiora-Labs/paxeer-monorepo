@@ -158182,7 +158182,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.1]
 title = "Rebuild the shared registry test support on the chain fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["13.0.4", "13.2.1", "13.4.5"]
