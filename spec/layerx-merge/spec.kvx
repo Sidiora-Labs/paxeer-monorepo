@@ -164267,7 +164267,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.33.3]
 title = "Render one total per asset in AssetListItem"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.33.1"]
