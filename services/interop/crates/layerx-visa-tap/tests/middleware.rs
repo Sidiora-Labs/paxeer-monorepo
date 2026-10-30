@@ -154,17 +154,38 @@ fn fixture_fixed<const N: usize>(value: &Value) -> [u8; N] {
         .expect("fixture field length")
 }
 
-fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+fn recorded_case() -> Value {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
     .expect("recorded sequencer fixture");
-    let case = fixture["cases"]
+    fixture["cases"]
         .as_array()
         .expect("fixture cases")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .expect("recorded payExact case");
+        .expect("recorded payExact case")
+        .clone()
+}
+
+fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = fixture_bytes(&case["rawTransaction"]);
+    let offsets: Vec<_> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact calldata selector");
+    let start = offsets[0] + 4;
+    [5, 0, 1].map(|word| {
+        transaction[start + word * 32..start + (word + 1) * 32]
+            .try_into()
+            .expect("recorded payExact calldata word")
+    })
+}
+
+fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+    let case = recorded_case();
     let receipt = &case["receiptJson"];
     assert_eq!(receipt["rung"], "receipted");
     assert_eq!(receipt["receipt"], case["signedReceipt"]);
@@ -216,7 +237,7 @@ fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 3
     assert_eq!(evidence.logs.len(), 1);
     let original = &evidence.logs[0];
     let mut topics = original.topics().to_vec();
-    topics[1..].rotate_right(1);
+    topics[1..].copy_from_slice(&recorded_payment_topics(&recorded_case()));
     let payment = SequencerLog::new(
         original.address(),
         topics,

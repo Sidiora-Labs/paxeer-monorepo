@@ -11236,3 +11236,13 @@ fix = "Every check is a bare return 1 (tests/protocol/lxp_test_kernel.c:422-426)
 title = "A build with --tests compiles every stale test target of the package"
 symptom = "A task whose files were complete failed its build in a test file owned by another task because cargo build --tests compiled it."
 fix = "Build only the test targets the verify runs (--test <name> per target); record the stale file against its owner."
+
+[gotcha.2285]
+title = "An attempt that started before a dependency's fix reached main fails on the fixed line again"
+symptom = "18.1309.1 attempt 4 and the four 17.5.x gate attempts re-failed on views.go:167 / main.rs:1768 although 18.1308.1 and 18.1310.1 were on main by the time they were read; their bases (53d78901c, 710592c26) predate the fix commits (510b28cc7, 57f057042)."
+fix = "Before reading an attempt's failure, compare its base_revision with the fix commit (git merge-base --is-ancestor <fix> <base>); when the base predates it, the answer is a re-qualification on a newer base and no further reading."
+
+[gotcha.2286]
+title = "A first-time compile of a target exposes the older breaks beneath the blocker"
+symptom = "After a narrowed build or a cleared blocker lets a test target compile for the first time in several attempts, the attempt fails on an older, unrelated break in the same target (session_keys.rs:248 once the layerx-agentd half of 18.1228.1 passed; migration.rs and revocation.rs once --tests reached them in 18.1308.3; expiry.rs:68 once the registry dependents were checked in 13.4.6)."
+fix = "Before writing a re-qualify-unchanged note, run git log -S on every symbol the target calls that changed since its fixture was written, expect one new break per cleared blocker, and narrow build_cmd to the targets the verify runs."
