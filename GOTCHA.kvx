@@ -10940,3 +10940,28 @@ fix = "When a Go or host test reverts on a kernel status, the kernel task's case
 title = "A test that opens a repository directory fails before any assertion when the directory is absent"
 symptom = "4.24.3 attempts 6 to 8 failed on launchpad/spec/production-system/integration/migrations/150002.sql, a directory the launchpad tests read five levels up that was never imported; the readers in ranking-algo, security, social and indexer share it."
 fix = "When a test resolves a path from the repository root, confirm the directory exists on main before the task is attempted; import the reviewed source set as its own commit (01d2bf319) rather than per task."
+
+[gotcha.2226]
+title = "go test -run with a pattern no test matches passes with no tests to run"
+symptom = "4.24.3 attempt 9 declared TestFrozenV2OperationLooksUpCatalog in verify_cmd before writing it; go test printed no tests to run, exited 0, and only the completion check caught the missing symbol."
+fix = "A verify that names a test must report it as run; treat testing: warning: no tests to run as a failure of the task, and check the test exists before the verify."
+
+[gotcha.2227]
+title = "A test that includes a source file by #[path] passes while the library never compiles it"
+symptom = "13.3.1, 13.3.2, 13.3.4 and 13.3.5 landed modules under src/chain_evidence/ whose tests include the file by #[path]; chain_evidence.rs kept empty inline placeholders, the library shipped none of the types, and 13.3.7 and 13.6.4 failed to find them."
+fix = "A task that adds a module file owns the parent file's mod line too: put the parent in touches, declare the file module, and have the test import from the crate so the gate exercises the shipped code."
+
+[gotcha.2228]
+title = "Aggregate gate scripts that log to a mktemp directory lose the cause"
+symptom = "17.5.3 and 17.5.4 failed in make workspace-build and the record held only the evidence line, because run_gate.py wrote the step log under a temporary or .logs directory the qualification record does not keep."
+fix = "Write per-step logs under the evidence_dir the manifest names (logs/waves/<n>) and echo the failing step's tail into the wave log (task 17.5.9); an evidence line without its log is not actionable."
+
+[gotcha.2229]
+title = "cargo build --tests compiles every test target of the crate"
+symptom = "18.1172.2 owned two test files and its build failed in tests/agent_controls.rs, a target another task ports, because --tests builds all of them."
+fix = "Name the owned targets in build_cmd (--lib --test a --test b) and keep --tests for crate-wide gates run once per wave."
+
+[gotcha.2230]
+title = "An acceptance clause owned by another task's retirement cannot be met early"
+symptom = "16.0.3 ac_2 forbade lxp_daemon_lni in the make -n test dry run while the daemon still compiles cmd/layerxd/lxp_daemon_lni.c, retired by 5.50.1, which transitively requires 16.0.3; requiring it would have made a cycle."
+fix = "Place a dry-run absence clause on the task that deletes the source, and check the requires graph for a cycle before adding a dependency to satisfy an acceptance clause."

@@ -301,12 +301,84 @@ fn estimate_fee_refuses_kernel_activity_hex() -> Result<(), Box<dyn std::error::
         fee_limit: 100,
         idempotency_key: [8; 32],
     };
-    let prepared = PreparedPayment::new(&payment, &facts)?;
-    let kernel = prepared
-        .canonical_unsigned()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let options = layerx_crypto::payments::CallOptions {
+        from: [0x11; 20],
+        chain_id: 125,
+        nonce: 0,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 50,
+    };
+    let prepared = PreparedPayment::new(&payment, &facts, &options)?;
+    assert_eq!(prepared.call().nonce, facts.identity_next_sequence);
+    assert_eq!(&prepared.call().to[18..], &[0x10, 0x1a]);
+    assert_eq!(
+        prepared.call().data,
+        layerx_platform_cli::wallet_encoding::payment_calldata(&payment, facts.actor)?
+    );
+    assert_eq!(prepared.call().data.len(), 36);
+    assert_eq!(&prepared.call().data[4..], &[1; 32]);
+    let disclosure = layerx_crypto::payments::bind_call(prepared.call(), options.from)?;
+    assert_eq!(disclosure.payment, Some(payment.clone()));
+    assert_eq!(disclosure.fee_limit, facts.fee_limit);
+
+    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
+    use layerx_types::amount::Amount;
+    use layerx_types::ids::{Did, IdempotencyKey};
+    use layerx_types::payload::{
+        ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload,
+    };
+    use sha2::Digest as _;
+    let kind = ActivityType::new(ModuleId::Asset, 4).map_err(|e| format!("{e:?}"))?;
+    let registry = ModuleRegistry::new(&[
+        ModuleRegistration::new(ModuleId::Asset, &[kind]).map_err(|e| format!("{e:?}"))?
+    ])
+    .map_err(|e| format!("{e:?}"))?;
+    let payload = payment
+        .encode(facts.actor.as_bytes())
+        .map_err(|e| format!("{e:?}"))?;
+    let mut hash = sha2::Sha256::new();
+    hash.update(layerx_wire::hash::Domain::PayloadHash.tag());
+    hash.update(&payload);
+    let mut builder = EnvelopeBuilder::new();
+    builder.protocol_version(3).map_err(|e| format!("{e:?}"))?;
+    builder
+        .network_id(facts.network_id)
+        .map_err(|e| format!("{e:?}"))?;
+    builder.activity_type(kind).map_err(|e| format!("{e:?}"))?;
+    builder
+        .actor_did(Did::new(facts.actor.as_bytes()).map_err(|e| format!("{e:?}"))?)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .authority(Authority::owner(&facts.public_key).map_err(|e| format!("{e:?}"))?)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .account_sequence(facts.identity_next_sequence)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .timestamp_bound(
+            TimestampBound::new(facts.not_before_ms, facts.expires_at_ms)
+                .map_err(|e| format!("{e:?}"))?,
+        )
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .idempotency_key(IdempotencyKey::new(facts.idempotency_key))
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .fee_limit(Amount::from_u128(facts.fee_limit))
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .payload_hash(hash.finalize().into())
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .payload(Payload::new(&registry, kind, &payload).map_err(|e| format!("{e:?}"))?)
+        .map_err(|e| format!("{e:?}"))?;
+    let kernel = layerx_wire::activity::encode_unsigned_envelope(
+        &builder.build().map_err(|e| format!("{e:?}"))?,
+    )?
+    .iter()
+    .map(|byte| format!("{byte:02x}"))
+    .collect::<String>();
     let signed = layerx_crypto::evm_transaction::Eip1559Call {
         chain_id: 125,
         nonce: 7,
