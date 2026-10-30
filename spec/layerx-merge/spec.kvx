@@ -121244,7 +121244,7 @@ do_4 = "Run only after tasks 6.6.10 and 6.7.10 are done: attempts 1 to 4 (5a980b
 
 [task.6.0.4]
 title = "Gate the domain-6 client wave on the evm CLI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.3", "6.8.4", "6.6.8", "6.23.4", "6.96.1", "6.96.2"]
