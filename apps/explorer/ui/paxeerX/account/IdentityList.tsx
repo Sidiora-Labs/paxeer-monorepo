@@ -20,7 +20,7 @@ export interface Props {
 }
 
 const IdentityList = ({ identities, isLoading }: Props) => {
-  const entries = listIdentities(identities);
+  const entries = listIdentities(identities).filter(({ kind }) => kind === 'evm' || kind === 'pax' || kind === 'did');
 
   const [ rowsPerPage, setRowsPerPage ] = React.useState(SCAN_ROWS_PER_PAGE[0]);
   const [ page, setPage ] = React.useState(1);
