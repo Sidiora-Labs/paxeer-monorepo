@@ -127689,7 +127689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.94.2]
 title = "Check getStateHead and getProgram answer eth_call at an explicit block height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["6.0.2", "13.0.2", "18.1073.1", "18.1130.1"]
