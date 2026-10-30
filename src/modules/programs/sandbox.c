@@ -96,15 +96,20 @@ lxp_result layerx_programs_call_sandbox_admit(
 {
     programs_sandbox_activity *value = sandbox_for_call(call_token);
     size_t kind;
+    lxp_result status;
     if (value == NULL || value->operation != SANDBOX_EXECUTE ||
-        value->host_reserved || value->ctx->effects == NULL ||
+        value->host_reserved)
+        return LXP_ERR_NON_CANONICAL;
+    if (value->ctx->effects == NULL ||
         value->ctx->effects->count > LXP_MAX_EFFECTS ||
         SANDBOX_USAGE_EFFECT_RESERVE >
             LXP_MAX_EFFECTS - value->ctx->effects->count)
-        return LXP_ERR_NON_CANONICAL;
-    if (layerx_programs_sandbox_admit_host(call_token, observed_batch,
-            maximum_fee_hi, maximum_fee_lo) != LXP_OK)
-        return LXP_ERR_NON_CANONICAL;
+        return LXP_ERR_LENGTH_LIMIT;
+    status = layerx_programs_sandbox_admit_host(call_token, observed_batch,
+                                               maximum_fee_hi, maximum_fee_lo);
+    if (status != LXP_OK)
+        return lxp_result_is_registered(status) && !lxp_result_is_fatal(status)
+            ? status : LXP_ERR_NON_CANONICAL;
     /* Bind cleanup before any subsequent C allocation can refuse admission. */
     value->reservation_token = call_token;
     for (kind = 0U; kind < 3U; ++kind) {
@@ -660,6 +665,31 @@ lxp_result layerx_programs_call_sandbox_usage_result_byte(
     length = section < 2U ? 16U : section == 2U ? 32U : section == 4U ? 64U :
              value->usage_result.receipt_length;
     return offset < length ? (lxp_result)bytes[offset] : LXP_ERR_NON_CANONICAL;
+}
+
+lxp_result layerx_programs_call_sandbox_usage_result_occupancy(
+    uint64_t token, lxp_program_outcome *outcome)
+{
+    const programs_sandbox_activity *value = sandbox_for_call(token);
+    lxp_result status;
+    if (value == NULL || value->operation != SANDBOX_EXECUTE ||
+        !value->usage_result.published)
+        return LXP_ERR_UNKNOWN_FIELD;
+    if (outcome == NULL) return LXP_OK;
+    status = lxp_hash_sha256(value->usage_result.receipt,
+                             value->usage_result.receipt_length,
+                             outcome->occupancy_evidence_digest);
+    if (status != LXP_OK) return status;
+    outcome->occupancy_byte_batches = (lxp_u128){
+        read_u64(value->usage_result.occupancy),
+        read_u64(value->usage_result.occupancy + 8U)};
+    outcome->occupancy_fee_units = (lxp_u128){
+        read_u64(value->usage_result.occupancy_fee),
+        read_u64(value->usage_result.occupancy_fee + 8U)};
+    (void)memcpy(outcome->occupancy_asset_id, value->asset, 32U);
+    (void)memcpy(outcome->occupancy_transfer_root,
+                 value->usage_result.transfer_root, 32U);
+    return LXP_OK;
 }
 
 lxp_result layerx_programs_call_sandbox_context(uint64_t call_token)

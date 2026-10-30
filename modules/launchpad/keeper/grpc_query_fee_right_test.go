@@ -88,10 +88,8 @@ func TestQueryFeeRightRefusals(t *testing.T) {
 		t.Run(collection, func(t *testing.T) {
 			response, err := client.FeeRight(context.Background(), &types.QueryFeeRightRequest{Collection: collection, Id: 1})
 			require.Nil(t, response)
-			require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
-			codespace, code, _ := sdkerrors.ABCIInfo(err, false)
-			require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
-			require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+			require.Equal(t, codes.InvalidArgument, status.Code(err))
+			require.Equal(t, "collection must be a 0x-prefixed 40-hex-digit address: invalid address", status.Convert(err).Message())
 		})
 	}
 

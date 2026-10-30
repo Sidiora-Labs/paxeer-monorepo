@@ -333,11 +333,24 @@ impl<'a> ProductionAgentCreation<'a> {
         .map_err(|_| AgentFailure::Unavailable)?
         .map_err(|_| AgentFailure::Refused("custody refused creation signature"))?;
         let signature = *grant.signature();
-        let signed_activity = layerx_intents::owner_activity::attach_signature(
+        let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(
             &prepared.unsigned_canonical_bytes,
-            signature,
-            grant.signer_public_key(),
-            self.runtime.registry(),
+        )
+        .map_err(|_| AgentFailure::Refused("invalid unsigned creation call"))?;
+        let from = prepared
+            .disclosure
+            .actor
+            .as_slice()
+            .try_into()
+            .map_err(|_| AgentFailure::Refused("invalid creation call sender"))?;
+        if layerx_crypto::disclosure::call::bind_call(&call, from)
+            .map_err(|_| AgentFailure::Refused("invalid creation call disclosure"))?
+            != prepared.disclosure
+        {
+            return Err(AgentFailure::Refused("creation call disclosure differs"));
+        }
+        let signed_activity = layerx_intents::owner_activity::attach_signature(
+            &call, signature, from,
         )
         .map_err(|_| AgentFailure::Refused("custody signature does not bind preparation"))?;
         let signed =

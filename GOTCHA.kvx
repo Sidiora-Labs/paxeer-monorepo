@@ -10849,3 +10849,119 @@ area = "spec authoring"
 symptom = "A verify_cmd written with escaped double quotes reached sh with the backslashes intact and failed with a syntax error before any check ran; a build_cmd of another task carried the same shape."
 cause = "The gate runner hands the kvx command string to sh verbatim; kvx escaping is not undone for build_cmd and verify_cmd."
 do = "Write build_cmd and verify_cmd with single quotes only, use grep -F for literal patterns, and pass file names to python3 -c through sys.argv instead of quoting them inside the program."
+
+[gotcha.2208]
+area = "qualification"
+symptom = "A task that touched only runtime and host crates was stopped three times before its verify ran because a dependent crate's test target did not compile; the errors were in a test file the task never touched."
+cause = "A retyping commit ported one test file of the dependent crate and left another behind, so the test target was already broken at the base revision; the dependents check attributed the break to the next task that touched anything upstream."
+do = "Before attributing a dependents failure to a task, check the same target at the base revision; a break present at the base is recorded once against the owning task in qualification.kvx and the target is left out of the dependents check until that owner lands."
+
+[gotcha.2209]
+title = "A crate left out of the dependents check lets a retype land with its test targets broken"
+symptom = "Three retypes landed on main in one day without compiling the test targets of crates excluded from the dependents check: 9.1.4 removed layerx_agent_api::verify::Level (15 errors in the layerx-human-service library, 12 test files), 9.21.8 added ExecutedReceipt.signing_key (agentd tests/budget_create.rs), 18.1027.1 added CreateOrder.payer_grant_purpose (ramp toolkit tests/engine_legs.rs). Every task that builds those crates then failed at cargo build on a break it did not cause (18.1172.2 a1, 18.1206.1 a4, 18.1230.1 a4, 18.1221.1 a3, 8.29.4 a1-a3)."
+fix = "Before landing a task that changes a public type or signature, grep the whole repository for the symbol (including tests/ directories and crates on the excluded list) and either carry every caller in the same task or open a wave-1 repair task that the callers' tasks require (decision.1871: 10.2.8, 8.29.5, 18.1206.1). When a build log shows an error in a file the task does not touch, check git log -S for the retyping commit before blaming the attempt."
+
+[gotcha.2210]
+title = "A doubled backslash in a kvx verify command reaches the test runner as a literal backslash"
+symptom = "A Swift verify filter written with a doubled backslash before the dot of LayerXSDKTests.SequencerReceiptTests in spec.kvx reached swift test unchanged, so the regex demanded a literal backslash, matched no test identifier and the run executed 0 tests (8.44.1 attempt 10, and the five sibling 8.44.x commands carried the same text)."
+fix = "Write regex filters in kvx commands without backslashes: a bare dot matches the dot in a test identifier, and the kvx reader does not unescape command strings."
+
+[gotcha.2211]
+title = "cg spec done accepts a run that executed zero tests"
+symptom = "8.44.1 attempt 10 ran swift test with a filter matching nothing; the log said Executed 0 tests, with 0 failures and cg spec done exited 0, so only the scope check stopped a false success."
+fix = "Treat Executed 0 tests, 0 passed or running 0 tests in a verify log as a failure of the gate: fix the filter or target and rerun once before any done record."
+
+[gotcha.2212]
+title = "The cg graph check counts a field and its same-named accessor as two symbol definitions"
+symptom = "10.2.8 attempt 4 passed build and verify, and cg spec done refused the record with symbol ReceiptEvidence::rung ambiguous: 2 definitions, because the struct has a field rung and a method fn rung(&self), the ordinary Rust accessor idiom."
+fix = "Name the struct, or a method whose name differs from every field, in a task's symbols list; never name a getter that shares its field's name."
+
+[gotcha.2213]
+title = "Dropping an out-of-scope Cargo.lock change from a candidate makes the --locked gates fail"
+symptom = "9.98.1 attempt 6 added a test target and four dependencies, left Cargo.lock untouched because it was not in the touches, and the gate failed with Cargo.lock needs to be updated but --locked was passed."
+fix = "A task that adds a dependency or a [[test]] target lists the workspace Cargo.lock in its touches and regenerates only the missing entries with one unlocked build before the locked gates."
+
+[gotcha.2214]
+title = "A closure gate with a roll-up requires list hides one failing task behind hundreds"
+symptom = "13.0.2 required all twenty-seven wave-16 programs tasks although its own steps touch only the registry crate; with twenty-six done, the thirty-three attempts of 13.27.1 kept 638 pending tasks ineligible."
+fix = "A requires edge needs a code basis (a symbol, a file or an interface the dependent consumes); gates roll up only what they read. Drop the edge and record the decision when the basis is absent."
+
+[gotcha.2215]
+title = "A build_cmd that compiles sibling test targets inherits their API drift"
+symptom = "18.1206.1 attempt 6 fixed its own call sites and failed because its build_cmd also compiled tests/unknown.rs and tests/budget_durable_limits.rs, which had drifted from ReceiptLookup and BudgetCreateIdentity for reasons outside the task."
+fix = "Build only the gate's own targets; give each drifting sibling target to the task that owns it and add that task to requires where the gate needs it."
+
+[gotcha.2216]
+title = "Two CI checks can constrain the same workflow line in opposite directions"
+symptom = "16.5.6 asserted runner-routing-check.sh exits 0, which demands the routed runner expression on publish-images.yml jobs, while publish-images.test.sh forbids CI_LINUX_RUNNER anywhere in that file; the workflow failed one check whatever it carried."
+fix = "Pick the check that encodes the product rule (the test that owns the workflow) and list the jobs as excluded in the other; record the decision."
+
+[gotcha.2217]
+title = "Deleting an enum variant or adding a struct field leaves test targets outside the task's build red at main"
+symptom = "10.98.13 deleted IntentKind::NativeOwnerRotation and the kms provider test still built it; 8.8.2 added Config.chain_receipts and the head attestation bin test still built the old initializer; four later attempts of two other tasks failed on those two lines."
+fix = "Before deleting a variant or adding a required field, grep the workspace tests for its users and put every user in the task's touches or in a sibling task the gate requires; a task's done record must name the targets its symbol change compiles."
+
+[gotcha.2218]
+title = "A test that reads an operator fixture through an environment variable cannot qualify"
+symptom = "18.1242.1 attempts 1 and 2 panicked at bootstrap_bind_layerx.rs:89 expecting PAXEER_X_AGENT_OWNER_FIXTURE, a document schema the attempt invented; nothing provisions such files where the gates run."
+fix = "Tests serve their peers in-process on loopback from real types (anvil, served SequencerEndpoint), generate their keys and read nothing from the environment; a fixture-file test is rewritten, not supplied."
+
+[gotcha.2219]
+title = "Changing a shared struct in one crate breaks the binaries of every consumer crate"
+symptom = "1e3b37aee (18.1243.1) removed current_height and prepare_budget from GrantTerms in layerx-mcp; layerx-agentd-host/src/payer.rs still used them, so the agentd binary stopped compiling and 9.94.1 failed two attempts on lines it never touched."
+fix = "When a task changes a public struct or trait, grep every crate that names it and either add those files to touches or open the consumer port as its own task before the change lands."
+
+[gotcha.2220]
+title = "Kernel C tests build with -Werror=conversion"
+symptom = "13.27.6 attempt 1 built the kernel but the test binary failed at lxp_test_sandbox_lifecycle.c:385 on an implicit unsigned int to uint8_t conversion, treated as an error."
+fix = "Cast narrowing conversions explicitly in kernel tests; a warning in a test file is a verify failure."
+
+[gotcha.2221]
+title = "A build_cmd with --tests inherits every drifted sibling test target"
+symptom = "18.1200.1, 18.1230.1 and 18.1159.1 implemented their steps and failed only because the crate's --tests build compiled revocation.rs, unknown.rs, migration.rs and owner_bootstrap.rs, which other tasks own."
+fix = "Name the gate's own targets (--lib --test a --test b); record the drifted sibling once and leave it to its owner, unless the task's single gate binary includes the drifted module, in which case the task ports it."
+
+[gotcha.2222]
+title = "symbols must be code identifiers the graph indexes, never test titles"
+symptom = "18.1113.1 attempt 7 passed its vitest gate and failed the completion check because symbols held the two flow test titles; the check resolves each entry in the code graph and the graph indexes functions and types, not test names in strings."
+fix = "Name the exported functions or types the task changes or drives (provisionAccount, provisionDepsFromEnv); list test titles only under tests."
+
+[gotcha.2223]
+title = "--lib in a verify_cmd runs every unit test of the crate"
+symptom = "18.1200.1 attempt 5 passed its five integration test targets and failed on six crate unit tests outside its files that fail on main (retired level names, activity submission index, TLS boundary binary, native terminal evidence)."
+fix = "Name only the test targets the task owns in verify_cmd; keep --lib in build_cmd when the library must compile; record the crate's pre-existing unit failures once for their owners."
+
+[gotcha.2224]
+title = "A kernel case that hand-sets state does not prove the path a host call takes"
+symptom = "13.27.6 drove terminal_begin and terminal_publish with a hand-set published usage result and passed, while the real sandboxed execute through lxp_programs_sandbox_execute still returned LXP_FATAL_INVARIANT for 13.27.1 attempt 34."
+fix = "When a Go or host test reverts on a kernel status, the kernel task's case must enter through the same kernel entry point the host uses and run to the same terminal; a hand-set state proves only the step it sets."
+
+[gotcha.2225]
+title = "A test that opens a repository directory fails before any assertion when the directory is absent"
+symptom = "4.24.3 attempts 6 to 8 failed on launchpad/spec/production-system/integration/migrations/150002.sql, a directory the launchpad tests read five levels up that was never imported; the readers in ranking-algo, security, social and indexer share it."
+fix = "When a test resolves a path from the repository root, confirm the directory exists on main before the task is attempted; import the reviewed source set as its own commit (01d2bf319) rather than per task."
+
+[gotcha.2226]
+title = "go test -run with a pattern no test matches passes with no tests to run"
+symptom = "4.24.3 attempt 9 declared TestFrozenV2OperationLooksUpCatalog in verify_cmd before writing it; go test printed no tests to run, exited 0, and only the completion check caught the missing symbol."
+fix = "A verify that names a test must report it as run; treat testing: warning: no tests to run as a failure of the task, and check the test exists before the verify."
+
+[gotcha.2227]
+title = "A test that includes a source file by #[path] passes while the library never compiles it"
+symptom = "13.3.1, 13.3.2, 13.3.4 and 13.3.5 landed modules under src/chain_evidence/ whose tests include the file by #[path]; chain_evidence.rs kept empty inline placeholders, the library shipped none of the types, and 13.3.7 and 13.6.4 failed to find them."
+fix = "A task that adds a module file owns the parent file's mod line too: put the parent in touches, declare the file module, and have the test import from the crate so the gate exercises the shipped code."
+
+[gotcha.2228]
+title = "Aggregate gate scripts that log to a mktemp directory lose the cause"
+symptom = "17.5.3 and 17.5.4 failed in make workspace-build and the record held only the evidence line, because run_gate.py wrote the step log under a temporary or .logs directory the qualification record does not keep."
+fix = "Write per-step logs under the evidence_dir the manifest names (logs/waves/<n>) and echo the failing step's tail into the wave log (task 17.5.9); an evidence line without its log is not actionable."
+
+[gotcha.2229]
+title = "cargo build --tests compiles every test target of the crate"
+symptom = "18.1172.2 owned two test files and its build failed in tests/agent_controls.rs, a target another task ports, because --tests builds all of them."
+fix = "Name the owned targets in build_cmd (--lib --test a --test b) and keep --tests for crate-wide gates run once per wave."
+
+[gotcha.2230]
+title = "An acceptance clause owned by another task's retirement cannot be met early"
+symptom = "16.0.3 ac_2 forbade lxp_daemon_lni in the make -n test dry run while the daemon still compiles cmd/layerxd/lxp_daemon_lni.c, retired by 5.50.1, which transitively requires 16.0.3; requiring it would have made a cycle."
+fix = "Place a dry-run absence clause on the task that deletes the source, and check the requires graph for a cycle before adding a dependency to satisfy an acceptance clause."

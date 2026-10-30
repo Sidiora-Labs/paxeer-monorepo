@@ -7,6 +7,7 @@ license.workspace = true
 publish = false
 
 [dependencies]
+layerx-programs-registry = { path = "../crates/layerx-programs-registry" }
 layerx-programs-runtime = { path = "../crates/layerx-programs-runtime" }
 
 [[bin]]
