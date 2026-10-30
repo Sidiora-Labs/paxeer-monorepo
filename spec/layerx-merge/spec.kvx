@@ -148708,7 +148708,7 @@ do_7 = "Attempt 5 built do_6 and no test ran because the gate named --exact twic
 
 [task.10.16.4]
 title = "Align the human-api generator coverage and retirement tests with the eleven operations retired at schema minor 10"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["10.15.2", "10.16.1"]
