@@ -11259,3 +11259,19 @@ symbol = "address_word"
 observed = "web.rs:534-536 pads 20-byte EVM addresses into the 32-byte from, to and assetId words of payExact, while the ramp producer converts to ledger account ids with ledger_account (services/platform/ramps/toolkit/src/lib.rs:345-346)."
 assumption = "Recorded from the issue #1243 trace; the account-id shape of web payments is ruled separately and 18.1243.1 does not change it."
 severity = "medium"
+
+[finding.18.1159.1.2]
+task = "18.1159.1"
+file = "services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs"
+symbol = "rotation"
+observed = "Attempts 3 and 4 (9c869936d, 54c7252d8) fixed native_setup.rs and the provider target still failed E0599 on IntentKind::NativeOwnerRotation at owner_rotation.rs:129, a variant 10.98.13 deleted without porting this test."
+assumption = "do_4 signs value.payload() directly; attempt 5 continues from attempt 4."
+severity = "low"
+
+[finding.8.94.3.3]
+task = "8.94.3"
+file = "services/platform/hosted/agent-boundary/src/head_attestation_tests.rs"
+symbol = "config"
+observed = "Attempt 6 (32ec3e7a2) re-qualified unchanged on a base with f2e14e618 and the platform --tests build failed E0063 missing field chain_receipts in the Config initializer at head_attestation_tests.rs:115, left behind by 8.8.2."
+assumption = "The new do ports the test initializer; 8.8.4 (wave 29) later deletes the file; attempt 7 continues from attempt 6."
+severity = "low"

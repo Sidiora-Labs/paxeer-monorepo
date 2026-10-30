@@ -10895,3 +10895,8 @@ fix = "Build only the gate's own targets; give each drifting sibling target to t
 title = "Two CI checks can constrain the same workflow line in opposite directions"
 symptom = "16.5.6 asserted runner-routing-check.sh exits 0, which demands the routed runner expression on publish-images.yml jobs, while publish-images.test.sh forbids CI_LINUX_RUNNER anywhere in that file; the workflow failed one check whatever it carried."
 fix = "Pick the check that encodes the product rule (the test that owns the workflow) and list the jobs as excluded in the other; record the decision."
+
+[gotcha.2217]
+title = "Deleting an enum variant or adding a struct field leaves test targets outside the task's build red at main"
+symptom = "10.98.13 deleted IntentKind::NativeOwnerRotation and the kms provider test still built it; 8.8.2 added Config.chain_receipts and the head attestation bin test still built the old initializer; four later attempts of two other tasks failed on those two lines."
+fix = "Before deleting a variant or adding a required field, grep the workspace tests for its users and put every user in the task's touches or in a sibling task the gate requires; a task's done record must name the targets its symbol change compiles."
