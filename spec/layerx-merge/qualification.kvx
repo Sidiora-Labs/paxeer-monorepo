@@ -11843,3 +11843,75 @@ symbol = "test_no_receive_or_grant_store_caller"
 observed = "Attempts 1 to 3 fail their own scan on live lxp_receive_environment uses in suites outside the task's touches."
 assumption = "The scan is scoped to the retired path and the grant store symbols; the receive environment stays."
 severity = "task"
+
+[finding.18.1279.1.1]
+task = "18.1279.1"
+file = "services/agent/crates/layerx-mcp/tests/scope.rs"
+symbol = "authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live"
+observed = "Attempt 1: cargo build -p layerx-mcp --tests fails with E0599 (no variant CapabilityGrantRevoked on InvalidationReason) in a test file this task does not touch."
+assumption = "Issue #1301 and task 18.1301.1 port scope.rs; this task's build now compiles only its web target."
+severity = "cross-task"
+
+[finding.9.7.2.1]
+task = "9.7.2"
+file = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+symbol = "InvalidationReason"
+observed = "The rename to GrantRevokedOnChain (0665915dc) left services/agent/crates/layerx-mcp/tests/scope.rs:525 on CapabilityGrantRevoked, so the layerx-mcp scope target does not compile on main and no task touched that file."
+assumption = "Task 18.1301.1 (wave 0) ports the caller."
+severity = "cross-task"
+
+[finding.16.97.1.2]
+task = "16.97.1"
+file = "tests/ci/test_kernel_suite_retired_uses.py"
+symbol = "test_no_receive_or_grant_store_caller"
+observed = "Attempt 4 (c7c2bc20c) built and failed its own scan on seven live lxp_grant_store uses in three kernel suites the task does not touch; src/ledger/lxp_grant_store.c and src/ledger/lxp_receive.c are live on main."
+assumption = "Decision.1911 scopes req.16965 ac_1 to tests/modules/test_asset_registry.c; task 1.12.1 owns the kernel-wide absence."
+severity = "owner"
+
+[finding.10.96.2.2]
+task = "10.96.2"
+file = "services/human/crates/layerx-human-service/tests/no_retired_intent_kinds.rs"
+symbol = "human_service_names_no_retired_intent_kind"
+observed = "Attempt 4 (30228d5f1) built its own targets and failed the crate-wide scan on 21 live uses of BridgeDepositCredit and EvmPayoutBinding in ten source files the task does not touch."
+assumption = "Decision.1911 scopes req.10964 ac_1 to tests/render.rs and src/server/onboarding_sponsor.rs; task 10.21.3 owns the crate-wide absence."
+severity = "owner"
+
+[finding.10.21.3.1]
+task = "10.21.3"
+file = "services/human/crates/layerx-intents/src/vocabulary.rs"
+symbol = "IntentKind::BridgeDepositCredit"
+observed = "The task deletes BridgeDepositCredit, EvmPayoutBinding and NativeCustodyCredit from layerx-intents but touches no layerx-human-service file, while 21 sites in ten human-service source files (src/audit/event.rs, src/binding/mod.rs, src/custody/signer.rs, src/journeys/move_money.rs, src/journeys/resolver.rs and others) name the two bridge kinds on main."
+assumption = "Either the human-service callers are retired by tasks that precede 10.21.3 or its touches must grow to those files before it is admitted."
+severity = "cross-task"
+
+[finding.13.4.5.2]
+task = "13.4.5"
+file = "programs/crates/layerx-programs-registry/tests/support/mod.rs"
+symbol = "DeploymentProof"
+observed = "Attempt 4 failed the package-wide test build in the shared test support module and in tests/interface_protocol.rs, tests/registry.rs, tests/program_bundle_verification.rs and tests/winddown.rs, which fill the kernel-batch proof fields that do_2 removes; none of them is in this task's touches."
+assumption = "Those suites are rebuilt on the chain fixture by 13.9.1 to 13.9.4, which now follow this task; until they land the crate's kernel-batch test targets do not compile after this task merges."
+severity = "cross-task"
+
+[finding.9.18.4.2]
+task = "9.18.4"
+file = "services/agent/schema/agent-api/programs.kvx"
+symbol = "NativeProgramDeployRequest"
+observed = "Attempts 1 to 4 build and fail both major_two tests at tests/major_two.rs:12:33 (missing type.NativeProgramDeployRequest.precompile): validate_lifecycle_schema (services/agent/tools/sdk-gen/src/main.rs:372-383) requires precompile and selector keys that the canonical schema (programs.kvx:23-47) gains only from task 9.10.2 do_5, and decision.1840 forbids adding them here."
+assumption = "The attempt 4 candidate (92290a56c) is complete and re-qualifies unchanged once 9.10.2 lands; 9.10.2 waits on 9.0.3, 9.12.5 and 9.16.2."
+severity = "cross-task"
+
+[finding.2.28.6.1]
+task = "2.28.6"
+file = "modules/lxphost/host.go"
+symbol = "lx_stream_module_iface"
+observed = "The three stream keeper tasks it requires (2.25.1, 2.25.2, 2.25.3) each fail every test with LXP_ERR_MODULE_DISABLED at streamOpen because the hosted kernel registers only governance, Programs, asset, budget and escrow (host.go:158-171); the stream module is registered by 1.24.1, which waited on 2.95.1."
+assumption = "2.95.1 attempt 4 is published; once 1.24.1 lands the 2.25.x attempt 1 candidates re-qualify unchanged and 2.28.6 becomes admissible."
+severity = "cross-task"
+
+[finding.8.5.2.1]
+task = "8.5.2"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "task.8.5.2.requires"
+observed = "The only unmet requirement is 6.0.3 (wave 29, domain-6 activation), whose five pending inputs all reduce to 5.94.4 and then to 2.95.1; the task's gate runs the gateway against a local chain stub (services/platform/hosted/gateway/tests/one_source_reads.rs:203-280) and does not exercise domain-6 activation. 8.4.3 has the same single unmet edge."
+assumption = "The 6.0.3 edge encodes product sequencing (hosted readers after the kernel switch-off) rather than a build need; an owner ruling may remove it from 8.5.2 and 8.4.3 while 8.0.4 keeps its own requires."
+severity = "owner"

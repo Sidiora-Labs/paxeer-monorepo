@@ -10,7 +10,7 @@ use crate::protocol_evidence::{
     decode_program_record, ProgramRecord, ProtocolEvidenceError, StateLeafWitness,
     PROGRAM_KEY_PREFIX,
 };
-use crate::{ProgramId, StateProof, UpgradePolicy};
+use crate::{ProgramId, UpgradePolicy};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChainProgramStateProof {
@@ -78,11 +78,7 @@ impl ChainProgramStateProof {
         let record = decode_program_record(&StateLeafWitness {
             key: kernel_key.to_vec(),
             value: existence.value.clone(),
-            proof: StateProof {
-                leaf_index: 0,
-                leaf_count: 1,
-                siblings: Vec::new(),
-            },
+            proof: self.ops.clone(),
         })?;
         if record.program != self.program {
             return Err(ProtocolEvidenceError::ProgramRecord);

@@ -1586,6 +1586,68 @@ func TestShippedPolicyTrustedSpenderPermit(t *testing.T) {
 	}
 }
 
+func TestShippedPolicySponsoredFeeCapIsSIDBehindListedSponsors(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	effective, err := compile(doc.Defaults)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sid := TokenAsset(common.HexToAddress("0x21f7b20a555199fa73a238b1a91fd0f549068fee"))
+	fee, ok := effective.feeCaps[sid]
+	if !ok || len(effective.feeCaps) != 1 || fee.perTransaction == nil || fee.daily == nil || fee.perTransaction.Cmp(big.NewInt(5_000_000)) != 0 || fee.daily.Cmp(big.NewInt(50_000_000)) != 0 {
+		t.Fatalf("shipped fee caps %+v, want only SID at 5000000 per transaction and 50000000 daily", effective.feeCaps)
+	}
+	if _, ok := effective.caps[sid]; ok {
+		t.Fatal("shipped policy has an ordinary SID cap")
+	}
+	if len(effective.sponsors) != 0 {
+		t.Fatalf("shipped fee sponsors %v, want none", effective.sponsors)
+	}
+	for _, kind := range []string{KindSponsoredBatch, KindAuthorization} {
+		if !effective.kinds[kind] {
+			t.Fatalf("shipped policy does not allow %s", kind)
+		}
+	}
+	request := func(amount int64) Request {
+		t.Helper()
+		batch := sponsoredBatch()
+		batch.Quote.TokenAmount = big.NewInt(amount)
+		batch.Quote.MaxTokenAmount = big.NewInt(amount)
+		digest, err := evm.SponsoredBatchDigest(batch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return Request{Kind: KindSponsoredBatch, View: &evm.SponsoredBatchClaim{Batch: batch, ClaimedDigest: digest}}
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	batch := request(1_000_000)
+	expect(t, h.policy.Evaluate(testAccount, batch, h.ledger), CodeNoCap)
+	doc.Defaults.FeeSponsors = []string{sponsoredBatch().Quote.Sponsor.Hex()}
+	h.policy = New(doc)
+	decision := h.policy.Evaluate(testAccount, batch, h.ledger)
+	expect(t, decision, CodeAllowed)
+	if len(decision.Spends) != 1 || decision.Spends[0].Asset != FeeAsset(sid) || decision.Spends[0].Amount.Cmp(big.NewInt(1_000_000)) != 0 {
+		t.Fatalf("sponsored fee spends %+v, want 1000000 under %s", decision.Spends, FeeAsset(sid))
+	}
+	expect(t, h.policy.Evaluate(testAccount, request(5_000_001), h.ledger), CodeValueCap)
+	for _, entry := range []struct {
+		asset string
+		want  int64
+	}{{FeeAsset(sid), 1_000_000}, {sid, 0}} {
+		spent, err := h.ledger.Spent(AccountKey(testAccount), entry.asset, h.now.Add(-SpendWindow))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if spent.Cmp(big.NewInt(entry.want)) != 0 {
+			t.Fatalf("ledger %s holds %s, want %d", entry.asset, spent, entry.want)
+		}
+	}
+}
+
 func TestShippedPolicySIDCapIsSponsoredFeeOnly(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
@@ -1744,10 +1806,43 @@ func TestShippedPolicyCountsPerpsPulls(t *testing.T) {
 		t.Fatal(err)
 	}
 	perps, _ := evm.PrecompileAddress("perps")
+	if perps != common.HexToAddress("0x0000000000000000000000000000000000001015") {
+		t.Fatalf("perps address %s, want 0x1015", perps.Hex())
+	}
+	effective, err := compile(doc.Defaults)
+	if err != nil {
+		t.Fatal(err)
+	}
+	methods := []string{"deposit", "withdraw", "openPosition", "cancelOrder", "closePosition"}
+	if len(effective.selectors[perps]) != len(methods) {
+		t.Fatalf("perps selectors %v, want exactly %v", effective.selectors[perps], methods)
+	}
+	for _, name := range methods {
+		method, ok := perpsABI.Methods[name]
+		if !ok {
+			t.Fatalf("perps ABI lacks %s", name)
+		}
+		if !effective.selectors[perps][[4]byte(method.ID)] {
+			t.Fatalf("shipped policy does not allow perps.%s", name)
+		}
+	}
 	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
 	leverage := new(big.Int).Mul(big.NewInt(5), big.NewInt(1e18))
 	h := newHarness(t)
 	h.policy = New(doc)
+	erc20, err := evm.PrecompileABI("erc20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	approve, err := erc20.Pack("approve", perps, big.NewInt(1_000_000_000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	approval := h.policy.Evaluate(testAccount, h.tx(t, usdl, big.NewInt(0), approve), h.ledger)
+	expect(t, approval, CodeAllowed)
+	if len(approval.Spends) != 0 {
+		t.Fatalf("exact approval counted %+v before the perps pull", approval.Spends)
+	}
 	deposit := func(amount *big.Int) Decision {
 		data, err := perpsABI.Pack("deposit", usdl, amount)
 		if err != nil {
