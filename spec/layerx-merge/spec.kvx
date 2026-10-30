@@ -168319,7 +168319,7 @@ do_5 = "Add the declared key layerx.receipt_keys, read from the environment vari
 
 [task.15.4.10]
 title = "Decode signed receipts in the iOS sample environment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.9"]
@@ -168388,7 +168388,7 @@ do_12 = "do_9 is superseded (decision.1963). AgentSigner.sign(prepared) must ans
 
 [task.15.4.12]
 title = "Verify signed sequencer receipts in the agents tools and service client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.11"]
