@@ -11065,3 +11065,48 @@ fix = "When a shared test helper changes shape (raw_receipt_evidence, 351e3da14)
 title = "A task that edits a file another task deletes must land first or be superseded"
 symptom = "A candidate passes its gate, and the merge onto the domain branch stops on a modify/delete conflict because a later-wave deletion landed first."
 fix = "When the deleting task is already done, supersede the editing task (status superseded, dependents require the deleting task instead) rather than resurrecting the file through a continue seed; the seed step takes a path absent from the tree from the seed outright."
+
+[gotcha.2251]
+title = "A pinned sequencer leader outside the validator set panics the proposer"
+symptom = "A local node with a primary and a sequencer standby stops at the first round above zero with validator ... not in committee (round_state.go:515/:537): the leader pin L[round mod len(L)] names the standby's consensus key, which is not a genesis validator."
+fix = "Every key in app_state.sequencer.leaders must be a bonded validator; give the standby a third of the primary's power so the primary alone still commits."
+
+[gotcha.2252]
+title = "ledger_payment_call and bind_call disclose ledger, budget and bank EVM calls only"
+symptom = "Wrapping a governance activity payload in ledger_payment_call returns MalformedPayload: decode_method decodes the 0x2bb1ae7c send(bytes) form with decode_send and knows no EVM form for other modules."
+fix = "Submit non-ledger activities through the kernel signing pair (sign_disclosed, attach_kernel_signature, verify_kernel_before_submit) on the Prepared envelope."
+
+[gotcha.2253]
+title = "The agent daemon's authority fixture needs layerx-genesis-build beside layerxd"
+symptom = "A real-authority test panics at tests/support/real_authority.rs:1011 with layerx-genesis-build is not built although layerxd is present in LAYERX_TEST_NATIVE_BIN_DIR."
+fix = "Build both Makefile targets (layerxd layerx-genesis-build) and stage both binaries in the directory."
+
+[gotcha.2254]
+title = "A coverage test must read the real admission surface, not the tables named for it"
+symptom = "A test counting frozen catalog operations in the four connected route tables reports seven missing although the gateway admits them: they live in a map local to allowedConnectedRoute."
+fix = "Hoist the map into a package-level function the product reads and the test counts; name documented beyond-catalog templates explicitly rather than widening the catalog."
+
+[gotcha.2255]
+title = "Changing a crate's dependency list leaves every other workspace's Cargo.lock stale"
+symptom = "After a path dependency is removed from one crate's Cargo.toml and only that workspace's Cargo.lock is refreshed, --locked builds in the eight other workspaces that pin the crate by path are refused with the lock file needs to be updated."
+fix = "List every Cargo.lock whose layerx-agentd (or changed crate) entry exists (grep -l 'name = <crate>' over git ls-files '*Cargo.lock') and regenerate each in the same task."
+
+[gotcha.2256]
+title = "A kernel refusal still advances the host sequence"
+symptom = "A keeper test asserting that a refused activity leaves the lxphost store byte-identical fails: NextSequence and the actor's identity sequence advance by one because HostExecute commits the branch after every kernel outcome, refusal included."
+fix = "Compare the store excluding the global-sequence and identity-sequence keys and assert both advanced by one; only a request refused before the kernel runs leaves the store unchanged (decision.1907)."
+
+[gotcha.2257]
+title = "The sequencer replication log refuses the seal of an empty layer"
+symptom = "With a standby configured the primary stalls at its first height: malformed wal entry: SEAL fromSeq 1 above toSeq 0, and the standby reports sequencer: no sealed layer."
+fix = "An empty layer is FromSeq = ToSeq + 1; wal.go must refuse only FromSeq > ToSeq + 1 (issue #1299, task 18.1299.1). Single-node runs never log the seal, which hides the defect."
+
+[gotcha.2258]
+title = "The real-authority test fixture resolves the repository root one level short"
+symptom = "migrations listing: NotFound at tests/support/real_authority.rs:46 although migrations/ exists; build/bin is searched under services/."
+fix = "repository_root() takes ancestors().nth(3) of CARGO_MANIFEST_DIR, correct before the agent moved to services/agent; nth(4) is the repository root (issue #1298, task 18.1298.1)."
+
+[gotcha.2259]
+title = "A package-wide --tests build is gated by every stale test file of the package"
+symptom = "A task whose build_cmd is cargo build -p <crate> --tests fails on a test file it does not touch (archive.rs: FundsDispositionEvidence has no field verification_level)."
+fix = "Find the pending task that owns the stale file and add it to requires; do not widen the failing task's touches."

@@ -904,7 +904,6 @@ dependencies = [
  "layerx-identity-binding",
  "layerx-intents",
  "layerx-paxeer-verifier",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
