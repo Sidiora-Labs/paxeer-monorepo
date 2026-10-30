@@ -4893,6 +4893,30 @@ value = "AgentSigner.sign(prepared) answers the detached signature that AgentMid
 basis = "12.27.2 retired the lx_activity review, approval and signing from PaxeerWallet (decision.1229); do_9 of 15.4.11 asked to port ApprovedWalletSigner to the EVM approval, which cannot answer a detached signature, so sdk/integrations/agents/src/service-providers.ts:167-219 cannot compile without a stand-in (attempts 1 to 4 of 15.4.11, byte-identical builds with 19 errors); a wallet-held detached signer would need a new route in services/wallet/gateway/src/routes/evmApprovals.ts and a new SDK method in sdk/wallet/src/index.ts, files held only by the done tasks 12.10.3, 12.10.4, 12.23.1, 12.23.3, 12.27.1, 12.27.2 and 12.27.3, for a flow the wallet gateway already completes."
 affects = ["15.4.11", "12.27.2"]
 
+[decision.1964]
+title = "A task that touches services/agent/crates/layerx-agentd/src/main.rs builds the layerx-agentd binary"
+value = "layerx-agentd sets autobins = false (services/agent/crates/layerx-agentd/Cargo.toml:3) and the layerx-agentd binary is declared in services/agent/crates/layerx-agentd-host/Cargo.toml:8-10 with path ../layerx-agentd/src/main.rs, so a task whose touches include that main.rs names `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd` in its build_cmd; a -p layerx-agentd lib or test build never compiles main.rs. Task 9.12.11 repairs the line 8c526e4f0 left uncompiled, and 17.5.1 and 10.20.3 require it."
+basis = "9.12.7 (8c526e4f0, do_3) passed its build_cmd and verify_cmd on -p layerx-agentd --test human_node while its one-line change at main.rs:1013 fails E0277 twice: `?` on NodeRpcError inside start_shared_owner, which returns Result<_, String> (main.rs:948-955), with no From<NodeRpcError> for String; 17.5.1 attempt 12 (af44d7420) found it in make workspace-build at agent-build (Makefile:1947) and 10.20.3 attempt 19 (9b9d22da9) in its third build_cmd member, both in a file neither task touches."
+affects = ["9.12.11", "17.5.1", "10.20.3", "17.5.2", "17.5.3", "17.5.4"]
+
+[decision.1965]
+title = "TestXWebRegistration asserts the xweb ABI as declared: 12 functions and 4 events"
+value = "precompiles/setup_test.go TestXWebRegistration asserts the method and event counts of precompiles/xweb/abi.json as the completed xweb tasks declared them: 12 functions (fee, fulfil, fulfilProgram, getAttestors, getKernelNetworkId, getParams, getProgramResult, getRequest, getResult, refund, request, threshold) and 4 events (XWebRequested, XWebProgramRequested, XWebFulfilled, XWebRefunded). The abi.json is the product surface; the registration test follows it, and a task that grows the xweb ABI runs TestXWebRegistration in its verify."
+basis = "The counts 9 and 3 at setup_test.go:144-145 date from 00f692026, the first xweb commit; ccf8fa472 added the api request kind, 144f13d49 (task 5.1.2) extended ABI parity and 383bbbbd8 (task 6.94.3) declared XWebProgramRequested, each qualified by gates that never ran TestXWebRegistration, so the test has failed on main since and 6.6.10 attempt 1 (6f2320d86 on b38a9f679) was the first gate to run it."
+affects = ["6.6.10", "5.1.2", "6.94.3"]
+
+[decision.1966]
+title = "The x402 buyer test literal TRANSACTION tracks the re-recorded sequencer receipt fixture"
+value = "services/interop/crates/layerx-x402/src/buyer.rs joins the touches of 18.1211.5 as a fourteenth file, for its tests module only: const TRANSACTION (:709-713) is set to the re-recorded V1-layerxledger-pay-exact txHash 0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1 that sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:117 carries after do_3; the literal stays a literal and is not read from the fixture, and the assertions at :849-856 and :873, capture_settlement (:434) and every other line of src/buyer.rs are unchanged."
+basis = "Attempt 5 of 18.1211.5 (06a27a325 on 1768567797, the attempt 4 content 305a918a1) passed both Go legs and failed only buyer::tests::buyer_accepts_receipted_transaction_hash at src/buyer.rs:853: left the fixture txHash accepted by capture_settlement, right the literal pinned by 4e013c19c (11.5.1) to the pre-re-record txHash. No pending task owns src/buyer.rs and no other copy of the superseded V1 values exists under services/ or sdk/ outside the self-verified fixtures of finding.18.1211.5.1; decision.1928 keeps literals as literals and updates them."
+affects = ["18.1211.5", "18.1211.1", "11.5.1"]
+
+[decision.1967]
+title = "The generated client SubmissionState is the four rung states"
+value = "The TypeScript and Python clients the agent SDK generator emits declare SubmissionState as Submitted with txHash, Receipted, Committed and Reverted with revertReason (req.9358 ac_1), written as literal text in services/agent/tools/sdk-gen/templates/typescript.tpl, python.tpl and python.pyi.tpl. The nine variants of services/agent/schema/agent-api/write.kvx:44-53 (Prepared, Signed, Queued, Submitted, Unknown, Executed, Committed, Failed, Expired) remain the daemon outbox lifecycle of decision.903 and task 9.3.1 and are not what the client union is generated from."
+basis = "Attempts 1 to 3 of 9.33.8 (5f0c552d0 latest) failed build_cmd with twelve type errors because the templates still emit Unknown, Executed, Failed and Pending and services/agent/tools/sdk-gen/src/main.rs reads no type.SubmissionState (finding.9.33.8.1, finding.9.33.8.2); req.9358 fixes the client set, and the outbox set is a different state machine."
+affects = ["9.18.9", "9.33.8", "9.33.9", "9.3.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -18101,6 +18125,10 @@ title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
 ac_1 = "services/agent contains no include/layerx_lni_abi.h, no schema/lni directory and no stable-abi-allowlist.toml."
 ac_2 = "services/agent/unsafe-allowlist.toml holds version 1 and no exceptions entry."
 
+[req.9192]
+title = "layerx-client compiles without the deleted LNI schema file"
+ac_1 = "services/agent/crates/layerx-client/src/lni/schema.rs declares no LNI_V1_SOURCE constant and no include_str! of schema/lni/v1.kvx, and cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer exits 0 on a tree without services/agent/schema/lni."
+
 [req.9066]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
 ac_1 = "The limits suite still converges restarts and duplicates on one economic effect, one receipt, final state Executed and two attempts when submissions are EIP-1559 raw transactions."
@@ -18383,6 +18411,10 @@ ac_2 = "bindTransaction signs the bind call with the derived EVM key."
 [req.9358]
 title = "Regenerate the TypeScript and Python client types with rung submission states"
 ac_1 = "The generated SubmissionState variants are Submitted, Receipted, Committed and Reverted."
+
+[req.9189]
+title = "The agent SDK generator templates emit the four rung submission states"
+ac_1 = "The TypeScript, Python and Python stub templates of the agent SDK generator declare SubmissionState as Submitted with txHash, Receipted, Committed and Reverted with revertReason, and their generated client files contain no other submission variant."
 
 [req.9359]
 title = "Send contract major 2 on agent envelope requests and report proof rungs"
@@ -39282,6 +39314,15 @@ tests = ["services/agent/tools/sdk-gen/tests/major_two.rs::generated_typescript_
 verification_contract = "contracts/agent-cli.md#agent-sdk-gen"
 do_1 = "services/agent/tools/sdk-gen/src/main.rs:372-374 requires every lifecycle request to declare signed_activity, protocol_version 3 and module_id 9; it requires instead the layerxprograms precompile address and the call selector declared by the schema."
 symbols = ["agent_sdk_generator", "contract_major", "agent_sdk_drift_gate"]
+
+[capability.9.18.9]
+title = "Agent SDK generator templates emit the four rung submission states"
+reqs = ["9189.1"]
+touches = ["services/agent/tools/sdk-gen/templates/typescript.tpl", "services/agent/tools/sdk-gen/templates/python.tpl", "services/agent/tools/sdk-gen/templates/python.pyi.tpl", "services/agent/tools/sdk-gen/tests/rung_states.rs"]
+tests = ["services/agent/tools/sdk-gen/tests/rung_states.rs::generated_submission_state_names_the_rungs"]
+verification_contract = "contracts/agent-cli.md#agent-sdk-gen"
+do_1 = "The three generator templates declare Submitted, Receipted, Committed and Reverted as the only submission states and tests/rung_states.rs proves the generated clients name exactly them."
+symbols = ["agent_sdk_generator", "agent_sdk_drift_gate"]
 
 [capability.9.18.5]
 title = "Run the qualification boundary gate against a node JSON-RPC URL and delete the LNI test node"
@@ -102011,7 +102052,7 @@ do_5 = "The planned test file is package layerxpay_test and reaches unexported n
 
 [task.2.40.4]
 title = "Match 0x0906 stream records against the 0x101B stream path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.35.2", "2.38.2", "2.40.8"]
@@ -102106,6 +102147,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Attempt 1 (133568fbf on 101b73f3d) built, passed TestPayServedChargeTracksStoreGas and 56 of the 57 TestPayPrecompileChargesGasTable subtests, and failed budgetRemaining at layerxpay_test.go:91 because a staticcall of budgetRemaining with a zero id answers uint128 zero with no error on the served path and on the base path alike: keeper.BudgetRemaining (modules/layerxpay/keeper/budget_views.go:30-34, 1d8ccad98) answers zero for a missing budget, budget.go:32-37 (2e4d43598) packs it, and budget_test.go:221, modules/layerxpay/keeper/budget_views_test.go:159-170 and req.8038 ac_1 (the capability probe sends budgetRemaining of a zero id and expects one word) freeze it. The revert expectation dates from f5d5add73, when layerxpay.go:331-333 answered LXP_UNKNOWN_FIELD for a missing budget, and no verify_cmd has run the test since 2e4d43598, so it fails the same way on 101b73f3d. In TestPayPrecompileChargesGasTable treat budgetRemaining as progressHighWater is treated at :84-89: require.NoError, supplied-left greater than want (GetBudget performs one gaskv Get on the host store under the installed meter), and method.Outputs.Unpack to one *big.Int whose Sign is zero (compare with Sign, as budget_test.go:221 does, not with require.Equal against big.NewInt(0)); keep the other 15 views reverting with an LXP_ reason, the 40 writes refused under staticcall with supplied-want equal to left, and the out-of-gas check exactly as written. layerxpay.go, budget.go, gas.go and the keeper do not change."
 
 [task.2.40.6]
 title = "Bound the worst-case scheduler end block by MaxBlockGas"
@@ -121748,7 +121790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.10]
 title = "Serve recorded precompile info before the keeper-free dry run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.6.3", "6.6.4"]
@@ -121775,6 +121817,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (6f2320d86 on b38a9f679) built and its verify failed only in TestXWebRegistration at precompiles/setup_test.go:144: require.Len(t, info.ABI.Methods, 9) and :145 require.Len(t, info.ABI.Events, 3) date from 00f692026, while precompiles/xweb/abi.json has declared 12 functions (fee, fulfil, fulfilProgram, getAttestors, getKernelNetworkId, getParams, getProgramResult, getRequest, getResult, refund, request, threshold) and 4 events (XWebRequested, XWebProgramRequested, XWebFulfilled, XWebRefunded) since ccf8fa472, 144f13d49 (task 5.1.2) and 383bbbbd8 (task 6.94.3), whose gates never ran this test, so it has failed on main since. Per decision.1965 set the two expectations in TestXWebRegistration to 12 methods and 4 events; change no other assertion of this test, no abi.json and no other file. The GetPrecompileInfoE early return in setup.go and the isExchangeHandoffAddress helper of attempt 1 are right and stay."
 
 [task.6.6.5]
 title = "Add MissingMergeConstructors for the node start check"
@@ -142043,6 +142086,40 @@ do_6 = "Attempts 1 to 4 (latest 92290a56c) fail at tests/major_two.rs:12 with 'm
 do_7 = "Decision 1953: for [type.NativeProgramWindDownRequest] the generator requires precompile and the four keys selector_route, selector_deprecate, selector_tombstone and selector_exit, each '0x' plus 8 lowercase hex digits, in place of the single selector key it requires of the deploy and upgrade requests."
 do_8 = "Attempt 5 (a3cd2e90b on base a9863352f, which carries the 9.10.2 schema) builds and fails both major_two tests at tests/major_two.rs:12:33 with 'missing type.ProgramLifecycleResultEnvelope.required': 1d0cc3720 (task 9.10.2) replaced the result, unknown and error envelopes of type.ProgramLifecycleResponse with the single variant ProgramSubmission (services/agent/schema/agent-api/programs.kvx:89-91, :170-179), while validate_lifecycle_schema at services/agent/tools/sdk-gen/src/main.rs:384-388 (a3cd2e90b :406-410, unchanged since 8c3193d0e) still requires type.ProgramLifecycleResultEnvelope, ProgramLifecycleResult, ProgramLifecycleUnknown, ProgramLifecycleErrorEnvelope and ProgramLifecycleError. Under decision.1957, in place of those five names the generator requires type.ProgramLifecycleResponse.variants equal to ['ProgramSubmission'], type.ProgramSubmission.required equal to ['tx_hash','submission_ref','state','rung'] and type.ProgramSubmission.rung equal to ['submitted','receipted','committed']; it keeps the type.NativeProgramDeploy, NativeProgramUpgrade and NativeProgramWindDown required checks, the operation checks at main.rs:353-370 (POST, /v1/programs/<op>, response ProgramLifecycleResponse, required idempotency_key, content_type application/octet-stream) and the precompile and selector checks of do_1, do_6 and do_7. programs.kvx and golden/programs.kvx stay as 9.10.2 wrote them; the attempt-5 templates and tests stand."
 
+[task.9.18.9]
+title = "Emit the four rung submission states from the agent SDK generator templates"
+status = "pending"
+mode = "BUILD"
+wave = 24
+requires = ["9.18.4"]
+reqs = ["9189.1"]
+capabilities = ["9.18.9"]
+interfaces = ["interface.9.cli-agent-sdk-gen-write", "interface.9.cli-agent-sdk-gen-check", "interface.9.ts-sdk-generated-client-submissionstate"]
+do_1 = "services/agent/tools/sdk-gen/templates/typescript.tpl:42-46 declares SubmissionState as Unknown, Executed with receiptRef, Failed with protocolResultCode and Pending with stage; it declares instead the union of { kind: 'Submitted'; txHash: string }, { kind: 'Receipted' }, { kind: 'Committed' } and { kind: 'Reverted'; revertReason: string } (req.9358 ac_1, decision.1967)."
+do_2 = "services/agent/tools/sdk-gen/templates/python.tpl:265-286 declares the frozen dataclasses SubmissionUnknown, SubmissionExecuted(receipt_ref), SubmissionFailed(protocol_result_code) and SubmissionPending(stage); it declares instead SubmissionSubmitted(tx_hash: str), SubmissionReceipted, SubmissionCommitted and SubmissionReverted(revert_reason: str), each with its kind Literal, and SubmissionState: TypeAlias as their union."
+do_3 = "services/agent/tools/sdk-gen/templates/python.pyi.tpl:143-162 carries the matching stubs: the same four classes with __init__ signatures and the same SubmissionState alias."
+do_4 = "services/agent/tools/sdk-gen/src/main.rs:177 keeps reading type.Rung.variants for {{RUNGS}}; agent_sdk_generator (main.rs:889) and agent_sdk_drift_gate (main.rs:925) keep their output set and the --write and --check modes (main.rs:989-1010); the union is template text, not read from write.kvx (decision.1967)."
+do_5 = "Create services/agent/tools/sdk-gen/tests/rung_states.rs (planned) in the manner of tests/major_two.rs: generate from services/agent/schema/agent-api into a temporary directory and assert that the typescript client.ts, python client.py and client.pyi outputs name exactly Submitted, Receipted, Committed and Reverted, carry txHash/tx_hash and revertReason/revert_reason, and contain none of Unknown, Executed, Pending, receiptRef, protocolResultCode; the committed services/agent/sdk files are not rewritten by this task."
+do_6 = "Register every test named in tests as a Rust #[test] with exactly that name, so verify_cmd --exact selects it."
+do_7 = "After this task lands, agent-sdk-gen --check (make agent-sdk-generate, Makefile:2648) reports drift on the committed client files until 9.33.8 regenerates them; that ordering is intended and is recorded on the wave revision, not repaired here."
+symbols = ["agent_sdk_generator", "agent_sdk_drift_gate"]
+touches = ["services/agent/tools/sdk-gen/templates/typescript.tpl", "services/agent/tools/sdk-gen/templates/python.tpl", "services/agent/tools/sdk-gen/templates/python.pyi.tpl", "services/agent/tools/sdk-gen/tests/rung_states.rs"]
+tests = ["services/agent/tools/sdk-gen/tests/rung_states.rs::generated_submission_state_names_the_rungs"]
+planned_paths = ["services/agent/tools/sdk-gen/tests/rung_states.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml"
+verify_cmd = "cargo test --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml --test rung_states -- --exact generated_submission_state_names_the_rungs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the three templates and delete tests/rung_states.rs."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.18.5]
 title = "Run the qualification boundary gate against a node JSON-RPC URL and delete the LNI test node"
 status = "done"
@@ -142202,6 +142279,36 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.19.2]
+title = "Drop the LNI_V1_SOURCE include that 9.19.1 left in layerx-client"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["9192.1"]
+capabilities = []
+interfaces = ["interface.9.rs-client-lni-schema-lni-v1-source-j44"]
+do_1 = "019a38eed (task 9.19.1, do_1) deleted services/agent/schema/lni/v1.kvx while services/agent/crates/layerx-client/src/lni/schema.rs:4 still reads `pub const LNI_V1_SOURCE: &str = include_str!('../../../../schema/lni/v1.kvx');`, so since that commit every build of layerx-client fails at schema.rs:4 with `couldn't read ../../../../schema/lni/v1.kvx`, and with it every crate that depends on layerx-client: the services/agent workspace, services/human (services/human/Cargo.toml:31) and services/platform (services/platform/Cargo.toml:46). Delete the constant and its doc comment at schema.rs:3-4. Nothing reads LNI_V1_SOURCE in services/ (grep over *.rs finds only the declaration); interfaces.kvx already marks the interface retired; lni_schema_v1 (schema.rs:566) builds the schema from Rust constants and does not use the file. Do not restore v1.kvx: agent_tree_has_no_lni_artifacts (services/agent/tools/boundary-check/tests/workspace.rs:13-33) asserts the directory is absent, and task 9.24.7 deletes the whole lni module per decision.923. Change no other line of schema.rs and no other file."
+do_2 = "scripts/ci/lni-version-parity.sh:96-101 (Makefile:3424) reads the deleted schema file and fails since 019a38eed independently of this task; record it, do not edit the script or the Makefile. The verify runs an existing layerx-client integration test, refusal_keeps_code_message_and_data in tests/sequencer.rs, whose only purpose here is to compile the crate and its test target on a tree without services/agent/schema/lni."
+symbols = []
+touches = ["services/agent/crates/layerx-client/src/lni/schema.rs"]
+tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::refusal_keeps_code_message_and_data"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact refusal_keeps_code_message_and_data"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore schema.rs:3-4 from HEAD; layerx-client fails to compile again at schema.rs:4."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "symbols is empty, as in 9.19.1: the done gate checks that every listed symbol is defined in the code graph after the change, and this task's only change deletes LNI_V1_SOURCE (attempt at 32bb224a7 on c9e2ebd94 built layerx-client and passed refusal_keeps_code_message_and_data, then the done gate refused on `symbol LNI_V1_SOURCE — not defined in the graph`). The interfaces entry stays: it names the retired item for the contract index and is not a graph check."
 
 [task.9.20.1]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
@@ -143980,16 +144087,16 @@ title = "Regenerate the TypeScript and Python client types with rung submission 
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["9.18.4"]
+requires = ["9.18.4", "9.18.9"]
 reqs = ["9358.1"]
 capabilities = ["9.33.8"]
 interfaces = ["interface.9.ts-sdk-generated-client-rung", "interface.9.ts-sdk-generated-client-submissionstate"]
-do_1 = "SubmissionState (services/agent/sdk/typescript/src/generated/client.ts:48) has Executed, Failed and Pending kernel stages beside Rung (services/agent/sdk/typescript/src/generated/client.ts:42); task 9.18.4 changes the generator templates."
-do_2 = "Regenerate services/agent/sdk/typescript/src/generated/client.ts, services/agent/sdk/python/layerx_sdk/generated/client.py and services/agent/sdk/python/layerx_sdk/generated/client.pyi with layerx-platform-sdkgen so SubmissionState is Submitted with txHash, Receipted, Committed and Reverted with revertReason, and commit the outputs unchanged by hand (generated headers at services/agent/sdk/typescript/src/generated/client.ts:1, services/agent/sdk/python/layerx_sdk/generated/client.py:1)."
+do_1 = "SubmissionState (services/agent/sdk/typescript/src/generated/client.ts:48) has Executed, Failed and Pending kernel stages beside Rung (services/agent/sdk/typescript/src/generated/client.ts:42); task 9.18.9 changes the generator templates."
+do_2 = "Regenerate services/agent/sdk/typescript/src/generated/client.ts, services/agent/sdk/python/layerx_sdk/generated/client.py and services/agent/sdk/python/layerx_sdk/generated/client.pyi with agent-sdk-gen --write (make agent-sdk-generate, Makefile:2643) so SubmissionState is Submitted with txHash, Receipted, Committed and Reverted with revertReason, and commit the outputs unchanged by hand (generated headers at services/agent/sdk/typescript/src/generated/client.ts:1, services/agent/sdk/python/layerx_sdk/generated/client.py:1)."
 do_3 = "Create services/agent/sdk/typescript/test/generated-rung.test.ts (planned) checking the exported union and enum."
 do_4 = "Register each gate test in services/agent/sdk/typescript/test/generated-rung.test.ts (planned) as a node:test case named exactly generated_submission_state_names_the_rungs (`import { test } from \"node:test\"`), so the anchored --test-name-pattern of verify_cmd selects every one of them and cannot pass on a file with no matching case."
 symbols = ["SubmissionState", "Rung"]
-touches = ["services/agent/sdk/typescript/src/generated/client.ts", "services/agent/sdk/python/layerx_sdk/generated/client.py", "services/agent/sdk/python/layerx_sdk/generated/client.pyi", "services/agent/sdk/typescript/test/generated-rung.test.ts"]
+touches = ["services/agent/sdk/typescript/src/generated/client.ts", "services/agent/sdk/python/layerx_sdk/generated/client.py", "services/agent/sdk/python/layerx_sdk/generated/client.pyi", "services/agent/sdk/typescript/test/generated-rung.test.ts", "services/agent/sdk/typescript/examples/http-402-settlement.ts", "services/agent/sdk/typescript/examples/payment-with-verification.ts", "services/agent/sdk/typescript/test/integration.test.ts", "services/agent/sdk/python/layerx_sdk/__init__.py", "services/agent/sdk/python/layerx_sdk/__init__.pyi", "services/agent/sdk/python/examples/http_402_settlement.py", "services/agent/sdk/python/examples/payment_with_verification.py"]
 tests = ["services/agent/sdk/typescript/test/generated-rung.test.ts::generated_submission_state_names_the_rungs"]
 planned_paths = ["services/agent/sdk/typescript/test/generated-rung.test.ts"]
 build_cmd = "npm --prefix services/agent/sdk/typescript run build"
@@ -144006,6 +144113,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempts 1 to 3 (6418af87d, eef8c0c40, 5f0c552d0 on bases 061689853, 101b73f3d, 7095cd3de) fail build_cmd with twelve TS2322/TS2678/TS2339/TS2353 errors in test/generated-rung.test.ts because the generated SubmissionState is still Unknown, Executed, Failed and Pending: the generator templates services/agent/tools/sdk-gen/templates/typescript.tpl:42-46, python.tpl:265-286 and python.pyi.tpl:143-162 carry that union as literal text, 9.18.4 (0246e6ea4) never changed them, and services/agent/tools/sdk-gen/src/main.rs reads no type.SubmissionState. The generator of the three files is agent-sdk-gen (make agent-sdk-generate, Makefile:2643: cargo run --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml -- --write), not layerx-platform-sdkgen, which digests sdk/platform outputs and writes only generated/receipt.* under services/agent/sdk (sdk/platform/generators/src/main.rs:22-26). Task 9.18.9 (now required) changes the templates; regenerate with agent-sdk-gen --write after it is done, commit client.ts, client.py and client.pyi unchanged by hand, and update the callers that tsconfig.json compiles: examples/http-402-settlement.ts:11-12, examples/payment-with-verification.ts:18 and test/integration.test.ts:80-83, plus the Python callers now in touches. The attempt-3 test services/agent/sdk/typescript/test/generated-rung.test.ts stands."
 
 [task.9.33.9]
 title = "Send contract major 2 on agent envelope requests and report proof rungs"
@@ -147008,7 +147116,7 @@ title = "Unhook retired journeys, wallet binding and the settlement recipient fr
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3", "5.7.4"]
+requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3", "5.7.4", "9.12.11"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.3"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -147053,6 +147161,7 @@ do_20 = "Attempt 14 (0548c127f, the attempt 13 candidate 1565a0751 re-qualified 
 do_21 = "Attempt 15 (e299ec5de, the attempt 14 candidate re-qualified unchanged on 265e0cc8d) fails both startup tests at the same layerxd --serve exit that do_20 records, 'bootstrap finality authority failed with result -213', and the cause is in the product, not in the environment: since fc5bb55cf (task 5.7.2) AnchorK returns nil (node/precompiles.go:127), so threshold() and latestFinalized() on the anchor precompile 0x0000000000000000000000000000000000001014 revert 'layerxanchor: anchor module is not wired' (precompiles/layerxanchor/layerxanchor.go:218-219) and lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_finality_authority.c:540-579) refuses the JSON-RPC error body (:330-333). Per decision.1944 task 5.7.3 removes that stage from layerxd --serve startup and the requires gain it. Keep every file and assertion as written, change nothing under cmd/, node/ or precompiles/, do not script the anchor answers, and re-qualify the attempt 15 candidate unchanged once 5.7.3 is on main."
 do_22 = "Attempt 17 (19d2b3b6d, the attempt 15 candidate e299ec5de re-qualified unchanged on e8519e92e with 5.7.3 merged) passes all three build_cmd members, and both startup tests fail when layerxd --serve exits 1 with 'layerxd: protocol owner module runtime binding failed with result -3' and 'bootstrap protocol owner failed with result -3'. The finality authority stage that 5.7.3 removed is passed. -3 is LXP_ERR_NON_CANONICAL (include/layerx/lxp_result.h:34). It comes from lxp_programs_state_feed_store_bind_maintenance (src/modules/programs/feed_store.c:1041-1052), which lxp_daemon_protocol_owner_attach calls at cmd/layerxd/lxp_daemon_protocol.c:1121-1122 under the stage set at :1116. That function requires the daemon's feed store to be the kernel's commit observer (:1048), and nothing installs it: 38c544316 (task 1.15.1 do_1) deleted the lxp_programs_bind_state_feed call from lxp_kernel_bind_module_runtime (src/protocol/lxp_kernel.c), and lxp_programs_bind_state_feed (src/modules/programs/feed.c:114-123) now has no caller under src/ or cmd/. Every layerxd --serve start fails there, whatever its input; 18.1200.1 attempt 13 meets the same exit on the same base. Per task 5.7.4 the daemon binds its own feed observer; this task now requires 5.7.4. Keep every file and assertion as written, change nothing under cmd/, src/ or include/, and re-qualify the attempt 17 candidate unchanged once 5.7.4 is on main."
 do_23 = "Attempt 18 (5f4c319c4, the attempt 17 candidate 19d2b3b6d re-qualified unchanged on 4f424c474 with 5.7.4 merged) passes all three build_cmd members; layerxd --serve now starts and creates its LNI socket, and both startup tests fail when layerx-agentd exits 2 with 'human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: missing LAYERX_AGENT_NODE_RPC_URL' (services/human/crates/layerx-human-service/tests/production_unhooked.rs:245-250). Since 8012f3c12 (task 9.12.5, decision.1920) and e5da82547 (task 9.0.3, decision.1942), serve_human_owner (services/agent/crates/layerx-agentd/src/human_owner_mode.rs:67-100) reads NodeRpcConfig::from_environment (src/node_rpc.rs:23-43) after human_peers and calls NodeRpc::connect (:83-84), which posts eth_chainId to LAYERX_AGENT_NODE_RPC_URL and refuses any value other than LAYERX_AGENT_NODE_CHAIN_ID (node_rpc.rs:140-146), before start_human_owner reads LAYERX_AGENT_HUMAN_NODE_LNI (src/main.rs:980); do_18 and decision.1913 predate that contract. In Environment::start_agent (tests/production_unhooked.rs:132-266) read LAYERX_TEST_PAXEER_RPC_PORT and LAYERX_TEST_PAXEER_CHAIN_ID as start_node does (:433-434), failing by name when either is missing, and give the layerx-agentd command LAYERX_AGENT_NODE_RPC_URL=http://127.0.0.1:<that port> and LAYERX_AGENT_NODE_CHAIN_ID=<that chain id>, as services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211-222 does for the in-tree node of decision.1896 (eth_chainId 0x7d); keep LAYERX_AGENT_HUMAN_NODE_LNI (:183-186), which the human runtime still reads. Change no other file and no assertion, and nothing under services/agent, cmd/, src/ or include/; a later layerx-agentd startup refusal is recorded as the finding of do_16."
+do_24 = "Attempt 19 (9b9d22da9, the attempt 18 candidate 5f4c319c4 continued on d4bf62f09 with the do_23 change applied: tests/production_unhooked.rs:144-149 read LAYERX_TEST_PAXEER_RPC_PORT and LAYERX_TEST_PAXEER_CHAIN_ID by name and :189-193 give layerx-agentd LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID, LNI kept at :195) passes the first two build_cmd members and fails the third, cargo build -p layerx-agentd-host --bin layerx-agentd, with E0277 twice at services/agent/crates/layerx-agentd/src/main.rs:1013: `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` carries NodeRpcError (src/node_rpc.rs:23, :90) through `?` inside start_shared_owner (:936), which returns Result<_, String> (:948-955), and no From<NodeRpcError> for String exists. 8c526e4f0 (task 9.12.7 do_3) added the line and qualified with -p layerx-agentd --test human_node, which never compiles main.rs (autobins = false, services/agent/crates/layerx-agentd/Cargo.toml:3; the binary belongs to layerx-agentd-host, Cargo.toml:8-10; decision.1964). The line is the same on main at the base and at 8a2c936b0, in a file this task does not touch; task 9.12.11 maps both errors as src/human_owner_mode.rs:41-47 and :83-84 do. This task now requires 9.12.11 and changes nothing under services/agent; re-qualify the attempt 19 candidate unchanged once 9.12.11 is on main, confirming first that main.rs:1013 shows .map_err around both calls, and record any later layerx-agentd or layerx-human-components startup refusal as the finding of do_16."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -157048,6 +157157,7 @@ do_9 = "Attempt 8 (ba7c4c0f4) committed the activation height 34742403 and stall
 do_10 = "Attempt 9 (525dff8f4) re-ran the attempt 8 files with 18.1307.1 merged. The primary's commit of 34742403 now fails with 'commit listener at height 34742403: sequencer: driver release open: sequencer: standby did not acknowledge: read tcp ...: i/o timeout', 10 s after its stores committed. That interval is the --sequencer.replication-timeout of v6120-node.sh:570. The standby and the bootstrap peer commit 34742403 only after that Commit returns, so consensus stops at 34742404. Driver.OnCommit runs inside ABCI Commit (node/abci.go:324-326, node/sequencer/node_start.go:126-136) and releases the OPEN for H+1 (node/sequencer/driver.go:107-110). The standby admits that OPEN only after its own commit of H (node/sequencer/standby.go:818, :864-890), and the primary resends on the commit-pending AckGap (standby.go:331-333) until the deadline. The two nodes wait on each other. This task requires 12.35.5 (decision.1939), which removes that wait; v6120-node.sh still gains the do_9 evidence output first."
 do_11 = "Attempt 10 (a48caaeb7) runs with 12.35.5 merged. All three nodes now commit past 34742403. The /status and /validators checks read the plain HTTP bodies the node returns (sync_info and validators at the top level, no result envelope; v6120-node.sh:648-676), so the script reports ready and the Go test runs. The test then fails at v6120_test.go:159: the standby's EVM RPC at LOCAL_NODE_STANDBY_RPC refuses connections while the standby process is alive. The EVM HTTP server binds only after the start signal that ProcessBlock sends (node/app.go:2376, :1347-1386). On restart, 34742402 is replayed against the mock app (consensus/internal/consensus/replay.go:338-347). The standby never processes a proposal and finalizes every sequenced block through the sealed branch of FinalizeBlocker (node/app.go:1798-1830, standby_role.go:288-325), so it never sends that signal. This task requires 12.35.6, which sends the start signal on sealed adoption. Re-qualify a48caaeb7 unchanged after 12.35.6 is on main."
 do_12 = "Attempt 11 (29f5c75f6) re-ran the a48caaeb7 files with 12.35.6 merged. The standby still refuses connections on LOCAL_NODE_STANDBY_RPC at v6120_test.go:159 while it commits blocks (34742450). The standby home is created with paxd init --mode validator (v6120-node.sh:233), which writes app.toml with api.enable, grpc.enable and state-store.enable false (node/params/config.go:141-147). configure_node keeps api enable false (v6120-node.sh:534) and never enables grpc, so sdk/server/start.go:369-376 skips RegisterLocalServices. That is the only place that builds the EVM HTTP server (node/app.go:3537-3553), so the standby has no EVM server for the start signal of 12.35.6 to bind. Its halt log has no 'Stopping EVM HTTP Server' line, while the primary's has one (rpc/rpcstack.go:285). configure_node sets grpc enable true beside the grpc address (v6120-node.sh:535) so every node home, including the standby, registers its local services and serves EVM RPC on its own http_port. The standby keeps consensus mode validator (decision.1902), api enable false and the standby chain-id assertion of v6120_test.go:152-160. Continue 29f5c75f6 with that one line."
+do_13 = "Attempt 12 (2bbcaee77) applies do_12 and the standby answers eth_chainId, so v6120_test.go:152-160 passes for the first time. The test then fails at v6120_test.go:163: eth_getTransactionCount(sender, pending) answers 'pending block unavailable: sequencer: no block is open'. On the sequencer a pending-tag read resolves through the open block (rpc/tx.go:430-436, rpc/watermark_manager.go:57-65) and sequential.Snapshot returns ErrLayerNotOpen while no block is open (node/sequencer/executor.go:28, :329-333). The primary seals its open block when it builds the proposal for H+1 (consensus/internal/state/execution.go:267-270; executor.go:295-305 sets open to nil) and opens the next block only in Driver.OnCommit(H+1) (node/sequencer/driver.go:93), so between the proposal and the commit of every block there is no open block by design (rpc/utils.go:55-58). The primary committed 34742447 at 18:30:23.811 and finalized 34742448 at 18:30:24.194 while the 0.06 s test ran. eth_sendRawTransaction in that window answers the bare 'sequencer: no block is open' (rpc/send.go:293, node/sequencer/receipt.go:328, rpc/send_sequencer_test.go:265-268) and admits nothing, and eth_getBalance pending answers the wrapped text (rpc/state.go:55). TestLocalNodeV6120SequencerReceipt gains one helper that repeats a single RPC call every 20 ms until the test context ends while the error text is exactly 'pending block unavailable: sequencer: no block is open' or 'sequencer: no block is open', as daemon/committed-fixture/vector_v4.go:224-241 does, and uses it for the pending nonce (:161), the pending balance before the send (:174) and after the receipt (:215) and eth_sendRawTransaction (:189). Any other error still fails the test at once and every asserted value stays as written; HeaderByNumber(nil) stays a latest read. v6120-node.sh is unchanged. The primary's node.log also shows four proposal failures 'seal height N: sequencer: standby did not acknowledge: ... i/o timeout' at 34742429, 34742433, 34742435 and 34742440 between 18:29:05 and 18:29:44, each a 10 s SEAL replication timeout (node/sequencer/standby.go:314-346 with the standby's commit-pending AckGap at :823-825, :855-857); the chain recovered and the test did not run in such a window. Continue 2bbcaee77."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -164748,7 +164858,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.32.1]
 title = "Point the anchors and receipts resources at the archive routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["14.0.4", "14.23.2", "14.31.1", "14.34.1"]
@@ -164764,7 +164874,7 @@ symbols = ["PaxeerXArchiveAnchor", "PaxeerXArchiveReceipt", "GENERAL_API_PAXEER_
 touches = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.ts", "apps/explorer/types/api/paxeerXLists.ts", "apps/explorer/stubs/paxeerXLists.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts", "apps/explorer/lib/api/services/general/paxeerX.spec.ts"]
 tests = ["apps/explorer/lib/api/services/general/paxeerXLists.spec.ts::kernel_resources_use_archive_paths"]
 planned_paths = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts"]
-build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node global.d.ts decs.d.ts reset.d.ts types/api/paxeerXArchive.ts types/api/paxeerXLists.ts stubs/paxeerXLists.ts lib/api/services/general/paxeerXLists.ts lib/api/services/general/paxeerXLists.spec.ts lib/api/services/general/paxeerX.spec.ts"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node global.d.ts decs.d.ts reset.d.ts nextjs/nextjs-routes.d.ts types/api/paxeerXArchive.ts types/api/paxeerXLists.ts stubs/paxeerXLists.ts lib/api/services/general/paxeerXLists.ts lib/api/services/general/paxeerXLists.spec.ts lib/api/services/general/paxeerX.spec.ts"
 verify_cmd = "cd apps/explorer && yarn vitest run lib/api/services/general/paxeerXLists.spec.ts -t '(?:^|\s)(kernel_resources_use_archive_paths)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164779,6 +164889,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "apps/explorer/lib/api/services/general/paxeerX.spec.ts is the existing spec of the three resources do_2 repoints and of the receipts stub do_4 retypes. Its expected paths at :21, :23 and :28 still read /api/v2/paxeer-x/anchors, /api/v2/paxeer-x/receipts and /api/v2/paxeer-x/receipts/:id. Line :59 compares the removed status field, which fails with TS2339 at (59,30) and (59,66) (attempt 4, 4ebcacc3f). Set the expected paths at :21, :23 and :28 to /api/v2/paxeer-x/archive/anchors, /api/v2/paxeer-x/archive/receipts and /api/v2/paxeer-x/archive/receipts/:id. Replace .status with .frozen on both sides of :59. Keep every other assertion as written."
 do_7 = "The build type-checks the files this task touches and what they import, not the whole application. tsc -p ./tsconfig.json also checks 17 files that import PaxeerXAnchorsItem, PaxeerXReceiptsItem, PaxeerXReceipt, PaxeerXVerificationStatus or PAXEER_X_VERIFICATION_STATUSES, which do_3 deletes, or that read status from the stubs do_4 retypes (attempt 4, 4ebcacc3f: 20 errors, none in this task's files). Tasks 14.32.2, 14.32.3, 14.32.4 and 14.32.6 port those files, including apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx and apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx. Change none of them here. The whole-application check runs on 14.32.6, once every consumer is ported. The attempt 4 files need no change apart from do_6."
+do_8 = "The build root list must include apps/explorer/nextjs/nextjs-routes.d.ts. apps/explorer/global.d.ts:2 imports types/multichain, which imports configs/app, whose apps/explorer/configs/app/ui.ts:2 imports types/client/navigation, and apps/explorer/types/client/navigation.ts:3 imports the Route type from nextjs-routes. The installed nextjs-routes package exports only the route function; Route is declared by the generated declaration file apps/explorer/nextjs/nextjs-routes.d.ts:7-8 (declare module 'nextjs-routes' { export type Route = ... }). tsc -p ./tsconfig.json picks that file up through the **/*.ts include at apps/explorer/tsconfig.json:20, but tsc with files on the command line ignores tsconfig.json, so the narrowed check fails with types/client/navigation.ts(3,15) TS2724 as its only error (attempt 5, f5e525592, which applied do_6 and left the five attempt 4 files unchanged). The build_cmd now lists nextjs/nextjs-routes.d.ts after reset.d.ts, exactly as the 14.32.2, 14.32.3, 14.32.4 and 14.32.5 build commands do; --types node stays sufficient because nothing in this task's import closure imports next/link, next/router or an asset module. Change no source file: navigation.ts, ui.ts, global.d.ts and nextjs-routes.d.ts are identical to main, and the attempt 5 files need no change."
 
 [task.14.32.2]
 title = "Show the anchors page as a frozen archive"
@@ -168208,7 +168319,7 @@ do_8 = "ReceiptGate keeps the single constructor ReceiptGate(ReceiptResolver, Lo
 
 [task.15.4.8]
 title = "Resolve signed receipts in the android sample relay resolver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.7"]
@@ -168238,7 +168349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.9]
 title = "Verify signed sequencer receipts in the iOS ReceiptGate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["15.0.3", "8.0.3", "9.0.3", "8.44.1", "8.44.5"]
@@ -168270,7 +168381,7 @@ do_5 = "Add the declared key layerx.receipt_keys, read from the environment vari
 
 [task.15.4.10]
 title = "Decode signed receipts in the iOS sample environment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.9"]
@@ -168300,7 +168411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.11]
 title = "Drop SettlementAnchored and authorized batches from the agents daemon providers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.92.1", "8.24.2", "8.24.3", "12.27.2"]
@@ -168339,7 +168450,7 @@ do_12 = "do_9 is superseded (decision.1963). AgentSigner.sign(prepared) must ans
 
 [task.15.4.12]
 title = "Verify signed sequencer receipts in the agents tools and service client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.11"]
@@ -174356,7 +174467,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -174386,6 +174497,7 @@ do_5 = "Attempt 6 (827decfcd) stopped in make workspace-build before 9.98.1 (18d
 do_6 = "Attempt 7 (dd5b5641f, base 710592c26) exited 2 in step 2, make workspace-build: agent-build (Makefile:1947) stops in the layerx-agentd binary at services/agent/crates/layerx-agentd/src/main.rs:1768 (E0061), the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372. Task 18.1310.1 (096e161e1, on main) ports it to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The test of attempt 6 is unchanged and right; re-qualify it once on a revision that includes 18.1310.1, and record each further failure the step log under logs/waves/0 names, with its file, line and owning task."
 do_7 = "Attempt 9 (14a682e57, base f352b312c) carries the attempt 6 test unchanged and exited 2 in step 2, make workspace-build: build and agent-build pass, and human-build (Makefile:1958) stops in the api-gen crate tests at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, because the test counts all 95 operation sections while the generator skips the eleven operations 10.15.2 (c51f67b3b) retires (src/lib.rs:640-642, :1541); tests/retired_operations.rs:73-77 and :133 still assume no retired operation. The repair belongs to fm-human in 10.16.4, outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; make workspace-lint has not run on any attempt."
 do_8 = "Attempt 11 (778c340aa, base 9f8c07033 with 10.16.4 at f478f7a5a) carries the attempt 9 test unchanged and exited 2 in step 2, make workspace-build: build and agent-build pass, the api-gen tests and the client check of human-build (Makefile:1958-1959) pass, and the human workspace build (Makefile:1960) stops at services/human/crates/layerx-explorer-index/src/lib.rs:225 with E0631, because ProtocolProgramIngestor::ingest maps the error of LayerxdProgramBalanceReader::read_protocol_state through IndexError::ProgramProtocolUnavailable, whose payload is still ProtocolAdapterError (lib.rs:15, :186), while 9.94.1 (a02e09aec) made the reader return layerx_agentd::read::ProgramReadError (services/agent/crates/layerx-agentd/src/read/program_node.rs:26, :223-229). The port belongs to fm-human in 10.16.5, outside this task's touches; the requires gain 10.16.5. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.5 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; the human crates not yet compiled, the human web build (Makefile:1961), the later workspace-build targets (Makefile:2917-2919) and make workspace-lint have not run on any attempt, and the step 2 log already shows rustc warnings in members of the agent and human workspaces that agent-lint and human-lint (clippy --all-targets -D warnings, Makefile:2112, :2230-2231) deny."
+do_9 = "Attempt 12 (af44d7420, base a373fef18 with 10.16.5 at 3441fc681) carries the attempt 9 test unchanged and exited 2 in step 2, make workspace-build, one target earlier than attempt 11: build passes and agent-build (Makefile:1947) stops compiling the layerx-agentd binary of services/agent/crates/layerx-agentd-host at services/agent/crates/layerx-agentd/src/main.rs:1013 with E0277 twice, because 8c526e4f0 (9.12.7, do_3) added `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` inside start_shared_owner, which returns Result<_, String> (main.rs:948-955), while NodeRpcConfig::from_environment (node_rpc.rs:23) and NodeRpc::connect (node_rpc.rs:90) return NodeRpcError and no From<NodeRpcError> for String exists (only for GateError at boot.rs:34 and FinalityError at finality.rs:35). 9.12.7's gates built -p layerx-agentd --test human_node only; the binary is declared in services/agent/crates/layerx-agentd-host/Cargo.toml with path ../layerx-agentd/src/main.rs and layerx-agentd sets autobins = false, so main.rs was never compiled before the merge (decision.1964). The repair belongs to 9.12.11, outside this task's touches; this task now requires it. The test is unchanged and right: in attempt 12 the ledger, stdout, log-file and size assertions (test_wave_0_gate.py:41-44) passed and only :45 (exit_code == 0) failed. Re-qualify it once on a revision that includes 9.12.11 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; human-build (Makefile:1957-1961, so the lib.rs:225 repair of 10.16.5 is unconfirmed by this gate), the later workspace-build targets (Makefile:2917-2919) and make workspace-lint have not run on any attempt, and the step 2 log shows 81 rustc warnings in the layerx-agentd library plus warnings in layerx-sdk, layerx-intents, layerx-human-kms and layerx-programs-registry that agent-lint and human-lint (clippy --all-targets -D warnings, Makefile:2112, :2230-2231) deny."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
@@ -194042,6 +194154,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.12.11]
+title = "Map the human runtime's node connection errors into the shared owner's String error so the layerx-agentd binary compiles"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = []
+reqs = ["91211.1"]
+capabilities = []
+interfaces = []
+do_1 = "8c526e4f0 (task 9.12.7 do_3) added `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` at services/agent/crates/layerx-agentd/src/main.rs:1013 inside start_shared_owner (:936), whose return type is Result<_, String> (:948-955); NodeRpcConfig::from_environment (src/node_rpc.rs:23) and NodeRpc::connect (:90) return NodeRpcError, which has Display (:56) and no From into String, so `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd` fails with E0277 twice at main.rs:1013:69 and :71. 9.12.7's gate built only -p layerx-agentd --test human_node; the package has autobins = false (services/agent/crates/layerx-agentd/Cargo.toml:3) and main.rs is compiled only as the layerx-agentd binary of layerx-agentd-host (services/agent/crates/layerx-agentd-host/Cargo.toml:8-10), so the file was never compiled before the merge (decision.1964)."
+do_2 = "Replace main.rs:1013 with the two explicit maps the daemon already uses for the same calls: `NodeRpcConfig::from_environment().map_err(|error| format!('human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: {error}'))?` as src/human_owner_mode.rs:41-47 does, and `NodeRpc::connect(&config).map_err(|error| format!('human node RPC is unavailable: {error}'))?` as src/human_owner_mode.rs:83-84 does, still boxed as the `chain: Box<dyn HumanNode>` argument of ProductionHumanOperations::new. Add no From impl, change no other line of main.rs, nothing in node_rpc.rs, human_runtime.rs or human_owner_mode.rs, and no test; 9.12.7 do_3 is read as this mapped form."
+do_3 = "The verify runs the existing host test human_owner_mode_lists_node_rpc_variables (services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs:133-199, declared as the runtime_mode test of layerx-agentd-host at services/agent/crates/layerx-agentd-host/Cargo.toml:17-18), which spawns the rebuilt binary in human-owner mode and asserts the missing LAYERX_AGENT_NODE_RPC_URL refusal; it compiles main.rs, which no -p layerx-agentd gate does."
+symbols = ["start_shared_owner"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs::human_owner_mode_lists_node_rpc_variables"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test runtime_mode -- --exact human_owner_mode_lists_node_rpc_variables"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert main.rs:1013 to the two bare `?`; the layerx-agentd binary stops compiling again with E0277 at main.rs:1013."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.12.8]
 title = "Look up human receipts and receipt evidence through pax_sequencerReceipt and px_getReceiptKeys"
 status = "done"
@@ -194139,6 +194281,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Hold the human runtime's node connection behind HumanNode and read heads, receipt keys and history through it"
 ac_1 = "ProductionHumanOperations reads the chain head and the receipt key covering it from eth_blockNumber, eth_getBlockByNumber and px_getReceiptKeys of the node JSON-RPC connection."
 ac_2 = "A human history read pages px_getHistory through HumanNode::history_page and no LNI FrameTransport implementation remains in human_runtime.rs."
+
+[req.91211]
+title = "The layerx-agentd binary compiles with the human runtime's node connection in the shared owner"
+ac_1 = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd exits 0: start_shared_owner (services/agent/crates/layerx-agentd/src/main.rs:936, Result<_, String>) maps the NodeRpcError of NodeRpcConfig::from_environment and NodeRpc::connect (src/node_rpc.rs:23, :90) to the two texts src/human_owner_mode.rs:41-47 and :83-84 already use, and the host test human_owner_mode_lists_node_rpc_variables (services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs:133-199) passes against the rebuilt binary."
 
 [req.9068]
 title = "Look up human receipts and receipt evidence through pax_sequencerReceipt and px_getReceiptKeys"
@@ -194343,7 +194489,7 @@ do_4 = "Copy the rewritten V1, V2 and V3 cases byte for byte into sdk/platform/c
 do_5 = "Replace the recorded V1-layerxledger-pay-exact receipt, digest, transaction hash, log and payee word in services/interop/specs/conformance/x402/sequenced-settlement.json, services/interop/specs/conformance/ucp/sequenced-order.json, services/interop/specs/conformance/fiat/sequenced-journeys.json (also the V2 transaction hash and digest) and services/interop/PORTABILITY.md:136-146 with the rewritten values, and the payee literal 0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985 with 0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4 in services/interop/crates/layerx-visa-tap/tests/middleware.rs:273, tests/sequencer_result.rs:146, services/interop/crates/layerx-fiat/tests/adapter.rs:693 and services/interop/crates/layerx-interop-service/src/server.rs:4761 (recorded_x402_request); the paymentReference literal at server.rs:4756 is an input of the recording and does not change."
 do_6 = "Leave daemon/committed-fixture/vectors/vector-v2-receipted-revert.json (provenance revision 9e6b79d65), services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json, the layerx-bridge-relayer and layerx-gas-station test fixtures and services/interop/specs/conformance/x402/settlement-response.json unchanged; they are verified on their own and are recorded once in the qualification log. This task touches thirteen files because the fixture, its byte-equal copies and the payee literals must change in one revision (decision.1928)."
 symbols = ["seqVecLedgerPay", "seqVecLedgerPayment", "seqVecAssertFields", "TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture"]
-touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json", "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "services/interop/specs/conformance/x402/sequenced-settlement.json", "services/interop/specs/conformance/ucp/sequenced-order.json", "services/interop/specs/conformance/fiat/sequenced-journeys.json", "services/interop/PORTABILITY.md", "services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-interop-service/src/server.rs"]
+touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json", "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "services/interop/specs/conformance/x402/sequenced-settlement.json", "services/interop/specs/conformance/ucp/sequenced-order.json", "services/interop/specs/conformance/fiat/sequenced-journeys.json", "services/interop/PORTABILITY.md", "services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-interop-service/src/server.rs", "services/interop/crates/layerx-x402/src/buyer.rs"]
 tests = ["rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors"]
 planned_paths = []
 build_cmd = "go build ./rpc/..."
@@ -194361,6 +194507,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "In services/interop/specs/conformance/fiat/sequenced-journeys.json the digest replaced by do_5 includes sequencer.receipt_digest and expect.receipt_digest of card_receipted_credit, bank_receipted_credit and rtp_receipted_credit (which task 18.1211.3 do_6 set to native-order values over the current fixture): set each to the canonical digest of the receipt that services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs re-signs from the rewritten V1 case under the pinned test signing key, and set source_receipt_digest to the rewritten receiptDigest."
 do_8 = "Decision 1959 (extends decision.1928; 4ba621dc6, ac23f4e4a) orders this task behind 18.1308.2. The second leg of verify_cmd, go -C sdk/platform/go test -run '^TestVectorFilesV1ToV3MatchSequencerReceiptFixture$' ., compiles Go package layerx in sdk/platform/go, which has not compiled on main since 4ba621dc6 (8.45.3) deleted sdk/platform/go/program_lifecycle_generated.go (programLifecycleOrdinals at :3) while sdk/platform/go/http.go:178 and :181 (ac23f4e4a, 8.41.6) still read it; attempts 1 to 4 (3f40fea59, d292cef7d, 81e6e29e1, 305a918a1) all stopped there with 'http.go:178:6: undefined: programLifecycleOrdinals' and never reached the Go SDK test or the six cargo legs. 18.1308.2 do_10 owns that file and removes the two reads; this task does not touch sdk/platform/go/http.go, does not change verify_cmd, and is re-qualified from the attempt 4 candidate 305a918a1 unchanged once 18.1308.2 is done."
+do_9 = "Decision 1966 (extends decision.1928; 4e013c19c, 11.5.1) adds services/interop/crates/layerx-x402/src/buyer.rs to touches as a fourteenth file, for its tests module only. const TRANSACTION (src/buyer.rs:709-713) is a literal copy of the V1-layerxledger-pay-exact txHash that settlement() (:715-734) reads from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and that buyer_accepts_receipted_transaction_hash (:849-856) asserts against; set its 32 bytes to the re-recorded txHash 0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1 (do_3). The literal stays a literal and is not read from the fixture (decision.1928); the assertions, capture_settlement (:434) and every other line of src/buyer.rs stay unchanged. Attempt 5 (06a27a325, the attempt 4 content 305a918a1 on base 1768567797) passed both Go legs and failed only this assertion (left 0xa0d985..., right 0x9f6be3b6...); the x402 sequenced_vectors and buyer_sequencer binaries and the five other cargo legs have not yet run and give the next real result."
 
 [req.1812115]
 title = "The recorded payExact receipt carries a derivable payee in native PaymentExact order"
@@ -194607,7 +194754,7 @@ qualification = "UNRUN"
 
 [task.18.1308.2]
 title = "Platform SDKs resolve program.receipt by the retained transaction instead of the retired resultByIdempotency view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1308.1"]
@@ -194712,7 +194859,7 @@ title = "Bind agent creation lifecycle evidence to the signed EIP-1559 transacti
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["9.19.2"]
 reqs = ["1812042.1"]
 capabilities = []
 interfaces = []
@@ -194742,6 +194889,7 @@ do_6 = "In fields (services/agent/crates/layerx-crypto/src/disclosure/call.rs:37
 do_7 = "In ProtocolEvidence::bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:558-596) project ConstructMethod::PayBudgetCreate from its carried payload with protocol version 3 (layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION), and in SignedCreationTransaction::payload (services/human/crates/layerx-human-service/src/server/agent_creation.rs:72-87) take the same carried payload, because Disclosure::canonical_payload returns the ABI calldata for a call source (services/agent/crates/layerx-crypto/src/disclosure.rs:1036-1041) and never equals action.compiled.payload()."
 do_8 = "Decision 1946: an EIP-1559 disclosure carries the 20-byte sender as its actor (services/agent/crates/layerx-crypto/src/disclosure/call.rs:401), never the creation DID; submit_prepared (services/human/crates/layerx-human-service/src/server/agent_creation.rs:467) and retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:332) compare signed.disclosure.actor with the sender bound by the owner_public_key check (owner_public_key[12..]), and ProtocolEvidence.actor is that sender, as create.rs:546 reads it. Keep every assertion of finalization_evidence_reports_the_runtime_rung as written; if the HumanPrimary descriptor public key differs from the left-padded sender, record the conflict and do not loosen the check."
 do_9 = "Decision 1961: KeyDescriptor.public_key (services/human/crates/layerx-human-service/src/custody/mod.rs:435-440) is the Ed25519 verification key of the held 32-byte secret (services/human/crates/layerx-human-service/src/custody/provider.rs:1198 and :1223, services/agent/crates/layerx-crypto/src/local.rs:31-33), while the key's EVM identity is the secp256k1 wallet of the same secret that CustodySigner::evm_wallet returns (services/human/crates/layerx-human-service/src/custody/signer.rs:911-917, provider.rs:1029-1040) and that the provider binds beside the public key on every transaction signature (provider.rs:1285-1286), so the left-padded sender of a signed EIP-1559 transaction never equals descriptor.public_key. In retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:327-343) and prepare_scoped (services/human/crates/layerx-human-service/src/server/agent_creation.rs:373-421) resolve the wallet with self.custody.evm_wallet(principal, &action.custody_key), refuse unless signed.owner_public_key[12..] == wallet, keep the class check of signing_descriptor (agent_creation.rs:329-350), and carry signed.owner_public_key (the left-padded wallet) as the owner public key of PreparedProtocolKind::Signed (agent_creation.rs:432), of protocol_evidence (agent_creation_native.rs:355, agent_creation.rs:583-591) and so of ProtocolEvidence (agent_creation.rs:601), which bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:541-547) compares with the recovered sender. Compare the sender with descriptor.public_key nowhere on the creation path; change neither KeyDescriptor, evm_wallet, the test nor any assertion of finalization_evidence_reports_the_runtime_rung."
+do_10 = "Attempt 6 (b3481553d on 019a38eed) applied do_9 in the two files and failed in the build_cmd before any test ran: layerx-human-service depends on layerx-client (services/human/Cargo.toml:31), and since 019a38eed (task 9.19.1 do_1 deleted services/agent/schema/lni/v1.kvx) services/agent/crates/layerx-client/src/lni/schema.rs:4 fails with `couldn't read ../../../../schema/lni/v1.kvx` on every build of that crate, in a file this task does not touch. Task 9.19.2 removes the orphaned include; this task now requires it. Keep the do_1 to do_9 implementation of attempt 6 unchanged and re-qualify it once on a base that carries 9.19.2, repairing only type errors the compiler reports inside the do_9 lines of the two touched files, without changing any compared value or loosening an assertion."
 
 [req.1812042]
 title = "Issue #1204 follow-up: agent creation lifecycle evidence binds the signed EIP-1559 transaction"
@@ -194882,6 +195030,11 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
+
+
+
+
 
 
 
