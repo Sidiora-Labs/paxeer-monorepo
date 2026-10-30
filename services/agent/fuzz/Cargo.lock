@@ -780,7 +780,6 @@ dependencies = [
  "layerx-identity-binding",
  "layerx-intents",
  "layerx-paxeer-verifier",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -944,13 +943,6 @@ dependencies = [
  "layerx-program-sdk",
  "sha2",
  "spin",
-]
-
-[[package]]
-name = "layerx-programs-protocol-adapter"
-version = "0.1.0"
-dependencies = [
- "layerx-programs-registry",
 ]
 
 [[package]]

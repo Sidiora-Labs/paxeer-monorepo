@@ -38,8 +38,9 @@ defmodule EthereumJSONRPC.PaxeerX do
 
   The header mapping is CometBFT's, not Ethereum's: `stateRoot` is the
   `AppHash`, `transactionsRoot` is the `DataHash`, and `receiptsRoot` is the
-  `LastResultsHash`, which commits to the results of the *preceding* block. It
-  is therefore neither a Merkle-Patricia root over this block's receipts nor
+  `LastResultsHash` in both `newHeads` and `eth_getBlockByNumber`, which commits
+  to the results of the *preceding* block. It is therefore neither a
+  Merkle-Patricia root over this block's receipts nor
   unique per block: every empty block in a run shares one value.
 
   Nothing in the import pipeline may treat `receiptsRoot` as a checksum over the
@@ -48,21 +49,18 @@ defmodule EthereumJSONRPC.PaxeerX do
   for callers that would otherwise reach for such a check; the value itself is
   imported verbatim, as returned.
 
-  ## 3. `newHeads` headers disagree with the block body
+  ## 3. `newHeads` headers agree with the block body
 
-  A `newHeads` notification is rendered from the CometBFT header alone, before
-  the EVM-side block body is assembled, so for one and the same height it
-  reports an all-zero `logsBloom`, an all-zero `sha3Uncles` (the body reports
-  the RLP hash of the empty uncle list), a `gasUsed` summed over every CometBFT
-  transaction rather than over the EVM subset, and the raw `DataHash` as
-  `transactionsRoot` (the body substitutes the empty-transactions hash when the
-  EVM-filtered list is empty). It also omits `size`, `totalDifficulty`,
-  `transactions` and `uncles` altogether.
+  A `newHeads` header agrees with the `eth_getBlockByNumber` body for the same
+  block on every header field, including `logsBloom`, `gasUsed`,
+  `transactionsRoot`, `receiptsRoot` and `parentHash`. The notification omits
+  only the body fields `size`, `totalDifficulty`, `transactions` and `uncles`.
+  The pre-parity notification in `new_head.json` records the older behavior;
+  `new_head_full.json` freezes the header and body pair with parity.
 
-  A notification is therefore a hint that a height exists, never block data.
-  `fetch_block_by_new_head/2` fetches the body by the announced hash, checks
-  that the body agrees with the announced number, and refetches by number when
-  it does not - the body always wins.
+  `fetch_block_by_new_head/2` still fetches the body by the announced hash,
+  checks that the body agrees with the announced number, and refetches by
+  number when it does not. The fetched body supplies the data for import.
 
   ## 4. `eth_syncing` always errors
 
@@ -239,9 +237,8 @@ defmodule EthereumJSONRPC.PaxeerX do
   Whether a `newHeads` notification and a fetched block body describe the same
   block.
 
-  Only the height and the hash are compared. Every other header field is
-  expected to differ: the notification is rendered from the CometBFT header
-  before the EVM block body exists.
+  Only the height and the hash are compared, so both full parity headers and
+  pre-parity notifications can identify the fetched block body.
   """
   @spec new_head_matches_block?(map(), map()) :: boolean()
   def new_head_matches_block?(new_head, block_params) when is_map(new_head) and is_map(block_params) do
@@ -386,3 +383,4 @@ defmodule EthereumJSONRPC.PaxeerX do
     |> Keyword.get(key)
   end
 end
+
