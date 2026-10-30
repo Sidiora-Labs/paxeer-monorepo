@@ -157883,7 +157883,7 @@ do_8 = "Attempt 4 (30228d5f1) built the package test tree and failed in programs
 
 [task.13.4.6]
 title = "Delete the kernel batch, maintenance and trust-history evidence from the registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["13.9.2", "13.9.3", "13.9.4", "13.9.5", "13.4.5", "8.94.2", "9.12.6", "18.1304.1"]
