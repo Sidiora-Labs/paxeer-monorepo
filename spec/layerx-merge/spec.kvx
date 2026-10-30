@@ -140270,7 +140270,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.15.1]
 title = "Serve faucet.request through px_requestFunds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["9.12.1", "9.14.1", "7.0.2", "8.2.1", "9.1.8", "18.1121.1"]
