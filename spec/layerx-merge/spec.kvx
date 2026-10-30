@@ -120754,7 +120754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.7.4]
 title = "Bind the Programs state feed as the kernel commit observer in the layerxd protocol owner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["5.7.3"]
