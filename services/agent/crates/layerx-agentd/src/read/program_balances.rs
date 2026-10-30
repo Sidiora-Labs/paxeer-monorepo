@@ -54,7 +54,7 @@ pub struct ProgramValueBalance {
     pub account: [u8; 32],
     pub asset: [u8; 32],
     pub amount: u128,
-    pub frozen: bool,
+    pub frozen: Option<bool>,
 }
 
 /// Current-head evidence attached to the complete program account list.
@@ -95,7 +95,7 @@ pub(super) fn program_balances(
                 account: account.account_id,
                 asset: account.asset_id,
                 amount: account.balance,
-                frozen: account.frozen,
+                frozen: Some(account.frozen),
             })
             .collect(),
         freshness: ProgramBalanceFreshness {

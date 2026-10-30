@@ -1088,16 +1088,76 @@ pub const REGISTRY_PUBLICATION_KEY_VARIABLE: &str = "LAYERX_BETA_REGISTRY_PUBLIC
 pub const PROGRAM_DEPLOYED_TOPIC: &str =
     "0x2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709";
 
+const REGISTRY_LOG_SPAN: u64 = 2000;
+
 pub fn registry_list(client: &Client) -> Result<Value, String> {
-    let logs = rpc_call(
-        client,
-        "eth_getLogs",
-        json!([{
-            "address": PROGRAMS_ADDRESS, "fromBlock": "earliest", "toBlock": "latest",
-            "topics": [PROGRAM_DEPLOYED_TOPIC]
-        }]),
-    )?;
-    decode_registry_logs(&logs)
+    let head = u64::try_from(rpc_quantity(client, "eth_blockNumber", json!([]))?)
+        .map_err(|_| "eth_blockNumber exceeds 64 bits")?;
+    let mut upper = head;
+    let mut span = REGISTRY_LOG_SPAN;
+    let mut windows = Vec::new();
+    let mut earliest_scanned = None;
+    let mut history_complete = false;
+    loop {
+        let lower = upper.saturating_sub(span - 1);
+        let response = rpc_call(
+            client,
+            "eth_getLogs",
+            json!([{
+                "address": PROGRAMS_ADDRESS,
+                "fromBlock": format!("0x{lower:x}"),
+                "toBlock": format!("0x{upper:x}"),
+                "topics": [PROGRAM_DEPLOYED_TOPIC]
+            }]),
+        );
+        match response {
+            Ok(logs) => {
+                windows.push(
+                    logs.as_array()
+                        .ok_or("eth_getLogs must return an array")?
+                        .clone(),
+                );
+                earliest_scanned = Some(lower);
+                if lower == 0 {
+                    history_complete = true;
+                    break;
+                }
+                upper = lower - 1;
+            }
+            Err(error) if error.starts_with("eth_getLogs refused:") => {
+                if error.contains("block range too large") && upper - lower + 1 > 1 {
+                    span = (upper - lower + 1) / 2;
+                } else if error.contains("before earliest available block")
+                    || (error.contains("includes pruned blocks")
+                        && error.contains("earliest available block"))
+                {
+                    break;
+                } else {
+                    return Err(error);
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    let logs = Value::Array(windows.into_iter().rev().flatten().collect());
+    let mut result = decode_registry_logs(&logs)?;
+    let mut seen = std::collections::BTreeSet::new();
+    if let Some(events) = result["events"].as_array_mut() {
+        events.retain(|entry| {
+            match (
+                entry["transactionHash"].as_str(),
+                entry["logIndex"].as_str(),
+            ) {
+                (Some(hash), Some(index)) => seen.insert((hash.to_owned(), index.to_owned())),
+                _ => true,
+            }
+        });
+    }
+    result["from_block"] = json!(0);
+    result["to_block"] = json!(head);
+    result["history_complete"] = json!(history_complete);
+    result["earliest_scanned"] = json!(earliest_scanned);
+    Ok(result)
 }
 
 pub(crate) fn decode_registry_logs(logs: &Value) -> Result<Value, String> {
@@ -1132,9 +1192,7 @@ pub(crate) fn decode_registry_logs(logs: &Value) -> Result<Value, String> {
         )?;
         program_ids.insert(hex_encode(&id));
     }
-    Ok(
-        json!({"program_ids": program_ids, "events": entries, "source": "eth_getLogs", "block_tag": "latest"}),
-    )
+    Ok(json!({"program_ids": program_ids, "events": entries, "source": "eth_getLogs"}))
 }
 
 fn required_variable(name: &str) -> Result<String, String> {

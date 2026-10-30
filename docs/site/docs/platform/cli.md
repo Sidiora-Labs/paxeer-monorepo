@@ -117,7 +117,7 @@ describe the intended surface, not the shipped one:
 | `layerx wallet receipt <activity_id>` | Retrieve and verify a receipt; `--wait` selects commitment |
 | `layerx wallet send` | Sign native debit and envelope; requires `--to`, `--asset`, `--amount`, receipt policy, and fee limit |
 | `layerx wallet open-account` | Open the selected wallet's per-Asset account |
-| `layerx wallet estimate-fee <canonical_hex>` | Estimate from the committed native fee schedule |
+| `layerx wallet estimate-fee --from <address> <unsigned_tx_hex>` | Estimate fees for an unsigned EIP-1559 transaction using `eth_estimateGas` at `pending` and `eth_gasPrice` |
 | `layerx wallet watch` | Receive one live `receipts`, `checkpoints`, or `account` notification, then reconcile |
 | `layerx token create` | Register a native Asset from symbol, name, decimals, cap, and salt |
 | `layerx token mint` | Move issuance units to an existing per-Asset account |
