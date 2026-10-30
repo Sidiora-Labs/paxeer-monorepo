@@ -135702,7 +135702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.7]
 title = "Call a program in the agent walkthrough through the 0x101D programs construct"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.0.3", "8.33.1", "8.49.1"]
@@ -136529,7 +136529,7 @@ do_6 = "Create sdk/platform/swift/.gitignore with the single line .build/ (as sd
 
 [task.8.44.2]
 title = "Swift SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.44.1", "8.0.2"]
@@ -136592,7 +136592,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.4]
 title = "Swift SDK agent operation envelope at major 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["8.44.1", "9.0.2"]
@@ -159139,7 +159139,7 @@ do_8 = "Attempt 6 (7118d1122) writes the planned vector and generator (programs/
 
 [task.13.30.4]
 title = "Verify replay metadata and the module catalogue from ICS23 host store proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["13.30.3"]

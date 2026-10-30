@@ -212,6 +212,111 @@ public struct NativeProgramLifecycleRequest: Sendable {
     idempotencyKey = try bindNativeProgramActivity(ordinal, payload, signedActivity)
     activityID = lifecycleHash(Data("LXP/v1/activity-id\0".utf8), signedActivity)
   }
+  public func calldata(feeLimit: ProtocolAmount? = nil) throws -> Data {
+    var cursor = LifecycleCursor(signedActivity)
+    _ = try cursor.take(5)
+    try cursor.tag(1)
+    _ = try cursor.take(2)
+    try cursor.tag(2)
+    _ = try cursor.take(4)
+    try cursor.tag(3)
+    _ = try cursor.take(4)
+    try cursor.tag(4)
+    _ = try cursor.bounded(255)
+    try cursor.tag(5)
+    _ = try cursor.bounded(524288)
+    try cursor.tag(6)
+    _ = try cursor.take(8)
+    try cursor.tag(7)
+    _ = try cursor.take(16)
+    try cursor.tag(8)
+    _ = try cursor.bounded(32)
+    try cursor.tag(9)
+    let fee = try cursor.take(16)
+    return try Self.encodeCalldata(
+      ordinal: ordinal, payload: payload,
+      fee: feeLimit.map { ProgramABI.amount($0) } ?? (Data(repeating: 0, count: 16) + fee))
+  }
+
+  public static func calldata(
+    operation: any NativeProgramLifecycle,
+    feeLimit: ProtocolAmount? = nil
+  ) throws -> Data {
+    let payload = try decodeNativeProgramLifecycle(operation.ordinal, operation.encode()).encode()
+    guard operation.ordinal != 2 || feeLimit != nil else { throw NativeProgramCallError.invalid }
+    return try encodeCalldata(
+      ordinal: operation.ordinal, payload: payload,
+      fee: feeLimit.map { ProgramABI.amount($0) } ?? ProgramABI.word(0))
+  }
+
+  private static func encodeCalldata(ordinal: UInt16, payload: Data, fee: Data) throws -> Data {
+    var cursor = LifecycleCursor(payload)
+    let program = try cursor.take(32)
+    if ordinal == 7 {
+      let operation = try cursor.word(1)
+      switch operation {
+      case 1:
+        let account = try cursor.take(32)
+        let asset = try cursor.take(32)
+        let destination = try cursor.take(32)
+        let count = try cursor.word(2)
+        return try ProgramABI.encode(
+          selector: "23330dd5",
+          fields: [
+            .word(program), .word(account),
+            .word(asset), .word(destination), .bytes(cursor.take(Int(count))),
+          ])
+      case 2:
+        return try ProgramABI.encode(
+          selector: "86ba1a99",
+          fields: [
+            .word(program),
+            .word(cursor.take(32)), .word(ProgramABI.word(cursor.word(8))),
+          ])
+      case 3: return try ProgramABI.encode(selector: "a512f1a9", fields: [.word(program)])
+      case 4:
+        return try ProgramABI.encode(
+          selector: "4dc50730", fields: [.word(program), .word(cursor.take(32))])
+      default: throw NativeProgramCallError.invalid
+      }
+    }
+    let abi = try cursor.word(2)
+    let flags = try cursor.word(1)
+    _ = try cursor.word(1)
+    let old = try cursor.take(32)
+    let hash = try cursor.take(32)
+    var hook = Data()
+    var programInterface = Data()
+    let wasmLength: UInt64
+    if ordinal == 1 {
+      wasmLength = try cursor.word(4)
+      if UInt64(cursor.remaining) != wasmLength {
+        let size = try cursor.word(4)
+        programInterface = try cursor.take(Int(size))
+      }
+    } else {
+      let hookLength = try cursor.word(2)
+      wasmLength = try cursor.word(4)
+      var interfaceLength: UInt64 = 0
+      if UInt64(cursor.remaining) != hookLength + wasmLength {
+        interfaceLength = try cursor.word(4)
+      }
+      hook = try cursor.take(Int(hookLength))
+      programInterface = try cursor.take(Int(interfaceLength))
+    }
+    let wasm = try cursor.take(Int(wasmLength))
+    guard cursor.remaining == 0 else { throw NativeProgramCallError.invalid }
+    var fields: [ProgramABI.Field] = [
+      .word(program), .word(ProgramABI.word(abi)),
+      .word(ProgramABI.word(flags)), .word(old), .word(hash),
+    ]
+    if ordinal == 2 { fields.append(.bytes(hook)) }
+    fields.append(.bytes(programInterface))
+    fields.append(.bytes(wasm))
+    if ordinal == 2 { fields.append(.word(fee)) }
+    return try ProgramABI.encode(selector: ordinal == 1 ? "bde3ff66" : "a860929f", fields: fields)
+  }
+
 }
 
 func decodeNativeProgramLifecycle(_ ordinal: UInt16, _ payload: Data) throws
@@ -262,7 +367,8 @@ func bindNativeProgramActivity(_ ordinal: UInt16, _ expected: Data, _ signed: Da
 }
 
 private func lifecycleCode(_ program: Data, _ abi: UInt16, _ hash: Data, _ wasm: Data) throws {
-  guard program.count == 32, program.contains(where: { $0 != 0 }), ProgramGuestABI(rawValue: abi) != nil,
+  guard program.count == 32, program.contains(where: { $0 != 0 }),
+    ProgramGuestABI(rawValue: abi) != nil,
     hash.count == 32, wasm.count >= 8, wasm.count <= 1_048_576,
     wasm.prefix(8) == Data([0, 97, 115, 109, 1, 0, 0, 0]), hash == lifecycleHash(wasm)
   else { throw NativeProgramCallError.invalid }
