@@ -11040,3 +11040,23 @@ fix = "Update the needle and the repository climb together whenever a crate move
 title = "The bridge workflow check reads spec/paxeer-x-bridge/spec.kvx, which no longer exists"
 symptom = "services/bridge/deploy/tests/workflow-check.sh fails at read(root, SPEC_PATH) before any check runs because 0209f71cc consolidated the bridge spec into spec/layerx-merge/spec.kvx."
 fix = "Point SPEC_PATH at the consolidated spec; a check that reads a spec file must follow the spec consolidation."
+
+[gotcha.2246]
+title = "A monetary transfer effect without a ledger receipt is refused silently by the kernel"
+symptom = "A sandbox execution ends LXP_FATAL_INVARIANT from the kernel receipt path with nothing on stderr although the module-context test of the same path passes."
+fix = "receipt_bind_ledger_projection (src/protocol/lxp_kernel.c:2372-2395) refuses any monetary TRANSFER effect while ledger_receipt_present is false, which only the asset module sets; the programs escrow charge needs the binding of decision.1898, and module-context tests (lxp_programs_sandbox_execute) never reach that projection, so test the kernel path with lxp_kernel_execute_activity."
+
+[gotcha.2247]
+title = "Cargo builds a package's binaries for every integration test target"
+symptom = "cargo test -p <crate> --test <name> fails with compile errors in src/main.rs or a module only the binary includes, although the test file touches neither."
+fix = "Integration tests get CARGO_BIN_EXE_<name>, so every binary of the package is compiled first; a break in the binary blocks every --test gate of the package, and two tasks that each fix one break of the same binary deadlock unless one of them ports both."
+
+[gotcha.2248]
+title = "The wallet DID of a provisioned agent is did:layerx:<public key>, not the agent's registry identifier"
+symptom = "A provisioning assertion expects the did:matrix:provisioning identifier of the test agent and the state returns did:layerx:<64 hex>."
+fix = "services/wallet/gateway/src/provision/bind.ts:29 DID_PREFIX and state.ts:582 admit only did:layerx:<64 hex>; assert did:layerx:${agent.publicKeyHex} for provisioning states and wallet rows."
+
+[gotcha.2249]
+title = "A test target that stopped compiling hides its runtime failures until someone ports it"
+symptom = "The first attempt that makes an old test target compile again fails tests that nobody changed."
+fix = "When a shared test helper changes shape (raw_receipt_evidence, 351e3da14), targets that call the old shape stay unbuilt; expect the first compiling attempt to surface runtime contract drift and budget the repair for it."

@@ -4497,6 +4497,18 @@ value = "Since c03f97f8e (task 9.2.2) protocol mutations leave the agent daemon 
 basis = "custody.rs:342 passes a kernel Prepared where sign.rs:334 takes &SigningPreparation and has not compiled since 9.2.2; the kernel pair cannot take the signer's 65-byte grant (signer.rs:287) either, so the test's subject, a custody-held key signing what the daemon submits, is reachable only through the EVM preparation."
 affects = ["18.1172.2"]
 
+[decision.1898]
+title = "The kernel receipt projection binds the sandbox escrow-charge effect"
+value = "receipt_bind_ledger_projection (src/protocol/lxp_kernel.c:2372-2395) accepts a monetary LXP_EFFECT_TRANSFER effect without a ledger receipt only when the executing module is LXP_MODULE_PROGRAMS, the receipt's bound program outcome is present and the effect's transfer_set_root equals the transfer root that outcome recorded from the same sandbox usage receipt; every other monetary effect without a ledger receipt stays LXP_FATAL_INVARIANT, and the rejection names the effect index and both roots on stderr."
+basis = "7331258b0 (task 13.27.7) made src/modules/programs/call.c:2377-2381 emit the escrow charge through lxp_ctx_emit_monetary_transfer_set for a sandbox context so that emit_usage_receipt's frontier-plus-one check (src/modules/programs/sandbox.c:472-489) passes; ledger_receipt_present is set only by the asset module (src/protocol/lxp_module_ctx.c:2569), so the kernel refused every sandbox execution that charges escrow, silently (:2389-2394). The 13.27.7 case (tests/codec/lxp_test_sandbox_lifecycle.c:703) drives lxp_programs_sandbox_execute on a module context and never reaches the kernel receipt path, which is why it passed."
+affects = ["13.27.1", "13.27.7", "13.27.8"]
+
+[decision.1899]
+title = "Task 18.1243.2 carries the layerx-agentd balance route port; 9.5.10 follows it with the test"
+value = "The layerx-agentd binary (services/agent/crates/layerx-agentd-host, bin path ../layerx-agentd/src/main.rs) has two compile breaks on main: main.rs:1815 balance_json still takes the ProgramBalanceFreshness read that dc4290e1f (task 9.5.8) replaced with ProgramBalanceRead<CommittedProgramBalanceFreshness>, and services/agent/crates/layerx-agentd-host/src/payer.rs:333-353 still reads GrantTerms.current_height and calls prepare_budget and the one-argument prepare_draw that 1e3b37aee (task 18.1243.1) removed. Cargo builds the package's binary for every integration test target, so neither break can be qualified without the other: task 18.1243.2 ports both (payer.rs by its own do_ entries, balance_json and the CommittedProgramBalanceFreshness re-export by its new do_), and task 9.5.10 requires 18.1243.2 and adds only the balance_json_renders_committed_freshness test."
+basis = "9.5.10 attempts 1 to 3 (53836aa63 and successors) failed to build on payer.rs; 18.1243.2 attempt 5 (7b48f9091) failed to build on main.rs:2004; the crate has no library target that would let either gate avoid the binary."
+affects = ["9.5.10", "18.1243.2", "10.20.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20282,6 +20294,7 @@ ac_2 = "sandboxExecute with a zero asset reverts with LXP_NON_CANONICAL before s
 ac_3 = "A sandboxExecute that the host refuses at admission, settlement context or escrow settlement reverts with the result code of the refusing check: LXP_CONTEXT_MISMATCH when the payload's lease id, escrow, asset, fee destination or expected lease digest differs from the stored lease, LXP_TERMS_MISMATCH when the payload's fee schedule differs from the lease schedule, LXP_NOT_YET_VALID or LXP_EXPIRED when the batch lies outside the lease window, LXP_FEE_UNPAYABLE when the admitted or reserved charge exceeds the remaining escrow, LXP_SEQUENCE_MISMATCH when the expected sequence is not the ledger receipt count plus one, LXP_AUTH_SCOPE when the escrow charge authority is refused, LXP_ESCROW_STATE when the escrow does not permit the exact fee, and the kernel's own code when the escrow debit is refused by the kernel. LXP_NON_CANONICAL is reserved for a lease, escrow or ledger state that does not decode, a sandbox token or operation precondition, and a host fault."
 ac_4 = "A sandboxed call that reaches a SUCCESS terminal with a published sandbox usage result completes terminal_begin and terminal_publish with LXP_OK, and its outcome carries the usage result occupancy, fee units, the lease asset, a nonzero evidence digest and the usage transfer root (decision.1880)."
 ac_5 = "A funded and activated sandbox lease executed through lxp_programs_sandbox_execute with a guest that completes to SUCCESS returns LXP_OK, publishes exactly one usage receipt whose effect follows the seal frontier, and binds the outcome to the call admission; the sandboxExecute precompile handler then emits SandboxUsageReceipt for the same path."
+ac_6 = "A funded sandbox execution driven through lxp_kernel_execute_activity ends in a receipt: the kernel receipt projection binds the sandbox escrow-charge transfer effect to the program outcome's recorded transfer root instead of refusing it as an unreceipted monetary effect, and a monetary transfer effect of any other shape without a ledger receipt is still refused LXP_FATAL_INVARIANT."
 
 [req.13269]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -75591,6 +75604,14 @@ req = "13268.5"
 scenario = "Given a funded and activated sandbox lease, when a SANDBOX_EXECUTE with a guest that completes to SUCCESS runs through lxp_programs_sandbox_execute, then the kernel returns LXP_OK with one published usage receipt and a bound outcome."
 contract = "contracts/programs.md#layerxprograms-0x101d"
 test = "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_success_end_to_end"
+qualification = "UNRUN"
+
+[acceptance.13.268.6]
+feature = "13"
+req = "13268.6"
+scenario = "A kernel-level case funds and activates a sandbox lease, executes a guest that completes to SUCCESS through lxp_kernel_execute_activity and reads the receipt; a second case feeds the projection a monetary transfer effect whose root matches no program outcome."
+contract = "The first case receives LXP_OK and a receipt whose program outcome is present with the escrow charge bound; the second case receives LXP_FATAL_INVARIANT."
+test = "tests/codec/lxp_test_sandbox_receipt.c::sandbox_execute_receipt_binds_escrow_charge"
 qualification = "UNRUN"
 
 [acceptance.13.269.1]
@@ -140079,11 +140100,11 @@ title = "Render the committed program balance freshness in the daemon's balance 
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["9.5.8"]
+requires = ["9.5.8", "18.1243.2"]
 reqs = ["9026.2"]
 capabilities = []
 interfaces = []
-do_1 = "services/agent/crates/layerx-agentd/src/main.rs:1815 balance_json takes &ProgramBalanceRead<CommittedProgramBalanceFreshness> (src/read/program_balances.rs:44, :72), the type route.read returns at main.rs:2004 since dc4290e1f (task 9.5.8), and renders the committed freshness fields as that struct names them in place of the ProgramBalanceFreshness fields; every other key of the balance JSON stays as written. The layerx-agentd binary of package layerx-agentd-host has not compiled since that change (error E0308 at main.rs:2004)."
+do_1 = "Task 18.1243.2 lands the balance_json port (services/agent/crates/layerx-agentd/src/main.rs:1815 takes &ProgramBalanceRead<CommittedProgramBalanceFreshness>, re-exported from src/read/mod.rs) together with the payer.rs port that the binary also needs (decision.1899). This task starts from that main and adds the test of do_2 only; attempts 1 to 3 carried the port themselves and are superseded."
 do_2 = "Add balance_json_renders_committed_freshness under a #[cfg(test)] module in main.rs: it builds a ProgramBalanceRead<CommittedProgramBalanceFreshness> with one account and asserts the JSON carries that account and the committed freshness fields."
 symbols = ["balance_json", "balance_json_renders_committed_freshness"]
 touches = ["services/agent/crates/layerx-agentd/src/main.rs"]
@@ -140102,6 +140123,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempts 1 to 3 could not build the binary: services/agent/crates/layerx-agentd-host/src/payer.rs:333-353 still reads GrantTerms.current_height and calls prepare_budget and the one-argument prepare_draw that 1e3b37aee (task 18.1243.1) removed; 18.1243.2 ports them. Attempt 1 also imported CommittedProgramBalanceFreshness from layerx_agentd::read, which src/read/mod.rs:27-30 did not re-export."
 
 [task.9.6.1]
 title = "Produce offline exports v2 without settlement certificates"
@@ -153273,6 +153295,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 4 (7f91a6ec5) reaches the second challenge and the attestor refuses it with policy_denied: services/wallet/attestor/internal/auth/agent/authority.go:486 refuses KindAuthorization when a.config.Paymaster is the zero address and cmd/attestor/main.go:204 builds AuthorityConfig without Paymaster. Add EnvAgentPaymaster = ATTESTOR_AGENT_PAYMASTER to services/wallet/attestor/internal/config/config.go (optional; a present value is parsed as a 20-byte hex address and an invalid one refused the way EnvChainID is at config.go:163-168), pass it as Paymaster at main.go:204, and set ATTESTOR_AGENT_PAYMASTER to the PAYMASTER the gateway tests already delegate to (services/wallet/gateway/test/provisioning.test.ts:33 and the spawn env at :270-297, test/support/custody.ts:135-150) so the eip7702 authorization challenge is accepted; the attestor files and custody.ts are in touches now."
+do_6 = "Attempt 5 (9f0fe4c24) passes both challenges and fails only the last assertion at services/wallet/gateway/test/provisioning.test.ts:1037: the active provisioning state's did is the layerx DID of the agent key, did:layerx:<64-hex public key> (services/wallet/gateway/src/provision/bind.ts:29 DID_PREFIX; state.ts:582 admits no other form), as the same test already asserts for the wallets row at :993; the test agent's did:matrix:provisioning identifier is its registry identity, not the wallet DID. Assert did:layerx:${agent.publicKeyHex} for the active state and for the bound-wallet row that follows, then continue attempt 5: one build, one verify."
 
 [task.12.7.1]
 title = "Remove the agent LayerX deposit route, plan and vault inputs"
@@ -156121,6 +156144,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 4 (8b312e552) starts the standby with its own consensus key and the primary panics in consensus/internal/consensus/state.go:2622 with validator ... not in committee: the standby node home runs with mode full (consensus/config/toml.go:104, config.ModeFull at consensus/node/setup.go:124) so it never votes, while only the primary's validator key is in the genesis validator set; the sequencer standby role is independent of the consensus mode."
+do_6 = "Attempt 5 (ed80b37a0) starts the standby in mode full and the primary exits (node.log) with the consensus panic at consensus/internal/consensus/types/round_state.go:537 NewRoundEvent: validator 0C3B656ADF087B157B971D0634AD266971BCC3D6 not in committee, after its dial to the persistent peer fails. The leader the round state computes is not in the primary's validator set: compare the sequencer leader the script registers (add-genesis-sequencer-leader from the primary's priv_validator_key) and the standby's identity against app_state validators in the attempt's genesis.json, keep the committee the single genesis validator with the full-mode standby signing nothing, and start the primary before the standby dials it. Continue attempt 5: one build, one verify."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -159218,8 +159242,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
-wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1", "13.27.5", "13.27.6", "13.27.7"]
+wave = 17
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1", "13.27.5", "13.27.6", "13.27.7", "13.27.8"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
@@ -159257,6 +159281,7 @@ do_14 = "Attempt 30 (4b77fc397) settled the identical ABI-v3 payload through the
 do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUENCE_GAP (-300) at the ledger check src/ledger/lxp_apply.c:319-322 on the escrow-to-fees leg: a sandbox activity binds no ledger admission (src/protocol/lxp_kernel.c:486-487), so layerx_programs_call_transfer_apply (src/modules/programs/call.c:2276-2325) compares the activity's global sequence (ReadLastSequence+1, the WithSequence value of precompiles/layerxprograms/submit.go:64-87) with the main account's next_sequence, which fundFeeLimit (precompiles/layerxprograms/method_sandbox_execute_test.go:153-164) seeds from ReadIdentitySequence. In that closure seed next_sequence from ReadLastSequence(ctx, did)+1 instead of ReadIdentitySequence; keep seedAccount and every assertion including require.Equal(t, sequence, main.NextSequence), keep the initial identity-sequence seed at :89 that sandboxFund and sandboxActivate need (src/modules/programs/transfer.c:233-235 uses the account sequence there), and change nothing else, not expected_sequence 1, the digest, the fee limit, the ABI-v3 payloads, the ladder or method_sandbox_execute.go. The kernel's use of the account sequence in transfer.c and the global sequence in call.c for one activity type is recorded in qualification.kvx and is not this task's to change. If the gate then shows a different named code, record it and stop."
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
+do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
 [task.13.27.2]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -159442,6 +159467,37 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
 rollback = "Revert the four files; a sandboxed execute that reaches SUCCESS returns to LXP_FATAL_INVARIANT."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.13.27.8]
+title = "Bind the sandbox escrow-charge transfer effect in the kernel receipt projection"
+status = "pending"
+mode = "BUILD"
+wave = 17
+requires = ["13.27.7"]
+reqs = ["13268.6"]
+capabilities = []
+interfaces = []
+do_1 = "src/protocol/lxp_kernel.c:2372-2395 receipt_bind_ledger_projection: when module_ctx->ledger_receipt_present is false and an effect is monetary with kind LXP_EFFECT_TRANSFER, accept it only if module_ctx->module_id == LXP_MODULE_PROGRAMS, module_ctx->program_outcome.present is true and the effect's transfer_set_root (the field lxp_ctx_emit_monetary_transfer_set fills from the usage receipt at src/protocol/lxp_module_ctx.c:2213-2240) equals the one program-outcome root the sandbox path records from that same receipt (src/modules/programs/sandbox.c:709-710 copies usage_result.transfer_root into occupancy_transfer_root; transfer_root at include/layerx/lxp_receipt.h:74 is the call's own root); bind to that single field, no fallback between the two, and keep every other monetary effect without a ledger receipt LXP_FATAL_INVARIANT."
+do_2 = "On refusal, print the effect index, the effect root and the outcome root as hex on stderr beside the existing LXP_FATAL_INVARIANT return, so a kernel refusal of a receipt names its cause."
+do_3 = "Add tests/codec/lxp_test_sandbox_receipt.c on tests/codec/lxp_kernel_case.h (LXP_CASE_CHECK, lxp_kernel_case_main) in the shape of tests/codec/lxp_test_global_sequence.c: sandbox_execute_receipt_binds_escrow_charge funds and activates a sandbox lease, executes a SUCCESS guest through lxp_kernel_execute_activity (the path tests/codec/lxp_test_sandbox_lifecycle.c:703 does not take) and checks LXP_OK, program_outcome.present and the bound root; sandbox_receipt_refuses_foreign_monetary_transfer feeds the projection a monetary transfer effect with a root matching no outcome and checks LXP_FATAL_INVARIANT. The Makefile rule at Makefile:1377 builds build/tests/kernel/codec/<name> from tests/codec/<name>.c."
+do_4 = "Task 13.27.1's Go gate (TestProgramsSandboxExecuteEmitsUsage) continues on top of this kernel change; this task changes nothing under precompiles/ or src/modules/programs/."
+symbols = ["receipt_bind_ledger_projection", "lxp_ctx_emit_monetary_transfer_set", "lxp_kernel_execute_activity", "sandbox_execute_receipt_binds_escrow_charge", "sandbox_receipt_refuses_foreign_monetary_transfer"]
+touches = ["src/protocol/lxp_kernel.c", "tests/codec/lxp_test_sandbox_receipt.c"]
+tests = ["tests/codec/lxp_test_sandbox_receipt.c::sandbox_execute_receipt_binds_escrow_charge", "tests/codec/lxp_test_sandbox_receipt.c::sandbox_receipt_refuses_foreign_monetary_transfer"]
+planned_paths = ["tests/codec/lxp_test_sandbox_receipt.c"]
+build_cmd = "make -C . programs-release-build"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_receipt && ./build/tests/kernel/codec/lxp_test_sandbox_receipt sandbox_execute_receipt_binds_escrow_charge && ./build/tests/kernel/codec/lxp_test_sandbox_receipt sandbox_receipt_refuses_foreign_monetary_transfer"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert src/protocol/lxp_kernel.c to the unconditional refusal and delete tests/codec/lxp_test_sandbox_receipt.c."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -170002,6 +170058,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "This task has work only after the release-candidate run that measures the seven profiles is recorded in the feature qualification log; until then the provisional bounds of decision.1895 stand and the task changes nothing. Attempt 1 (06:03Z) changed no file and was refused as such; the task is not re-attempted before that run exists."
 
 [task.16.25.1]
 title = "Add tps_stats.py to summarise and compare benchmark TPS logs with exit codes"
@@ -188311,6 +188368,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "The build compiles the library and the binding and custody targets only; the crate's other test targets are outside this task and tests/agent_controls.rs does not compile on main until task 18.1228.1 ports it (finding.18.1172.2)."
 do_6 = "Attempts 5 (84b58d933) and 6 (914bf0d3b) fail to build tests/custody.rs:342: main passes the kernel Prepared where sign.rs:334 takes &SigningPreparation, and attach_kernel_signature (sign.rs:358) takes 64 bytes where the custody grant is 65 (src/custody/signer.rs:287). Neither call compiles as written; do_7 is the shape (decision.1897)."
 do_7 = "At custody.rs:339-344 build a SigningPreparation around the kernel Prepared the test already holds: transaction is an EvmPrepared from an Eip1559Call carrying prepared.canonical_bytes as data with the chain id, nonce and fees evm_signing.rs:171-179 uses and signing_hash = call.signing_hash(), actor_address is the key's EVM wallet address from the keystore (evm_wallet) and authorization is the Prepared; obtain the 65-byte signature over that signing hash from the custody signer (authorize_evm_plan for the plan the action belongs to, then sign_evm_action with the signing hash), call attach_external_signature(&preparation, signature) and assert verify_before_submit(&signed, &preparation, &preparation.actor_address, &registry()).is_ok(); keep the SignRequest grant assertions on signer_public_key, disclosure_digest and the audit events exactly as written (decision.1897)."
+do_8 = "Attempt 7 (1761cabc1) compiles both targets for the first time: tests/binding.rs on main still called raw_receipt_evidence with an AuthorizedBatch, a shape 351e3da14 (task 10.25.2) replaced by the pinned key and the two state roots in services/human/crates/layerx-human-test-support/src/lib.rs:423-430, so the two binding tests had never run since. They now fail at tests/binding.rs:58 with AgentBindingError::ContractViolation raised by the test's own InProcessAgentContract::submit_binding (tests/binding.rs:180-275), which collapses every failed check into that variant. Continue attempt 7: find the failing check (the intent kind, Governance ordinal 4 and payload prefix at :185-191; the evm_payout_binding disclosure did_id, payout_address and network_id 17 at :225-236; ledger_payment_call and bind_call at :241-253; recover_sender at :270) against the service's current bind path and correct the test fixture or its expectations to the contract as the service now writes it, weakening no check; if the service's bind path contradicts its own contract, record that in the evidence instead. custody.rs did not run yet because cargo stops at the first failing target."
 
 [task.18.1176.1]
 title = "Issue #1176: Issue #1176: Verify a committed-rung receipt view in the committed-proof crate"
@@ -190329,15 +190387,15 @@ title = "Issue #1243: Port the agent host payer to the ledger GrantTerms"
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["9.5.10"]
-reqs = ["181243.3"]
+requires = []
+reqs = ["181243.3", "9026.2"]
 capabilities = []
 interfaces = []
 do_1 = "services/agent/crates/layerx-agentd-host/src/payer.rs:326-337 prepare_grant: GrantTerms (services/agent/crates/layerx-mcp/src/tools/web.rs:461-470, changed by 1e3b37aee) no longer has current_height or prepare_budget; build the ledger Grant (layerx_crypto::payments::Grant, services/agent/crates/layerx-crypto/src/payments.rs:33) from the terms exactly as GrantTerms::prepare_grant (web.rs:579-606) checks it (from the payer account word, recipient and asset words, per_draw_maximum and allowance equal to amount, recurring false, window_length 0, expiration expires_at_ms, purpose_hash, has_reference true, reference_hash the idempotency key, revocation_sequence 0), keep the zero purpose_hash refusal and call terms.prepare_grant(&grant)."
 do_2 = "payer.rs:339-353 draw: read the receiver sequence with terms.next_sequence_call() (web.rs:611) through the host's eth_call path and decode it as web.rs sequence_result does, then call terms.prepare_draw(grant_id, receiver_sequence) (web.rs:620); keep the zero grant_id and zero purpose_hash refusals."
 do_3 = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs drops current_height from its GrantTerms literals (:358, :429) and the :389 assertion on it; web_grant_submits_a_signed_layerxpay_call becomes web_grant_submits_a_signed_ledger_issue_grant_call and asserts the submitted call targets the ledger precompile 0x101A with the issueGrant selector and the encoded IssueGrant payload; web_pay_exact_submits_a_signed_layerxpay_call keeps every assertion except the removed field."
 symbols = ["prepare_grant", "draw", "web_grant_submits_a_signed_ledger_issue_grant_call", "sign_grant", "sign_ledger_grant", "NativeLedgerIssueGrant"]
-touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/wallet/attestor/internal/server/native_purpose.go", "services/wallet/attestor/internal/policy/native/native.go", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs"]
+touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/wallet/attestor/internal/server/native_purpose.go", "services/wallet/attestor/internal/policy/native/native.go", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/read/mod.rs"]
 tests = ["services/agent/crates/layerx-agentd-host/tests/payer_evm.rs::web_grant_submits_a_signed_ledger_issue_grant_call"]
 planned_paths = []
 build_cmd = "(cd services/wallet/attestor && go build ./...) && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bins --test payer_evm"
@@ -190356,4 +190414,4 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Add pub fn sign_ledger_grant(&self, grant: &layerx_crypto::payments::Grant, session_id: &str, assertion: &str) -> Result<AttestorSignature, AttestorError> to AttestorSigner beside sign_native_local_grant (services/human/crates/layerx-human-kms/src/attestor.rs:960): refuse a grant whose public_key differs from self.public_key or whose signature is not zero, compute Grant::signing_digest and send it through request_native_signature with profile 2, operation ledger-issue-grant and the canonical grant record (the encode_grant bytes) in a new grant field of NativeSignBody, with purpose, capability, native_session and expiry_ms absent (decision.1893)."
 do_5 = "In the attestor server (services/wallet/attestor/internal/server/native_purpose.go) add NativeLedgerIssueGrant = ledger-issue-grant: decodeNativeRequest (:99-110) requires the grant field alone for it, doNativeSign (:195-224) decodes the canonical grant record, recomputes the digest exactly as Grant::signing_digest does (sha256 of the AuthorityHash domain tag, LXP:GRANT:v1 and bytes 32 to 282 of the record) and fills the policy coordinates from the record (ExpiresAtMS from expiration, Capability from purpose_hash, Session from reference_hash); the native policy (services/wallet/attestor/internal/policy/native/native.go:20-26) gains the LedgerIssueGrant constant and evaluates it like LocalGrantConsent, and the test cluster policy document of services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs lists the operation for the payer key."
 do_6 = "Implement WebPayer::sign_grant for WebPayerBoundary (services/agent/crates/layerx-agentd-host/src/payer.rs:359) through sign_ledger_grant with the session id and attestor assertion the payer already holds for its native signatures, so the default grant method (services/agent/crates/layerx-mcp/src/tools/web.rs:513-516) submits the signed IssueGrant; web_grant_submits_a_signed_ledger_issue_grant_call decodes the submitted payload and asserts Payment::IssueGrant verifies against signer.public_key()."
-do_7 = "Attempt 5 (7b48f9091) ports the six files and the build stops in the layerx-agentd binary at services/agent/crates/layerx-agentd/src/main.rs:2004 (balance_json, finding above), a break task 9.5.10 fixes; once it is on main, continue attempt 5 unchanged: one build, one verify."
+do_7 = "Attempt 5 (7b48f9091) ports the six files and the build stops in the layerx-agentd binary at services/agent/crates/layerx-agentd/src/main.rs:1815-2004 (balance_json), the break dc4290e1f (task 9.5.8) left; cargo builds the package's binary for the payer_evm test target, so this task carries that port too (decision.1899): re-export CommittedProgramBalanceFreshness from services/agent/crates/layerx-agentd/src/read/mod.rs:27-30 beside ProgramBalanceFreshness, and make balance_json take &ProgramBalanceRead<CommittedProgramBalanceFreshness> (src/read/program_balances.rs:44, :72), the type route.read returns at main.rs:2004, rendering the committed freshness fields as that struct names them while every other key of the balance JSON stays. Continue attempt 5 with that addition: one build, one verify."
