@@ -142,6 +142,8 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller common.Ad
 		output, err = p.escrowHandlers(ctx, method, caller, args, key, evm)
 	case "streamOpen", "streamTopUp", "streamMeter", "streamSettle", "streamPause", "streamResume", "streamClose":
 		output, err = p.streamHandlers(ctx, method, caller, args, key, evm)
+	case "serviceOfferPublish", "serviceOfferWithdraw", "serviceAgreementPropose", "serviceAgreementAccept", "serviceCommitTask", "serviceCommitAbandon", "serviceToolExecAttest", "serviceProgressReport", "serviceDeliver", "serviceAccept", "serviceReject", "serviceDisputeOpen", "serviceDisputeResolve":
+		output, err = p.serviceHandlers(ctx, method, caller, args, key, evm)
 	default:
 		var payload []byte
 		payload, key, err = payPayload(method.Name, args, key)

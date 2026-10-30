@@ -12731,3 +12731,139 @@ symbol = "App.sendEVMServerStartSignals"
 observed = "In attempt 10 (a48caaeb7, with 12.35.5 merged) all three nodes commit past 34742403 and the readiness script reports ready; TestLocalNodeV6120SequencerReceipt then fails at v6120_test.go:159 because the standby's EVM RPC refuses connections while the standby process is alive, and the verify-1 readiness failure was the script's result-envelope parse of /status, corrected in the same attempt."
 assumption = "The standby replays 34742402 against the mock app and finalizes every sequenced block through the sealed FinalizeBlocker branch (node/app.go:1798-1830), so ProcessBlock never sends the EVM start signal; task 12.35.6 sends it on sealed adoption and 12.35.4 re-qualifies a48caaeb7 unchanged after it."
 severity = "cross-task"
+
+[finding.15.4.9.1]
+task = "15.4.9"
+file = "sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift"
+symbol = "AuthorizedReceiptBatch"
+observed = "Attempt 1 (a8c1d088a) changed ReceiptGate.Evidence per do_1 to do_3, and swift build --package-path sdk/integrations/ios exited 1 at SampleEnvironment.swift:66 (cannot find AuthorizedReceiptBatch, retired by 8.44.5 at 73ca4abbc and already unresolved at base ef74aa6aa) and :64 (old initializer); that file was owned by 15.4.10, which requires 15.4.9, while the LayerXMobileTests target of do_3 depends on LayerXMobileSampleKit."
+assumption = "do_4 moves the SampleEnvironment.swift evidence decode into 15.4.9's touches; 15.4.10 keeps its decode test; the attempt 1 candidate continues."
+severity = "cross-task"
+
+[finding.15.0.4.1]
+task = "15.0.4"
+file = "sdk/integrations/express/src/index.ts:380"
+symbol = "BuyerMiddlewareConfig"
+observed = "At 1ac73d3e2 npm --prefix sdk/integrations/express run build exited 2: TS2353 receiptKeys not in BuyerMiddlewareConfig at src/index.ts:380 and TS2305 AuthorizedBatchResolver in buyer dist/index.d.ts:2, because services/platform/middleware/buyer/src/index.ts is unported since 8.22.1 (1923cc0b5; the same 7 errors as finding.8.26.4) and 15.0.4 required neither owner 8.23.2 nor 8.23.3."
+assumption = "15.0.4 requires 8.23.2 and 8.23.3 (both wave 19); the attempt 1 candidate qualifies once they land, after removing protocolVersion from its BuyerMiddleware literal."
+severity = "cross-task"
+
+[finding.15.4.1.1]
+task = "15.4.1"
+file = "sdk/integrations/next/src/index.ts:356"
+symbol = "BuyerMiddlewareConfig"
+observed = "At c5dbcb3a1 npm --prefix sdk/integrations/next run build exited 2: TS2353 receiptKeys not in BuyerMiddlewareConfig at src/index.ts:356 and TS2305 AuthorizedBatchResolver in buyer dist/index.d.ts:2, because services/platform/middleware/buyer/src/index.ts is unported since 8.22.1 (1923cc0b5; the same 7 errors as finding.8.26.4) and 15.4.1 required neither owner 8.23.2 nor 8.23.3."
+assumption = "15.4.1 requires 8.23.2 and 8.23.3 (both wave 19); the attempt 1 candidate qualifies once they land, after removing protocolVersion from its BuyerMiddleware literal."
+severity = "cross-task"
+
+[finding.10.16.5.1]
+task = "10.16.5"
+file = "services/human/crates/layerx-explorer-index/src/main.rs:375"
+symbol = "load_registry"
+observed = "Attempt 1 (1ee3780e9, base ef74aa6aa) fixed lib.rs and the package binary failed with E0061 at main.rs:375 (one-argument verify_historical_deployment, widened by 13.4.5 42c1fea30) and E0599 at :618 and :676 (from_protected_history, deleted by 13.4.6 0461a4f71); main.rs is identical at the base and on main and was hidden behind the lib.rs E0631 from 9.94.1."
+assumption = "decision.1849: main.rs joins 10.16.5's touches with do_3 and do_4 porting it to from_chain_trust and verify_journal_admission like 18.1310.1; the candidate continues; 17.5.1 to 17.5.4 need it for make workspace-build."
+severity = "cross-task"
+
+[finding.15.4.11.1]
+task = "15.4.11"
+file = "sdk/integrations/agents/src/daemon-budget.ts:111"
+symbol = "DaemonPreparationBudget.spendPrepared"
+observed = "npm --prefix sdk/integrations/agents run build exits 2 on candidate f5a9811e6 with 19 TS errors, all in files outside the touches (daemon-budget.ts:111, :118, :179; integration.ts:51; service-providers.ts:167-219; services.ts:185, :212; tools.ts:402-422); the same errors are present unchanged at base ef74aa6aa and on main b6e9f699c after the middleware and wallet API changes of 8.24.2, 8.24.3 and 12.27.2, and no task owned daemon-budget.ts, integration.ts or service-providers.ts."
+assumption = "The whole-package build passes only when one task owns every consumer of the changed middleware API in sdk/integrations/agents; the touches, requires and do lines of 15.4.11 are widened (do_6 to do_11) and 15.4.12 keeps its tests; the attempt 1 candidate continues."
+severity = "cross-task"
+
+[finding.15.4.2.1]
+task = "15.4.2"
+file = "sdk/integrations/fastapi/layerx_fastapi/config.py"
+symbol = "ReceiptKeys"
+observed = "do_1 and do_3 imported ReceiptKeys from layerx_sdk; the Python SDK has no such name (its pinned key type is PxReceiptKeyEntry with decode_px_receipt_keys, services/agent/sdk/python/layerx_sdk/px.py:146, :574) and no task adds one, so the verify fails at collection with ImportError at test_receipt_keys_config.py:6 (pytest exit 4) at 9b3c4e5e5, 396ff66c8 and 3cc47f0a5."
+assumption = "do_1 assumed task 9.0.3 added ReceiptKeys to the Python SDK; the only planned Python key type is ReceiptKey of task 9.96.1 (wave 29), so the do lines name the existing PxReceiptKeyEntry and 15.4.3, which verifies receipts, requires 9.96.1 at wave 30."
+severity = "owner"
+
+[finding.15.4.2.2]
+task = "15.4.2"
+file = "sdk/integrations/fastapi/layerx_fastapi/__init__.py:11"
+symbol = "parse_authorized_batch"
+observed = "layerx_fastapi/__init__.py:11 imports parse_authorized_batch, which 15.4.2 do_3 deletes; the file was outside 15.4.2 touches and edited only by 15.4.4 do_2 in wave 25, so from layerx_fastapi import config cannot import after 15.4.2 alone."
+assumption = "15.4.2 owns the __init__.py import and export of the parser it replaces (do_5); the attempt 2 candidate continues."
+severity = "cross-task"
+
+[finding.9.10.2.1]
+task = "9.10.2"
+file = "services/agent/schema/agent-api/programs.kvx"
+symbol = "NativeProgramWindDownRequest"
+observed = "Attempt 1 changed no file and stopped under decision.1840: precompiles/layerxprograms/abi.json declares setExitRoute, deprecate, tombstone and exitValue and no single wind-down call, so the one selector key of do_5 could not be filled without inventing a value."
+assumption = "Decision 1953 declares one selector per NativeProgramWindDown variant tag (do_6) and 9.18.4 validates the four keys (do_7); the next attempt implements do_1 to do_6."
+severity = "owner"
+
+[finding.18.1308.2.3]
+task = "18.1308.2"
+file = "sdk/platform/go/operation_catalog_test.go:30"
+symbol = "catalogOperation"
+observed = "Attempt 6 (44ac45f83) passed generate_portable.py --check and failed TestProgramOperationsHaveNoRestRoute (operation_catalog_test.go:72) and TestPortableCataloguesMatchOperationsJson (portable_catalogue_test.go:56) with cannot unmarshal object into Go struct field .operations, because 2c7b45fd3 (task 8.46.3) keyed sdk/platform/conformance/operations.json by the O1-O79 identifiers and left both tests decoding a flat array; identical at base cf390c804 and on main."
+assumption = "do_11 ports both decodes to the keyed form inside this task, portable_catalogue_test.go joining touches; the attempt 6 candidate continues."
+severity = "cross-task"
+
+[finding.15.4.5.1]
+task = "15.4.5"
+file = "sdk/integrations/spring/pom.xml"
+symbol = "layerx-sdk"
+observed = "Attempts 1 to 3 (latest 55902a3ea) failed in the build before compiling: mvn -f sdk/integrations/spring/pom.xml could not resolve com.sidiora.layerx:layerx-sdk:jar:0.1.0, the sibling that sdk/platform/jvm/pom.xml builds and that a reactor-less mvn resolves only from the local repository."
+assumption = "The environment that runs the gates installs sdk/platform/jvm/pom.xml before a pom under sdk/integrations is built; attempt 4 (9df9d3bfa) compiled past dependency resolution."
+severity = "environment"
+
+[finding.15.4.7.1]
+task = "15.4.7"
+file = "sdk/integrations/android/pom.xml"
+symbol = "layerx-sdk"
+observed = "Attempts 1 and 2 (latest 9454c8300) failed in the build before compiling: mvn -f sdk/integrations/android/pom.xml could not resolve com.sidiora.layerx:layerx-sdk:jar:0.1.0, the sibling that sdk/platform/jvm/pom.xml builds and that a reactor-less mvn resolves only from the local repository."
+assumption = "The environment that runs the gates installs sdk/platform/jvm/pom.xml before a pom under sdk/integrations is built; attempt 3 (faaeae131) compiled past dependency resolution."
+severity = "environment"
+
+[finding.5.7.1.1]
+task = "5.7.1"
+file = "node/app.go:522"
+symbol = "LayerXAnchorKeeper"
+observed = "Task 5.7.1 (ae2beed63) do_4 removed the LayerXAnchorKeeper construction and the kvStoreKeyNames mount and task 5.41.3 removed LayerXAnchorStoreKey and its MemIAVLStoreKeys entry, while the v7.0 handler of task 5.6.5 still calls RetireAtMerge at node/upgrades.go:490 under decision.631 and req.5049 ac_4, so every v7.0 application panics at modules/layerxanchor/keeper/keeper.go:31 (5.16.3 attempts 3 and 4, 5.6.9 attempts 3 and 4, 6.47.1 attempt 3)."
+assumption = "Decision.1954 keeps the keeper constructed and the store mounted until the store-delete step; task 5.7.5 restores them and replaces the unmounted-store assertions of node/store_delete_test.go:21-24, :36, :41 and storage/common/keys/store_keys_test.go:143-150; 5.16.3, 5.6.9 and 6.34.1 require it."
+severity = "owner"
+
+[finding.5.16.3.2]
+task = "5.16.3"
+file = "node/upgrades.go:490"
+symbol = "migrateMergeState"
+observed = "At f44cda72d TestMergeRehearsalFirstSequencedBlock fails at node/merge_rehearsal_test.go:116: after validateMergePrecompiles passes, RetireAtMerge at node/upgrades.go:490 dereferences the zero-value LayerXAnchorKeeper (node/app.go:522, never constructed since 5.7.1; no layerxanchor store mounted since 5.7.1 and 5.41.3), panicking at modules/layerxanchor/keeper/keeper.go:31; attempt 4 (7962e2a7c) failed the same way."
+assumption = "Task 5.7.5 (decision.1954) restores the wiring and this task requires it; the attempt 3 test is re-qualified unchanged."
+severity = "cross-task"
+
+[finding.5.6.9.2]
+task = "5.6.9"
+file = "node/upgrades.go:490"
+symbol = "migrateMergeState"
+observed = "Candidate 63f39679f fails TestMergePlanActivatesGatedPrecompiles at node/upgrades_merge_activation_test.go:99 with a nil pointer dereference in layerxanchor Keeper.ModuleAddress (keeper.go:31) reached from RetireAtMerge at node/upgrades.go:490, because node/app.go:522 leaves LayerXAnchorKeeper unconstructed and the layerxanchor store unmounted since 5.7.1 (ae2beed63) while the v7.0 handler of 5.6.5 and decision.631 still retire anchor bonds there; the constructor gate that failed attempts 1 and 2 now passes, and attempt 4 (64e590a7e) failed the same way."
+assumption = "Task 5.7.5 (decision.1954) restores the wiring and this task requires it; the attempt 3 test is re-qualified unchanged."
+severity = "cross-task"
+
+[finding.15.4.7.2]
+task = "15.4.7"
+file = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/LayerXAndroid.java:80"
+symbol = "LayerXAndroid.gate"
+observed = "Attempt 3 (faaeae131) exited 1 in mvn -q -f sdk/integrations/android/pom.xml -Psample -DskipTests package at LayerXAndroid.java:80 because the ReceiptGate(ReceiptResolver, LocalVerifier.ReceiptKeys) constructor that do_2 requires broke its only caller, which no task's touches held and no do line gave a key source; attempt 4 (ce3064d37) added a one-argument constructor fed by a resolver default method and then stopped at RelayReceiptResolver.java:82."
+assumption = "Keys come from the new PublishableConfiguration declared key layerx.receipt_keys (LAYERX_RECEIPT_KEYS_JSON), LayerXAndroid.gate keeps one argument, ReceiptGate keeps one constructor, and the attempt 3 candidate is continued."
+severity = "owner"
+
+[finding.15.4.7.3]
+task = "15.4.7"
+file = "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java:82"
+symbol = "RelayReceiptResolver.evidence"
+observed = "The -Psample build and verify test-compile src/sample/java, where RelayReceiptResolver.java:82 constructs the LocalVerifier.AuthorizedReceiptBatch that a54c32322 (8.42.5) retired and the two-field Evidence; that port was 15.4.8 do_1 and do_2, and 15.4.8 requires 15.4.7, so neither gate of 15.4.7 could pass."
+assumption = "The resolver port moves into 15.4.7 as do_6 with the file in its touches; 15.4.8 keeps RelayReceiptResolverTest.java::parsesSignedReceiptPayload."
+severity = "cross-task"
+
+[finding.15.4.5.2]
+task = "15.4.5"
+file = "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:57"
+symbol = "LocalVerifier.AuthorizedReceiptBatch"
+observed = "Attempt 4 (9df9d3bfa) changed only the five declared paths, and mvn -q -f sdk/integrations/spring/pom.xml -DskipTests package exited 1 with eight cannot-find-symbol AuthorizedReceiptBatch errors in Fulfillments.java:12,15, DurableStores.java:524,525 and SellerMiddleware.java:43,57,80,153, a type that a54c32322 (8.42.5) removed from the JVM SDK; the module has not compiled on main since that commit."
+assumption = "The spring module cannot compile until LayerXProperties, SellerMiddleware, Fulfillments, DurableStores and X402 are ported with the 15.4.5 files, and three of those belonged to 15.4.6, which required 15.4.5, so 15.4.6 is folded into 15.4.5 with LayerXProperties.java and X402.java in its touches and the attempt 4 candidate is continued."
+severity = "owner"
