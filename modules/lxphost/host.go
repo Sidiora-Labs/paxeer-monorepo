@@ -174,7 +174,7 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
                                             lx_escrow_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
-                                            lx_perps_module_iface());
+                                            lx_perps_oracle_transport_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_spot_module_iface());

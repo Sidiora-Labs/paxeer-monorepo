@@ -129,21 +129,49 @@ describe('PaxeerXAccountPageContent', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-capability="addr"]')?.textContent).toBe('Available');
     });
-    expect(container.querySelector('[data-capability="custody"]')?.textContent).toBe('Available');
-    expect(container.querySelector('[data-capability="anchor"]')?.textContent).toBe('Available');
+    expect(container.querySelector('[data-capability="custody"]')).toBeNull();
+    expect(container.querySelector('[data-capability="anchor"]')).toBeNull();
   });
 
   it('marks a surface the node does not answer for', async() => {
     fetchMock.resetMocks();
-    mockApi(paxeerXMock.unifiedAccount, capabilitiesMock.addrOnly);
+    mockApi(paxeerXMock.unifiedAccount, capabilitiesMock.none);
 
-    const { container } = await renderPage();
+    const { container } = render(<PaxeerXAccount/>);
 
     await waitFor(() => {
-      expect(container.querySelector('[data-capability="custody"]')?.textContent).toBe('Not available');
+      expect(container.querySelector('[data-capability="addr"]')?.textContent).toBe('Not available');
     });
-    expect(container.querySelector('[data-capability="addr"]')?.textContent).toBe('Available');
+    expect(container.querySelector('[data-capability="custody"]')).toBeNull();
+    expect(container.querySelector('[data-capability="anchor"]')).toBeNull();
   });
+
+  async function account_page_has_no_custody_notice() {
+    routerState.query = { hash: HASH, tab: 'assets' };
+
+    for (const capabilities of [ capabilitiesMock.allEnabled, capabilitiesMock.addrOnly ]) {
+      fetchMock.resetMocks();
+      mockApi(paxeerXMock.unifiedAccount, capabilities);
+
+      const { container, unmount } = render(<PaxeerXAccount/>);
+
+      await waitFor(() => {
+        expect(container.querySelector('[data-capability="addr"]')?.textContent).toBe('Available');
+        expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+          .toBe('A total of 2 assets found');
+      });
+      expect(container.querySelectorAll('[data-asset]')).toHaveLength(2);
+      expect(container.querySelectorAll('[data-capability]')).toHaveLength(1);
+      expect(container.querySelector('[data-capability="custody"]')).toBeNull();
+      expect(container.querySelector('[data-capability="anchor"]')).toBeNull();
+      expect(container.querySelector('[data-capability-notice="custody"]')).toBeNull();
+      expect(container.textContent).not.toMatch(/custody|anchoring|kernel/i);
+
+      unmount();
+    }
+  }
+
+  it(account_page_has_no_custody_notice.name, account_page_has_no_custody_notice);
 
   it('lists the sections of the account as pills with their counts', async() => {
     const { container } = await renderPage();

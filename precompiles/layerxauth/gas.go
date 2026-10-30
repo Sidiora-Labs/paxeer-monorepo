@@ -7,7 +7,6 @@ var GasTable = pcommon.GasTable{
 	"grantSessionSuccessor": {Write: true, Surcharge: 38600},
 	"grantCapability":       {Write: true, Surcharge: 34760},
 	"revokeGrant":           {Write: true, Surcharge: 5000},
-	"resultByIdempotency":   {Write: false, Surcharge: 1204},
 	"getGrant":              {Write: false, Surcharge: 1108},
 	"isLive":                {Write: false, Surcharge: 1300},
 	"sessionKey":            {Write: false, Surcharge: 1108},
