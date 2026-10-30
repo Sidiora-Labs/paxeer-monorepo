@@ -192884,7 +192884,7 @@ qualification = "UNRUN"
 
 [task.18.1302.1]
 title = "Issue #1302: Invalidate capability-grant sessions on an on-chain GrantRevoked record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1304.1"]
