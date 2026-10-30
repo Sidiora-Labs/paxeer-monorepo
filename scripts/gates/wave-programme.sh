@@ -18,7 +18,6 @@ if [[ $# -ne 0 ]]; then
 fi
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-log_dir="${GATE_LOG_DIR:-$root/.logs/wave-programme}"
 runner_arguments=()
 for command in "${commands[@]}"; do
     read -r -a arguments <<< "$command"
@@ -26,4 +25,4 @@ for command in "${commands[@]}"; do
 done
 
 exec python3 "$root/scripts/gates/run_gate.py" \
-    --wave programme --log-dir "$log_dir" "${runner_arguments[@]}"
+    --wave programme --log-dir "${GATE_LOG_DIR:-$root/logs/waves/programme}" "${runner_arguments[@]}"
