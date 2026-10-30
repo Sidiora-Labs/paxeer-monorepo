@@ -11181,3 +11181,13 @@ fix = "A commit listener returns an error that Commit propagates so consensus ha
 title = "A library compile break in a shared crate fails every dependent task's build until the port task lands"
 symptom = "After 42c1fea30 (13.4.5) changed the registry verifier API, layerx-agentd stopped compiling and 18.1302.1, 18.1286.1, 18.1275.1, 10.20.3 and 18.1172.2 each failed their build on the same 13 errors across repeated attempts."
 fix = "Open the port task first (18.1304.1), add it to requires of every open task whose build or verify names the broken crate, and hold their attempts until it is on main; an attempt against a broken crate is wasted."
+
+[gotcha.2274]
+title = "Re-recording a shared fixture with many consumers: land the consumers first in a form that is invariant to the change"
+symptom = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json has about 35 consumers in eight crates that rotate or permute the recorded PaymentExact topics; re-recording it first would leave about 25 test targets red until every consumer task lands."
+fix = "Make each consumer derive its expected values from the recorded inputs (here the payExact calldata words) so it passes on the old and the new recording, land those in wave 0, then re-record the fixture together with its byte-equal copies and pinned literals in one revision."
+
+[gotcha.2275]
+title = "A requirement on a done task that sits in a later wave is a bad_ref for the plan validator"
+symptom = "18.1304.1 (wave 0) requiring 13.4.5 (wave 23, done) and 18.1305.1 requiring 1.24.1 (wave 23, done) raised bad_refs 2 although both requirements were satisfied."
+fix = "Do not list a done task from a later wave in requires; cite its commit in a do line and give the new task an empty requires or requires in its own or earlier waves."

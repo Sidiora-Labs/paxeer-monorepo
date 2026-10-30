@@ -12051,3 +12051,11 @@ symbol = "TestPayGenesisRehearsalKeepsKernelState"
 observed = "Attempts 3 and 4 (candidate 2dbedf1cc, same test) pass the byte-equal re-export at :133 but fail :150, :192, :239, :247 and :253. ExportGenesis (modules/layerxpay/keeper/genesis.go:26-29) carries only modules 2-5 and 7, so the ledger asset record 0x01 0x0001, seven 0x06 account records, the 0x03 identity sequences and the 0x02 last global sequence (modules/lxphost/ctx.go:62-66) never reach the restored host (sequence 12 vs 2)."
 assumption = "The former req.2319 ac_1 asked pay genesis to keep the last global sequence, which req.2253 ac_1, TestPayGenesisRoundTrip (genesis_test.go:56-58, :73) and GenesisState.Validate (types/params.go:39) exclude; decision.1925 narrows ac_1 and the scenario, and a host-store genesis task carries the host state."
 severity = "owner"
+
+[finding.18.1211.5.1]
+task = "18.1211.5"
+file = "daemon/committed-fixture/vectors/vector-v2-receipted-revert.json"
+symbol = "vector-v2-receipted-revert"
+observed = "daemon/committed-fixture/vectors/vector-v2-receipted-revert.json (provenance 9e6b79d65), services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json, the layerx-bridge-relayer and layerx-gas-station test fixtures and services/interop/specs/conformance/x402/settlement-response.json are self-verified copies of the sequencer receipt vectors that no test compares to sdk/platform/conformance/fixtures/sequencer-receipt-v1.json; they stay green and go stale once 18.1211.5 re-records the source."
+assumption = "Each owning domain re-records its copy when it next changes that fixture; 18.1211.5 leaves them untouched (decision.1928)."
+severity = "owner"
