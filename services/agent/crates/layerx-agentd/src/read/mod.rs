@@ -29,7 +29,8 @@ pub use program_balances_impl::{
     ProgramBalanceRead, ProgramValueBalance, ProtocolProgramBalanceReader,
 };
 pub use program_node::{
-    LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute, ProgramReadError,
+    ChainHeadError, LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute,
+    ProgramReadError,
 };
 
 /// Verifies the block header and its Comet precommit quorum at the requested height.
