@@ -320,18 +320,18 @@ impl WebPayer for SharedPayer {
             .validate_search_quote(asset, amount)
     }
 
-    fn grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
+    fn grant(&mut self, grant_terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
         self.0
             .lock()
             .map_err(|_| WebPayerError::Unavailable)?
-            .grant(terms)
+            .grant(grant_terms)
     }
 
-    fn pay(&mut self, terms: &ExactTerms) -> Result<PrecompileCall, WebPayerError> {
+    fn pay(&mut self, pay_terms: &ExactTerms) -> Result<PrecompileCall, WebPayerError> {
         self.0
             .lock()
             .map_err(|_| WebPayerError::Unavailable)?
-            .pay(terms)
+            .pay(pay_terms)
     }
     fn draw(
         &mut self,
