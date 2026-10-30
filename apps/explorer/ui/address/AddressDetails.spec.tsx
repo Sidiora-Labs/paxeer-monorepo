@@ -85,7 +85,7 @@ describe('AddressDetails', () => {
     expect(container.querySelectorAll('[data-address-details]')).toHaveLength(1);
   });
 
-  it('heads the third card with the contract information when the address has no kernel account', async() => {
+  it('heads the third card with the contract information when the address has no unified account', async() => {
     answer(addressMock.contract, false);
 
     const { container } = render(<Harness/>);
@@ -94,7 +94,7 @@ describe('AddressDetails', () => {
       expect(cardTitles(container)).toEqual([ 'Overview', 'More info', 'Contract info' ]);
     });
 
-    expect(container.querySelector('[data-kernel-account-link]')).toBeNull();
+    expect(container.querySelector('[data-unified-account-link]')).toBeNull();
   });
 
   it('counts the transactions and the transfers in the more-info card', async() => {
@@ -126,7 +126,7 @@ describe('AddressDetails', () => {
     });
   });
 
-  it('replaces the third card with the kernel account when the address has one', async() => {
+  it('replaces the third card with the unified account when the address has one', async() => {
     answer(addressMock.validator, true);
 
     const { container } = render(<Harness/>);
@@ -135,13 +135,30 @@ describe('AddressDetails', () => {
       expect(cardTitles(container)).toEqual([ 'Overview', 'More info', 'Paxeer X account' ]);
     });
 
-    const kernelCard = container.querySelector('[data-address-card="Paxeer X account"]') as HTMLElement;
+    const unifiedCard = container.querySelector('[data-address-card="Paxeer X account"]') as HTMLElement;
 
-    expect(Array.from(kernelCard.querySelectorAll('[data-identity]')).map((item) => item.getAttribute('data-identity')))
+    expect(Array.from(unifiedCard.querySelectorAll('[data-identity]')).map((item) => item.getAttribute('data-identity')))
       .toEqual([ 'evm', 'pax', 'did', 'kernel_account' ]);
-    expect(kernelCard.querySelector('[data-kernel-account-link]')?.getAttribute('href'))
+    expect(unifiedCard.querySelector('[data-unified-account-link]')?.getAttribute('href'))
       .toBe(`/paxeer-x/account/${ HASH }`);
   });
+
+  async function address_links_unified_account_page() {
+    answer(addressMock.validator, true);
+
+    const { container } = render(<Harness/>);
+
+    await waitFor(() => {
+      const link = container.querySelector('a[data-unified-account-link]');
+
+      expect(link?.getAttribute('href')).toBe(`/paxeer-x/account/${ HASH }`);
+      expect(link?.textContent).toBe('View unified account');
+    });
+
+    expect(container.querySelector('[data-kernel-account-link]')).toBeNull();
+  }
+
+  it(address_links_unified_account_page.name, address_links_unified_account_page);
 
   it('offers the token-holdings selector only for an address that holds tokens', async() => {
     answer(addressMock.eoa, false);
