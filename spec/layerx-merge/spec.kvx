@@ -134111,7 +134111,7 @@ do_7 = "This task no longer waits for task 8.0.4: that gateway router proof cove
 
 [task.8.12.4]
 title = "Port the registry journal and producer TLS tests to the current journal and fixture interfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["8.12.3"]
