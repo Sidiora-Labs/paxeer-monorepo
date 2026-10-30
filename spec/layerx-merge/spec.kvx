@@ -122444,7 +122444,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.12.4]
 title = "Serve 0x101D layerxprograms from the merge plan height through the activation list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["6.0.2", "6.6.5", "13.0.3", "5.19.4"]
@@ -160490,7 +160490,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.95.1]
 title = "Generate the layerxprograms protos into a programs-owned Go package linked into the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["13.0.3", "7.0.3", "18.1073.1"]
@@ -190486,7 +190486,7 @@ qualification = "UNRUN"
 
 [task.8.94.8]
 title = "Port the authority sponsored registration decode to the payments re-export"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.94.4", "18.1297.1"]
