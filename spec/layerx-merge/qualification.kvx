@@ -13235,3 +13235,11 @@ symbol = "assert_outcome, ProtocolEvidence::bound_activity"
 observed = "Attempt 8 (fa18da842) ran on 9f8c07033, which lacks 64c4d6a23 (18.1204.2: sign_transaction, budgetCreate disclosure), so the fixture had no EIP-1559 signer to port to; the verify stopped at agent_controls and never ran session_keys, archive, session_rungs or agent_controls_rungs, whose agent_controls_rungs.rs:854-855 reaches the same refusal."
 assumption = "On a base carrying 64c4d6a23 and c67d97c08, do_11 to do_13 complete the port with the agent_creation_rungs.rs sign_transaction pattern; the refusal at create.rs:535-536 is the intended contract of 10.97.1 and 18.1204.2 and is not changed."
 severity = "cross-task"
+
+[finding.18.1211.5.3]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-interop-service/Cargo.toml:8"
+symbol = "layerx-interop-gateway"
+observed = "Attempt 6 (222f916 on dee4a39aa): build exit 0; every verify leg passed through layerx-visa-tap sequencer_result and the last leg failed with 'no library targets found in package layerx-interop-service' because the package declares only the binary layerx-interop-gateway and the verify selected --lib; attempts 1 to 5 never reached this leg."
+assumption = "The verify leg selects --bin layerx-interop-gateway, which compiles the touched src/server.rs with the package's unit tests; the attempt 6 content is re-qualified unchanged."
+severity = "task"
