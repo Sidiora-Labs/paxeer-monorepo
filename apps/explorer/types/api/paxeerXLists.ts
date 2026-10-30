@@ -2,12 +2,12 @@ export const PAXEER_X_NATIVE_RUNGS = [ 'submitted', 'receipted', 'committed' ] a
 
 export type PaxeerXNativeRung = typeof PAXEER_X_NATIVE_RUNGS[number];
 
-export const PAXEER_X_STATUS_RUNGS = [ 'pending', 'instant', 'sealed', 'final' ] as const;
+export const PAXEER_X_STATUS_RUNGS = [ 'submitted', 'receipted', 'committed' ] as const;
 
 export type PaxeerXStatusRung = typeof PAXEER_X_STATUS_RUNGS[number];
 
 export type PaxeerXTxStatus = {
-  rung: PaxeerXNativeRung;
+  rung: PaxeerXStatusRung;
   block_number: number | null;
   committed_height: number | null;
 };

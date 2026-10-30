@@ -140,6 +140,8 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller common.Ad
 		output, err = p.budgetHandlers(ctx, method, caller, args, key, evm)
 	case "escrowOpen", "escrowCapture", "escrowPartialCapture", "escrowRelease", "escrowTimeout", "escrowDisputeOpen", "escrowDisputeResolve":
 		output, err = p.escrowHandlers(ctx, method, caller, args, key, evm)
+	case "streamOpen", "streamTopUp", "streamMeter", "streamSettle", "streamPause", "streamResume", "streamClose":
+		output, err = p.streamHandlers(ctx, method, caller, args, key, evm)
 	default:
 		var payload []byte
 		payload, key, err = payPayload(method.Name, args, key)
@@ -255,28 +257,11 @@ func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{})
 	if output, handled, err := p.serviceViewHandlers(ctx, method, args); handled {
 		return output, err
 	}
-	id := args[0].([32]byte)
 	switch method.Name {
 	case "getEscrow", "escrowRemaining", "getEscrowResult":
 		return p.escrowHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
-	case "getStream":
-		r, e := p.keeper.GetStream(ctx, id)
-		if e != nil {
-			return nil, e
-		}
-		return method.Outputs.Pack(r.ABITuple())
-	case "getStreamResult":
-		r, e := p.keeper.GetStreamResult(ctx, id)
-		if e != nil {
-			return nil, e
-		}
-		return method.Outputs.Pack(r.ABITuple())
-	case "streamAccrued":
-		accrued, unsettled, e := p.keeper.StreamAccrued(ctx, id)
-		if e != nil {
-			return nil, e
-		}
-		return method.Outputs.Pack(accrued.BigInt(), unsettled.BigInt())
+	case "getStream", "getStreamResult", "streamAccrued":
+		return p.streamHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
 	case "getBudget", "budgetRemaining":
 		return p.budgetHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
 	default:

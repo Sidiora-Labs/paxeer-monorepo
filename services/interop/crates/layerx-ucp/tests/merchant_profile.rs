@@ -77,6 +77,22 @@ fn fixture_array<const N: usize>(value: &serde_json::Value) -> [u8; N] {
         .unwrap_or_else(|_| panic!("expected {N} fixture bytes"))
 }
 
+fn payment_exact_words(case: &serde_json::Value) -> [[u8; 32]; 3] {
+    let transaction = fixture_bytes(&case["rawTransaction"]);
+    let offsets: Vec<usize> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact selector");
+    let calldata = &transaction[offsets[0] + 4..];
+    [5, 0, 1].map(|word| {
+        calldata[word * 32..(word + 1) * 32]
+            .try_into()
+            .unwrap_or_else(|_| panic!("recorded payExact word {word}"))
+    })
+}
+
 fn replace_signed_field(unsigned: &mut [u8], before: [u8; 32], after: [u8; 32]) {
     let offsets: Vec<usize> = unsigned
         .windows(32)
@@ -115,7 +131,10 @@ fn signed_receipt(
     let signed = fixture_bytes(&case["signedReceipt"]);
     let mut unsigned = signed[..signed.len() - 69].to_vec();
     let recorded_topics = topics.concat();
-    topics = vec![topics[0], idempotency_key, topics[1], recipient];
+    let [reference, from, to] = payment_exact_words(&case);
+    topics = vec![topics[0], reference, from, to];
+    topics[1] = idempotency_key;
+    topics[3] = recipient;
     let offsets: Vec<usize> = unsigned
         .windows(recorded_topics.len())
         .enumerate()

@@ -54,6 +54,22 @@ fn recorded_array<const N: usize>(value: &Value) -> [u8; N] {
         .expect("recorded field width")
 }
 
+fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = recorded_hex(&case["rawTransaction"]);
+    let offsets: Vec<_> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact calldata selector");
+    let start = offsets[0] + 4;
+    [5, 0, 1].map(|word| {
+        transaction[start + word * 32..start + (word + 1) * 32]
+            .try_into()
+            .expect("recorded payExact calldata word")
+    })
+}
+
 fn recorded_payment(case: &Value) -> ExecutedPayment {
     ExecutedPayment {
         evidence: SequencerEvidence {
@@ -148,19 +164,16 @@ impl Drop for IntentKey {
 }
 
 fn sign_payment_reference(
+    case: &Value,
     evidence: &mut SequencerEvidence,
     payment: &AuthorizedPayment,
     key: &IntentKey,
 ) -> [u8; 32] {
     assert_eq!(evidence.logs.len(), 1, "one recorded PaymentExact log");
     let log = &evidence.logs[0];
+    let [_, payer, payee] = recorded_payment_topics(case);
     let old_topics = log.topics()[1..].concat();
-    let topics = vec![
-        log.topics()[0],
-        payment.idempotency_key(),
-        log.topics()[1],
-        log.topics()[2],
-    ];
+    let topics = vec![log.topics()[0], payment.idempotency_key(), payer, payee];
     let positions: Vec<_> = evidence
         .signed_receipt
         .windows(old_topics.len())
@@ -693,8 +706,8 @@ fn mandate_payment_reference_is_the_recorded_digest() {
         minor_unit_exponent: 2,
         atomic_units_per_minor_unit: 1,
         asset: log.data()[..32].try_into().expect("recorded asset"),
-        payer_receipt_account: log.topics()[1],
-        payee_receipt_account: log.topics()[2],
+        payer_receipt_account: recorded_payment_topics(case)[1],
+        payee_receipt_account: recorded_payment_topics(case)[2],
         payee_merchant: Merchant::new("merchant-001", "Test Merchant", None).expect("merchant"),
     };
     let (checkout, payment) = direct_pair(amount);
@@ -707,7 +720,7 @@ fn mandate_payment_reference_is_the_recorded_digest() {
     let authorized = layerx_ap2::authorize_payment(&principal, &verified, &verification, &binding)
         .expect("authorized recorded payment");
     let receipt_key = IntentKey::new();
-    let digest = sign_payment_reference(&mut executed.evidence, &authorized, &receipt_key);
+    let digest = sign_payment_reference(case, &mut executed.evidence, &authorized, &receipt_key);
     assert_eq!(
         canonical_receipt_digest(&executed.evidence.signed_receipt),
         Ok(digest)
