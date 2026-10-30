@@ -121764,7 +121764,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.10]
 title = "Serve recorded precompile info before the keeper-free dry run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.6.3", "6.6.4"]
