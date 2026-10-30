@@ -12307,3 +12307,67 @@ symbol = "assert_settled"
 observed = "3c571b28e (task 11.1.1) made the gateway record canonical_receipt_digest while tests/gateway.rs:893, :936 and :1005 expect sha256 of the signed receipt; red at d4aaf37ed before this task's attempts 1 to 4 (3fb028d41)."
 assumption = "do_3 switches the three expectations to canonical_receipt_digest; the attempt 4 candidate continues."
 severity = "cross-task"
+
+[finding.2.28.6.4]
+task = "2.28.6"
+file = "precompiles/layerxpay/stream_test.go:210"
+symbol = "TestPrecompileStreamViews"
+observed = "Attempt 6 (ee967669c, same tree as attempt 5 91aa237a9) built and its verify exited 1 only in TestPrecompileStreamViews/time and /metered at stream_test.go:210, where the expected Refunded big.NewInt(0) (nil nat) is not DeepEqual to the ABI-decoded zero (empty nat); the assertion dates from attempt 1 (2471b7cfc) and first ran once the import cycle (attempts 1-4) and the layerxauth build break (attempt 5) cleared."
+assumption = "Comparing ABI encodings of expected and decoded values at :210 and :216 (budget_test.go:173-178, gotcha.1481) keeps every value and lets the three tests pass with no production change."
+severity = "task"
+
+[finding.10.20.3.7]
+task = "10.20.3"
+file = "services/agent/crates/layerx-agentd/src/main.rs:1768"
+symbol = "load_registry"
+observed = "Attempt 13 (1565a0751, the attempt 12 candidate f189d2634 re-qualified on fb1c2cf88) built layerx-human-service and layerx-runtime-clock and the layerx-agentd binary failed with E0061 at main.rs:1768, the one-argument verify_historical_deployment call against the four-argument signature 42c1fea30 (13.4.5) gave protocol_evidence.rs:3372, in a file this task does not touch."
+assumption = "Task 18.1310.1 do_4 ports load_registry; this task requires it and the attempt 13 candidate continues unchanged once it lands."
+severity = "cross-task"
+
+[finding.18.1309.1.2]
+task = "18.1309.1"
+file = "modules/layerxauth/keeper/views.go:167"
+symbol = "ResultByIdempotency"
+observed = "Attempts 3 (941a71872, base fb1c2cf88) and 4 (8a7140771, base 53d78901c) of 18.1309.1 completed only the two declared tests/explorer files, and the build again stopped at modules/layerxauth/keeper/views.go:167 (k.host.ReadIdempotentReceipt undefined, left behind by a0a08d298 of 1.25.2), because neither base contains the 18.1308.1 fix 90bda704a, which reached main at 510b28cc7."
+assumption = "Re-qualifying the attempt 4 candidate unchanged on a base at or after 510b28cc7 gets past make -f chain.mk install without any change inside this task's touches."
+severity = "cross-task"
+
+[finding.18.1275.1.2]
+task = "18.1275.1"
+file = "services/agent/crates/layerx-crypto/src/evm_transaction.rs:207"
+symbol = "Eip1559Call::sign"
+observed = "Attempt 5 (ee935f775, the attempt 4 candidate c051ac84f re-qualified) built and passed core_create_identity_is_read_from_the_signed_v1_and_v2_bytes, and cg spec done 18.1275.1 exited 1 (log /out/logs/verify-1.log) with `✗ symbol Eip1559Call::sign — not defined in the graph` because the method is declared in layerx-crypto outside the touched directory and the qualification graph never indexed that crate; attempts 1 (9543e7e99) and 4 (c051ac84f) stopped at build errors in untouched files and attempts 2 (3460be1c0) and 3 (0622b2f8a) at the :549 v1 source assertion, so the check never ran before."
+assumption = "Eip1559Call::sign is a layerx-crypto method the task only calls at tests/budget_durable_limits.rs:279, so it leaves the symbols list as gotcha.1869 and finding.10.2.5 direct, and the attempt 5 candidate is re-qualified unchanged."
+severity = "note"
+
+[finding.17.5.1.7]
+task = "17.5.1"
+file = "services/agent/crates/layerx-agentd/src/main.rs:1768"
+symbol = "load_registry"
+observed = "Attempt 7 (dd5b5641f, base 710592c26; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_0_gate.py::test_wave_0_gate_passes exit 1, logs/waves/0/wave-0.log) exited 2 in make workspace-build while compiling the layerx-agentd binary, on the same base where 17.5.2 and 17.5.4 print E0061 at main.rs:1768 from 42c1fea30 (13.4.5), which 096e161e1 (18.1310.1) ported after the base was cut."
+assumption = "17.5.1 requires 18.1310.1 and re-qualifies the attempt 6 test unchanged; make workspace-lint has not yet run on any attempt."
+severity = "cross-task"
+
+[finding.17.5.2.7]
+task = "17.5.2"
+file = "services/agent/crates/layerx-agentd/src/main.rs:1768"
+symbol = "load_registry"
+observed = "Attempt 7 (d9c803cc7, base 710592c26; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_1_gate.py::test_wave_1_gate_passes exit 1, logs/waves/1/wave-1-1.log) exited 2 in make workspace-build with E0061 at main.rs:1768, the one-argument verify_historical_deployment left by 42c1fea30 (13.4.5), which 096e161e1 (18.1310.1) ported after the base was cut."
+assumption = "17.5.2 requires 18.1310.1 and re-qualifies the attempt 7 test unchanged; steps 2 to 4 have not yet run on any attempt."
+severity = "cross-task"
+
+[finding.17.5.3.3]
+task = "17.5.3"
+file = "services/agent/crates/layerx-agentd/src/main.rs:1768"
+symbol = "load_registry"
+observed = "Attempt 5 (21bc0a531, base 710592c26; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_2_gate.py::test_wave_2_gate_passes exit 1, logs/waves/2/wave-2.log) exited 2 in make workspace-build while compiling the layerx-agentd binary, on the same base where 17.5.2 and 17.5.4 print E0061 at main.rs:1768 from 42c1fea30 (13.4.5), which 096e161e1 (18.1310.1) ported after the base was cut."
+assumption = "17.5.3 requires 18.1310.1 and re-qualifies the attempt 4 test unchanged; steps 2 to 4 have not yet run on any attempt."
+severity = "cross-task"
+
+[finding.17.5.4.2]
+task = "17.5.4"
+file = "services/agent/crates/layerx-agentd/src/main.rs:1768"
+symbol = "load_registry"
+observed = "Attempt 5 (b78eee5c8, base 710592c26; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_3_gate.py::test_wave_3_gate_passes exit 1, logs/waves/3/wave-3-1.log) exited 2 in make workspace-build with E0061 at main.rs:1768, the one-argument verify_historical_deployment left by 42c1fea30 (13.4.5), which 096e161e1 (18.1310.1) ported after the base was cut."
+assumption = "17.5.4 requires 18.1310.1 and re-qualifies the attempt 4 test unchanged; the later wave 3 steps have not yet run on any attempt."
+severity = "cross-task"
