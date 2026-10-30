@@ -193052,7 +193052,7 @@ qualification = "UNRUN"
 
 [task.18.1279.2]
 title = "Issue #1279 follow-up: MCP web payments bind 32-byte ledger asset and account ids"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1304.1", "18.1310.1"]
