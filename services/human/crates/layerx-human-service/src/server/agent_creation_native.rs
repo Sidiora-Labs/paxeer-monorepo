@@ -322,20 +322,30 @@ impl ProductionAgentCreation<'_> {
             return Ok(None);
         };
         let bytes = row.bytes().to_vec();
-        let activity = layerx_intents::owner_activity::verify(&bytes, self.runtime.registry())
-            .map_err(|_| AgentFailure::Refused("invalid retained owner activity"))?;
-        let descriptor = self.signing_descriptor(scope.principal(), action)?;
-        if activity.actor_did() != self.actor.as_str().as_bytes()
-            || activity.authority() != descriptor.public_key
-            || activity.payload() != action.compiled.payload().as_bytes()
-            || activity.payload_hash() != action.compiled.payload_hash()
-            || activity.activity_type() != action.compiled.activity_type()
-            || activity.idempotency_key() != action.action_key
+        let signed = SignedCreationTransaction::decode(&bytes)?;
+        let payload = signed.payload(self.runtime.registry())?;
+        self.signing_descriptor(scope.principal(), action)?;
+        let wallet = self
+            .custody
+            .evm_wallet(scope.principal(), &action.custody_key)
+            .map_err(|_| AgentFailure::Refused("retained custody wallet is unavailable"))?;
+        let binding = self
+            .custody
+            .evm_binding(scope.principal(), &action.custody_key)
+            .map_err(|_| AgentFailure::Refused("retained custody binding is unavailable"))?;
+        if signed.disclosure.actor != signed.owner_public_key[12..]
+            || signed.owner_public_key[12..] != wallet
+            || signed.network_id != binding.network_id()
+            || payload != *action.compiled.payload()
+            || layerx_intents::canonical::payload_hash_for(&payload)
+                .map_err(|_| AgentFailure::Refused("invalid retained payload identity"))?
+                != action.compiled.payload_hash()
+            || signed.disclosure.activity_type != action.compiled.activity_type()
+            || signed.disclosure.idempotency_key != action.action_key
         {
             return Err(AgentFailure::Refused("retained owner request differs"));
         }
-        let activity_id = layerx_intents::canonical::activity_id(&activity)
-            .map_err(|_| AgentFailure::Refused("invalid retained owner identity"))?;
+        let activity_id = signed.activity_id;
         let material = match self
             .runtime
             .receipt_by_idempotency_key(action.action_key, activity_id)
@@ -346,7 +356,7 @@ impl ProductionAgentCreation<'_> {
         };
         ProductionAgentCreation::protocol_evidence(
             bytes,
-            descriptor.public_key,
+            signed.owner_public_key,
             self.runtime.registry(),
             material,
         )
