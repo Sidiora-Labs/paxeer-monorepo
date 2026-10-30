@@ -13163,3 +13163,11 @@ symbol = "LNI_V1_SOURCE"
 observed = "Attempt 6 (b3481553d on 019a38eed) exited in the build_cmd before any test ran: layerx-human-service pulls layerx-client (services/human/Cargo.toml:31) and schema.rs:4 include_str!s services/agent/schema/lni/v1.kvx, which 019a38eed (task 9.19.1 do_1) deleted while its gate built only the boundary-check tool crate; the constant has no reader in services/ and the same error stops every crate of services/agent, services/human and services/platform that depends on layerx-client."
 assumption = "Task 9.19.2 (wave 1) deletes schema.rs:3-4; 18.1204.2 requires it and re-qualifies the attempt 6 implementation unchanged on a base carrying it."
 severity = "owner"
+
+[finding.9.19.2.1]
+task = "9.19.2"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "task.9.19.2.symbols"
+observed = "At 32bb224a7 (on c9e2ebd94) the build_cmd exited 0 and the verify test passed, and cg spec done refused with one failed graph check, `symbol LNI_V1_SOURCE — not defined in the graph`, because the task block listed the symbol it deletes under symbols."
+assumption = "With symbols = [] (the form 9.19.1 used for its deletions) the done gate passes on the same candidate unchanged."
+severity = "spec"
