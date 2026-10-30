@@ -109126,7 +109126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.22.3]
 title = "Answer retired connected templates with the frozen not-served envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["4.22.2"]
