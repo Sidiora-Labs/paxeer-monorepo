@@ -143777,7 +143777,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.94.1]
 title = "Read program balances through eth_call on 0x101D in agentd instead of the protocol adapter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.0.2", "6.0.2", "9.1.8", "18.1131.1", "18.1121.1", "9.98.1", "18.1206.1", "18.1243.2"]
