@@ -117473,7 +117473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.49.3]
 title = "Refuse the bridge-profile branch in --migrate-snapshot-issuance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["5.49.2", "5.0.2", "16.23.2"]
@@ -118190,7 +118190,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.54.6]
 title = "Retire the epoch module daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["5.0.3", "16.0.3", "16.35.1", "5.54.4"]
