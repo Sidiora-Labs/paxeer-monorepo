@@ -13243,3 +13243,43 @@ symbol = "layerx-interop-gateway"
 observed = "Attempt 6 (222f916 on dee4a39aa): build exit 0; every verify leg passed through layerx-visa-tap sequencer_result and the last leg failed with 'no library targets found in package layerx-interop-service' because the package declares only the binary layerx-interop-gateway and the verify selected --lib; attempts 1 to 5 never reached this leg."
 assumption = "The verify leg selects --bin layerx-interop-gateway, which compiles the touched src/server.rs with the package's unit tests; the attempt 6 content is re-qualified unchanged."
 severity = "task"
+
+[finding.9.96.2.1]
+task = "9.96.2"
+file = "programs/tests/vectors/snapshot-binding-v2.hex"
+symbol = "snapshot_binding_v2_decodes_vector"
+observed = "Attempts 1 to 3 (d25f05df6, 45ff20d08, 4b6c6654a) fail verify_cmd with 'cannot read shared vector programs/tests/vectors/snapshot-binding-v2.hex: No such file or directory': task 13.29.3 writes the vector and listed 9.96.2 and 8.96.2, its consumers, in its requires, so the file could never exist before the test that reads it."
+assumption = "The producer precedes its consumers: 13.29.3 moves to wave 24 requiring 13.29.2 and 13.0.4 only, 9.96.2 requires 13.29.3, and the attempt 3 decoder is re-qualified unchanged after 13.29.3 lands."
+severity = "cross-task"
+
+[finding.14.32.6.1]
+task = "14.32.6"
+file = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx"
+symbol = "PaxeerXAnchorsTableItem"
+observed = "Attempt 1 (0bc000881 on 1edd22588) failed anchors_table_item_renders_archive_row with 'Unable to find an element with the text: 1042': the component ported by 14.32.2 (cac32b02a) renders no batch number cell although PaxeerXArchiveAnchor carries batch_number and req.14287 ac_1 names it; the spec on main also expects ANCHOR_SETTLEMENT_RUNG 'sealed', a value PAXEER_X_STATUS_RUNGS has not had since 14.31.1."
+assumption = "14.32.6 owns the component and the table header, adds the batch number cell and column and aligns the spec's rung expectation with the component's 'receipted'; 14.32.2 stays done."
+severity = "cross-task"
+
+[finding.9.33.8.3]
+task = "9.33.8"
+file = "services/agent/tools/sdk-gen/src/main.rs:467"
+symbol = "Rung"
+observed = "Attempt 5 (f389355d9 on bf4e10a64) ran make agent-sdk-generate and build_cmd exited 2 with ten TS2551/TS2694 errors because the generator lowercases the TypeScript Rung members (to_ascii_lowercase added by 0246e6ea4, task 9.18.4, asserted by tests/major_two.rs:50) while errors.kvx:31 variants, the committed client (291e43bc0 output), acceptance.9.358.1/9.359.2/9.372.1 and all seven callers spell Submitted, Receipted, Committed."
+assumption = "Decision 1970 fixes the TypeScript members as the schema variant names; new task 9.18.10 (requires 9.18.9) restores verbatim emission and corrects major_two.rs:50; 9.33.8 requires 9.18.10 and regenerates after it."
+severity = "cross-task"
+
+[finding.9.33.8.4]
+task = "9.33.8"
+file = "services/agent/sdk/typescript/src/agent-http.ts:391"
+symbol = "AGENT_ENVELOPE_OPERATION_NAMES"
+observed = "The same build reports TS2322 at src/agent-http.ts:391, src/production.ts:21 and test/agent-operation-envelope.test.ts:461 because the regenerated Operation union drops faucet.claim: the schema has had no [operation.faucet.claim] since 77f70145f (task 9.1.5, decision.904), the generator collects [operation.*] sections only (main.rs:164), and the committed client.ts:85 was generated at 291e43bc0 before that removal; none of the three files was in the task's touches."
+assumption = "The regenerated union is correct; 9.33.8's touches grow by the three files, which carry faucet.claim as a string-typed retired wire name refused before the request is sent, as RETIRED_OPERATIONS does at agent_rpc.rs:25 (decision 1970)."
+severity = "owner"
+
+[finding.18.1228.1.7]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:137"
+symbol = "assert_outcome, layerx_proof::receipt::verify_outcome, ReceiptCheck::Operation"
+observed = "Attempt 9 (09ee34cfb on bf4e10a64) completed do_11 to do_13; bound_activity accepts the sign_transaction owner, and the do_12 call layerx_proof::receipt::verify_outcome refuses the fixture receipt with check Operation because receipt.rs:367-368 rejects operation tag 0 for module Budget 3, while finalization_evidence (src/server/agent_creation.rs:649) and change_protocol_limit (src/agents/controls.rs:628), which the same test target needs to succeed, require that tag to be 0; the verify stopped at agent_controls and the four remaining human targets did not run."
+assumption = "The generic verifier admits native owner receipts only after task 9.27.5 (decision.929, wave 35); until then the fixture verifies the sequencer signature with receipt::verify_sequencer_signature and asserts batch and roots against the AuthorizedBatch (do_15), the operation tag stays 0, and no file under src changes."
+severity = "task"
