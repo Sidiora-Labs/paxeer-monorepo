@@ -5,6 +5,11 @@ import XCTest
 @testable import LayerXSDK
 
 final class PortableReceiptTests: XCTestCase {
+  private typealias PortableReceipt = LayerXSDK.PortableReceipt
+
+  private struct PublishedFixture: Decodable {
+    let bundles: [[String: JSONValue]]
+  }
   private struct Fixture: Decodable { let cases: [Vector] }
   private struct Vector: Decodable {
     let id: String
@@ -136,6 +141,46 @@ final class PortableReceiptTests: XCTestCase {
         batchProof: .init(total: 2, index: 0, aunts: [CommittedWire.leaf(leaves[1])]),
         nextHeader: next, nextCommit: try commit(next), nextValidators: validators),
       commit: signed, validators: validators)
+  }
+
+  func testPortableVectorV5Verifies() throws {
+    let url = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent().deletingLastPathComponent()
+      .deletingLastPathComponent().deletingLastPathComponent()
+      .appendingPathComponent("conformance/fixtures/vector-v5-portable.json")
+    let bundles = try JSONDecoder().decode(
+      PublishedFixture.self, from: Data(contentsOf: url)
+    ).bundles
+    XCTAssertEqual(bundles.count, 2)
+    let levels = try bundles.map { try XCTUnwrap($0["verificationLevel"]?.stringValue) }
+    XCTAssertEqual(Set(levels), ["receipted", "committed"])
+
+    for bundle in bundles {
+      let level = try XCTUnwrap(bundle["verificationLevel"]?.stringValue)
+      let carriedKey = try XCTUnwrap(bundle["receiptKey"]?.objectValue)
+      func height(_ field: String) throws -> UInt64 {
+        let text = try XCTUnwrap(carriedKey[field]?.stringValue)
+        XCTAssertTrue(text.hasPrefix("0x"), field)
+        let value = try XCTUnwrap(UInt64(text.dropFirst(2), radix: 16))
+        XCTAssertEqual(text, "0x" + String(value, radix: 16), field)
+        return value
+      }
+      let pinned = try ReceiptKeys(
+        keyId: hex(XCTUnwrap(carriedKey["keyId"]?.stringValue)),
+        publicKey: hex(XCTUnwrap(carriedKey["publicKey"]?.stringValue)),
+        firstHeight: height("firstHeight"), lastHeight: height("lastHeight"))
+      let bytes = try encode(bundle)
+      let verified = try PortableReceipt.verify(bytes, keys: [pinned])
+      XCTAssertEqual(verified.verificationLevel, level, level)
+      XCTAssertEqual(verified.status, 1, level)
+      XCTAssertEqual(
+        verified.receiptDigest, try hex(XCTUnwrap(bundle["receiptDigest"]?.stringValue)), level)
+      XCTAssertEqual(
+        verified.receiptVerification.canonicalBytes,
+        try hex(XCTUnwrap(bundle["signedReceipt"]?.stringValue)), level)
+      XCTAssertEqual(verified.committed?.level, level == "committed" ? level : nil, level)
+      XCTAssertEqual(verified.export(), bytes, level)
+    }
   }
 
   func testPortableReceiptRoundTripsAtReceipted() throws {

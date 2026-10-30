@@ -16,12 +16,26 @@ fn transaction_object() -> Value {
         "maxPriorityFeePerGas":"0x1", "maxFeePerGas":"0x2", "gas":"0x5208",
         "to":"0x2222222222222222222222222222222222222222", "value":"0x0",
         "data":"0xdeadbeef", "accessList":[],
+        "from":"0x1111111111111111111111111111111111111111",
     })
 }
 
 fn command(endpoint: &str, transaction: &str) -> Result<Output, Box<dyn std::error::Error>> {
+    command_with_sender(
+        endpoint,
+        transaction,
+        Some("0x1111111111111111111111111111111111111111"),
+    )
+}
+
+fn command_with_sender(
+    endpoint: &str,
+    transaction: &str,
+    from: Option<&str>,
+) -> Result<Output, Box<dyn std::error::Error>> {
     let directory = tempfile::tempdir()?;
-    Ok(Command::new(env!("CARGO_BIN_EXE_layerx"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_layerx"));
+    command
         .env("LAYERX_CONFIG", directory.path().join("config.json"))
         .args([
             "--json",
@@ -30,13 +44,28 @@ fn command(endpoint: &str, transaction: &str) -> Result<Output, Box<dyn std::err
             "wallet",
             "estimate-fee",
             transaction,
-        ])
-        .output()?)
+        ]);
+    if let Some(from) = from {
+        command.args(["--from", from]);
+    }
+    Ok(command.output()?)
 }
 
 fn quote(
     transaction: &str,
     responses: Vec<Value>,
+) -> Result<(Output, Vec<Value>), Box<dyn std::error::Error>> {
+    quote_with_sender(
+        transaction,
+        responses,
+        "0x1111111111111111111111111111111111111111",
+    )
+}
+
+fn quote_with_sender(
+    transaction: &str,
+    responses: Vec<Value>,
+    from: &str,
 ) -> Result<(Output, Vec<Value>), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let endpoint = format!("http://{}/rpc", listener.local_addr()?);
@@ -94,13 +123,57 @@ fn quote(
         }
         Ok(requests)
     });
-    let output = command(&endpoint, transaction)?;
+    let output = command_with_sender(&endpoint, transaction, Some(from))?;
     let requests = server.join().map_err(|_| "RPC server panicked")??;
     Ok((output, requests))
 }
 
 fn result(value: &str) -> Value {
     json!({"jsonrpc":"2.0", "id":1, "result":value})
+}
+
+#[test]
+fn estimate_fee_sends_the_intended_sender() -> Result<(), Box<dyn std::error::Error>> {
+    let from = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed";
+    let (output, requests) =
+        quote_with_sender(TRANSACTION, vec![result("0x5208"), result("0x2")], from)?;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mut expected = transaction_object();
+    expected["from"] = json!("0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed");
+    assert_eq!(
+        requests,
+        vec![
+            json!({"jsonrpc":"2.0", "id":1, "method":"eth_estimateGas", "params":[expected, "pending"]}),
+            json!({"jsonrpc":"2.0", "id":1, "method":"eth_gasPrice", "params":[]}),
+        ]
+    );
+
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    listener.set_nonblocking(true)?;
+    let endpoint = format!("http://{}/rpc", listener.local_addr()?);
+    for from in [
+        None,
+        Some("0x11"),
+        Some("0xgggggggggggggggggggggggggggggggggggggggg"),
+    ] {
+        let output = command_with_sender(&endpoint, TRANSACTION, from)?;
+        assert!(!output.status.success(), "accepted sender {from:?}");
+        if from.is_some() {
+            let error: Value = serde_json::from_slice(&output.stderr)?;
+            assert_eq!(error["error"]["code"], "invalid_transaction");
+        } else {
+            assert!(String::from_utf8_lossy(&output.stderr).contains("--from"));
+        }
+        match listener.accept() {
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+            connection => panic!("invalid sender contacted the endpoint: {connection:?}"),
+        }
+    }
+    Ok(())
 }
 
 #[test]

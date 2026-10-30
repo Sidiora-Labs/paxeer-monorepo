@@ -30,13 +30,21 @@ final class SequencerReceiptTests: XCTestCase {
     let check: String?
   }
   private func vectors(_ kind: String) throws -> [Vector] {
+    let files = [
+      "V1": "vector-v1-receipted-positive.json",
+      "V2": "vector-v2-receipted-revert.json",
+      "V3": "vector-v3-receipt-refusals.json",
+    ]
+    let file = try XCTUnwrap(files[kind])
     let path = URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent().deletingLastPathComponent()
       .deletingLastPathComponent().deletingLastPathComponent()
-      .appendingPathComponent("conformance/fixtures/sequencer-receipt-v1.json")
-    return try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: path)).cases.filter {
-      $0.vector == kind
+      .appendingPathComponent("conformance/fixtures/\(file)")
+    let cases = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: path)).cases
+    for vector in cases {
+      XCTAssertEqual(vector.vector, kind, vector.id)
     }
+    return cases
   }
   private func hex(_ s: String) throws -> Data {
     XCTAssertTrue(s.hasPrefix("0x"))
@@ -47,7 +55,9 @@ final class SequencerReceiptTests: XCTestCase {
         try XCTUnwrap(UInt8(String(chars[$0...($0 + 1)]), radix: 16))
       })
   }
-  private func verify(_ v: Vector, standby: Bool = false) throws -> SequencerReceiptVerification {
+  private func verifySequencerReceipt(_ v: Vector, standby: Bool = false) throws
+    -> SequencerReceiptVerification
+  {
     let key = ReceiptKeys(
       keyId: try hex(v.pinnedKey.keyId), publicKey: try hex(v.pinnedKey.publicKey),
       firstHeight: v.pinnedKey.firstHeight, lastHeight: v.pinnedKey.lastHeight)
@@ -67,23 +77,27 @@ final class SequencerReceiptTests: XCTestCase {
     let cases = try vectors("V1")
     XCTAssertEqual(cases.count, 4)
     for v in cases {
-      let result = try verify(v, standby: true)
+      let result = try verifySequencerReceipt(v, standby: true)
       XCTAssertEqual(result.level, v.expected.rung, v.id)
       XCTAssertEqual(result.status, 1, v.id)
+      XCTAssertEqual(
+        v.receiptJson["status"], .string("0x" + String(result.status, radix: 16)), v.id)
       XCTAssertNil(result.revert, v.id)
       XCTAssertEqual(result.receiptDigest, try hex(v.receiptDigest), v.id)
       XCTAssertEqual(result.canonicalBytes, try hex(v.signedReceipt), v.id)
       XCTAssertEqual(result.receipt.contextHash, try hex(v.pinnedKey.keyId), v.id)
-      XCTAssertEqual(try verify(v).receiptDigest, result.receiptDigest, v.id)
+      XCTAssertEqual(try verifySequencerReceipt(v).receiptDigest, result.receiptDigest, v.id)
     }
   }
   func testSequencerReceiptV2RevertDecodesReason() throws {
     let cases = try vectors("V2")
     XCTAssertEqual(cases.count, 1)
     for v in cases {
-      let result = try verify(v)
+      let result = try verifySequencerReceipt(v)
       XCTAssertEqual(result.level, v.expected.rung)
       XCTAssertEqual(result.status, 0)
+      XCTAssertEqual(
+        v.receiptJson["status"], .string("0x" + String(result.status, radix: 16)), v.id)
       XCTAssertEqual(result.receipt.resultCode, 1)
       XCTAssertEqual(result.receiptDigest, try hex(v.receiptDigest))
       XCTAssertEqual(
@@ -119,9 +133,15 @@ final class SequencerReceiptTests: XCTestCase {
       let refusal = try XCTUnwrap(expected[v.id])
       XCTAssertEqual(v.expected.refusedAt, refusal.rung, v.id)
       XCTAssertEqual(v.expected.check, refusal.description, v.id)
-      XCTAssertThrowsError(try verify(v), v.id) { error in
+      XCTAssertThrowsError(try verifySequencerReceipt(v), v.id) { error in
         XCTAssertEqual((error as? PlatformSDKError)?.receiptCheck, refusal.check, v.id)
       }
     }
+  }
+
+  func testPublishedVectorFilesMatchRecordedCases() throws {
+    try testSequencerReceiptV1CasesVerifyReceipted()
+    try testSequencerReceiptV2RevertDecodesReason()
+    try testSequencerReceiptV3RefusalsNameTheirCheck()
   }
 }
