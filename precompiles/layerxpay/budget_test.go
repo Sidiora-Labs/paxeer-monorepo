@@ -1,4 +1,4 @@
-package layerxpay
+package layerxpay_test
 
 import (
 	"crypto/ed25519"
@@ -11,6 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -87,9 +88,9 @@ func budgetTestWrite(t *testing.T, h *payPrecompileHarness, caller common.Addres
 		require.NotEqual(t, [32]byte{}, key)
 		var payload []byte
 		if name == "budgetPull" {
-			payload, err = paytypes.EncodeBudgetPull(args[0].([32]byte), args[1].([32]byte), payU128(args[2]), key, args[3].([]byte))
+			payload, err = paytypes.EncodeBudgetPull(args[0].([32]byte), args[1].([32]byte), lp.PayU128(args[2]), key, args[3].([]byte))
 		} else {
-			payload, err = paytypes.EncodeBudgetDelegateSpend(args[0].([32]byte), args[1].([32]byte), payU128(args[2]), key)
+			payload, err = paytypes.EncodeBudgetDelegateSpend(args[0].([32]byte), args[1].([32]byte), lp.PayU128(args[2]), key)
 		}
 		require.NoError(t, err)
 		require.Equal(t, key[:], payload[82:114])
