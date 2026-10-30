@@ -6,6 +6,7 @@ import (
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	agentkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/keeper"
 	agenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
@@ -19,6 +20,15 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )
+
+type agentKeepers struct {
+	utils.Keepers
+	agent *agentkeeper.Keeper
+}
+
+func (k agentKeepers) LayerXAgentK() *agentkeeper.Keeper {
+	return k.agent
+}
 
 func TestSchedulerMergeConstructorNeedsAgentKeeper(t *testing.T) {
 	application := testkeeper.EVMTestApp
@@ -73,9 +83,7 @@ func TestSchedulerJobOutcomesAreTypedEvents(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newSchedulerHarness(t)
-			application := *testkeeper.EVMTestApp
-			application.LayerXAgentKeeper.Keeper = h.keeper
-			built, err := scheduler.NewMergePrecompile(application.GetPrecompileKeepers(), schedulerPlan)
+			built, err := scheduler.NewMergePrecompile(agentKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), &h.keeper}, schedulerPlan)
 			require.NoError(t, err)
 			h.precompile = built.(*scheduler.SchedulerPrecompile)
 			h.evm.SetPrecompiles(map[common.Address]vm.PrecompiledContract{built.Address(): built})

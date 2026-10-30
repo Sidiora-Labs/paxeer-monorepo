@@ -101885,7 +101885,7 @@ do_5 = "The planned test file is package layerxpay_test and reaches unexported n
 
 [task.2.40.3]
 title = "Match 0x101B service dispute writes against direct HostExecute"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.28.7", "2.38.2"]
@@ -140973,7 +140973,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.10.2]
 title = "Answer program operations and pin the programs schema to rungs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.10.1", "9.0.2", "9.0.3", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1"]
@@ -141915,7 +141915,7 @@ do_4 = "The agent-qualification-gates bin compiles only after task 9.18.8 ports 
 
 [task.9.18.8]
 title = "Port the qualification fabrication gate to rungs and block heights"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.1.1", "9.1.7", "9.1.4"]
@@ -193780,7 +193780,7 @@ qualification = "UNRUN"
 
 [task.9.12.7]
 title = "Hold the human runtime's node connection behind HumanNode and read heads, receipt keys and history through it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.12.5", "9.10.2", "9.1.8", "18.1131.1"]
