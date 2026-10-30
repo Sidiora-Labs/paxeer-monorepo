@@ -153300,7 +153300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.6.6]
 title = "Challenge the agent once per sponsored bind envelope and confirm the bound agent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["12.6.5", "18.1113.1"]
@@ -159276,7 +159276,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.1]
 title = "Serve sandboxExecute with its fee limit and usage receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1", "13.27.5", "13.27.6", "13.27.7", "13.27.8"]
