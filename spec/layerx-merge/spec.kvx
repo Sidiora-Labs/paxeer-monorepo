@@ -99926,7 +99926,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.25.1]
 title = "Implement stream open and top up in the pay keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "1.24.1"]
@@ -99957,7 +99957,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.25.2]
 title = "Implement stream meter, settle and close in the pay keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "1.24.1"]
@@ -99988,7 +99988,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.25.3]
 title = "Implement stream pause, resume and the kernel rate change"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "1.24.1"]
@@ -100083,7 +100083,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.26.1]
 title = "Implement service offer publish and withdraw in the pay keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "1.24.1"]
@@ -100114,7 +100114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.26.2]
 title = "Implement service agreement propose, accept, commit and abandon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "1.24.1"]
@@ -100145,7 +100145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.26.3]
 title = "Implement service tool attest, progress, deliver, accept and reject"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "1.24.1"]
@@ -157897,7 +157897,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.6.6]
 title = "Drop kernel batch header decoding from lease transition evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["13.6.3", "13.4.5"]
@@ -157927,7 +157927,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.6.7]
 title = "Drop kernel receipt decoding from terminal lease evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["13.6.4", "13.4.5"]
