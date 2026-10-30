@@ -12707,3 +12707,11 @@ symbol = "test_native_roundtrip_replays_without_history_feed"
 observed = "Attempt 6 (efa450e95) passed the build and the verify and re-recorded the 28 receipt, callgraph and terminal files under programs/fixtures/pay5/native-token and native-merchant, which touches names as directories; the scope check compared the two entries as file names and refused the candidate."
 assumption = "A touches entry that names a directory covers the files inside it; the attempt 6 candidate is re-qualified unchanged."
 severity = "environment"
+
+[finding.10.20.3.10]
+task = "10.20.3"
+file = "cmd/layerxd/lxp_daemon_protocol.c:1121"
+symbol = "lxp_daemon_protocol_owner_attach"
+observed = "Attempt 17 (19d2b3b6d, the attempt 15 candidate e299ec5de unchanged on e8519e92e with 5.7.3) builds all three build_cmd members, and both startup tests fail because layerxd --serve exits 1 with 'protocol owner module runtime binding failed with result -3': lxp_programs_state_feed_store_bind_maintenance (feed_store.c:1048-1049) finds no commit observer because 38c544316 (1.15.1) removed the only caller of lxp_programs_bind_state_feed; 18.1200.1 attempt 13 meets the same exit."
+assumption = "Task 5.7.4 (decision.1951) binds the daemon's feed store as the commit observer after lxp_kernel_bind_module_runtime without relaxing any feed-store check; this task requires it and re-qualifies the attempt 17 candidate unchanged."
+severity = "cross-task"
