@@ -189251,7 +189251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1201.1]
 title = "Issue #1201: Regenerate the budget golden vectors to the kernel canonical payloads the compiler now emits"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189282,7 +189282,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1241.1]
 title = "Issue #1241: Read the O-keyed operation manifest in the portable .NET and Swift catalogue generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
