@@ -12963,3 +12963,75 @@ symbol = "PaxeerXReceipt"
 observed = "PaxeerXReceiptDetails.spec.tsx imports PaxeerXReceipt, which 14.32.1 deletes, and sets status at :20, :45, :63-66 and :122; only the done task 14.31.1 touched it."
 assumption = "14.32.4 owns the details spec retype to PaxeerXArchiveReceipt and the removal of the settlement-status assertions that do_2 retires."
 severity = "cross-task"
+
+[finding.9.18.4.3]
+task = "9.18.4"
+file = "services/agent/tools/sdk-gen/src/main.rs:384-388"
+symbol = "validate_lifecycle_schema"
+observed = "Attempt 5 (a3cd2e90b on base a9863352f, which carries the 9.10.2 schema) builds and fails both major_two tests at tests/major_two.rs:12:33 with 'missing type.ProgramLifecycleResultEnvelope.required' because 1d0cc3720 (task 9.10.2) removed the five lifecycle result, unknown and error types from programs.kvx (old :94-129) that the generator check at main.rs:384-388 has required since 8c3193d0e."
+assumption = "Decision 1957 ports the check to type.ProgramLifecycleResponse.variants ['ProgramSubmission'] and type.ProgramSubmission (programs.kvx:89-91, :170-179) under 9.18.4 do_8; the attempt-5 candidate continues and the schema stays as 9.10.2 wrote it."
+severity = "cross-task"
+
+[finding.6.0.3.1]
+task = "6.0.3"
+file = "modules/evm/keeper/keeper_activation_test.go:166-167,:212"
+symbol = "TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied"
+observed = "Attempts 1 to 4 (5a980b07d, e0ce58ddf, 9269a26e7, 828825444; each the unchanged tree of its base 41098226f, 514f31ae6, d37cfb0ef, a9863352f) fail at keeper_activation_test.go:188 because the fixture gates 0x1012 and 0x1014 on the layerxanchor module, which ae2beed63 (5.7.1) removed from the module manager (node/app.go:1077-1116); SetDone(app.MergeUpgrade) at :212 would next withhold every custom precompile below height 12 because app.MergeUpgrade equals app.LatestUpgrade since 873c58207 (5.97.2)."
+assumption = "Pre-existing on main through d4bf62f09 (blob 1c24bb62a unchanged); the fixture update belongs to the new owner task 6.7.10 that 6.0.3 requires, since 6.0.3 do_3 forbids test changes."
+severity = "cross-task"
+
+[finding.6.0.3.2]
+task = "6.0.3"
+file = "precompiles/setup.go:426-438"
+symbol = "GetPrecompileInfoE"
+observed = "Attempts 1 to 4 panic at precompiles/setup_test.go:57 (setup.go:421) with 'merge precompile layerxpay at 0x...101B: LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required', because since 6ae4a9196 (6.6.4) GetPrecompileInfo propagates the InitializePrecompiles(true, &utils.EmptyKeepers{}) error that GetPrecompileInfoE raises before reading PrecompileNamesToInfo, and the 0x101B constructor registered by f5d5add73 (precompiles/layerxpay/layerxpay.go:53-57) refuses that keeper set."
+assumption = "Pre-existing on main through d4bf62f09 (blob 0d389d4c7 unchanged); the new owner task 6.6.10 serves recorded names before the keeper-free dry run, and 6.0.3 requires it."
+severity = "cross-task"
+
+[finding.6.0.3.3]
+task = "6.0.3"
+file = "precompiles/setup.go:371-373"
+symbol = "TestFeeTokenRegistration, TestXWebRegistration, TestPrecompileNamesIncludeMarkets"
+observed = "Under decision.613, 890d9200b (6.6.3) records layerxExchange, layerxexchange and perps at 0x1015, which precompiles/names_markets_test.go:47-49 requires and precompiles/setup_test.go:60-65 and :136-141 refuse; unchanged through d4bf62f09 and not yet reached by any attempt because setup_test.go:57 panics first."
+assumption = "Decision 1958 keeps the three names at 0x1015 as the only documented shared address and 6.6.10 do_2 teaches the two uniqueness loops that exception; names_markets_test.go stays as written."
+severity = "owner"
+
+[finding.2.40.8.2]
+task = "2.40.8"
+file = "precompiles/layerxagent/streams/topics_test.go:43"
+symbol = "TestStreamsEventTopicsMatchContract"
+observed = "Attempt 4 (80a4cc012 on a9863352f) passed go vet ./precompiles/layerxagent/streams/ with the decision.1956 wrapper and failed the verify at topics_test.go:43 because do_3 asserts the 0x0906 StreamRateUpdated topic0 (0xd3372d2a..., precompiles/layerxagent/streams/streams.go:35, task 2.35.1 7ae0afc0e, agent-functions.md:527) equals the 0x101B one (0x6006a657..., precompiles/layerxpay/abi.json:92, task 2.28.6 6dab05b58, pay.md:172), while the done gates streams_test.go:131 and :134 and stream_test.go:297 already freeze the two as different canonical signatures."
+assumption = "do_3 is superseded by do_6 under decision.1960, which asserts each topic0 against its own canonical signature and that the two differ; the fix stays inside the 2.40.8 touches and no ABI or contract table changes."
+severity = "cross-task"
+
+[finding.18.1204.2.2]
+task = "18.1204.2"
+file = "services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:333"
+symbol = "retained_protocol_evidence"
+observed = "Attempt 5 (ca9d97c1b on 8b483cd25) implements do_5 to do_8, builds, and fails finalization_evidence_reports_the_runtime_rung at tests/agent_creation_rungs.rs:42 with Refused('retained owner request differs') from agent_creation_native.rs:342 because :333 compares the left-padded secp256k1 sender (agent_creation.rs:60-61) with descriptor.public_key, the Ed25519 verification key of the custody record (src/custody/provider.rs:1198), which can never be equal; the same comparison sits at agent_creation.rs:416 and :432 to :469 and feeds protocol_evidence (agent_creation_native.rs:355, agent_creation.rs:591)."
+assumption = "Under decision 1961 (do_9) the creation path compares the sender with CustodySigner::evm_wallet (src/custody/signer.rs:911-917) and carries the left-padded wallet as the evidence owner public key; the attempt 5 candidate continues."
+severity = "owner"
+
+[finding.18.1308.2.4]
+task = "18.1308.2"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift:262"
+symbol = "testProgramReceiptResolvesByTransaction"
+observed = "Attempt 6 (44ac45f83, byte-identical to attempt 5 e172d4190 on all 14 task files) passed all five legs of build_cmd and failed verify only in the two Go catalogue tests of finding 18.1308.2.3, but its ProgramsEvmTests.swift:262, unchanged since attempt 1 (ea5d6ad4e), reads lifecycle.activityID.hex while Data.hex is fileprivate at Programs.swift:2357 and private at MirrorSource.swift:380, so the swift test leg cannot compile LayerXSDKTests; swift build compiles no test target, so no gate has reached that error yet."
+assumption = "Formatting the activity ID inline in the test (do_12) is the whole fix; the .NET and JVM tests, which compiled in attempt 6, stay unrun until the Go and Swift legs pass."
+severity = "task-scoped"
+
+[finding.10.16.5.2]
+task = "10.16.5"
+file = "services/human/crates/layerx-explorer-index/src/main.rs:375"
+symbol = "load_registry"
+observed = "Attempts 2 (1837b6aff, base 4f424c474), 3 (d16bb71be, base d4dbbc000) and 4 (002b6afbe, base a91018ef6) re-qualified the attempt 1 lib.rs change unchanged (blob e298cd981) on bases that predate 4eb486713, where touches named only lib.rs, and each build exited 101 at main.rs:375, :618 and :676 exactly as finding.10.16.5.1 records, with the verify command never run."
+assumption = "The spec as amended by 4eb486713 (do_3, do_4, touches with main.rs) governs the next attempt, which continues 002b6afbe on a base at or after 41098226f and ports main.rs before its one build; no attempt starts from an earlier base and no unchanged candidate is re-qualified."
+severity = "cross-task"
+
+[finding.8.23.2.1]
+task = "8.23.2"
+file = "services/platform/middleware/seller/src/index.ts:160"
+symbol = "BuyerMiddlewareConfig.receiptKeys"
+observed = "8.23.2 do_1 names the pinned PxReceiptKeyEntry list (strings and bigint, px.ts:118-123) as the buyer's receipt-key type while the seller (services/platform/middleware/seller/src/index.ts:160, :365-370) and the 15.0.4 and 15.4.1 candidates (sdk/integrations/express/src/index.ts:380 at 3d2412740, sdk/integrations/next/src/index.ts:356 at 7bbe6682f) pass one readonly SequencerReceiptKey[] value (Uint8Array and bigint, verifier.ts:967-972) to both middlewares."
+assumption = "8.23.2 do_10 types the buyer field as readonly SequencerReceiptKey[], so 15.0.4 and 15.4.1 compile against it once 8.23.2 and 8.23.3 are done; implemented as do_1 was worded, both integrations would fail again on the buyer literal."
+severity = "owner"
