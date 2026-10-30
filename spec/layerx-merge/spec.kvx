@@ -4515,6 +4515,30 @@ value = "tests/test_receipt_offline.c no longer exists (task 16.32.3, 2fec9b48c)
 basis = "16.95.1 do_2 planned the edit before 16.32.3 deleted the file; the deletion landed first. Attempt 1 (daafe83a2) passed its gate on base c5c2fead1 and cannot be merged: the domain branch deleted the file the candidate edits (modify/delete conflict on tests/test_receipt_offline.c), and the candidate's CI test reads that file, so it would fail on every revision after 2fec9b48c."
 affects = ["16.95.1", "16.32.3", "1.16.2"]
 
+[decision.1901]
+title = "The gateway's frozen v2 media surface is the admission map of allowedConnectedRoute"
+value = "The routes map inside allowedConnectedRoute (services/launchpad/gateway/internal/proxy/connected.go:81-86) is the gateway's frozen v2 media surface. Task 4.22.6 hoists it into a package-level function FrozenConnectedSurface() map[string]map[string]string that allowedConnectedRoute reads unchanged, and TestConnectedTablesCoverFrozenMediaCatalog counts a catalog operation as forwarded when its method and path appear in that surface for its audience, in one of the four connected tables or in RetiredConnectedRoutes, exactly once across all of them. The v3 templates /v3/metadata-publication-authority, /v3/tokens/{tokenAddress}/metadata-publications and /v3/tokens/{tokenAddress}/metadata-publications/{operationId} (connected.go:614-615) and /v2/voice-rooms/{roomId}/recording/object are named connected templates in TestConnectedTablesForwardOnlyCatalogTemplates."
+basis = "Attempt 1 (642bc4599) reports IF_CONNECTED_ACCOUNT_ASSET_GET, IF_CONNECTED_ACCOUNT_ASSET_PUT, IF_CONNECTED_TOKEN_ASSET_GET, IF_CONNECTED_TOKEN_ASSET_PUT, IF_CONNECTED_TOKEN_MEDIA, IF_METADATA_GET and IF_METADATA_PATCH absent from the four tables: the gateway admits them through the map at connected.go:82, not through MetadataConnectedRoutes, which carries the v3 publication surface the comment at connected.go:607-612 documents as beyond the frozen catalog. req.4250 ac_2 admits named connected templates."
+affects = ["4.22.6"]
+
+[decision.1902]
+title = "The local sequencer standby is a bonded validator of the two-key committee"
+value = "With --sequencer, tools/qualification/localnode/v6120-node.sh runs the standby in mode validator and writes its consensus key into genesis.validators and the bonded staking state (validators, last_validator_powers) at one third of the primary's power (primary 3 units, standby 1), so both pinned sequencer leaders (app_state.sequencer.leaders = [primary, standby]) are committee members and the primary alone still carries more than two thirds of the voting power; before the test runs the script checks through the primary's RPC /validators that the committee is exactly those two consensus keys."
+basis = "consensus/internal/consensus/types/round_state.go:473-476 takes the proposer of (height, round) from the sequencer leader pin L[round mod len(L)] (leader_schedule.go:8-21 builds it from app_state.sequencer.leaders) and round_state.go:515 and :537 panic when that key is not in the validator set. Attempts 4, 5 and 6 (8b312e552, ed80b37a0, f2f2a0638) pin the standby's consensus key as the second leader while only the primary is a validator, so the first round above zero stops the primary with validator ... not in committee. A standby that cannot propose cannot take over sequencing, so it belongs in the committee."
+affects = ["12.35.4"]
+
+[decision.1903]
+title = "The bridge workflow's library clone pins follow contracts/bootstrap-libs.sh"
+value = "check_versions_are_the_repository_pins in services/bridge/deploy/tests/workflow-check.sh takes the pinned library clones the bridge workflow must follow from contracts/bootstrap-libs.sh (FORGE_STD_TAG, FORGE_STD_URL, OPENZEPPELIN_TAG, OPENZEPPELIN_URL at :10-13), the script .github/workflows/paxeer-forge-test.yml runs at :172, and refuses a bridge clone whose url and tag are not one of those pairs, a bootstrap-libs.sh without the four pins, and any clone not in the --depth 1 --branch form; the refusal for a reference workflow without clone lines is retired because the reference installs its libraries through that script."
+basis = "Attempt 6 (0a00dd0b1) is the first attempt to reach the checks and is refused at check.py:615 (.github/workflows/paxeer-forge-test.yml carries no pinned library clone to follow): that workflow has no clone line and runs contracts/bootstrap-libs.sh, which clones forge-std v1.9.6 and openzeppelin-contracts v5.3.0, the tags the bridge workflow's two clones (.github/workflows/bridge-test.yml:52-53) carry; contracts/bridge/evm/bootstrap-libs.sh:4 states both populate lib with the same tags."
+affects = ["14.53.4"]
+
+[decision.1904]
+title = "The binding test's in-process agent submits the governance binding through the kernel signing pair"
+value = "InProcessAgentContract::submit_binding in services/human/crates/layerx-human-service/tests/binding.rs signs the Prepared that prepare_activity returns with sign_disclosed(&self.signer, &prepared.canonical_bytes, &prepared.disclosure, &self.registry), attaches it with attach_kernel_signature(&prepared, *signature.as_bytes()) and verifies it with verify_kernel_before_submit(&signed, &prepared, &self.signer.public_key(), &self.registry), the shape of services/agent/crates/layerx-agentd/tests/support/mod.rs:175-182; the verified submission's activity_id() and exact bytes feed the outbox enqueue as they do today. ledger_payment_call, bind_call, SigningPreparation, EvmPrepared, sign_disclosed_call, recover_sender, attach_external_signature and verify_before_submit leave binding.rs; custody.rs keeps the EVM pair of decision.1897."
+basis = "Attempt 8 (c1044489c) shows ledger_payment_call (services/agent/crates/layerx-crypto/src/send.rs:178-205) wrapping its payload as the 0x2bb1ae7c send(bytes) call to 0x101a, which decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:312-316) decodes with decode_send; decode_method has EVM call forms only for the ledger (0x101a), budget (0x101b) and bank (0x1001) targets (:239-375), so a Governance ordinal-4 binding payload has no EVM call and bind_call returns MalformedPayload, which submit_binding maps to the ContractViolation both binding tests see at :58. The agent submits such an activity through the kernel envelope, as the agent daemon's own tests do."
+affects = ["18.1172.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -93959,7 +93983,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.16.2]
 title = "Retire lxp_receipt_verify_checkpointed and the guarantor include of lxp_verify.h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["1.0.2", "16.2.1", "16.32.3"]
@@ -109260,7 +109284,7 @@ do_1 = "The frozen catalog (sdk/launchpad/packages/sdk/src/operations.gen.ts:205
 do_2 = "Create services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go (planned) with TestConnectedTablesCoverFrozenMediaCatalog: decode the operationDefinitions object of sdk/launchpad/packages/sdk/src/operations.gen.ts (lines 205-6642), and for every service media operation assert its method and path appear in exactly one of the four tables or in RetiredConnectedRoutes (services/launchpad/gateway/internal/proxy/connected.go (planned symbol))."
 do_3 = "In the same file add TestConnectedTablesForwardOnlyCatalogTemplates: every v2 or v3 template of the four tables is a catalog path, or a connected v2 template listed by name in the test (/v2/streams/live, /v2/streams/pool/{poolAddress}, /v2/chat/history and the other development connected templates read from services/launchpad/gateway/internal/proxy/connected.go:544)."
 symbols = ["TestConnectedTablesCoverFrozenMediaCatalog", "TestConnectedTablesForwardOnlyCatalogTemplates"]
-touches = ["services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go"]
+touches = ["services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go", "services/launchpad/gateway/internal/proxy/connected.go"]
 tests = ["services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go::TestConnectedTablesCoverFrozenMediaCatalog", "services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go::TestConnectedTablesForwardOnlyCatalogTemplates"]
 planned_paths = ["services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go"]
 build_cmd = "cd services/launchpad/gateway && go build ./..."
@@ -109276,6 +109300,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (642bc4599) implements both tests and they fail against main: seven frozen metadata operations (the five IF_CONNECTED_* asset and media operations, IF_METADATA_GET, IF_METADATA_PATCH) appear in none of the four tables, and four forwarded templates (the three /v3 metadata publication templates of connected.go:614-615 and /v2/voice-rooms/{roomId}/recording/object) are neither catalog paths nor named. The gateway admits the seven through the routes map inside allowedConnectedRoute (connected.go:81-86). Hoist that map into FrozenConnectedSurface() in connected.go, call it from allowedConnectedRoute with the same contents, read it in TestConnectedTablesCoverFrozenMediaCatalog as the fifth coverage source, and list the four templates by name in TestConnectedTablesForwardOnlyCatalogTemplates (decision.1901). The exactly-once rule and every other assertion stay."
 
 [task.4.22.7]
 title = "Pin the gateway identity routes to the frozen identity catalog"
@@ -140105,7 +140130,7 @@ do_3 = "Attempts 2 and 3: cargo build --tests also compiles services/agent/crate
 
 [task.9.5.10]
 title = "Render the committed program balance freshness in the daemon's balance route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.5.8", "18.1243.2"]
@@ -140643,7 +140668,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.12.4]
 title = "Serve health and program balance routes from node JSON-RPC readiness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.12.2", "9.5.8", "9.1.8", "18.1131.1", "9.98.1", "18.1243.2"]
@@ -143777,7 +143802,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.94.1]
 title = "Read program balances through eth_call on 0x101D in agentd instead of the protocol adapter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.0.2", "6.0.2", "9.1.8", "18.1131.1", "18.1121.1", "9.98.1", "18.1206.1", "18.1243.2"]
@@ -146229,6 +146254,7 @@ do_13 = "Attempt 6 (0d4a1ce0d) fails because services/human/crates/layerx-human-
 do_14 = "Attempt 7 (6b9c77ffe) builds and both startup tests fail: run 1 with identity binding provider configuration refused, run 2 with principal store refused startup. Meet the real preconditions in tests/production_unhooked.rs: layerx_identity_binding::Client::new (services/agent/crates/layerx-identity-binding/src/lib.rs) needs an absolute LAYERX_HUMAN_IDENTITY_BINDING_SOCKET whose parent directory is canonical (canonicalize(parent) == parent), owned by LAYERX_HUMAN_IDENTITY_BINDING_PEER_UID and without group or world write bits, and a deadline between 1 and 60 seconds; PrincipalStore::open_with_authority (services/human/crates/layerx-human-service/src/store/provider.rs) needs LAYERX_HUMAN_STORE_ROOT absolute and canonical (canonicalize(root) == root, so canonicalize env::temp_dir() before building the fixture root), owned by the current user, takes an exclusive flock on provider.lock, and compares the installed tenancy digest with LAYERX_HUMAN_TENANCY_DIGEST."
 do_15 = "The three tests of tests/production_unhooked.rs set LAYERX_HUMAN_* through env::set_var and remove the retired ones, a process-wide state the parallel test threads race on: hold one static Mutex for the whole lifetime of each test's Environment, give every test its own root, and never open one store root from the test process and the spawned layerx-human-components binary at the same time."
 do_16 = "Attempt 8 (0e362109a) meets the identity-binding and principal-store preconditions and the two startup tests fail with agent boundary refused startup from production_agent (src/server/production_components.rs:9450-9462): AgentRuntime::connect (src/server/agent_runtime.rs:2119, connect_peer exchanges the module registry frame) and then native_fee_policy need a live agent daemon at LAYERX_HUMAN_AGENT_SOCKET and no scripted peer stands in for it (decisions 1884 and 1896). The build_cmd also builds the layerx-agentd binary (package layerx-agentd-host, compiling once task 9.5.10 is on main); the two startup tests start it from LAYERX_TEST_AGENTD_BIN with the smallest configuration it accepts against the isolated chain of decision.1896, wait for its socket, and run production_agent against it; a daemon precondition the environment cannot meet is recorded as a finding, not scripted."
+do_17 = "Task 9.5.10 is on main (attempt 4); re-run the attempt 8 candidate (0e362109a) against it per do_16."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -153304,6 +153330,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 4 (7f91a6ec5) reaches the second challenge and the attestor refuses it with policy_denied: services/wallet/attestor/internal/auth/agent/authority.go:486 refuses KindAuthorization when a.config.Paymaster is the zero address and cmd/attestor/main.go:204 builds AuthorityConfig without Paymaster. Add EnvAgentPaymaster = ATTESTOR_AGENT_PAYMASTER to services/wallet/attestor/internal/config/config.go (optional; a present value is parsed as a 20-byte hex address and an invalid one refused the way EnvChainID is at config.go:163-168), pass it as Paymaster at main.go:204, and set ATTESTOR_AGENT_PAYMASTER to the PAYMASTER the gateway tests already delegate to (services/wallet/gateway/test/provisioning.test.ts:33 and the spawn env at :270-297, test/support/custody.ts:135-150) so the eip7702 authorization challenge is accepted; the attestor files and custody.ts are in touches now."
 do_6 = "Attempt 5 (9f0fe4c24) passes both challenges and fails only the last assertion at services/wallet/gateway/test/provisioning.test.ts:1037: the active provisioning state's did is the layerx DID of the agent key, did:layerx:<64-hex public key> (services/wallet/gateway/src/provision/bind.ts:29 DID_PREFIX; state.ts:582 admits no other form), as the same test already asserts for the wallets row at :993; the test agent's did:matrix:provisioning identifier is its registry identity, not the wallet DID. Assert did:layerx:${agent.publicKeyHex} for the active state and for the bound-wallet row that follows, then continue attempt 5: one build, one verify."
+do_7 = "Attempt 6 (e8ebdd88e) corrects the two DID assertions attempt 5 failed and fails earlier, at test/provisioning.test.ts:894: the migrated standard wallet's backfill outcome is failed where attempt 5 (cc7b2ea5d) saw awaiting_owner from the same gateway sources (services/wallet/gateway is identical between the bases 41f1ef38a and e6fc722fe), and the reason is not printed. Give the :894 expectation JSON.stringify(byId.get(migratedId)) as its message, as :897 does for the agent outcome; backfillOne (src/provision/backfill.ts:93-112) maps a ProvisionError to outcome failed with reason set to its code and any other error to its name. Fix the cause when it lies in a file of this task and record it otherwise."
 
 [task.12.7.1]
 title = "Remove the agent LayerX deposit route, plan and vault inputs"
@@ -156153,6 +156180,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 4 (8b312e552) starts the standby with its own consensus key and the primary panics in consensus/internal/consensus/state.go:2622 with validator ... not in committee: the standby node home runs with mode full (consensus/config/toml.go:104, config.ModeFull at consensus/node/setup.go:124) so it never votes, while only the primary's validator key is in the genesis validator set; the sequencer standby role is independent of the consensus mode."
 do_6 = "Attempt 5 (ed80b37a0) starts the standby in mode full and the primary exits (node.log) with the consensus panic at consensus/internal/consensus/types/round_state.go:537 NewRoundEvent: validator 0C3B656ADF087B157B971D0634AD266971BCC3D6 not in committee, after its dial to the persistent peer fails. The leader the round state computes is not in the primary's validator set: compare the sequencer leader the script registers (add-genesis-sequencer-leader from the primary's priv_validator_key) and the standby's identity against app_state validators in the attempt's genesis.json, keep the committee the single genesis validator with the full-mode standby signing nothing, and start the primary before the standby dials it. Continue attempt 5: one build, one verify."
+do_7 = "Attempt 6 (f2f2a0638) stops as attempt 5 did: the primary panics with validator AF879E30... not in committee at round_state.go:515/:537, the address being the standby's consensus key, which the script pins as the second sequencer leader (leaders = [primary, standby]) while genesis.validators and the bonded staking state hold the primary alone. Make the standby a validator (decision.1902): init its home with --mode validator, add its priv_validator_key to genesis.validators and a bonded staking validator with last_validator_powers at a third of the primary's power, keep leaders = [primary, standby], change the identity check the script runs (two validators, primary first) accordingly, and before the Go test confirm through the primary RPC /validators that exactly the two keys form the committee. The standby keeps --sequencer.role standby."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -159485,7 +159513,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.8]
 title = "Bind the sandbox escrow-charge transfer effect in the kernel receipt projection"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.27.7"]
@@ -159513,6 +159541,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 1 (e11bf9866): sandbox_execute_receipt_binds_escrow_charge gets kernel result -1001 (LXP_FATAL_INVARIANT, include/layerx/lxp_result.h:159) from lxp_kernel_execute_activity with receipt result 0 and no program outcome, and the diagnostic the attempt adds to the unreceipted-transfer loop of receipt_bind_ledger_projection did not print, so that loop is not the returning site. Locate the site before changing the kernel again: on main the other returns of receipt_bind_ledger_projection are src/protocol/lxp_kernel.c:2389 (effects NULL), :2405, :2440, :2458 and :2475, and lxp_kernel.c carries thirty LXP_FATAL_INVARIANT returns in all; the test case's fixture (tests/codec/lxp_test_sandbox_receipt.c:455-500) must satisfy the one that fires."
 
 [task.13.28.1]
 title = "Serve getProgram, getInterface, getProgramOwner and getStateHead from the host store"
@@ -165226,6 +165255,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempts 1 and 2 (6f15c57bc, 89902bb42) fail before any check runs: services/bridge/deploy/tests/workflow-check.sh:140 reads SPEC_PATH spec/paxeer-x-bridge/spec.kvx, a file 0209f71cc consolidated into spec/layerx-merge/spec.kvx (every bridge path the check accounts for is declared there). Change SPEC_PATH to spec/layerx-merge/spec.kvx and nothing else about declared_by_spec (:193), which only decides whether a command path absent from the tree is declared by a sibling task."
+do_6 = "Attempt 6 (0a00dd0b1) runs every check for the first time and is refused once, at the pinned-clone comparison (check.py:600-615 inside workflow-check.sh): paxeer-forge-test.yml carries no git clone line because it installs forge-std and openzeppelin-contracts by running contracts/bootstrap-libs.sh (:172). Read the url and tag pairs from the FORGE_STD_URL, FORGE_STD_TAG, OPENZEPPELIN_URL and OPENZEPPELIN_TAG assignments of contracts/bootstrap-libs.sh (:10-13) as the reference set, keep the --depth 1 --branch form check (:609-613), refuse a bridge clone outside the set and a bootstrap script without the four pins, and drop the reference-workflow clone scan (decision.1903). The outer message at workflow-check.sh:823 is the wrapper of the same refusal."
 
 [task.14.53.5]
 title = "Add a --check mode that reports app env vaults differing from the deployment records"
@@ -188378,6 +188408,7 @@ do_5 = "The build compiles the library and the binding and custody targets only;
 do_6 = "Attempts 5 (84b58d933) and 6 (914bf0d3b) fail to build tests/custody.rs:342: main passes the kernel Prepared where sign.rs:334 takes &SigningPreparation, and attach_kernel_signature (sign.rs:358) takes 64 bytes where the custody grant is 65 (src/custody/signer.rs:287). Neither call compiles as written; do_7 is the shape (decision.1897)."
 do_7 = "At custody.rs:339-344 build a SigningPreparation around the kernel Prepared the test already holds: transaction is an EvmPrepared from an Eip1559Call carrying prepared.canonical_bytes as data with the chain id, nonce and fees evm_signing.rs:171-179 uses and signing_hash = call.signing_hash(), actor_address is the key's EVM wallet address from the keystore (evm_wallet) and authorization is the Prepared; obtain the 65-byte signature over that signing hash from the custody signer (authorize_evm_plan for the plan the action belongs to, then sign_evm_action with the signing hash), call attach_external_signature(&preparation, signature) and assert verify_before_submit(&signed, &preparation, &preparation.actor_address, &registry()).is_ok(); keep the SignRequest grant assertions on signer_public_key, disclosure_digest and the audit events exactly as written (decision.1897)."
 do_8 = "Attempt 7 (1761cabc1) compiles both targets for the first time: tests/binding.rs on main still called raw_receipt_evidence with an AuthorizedBatch, a shape 351e3da14 (task 10.25.2) replaced by the pinned key and the two state roots in services/human/crates/layerx-human-test-support/src/lib.rs:423-430, so the two binding tests had never run since. They now fail at tests/binding.rs:58 with AgentBindingError::ContractViolation raised by the test's own InProcessAgentContract::submit_binding (tests/binding.rs:180-275), which collapses every failed check into that variant. Continue attempt 7: find the failing check (the intent kind, Governance ordinal 4 and payload prefix at :185-191; the evm_payout_binding disclosure did_id, payout_address and network_id 17 at :225-236; ledger_payment_call and bind_call at :241-253; recover_sender at :270) against the service's current bind path and correct the test fixture or its expectations to the contract as the service now writes it, weakening no check; if the service's bind path contradicts its own contract, record that in the evidence instead. custody.rs did not run yet because cargo stops at the first failing target."
+do_9 = "Attempt 8 (c1044489c) compiles and both binding tests still fail at tests/binding.rs:58 with ContractViolation; its diagnostic shows the cause at binding.rs:237-251: ledger_payment_call rejects the Governance ordinal-4 binding payload with MalformedPayload, because the disclosure codec knows EVM call forms only for the ledger, budget and bank targets (layerx-crypto/src/disclosure/call.rs:239-375). Replace binding.rs:233-281 (the ledger_payment_call, bind_call, SigningPreparation, EvmPrepared, sign_disclosed_call, recover_sender, attach_external_signature and verify_before_submit sequence) with the kernel pair on the Prepared the method already holds: sign_disclosed(&self.signer, &prepared.canonical_bytes, &prepared.disclosure, &self.registry), attach_kernel_signature(&prepared, *signature.as_bytes()), verify_kernel_before_submit(&signed, &prepared, &self.signer.public_key(), &self.registry), exactly as services/agent/crates/layerx-agentd/tests/support/mod.rs:175-182 does, keeping the evm_payout_binding check at :219-231, the outbox enqueue of the verified exact bytes and every assertion (decision.1904). Remove the imports that become unused; custody.rs is unchanged."
 
 [task.18.1176.1]
 title = "Issue #1176: Issue #1176: Verify a committed-rung receipt view in the committed-proof crate"
@@ -189305,6 +189336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "tests/unknown.rs:60-90 FaultInjectedNode implements ReceiptLookup through receipt_by_idempotency_key and resend_exact, members the trait no longer has: ReceiptLookup (services/agent/crates/layerx-agentd/src/outbox/unknown.rs:37-39) has the single member sequencer_endpoint(&self) -> &SequencerEndpoint, implemented for SequencerEndpoint. Serve the lookup from a loopback SequencerEndpoint the way tests/unknown_receipt_lookup.rs:257 serve(exchanges) does, scripting the receipt-missing, unverified and executed answers the fault injection used to return, pass the endpoint to resolve_unknown, and keep every assertion on state and observation (ResolutionObservation::ExecutedReceipt at :281, ReceiptMissing at :333) exactly as written."
 do_6 = "Attempt 6 (migration.rs:239 published_compatibility_matrix_accepts_only_the_supported_complete_tuple) fails with PublishedMatrixDrift: services/agent/crates/layerx-agentd/src/compat.rs:4 has CONTRACT_VERSION 2 since 70ce262d3 (task 9.12.2) while the published row services/agent/COMPATIBILITY.md:10 still reads | 0.1.0 | 1.0+ | 1 | 0.1.0 |. Change that row's Contract column to 2 and nothing else in the file, and at tests/migration.rs:259 replace the literal contract version 2, written when CONTRACT_VERSION was 1, with CONTRACT_VERSION + 1 so the UnsupportedContract assertion keeps refusing an unsupported version; do_4 keeps src/ untouched and the publication is not source."
 do_7 = "Attempt 7 (63db9d1d6) builds the five targets; migration passes (8 tests) and operator fails only inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal, which panics at tests/support/real_authority.rs:46 with real isolated Paxeer chain id is required: NotPresent because node_storage_environment (:1215-1240) reads LAYERX_TEST_PAXEER_CHAIN_ID, LAYERX_TEST_PAXEER_RPC_PORT, LAYERX_TEST_SETTLEMENT_CONTRACT and LAYERX_TEST_CHECKPOINT_REGISTRY and spawn_daemon (:371, :1006) needs LAYERX_TEST_NATIVE_BIN_DIR; operator_route, recovery and unknown did not run after that failure. The environment that runs the gates provides those variables from the in-tree node (decision.1896); re-qualify attempt 7 unchanged."
+do_8 = "Attempt 9 (18c428082): with the in-tree node provided, five of the six tests pass; inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal panics at tests/support/real_authority.rs:1011 because the authority fixture needs build/bin/layerx-genesis-build beside layerxd (Makefile:1125, target layerx-genesis-build) in LAYERX_TEST_NATIVE_BIN_DIR. The environment that runs the gates now builds both; re-qualify the attempt 9 candidate unchanged."
 
 [task.18.1203.1]
 title = "Issue #1203: Refuse operator verification retries for settlement-anchored requests"
@@ -189397,6 +189429,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 4 (6c752f901) fails to build against a base older than 3b3c8b4b8 (task 18.1206.1), which ported tests/support/mod.rs:178 of services/agent/crates/layerx-agentd to attach_kernel_signature; on main the package's test targets compile. Re-qualify the attempt 4 candidate unchanged."
 
 [task.18.1206.1]
 title = "Issue #1206: Move the remaining kernel-envelope signing callers to attach_kernel_signature and verify_kernel_before_submit"
@@ -189522,6 +189555,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 4 (ec1c546a5) fails to build against a base older than 3b3c8b4b8 (task 18.1206.1), which ported tests/support/mod.rs:178 of services/agent/crates/layerx-agentd to attach_kernel_signature; on main the package's test targets compile. Re-qualify the attempt 4 candidate unchanged."
 
 [task.18.1222.1]
 title = "Issue #1222: Assert InvalidArgument for malformed addresses in the AirdropClaimed, HasRole and FeeRight keeper refusal tests"
@@ -189830,6 +189864,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 4 (e4a94038e) fails to build against a base older than 3b3c8b4b8 (task 18.1206.1), which ported tests/support/mod.rs:178 and tests/budget_durable_limits.rs:265 of services/agent/crates/layerx-agentd to attach_kernel_signature; on main the package's test targets compile. Re-qualify the attempt 4 candidate unchanged."
 
 [task.18.1234.1]
 title = "Issue #1234: Bind the prepared upgrade fee limit when submitting a signed .NET program upgrade"
