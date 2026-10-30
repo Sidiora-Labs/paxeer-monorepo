@@ -138353,7 +138353,7 @@ do_4 = "Attempt 1 ended with no change inside the task's files. The work is the 
 
 [task.8.94.3]
 title = "Move the platform authority, core, gateway and CLI uses of the kernel disclosure and send codecs to the ledger call builders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.0.2", "9.0.2", "8.1.5", "9.1.8", "18.1083.1", "8.98.11", "8.48.1", "8.29.4", "8.94.4", "8.94.5", "8.94.6", "8.94.7", "8.94.8", "18.1297.1"]
