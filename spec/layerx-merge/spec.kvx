@@ -135702,7 +135702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.7]
 title = "Call a program in the agent walkthrough through the 0x101D programs construct"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.0.3", "8.33.1", "8.49.1"]
@@ -159139,7 +159139,7 @@ do_8 = "Attempt 6 (7118d1122) writes the planned vector and generator (programs/
 
 [task.13.30.4]
 title = "Verify replay metadata and the module catalogue from ICS23 host store proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["13.30.3"]
