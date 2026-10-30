@@ -136566,7 +136566,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.3]
 title = "Swift SDK program operations submit to layerxprograms 0x101D"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.44.1", "8.46.1", "8.47.1", "8.47.2", "8.0.3"]
@@ -136690,7 +136690,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.7]
 title = "Swift SDK exports and verifies portable receipt v2 bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.44.2"]
