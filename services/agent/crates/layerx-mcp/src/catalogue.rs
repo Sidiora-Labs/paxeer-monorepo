@@ -26,6 +26,7 @@ enum Shape {
     Hex32,
     Hex64,
     Bytes,
+    RawTransaction,
     Reference,
     Unsigned,
     Bounded(u64),
@@ -44,6 +45,7 @@ impl Shape {
             Self::Hex32 => Some("^[0-9a-fA-F]{64}$"),
             Self::Hex64 => Some("^[0-9a-fA-F]{128}$"),
             Self::Bytes => Some("^([0-9a-fA-F]{2})+$"),
+            Self::RawTransaction => Some("^0x02([0-9a-f]{2})+$"),
             Self::Reference | Self::Symbol | Self::Query => None,
             Self::Unsigned | Self::Bounded(_) => Some("^[0-9]+$"),
             Self::Decimals => Some("^([0-9]|1[0-8])$"),
@@ -59,6 +61,7 @@ impl Shape {
             Self::Hex32 => 64,
             Self::Hex64 => 128,
             Self::Bytes => MAX_PAYLOAD_HEX_BYTES,
+            Self::RawTransaction => MAX_ARGUMENT_BYTES,
             Self::Reference => MAX_TEXT_BYTES,
             Self::Unsigned | Self::Bounded(_) => 39,
             Self::Symbol => 32,
@@ -152,6 +155,7 @@ const ACTIVITY_SUBMIT: [Field; 3] = [
     required("signature", Shape::Hex64),
     required("signer_public_key", Shape::Hex32),
 ];
+const RAW_TRANSACTION_SUBMIT: [Field; 1] = [required("raw_transaction", Shape::RawTransaction)];
 const ACTIVITY_TRACK: [Field; 1] = [required("submission_ref", Shape::Reference)];
 const ACTIVITY_WAIT: [Field; 2] = [
     required("submission_ref", Shape::Reference),
@@ -419,7 +423,9 @@ pub fn validate(name: &str, arguments: &Value) -> Result<(), ArgumentError> {
         ("activity.prepare", Some("native_v1" | "native_effect_v1" | "native_send_v1")) => {
             Some(layerx_agentd::tenant::Operation::Prepare)
         }
-        ("activity.submit", Some("native_send_submit_v1")) => {
+        ("activity.submit", Some("native_send_submit_v1"))
+            if arguments.get("raw_transaction").is_none() =>
+        {
             Some(layerx_agentd::tenant::Operation::Submit)
         }
         _ => None,
@@ -453,7 +459,11 @@ pub fn validate(name: &str, arguments: &Value) -> Result<(), ArgumentError> {
         Ok(text) if text.len() <= MAX_ARGUMENT_BYTES => (),
         Ok(_) | Err(_) => return Err(ArgumentError::TooLarge),
     }
-    let declared = fields(name);
+    let declared = if name == "activity.submit" && object.contains_key("raw_transaction") {
+        &RAW_TRANSACTION_SUBMIT[..]
+    } else {
+        fields(name)
+    };
     for key in object.keys() {
         if !declared.iter().any(|field| field.name == key.as_str()) {
             return Err(ArgumentError::Unknown(key.clone()));
@@ -477,6 +487,19 @@ fn check(field: &Field, text: &str) -> Result<(), ArgumentError> {
         return Err(ArgumentError::OutOfRange(field.name));
     }
     match field.shape {
+        Shape::RawTransaction => {
+            let digits = text
+                .strip_prefix("0x02")
+                .ok_or(ArgumentError::Malformed(field.name))?;
+            if digits.is_empty()
+                || !digits.len().is_multiple_of(2)
+                || !digits
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            {
+                return Err(ArgumentError::Malformed(field.name));
+            }
+        }
         Shape::Hex32 | Shape::Hex64 | Shape::Bytes => {
             if !text.bytes().all(|byte| byte.is_ascii_hexdigit()) || !text.len().is_multiple_of(2) {
                 return Err(ArgumentError::Malformed(field.name));
@@ -1004,7 +1027,7 @@ fn native_prepare_schema(variant: &str) -> Value {
 }
 
 fn native_submit_schema() -> Value {
-    session_object(
+    let prepared = session_object(
         json!({
             "variant": {"type": "string", "enum": ["native_send_submit_v1"]},
             "tenant": native_wire_text(), "agent": native_wire_text(),
@@ -1012,7 +1035,16 @@ fn native_submit_schema() -> Value {
             "approval_release_ref": {"anyOf": [native_wire_text(), {"type": "null"}]},
         }),
         &["variant", "preparation_ref", "signature", "signer_address"],
-    )
+    );
+    let raw = session_object(
+        json!({"raw_transaction": {
+            "type": "string",
+            "pattern": Shape::RawTransaction.pattern(),
+            "maxLength": Shape::RawTransaction.maximum_length(),
+        }}),
+        &["raw_transaction"],
+    );
+    json!({"oneOf": [prepared, raw]})
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
