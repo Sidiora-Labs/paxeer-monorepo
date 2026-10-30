@@ -164182,7 +164182,7 @@ do_5 = "Attempt 1 fails yarn lint:tsc in callers of the aligned types and mocks 
 
 [task.14.33.2]
 title = "Render three identities in IdentityList"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.33.1"]
@@ -164243,7 +164243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.33.4]
 title = "Render activity rows without a chain or kernel side"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.33.1"]
