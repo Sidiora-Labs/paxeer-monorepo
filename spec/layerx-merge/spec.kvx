@@ -164376,7 +164376,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.33.6]
 title = "Drop the custody and anchoring rows from the unified account page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.33.1"]
