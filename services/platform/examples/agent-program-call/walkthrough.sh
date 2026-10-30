@@ -49,17 +49,17 @@ if ! call >"$call_output" 2>"$call_error"; then
 fi
 result=$(<"$call_output")
 tx_hash=$(jq -er '.data.tx_hash | select(test("^0x[0-9a-fA-F]{64}$"))' <<<"$result")
-rung=$(jq -er '.data.rung' <<<"$result")
 if ! resolved=$(layerx --json receipt get "$tx_hash" 2>"$call_error") \
   || ! jq -e --arg tx_hash "$tx_hash" \
     '.data.txHash == $tx_hash and .data.rung == "receipted" and
      (.data.receipt | type == "string" and test("^0x[0-9a-fA-F]+$")) and
-     (.data.status == "0x1" or .data.status == "0x0")' <<<"$resolved" >/dev/null; then
-  jq -n --arg program_id "$program_id" --arg tx_hash "$tx_hash" --arg rung "$rung" \
+     (.data.status == "0x1" or .data.status == "0x0")' <<<"$resolved" >/dev/null \
+  || ! rung=$(node "$(dirname "${BASH_SOURCE[0]}")/verify-receipt.mjs" "$tx_hash" 2>"$call_error"); then
+  jq -n --arg program_id "$program_id" --arg tx_hash "$tx_hash" --arg rung "submitted" \
     '{program_id:$program_id,tx_hash:$tx_hash,rung:$rung,status:"unknown-fate",action:"Query receipt get with this transaction hash; do not resubmit the call"}'
   exit 0
 fi
 jq -n --arg program_id "$program_id" --arg interface_digest "$interface_digest" \
-  --arg tx_hash "$tx_hash" --arg rung "$(jq -er '.data.rung' <<<"$resolved")" \
+  --arg tx_hash "$tx_hash" --arg rung "$rung" \
   --argjson outcome "$(jq '.data | {status,returnData,vmError}' <<<"$resolved")" \
   '{program_id:$program_id,interface_digest:$interface_digest,tx_hash:$tx_hash,rung:$rung,status:"called",outcome:$outcome}'

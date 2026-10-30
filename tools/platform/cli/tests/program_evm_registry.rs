@@ -11,7 +11,7 @@ mod http;
 #[path = "../src/programs.rs"]
 mod programs;
 
-use std::io::{BufRead as _, Read as _};
+use std::io::{BufRead as _, Read as _, Write as _};
 use std::net::{Shutdown, TcpListener};
 use std::process::{Command, Output};
 use std::time::{Duration, Instant};
@@ -140,6 +140,151 @@ fn abi_hex(bytes: &[u8]) -> Value {
     json!(format!("0x{}", encoding::hex_encode(bytes)))
 }
 
+fn registry_listing(
+    head: u64,
+    max_span: u64,
+    earliest: u64,
+    refusal: &'static str,
+    logs: Vec<Value>,
+) -> Result<(Output, Vec<Value>), String> {
+    let directory = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
+    let endpoint = format!(
+        "http://{}/rpc",
+        listener.local_addr().map_err(|e| e.to_string())?
+    );
+    listener
+        .set_nonblocking(true)
+        .map_err(|error| error.to_string())?;
+    let (stop, stopped) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let mut requests = Vec::new();
+        while stopped.try_recv().is_err() {
+            assert!(Instant::now() < deadline, "registry listing did not finish");
+            let (socket, _) = match listener.accept() {
+                Ok(connection) => connection,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(1));
+                    continue;
+                }
+                Err(error) => panic!("{error}"),
+            };
+            socket
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap_or_else(|error| panic!("{error}"));
+            let mut reader = std::io::BufReader::new(socket);
+            let mut line = String::new();
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("{error}"));
+            assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+            let mut length = None;
+            loop {
+                line.clear();
+                assert!(
+                    reader
+                        .read_line(&mut line)
+                        .unwrap_or_else(|error| panic!("{error}"))
+                        > 0
+                );
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .unwrap_or_else(|error| panic!("{error}")),
+                    );
+                }
+            }
+            let length = length.unwrap_or_else(|| panic!("missing content length"));
+            assert!(length <= 4 * 1024 * 1024);
+            let mut body = vec![0; length];
+            reader
+                .read_exact(&mut body)
+                .unwrap_or_else(|error| panic!("{error}"));
+            let request: Value =
+                serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{error}"));
+            assert_eq!(request["jsonrpc"], "2.0");
+            assert_eq!(request["id"], 1);
+            let mut response = json!({"jsonrpc": "2.0", "id": 1});
+            match request["method"].as_str() {
+                Some("eth_blockNumber") => {
+                    assert!(requests.is_empty(), "the head must be pinned once, first");
+                    assert_eq!(request["params"], json!([]));
+                    response["result"] = json!(format!("0x{head:x}"));
+                }
+                Some("eth_getLogs") => {
+                    let filter = &request["params"][0];
+                    assert_eq!(filter["address"], ADDRESS);
+                    assert_eq!(filter["topics"], json!([programs::PROGRAM_DEPLOYED_TOPIC]));
+                    let lower = log_height(&filter["fromBlock"]);
+                    let upper = log_height(&filter["toBlock"]);
+                    assert!(lower <= upper && upper <= head);
+                    assert!(upper - lower < 2000, "unbounded registry log request");
+                    let error = if upper - lower + 1 > max_span {
+                        Some(format!(
+                            "block range too large ({}), maximum allowed is {max_span} blocks",
+                            upper - lower + 1
+                        ))
+                    } else if lower < earliest {
+                        Some(match refusal {
+                            "pruned" => format!("requested block range [{lower}, {upper}] includes pruned blocks, earliest available block is {earliest}"),
+                            "to_before" => format!("requested toBlock {upper} is before earliest available block {earliest}"),
+                            _ => format!("requested fromBlock {lower} is before earliest available block {earliest}"),
+                        })
+                    } else if refusal == "other" {
+                        Some("log query rate limit exceeded for large queries, please try again later".to_owned())
+                    } else {
+                        None
+                    };
+                    if let Some(message) = error {
+                        response["error"] = json!({"code": -32000, "message": message});
+                    } else {
+                        response["result"] = json!(logs
+                            .iter()
+                            .filter(|entry| {
+                                let height = log_height(&entry["blockNumber"]);
+                                lower <= height && height <= upper
+                            })
+                            .collect::<Vec<_>>());
+                    }
+                }
+                method => panic!("unexpected RPC method: {method:?}"),
+            }
+            requests.push(request);
+            let body = serde_json::to_vec(&response).unwrap_or_else(|error| panic!("{error}"));
+            let socket = reader.get_mut();
+            write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len())
+                .unwrap_or_else(|error| panic!("{error}"));
+            socket
+                .write_all(&body)
+                .unwrap_or_else(|error| panic!("{error}"));
+        }
+        requests
+    });
+    let output = cli(
+        directory.path(),
+        &["--json", "--rpc", &endpoint, "program", "registry", "list"],
+    );
+    stop.send(()).map_err(|error| error.to_string())?;
+    let requests = worker.join().map_err(|_| "registry peer failed")?;
+    Ok((output, requests))
+}
+
+fn log_height(value: &Value) -> u64 {
+    let encoded = value
+        .as_str()
+        .and_then(|s| s.strip_prefix("0x"))
+        .unwrap_or_else(|| panic!("expected a numeric hex block: {value}"));
+    let height = u64::from_str_radix(encoded, 16).unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(value, &json!(format!("0x{height:x}")));
+    height
+}
+
 #[test]
 fn program_discover_reads_get_program() -> Result<(), String> {
     let program_id = "11".repeat(32);
@@ -264,15 +409,19 @@ fn program_interface_get_reads_get_interface() -> Result<(), String> {
 
 #[test]
 fn program_registry_list_reads_logs() -> Result<(), String> {
-    let request = captured_command(&["registry", "list"])?;
-    assert_eq!(request["method"], "eth_getLogs");
-    assert_eq!(
-        request["params"],
-        json!([{
-            "address": ADDRESS, "fromBlock": "earliest", "toBlock": "latest",
-            "topics": ["0x2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709"]
-        }])
+    let (output, requests) = registry_listing(10, 2000, 0, "", vec![])?;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
     );
+    assert_eq!(requests.len(), 2);
+    let request = &requests[0];
+    assert_eq!(request["method"], "eth_blockNumber");
+    assert_eq!(request["params"], json!([]));
+    assert_eq!(requests[1]["method"], "eth_getLogs");
+    assert_eq!(requests[1]["params"][0]["fromBlock"], "0x0");
+    assert_eq!(requests[1]["params"][0]["toBlock"], "0xa");
     let fixture = vector();
     let payload = encoding::hex_decode(
         "deployment",
@@ -325,5 +474,166 @@ fn program_registry_list_reads_logs() -> Result<(), String> {
         assert!(programs::decode_registry_logs(&json!([changed])).is_err());
     }
     assert!(programs::decode_registry_logs(&json!({"program_ids": []})).is_err());
+    let mut first = event.clone();
+    first["blockNumber"] = json!("0x1");
+    let mut second = first.clone();
+    second["topics"][1] = json!(format!("0x{}", "22".repeat(32)));
+    let (output, requests) = registry_listing(10, 2000, 0, "", vec![first, second])?;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(requests.len(), 2);
+    assert_eq!(requests[0]["method"], "eth_blockNumber");
+    assert_eq!(requests[0]["params"], json!([]));
+    assert_eq!(requests[1]["method"], "eth_getLogs");
+    assert_eq!(requests[1]["params"][0]["fromBlock"], "0x0");
+    assert_eq!(requests[1]["params"][0]["toBlock"], "0xa");
+    let listing: Value =
+        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+    let listing = &listing["data"];
+    assert_eq!(
+        listing["program_ids"],
+        json!(["11".repeat(32), "22".repeat(32)])
+    );
+    assert_eq!(
+        listing["events"].as_array().ok_or("missing events")?.len(),
+        2
+    );
+    Ok(())
+}
+
+#[test]
+fn program_registry_list_pages_bounded_ranges() -> Result<(), String> {
+    program_registry_list_reads_logs()?;
+    let early = json!({
+        "address": ADDRESS, "removed": false,
+        "topics": [programs::PROGRAM_DEPLOYED_TOPIC, format!("0x{}", "22".repeat(32))],
+        "data": format!("0x{}", "33".repeat(32)),
+        "transactionHash": format!("0x{}", "44".repeat(32)),
+        "logIndex": "0x0", "blockNumber": "0x0"
+    });
+    let mut late = early.clone();
+    late["topics"][1] = json!(format!("0x{}", "11".repeat(32)));
+    late["transactionHash"] = json!(format!("0x{}", "55".repeat(32)));
+    late["blockNumber"] = json!("0x7d0");
+    let (output, requests) = registry_listing(
+        2000,
+        2000,
+        0,
+        "",
+        vec![early.clone(), early.clone(), late.clone(), late.clone()],
+    )?;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(requests.len(), 3);
+    assert_eq!(requests[0]["method"], "eth_blockNumber");
+    assert_eq!(requests[0]["params"], json!([]));
+    assert_eq!(requests[1]["params"][0]["fromBlock"], "0x1");
+    assert_eq!(requests[1]["params"][0]["toBlock"], "0x7d0");
+    assert_eq!(requests[2]["params"][0]["fromBlock"], "0x0");
+    assert_eq!(requests[2]["params"][0]["toBlock"], "0x0");
+    let listing: Value =
+        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+    let listing = &listing["data"];
+    assert_eq!(
+        listing["program_ids"],
+        json!(["11".repeat(32), "22".repeat(32)])
+    );
+    assert_eq!(listing["events"], json!([early, late]));
+    assert_eq!(listing["from_block"], 0);
+    assert_eq!(listing["to_block"], 2000);
+    assert_eq!(listing["earliest_scanned"], 0);
+    assert_eq!(listing["history_complete"], true);
+    assert!(listing.get("block_tag").is_none());
+
+    for refusal in ["before", "pruned", "to_before"] {
+        let mut retained = early.clone();
+        retained["blockNumber"] = json!("0x5");
+        let (output, requests) = registry_listing(
+            2000,
+            1,
+            5,
+            refusal,
+            vec![retained.clone(), retained.clone(), late.clone()],
+        )?;
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let listing: Value =
+            serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+        let listing = &listing["data"];
+        assert_eq!(listing["events"], json!([retained, late]));
+        assert_eq!(
+            listing["program_ids"],
+            json!(["11".repeat(32), "22".repeat(32)])
+        );
+        assert_eq!(listing["to_block"], 2000);
+        assert_eq!(listing["history_complete"], false);
+        assert_eq!(listing["earliest_scanned"], 5);
+        let mut expected_upper = 2000;
+        let mut expected_span = 2000;
+        for request in &requests[1..] {
+            assert_eq!(request["method"], "eth_getLogs");
+            let lower = log_height(&request["params"][0]["fromBlock"]);
+            let upper = log_height(&request["params"][0]["toBlock"]);
+            assert_eq!(upper, expected_upper);
+            assert_eq!(upper - lower + 1, expected_span);
+            if expected_span > 1 {
+                expected_span /= 2;
+            } else if lower >= 5 {
+                expected_upper = lower - 1;
+            } else {
+                assert_eq!(lower, 4);
+            }
+        }
+        assert_eq!(
+            requests.last().ok_or("missing requests")?["params"][0]["toBlock"],
+            "0x4"
+        );
+    }
+
+    let (output, requests) = registry_listing(2000, 2000, 5, "before", vec![])?;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(requests.len(), 2);
+    let listing: Value =
+        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+    let listing = &listing["data"];
+    assert_eq!(listing["events"], json!([]));
+    assert_eq!(listing["history_complete"], false);
+    assert!(listing["earliest_scanned"].is_null());
+
+    for (head, max_span, refusal, message) in [
+        (0, 0, "", "block range too large"),
+        (2000, 2000, "other", "log query rate limit exceeded"),
+    ] {
+        let (output, requests) = registry_listing(head, max_span, 0, refusal, vec![])?;
+        assert!(!output.status.success());
+        assert_eq!(requests.len(), 2);
+        let error = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(error.contains(message), "{error}");
+    }
+
+    let mut invalid = late.clone();
+    invalid["removed"] = json!(true);
+    let (output, _) = registry_listing(2000, 2000, 0, "", vec![late, invalid])?;
+    assert!(
+        !output.status.success(),
+        "duplicate identities must not bypass log validation"
+    );
     Ok(())
 }

@@ -84,24 +84,6 @@ static int32_t lxphost_read_kv(lxphost_read_state *state, uint16_t module,
     return LXP_OK;
 }
 
-static int32_t lxphost_read_replay_load(lxphost_read_state *state,
-                                        const uint8_t hash[32],
-                                        const uint8_t *bytes, size_t length)
-{
-    lxp_idempotency_key_state *entry;
-    int32_t status;
-    if (state->store.idempotency_count >= LXP_STATE_MAX_IDEMPOTENCY)
-        return LXP_ERR_ARENA_EXHAUSTED;
-    status = lxp_idempotency_reserve(&state->store);
-    if (status != LXP_OK) return status;
-    entry = &state->store.idempotency[state->store.idempotency_count];
-    status = lxp_idempotency_snapshot_decode(entry, bytes, length);
-    if (status != LXP_OK) return status;
-    memcpy(entry->key_hash, hash, 32U);
-    ++state->store.idempotency_count;
-    return LXP_OK;
-}
-
 static int32_t lxphost_read_asset(lxphost_read_state *state,
                                   const uint8_t id[32], lx_asset_record *out)
 {
@@ -152,19 +134,6 @@ static int32_t lxphost_read_owner(lxphost_read_state *state,
                                                       id, &slot);
     if (status != LXP_OK) return status;
     return lx_account_owner_did(&state->store.accounts->accounts[slot], owner);
-}
-
-static int32_t lxphost_read_receipt(lxphost_read_state *state,
-                                    const uint8_t *did, size_t did_length,
-                                    const uint8_t key[32], lxp_receipt *receipt,
-                                    const uint8_t **encoded, size_t *length)
-{
-    int32_t status = lxp_idempotency_canonical_lookup(&state->store, did,
-                                                      did_length, key,
-                                                      encoded, length);
-    if (status == LXP_OK) return LXP_ERR_UNKNOWN_FIELD;
-    if (status != LXP_ERR_IDEMPOTENT_REPLAY) return status;
-    return lxp_receipt_decode(*encoded, *length, true, receipt);
 }
 
 static int32_t lxphost_read_identity_id(lxphost_read_state *state,
@@ -901,56 +870,6 @@ func (h *Host) ReadPayerGrant(ctx sdk.Context, grantID [32]byte) (PayerGrantStat
 	})
 	if err != nil {
 		return PayerGrantState{}, err
-	}
-	return out, nil
-}
-
-func (h *Host) ReadIdempotentReceipt(ctx sdk.Context, actorDID []byte, key [32]byte) (Receipt, error) {
-	var out Receipt
-	err := h.withRead(ctx, nil, func(state *C.lxphost_read_state) error {
-		iterator := sdk.KVStorePrefixIterator(ctx.KVStore(h.cfg.StoreKey), []byte{idempotencyPrefix})
-		var err error
-		for ; iterator.Valid(); iterator.Next() {
-			key, value := iterator.Key(), iterator.Value()
-			if len(key) != 33 {
-				err = codeFatalInvariant
-				break
-			}
-			err = result(C.lxphost_read_replay_load(state, bytesPtr(key[1:]),
-				bytesPtr(value), C.size_t(len(value))))
-			if err != nil {
-				break
-			}
-		}
-		closeErr := iterator.Close()
-		if err != nil {
-			return err
-		}
-		if closeErr != nil {
-			return codeFatalInvariant
-		}
-		var receipt C.struct_lxp_receipt
-		var encoded *C.uint8_t
-		var length C.size_t
-		if err := result(C.lxphost_read_receipt(state, bytesPtr(actorDID), C.size_t(len(actorDID)), bytes32(&key),
-			&receipt, &encoded, &length)); err != nil {
-			return err
-		}
-		if length > C.LXP_STATE_MAX_RECEIPT_BYTES {
-			return codeFatalInvariant
-		}
-		out = Receipt{
-			ResultCode:         Code(receipt.result_code),
-			GlobalSequence:     uint64(receipt.global_sequence),
-			Timestamp:          uint64(receipt.timestamp),
-			PreviousStateRoot:  *(*[32]byte)(unsafe.Pointer(&receipt.previous_state_root[0])),
-			ResultingStateRoot: *(*[32]byte)(unsafe.Pointer(&receipt.resulting_state_root[0])),
-			Encoded:            C.GoBytes(unsafe.Pointer(encoded), C.int(length)),
-		}
-		return nil
-	})
-	if err != nil {
-		return Receipt{}, err
 	}
 	return out, nil
 }
