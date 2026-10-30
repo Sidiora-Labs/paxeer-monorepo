@@ -11475,3 +11475,67 @@ symbol = "test_aggregates_dry_run_clean"
 observed = "Attempt 4 made every Makefile deletion of do_1 to do_6 and do_8, and test_aggregates_dry_run_clean failed only because the dry run still prints the compile of cmd/layerxd/lxp_daemon_lni.c, a LAYERXD_SOURCES member (Makefile:1175) of the daemon that test-layerxd builds; no deleted rule reappeared."
 assumption = "The lxp_daemon_lni clause belongs to the LNI retirement (req.5520 ac_1, task 5.50.1, decision.1892) and leaves req.16014 ac_2; the attempt 4 candidate continues with that one assertion removed."
 severity = "medium"
+
+[finding.9.12.4.1]
+task = "9.12.4"
+file = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+symbol = "prepare_grant"
+observed = "Attempts 2 and 3 fail in the build with E0609 current_height, E0599 prepare_budget and E0061 prepare_draw at services/agent/crates/layerx-agentd-host/src/payer.rs:333-353, because 1e3b37aee (task 18.1243.1) changed GrantTerms while the host payer port of task 18.1243.2 had not landed."
+assumption = "Task 18.1243.2 ports payer.rs under decision.1893; 9.12.4 requires it and is re-qualified on a revision that includes it."
+severity = "high"
+
+[finding.13.6.3.1]
+task = "13.6.3"
+file = "programs/crates/layerx-programs-sandbox/tests/lease.rs"
+symbol = "TransitionEvidence::verify_call"
+observed = "Attempt 4 built the library and tests/lease_chain.rs, and cargo build --tests failed with E0061 in tests/lease.rs and tests/snapshot.rs, five callers of the old seven-argument verify_call outside the task's files."
+assumption = "The task owns the public signature and therefore every in-crate caller; the two test files are now in touches and the attempt 4 candidate continues with the callers ported."
+severity = "medium"
+
+[finding.18.670.1.3]
+task = "18.670.1"
+file = "services/platform/perps-data/e2e_test.go"
+symbol = "latestFunding"
+observed = "Attempt 4 ran against the in-tree node and latestFunding scanned FundingSettled logs in ranges below the earliest block the node serves, so eth_getLogs failed for a range the node never held."
+assumption = "The scan and the indexer start are clamped to the node's earliest block and the test waits for the first settlement on a fresh node (do added); the attempt 4 candidate continues."
+severity = "medium"
+
+[finding.10.20.3.4]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs"
+symbol = "production_components_open_without_paxeer_or_exit_environment"
+observed = "Attempt 7 built the retirement and both startup tests failed at startup, once in the identity binding provider configuration and once in the principal store, while the configuration validation test passed."
+assumption = "The fixture misses the canonical-path, directory-ownership and single-opener preconditions of the binding client and the principal store and races on the process environment (two dos added); the attempt 7 candidate continues."
+severity = "medium"
+
+[finding.18.1200.1.3]
+task = "18.1200.1"
+file = "services/agent/COMPATIBILITY.md"
+symbol = "verify_published"
+observed = "Attempt 6 ported the five outbox callers and the migration target failed only in published_compatibility_matrix_accepts_only_the_supported_complete_tuple with PublishedMatrixDrift, because 70ce262d3 raised CONTRACT_VERSION to 2 without moving the published row or the test's unsupported-contract literal."
+assumption = "The publication row and the test literal follow the executable constant (do added, COMPATIBILITY.md in touches); the attempt 6 candidate continues."
+severity = "medium"
+
+[finding.16.0.3.2]
+task = "16.0.3"
+file = "tests/ci/test_paxai_chain_domain.py"
+symbol = "test_makefile_chain_domain_is_merged_chain_golden"
+observed = "Attempt 5 passed test_retired_targets_have_no_rule and test_aggregates_dry_run_clean and failed the chain-domain test with FileNotFoundError for programs/crates/layerx-programs-ai-market/tests/chain_domain.rs, which no task has created yet."
+assumption = "The golden file is 13.31.1's deliverable and 13.31.1 requires 16.0.3 (decision.1894); the attempt 5 candidate continues with the file read removed."
+severity = "medium"
+
+[finding.18.1172.2.3]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/tests/custody.rs"
+symbol = "attach_external_signature"
+observed = "Attempt 5 changed custody.rs:342 to attach_kernel_signature and the custody target failed with E0308 (expected 64 bytes, found 65) because the custody signer returns a secp256k1 signature since c03f97f8e."
+assumption = "The main call site is correct; the attempt 5 candidate continues with that one line restored."
+severity = "low"
+
+[finding.8.94.6.1]
+task = "8.94.6"
+file = "services/platform/hosted/gateway/tests/local/build.rs"
+symbol = "LAYERX_TEST_CORE_BIN"
+observed = "Attempt 1 built the gateway and the second build step panicked in the local qualification build script with parent-built core binary required, because the build command compiled tests/local without LAYERX_TEST_CORE_BIN."
+assumption = "The build command builds layerx-core-boundary first and passes its path; the task is re-qualified under the corrected build."
+severity = "low"
