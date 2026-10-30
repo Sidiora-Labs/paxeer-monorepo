@@ -156903,7 +156903,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.9]
 title = "Add a trust-root fuzz target over TrustRoot::decode"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.1.15", "13.2.6"]
@@ -157119,7 +157119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.7]
 title = "Construct the deployment verifier from a chain trust root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["13.0.2", "13.2.1", "13.3.11"]
