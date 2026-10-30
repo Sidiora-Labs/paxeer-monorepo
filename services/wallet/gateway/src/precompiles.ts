@@ -28,12 +28,8 @@ export const PRECOMPILE_ADDRESSES = {
   p256: '0x0000000000000000000000000000000000001011',
 } as const satisfies Record<string, `0x${string}`>;
 
-/** Route keys without a linked constructor in node/precompiles.go. */
-export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set([
-  'oracle',
-  'scheduler',
-  'streams',
-] as const);
+/** Route keys without a registered merge constructor under precompiles/. */
+export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set();
 
 export function unservedPrecompileAt(
   to: string | undefined,
