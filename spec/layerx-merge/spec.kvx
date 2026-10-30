@@ -160619,7 +160619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.0.3]
 title = "Regenerate the web human-api client from the minor-10 schema"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["10.0.2", "14.7.2", "14.8.1", "14.7.3", "14.0.2", "14.2.9", "14.2.10", "14.2.11", "14.2.12", "14.2.13", "14.2.14", "14.3.7", "14.3.8", "14.3.9", "14.4.3", "14.5.4", "14.6.3", "14.6.4", "14.10.2", "14.22.6", "14.23.2", "14.30.4", "14.44.4", "14.47.4", "14.48.4", "14.53.3", "14.53.4", "14.54.2"]
@@ -172441,7 +172441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.98.1]
 title = "Port the golden replay test off the retired kernel replay API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["16.0.3", "1.0.3"]
