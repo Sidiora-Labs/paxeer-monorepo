@@ -188590,7 +188590,7 @@ do_5 = "Attempt 3 (05c5107ff) ported the listed files and failed the build only 
 
 [task.18.1172.2]
 title = "Port the binding and custody test callers to the six-argument raw_receipt_evidence and the kernel signing pair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["10.2.8", "10.2.9", "18.1297.1", "18.1304.1"]
