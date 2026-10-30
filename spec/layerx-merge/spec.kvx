@@ -94995,7 +94995,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.25.1]
 title = "Stop loading and writing the kernel idempotency rows in the host store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["1.24.1", "1.0.4", "1.23.5"]
@@ -192415,7 +192415,7 @@ qualification = "UNRUN"
 
 [task.18.1254.1]
 title = "Issue #1254: Report a called program outcome in the walkthrough only from a sequencer receipt verified against pinned keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
