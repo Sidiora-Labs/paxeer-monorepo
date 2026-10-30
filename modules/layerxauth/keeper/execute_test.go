@@ -72,7 +72,7 @@ func authExecuteSignedReceipt(t *testing.T, receipt lxphost.Receipt) []byte {
 	return append(signed, make([]byte, ed25519.SignatureSize)...)
 }
 
-func TestAuthExecuteIdempotentReplay(t *testing.T) {
+func TestAuthExecuteReplayedPayloadRefused(t *testing.T) {
 	for _, method := range []string{"session", "capability", "revoke"} {
 		t.Run(method, func(t *testing.T) {
 			f := newAuthViewFixture(t)
@@ -90,23 +90,24 @@ func TestAuthExecuteIdempotentReplay(t *testing.T) {
 			grant, err := f.Keeper().GetGrant(*f.Context(), grantID)
 			require.NoError(t, err)
 			require.NotEmpty(t, grant)
-			stored, err := f.Keeper().ResultByIdempotency(*f.Context(), actor.DIDKey, key)
-			require.NoError(t, err)
-			require.Equal(t, authExecuteSignedReceipt(t, result.Receipt), stored)
-			before := authViewStores(*f.Context(), f.HostKey(), f.StoreKey())
 
-			_, err = f.Keeper().Execute(*f.Context(), actor, payload, key)
-			require.ErrorIs(t, err, types.ErrIdempotentReplay)
-			require.Equal(t, before, authViewStores(*f.Context(), f.HostKey(), f.StoreKey()))
+			refused, err := f.Keeper().Execute(*f.Context(), actor, payload, key)
+			if method == "revoke" {
+				require.ErrorIs(t, err, types.ErrAuthScope, "replayed payload returned kernel code %d", refused.ResultCode)
+				require.Equal(t, lxphost.Code(-204), refused.ResultCode)
+			} else {
+				require.ErrorIs(t, err, types.ErrSequenceReused, "replayed payload returned kernel code %d", refused.ResultCode)
+				require.Equal(t, lxphost.Code(-301), refused.ResultCode)
+			}
+			require.Equal(t, result.GlobalSequence+1, refused.GlobalSequence)
+			require.NotEmpty(t, refused.Encoded)
 			again, err := f.Keeper().GetGrant(*f.Context(), grantID)
 			require.NoError(t, err)
 			require.Equal(t, grant, again)
-			stored, err = f.Keeper().ResultByIdempotency(*f.Context(), actor.DIDKey, key)
-			require.NoError(t, err)
-			require.Equal(t, authExecuteSignedReceipt(t, result.Receipt), stored)
+
 			next, err := lxphost.NextSequence(*f.Context(), f.HostKey())
 			require.NoError(t, err)
-			require.Equal(t, uint64(45), next)
+			require.Equal(t, uint64(46), next)
 			require.Equal(t, paramsBefore, authViewStores(*f.Context(), f.StoreKey()))
 		})
 	}
@@ -134,9 +135,7 @@ func TestAuthExecuteSequenceReused(t *testing.T) {
 	again, err := f.Keeper().GetGrant(*f.Context(), grantID)
 	require.NoError(t, err)
 	require.Equal(t, grant, again)
-	stored, err := f.Keeper().ResultByIdempotency(*f.Context(), actor.DIDKey, key)
-	require.NoError(t, err)
-	require.Equal(t, authExecuteSignedReceipt(t, refused.Receipt), stored)
+
 	next, err := lxphost.NextSequence(*f.Context(), f.HostKey())
 	require.NoError(t, err)
 	require.Equal(t, uint64(46), next)

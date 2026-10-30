@@ -182,6 +182,11 @@ fn write_and_error_goldens_match_major_two_schema() {
         "\"idempotent_replay\""
     );
     assert_eq!(
+        errors["error.LXP_IDEMPOTENT_REPLAY.original_result"],
+        "\"Read the first result from the sequencer receipt of the retained signed transaction that the first submit returned; never resubmit at a new nonce.\""
+    );
+    assert!(!ERRORS_SOURCE.contains("resultByIdempotency"));
+    assert_eq!(
         errors["error.receipt_key_unknown.class"],
         "\"VerificationFailure\""
     );
