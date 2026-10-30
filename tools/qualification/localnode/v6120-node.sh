@@ -87,7 +87,7 @@ evm_call() {
 
 feed_loop() {
     local previous=0 height timestamp result hash deadline
-    trap 'exit 0' TERM INT
+    trap 'SUCCESS=1; exit 0' TERM INT
     while kill -0 "$(cat "$NODE_HOME/node.pid")" 2>/dev/null; do
         height=$(rpc eth_blockNumber | jq -er '.result')
         if [ "$height" = "$previous" ]; then
@@ -126,12 +126,14 @@ cleanup() {
     if [ "$SUCCESS" = 0 ]; then
         printf 'v6120-node: failed (exit %s): %s; evidence: %s\n' \
             "$status" "${FAILED_COMMAND:-$command}" "${NODE_HOME:-$BASE}" >&2
-        for log in init validate-genesis node feeder; do
-            if [ -n "$NODE_HOME" ] && [ -f "$NODE_HOME/$log.log" ]; then
-                printf '\n--- %s ---\n' "$NODE_HOME/$log.log" >&2
-                tail -n 40 "$NODE_HOME/$log.log" >&2
-            fi
-        done
+        if [ "${FEEDER_PROCESS:-0}" = 0 ]; then
+            for log in init validate-genesis node feeder; do
+                if [ -n "$NODE_HOME" ] && [ -f "$NODE_HOME/$log.log" ]; then
+                    printf '\n--- %s ---\n' "$NODE_HOME/$log.log" >&2
+                    tail -n 40 "$NODE_HOME/$log.log" >&2
+                fi
+            done
+        fi
         if [ -n "$NODE_HOME" ] && [ "${FEEDER_PROCESS:-0}" = 0 ]; then
             (stop_node "$NODE_HOME") || true
         fi

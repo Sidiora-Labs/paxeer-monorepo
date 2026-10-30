@@ -12659,3 +12659,75 @@ symbol = "TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"
 observed = "At f6b2cda8e (attempt 2) the build passed and the verify failed with the test redeclared: c833bda08 (5.94.2) already declares it at node/precompiles_agent_imports_test.go:11 with GetCustomPrecompilesE assertions for 0x0903, 0x0905 and 0x0906 that are red on main without the imports, and 5.94.4's touches excluded that file."
 assumption = "5.94.4's touches gain node/precompiles_agent_imports_test.go and do_4 moves the existing test, all assertions kept, into node/precompiles_agent_merge_imports_test.go with the MissingMergeConstructors check added; verify_cmd is unchanged."
 severity = "owner"
+
+[finding.2.38.1.1]
+task = "2.38.1"
+file = "node/precompiles.go"
+symbol = "TestAgentMergeAddressesServedAfterUpgrade"
+observed = "At 5fa86a953 (attempt 2) the verify exited 1 at precompiles/layerxagent/served/served_test.go:72: CustomPrecompiles after MergeUpgrade lacks 0x0903 and 0x0905 because node/precompiles.go:3-38 does not import precompiles/layerxagent/oracle or scheduler; task 5.94.4 owns those imports and 2.38.1 did not require it."
+assumption = "2.38.1 requires 5.94.4 and do_6 records the cause; the candidate test is re-qualified unchanged once 5.94.4 is on the base."
+severity = "cross-task"
+
+[finding.18.1228.1.5]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:70"
+symbol = "ProtocolEvidence::bound_activity"
+observed = "Attempt 8 (fa18da842) builds all seven targets and passes revocation (6) and tenant_resolve (8), then fails agent_controls protocol_and_app_limit_changes_keep_their_real_enforcement_labels at canonical_owner.rs:20 with Refused('invalid signed lifecycle transaction'): since c4739fc6c (10.97.1) bound_activity decodes an EIP-1559 transaction while the fixture signs a kernel owner envelope and bind_call cannot disclose Budget 1."
+assumption = "Task 18.1204.2 supplies the budgetCreate disclosure and sign_transaction, so 18.1228.1 requires it; 18.1228.1 then ports agent_controls.rs, agent_controls_rungs.rs and assert_outcome (do_11 to do_13) with verify_native_owner_outcome replaced per decision.929."
+severity = "cross-task"
+
+[finding.17.5.1.9]
+task = "17.5.1"
+file = "services/human/crates/layerx-explorer-index/src/lib.rs:225"
+symbol = "ProtocolProgramIngestor::ingest"
+observed = "Attempt 11 (778c340aa, base 9f8c07033 with 10.16.4) exited 2 in make workspace-build at human-build (Makefile:1960) with E0631 at lib.rs:225, because IndexError::ProgramProtocolUnavailable (:186) still carries ProtocolAdapterError while a02e09aec (9.94.1) made read_protocol_state return ProgramReadError; 17.5.2 attempt 11, 17.5.3 attempt 9 and 17.5.4 attempt 9 fail identically on the same base, and the api-gen tests that 10.16.4 repaired now pass."
+assumption = "New fm-human task 10.16.5 ports the variant payload; 17.5.1 to 17.5.4 require it, 17.5.2 to 17.5.4 also require 17.5.1 (decision.1949), and the attempt 9 test is re-qualified unchanged; make workspace-lint has not run on any attempt."
+severity = "cross-task"
+
+[finding.2.28.7.1]
+task = "2.28.7"
+file = "precompiles/layerxpay/service_test.go:308"
+symbol = "outcome_agreement"
+observed = "At 8d523de5a (attempt 4) the verify exited 1: all four TestPrecompileServiceWithdrawAbandonAttest/default_* subtests revert with LXP_AGREEMENT_STATE because outcome_agreement (src/modules/service/lx_service_acceptance.c:24-25) refuses an outcome past acceptance_window_end and the hosted lxphost path never runs the epoch or maintenance default sweep; the three task files are byte-identical from attempt 1 to attempt 4."
+assumption = "req.2282 ac_3 needs a hosted default-outcome keeper method (task 2.28.9, decision.1950); 2.28.7 requires it and do_6 routes a late accept or reject to it with every assertion unchanged."
+severity = "cross-task"
+
+[finding.18.1200.1.7]
+task = "18.1200.1"
+file = "cmd/layerxd/lxp_daemon_protocol.c:1122"
+symbol = "lxp_daemon_protocol_owner_attach"
+observed = "Attempt 13 (6ef704375, the attempt 11 candidate unchanged on e8519e92e with 5.7.3 merged) passes migration 9/9 and operator 6/7; the real-authority operator test panics at tests/support/real_authority.rs:493 because layerxd --serve now passes the retired finality-authority stage and exits -3 at the protocol owner binding: lxp_programs_state_feed_store_bind_maintenance (src/modules/programs/feed_store.c:1041-1051) requires a commit observer nothing binds since 38c544316 (1.15.1) deleted lxp_programs_bind_state_feed from lxp_kernel_bind_module_runtime; 10.20.3 attempt 17 fails identically."
+assumption = "Task 5.7.4 (decision.1951) binds the feed observer in the daemon attach; 18.1200.1 and 10.20.3 require it and their candidates need no change; later startup stages and the three unrun targets are unverified."
+severity = "cross-task"
+
+[finding.13.8.1.4]
+task = "13.8.1"
+file = "programs/fixtures/pay5/native-token"
+symbol = "test_native_roundtrip_replays_without_history_feed"
+observed = "Attempt 6 (efa450e95) passed the build and the verify and re-recorded the 28 receipt, callgraph and terminal files under programs/fixtures/pay5/native-token and native-merchant, which touches names as directories; the scope check compared the two entries as file names and refused the candidate."
+assumption = "A touches entry that names a directory covers the files inside it; the attempt 6 candidate is re-qualified unchanged."
+severity = "environment"
+
+[finding.10.20.3.10]
+task = "10.20.3"
+file = "cmd/layerxd/lxp_daemon_protocol.c:1121"
+symbol = "lxp_daemon_protocol_owner_attach"
+observed = "Attempt 17 (19d2b3b6d, the attempt 15 candidate e299ec5de unchanged on e8519e92e with 5.7.3) builds all three build_cmd members, and both startup tests fail because layerxd --serve exits 1 with 'protocol owner module runtime binding failed with result -3': lxp_programs_state_feed_store_bind_maintenance (feed_store.c:1048-1049) finds no commit observer because 38c544316 (1.15.1) removed the only caller of lxp_programs_bind_state_feed; 18.1200.1 attempt 13 meets the same exit."
+assumption = "Task 5.7.4 (decision.1951) binds the daemon's feed store as the commit observer after lxp_kernel_bind_module_runtime without relaxing any feed-store check; this task requires it and re-qualifies the attempt 17 candidate unchanged."
+severity = "cross-task"
+
+[finding.18.1211.2.4]
+task = "18.1211.2"
+file = "services/interop/specs/conformance/transport-http/role-messages.json:23"
+symbol = "every_role_round_trips_on_every_transport"
+observed = "Attempt 7 (7b392b93a, continuing f8608e045 with do_7 and do_8) passed lib, buyer, buyer_sequencer, evidence_format, facilitator_evidence, layerx_evidence, seller and sequenced_vectors and failed tests/transports.rs:327 with 'payment_required: encode: layerx offer terms are malformed or do not derive its payTo' (ProfileMismatch), because the three role-messages.json suites, last changed in 57507cc06, still offer network layerx:beta with extra.layerx, which e556c8b04 (18.1162.1) refuses at src/model.rs:179-185; the same suites carry pending:provider-reference transactions refused since 685b68cbc (11.6.3) at src/model.rs:478-480 and a layerx:beta kind and layerx:* signer refused since c6f95f885 at src/facilitator.rs:705 and :721-735, and no other gate runs this test."
+assumption = "Decision 1952 adds do_9 and the three role-messages.json files to touches, setting the networks to eip155:125, the pending transactions to a 0x hash and the signers key to eip155:*; the attempt 7 candidate continues."
+severity = "cross-task"
+
+[finding.12.35.4.7]
+task = "12.35.4"
+file = "node/app.go:2376"
+symbol = "App.sendEVMServerStartSignals"
+observed = "In attempt 10 (a48caaeb7, with 12.35.5 merged) all three nodes commit past 34742403 and the readiness script reports ready; TestLocalNodeV6120SequencerReceipt then fails at v6120_test.go:159 because the standby's EVM RPC refuses connections while the standby process is alive, and the verify-1 readiness failure was the script's result-envelope parse of /status, corrected in the same attempt."
+assumption = "The standby replays 34742402 against the mock app and finalizes every sequenced block through the sealed FinalizeBlocker branch (node/app.go:1798-1830), so ProcessBlock never sends the EVM start signal; task 12.35.6 sends it on sealed adoption and 12.35.4 re-qualifies a48caaeb7 unchanged after it."
+severity = "cross-task"
