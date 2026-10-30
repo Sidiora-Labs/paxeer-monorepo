@@ -3,8 +3,15 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, Mac as _};
 use layerx_human_service::store::PrincipalId;
-use layerx_programs::ProtocolDeploymentVerifier;
-use layerx_proof::merkle::decode_proof;
+use layerx_programs::chain_proof::{
+    header::ChainHeader,
+    merkle::SimpleProof,
+    proto::{ProtoReader, ProtoValue},
+    trust_store::TrustRoot,
+    vote::{BlockId, CommitSig, PartSetHeader},
+    ChainProofError, Commit,
+};
+use layerx_programs::ChainProofVerifier;
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
 use sha2::{Digest as _, Sha256};
@@ -28,9 +35,9 @@ pub struct RecoveryReceipt {
     pub principal: String,
     pub evidence_id: String,
     pub canonical_receipt: String,
-    pub receipt_proof: String,
     pub header: String,
-    pub header_signature: String,
+    pub commit: String,
+    pub transaction_proof: String,
 }
 impl RecoveryReceipt {
     fn verify(&self, trust: &Path) -> Result<()> {
@@ -48,18 +55,139 @@ impl RecoveryReceipt {
         {
             return Err(Error::Refused);
         }
-        let proof = decode_proof(&decode64(&self.receipt_proof)?).map_err(|_| Error::Refused)?;
-        let signature: [u8; 64] = decode64(&self.header_signature)?
-            .try_into()
+        let header = ChainHeader::decode(&decode64(&self.header)?).map_err(|_| Error::Refused)?;
+        let commit = decode_commit(&decode64(&self.commit)?).map_err(|_| Error::Refused)?;
+        let proof = decode_transaction_proof(&decode64(&self.transaction_proof)?)
             .map_err(|_| Error::Refused)?;
-        let _ = protected_read(trust, LIMIT)?;
-        ProtocolDeploymentVerifier::from_protected_history(trust, 1)
-            .map_err(|_| Error::Refused)?
-            .verify_historical_protocol_head(&receipt, &proof, &decode64(&self.header)?, &signature)
+        let root = read_trust_root(trust).map_err(|_| Error::Refused)?;
+        let verifier = ChainProofVerifier {
+            chain_id: root.chain_id,
+            validators: root.validators,
+        };
+        let head = verifier
+            .verify_head(&header, &commit)
             .map_err(|_| Error::Refused)?;
+        layerx_programs::verify_tx(&head, &receipt, &proof).map_err(|_| Error::Refused)?;
         Ok(())
     }
 }
+fn read_trust_root(path: &Path) -> Result<TrustRoot> {
+    let bytes = protected_read(path, LIMIT).map_err(|_| Error::Configuration)?;
+    let root = TrustRoot::decode(&bytes).map_err(|_| Error::Configuration)?;
+    if root.validators.validators().is_empty() || root.validators.total_power() == 0 {
+        return Err(Error::Configuration);
+    }
+    Ok(root)
+}
+
+fn decode_transaction_proof(bytes: &[u8]) -> std::result::Result<SimpleProof, ChainProofError> {
+    let prefix = bytes.get(..49).ok_or(ChainProofError::Truncated)?;
+    let count = usize::from(prefix[48]);
+    if count > 64 || bytes.len() != 49 + count * 32 {
+        return Err(ChainProofError::NonCanonical);
+    }
+    let array = |slice: &[u8]| slice.try_into().map_err(|_| ChainProofError::NonCanonical);
+    let total = i64::from_be_bytes(
+        prefix[..8]
+            .try_into()
+            .map_err(|_| ChainProofError::NonCanonical)?,
+    );
+    let index = i64::from_be_bytes(
+        prefix[8..16]
+            .try_into()
+            .map_err(|_| ChainProofError::NonCanonical)?,
+    );
+    if total <= 0 || index < 0 || index >= total {
+        return Err(ChainProofError::NonCanonical);
+    }
+    Ok(SimpleProof {
+        total,
+        index,
+        leaf_hash: array(&prefix[16..48])?,
+        aunts: bytes[49..]
+            .chunks_exact(32)
+            .map(array)
+            .collect::<std::result::Result<_, _>>()?,
+    })
+}
+
+fn decode_commit(bytes: &[u8]) -> std::result::Result<Commit, ChainProofError> {
+    let mut reader = ProtoReader::new(bytes);
+    let mut height = None;
+    let mut round = None;
+    let mut block_id = None;
+    let mut signatures = Vec::new();
+    while let Some(field) = reader.next_field()? {
+        match (field.number, field.value) {
+            (1, ProtoValue::Varint(value)) if height.is_none() => {
+                height = Some(i64::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
+            }
+            (2, ProtoValue::Varint(value)) if round.is_none() => {
+                round = Some(i32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
+            }
+            (3, ProtoValue::Bytes(value)) if block_id.is_none() => {
+                block_id = Some(decode_block_id(value)?)
+            }
+            (4, ProtoValue::Bytes(value)) => signatures.push(CommitSig::decode(value)?),
+            _ => return Err(ChainProofError::NonCanonical),
+        }
+    }
+    reader.finish()?;
+    Ok(Commit {
+        height: height.ok_or(ChainProofError::NonCanonical)?,
+        round: round.unwrap_or(0),
+        block_id: block_id.ok_or(ChainProofError::NonCanonical)?,
+        signatures,
+    })
+}
+
+fn decode_block_id(bytes: &[u8]) -> std::result::Result<BlockId, ChainProofError> {
+    let mut reader = ProtoReader::new(bytes);
+    let mut hash = None;
+    let mut parts = None;
+    while let Some(field) = reader.next_field()? {
+        match (field.number, field.value) {
+            (1, ProtoValue::Bytes(value)) if hash.is_none() => hash = Some(value.to_vec()),
+            (2, ProtoValue::Bytes(value)) if parts.is_none() => {
+                let mut part_reader = ProtoReader::new(value);
+                let mut total = None;
+                let mut part_hash = None;
+                while let Some(part) = part_reader.next_field()? {
+                    match (part.number, part.value) {
+                        (1, ProtoValue::Varint(value)) if total.is_none() => {
+                            total = Some(
+                                u32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?,
+                            );
+                        }
+                        (2, ProtoValue::Bytes(value)) if part_hash.is_none() => {
+                            part_hash = Some(value.to_vec())
+                        }
+                        _ => return Err(ChainProofError::NonCanonical),
+                    }
+                }
+                part_reader.finish()?;
+                parts = Some(PartSetHeader {
+                    total: total.ok_or(ChainProofError::NonCanonical)?,
+                    hash: part_hash.ok_or(ChainProofError::NonCanonical)?,
+                });
+            }
+            _ => return Err(ChainProofError::NonCanonical),
+        }
+    }
+    reader.finish()?;
+    let block = BlockId {
+        hash: hash.ok_or(ChainProofError::NonCanonical)?,
+        part_set_header: parts.ok_or(ChainProofError::NonCanonical)?,
+    };
+    if block.hash.len() != 32
+        || block.part_set_header.hash.len() != 32
+        || !(1..=101).contains(&block.part_set_header.total)
+    {
+        return Err(ChainProofError::NonCanonical);
+    }
+    Ok(block)
+}
+
 fn decode64(value: &str) -> Result<Vec<u8>> {
     let bytes = STANDARD.decode(value).map_err(|_| Error::Refused)?;
     if STANDARD.encode(&bytes) != value {
@@ -132,9 +260,7 @@ impl Store {
         {
             return Err(Error::Configuration);
         }
-        let _ = protected_read(trust, LIMIT)?;
-        ProtocolDeploymentVerifier::from_protected_history(trust, 1)
-            .map_err(|_| Error::Configuration)?;
+        read_trust_root(trust)?;
         let lock_path = root.join("writer.lock");
         let lock = OpenOptions::new()
             .read(true)
