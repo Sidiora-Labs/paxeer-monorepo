@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"math"
 	"net"
 	"sync"
 	"time"
@@ -58,7 +59,8 @@ var (
 type AckStatus uint8
 
 const (
-	// AckOK: every record of the group is synced on the standby and re-executed.
+	// AckOK: every record is synced and every ACCEPT is re-executed. A trailing OPEN
+	// after COMMITTED may await the local commit before opening its executor layer.
 	AckOK AckStatus = 1
 	// AckGap: records before the group are missing; nothing of the group was taken.
 	AckGap AckStatus = 2
@@ -570,8 +572,9 @@ func (c *standbyCursor) advance(e wal.Entry) {
 	}
 }
 
-// Standby is the hot standby: it appends and syncs every replicated group to its own WAL,
-// re-executes it in seq order and only then acknowledges it.
+// Standby appends and syncs every replicated group to its own WAL and re-executes
+// ACCEPTs in seq order before acknowledging. A trailing OPEN after COMMITTED may
+// remain pending until the local app commits, before any later record executes.
 type Standby struct {
 	recvMu             sync.Mutex
 	mu                 sync.Mutex
@@ -580,6 +583,7 @@ type Standby struct {
 	consensusKey       tmtypes.PrivValidator
 	receiptKey         ed25519.PrivateKey
 	cur                standbyCursor
+	pendingOpen        *wal.Open
 	refusal            error
 	failed             error
 	leader             bool
@@ -771,8 +775,10 @@ func (s *Standby) serveConn(conn net.Conn) {
 
 // receive takes one group: records already held are skipped, a gap before the group is answered
 // with AckGap and nothing taken; otherwise the new records are appended and synced to the
-// standby WAL concurrently with their ordered re-execution, then acknowledged. A WAL or execution failure stops the
-// standby: it refuses every later group.
+// standby WAL concurrently with their ordered re-execution, then acknowledged.
+// A trailing OPEN after COMMITTED is durable before acknowledgement but opens the
+// executor only after the local commit, before executing the next fresh group.
+// A WAL or execution failure stops the standby: it refuses every later group.
 func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	s.recvMu.Lock()
 	defer s.recvMu.Unlock()
@@ -814,8 +820,25 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	}
 	s.mu.Unlock()
 	committed := true
-	for _, e := range fresh {
-		if open, ok := e.(*wal.Open); ok && !s.waitForCommit(open.Height-1) {
+	if s.pendingOpen != nil {
+		committed = s.waitForCommit(s.pendingOpen.Height - 1)
+	}
+	var pendingOpen *wal.Open
+	for i, e := range fresh {
+		open, ok := e.(*wal.Open)
+		if !ok {
+			continue
+		}
+		if i == len(fresh)-1 && next.committedHeight == open.Height-1 && !s.hasCommitted(open.Height-1) {
+			if open.Height > math.MaxInt64 || open.OpenTimeMs > math.MaxInt64 {
+				s.mu.Lock()
+				s.refusal = fmt.Errorf("%w: OPEN height or time exceeds int64", wal.ErrMalformed)
+				return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
+			}
+			pendingOpen = open
+			continue
+		}
+		if !s.waitForCommit(open.Height - 1) {
 			committed = false
 			break
 		}
@@ -834,7 +857,16 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	}
 	executed := make(chan error, 1)
 	go func() {
+		if s.pendingOpen != nil {
+			if err := s.execute(s.pendingOpen); err != nil {
+				executed <- err
+				return
+			}
+		}
 		for _, e := range fresh {
+			if e == pendingOpen {
+				continue
+			}
 			if err := s.execute(e); err != nil {
 				executed <- err
 				return
@@ -854,6 +886,7 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	for _, e := range fresh {
 		s.cur.advance(e)
 	}
+	s.pendingOpen = pendingOpen
 	return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}
 }
 
@@ -861,16 +894,17 @@ func standbyCommitWait(replicationTimeout time.Duration) time.Duration {
 	return replicationTimeout / 4
 }
 
-func (s *Standby) waitForCommit(height uint64) bool {
+func (s *Standby) hasCommitted(height uint64) bool {
 	host, ok := s.exec.(interface{ LastBlockHeight() int64 })
 	if !ok {
 		return true
 	}
-	committed := func() bool {
-		last := host.LastBlockHeight()
-		return last >= 0 && uint64(last) >= height
-	}
-	if committed() {
+	last := host.LastBlockHeight()
+	return last >= 0 && uint64(last) >= height
+}
+
+func (s *Standby) waitForCommit(height uint64) bool {
+	if s.hasCommitted(height) {
 		return true
 	}
 	ctx, cancel := context.WithTimeout(s.ctx, standbyCommitWait(s.replicationTimeout))
@@ -882,7 +916,7 @@ func (s *Standby) waitForCommit(height uint64) bool {
 		case <-ctx.Done():
 			return false
 		case <-tick.C:
-			if committed() {
+			if s.hasCommitted(height) {
 				return true
 			}
 		}

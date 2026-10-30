@@ -1,4 +1,4 @@
-package layerxpay
+package layerxpay_test
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/kv"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -151,7 +152,7 @@ func precompileServiceTupleValues(value interface{}) interface{} {
 func assertPrecompileServiceViews(t *testing.T, h *payPrecompileHarness, cases []precompileServiceViewCase) {
 	t.Helper()
 	a := h.precompile.GetABI()
-	executor := h.precompile.GetExecutor().(*Executor)
+	executor := h.precompile.GetExecutor().(*lp.Executor)
 	before := h.keeper.ExportGenesis(h.db.Ctx())
 	eventsBefore := h.db.Ctx().EventManager().Events()
 	for _, test := range cases {
@@ -160,7 +161,7 @@ func assertPrecompileServiceViews(t *testing.T, h *payPrecompileHarness, cases [
 			require.True(t, method.IsConstant())
 			input, err := a.Pack(test.name, test.id)
 			require.NoError(t, err)
-			row, ok := methodGas[test.name]
+			row, ok := lp.MethodGas[test.name]
 			require.True(t, ok)
 			require.False(t, row.Write)
 			require.Zero(t, row.Surcharge)
@@ -168,8 +169,8 @@ func assertPrecompileServiceViews(t *testing.T, h *payPrecompileHarness, cases [
 			require.Equal(t, uint64(1096), gas)
 			require.Equal(t, gas, h.precompile.RequiredGas(input))
 			require.Equal(t, gas, executor.RequiredGas(input[4:], &method))
-			require.Equal(t, gas+12, RequiredGas(input))
-			direct, handled, err := executor.serviceViewHandlers(h.db.Ctx(), &method, []interface{}{test.id})
+			require.Equal(t, gas+12, lp.RequiredGas(input))
+			direct, handled, err := executor.ServiceViewHandlers(h.db.Ctx(), &method, []interface{}{test.id})
 			require.True(t, handled)
 			require.NoError(t, err)
 			decoded, err := method.Outputs.Unpack(direct)

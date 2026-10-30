@@ -88,6 +88,66 @@ func (a *Attestor) UnmarshalJSONPB(u *jsonpb.Unmarshaler, raw []byte) error {
 
 func (a Attestor) String() string { return jsonString(a) }
 
+type Int = sdk.Int
+
+func (h Hash32) Size() int { return len(h) }
+
+func (h Hash32) Marshal() ([]byte, error) { return append([]byte(nil), h[:]...), nil }
+
+func (h Hash32) MarshalTo(data []byte) (int, error) {
+	if len(data) < len(h) {
+		return 0, fmt.Errorf("hash32: buffer of %d bytes, need %d", len(data), len(h))
+	}
+	return copy(data, h[:]), nil
+}
+
+func (h *Hash32) Unmarshal(data []byte) error {
+	if len(data) != len(h) {
+		return fmt.Errorf("hash32: expected %d bytes, got %d", len(h), len(data))
+	}
+	copy(h[:], data)
+	return nil
+}
+
+func (p Params) String() string { return jsonString(p) }
+
+func (p Params) MarshalJSONPB(*jsonpb.Marshaler) ([]byte, error) { return json.Marshal(p) }
+
+func (p *Params) UnmarshalJSONPB(u *jsonpb.Unmarshaler, raw []byte) error {
+	var decoded Params
+	if err := decodeJSONPB(u, raw, &decoded); err != nil {
+		return err
+	}
+	*p = decoded
+	return nil
+}
+
+func (r Request) String() string { return jsonString(r) }
+
+func (r Request) MarshalJSONPB(*jsonpb.Marshaler) ([]byte, error) { return json.Marshal(r) }
+
+func (r *Request) UnmarshalJSONPB(u *jsonpb.Unmarshaler, raw []byte) error {
+	var decoded Request
+	if err := decodeJSONPB(u, raw, &decoded); err != nil {
+		return err
+	}
+	*r = decoded
+	return nil
+}
+
+func (r Result) String() string { return jsonString(r) }
+
+func (r Result) MarshalJSONPB(*jsonpb.Marshaler) ([]byte, error) { return json.Marshal(r) }
+
+func (r *Result) UnmarshalJSONPB(u *jsonpb.Unmarshaler, raw []byte) error {
+	var decoded Result
+	if err := decodeJSONPB(u, raw, &decoded); err != nil {
+		return err
+	}
+	*r = decoded
+	return nil
+}
+
 func decodeJSONPB(u *jsonpb.Unmarshaler, raw []byte, out any) error {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	if u == nil || !u.AllowUnknownFields {

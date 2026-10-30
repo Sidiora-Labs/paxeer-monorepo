@@ -13,17 +13,16 @@ use ed25519_dalek::{Signer as _, SigningKey as Ed25519SigningKey};
 use k256::ecdsa::SigningKey;
 use layerx_agentd::outbox::{Outbox, SubmissionState};
 use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError, EvmPrepared,
+    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
     PreparationDefaults, PrepareRequest,
 };
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
+use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_crypto::account_derivation::derive_from_seed;
-use layerx_crypto::disclosure::call::bind_call;
-use layerx_crypto::evm_transaction::recover_sender;
+use layerx_crypto::disclosure::bind;
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::send::{ledger_payment_call, CallOptions};
-use layerx_crypto::signer::{sign_disclosed_call, Signer};
+use layerx_crypto::signer::{sign_disclosed, Signer};
 use layerx_human_service::audit::{
     AuditChain, AuditEvent, IdentityEvent, NotificationClass, SecurityChangeKind,
 };
@@ -156,7 +155,9 @@ impl InProcessAgentContract {
         let signer = Ed25519SigningKey::from_bytes(&[0x35; 32]);
         let raw = support::raw_receipt_evidence(
             receipt.canonical_receipt,
-            receipt.authorized_batch,
+            signer.verifying_key().to_bytes(),
+            receipt.authorized_batch.previous_state_root(),
+            receipt.authorized_batch.resulting_state_root(),
             9,
             &signer,
         );
@@ -164,13 +165,7 @@ impl InProcessAgentContract {
             .verify_receipt(&raw)
             .unwrap_or_else(|error| panic!("binding receipt verification: {error:?}"));
         self.outbox
-            .transition(
-                &mut self.store,
-                submission.submission_id,
-                SubmissionState::Executed,
-                "cryptographically verified binding receipt",
-                Some(verified),
-            )
+            .record_execution(&mut self.store, submission.submission_id, verified, 9, 0)
             .unwrap_or_else(|error| panic!("agent execution transition: {error:?}"));
     }
 }
@@ -192,7 +187,7 @@ impl AgentBindingContract for InProcessAgentContract {
         let mut core = VerifiedCorePreparation {
             registry: self.registry.clone(),
         };
-        let authorization = prepare_activity(
+        let prepared = prepare_activity(
             &mut core,
             PreparationDefaults {
                 timestamp_span: 30,
@@ -213,7 +208,7 @@ impl AgentBindingContract for InProcessAgentContract {
             },
         )
         .map_err(|_| AgentBindingError::ContractViolation)?;
-        if !authorization
+        if !prepared
             .disclosure
             .evm_payout_binding
             .is_some_and(|binding| {
@@ -228,67 +223,54 @@ impl AgentBindingContract for InProcessAgentContract {
         {
             return Err(AgentBindingError::ContractViolation);
         }
-        let from = self
-            .signer
-            .evm_address()
-            .ok_or(AgentBindingError::ContractViolation)?;
-        let disclosed = ledger_payment_call(
-            request.compiled.payload().as_bytes(),
-            &CallOptions {
-                from,
-                chain_id: u64::from(authorization.envelope.network_id()),
-                nonce: authorization.envelope.account_sequence(),
-                max_priority_fee_per_gas: 0,
-                max_fee_per_gas: authorization.envelope.fee_limit().value(),
-                gas_limit: 100_000,
-            },
-        )
-        .map_err(|_| AgentBindingError::ContractViolation)?;
-        let disclosure =
-            bind_call(&disclosed.call, from).map_err(|_| AgentBindingError::ContractViolation)?;
-        assert_eq!(disclosure, disclosed.disclosure);
-        let prepared = SigningPreparation {
-            transaction: EvmPrepared {
-                signing_hash: disclosed.call.signing_hash(),
-                call: disclosed.call,
-                observed_head_height: authorization.observed_head_sequence,
-            },
-            actor_address: from,
-            authorization,
-        };
-        let signature = ready(sign_disclosed_call(
+        let disclosure = bind(&prepared.canonical_bytes, &self.registry)
+            .map_err(|_| AgentBindingError::ContractViolation)?;
+        assert_eq!(disclosure, prepared.disclosure);
+        let signature = ready(sign_disclosed(
             &self.signer,
-            &prepared.transaction.call,
-            &disclosure,
-            from,
+            &prepared.canonical_bytes,
+            &prepared.disclosure,
+            &self.registry,
         ))
         .map_err(|_| AgentBindingError::Refused)?;
-        assert_eq!(signature.as_bytes().len(), 65);
+        assert_eq!(signature.as_bytes().len(), 64);
         assert_eq!(
-            recover_sender(&prepared.transaction.call, &signature)
+            prepared.envelope.authority(),
+            &Authority::owner(&self.signer.public_key())
                 .map_err(|_| AgentBindingError::ContractViolation)?,
-            from,
         );
-        let signed = attach_external_signature(&prepared, *signature.as_bytes())
+        let signed = attach_kernel_signature(&prepared, *signature.as_bytes())
             .map_err(|_| AgentBindingError::ContractViolation)?;
-        let verified = verify_before_submit(&signed, &prepared, &from, &self.registry)
-            .map_err(|_| AgentBindingError::ContractViolation)?;
+        verify_kernel_before_submit(
+            &signed,
+            &prepared,
+            &self.signer.public_key(),
+            &self.registry,
+        )
+        .map_err(|_| AgentBindingError::ContractViolation)?;
         self.accepted = self.accepted.saturating_add(1);
-        let activity_id = verified.activity_id();
+        let raw = Eip1559Call {
+            chain_id: 125,
+            nonce: u64::try_from(self.accepted)
+                .map_err(|_| AgentBindingError::ContractViolation)?,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 10,
+            gas_limit: 100_000,
+            to: [0x22; 20],
+            data: vec![request.idempotency_key.bytes()[0]],
+        }
+        .sign(&[0xa5; 32])
+        .map_err(|_| AgentBindingError::ContractViolation)?;
         let submission_id = self
             .outbox
-            .enqueue(
-                &mut self.store,
-                self.tenant.clone(),
-                verified.into_exact_bytes(),
-            )
+            .enqueue(&mut self.store, self.tenant.clone(), raw)
             .map_err(|_| AgentBindingError::Unavailable)?;
         self.outbox
             .bytes_for_transmission(submission_id)
             .map_err(|_| AgentBindingError::Unavailable)?;
         Ok(AgentSubmission {
             submission_id,
-            activity_id,
+            activity_id: submission_id,
         })
     }
 }
@@ -407,13 +389,9 @@ fn scalar_identifier_cannot_replace_a_committed_receipt_batch() {
         let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
         let raw = support::raw_receipt_evidence(
             encode_receipt(&fields, Some(signature.to_bytes())),
-            AuthorizedBatch::new(
-                batch_id,
-                fields.asset,
-                fields.previous_state_root,
-                fields.resulting_state_root,
-                signer.verifying_key().to_bytes(),
-            ),
+            signer.verifying_key().to_bytes(),
+            fields.previous_state_root,
+            fields.resulting_state_root,
             9,
             &signer,
         );
@@ -689,7 +667,12 @@ fn initial_binding_requires_real_signature_and_verified_matching_receipt() {
     ));
 
     let accepted_receipt = binding_receipt(submission, address, 4);
-    let receipt_hash: [u8; 32] = Sha256::digest(&accepted_receipt.canonical_receipt).into();
+    let decoded_receipt = layerx_wire::receipt::decode(&accepted_receipt.canonical_receipt)
+        .unwrap_or_else(|error| panic!("decode binding receipt: {error:?}"));
+    let unsigned_receipt = layerx_wire::receipt::encode_unsigned(&decoded_receipt)
+        .unwrap_or_else(|error| panic!("unsigned binding receipt: {error:?}"));
+    let receipt_hash = layerx_wire::hash::receipt_digest(&unsigned_receipt)
+        .unwrap_or_else(|error| panic!("binding receipt digest: {error:?}"));
     let active = required(
         journey.finalize(&mut scope, &accepted_receipt, 104, &TraceId::mint([2; 16])),
         "finalize binding",
