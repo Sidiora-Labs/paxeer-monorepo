@@ -2,6 +2,8 @@
 mod attestor_cluster;
 #[path = "../src/payer.rs"]
 mod payer;
+#[path = "payer.rs"]
+mod receipt_fixture;
 
 use attestor_cluster::{checked, Cluster, Result, SIGNERS};
 use layerx_agentd::prepare::evm::PrecompileCall;
@@ -23,8 +25,6 @@ const LEDGER_ADDRESS: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
 ];
 const RECEIVER_SEQUENCE: u64 = 19;
-
-const RECEIPT: &[u8] = include_bytes!("../../../../../tests/fixtures/receipt-supply-v2.bin");
 
 struct SigningFixture {
     _cluster: Cluster,
@@ -176,6 +176,7 @@ struct RpcServer {
     stop: Arc<AtomicBool>,
     raw: Arc<Mutex<Vec<Vec<u8>>>>,
     requests: Arc<Mutex<Vec<String>>>,
+    receipts: Arc<Mutex<Vec<layerx_client::sequencer::ExecutedReceipt>>>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -187,10 +188,12 @@ impl RpcServer {
         let stop = Arc::new(AtomicBool::new(false));
         let raw = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
         let requests = Arc::new(Mutex::new(Vec::new()));
+        let receipts = Arc::new(Mutex::new(Vec::new()));
         let thread = {
             let stop = Arc::clone(&stop);
             let raw = Arc::clone(&raw);
             let requests = Arc::clone(&requests);
+            let receipts = Arc::clone(&receipts);
             thread::spawn(move || {
                 let mut polls = 0;
                 let mut estimate = Vec::new();
@@ -333,15 +336,33 @@ impl RpcServer {
                             if polls == 1 {
                                 json!({"rung":"submitted", "txHash":hex(&hash), "nonce":format!("{nonce:#x}")})
                             } else {
-                                json!({
+                                let (call, _) = decode_signed(transaction)
+                                    .unwrap_or_else(|error| panic!("signed transaction: {error}"));
+                                let execution = receipt_fixture::signed_execution(
+                                    sender,
+                                    hash,
+                                    u64::try_from(nonce).expect("nonce"),
+                                    &call.data,
+                                    [7; 32],
+                                )
+                                .unwrap_or_else(|error| panic!("signed receipt: {error}"));
+                                let result = json!({
                                     "rung":"receipted", "txHash":hex(&hash), "nonce":format!("{nonce:#x}"),
                                     "seq":"0x2a", "height":"0x64", "index":"0x0", "timestamp":"0x123", "status":"0x1",
-                                    "returnData":"0x", "logs":[{"address":hex(&destination), "topics":[hex(&[3;32])], "data":"0x010203", "logIndex":"0x0"}],
+                                    "returnData":"0x", "logs":execution.logs.iter().map(|log| json!({
+                                        "address":hex(&log.address), "topics":log.topics.iter().map(|topic| hex(topic)).collect::<Vec<_>>(),
+                                        "data":hex(&log.data), "logIndex":format!("{:#x}", log.log_index),
+                                    })).collect::<Vec<_>>(),
                                     "gasUsed":"0x10000", "cumulativeGasUsed":"0x10000", "effectiveGasPrice":"0x3b9aca00",
                                     "feeDenom":"upax", "feeAmount":"0x1", "sponsor":hex(&[0;20]), "from":hex(&sender),
                                     "to":hex(&destination), "contractAddress":hex(&[0;20]), "vmError":"",
-                                    "keyId":hex(&[1;32]), "receipt":hex(RECEIPT), "signingKey":hex(&[2;32]),
-                                })
+                                    "keyId":hex(&execution.key_id), "receipt":hex(&execution.receipt), "signingKey":hex(&execution.signing_key),
+                                });
+                                receipts
+                                    .lock()
+                                    .unwrap_or_else(|_| panic!("receipts lock"))
+                                    .push(execution);
+                                result
                             }
                         }
                         _ => panic!("unexpected method {method}"),
@@ -357,6 +378,7 @@ impl RpcServer {
             stop,
             raw,
             requests,
+            receipts,
             thread: Some(thread),
         })
     }
@@ -389,6 +411,7 @@ fn payer(signer: Arc<AttestorSigner>, endpoint: &str) -> Result<payer::Productio
         signer,
         endpoint,
         &[],
+        receipt_fixture::published_keys(),
         Box::new(|| Ok(())),
         Box::new(|_| Err(WebPayerError::Refused)),
     ))
@@ -482,15 +505,20 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
         assert_eq!(&data[156..164], &terms.expires_at_ms.to_be_bytes());
         assert_eq!(&data[164..196], &terms.idempotency_key);
         assert_eq!(payment.tx_hash, transaction_hash(&submitted[0]));
-        assert_eq!(payment.receipt, RECEIPT);
+        let receipts = rpc.receipts.lock().map_err(|_| "receipts lock")?;
+        assert_eq!(payment.receipt, receipts[0].receipt);
         assert_eq!(
             payment.logs,
-            vec![layerx_proof::sequencer_logs::SequencerLog::new(
-                LEDGER_ADDRESS,
-                vec![[3; 32]],
-                vec![1, 2, 3],
-                0
-            )]
+            receipts[0]
+                .logs
+                .iter()
+                .map(|log| layerx_proof::sequencer_logs::SequencerLog::new(
+                    log.address,
+                    log.topics.clone(),
+                    log.data.clone(),
+                    log.log_index,
+                ))
+                .collect::<Vec<_>>()
         );
         let methods = rpc.requests.lock().map_err(|_| "requests lock")?;
         assert_eq!(
@@ -619,7 +647,10 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
         assert_eq!(&draw_data[156..164], &RECEIVER_SEQUENCE.to_be_bytes());
         assert_eq!(&draw_data[164..196], &terms.purpose_hash);
         assert_eq!(drawn.tx_hash, transaction_hash(&submitted[1]));
-        assert_eq!(drawn.receipt, RECEIPT);
+        assert_eq!(
+            drawn.receipt,
+            rpc.receipts.lock().map_err(|_| "receipts lock")?[1].receipt
+        );
         let methods = rpc.requests.lock().map_err(|_| "requests lock")?;
         assert_eq!(
             methods

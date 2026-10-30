@@ -1251,6 +1251,18 @@ fn attach_mcp_payers(
             .map_err(|_| "MCP payer EVM assertion is invalid")?;
         let endpoint = required("LAYERX_AGENT_NODE_ENDPOINT")?;
         let ca_der = read_ca("LAYERX_AGENT_AUTHORITY_CA_DER")?;
+        let node = NodeRpc::connect_with_ca(
+            &NodeRpcConfig {
+                url: endpoint.clone(),
+                chain_id: 125,
+                deadline: Duration::from_secs(30),
+            },
+            &ca_der,
+        )
+        .map_err(|_| "MCP payer node connection is unavailable")?;
+        let receipt_keys = node
+            .receipt_keys()
+            .map_err(|_| "MCP payer receipt keys are unavailable")?;
         let payer = mcp_payer::ProductionWebPayer::from_owner(
             owner.clone(),
             credential,
@@ -1258,6 +1270,7 @@ fn attach_mcp_payers(
             Arc::new(signer),
             &endpoint,
             &[&ca_der],
+            receipt_keys,
         )
         .map_err(|_| "MCP payer owner authority is unavailable")?;
         let approvals = owner
