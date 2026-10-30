@@ -1,17 +1,23 @@
 package com.sidiora.layerx.android;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /** Declared-key configuration whose shape cannot carry an API secret or private key. */
@@ -21,6 +27,7 @@ public final class PublishableConfiguration {
     public static final String EVENT_PUBLIC_KEY_PREFIX = "layerx.event_public_key.";
     public static final String EVENT_MAX_AGE_SECONDS_KEY = "layerx.event_max_age_seconds";
     public static final String REQUEST_TIMEOUT_SECONDS_KEY = "layerx.request_timeout_seconds";
+    public static final String RECEIPT_KEYS_KEY = "layerx.receipt_keys";
 
     private static final long MAXIMUM_CONFIGURATION_BYTES = 262_144L;
 
@@ -29,14 +36,17 @@ public final class PublishableConfiguration {
     private final Map<String, byte[]> eventPublicKeys;
     private final long eventMaximumAgeMs;
     private final long requestTimeoutMs;
+    private final LocalVerifier.ReceiptKeys receiptKeys;
 
     private PublishableConfiguration(URI serviceUri, URI sessionBrokerUri, Map<String, byte[]> eventPublicKeys,
-                                     long eventMaximumAgeMs, long requestTimeoutMs) {
+                                     long eventMaximumAgeMs, long requestTimeoutMs,
+                                     LocalVerifier.ReceiptKeys receiptKeys) {
         this.serviceUri = serviceUri;
         this.sessionBrokerUri = sessionBrokerUri;
         this.eventPublicKeys = Map.copyOf(eventPublicKeys);
         this.eventMaximumAgeMs = eventMaximumAgeMs;
         this.requestTimeoutMs = requestTimeoutMs;
+        this.receiptKeys = receiptKeys;
     }
 
     public static PublishableConfiguration of(Map<String, String> declaredKeys) {
@@ -45,6 +55,7 @@ public final class PublishableConfiguration {
         Map<String, byte[]> publicKeys = new LinkedHashMap<>();
         long maximumAgeSeconds = 300L;
         long timeoutSeconds = 30L;
+        LocalVerifier.ReceiptKeys receiptKeys = null;
         for (Map.Entry<String, String> declared : declaredKeys.entrySet()) {
             String name = declared.getKey();
             String value = declared.getValue();
@@ -56,6 +67,7 @@ public final class PublishableConfiguration {
                 case SESSION_BROKER_URL_KEY -> broker = endpoint(value);
                 case EVENT_MAX_AGE_SECONDS_KEY -> maximumAgeSeconds = bounded(value, 1L, 3_600L);
                 case REQUEST_TIMEOUT_SECONDS_KEY -> timeoutSeconds = bounded(value, 1L, 300L);
+                case RECEIPT_KEYS_KEY -> receiptKeys = parseReceiptKeys(value);
                 default -> {
                     if (!name.startsWith(EVENT_PUBLIC_KEY_PREFIX)) throw invalid();
                     String identifier = name.substring(EVENT_PUBLIC_KEY_PREFIX.length());
@@ -66,7 +78,7 @@ public final class PublishableConfiguration {
         }
         if (service == null || broker == null || publicKeys.isEmpty()) throw invalid();
         return new PublishableConfiguration(service, broker, publicKeys,
-            maximumAgeSeconds * 1_000L, timeoutSeconds * 1_000L);
+            maximumAgeSeconds * 1_000L, timeoutSeconds * 1_000L, receiptKeys);
     }
 
     public static PublishableConfiguration ofJsonFile(Path path) {
@@ -105,6 +117,7 @@ public final class PublishableConfiguration {
             case "session_broker_url" -> SESSION_BROKER_URL_KEY;
             case "event_max_age_seconds" -> EVENT_MAX_AGE_SECONDS_KEY;
             case "request_timeout_seconds" -> REQUEST_TIMEOUT_SECONDS_KEY;
+            case "receipt_keys_json" -> RECEIPT_KEYS_KEY;
             default -> {
                 String prefix = "event_public_key_";
                 if (!remainder.startsWith(prefix)) yield null;
@@ -116,13 +129,14 @@ public final class PublishableConfiguration {
 
     public static List<String> declaredKeyNames() {
         return List.of(SERVICE_URL_KEY, SESSION_BROKER_URL_KEY, EVENT_PUBLIC_KEY_PREFIX + "<key-id>",
-            EVENT_MAX_AGE_SECONDS_KEY, REQUEST_TIMEOUT_SECONDS_KEY);
+            EVENT_MAX_AGE_SECONDS_KEY, REQUEST_TIMEOUT_SECONDS_KEY, RECEIPT_KEYS_KEY);
     }
 
     public URI serviceUri() { return serviceUri; }
     public URI sessionBrokerUri() { return sessionBrokerUri; }
     public long eventMaximumAgeMs() { return eventMaximumAgeMs; }
     public long requestTimeoutMs() { return requestTimeoutMs; }
+    public Optional<LocalVerifier.ReceiptKeys> receiptKeys() { return Optional.ofNullable(receiptKeys); }
 
     public Map<String, byte[]> eventPublicKeys() {
         Map<String, byte[]> copy = new LinkedHashMap<>();
@@ -137,7 +151,42 @@ public final class PublishableConfiguration {
         values.add(serviceUri.toString());
         values.add(sessionBrokerUri.toString());
         for (byte[] key : eventPublicKeys.values()) values.add(hexadecimal(key));
+        if (receiptKeys != null) {
+            for (LocalVerifier.ReceiptKey key : receiptKeys.entries()) {
+                values.add(hexadecimal(key.keyId()));
+                values.add(hexadecimal(key.publicKey()));
+                values.add("0x" + hexadecimal(key.keyId()));
+                values.add("0x" + hexadecimal(key.publicKey()));
+            }
+        }
         return Set.copyOf(values);
+    }
+
+    private static LocalVerifier.ReceiptKeys parseReceiptKeys(String value) {
+        if (value.length() > MAXIMUM_CONFIGURATION_BYTES) throw invalid();
+        try {
+            JsonNode entries = new ObjectMapper()
+                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(value);
+            if (entries == null || !entries.isArray() || entries.isEmpty()) throw invalid();
+            List<LocalVerifier.ReceiptKey> keys = new ArrayList<>();
+            for (JsonNode entry : entries) {
+                if (!entry.isObject() || entry.size() != 4
+                        || !entry.path("firstHeight").isIntegralNumber()
+                        || !entry.path("lastHeight").isIntegralNumber()) throw invalid();
+                keys.add(new LocalVerifier.ReceiptKey(receiptKeyBytes(entry.path("keyId")),
+                    receiptKeyBytes(entry.path("publicKey")), entry.path("firstHeight").bigIntegerValue(),
+                    entry.path("lastHeight").bigIntegerValue()));
+            }
+            return new LocalVerifier.ReceiptKeys(keys);
+        } catch (IOException | RuntimeException error) {
+            throw invalid();
+        }
+    }
+
+    private static byte[] receiptKeyBytes(JsonNode value) {
+        if (!value.isTextual() || value.textValue().length() != 66
+                || !value.textValue().startsWith("0x")) throw invalid();
+        return HexFormat.of().parseHex(value.textValue().substring(2));
     }
 
     static String hexadecimal(byte[] bytes) {

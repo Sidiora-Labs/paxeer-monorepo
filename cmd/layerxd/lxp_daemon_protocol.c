@@ -1121,6 +1121,7 @@ lxp_result lxp_daemon_protocol_owner_attach(
         status = lxp_kernel_bind_module_runtime(
             kernel, LXP_MODULE_PROGRAMS, programs_runtime);
     }
+    if (status == LXP_OK) stage = "state feed binding";
     if (status == LXP_OK)
         status = lxp_programs_bind_state_feed(kernel, &owner->feed_store.feed);
     if (status == LXP_OK)

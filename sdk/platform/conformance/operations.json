@@ -585,15 +585,13 @@
       {
         "plane": "agent",
         "name": "program.receipt",
-        "method": "eth_call",
+        "method": "eth_getTransactionByHash",
         "path": "",
         "request": "ProgramReceiptSelector",
         "response": "ProgramReceiptResponse",
         "idempotency": false,
         "bodyless": false,
-        "transport": "evm",
-        "to": "0x000000000000000000000000000000000000101c",
-        "selector": "resultByIdempotency(bytes32,bytes32)"
+        "transport": "evm"
       }
     ],
     "O48": [
