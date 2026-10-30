@@ -140105,7 +140105,7 @@ do_3 = "Attempts 2 and 3: cargo build --tests also compiles services/agent/crate
 
 [task.9.5.10]
 title = "Render the committed program balance freshness in the daemon's balance route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.5.8", "18.1243.2"]
@@ -140643,7 +140643,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.12.4]
 title = "Serve health and program balance routes from node JSON-RPC readiness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.12.2", "9.5.8", "9.1.8", "18.1131.1", "9.98.1", "18.1243.2"]
