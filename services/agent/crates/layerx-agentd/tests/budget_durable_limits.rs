@@ -33,7 +33,9 @@ use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRegistry, Toke
 use layerx_agentd::session_control::{
     AdmissionStage, OperationPermit, SessionControl, WriteAdmission, WriteCharge,
 };
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit, VerifiedSubmission};
+use layerx_agentd::sign::{
+    attach_kernel_signature, verify_kernel_before_submit, VerifiedSubmission,
+};
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{Operation, Surface};
 use layerx_crypto::local::LocalSigner;
@@ -63,6 +65,7 @@ const PERIOD_LENGTH_MS: u64 = 60_000;
 const PERIOD_START_MS: u64 = 900;
 const EXPIRY_MS: u64 = 1_700_000_000_000;
 const DAEMON_CEILING: u128 = 1_000;
+const CREATE_SIGNING_SEED: [u8; 32] = [0xa5; 32];
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -247,7 +250,7 @@ fn prepare(
 }
 
 fn signed_create(source: Option<([u8; 32], u64)>) -> (Prepared, VerifiedSubmission) {
-    let signer = LocalSigner::new([0xa5; 32]);
+    let signer = LocalSigner::new(CREATE_SIGNING_SEED);
     let prepared = text(
         prepare(&signer, create_kind(), core_create(source)),
         "prepare",
@@ -262,11 +265,11 @@ fn signed_create(source: Option<([u8; 32], u64)>) -> (Prepared, VerifiedSubmissi
         "sign",
     );
     let signed = text(
-        attach_external_signature(&prepared, *signature.as_bytes()),
+        attach_kernel_signature(&prepared, *signature.as_bytes()),
         "attach",
     );
     let verified = text(
-        verify_before_submit(&signed, &prepared, &signer.public_key(), &registry()),
+        verify_kernel_before_submit(&signed, &prepared, &signer.public_key(), &registry()),
         "verify",
     );
     (prepared, verified)
@@ -511,7 +514,20 @@ fn core_create_identity_is_read_from_the_signed_v1_and_v2_bytes() {
         "v1 identity",
     );
     assert_eq!(identity.encoding_version, 1);
-    assert_eq!(identity.owner, main_account());
+    let signing_key = text(
+        k256::ecdsa::SigningKey::from_slice(&CREATE_SIGNING_SEED),
+        "fixture EVM signing key",
+    );
+    let sender = text(
+        layerx_crypto::secp256k1::evm_address(
+            signing_key
+                .verifying_key()
+                .to_encoded_point(false)
+                .as_bytes(),
+        ),
+        "fixture EVM sender",
+    );
+    assert_eq!(identity.sender, sender);
     assert_eq!(identity.budget_id, BUDGET_ID);
     assert_eq!(identity.budget_account, budget_account());
     assert_eq!(identity.asset, ASSET);
@@ -527,7 +543,7 @@ fn core_create_identity_is_read_from_the_signed_v1_and_v2_bytes() {
     assert_eq!(identity.source_account, main_account());
     assert_eq!(identity.source_sequence, ENVELOPE_SEQUENCE);
     assert_eq!(
-        budget_create_identity(&prepared.canonical_bytes, &registry()),
+        budget_create_identity(prepared.canonical_bytes.as_slice(), &registry()),
         Err(BudgetCreationError::NotBudgetCreation)
     );
 
