@@ -101555,7 +101555,7 @@ do_6 = "At 5fa86a953 TestAgentMergeAddressesServedAfterUpgrade failed at precomp
 
 [task.2.38.2]
 title = "Prove 0x101B and 0x0906 are served by the application over the shared host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["2.28.4", "2.28.5", "2.28.6", "2.28.7", "2.28.8", "2.35.2", "2.0.2", "5.94.2"]
