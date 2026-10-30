@@ -164925,7 +164925,7 @@ do_5 = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx:3 imports Paxee
 
 [task.14.32.3]
 title = "Show the kernel receipts page as a frozen archive without a settlement rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["14.32.1"]
@@ -164990,7 +164990,7 @@ do_6 = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx:5 impor
 
 [task.14.32.5]
 title = "Label the kernel pages Kernel archive in the navigation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["14.32.1"]
