@@ -156932,7 +156932,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.2]
 title = "Prove a deployment from its record and code hash at a chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["13.0.2", "13.2.1", "13.3.1"]
@@ -156994,7 +156994,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.4]
 title = "Prove the program lifecycle record at a chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["13.0.2", "13.2.1", "13.3.1"]
