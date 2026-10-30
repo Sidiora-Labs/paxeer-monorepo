@@ -137,16 +137,23 @@ impl ProductionWebPayer {
     fn validate(
         &mut self,
         did: &str,
-        account: [u8; 20],
+        account: [u8; 32],
         amount: u128,
         key: [u8; 32],
     ) -> Result<(), WebPayerError> {
         (self.owner_check)()?;
-        if did != self.payer_did
-            || account != self.signer.evm_address()
-            || amount == 0
-            || key == [0; 32]
-        {
+        if did != self.payer_did || account == [0; 32] || amount == 0 || key == [0; 32] {
+            return Err(WebPayerError::Refused);
+        }
+        let mut owner = [0; 32];
+        owner[12..].copy_from_slice(&self.signer.evm_address());
+        let data = [&transaction_hash(b"accountOwner(bytes32)")[..4], &account].concat();
+        let expected = self
+            .node
+            .call_pending(&PrecompileTarget::Ledger.address(), &data)
+            .map_err(node_error)
+            .map_err(WebPayerError::from)?;
+        if expected.as_slice() != owner {
             return Err(WebPayerError::Refused);
         }
         Ok(())
@@ -330,25 +337,20 @@ impl ProductionWebPayer {
     }
 
     fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
+        if terms.purpose_hash == [0; 32] {
+            return Err(WebPayerError::Refused);
+        }
         self.validate(
             &terms.payer_did,
             terms.payer_account,
             terms.amount,
             terms.idempotency_key,
         )?;
-        if terms.purpose_hash == [0; 32] {
-            return Err(WebPayerError::Refused);
-        }
-        let address_word = |address: [u8; 20]| {
-            let mut word = [0; 32];
-            word[12..].copy_from_slice(&address);
-            word
-        };
         let mut grant = Grant {
             id: [0; 32],
-            from: address_word(terms.payer_account),
-            recipient: address_word(terms.recipient),
-            asset: address_word(terms.asset),
+            from: terms.payer_account,
+            recipient: terms.recipient,
+            asset: terms.asset,
             per_draw_maximum: terms.amount,
             allowance: terms.amount,
             recurring: false,
@@ -376,15 +378,15 @@ impl ProductionWebPayer {
         terms: &GrantTerms,
         grant_id: [u8; 32],
     ) -> Result<PrecompileCall, WebPayerError> {
+        if grant_id == [0; 32] || terms.purpose_hash == [0; 32] {
+            return Err(WebPayerError::Refused);
+        }
         self.validate(
             &terms.payer_did,
             terms.payer_account,
             terms.amount,
             terms.idempotency_key,
         )?;
-        if grant_id == [0; 32] || terms.purpose_hash == [0; 32] {
-            return Err(WebPayerError::Refused);
-        }
         let call = terms.next_sequence_call();
         let data = call.encode().map_err(|_| WebPayerError::Refused)?;
         let result = self

@@ -28,7 +28,8 @@ use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_types::payload::ModuleId;
 use layerx_x402::buyer::BuiltPayment;
 use layerx_x402::model::{
-    PaymentPayload, PaymentRequired, PaymentRequirements, SettlementResponse, X402Error,
+    account_identifiers, PaymentPayload, PaymentRequired, PaymentRequirements, SettlementResponse,
+    X402Error,
 };
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -224,7 +225,7 @@ impl WebCall {
 }
 
 impl WebCall {
-    /// Binds the approved exact quote to EVM payer, recipient and token addresses.
+    /// Binds the approved exact quote to ledger payer, recipient and asset ids.
     pub fn exact_terms(
         &self,
         config: &WebConfig,
@@ -241,7 +242,7 @@ impl WebCall {
             self.idempotency_key,
             None,
         )?;
-        self.exact_terms_for_disclosure(config, offer, prepared.disclosure)
+        self.exact_terms_for_disclosure(config, offer, prepared.disclosure, &facts)
     }
 
     fn exact_terms_for_disclosure(
@@ -249,6 +250,7 @@ impl WebCall {
         config: &WebConfig,
         offer: &PaymentRequirements,
         disclosure: Disclosure,
+        facts: &OfferFacts,
     ) -> Result<ExactTerms, WebToolError> {
         if self.scheme != Scheme::Exact || matches!(self.operation, WebOperation::Content(_)) {
             return Err(WebToolError::OfferMismatch("scheme"));
@@ -267,23 +269,22 @@ impl WebCall {
         {
             return Err(WebToolError::OfferMismatch("offer"));
         }
-        let recipient = unhex20(&offer.pay_to)
-            .filter(|address| *address == config.receiver_address)
-            .ok_or(WebToolError::OfferMismatch("recipient"))?;
-        let asset = unhex20(&offer.asset).ok_or(WebToolError::OfferMismatch("asset"))?;
         Ok(ExactTerms {
             payer_did: config.payer_did.clone(),
-            payer_account: unhex20(&config.payer_address)
-                .ok_or(WebToolError::Configuration("payer_address"))?,
-            recipient,
-            recipient_account: offer.pay_to.clone(),
-            asset,
+            payer_account: facts.payer_accounts[0],
+            recipient: facts.pay_to,
+            recipient_account: offer.layerx_terms().map_err(WebToolError::Payment)?.account,
+            asset: facts.asset,
             expires_at_ms: expiry_milliseconds(disclosure.expiry.0)?,
             disclosure,
             amount: offer.amount.value(),
             idempotency_key: self.idempotency_key,
         })
     }
+}
+
+fn parse_hex32(value: &str) -> Result<[u8; 32], X402Error> {
+    unhex32(value.strip_prefix("0x").unwrap_or(value)).ok_or(X402Error::InvalidRequirements)
 }
 
 fn unhex20(value: &str) -> Option<[u8; 20]> {
@@ -460,9 +461,9 @@ impl WebApproval<'_> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GrantTerms {
     pub payer_did: String,
-    pub payer_account: [u8; 20],
-    pub recipient: [u8; 20],
-    pub asset: [u8; 20],
+    pub payer_account: [u8; 32],
+    pub recipient: [u8; 32],
+    pub asset: [u8; 32],
     pub expires_at_ms: u64,
     pub amount: u128,
     pub purpose_hash: [u8; 32],
@@ -473,10 +474,10 @@ pub struct GrantTerms {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExactTerms {
     pub payer_did: String,
-    pub payer_account: [u8; 20],
-    pub recipient: [u8; 20],
+    pub payer_account: [u8; 32],
+    pub recipient: [u8; 32],
     pub recipient_account: String,
-    pub asset: [u8; 20],
+    pub asset: [u8; 32],
     pub expires_at_ms: u64,
     pub disclosure: Disclosure,
     pub amount: u128,
@@ -564,9 +565,9 @@ impl ExactTerms {
             PrecompileTarget::Ledger,
             "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)",
             vec![
-                address_word(self.payer_account),
-                address_word(self.recipient),
-                address_word(self.asset),
+                self.payer_account,
+                self.recipient,
+                self.asset,
                 amount_word(self.amount),
                 amount_word(u128::from(self.expires_at_ms)),
                 self.idempotency_key,
@@ -577,9 +578,9 @@ impl ExactTerms {
 
 impl GrantTerms {
     pub fn prepare_grant(&self, grant: &Grant) -> Result<PrecompileCall, WebPayerError> {
-        if grant.from != address_word(self.payer_account)
-            || grant.recipient != address_word(self.recipient)
-            || grant.asset != address_word(self.asset)
+        if grant.from != self.payer_account
+            || grant.recipient != self.recipient
+            || grant.asset != self.asset
             || grant.per_draw_maximum != self.amount
             || grant.allowance != self.amount
             || grant.recurring
@@ -612,7 +613,7 @@ impl GrantTerms {
         payment_call(
             PrecompileTarget::Ledger,
             "nextSequence(bytes32,bytes32)",
-            vec![address_word(self.recipient), address_word(self.asset)],
+            vec![self.recipient, self.asset],
         )
     }
 
@@ -623,7 +624,7 @@ impl GrantTerms {
             "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)",
             vec![
                 grant_id,
-                address_word(self.recipient),
+                self.recipient,
                 amount_word(self.amount),
                 self.idempotency_key,
                 amount_word(u128::from(receiver_sequence)),
@@ -979,7 +980,7 @@ fn select_offer(
     Ok((STANDARD.encode(encoded), facts))
 }
 
-fn validate_web_challenge(required: &PaymentRequired) -> Result<(), WebToolError> {
+pub fn validate_web_challenge(required: &PaymentRequired) -> Result<(), WebToolError> {
     required
         .resource
         .validate()
@@ -999,8 +1000,8 @@ fn validate_web_challenge(required: &PaymentRequired) -> Result<(), WebToolError
         if Scheme::parse(&offer.scheme).is_none()
             || offer.amount.value() == 0
             || offer.max_timeout_seconds == 0
-            || unhex20(&offer.asset).is_none()
-            || unhex20(&offer.pay_to).is_none()
+            || parse_hex32(&offer.asset).is_err()
+            || parse_hex32(&offer.pay_to).is_err()
             || !offer.network.strip_prefix("eip155:").is_some_and(|chain| {
                 !chain.is_empty()
                     && chain.len() <= 64
@@ -1029,31 +1030,35 @@ fn offer_facts(
     call: &WebCall,
     offer: &PaymentRequirements,
 ) -> Result<OfferFacts, WebToolError> {
-    let asset_address = unhex20(&offer.asset).ok_or(WebToolError::OfferMismatch("asset"))?;
-    let payee_address = unhex20(&offer.pay_to)
-        .filter(|address| *address == config.receiver_address)
-        .ok_or(WebToolError::OfferMismatch("recipient"))?;
-    let asset = address_word(asset_address);
-    let pay_to = address_word(payee_address);
-    let receiver_did = offer
-        .extra
-        .as_ref()
-        .and_then(|extra| extra.pointer("/layerx/receiverDid"))
-        .and_then(Value::as_str)
+    let asset = parse_hex32(&offer.asset).map_err(|_| WebToolError::OfferMismatch("asset"))?;
+    let pay_to =
+        parse_hex32(&offer.pay_to).map_err(|_| WebToolError::OfferMismatch("recipient"))?;
+    let terms = offer.layerx_terms().map_err(WebToolError::Payment)?;
+    if !account_identifiers(&terms.account)
+        .map_err(WebToolError::Payment)?
+        .contains(&pay_to)
+    {
+        return Err(WebToolError::OfferMismatch("recipient"));
+    }
+    let receiver_did = terms
+        .account
+        .strip_prefix("agent:")
+        .and_then(|account| {
+            account
+                .strip_suffix(":main")
+                .or_else(|| account.rsplit_once(":asset:").map(|(did, _)| did))
+        })
         .filter(|did| valid_payer(did))
-        .ok_or(WebToolError::OfferMismatch("receiver_did"))?
+        .ok_or(WebToolError::OfferMismatch("account"))?
         .to_owned();
-    let payer_accounts = [address_word(
-        unhex20(&config.payer_address).ok_or(WebToolError::Configuration("payer_address"))?,
-    )];
+    let payer_accounts = [payer_account(config, call.currency, asset)?];
     let layerx = offer.extra.as_ref().and_then(|extra| extra.get("layerx"));
     let (metered_payer, purpose_hash) = match call.scheme {
         Scheme::Metered => {
             let payer = layerx
                 .and_then(|terms| terms.get("payer"))
                 .and_then(Value::as_str)
-                .and_then(unhex20)
-                .map(address_word)
+                .and_then(|payer| parse_hex32(payer).ok())
                 .filter(|payer| payer_accounts.contains(payer))
                 .ok_or(WebToolError::OfferMismatch("payer"))?;
             let purpose = layerx
@@ -1075,6 +1080,57 @@ fn offer_facts(
         metered_payer,
         purpose_hash,
     })
+}
+
+fn payer_account(
+    config: &WebConfig,
+    currency: Currency,
+    asset: [u8; 32],
+) -> Result<[u8; 32], WebToolError> {
+    let owner = address_word(
+        unhex20(&config.payer_address).ok_or(WebToolError::Configuration("payer_address"))?,
+    );
+    let call = payment_call(
+        PrecompileTarget::Ledger,
+        "accountId(bytes32,bytes32)",
+        vec![owner, asset],
+    );
+    let data = call
+        .encode()
+        .map_err(|_| WebToolError::Protocol("account_id"))?;
+    let body = serde_json::to_vec(&json!({
+        "jsonrpc": "2.0", "id": 1, "method": "eth_call",
+        "params": [{"to": format!("0x{}", hex(&call.target.address())),
+            "data": format!("0x{}", hex(&data))}, "pending"],
+    }))
+    .map_err(|_| WebToolError::Protocol("account_id"))?;
+    let reply = http_request(
+        config,
+        "POST",
+        "/rpc",
+        &[("Content-Type", "application/json".to_owned())],
+        &body,
+    )?;
+    if reply.status != 200 {
+        return Err(WebToolError::Status(reply.status));
+    }
+    let response: Value =
+        serde_json::from_slice(&reply.body).map_err(|_| WebToolError::Protocol("account_id"))?;
+    if response["jsonrpc"] != "2.0" || response["id"] != 1 || response.get("error").is_some() {
+        return Err(WebToolError::Protocol("account_id"));
+    }
+    let account = response
+        .get("result")
+        .and_then(Value::as_str)
+        .and_then(|value| parse_hex32(value).ok())
+        .filter(|account| *account != [0; 32])
+        .ok_or(WebToolError::Protocol("account_id"))?;
+    if currency == Currency::Pax {
+        return account_identifiers(&format!("agent:did:layerx:{}:main", hex(&owner)))
+            .map(|ids| ids[1])
+            .map_err(WebToolError::Payment);
+    }
+    Ok(account)
 }
 
 /// The buyer's plane: approval first, then the payer's artifact, checked
@@ -1113,10 +1169,9 @@ impl WebPlane<'_, '_> {
             Scheme::Metered => {
                 let terms = GrantTerms {
                     payer_did: self.config.payer_did.clone(),
-                    payer_account: unhex20(&self.config.payer_address)
-                        .ok_or(WebToolError::Configuration("payer_address"))?,
-                    recipient: self.config.receiver_address,
-                    asset: unhex20(&offer.asset).ok_or(WebToolError::OfferMismatch("asset"))?,
+                    payer_account: facts.payer_accounts[0],
+                    recipient: facts.pay_to,
+                    asset: facts.asset,
                     expires_at_ms: expiry_milliseconds(disclosure.expiry.0)?,
                     amount: facts.amount,
                     purpose_hash: facts
@@ -1172,9 +1227,9 @@ impl WebPlane<'_, '_> {
                 Ok(json!({ "grantId": hex(&grant_id), "idempotencyKey": hex(&key) }))
             }
             Scheme::Exact => {
-                let terms = self
-                    .call
-                    .exact_terms_for_disclosure(self.config, offer, disclosure)?;
+                let terms =
+                    self.call
+                        .exact_terms_for_disclosure(self.config, offer, disclosure, &facts)?;
                 let prepared = self.payer.pay(&terms).map_err(WebToolError::Payer)?;
                 if prepared != terms.prepare_pay_exact() {
                     return Err(WebToolError::PaymentArtifact("pay_exact_call"));
@@ -1520,8 +1575,7 @@ fn verify_settlement(
     let payer = response
         .payer
         .as_deref()
-        .and_then(unhex20)
-        .map(address_word)
+        .and_then(|payer| parse_hex32(payer).ok())
         .ok_or(WebToolError::SettlementMismatch)?;
     if !offer.payer_accounts.contains(&payer)
         || offer
