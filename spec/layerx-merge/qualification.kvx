@@ -12603,3 +12603,59 @@ symbol = "generated_client_covers_every_schema_declaration"
 observed = "Attempts 6 (6e73533de, base c64af01ce) and 7 (3e5283efb, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_3_gate.py::test_wave_3_gate_passes exit 1, logs/waves/3/wave-3-1.log) exited 2 in make workspace-build at human-build (Makefile:1958) with left 84 right 95 at generation.rs:183, the operation count c51f67b3b (10.15.2) and b7a323711 (10.16.1) left stale."
 assumption = "17.5.4 requires the fm-human repair task and re-qualifies the attempt 7 test unchanged; the later wave 3 steps have not yet run on any attempt."
 severity = "owner"
+
+[finding.18.1204.2.1]
+task = "18.1204.2"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:346"
+symbol = "decode_method"
+observed = "Attempts 1-4 (3a3c2e5a8, c1051615b, ac141c94c, e82aacfbb; attempts 2-4 identical under services/) build and fail finalization_evidence_reports_the_runtime_rung at tests/agent_creation_rungs.rs:42 with Refused('invalid creation transaction disclosure') from agent_creation.rs:52, because bind_call admits only budgetDefund on 0x101B and no call discloses ActivityType Budget 1, which bound_activity (create.rs:545) requires."
+assumption = "Per decision.1946 the budgetCreate disclosure in bind_call (do_5, do_6), its projection in create.rs and agent_creation.rs (do_7) and the sender actor binding (do_8) belong to this task, whose touches gain call.rs and create.rs; the attempt 4 candidate continues."
+severity = "owner"
+
+[finding.13.8.1.3]
+task = "13.8.1"
+file = "programs/fixtures/pay5/native_roundtrip.h:479"
+symbol = "pay5_merchant_roundtrip first layerx_call expectation"
+observed = "Attempt 5 (b4711d7c9, the attempt 4 change f833e146c on base 265e0cc8d) ran the do_8 --write-fixtures step once: the token case exited 0 but rewrote the native-token 08 .terminal and .callgraph and 09 .terminal, and the merchant case exited 1 at native_roundtrip.h:479 with 'PAY5 layerx_call expected=-3 actual=-736', so the do_8 stop rule fired and no build or verify ran."
+assumption = "867cb1560 (13.27.5 do_5) changed the settlement-failure tag of kernel-refused transfers from 9 to 7 and the kernel at the base refuses the funding-only merchant call with LXP_ERR_PROGRAM_REFUSED (introducing commit not established; 5bf62ad89 suspected); decision.1947 sets the header expectation and narrows the byte-identity rule (do_9, do_10)."
+severity = "cross-task"
+
+[finding.18.1211.2.3]
+task = "18.1211.2"
+file = "services/interop/crates/layerx-x402/tests/layerx_evidence.rs:203-216"
+symbol = "committed_evidence_without_block_fields_is_refused"
+observed = "Attempt 6 (f8608e045, continuing bda733b9a with do_6) passed lib, buyer, buyer_sequencer, evidence_format and facilitator_evidence and failed layerx_evidence with Error: EvidenceMismatch from the ? capture of a committed response that carries blockNumber and blockHash but no proof (candidate :249, main :204), because d0e763338 (11.5.2) made capture_settlement require a verifying proof for the committed rung (src/buyer.rs:466-493); tests/seller.rs a_committed_exact_settlement_round_trips_to_the_buyer (:1104-1151) builds a proof-less committed rung that 0bfaed5da (18.1180.1) refuses at src/seller.rs:329-337, and that binary was not reached."
+assumption = "Decision 1948 adds do_7 and do_8 setting the proof-less committed cases to EvidenceMismatch; the attempt 6 candidate continues."
+severity = "cross-task"
+
+[finding.18.1308.2.2]
+task = "18.1308.2"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "sandbox_profile"
+observed = "Attempt 5 (e172d4190 on base 265e0cc8d) passed both Go legs of build_cmd for the first time after do_10, then exited 127 at swift build with '/bin/sh: 1: swift: not found' (build-2.log:41); attempts 1-4 (ea5d6ad4e, 0e474f40e, 850259b73, 9b339fe5a) never got past http.go:178."
+assumption = "The mixed environment that runs the gates provides only the base toolchains (go, rust, python, node) and no environment provides go, swift, dotnet and mvn together; e172d4190 is re-qualified unchanged once one does."
+severity = "environment"
+
+[finding.9.0.3.3]
+task = "9.0.3"
+file = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211-216"
+symbol = "startup_refuses_a_chain_id_mismatch"
+observed = "At c1598b8a1 the build exits 0 and verify_cmd exits 101 with 2 passed and 1 failed: startup_refuses_a_chain_id_mismatch fails by name with `LAYERX_TEST_PAXEER_CHAIN_ID is required for the in-tree local node`, because the environment that ran the gates started no in-tree node, no file under the task's paths having named the variable before this candidate wrote it."
+assumption = "Re-qualifying c1598b8a1 unchanged lets the environment detect the variable in node_integration.rs, start the decision.1896 node and export LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT; the test is not weakened or skipped."
+severity = "environment"
+
+[finding.18.1309.1.3]
+task = "18.1309.1"
+file = "tools/qualification/localnode/v6120-node.sh:132"
+symbol = "cleanup"
+observed = "Attempt 5 of 18.1309.1 (84dcacf1c, base c64af01ce, candidate unchanged from 8a7140771) passed the build and the five pytest cases, then the history-readiness case failed at tests/explorer/paxeer-x-data-boundary.py:277 with 'history-node-stop exited 1': the --stop helper sent TERM to the feeder, whose EXIT cleanup ran tail -n 40 on feeder.log, its own stderr (v6120-node.sh:407), and was still running 12 s later; the feeder never exited, stop_node failed before it signalled the node, and no earlier gate had run --stop with a live feeder."
+assumption = "On Ubuntu 26.04 tail copies to end of file, so a feeder that tails its own stderr file never exits; with the feed_loop TERM trap setting SUCCESS=1 and cleanup skipping log tails when FEEDER_PROCESS=1 (do_8, v6120-node.sh added to touches), --stop completes and the unchanged candidate proceeds past :277."
+severity = "owner"
+
+[finding.5.94.4.1]
+task = "5.94.4"
+file = "node/precompiles_agent_imports_test.go:11"
+symbol = "TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"
+observed = "At f6b2cda8e (attempt 2) the build passed and the verify failed with the test redeclared: c833bda08 (5.94.2) already declares it at node/precompiles_agent_imports_test.go:11 with GetCustomPrecompilesE assertions for 0x0903, 0x0905 and 0x0906 that are red on main without the imports, and 5.94.4's touches excluded that file."
+assumption = "5.94.4's touches gain node/precompiles_agent_imports_test.go and do_4 moves the existing test, all assertions kept, into node/precompiles_agent_merge_imports_test.go with the MissingMergeConstructors check added; verify_cmd is unchanged."
+severity = "owner"
