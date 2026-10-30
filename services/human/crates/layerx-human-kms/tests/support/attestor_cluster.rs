@@ -432,6 +432,26 @@ impl Cluster {
         activity_types: &[String],
         kernel_policy: &Value,
     ) -> Result<Self> {
+        Self::start_with_policies(
+            activity_types,
+            &json!({
+                "version": 1,
+                "defaults": {
+                    "chain_id": 125,
+                    "kinds": ["lx_activity", "evm_tx"],
+                    "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
+                    "rate_per_minute": 1000
+                }
+            }),
+            kernel_policy,
+        )
+    }
+
+    pub fn start_with_policies(
+        activity_types: &[String],
+        policy: &Value,
+        kernel_policy: &Value,
+    ) -> Result<Self> {
         let root = scratch("attestor-cluster")?;
         let daemon = build_daemon(&root)?;
         let mut pki = Pki::new(&root);
@@ -457,18 +477,7 @@ impl Cluster {
         let tokens = TokenSigner::generate("attestor-test-key")?;
         fs::write(root.join("authority.pem"), tokens.public_pem())?;
         let keys = KeySetServer::serve(json!({ "keys": [tokens.jwk()?] }).to_string())?;
-        fs::write(
-            root.join("policy.json"),
-            serde_json::to_vec(&json!({
-                "version": 1,
-                "defaults": {
-                    "chain_id": 125,
-                    "kinds": ["lx_activity", "evm_tx"],
-                    "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
-                    "rate_per_minute": 1000
-                }
-            }))?,
-        )?;
+        fs::write(root.join("policy.json"), serde_json::to_vec(policy)?)?;
         fs::write(
             root.join("kernel-policy.json"),
             serde_json::to_vec(kernel_policy)?,
