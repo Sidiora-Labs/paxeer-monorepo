@@ -164239,7 +164239,7 @@ do_7 = "Attempt 4 (9f0f11d8e) ported the callers of do_6 and yarn lint:tsc exite
 
 [task.14.31.2]
 title = "Render the three-rung badge for a transaction status answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.31.1"]
