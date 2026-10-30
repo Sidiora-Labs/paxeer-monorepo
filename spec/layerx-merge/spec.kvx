@@ -124570,7 +124570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.27.2]
 title = "Check the issuer pause authority matrix against the kernel asset rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.22.6", "6.22.3", "6.0.3"]
