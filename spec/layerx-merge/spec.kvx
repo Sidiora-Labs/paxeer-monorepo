@@ -156901,7 +156901,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.1]
 title = "Prove a program record at a verified chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
