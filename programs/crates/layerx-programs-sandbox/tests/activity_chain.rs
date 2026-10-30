@@ -161,10 +161,18 @@ fn evidence(
     submission: &SandboxSubmission,
     code: u32,
 ) -> Result<(chain::ChainFixture, SandboxReceiptEvidence), TestError> {
+    evidence_in_store(submission, code, "lxphost")
+}
+
+fn evidence_in_store(
+    submission: &SandboxSubmission,
+    code: u32,
+    store_name: &str,
+) -> Result<(chain::ChainFixture, SandboxReceiptEvidence), TestError> {
     let tx = submission.payload().to_vec();
     let tx_hash: [u8; 32] = Sha256::digest(&tx).into();
     let value = usage_value(submission, tx_hash);
-    state_evidence(submission, code, 1, value)
+    state_evidence(submission, code, 1, value, store_name)
 }
 
 fn funding_evidence(
@@ -172,7 +180,13 @@ fn funding_evidence(
     code: u32,
     record: &Lease,
 ) -> Result<(chain::ChainFixture, SandboxReceiptEvidence), TestError> {
-    state_evidence(submission, code, 0, record.canonical_state_bytes()?)
+    state_evidence(
+        submission,
+        code,
+        0,
+        record.canonical_state_bytes()?,
+        "lxphost",
+    )
 }
 
 fn state_evidence(
@@ -180,12 +194,14 @@ fn state_evidence(
     code: u32,
     record_kind: u8,
     value: Vec<u8>,
+    store_name: &str,
 ) -> Result<(chain::ChainFixture, SandboxReceiptEvidence), TestError> {
     let tx = submission.payload().to_vec();
     let tx_hash: [u8; 32] = Sha256::digest(&tx).into();
     let key = sandbox_state_key(record_kind, submission.lease().bytes())?;
     let foreign_key = sandbox_state_key(record_kind, [99; 32])?;
-    let mut fixture = chain::ChainFixture::new(
+    let mut fixture = chain::ChainFixture::new_in_store(
+        store_name,
         "sandbox-chain-test",
         &[SEED],
         vec![(key.clone(), value.clone()), (foreign_key, value)],
@@ -410,6 +426,22 @@ fn sandbox_receipt_verifies_tx_result_and_usage_state() -> Result<(), TestError>
 }
 
 #[test]
+fn sandbox_receipt_verifies_only_against_mounted_lxphost_store() -> Result<(), TestError> {
+    let submission = submission()?;
+    let (fixture, evidence) = evidence_in_store(&submission, 0, "lxphost")?;
+    let receipt = SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, evidence, NOW)?;
+    let expected_activity_id: [u8; 32] = Sha256::digest(submission.payload()).into();
+    assert_eq!(receipt.activity_id(), expected_activity_id);
+
+    let (fixture, evidence) = evidence_in_store(&submission, 0, "layerx")?;
+    assert_eq!(
+        SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, evidence, NOW),
+        Err(SandboxActivityRefusal::InvalidReceipt)
+    );
+    Ok(())
+}
+
+#[test]
 fn sandbox_receipt_refuses_failed_tx_and_foreign_lease() -> Result<(), TestError> {
     let submission = submission()?;
     let (failed_fixture, failed) = evidence(&submission, 5)?;
@@ -426,7 +458,7 @@ fn sandbox_receipt_refuses_failed_tx_and_foreign_lease() -> Result<(), TestError
         .verify_head(&fixture.header, &fixture.commit)?;
     layerx_programs::verify_state(
         &head,
-        "layerx",
+        "lxphost",
         &foreign_key,
         foreign.commitment.value.as_deref().ok_or("usage value")?,
         &foreign.usage_ops,

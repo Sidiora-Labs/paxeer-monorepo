@@ -430,18 +430,6 @@ public final class HttpProductionTransport implements ProductionTransport {
         try {
             JsonNode envelope = mapper.readTree(encoded);
             if (envelope == null || !envelope.isObject()) throw decodeFailure(null);
-            if ((ProgramLifecycleRoutes.ORDINALS.containsKey(operation) || operation.equals("program.receipt")) && status >= 200 && status < 300 && exactFields(envelope, "result")) return mapper.convertValue(envelope.get("result"), type);
-            if (ProgramLifecycleRoutes.ORDINALS.containsKey(operation) && status >= 400 && status < 500 && exactFields(envelope, "error")) {
-                JsonNode refusal = envelope.get("error"); String code = requiredText(refusal.get("code")); String retry = requiredText(refusal.get("retry"));
-                Long retryAfter = null;
-                if (code.length() > 256 || !(exactFields(refusal, "code", "retry") || exactFields(refusal, "code", "retry", "retry_after_seconds"))) throw decodeFailure(null);
-                if (retry.equals("after")) {
-                    JsonNode seconds = refusal.get("retry_after_seconds"); if (seconds == null || !seconds.isIntegralNumber() || !seconds.canConvertToLong() || seconds.longValue() <= 0) throw decodeFailure(null);
-                    if (seconds.longValue() > Long.MAX_VALUE / 1000) throw decodeFailure(null); retryAfter = seconds.longValue() * 1000;
-                } else if (!retry.equals("never") || !exactFields(refusal, "code", "retry")) throw decodeFailure(null);
-                var error = switch (status) { case 401, 403 -> PlatformSdkException.Code.CAPABILITY_REFUSAL; case 409 -> PlatformSdkException.Code.IDEMPOTENCY_CONFLICT; case 429 -> PlatformSdkException.Code.RATE_LIMIT; default -> PlatformSdkException.Code.CORE_REJECTION; };
-                throw new PlatformSdkException(error, retry.equals("after") ? PlatformSdkException.Retry.AFTER : PlatformSdkException.Retry.NEVER, null, null, retryAfter);
-            }
             if (envelope.has("class")) {
                 if (status >= 200 && status < 300 || !exactFields(envelope,
                         "class", "protocol_result_code", "retriability", "request_id", "reason")) {
