@@ -193780,7 +193780,7 @@ qualification = "UNRUN"
 
 [task.9.12.7]
 title = "Hold the human runtime's node connection behind HumanNode and read heads, receipt keys and history through it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.12.5", "9.10.2", "9.1.8", "18.1131.1"]
