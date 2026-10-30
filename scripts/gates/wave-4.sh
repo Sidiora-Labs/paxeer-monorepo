@@ -23,5 +23,5 @@ for target in "${targets[@]}"; do
     commands+=(-- make "$target")
 done
 exec python3 "$root/scripts/gates/run_gate.py" \
-    --wave 4 --log-dir "${WAVE_GATE_LOG_DIR:-$root/.logs/wave-4}" \
+    --wave 4 --log-dir "${GATE_LOG_DIR:-$root/logs/waves/4}" \
     "${commands[@]}"

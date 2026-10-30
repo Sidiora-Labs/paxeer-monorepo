@@ -311,8 +311,7 @@ lxp_result lxp_genesis_build_snapshot_migration(
         bool present = false;
         status = lxp_bridge_genesis_profile(genesis, &bridge, &present);
         if (status == LXP_OK && present)
-            status = lxp_kernel_register_module(
-                kernel, lxp_bridge_module_iface());
+            status = LXP_ERR_NON_CANONICAL;
     }
     if (status == LXP_OK)
         status = lxp_snapshot_load_retired_issuance(

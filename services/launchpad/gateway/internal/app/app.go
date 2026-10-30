@@ -370,6 +370,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					gr.Method(route.Method, route.Template, handler)
 				}
 			}
+			for _, route := range proxy.RetiredConnectedRoutes() {
+				gr.Method(route.Method, route.Template, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { auth.WriteNotServed(w) }))
+			}
 			socketHandler, e := connected.control.RequireCapability("socket", connected.socket)
 			if e != nil {
 				connected.fail(e)
@@ -408,6 +411,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					guard = sessions.Require
 				}
 				gr.With(guard).Method(route.Method, route.Template, followProxy)
+			}
+			for _, route := range proxy.RetiredConnectedRoutes() {
+				gr.Method(route.Method, route.Template, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { auth.WriteNotServed(w) }))
 			}
 		}
 		// Account owner routes whose service (media/user's connected

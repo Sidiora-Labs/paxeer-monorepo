@@ -25,5 +25,5 @@ for command in "${commands[@]}"; do
 done
 
 exec python3 "$ROOT/scripts/gates/run_gate.py" \
-    --wave 5 --log-dir "${WAVE_GATE_LOG_DIR:-$ROOT/.logs/wave-5}" \
+    --wave 5 --log-dir "${GATE_LOG_DIR:-$ROOT/logs/waves/5}" \
     "${runner_args[@]}"
