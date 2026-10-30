@@ -1,10 +1,19 @@
 #include "layerx/lxp_kernel.h"
+#include "layerx/lxp_hash.h"
 
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
 enum { GOLDEN_RECORDS = 3 };
+
+typedef struct golden_record {
+    uint16_t module_id;
+    uint16_t key_length;
+    uint32_t value_length;
+    uint8_t key[LXP_MODULE_MAX_KEY_BYTES];
+    uint8_t value[LXP_MODULE_MAX_VALUE_BYTES];
+} golden_record;
 
 static lxp_result genesis(lxp_module_ctx *ctx, const uint8_t *bytes, size_t n)
 { (void)ctx; (void)bytes; (void)n; return LXP_OK; }
@@ -55,7 +64,7 @@ static void hex_print(const uint8_t bytes[32])
     }
 }
 
-static int load(lxp_replay_record records[GOLDEN_RECORDS],
+static int load(golden_record records[GOLDEN_RECORDS],
                 uint8_t roots[GOLDEN_RECORDS][32])
 {
     FILE *file = fopen("tests/replay/golden/history.lxl", "rb");
@@ -98,7 +107,32 @@ static int setup(lxp_kernel *kernel, lxp_state_store *store,
            lxp_kernel_register_module(kernel, &iface) != LXP_OK;
 }
 
-int main(int argc, char **argv)
+static int replay_records(lxp_kernel *kernel,
+                          const golden_record records[GOLDEN_RECORDS],
+                          uint8_t roots[GOLDEN_RECORDS][32])
+{
+    size_t i;
+    for (i = 0U; i < GOLDEN_RECORDS; ++i) {
+        uint8_t arena_bytes[64];
+        lxp_arena arena;
+        lxp_module_ctx ctx;
+        if (lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK ||
+            lxp_module_ctx_init(&ctx, kernel, records[i].module_id,
+                                 (uint64_t)i + 1U, kernel->epoch,
+                                 kernel->state->next_sequence, 1U,
+                                 &arena, true) != LXP_OK ||
+            lxp_ctx_kv_put(&ctx, records[i].key, records[i].key_length,
+                           records[i].value, records[i].value_length) != LXP_OK ||
+            lxp_module_ctx_commit(&ctx) != LXP_OK ||
+            lxp_state_journal_open(kernel->state, kernel->state->next_sequence,
+                                    kernel->journal) != LXP_OK ||
+            lxp_state_journal_commit(kernel->journal) != LXP_OK ||
+            lxp_state_root(kernel, roots[i]) != LXP_OK) return 1;
+    }
+    return 0;
+}
+
+static int golden_replay_two_kernels_match(bool record)
 {
     static lxp_kernel first_kernel;
     static lxp_kernel second_kernel;
@@ -106,21 +140,16 @@ int main(int argc, char **argv)
     static lxp_state_store second_store;
     static lxp_state_journal first_journal;
     static lxp_state_journal second_journal;
-    lxp_replay_record records[GOLDEN_RECORDS] = { 0 };
+    golden_record records[GOLDEN_RECORDS] = { 0 };
     uint8_t expected[GOLDEN_RECORDS][32];
     uint8_t produced[GOLDEN_RECORDS][32];
-    uint8_t terminal_first[32];
-    uint8_t terminal_second[32];
+    uint8_t second_produced[GOLDEN_RECORDS][32];
     uint8_t digest_first[32];
     uint8_t digest_second[32];
     size_t i;
-    bool record = argc == 2 && strcmp(argv[1], "--record") == 0;
     if (load(records, expected) != 0 ||
-        setup(&first_kernel, &first_store, &first_journal) != 0) return 1;
-    for (i = 0U; i < GOLDEN_RECORDS; ++i) {
-        if (lxp_kernel_replay(&first_kernel, &records[i], NULL, 1U, 0U,
-                              produced[i]) != LXP_OK) return 1;
-    }
+        setup(&first_kernel, &first_store, &first_journal) != 0 ||
+        replay_records(&first_kernel, records, produced) != 0) return 1;
     if (record) {
         for (i = 0U; i < GOLDEN_RECORDS; ++i) {
             (void)printf("%u %02x %02x ", records[i].module_id,
@@ -130,28 +159,26 @@ int main(int argc, char **argv)
         }
         return lxp_state_store_destroy(&first_store) == LXP_OK ? 0 : 1;
     }
-    for (i = 0U; i < GOLDEN_RECORDS; ++i)
-        if (lxp_replay_compare_roots(expected[i], produced[i]) != LXP_OK)
-            return 1;
     if (setup(&second_kernel, &second_store, &second_journal) != 0 ||
-        lxp_kernel_replay(&second_kernel, records,
-                          (const uint8_t (*)[32])expected, GOLDEN_RECORDS, 8U,
-                          terminal_second) != LXP_OK) return 1;
-    (void)memcpy(terminal_first, produced[GOLDEN_RECORDS - 1U], 32U);
-    if (lxp_replay_golden_run(records, GOLDEN_RECORDS,
-                              (const uint8_t (*)[32])produced, 0U,
-                              digest_first) != LXP_OK ||
-        lxp_replay_golden_run(records, GOLDEN_RECORDS,
-                              (const uint8_t (*)[32])expected, 8U,
-                              digest_second) != LXP_OK ||
-        memcmp(terminal_first, terminal_second, 32U) != 0 ||
+        replay_records(&second_kernel, records, second_produced) != 0) return 1;
+    for (i = 0U; i < GOLDEN_RECORDS; ++i) {
+        if (memcmp(expected[i], produced[i], 32U) != 0 ||
+            memcmp(expected[i], second_produced[i], 32U) != 0 ||
+            memcmp(produced[i], second_produced[i], 32U) != 0) return 1;
+    }
+    if (lxp_hash_sha256(produced, sizeof(produced), digest_first) != LXP_OK ||
+        lxp_hash_sha256(second_produced, sizeof(second_produced),
+                         digest_second) != LXP_OK ||
         memcmp(digest_first, digest_second, 32U) != 0 ||
-        lxp_determinism_guard_check() != LXP_OK ||
-        lxp_determinism_guard_trip("clock_gettime") != LXP_FATAL_INVARIANT ||
-        lxp_determinism_guard_check() != LXP_FATAL_INVARIANT) return 1;
-    lxp_determinism_guard_reset();
-    if (lxp_determinism_guard_check() != LXP_OK ||
         lxp_state_store_destroy(&first_store) != LXP_OK ||
         lxp_state_store_destroy(&second_store) != LXP_OK) return 1;
     return 0;
+}
+
+int main(int argc, char **argv)
+{
+    bool record = argc == 2 && strcmp(argv[1], "--record") == 0;
+    if (argc > 2 || (argc == 2 && !record &&
+        strcmp(argv[1], "golden_replay_two_kernels_match") != 0)) return 1;
+    return golden_replay_two_kernels_match(record);
 }

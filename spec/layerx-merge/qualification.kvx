@@ -11635,3 +11635,131 @@ symbol = "SPEC_PATH"
 observed = "Attempts 1 and 2 (6f15c57bc, 89902bb42): check.py exits at read(root, SPEC_PATH) with no such file spec/paxeer-x-bridge/spec.kvx, which 0209f71cc removed when it consolidated the Paxeer X specifications."
 assumption = "The check reads the consolidated spec; the bridge leg and filter edits of this task are unaffected."
 severity = "medium"
+
+[finding.13.27.1.17]
+task = "13.27.1"
+file = "src/protocol/lxp_kernel.c"
+symbol = "receipt_bind_ledger_projection"
+observed = "Attempt 35 (566d189c8): TestProgramsSandboxExecuteEmitsUsage reverts LXP_FATAL_INVARIANT from receipt_bind_ledger_projection (:2389-2394), which refuses any monetary TRANSFER effect while ledger_receipt_present is false and prints nothing; the effect is the escrow charge call.c:2377-2381 emits since 7331258b0."
+assumption = "Task 13.27.8 binds that effect to the program outcome's recorded root (decision.1898); 13.27.1 requires it and continues attempt 35 unchanged."
+severity = "blocking"
+
+[finding.18.1243.2.2]
+task = "18.1243.2"
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+symbol = "balance_json"
+observed = "Attempt 5 (7b48f9091) builds payer.rs against the 18.1243.1 GrantTerms and stops at main.rs:2004 because balance_json takes the pre-9.5.8 freshness type; the task that was to fix it (9.5.10) cannot build the binary either, since payer.rs on main still calls the removed GrantTerms API."
+assumption = "18.1243.2 ports balance_json and the re-export as well (decision.1899); 9.5.10 follows with the test only."
+severity = "blocking"
+
+[finding.9.5.10.1]
+task = "9.5.10"
+file = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+symbol = "prepare_grant"
+observed = "Attempts 1 to 3: cargo build -p layerx-agentd-host --bins fails at payer.rs:333 (no field current_height on GrantTerms), :336 (no method prepare_budget) and :353 (prepare_draw takes two arguments), all removed by 1e3b37aee; attempt 1 (53836aa63) also hit the missing re-export of CommittedProgramBalanceFreshness."
+assumption = "9.5.10 requires 18.1243.2 and keeps only the test (decision.1899)."
+severity = "blocking"
+
+[finding.12.6.6.2]
+task = "12.6.6"
+file = "services/wallet/gateway/test/provisioning.test.ts"
+symbol = "provisioningSponsorsAgentBindThroughTwoReauthorizationChallengesAndConfirmsItBeforeActive"
+observed = "Attempt 5 (9f0fe4c24): both reauthorization challenges are answered and the bind confirms; the final toMatchObject expects did did:matrix:provisioning:<16 hex> while the state returns did:layerx:<64 hex>, the only form state.ts:582 admits."
+assumption = "The assertion compares against did:layerx:<agent public key>; the attempt continues."
+severity = "task"
+
+[finding.18.1172.2.5]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/tests/binding.rs"
+symbol = "InProcessAgentContract::submit_binding"
+observed = "Attempt 7 (1761cabc1): binding builds for the first time since 351e3da14 changed raw_receipt_evidence; initial_binding_requires_real_signature_and_verified_matching_receipt and rebind_requires_real_step_up_keeps_old_active_and_audits_notification panic at :58 with ContractViolation from the test's in-process agent contract; custody did not run."
+assumption = "A check of the test's agent contract no longer matches the service's bind path; the attempt continues and locates it."
+severity = "task"
+
+[finding.12.35.4.2]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120-node.sh"
+symbol = "configure_node"
+observed = "Attempt 5 (ed80b37a0): with the standby configured mode full, the primary panics at round_state.go:537 (leader 0C3B656A... not in committee) after p2p dial failures to its persistent peer; the verify ends with node exited."
+assumption = "The leader registered for the sequencer is not the genesis validator of the primary; the attempt continues."
+severity = "task"
+
+[finding.14.53.4.2]
+task = "14.53.4"
+file = "services/bridge/deploy/tests/workflow-check.sh"
+symbol = "workflow-check"
+observed = "Attempts 4 (f02caa6be) and 5 (b7e58ae5a): the script exits at :24-25 because the environment that runs the gates has no python3 yaml module; the check itself did not run."
+assumption = "The environment provides the module; the attempt 5 candidate is re-qualified unchanged."
+severity = "environment"
+
+[finding.16.24.6.1]
+task = "16.24.6"
+file = "tools/loadtest/profiles/profiles_test.go"
+symbol = "TestProfilesDeclarePerformanceBounds"
+observed = "Attempt 1: the gate passes on the provisional bounds and the attempt changed no file, because no release-candidate run is recorded yet."
+assumption = "The task waits for the release-candidate measurement; it is parked until then."
+severity = "task"
+
+[finding.16.95.1.1]
+task = "16.95.1"
+file = "tests/test_receipt_offline.c"
+symbol = "test_offline_suite_uses_offline_verify_only"
+observed = "Attempt 1 (daafe83a2): build and verify passed on base c5c2fead1; the merge onto the domain branch stops on a modify/delete conflict, tests/test_receipt_offline.c having been deleted by 16.32.3 (2fec9b48c)."
+assumption = "The task is superseded by the deletion (decision.1900); 1.16.2 requires 16.32.3 instead."
+severity = "blocking"
+
+[finding.8.94.3.5]
+task = "8.94.3"
+file = "services/platform/hosted/authority/src/human/dynamic.rs"
+symbol = "SponsoredRegistration::decode"
+observed = "Attempt 7 (d7fa779bf): the sweep fails on the authority's SponsoredRegistration decode, the one use decision.1889 defers to a task that does not exist yet; every other hit of attempt 7 is ported on main by 8.94.5 to 8.94.7."
+assumption = "The task is held until the authority port task is specified and done; the sweep is not narrowed."
+severity = "blocking"
+
+[finding.4.22.6.1]
+task = "4.22.6"
+file = "services/launchpad/gateway/internal/proxy/connected.go"
+symbol = "allowedConnectedRoute"
+observed = "Attempt 1 (642bc4599): TestConnectedTablesCoverFrozenMediaCatalog finds seven frozen metadata operations in none of UserConnectedRoutes, MetadataConnectedRoutes, LivestreamConnectedRoutes, SocialConnectedRoutes or RetiredConnectedRoutes; the gateway admits them through the local map of allowedConnectedRoute (connected.go:81-86), and MetadataConnectedRoutes forwards three /v3 publication templates outside the catalog."
+assumption = "decision.1901: the map is hoisted and read as the fifth table; the /v3 publication templates and the voice-room recording object are named connected templates."
+severity = "task"
+
+[finding.12.35.4.3]
+task = "12.35.4"
+file = "consensus/internal/consensus/types/round_state.go"
+symbol = "RoundState.Leader"
+observed = "Attempts 4-6 (8b312e552, ed80b37a0, f2f2a0638): the primary panics with validator ... not in committee at the first round above zero because the second pinned sequencer leader, the standby, is not in the validator set; daemon/committed-fixture/main.go:231-233 and :455-459 build the same shape (standby in mode full, one genesis validator, two leaders)."
+assumption = "decision.1902 makes the standby a bonded validator in v6120-node.sh; the committed fixture's shape is recorded here and not changed by this task."
+severity = "task"
+
+[finding.14.53.4.3]
+task = "14.53.4"
+file = "services/bridge/deploy/tests/workflow-check.sh"
+symbol = "check_versions_are_the_repository_pins"
+observed = "Attempt 6 (0a00dd0b1): the check refuses because .github/workflows/paxeer-forge-test.yml has no pinned library clone line; it installs its libraries by running contracts/bootstrap-libs.sh (:172), whose tags match the bridge workflow's clones."
+assumption = "decision.1903: the reference pins are the four assignments of contracts/bootstrap-libs.sh."
+severity = "task"
+
+[finding.18.1172.2.6]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/tests/binding.rs"
+symbol = "InProcessAgentContract::submit_binding"
+observed = "Attempt 8 (c1044489c): ledger_payment_call rejects the Governance binding payload with MalformedPayload (the 0x2bb1ae7c send(bytes) form is decoded with decode_send and decode_method has no form for a governance activity), so both binding tests fail at :58 with ContractViolation."
+assumption = "decision.1904: the test submits through the kernel signing pair; no crate under src/ changes."
+severity = "task"
+
+[finding.12.6.6.3]
+task = "12.6.6"
+file = "services/wallet/gateway/src/provision/backfill.ts"
+symbol = "backfillOne"
+observed = "Attempt 6 (e8ebdd88e): the migrated standard wallet's backfill outcome is failed at provisioning.test.ts:894 where attempt 5 saw awaiting_owner from unchanged gateway sources; the assertion prints no reason code."
+assumption = "The next attempt prints the outcome in the assertion message and acts on the reason."
+severity = "task"
+
+[finding.13.27.8.1]
+task = "13.27.8"
+file = "src/protocol/lxp_kernel.c"
+symbol = "receipt_bind_ledger_projection"
+observed = "Attempt 1 (e11bf9866): the new case fails with LXP_FATAL_INVARIANT from lxp_kernel_execute_activity and the loop diagnostic the attempt added did not print, so the fault comes from another invariant return."
+assumption = "The next attempt locates the returning site first."
+severity = "task"

@@ -11040,3 +11040,48 @@ fix = "Update the needle and the repository climb together whenever a crate move
 title = "The bridge workflow check reads spec/paxeer-x-bridge/spec.kvx, which no longer exists"
 symptom = "services/bridge/deploy/tests/workflow-check.sh fails at read(root, SPEC_PATH) before any check runs because 0209f71cc consolidated the bridge spec into spec/layerx-merge/spec.kvx."
 fix = "Point SPEC_PATH at the consolidated spec; a check that reads a spec file must follow the spec consolidation."
+
+[gotcha.2246]
+title = "A monetary transfer effect without a ledger receipt is refused silently by the kernel"
+symptom = "A sandbox execution ends LXP_FATAL_INVARIANT from the kernel receipt path with nothing on stderr although the module-context test of the same path passes."
+fix = "receipt_bind_ledger_projection (src/protocol/lxp_kernel.c:2372-2395) refuses any monetary TRANSFER effect while ledger_receipt_present is false, which only the asset module sets; the programs escrow charge needs the binding of decision.1898, and module-context tests (lxp_programs_sandbox_execute) never reach that projection, so test the kernel path with lxp_kernel_execute_activity."
+
+[gotcha.2247]
+title = "Cargo builds a package's binaries for every integration test target"
+symptom = "cargo test -p <crate> --test <name> fails with compile errors in src/main.rs or a module only the binary includes, although the test file touches neither."
+fix = "Integration tests get CARGO_BIN_EXE_<name>, so every binary of the package is compiled first; a break in the binary blocks every --test gate of the package, and two tasks that each fix one break of the same binary deadlock unless one of them ports both."
+
+[gotcha.2248]
+title = "The wallet DID of a provisioned agent is did:layerx:<public key>, not the agent's registry identifier"
+symptom = "A provisioning assertion expects the did:matrix:provisioning identifier of the test agent and the state returns did:layerx:<64 hex>."
+fix = "services/wallet/gateway/src/provision/bind.ts:29 DID_PREFIX and state.ts:582 admit only did:layerx:<64 hex>; assert did:layerx:${agent.publicKeyHex} for provisioning states and wallet rows."
+
+[gotcha.2249]
+title = "A test target that stopped compiling hides its runtime failures until someone ports it"
+symptom = "The first attempt that makes an old test target compile again fails tests that nobody changed."
+fix = "When a shared test helper changes shape (raw_receipt_evidence, 351e3da14), targets that call the old shape stay unbuilt; expect the first compiling attempt to surface runtime contract drift and budget the repair for it."
+
+[gotcha.2250]
+title = "A task that edits a file another task deletes must land first or be superseded"
+symptom = "A candidate passes its gate, and the merge onto the domain branch stops on a modify/delete conflict because a later-wave deletion landed first."
+fix = "When the deleting task is already done, supersede the editing task (status superseded, dependents require the deleting task instead) rather than resurrecting the file through a continue seed; the seed step takes a path absent from the tree from the seed outright."
+
+[gotcha.2251]
+title = "A pinned sequencer leader outside the validator set panics the proposer"
+symptom = "A local node with a primary and a sequencer standby stops at the first round above zero with validator ... not in committee (round_state.go:515/:537): the leader pin L[round mod len(L)] names the standby's consensus key, which is not a genesis validator."
+fix = "Every key in app_state.sequencer.leaders must be a bonded validator; give the standby a third of the primary's power so the primary alone still commits."
+
+[gotcha.2252]
+title = "ledger_payment_call and bind_call disclose ledger, budget and bank EVM calls only"
+symptom = "Wrapping a governance activity payload in ledger_payment_call returns MalformedPayload: decode_method decodes the 0x2bb1ae7c send(bytes) form with decode_send and knows no EVM form for other modules."
+fix = "Submit non-ledger activities through the kernel signing pair (sign_disclosed, attach_kernel_signature, verify_kernel_before_submit) on the Prepared envelope."
+
+[gotcha.2253]
+title = "The agent daemon's authority fixture needs layerx-genesis-build beside layerxd"
+symptom = "A real-authority test panics at tests/support/real_authority.rs:1011 with layerx-genesis-build is not built although layerxd is present in LAYERX_TEST_NATIVE_BIN_DIR."
+fix = "Build both Makefile targets (layerxd layerx-genesis-build) and stage both binaries in the directory."
+
+[gotcha.2254]
+title = "A coverage test must read the real admission surface, not the tables named for it"
+symptom = "A test counting frozen catalog operations in the four connected route tables reports seven missing although the gateway admits them: they live in a map local to allowedConnectedRoute."
+fix = "Hoist the map into a package-level function the product reads and the test counts; name documented beyond-catalog templates explicitly rather than widening the catalog."
