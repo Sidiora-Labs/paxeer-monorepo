@@ -138993,7 +138993,7 @@ title = "Retire the faucet.claim operation from the agent-api schema and catalog
 status = "pending"
 mode = "BUILD"
 wave = 14
-requires = ["9.15.1", "9.0.2", "9.1.8", "18.1131.1", "18.1206.1"]
+requires = ["9.15.1", "9.0.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1230.1"]
 reqs = ["9009.1"]
 capabilities = ["9.1.5"]
 interfaces = ["interface.9.http-rpc-faucet-claim"]
@@ -139003,7 +139003,7 @@ do_3 = "Delete the FaucetClaim arms at services/agent/crates/layerx-agentd/src/a
 do_4 = "Delete the FaucetClaim reference at services/agent/crates/layerx-agentd/src/human_runtime.rs:4858."
 do_5 = "Create services/agent/crates/layerx-agentd/tests/faucet_claim_retired.rs (planned)."
 symbols = ["Operation", "RETIRED_OPERATIONS"]
-touches = ["services/agent/schema/agent-api/identity.kvx", "services/agent/crates/layerx-agent-api/src/operation_generated.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/tenant.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/faucet_claim_retired.rs"]
+touches = ["services/agent/schema/agent-api/identity.kvx", "services/agent/crates/layerx-agent-api/src/operation_generated.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/tenant.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/faucet_claim_retired.rs", "services/agent/crates/layerx-agentd/src/agent_rpc.rs", "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs", "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs", "services/agent/crates/layerx-mcp/tests/faucet.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/faucet_claim_retired.rs::faucet_claim_is_refused_as_retired_and_absent_from_the_catalogue"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/faucet_claim_retired.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
@@ -139019,6 +139019,10 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "services/agent/crates/layerx-agentd/src/agent_rpc.rs: RETIRED_OPERATIONS (:25) becomes the wire-name list `const RETIRED_OPERATIONS: &[&str] = &['faucet.claim'];` as do_3 intends; decode (:236-245) checks wire.operation against it before lookup and answers Rejection::new(ErrorClass::UnavailableCapability, request_id, 'unavailable_capability.faucet.claim') so the retired wire name is refused as unavailable_capability, never as envelope.unknown_operation; delete the Operation::FaucetClaim arm of dispatch_target (:130-134). decode_mcp_invocation and the BOOTSTRAP_OPERATIONS checks (:272, :1298) do not change."
+do_7 = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs: Operation::ALL no longer carries FaucetClaim, so delete the Operation::FaucetClaim arm of the per-operation loop (:66-76) and the FaucetClaim entry of envelope_version_other_than_one_is_refused (:258); add to the same test file a case that decodes an envelope whose operation string is faucet.claim and asserts the UnavailableCapability refusal with reason unavailable_capability.faucet.claim, keeping every other assertion. This task requires 18.1230.1, which edits the same file first."
+do_8 = "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs:1237-1248: delete the FaucetClaim special case of the conformance driver (the operation is no longer in the catalogue, so no case reaches it); the retired wire-name refusal is asserted in rpc_surface_major_two.rs by do_7. Nothing else in the file changes."
+do_9 = "services/agent/crates/layerx-mcp/tests/faucet.rs: delete the_faucet_scope_authorizes_only_the_faucet_operation_at_the_agentd_boundary (:264-296), whose only subject is Operation::FaucetClaim (decision.1882); the five other tests, which serve the faucet tool without an agent operation under its own scope, stay as written."
 
 [task.9.1.6]
 title = "Port layerx-mirror to the rung and height read types"
