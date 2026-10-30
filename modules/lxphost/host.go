@@ -55,6 +55,13 @@ typedef struct lxphost_node {
     uint8_t arena_bytes[LXPHOST_ARENA_BYTES];
 } lxphost_node;
 
+typedef struct lxphost_service_node {
+    lxphost_node node;
+    lx_service_runtime service_runtime;
+    lxp_arena escrow_arena;
+    uint8_t escrow_arena_bytes[LXPHOST_ARENA_BYTES];
+} lxphost_service_node;
+
 typedef struct lxphost_kv_view {
     uint16_t module_id;
     const uint8_t *key;
@@ -96,7 +103,7 @@ static void lxphost_release_blobs(lxp_kernel *kernel)
 
 static lxphost_node *lxphost_node_new(uint64_t epoch, int32_t *status)
 {
-    lxphost_node *node = (lxphost_node *)calloc(1U, sizeof(*node));
+    lxphost_node *node = (lxphost_node *)calloc(1U, sizeof(lxphost_service_node));
     if (node == NULL) {
         *status = LXP_ERR_ARENA_EXHAUSTED;
         return NULL;
@@ -174,7 +181,7 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
                                             lx_escrow_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
-                                            lx_perps_module_iface());
+                                            lx_perps_oracle_transport_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_spot_module_iface());
@@ -195,9 +202,41 @@ static void *lxphost_accounts(lxphost_node *node)
     return &node->accounts;
 }
 
+static lxp_result lxphost_read_escrow_link(void *user,
+                                          const uint8_t escrow_id[32],
+                                          lx_service_escrow_link *link)
+{
+    lxphost_service_node *service = user;
+    lxphost_node *node;
+    lx_escrow_record record;
+    lxp_module_ctx ctx;
+    lxp_result status;
+    if (service == NULL || escrow_id == NULL || link == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    node = &service->node;
+    status = lxp_arena_init(&service->escrow_arena, service->escrow_arena_bytes,
+                             sizeof(service->escrow_arena_bytes));
+    if (status != LXP_OK) return status;
+    status = lxp_module_ctx_init(&ctx, &node->kernel, LXP_MODULE_ESCROW,
+                                  node->execution.batch_timestamp_ms,
+                                  node->epoch, node->execution.global_sequence,
+                                  node->execution.gas_limit,
+                                  &service->escrow_arena, false);
+    if (status != LXP_OK) return status;
+    status = lx_escrow_lookup(&ctx, escrow_id, &record);
+    if (status != LXP_OK) return status;
+    (void)memcpy(link->holder, record.owner, 32U);
+    (void)memcpy(link->beneficiary, record.beneficiary, 32U);
+    (void)memcpy(link->asset_id, record.asset_id, 32U);
+    (void)memcpy(link->arbiter, record.arbiter, 32U);
+    link->state = (uint8_t)record.state;
+    return LXP_OK;
+}
+
 static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
                                    bool binding_authority)
 {
+    lxphost_service_node *service = (lxphost_service_node *)node;
     size_t count = 0U;
     size_t i;
     int32_t status = lx_asset_committed_records(
@@ -225,6 +264,9 @@ static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
     node->escrow_runtime.accounts = &node->accounts;
     node->escrow_runtime.assets = &node->assets;
     node->kernel.module_runtime[LXP_MODULE_ESCROW] = &node->escrow_runtime;
+    service->service_runtime.read_escrow_link = lxphost_read_escrow_link;
+    service->service_runtime.user = node;
+    node->kernel.module_runtime[LXP_MODULE_SERVICE] = &service->service_runtime;
     (void)memset(&node->programs_runtime, 0, sizeof(node->programs_runtime));
     node->programs_runtime.accounts = &node->accounts;
     node->programs_runtime.assets = node->transfer_assets;
@@ -1116,6 +1158,9 @@ func activityModules(module uint16) []uint16 {
 	modules := []uint16{C.LXP_MODULE_ASSET, C.LXP_MODULE_GOVERNANCE}
 	if module != C.LXP_MODULE_ASSET && module != C.LXP_MODULE_GOVERNANCE {
 		modules = append(modules, module)
+		if module == C.LXP_MODULE_SERVICE {
+			modules = append(modules, C.LXP_MODULE_ESCROW)
+		}
 		sort.Slice(modules, func(i, j int) bool { return modules[i] < modules[j] })
 	}
 	return modules

@@ -10,6 +10,10 @@ name = "layerx-agentd"
 path = "../layerx-agentd/src/main.rs"
 
 [[test]]
+name = "retired_env"
+path = "../layerx-agentd/host-tests/retired_env.rs"
+
+[[test]]
 name = "runtime_mode"
 path = "../layerx-agentd/host-tests/runtime_mode.rs"
 

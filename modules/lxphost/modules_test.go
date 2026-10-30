@@ -3,6 +3,7 @@
 package lxphost
 
 import (
+	"crypto/ed25519"
 	"encoding/binary"
 	"testing"
 
@@ -19,6 +20,28 @@ func TestHostPerpsModuleRegistered(t *testing.T) {
 	require.NotEqual(t, Code(-103), receipt.ResultCode)
 	require.Equal(t, Code(-734), receipt.ResultCode)
 	require.Equal(t, "LXP_ERR_PARAMETER_BOUNDS", receipt.ResultCode.Error())
+	require.NotEmpty(t, receipt.Encoded)
+}
+
+func TestHostPerpsOracleTransportDecoded(t *testing.T) {
+	chain := newTestChain(t)
+	host := chain.host(t)
+	actor := newTestActor(t, 115)
+	payload := make([]byte, 137)
+	payload[0] = 1
+	payload[1] = 1
+	binary.BigEndian.PutUint64(payload[33:41], 1)
+	binary.BigEndian.PutUint64(payload[49:57], 1)
+	binary.BigEndian.PutUint64(payload[57:65], uint64(bindingBlockTime))
+	binary.BigEndian.PutUint64(payload[65:73], 1)
+	copy(payload[73:137], ed25519.Sign(actor.private, payload[1:73]))
+
+	receipt := execute(t, host, chain.context(1, bindingBlockTime, 1),
+		actor.activity(t, host, 0x00060003, 0, bindingBlockTime, payload), actor.authority())
+	require.NotEqual(t, Code(-3), receipt.ResultCode)
+	require.NotEqual(t, Code(-103), receipt.ResultCode)
+	require.Equal(t, Code(-7), receipt.ResultCode)
+	require.Equal(t, "LXP_ERR_UNKNOWN_FIELD", receipt.ResultCode.Error())
 	require.NotEmpty(t, receipt.Encoded)
 }
 
@@ -97,4 +120,23 @@ func TestHostServiceModuleRegistered(t *testing.T) {
 	require.Equal(t, Code(-301), receipt.ResultCode)
 	require.Equal(t, "LXP_ERR_SEQUENCE_REUSED", receipt.ResultCode.Error())
 	require.Equal(t, record, chain.get(key))
+}
+
+func TestHostServiceDisputeReachesAgreementLookup(t *testing.T) {
+	chain := newTestChain(t)
+	host := chain.host(t)
+	actor := newTestActor(t, 116)
+	payload := make([]byte, 99)
+	payload[1] = 1
+	payload[2], payload[34] = 1, 2
+	payload[66] = 1
+	payload[67] = 3
+
+	require.Equal(t, []uint16{1, 2, 5, 7}, activityModules(5))
+	receipt := execute(t, host, chain.context(1, bindingBlockTime, 1),
+		actor.activity(t, host, 0x0005000c, 0, bindingBlockTime, payload), actor.authority())
+	require.NotEqual(t, Code(-103), receipt.ResultCode)
+	require.Equal(t, Code(-706), receipt.ResultCode)
+	require.Equal(t, "LXP_ERR_AGREEMENT_STATE", receipt.ResultCode.Error())
+	require.NotEmpty(t, receipt.Encoded)
 }

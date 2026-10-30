@@ -171,7 +171,12 @@ fn verifier_public_methods_accept_chain_evidence() {
     assert_eq!(deployment.receipt_digest(), tx_hash);
     assert_eq!(deployment.activity_id(), tx_hash);
     assert_eq!(
-        deployment.batch_header_digest(),
+        layerx_programs::chain_proof::header::ChainHeader::decode(
+            &deployment.proof().state.commitment.signed_header
+        )
+        .unwrap()
+        .hash()
+        .unwrap(),
         verified_header.header_hash()
     );
     assert_eq!(
@@ -355,4 +360,112 @@ fn verifier_public_methods_refuse_kernel_batch_evidence() {
     )
     .unwrap();
     assert!(verifier.verify_deployment(&kernel_header, NOW).is_err());
+}
+
+#[test]
+fn verifier_needs_no_trust_history_file() {
+    use layerx_programs::chain_proof::trust_store::TrustRoot;
+    use std::fs;
+    use std::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    const PERSISTED_TRUST: &str = "LAYERX_CHAIN_TRUST_ONLY_TEST_ROOT";
+    let persisted = match std::env::var(PERSISTED_TRUST) {
+        Ok(encoded) => TrustRoot::decode(&layerx_programs::hex::decode(&encoded).unwrap()).unwrap(),
+        Err(std::env::VarError::NotPresent) => {
+            let (fixture, _, _) = fixture();
+            let header = fixture
+                .verifier
+                .verify_head(&fixture.header, &fixture.commit)
+                .unwrap();
+            let trust = TrustRoot::from_head(&header, fixture.verifier.validators.clone()).unwrap();
+            let directory = std::env::temp_dir().join(format!(
+                "layerx-chain-trust-only-{}-{}",
+                std::process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            fs::create_dir(&directory).unwrap();
+            let trust_path = directory.join("chain-trust-root");
+            fs::write(&trust_path, trust.canonical_bytes().unwrap()).unwrap();
+            let persisted_bytes = fs::read(&trust_path).unwrap();
+            assert_eq!(TrustRoot::decode(&persisted_bytes).unwrap(), trust);
+            fs::remove_file(&trust_path).unwrap();
+            assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+            let output = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "verifier_needs_no_trust_history_file",
+                    "--nocapture",
+                ])
+                .current_dir(&directory)
+                .env(
+                    PERSISTED_TRUST,
+                    layerx_programs::hex::encode(&persisted_bytes),
+                )
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "empty-directory verification failed: {}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+            fs::remove_dir(directory).unwrap();
+            return;
+        }
+        Err(error) => panic!("invalid persisted trust environment: {error}"),
+    };
+    let (fixture, proof, _) = fixture();
+    let header = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap();
+    let directory = std::env::current_dir().unwrap();
+    let history_path = directory.join("sequencer-trust-history");
+    assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+    assert_eq!(
+        fs::symlink_metadata(&history_path).unwrap_err().kind(),
+        std::io::ErrorKind::NotFound
+    );
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        persisted.chain_id,
+        persisted.validators.validators().to_vec(),
+        5_000,
+    )
+    .unwrap();
+    let deployment = verifier.verify_deployment(&proof, NOW).unwrap();
+    assert_eq!(deployment.program(), proof.deployment.program_state.program);
+    assert_eq!(deployment.module(), WASM_V1);
+    assert_eq!(
+        deployment.code_hash(),
+        <[u8; 32]>::from(Sha256::digest(WASM_V1))
+    );
+    assert_eq!(deployment.state_root(), header.app_hash());
+    assert_eq!(
+        deployment.receipt_digest(),
+        <[u8; 32]>::from(Sha256::digest(&proof.state.transaction))
+    );
+    assert_eq!(
+        deployment.freshness().observed_sequence,
+        header.height() as u64
+    );
+    assert_eq!(deployment.freshness().observed_at, NOW);
+    assert_eq!(deployment.lifecycle(), ProgramLifecycle::Active);
+    assert_eq!(deployment.version(), 7);
+    let mut tampered = proof.clone();
+    tampered.state.transaction[0] ^= 1;
+    assert!(verifier.verify_deployment(&tampered, NOW).is_err());
+    assert_eq!(
+        verifier.verify_deployment(&proof, NOW + 5_001),
+        Err(ProtocolEvidenceError::Stale)
+    );
+    assert_eq!(
+        fs::symlink_metadata(&history_path).unwrap_err().kind(),
+        std::io::ErrorKind::NotFound
+    );
+    assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
 }
