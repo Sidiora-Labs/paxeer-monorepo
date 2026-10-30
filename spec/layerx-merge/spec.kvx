@@ -167810,7 +167810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.5.6]
 title = "Remove the replay golden release gate from CI and the core gate inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["16.2.2", "16.4.5", "8.51.2"]
@@ -188592,7 +188592,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1206.1]
 title = "Issue #1206: Move the remaining kernel-envelope signing callers to attach_kernel_signature and verify_kernel_before_submit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1199.1"]
