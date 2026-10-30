@@ -3603,6 +3603,7 @@ fn settle_terminal_submission(
     idempotency_key: [u8; 32],
     terminal_state: SubmissionState,
     terminal: crate::protocol_evidence::VerifiedReceiptEvidence,
+    location: (u64, u64),
 ) -> Result<(), HumanOperationError> {
     let status = outbox
         .status(idempotency_key)
@@ -3611,22 +3612,25 @@ fn settle_terminal_submission(
         if (status.state != terminal_state
             && !(status.state == SubmissionState::Committed
                 && terminal_state == SubmissionState::Executed))
-            || status
-                .evidence
-                .is_none_or(|evidence| evidence.receipt_ref() != terminal.receipt_ref())
+            || status.evidence.is_none_or(|evidence| {
+                evidence.receipt_ref() != terminal.receipt_ref()
+                    || evidence.block_height() != location.0
+                    || evidence.transaction_index() != location.1
+            })
         {
             return Err(HumanOperationError::Refused);
         }
     } else {
-        outbox
-            .transition(
-                store,
-                idempotency_key,
-                terminal_state,
-                "canonical receipt and signed inclusion verified",
-                Some(terminal),
-            )
-            .map_err(|_| HumanOperationError::Unavailable)?;
+        match terminal_state {
+            SubmissionState::Executed => {
+                outbox.record_execution(store, idempotency_key, terminal, location.0, location.1)
+            }
+            SubmissionState::Failed => {
+                outbox.record_failure(store, idempotency_key, terminal, location.0, location.1)
+            }
+            _ => return Err(HumanOperationError::Refused),
+        }
+        .map_err(|_| HumanOperationError::Unavailable)?;
     }
     Ok(())
 }
@@ -13170,6 +13174,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     let _ = checkpoint.as_ref();
                     Err::<(), _>(HumanOperationError::Refused)?;
                     let raw = raw_receipt_evidence(&receipt_evidence)?;
+                    let location = (
+                        receipt_evidence
+                            .signed_header()
+                            .batch_number()
+                            .map_err(|_| HumanOperationError::Refused)?,
+                        u64::from(raw.proof().leaf_index()),
+                    );
                     crate::receipt::persist_evidence(
                         &mut store,
                         tenant.clone(),
@@ -13198,6 +13209,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                         idempotency_key,
                         terminal_state,
                         terminal,
+                        location,
                     )?;
                 }
             }
@@ -19534,6 +19546,270 @@ mod activity_submission_index_tests {
     ) -> Result<OwnedSubmission, HumanOperationError> {
         let indexed = indexed_activity_owner(store, tenant, activity_id)?;
         retained_activity_owner(store, registry, tenant, activity_id, indexed)
+    }
+
+    fn settlement_receipt(
+        activity_id: [u8; 32],
+        result_code: i32,
+        amount: u128,
+        global_sequence: u64,
+        execution_batch_number: u64,
+    ) -> crate::protocol_evidence::RawReceiptEvidence {
+        use ed25519_dalek::{Signer, SigningKey};
+        use layerx_proof::merkle::build_proof;
+        use layerx_wire::encode::Encoder;
+        use layerx_wire::hash::{batch_header_digest, program_execution_batch_id, receipt_digest};
+
+        let key = SigningKey::from_bytes(&[0x3a; 32]);
+        let previous_state_root = [0x21; 32];
+        let resulting_state_root = [0x22; 32];
+        let batch_id = program_execution_batch_id(
+            previous_state_root,
+            [0x25; 32],
+            global_sequence,
+            global_sequence,
+            execution_batch_number,
+        )
+        .unwrap_or_else(|error| panic!("execution batch id: {error:?}"));
+        let asset = [0x24; 32];
+        let encode = |signature: Option<[u8; 64]>| {
+            let mut encoder = Encoder::new(4096);
+            assert_eq!(
+                encoder.structure_header_version(0x5201, layerx_wire::limits::PROTOCOL_VERSION,),
+                Ok(())
+            );
+            assert_eq!(encoder.u16(layerx_wire::limits::PROTOCOL_VERSION), Ok(()));
+            assert_eq!(encoder.bytes(&activity_id, 32), Ok(()));
+            assert_eq!(encoder.u64(global_sequence), Ok(()));
+            assert_eq!(encoder.bytes(&previous_state_root, 32), Ok(()));
+            assert_eq!(encoder.bytes(&resulting_state_root, 32), Ok(()));
+            assert_eq!(encoder.bytes(&[0x25; 32], 32), Ok(()));
+            assert_eq!(encoder.i32(result_code), Ok(()));
+            assert_eq!(encoder.sequence_length(0, 512), Ok(()));
+            assert_eq!(encoder.u128(1), Ok(()));
+            assert_eq!(encoder.bytes(&batch_id, 32), Ok(()));
+            assert_eq!(encoder.u16(1), Ok(()));
+            assert_eq!(encoder.u32(1), Ok(()));
+            assert_eq!(encoder.u32(1), Ok(()));
+            assert_eq!(encoder.u8(1), Ok(()));
+            assert_eq!(encoder.bytes(&asset, 32), Ok(()));
+            assert_eq!(encoder.u128(amount), Ok(()));
+            assert_eq!(encoder.bytes(&[0x26; 32], 32), Ok(()));
+            assert_eq!(encoder.u128(1_000 + amount), Ok(()));
+            assert_eq!(
+                encoder.u128(if result_code == 0 {
+                    1_000
+                } else {
+                    1_000 + amount
+                }),
+                Ok(())
+            );
+            assert_eq!(encoder.u64(1), Ok(()));
+            assert_eq!(encoder.bytes(&[0x27; 32], 32), Ok(()));
+            assert_eq!(encoder.u128(10), Ok(()));
+            assert_eq!(
+                encoder.u128(if result_code == 0 { 10 + amount } else { 10 }),
+                Ok(())
+            );
+            for value in [[0x28; 32], [0x29; 32], [0x2a; 32]] {
+                assert_eq!(encoder.bytes(&value, 32), Ok(()));
+            }
+            assert_eq!(encoder.u64(1_000), Ok(()));
+            assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
+            if let Some(signature) = signature {
+                assert_eq!(encoder.bytes(&signature, 64), Ok(()));
+            }
+            encoder.finish()
+        };
+        let unsigned = encode(None);
+        let digest =
+            receipt_digest(&unsigned).unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
+        let canonical_receipt = encode(Some(key.sign(&digest).to_bytes()));
+        let leaves = [canonical_receipt.as_slice()];
+        let (proof, receipt_root) =
+            build_proof(&leaves, 0).unwrap_or_else(|error| panic!("receipt proof: {error:?}"));
+        let sequencer_id = key.verifying_key().to_bytes();
+        let mut encoder = Encoder::new(354);
+        assert_eq!(
+            encoder.structure_header_version(0x1701, layerx_wire::limits::PROTOCOL_VERSION),
+            Ok(())
+        );
+        assert_eq!(encoder.u8(15), Ok(()));
+        let fields: [(u8, Vec<u8>); 15] = [
+            (
+                1,
+                layerx_wire::limits::PROTOCOL_VERSION.to_be_bytes().to_vec(),
+            ),
+            (2, 42_u32.to_be_bytes().to_vec()),
+            (3, 2_u64.to_be_bytes().to_vec()),
+            (4, execution_batch_number.to_be_bytes().to_vec()),
+            (5, global_sequence.to_be_bytes().to_vec()),
+            (6, global_sequence.to_be_bytes().to_vec()),
+            (7, previous_state_root.to_vec()),
+            (8, resulting_state_root.to_vec()),
+            (9, [0x25; 32].to_vec()),
+            (10, receipt_root.to_vec()),
+            (11, [0x34; 32].to_vec()),
+            (12, [0x35; 32].to_vec()),
+            (13, [0x36; 32].to_vec()),
+            (14, 1_000_u64.to_be_bytes().to_vec()),
+            (15, sequencer_id.to_vec()),
+        ];
+        for (field, value) in fields {
+            assert_eq!(encoder.tag(field, 15), Ok(()));
+            match field {
+                1 => assert_eq!(
+                    encoder.u16(u16::from_be_bytes([value[0], value[1]])),
+                    Ok(())
+                ),
+                2 => assert_eq!(
+                    encoder.u32(u32::from_be_bytes(
+                        value
+                            .as_slice()
+                            .try_into()
+                            .unwrap_or_else(|_| panic!("u32 field"))
+                    )),
+                    Ok(())
+                ),
+                3..=6 | 14 => assert_eq!(
+                    encoder.u64(u64::from_be_bytes(
+                        value
+                            .as_slice()
+                            .try_into()
+                            .unwrap_or_else(|_| panic!("u64 field"))
+                    )),
+                    Ok(())
+                ),
+                _ => assert_eq!(encoder.bytes(&value, 32), Ok(())),
+            }
+        }
+        let header = encoder.finish();
+        let header_digest =
+            batch_header_digest(&header).unwrap_or_else(|error| panic!("header digest: {error:?}"));
+        crate::protocol_evidence::RawReceiptEvidence::new(
+            canonical_receipt,
+            proof,
+            header,
+            key.sign(&header_digest).to_bytes(),
+        )
+    }
+
+    #[test]
+    fn settle_terminal_submission_records_execution_and_failure_at_the_receipt_location() {
+        let (root, mut store, tenant, _, submission) = queued("receipt-location");
+        let submission_id =
+            layerx_crypto::evm_transaction::transaction_hash(submission.exact_bytes());
+        let mut outbox = Outbox::default();
+        must(outbox.restore(&store, tenant.clone(), submission_id));
+        must(outbox.transition(
+            &mut store,
+            submission_id,
+            SubmissionState::Submitted,
+            "sent",
+            None,
+        ));
+        let authority = must(EvidenceAuthority::pinned_to_handshake(
+            layerx_wire::limits::PROTOCOL_VERSION,
+            42,
+            ed25519_dalek::SigningKey::from_bytes(&[0x3a; 32])
+                .verifying_key()
+                .to_bytes(),
+        ));
+        let success =
+            must(authority.verify_receipt(&settlement_receipt(submission_id, 0, 1, 9, 8)));
+        let success_ref = success.receipt_ref();
+        must(settle_terminal_submission(
+            &mut outbox,
+            &mut store,
+            submission_id,
+            SubmissionState::Executed,
+            success.clone(),
+            (8, 1),
+        ));
+        let executed = outbox
+            .status(submission_id)
+            .expect("executed submission")
+            .clone();
+        assert_eq!(executed.state, SubmissionState::Executed);
+        let evidence = executed.evidence.expect("execution evidence");
+        assert_eq!(evidence.receipt_ref(), success_ref);
+        assert_eq!(evidence.block_height(), 8);
+        assert_eq!(evidence.transaction_index(), 1);
+        must(settle_terminal_submission(
+            &mut outbox,
+            &mut store,
+            submission_id,
+            SubmissionState::Executed,
+            success.clone(),
+            (8, 1),
+        ));
+        for location in [(8, 2), (9, 1)] {
+            assert!(matches!(
+                settle_terminal_submission(
+                    &mut outbox,
+                    &mut store,
+                    submission_id,
+                    SubmissionState::Executed,
+                    success.clone(),
+                    location,
+                ),
+                Err(HumanOperationError::Refused)
+            ));
+        }
+        assert_eq!(outbox.status(submission_id), Some(&executed));
+
+        let failed_id = must(
+            outbox.enqueue(
+                &mut store,
+                tenant.clone(),
+                must(
+                    layerx_crypto::evm_transaction::Eip1559Call {
+                        chain_id: 125,
+                        nonce: 1,
+                        max_priority_fee_per_gas: 1,
+                        max_fee_per_gas: 10,
+                        gas_limit: 100_000,
+                        to: [0x22; 20],
+                        data: vec![1],
+                    }
+                    .sign(&[0xa5; 32]),
+                ),
+            ),
+        );
+        assert_ne!(failed_id, submission_id);
+        must(outbox.transition(
+            &mut store,
+            failed_id,
+            SubmissionState::Submitted,
+            "sent",
+            None,
+        ));
+        let failure = must(authority.verify_receipt(&settlement_receipt(failed_id, 1, 1, 10, 9)));
+        let failure_ref = failure.receipt_ref();
+        must(settle_terminal_submission(
+            &mut outbox,
+            &mut store,
+            failed_id,
+            SubmissionState::Failed,
+            failure,
+            (9, 2),
+        ));
+        let failed = outbox.status(failed_id).expect("failed submission").clone();
+        assert_eq!(failed.state, SubmissionState::Failed);
+        let evidence = failed.evidence.expect("failure evidence");
+        assert_eq!(evidence.receipt_ref(), failure_ref);
+        assert_eq!(evidence.block_height(), 9);
+        assert_eq!(evidence.transaction_index(), 2);
+
+        drop(store);
+        let reopened = must(Store::open(root.join("store")));
+        let mut restored = Outbox::default();
+        must(restored.restore(&reopened, tenant.clone(), submission_id));
+        must(restored.restore(&reopened, tenant, failed_id));
+        assert_eq!(restored.status(submission_id), Some(&executed));
+        assert_eq!(restored.status(failed_id), Some(&failed));
+        drop(reopened);
+        must(std::fs::remove_dir_all(root));
     }
 
     #[test]
