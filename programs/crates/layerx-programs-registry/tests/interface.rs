@@ -1,8 +1,8 @@
 pub mod support;
 
 use layerx_programs::{
-    verify_interface_read, InterfaceCapability, InterfaceEntryPoint, InterfaceRefusal,
-    ProgramInterface, TypedFailure, ValueSchema, ValueType,
+    InterfaceCapability, InterfaceEntryPoint, InterfaceRefusal, InterfaceStateWitness,
+    ProgramInterface, StateProof, TypedFailure, ValueSchema, ValueType, VerifiedInterfaceRead,
 };
 use layerx_programs_runtime::test_support::{
     code_section, func_body, function_section, import_section, module, raw_section, type_section,
@@ -12,8 +12,7 @@ use layerx_programs_runtime::ABI_MODULE;
 use layerx_programs_runtime::{UpgradePolicy, ABI_V1_VERSION};
 
 use support::{
-    deploy_fixture, legacy_deploy_fixture, upgrade_fixture, verifier_for_fixture, AUTHORITY, NOW,
-    WASM_V1, WASM_V2,
+    deploy_fixture, upgrade_fixture, verifier_for_fixture, AUTHORITY, NOW, WASM_V1, WASM_V2,
 };
 
 fn entry(max_payload: u32) -> InterfaceEntryPoint {
@@ -97,16 +96,24 @@ fn callable_module(capabilities: &[InterfaceCapability]) -> Vec<u8> {
 
 #[test]
 fn verified_deployment_binding_and_current_head_use_the_same_receipt_state() {
-    let fixture = deploy_fixture(
-        WASM_V1,
-        UpgradePolicy::Authority(AUTHORITY),
-        70,
-        1_700_000_070,
-    );
-    let verifier = verifier_for_fixture(&fixture, 70, 100, None, 1_000);
+    let fixture = deploy_fixture(WASM_V1, UpgradePolicy::Authority(AUTHORITY), 70, NOW);
+    let verifier = verifier_for_fixture(&fixture, 1_000);
+    let chain_head = fixture
+        .chain
+        .verifier
+        .verify_head(&fixture.chain.header, &fixture.chain.commit)
+        .unwrap_or_else(|error| panic!("verified chain head: {error:?}"));
+    let chain_deployment = fixture
+        .proof
+        .deployment
+        .verify(&chain_head)
+        .unwrap_or_else(|error| panic!("deployment at chain head: {error}"));
     let deployment = verifier
         .verify_deployment(&fixture.proof, NOW)
         .unwrap_or_else(|error| panic!("verified deployment fixture: {error}"));
+    assert_eq!(deployment.code_hash(), chain_deployment.code_hash());
+    assert_eq!(deployment.state_root(), chain_head.app_hash());
+    assert_eq!(chain_deployment.state_root(), chain_head.app_hash());
 
     let published = support::fixture_interface(WASM_V1);
     let bound = ProgramInterface::bind_deployment(&deployment, published.entries().to_vec())
@@ -115,22 +122,43 @@ fn verified_deployment_binding_and_current_head_use_the_same_receipt_state() {
     let head = verifier
         .verify_current_program(&fixture.proof.state, support::program(), NOW)
         .unwrap_or_else(|error| panic!("verified current head: {error}"));
-    let read = verify_interface_read(&head, &fixture.interface_witness)
-        .unwrap_or_else(|error| panic!("verified interface read: {error}"));
+    let current = fixture
+        .proof
+        .state
+        .state
+        .verify(&chain_head)
+        .unwrap_or_else(|error| panic!("current program at chain head: {error}"));
+    assert_eq!(head.code_hash(), current.code_hash());
+    assert_eq!(current.code_hash(), chain_deployment.code_hash());
+    assert_eq!(current.state_root(), chain_head.app_hash());
+    assert_eq!(head.receipt_digest(), deployment.receipt_digest());
+
+    let witness = InterfaceStateWitness {
+        key: fixture.interface_witness.key.clone(),
+        value: fixture.interface_witness.value.clone(),
+        proof: StateProof {
+            leaf_index: 0,
+            leaf_count: 1,
+            siblings: Vec::new(),
+        },
+    };
+    let mut ops = fixture.interface_witness.proof.clone();
+    ops.extend_from_slice(&fixture.proof.state.state.ops);
+    let read =
+        VerifiedInterfaceRead::verify_at_head(&chain_head, support::program(), &witness, &ops)
+            .unwrap_or_else(|error| panic!("verified interface read: {error}"));
     assert_eq!(read.interface, bound);
-    assert_eq!(read.receipt_digest, head.receipt_digest());
+    assert_eq!(read.interface.code_hash(), deployment.code_hash());
+    assert_eq!(read.interface.code_hash(), head.code_hash());
+    assert_eq!(read.receipt_digest, chain_head.app_hash());
     assert_eq!(read.state_root, head.state_root());
 }
 
 #[test]
 fn legacy_evidence_cannot_manufacture_a_published_interface() {
-    let fixture = legacy_deploy_fixture(
-        WASM_V1,
-        UpgradePolicy::Authority(AUTHORITY),
-        72,
-        1_700_000_072,
-    );
-    let verifier = verifier_for_fixture(&fixture, 72, 100, None, 1_000);
+    let mut fixture = deploy_fixture(WASM_V1, UpgradePolicy::Authority(AUTHORITY), 72, NOW);
+    fixture.proof.deployment.interface = None;
+    let verifier = verifier_for_fixture(&fixture, 1_000);
     let deployment = verifier
         .verify_deployment(&fixture.proof, NOW)
         .unwrap_or_else(|error| panic!("legacy deployment evidence: {error}"));
@@ -203,8 +231,8 @@ fn explicit_breaking_upgrade_is_distinct_from_compatible_upgrade() {
     let narrower = interface(entry(32));
     assert_eq!(narrower.authorize_upgrade(&prior, true), Ok(()));
 
-    let fixture = upgrade_fixture(WASM_V1, WASM_V2, 71, 1_700_000_071);
-    let verifier = verifier_for_fixture(&fixture, 71, 100, None, 1_000);
+    let fixture = upgrade_fixture(WASM_V1, WASM_V2, 71, NOW);
+    let verifier = verifier_for_fixture(&fixture, 1_000);
     let deployment = verifier
         .verify_deployment(&fixture.proof, NOW)
         .unwrap_or_else(|error| panic!("verified upgrade fixture: {error}"));

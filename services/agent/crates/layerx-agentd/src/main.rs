@@ -1823,7 +1823,7 @@ fn balance_json(read: &ProgramBalanceRead<CommittedProgramBalanceFreshness>) -> 
                 "account": hex::encode(&account.account),
                 "asset": hex::encode(&account.asset),
                 "amount": account.amount.to_string(),
-                "frozen": account.frozen,
+                "frozen": account.frozen.map_or(serde_json::Value::Null, serde_json::Value::Bool),
             })
         })
         .collect();
@@ -1847,14 +1847,14 @@ mod tests {
 
     #[test]
     fn balance_json_renders_committed_freshness() {
-        let read = ProgramBalanceRead::<CommittedProgramBalanceFreshness> {
+        let mut read = ProgramBalanceRead::<CommittedProgramBalanceFreshness> {
             program: [0x11; 32],
             lifecycle: ProgramLifecycle::Active,
             accounts: vec![ProgramValueBalance {
                 account: [0x22; 32],
                 asset: [0x33; 32],
                 amount: u128::MAX,
-                frozen: true,
+                frozen: Some(true),
             }],
             freshness: CommittedProgramBalanceFreshness {
                 height: 12_345,
@@ -1884,6 +1884,16 @@ mod tests {
                 },
             })
         );
+
+        read.accounts[0].frozen = None;
+        let rendered: serde_json::Value =
+            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
+        assert!(rendered["accounts"][0]["frozen"].is_null());
+
+        read.accounts[0].frozen = Some(false);
+        let rendered: serde_json::Value =
+            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
+        assert_eq!(rendered["accounts"][0]["frozen"], false);
     }
 }
 
@@ -2003,13 +2013,14 @@ fn parse_request(stream: &mut DeadlineStream, bearer: &str) -> Parsed {
 fn route_request(
     path: &str,
     node_config: &NodeRpcConfig,
+    node_ca_der: &[u8],
     endpoint: &layerx_client::sequencer::SequencerEndpoint,
     route: &mut ProgramBalanceReadRoute,
     native: &mut Option<NativeReadRoute>,
 ) -> (u16, String) {
     let reply = |status: u16, body: &str| (status, body.to_owned());
     if path == "/healthz" {
-        let (transport_ready, ready) = match NodeRpc::connect(node_config) {
+        let (transport_ready, ready) = match NodeRpc::connect_with_ca(node_config, node_ca_der) {
             Ok(node) => (true, readiness_gate(&node).is_ok()),
             Err(_) => (false, false),
         };
@@ -2056,7 +2067,7 @@ fn route_request(
         return reply(503, "{\"error\":\"program_state_unavailable\"}");
     }
     let read = (|| {
-        let node = NodeRpc::connect(node_config).map_err(|_| ())?;
+        let node = NodeRpc::connect_with_ca(node_config, node_ca_der).map_err(|_| ())?;
         readiness_gate(&node).map_err(|_| ())?;
         let height = endpoint.block_number().map_err(|_| ())?;
         route.read(program, height).map_err(|_| ())
@@ -2153,6 +2164,7 @@ pub(crate) fn serve_read_routes(
     route: ProgramBalanceReadRoute,
     native: Option<NativeReadRoute>,
     node_config: NodeRpcConfig,
+    node_ca_der: Vec<u8>,
     endpoint: layerx_client::sequencer::SequencerEndpoint,
 ) -> Result<HttpPool, String> {
     let shared_reads = Arc::new(Mutex::new((route, native)));
@@ -2167,7 +2179,14 @@ pub(crate) fn serve_read_routes(
                 match shared_reads.try_lock() {
                     Ok(mut reads) => {
                         let (route, native) = &mut *reads;
-                        break route_request(&path, &node_config, &endpoint, route, native);
+                        break route_request(
+                            &path,
+                            &node_config,
+                            &node_ca_der,
+                            &endpoint,
+                            route,
+                            native,
+                        );
                     }
                     Err(std::sync::TryLockError::WouldBlock) => thread::sleep(SUPERVISION_INTERVAL),
                     Err(std::sync::TryLockError::Poisoned(_)) => return,
@@ -2240,6 +2259,7 @@ fn serve(config: Config) -> Result<(), String> {
         route,
         native,
         node_config,
+        config.authority_ca_der.clone(),
         endpoint,
     )?;
     loop {
