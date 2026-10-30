@@ -96656,7 +96656,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.40.1]
 title = "Decode kernel receipts from the host with the Go layerxproof codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["1.24.1"]
@@ -158287,7 +158287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.4]
 title = "Remove the kernel merkle proof type from the interface protocol tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
