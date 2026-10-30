@@ -6,8 +6,9 @@ mod payer;
 use attestor_cluster::{checked, Cluster, Result, SIGNERS};
 use layerx_agentd::prepare::evm::PrecompileCall;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+use layerx_crypto::payments::Payment;
 use layerx_human_kms::attestor::{AttestorNodeConfig, AttestorSigner, AttestorSignerConfig};
-use layerx_mcp::tools::web::{ExactTerms, GrantTerms, WebPayerError};
+use layerx_mcp::tools::web::{GrantTerms, WebCall, WebConfig, WebPayerError};
 use serde_json::{json, Value};
 use sha3::{Digest, Keccak256};
 use std::io::{BufRead, BufReader, Read, Write};
@@ -21,9 +22,7 @@ use std::time::Duration;
 const LEDGER_ADDRESS: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
 ];
-const PAY_ADDRESS: [u8; 20] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1b,
-];
+const RECEIVER_SEQUENCE: u64 = 19;
 
 const RECEIPT: &[u8] = include_bytes!("../../../../../tests/fixtures/receipt-supply-v2.bin");
 
@@ -44,8 +43,7 @@ impl SigningFixture {
                     "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
                     "rate_per_minute": 1000,
                     "selectors": {
-                        "0x000000000000000000000000000000000000101a": ["0x78ea11db", "0x2e89490f"],
-                        "0x000000000000000000000000000000000000101b": ["0xa863162b"]
+                        "0x000000000000000000000000000000000000101a": ["0x78ea11db", "0x2e89490f", "0xd0d53480"]
                     }
                 }
             }),
@@ -59,6 +57,13 @@ impl SigningFixture {
             "0x1111111111111111111111111111111111111111",
         )?;
         let evm_public = cluster.generate_key("web-evm", "secp256k1", owner, "")?;
+        cluster.set_ledger_grant_policy(
+            "web-owner",
+            owner,
+            &public_key,
+            [0x62; 32],
+            200_000_000_000,
+        )?;
         let point =
             k256::ecdsa::VerifyingKey::from_sec1_bytes(&evm_public)?.to_encoded_point(false);
         let evm_address = Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
@@ -221,15 +226,31 @@ impl RpcServer {
                             assert_eq!(request["params"][0]["from"], hex(&sender));
                             estimate = unhex(&request["params"][0]["data"]);
                             destination = match &estimate[..4] {
-                                [0x78, 0xea, 0x11, 0xdb] | [0x2e, 0x89, 0x49, 0x0f] => {
-                                    LEDGER_ADDRESS
-                                }
-                                [0xa8, 0x63, 0x16, 0x2b] => PAY_ADDRESS,
+                                [0x78, 0xea, 0x11, 0xdb]
+                                | [0x2e, 0x89, 0x49, 0x0f]
+                                | [0xd0, 0xd5, 0x34, 0x80] => LEDGER_ADDRESS,
                                 selector => panic!("unexpected payment selector {selector:?}"),
                             };
                             assert_eq!(request["params"][0]["to"], hex(&destination));
                             assert_eq!(request["params"][1], "pending");
                             json!("0x186a0")
+                        }
+                        "eth_call" => {
+                            assert_eq!(request["params"][0]["to"], hex(&LEDGER_ADDRESS));
+                            assert_eq!(request["params"][1], "pending");
+                            let data = unhex(&request["params"][0]["data"]);
+                            assert_eq!(
+                                &data[..4],
+                                &Keccak256::digest(b"nextSequence(bytes32,bytes32)")[..4]
+                            );
+                            assert_eq!(data.len(), 4 + 2 * 32);
+                            assert_eq!(&data[4..16], &[0; 12]);
+                            assert_eq!(&data[16..36], &[0x32; 20]);
+                            assert_eq!(&data[36..48], &[0; 12]);
+                            assert_eq!(&data[48..68], &[0x42; 20]);
+                            let mut result = [0; 32];
+                            result[24..].copy_from_slice(&RECEIVER_SEQUENCE.to_be_bytes());
+                            json!(hex(&result))
                         }
                         "eth_gasPrice" => json!("0x3b9aca00"),
                         "eth_sendRawTransaction" => {
@@ -349,16 +370,38 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
     with_signer(|signer| {
         let mut rpc = RpcServer::start(signer.evm_address())?;
         let mut payer = payer(Arc::clone(&signer), &rpc.endpoint)?;
-        let terms = ExactTerms {
-            payer_did: format!("did:layerx:{}", attestor_cluster::hex(&signer.public_key())),
-            payer_account: signer.evm_address(),
-            recipient: [0x31; 20],
-            recipient_account: hex(&[0x31; 20]),
-            asset: [0x41; 20],
-            current_height: 100,
-            amount: 123_456,
-            idempotency_key: [0x51; 32],
-        };
+        let config = checked(WebConfig::new(
+            &rpc.endpoint,
+            &format!("did:layerx:{}", attestor_cluster::hex(&signer.public_key())),
+            &hex(&signer.evm_address()),
+            [0x31; 20],
+            "eip155:125",
+            [1; 32],
+            [2; 32],
+            1,
+            100,
+            Duration::from_secs(5),
+            3,
+        ))?;
+        let web_call = checked(WebCall::from_arguments(
+            "web.fetch",
+            &json!({
+                "url": "https://paxeer.app/data.json",
+                "currency": "USDC",
+                "scheme": "exact",
+                "idempotency_key": attestor_cluster::hex(&[0x51; 32]),
+            }),
+        ))?;
+        let offer = serde_json::from_value(json!({
+            "scheme": "exact",
+            "network": "eip155:125",
+            "amount": "123456",
+            "asset": hex(&[0x41; 20]),
+            "payTo": hex(&[0x31; 20]),
+            "maxTimeoutSeconds": 30,
+            "extra": {"layerx": {"currency": "USDC", "receiverDid": "did:layerx:receiver"}},
+        }))?;
+        let terms = checked(web_call.exact_terms(&config, &offer, 100))?;
         let mut wrong = terms.clone();
         wrong.payer_account[0] ^= 1;
         assert_eq!(
@@ -386,7 +429,7 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
         assert_eq!(&data[48..68], &terms.recipient);
         assert_eq!(&data[80..100], &terms.asset);
         assert_eq!(&data[116..132], &terms.amount.to_be_bytes());
-        assert_eq!(&data[156..164], &terms.current_height.to_be_bytes());
+        assert_eq!(&data[156..164], &terms.expires_at_ms.to_be_bytes());
         assert_eq!(&data[164..196], &terms.idempotency_key);
         assert_eq!(payment.tx_hash, transaction_hash(&submitted[0]));
         assert_eq!(payment.receipt, RECEIPT);
@@ -417,7 +460,7 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
 }
 
 #[test]
-fn web_grant_submits_a_signed_layerxpay_call() -> Result<()> {
+fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
     with_signer(|signer| {
         let mut rpc = RpcServer::start(signer.evm_address())?;
         let mut payer = payer(Arc::clone(&signer), &rpc.endpoint)?;
@@ -426,35 +469,90 @@ fn web_grant_submits_a_signed_layerxpay_call() -> Result<()> {
             payer_account: signer.evm_address(),
             recipient: [0x32; 20],
             asset: [0x42; 20],
-            current_height: 100,
+            expires_at_ms: 1_900_000_000_000,
             amount: 654_321,
             purpose_hash: [0x62; 32],
             idempotency_key: [0x52; 32],
         };
+        let mut invalid = terms.clone();
+        invalid.purpose_hash = [0; 32];
+        assert_eq!(
+            payer.grant(&invalid),
+            Err(payer::PayerError::Boundary(WebPayerError::Refused))
+        );
+        assert_eq!(payer.draw(&terms, [0; 32]), Err(WebPayerError::Refused));
+        assert_eq!(payer.draw(&invalid, [1; 32]), Err(WebPayerError::Refused));
+        assert!(rpc.requests.lock().map_err(|_| "requests lock")?.is_empty());
         let raw = checked(payer.grant(&terms))?;
-        let draw = checked(payer.draw(&terms, terms.idempotency_key))?;
+        let (call, _) = decode_signed(&raw)?;
+        let data = &call.data;
+        assert_eq!(data.len(), 4 + 2 * 32 + 352);
+        assert_eq!(&data[..4], &Keccak256::digest(b"issueGrant(bytes)")[..4]);
+        let mut offset = [0; 32];
+        offset[31] = 32;
+        assert_eq!(&data[4..36], &offset);
+        let mut length = [0; 32];
+        length[24..].copy_from_slice(&346_u64.to_be_bytes());
+        assert_eq!(&data[36..68], &length);
+        let payment = Payment::decode(
+            layerx_types::payload::ModuleId::Asset,
+            7,
+            &data[68..414],
+            terms.payer_did.as_bytes(),
+        )?;
+        let Payment::IssueGrant(grant) = &payment else {
+            return Err("expected IssueGrant payload".into());
+        };
+        assert_eq!(grant.from[..12], [0; 12]);
+        assert_eq!(grant.from[12..], terms.payer_account);
+        assert_eq!(grant.recipient[..12], [0; 12]);
+        assert_eq!(grant.recipient[12..], terms.recipient);
+        assert_eq!(grant.asset[..12], [0; 12]);
+        assert_eq!(grant.asset[12..], terms.asset);
+        assert_eq!(grant.per_draw_maximum, terms.amount);
+        assert_eq!(grant.allowance, terms.amount);
+        assert!(!grant.recurring);
+        assert_eq!(grant.window_length, 0);
+        assert_eq!(grant.expiration, terms.expires_at_ms);
+        assert_eq!(grant.purpose_hash, terms.purpose_hash);
+        assert!(grant.has_reference);
+        assert_eq!(grant.reference_hash, terms.idempotency_key);
+        assert_eq!(grant.revocation_sequence, 0);
+        assert_eq!(grant.public_key, signer.public_key());
+        assert_eq!(grant.id, grant.signing_digest()?);
+        checked(layerx_crypto::ed25519::verify_digest(
+            &signer.public_key(),
+            &grant.signature,
+            &grant.signing_digest()?,
+        ))?;
+        assert!(signer
+            .sign_ledger_grant(grant, "signed-grant", "unused")
+            .is_err());
+        let mut wrong_key = grant.clone();
+        wrong_key.signature = [0; 64];
+        wrong_key.public_key[0] ^= 1;
+        assert!(signer
+            .sign_ledger_grant(&wrong_key, "wrong-key", "unused")
+            .is_err());
+        assert_eq!(&data[68..414], payment.encode(terms.payer_did.as_bytes())?);
+        assert_eq!(&data[414..], &[0; 6]);
+        assert_call(
+            &raw,
+            &signer,
+            &checked(terms.prepare_grant(grant))?,
+            7,
+            LEDGER_ADDRESS,
+        )?;
+        let draw = checked(payer.draw(&terms, grant.id))?;
         let drawn = checked(payer.submit(&draw))?;
         rpc.finish();
         let submitted = rpc.submitted();
         assert_eq!(submitted.len(), 2);
         assert_eq!(raw, submitted[0]);
-        let data = assert_call(&raw, &signer, &terms.prepare_budget(), 7, PAY_ADDRESS)?;
-        assert_eq!(data.len(), 4 + 12 * 32);
-        assert_eq!(
-            &data[..4],
-            &Keccak256::digest(b"budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)")[..4]
-        );
-        assert_eq!(&data[4..36], &terms.idempotency_key);
-        assert_eq!(&data[48..68], &terms.payer_account);
-        assert_eq!(&data[80..100], &terms.asset);
-        assert_eq!(&data[100..132], &terms.purpose_hash);
-        assert_eq!(&data[148..164], &terms.amount.to_be_bytes());
-        assert_eq!(&data[284..292], &terms.current_height.to_be_bytes());
-        assert_eq!(&data[316..324], &(terms.current_height + 1).to_be_bytes());
         let draw_data = assert_call(
             &submitted[1],
             &signer,
-            &terms.prepare_draw(terms.idempotency_key),
+            &terms.prepare_draw(grant.id, RECEIVER_SEQUENCE),
             8,
             LEDGER_ADDRESS,
         )?;
@@ -467,10 +565,19 @@ fn web_grant_submits_a_signed_layerxpay_call() -> Result<()> {
         assert_eq!(&draw_data[48..68], &terms.recipient);
         assert_eq!(&draw_data[84..100], &terms.amount.to_be_bytes());
         assert_eq!(&draw_data[100..132], &terms.idempotency_key);
-        assert_eq!(&draw_data[156..164], &terms.current_height.to_be_bytes());
+        assert_eq!(&draw_data[4..36], &grant.id);
+        assert_eq!(&draw_data[156..164], &RECEIVER_SEQUENCE.to_be_bytes());
         assert_eq!(&draw_data[164..196], &terms.purpose_hash);
         assert_eq!(drawn.tx_hash, transaction_hash(&submitted[1]));
         assert_eq!(drawn.receipt, RECEIPT);
+        let methods = rpc.requests.lock().map_err(|_| "requests lock")?;
+        assert_eq!(
+            methods
+                .iter()
+                .filter(|method| *method == "eth_call")
+                .count(),
+            1
+        );
         Ok(())
     })
 }
