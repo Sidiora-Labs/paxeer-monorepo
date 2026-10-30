@@ -11000,3 +11000,43 @@ fix = "A version-constant bump owns the publication row and every test literal t
 title = "Tests that set process environment variables race across test threads"
 symptom = "10.20.3's startup tests each rewrote LAYERX_HUMAN_* through env::set_var and failed at startup in different components on different runs."
 fix = "Hold a static Mutex for the lifetime of each test's environment fixture, give every test its own canonical root, and keep one opener per store root."
+
+[gotcha.2238]
+title = "Attempts that stop at implemented-not-qualified four times relaunch only when seeded by hand"
+symptom = "A task with four or more such attempts never relaunched after its blocker landed on main; the automatic re-seed skips that class."
+fix = "Seed the task explicitly with the finished attempt number and continue or requalify once the blocker is on main."
+
+[gotcha.2239]
+title = "A task packet built before a spec batch lands runs the old build_cmd"
+symptom = "8.94.6 attempt 3 ran without LAYERX_TEST_CORE_BIN although the spec on main already exported it: the packet was assembled before the batch landed."
+fix = "After landing a spec batch that changes a command, re-seed the affected task so the next attempt is assembled from the new spec."
+
+[gotcha.2240]
+title = "attach_external_signature takes the EVM SigningPreparation, not the kernel Prepared"
+symptom = "services/human custody.rs:342 passes a kernel Prepared and a 65-byte custody grant; sign.rs:334 wants &SigningPreparation and the kernel pair wants 64 bytes, so neither compiles since 9.2.2."
+fix = "Wrap the Prepared in a SigningPreparation (evm_signing.rs:145-180) and sign its signing_hash through the custody EVM action path (decision.1897)."
+
+[gotcha.2241]
+title = "MinIO no longer serves server binaries from dl.min.io or GitHub releases"
+symptom = "curl of dl.min.io/server/minio/release/linux-amd64/minio answers 410 Gone and the GitHub release RELEASE.2025-10-15T17-29-55Z carries no assets, so a fixture that downloads minio fails."
+fix = "Build it from source: GOFLAGS= go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z (several minutes, cache the binary)."
+
+[gotcha.2242]
+title = "A second node home with its own consensus key panics the primary with validator not in committee"
+symptom = "Starting a standby node of the in-tree chain as a validator (the default mode) makes consensus/internal/consensus/state.go:2622 panic because its key is not in the genesis validator set."
+fix = "Run the extra node home with mode full (consensus/config/toml.go:104); only the primary's key is in the committee."
+
+[gotcha.2243]
+title = "The v6120 halt export carries no perps, pricefeed or spot state"
+symptom = "node/testdata/v6120-halt-export.json has null app_state.perps, pricefeed and spot, so the local node starts with the perps DefaultGenesis (no markets) and getMarkPriceDetails(11) reverts; the del(...) in v6120-node.sh:245 is a no-op."
+fix = "Seed the dev genesis with the market, pricefeed and collateral state a test reads (task 5.98.3) instead of expecting it from the export."
+
+[gotcha.2244]
+title = "The gateway local fixture adapter's path needles changed when platform moved under services/"
+symptom = "services/platform/hosted/gateway/tests/local/build.rs:57 panics with fixture path contract changed because boundary.rs:4 now climbs five levels to tests/support/lxgb_metadata.rs and build.rs still searches the four-level needle."
+fix = "Update the needle and the repository climb together whenever a crate moves; the adapter asserts each needle exactly once."
+
+[gotcha.2245]
+title = "The bridge workflow check reads spec/paxeer-x-bridge/spec.kvx, which no longer exists"
+symptom = "services/bridge/deploy/tests/workflow-check.sh fails at read(root, SPEC_PATH) before any check runs because 0209f71cc consolidated the bridge spec into spec/layerx-merge/spec.kvx."
+fix = "Point SPEC_PATH at the consolidated spec; a check that reads a spec file must follow the spec consolidation."
