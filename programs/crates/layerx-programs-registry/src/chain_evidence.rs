@@ -5,8 +5,8 @@ pub mod freshness;
 pub mod lifecycle;
 pub mod program_state;
 pub mod protocol_head;
+pub mod trust_root;
 pub mod wind_down;
-pub mod trust_root {}
 
 pub(crate) mod verify_bundle;
 
