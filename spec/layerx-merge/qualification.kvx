@@ -13315,3 +13315,67 @@ symbol = "ProtocolDeploymentVerifier::from_protected_history"
 observed = "Attempt 13 (ee7d7eaf0 on de9686155) exited in make workspace-build at human-build (Makefile:1960): layerx-human-security-provider fails with E0599 at state.rs:56 and :136 because task 13.4.6 (0461a4f71) deleted from_protected_history and no task owned the provider's port; build and agent-build passed."
 assumption = "Task 10.99.1 ports the provider and precedes this gate; the attempt 9 test is right and unchanged."
 severity = "cross-task"
+
+[finding.8.4.3.3]
+task = "8.4.3"
+file = "services/platform/hosted/registry/tests/journal.rs:42, :184, :344-397, :527, :552; services/platform/hosted/registry/tests/producer_tls.rs:139"
+symbol = "evidence, replay, publication"
+observed = "Attempts ac2e91fba (on a628abcf2) and d1e010855 (on f038ebb3f) built the gateway and failed the check of every target of layerx-platform-registry in two test targets, tests/journal.rs (18 errors) and tests/producer_tls.rs (1 error), because task 8.12.3 ported the library and binary targets and left the integration tests on the pre-port fixture, envelope and record signatures; the verify_cmd never ran."
+assumption = "Task 8.12.4 ports the two tests with the all-targets check as its build gate and precedes 8.4.3 and 8.5.2 (decision.1972); the attempt 6 content stands."
+severity = "cross-task"
+
+[finding.8.5.2.3]
+task = "8.5.2"
+file = "services/platform/hosted/registry/tests/journal.rs:42, :184, :344-397, :527, :552; services/platform/hosted/registry/tests/producer_tls.rs:139"
+symbol = "evidence, replay, publication"
+observed = "Attempts 5723517e1 (on 2fafc70a4) and 1685bac94 (on f038ebb3f) built the gateway and failed the check of every target of layerx-platform-registry in tests/journal.rs (18 errors) and tests/producer_tls.rs (1 error), left on the pre-port signatures by task 8.12.3; the verify_cmd never ran."
+assumption = "Task 8.12.4 ports the two tests and precedes this task; nothing in the gateway reader files changes the outcome until it lands."
+severity = "cross-task"
+
+[finding.6.27.2.1]
+task = "6.27.2"
+file = "modules/tokenfactory/keeper/issuer_pause_matrix_test.go:103"
+symbol = "TestIssuerPauseAuthorityMatrix"
+observed = "Attempts 1 to 3 fail the four bech32_admin_* subtests with 'error 'denom is issuer bound: LXP_UNAUTHORIZED_DEBIT: caller is not the denom issuer' must begin with 'LXP_UNAUTHORIZED_DEBIT'': do_3 demanded the bare prefix for every code-28 text while modules/tokenfactory/keeper/msg_server.go:237 returns types.ErrIssuerMismatch.Wrap('denom is issuer bound') exactly as task 6.22.6 do_2 (done, 93029a000) prescribes and set_denom_paused_refusal_test.go:76 asserts, and the sdk wrappedError renders the description before the parent text (sdk/types/errors/errors.go:346-348)."
+assumption = "6.22.6 stays done and msg_server.go is unchanged; 6.27.2 do_3 is narrowed so the two admin rows of an issuer-bound denom assert the exact wrapped text with code 28, the issuer rows keep the LXP_UNAUTHORIZED_DEBIT prefix and the repeat rows keep LXP_PAUSED_SCOPE; the attempt 3 test continues with that one assertion change."
+severity = "cross-task"
+
+[finding.10.20.3.13]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:241"
+symbol = "Environment::start_agent"
+observed = "Attempt 20 (6a89eaade, the attempt 19 candidate unchanged on 16f187251 with 9.12.11) builds all three build_cmd members, the configuration test passes, and both startup tests fail because layerx-agentd exits 2 with 'LAYERX_AGENT_HUMAN_LIMIT_ID has the wrong width': the test passes a 64-character hex id while parse_hex (services/agent/crates/layerx-agentd/src/main.rs:312-316, :341) requires 32 characters for the 16-byte LimitId (budget/reserve.rs:11); the daemon had passed the authority, LNI, store and node RPC stages for the first time."
+assumption = "The fixture value is wrong, not the product: do_25 sets the id to a 16-byte hex and keeps the 32-byte scope id; no product file changes and the candidate continues."
+severity = "task"
+
+[finding.10.20.3.14]
+task = "10.20.3"
+file = "services/platform/hosted/human/material.py:1378"
+symbol = "owner_policy"
+observed = "The hosted human material refuses agent.json unless HUMAN_LIMIT_ID matches [0-9a-f]{64} and writes every agent key as LAYERX_AGENT_<key> (material.py:903-904), while layerx-agentd parse_hex::<16> at services/agent/crates/layerx-agentd/src/main.rs:312-316, :341 refuses any LAYERX_AGENT_HUMAN_LIMIT_ID other than 32 hex characters, so a hosted deployment would meet the refusal attempt 20 met."
+assumption = "Out of this task's scope; material.py belongs to 8.19.9 (done); the owner decides which width is the contract and records the correction in the owning task."
+severity = "owner"
+
+[finding.9.96.2.2]
+task = "9.96.2"
+file = "services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs:36; programs/tests/vectors/snapshot-binding-v2.hex:1"
+symbol = "snapshot_binding_v2_decodes_vector, SnapshotBinding::write_prefix"
+observed = "Attempts 9c67c0c0c and e49b04e18 build and fail the test at :36 with left [0, 1] right [0, 2]: the former do_2 told a v2 binding by a version byte of 2, while the kernel encoder that task 13.29.3 names as the authority writes SCHEMA_VERSION 1 (programs/crates/layerx-programs-ai-market/src/lib.rs:322) first in every layout (queries.rs write_prefix) and the pinned vector begins 0001."
+assumption = "The vector and the encoder are right; do_2 and the test follow them (decision.1973): version word 1, layout told by BINDING_MAX_BYTES; the attempt 5 decoder continues with that change."
+severity = "cross-task"
+
+[finding.14.32.5.1]
+task = "14.32.5"
+file = "apps/explorer/lib/hooks/useNavItems.spec.tsx:56, :101"
+symbol = "useNavItems"
+observed = "Since e271c47db the two menu tests 'opens the menu with home and carries the scan groups in order' and 'collects the kernel pages in their own group' fail on main with 'Kernel is not a menu group': 14.32.5 renamed the group to Kernel archive and its gate ran only the new useNavItemsArchive.spec.tsx."
+assumption = "The rename is right; task 14.32.7 moves the two expectations to the new label and children; no product file changes."
+severity = "cross-task"
+
+[finding.6.69.2.2]
+task = "6.69.2"
+file = "modules/xweb/keeper/grpc_query_requests.go:12"
+symbol = "queryServer"
+observed = "Attempt 3 (d1636324f on 2c40f554a) failed go build ./modules/xweb/... with 'undefined: queryServer': the receiver type is created by task 6.69.1 (modules/xweb/keeper/grpc_query.go:12, landed 7f65d97eb) which 6.69.2 never required; the spec supersedes 6.69.2 into 6.69.1, which carries the same two files and the same two tests."
+assumption = "6.69.2 stays superseded and is never re-run; nothing depends on it; the attempt 3 content is redundant with main."
+severity = "cross-task"

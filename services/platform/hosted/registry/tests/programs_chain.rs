@@ -447,3 +447,102 @@ fn registry_deployment_reads_the_program_record() {
         );
     }
 }
+
+#[allow(dead_code)]
+#[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/chain.rs"]
+mod chain;
+
+#[test]
+fn registry_starts_without_an_lni_socket() {
+    const CHILD: &str = "LAYERX_TEST_REGISTRY_WITHOUT_LNI";
+    if std::env::var_os(CHILD).is_none() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "registry_starts_without_an_lni_socket",
+                "--nocapture",
+            ])
+            .env_remove("LAYERX_REGISTRY_LNI_SOCKET")
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+    assert!(std::env::var_os("LAYERX_REGISTRY_LNI_SOCKET").is_none());
+    use layerx_programs::{
+        chain_evidence::programs_state_key, chain_proof::trust_store::TrustRoot, ObservedHead,
+        ProgramId,
+    };
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let root =
+        Root(std::env::temp_dir().join(format!("registry-without-lni-{}", std::process::id())));
+    fs::create_dir(&root.0).unwrap();
+    let program = ProgramId::new([0x73; 32]).unwrap();
+    let wasm = layerx_programs_runtime::test_support::add_module();
+    let code_hash: [u8; 32] = Sha256::digest(&wasm).into();
+    let mut key = b"program\0".to_vec();
+    key.extend_from_slice(&program.bytes());
+    let key = programs_state_key(&key);
+    let mut record = vec![0];
+    record.extend_from_slice(&[0; 32]);
+    record.extend_from_slice(&code_hash);
+    record.extend_from_slice(&1_u16.to_be_bytes());
+    record.extend_from_slice(&1_u32.to_be_bytes());
+    let fixture = chain::ChainFixture::new(
+        "registry-without-lni",
+        &[[1; 32], [2; 32], [3; 32], [4; 32]],
+        vec![(key.clone(), record)],
+    )
+    .unwrap();
+    let verified_head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap();
+    let trust = TrustRoot::from_head(&verified_head, fixture.verifier.validators.clone()).unwrap();
+    let trust_path = root.0.join("chain-trust");
+    fs::write(&trust_path, trust.canonical_bytes().unwrap()).unwrap();
+    fs::set_permissions(&trust_path, fs::Permissions::from_mode(0o600)).unwrap();
+    let journal_path = root.0.join("journal");
+    let journal =
+        FileDeploymentJournal::open_from_chain_trust(journal_path.clone(), &trust_path, 1_000)
+            .unwrap();
+    let now = u64::try_from(verified_head.time_ms()).unwrap();
+    let head = ObservedHead {
+        sequence: u64::try_from(verified_head.height()).unwrap(),
+        observed_at: now,
+    };
+    journal.refresh_head(head).unwrap();
+    let package = serde_json::to_vec(&json!({
+        "commitment": fixture.encode_key(&key).unwrap(),
+        "code": wasm,
+        "interface": null,
+    }))
+    .unwrap();
+    let deployment = journal.append_chain_deployment(&package, now).unwrap();
+    assert_eq!(deployment.program(), program);
+    assert_eq!(deployment.code_hash(), code_hash);
+    assert_eq!(deployment.version(), 1);
+    assert_eq!(deployment.state_root(), verified_head.app_hash());
+    assert_eq!(journal.observed_head().unwrap(), head);
+    drop(journal);
+    let reopened =
+        FileDeploymentJournal::open_from_chain_trust(journal_path.clone(), &trust_path, 1_000)
+            .unwrap();
+    assert_eq!(reopened.observed_head().unwrap(), head);
+    assert_eq!(
+        reopened.append_chain_deployment(&package, now).unwrap(),
+        deployment
+    );
+    let saved = journal_path.join("chain-proofs").join(format!(
+        "{}.chain-deployment",
+        hex::encode(&Sha256::digest(&package))
+    ));
+    assert_eq!(fs::read(saved).unwrap(), package);
+}
