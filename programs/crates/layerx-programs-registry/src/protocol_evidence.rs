@@ -22,6 +22,7 @@ use layerx_wire::hash::{activity_id, execution_batch_id, payload_hash, receipt_d
 use layerx_wire::receipt::{decode as decode_receipt, decode_batch_header, encode_unsigned};
 
 use crate::account_state::verify_state_membership;
+use crate::chain_proof::ChainProofVerifier;
 use crate::{
     verify_interface_read, DeploymentRecord, InterfaceRefusal, InterfaceStateWitness,
     ProgramLifecycle, ReadFreshness, StateProof, VerifiedInterfaceRead,
@@ -639,7 +640,7 @@ impl Display for ProgramBundleError {
 impl std::error::Error for ProgramBundleError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct SequencerTrustAnchor {
+pub(crate) struct SequencerTrustAnchor {
     protocol_version: u16,
     network_id: u32,
     epoch: u64,
@@ -679,10 +680,11 @@ impl SequencerTrustAnchor {
 /// sequencer authorizations and one explicit current anchor.
 #[derive(Clone, Debug)]
 pub struct ProtocolDeploymentVerifier {
-    anchors: Vec<SequencerTrustAnchor>,
-    current_anchor: usize,
-    staleness_limit_ms: u64,
-    signed_history: Option<layerx_proof::signed_authority::SignedAuthorityHistory>,
+    pub(crate) anchors: Vec<SequencerTrustAnchor>,
+    pub(crate) current_anchor: usize,
+    pub(crate) staleness_limit_ms: u64,
+    pub(crate) signed_history: Option<layerx_proof::signed_authority::SignedAuthorityHistory>,
+    pub(crate) chain_verifier: Option<ChainProofVerifier>,
 }
 
 impl ProtocolDeploymentVerifier {
@@ -730,6 +732,7 @@ impl ProtocolDeploymentVerifier {
             current_anchor,
             staleness_limit_ms,
             signed_history: None,
+            chain_verifier: None,
         })
     }
 
@@ -820,12 +823,17 @@ impl ProtocolDeploymentVerifier {
             current_anchor,
             staleness_limit_ms: self.staleness_limit_ms,
             signed_history: Some(history.clone()),
+            chain_verifier: None,
         })
     }
 
     #[must_use]
     pub const fn staleness_limit_ms(&self) -> u64 {
         self.staleness_limit_ms
+    }
+
+    pub fn chain_trust(&self) -> Option<&ChainProofVerifier> {
+        self.chain_verifier.as_ref()
     }
 
     /// Verifies a canonical deploy or upgrade through its exact successful
@@ -2692,6 +2700,7 @@ mod maintained_protocol_heads {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         };
         let leaves = [RECEIPT, MAINTENANCE];
         let (receipt_proof, root) = build_proof(&leaves, 0)
@@ -2889,6 +2898,7 @@ mod native_batch_maintenance_heads {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         }
     }
 
@@ -3000,6 +3010,7 @@ mod signed_authority_policy_tests {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         };
         assert!(policy.with_signed_history(&history).is_err());
         let mut before = None;
