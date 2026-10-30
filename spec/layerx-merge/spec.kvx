@@ -190591,7 +190591,7 @@ qualification = "UNRUN"
 
 [task.18.1273.1]
 title = "Issue #1273: Port the recording web payer of the MCP web tests to the ledger grant builder so the web test target compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190859,7 +190859,7 @@ qualification = "UNRUN"
 
 [task.18.1293.1]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the Rust and Go SDK envelopes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191984,7 +191984,7 @@ qualification = "UNRUN"
 
 [task.18.1300.1]
 title = "Issue #1300: Drop the deleted withholding call from lxp_guarantor_process_batch so the core binaries link again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -192027,7 +192027,7 @@ qualification = "UNRUN"
 
 [task.18.1268.1]
 title = "Issue #1268: Pin the Swift V5 portable vector to the V1 and V4 source keys instead of the key each bundle carries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192122,7 +192122,7 @@ qualification = "UNRUN"
 
 [task.18.1263.1]
 title = "Issue #1263: Make Swift ProgramsClient.activity fetch and verify the sequencer receipt and report pending, executed or refused"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192217,7 +192217,7 @@ qualification = "UNRUN"
 
 [task.18.1255.1]
 title = "Issue #1255: Send agent envelope version 1 from the Swift SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192499,7 +192499,7 @@ qualification = "UNRUN"
 
 [task.18.1291.2]
 title = "Issue #1291: Verify sandbox submission receipts against the mounted lxphost store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1291.1", "18.1288.1"]
