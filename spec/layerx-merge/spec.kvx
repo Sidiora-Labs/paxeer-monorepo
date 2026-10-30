@@ -4827,6 +4827,12 @@ value = "The conformance suites services/interop/specs/conformance/transport-htt
 basis = "PaymentRequirements::validate refuses any network other than eip155:125 that carries extra.layerx (src/model.rs:179-185, e556c8b04), validate_transaction accepts only 0x and 64 lowercase hex digits (src/seller.rs:555-567, 685b68cbc) and network_pattern accepts only eip155 signers (src/facilitator.rs:733-735, c6f95f885); every_role_round_trips_on_every_transport reads the three suites with include_str! and no other gate runs it."
 affects = ["18.1211.2"]
 
+[decision.1953]
+title = "The wind-down request declares one layerxprograms selector per payload variant"
+value = "[type.NativeProgramWindDownRequest] declares precompile 0x000000000000000000000000000000000000101d and four selector keys keyed by the variant tags of [type.NativeProgramWindDown]: selector_route 0x23330dd5 setExitRoute(bytes32,bytes32,bytes32,bytes32,bytes), selector_deprecate 0x86ba1a99 deprecate(bytes32,bytes32,uint64), selector_tombstone 0xa512f1a9 tombstone(bytes32), selector_exit 0x4dc50730 exitValue(bytes32,bytes32); [type.NativeProgramDeployRequest] declares selector 0xbde3ff66 deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes) and [type.NativeProgramUpgradeRequest] selector 0xa860929f upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128); no single wind-down selector exists and none is invented"
+basis = "precompiles/layerxprograms/abi.json declares setExitRoute, deprecate, tombstone and exitValue as separate writes and [type.NativeProgramWindDown] (services/agent/schema/agent-api/programs.kvx) already tags its payload as route, deprecate, tombstone or exit, so the selector is a function of the variant tag; the values are the keccak-256 selectors recorded in spec/layerx-merge/contracts/programs.md:113-146; attempt 1 of 9.10.2 stopped under decision.1840 for exactly this ambiguity"
+affects = ["task.9.10.2", "task.9.18.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -46930,11 +46936,11 @@ symbols = ["ReceiptKeys", "LAYERX_RECEIPT_KEYS_JSON", "staticAuthorizedBatches",
 [capability.15.4.2]
 title = "Read pinned receipt keys in the fastapi integration config"
 reqs = ["15006.1", "15006.2"]
-touches = ["sdk/integrations/fastapi/layerx_fastapi/config.py", "sdk/integrations/fastapi/tests/test_receipt_keys_config.py"]
+touches = ["sdk/integrations/fastapi/layerx_fastapi/config.py", "sdk/integrations/fastapi/tests/test_receipt_keys_config.py", "sdk/integrations/fastapi/layerx_fastapi/__init__.py"]
 tests = ["sdk/integrations/fastapi/tests/test_receipt_keys_config.py::test_load_config_reads_receipt_keys", "sdk/integrations/fastapi/tests/test_receipt_keys_config.py::test_load_config_refuses_authorized_batch_only"]
 verification_contract = "PYTHONPATH=sdk/integrations/fastapi:services/agent/sdk/python python3 -m pytest sdk/integrations/fastapi/tests/test_receipt_keys_config.py::test_load_config_reads_receipt_keys sdk/integrations/fastapi/tests/test_receipt_keys_config.py::test_load_config_refuses_authorized_batch_only -q"
-do_1 = "Replace the import of AuthorizedReceiptBatch at sdk/integrations/fastapi/layerx_fastapi/config.py:12 with ReceiptKeys from layerx_sdk after task 9.0.3."
-symbols = ["parse_receipt_keys", "ReceiptKeys", "test_load_config_reads_receipt_keys", "test_load_config_refuses_authorized_batch_only"]
+do_1 = "Replace the import of AuthorizedReceiptBatch at sdk/integrations/fastapi/layerx_fastapi/config.py:12 with PxReceiptKeyEntry and decode_px_receipt_keys from layerx_sdk.px (services/agent/sdk/python/layerx_sdk/px.py:146, :574), and type DeclaredConfig.receipt_keys (sdk/integrations/fastapi/layerx_fastapi/config.py:87) as tuple[PxReceiptKeyEntry, ...]."
+symbols = ["parse_receipt_keys", "PxReceiptKeyEntry", "decode_px_receipt_keys", "IntegrationError", "test_load_config_reads_receipt_keys", "test_load_config_refuses_authorized_batch_only"]
 
 [capability.15.4.3]
 title = "Verify signed sequencer receipts in the fastapi seller and protocol"
@@ -46993,7 +46999,7 @@ symbols = ["RelayReceiptResolver", "parsesSignedReceiptPayload"]
 [capability.15.4.9]
 title = "Verify signed sequencer receipts in the iOS ReceiptGate"
 reqs = ["15013.1", "15013.2"]
-touches = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift", "sdk/integrations/ios/Package.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift"]
+touches = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift", "sdk/integrations/ios/Package.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift", "sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift"]
 tests = ["sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift::testVerifiesSignedSequencerReceipt", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift::testRefusesReceiptUnderUnpinnedKey"]
 verification_contract = "swift test --package-path sdk/integrations/ios --filter 'LayerXMobileTests.ReceiptGateTests/(testVerifiesSignedSequencerReceipt|testRefusesReceiptUnderUnpinnedKey)'"
 do_1 = "Replace authorizedBatch at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:6 and the initializer at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:8 with rawTransaction, signedReceipt and receiptKey."
@@ -47011,7 +47017,7 @@ symbols = ["SampleEnvironment", "testDecodesSignedReceiptPayload"]
 [capability.15.4.11]
 title = "Drop SettlementAnchored and authorized batches from the agents daemon providers"
 reqs = ["15015.1", "15015.2"]
-touches = ["sdk/integrations/agents/src/daemon-providers.ts", "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs"]
+touches = ["sdk/integrations/agents/src/daemon-providers.ts", "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs", "sdk/integrations/agents/src/daemon-budget.ts", "sdk/integrations/agents/src/config.ts", "sdk/integrations/agents/src/integration.ts", "sdk/integrations/agents/src/service-providers.ts", "sdk/integrations/agents/src/services.ts", "sdk/integrations/agents/src/tools.ts"]
 tests = ["sdk/integrations/agents/test/daemon-providers-receipts.test.mjs::daemonProviderVerifiesSignedSequencerReceipt", "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs::daemonFinalityStagesExcludeSettlementAnchored"]
 verification_contract = "node --test --test-name-pattern '^(daemonProviderVerifiesSignedSequencerReceipt|daemonFinalityStagesExcludeSettlementAnchored)$' sdk/integrations/agents/test/daemon-providers-receipts.test.mjs"
 do_1 = "Remove SettlementAnchored from the stage list at sdk/integrations/agents/src/daemon-providers.ts:30."
@@ -140917,6 +140923,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "In [type.NativeProgramDeployRequest], [type.NativeProgramUpgradeRequest] and [type.NativeProgramWindDownRequest] (services/agent/schema/agent-api/programs.kvx:23-47 and golden/programs.kvx:23-47) replace protocol_version, module_id and ordinal with precompile = '0x000000000000000000000000000000000000101d' and selector = '0x' plus 8 lowercase hex digits, the keccak-256 selectors of the layerxprograms deploy and upgrade calls of precompiles/layerxprograms/abi.json and of the call precompiles/layerxprograms/method_winddown.go registers for the wind-down lifecycle; keep required, signed_activity, payload and identity_binding. If the ABI does not declare the wind-down call unambiguously, stop and record missing external authority instead of inventing a selector (decision.1840)."
+do_6 = "Decision 1953: [type.NativeProgramWindDownRequest] in services/agent/schema/agent-api/programs.kvx and golden/programs.kvx declares precompile = '0x000000000000000000000000000000000000101d' and, in place of the single selector key of do_5, selector_route = '0x23330dd5' (setExitRoute(bytes32,bytes32,bytes32,bytes32,bytes)), selector_deprecate = '0x86ba1a99' (deprecate(bytes32,bytes32,uint64)), selector_tombstone = '0xa512f1a9' (tombstone(bytes32)) and selector_exit = '0x4dc50730' (exitValue(bytes32,bytes32)), one per variant tag of [type.NativeProgramWindDown]; [type.NativeProgramDeployRequest] declares selector = '0xbde3ff66' (deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)) and [type.NativeProgramUpgradeRequest] selector = '0xa860929f' (upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)), the selectors of spec/layerx-merge/contracts/programs.md:113-146; programs_schema_names_no_kernel_protocol asserts these six values and the precompile address, and the missing-authority stop of do_5 no longer applies."
 
 [task.9.11.1]
 title = "Persist subscription cursors as block-position triples"
@@ -141729,6 +141736,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempts 1 to 4 (latest 92290a56c) fail at tests/major_two.rs:12 with 'missing type.NativeProgramDeployRequest.precompile' because the schema gains precompile and selector only in task 9.10.2 do_5 (now required). Do not add the keys from this task (programs.kvx is not in touches) and do not keep the protocol_version, module_id and ordinal requirement at services/agent/tools/sdk-gen/src/main.rs:372-374 as a fallback; the attempt-4 validate_lifecycle_schema (precompile 0x...101d and an 8-hex-digit non-zero selector), templates and tests stand and re-qualify once 9.10.2 is done (decision.1840)."
+do_7 = "Decision 1953: for [type.NativeProgramWindDownRequest] the generator requires precompile and the four keys selector_route, selector_deprecate, selector_tombstone and selector_exit, each '0x' plus 8 lowercase hex digits, in place of the single selector key it requires of the deploy and upgrade requests."
 
 [task.9.18.5]
 title = "Run the qualification boundary gate against a node JSON-RPC URL and delete the LNI test node"
@@ -148860,8 +148868,8 @@ capabilities = []
 interfaces = []
 do_1 = "In services/human/crates/layerx-explorer-index/src/lib.rs make IndexError::ProgramProtocolUnavailable (:186) carry layerx_agentd::read::ProgramReadError, the error LayerxdProgramBalanceReader::read_protocol_state returns since 9.94.1 (services/agent/crates/layerx-agentd/src/read/program_node.rs:223-229), drop the ProtocolAdapterError import at :15, and keep the map_err at :225 and the ProtocolProgramStateRead uses at :640 and src/programs.rs:7 as written."
 do_2 = "Change nothing else: the explorer index tests, the layerx-agentd reader and the api-gen crate stay as written, and 9.94.1 (a02e09aec) is right to return ProgramReadError."
-symbols = ["IndexError::ProgramProtocolUnavailable", "ProtocolProgramIngestor::ingest"]
-touches = ["services/human/crates/layerx-explorer-index/src/lib.rs"]
+symbols = ["IndexError::ProgramProtocolUnavailable", "ProtocolProgramIngestor::ingest", "load_registry", "refresh_program", "resolve_target", "deployment_verifier"]
+touches = ["services/human/crates/layerx-explorer-index/src/lib.rs", "services/human/crates/layerx-explorer-index/src/main.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-explorer-index"
@@ -148869,7 +148877,7 @@ verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p 
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-human"
-rollback = "Revert lib.rs; the human workspace build returns to failing at services/human/crates/layerx-explorer-index/src/lib.rs:225 with E0631."
+rollback = "Revert lib.rs and main.rs; the human workspace build returns to failing at services/human/crates/layerx-explorer-index/src/lib.rs:225 with E0631, and once lib.rs is fixed alone, at src/main.rs:375, :618 and :676."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -148877,6 +148885,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 1 (1ee3780e9) carries out do_1 and the lib compiles; the package binary services/human/crates/layerx-explorer-index/src/main.rs, which 10.27.1 deletes at wave 29, fails with E0061 at :375 and E0599 at :618 and :676 because 42c1fea30 (13.4.5) widened ProtocolDeploymentVerifier::verify_historical_deployment to (proof, current, trust_chain, now_ms) (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:642) and 0461a4f71 (13.4.6) deleted from_protected_history, errors hidden since 9.94.1 because the lib failed first; port main.rs in this task (decision.1849) the way 18.1310.1 ported services/agent/crates/layerx-agentd/src/main.rs: add deployment_verifier(config), which reads config.sequencer_trust_history through layerx_agentd::config::read_protected_source bounded at 1 MiB, decodes it with layerx_programs::chain_proof::trust_store::TrustRoot::decode and returns ProtocolDeploymentVerifier::from_chain_trust(trust.chain_id, trust.validators.validators().to_vec(), config.staleness_ms), naming LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY in each refusal, and program_reader(config, verifier, registry) wrapping the LayerxdProgramBalanceReader::connect call of :643-653 with its existing error text."
+do_4 = "load_registry (:354) takes reader: &LayerxdProgramBalanceReader and now: u64 in place of the verifier and replaces :374-376 with reader.verify_journal_admission(&proof, now) mapped as {} is unverified: {error:?} (ChainHeadError has no Display); refresh_program (:612) and resolve_target (:675, which gains now: u64, passed by probe_name_reads at :724 as its now and by serve_resolve at :774 as now_ms(clock)?) build the verifier with deployment_verifier, connect program_reader(config, verifier.clone(), Registry::new()) for load_registry, and refresh_program connects its ingestion reader with program_reader(config, verifier, loaded.registry.clone()); keep the Config field, LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY and config() as written so tests/read_principal_config.rs is unchanged, keep the receipt file-name check, the .deployment record comparison, record_verified_deployment, the empty-journal refusal and every route and status code, add no environment variable, and change nothing outside lib.rs and main.rs; an admission whose head is older than the 14-day trust period of the current head is refused with HistoricalTrustAnchor, which is the correct refusal."
 
 [task.11.0.1]
 title = "Add the gateway evidence module with settlement rungs and the canonical receipt digest"
@@ -166316,7 +166326,7 @@ title = "Repoint the express integration from authorized batches to pinned recei
 status = "pending"
 mode = "BUILD"
 wave = 23
-requires = ["15.0.3", "8.0.3", "9.0.3"]
+requires = ["15.0.3", "8.0.3", "9.0.3", "8.23.2", "8.23.3"]
 reqs = ["15004.1", "15004.2"]
 capabilities = ["15.0.4"]
 interfaces = ["interface.15.env-integrations-layerx-authorized-batch-json-j56", "interface.15.env-integrations-layerx-receipt-keys-json-j56", "interface.15.ts-integrations-express-static-authorized-batches-j56", "interface.15.ts-integrations-express-load-config-receipt-keys-j56"]
@@ -166342,6 +166352,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "BuyerMiddlewareConfig (services/platform/middleware/buyer/src/index.ts:62-72) takes receiptKeys and no protocolVersion only after task 8.23.2, and the buyer package compiles against the seller package only after task 8.23.3 ports captureGrantSettlement (services/platform/middleware/buyer/src/index.ts:348-366); in createLayerXMount pass receiptKeys: config.receiptKeys and no protocolVersion to both new SellerMiddleware and new BuyerMiddleware. @sidiora/layerx-sdk exports no ReceiptKeys: declare export type ReceiptKeys = readonly SequencerReceiptKey[] in sdk/integrations/express/src/index.ts over SequencerReceiptKey (services/agent/sdk/typescript/src/verifier.ts:967), the element type of SellerMiddlewareConfig.receiptKeys (services/platform/middleware/seller/src/index.ts:160)."
+do_7 = "Each LAYERX_RECEIPT_KEYS_JSON entry is an object with exactly keyId, publicKey, firstHeight and lastHeight, the field names of the receiptKey the seller middleware parses (services/platform/middleware/seller/src/index.ts:831), heights as decimal strings."
 
 [task.15.0.5]
 title = "Keep a registered module error's codespace and code through the gRPC query handler of BaseApp"
@@ -167610,7 +167622,7 @@ title = "Repoint the next integration from authorized batches to pinned receipt 
 status = "pending"
 mode = "BUILD"
 wave = 23
-requires = ["15.0.3", "8.0.3", "9.0.3"]
+requires = ["15.0.3", "8.0.3", "9.0.3", "8.23.2", "8.23.3"]
 reqs = ["15005.1", "15005.2"]
 capabilities = ["15.4.1"]
 interfaces = ["interface.15.ts-integrations-next-static-authorized-batches-j56", "interface.15.ts-integrations-next-load-config-receipt-keys-j56"]
@@ -167636,6 +167648,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "BuyerMiddlewareConfig (services/platform/middleware/buyer/src/index.ts:62-72) takes receiptKeys and no protocolVersion only after task 8.23.2, and the buyer package compiles against the seller package only after task 8.23.3 ports captureGrantSettlement (services/platform/middleware/buyer/src/index.ts:348-366); in mountLayerX pass receiptKeys: config.receiptKeys and no protocolVersion to both new SellerMiddleware and new BuyerMiddleware. @sidiora/layerx-sdk exports no ReceiptKeys: declare export type ReceiptKeys = readonly SequencerReceiptKey[] in sdk/integrations/next/src/index.ts over SequencerReceiptKey (services/agent/sdk/typescript/src/verifier.ts:967), the element type of SellerMiddlewareConfig.receiptKeys (services/platform/middleware/seller/src/index.ts:160)."
+do_7 = "Each LAYERX_RECEIPT_KEYS_JSON entry is an object with exactly keyId, publicKey, firstHeight and lastHeight, the field names of the receiptKey the seller middleware parses (services/platform/middleware/seller/src/index.ts:831), heights as decimal strings."
 
 [task.15.4.2]
 title = "Read pinned receipt keys in the fastapi integration config"
@@ -167646,20 +167660,20 @@ requires = ["15.0.3", "8.0.3", "9.0.3"]
 reqs = ["15006.1", "15006.2"]
 capabilities = ["15.4.2"]
 interfaces = ["interface.15.fmt-integrations-fastapi-parse-authorized-batch-j56"]
-do_1 = "Replace the import of AuthorizedReceiptBatch at sdk/integrations/fastapi/layerx_fastapi/config.py:12 with ReceiptKeys from layerx_sdk after task 9.0.3."
+do_1 = "Replace the import of AuthorizedReceiptBatch at sdk/integrations/fastapi/layerx_fastapi/config.py:12 with PxReceiptKeyEntry and decode_px_receipt_keys from layerx_sdk.px (services/agent/sdk/python/layerx_sdk/px.py:146, :574), and type DeclaredConfig.receipt_keys (sdk/integrations/fastapi/layerx_fastapi/config.py:87) as tuple[PxReceiptKeyEntry, ...]."
 do_2 = "Replace LAYERX_AUTHORIZED_BATCH_JSON in the required key tuple at sdk/integrations/fastapi/layerx_fastapi/config.py:34 with LAYERX_RECEIPT_KEYS_JSON and the read at sdk/integrations/fastapi/layerx_fastapi/config.py:138 with receipt_keys=parse_receipt_keys(...)."
-do_3 = "Delete parse_authorized_batch at sdk/integrations/fastapi/layerx_fastapi/config.py:149 and add parse_receipt_keys returning ReceiptKeys."
+do_3 = "Delete parse_authorized_batch at sdk/integrations/fastapi/layerx_fastapi/config.py:149 and add parse_receipt_keys(value: str) -> tuple[PxReceiptKeyEntry, ...] that reads value as a JSON array of {keyId, publicKey, firstHeight, lastHeight} entries with keyId and publicKey as base64 of 32 bytes, the format of LAYERX_GATEWAY_RECEIPT_KEYS_FILE (services/platform/hosted/gateway/src/lib.rs:1209), decodes it with decode_px_receipt_keys, and raises IntegrationError INVALID_DECLARED_KEY for malformed JSON, a decoder refusal or an empty list."
 do_4 = "Write sdk/integrations/fastapi/tests/test_receipt_keys_config.py (planned) with the two pytest functions."
-symbols = ["parse_receipt_keys", "ReceiptKeys", "test_load_config_reads_receipt_keys", "test_load_config_refuses_authorized_batch_only"]
-touches = ["sdk/integrations/fastapi/layerx_fastapi/config.py", "sdk/integrations/fastapi/tests/test_receipt_keys_config.py"]
+symbols = ["parse_receipt_keys", "PxReceiptKeyEntry", "decode_px_receipt_keys", "IntegrationError", "test_load_config_reads_receipt_keys", "test_load_config_refuses_authorized_batch_only"]
+touches = ["sdk/integrations/fastapi/layerx_fastapi/config.py", "sdk/integrations/fastapi/tests/test_receipt_keys_config.py", "sdk/integrations/fastapi/layerx_fastapi/__init__.py"]
 tests = ["sdk/integrations/fastapi/tests/test_receipt_keys_config.py::test_load_config_reads_receipt_keys", "sdk/integrations/fastapi/tests/test_receipt_keys_config.py::test_load_config_refuses_authorized_batch_only"]
 planned_paths = ["sdk/integrations/fastapi/tests/test_receipt_keys_config.py"]
-build_cmd = "python3 -m py_compile sdk/integrations/fastapi/layerx_fastapi/config.py"
+build_cmd = "python3 -m py_compile sdk/integrations/fastapi/layerx_fastapi/config.py sdk/integrations/fastapi/layerx_fastapi/__init__.py"
 verify_cmd = "PYTHONPATH=sdk/integrations/fastapi:services/agent/sdk/python python3 -m pytest sdk/integrations/fastapi/tests/test_receipt_keys_config.py::test_load_config_reads_receipt_keys sdk/integrations/fastapi/tests/test_receipt_keys_config.py::test_load_config_refuses_authorized_batch_only -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-cosmos-fork"
-rollback = "Revert sdk/integrations/fastapi/layerx_fastapi/config.py."
+rollback = "Revert sdk/integrations/fastapi/layerx_fastapi/config.py and sdk/integrations/fastapi/layerx_fastapi/__init__.py."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -167667,19 +167681,21 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Replace parse_authorized_batch with parse_receipt_keys in the .config import (sdk/integrations/fastapi/layerx_fastapi/__init__.py:11) and in __all__ (sdk/integrations/fastapi/layerx_fastapi/__init__.py:177), so that importing layerx_fastapi resolves after the parser is deleted."
+do_6 = "Give IntegrationError (sdk/integrations/fastapi/layerx_fastapi/config.py:57) an optional key attribute that _required (sdk/integrations/fastapi/layerx_fastapi/config.py:175) sets to the missing declared key, so the refusal of an environment without LAYERX_RECEIPT_KEYS_JSON names that key."
 
 [task.15.4.3]
 title = "Verify signed sequencer receipts in the fastapi seller and protocol"
 status = "pending"
 mode = "BUILD"
-wave = 24
-requires = ["15.4.2", "8.0.3", "9.0.3"]
+wave = 30
+requires = ["15.4.2", "8.0.3", "9.0.3", "9.96.1"]
 reqs = ["15007.1", "15007.2"]
 capabilities = ["15.4.3"]
 interfaces = ["interface.15.fmt-integrations-fastapi-authorized-batch-resolver-j56"]
-do_1 = "Replace AuthorizedBatchResolver (sdk/integrations/fastapi/layerx_fastapi/seller.py:74) and StaticAuthorizedBatches (sdk/integrations/fastapi/layerx_fastapi/seller.py:155) with a ReceiptKeys holder passed to ReceiptPayloadAuthority (sdk/integrations/fastapi/layerx_fastapi/seller.py:139)."
+do_1 = "Replace AuthorizedBatchResolver (sdk/integrations/fastapi/layerx_fastapi/seller.py:74) and StaticAuthorizedBatches (sdk/integrations/fastapi/layerx_fastapi/seller.py:155) with the tuple[PxReceiptKeyEntry, ...] of config.receipt_keys passed to ReceiptPayloadAuthority (sdk/integrations/fastapi/layerx_fastapi/seller.py:139)."
 do_2 = "Replace the authorized_batch fields of SettlementSettled and the stored fulfilment (sdk/integrations/fastapi/layerx_fastapi/seller.py:63) with raw_transaction, signed_receipt and receipt_key."
-do_3 = "Change verify_payment_receipt in sdk/integrations/fastapi/layerx_fastapi/protocol.py (sdk/integrations/fastapi/layerx_fastapi/protocol.py:430) to call verify_sequencer_receipt(signed_receipt, raw_transaction, receipt_keys) from layerx_sdk after task 9.0.3."
+do_3 = "Change verify_payment_receipt in sdk/integrations/fastapi/layerx_fastapi/protocol.py (sdk/integrations/fastapi/layerx_fastapi/protocol.py:430) to call verify_sequencer_receipt(signed_receipt, raw_transaction, receipt_keys) from layerx_sdk.verifier after task 9.96.1, passing each pinned PxReceiptKeyEntry as the ReceiptKey of the same key_id, public_key, first_height and last_height."
 do_4 = "Write sdk/integrations/fastapi/tests/test_seller_receipts.py (planned) with the two pytest functions."
 symbols = ["ReceiptPayloadAuthority", "SettlementSettled", "verify_payment_receipt", "verify_sequencer_receipt", "test_seller_settles_signed_sequencer_receipt", "test_verify_payment_receipt_refuses_unpinned_key"]
 touches = ["sdk/integrations/fastapi/layerx_fastapi/seller.py", "sdk/integrations/fastapi/layerx_fastapi/protocol.py", "sdk/integrations/fastapi/tests/test_seller_receipts.py"]
@@ -167703,13 +167719,13 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Drop the authorized-batch exports from the fastapi package surface"
 status = "pending"
 mode = "BUILD"
-wave = 25
+wave = 31
 requires = ["15.4.3"]
 reqs = ["15008.1", "15008.2"]
 capabilities = ["15.4.4"]
 interfaces = []
 do_1 = "Remove authorized_batches from the options dataclass at sdk/integrations/fastapi/layerx_fastapi/integration.py:78 and build the authority from config.receipt_keys at sdk/integrations/fastapi/layerx_fastapi/integration.py:108."
-do_2 = "Remove parse_authorized_batch, AuthorizedBatchResolver and StaticAuthorizedBatches from the imports and __all__ of sdk/integrations/fastapi/layerx_fastapi/__init__.py (sdk/integrations/fastapi/layerx_fastapi/__init__.py:11) and add parse_receipt_keys."
+do_2 = "Remove AuthorizedBatchResolver and StaticAuthorizedBatches from the imports and __all__ of sdk/integrations/fastapi/layerx_fastapi/__init__.py (sdk/integrations/fastapi/layerx_fastapi/__init__.py:15); parse_receipt_keys is exported by task 15.4.2."
 do_3 = "Update sdk/integrations/fastapi/examples/paid_api.py (sdk/integrations/fastapi/examples/paid_api.py:1) to configure LAYERX_RECEIPT_KEYS_JSON."
 do_4 = "Write sdk/integrations/fastapi/tests/test_package_surface.py (planned) with the two pytest functions."
 symbols = ["create_integration", "parse_receipt_keys", "test_package_exports_no_authorized_batch_names", "test_create_integration_uses_receipt_keys"]
@@ -167858,15 +167874,15 @@ title = "Verify signed sequencer receipts in the iOS ReceiptGate"
 status = "pending"
 mode = "BUILD"
 wave = 23
-requires = ["15.0.3", "8.0.3", "9.0.3"]
+requires = ["15.0.3", "8.0.3", "9.0.3", "8.44.1", "8.44.5"]
 reqs = ["15013.1", "15013.2"]
 capabilities = ["15.4.9"]
 interfaces = []
-do_1 = "Replace authorizedBatch at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:6 and the initializer at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:8 with rawTransaction, signedReceipt and receiptKey."
+do_1 = "Replace authorizedBatch at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:6 and the initializer at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:8 with rawTransaction, signedReceipt, receiptKey, receiptJSON and prevSeqHash, the inputs of LocalVerifier.verifySequencerReceipt at sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:131."
 do_2 = "Change the verification at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:65 to the Swift SDK sequencer receipt verifier with the pinned keys after task 9.0.3."
 do_3 = "Add .testTarget(name: \"LayerXMobileTests\", dependencies: [\"LayerXMobile\", \"LayerXMobileSampleKit\"], path: \"Tests/LayerXMobileTests\") after the LayerXMobileSecretScan executable target at sdk/integrations/ios/Package.swift:43 in sdk/integrations/ios/Package.swift and write sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift (planned)."
 symbols = ["ReceiptGate", "Evidence", "testVerifiesSignedSequencerReceipt", "testRefusesReceiptUnderUnpinnedKey"]
-touches = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift", "sdk/integrations/ios/Package.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift"]
+touches = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift", "sdk/integrations/ios/Package.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift", "sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift"]
 tests = ["sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift::testVerifiesSignedSequencerReceipt", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift::testRefusesReceiptUnderUnpinnedKey"]
 planned_paths = ["sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift"]
 build_cmd = "swift build --package-path sdk/integrations/ios"
@@ -167874,7 +167890,7 @@ verify_cmd = "swift test --package-path sdk/integrations/ios --filter 'LayerXMob
 gate_kind = "planned"
 sandbox_profile = "swift"
 owner_role = "fm-cosmos-fork"
-rollback = "Revert sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift and sdk/integrations/ios/Package.swift and delete sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift."
+rollback = "Revert sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift, sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift and sdk/integrations/ios/Package.swift and delete sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -167882,6 +167898,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Replace the canonical_receipt_base64 decode at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:61 and the AuthorizedReceiptBatch construction at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:64-73 with ReceiptGate.Evidence(rawTransaction:signedReceipt:receiptKey:receiptJSON:prevSeqHash:), and replace RelayReceiptPayload.Batch at :116-130, the canonicalReceiptBase64 and authorizedBatch properties at :132-133 and their coding keys at :136-137 with raw_transaction, signed_receipt, receipt_key (key_id, public_key, first_height, last_height), receipt_json and prev_seq_hash, using the existing hex32 at :93 for the 32-byte fields; LayerXSDK has no AuthorizedReceiptBatch since task 8.44.5 and the LayerXMobileTests target of do_3 depends on LayerXMobileSampleKit, so the package compiles only with this change."
 
 [task.15.4.10]
 title = "Decode signed receipts in the iOS sample environment"
@@ -167892,8 +167909,8 @@ requires = ["15.4.9"]
 reqs = ["15014.1"]
 capabilities = ["15.4.10"]
 interfaces = []
-do_1 = "Replace the AuthorizedReceiptBatch construction at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:66 with the Evidence fields of task 15.4.9."
-do_2 = "Replace the authorizedBatch property at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:133 and its coding key at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:137 with rawTransaction, signedReceipt and receiptKey."
+do_1 = "Check that RelayReceiptResolver.resolve in sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift returns ReceiptGate.Evidence decoded from raw_transaction, signed_receipt, receipt_key, receipt_json and prev_seq_hash with no authorized_batch, as task 15.4.9 do_4 writes it."
+do_2 = "Expose the RelayReceiptPayload decode at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:115 to the LayerXMobileTests target only as far as testDecodesSignedReceiptPayload needs, without changing the field names of task 15.4.9 do_4."
 do_3 = "Write sdk/integrations/ios/Tests/LayerXMobileTests/SampleEnvironmentTests.swift (planned) with testDecodesSignedReceiptPayload; the LayerXMobileTests target gains a LayerXMobileSampleKit dependency in sdk/integrations/ios/Package.swift through task 15.4.9."
 symbols = ["SampleEnvironment", "testDecodesSignedReceiptPayload"]
 touches = ["sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/SampleEnvironmentTests.swift"]
@@ -167918,16 +167935,16 @@ title = "Drop SettlementAnchored and authorized batches from the agents daemon p
 status = "pending"
 mode = "BUILD"
 wave = 23
-requires = ["15.0.3", "8.0.3", "9.0.3"]
+requires = ["9.92.1", "8.24.2", "8.24.3", "12.27.2"]
 reqs = ["15015.1", "15015.2"]
 capabilities = ["15.4.11"]
 interfaces = []
 do_1 = "Remove SettlementAnchored from the stage list at sdk/integrations/agents/src/daemon-providers.ts:30."
 do_2 = "Replace the authorizedBatch object built at sdk/integrations/agents/src/daemon-providers.ts:151 with rawTransaction, signedReceipt and receiptKey columns."
-do_3 = "Call verifySequencerReceipt from @sidiora/layerx-sdk after task 9.0.3 at sdk/integrations/agents/src/daemon-providers.ts:156."
+do_3 = "Call verifySequencerReceipt from @sidiora/layerx-sdk after task 9.92.1 at sdk/integrations/agents/src/daemon-providers.ts:156."
 do_4 = "Write sdk/integrations/agents/test/daemon-providers-receipts.test.mjs (planned) with the two node:test cases."
 symbols = ["verifySequencerReceipt"]
-touches = ["sdk/integrations/agents/src/daemon-providers.ts", "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs"]
+touches = ["sdk/integrations/agents/src/daemon-providers.ts", "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs", "sdk/integrations/agents/src/daemon-budget.ts", "sdk/integrations/agents/src/config.ts", "sdk/integrations/agents/src/integration.ts", "sdk/integrations/agents/src/service-providers.ts", "sdk/integrations/agents/src/services.ts", "sdk/integrations/agents/src/tools.ts"]
 tests = ["sdk/integrations/agents/test/daemon-providers-receipts.test.mjs::daemonProviderVerifiesSignedSequencerReceipt", "sdk/integrations/agents/test/daemon-providers-receipts.test.mjs::daemonFinalityStagesExcludeSettlementAnchored"]
 planned_paths = ["sdk/integrations/agents/test/daemon-providers-receipts.test.mjs"]
 build_cmd = "npm --prefix sdk/integrations/agents run build"
@@ -167944,6 +167961,12 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Pass 0 as the third argument of decodeDaemonPrepared at sdk/integrations/agents/src/daemon-budget.ts:111 and sdk/integrations/agents/src/daemon-budget.ts:118, as AgentMiddleware does at services/platform/middleware/agent/src/index.ts:340, because the spendPrepared services argument carries receiptKeys and no protocolVersion (services/platform/middleware/agent/src/index.ts:214)."
+do_7 = "Call verifyAgentPayment(evidence, request, services.receiptKeys, services.commitments) at sdk/integrations/agents/src/daemon-budget.ts:179, matching services/platform/middleware/agent/src/index.ts:876."
+do_8 = "Add LAYERX_RECEIPT_KEYS_JSON to DECLARED_KEYS at sdk/integrations/agents/src/config.ts:3, parse it into readonly receiptKeys: readonly SequencerReceiptKey[] on AgentDeclaredConfig at sdk/integrations/agents/src/config.ts:68, and pass receiptKeys: config.receiptKeys in place of protocolVersion to AgentMiddleware at sdk/integrations/agents/src/integration.ts:51."
+do_9 = "Port ApprovedWalletSigner and approvedArtifact at sdk/integrations/agents/src/service-providers.ts:146 from the retired lx_activity artifact (unsigned_canonical_bytes, signing_preimage, lxApprovalStatus, signApprovedLxActivity; retired by task 12.27.2) to the PaxeerWallet EVM approval (evmApprovalStatus at sdk/wallet/src/index.ts:334, approveEvmTransaction at sdk/wallet/src/index.ts:307), binding the approval to PreparedActivity.signing_hash (services/platform/middleware/agent/src/index.ts:126)."
+do_10 = "Send signing_hash: prepared.signing_hash in place of signing_preimage at sdk/integrations/agents/src/services.ts:185, and replace the authorized_batch parse at sdk/integrations/agents/src/services.ts:206 and the canonicalReceipt object at sdk/integrations/agents/src/services.ts:212 with the PortableReceiptV2 fields format, verificationLevel, rawTransaction, signedReceipt, receiptDigest and receiptKey (services/platform/middleware/agent/src/index.ts:153)."
+do_11 = "Replace submission.activity_id with submission.tx_hash at sdk/integrations/agents/src/tools.ts:402 and sdk/integrations/agents/src/tools.ts:405, and replace verifyReceipt at sdk/integrations/agents/src/tools.ts:404 and sdk/integrations/agents/src/tools.ts:422 with verifySequencerReceipt over the bytes of evidence.signedReceipt and evidence.rawTransaction and this.#config.receiptKeys."
 
 [task.15.4.12]
 title = "Verify signed sequencer receipts in the agents tools and service client"
@@ -167954,9 +167977,9 @@ requires = ["15.4.11"]
 reqs = ["15016.1", "15016.2"]
 capabilities = ["15.4.12"]
 interfaces = []
-do_1 = "Replace the verifyReceipt call at sdk/integrations/agents/src/tools.ts:404 with verifySequencerReceipt(evidence.signedReceipt, evidence.rawTransaction, receiptKeys)."
-do_2 = "Replace the second verifyReceipt call at sdk/integrations/agents/src/tools.ts:422 the same way."
-do_3 = "Replace the authorized_batch parse at sdk/integrations/agents/src/services.ts:206 and the authorizedBatch object at sdk/integrations/agents/src/services.ts:213 with rawTransaction, signedReceipt and receiptKey."
+do_1 = "Read signed sequencer receipts through the tools.ts and services.ts paths ported by task 15.4.11 do_10 and do_11; the verifyReceipt calls at sdk/integrations/agents/src/tools.ts:404 and :422 are already verifySequencerReceipt calls there."
+do_2 = "Keep the receipt key source of task 15.4.11 do_8 (config.receiptKeys from LAYERX_RECEIPT_KEYS_JSON); this task adds no second source."
+do_3 = "Keep the PortableReceiptV2 fields that task 15.4.11 do_10 gives sdk/integrations/agents/src/services.ts (format, verificationLevel, rawTransaction, signedReceipt, receiptDigest, receiptKey); the tests of do_4 read them."
 do_4 = "Write sdk/integrations/agents/test/tools-receipts.test.mjs (planned) with the two node:test cases."
 symbols = ["verifySequencerReceipt", "renderOutcome"]
 touches = ["sdk/integrations/agents/src/tools.ts", "sdk/integrations/agents/src/services.ts", "sdk/integrations/agents/test/tools-receipts.test.mjs"]
@@ -194230,7 +194253,7 @@ do_7 = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.jav
 do_8 = "services/wallet/attestor/internal/policy/evm/abi/layerxauth.json is already a byte copy of precompiles/layerxauth/abi.json and docs/system/precompiles.md:440-455 already lists no resultByIdempotency function, both since 18.1308.1 (90bda704a); leave both files exactly as they are at the base, and do not hand-edit docs/system/precompiles.md, which tools/docs/gen/gen_system_docs.py:182 generates."
 do_9 = "Change nothing in services/agent/schema/agent-api (program.receipt stays a daemon operation served over HTTP), in GeneratedContract.java or GeneratedSchema.java, in sdk/platform/pipeline.kvx, or in the HTTP-transport receipt paths that ProgramsContractTests in Swift, .NET and JVM exercise."
 symbols = ["TestProgramOperationsHaveNoRestRoute", "testProgramReceiptResolvesByTransaction", "TestABICopiesMatchRepository"]
-touches = ["sdk/platform/conformance/operations.json", "sdk/platform/go/generated.go", "sdk/platform/go/operation_catalog_test.go", "sdk/platform/go/programs.go", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift", "sdk/platform/dotnet/Generated/OperationCatalog.cs", "sdk/platform/dotnet/Programs.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramTransportRetiredTest.java", "services/wallet/attestor/internal/policy/evm/abi/layerxauth.json", "docs/system/precompiles.md", "sdk/platform/go/http.go"]
+touches = ["sdk/platform/conformance/operations.json", "sdk/platform/go/generated.go", "sdk/platform/go/operation_catalog_test.go", "sdk/platform/go/programs.go", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift", "sdk/platform/dotnet/Generated/OperationCatalog.cs", "sdk/platform/dotnet/Programs.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramTransportRetiredTest.java", "services/wallet/attestor/internal/policy/evm/abi/layerxauth.json", "docs/system/precompiles.md", "sdk/platform/go/http.go", "sdk/platform/go/portable_catalogue_test.go"]
 tests = ["sdk/platform/go/operation_catalog_test.go::TestProgramOperationsHaveNoRestRoute", "sdk/platform/go/program_transport_retired_test.go::TestProgramOperationsNeverCallProgramsRestIngress", "sdk/platform/go/portable_catalogue_test.go::TestPortableCataloguesMatchOperationsJson", "services/wallet/attestor/internal/policy/evm/evm_test.go::TestABICopiesMatchRepository", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptResolvesByTransaction", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift::testProgramOperationsNeverCallProgramsRestIngress", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs::ProgramOperationsNeverCallProgramsRestIngress", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramTransportRetiredTest.java::programOperationsNeverCallProgramsRestIngress"]
 planned_paths = []
 build_cmd = "(cd sdk/platform/go && go build ./...) && (cd services/wallet/attestor && go build ./...) && swift build --package-path sdk/platform/swift && dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj && mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
@@ -194247,6 +194270,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "sdk/platform/go/http.go:178-210: decodeProgramAgentEnvelope stops reading programLifecycleOrdinals, which 8.45.3 deleted with sdk/platform/go/program_lifecycle_generated.go (4ba621dc6), so base 32e3e8be8 fails go build in sdk/platform/go with 'http.go:178:6: undefined: programLifecycleOrdinals'; the success test at :178 becomes operation == 'program.receipt' && status >= 200 && status < 300 && exactFields(fields, 'result'), and the lifecycle refusal branch at :181-210 is deleted, because program.deploy, program.upgrade and program.wind-down no longer reach this decoder after 8.41.6 (ac23f4e4a) and its only callers are programs_http_test.go:50-76 with program.call, program.discover and program.simulate. Do not restore programLifecycleOrdinals or program_lifecycle_generated.go."
+do_11 = "sdk/platform/go/operation_catalog_test.go:30 and sdk/platform/go/portable_catalogue_test.go:53 decode operations as a map from the O1-O79 identifiers of 2c7b45fd3 (task 8.46.3) to arrays of operations (27 identifiers, 138 operations at the base) in place of a flat array, iterate the identifiers in sorted order and their entries in file order, and keep every assertion of TestProgramOperationsHaveNoRestRoute and TestPortableCataloguesMatchOperationsJson unchanged; generate_portable.py --check already accepts the keyed file."
 
 [req.1813082]
 title = "Platform SDKs resolve program.receipt by the retained transaction instead of the retired resultByIdempotency view"
@@ -194484,6 +194508,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
