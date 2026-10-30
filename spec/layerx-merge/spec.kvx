@@ -136784,7 +136784,7 @@ do_7 = "Delete from sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTest
 
 [task.8.44.6]
 title = "Swift SDK removes the /v1/programs REST transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.44.3"]
@@ -189092,7 +189092,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1230.1]
 title = "Issue #1230: Align the Go agent envelope with the daemon's version 1 JSON envelope and response shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1199.1", "18.1206.1"]
