@@ -12371,3 +12371,155 @@ symbol = "load_registry"
 observed = "Attempt 5 (b78eee5c8, base 710592c26; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_3_gate.py::test_wave_3_gate_passes exit 1, logs/waves/3/wave-3-1.log) exited 2 in make workspace-build with E0061 at main.rs:1768, the one-argument verify_historical_deployment left by 42c1fea30 (13.4.5), which 096e161e1 (18.1310.1) ported after the base was cut."
 assumption = "17.5.4 requires 18.1310.1 and re-qualifies the attempt 4 test unchanged; the later wave 3 steps have not yet run on any attempt."
 severity = "cross-task"
+
+[finding.18.1211.2.2]
+task = "18.1211.2"
+file = "services/interop/crates/layerx-x402/tests/buyer_sequencer.rs:226-237"
+symbol = "buyer_captures_the_recorded_receipted_settlement"
+observed = "Attempt 5 (bda733b9a, continuing fd5b880ca) passed the lib and tests/buyer binaries and failed buyer_sequencer.rs:284 with left Err(ProfileMismatch) right Err(EvidenceMismatch) on the payTo case, because e556c8b04 (18.1162.1) made validate at src/buyer.rs:566 refuse an unbound payTo (src/model.rs:215-218) before the log comparison; tests/evidence_format.rs:260-272 carries the same expectation and was not reached."
+assumption = "Decision 1936 extends decision.1935 and do_6 sets the payTo case to ProfileMismatch in both tests; the attempt 5 candidate continues."
+severity = "cross-task"
+
+[finding.18.1228.1.2]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/session_keys.rs:248"
+symbol = "self_sign"
+observed = "Attempt 5 (beb1eb527), the first attempt to reach the human targets after attempts 1-4 (4d75a6122, ecd1749e6, 22bfbbffd, 99dc4f3fc) stopped in layerx-agentd, fails with E0308 because session_keys.rs:248 passes &Prepared where c03f97f8e (9.2.2) made self_sign take &SigningPreparation."
+assumption = "No task owns this caller; 18.1228.1 touches session_keys.rs and its acceptance requires the target to pass, so do_7 ports direct_sign."
+severity = "owner"
+
+[finding.18.1228.1.3]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/archive.rs:101"
+symbol = "FundsDispositionEvidence"
+observed = "Attempt 5 (beb1eb527) fails with E0560 on verification_level at archive.rs:101, a field 014c0f8d7 (10.13.6) replaced with rung, owned by 18.1195.1 do_1, which itself requires 18.1228.1."
+assumption = "The archive target needs :101 and :288 together, so 18.1228.1 takes :101 (do_8) and 18.1195.1 keeps its interface entry (do_5)."
+severity = "cross-task"
+
+[finding.18.1204.1.1]
+task = "18.1204.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:534"
+symbol = "ProtocolEvidence::bound_activity"
+observed = "Attempts 3 (99c060dab) and 4 (236d347fc), identical under services/human, build and pass both declared tests, but finalization_evidence_reports_the_runtime_rung panics at tests/agent_creation_rungs.rs:42 with Refused('lifecycle receipt does not prove successful action') from finalization_evidence (agent_creation.rs:581-583), because c4739fc6c (10.97.1) made bound_activity decode an EIP-1559 transaction while protocol_evidence (agent_creation.rs:535), agent_creation_native.rs:325 and the canonical_owner fixture still use the kernel owner envelope; attempts 1-2 (da21c4dea, 25b3b3a45) stopped earlier on the old --tests build."
+assumption = "The failing test is untouched by the candidate and fails the same way at base fb1c2cf88 by code reading; task 18.1204.2 (decision.1937) ports the creation path and fixture and 18.1204.1 requires it."
+severity = "cross-task"
+
+[finding.1.17.2.1]
+task = "1.17.2"
+file = "include/layerx/lxp_kernel.h:10"
+symbol = "lxp_handover_state"
+observed = "Attempts 1 (75d4b4e72), 2 (0a0521439), 3 (d91e1ae02) and 4 (45fc89b8a) each deleted include/layerx/lxp_handover.h per do_1, and make -C . build/liblayerx.a exited 2 with 'include/layerx/lxp_kernel.h:10:10: fatal error: layerx/lxp_handover.h: No such file or directory' while compiling src/modules/asset/lx_asset_custody.c."
+assumption = "The include and the handover member at lxp_kernel.h:268 are retired by task 1.2.4 do_6, the other library consumers by 1.34.2 (src/network/lxp_da_kernel.c:37-41) and 1.18.2 (src/modules/web/lx_web_attestors.c:104-108), and the LXP_GOVERNANCE_HANDOVER check at src/protocol/lxp_kernel.c:5101-5103 by 1.2.4 do_9, so 1.17.2 requires 1.2.4 and 1.34.2 rather than widen its touches."
+severity = "cross-task"
+
+[finding.13.8.1.2]
+task = "13.8.1"
+file = "programs/fixtures/pay5/run_native_roundtrip.py:56"
+symbol = "native-token replay byte comparison"
+observed = "Attempts 2 (0718fb132), 3 (f503ebd5e) and 4 (f833e146c) built, linked and ran the token round trip to exit 0, then run_native_roundtrip.py:55-56 exited 1 with 'token: native fixtures differ'; the native fixtures were last written at a261c1e63, and 787dd93be (1.2.1) later removed the idempotency record from the protocol-3 receipt state root that lxp_receipt.c:657-660 encodes."
+assumption = "Every committed native .receipt carries pre-1.2.1 state roots; decision.1938 adds do_8 (one --write-fixtures run) and both fixture directories to the touches."
+severity = "cross-task"
+
+[finding.18.1308.2.1]
+task = "18.1308.2"
+file = "sdk/platform/go/http.go:178"
+symbol = "programLifecycleOrdinals"
+observed = "Attempts 1 (ea5d6ad4e), 2 (0e474f40e), 3 and 4 (9b339fe5a) all failed the first build leg with './http.go:178:6: undefined: programLifecycleOrdinals' and ':181:5'; the base fails the same way because 4ba621dc6 (8.45.3) deleted program_lifecycle_generated.go, and no open task touches http.go."
+assumption = "The two lifecycle-ordinal checks in decodeProgramAgentEnvelope are dead since 8.41.6 (ac23f4e4a), so removing them and keeping the program.receipt success arm preserves behaviour; 18.1308.2 takes http.go into its touches (do_10)."
+severity = "cross-task"
+
+[finding.10.13.8.2]
+task = "10.13.8"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4738"
+symbol = "NativeSendPreviewV1"
+observed = "At 973c4f18f do_5's references point to drifted lines: the preview decode is at agent_runtime.rs:4738-4746, pending_nonce at :1789, the load_access callers at production_components.rs:9871, :9931 and :9944 and the daemon writer at human_runtime.rs:8669-8689."
+assumption = "do_5 is refreshed to these lines and the task stays behind 10.13.5, whose preview transaction supplies the nonce and fees."
+severity = "task"
+
+[finding.10.92.1.3]
+task = "10.92.1"
+file = "services/human/crates/layerx-human-service/src/server/production_reads.rs:385"
+symbol = "evidence_get"
+observed = "Attempts 1 and 2 (290d3b37d) ended with no change inside scope; at c64af01ce the layerx-receipt answer sits at production_reads.rs:372-387 (content_type application/vnd.layerx.receipt over canonical_receipt at :385) with the fixed Rung::Receipted at :379, the other evidence classes at :343-371 and PortableReceiptV2::export at layerx-portable/src/receipt.rs:168, while do_1, do_2 and do_4 cited :389-392, :385-388 and :164 from before b6b097019 (10.3.1)."
+assumption = "do_1, do_2 and do_4 are refreshed to the current lines; the task stays behind 10.2.4, which adds the signed receipt, key entry and inclusion height the export needs."
+severity = "cross-task"
+
+[finding.12.35.4.6]
+task = "12.35.4"
+file = "node/sequencer/standby.go:818"
+symbol = "Standby.waitForCommit"
+observed = "In attempt 9 (525dff8f4, the same files as attempt 8, ba7c4c0f4), Driver.OnCommit(34742403) fails with ErrNoAck (i/o timeout) after the 10 s replication timeout; the standby commits 34742403 only 0.3 s after the primary's Commit returns, so 18.1307.1 (c7fdb284e) now halts the primary where attempt 8 was left fenced."
+assumption = "The primary's OPEN release inside ABCI Commit and the standby's wait for its own commit of the same height form a circular wait under the 3:1 committee (decision.1939, task 12.35.5); the exact consensus-level blocker is unverified because only log tails were kept."
+severity = "owner"
+
+[finding.18.670.1.5]
+task = "18.670.1"
+file = "tools/qualification/localnode/v6120-node.sh:99"
+symbol = "getMarkPriceDetails"
+observed = "Attempt 5 (a350a148f) passed the funding wait (e2e_test.go:460) and the WETH read (:485) but getMarkPriceDetails(11) reverted at :486 because the price loop submits market 0 only, so PAX market 11 from the v6.12.0 perps hook has a zero mark; attempts 1-3 (a8ce3b592, 7dfd6301d, ff6e10606) had no RPC and attempt 4 (d82e5f609) failed earlier in latestFunding."
+assumption = "Task 5.98.3, with do_1-do_4 corrected by decision.1940, feeds market 11 and deposits collateral for the LOCAL_NODE_KEY account; the a350a148f candidate is re-qualified unchanged after it."
+severity = "cross-task"
+
+[finding.18.1308.3.1]
+task = "18.1308.3"
+file = "services/agent/crates/layerx-agentd/tests/migration.rs:136"
+symbol = "Outbox::enqueue"
+observed = "Attempts 1 (320438e8f), 2 (272f49d2e), 3 (64fd9702d) and 4 carry the same five-file change and fail the --tests build with exit 101 on untouched targets: revocation.rs:137 (SessionKeyRevoked, removed by 0665915dc) in attempts 1 and 3 and migration.rs:136/:156/:190 (four-argument enqueue and Acknowledged, changed by 06862bc6c) in attempt 2."
+assumption = "Those targets belong to pending 18.1200.1 and 18.1228.1; build_cmd narrowed to --test idempotency_height and --test schema qualifies this task without touching them."
+severity = "cross-task"
+
+[finding.7.29.2.4]
+task = "7.29.2"
+file = "modules/xweb/types/query.pb.go:9"
+symbol = "github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types"
+observed = "Attempt 6 (1d27f7e4a) build failed at modules/xweb/types/query.pb.go:9:2 'sdk/types imported ... and not used' from attempt 5's (02f67a8fe) added import line left in the working tree, while the committed candidate keeps the base file (blob 8d2520ab0) and its 103 paths are identical to attempt 5."
+assumption = "With modules/xweb/types/query.pb.go and sdk/x/bank/types/query.pb.gw.go restored to the base content before the build (do_7), the unchanged candidate compiles and its verify decides the task."
+severity = "environment"
+
+[finding.14.31.1.1]
+task = "14.31.1"
+file = "apps/explorer/ui/paxeerX/account/ActivityList.spec.tsx:56"
+symbol = "ActivityList"
+observed = "Attempt 4 (9f0f11d8e, base a144a4fd9) narrowed the rung type per do_1 to do_6 and yarn lint:tsc exited 2 with TS2322 at ui/paxeerX/account/ActivityList.spec.tsx(56,62) ('instant' not assignable to 'submitted' | 'receipted' | 'committed'), a caller do_6 did not list; attempts 1 to 3 stopped on the callers do_6 names."
+assumption = "ActivityList.spec.tsx:50-61 and the RUNG_ORDER assertion of StatusLadderBadge.spec.tsx:46 are ported in this task (do_7) and join the touches; no other explorer file names the retired rungs."
+severity = "task"
+
+[finding.10.20.3.8]
+task = "10.20.3"
+file = "cmd/layerxd/lxp_daemon_finality_authority.c:540"
+symbol = "lxp_finality_authority_bind"
+observed = "Attempt 14 (0548c127f, attempt 13 candidate 1565a0751 on base 73dfa5565) builds all three build_cmd members, and both startup tests fail because layerxd --serve exits 1 with 'bootstrap finality authority failed with result -213' (LXP_ERR_CONTEXT_MISMATCH) against the in-tree local node, while production_configuration_validates_without_retired_operations passes."
+assumption = "The test passes the chain id, port and 0x1014 anchor pins that layerxd accepted, so the refusal lies in what the in-tree node of decision.1896 answers to eth_chainId, threshold() or latestFinalized() on the loopback EVM RPC; 411c57eaa made that refusal deliberate, and do_20 records the raw answers."
+severity = "environment"
+
+[finding.18.1279.1.3]
+task = "18.1279.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:1211"
+symbol = "check_grant"
+observed = "Attempt 5 (b6873cc30, which merges 18.1279.2 at c1df3caf0) passes the challenge and panics at tests/web.rs:612 because gateway/metered.json records no PayerGrantIssued receipt for the fresh grant 143c9b61; the recorded metered draw is against standing grant 7130e3f7 (buyer.json /grants/SID), unlike attempts 2 and 3 (7a5cb041c, 0d24aa170), which stopped earlier at payment_required_malformed."
+assumption = "The issue path cannot be settled from unedited recordings (decision.1820): the fresh grant id includes a wall-clock expiry and the recorded receiver-signed draw names a different grant and nextSequence read; decision.1941 adds task 18.1279.3 (standing grant presented to the receiver) and 18.1279.1 requires it."
+severity = "owner"
+
+[finding.13.4.6.2]
+task = "13.4.6"
+file = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs:835"
+symbol = "ProtocolDeploymentVerifier::staleness_limit_ms"
+observed = "Attempt 1 (35c40fa05) deletes the accessor as do_2 ordered, and cargo check of the registry dependents exits 101 with E0599 at programs/crates/layerx-programs-sandbox/src/expiry.rs:68:62, a call added by 08836d6d3 (13.6.4) that, like 62d5c6125 (13.3.7) and 8720ed20f (8.94.2), reads the chain-trust max age through it; attempt 2 repeated it."
+assumption = "The accessor is the chain-trust freshness bound stored by from_chain_trust (trust_root.rs:30), not trust history, so do_2 and override.J51.22 keep it and no caller changes."
+severity = "owner"
+
+[finding.13.4.6.3]
+task = "13.4.6"
+file = "services/agent/crates/layerx-agentd/src/read/program_node.rs:227"
+symbol = "LayerxdProgramBalanceReader::refresh_authority"
+observed = "Attempt 1 (35c40fa05) deletes with_signed_history while refresh_authority (:221-230) still calls it, because 18.1304.1 do_4 kept refresh_authority, and no gate compiled layerx-agentd because the services/agent half of the dependents check left every dependent out."
+assumption = "The do_6 premise is false; program_node.rs joins 13.4.6's touches and refresh_authority, its route wrapper and protected_verifier are deleted with the example's two calls (do_7)."
+severity = "cross-task"
+
+[finding.13.4.6.4]
+task = "13.4.6"
+file = "programs/crates/layerx-programs-registry/tests/program_bundle_verification.rs:173"
+symbol = "VerifiedChainHead::global_sequence"
+observed = "Attempt 1 (35c40fa05) deletes global_sequence and batch_header_digest (do_3) while the 13.9.3 rewrite (193d0e53b) still calls them at :173-182, :224, :234-235, :316-317 and :506-511, and neither build_cmd nor the dependents check compiles that registry target."
+assumption = "The file joins 13.4.6's touches and reads freshness().observed_sequence and the fixture header hash instead (do_8)."
+severity = "cross-task"
