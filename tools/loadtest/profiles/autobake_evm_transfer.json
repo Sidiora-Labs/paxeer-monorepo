@@ -1,5 +1,9 @@
 {
     "chainId": 713714,
+    "bounds": {
+      "minAverageTps": 50,
+      "maxP99LatencyMs": 10000
+    },
     "paxChainId": "pax-autobake",
     "endpoints": [
       "https://evm-rpc.pax-autobake.paxnetwork.io"
