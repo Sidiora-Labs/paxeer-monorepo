@@ -94932,7 +94932,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 [task.1.24.1]
 title = "Register perps, spot, stream and service modules in the hosted kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["1.23.3", "1.0.3", "2.95.1", "1.23.5"]
@@ -147810,7 +147810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.96.2]
 title = "Remove the retired bridge and custody intent kinds from the human render fixtures and onboarding sponsor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["10.12.2", "10.0.4", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "18.1297.1"]
@@ -191481,7 +191481,7 @@ qualification = "UNRUN"
 
 [task.18.1257.1]
 title = "Issue #1257: Accept and send the raw_transaction form of activity.submit in the agent daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
