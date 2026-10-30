@@ -48,7 +48,7 @@ const BINDING_KEYS: [&str; 12] = [
     "session_token_file",
     "session_generation",
     "capability_id",
-    "core_sequence",
+    "core_height",
     "deadline_ms",
     "agent",
     "limit",
@@ -542,7 +542,7 @@ pub struct Binding {
     session_token_file: PathBuf,
     session_generation: u64,
     capability_id: [u8; 32],
-    core_sequence: u64,
+    core_height: u64,
     deadline: Duration,
     agent: AgentBinding,
     limit: LimitConfig,
@@ -615,6 +615,9 @@ impl Binding {
         let root = value
             .as_object()
             .ok_or_else(|| malformed("the binding document is not a JSON object"))?;
+        if root.contains_key("core_sequence") {
+            return Err(BindingError::Refused("mcp.binding_retired_key".to_owned()));
+        }
         let mut accepted = BINDING_KEYS.to_vec();
         accepted.push("listener");
         accepted.push("web");
@@ -658,7 +661,7 @@ impl Binding {
             session_token_file: absolute(root, "session_token_file")?,
             session_generation: unsigned(root, "session_generation")?,
             capability_id: digest::<32>(root, "capability_id")?,
-            core_sequence: unsigned(root, "core_sequence")?,
+            core_height: unsigned(root, "core_height")?,
             deadline: Duration::from_millis(deadline_ms),
             agent: AgentBinding {
                 endpoint: text(agent, "endpoint")?.to_owned(),
@@ -723,6 +726,11 @@ impl Binding {
     #[must_use]
     pub const fn session_generation(&self) -> u64 {
         self.session_generation
+    }
+
+    #[must_use]
+    pub const fn core_height(&self) -> u64 {
+        self.core_height
     }
 
     /// Returns the loopback endpoint of the agent daemon that authorizes every tool call.
@@ -792,7 +800,7 @@ impl Binding {
                     control,
                     credential,
                     capability,
-                    self.core_sequence,
+                    self.core_height,
                     &self.audit_root,
                 )
                 .map_err(|error| {
@@ -809,7 +817,7 @@ impl Binding {
                 control,
                 credential,
                 capability,
-                self.core_sequence,
+                self.core_height,
                 &self.audit_root,
             )
             .map(|server| (Bound::ReadOnly(Box::new(server)), None))
