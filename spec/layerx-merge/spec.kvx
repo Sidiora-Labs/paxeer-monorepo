@@ -4917,6 +4917,18 @@ value = "The TypeScript and Python clients the agent SDK generator emits declare
 basis = "Attempts 1 to 3 of 9.33.8 (5f0c552d0 latest) failed build_cmd with twelve type errors because the templates still emit Unknown, Executed, Failed and Pending and services/agent/tools/sdk-gen/src/main.rs reads no type.SubmissionState (finding.9.33.8.1, finding.9.33.8.2); req.9358 fixes the client set, and the outbox set is a different state machine."
 affects = ["9.18.9", "9.33.8", "9.33.9", "9.3.1"]
 
+[decision.1968]
+title = "Committed block views recognise the MsgSequenceBatch at transaction 0"
+value = "validateBlockExecutionReceipts (rpc/utils.go:312-335) skips block.Block.Txs[0] when seqtypes.DecodeSequenceBatchTx (modules/sequencer/types/batch_tx.go:28) accepts it, exactly as ProcessProposal treats transaction 0 (node/app.go:1639-1656); every other transaction keeps the strict TxRaw decode and the existing 'decode consensus transaction %d in block %d' text. eth_getBlockByNumber, eth_getBlockByHash and eth_getBlockTransactionCountByNumber at a sequenced height answer the block and count only the transactions behind the batch (req.120357 ac_1)."
+basis = "Attempt 13 of 12.35.4 (e4f1f13bb) passes the pending nonce read and fails at v6120_test.go:191 because HeaderByNumber(nil) answers 'decode consensus transaction 0 in block 34742531: expected 2 wire type, got 0': transaction 0 of every sequenced block is the 241-byte MsgSequenceBatch (first byte 0x50, protowire field 10 wire type 0) and the receipt validation reached from EncodeTmBlock (rpc/block.go:547) decodes every block transaction with the sdk TxDecoder (sdk/x/auth/tx/decoder.go:29-34, :128-129); the validation (f2d8bad48) predates the tx-0 convention (c54a2210f) and no rpc test builds a batch-headed block, so every committed block view at a sequenced height fails on any sequencer node (finding.12.35.4.11)."
+affects = ["12.35.7", "12.35.4"]
+
+[decision.1969]
+title = "The settled snapshot validator chains the occupancy sweep to the batch's last receipt"
+value = "kernel_settled_snapshot_validate (src/protocol/lxp_kernel.c:4580-4675) stops reading the state idempotency table: the maintenance branch requires maintenance.global_sequence == chain_tail->global_sequence + 1 and maintenance.previous_state_root == chain_tail->resulting_state_root, where chain_tail is the prepared batch's last receipt passed down from lxp_kernel_commit_prepared_batch (:6145), or the base store's next_sequence and base->kernel.current_state_root when the caller passes no receipt (lxp_kernel_finalize_batch_maintenance :5479, lxp_kernel_batch_snapshot_commit :4773). The maintenance.global_sequence + 1 == store->next_sequence and resulting-root checks (:4660-4664) stay; receipt_restore_compact (:2861) is deleted with its only caller. Task 1.2.6 (wave 1, fm-kernel) owns the change; 5.7.6, 18.1200.1 and 10.20.3 require it (req.126 ac_1)."
+basis = "Attempt 1 of 5.7.6 (6e23a6c2f) fails at tests/daemon/test_serve_commits_programs_call.py:238 with 'commit failed at sequence 1 during batch WAL with result -1001': every batch under LXP_PROTOCOL_VERSION_STATE_COMMITMENT carries the occupancy maintenance (cmd/layerxd/lxp_daemon_process.c:4061-4062, lxp_kernel.c:5393-5445) and the validator demands a latest receipt in store->idempotency (:4642-4650), whose only writer lxp_idempotency_record lost its last caller in 787dd93be (task 1.2.1; tests/codec/lxp_test_idempotency_retired.c:279-294 pins the table empty). The sweep is built from exactly that chain (src/modules/programs/occupancy.c:905-906 copies kernel->current_state_root, advanced to the last receipt's resulting root at lxp_kernel.c:4498-4499; the sequence is candidate->kernel.state->next_sequence at :5374 and :5386) and publication re-checks it at :6367-6376, so the receipt is the authority the table used to stand in for. No pending task lists :4580-4700 (1.2.4 touches :684, :3187-3260, :5101-5103, :5697, :7920-8721; 1.2.3 does not touch the file). tests/storage/lxp_test_maintenance_publication.c:625 and tests/protocol/lxp_test_terminal_rejection.c:642 expect LXP_OK from the same commit and stay as written (finding.5.7.6.1)."
+affects = ["1.2.6", "5.7.6", "18.1200.1", "10.20.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -11772,6 +11784,10 @@ title = "Kernel execution has no idempotency replay path"
 ac_1 = "lxp_kernel_execute_activity no longer calls lxp_idempotency_lookup or lxp_idempotency_canonical_lookup (src/protocol/lxp_kernel.c:3517, :6866, :7092) nor records through lxp_idempotency_record (src/protocol/lxp_kernel.c:3228), so an activity reusing an idempotency key with the next sequence executes instead of returning LXP_ERR_IDEMPOTENT_REPLAY."
 ac_2 = "Replay protection rests on the actor sequence alone: re-submitting sequence 1 returns LXP_ERR_SEQUENCE_REUSED and the state root is unchanged."
 ac_3 = "After 64 executed activities the store idempotency count (include/layerx/lxp_state.h:40-42) is 0, because the module context preview no longer appends staged entries (src/protocol/lxp_module_ctx.c:1401-1469)."
+
+[req.126]
+title = "A maintenance batch commits without a latest idempotency receipt"
+ac_1 = "On a fresh state store (lxp_state_store_init with first sequence 1 and idempotency_count 0) a prepared batch that lxp_kernel_prepare_batch_maintenance extended with the occupancy sweep commits through lxp_kernel_commit_prepared_batch with LXP_OK, advancing next_sequence past the sweep and kernel.current_state_root to the sweep's resulting root, because kernel_settled_snapshot_validate (src/protocol/lxp_kernel.c:4580) chains maintenance.previous_state_root and maintenance.global_sequence to the batch's last receipt instead of to a receipt read from the state idempotency table, which stays empty."
 
 [req.1011]
 title = "State commitments carry no idempotency entries"
@@ -25554,6 +25570,15 @@ tests = ["tests/codec/lxp_test_idempotency_retired.c::reused_key_next_sequence_e
 verification_contract = "make -C . build/tests/kernel/codec/lxp_test_idempotency_retired && ./build/tests/kernel/codec/lxp_test_idempotency_retired reused_key_next_sequence_executes reused_sequence_refused idempotency_table_stays_empty"
 do_1 = "Delete the idempotency record at src/protocol/lxp_kernel.c:3228 and the has_idempotency staging at src/protocol/lxp_kernel.c:3286 (idempotency req 11013)."
 symbols = ["lxp_idempotency_lookup", "lxp_idempotency_record", "LXP_ERR_SEQUENCE_REUSED", "reused_key_next_sequence_executes", "reused_sequence_refused", "idempotency_table_stays_empty"]
+
+[capability.1.2.6]
+title = "A maintenance batch commits by chaining the occupancy sweep to the batch's last receipt"
+reqs = ["126.1"]
+touches = ["src/protocol/lxp_kernel.c", "tests/codec/lxp_test_settled_maintenance.c"]
+tests = ["tests/codec/lxp_test_settled_maintenance.c::fresh_genesis_maintenance_batch_commits", "tests/codec/lxp_test_settled_maintenance.c::second_maintenance_batch_chains"]
+verification_contract = "make -C . build/tests/kernel/codec/lxp_test_settled_maintenance && ./build/tests/kernel/codec/lxp_test_settled_maintenance fresh_genesis_maintenance_batch_commits second_maintenance_batch_chains"
+do_1 = "Delete the idempotency scan at src/protocol/lxp_kernel.c:4642-4652 and chain the sweep to the prepared batch's last receipt in kernel_settled_snapshot_validate (:4653-4673)."
+symbols = ["lxp_kernel_commit_prepared_batch", "lxp_kernel_prepare_batch_maintenance", "fresh_genesis_maintenance_batch_commits", "second_maintenance_batch_chains"]
 
 [capability.1.2.2]
 title = "State commitments carry no idempotency entries"
@@ -92774,6 +92799,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.1.2.6]
+title = "Commit a maintenance batch by chaining the occupancy sweep to the batch's last receipt"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["126.1"]
+capabilities = ["1.2.6"]
+interfaces = []
+wiring = []
+do_1 = "In kernel_settled_snapshot_validate (src/protocol/lxp_kernel.c:4580-4675) delete the idempotency scan: the locals latest and have_latest (:4584-4585) and the loop over store->idempotency (:4642-4652). Delete receipt_restore_compact (:2861), whose only caller is that loop, so the -Werror build (Makefile:35) stays clean. The store lookup and the next_sequence != 0 refusal (:4639-4641) stay. Task 1.2.1 (787dd93be) removed the only writer of that table and tests/codec/lxp_test_idempotency_retired.c:279-294 pins it empty; the validator must not read it (decision.1969)."
+do_2 = "Change the signature to kernel_settled_snapshot_validate(const lxp_kernel_batch_snapshot *base, const lxp_kernel_batch_snapshot *settled, lxp_byte_span encoded_maintenance, const lxp_receipt *chain_tail) and thread chain_tail through kernel_batch_snapshot_commit (:4677-4680, call at :4695) as a new last parameter. lxp_kernel_commit_prepared_batch (:6145-6146) passes &batch->receipts[batch->count - 1U] and adds batch->count == 0U to its LXP_ERR_CONTEXT_MISMATCH refusal (:6137-6144); lxp_kernel_finalize_batch_maintenance (:5479-5480) and the public lxp_kernel_batch_snapshot_commit (:4768-4774) pass NULL."
+do_3 = "In the maintenance branch (:4653-4665) keep maintenance.global_sequence != UINT64_MAX and maintenance.global_sequence + 1U == store->next_sequence (:4660-4661) and the two resulting-root equalities against settled->kernel.current_state_root and canonical_root (:4663-4664). Replace the three conditions derived from latest (:4658-4659 and :4662) by: expected_sequence = chain_tail != NULL ? chain_tail->global_sequence + 1U : lxp_state_snapshot_store(base->state)->next_sequence, refusing when chain_tail != NULL && chain_tail->global_sequence == UINT64_MAX; expected_previous = chain_tail != NULL ? chain_tail->resulting_state_root : base->kernel.current_state_root; refuse with LXP_FATAL_INVARIANT unless maintenance.global_sequence == expected_sequence and lxp_ct_memcmp(maintenance.previous_state_root, expected_previous, 32U) == 0. This is the chain the sweep is built from (src/modules/programs/occupancy.c:905-906 copies kernel->current_state_root, which the prepared path advanced to the last receipt's resulting root at src/protocol/lxp_kernel.c:4498-4499; the sequence is candidate->kernel.state->next_sequence at :5374 and :5386) and the one publication re-checks at :6367-6376."
+do_4 = "Replace the else branch (:4666-4673), vacuous since 787dd93be, by: when chain_tail != NULL refuse with LXP_FATAL_INVARIANT unless chain_tail->global_sequence != UINT64_MAX, chain_tail->global_sequence + 1U == store->next_sequence and lxp_ct_memcmp(chain_tail->resulting_state_root, settled->kernel.current_state_root, 32U) == 0; when chain_tail == NULL run no chain check here (the :6655 caller keeps receipt_committed_state_check at :6657, and lxp_kernel_commit_prepared_batch keeps its post-commit checks at :6166-6173)."
+do_5 = "Write tests/codec/lxp_test_settled_maintenance.c (planned) in the lxp_kernel_case.h style of tests/codec/lxp_test_idempotency_retired.c with fresh_genesis_maintenance_batch_commits and second_maintenance_batch_chains. Fixture: lxp_state_store_init(&state, 1U), lxp_kernel_create(&kernel, &state, &journal, &parameters, 1U), install_metering_v1, programs_module_registration_v4 and lx_asset_module_iface registered, lx_asset_runtime and lx_programs_transfer_runtime bound with lxp_programs_metering_resolve_runtime and lxp_programs_fee_governance_resolve_runtime, fee genesis materialised, lxp_state_root into kernel.current_state_root: tests/protocol/lxp_test_terminal_rejection.c terminal_fixture_open :70-142 without the feed and history block (:158-176, not required since task 1.15.1). Activity: one signed asset send with protocol_version LXP_PROTOCOL_VERSION_STATE_COMMITMENT built as terminal_build_send does (:181-230); execution filled as terminal_execution does (:232-251) with execution.batch_id from lxp_batch_identity_activity (src/protocol/lxp_batch_identity.c:47) the way tests/codec/lxp_test_state_feed_unbound.c:122-125 does, because lxp_daemon_batch_bind_prefix (cmd/layerxd/lxp_daemon_batch_wal.c:99) is outside liblayerx.a (Makefile:44-49) and the kernel pattern rule links only the library and the Programs runtime (Makefile:1341-1345). Case fresh_genesis_maintenance_batch_commits: lxp_kernel_prepare_terminal_rejection(&kernel, &activity, &execution, LXP_ERR_SEQUENCE_MISMATCH, &prepared) == LXP_OK (include/layerx/lxp_kernel.h:526; needs only the Programs runtime, src/protocol/lxp_kernel.c:7354-7355), lxp_kernel_prepare_batch_maintenance(prepared, &activity, &execution) == LXP_OK, lxp_kernel_prepared_batch_maintenance(prepared).length != 0, then lxp_kernel_commit_prepared_batch(&kernel, &identities, prepared, lxp_kernel_prepared_batch_publication_digest(prepared)) == LXP_OK; assert state.next_sequence == 3, memcmp(kernel.current_state_root, lxp_kernel_prepared_batch_final_root(prepared), 32) == 0, state.idempotency_count == 0 and state.idempotency == NULL; then lxp_kernel_finalize_prepared_batch_publication(&kernel, &activity, prepared, digest) == LXP_OK (no observer bound, :6387-6398) and lxp_kernel_prepared_batch_destroy. Case second_maintenance_batch_chains: after the first case's batch and publication finalize (which clears publication_poisoned at :6400; lxp_kernel_batch_snapshot_create refuses while poisoned, :792), build a second signed send with the next account_sequence, execution.global_sequence = state.next_sequence (3), batch_number 2 and a recomputed batch_id, lxp_kernel_prepare_serial_activity_batch(&kernel, &activity, &execution, &prepared) == LXP_OK, lxp_kernel_prepare_batch_maintenance == LXP_OK, commit == LXP_OK; decode the envelope with lxp_batch_maintenance_decode and lxp_programs_occupancy_receipt_decode as tests/protocol/lxp_test_terminal_rejection.c:586-597 does and assert receipts[0].result_code == LXP_OK, memcmp(receipts[0].previous_state_root, root after batch 1, 32) == 0, memcmp(sweep.previous_state_root, receipts[0].resulting_state_root, 32) == 0, sweep.global_sequence == receipts[0].global_sequence + 1 == 4, state.next_sequence == 5, state.idempotency_count == 0. A chain-mismatch refusal is not constructible through public entry points because lxp_kernel_prepared_batch is opaque (src/protocol/lxp_kernel.c:74-96); write no test double for it."
+do_6 = "Change nothing under tests/storage, tests/protocol, src/state or cmd/. tests/storage/lxp_test_maintenance_publication.c:625 and tests/protocol/lxp_test_terminal_rejection.c:642 already expect LXP_OK from this commit and stay as written; tests/codec/lxp_test_idempotency_retired.c:279-294 keeps asserting the empty table."
+symbols = ["lxp_kernel_commit_prepared_batch", "lxp_kernel_prepare_batch_maintenance", "lxp_kernel_batch_snapshot_commit", "lxp_kernel_finalize_batch_maintenance", "fresh_genesis_maintenance_batch_commits", "second_maintenance_batch_chains"]
+touches = ["src/protocol/lxp_kernel.c", "tests/codec/lxp_test_settled_maintenance.c"]
+tests = ["tests/codec/lxp_test_settled_maintenance.c::fresh_genesis_maintenance_batch_commits", "tests/codec/lxp_test_settled_maintenance.c::second_maintenance_batch_chains"]
+planned_paths = ["tests/codec/lxp_test_settled_maintenance.c"]
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_settled_maintenance && ./build/tests/kernel/codec/lxp_test_settled_maintenance fresh_genesis_maintenance_batch_commits second_maintenance_batch_chains"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert src/protocol/lxp_kernel.c and delete tests/codec/lxp_test_settled_maintenance.c; the kernel returns to refusing every maintenance batch with LXP_FATAL_INVARIANT until a latest idempotency receipt exists, which nothing writes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.1.2.2]
 title = "Drop idempotency from the state root, state proof and snapshot"
 status = "done"
@@ -121046,7 +121105,7 @@ title = "layerxd --serve commits an admitted Programs call to a receipt under th
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["5.7.4"]
+requires = ["5.7.4", "1.2.6"]
 reqs = ["5706.1"]
 capabilities = ["5.7.6"]
 interfaces = []
@@ -121070,6 +121129,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (6e23a6c2f on 101b73f3d) builds green; tests/daemon/test_serve_commits_programs_call.py admits the NativeProgramCall (LNI tag 4, retained activity id) and then fails at :238 because sequencer.stderr reads 'layerxd: commit failed at sequence 1 during batch WAL with result -1001' followed by 'layerxd: execution failed at sequence 1 with result -1001' (LXP_FATAL_INVARIANT, include/layerx/lxp_result.h:159). The failing frame is kernel_settled_snapshot_validate (src/protocol/lxp_kernel.c:4653-4663) reached from apply_canonical_batch (cmd/layerxd/lxp_daemon_process.c:4100-4104, deferred WAL commit) through lxp_daemon_batch_wal_commit_kernel_deferred (cmd/layerxd/lxp_daemon_batch_wal.c:1087), lxp_kernel_commit_prepared_batch (:6131) and kernel_batch_snapshot_commit (:4695): every batch under LXP_PROTOCOL_VERSION_STATE_COMMITMENT carries the occupancy maintenance that lxp_kernel_prepare_batch_maintenance attaches (lxp_daemon_process.c:4061-4062, lxp_kernel.c:5393-5445), and with maintenance present the validator requires a latest receipt in the state idempotency table (:4642-4650), which nothing writes since 787dd93be (task 1.2.1 deleted the only lxp_idempotency_record call; tests/codec/lxp_test_idempotency_retired.c idempotency_table_stays_empty asserts idempotency_count == 0). Neither stage named in do_2 runs: the state-feed observer (lxp_daemon_process.c:4114, lxp_kernel.c:6378-6384) and replica publication (:4129-4144) follow the WAL commit. Keep the attempt 1 test and the commit_stage diagnostics in cmd/layerxd/lxp_daemon_process.c, remove the stderr print added to src/modules/programs/feed_store.c store_begin, keep store_begin's preconditions and lxp_programs_state_feed_store_recover as attempt 1 wrote them, change nothing under src/protocol/, and re-qualify unchanged once task 1.2.6 (decision.1969), which chains the validator to the batch's last receipt instead of the idempotency table, is on main; this task requires it."
 
 [task.6.0.1]
 title = "Gate the domain-6 foundation wave on the merge table and the retire gate"
@@ -147116,7 +147176,7 @@ title = "Unhook retired journeys, wallet binding and the settlement recipient fr
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3", "5.7.4", "9.12.11"]
+requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3", "5.7.4", "9.12.11", "1.2.6"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.3"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -157124,7 +157184,7 @@ title = "Start the in-tree node as a sequencer primary with a standby for local 
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5", "12.35.6"]
+requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5", "12.35.6", "12.35.7"]
 reqs = ["12035.3"]
 capabilities = []
 interfaces = []
@@ -157158,6 +157218,7 @@ do_10 = "Attempt 9 (525dff8f4) re-ran the attempt 8 files with 18.1307.1 merged.
 do_11 = "Attempt 10 (a48caaeb7) runs with 12.35.5 merged. All three nodes now commit past 34742403. The /status and /validators checks read the plain HTTP bodies the node returns (sync_info and validators at the top level, no result envelope; v6120-node.sh:648-676), so the script reports ready and the Go test runs. The test then fails at v6120_test.go:159: the standby's EVM RPC at LOCAL_NODE_STANDBY_RPC refuses connections while the standby process is alive. The EVM HTTP server binds only after the start signal that ProcessBlock sends (node/app.go:2376, :1347-1386). On restart, 34742402 is replayed against the mock app (consensus/internal/consensus/replay.go:338-347). The standby never processes a proposal and finalizes every sequenced block through the sealed branch of FinalizeBlocker (node/app.go:1798-1830, standby_role.go:288-325), so it never sends that signal. This task requires 12.35.6, which sends the start signal on sealed adoption. Re-qualify a48caaeb7 unchanged after 12.35.6 is on main."
 do_12 = "Attempt 11 (29f5c75f6) re-ran the a48caaeb7 files with 12.35.6 merged. The standby still refuses connections on LOCAL_NODE_STANDBY_RPC at v6120_test.go:159 while it commits blocks (34742450). The standby home is created with paxd init --mode validator (v6120-node.sh:233), which writes app.toml with api.enable, grpc.enable and state-store.enable false (node/params/config.go:141-147). configure_node keeps api enable false (v6120-node.sh:534) and never enables grpc, so sdk/server/start.go:369-376 skips RegisterLocalServices. That is the only place that builds the EVM HTTP server (node/app.go:3537-3553), so the standby has no EVM server for the start signal of 12.35.6 to bind. Its halt log has no 'Stopping EVM HTTP Server' line, while the primary's has one (rpc/rpcstack.go:285). configure_node sets grpc enable true beside the grpc address (v6120-node.sh:535) so every node home, including the standby, registers its local services and serves EVM RPC on its own http_port. The standby keeps consensus mode validator (decision.1902), api enable false and the standby chain-id assertion of v6120_test.go:152-160. Continue 29f5c75f6 with that one line."
 do_13 = "Attempt 12 (2bbcaee77) applies do_12 and the standby answers eth_chainId, so v6120_test.go:152-160 passes for the first time. The test then fails at v6120_test.go:163: eth_getTransactionCount(sender, pending) answers 'pending block unavailable: sequencer: no block is open'. On the sequencer a pending-tag read resolves through the open block (rpc/tx.go:430-436, rpc/watermark_manager.go:57-65) and sequential.Snapshot returns ErrLayerNotOpen while no block is open (node/sequencer/executor.go:28, :329-333). The primary seals its open block when it builds the proposal for H+1 (consensus/internal/state/execution.go:267-270; executor.go:295-305 sets open to nil) and opens the next block only in Driver.OnCommit(H+1) (node/sequencer/driver.go:93), so between the proposal and the commit of every block there is no open block by design (rpc/utils.go:55-58). The primary committed 34742447 at 18:30:23.811 and finalized 34742448 at 18:30:24.194 while the 0.06 s test ran. eth_sendRawTransaction in that window answers the bare 'sequencer: no block is open' (rpc/send.go:293, node/sequencer/receipt.go:328, rpc/send_sequencer_test.go:265-268) and admits nothing, and eth_getBalance pending answers the wrapped text (rpc/state.go:55). TestLocalNodeV6120SequencerReceipt gains one helper that repeats a single RPC call every 20 ms until the test context ends while the error text is exactly 'pending block unavailable: sequencer: no block is open' or 'sequencer: no block is open', as daemon/committed-fixture/vector_v4.go:224-241 does, and uses it for the pending nonce (:161), the pending balance before the send (:174) and after the receipt (:215) and eth_sendRawTransaction (:189). Any other error still fails the test at once and every asserted value stays as written; HeaderByNumber(nil) stays a latest read. v6120-node.sh is unchanged. The primary's node.log also shows four proposal failures 'seal height N: sequencer: standby did not acknowledge: ... i/o timeout' at 34742429, 34742433, 34742435 and 34742440 between 18:29:05 and 18:29:44, each a 10 s SEAL replication timeout (node/sequencer/standby.go:314-346 with the standby's commit-pending AckGap at :823-825, :855-857); the chain recovered and the test did not run in such a window. Continue 2bbcaee77."
+do_14 = "Attempt 13 (e4f1f13bb) applies do_13: the pending nonce read passes and TestLocalNodeV6120SequencerReceipt fails at v6120_test.go:191 because HeaderByNumber(nil) answers 'decode consensus transaction 0 in block 34742531: expected 2 wire type, got 0: tx parse error'. The chain is the fresh local pair (node/testdata/v6120-halt-export.json initial_height 34742401; every endpoint is loopback) and the two curl (28) lines are the /status readiness probes of v6120-node.sh:655-657. Transaction 0 of every sequenced block is the 241-byte MsgSequenceBatch (node/app.go:1639-1656; modules/sequencer/types/batch_tx.go:12-26; first byte 0x50 is protowire field 10 wire type 0), and validateBlockExecutionReceipts (rpc/utils.go:330-334, reached from EncodeTmBlock rpc/block.go:547, the count paths :163 and :185, getBlockByHash :457 and rpc/subscribe.go:573) decodes every block transaction with the sdk TxDecoder (sdk/x/auth/tx/decoder.go:29-34, :128-129), so every committed block view at a sequenced height fails on any sequencer node. This task requires 12.35.7 (decision.1968), which recognises the batch at index 0 in that validation. Re-qualify e4f1f13bb unchanged after 12.35.7 is on main; v6120-node.sh and v6120_test.go stay as written and HeaderByNumber(nil) stays a latest read."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -190375,7 +190436,7 @@ title = "Issue #1200: Port the stale outbox test callers to the three-argument e
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["18.1199.1", "18.1206.1", "18.1298.1", "18.1304.1", "5.7.3", "5.7.4", "5.7.6"]
+requires = ["18.1199.1", "18.1206.1", "18.1298.1", "18.1304.1", "5.7.3", "5.7.4", "5.7.6", "1.2.6"]
 reqs = ["181200.1"]
 capabilities = []
 interfaces = []
@@ -190820,6 +190881,7 @@ do_10 = "Since bd7bceea8 McpInvoke is the only operation OperationClass::for_ope
 do_11 = "Since c4739fc6c (task 10.97.1) ProtocolEvidence::bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:524-556) decodes signed_activity as a signed EIP-1559 transaction (layerx_crypto::evm_transaction::decode_signed at :534-536), and verify_outcome (create.rs:486) and finalization_evidence (services/human/crates/layerx-human-service/src/server/agent_creation.rs:581-584) both call it. services/human/crates/layerx-human-service/tests/agent_controls.rs:736 still signs a kernel owner envelope with canonical_owner::sign, so protocol_and_app_limit_changes_keep_their_real_enforcement_labels panics at tests/support/canonical_owner.rs:20 with Refused('invalid signed lifecycle transaction') from assert_outcome at :70 (attempt 8, fa18da842). bind_call discloses Budget 1 only after task 18.1204.2 adds budgetCreate (its do_5 to do_7) and sign_transaction (its do_3), so this task requires 18.1204.2. In protocol_receipt_for_payload (agent_controls.rs:732-777), build the owner with canonical_owner::sign_transaction for the same payload, action key and network 77. Set the ProtocolEvidence actor to owner.public_key[12..].to_vec(), the 20-byte sender that create.rs:546 compares (decision.1946). Set batch_id to the block-height form that agent_controls_rungs.rs:827-831 uses (24 zero bytes, then 11 as big-endian u64). Since a5edae038 (task 10.13.1), verify_outcome refuses any other batch_id (create.rs:514-515) and canonical_owner.rs:88-91 asserts the same, while support::execution_batch_id at :743 is a domain hash. Leave sign in place and keep every assertion of agent_controls.rs as written."
 do_12 = "assert_outcome in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs (:65-96) has one caller, agent_controls.rs:765. Its verify_native_owner_outcome call (:71-82) decodes canonical_activity as a kernel owner envelope and checks an ed25519 signature (services/agent/crates/layerx-proof/src/receipt/owner_module.rs:47-93). It also requires the receipt activity_id to equal the ActivityId digest of those bytes (owner_module.rs:148). :70 and :83 require a signed EIP-1559 transaction whose transaction_hash is that activity_id (create.rs:545-552, :501). No evidence satisfies both. Per decision.929 (verify_native_owner_outcome retires and receipts verify through receipt::verify_outcome), replace :71-82 with layerx_proof::receipt::verify_outcome(&evidence.receipt_bytes, authorized_batch) (services/agent/crates/layerx-proof/src/receipt.rs:334-337). Keep :70 and :83-95 as written, and leave sign and sign_transaction as task 18.1204.2 leaves them."
 do_13 = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1-69 holds a copy of the kernel owner signer. protocol_receipt_for_payload (:815-857) passes its bytes to ProtocolEvidence::verify_outcome, which unwraps at :854-855 and refuses them by the mechanism of do_11. protocol_and_app_limit_changes_keep_their_real_enforcement_labels (:679) reaches that path at :680 and :693, and submit_protocol reaches it at :443. do_4 does not apply to the lines named here. Replace the inline mod canonical_owner (:1-69) with the #[path = 'support/canonical_owner.rs'] mod canonical_owner declaration of agent_controls.rs:1-2. Build the owner at :819-820 with canonical_owner::sign_transaction, and set the actor at :842 to owner.public_key[12..].to_vec(). Keep :827-831 and every assertion as written."
+do_14 = "Attempt 8 (fa18da842 on 9f8c07033) ran on a base without 64c4d6a23 (task 18.1204.2), so services/human/crates/layerx-human-service/tests/support/canonical_owner.rs held sign and assert_outcome only and bind_call had no budgetCreate branch; do_11 to do_13 apply only on a base that carries 64c4d6a23, where the fixture is :1-162 with sign_transaction at :65-129, assert_outcome at :131-162, the verify_native_owner_outcome call of do_12 at :137-148 and the batch assertions of do_11 at :154-157. The second cargo invocation of the verify stops at the first failing binary, so attempt 8 observed none of session_keys, archive, session_rungs or agent_controls_rungs; agent_controls_rungs.rs:854-855 reaches the same refusal (do_13). Build the owner as services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs does with sign_transaction(compiled.payload(), action_key, STATE_COMMITMENT_PROTOCOL_VERSION, 77); keep encode_receipt (agent_controls.rs:779-812, agent_controls_rungs.rs) as written, since its timestamp 1_002 and fee_charged 1 satisfy verify_outcome (create.rs:503-506) against the bind_call disclosure (fee_limit = gas_limit 100_000, expiry 0..u64::MAX at services/agent/crates/layerx-crypto/src/disclosure/call.rs:432-437); the Governance 1 and Budget 7 refusals at agent_controls.rs:613-623 keep holding through finalization_evidence (services/human/crates/layerx-human-service/src/server/agent_creation.rs:640-642)."
 
 [task.18.1229.1]
 title = "Issue #1229: Validate the sponsored-status budget in the gas station's own fields and gas units"
@@ -194963,6 +195025,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.12.35.7]
+title = "Skip the MsgSequenceBatch at transaction 0 when a committed block view validates its receipts"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = []
+reqs = ["120357.1"]
+capabilities = []
+interfaces = []
+do_1 = "validateBlockExecutionReceipts (rpc/utils.go:312-335) skips block.Block.Txs[0] when seqtypes.DecodeSequenceBatchTx (modules/sequencer/types/batch_tx.go:28) accepts it, exactly as ProcessProposal treats transaction 0 (node/app.go:1639-1656); every other transaction keeps the strict decode and the existing error text, and filterTransactions (rpc/utils.go:404-408) and getTxHashesFromBlock (:521) are unchanged because they already pass over bytes the TxDecoder refuses (decision.1968)."
+do_2 = "Write TestBlockViewsSkipSequenceBatch in rpc/block_test.go with the MockClient of rpc/setup_test.go:144-275: a block whose Txs[0] is EncodeSequenceBatchTx of a valid batch followed by one EVM transaction with a stored receipt; eth_getBlockByNumber, eth_getBlockByHash and eth_getBlockTransactionCountByNumber answer the block with one transaction, and a block whose Txs[0] is 241 bytes of a different domain still fails with 'decode consensus transaction 0'."
+do_3 = "TestLocalNodeV6120SequencerReceipt (tools/qualification/localnode/v6120_test.go:191, task 12.35.4) fails at HeaderByNumber(nil) on a fresh local pair with this exact decode error; it is the observation this task answers and it is re-qualified unchanged once this task is on main."
+symbols = ["validateBlockExecutionReceipts", "TestBlockViewsSkipSequenceBatch"]
+touches = ["rpc/utils.go", "rpc/block_test.go"]
+tests = ["rpc/block_test.go::TestBlockViewsSkipSequenceBatch"]
+planned_paths = []
+build_cmd = "go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^(TestBlockViewsSkipSequenceBatch)$'"
+gate_kind = "existing"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert rpc/utils.go and rpc/block_test.go; committed block views at sequenced heights fail with decode consensus transaction 0 again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [req.120355]
 title = "Issue #1235 follow-up: the sequencer primary and standby do not wait on each other across a commit"
 ac_1 = "With a committee where the primary's precommit alone is +2/3, the primary's Driver.OnCommit(H) (node/sequencer/driver.go:53-115) releases the OPEN for H+1 without waiting for the standby to commit H, or the standby acknowledges that OPEN before its own commit of H, so OnCommit returns nil and consensus proceeds to H+1 (decision.1939)."
@@ -194971,6 +195063,10 @@ ac_2 = "TestDriverReleasesNextOpenAcrossStandbyCommit (node/sequencer/commit_rel
 [req.120356]
 title = "The sequencer standby's EVM RPC listens when it finalizes only sealed blocks"
 ac_1 = "FinalizeBlocker sends the EVM server start signal when it adopts a sealed block (node/app.go:1798-1830), so a node that never runs ProcessBlock binds its EVM HTTP and WebSocket ports; TestSealedFinalizeStartsEVMRPCServers in node/rpc_restart_test.go passes and TestAppCloseStopsEVMRPCServers keeps passing."
+
+[req.120357]
+title = "Committed block views serve sequenced blocks"
+ac_1 = "eth_getBlockByNumber, eth_getBlockByHash and eth_getBlockTransactionCountByNumber at a height whose transaction 0 is a MsgSequenceBatch (modules/sequencer/types/batch_tx.go:12) answer the block and count only the transactions behind it; a transaction 0 that is neither a MsgSequenceBatch nor a decodable TxRaw still fails with 'decode consensus transaction 0' (rpc/utils.go:333)."
 
 [acceptance.12.35.5]
 feature = "12"
@@ -195030,6 +195126,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 

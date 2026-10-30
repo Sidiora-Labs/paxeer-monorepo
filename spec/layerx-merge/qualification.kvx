@@ -13203,3 +13203,35 @@ symbol = "TestPayPrecompileChargesGasTable"
 observed = "At 133568fbf (on 101b73f3d) the budgetRemaining subtest fails because a staticcall of budgetRemaining with a zero id answers uint128 zero with no error through RunAndCalculateGas (layerxpay.go:85-130) and through the base Run path alike: keeper.BudgetRemaining (modules/layerxpay/keeper/budget_views.go:30-34, 1d8ccad98) answers zero for a missing budget and budget.go:32-37 (2e4d43598) packs it, which budget_test.go:221, budget_views_test.go:159-170 and req.8038 ac_1 freeze; the revert expectation dates from f5d5add73, when layerxpay.go:331-333 answered LXP_UNKNOWN_FIELD, and no verify_cmd has run the test since 2e4d43598."
 assumption = "do_7 makes the view branch treat budgetRemaining as a second succeeding view beside progressHighWater with stronger assertions; the served path, budget.go, gas.go and the keeper are unchanged, and 2.40.5 is unaffected because it meters only the 40 writes."
 severity = "cross-task"
+
+[finding.12.35.4.11]
+task = "12.35.4"
+file = "rpc/utils.go:330"
+symbol = "validateBlockExecutionReceipts"
+observed = "In attempt 13 (e4f1f13bb, do_13 applied) the pending nonce read passes and HeaderByNumber(nil) fails at v6120_test.go:191 with 'decode consensus transaction 0 in block 34742531: expected 2 wire type, got 0' on the fresh local pair (genesis initial_height 34742401): transaction 0 of a sequenced block is the 241-byte MsgSequenceBatch (modules/sequencer/types/batch_tx.go:12-26, first byte 0x50 = protowire field 10 wire type 0) and validateBlockExecutionReceipts, reached from EncodeTmBlock (rpc/block.go:547), decodes every block transaction as a protobuf TxRaw (sdk/x/auth/tx/decoder.go:128-129); the validation predates the tx-0 convention (f2d8bad48 vs c54a2210f) and no rpc test builds a batch-headed block."
+assumption = "Every committed block view (rpc/block.go:163, :185, :457, :547; rpc/subscribe.go:573) at a sequenced height fails the same way on any sequencer node; task 12.35.7 skips index 0 when DecodeSequenceBatchTx accepts it and keeps every other decode strict (decision.1968); 12.35.4 re-qualifies e4f1f13bb unchanged after it."
+severity = "cross-task"
+
+[finding.5.7.6.1]
+task = "5.7.6"
+file = "src/protocol/lxp_kernel.c:4653-4663"
+symbol = "kernel_settled_snapshot_validate"
+observed = "Attempt 1 (6e23a6c2f on 101b73f3d) builds green; layerxd --serve admits the LX_PROGRAMS_CALL over LNI V1_4 and the first batch fails in lxp_kernel_commit_prepared_batch (:6131, via cmd/layerxd/lxp_daemon_batch_wal.c:1087 and kernel_batch_snapshot_commit :4695) with LXP_FATAL_INVARIANT because the batch carries occupancy maintenance (cmd/layerxd/lxp_daemon_process.c:4061-4062, lxp_kernel.c:5393-5445) and the validator demands a latest receipt in the idempotency table (:4642-4650) that is empty since 787dd93be (task 1.2.1) removed the only lxp_idempotency_record call; sequencer.stderr: 'commit failed at sequence 1 during batch WAL with result -1001', 'execution failed at sequence 1 with result -1001'; the observer at lxp_daemon_process.c:4114 and replica publication at :4129-4144 are never reached."
+assumption = "The maintenance branch of kernel_settled_snapshot_validate must stop requiring an idempotency receipt and chain to the batch's last receipt instead (decision.1969); tasks 1.2.3 and 1.2.4 do not list :4642-4663, so task 1.2.6 owns it and 5.7.6, 18.1200.1 and 10.20.3 require it; the daemon files of 5.7.6 are not at fault."
+severity = "cross-task"
+
+[finding.18.1204.1.2]
+task = "18.1204.1"
+file = "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs:387"
+symbol = "finalization_evidence_reports_the_runtime_rung"
+observed = "Attempt 4 (236d347fc on fb1c2cf88): build exit 0, verify exit 1; the sibling test, unnamed in the tests list but selected by a verify_cmd without --exact, panics through checked (:42) when finalization_evidence (agent_creation.rs:581-583 at that base) refuses the canonical_owner::sign envelope that protocol_evidence (:535) admitted; the candidate touches neither the fixture nor the lifecycle path, and the requires edge on 18.1204.2 was added (265e0cc8d) after the attempt ran."
+assumption = "64c4d6a23 (18.1204.2, done) ports the fixture to sign_transaction and its gate passes this test at that revision; the unchanged attempt 4 implementation re-qualified on a base carrying 64c4d6a23 passes all three tests (attempt 5)."
+severity = "cross-task"
+
+[finding.18.1228.1.6]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:136"
+symbol = "assert_outcome, ProtocolEvidence::bound_activity"
+observed = "Attempt 8 (fa18da842) ran on 9f8c07033, which lacks 64c4d6a23 (18.1204.2: sign_transaction, budgetCreate disclosure), so the fixture had no EIP-1559 signer to port to; the verify stopped at agent_controls and never ran session_keys, archive, session_rungs or agent_controls_rungs, whose agent_controls_rungs.rs:854-855 reaches the same refusal."
+assumption = "On a base carrying 64c4d6a23 and c67d97c08, do_11 to do_13 complete the port with the agent_creation_rungs.rs sign_transaction pattern; the refusal at create.rs:535-536 is the intended contract of 10.97.1 and 18.1204.2 and is not changed."
+severity = "cross-task"
