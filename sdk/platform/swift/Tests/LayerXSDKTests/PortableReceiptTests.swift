@@ -109,6 +109,52 @@ final class PortableReceiptTests: XCTestCase {
     return try encoder.encode(value)
   }
 
+  private func publishedBundles(_ data: Data) throws -> [Data] {
+    let field = try XCTUnwrap(data.range(of: Data("\"bundles\"".utf8)))
+    let arrayStart = try XCTUnwrap(data[field.upperBound...].firstIndex(of: 0x5b))
+    var depth = 0
+    var inString = false
+    var escaped = false
+    var start: Data.Index?
+    var bundles: [Data] = []
+    var published: [Data]?
+
+    for index in arrayStart..<data.endIndex {
+      let byte = data[index]
+      if inString {
+        if escaped {
+          escaped = false
+        } else if byte == 0x5c {
+          escaped = true
+        } else if byte == 0x22 {
+          inString = false
+        }
+        continue
+      }
+      if byte == 0x22 {
+        inString = true
+      } else if byte == 0x7b || byte == 0x5b {
+        if depth == 1 {
+          XCTAssertEqual(byte, 0x7b, "Published bundles must be objects")
+          start = index
+        }
+        depth += 1
+      } else if byte == 0x7d || byte == 0x5d {
+        depth -= 1
+        if depth == 1 {
+          let bundleStart = try XCTUnwrap(start)
+          bundles.append(data.subdata(in: bundleStart..<(index + 1)))
+          start = nil
+        } else if depth == 0 {
+          XCTAssertEqual(byte, 0x5d)
+          published = bundles
+          break
+        }
+      }
+    }
+    return try XCTUnwrap(published, "Missing or unterminated bundles array")
+  }
+
   private func evidence(_ v: Vector, _ receipt: PortableReceipt) throws -> Evidence {
     let signer = try Curve25519.Signing.PrivateKey(
       rawRepresentation: Data(repeating: 0x35, count: 32))
@@ -179,15 +225,14 @@ final class PortableReceiptTests: XCTestCase {
       .deletingLastPathComponent().deletingLastPathComponent()
       .deletingLastPathComponent().deletingLastPathComponent()
       .appendingPathComponent("conformance/fixtures/vector-v5-portable.json")
-    let bundles = try JSONDecoder().decode(
-      PublishedFixture.self, from: Data(contentsOf: url)
-    ).bundles
+    let bundles = try publishedBundles(Data(contentsOf: url))
     XCTAssertEqual(bundles.count, 2)
-    let levels = try bundles.map { try XCTUnwrap($0["verificationLevel"]?.stringValue) }
+    let documents = try bundles.map { try JSONDecoder().decode([String: JSONValue].self, from: $0) }
+    let levels = try documents.map { try XCTUnwrap($0["verificationLevel"]?.stringValue) }
     XCTAssertEqual(Set(levels), ["receipted", "committed"])
     let sources = try portableVectorV5Sources(url.deletingLastPathComponent())
 
-    for bundle in bundles {
+    for (bytes, bundle) in zip(bundles, documents) {
       let level = try XCTUnwrap(bundle["verificationLevel"]?.stringValue)
       let source = try XCTUnwrap(sources[level])
       let pinned = source.pin
@@ -204,7 +249,6 @@ final class PortableReceiptTests: XCTestCase {
         try hex(XCTUnwrap(carriedKey["publicKey"]?.stringValue)), pinned.publicKey, level)
       XCTAssertEqual(try height("firstHeight"), pinned.firstHeight, level)
       XCTAssertEqual(try height("lastHeight"), pinned.lastHeight, level)
-      let bytes = try encode(bundle)
       let verified = try PortableReceipt.verify(
         bytes, keys: [pinned], prevSeqHash: source.prevSeqHash)
       XCTAssertEqual(verified.verificationLevel, level, level)
@@ -217,6 +261,29 @@ final class PortableReceiptTests: XCTestCase {
       XCTAssertEqual(verified.committed?.level, level == "committed" ? level : nil, level)
       XCTAssertEqual(verified.export(), bytes, level)
     }
+  }
+
+  func testPortableVectorV5ReexportsPublishedBytes() throws {
+    let url = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent().deletingLastPathComponent()
+      .deletingLastPathComponent().deletingLastPathComponent()
+      .appendingPathComponent("conformance/fixtures/vector-v5-portable.json")
+    let bundles = try publishedBundles(Data(contentsOf: url))
+    XCTAssertEqual(bundles.count, 2)
+    let sources = try portableVectorV5Sources(url.deletingLastPathComponent())
+    var levels: Set<String> = []
+
+    for bytes in bundles {
+      let bundle = try JSONDecoder().decode([String: JSONValue].self, from: bytes)
+      let level = try XCTUnwrap(bundle["verificationLevel"]?.stringValue)
+      levels.insert(level)
+      let source = try XCTUnwrap(sources[level])
+      let verified = try PortableReceipt.verify(
+        bytes, keys: [source.pin], prevSeqHash: source.prevSeqHash)
+      XCTAssertEqual(verified.export(), bytes, level)
+      XCTAssertNotEqual(bytes, try encode(bundle), level)
+    }
+    XCTAssertEqual(levels, ["receipted", "committed"])
   }
 
   func testPortableVectorV5RefusesForeignPin() throws {
