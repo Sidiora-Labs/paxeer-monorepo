@@ -15,6 +15,9 @@ export async function paymentWithVerification(
 ): Promise<VerifiedRead<SubmissionState>> {
   const result = await client.call<typeof request, VerifiedRead<SubmissionState>>("submit", request);
   const verified = requireVerified(Rung.Receipted, result);
-  if (verified.value.kind !== "Executed") throw new Error(`payment_not_executed:${verified.value.kind}`);
+  if (verified.value.kind === "Reverted") throw new Error(`payment_reverted:${verified.value.revertReason}`);
+  if (verified.value.kind !== "Receipted" && verified.value.kind !== "Committed") {
+    throw new Error(`payment_not_receipted:${verified.value.kind}`);
+  }
   return verified;
 }

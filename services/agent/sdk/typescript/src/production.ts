@@ -1,5 +1,7 @@
 import type { Operation as AgentOperation } from "./generated/client.js";
 
+export const RETIRED_OPERATION_NAMES: readonly string[] = Object.freeze(["faucet.claim"]);
+
 export const AGENT_OPERATIONS = [
   "program.deploy", "program.upgrade", "program.wind-down",
   "agent.register",
@@ -18,7 +20,6 @@ export const AGENT_OPERATIONS = [
   "capability.list",
   "capability.revoke",
   "export.offline",
-  "faucet.claim",
   "prepare",
   "program.activity",
   "program.call",
