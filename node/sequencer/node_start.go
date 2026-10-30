@@ -123,18 +123,16 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	n.App.SetSequencerSource(n.ConsensusSource)
 	n.App.SetSequencerRPC(evmrpc.NewSequencerOption(n.Accepter, n.ReceiptLogFeed),
 		evmrpc.SequencerReceiptOption{Source: n.ReceiptSource, Keeper: &n.App.SequencerKeeper})
-	n.App.SetCommitListener(func(height int64, appHash []byte) {
+	n.App.SetCommitListener(func(height int64, appHash []byte) error {
 		if err := n.Driver.OnCommit(height, appHash); err != nil {
 			n.Accepter.mu.Lock()
 			n.Accepter.halted = true
 			n.Accepter.mu.Unlock()
 			_ = n.Executor.Fence()
-			panic(err)
+			return err
 		}
 		n.ReceiptSource.Committed(height)
-		if err := n.LogFeedPublisher.Committed(height); err != nil {
-			panic(err)
-		}
+		return n.LogFeedPublisher.Committed(height)
 	})
 	return nil
 }
