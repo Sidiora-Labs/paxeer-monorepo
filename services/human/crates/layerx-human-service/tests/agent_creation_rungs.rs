@@ -231,7 +231,7 @@ impl Fixture {
             checked(SigningLimits::new(10, 60)),
         );
         let compiled = checked(layerx_intents::compile(&intent(), &registry()));
-        let owner = canonical_owner::sign(
+        let owner = canonical_owner::sign_transaction(
             compiled.payload(),
             ACTION,
             STATE_COMMITMENT_PROTOCOL_VERSION,
