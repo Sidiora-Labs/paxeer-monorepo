@@ -360,6 +360,20 @@ fn source_violations(source_root: &Path) -> Vec<String> {
             continue;
         };
         for (number, line) in source.lines().enumerate() {
+            for route in [
+                "/v1/deposits",
+                "/v1/withdrawals",
+                "/v1/exit",
+                "/v1/wallet-binding",
+            ] {
+                if line.contains(route) {
+                    violations.push(format!(
+                        "retired-human-api-route:{route}:{}:{}",
+                        path.display(),
+                        number + 1
+                    ));
+                }
+            }
             if ramp_on_default_surface(line) {
                 violations.push(format!(
                     "ramp-on-default-human-surface:{}:{}",
@@ -446,8 +460,59 @@ fn main() {
 mod tests {
     use super::{
         catalog_violations, concatenates_prose, contains_term, entries, jsx_text_runs,
-        ramp_on_default_surface, sentence_case,
+        ramp_on_default_surface, sentence_case, source_violations,
     };
+
+    #[test]
+    fn retired_route_reference_is_rejected() -> std::io::Result<()> {
+        let root = std::env::temp_dir().join(format!(
+            "layerx-copy-lint-retired-routes-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&root)?;
+        let path = root.join("routes.ts");
+        std::fs::write(
+            &path,
+            "\nfetch(\"/v1/deposits\");\nfetch('/v1/withdrawals/123');\nfetch(`/v1/exit/${id}`);\nfetch(\"/v1/wallet-binding\" + suffix);\n",
+        )?;
+        let violations = source_violations(&root);
+        std::fs::remove_dir_all(&root)?;
+        let expected: Vec<String> = [
+            "/v1/deposits",
+            "/v1/withdrawals",
+            "/v1/exit",
+            "/v1/wallet-binding",
+        ]
+        .iter()
+        .enumerate()
+        .map(|(index, route)| {
+            format!(
+                "retired-human-api-route:{route}:{}:{}",
+                path.display(),
+                index + 2
+            )
+        })
+        .collect();
+        assert_eq!(violations, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn live_route_reference_is_accepted() -> std::io::Result<()> {
+        let root = std::env::temp_dir().join(format!(
+            "layerx-copy-lint-live-routes-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&root)?;
+        std::fs::write(
+            root.join("routes.tsx"),
+            "fetch(\"/v1/move/quote\");\nawait execute(\"POST\", \"/v1/move/\" + encodeURIComponent(id), body);\n",
+        )?;
+        let violations = source_violations(&root);
+        std::fs::remove_dir_all(&root)?;
+        assert!(violations.is_empty(), "{violations:?}");
+        Ok(())
+    }
 
     #[test]
     fn parses_catalog_entries() {
@@ -498,7 +563,7 @@ mod tests {
             "const line = greeting + \" and welcome\";"
         ));
         assert!(!concatenates_prose(
-            "await execute(\"POST\", \"/v1/deposits/\" + encodeURIComponent(id), body);"
+            "await execute(\"POST\", \"/v1/move/\" + encodeURIComponent(id), body);"
         ));
         assert!(!concatenates_prose(
             "cells.push(<rect key={`${String(row)}`} x={column + quiet} />);"
