@@ -109595,7 +109595,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.24.7]
 title = "Pin the api development chain reads to the launchpad precompile ABIs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.24.3", "4.0.2", "4.23.6"]
@@ -115044,7 +115044,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.7]
 title = "Overlap the standby sync with re-execution and the primary sync with the exchange"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.0.4"]
