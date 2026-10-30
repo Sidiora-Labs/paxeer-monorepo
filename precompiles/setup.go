@@ -424,8 +424,10 @@ func GetPrecompileInfo(name string) PrecompileInfo {
 }
 
 func GetPrecompileInfoE(name string) (PrecompileInfo, error) {
+	if i, ok := PrecompileNamesToInfo[name]; ok {
+		return i, nil
+	}
 	if !Initialized {
-		// Precompile Info does not require any keeper state
 		if err := InitializePrecompiles(true, &utils.EmptyKeepers{}); err != nil {
 			return PrecompileInfo{}, err
 		}

@@ -71,6 +71,18 @@
       <version>${spring.boot.version}</version>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.3</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-test</artifactId>
+      <version>${spring.boot.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <build>
     <plugins>
@@ -78,6 +90,12 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.3.1</version>
+        <configuration><argLine>-Djava.io.tmpdir=${project.build.directory}</argLine></configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -91,6 +109,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
         <version>3.3.1</version>
+        <configuration><argLine>-Djava.io.tmpdir=${project.build.directory}</argLine></configuration>
         <executions><execution><id>attach-sources</id><goals><goal>jar-no-fork</goal></goals></execution></executions>
       </plugin>
       <plugin>

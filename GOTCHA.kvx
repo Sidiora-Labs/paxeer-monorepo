@@ -11361,3 +11361,58 @@ fix = "Serve the recorded table entry first and run the keeper-free dry run only
 title = "Re-running a task before the base carries its spec amendment repeats the recorded failure"
 symptom = "Three tasks were re-run minutes after their spec amendments were written; each run started from a base revision that predated the amending commit, saw the old do lines and touches, and failed exactly as recorded, adding nothing."
 fix = "Before re-running a task whose spec was just amended, confirm the base revision is at or after the amending commit (and after the owner task's commit when the amendment adds a requires); otherwise wait for the base to advance."
+
+[gotcha.2310]
+title = "A static precompile's store gas lands in the transaction's infinite meter and is never billed"
+symptom = "A precompile that implemented only RequiredGas and Run charged its flat row while its body did state-proportional host work; inside a transaction the context meter is an infinite meter whose consumption nobody reads, so the extra KV gas was unpaid and grew with the store on every call."
+fix = "When a precompile body does work proportional to state, serve it as a DynamicGasPrecompiledContract: deduct the row, run under a meter limited to the remainder and return what the meter leaves; keep the rows as the base charge."
+
+[gotcha.2311]
+title = "Porting a signer to an approval surface that submits the transaction itself cannot answer a detached signature"
+symptom = "A do line asked to bind an agent signer to a wallet EVM approval, but the approval route signs, serialises and submits the raw transaction and answers tx_hash and receipt; the middleware consuming the signer needed a detached signature string, so the port could not compile without a stand-in across four attempts."
+fix = "Before writing a port, check that the target API answers the artifact the consumer submits; if the flow already completes inside the other service, remove the provider path instead of inventing a signature."
+
+[gotcha.2312]
+title = "A receipt gate whose key list defaults to empty refuses every receipt while its unit test passes"
+symptom = "A mobile receipt gate took receiptKeys with a default of [] and the integration entry point passed none, so every gate built through the public API refused every receipt; the gate's own test loaded fixture keys itself and passed."
+fix = "Every constructor path of a gate needs a configuration-held key source and a refusal when none is declared; the test that loads keys itself does not cover the public entry point."
+
+[gotcha.2313]
+title = "A daemon that admits a call and then stops its executor without exiting answers empty lookups until the client times out"
+symptom = "layerxd --serve admitted a program call and the executor stopped inside the batch apply; the process stayed alive, the serve loop kept polling only the network server, and every receipt lookup returned an empty envelope for 30 s until the test panicked without printing the daemon's stderr."
+fix = "Keep the daemon's stderr next to the verify log and read its 'execution failed at sequence ... with result ...' line first; a stalled executor with a live process looks like a missing receipt."
+
+[gotcha.2314]
+title = "Comparing RequiredGas with metered KV gas measures the row, not the charge"
+symptom = "A gas-bound test compared a precompile's static RequiredGas with the KV gas the call metered and failed for every method, because RequiredGas is only the fixed row of a dynamic charge."
+fix = "Measure the charge as supplied gas minus the gas the EVM call leaves, convert through GetCosmosGasLimitFromEVMGas, and compare that with the metered store gas."
+
+[gotcha.2315]
+title = "A -p lib or test build never compiles a binary declared in another crate with autobins = false"
+symptom = "A one-line change to an agent daemon's main.rs passed its task gate on -p <crate> --test <name>, because the crate sets autobins = false and the binary is declared in a sibling host crate pointing at that main.rs; two later tasks whose gates build the binary failed with E0277 at that line."
+fix = "A task whose touches include a file that only a binary target compiles names that binary in its build_cmd; check Cargo.toml for autobins = false and [[bin]] path declarations in sibling crates before trusting a lib gate."
+
+[gotcha.2316]
+title = "tsc with files on the command line ignores tsconfig.json, so generated declaration files must be listed as roots"
+symptom = "A narrowed type check listing the touched files plus the global declaration roots failed with TS2724 on a type that only a generated declaration file declares; the whole-application check picked that file up through tsconfig include, the narrowed one did not."
+fix = "When narrowing a tsc build to explicit files, copy every declaration root the sibling tasks list, including generated ones, and follow the import closure from the first root for module augmentations."
+
+[gotcha.2317]
+title = "A registration test's hard-coded ABI counts go stale when later tasks grow the ABI without running it"
+symptom = "A precompile registration test asserted 9 methods and 3 events; three later commits grew the ABI to 12 and 4 with gates that never ran the test, so the first task to add it to a verify found a failure on main unrelated to its own change."
+fix = "A task that changes an abi.json runs the registration test that counts it; when a count assertion disagrees with a declared ABI grown by completed tasks, rule which is the authority in a decision and set the test to it rather than leaving a known-red test on main."
+
+[gotcha.2318]
+title = "A pending-tag read on the sequencer errors between every proposal and its commit by design"
+symptom = "A local-node receipt test read the sender's pending nonce once and failed with 'pending block unavailable: sequencer: no block is open'; the primary had sealed the open block for the next proposal and had not yet committed it, a window that exists for every block."
+fix = "Pending-tag reads and raw sends against the sequencer repeat on exactly that error text until a block is open, as the committed fixture does; any other error fails at once and no asserted value changes."
+
+[gotcha.2319]
+title = "Deleting a file another crate include_str!s passes a gate that builds only a tool crate"
+symptom = "A cleanup task deleted a schema file and qualified with the build of a small boundary-check tool crate; a library crate in the same tree still include_str!'d the file at its first lines, so every crate depending on that library failed to compile from the merge on, and the next attempts of unrelated tasks in three workspaces died in their build step."
+fix = "Before deleting any non-source file, grep the tree for include_str!, include_bytes!, include! and path-literal references to it, and let the deleting task build the crate that holds the reference, not only the crate that asserts the absence."
+
+[gotcha.2320]
+title = "A task that deletes a symbol must not list it under symbols"
+symptom = "A two-line deletion task built and passed its test, then the done gate refused because the task block named the deleted constant under symbols and the graph check requires every listed symbol to be defined after the change."
+fix = "For a deletion, leave symbols empty or name a symbol that remains defined (a test function the verify runs); the interfaces list may still cite the retired item because it is an index entry, not a graph check."

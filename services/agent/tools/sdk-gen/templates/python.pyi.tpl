@@ -8,6 +8,26 @@ def layerx_sdk_py_package() -> Mapping[str, str | int]: ...
 
 {{SCALARS}}
 
+class SignatureBytes(bytes):
+    def __new__(cls, value: bytes) -> SignatureBytes: ...
+    def __len__(self) -> Literal[65]: ...
+
+
+class AddressBytes(bytes):
+    def __new__(cls, value: bytes) -> AddressBytes: ...
+    def __len__(self) -> Literal[20]: ...
+
+
+class SignRequest(TypedDict):
+    preparation_ref: str
+    signature: SignatureBytes
+
+
+class SubmitRequest(TypedDict):
+    preparation_ref: str
+    signature: SignatureBytes
+
+
 class Rung(IntEnum):
 {{RUNGS}}
 
