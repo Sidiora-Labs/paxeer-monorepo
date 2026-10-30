@@ -39,34 +39,48 @@ def operations(repo: Path) -> list[Operation]:
     if manifest["schema"] != 1:
         raise ValueError("unsupported operation manifest schema")
     found: dict[tuple[str, str], Operation] = {}
-    for entry in manifest["operations"]:
-        operation = Operation(
-            plane=entry["plane"],
-            name=entry["name"],
-            method=entry["method"],
-            path=entry["path"],
-            request=entry["request"],
-            response=entry["response"],
-            idempotent=entry["idempotency"],
-            bodyless=entry["bodyless"],
-            transport=entry.get("transport", "http"),
-            to=entry.get("to"),
-            selector=entry.get("selector"),
-            per_leg=entry.get("per_leg", False),
-        )
-        if operation.transport == "evm":
-            if operation.path or operation.method not in (
-                "eth_sendRawTransaction", "eth_call", "eth_getTransactionByHash"
-            ):
-                raise ValueError(f"invalid EVM transport for {operation.name}")
-        elif operation.transport != "http" or operation.method not in (
-            "GET", "POST", "PUT", "PATCH", "DELETE"
+    groups = manifest["operations"]
+    if not isinstance(groups, dict):
+        raise ValueError("operation manifest operations must be an object")
+    for identifier, entries in groups.items():
+        if re.fullmatch(r"O[1-9][0-9]*", identifier) is None:
+            raise ValueError(f"invalid operation identifier {identifier!r}")
+        if (
+            not isinstance(entries, list)
+            or not entries
+            or not all(isinstance(entry, dict) for entry in entries)
         ):
-            raise ValueError(f"invalid HTTP transport for {operation.name}")
-        key = (operation.plane, operation.name)
-        if key in found:
-            raise ValueError(f"duplicate operation {operation.plane}:{operation.name}")
-        found[key] = operation
+            raise ValueError(
+                f"operation group {identifier} must be a non-empty list of objects"
+            )
+        for entry in entries:
+            operation = Operation(
+                plane=entry["plane"],
+                name=entry["name"],
+                method=entry["method"],
+                path=entry["path"],
+                request=entry["request"],
+                response=entry["response"],
+                idempotent=entry["idempotency"],
+                bodyless=entry["bodyless"],
+                transport=entry.get("transport", "http"),
+                to=entry.get("to"),
+                selector=entry.get("selector"),
+                per_leg=entry.get("per_leg", False),
+            )
+            if operation.transport == "evm":
+                if operation.path or operation.method not in (
+                    "eth_sendRawTransaction", "eth_call", "eth_getTransactionByHash"
+                ):
+                    raise ValueError(f"invalid EVM transport for {operation.name}")
+            elif operation.transport != "http" or operation.method not in (
+                "GET", "POST", "PUT", "PATCH", "DELETE"
+            ):
+                raise ValueError(f"invalid HTTP transport for {operation.name}")
+            key = (operation.plane, operation.name)
+            if key in found:
+                raise ValueError(f"duplicate operation {operation.plane}:{operation.name}")
+            found[key] = operation
     return sorted(found.values(), key=lambda item: (item.plane, item.name))
 
 

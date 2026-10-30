@@ -58,7 +58,7 @@ impl Operation {
             (1, 3) => Some(Self::Rotate),
             (2, 3) => Some(Self::RotateIfCurrent),
             (1, 4) => Some(Self::Destroy),
-            (1, 5) => Some(Self::Sign),
+            (7, 5) => Some(Self::Sign),
             _ => None,
         }
     }
@@ -441,28 +441,36 @@ impl LxkpGateway {
         }
     }
 
-    /// Re-derives the disclosure from the canonical bytes under the gateway's
-    /// own registry, requires the client's digest and disclosure to match it
-    /// exactly, relays the request bound to the described public key and
-    /// verifies the returned signature before answering.
+    /// Rebinds and verifies the complete EIP-1559 call at the gateway boundary.
     fn sign(
         &self,
         binding: &PrincipalKeyBinding,
         reference: &ProviderKeyReference,
         request: &Request<'_>,
     ) -> Result<Vec<u8>, KmsError> {
-        let activity =
-            layerx_intents::canonical::decode_unsigned_activity(request.canonical, &self.registry)
-                .map_err(|_| KmsError::Refused)?;
-        if activity.network_id() != self.network_id
-            || activity.protocol_version() != self.protocol_version
-        {
+        let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(request.canonical)
+            .map_err(|_| KmsError::Refused)?;
+        if call.chain_id != u64::from(self.network_id) {
             return Err(KmsError::Refused);
         }
-        let disclosure = layerx_crypto::disclosure::bind(request.canonical, &self.registry)
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, request.from)
             .map_err(|_| KmsError::Refused)?;
-        let admitted = validate_disclosed(request.canonical, &disclosure, &self.registry)
-            .map_err(|_| KmsError::Refused)?;
+        if let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) =
+            disclosure
+                .construct_method()
+                .map_err(|_| KmsError::Refused)?
+        {
+            let scope = payload
+                .get(payload.len().checked_sub(6).ok_or(KmsError::Refused)?..)
+                .ok_or(KmsError::Refused)?;
+            if scope[..4] != self.network_id.to_be_bytes()
+                || scope[4..] != self.protocol_version.to_be_bytes()
+            {
+                return Err(KmsError::Refused);
+            }
+        }
+        let admitted =
+            validate_disclosed(&call, &disclosure, request.from).map_err(|_| KmsError::Refused)?;
         if !layerx_crypto::ct::eq_fixed(&admitted.canonical_digest, &request.digest) {
             return Err(KmsError::Integrity);
         }
@@ -473,22 +481,21 @@ impl LxkpGateway {
         if !layerx_crypto::ct::eq_fixed(&description.binding_digest(), &binding.digest()) {
             return Err(KmsError::Integrity);
         }
-        let public_key = description.public_key();
         let signature = block_on(
             self.provider.sign(
                 binding,
                 reference,
                 ProviderSignRequest::new(
-                    request.canonical,
+                    &call,
                     &disclosure,
-                    &self.registry,
-                    public_key,
+                    request.from,
+                    description.public_key(),
                 ),
             ),
             self.limits.deadline,
         )?
         .map_err(custody_refusal)?;
-        layerx_crypto::ed25519::verify_digest(&public_key, &signature, &admitted.canonical_digest)
+        super::provider::verify_call_signature(&call, request.from, &signature)
             .map_err(|_| KmsError::Integrity)?;
         Ok(signature.to_vec())
     }
@@ -527,6 +534,7 @@ struct Request<'a> {
     reference: &'a [u8],
     expected: [u8; 32],
     digest: [u8; 32],
+    from: [u8; 20],
     canonical: &'a [u8],
     disclosure: &'a [u8],
 }
@@ -567,6 +575,7 @@ fn decode<'a>(
         reference: &[],
         expected: [0; 32],
         digest: [0; 32],
+        from: [0; 20],
         canonical: &[],
         disclosure: &[],
     };
@@ -591,6 +600,7 @@ fn decode<'a>(
     }
     if operation == Operation::Sign {
         request.digest = reader.fixed()?;
+        request.from = reader.fixed()?;
         request.canonical = reader.blob(GATEWAY_FRAME_LIMIT)?;
         request.disclosure = reader.blob(GATEWAY_FRAME_LIMIT)?;
         if request.canonical.is_empty() || request.disclosure.is_empty() {

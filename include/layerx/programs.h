@@ -913,6 +913,8 @@ lxp_result layerx_programs_call_sandbox_usage_result_length(
     uint64_t token, uint16_t section);
 lxp_result layerx_programs_call_sandbox_usage_result_byte(
     uint64_t token, uint16_t section, uint32_t offset);
+lxp_result layerx_programs_call_sandbox_usage_result_occupancy(
+    uint64_t token, struct lxp_program_outcome *outcome);
 
 lxp_result lxp_programs_account_derive(
     const uint8_t program_id[32], const uint8_t *seed, size_t seed_length,

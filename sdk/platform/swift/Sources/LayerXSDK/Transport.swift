@@ -736,6 +736,7 @@ public struct AgentEnvelopeResult: Sendable, Equatable {
 }
 
 public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendable {
+  private static let version: Int64 = 2
     public static let routePath = "/v1/agent/rpc"
     public static let daemonRoutePath = "/rpc"
     static let bootstrapOperations: Set<String> = ["agent.register", "session.open"]
@@ -852,7 +853,7 @@ public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendabl
             throw PlatformSDKError(code: .invalidArgument, retry: .never)
         }
         var envelope: [String: JSONValue] = [
-            "version": .integer(1), "request_id": .string(requestID),
+      "version": .integer(Self.version), "request_id": .string(requestID),
             "operation": .string(descriptor.name), "request": call.request,
         ]
         if Self.bootstrapOperations.contains(descriptor.name) {
@@ -886,9 +887,14 @@ public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendabl
         let document: JSONValue
         do { document = try JSONDecoder().decode(JSONValue.self, from: data) } catch { throw decode() }
         guard let object = document.objectValue else { throw decode() }
+    guard object["version"] == .integer(Self.version) else {
+            throw decode(object["request_id"]?.stringValue)
+        }
         if object["class"] != nil {
             guard !(200..<300).contains(status),
-                  exact(object, ["class", "protocol_result_code", "retriability", "request_id", "reason"]),
+        exact(
+          object,
+          ["version", "class", "protocol_result_code", "retriability", "request_id", "reason"]),
                   let responseID = object["request_id"]?.stringValue, responseID == requestID || responseID == "0",
                   let errorClass = object["class"]?.stringValue,
                   let reason = object["reason"]?.stringValue, reasonCode(reason) else {
@@ -906,7 +912,7 @@ public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendabl
                 errorClass: errorClass, protocolResultCode: resultCode,
                 retriability: object["retriability"]?.stringValue, reason: reason))
         }
-        guard status == 200, exact(object, ["request_id", "value", "verification_status"]),
+    guard status == 200, exact(object, ["version", "request_id", "value", "verification_status"]),
               object["request_id"]?.stringValue == requestID, let value = object["value"],
               let verification = object["verification_status"], validVerification(verification) else {
             throw decode(object["request_id"]?.stringValue)
