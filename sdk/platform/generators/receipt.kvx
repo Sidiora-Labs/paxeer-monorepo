@@ -3,18 +3,3 @@ receipt_versions = ["2", "3"]
 receipt_domain = "LXP/v1/receipt"
 sequence_domain = "PAXEER/v1/sequence"
 failure_checks = ["decode", "canonical-encoding", "receipt-version", "activity-id", "key-id", "key-height", "raw-transaction", "fields", "return-data", "logs", "sequence-hash", "signature"]
-
-[program_lifecycle.deploy]
-operation = "program.deploy"
-ordinal = 1
-path = "/v1/programs/deploy"
-
-[program_lifecycle.upgrade]
-operation = "program.upgrade"
-ordinal = 2
-path = "/v1/programs/upgrade"
-
-[program_lifecycle.wind_down]
-operation = "program.wind-down"
-ordinal = 7
-path = "/v1/programs/wind-down"

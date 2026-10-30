@@ -1,13 +1,16 @@
-use layerx_types::payload::{ActivityType, ModuleId};
+use layerx_crypto::payments::{ledger_payment_call, CallOptions, SendCondition, SendDebit};
 use serde_json::{json, Value};
 
 use crate::wallet_signing::{PreparedPayment, SigningFacts};
 
 pub fn payment_call(
     payload: &[u8],
-    options: &layerx_crypto::send::CallOptions,
+    options: &CallOptions,
 ) -> Result<layerx_crypto::evm_transaction::Eip1559Call, String> {
-    layerx_crypto::send::ledger_payment_call(payload, options)
+    if options.chain_id != 125 {
+        return Err("wallet writes require chainId 125".into());
+    }
+    ledger_payment_call(payload, options)
         .map(|disclosed| disclosed.call)
         .map_err(|e| format!("{e:?}"))
 }
@@ -56,8 +59,8 @@ impl Send {
             .map_err(|e| format!("{e:?}"))
     }
 
-    fn debit(&self) -> layerx_crypto::send::SendDebit {
-        layerx_crypto::send::SendDebit {
+    fn debit(&self) -> SendDebit {
+        SendDebit {
             from: self.from,
             to: self.to,
             asset: self.asset,
@@ -69,7 +72,7 @@ impl Send {
             conditions: self
                 .conditions
                 .iter()
-                .map(|&(kind, timestamp)| layerx_crypto::send::SendCondition { kind, timestamp })
+                .map(|&(kind, timestamp)| SendCondition { kind, timestamp })
                 .collect(),
             authorization_kind: self.authorization.kind,
             network_id: self.authorization.network_id,
@@ -99,18 +102,21 @@ impl Send {
     }
 
     /// # Errors
-    /// Requires the payload authorization to match the independent envelope facts.
-    pub fn prepare(&self, facts: &SigningFacts<'_>) -> Result<PreparedPayment, String> {
+    /// Requires the payload authorization to match the independent transaction facts.
+    pub fn prepare(
+        &self,
+        facts: &SigningFacts<'_>,
+        options: &CallOptions,
+    ) -> Result<PreparedPayment, String> {
         if self.authorization.protocol_version != 3
             || self.authorization.network_id != facts.network_id
             || self.authorization.public_key != facts.public_key
             || self.idempotency_key != facts.idempotency_key
             || self.expires_at != facts.expires_at_ms
         {
-            return Err("Send authorization and envelope facts differ".into());
+            return Err("Send authorization and transaction facts differ".into());
         }
-        let kind = ActivityType::new(ModuleId::Asset, 5).map_err(|e| format!("{e:?}"))?;
-        PreparedPayment::from_encoded(kind, &self.encode()?, facts, Some(self.disclosure()))
+        PreparedPayment::from_send(&self.encode()?, facts, options)
     }
 
     #[must_use]

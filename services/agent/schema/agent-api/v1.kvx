@@ -100,7 +100,7 @@ authorities = "Gateway API-key admission and the tenant session credential are t
 
 [record.AgentHttpEnvelope]
 fields = ["version:u8","request_id:Sequence","operation:utf8","request:canonical-map","credential:AgentHttpCredential?","idempotency_key:hex32?"]
-credential = "Required for every operation except the bootstrap operations agent.register and session.open, where it is null and the existing bootstrap authority of the owner decides."
+credential = "Required for every operation; agent.register and session.open are prepare operations under the owner session credential (decision.1844)."
 version = "Exactly 1; any other value is rejected as ProtocolIncompatibility."
 operation = "Exactly one generated catalogue operation name; an unknown name is rejected as ProtocolIncompatibility."
 idempotency_key = "Lowercase 64-hex non-zero key, required for every mutating catalogue operation and absent or null for every non-mutating operation; a violation is IdempotencyConflict."
@@ -144,19 +144,19 @@ keyed_execution = "prepare and submit carry the key in the owner mutation envelo
 [transport.agent_http.dispositions]
 served_dispatcher_arm = "Decoded into the owner typed request and executed by an arm of the daemon dispatcher."
 served_adapter_arm = "Decoded into the owner typed request and executed by a named owner adapter arm that the daemon dispatcher routes the operation to."
-refused_pending_bootstrap_artifact = "A bootstrap operation with a null credential; refused until the authenticated bootstrap artifact exists. Never served."
 unmatched_by_ruling = "Deliberately given no arm. Never served."
 retired = "Refused before dispatch as UnavailableCapability unavailable_capability.faucet.claim, Terminal."
 not_served_no_arm = "A catalogue operation with no dispatcher or adapter arm in this contract revision. Never served."
 surface = "Subscribe class operations use the Subscription caller surface, Export class operations the Export surface, every other operation the Contract surface."
 
 [transport.agent_http.operation.agent.register]
-request = "The request object of this catalogue operation; the daemon declares no typed decoder for it in this contract revision."
+request = "AgentRegistrationWire -> AgentRegistration"
 access = "mutation"
-operation_class = "none"
+operation_class = "Prepare"
 surface = "Contract"
 idempotency_key = "required"
-disposition = "refused_pending_bootstrap_artifact"
+disposition = "served_dispatcher_arm"
+response = "AuthorityResponse<Prepared>"
 
 [transport.agent_http.operation.approval.approve]
 request = "ApprovalDecisionRequest"
@@ -516,12 +516,13 @@ response = "TenantReadiness"
 authority = "operation_permit"
 
 [transport.agent_http.operation.session.open]
-request = "The request object of this catalogue operation; the daemon declares no typed decoder for it in this contract revision."
+request = "SessionOpenWire -> SessionOpen"
 access = "mutation"
-operation_class = "none"
+operation_class = "Prepare"
 surface = "Contract"
 idempotency_key = "required"
-disposition = "refused_pending_bootstrap_artifact"
+disposition = "served_dispatcher_arm"
+response = "AuthorityResponse<Prepared>"
 
 [transport.agent_http.operation.session.refresh]
 request = "The request object of this catalogue operation; the daemon declares no typed decoder for it in this contract revision."
@@ -634,7 +635,9 @@ transport_ambiguity = "A mutating request whose outcome the client cannot know i
 "envelope.unknown_operation" = "ProtocolIncompatibility Terminal. Operation is not a catalogue operation name."
 "envelope.noncanonical_integer" = "ProtocolIncompatibility Terminal. An integer string is not canonical decimal."
 "envelope.credential" = "ProtocolIncompatibility Terminal. Credential missing or a credential coordinate is malformed."
-"refused_pending_bootstrap_artifact" = "PolicyRefusal Terminal. agent.register or session.open before the authenticated bootstrap artifact exists."
+"binding.invalid_consent" = "PolicyRefusal Terminal. Owner binding consent does not verify for the node chain id, address and bind nonce."
+"session.key_unavailable" = "PolicyRefusal Terminal. The session grant has no usable provisioned session key."
+"preparation.fee_limit" = "PolicyRefusal Terminal. The node base fee requires max_fee_per_gas above the request fee_limit."
 "unmatched_by_ruling" = "UnavailableCapability Terminal. Historical program.interface refusal; retained as a reserved compatibility reason."
 "envelope.idempotency_key" = "IdempotencyConflict Terminal. Idempotency key presence violates the idempotency rule or the key is malformed."
 "envelope.coordinate_mismatch" = "PolicyRefusal Terminal. A request tenant or agent coordinate differs from the authenticated principal."

@@ -294,8 +294,11 @@ export class AttestorTokenError extends AttestorError {
 }
 
 export class AttestorReauthorizationRequired extends AttestorTokenError {
+  readonly kind: SignKind;
   constructor(readonly request: string, readonly keyId: string) {
     super('agent_reauthorization_required', 'the exact attestor request requires the registered agent signature');
+    const wire = JSON.parse(request) as SignRequestWire;
+    this.kind = wire.construction?.kind === 'eip7702_authorization' ? 'eip7702_authorization' : wire.kind;
   }
 }
 
@@ -685,8 +688,9 @@ export class AttestorClient {
     if (authorisation.scheme === 'agent_request') {
       origin = authorisation.origin;
       const approved = authorisation.reauthorization;
-      if (approved) {
-        const offered = JSON.parse(approved.body) as SignRequestWire;
+      const offered = approved ? JSON.parse(approved.body) as SignRequestWire : undefined;
+      if (approved && offered?.key_id === input.keyId && offered.kind === kind
+        && offered.construction?.kind === ('construction' in input.payload ? input.payload.construction.kind : undefined)) {
         if (!offered || typeof offered !== 'object' || !offered.origin || offered.origin.did !== origin.did || offered.origin.method !== origin.method
           || offered.origin.body !== origin.body || typeof offered.session_id !== 'string' || !offered.session_id
           || !Array.isArray(offered.signers) || offered.signers.length !== this.opts.quorum

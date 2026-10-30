@@ -5,7 +5,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, EventDelivery, EventIdentity, ReceiptReference,
 };
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::verify::Level;
 use layerx_human_service::activity::detail::{
     DetailError, EvidenceKind, FinalityReference, ReceiptActual,
 };
@@ -142,11 +141,8 @@ fn recorded_entry(rung: Rung) -> Result<(ActivityEntry, ReceiptActual), FeedErro
 }
 
 #[test]
-fn checkpoint_evidence_level_follows_the_finality_rung() {
-    for (rung, level) in [
-        (Rung::Receipted, Level::BatchIncluded),
-        (Rung::Committed, Level::CheckpointFinalised),
-    ] {
+fn checkpoint_evidence_rung_follows_the_finality_rung() {
+    for rung in [Rung::Receipted, Rung::Committed] {
         let (entry, actual) =
             recorded_entry(rung).unwrap_or_else(|error| panic!("feed entry: {error}"));
         assert_eq!(entry.rung(), rung);
@@ -157,9 +153,9 @@ fn checkpoint_evidence_level_follows_the_finality_rung() {
         assert_eq!(detail.finality(), Some(reference));
         assert_eq!(detail.evidence().len(), 2);
         assert_eq!(detail.evidence()[0].kind(), EvidenceKind::Receipt);
-        assert_eq!(detail.evidence()[0].level(), level);
+        assert_eq!(detail.evidence()[0].rung(), rung);
         assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
-        assert_eq!(detail.evidence()[1].level(), level);
+        assert_eq!(detail.evidence()[1].rung(), rung);
     }
 }
 
@@ -190,11 +186,11 @@ fn receipted_entry_detail_is_not_final() {
                 assert!(!detail.is_final());
                 assert_eq!(detail.status(), ActivityStatus::Done);
                 assert_eq!(detail.finality(), finality);
-                assert_eq!(detail.evidence()[0].level(), Level::BatchIncluded);
+                assert_eq!(detail.evidence()[0].rung(), Rung::Receipted);
                 if finality.is_some() {
                     assert_eq!(detail.evidence().len(), 2);
                     assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
-                    assert_eq!(detail.evidence()[1].level(), Level::BatchIncluded);
+                    assert_eq!(detail.evidence()[1].rung(), Rung::Receipted);
                     assert!(!detail
                         .finality()
                         .unwrap_or_else(|| panic!("missing finality"))
@@ -238,9 +234,9 @@ fn committed_entry_detail_is_final() {
             .unwrap_or_else(|| panic!("missing finality"))
             .is_final());
         assert_eq!(detail.evidence().len(), 2);
-        assert_eq!(detail.evidence()[0].level(), Level::CheckpointFinalised);
+        assert_eq!(detail.evidence()[0].rung(), Rung::Committed);
         assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
-        assert_eq!(detail.evidence()[1].level(), Level::CheckpointFinalised);
+        assert_eq!(detail.evidence()[1].rung(), Rung::Committed);
         assert_eq!(
             EntryDetail::assemble(&entry, vec![actual.clone()], None),
             Err(DetailError::MissingFinalityEvidence)

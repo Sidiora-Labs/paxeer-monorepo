@@ -1031,6 +1031,7 @@ dependencies = [
 name = "layerx-programs-fuzz"
 version = "0.1.0"
 dependencies = [
+ "layerx-programs-registry",
  "layerx-programs-runtime",
 ]
 
