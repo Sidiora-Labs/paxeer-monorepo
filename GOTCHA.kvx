@@ -11321,3 +11321,43 @@ fix = "Set grpc enable true in the node's app.toml beside the grpc address; evm 
 title = "A whole-application tsc as a task build gate fails on sibling-owned consumers of the types the task deletes"
 symptom = "An explorer task deleted five exported type names and repointed stubs; yarn lint:tsc then reported 20 errors in 17 files, none in the task's touches, because the pages, tables and specs that import those names belong to later sibling tasks."
 fix = "Narrow the task's build to tsc over its touched files and their imports with the tsconfig flags written out, give each sibling the same narrowed build, and keep the whole-application check on the last task of the family, which requires every consumer task."
+
+[gotcha.2302]
+title = "A schema validator that requires type names by string survives the deletion of those types and fails on a schema that is correct"
+symptom = "A code generator's lifecycle check required five type names that a later schema task deleted and replaced with one variant; the generator never read the names into any output, so the schema change passed its own gate and the generator's gate failed with 'missing type.X.required' on a correct schema."
+fix = "When a schema task deletes or renames types, grep every tool that validates the schema by name (sdk-gen validate_* functions) and port the check in the same decision; do not re-add the deleted types to the schema."
+
+[gotcha.2303]
+title = "An address-uniqueness loop over the precompile name table refuses the documented alias handoff"
+symptom = "The name table records three names (a camel-case name, its lower-case alias and the successor name) at one address under a recorded decision, and a sibling test requires exactly that; a registration test's loop over the same table asserted every address unique, so the two tests could never pass together."
+fix = "Teach the uniqueness loop the one documented shared address and the exact set of names allowed there; keep every other shared address a failure and leave the alias assertions as written."
+
+[gotcha.2304]
+title = "A do line that asserts two differently-typed ABI events share a topic cannot be implemented without changing a frozen contract table"
+symptom = "Two precompiles declare StreamRateUpdated with different parameter lists, so their topic0 values differ by construction and both are frozen by done gates; a later task's do line said to assert they match, and the literal implementation failed with expected one hash, actual the other."
+fix = "Assert each event's topic0 against its own canonical signature and that the two differ; supersede the do line with a decision instead of touching either ABI or contract table."
+
+[gotcha.2305]
+title = "A deleted generated file that one hand-written file still reads breaks every gate that compiles the package, including gates of unrelated tasks"
+symptom = "A retyping task deleted a generated Go file; another file in the same package kept reading a symbol from it, so the package has not compiled since, and four attempts of a task whose verify runs one test in that package all stopped at the same undefined symbol without reaching their own test."
+fix = "Give the dangling read to the task that owns the hand-written file, order the dependent task behind it by requires and a decision, and re-qualify the dependent candidate unchanged once the package compiles."
+
+[gotcha.2306]
+title = "Comparing a recovered secp256k1 transaction sender with an Ed25519 custody descriptor key refuses every valid request"
+symptom = "A creation path compared the left-padded sender recovered from a signed EIP-1559 transaction with KeyDescriptor.public_key, which is the Ed25519 verification key of the same custody secret; the two are points on different curves, so the check refused deterministically even when the fixture derived both from one secret."
+fix = "Compare the sender with the custody signer's EVM wallet (CustodySigner::evm_wallet) and carry the left-padded wallet as the evidence owner key; never compare across key classes."
+
+[gotcha.2307]
+title = "swift build compiles no test target, so a test that reaches a fileprivate library helper first fails at swift test"
+symptom = "A Swift SDK test used a Data.hex helper that is fileprivate in one library file and private in another; every build leg passed because swift build never compiles the test target, and the error waits for swift test, which only the verify runs."
+fix = "Format bytes inline in the test (map over the bytes with %02x and join) or add a test-target helper; do not widen the library helper's access to satisfy a test."
+
+[gotcha.2308]
+title = "A name lookup that re-runs the keeper-free dry run after a real-keeper dry run panics on a constructor that needs keepers"
+symptom = "GetPrecompileInfoE ran InitializePrecompiles(true, EmptyKeepers) whenever Initialized was false, even though a completed dry run with real keepers had already filled the name table; a merge precompile constructor that requires its keeper set refused the empty set and every lookup after that dry run panicked."
+fix = "Serve the recorded table entry first and run the keeper-free dry run only for an unrecorded name when nothing has been recorded; keep the unknown-name error path intact."
+
+[gotcha.2309]
+title = "Re-running a task before the base carries its spec amendment repeats the recorded failure"
+symptom = "Three tasks were re-run minutes after their spec amendments were written; each run started from a base revision that predated the amending commit, saw the old do lines and touches, and failed exactly as recorded, adding nothing."
+fix = "Before re-running a task whose spec was just amended, confirm the base revision is at or after the amending commit (and after the owner task's commit when the amendment adds a requires); otherwise wait for the base to advance."
