@@ -4761,6 +4761,12 @@ value = "WebPayer gains standing_grant (default Ok(None)); when a metered offer 
 basis = "Attempt 5 of 18.1279.1 (b6873cc30) passes the challenge after 18.1279.2 and panics at tests/web.rs:612 because gateway/metered.json records no PayerGrantIssued receipt: the recordings settle a receiver-signed draw on the standing grant 7130e3f7 (metered.json:98, :166, :195-218, :483), a freshly signed grant's id includes the wall-clock expiry (src/tools/web.rs:1322-1327) and GrantTerms::prepare_grant (:581-593) refuses the recorded grant, so the issue path can never match unedited recordings."
 affects = ["18.1279.1", "18.1279.3"]
 
+[decision.1942]
+title = "agentd startup checks node JSON-RPC before the human LNI variable is read"
+value = "req.9003 ac_1 is amended: under decision.1920 the human runtime keeps LAYERX_AGENT_HUMAN_NODE_LNI (services/agent/crates/layerx-agentd/src/main.rs:980) and connect_human_node, and host-tests/runtime_mode.rs:187-201 and decision.1913 start human-owner mode with it, so task 9.0.3 asserts that serve_human_owner connects node JSON-RPC before that variable is read; refusing the variable by name moves to the task that removes src/main.rs:980."
+basis = "Attempts 1 (227f0d0fe) and 2 (a568af4c5) of 9.0.3 failed all three node_integration tests: the LNI test hit `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION is required` because nothing at base retires the variable (refuse_retired_environment at main.rs:2378-2391 lists five other names) and 9.12.5 do_3 keeps the read at main.rs:980; the closed-endpoint test hit `LAYERX_AGENT_HUMAN_NODE_LNI is required` because serve_human_owner (human_owner_mode.rs:83) only parses NodeRpcConfig and NodeRpc::connect runs only in the readiness check (:49-55). The previous ac_1 could not be met without breaking human-owner mode."
+affects = ["9.0.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -17632,8 +17638,8 @@ ac_3 = "An envelope whose version field is 2 is refused with ProtocolIncompatibi
 
 [req.9003]
 title = "Integrate agentd startup with the node JSON-RPC endpoint end to end"
-ac_1 = "Starting layerx-agentd in human-owner mode with LAYERX_AGENT_HUMAN_NODE_LNI set exits nonzero naming that variable as retired, where HEAD reads it at services/agent/crates/layerx-agentd/src/human_owner_mode.rs:52."
-ac_2 = "With LAYERX_AGENT_NODE_RPC_URL naming a closed loopback port the binary exits nonzero with `node JSON-RPC is unavailable` rather than the LNI error at services/agent/crates/layerx-agentd/src/main.rs:714."
+ac_1 = "Starting layerx-agentd in human-owner mode with LAYERX_AGENT_HUMAN_NODE_LNI set and LAYERX_AGENT_NODE_RPC_URL naming a closed loopback port exits nonzero with `node JSON-RPC is unavailable` before the human runtime reads LAYERX_AGENT_HUMAN_NODE_LNI (services/agent/crates/layerx-agentd/src/main.rs:980), and the diagnostic names neither the LNI path nor LNI."
+ac_2 = "With LAYERX_AGENT_NODE_RPC_URL naming a closed loopback port the binary exits nonzero with `node JSON-RPC is unavailable` rather than the LNI error at services/agent/crates/layerx-agentd/src/main.rs:730."
 ac_3 = "A node whose eth_chainId differs from LAYERX_AGENT_NODE_CHAIN_ID is refused at startup with `node chain id mismatch` (planned)."
 
 [req.9004]
@@ -67468,9 +67474,9 @@ qualification = "UNRUN"
 [acceptance.9.3.1]
 feature = "9"
 req = "9003.1"
-scenario = "Given the integrated binary and an environment holding LAYERX_AGENT_HUMAN_NODE_LNI, when layerx-agentd starts with LAYERX_AGENT_MODE=human-owner, then it exits nonzero and stderr names LAYERX_AGENT_HUMAN_NODE_LNI as retired."
+scenario = "Given the integrated binary, LAYERX_AGENT_HUMAN_NODE_LNI naming an unserved path and LAYERX_AGENT_NODE_RPC_URL naming a closed loopback port, when layerx-agentd starts with LAYERX_AGENT_MODE=human-owner, then it exits nonzero with `node JSON-RPC is unavailable` and stderr names neither the LNI path nor LNI."
 contract = "contracts/agent-config.md#agentd-env"
-test = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs::startup_refuses_the_retired_lni_variable (planned)"
+test = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs::startup_checks_node_json_rpc_before_the_human_lni_variable (planned)"
 qualification = "UNRUN"
 
 [acceptance.9.3.2]
@@ -100679,7 +100685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.6]
 title = "Serve the ten 0x101B stream methods and eight stream events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.28.2", "2.28.3", "2.25.1", "2.25.2", "2.25.3", "2.25.4", "2.28.5", "18.1308.1"]
@@ -101234,7 +101240,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.36.2]
 title = "Register the 0x0903 merge constructor with the provisional feed caps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.36.1"]
@@ -132045,7 +132051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.29.2]
 title = "Check buf generate reproduces the checked-in Go for api and sdk/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["7.21.1", "7.22.2", "7.28.3", "7.26.4", "6.68.2", "7.26.5"]
@@ -139443,20 +139449,20 @@ requires = ["9.12.3", "9.12.2", "9.12.5", "9.16.2", "9.7.3", "7.0.2", "9.1.8", "
 reqs = ["9003.1", "9003.2", "9003.3"]
 capabilities = ["9.20.93"]
 interfaces = ["interface.9.cli-layerx-agentd-mode-human-owner", "interface.9.env-layerx-agent-node-rpc-url-j43", "interface.9.env-layerx-agent-node-chain-id-j43"]
-do_1 = "services/agent/crates/layerx-agentd-host/Cargo.toml:12-14 declares one [[test]] runtime_mode; add `[[test]] name = \"node_integration\" path = \"../layerx-agentd/host-tests/node_integration.rs\"` so the test drives the real `layerx-agentd` binary through CARGO_BIN_EXE_layerx-agentd."
-do_2 = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs (planned) starts the binary with LAYERX_AGENT_MODE=human-owner (services/agent/crates/layerx-agentd/src/human_owner_mode.rs:24) and the node variables LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID read by `NodeRpcConfig::from_environment` in services/agent/crates/layerx-agentd/src/node_rpc.rs (planned by task 9.12.1)."
-do_3 = "Assert the retired LAYERX_AGENT_HUMAN_NODE_LNI variable (read at services/agent/crates/layerx-agentd/src/human_owner_mode.rs:52 at HEAD) is refused by name once task 9.12.3 lands, and that a closed loopback endpoint yields the startup error `node JSON-RPC is unavailable` instead of the LNI message at services/agent/crates/layerx-agentd/src/main.rs:714."
-do_4 = "Assert eth_chainId disagreement is refused at startup: the binary pointed at the integrated devnet RPC with LAYERX_AGENT_NODE_CHAIN_ID different from the node's eth_chainId exits nonzero with `node chain id mismatch` from `NodeRpc::connect` in services/agent/crates/layerx-agentd/src/node_rpc.rs (planned)."
-symbols = ["NodeRpcConfig", "node_integration"]
-touches = ["services/agent/crates/layerx-agentd-host/Cargo.toml", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs"]
-tests = ["services/agent/crates/layerx-agentd/host-tests/node_integration.rs::startup_refuses_the_retired_lni_variable", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs::startup_reports_node_json_rpc_unavailable_for_a_closed_endpoint", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs::startup_refuses_a_chain_id_mismatch"]
+do_1 = "services/agent/crates/layerx-agentd-host/Cargo.toml:8-26 declares the layerx-agentd [[bin]] (src/main.rs) and the retired_env, runtime_mode, serve_routes and payer_evm [[test]] targets; add `[[test]] name = 'node_integration' path = '../layerx-agentd/host-tests/node_integration.rs'` so the test drives the real binary through CARGO_BIN_EXE_layerx-agentd, and enable the rustix `process` feature beside `net` (Cargo.toml:52)."
+do_2 = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs (planned) starts the binary with LAYERX_AGENT_MODE=human-owner (services/agent/crates/layerx-agentd/src/human_owner_mode.rs:23) and the node variables LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID read by `NodeRpcConfig::from_environment` (services/agent/crates/layerx-agentd/src/node_rpc.rs:23-43)."
+do_3 = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs:83 `serve_human_owner` only parses NodeRpcConfig; it connects `NodeRpc::connect` (node_rpc.rs:88) once with that config after `human_peers` (:82) and before `start_human_owner` (:84, src/main.rs:916) and the health listener bind (:85), and the boot diagnostic carries the NodeRpcError text (node_rpc.rs:62-63), so a closed endpoint exits 2 with `node JSON-RPC is unavailable` and a disagreeing eth_chainId exits 2 with `node chain id mismatch` before LAYERX_AGENT_HUMAN_NODE_LNI is read (src/main.rs:980) and before any listener opens; the readiness check (human_owner_mode.rs:49-55) is unchanged."
+do_4 = "startup_reports_node_json_rpc_unavailable_for_a_closed_endpoint points LAYERX_AGENT_NODE_RPC_URL at a bound, non-listening loopback port with LAYERX_AGENT_HUMAN_NODE_LNI absent and asserts exit 2, `node JSON-RPC is unavailable` and no `LNI` in stderr, in place of the LNI error at src/main.rs:730."
+symbols = ["NodeRpcConfig", "node_integration", "serve_human_owner"]
+touches = ["services/agent/crates/layerx-agentd-host/Cargo.toml", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs", "services/agent/crates/layerx-agentd/src/human_owner_mode.rs"]
+tests = ["services/agent/crates/layerx-agentd/host-tests/node_integration.rs::startup_checks_node_json_rpc_before_the_human_lni_variable", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs::startup_reports_node_json_rpc_unavailable_for_a_closed_endpoint", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs::startup_refuses_a_chain_id_mismatch"]
 planned_paths = ["services/agent/crates/layerx-agentd/host-tests/node_integration.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test node_integration -- --exact startup_refuses_the_retired_lni_variable startup_reports_node_json_rpc_unavailable_for_a_closed_endpoint startup_refuses_a_chain_id_mismatch"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test node_integration -- --exact startup_checks_node_json_rpc_before_the_human_lni_variable startup_reports_node_json_rpc_unavailable_for_a_closed_endpoint startup_refuses_a_chain_id_mismatch"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
-rollback = "Remove the node_integration [[test]] entry and the planned test file; no runtime path changes."
+rollback = "Restore the parse-only node_rpc_config call at human_owner_mode.rs:83, remove the node_integration [[test]] entry and the rustix process feature, and delete the test file."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -139464,6 +139470,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "The human runtime keeps LAYERX_AGENT_HUMAN_NODE_LNI (src/main.rs:980) and connect_human_node (src/main.rs:692-747) per decision.1920 and decision.1942; startup_checks_node_json_rpc_before_the_human_lni_variable sets LAYERX_AGENT_HUMAN_NODE_LNI to an absolute path no listener serves and LAYERX_AGENT_NODE_RPC_URL to a closed loopback port, and asserts exit 2, `node JSON-RPC is unavailable`, and a diagnostic naming neither the LNI path nor `LNI`; refusing LAYERX_AGENT_HUMAN_NODE_LNI by name belongs to the task that removes src/main.rs:980."
+do_6 = "startup_refuses_a_chain_id_mismatch reads LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT, which the environment that runs the gates exports for the in-tree local node (decision.1896), fails by name when either is missing, builds http://127.0.0.1:<port>, confirms `NodeRpc::connect` with that chain id returns it, then starts the binary with LAYERX_AGENT_NODE_CHAIN_ID set to a different value and asserts exit 2 with `node chain id mismatch` (node_rpc.rs:140-146) and no `node JSON-RPC is unavailable`. Attempts 1 (227f0d0fe) and 2 (a568af4c5) read LAYERX_AGENT_NODE_RPC_URL from the test process, which nothing exports, and their LNI and closed-endpoint tests reached src/main.rs:980 because serve_human_owner never connected."
 
 [task.9.0.4]
 title = "Repoint the SDK parity harness at the node JSON-RPC endpoint and rungs"
@@ -157883,7 +157891,7 @@ do_8 = "Attempt 4 (30228d5f1) built the package test tree and failed in programs
 
 [task.13.4.6]
 title = "Delete the kernel batch, maintenance and trust-history evidence from the registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["13.9.2", "13.9.3", "13.9.4", "13.9.5", "13.4.5", "8.94.2", "9.12.6", "18.1304.1"]
@@ -191596,7 +191604,7 @@ qualification = "UNRUN"
 
 [task.18.1279.1]
 title = "Issue #1279: Drive the paid metered web.search test through the 0x101A grant and draw path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1304.1", "18.1279.2", "18.1279.3"]
@@ -193989,7 +193997,7 @@ qualification = "UNRUN"
 
 [task.18.1308.3]
 title = "Agent daemon and agent API errors stop naming the retired resultByIdempotency view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1308.1"]
@@ -194124,7 +194132,7 @@ qualification = "UNRUN"
 
 [task.18.1279.3]
 title = "MCP metered web payments present a standing ledger grant the payer holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1279.2"]
@@ -194164,5 +194172,6 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 

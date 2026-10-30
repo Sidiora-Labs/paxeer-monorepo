@@ -84,7 +84,6 @@ pub struct LayerxdProgramBalanceReader {
     authority_authorization: String,
     authority_replica_id: [u8; 32],
     verifier: ProtocolDeploymentVerifier,
-    protected_verifier: ProtocolDeploymentVerifier,
     registry: Registry,
     staleness_limit: u64,
 }
@@ -210,23 +209,9 @@ impl LayerxdProgramBalanceReader {
             authority_authorization,
             authority_replica_id,
             staleness_limit: verifier.staleness_limit_ms(),
-            protected_verifier: verifier.clone(),
             verifier,
             registry,
         })
-    }
-
-    /// # Errors
-    /// Refuses a projection conflicting with immutable protected policy or revocations.
-    pub fn refresh_authority(
-        &mut self,
-        history: &layerx_proof::signed_authority::SignedAuthorityHistory,
-    ) -> Result<(), ProgramReadError> {
-        self.verifier = self
-            .protected_verifier
-            .with_signed_history(history)
-            .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        Ok(())
     }
 
     /// Reads and locally re-verifies one complete current protocol state.
@@ -560,15 +545,6 @@ impl ProgramBalanceReadRoute {
     #[must_use]
     pub const fn new(reader: LayerxdProgramBalanceReader) -> Self {
         Self { reader }
-    }
-
-    /// # Errors
-    /// Propagates protected policy and authenticated-history refusals unchanged.
-    pub fn refresh_authority(
-        &mut self,
-        history: &layerx_proof::signed_authority::SignedAuthorityHistory,
-    ) -> Result<(), ProgramReadError> {
-        self.reader.refresh_authority(history)
     }
 
     /// Serves one committed balance read through the connected reader.

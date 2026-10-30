@@ -311,8 +311,10 @@ impl Store {
         Ok(())
     }
 
-    /// Persists an original result obtained from the node's `resultByIdempotency` view.
-    /// The caller supplies the original request and transaction hash associated with that result.
+    /// Persists the original result recovered from the verified sequencer receipt returned by
+    /// the submit path for the retained signed transaction (`SubmissionState::Executed` or
+    /// `SubmissionState::Committed` `receipt_ref`). The caller supplies that transaction's
+    /// original request bytes and hash.
     ///
     /// # Errors
     /// Refuses invalid requests, oversized results, conflicting local requests or results,
