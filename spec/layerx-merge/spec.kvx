@@ -156685,7 +156685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.3]
 title = "Prove the programs protocol head from module state at a chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
@@ -156747,7 +156747,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.5]
 title = "Prove the program wind-down status at a chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
