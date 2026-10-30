@@ -163414,7 +163414,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.1]
 title = "Freeze a newHeads fixture whose header fields match eth_getBlockByNumber"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["14.0.3", "7.0.3", "18.1055.1"]
