@@ -432,7 +432,7 @@ public struct AgentEnvelopeResult: Sendable, Equatable {
 }
 
 public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendable {
-  private static let version: Int64 = 2
+  private static let version: Int64 = 1
   public static let routePath = "/v1/agent/rpc"
   public static let daemonRoutePath = "/rpc"
   static let bootstrapOperations: Set<String> = ["agent.register", "session.open"]

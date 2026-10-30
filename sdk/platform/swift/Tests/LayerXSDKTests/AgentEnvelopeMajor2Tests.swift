@@ -4,7 +4,7 @@ import XCTest
 @testable import LayerXSDK
 
 final class AgentEnvelopeMajor2Tests: XCTestCase {
-  func testAgentEnvelopeEncodesVersionTwo() throws {
+  func testAgentEnvelopeEncodesVersionOne() throws {
     let credential = try AgentSessionCredential(
       tenant: "major-two", sessionID: String(repeating: "a", count: 64),
       tokenID: Data(repeating: 0x42, count: 32), generation: 1)
@@ -29,7 +29,7 @@ final class AgentEnvelopeMajor2Tests: XCTestCase {
       let request = try transport.envelopeRequest(descriptor, call: call, requestID: "42")
       let document = try JSONDecoder().decode(JSONValue.self, from: XCTUnwrap(request.httpBody))
       let envelope = try XCTUnwrap(document.objectValue)
-      XCTAssertEqual(envelope["version"], .integer(2), descriptor.name)
+      XCTAssertEqual(envelope["version"], .integer(1), descriptor.name)
       XCTAssertEqual(envelope["operation"], .string(descriptor.name))
       XCTAssertEqual(envelope["request_id"], .string("42"))
       XCTAssertEqual(envelope["request"], .emptyObject)
