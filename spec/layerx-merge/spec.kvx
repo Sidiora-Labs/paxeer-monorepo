@@ -159513,7 +159513,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.8]
 title = "Bind the sandbox escrow-charge transfer effect in the kernel receipt projection"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.27.7"]
