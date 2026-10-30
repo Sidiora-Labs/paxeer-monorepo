@@ -13283,3 +13283,35 @@ symbol = "assert_outcome, layerx_proof::receipt::verify_outcome, ReceiptCheck::O
 observed = "Attempt 9 (09ee34cfb on bf4e10a64) completed do_11 to do_13; bound_activity accepts the sign_transaction owner, and the do_12 call layerx_proof::receipt::verify_outcome refuses the fixture receipt with check Operation because receipt.rs:367-368 rejects operation tag 0 for module Budget 3, while finalization_evidence (src/server/agent_creation.rs:649) and change_protocol_limit (src/agents/controls.rs:628), which the same test target needs to succeed, require that tag to be 0; the verify stopped at agent_controls and the four remaining human targets did not run."
 assumption = "The generic verifier admits native owner receipts only after task 9.27.5 (decision.929, wave 35); until then the fixture verifies the sequencer signature with receipt::verify_sequencer_signature and asserts batch and roots against the AuthorizedBatch (do_15), the operation tag stays 0, and no file under src changes."
 severity = "task"
+
+[finding.8.4.3.1]
+task = "8.4.3"
+file = "services/platform/hosted/registry/src/node_state.rs:7, :304, :356, :400-426, :512-544, :860-894; services/platform/hosted/registry/src/journal.rs:137-138, :615-627; services/platform/hosted/registry/src/routes.rs:137, :1979, :1995; services/platform/hosted/registry/src/deployment.rs:90"
+symbol = "layerx_programs::ProtocolHeadMaintenanceProof, ProtocolDeploymentVerifier::from_protected_history, verify_current_maintenance_head, ProgramStateProof.receipt, DeploymentProof.activity, VerifiedDeploymentEvidence::batch_header_digest, canonical_encoding"
+observed = "Attempt 1 (00e58c18b on de9686155) built layerx-platform-gateway and stopped in the build of the crates that depend on the gateway library: layerx-platform-registry fails with 31 errors at the base and on main (2fafc70a4), because tasks 13.4.5 (42c1fea30) and 13.4.6 (0461a4f71) deleted or reshaped the chain-proof verifier types the registry still uses; the registry tree is unchanged between base and main, and attempts 81054ddd7, 1aef069ec, 55d82a8c2 (8.4.3) and f9d7a9c98, ad2cb2232, 9c314362a (8.5.2) stopped at the same errors."
+assumption = "The port belongs to task 8.12.3, which already owns node_state.rs, routes.rs and deployment.rs; journal.rs had no pending owner (8.94.2 is done) and joins its touches; 8.12.3 moves to wave 28, requires 13.4.5 and 13.4.6 instead of 8.0.4, and 8.4.3 and 8.5.2 require it (decision.1971). A capabilities.rs-only change cannot cause or cure this failure."
+severity = "cross-task"
+
+[finding.8.4.3.2]
+task = "8.4.3"
+file = "spec [task.8.4.3] do_2; precompiles/layerxauth/abi.json; precompiles/layerxledger/views_test.go:243; modules/layerxauth/keeper/views.go:62-70"
+symbol = "totalUnits(bytes32), isLive(bytes32,uint64,uint64), accountId(bytes32,bytes32)"
+observed = "do_2 named a ledger probe view that reverts and an auth view that does not exist: totalUnits(bytes32) answers LXP_ASSET_MISMATCH for a zero asset id, unlike Pay's budgetRemaining which returns zero for an unknown budget (modules/layerxpay/keeper/budget_views.go:30-34), so the attempt 1 ledger probe would report ledger false on every served node and refuse 0x101A writes; the served auth ABI, frozen by task 2.2.2 with exactly its 9 methods (spec.kvx acceptance at [req.2022]), has five views and all take arguments."
+assumption = "do_2 is rewritten to accountId(bytes32,bytes32) for ledger and isLive(bytes32,uint64,uint64) for auth, both answering zero arguments without a state read or with a non-reverting refusal; no ABI changes and the frozen ABI acceptance of 2.2.2 and 2.11.4 stays."
+severity = "task"
+
+[finding.8.5.2.2]
+task = "8.5.2"
+file = "services/platform/hosted/registry/src/node_state.rs:7"
+symbol = "layerx_programs::ProtocolHeadMaintenanceProof, ProtocolDeploymentVerifier::from_protected_history"
+observed = "Attempts f9d7a9c98, ad2cb2232 and 9c314362a built layerx-platform-gateway and stopped in the build of its dependents, where layerx-platform-registry fails with the 31 errors of finding 8.4.3.1 at every base since 13.4.5 and 13.4.6; the verify_cmd never ran."
+assumption = "Task 8.12.3 ports the registry and now precedes this task; nothing in paxeer.rs, evm.rs, openrpc.json or one_source_reads.rs can change the outcome until it lands."
+severity = "cross-task"
+
+[finding.17.5.1.11]
+task = "17.5.1"
+file = "services/human/crates/layerx-human-security-provider/src/state.rs:56, :136"
+symbol = "ProtocolDeploymentVerifier::from_protected_history"
+observed = "Attempt 13 (ee7d7eaf0 on de9686155) exited in make workspace-build at human-build (Makefile:1960): layerx-human-security-provider fails with E0599 at state.rs:56 and :136 because task 13.4.6 (0461a4f71) deleted from_protected_history and no task owned the provider's port; build and agent-build passed."
+assumption = "Task 10.99.1 ports the provider and precedes this gate; the attempt 9 test is right and unchanged."
+severity = "cross-task"

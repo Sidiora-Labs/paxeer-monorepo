@@ -14,6 +14,7 @@ import type { IdempotencyKey } from "./production.js";
 import type { Operation as AgentOperation } from "./generated/client.js";
 import {
   PlatformSdkError,
+  RETIRED_OPERATION_NAMES,
   SecretBytes,
   type ProductionTransport,
   type SdkErrorCode,
@@ -88,6 +89,22 @@ export interface AgentHttpTransportOptions {
   readonly maximumResponseBytes?: number;
 }
 
+export class RetiredOperationError extends PlatformSdkError {
+  public readonly class = "UnavailableCapability";
+  public readonly retriability = "Terminal";
+  public readonly reason: string;
+
+  public constructor(operation: string) {
+    super({ code: "unavailable-capability", retry: "never" });
+    if (!RETIRED_OPERATION_NAMES.includes(operation)) throw invalidArgument();
+    this.reason = `unavailable_capability.${operation}`;
+  }
+
+  public override toJSON() {
+    return { ...super.toJSON(), class: this.class, reason: this.reason, retriability: this.retriability };
+  }
+}
+
 /** Exact HTTP transport for the six schema-routed Programs operations. */
 export class AgentHttpTransport implements ProductionTransport {
   readonly #endpoint: URL;
@@ -105,6 +122,7 @@ export class AgentHttpTransport implements ProductionTransport {
 
   public async call<TRequest, TResponse>(call: TransportCall<TRequest>): Promise<TResponse> {
     if (call.plane !== "agent") throw unavailableCapability();
+    if (RETIRED_OPERATION_NAMES.includes(call.operation)) return this.callRetiredOperation(call.operation);
     const route = PROGRAM_ROUTES[call.operation as AgentOperation];
     if (route === undefined) throw unavailableCapability();
     const request = record(call.request);
@@ -143,6 +161,10 @@ export class AgentHttpTransport implements ProductionTransport {
       this.#credential.use((authorization) => { headers.Authorization = authorization; });
     }
     return await this.dispatch<TResponse>(endpoint, route.method, headers, body, call.operation as AgentOperation);
+  }
+
+  public async callRetiredOperation(operation: string): Promise<never> {
+    throw new RetiredOperationError(operation);
   }
 
   private dispatch<TResponse>(
@@ -388,7 +410,7 @@ const VERIFICATION_LEVELS: ReadonlySet<string> = new Set([
 export const AGENT_ENVELOPE_OPERATION_NAMES: readonly AgentOperation[] = Object.freeze<AgentOperation[]>([
   "agent.register", "approval.approve", "approval.get", "approval.list", "approval.reject", "availability.fetch",
   "budget.create", "budget.fund", "budget.list", "budget.reconciliation", "budget.revoke",
-  "capability.attenuate", "capability.create", "capability.list", "capability.revoke", "export.offline", "faucet.claim",
+  "capability.attenuate", "capability.create", "capability.list", "capability.revoke", "export.offline",
   "prepare", "program.activity", "program.call", "program.deploy", "program.discover", "program.interface",
   "program.receipt", "program.simulate", "program.upgrade", "program.wind-down", "project",
   "read.account", "read.balance", "read.batch", "read.checkpoint", "read.history", "read.module_state", "read.proof_bundle",
@@ -653,7 +675,9 @@ export class AgentEnvelopeTransport implements ProductionTransport {
   }
 
   public async call<TRequest, TResponse>(call: TransportCall<TRequest>): Promise<TResponse> {
-    if (call.plane !== "agent" || !AGENT_ENVELOPE_OPERATIONS.has(call.operation)) throw unavailableCapability();
+    if (call.plane !== "agent") throw unavailableCapability();
+    if (RETIRED_OPERATION_NAMES.includes(call.operation)) return this.callRetiredOperation(call.operation);
+    if (!AGENT_ENVELOPE_OPERATIONS.has(call.operation)) throw unavailableCapability();
     const operation = call.operation as AgentOperation;
     const mutation = ENVELOPE_MUTATIONS.has(operation);
     if (mutation) {
@@ -680,6 +704,10 @@ export class AgentEnvelopeTransport implements ProductionTransport {
       return Object.freeze({ ...envelope, value: checkTenantReadinessResponse(envelope) }) as TResponse;
     }
     return response;
+  }
+
+  public async callRetiredOperation(operation: string): Promise<never> {
+    throw new RetiredOperationError(operation);
   }
 
   public async tenantReadiness(): Promise<AgentEnvelopeSuccess<TenantReadinessV1>> {
