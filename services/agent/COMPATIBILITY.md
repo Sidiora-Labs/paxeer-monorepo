@@ -13,5 +13,5 @@ The approval SDK module is an additive contract `1.1` feature. Clients negotiati
 `1.0` must treat approval operations and lifecycle events as unavailable. The feature is
 daemon-enforced and confers no protocol authority.
 
-The `agent-test-agentd-migration` gate validates this row in Rust and then runs the LNI
-boundary conformance program against the repository-built `layerxd` executable.
+The `agent-test-agentd-migration` gate validates this row in Rust and then runs the
+node JSON-RPC boundary harness against the endpoint named by `LAYERX_QUALIFY_NODE_RPC_URL`.
