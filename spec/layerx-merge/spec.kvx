@@ -157548,7 +157548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.6.3]
 title = "Verify lease transitions from chain state proofs of the lease record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["13.0.2", "13.3.10", "13.3.3"]
@@ -167340,7 +167340,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.0.3]
 title = "Retire the daemon LNI test rules and the retired root contract build stamp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["16.2.3", "16.0.2", "13.0.2"]
