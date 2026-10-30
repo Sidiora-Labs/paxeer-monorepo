@@ -1,12 +1,10 @@
 #[path = "support/chain.rs"]
 mod chain;
-#[path = "../src/chain_evidence/protocol_head.rs"]
-mod protocol_head;
 
 use chain::{ChainFixture, STORE_NAME};
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_programs::chain_evidence::protocol_head::ChainProtocolHeadProof;
 use layerx_programs::{chain_evidence, chain_proof, ProtocolEvidenceError};
-use protocol_head::ChainProtocolHeadProof;
 
 const CHAIN_ID: &str = "paxeer-protocol-head";
 const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
