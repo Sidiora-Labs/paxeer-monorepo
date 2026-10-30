@@ -101761,7 +101761,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.95.1]
 title = "Prove the layerxledger keeper routes kernel-backed messages through its shared host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["2.3.1", "1.0.3"]
