@@ -141722,7 +141722,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.18.2]
 title = "Retire the wire differential and the qualification wire gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.18.1", "9.1.4", "16.2.3", "9.18.8"]
@@ -141755,7 +141755,7 @@ do_5 = "services/agent/tests/qualify/fabrication.rs, compiled into the agent-qua
 
 [task.9.18.3]
 title = "Refuse any LNI transport import in the boundary purity check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["9.18.2", "9.12.5"]
@@ -141820,7 +141820,7 @@ do_7 = "Decision 1953: for [type.NativeProgramWindDownRequest] the generator req
 
 [task.9.18.5]
 title = "Run the qualification boundary gate against a node JSON-RPC URL and delete the LNI test node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.18.1", "9.18.8"]
@@ -141852,7 +141852,7 @@ do_5 = "services/agent/tests/qualify/fabrication.rs, compiled into the agent-qua
 
 [task.9.18.6]
 title = "Prepare real-node tests without the kernel daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.18.1", "9.18.8"]
@@ -141884,7 +141884,7 @@ do_5 = "services/agent/tests/qualify/fabrication.rs, compiled into the agent-qua
 
 [task.9.18.7]
 title = "Drop the LNI frame target from the qualification fuzz gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["9.18.2"]
