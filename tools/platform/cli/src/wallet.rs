@@ -841,7 +841,7 @@ fn execute_write(
     write: &WriteOptions,
     request: WriteRequest<'_>,
 ) -> Result<CommandOutput, String> {
-    use layerx_crypto::send::CallOptions;
+    use layerx_crypto::payments::CallOptions;
     use layerx_crypto::signer::{LocalSigner, Signer as _};
     use layerx_platform_cli::wallet_signing::{EvmSigningKey, PreparedTransaction, SigningFacts};
     let owner = metadata(config, key)?;
@@ -1292,7 +1292,7 @@ fn prepare_send(
         return Err("source snapshot omitted canonical sequence".into());
     }
     let source_sequence = sequence(&snapshot["next_sequence"])?;
-    let debit = layerx_crypto::send::SendDebit {
+    let debit = layerx_crypto::payments::SendDebit {
         from,
         to,
         asset,
@@ -1300,7 +1300,7 @@ fn prepare_send(
         source_sequence,
         idempotency_key: facts.idempotency_key,
         expires_at: facts.expires_at_ms,
-        context_hash: layerx_crypto::send::send_context_hash(
+        context_hash: layerx_crypto::payments::send_context_hash(
             &from,
             &to,
             &asset,

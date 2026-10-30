@@ -11427,3 +11427,51 @@ symbol = "TestFrozenV2ResponseSchemasMatchHandlerBytes"
 observed = "Attempts 6 to 8 failed opening launchpad/spec/production-system/integration/migrations/150002.sql five directories above services/launchpad/api/internal/rest; the directory the ranking-algo runtime database fixture, the security control workflow test, the social tests and the indexer canonical store tests read was absent from the repository."
 assumption = "Commit 01d2bf319 imports the reviewed migration set (registry, grants, readiness, legacy history aliases and the numbered SQL sources); 4.24.3 and 4.24.7 re-qualify unchanged on a base that includes it."
 severity = "medium"
+
+[finding.18.1172.2.2]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/tests/agent_controls.rs"
+symbol = "change_limit"
+observed = "Attempt 4 ported binding.rs and custody.rs as specified and the build failed only in tests/agent_controls.rs, outside the task's files: :315 names InvalidationReason::SessionKeyRevoked, which no longer exists, and :634, :652 and :666 call change_limit with three arguments while src/agents/controls.rs:532 has taken authority_rung: Rung first since ea572906f."
+assumption = "Those four errors belong to task 18.1228.1, which owns agent_controls.rs; the build is narrowed to --lib --test binding --test custody and the attempt 4 candidate (5e219d90a) re-qualifies unchanged."
+severity = "medium"
+
+[finding.17.5.3.1]
+task = "17.5.3"
+file = "scripts/gates/wave-2.sh"
+symbol = "test_wave_2_gate_passes"
+observed = "Attempt 4 ran the real wave 2 script on the merged revision e9affcc7b and it exited 2 in its first step, make workspace-build; the wave log logs/waves/2/wave-2.log holds only the evidence line because run_gate.py writes the step's own log under .logs/wave-2, which the qualification record does not keep, so the failing target is not identifiable from the record."
+assumption = "Task 17.5.9 moves the per-step logs under logs/waves/<n> and echoes the failing step's tail into the wave log; 17.5.1 to 17.5.4 now require it and are re-attempted once it is done."
+severity = "blocker"
+
+[finding.13.3.7.1]
+task = "13.3.7"
+file = "programs/crates/layerx-programs-registry/src/chain_evidence.rs"
+symbol = "ProtocolDeploymentVerifier::from_chain_trust"
+observed = "Attempt 4 wrote src/chain_evidence/trust_root.rs and the test, and the build failed at tests/chain_evidence_trust_root.rs:28 and :44 because from_chain_trust was not found: chain_evidence.rs:9 still declares pub mod trust_root {} as an empty inline module, so the new file was never compiled."
+assumption = "chain_evidence.rs, protocol_evidence.rs and head_verify.rs are now in the task's files with the declaration, the chain_trust field and accessor spelled out; the attempt 4 candidate (5012ba72b) continues."
+severity = "medium"
+
+[finding.13.1.15.1]
+task = "13.1.15"
+file = "programs/crates/layerx-programs-registry/src/chain_proof.rs"
+symbol = "TrustRoot"
+observed = "Attempt 4 wrote src/chain_proof/trust_store.rs and tests/chain_trust_store.rs, and the build failed at tests/chain_trust_store.rs:4 with unresolved import layerx_programs::chain_proof::trust_store::TrustRoot: chain_proof.rs:16 still declares pub mod trust_store {} as an empty inline module and the task's files did not include chain_proof.rs."
+assumption = "chain_proof.rs and head_verify.rs are now in the task's files with the declaration and the header_hash field spelled out; the attempt 4 candidate (4ce321018) continues."
+severity = "medium"
+
+[finding.13.6.4.1]
+task = "13.6.4"
+file = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+symbol = "AuthenticatedTerminalRecord::verify"
+observed = "Attempts 2, 3 and 4 rewrote expiry.rs as specified and the build failed at src/expiry.rs:61 with no method named chain_trust on &ProtocolDeploymentVerifier: the accessor is task 13.3.7's, which had not landed because its own module was never compiled (finding.13.3.7)."
+assumption = "13.6.4 now requires 13.3.7 and names the accessor; the attempt 4 candidate (60a7f93a2) continues on a base that includes it."
+severity = "medium"
+
+[finding.16.0.3.1]
+task = "16.0.3"
+file = "tools/ci/tests/test_makefile_wave4.py"
+symbol = "test_aggregates_dry_run_clean"
+observed = "Attempt 4 made every Makefile deletion of do_1 to do_6 and do_8, and test_aggregates_dry_run_clean failed only because the dry run still prints the compile of cmd/layerxd/lxp_daemon_lni.c, a LAYERXD_SOURCES member (Makefile:1175) of the daemon that test-layerxd builds; no deleted rule reappeared."
+assumption = "The lxp_daemon_lni clause belongs to the LNI retirement (req.5520 ac_1, task 5.50.1, decision.1892) and leaves req.16014 ac_2; the attempt 4 candidate continues with that one assertion removed."
+severity = "medium"

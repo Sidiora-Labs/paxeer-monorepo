@@ -12,7 +12,7 @@ use std::time::Instant;
 
 #[path = "programs_chain.rs"]
 mod programs_chain;
-use programs_chain::{ProgramHead, ProgramsChain};
+use programs_chain::{DeploymentReadError, ProgramHead, ProgramsChain};
 
 use layerx_client::lni::head_attestation::ProgramDiscoveryHead;
 use layerx_programs::{
@@ -70,6 +70,7 @@ pub struct Registrar {
     registry: Registry,
     event_outbox: crate::event_producer::ProgramOutbox,
     journal: FileDeploymentJournal,
+    chain_deployment_journal: std::path::PathBuf,
     deployment_lni_socket: Option<std::path::PathBuf>,
     program_state: FileProgramStateJournal,
     node_state: NodeProgramStateSource,
@@ -142,6 +143,7 @@ impl Registrar {
             registry: Registry::new(),
             event_outbox: crate::event_producer::ProgramOutbox::new(&config.journal),
             journal: FileDeploymentJournal::open(config.journal.clone())?,
+            chain_deployment_journal: config.journal.clone(),
             deployment_lni_socket: config.deployment_lni_socket.clone(),
             program_state: FileProgramStateJournal::open(config.journal.join("program-state"))?,
             node_state: NodeProgramStateSource::connect_with_identity(
@@ -305,7 +307,25 @@ impl Registrar {
                 status: 200,
                 body: json!({"status": "ready", "service": "program-registry"}).to_string(),
             },
-            ("POST", "/__registry/deployments") => self.ingest_deployment(&request.body, deadline),
+            ("POST", "/__registry/deployments") => {
+                let endpoint = match std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL") {
+                    Ok(endpoint) => endpoint,
+                    Err(_) => {
+                        return refusal(
+                            503,
+                            "deployment_proof_unavailable",
+                            "LAYERX_REGISTRY_CHAIN_RPC_URL is required",
+                        )
+                    }
+                };
+                Self::route_chain_deployment(
+                    request,
+                    &self.request_authority,
+                    &self.chain_deployment_journal,
+                    &endpoint,
+                    deadline,
+                )
+            }
             ("POST", "/__registry/head") => {
                 let endpoint = match std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL") {
                     Ok(endpoint) => endpoint,
@@ -1313,72 +1333,102 @@ impl Registrar {
         verification_response(deployment, &build, status)
     }
 
-    fn ingest_deployment(&mut self, body: &[u8], deadline: Instant) -> Response {
-        let loaded = match self.journal.load() {
-            Ok(loaded) => loaded,
-            Err(error) => return refusal(503, "journal_unavailable", &error),
-        };
-        if let Some(unit) = loaded
-            .units
-            .iter()
-            .find(|unit| unit.proof().activity == body)
-        {
-            let evidence = match self.node_state.verify_stored_deployment(unit.proof()) {
-                Ok(evidence) => evidence,
-                Err(error) => return refusal(422, "deployment_proof_refused", &error),
-            };
-            if let Err(error) = self.journal.export_pair(&evidence) {
-                return refusal(503, "journal_export_unavailable", &error);
-            }
-            return deployment_response(&evidence);
-        }
-        if body.is_empty() {
-            return deployment_ingress_unavailable(body);
-        }
-        let result = match &self.deployment_lni_socket {
-            Some(socket) => crate::deployment::deploy(socket, body, deadline),
-            None => self.node_state.deploy(body, deadline),
-        };
-        let proof = match result {
-            Ok(proof) => proof,
-            Err(error) => return refusal(503, "deployment_proof_unavailable", &error),
-        };
-        let Some(now) = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .ok()
-            .and_then(|elapsed| u64::try_from(elapsed.as_millis()).ok())
-        else {
+    pub fn route_chain_deployment(
+        request: &Request,
+        authority: &crate::RegistryAuthority,
+        journal: &std::path::Path,
+        endpoint: &str,
+        deadline: Instant,
+    ) -> Response {
+        if request.method != "POST" || request.path != "/__registry/deployments" {
             return refusal(
-                503,
-                "clock_unavailable",
-                "deployment verification requires a valid clock",
+                405,
+                "method_not_allowed",
+                "expected POST /__registry/deployments",
+            );
+        }
+        if !authority.verifies(request.headers.get("authorization").map(String::as_str)) {
+            return refusal(
+                401,
+                "authentication_required",
+                "a valid registry bearer credential is required",
+            );
+        }
+        Self::ingest_deployment(journal, endpoint, &request.body, deadline)
+    }
+
+    fn ingest_deployment(
+        journal: &std::path::Path,
+        endpoint: &str,
+        body: &[u8],
+        deadline: Instant,
+    ) -> Response {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct DeploymentRequest {
+            transaction_hash: String,
+        }
+        let transaction = if body.len() == 32 {
+            body.try_into().ok()
+        } else {
+            serde_json::from_slice::<DeploymentRequest>(body)
+                .ok()
+                .and_then(|request| {
+                    hex::decode_digest(
+                        request
+                            .transaction_hash
+                            .strip_prefix("0x")
+                            .unwrap_or(&request.transaction_hash),
+                    )
+                    .ok()
+                })
+        };
+        let Some(transaction) = transaction else {
+            return refusal(
+                400,
+                "invalid_argument",
+                "request must carry a bytes32 transaction_hash",
             );
         };
-        let evidence = match self.node_state.verify_deployment(&proof, now) {
-            Ok(evidence) => evidence,
-            Err(error) => return refusal(422, "deployment_proof_refused", &error),
+        let chain = match ProgramsChain::new(endpoint) {
+            Ok(chain) => chain,
+            Err(error) => return refusal(503, "deployment_proof_unavailable", &error),
         };
-        if let Err(error) = self.node_state.verify_deployment_authority(&proof) {
-            return refusal(503, "receipt_authority_unavailable", &error);
+        let deployment = match chain.deployment(transaction, deadline) {
+            Ok(deployment) => deployment,
+            Err(DeploymentReadError::Refused(error)) => {
+                return refusal(422, "deployment_proof_refused", &error)
+            }
+            Err(DeploymentReadError::Unavailable(error)) => {
+                return refusal(503, "deployment_proof_unavailable", &error)
+            }
+        };
+        if Instant::now() >= deadline {
+            return refusal(
+                503,
+                "request_deadline_exceeded",
+                "deployment read deadline expired",
+            );
         }
-        let mut candidate = self.registry.clone();
-        if let Err(error) = candidate.record_verified_deployment(&evidence) {
-            return refusal(422, "deployment_projection_refused", &error.to_string());
-        }
-        if let Err(error) = self.journal.append(&evidence) {
+        if let Err(error) = deployment.journal(journal) {
             return refusal(503, "journal_unavailable", &error);
         }
-        self.registry = candidate;
-        self.deployments
-            .insert((evidence.program(), evidence.version()), evidence.clone());
-        if let Some(interface) = evidence.interface() {
-            self.interfaces
-                .insert((evidence.program(), evidence.version()), interface.clone());
+        Response {
+            status: 200,
+            body: json!({
+                "transaction_hash": deployment.transaction_hash,
+                "program_id": deployment.program_id,
+                "code_hash": deployment.code_hash,
+                "abi_version": deployment.abi_version,
+                "version": deployment.version,
+                "policy": deployment.policy,
+                "authority": deployment.authority,
+                "block_hash": deployment.block_hash,
+                "block_number": deployment.block_number,
+                "state": "deployed",
+            })
+            .to_string(),
         }
-        if let Err(error) = self.journal.export_pair(&evidence) {
-            return refusal(503, "journal_export_unavailable", &error);
-        }
-        deployment_response(&evidence)
     }
 
     fn rebuild(&mut self) -> Result<(), String> {
