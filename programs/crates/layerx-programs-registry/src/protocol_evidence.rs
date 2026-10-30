@@ -22,18 +22,19 @@ use layerx_wire::hash::{activity_id, execution_batch_id, payload_hash, receipt_d
 use layerx_wire::receipt::{decode as decode_receipt, decode_batch_header, encode_unsigned};
 
 use crate::account_state::verify_state_membership;
+use crate::chain_proof::ChainProofVerifier;
 use crate::{
     verify_interface_read, DeploymentRecord, InterfaceRefusal, InterfaceStateWitness,
     ProgramLifecycle, ReadFreshness, StateProof, VerifiedInterfaceRead,
 };
 use layerx_programs_runtime::abi_policy::admit_abi_version;
 
-const PROGRAMS_MODULE_ID: u16 = 9;
+pub(crate) const PROGRAMS_MODULE_ID: u16 = 9;
 const DEPLOY_ORDINAL: u16 = 1;
 const UPGRADE_ORDINAL: u16 = 2;
 const PROGRAM_RECORD_BYTES: usize = 71;
-const PROGRAM_KEY_PREFIX: &[u8] = b"program\0";
-const STATUS_KEY_PREFIX: &[u8] = b"wind-down\0s";
+pub(crate) const PROGRAM_KEY_PREFIX: &[u8] = b"program\0";
+pub(crate) const STATUS_KEY_PREFIX: &[u8] = b"wind-down\0s";
 const STATUS_RECORD_BYTES: usize = 54;
 const WASM_HEADER: &[u8; 8] = b"\0asm\x01\0\0\0";
 const MAX_MODULE_BYTES: usize = 32 * 1024 * 1024;
@@ -639,7 +640,7 @@ impl Display for ProgramBundleError {
 impl std::error::Error for ProgramBundleError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct SequencerTrustAnchor {
+pub(crate) struct SequencerTrustAnchor {
     protocol_version: u16,
     network_id: u32,
     epoch: u64,
@@ -679,10 +680,11 @@ impl SequencerTrustAnchor {
 /// sequencer authorizations and one explicit current anchor.
 #[derive(Clone, Debug)]
 pub struct ProtocolDeploymentVerifier {
-    anchors: Vec<SequencerTrustAnchor>,
-    current_anchor: usize,
-    staleness_limit_ms: u64,
-    signed_history: Option<layerx_proof::signed_authority::SignedAuthorityHistory>,
+    pub(crate) anchors: Vec<SequencerTrustAnchor>,
+    pub(crate) current_anchor: usize,
+    pub(crate) staleness_limit_ms: u64,
+    pub(crate) signed_history: Option<layerx_proof::signed_authority::SignedAuthorityHistory>,
+    pub(crate) chain_verifier: Option<ChainProofVerifier>,
 }
 
 impl ProtocolDeploymentVerifier {
@@ -730,6 +732,7 @@ impl ProtocolDeploymentVerifier {
             current_anchor,
             staleness_limit_ms,
             signed_history: None,
+            chain_verifier: None,
         })
     }
 
@@ -820,12 +823,17 @@ impl ProtocolDeploymentVerifier {
             current_anchor,
             staleness_limit_ms: self.staleness_limit_ms,
             signed_history: Some(history.clone()),
+            chain_verifier: None,
         })
     }
 
     #[must_use]
     pub const fn staleness_limit_ms(&self) -> u64 {
         self.staleness_limit_ms
+    }
+
+    pub fn chain_trust(&self) -> Option<&ChainProofVerifier> {
+        self.chain_verifier.as_ref()
     }
 
     /// Verifies a canonical deploy or upgrade through its exact successful
@@ -1720,12 +1728,12 @@ fn verify_maintenance_settlement(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct ProgramRecord {
-    program: ProgramId,
-    version: u32,
-    code_hash: [u8; 32],
-    abi_version: u16,
-    policy: UpgradePolicy,
+pub(crate) struct ProgramRecord {
+    pub(crate) program: ProgramId,
+    pub(crate) version: u32,
+    pub(crate) code_hash: [u8; 32],
+    pub(crate) abi_version: u16,
+    pub(crate) policy: UpgradePolicy,
 }
 
 struct VerifiedHeadClaims {
@@ -2215,7 +2223,7 @@ fn bind_deployment(
     ))
 }
 
-fn decode_program_record(
+pub(crate) fn decode_program_record(
     witness: &StateLeafWitness,
 ) -> Result<ProgramRecord, ProtocolEvidenceError> {
     if witness.key.len() != PROGRAM_KEY_PREFIX.len() + 32
@@ -2692,6 +2700,7 @@ mod maintained_protocol_heads {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         };
         let leaves = [RECEIPT, MAINTENANCE];
         let (receipt_proof, root) = build_proof(&leaves, 0)
@@ -2889,6 +2898,7 @@ mod native_batch_maintenance_heads {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         }
     }
 
@@ -3000,6 +3010,7 @@ mod signed_authority_policy_tests {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         };
         assert!(policy.with_signed_history(&history).is_err());
         let mut before = None;

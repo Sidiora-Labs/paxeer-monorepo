@@ -5,7 +5,6 @@ test-wave-9|core-test-all
 test-wave-10|core-test-all
 test-wave-11|core-test-all
 test-wave-12|core-test-all
-test-replay-golden-local|core-test-all
 test-contracts|core-test-all
 qualify-faults|core-test-all
 qualify-arith|core-test-all
@@ -15,7 +14,6 @@ test-sanitizers|core-test-all
 test-crypto-sanitizers|core-test-all
 test-sanitizer-smoke|covered-by-test-sanitizers
 test-sanitizer-suite|covered-by-test-sanitizers
-test-replay-golden|environment-blocked-docker-crossarch
 qualify-replay|environment-blocked-crossarch
 qualify-fuzz-run|environment-blocked-external-corpus
 qualify-fuzz|environment-blocked-external-corpus

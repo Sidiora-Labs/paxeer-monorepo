@@ -653,6 +653,213 @@ mod files {
         Ok(output)
     }
 
+    struct RecordedSubmit {
+        name: String,
+        expected: String,
+        raw: String,
+        hash: String,
+        receipt: String,
+        keys: String,
+    }
+
+    fn recorded_submissions(vector: &str) -> Result<Vec<RecordedSubmit>, Box<dyn Error>> {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../daemon/committed-fixture/vectors")
+            .join(vector);
+        let output = Command::new("python3")
+            .args([
+                "-c",
+                r#"
+import base64
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    vector = json.load(source)
+
+keys = []
+for key in vector["receiptKeys"]:
+    if "key_id" in key:
+        key = {
+            "keyId": "0x" + base64.b64decode(key["key_id"], validate=True).hex(),
+            "publicKey": "0x" + base64.b64decode(key["public_key"], validate=True).hex(),
+            "firstHeight": key["first_height"],
+            "lastHeight": key["last_height"],
+        }
+    keys.append({
+        "keyId": key["keyId"],
+        "publicKey": key["publicKey"],
+        "firstHeight": hex(key["firstHeight"]),
+        "lastHeight": hex(key["lastHeight"]),
+    })
+
+entries = vector["cases"] if "cases" in vector else [{
+    "name": vector["name"],
+    "expected": "receipted",
+    "receiptJson": vector["receiptJson"],
+}]
+for entry in entries:
+    print(entry["name"])
+    print(entry["expected"])
+    print(vector["rawTransaction"])
+    print(vector["receiptJson"]["txHash"])
+    print(json.dumps(entry["receiptJson"], separators=(",", ":")))
+    print(json.dumps(keys, separators=(",", ":")))
+"#,
+            ])
+            .arg(path)
+            .output()?;
+        if !output.status.success() {
+            return Err(format!(
+                "reading {vector}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        let text = String::from_utf8(output.stdout)?;
+        let lines: Vec<_> = text.lines().collect();
+        let entries = lines.chunks_exact(6);
+        assert!(entries.remainder().is_empty(), "incomplete vector entry");
+        Ok(entries
+            .map(|entry| RecordedSubmit {
+                name: entry[0].to_owned(),
+                expected: entry[1].to_owned(),
+                raw: entry[2].to_owned(),
+                hash: entry[3].to_owned(),
+                receipt: entry[4].to_owned(),
+                keys: entry[5].to_owned(),
+            })
+            .collect())
+    }
+
+    fn submit_recorded(entry: &RecordedSubmit) -> Result<Output, Box<dyn Error>> {
+        let directory = Directory::new()?;
+        let path = directory.0.join("transaction");
+        let raw = unhex(&entry.raw)?;
+        assert_eq!(transaction_hash(&raw), entry.hash, "{}", entry.name);
+        fs::write(&path, raw)?;
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        listener.set_nonblocking(true)?;
+        let url = format!("http://{}/", listener.local_addr()?);
+        let exchanges = [
+            (
+                "eth_sendRawTransaction",
+                format!("[\"{}\"]", entry.raw),
+                format!("\"{}\"", entry.hash),
+            ),
+            (
+                "pax_sequencerReceipt",
+                format!("[\"{}\"]", entry.hash),
+                entry.receipt.clone(),
+            ),
+            ("px_getReceiptKeys", "[]".to_owned(), entry.keys.clone()),
+        ];
+        let (finished, completion) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || -> Result<(), String> {
+            for (method, params, result) in exchanges {
+                let answer = format!("{{\"jsonrpc\":\"2.0\",\"id\":{{id}},\"result\":{result}}}");
+                loop {
+                    if completion.try_recv().is_ok() {
+                        return Ok(());
+                    }
+                    match answer_send(&listener, method, &answer) {
+                        Ok(body) => {
+                            assert!(body.contains(&format!("\"params\":{params}")));
+                            break;
+                        }
+                        Err(error)
+                            if error.downcast_ref::<std::io::Error>().is_some_and(|error| {
+                                error.kind() == std::io::ErrorKind::WouldBlock
+                            }) =>
+                        {
+                            std::thread::sleep(Duration::from_millis(1));
+                        }
+                        Err(error) => return Err(error.to_string()),
+                    }
+                }
+            }
+            Ok(())
+        });
+        let output = ctl(&[
+            "submit",
+            "--rpc-url",
+            &url,
+            "--transaction",
+            path.to_str().ok_or("path is not UTF-8")?,
+        ]);
+        let _ = finished.send(());
+        server.join().map_err(|_| "server thread panicked")??;
+        output
+    }
+
+    #[test]
+    fn submit_verifies_the_recorded_v1_vector() -> TestResult {
+        let entries = recorded_submissions("vector-v1-receipted-positive.json")?;
+        assert_eq!(entries.len(), 1);
+        let entry = &entries[0];
+        assert_eq!(entry.expected, "receipted");
+        let output = submit_recorded(entry)?;
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{}: expected receipted for transaction {} (raw prefix {:?}); stdout {:?}, stderr {:?}",
+            entry.name,
+            entry.hash,
+            entry.raw.get(..4),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout)?;
+        assert_eq!(json_string(&text, "state")?, entry.expected);
+        assert_eq!(json_string(&text, "transaction_hash")?, entry.hash);
+        Ok(())
+    }
+
+    #[test]
+    fn submit_refuses_every_recorded_v3_mutation() -> TestResult {
+        let entries = recorded_submissions("vector-v3-receipt-refusals.json")?;
+        let expected = [
+            "key-id-not-pinned",
+            "height-outside-range",
+            "activity-id-not-raw-hash",
+            "sequence-hash-mismatch",
+            "tampered-log",
+            "non-canonical-receipt-bytes",
+        ];
+        assert_eq!(entries.len(), expected.len());
+        let mut seen = std::collections::BTreeSet::new();
+        let mut failures = Vec::new();
+        for entry in entries {
+            assert!(expected.contains(&entry.name.as_str()), "{}", entry.name);
+            assert!(seen.insert(entry.name.clone()), "{}", entry.name);
+            assert!(!entry.expected.is_empty(), "{}", entry.name);
+            let output = submit_recorded(&entry)?;
+            let text = String::from_utf8(output.stdout)?;
+            let conforms = output.status.code() == Some(3)
+                && output.stderr.is_empty()
+                && json_string(&text, "state").is_ok_and(|state| state == "submitted")
+                && json_string(&text, "transaction_hash").is_ok_and(|hash| hash == entry.hash)
+                && if entry.name == "activity-id-not-raw-hash" {
+                    text.contains("\"receipt_error\":{\"transport_error\":\"Malformed\"}")
+                } else {
+                    json_string(&text, "verification_failure")
+                        .is_ok_and(|failure| !failure.is_empty())
+                };
+            if !conforms {
+                failures.push(format!(
+                    "{} ({}): expected submitted with a named verification_failure; exit {:?}, stdout {text:?}, stderr {:?}",
+                    entry.name,
+                    entry.expected,
+                    output.status.code(),
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+        Ok(())
+    }
+
     #[test]
     fn submit_reports_receipted_only_with_a_pinned_key_signature() -> TestResult {
         let signer = SigningKey::from_bytes(&[0x47; 32]);

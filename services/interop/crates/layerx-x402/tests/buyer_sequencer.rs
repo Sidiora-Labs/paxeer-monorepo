@@ -4,12 +4,22 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_committed_proof::{
-    header::{validators_hash, BlockId, ConsensusVersion, Header, Timestamp, Validator},
+    commit::{BlockIdFlag, Commit, CommitSig},
+    header::{
+        validators_hash, BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp, Validator,
+    },
     merkle,
     proto::{encode_length_delimited, encode_varint, encode_varint_field},
+    CommittedProof,
 };
-use layerx_interop_gateway::evidence::canonical_receipt_digest;
+use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
+use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
+use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
+use layerx_interop_gateway::GatewayCore;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
@@ -20,6 +30,8 @@ use layerx_x402::model::{
     account_identifiers, AtomicAmount, PaymentPayload, PaymentRequirements, SettlementResponse,
     X402Error, X402_VERSION,
 };
+use layerx_x402::seller::{CommittedSettlementProof, ExecutedPayment, Seller, SellerOutcome};
+use layerx_x402::x402_adapter_descriptor;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
@@ -360,11 +372,11 @@ fn proof_header_json(header: &Header) -> Value {
     })
 }
 
-fn committed_response(
+fn committed_settlement_proof(
     buyer: &Buyer,
-    mut response: SettlementResponse,
+    response: &SettlementResponse,
     case: &Value,
-) -> TestResult<SettlementResponse> {
+) -> TestResult<CommittedSettlementProof> {
     let signed = STANDARD.decode(text(&response.extensions["layerx"]["receipt"]))?;
     let receipt = verify_sequencer_signature(&signed, buyer.receipt_keys())
         .map_err(|error| format!("signature: {error:?}"))?;
@@ -437,6 +449,60 @@ fn committed_response(
     sign_bytes.extend_from_slice(&vote);
     let signature = validator.sign(&sign_bytes).to_bytes();
 
+    Ok(CommittedSettlementProof {
+        chain_id: successor.chain_id.clone(),
+        validators: validators.to_vec(),
+        proof: CommittedProof {
+            header: successor.clone(),
+            execution_header: execution,
+            commit: Commit {
+                height: successor.height.try_into()?,
+                round: 0,
+                block_id: BlockId {
+                    hash: header_hash.to_vec(),
+                    part_set_header: PartSetHeader {
+                        total: 1,
+                        hash: parts_hash.to_vec(),
+                    },
+                },
+                signatures: vec![CommitSig {
+                    block_id_flag: BlockIdFlag::Commit,
+                    validator_address: address,
+                    timestamp: successor.time,
+                    signature: Some(signature),
+                }],
+            },
+            batch_transaction: batch,
+            batch_total: 2,
+            batch_index: 0,
+            batch_aunts: vec![aunt],
+            activity_ids: vec![receipt.activity_id()],
+            signed_receipt: signed,
+        },
+    })
+}
+
+fn committed_response(
+    buyer: &Buyer,
+    mut response: SettlementResponse,
+    case: &Value,
+) -> TestResult<SettlementResponse> {
+    let committed = committed_settlement_proof(buyer, &response, case)?;
+    let proof = &committed.proof;
+    let execution = &proof.execution_header;
+    let successor = &proof.header;
+    let height = execution.height;
+    let block_hash = execution.hash();
+    let header_hash = &proof.commit.block_id.hash;
+    let parts_hash = &proof.commit.block_id.part_set_header.hash;
+    let public_key = committed.validators[0].pub_key;
+    let address = &proof.commit.signatures[0].validator_address;
+    let signature = proof.commit.signatures[0]
+        .signature
+        .ok_or("commit signature")?;
+    let data_hash = &execution.data_hash;
+    let batch = &proof.batch_transaction;
+    let aunt = proof.batch_aunts[0];
     let evidence = response.extensions.get_mut("layerx").ok_or("layerx")?;
     evidence["verificationLevel"] = json!("committed");
     evidence["blockNumber"] = json!(format!("0x{height:x}"));
@@ -460,13 +526,12 @@ fn committed_response(
             "data": format!("0x{}", hex(&batch)), "total": 2, "index": 0,
             "aunts": [format!("0x{}", hex(&aunt))],
         },
-        "activityIds": [format!("0x{}", hex(&receipt.activity_id()))],
+        "activityIds": [format!("0x{}", hex(&proof.activity_ids[0]))],
     });
     Ok(response)
 }
 
-#[test]
-fn buyer_refuses_a_committed_rung_with_a_wrong_block_hash() -> TestResult {
+fn recorded_for_seller() -> TestResult<(Buyer, BuiltPayment, SettlementResponse, Value)> {
     let (buyer, mut payment, mut response, case) = recorded("V1-layerxledger-pay-exact")?;
     let payee = account_identifiers("agent:did:layerx:payee:main")?[0];
     let original_payee = word(&payment.payload.accepted.pay_to);
@@ -491,6 +556,12 @@ fn buyer_refuses_a_committed_rung_with_a_wrong_block_hash() -> TestResult {
     evidence["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&payee)));
     payment.payload.accepted.pay_to = format!("0x{}", hex(&payee));
     capture(&buyer, &payment, &response)?;
+    Ok((buyer, payment, response, case))
+}
+
+#[test]
+fn buyer_refuses_a_committed_rung_with_a_wrong_block_hash() -> TestResult {
+    let (buyer, payment, response, case) = recorded_for_seller()?;
     let response = committed_response(&buyer, response, &case)?;
     let captured = capture(&buyer, &payment, &response)?;
     assert_eq!(captured.rung, "committed");
@@ -544,6 +615,200 @@ fn buyer_refuses_a_committed_rung_with_a_wrong_block_hash() -> TestResult {
             capture(&buyer, &payment, &changed),
             Err(X402Error::EvidenceMismatch),
             "{path}"
+        );
+    }
+    Ok(())
+}
+
+fn opened_seller_gateway(
+    payment: &BuiltPayment,
+) -> TestResult<(GatewayCore, PrincipalId, TraceId)> {
+    let mut gateway = GatewayCore::new();
+    let principal = PrincipalId::new("committed-seller")?;
+    let trace = TraceId::mint([0x73; 16]);
+    let suite = ConformanceSuite::new(AdapterId::new("x402-v2")?, 1, [0x75; 32])?;
+    gateway
+        .register_adapter(x402_adapter_descriptor(suite)?, &trace, 0)
+        .map_err(Traced::into_error)?;
+    let request = TranslationRequest::new(
+        AdapterId::new("x402")?,
+        TranslationKind::StateChanging,
+        payment.idempotency_key,
+        [0x76; 32],
+    )?;
+    assert_eq!(
+        gateway
+            .begin_translation(&principal, &request, &trace, 0)
+            .map_err(Traced::into_error)?,
+        TranslationStatus::Pending
+    );
+    Ok((gateway, principal, trace))
+}
+
+fn executed_committed_payment(
+    buyer: &Buyer,
+    response: &SettlementResponse,
+    case: &Value,
+) -> TestResult<ExecutedPayment> {
+    let committed = committed_settlement_proof(buyer, response, case)?;
+    let log = &response.extensions["layerx"]["logs"][0];
+    let evidence = SequencerEvidence {
+        transaction_hash: word(&response.transaction),
+        signed_receipt: committed.proof.signed_receipt.clone(),
+        logs: vec![SequencerLog::new(
+            bytes(text(&log["address"]))
+                .try_into()
+                .map_err(|_| "log address")?,
+            log["topics"]
+                .as_array()
+                .ok_or("log topics")?
+                .iter()
+                .map(|topic| word(text(topic)))
+                .collect(),
+            bytes(text(&log["data"])),
+            0,
+        )],
+        rung: SettlementRung::Committed {
+            block_number: committed.proof.execution_header.height.try_into()?,
+            block_hash: committed.proof.execution_header.hash(),
+        },
+    };
+    Ok(ExecutedPayment {
+        evidence,
+        committed: Some(committed),
+    })
+}
+
+#[test]
+fn seller_committed_settlement_is_captured_by_the_buyer() -> TestResult {
+    let (buyer, payment, response, case) = recorded_for_seller()?;
+    let executed = executed_committed_payment(&buyer, &response, &case)?;
+    let expected = committed_response(&buyer, response, &case)?;
+    let (mut gateway, principal, trace) = opened_seller_gateway(&payment)?;
+    let outcome = Seller::settled(
+        &mut gateway,
+        &principal,
+        payment.idempotency_key,
+        &payment.payload.accepted,
+        &payment.payload.payload,
+        &executed,
+        buyer.receipt_keys(),
+        &trace,
+        1,
+    )?;
+    let SellerOutcome::Settled {
+        header,
+        response,
+        receipt_digest,
+    } = outcome
+    else {
+        return Err("committed payment must settle".into());
+    };
+    assert_eq!(
+        response.extensions["layerx"]["proof"],
+        expected.extensions["layerx"]["proof"]
+    );
+    let captured = Buyer::capture_settlement(&header, &payment, buyer.receipt_keys(), &trace)
+        .map_err(Traced::into_error)?;
+    assert_eq!(captured.rung, "committed");
+    assert_eq!(
+        captured.transaction_hash,
+        executed.evidence.transaction_hash
+    );
+    assert_eq!(captured.response, response);
+    assert_eq!(captured.receipt_digest, receipt_digest);
+    assert_eq!(
+        gateway.translation(&principal, payment.idempotency_key),
+        Some(TranslationStatus::ReceiptVerified { receipt_digest })
+    );
+
+    let mut receipted = executed;
+    receipted.evidence.rung = SettlementRung::Receipted;
+    let outcome = Seller::settled(
+        &mut gateway,
+        &principal,
+        payment.idempotency_key,
+        &payment.payload.accepted,
+        &payment.payload.payload,
+        &receipted,
+        buyer.receipt_keys(),
+        &trace,
+        2,
+    )?;
+    let SellerOutcome::Settled { response, .. } = outcome else {
+        return Err("receipted payment must settle".into());
+    };
+    assert!(response.extensions["layerx"].get("proof").is_none());
+    Ok(())
+}
+
+#[test]
+fn seller_refuses_committed_evidence_without_a_proof() -> TestResult {
+    let (buyer, payment, response, case) = recorded_for_seller()?;
+    for tamper in [
+        "missing",
+        "receipt",
+        "signature",
+        "number",
+        "hash",
+        "batch",
+        "validators",
+        "chain",
+    ] {
+        let mut executed = executed_committed_payment(&buyer, &response, &case)?;
+        if tamper == "missing" {
+            executed.committed = None;
+        } else {
+            let committed = executed.committed.as_mut().ok_or("committed proof")?;
+            match tamper {
+                "receipt" => committed.proof.signed_receipt[0] ^= 1,
+                "signature" => {
+                    committed.proof.commit.signatures[0]
+                        .signature
+                        .as_mut()
+                        .ok_or("commit signature")?[0] ^= 1
+                }
+                "number" => {
+                    let SettlementRung::Committed { block_number, .. } =
+                        &mut executed.evidence.rung
+                    else {
+                        return Err("committed rung".into());
+                    };
+                    *block_number += 1;
+                }
+                "hash" => {
+                    let SettlementRung::Committed { block_hash, .. } = &mut executed.evidence.rung
+                    else {
+                        return Err("committed rung".into());
+                    };
+                    block_hash[0] ^= 1;
+                }
+                "batch" => committed.proof.batch_aunts[0][0] ^= 1,
+                "validators" => committed.validators.clear(),
+                "chain" => committed.chain_id.push('x'),
+                _ => return Err("unknown tamper".into()),
+            }
+        }
+        let (mut gateway, principal, trace) = opened_seller_gateway(&payment)?;
+        assert_eq!(
+            Seller::settled(
+                &mut gateway,
+                &principal,
+                payment.idempotency_key,
+                &payment.payload.accepted,
+                &payment.payload.payload,
+                &executed,
+                buyer.receipt_keys(),
+                &trace,
+                1,
+            ),
+            Err(X402Error::EvidenceMismatch),
+            "{tamper}"
+        );
+        assert_eq!(
+            gateway.translation(&principal, payment.idempotency_key),
+            Some(TranslationStatus::Pending),
+            "{tamper}"
         );
     }
     Ok(())

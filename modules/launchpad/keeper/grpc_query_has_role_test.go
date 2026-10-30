@@ -136,7 +136,10 @@ func TestQueryHasRoleRefusals(t *testing.T) {
 				} else {
 					request.Account = tc.value
 				}
-				assertRefusal(t, request, sdkerrors.ErrInvalidAddress)
+				response, err := client.HasRole(context.Background(), &request)
+				require.Nil(t, response)
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, field+" must be a 0x-prefixed 40-hex-digit address: invalid address", status.Convert(err).Message())
 			})
 		}
 		t.Run(field+"/zero", func(t *testing.T) {

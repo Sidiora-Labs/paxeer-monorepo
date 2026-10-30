@@ -409,11 +409,15 @@ fn configured_node_client_identity() -> Result<Option<RegistryClientIdentity>, S
             let password = read_secret(PASSWORD)?;
             RegistryClientIdentity::from_pkcs12(encoded.as_slice(), password.as_str()).map(Some)
         }
-        _ => Err(format!("{IDENTITY} and {PASSWORD} must be configured together")),
+        _ => Err(format!(
+            "{IDENTITY} and {PASSWORD} must be configured together"
+        )),
     }
 }
 
-fn config(builder_cgroup_root: &Path) -> Result<Config, String> {
+fn config(builder_cgroup_root: &Path) -> Result<(Config, String), String> {
+    let chain_rpc_url = env::var("LAYERX_REGISTRY_CHAIN_RPC_URL")
+        .map_err(|_| "LAYERX_REGISTRY_CHAIN_RPC_URL is required".to_owned())?;
     let root = parse_path("LAYERX_REGISTRY_STATE", PathBuf::from(DEFAULT_ROOT));
     let digest = env::var("LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST")
         .map_err(|_| "LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST is required".to_owned())?;
@@ -428,85 +432,96 @@ fn config(builder_cgroup_root: &Path) -> Result<Config, String> {
     if !(1..=3_600).contains(&request_timeout_seconds) {
         return Err("LAYERX_REGISTRY_REQUEST_TIMEOUT_SECONDS is outside its bound".to_owned());
     }
-    Ok(Config {
-        listen: env::var("LAYERX_REGISTRY_LISTEN").unwrap_or_else(|_| DEFAULT_LISTEN.to_owned()),
-        journal: parse_path("LAYERX_REGISTRY_JOURNAL", root.join("journal")),
-        deployment_lni_socket: std::env::var_os("LAYERX_REGISTRY_LNI_SOCKET").map(PathBuf::from),
-        mirror: parse_path("LAYERX_REGISTRY_SOURCE_MIRROR", root.join("sources")),
-        verified: parse_path("LAYERX_REGISTRY_VERIFIED", root.join("verified")),
-        workspace: parse_path("LAYERX_REGISTRY_BUILD_ROOT", root.join("builds")),
-        builder_image_digest: hex::decode_digest(&digest)
-            .map_err(|error| format!("LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST is invalid: {error}"))?,
-        builder_environment_root: PathBuf::from(
-            env::var("LAYERX_REGISTRY_BUILDER_ENVIRONMENT_ROOT")
-                .map_err(|_| "LAYERX_REGISTRY_BUILDER_ENVIRONMENT_ROOT is required".to_owned())?,
-        ),
-        builder_entrypoint: env::var("LAYERX_REGISTRY_BUILDER_ENTRYPOINT")
-            .map_err(|_| "LAYERX_REGISTRY_BUILDER_ENTRYPOINT is required".to_owned())?,
-        builder_isolation_runtime: PathBuf::from(
-            env::var("LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME")
-                .map_err(|_| "LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME is required".to_owned())?,
-        ),
-        builder_isolation_runtime_digest: hex::decode_digest(
-            &env::var("LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME_DIGEST").map_err(|_| {
-                "LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME_DIGEST is required".to_owned()
+    Ok((
+        Config {
+            listen: env::var("LAYERX_REGISTRY_LISTEN")
+                .unwrap_or_else(|_| DEFAULT_LISTEN.to_owned()),
+            journal: parse_path("LAYERX_REGISTRY_JOURNAL", root.join("journal")),
+            deployment_lni_socket: std::env::var_os("LAYERX_REGISTRY_LNI_SOCKET")
+                .map(PathBuf::from),
+            mirror: parse_path("LAYERX_REGISTRY_SOURCE_MIRROR", root.join("sources")),
+            verified: parse_path("LAYERX_REGISTRY_VERIFIED", root.join("verified")),
+            workspace: parse_path("LAYERX_REGISTRY_BUILD_ROOT", root.join("builds")),
+            builder_image_digest: hex::decode_digest(&digest).map_err(|error| {
+                format!("LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST is invalid: {error}")
             })?,
-        )
-        .map_err(|error| format!("builder isolation runtime digest is invalid: {error}"))?,
-        builder_job_supervisor: PathBuf::from(
-            env::var("LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR")
-                .map_err(|_| "LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR is required".to_owned())?,
-        ),
-        builder_job_supervisor_digest: hex::decode_digest(
-            &env::var("LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR_DIGEST").map_err(|_| {
-                "LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR_DIGEST is required".to_owned()
+            builder_environment_root: PathBuf::from(
+                env::var("LAYERX_REGISTRY_BUILDER_ENVIRONMENT_ROOT").map_err(|_| {
+                    "LAYERX_REGISTRY_BUILDER_ENVIRONMENT_ROOT is required".to_owned()
+                })?,
+            ),
+            builder_entrypoint: env::var("LAYERX_REGISTRY_BUILDER_ENTRYPOINT")
+                .map_err(|_| "LAYERX_REGISTRY_BUILDER_ENTRYPOINT is required".to_owned())?,
+            builder_isolation_runtime: PathBuf::from(
+                env::var("LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME").map_err(|_| {
+                    "LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME is required".to_owned()
+                })?,
+            ),
+            builder_isolation_runtime_digest: hex::decode_digest(
+                &env::var("LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME_DIGEST").map_err(|_| {
+                    "LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME_DIGEST is required".to_owned()
+                })?,
+            )
+            .map_err(|error| format!("builder isolation runtime digest is invalid: {error}"))?,
+            builder_job_supervisor: PathBuf::from(
+                env::var("LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR")
+                    .map_err(|_| "LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR is required".to_owned())?,
+            ),
+            builder_job_supervisor_digest: hex::decode_digest(
+                &env::var("LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR_DIGEST").map_err(|_| {
+                    "LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR_DIGEST is required".to_owned()
+                })?,
+            )
+            .map_err(|error| format!("builder job supervisor digest is invalid: {error}"))?,
+            builder_cgroup_root: builder_cgroup_root.to_path_buf(),
+            build_timeout_seconds: parse_u64("LAYERX_REGISTRY_BUILD_TIMEOUT_SECONDS", 1_800)?,
+            build_memory_bytes: parse_u64("LAYERX_REGISTRY_BUILD_MEMORY_BYTES", 2_147_483_648)?,
+            build_process_limit: parse_u32("LAYERX_REGISTRY_BUILD_PROCESS_LIMIT", 64)?,
+            build_file_size_bytes: parse_u64("LAYERX_REGISTRY_BUILD_FILE_SIZE_BYTES", 67_108_864)?,
+            attempts: parse_u32("LAYERX_REGISTRY_ATTEMPTS", 2)?,
+            staleness_ms: parse_u64("LAYERX_REGISTRY_MAX_STALENESS_SECONDS", 300)?
+                .checked_mul(1_000)
+                .ok_or_else(|| "LAYERX_REGISTRY_MAX_STALENESS_SECONDS is too large".to_owned())?,
+            node_endpoint: env::var("LAYERX_REGISTRY_NODE_ENDPOINT")
+                .map_err(|_| "LAYERX_REGISTRY_NODE_ENDPOINT is required".to_owned())?,
+            node_authorization: env::var("LAYERX_REGISTRY_NODE_AUTHORIZATION")
+                .map_err(|_| "LAYERX_REGISTRY_NODE_AUTHORIZATION is required".to_owned())?,
+            outbound_ca_der: fs::read(
+                env::var("LAYERX_REGISTRY_OUTBOUND_CA_DER")
+                    .map_err(|_| "LAYERX_REGISTRY_OUTBOUND_CA_DER is required".to_owned())?,
+            )
+            .map_err(|error| format!("LAYERX_REGISTRY_OUTBOUND_CA_DER is unreadable: {error}"))?,
+            outbound_client_identity: configured_node_client_identity()?,
+            receipt_authority_endpoint: env::var("LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT")
+                .map_err(|_| "LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT is required".to_owned())?,
+            receipt_authority_authorization: env::var(
+                "LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION",
+            )
+            .map_err(|_| {
+                "LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION is required".to_owned()
             })?,
-        )
-        .map_err(|error| format!("builder job supervisor digest is invalid: {error}"))?,
-        builder_cgroup_root: builder_cgroup_root.to_path_buf(),
-        build_timeout_seconds: parse_u64("LAYERX_REGISTRY_BUILD_TIMEOUT_SECONDS", 1_800)?,
-        build_memory_bytes: parse_u64("LAYERX_REGISTRY_BUILD_MEMORY_BYTES", 2_147_483_648)?,
-        build_process_limit: parse_u32("LAYERX_REGISTRY_BUILD_PROCESS_LIMIT", 64)?,
-        build_file_size_bytes: parse_u64("LAYERX_REGISTRY_BUILD_FILE_SIZE_BYTES", 67_108_864)?,
-        attempts: parse_u32("LAYERX_REGISTRY_ATTEMPTS", 2)?,
-        staleness_ms: parse_u64("LAYERX_REGISTRY_MAX_STALENESS_SECONDS", 300)?
-            .checked_mul(1_000)
-            .ok_or_else(|| "LAYERX_REGISTRY_MAX_STALENESS_SECONDS is too large".to_owned())?,
-        node_endpoint: env::var("LAYERX_REGISTRY_NODE_ENDPOINT")
-            .map_err(|_| "LAYERX_REGISTRY_NODE_ENDPOINT is required".to_owned())?,
-        node_authorization: env::var("LAYERX_REGISTRY_NODE_AUTHORIZATION")
-            .map_err(|_| "LAYERX_REGISTRY_NODE_AUTHORIZATION is required".to_owned())?,
-        outbound_ca_der: fs::read(
-            env::var("LAYERX_REGISTRY_OUTBOUND_CA_DER")
-                .map_err(|_| "LAYERX_REGISTRY_OUTBOUND_CA_DER is required".to_owned())?,
-        )
-        .map_err(|error| format!("LAYERX_REGISTRY_OUTBOUND_CA_DER is unreadable: {error}"))?,
-        outbound_client_identity: configured_node_client_identity()?,
-        receipt_authority_endpoint: env::var("LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT")
-            .map_err(|_| "LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT is required".to_owned())?,
-        receipt_authority_authorization: env::var(
-            "LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION",
-        )
-        .map_err(|_| "LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION is required".to_owned())?,
-        receipt_authority_replica_id: hex::decode_digest(
-            &env::var("LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID").map_err(|_| {
-                "LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID is required".to_owned()
+            receipt_authority_replica_id: hex::decode_digest(
+                &env::var("LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID").map_err(|_| {
+                    "LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID is required".to_owned()
+                })?,
+            )
+            .map_err(|error| {
+                format!("LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID is invalid: {error}")
             })?,
-        )
-        .map_err(|error| {
-            format!("LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID is invalid: {error}")
-        })?,
-        sequencer_trust_history: PathBuf::from(
-            env::var("LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY")
-                .map_err(|_| "LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY is required".to_owned())?,
-        ),
-        request_authority,
-        publication_authority,
-        request_timeout_seconds,
-        max_connections: parse_usize("LAYERX_REGISTRY_MAX_CONNECTIONS", 128, 1_024)?,
-        max_builds: parse_usize("LAYERX_REGISTRY_MAX_BUILDS", 4, 64)?,
-        tls: tls_config()?,
-    })
+            sequencer_trust_history: PathBuf::from(
+                env::var("LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY").map_err(|_| {
+                    "LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY is required".to_owned()
+                })?,
+            ),
+            request_authority,
+            publication_authority,
+            request_timeout_seconds,
+            max_connections: parse_usize("LAYERX_REGISTRY_MAX_CONNECTIONS", 128, 1_024)?,
+            max_builds: parse_usize("LAYERX_REGISTRY_MAX_BUILDS", 4, 64)?,
+            tls: tls_config()?,
+        },
+        chain_rpc_url,
+    ))
 }
 
 const MAX_WORKER_IPC_BYTES: u64 = 32 * 1024 * 1024 + 65_536;
@@ -668,17 +683,26 @@ fn request_worker(remaining_ms: u64, build_root: &Path) -> Result<(), String> {
     }
     let (request, builder): (layerx_platform_registry::Request, HermeticBuilder) =
         serde_json::from_slice(&encoded).map_err(|error| error.to_string())?;
-    let config = config(build_root)?;
+    let (config, chain_rpc_url) = config(build_root)?;
     let deadline = Instant::now()
         .checked_add(Duration::from_millis(remaining_ms))
         .ok_or_else(|| "worker deadline is invalid".to_owned())?;
-    let builder = builder.bind_worker(&config)?;
     let response =
-        Registrar::open_with_builder(&config, now(), builder, request.path == "/healthz")?.route(
-            &request,
-            now(),
-            deadline,
-        );
+        if request.path == "/__registry/head" && request.method == "POST" {
+            let journal =
+                layerx_platform_registry::FileDeploymentJournal::open(config.journal.clone())?;
+            Registrar::route_chain_head(
+                &request,
+                &config.request_authority,
+                &journal,
+                &chain_rpc_url,
+                deadline,
+            )
+        } else {
+            let builder = builder.bind_worker(&config)?;
+            Registrar::open_with_builder(&config, now(), builder, request.path == "/healthz")?
+                .route(&request, now(), deadline)
+        };
     serde_json::to_writer(io::stdout().lock(), &response).map_err(|error| error.to_string())
 }
 
@@ -982,7 +1006,7 @@ fn main() {
     }
     if let Err(error) = initialize_cgroup_boundary()
         .and_then(|root| config(&root))
-        .and_then(|config| serve(&config))
+        .and_then(|(config, _chain_rpc_url)| serve(&config))
     {
         eprintln!("layerx-program-registry: {error}");
         std::process::exit(2);

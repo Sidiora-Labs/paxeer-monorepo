@@ -12,7 +12,7 @@ distribution = "https://crates.io"
 signing = "sigstore-keyless"
 provenance = "github-actions-attestation"
 verification = "byte-compare-against-tagged-source"
-packages = ["layerx-agent-api","layerx-client","layerx-crypto","layerx-mirror","layerx-programs-runtime","layerx-proof","layerx-sdk","layerx-types","layerx-wire"]
+packages = ["layerx-agent-api","layerx-client","layerx-crypto","layerx-mirror","layerx-programs-runtime","layerx-proof","layerx-sdk","layerx-types"]
 status = "active"
 
 [registry.npm]

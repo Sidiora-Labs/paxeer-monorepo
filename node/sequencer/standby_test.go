@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -76,6 +77,13 @@ type primary struct {
 
 func newPrimary(t *testing.T, addr string, timeout time.Duration, funded ...utils.TestAcct) *primary {
 	t.Helper()
+	params := app.DefaultConsensusParams
+	configured := *params
+	block := *params.Block
+	block.MaxGasWanted = block.MaxGas
+	configured.Block = &block
+	app.DefaultConsensusParams = &configured
+	t.Cleanup(func() { app.DefaultConsensusParams = params })
 	h := newHarness(t, funded...)
 	w, err := wal.OpenWAL(filepath.Join(t.TempDir(), "primary-wal"), wal.DefaultConfig())
 	require.NoError(t, err)
@@ -207,6 +215,39 @@ func TestStandbyNoAckNoReceipt(t *testing.T) {
 
 	_, err = p2.repl.Release(context.Background(), &wal.Lease{Epoch: 1, ExpiryMs: uint64(p2.openMs)})
 	require.ErrorIs(t, err, sequencer.ErrStandbyRefused)
+}
+
+func TestStandbyRefusesTamperedGroupMidway(t *testing.T) {
+	sender := utils.NewSigner()
+	recipient := utils.NewSigner().EvmAddress
+	l := listen(t)
+	p := newPrimary(t, l.Addr().String(), replicationTimeout, sender)
+	sb := newStandby(t, p, sender)
+	sb.serve(t, l)
+	lastSeq := sb.s.LastSeq()
+
+	entries := []wal.Entry{p.open()}
+	for nonce := uint64(0); nonce < 3; nonce++ {
+		_, tx := transfer(t, sender, nonce, recipient, big.NewInt(onePaxInWei))
+		a := p.accept(tx)
+		if nonce == 1 {
+			a.Receipt = append([]byte(nil), a.Receipt...)
+			a.Receipt[len(a.Receipt)-1] ^= 0xff
+		}
+		entries = append(entries, a)
+	}
+
+	ack, err := p.repl.Release(context.Background(), entries...)
+	require.ErrorIs(t, err, sequencer.ErrStandbyRefused)
+	require.Equal(t, sequencer.Ack{}, ack)
+	require.Equal(t, lastSeq, sb.s.LastSeq())
+	require.ErrorIs(t, sb.s.Err(), wal.ErrReceiptMismatch)
+
+	ack, err = p.repl.Release(context.Background(), &wal.Lease{Epoch: 1, ExpiryMs: uint64(p.openMs)})
+	require.ErrorIs(t, err, sequencer.ErrStandbyRefused)
+	require.Equal(t, sequencer.Ack{}, ack)
+	require.Equal(t, lastSeq, sb.s.LastSeq())
+	require.ErrorIs(t, sb.s.Err(), wal.ErrReceiptMismatch)
 }
 
 func TestStandbyReplayMatchesPrimary(t *testing.T) {

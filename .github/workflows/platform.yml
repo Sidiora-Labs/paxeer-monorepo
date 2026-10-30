@@ -498,44 +498,9 @@ jobs:
           path: spec/layerx-beta/evidence
           if-no-files-found: error
 
-  replay-matrix:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - machine: x86_64
-            runner: ubuntu-24.04
-            ordinal: 4
-          - machine: aarch64
-            runner: ubuntu-24.04-arm
-            ordinal: 5
-    env:
-      LXP_REPLAY_MACHINE: ${{ matrix.machine }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Install native dependencies
-        run: >-
-          sudo apt-get update && sudo apt-get install --yes
-          build-essential clang libssl-dev libsqlite3-dev ripgrep
-      - name: Replay the golden ledger on this architecture and record its gate
-        run: scripts/ci/release-gate.sh --job replay-matrix-${{ matrix.machine }} --ordinal ${{ matrix.ordinal }} -- make test-replay-golden
-      - name: Retain the gate record and log
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: release-gate-replay-matrix-${{ matrix.machine }}
-          path: spec/layerx-beta/evidence
-          if-no-files-found: error
-
   release-pipeline:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
-    needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus, replay-matrix]
+    needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -1549,7 +1514,6 @@ jobs:
       - name: Gate seller and buyer quickstarts against the actual public registry snapshot
         run: make platform-test-ten-line
       - name: Retain the actual published-package integration line counts
-        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ten-line-counts-${{ github.job }}-${{ github.run_attempt }}

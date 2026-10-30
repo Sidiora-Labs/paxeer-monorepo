@@ -780,6 +780,7 @@ fn settlement_executed_with_rung(
     let digest = layerx_wire::hash::receipt_digest(&unsigned)
         .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
     layerx_x402::seller::ExecutedPayment {
+        committed: None,
         evidence: SequencerEvidence {
             transaction_hash: [0x61; 32],
             signed_receipt: settlement_receipt(from, &logs, Some(key.sign(&digest).to_bytes())),
@@ -1330,7 +1331,10 @@ fn assert_evidence_mismatch_before_settlement(
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("principal: {error}"));
     let trace = TraceId::mint([0xab; 16]);
     let mut plane = TestPaymentPlane {
-        outcome: PlanePaymentOutcome::Executed(layerx_x402::seller::ExecutedPayment { evidence }),
+        outcome: PlanePaymentOutcome::Executed(layerx_x402::seller::ExecutedPayment {
+            evidence,
+            committed: None,
+        }),
     };
     let outcome = seller.settle(&mut gateway, &principal, &encoded, &mut plane, &trace, 0);
     assert_eq!(
@@ -1511,7 +1515,10 @@ fn seller_reports_a_submitted_rung_as_pending() {
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("principal: {error}"));
     let trace = TraceId::mint([0xab; 16]);
     let mut plane = TestPaymentPlane {
-        outcome: PlanePaymentOutcome::Executed(layerx_x402::seller::ExecutedPayment { evidence }),
+        outcome: PlanePaymentOutcome::Executed(layerx_x402::seller::ExecutedPayment {
+            evidence,
+            committed: None,
+        }),
     };
     let outcome = seller
         .settle(&mut gateway, &principal, &encoded, &mut plane, &trace, 0)

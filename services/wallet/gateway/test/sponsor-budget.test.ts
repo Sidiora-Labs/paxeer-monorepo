@@ -207,10 +207,11 @@ async function sponsoredStatusReportsDidBudget(): Promise<void> {
     relayerSignature,
   };
   const budget = {
-    did: owner.did,
-    daily_wei: '500000000000000000',
-    used_wei: '300000000000000000',
-    remaining_wei: '200000000000000000',
+    key: owner.did,
+    gasLimit: '5000000',
+    usedGas: '3000000',
+    remainingGas: '2000000',
+    dayEnds: '2000073600',
   };
   const report = {
     state: 'quoted',
@@ -243,23 +244,25 @@ async function sponsoredStatusReportsDidBudget(): Promise<void> {
     did: owner.did,
     budget,
   });
-  expect(response.json().budget.remaining_wei).toBe('200000000000000000');
+  expect(response.json().budget.remainingGas).toBe('2000000');
   expect(requests).toStrictEqual([{ path: '/station/status', body }]);
 
   const updatedBudget = {
     ...budget,
-    used_wei: '400000000000000000',
-    remaining_wei: '100000000000000000',
+    usedGas: '4000000',
+    remainingGas: '1000000',
   };
   statusReply = { ...report, budget: updatedBudget };
   const updated = await send();
   expect(updated.statusCode, updated.body).toBe(200);
   expect(updated.json().budget).toStrictEqual(updatedBudget);
   for (const invalidBudget of [
-    { ...budget, did: other.did },
-    { ...budget, daily_wei: '-1' },
-    { ...budget, used_wei: 300000000000000000 },
-    { ...budget, remaining_wei: undefined },
+    { ...budget, key: other.did },
+    { ...budget, gasLimit: '-1' },
+    { ...budget, usedGas: 3000000 },
+    { ...budget, remainingGas: undefined },
+    { ...budget, extra: 'unexpected' },
+    { ...budget, remainingGas: '1000000' },
   ]) {
     statusReply = { ...report, budget: invalidBudget };
     const invalid = await send();
@@ -269,7 +272,7 @@ async function sponsoredStatusReportsDidBudget(): Promise<void> {
       status: 'pending',
     });
   }
-  expect(requests).toHaveLength(6);
+  expect(requests).toHaveLength(8);
   expect(endpointErrors).toEqual([]);
 }
 

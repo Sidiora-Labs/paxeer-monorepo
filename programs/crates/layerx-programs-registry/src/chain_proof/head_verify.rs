@@ -8,6 +8,7 @@ use super::{
     ChainProofError, Commit, VerifiedChainHead,
 };
 
+#[derive(Clone, Debug)]
 pub struct ChainProofVerifier {
     pub chain_id: String,
     pub validators: ValidatorSet,
@@ -80,6 +81,7 @@ impl ChainProofVerifier {
             |bytes: &[u8]| <[u8; 32]>::try_from(bytes).map_err(|_| ChainProofError::NonCanonical);
         Ok(VerifiedChainHead {
             chain_id: self.chain_id.clone(),
+            header_hash: header.hash()?,
             height: header.height,
             time_ms: header
                 .time

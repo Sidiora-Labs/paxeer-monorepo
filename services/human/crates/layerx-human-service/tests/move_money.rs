@@ -16,14 +16,13 @@ use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
     TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
     PreparationDefaults, PrepareRequest, Prepared,
 };
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit};
+use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_human_service::custody::{
     CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, Operation, SigningLimits,
@@ -50,6 +49,7 @@ use layerx_types::intent::{
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::result::KnownResult;
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use support::{directory, principal, retention_uniform, tenancy};
@@ -130,12 +130,27 @@ impl CorePreparationBoundary for RecordedCore {
     }
 }
 
+fn raw_transaction(nonce: usize, data: u8) -> Vec<u8> {
+    layerx_crypto::evm_transaction::Eip1559Call {
+        chain_id: 125,
+        nonce: u64::try_from(nonce).unwrap_or_else(|error| panic!("nonce: {error:?}")),
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to: [0x22; 20],
+        data: vec![data],
+    }
+    .sign(&[0xa5; 32])
+    .unwrap_or_else(|error| panic!("sign transaction: {error:?}"))
+}
+
 /// Adapter over real agentd preparation, signature verification, durable
 /// outbox transitions and receipt storage. Faults occur only after the real
 /// operation, reproducing acknowledgement gaps without replacing it.
 struct RealAgentLayer {
     store: AgentStore,
     outbox: Outbox,
+    outbox_submissions: BTreeMap<[u8; 32], [u8; 32]>,
     tenant: TenantId,
     registry: ModuleRegistry,
     specifications: BTreeMap<[u8; 32], ReceiptSpec>,
@@ -162,6 +177,7 @@ impl RealAgentLayer {
         Self {
             store: AgentStore::open(root).unwrap_or_else(|error| panic!("agent store: {error}")),
             outbox: Outbox::default(),
+            outbox_submissions: BTreeMap::new(),
             tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
             registry: registry(),
             specifications,
@@ -215,9 +231,9 @@ impl RealAgentLayer {
                 .unwrap_or_else(|error| panic!("submission ref: {error:?}")),
             state,
             rung: if evidence.is_empty() {
-                layerx_types::rung::Rung::Submitted
+                Rung::Submitted
             } else {
-                layerx_types::rung::Rung::Receipted
+                Rung::Receipted
             },
             evidence,
             transitions: Vec::new(),
@@ -354,23 +370,32 @@ impl AgentBoundary for RealAgentLayer {
             .as_bytes()
             .try_into()
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let signed = attach_external_signature(&prepared, signature)
+        let signed = attach_kernel_signature(&prepared, signature)
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let verified = verify_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
+        verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let activity_id = verified.activity_id();
-        match self
+        let raw = if let Some(id) = self.outbox_submissions.get(&key) {
+            self.outbox
+                .exact_signed_bytes(*id)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                .to_vec()
+        } else {
+            raw_transaction(self.outbox_submissions.len(), key[0])
+        };
+        let submission_id = match self
             .outbox
-            .enqueue(&mut self.store, self.tenant.clone(), key, verified)
+            .enqueue(&mut self.store, self.tenant.clone(), raw)
         {
-            Ok(()) => {}
+            Ok(id) => id,
             Err(OutboxError::Duplicate) => return Err(AgentBoundaryError::CorruptResponse),
             Err(_) => return Err(AgentBoundaryError::Refused),
-        }
+        };
+        self.outbox_submissions.insert(key, submission_id);
+        let activity_id = submission_id;
         self.outbox
             .transition(
                 &mut self.store,
-                key,
+                submission_id,
                 OutboxState::Submitted,
                 "real transport accepted exact bytes",
                 None,
@@ -386,8 +411,8 @@ impl AgentBoundary for RealAgentLayer {
                 self.outbox
                     .transition(
                         &mut self.store,
-                        key,
-                        OutboxState::Acknowledged,
+                        submission_id,
+                        OutboxState::Submitted,
                         "core acknowledged",
                         None,
                     )
@@ -395,7 +420,7 @@ impl AgentBoundary for RealAgentLayer {
                 self.outbox
                     .transition(
                         &mut self.store,
-                        key,
+                        submission_id,
                         OutboxState::Failed,
                         "core enforced budget period cap",
                         None,
@@ -434,8 +459,8 @@ impl AgentBoundary for RealAgentLayer {
                     self.outbox
                         .transition(
                             &mut self.store,
-                            key,
-                            OutboxState::Acknowledged,
+                            submission_id,
+                            OutboxState::Submitted,
                             "core acknowledged",
                             None,
                         )
@@ -449,7 +474,7 @@ impl AgentBoundary for RealAgentLayer {
                     self.outbox
                         .transition(
                             &mut self.store,
-                            key,
+                            submission_id,
                             OutboxState::Unknown,
                             "transport outcome unavailable",
                             None,
@@ -478,9 +503,13 @@ impl AgentBoundary for RealAgentLayer {
             .get(call.request().submission_ref.as_str())
             .ok_or(AgentBoundaryError::CorruptResponse)?;
         Self::count(&mut self.track_calls, key);
+        let submission_id = *self
+            .outbox_submissions
+            .get(&key)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
         let activity_id = self
             .outbox
-            .status(key)
+            .status(submission_id)
             .map(|status| status.activity_id)
             .ok_or(AgentBoundaryError::CorruptResponse)?;
         let material = self
@@ -490,7 +519,9 @@ impl AgentBoundary for RealAgentLayer {
         let signer = SigningKey::from_bytes(&[key[0].saturating_add(4); 32]);
         let raw = support::raw_receipt_evidence(
             material.canonical_bytes.clone(),
-            material.authorised_batch,
+            signer.verifying_key().to_bytes(),
+            material.authorised_batch.previous_state_root(),
+            material.authorised_batch.resulting_state_root(),
             u64::from(key[0]),
             &signer,
         );
@@ -499,18 +530,38 @@ impl AgentBoundary for RealAgentLayer {
             .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         if self
             .outbox
-            .status(key)
-            .is_some_and(|status| status.state == OutboxState::Acknowledged)
+            .status(submission_id)
+            .is_some_and(|status| status.state == OutboxState::Submitted)
         {
-            self.outbox
-                .transition(
+            let executed = self
+                .outbox
+                .record_execution(
                     &mut self.store,
-                    key,
-                    OutboxState::Executed,
-                    "verified receipt attached",
-                    Some(verified),
+                    submission_id,
+                    verified,
+                    material.block_height,
+                    0,
                 )
                 .map_err(|_| AgentBoundaryError::Refused)?;
+            assert_eq!(executed.state, OutboxState::Executed);
+            let block = layerx_client::sequencer::SequencerBlock {
+                number: material.block_height,
+                hash: material.receipt_hash,
+                parent_hash: material.authorised_batch.previous_state_root(),
+                timestamp: 1_000,
+                transactions_root: submission_id,
+                receipts_root: material.receipt_hash,
+                transactions: vec![self
+                    .outbox
+                    .exact_signed_bytes(submission_id)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                    .to_vec()],
+            };
+            let committed = self
+                .outbox
+                .reconcile_committed_block(&mut self.store, submission_id, &block)
+                .map_err(|_| AgentBoundaryError::Refused)?;
+            assert_eq!(committed.state, OutboxState::Committed);
         }
         let observation = self.executed(key, activity_id);
         self.fail_after(FaultPoint::Track)?;
@@ -592,7 +643,7 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
         canonical_bytes,
         tx_hash: activity_id,
         block_height: sequence,
-        rung: layerx_types::rung::Rung::Receipted,
+        rung: Rung::Receipted,
         authorised_batch: AuthorizedBatch::new(
             batch,
             ASSET,
