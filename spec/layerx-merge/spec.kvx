@@ -136784,7 +136784,7 @@ do_7 = "Delete from sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTest
 
 [task.8.44.6]
 title = "Swift SDK removes the /v1/programs REST transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.44.3"]
@@ -139962,7 +139962,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.10.1]
 title = "Run program operations against layerxprograms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["9.12.1", "9.2.2", "13.0.2", "9.1.8", "18.1131.1", "18.1206.1"]
@@ -144235,7 +144235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.9]
 title = "Port the human service agent-boundary test doubles to the raw-transaction outbox and the kernel signing pair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["10.2.8"]
@@ -152812,7 +152812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.6.5]
 title = "Admit the sponsored agent bind envelopes in the attestor agent authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -155751,7 +155751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.0.2]
 title = "Freeze the chain evidence surface: module, store key builder and crate exports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.1.9", "13.1.10", "13.1.11", "13.1.12", "13.1.13", "13.23.1", "13.23.2", "13.23.3", "13.24.1", "13.24.2", "13.24.3", "13.25.1", "13.25.2", "13.26.1", "13.26.2", "13.26.3", "13.27.2", "13.27.3", "13.27.4", "13.28.1", "13.28.2", "13.28.3", "13.28.4", "13.28.5", "13.28.6", "13.28.7"]
@@ -156377,7 +156377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.2]
 title = "Check the Rust ICS23 verifier against the store package proof vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "15.94.1"]
@@ -156408,7 +156408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.3]
 title = "Check the Rust commit verifier against the consensus light commit vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "5.94.3"]
@@ -156439,7 +156439,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.4]
 title = "Check the Rust results-hash verifier against the consensus results vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "5.94.3"]
@@ -156470,7 +156470,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.5]
 title = "Check the programs state key builder against the host store key vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "1.94.1"]
@@ -156501,7 +156501,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.6]
 title = "Add a chain-proof fuzz target over decode_commitment_proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]
@@ -156562,7 +156562,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.8]
 title = "Check ZIP-215 signature acceptance against the consensus ed25519 vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "13.1.14", "5.94.3"]
@@ -156902,7 +156902,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.10]
 title = "Build sandbox lease and usage store keys for chain proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]
@@ -189092,7 +189092,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1230.1]
 title = "Issue #1230: Align the Go agent envelope with the daemon's version 1 JSON envelope and response shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1199.1", "18.1206.1"]
@@ -189524,7 +189524,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1159.1]
 title = "Issue #1159: Make the KMS provider test disclosure matches exhaustive so the provider target compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["10.2.8"]
