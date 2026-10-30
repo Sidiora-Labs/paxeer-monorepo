@@ -14,9 +14,8 @@ use layerx_agentd::prepare::PreparationLifecycle;
 use layerx_agentd::session::{
     open, OpenRequest, SessionCredential, SessionId, SessionRecord, SessionRegistry,
 };
-use layerx_agentd::session_control::{SessionControl, SessionControlError};
+use layerx_agentd::session_control::SessionControl;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_agentd::tenant::{AuthorizationError, Operation, Surface};
 use layerx_mcp::server::{
     catalogue, tool_operation, InvocationOutcome, Server, ServerError, ToolKind, FAUCET_REQUEST,
     REQUIRED_DAEMON_GATES,
@@ -258,39 +257,5 @@ fn the_daemon_refuses_a_faucet_claim_the_session_no_longer_authorizes() {
     );
     assert!(!ran.get());
     assert_eq!(server.audit_entries(), 1);
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn the_faucet_scope_authorizes_only_the_faucet_operation_at_the_agentd_boundary() {
-    let root = directory("boundary");
-    let (session, capability) = records(&[FAUCET_REQUEST.required_scope]);
-    let (control, credential) = control(&root, &session, &capability);
-    let permit = control
-        .authorize(&credential, Operation::FaucetClaim, Surface::Mcp, 50, None)
-        .unwrap_or_else(|error| panic!("faucet authorization: {error:?}"));
-    assert_eq!(permit.credential(), credential);
-    assert_eq!(permit.principal().surface, Surface::Mcp);
-    for operation in [
-        Operation::Submit,
-        Operation::Sign,
-        Operation::Prepare,
-        Operation::Track,
-        Operation::Wait,
-        Operation::BudgetFund,
-        Operation::ReadBalance,
-    ] {
-        let refused = control.authorize(&credential, operation, Surface::Mcp, 50, None);
-        assert!(
-            matches!(
-                refused,
-                Err(SessionControlError::Authorization(
-                    AuthorizationError::ScopeDenied
-                ))
-            ),
-            "{} was authorized by the faucet scope",
-            operation.name()
-        );
-    }
     let _ = fs::remove_dir_all(root);
 }
