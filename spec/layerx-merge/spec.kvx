@@ -4707,6 +4707,24 @@ value = "Task 18.1308.1 deletes Keeper.ResultByIdempotency (modules/layerxauth/k
 basis = "787dd93be (task 1.2.1) stopped the kernel reading and recording idempotency entries and a0a08d298 (task 1.25.2) removed Host.ReadIdempotentReceipt, so views.go:167 no longer compiles and every build that links the layerxauth keeper fails (issue #1308; 18.1307.1 attempts 1 and 2, 2.28.6 attempt 5, 2.41.1 attempt 1). decision.101 retired the idempotency replay and decision.1718 ruled that its consumers move to the sequence guard and to the returned receipt; this view was the last in-tree consumer. The agent-side consumers (layerx-agentd idempotency.rs, the portable operation catalog and the attestor ABI) are separate follow-up tasks."
 affects = ["18.1308.1", "18.1307.1", "2.28.6", "2.41.1", "2.7.4", "decision.101", "decision.1718"]
 
+[decision.1933]
+title = "A replayed layerxauth payload is refused by the state it finds, not by the identity sequence; -301 comes from the grant store and -204 from a grant that is absent or already removed"
+value = "Keeper.execute reads the actor's identity sequence anew for every call (modules/layerxauth/keeper/execute.go:22) and the kernel consumes that sequence only when the activity returns LXP_OK (src/protocol/lxp_kernel.c:7130, restored at :7155-7156), so no replay through the keeper reaches the identity-sequence refusal. A second grantSession or grantCapability with the same payload answers LXP_ERR_SEQUENCE_REUSED (-301) because lxp_grant_store_put refuses a grant_id already in the store (src/ledger/lxp_grant_store.c:111-113). A second revokeGrant of a grant the first execution removed, and a replay of a payload whose first execution was refused, answer LXP_ERR_AUTH_SCOPE (-204). Every replay consumes one more global sequence (execute.go:18). Replay tests assert the code the kernel answers for their flow; decision.1932's 'the replay tests follow the sequence guard (-301)' holds only for the duplicate-grant replays."
+basis = "Attempts 1 (fee40d2f7) and 2 (da5718da8) of 18.1308.1 asserted -301 for the TestGrantSessionSuccessor replay (sessions_test.go:203) and the revoke replay of TestAuthExecuteReplayedPayloadRefused (execute_test.go:95) and received -204 both times; the session and capability replays of the same test and TestGrantSession's replay received -301."
+affects = ["18.1308.1", "decision.1932", "acceptance.2.40.4", "acceptance.2.58.4"]
+
+[decision.1934]
+title = "capacity_checks in tests/protocol/lxp_test_kernel.c follows the 4096-entry module KV bound of task 1.16.3; task 16.97.1 re-derives its fill from LXP_KERNEL_MAX_MODULE_KV and keeps its refusal and unchanged-state assertions"
+value = "abe4b242c (task 1.16.3) raised LXP_KERNEL_MAX_MODULE_KV from 512 to 4096 and LXP_MODULE_MAX_STAGED_WRITES from 64 to 512 (include/layerx/lxp_kernel.h:18, :21) and updated only tests/codec/lxp_test_module_bounds.c. capacity_checks (tests/protocol/lxp_test_kernel.c:222-257) still fills 385 entries and expects the fourth transition refused at 513, so it returns 1 and the suite exits 1 without output (:422-426). The guarantee it checks still holds at src/protocol/lxp_kernel.c:1772-1777: both hooks are charged against one shared budget. The fill follows the header constant; the LXP_ERR_ARENA_EXHAUSTED refusal and the unchanged epoch, count, sequence, journal and state root stay asserted."
+basis = "Attempts 6 (5cb7a0ab6) and 7 (420a6872b) of 16.97.1 built build/tests/lxp_test_kernel and it exited 1 silently; the suite reports only through its return value and capacity_checks runs before the deleted web genesis case."
+affects = ["16.97.1", "1.16.3"]
+
+[decision.1935]
+title = "The x402, fiat and gateway test expectations that task 18.1211.2, 18.1211.3 and 18.1211.4 rewrite follow the product changes that landed after the fixture was recorded"
+value = "buyer_refuses_lxp_form_and_malformed_hashes expects X402Error::TransactionForm for all seven inputs because validate_wire runs validate_transaction first (685b68cbc, task 11.6.3; src/model.rs:478-480); network_is_eip155 expects ProfileMismatch for a non-LayerX offer that carries extra.layerx (e556c8b04, issue #1162; src/model.rs:178-185) and InvalidRequirements for 'eip155:' as before; the fiat adapter test supplies a verified capture before a reversal or chargeback (92421c1ed, task 11.8.2; services/interop/crates/layerx-fiat/src/lib.rs:571-572) and fiat/sequenced-journeys.json pins native-order re-signed digests (a56482c68); tests/gateway.rs expects canonical_receipt_digest of the signed receipt (3c571b28e, task 11.1.1; src/gateway.rs:593). No assertion is dropped; each expectation names the error or digest the current code produces. The requires lists of 18.1211.2, .3, .4 and .5 stand."
+basis = "Attempts 1 to 4 of 18.1211.2 (fd5b880ca), 18.1211.3 (16ce809bf) and 18.1211.4 (3fb028d41) completed their native-order tuple construction and failed only on these expectations, which are red at d4aaf37ed whatever the topic order is."
+affects = ["18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -12253,7 +12271,7 @@ ac_2 = "The same ABI declares exactly the 9 events AssetRegistered, AssetPaused,
 
 [req.2012]
 title = "The 0x101C ABI freezes the inventoried methods and events"
-ac_1 = "precompiles/layerxauth/abi.json (planned), embedded by GetABI in precompiles/layerxauth/abi.go (planned) through pcommon.MustGetABI (precompiles/common/precompiles.go:449), declares exactly the 10 methods grantSession(bytes,uint64,bytes32), grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32), grantCapability(bytes), revokeGrant(bytes32,uint8,uint64), resultByIdempotency(bytes32,bytes32), getGrant(bytes32), isLive(bytes32,uint64,uint64), sessionKey(bytes32), capabilityScope(bytes32), checkActivity(bytes32,uint32,bytes32,uint128)."
+ac_1 = "precompiles/layerxauth/abi.json (planned), embedded by GetABI in precompiles/layerxauth/abi.go (planned) through pcommon.MustGetABI (precompiles/common/precompiles.go:449), declares exactly the 9 methods grantSession(bytes,uint64,bytes32), grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32), grantCapability(bytes), revokeGrant(bytes32,uint8,uint64), getGrant(bytes32), isLive(bytes32,uint64,uint64), sessionKey(bytes32), capabilityScope(bytes32), checkActivity(bytes32,uint32,bytes32,uint128)."
 ac_2 = "The same ABI declares exactly the 5 events SessionGranted, GrantBody, CapabilityGranted, GrantRevoked, IdentityStateUpdated with the indexed arguments of the inventoried signatures."
 
 [req.2013]
@@ -12270,7 +12288,7 @@ ac_1 = "GasTable in precompiles/layerxledger/gas.go (planned) is a pcommon.GasTa
 
 [req.2016]
 title = "0x101C charges a fixed per-method gas row"
-ac_1 = "GasTable in precompiles/layerxauth/gas.go (planned) is a pcommon.GasTable (precompiles/common/precompiles.go:65) with one MethodGas row per ABI method, Write true for state-changing methods, and surcharges grantSession 36680, grantSessionSuccessor 38600, grantCapability 34760, revokeGrant 5000, resultByIdempotency 1204, getGrant 1108, isLive 1300, sessionKey 1108, capabilityScope 1108, checkActivity 1396."
+ac_1 = "GasTable in precompiles/layerxauth/gas.go (planned) is a pcommon.GasTable (precompiles/common/precompiles.go:65) with one MethodGas row per ABI method, Write true for state-changing methods, and surcharges grantSession 36680, grantSessionSuccessor 38600, grantCapability 34760, revokeGrant 5000, getGrant 1108, isLive 1300, sessionKey 1108, capabilityScope 1108, checkActivity 1396."
 
 [req.2017]
 title = "The layerxledger keeper owns params and drives the shared kernel host"
@@ -12388,7 +12406,7 @@ title = "Authority views read grants, liveness, scopes and idempotent results"
 ac_1 = "GetGrant, SessionKey and CapabilityScope in modules/layerxauth/keeper/views.go (planned) return the grant body, session key (ReadSessionKey, modules/lxphost/read.go:401) and capability scope through the host reads requested by wiring J23.5, without writing the host store."
 ac_2 = "IsLive returns true with an empty reason for a live grant and false with LXP_AUTH_REVOKED or LXP_AUTH_EXPIRED for a revoked or expired one, through the liveness read of wiring J23.5."
 ac_3 = "CheckActivity returns an empty reason when the activity type, asset and amount are inside the grant scope and LXP_AUTH_SCOPE otherwise."
-ac_4 = "ResultByIdempotency returns the encoded receipt that ReadIdempotentReceipt (modules/lxphost/read.go:444) stores for the DID and key, and an empty result for an unknown key."
+ac_4 = "The keeper exposes no idempotency read: ResultByIdempotency is retired by task 18.1308.1 (decision.1932), and a second submission of a payload is refused by the state it finds (decision.1933)."
 
 [req.2042]
 title = "LayerXScopeAuthorization.Accept enforces the scope of each wrapped activity"
@@ -12474,7 +12492,7 @@ title = "0x101C views answer for any caller"
 ac_1 = "getGrant, sessionKey and capabilityScope return the keeper view bytes under staticcall for an unbound caller."
 ac_2 = "isLive(bytes32,uint64,uint64) returns (true, \"\") for a live grant and (false, LXP_AUTH_REVOKED) for a revoked one."
 ac_3 = "checkActivity(bytes32,uint32,bytes32,uint128) returns an empty reason inside scope and LXP_AUTH_SCOPE outside."
-ac_4 = "resultByIdempotency(bytes32,bytes32) returns the encoded receipt of a recorded activity and empty bytes for an unknown key."
+ac_4 = "The precompile exposes no resultByIdempotency view: it is retired by task 18.1308.1 (decision.1932) together with its ABI entry, gas row and surface row."
 
 [req.2059]
 title = "Through the integrated node, bank balances under layerx denoms equal kernel balances"
@@ -51963,9 +51981,9 @@ qualification = "UNRUN"
 [acceptance.2.40.4]
 feature = "2"
 req = "2040.4"
-scenario = "Given a grantSession executed with key K, when ResultByIdempotency runs with K and with an unused key, then it returns the encoded receipt and empty bytes"
+scenario = "Given a grantSession executed with key K, when the same payload is submitted again, then the keeper refuses it with LXP_ERR_SEQUENCE_REUSED (-301) from the duplicate grant, consumes one more global sequence and exposes no idempotency read (decision.1933)"
 contract = "contracts/ledger-auth.md#idempotency"
-test = "modules/layerxauth/keeper/views_test.go::TestAuthResultByIdempotency (planned)"
+test = "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteReplayedPayloadRefused"
 qualification = "UNRUN"
 
 [acceptance.2.42.1]
@@ -52243,9 +52261,9 @@ qualification = "UNRUN"
 [acceptance.2.58.4]
 feature = "2"
 req = "2058.4"
-scenario = "Given a grantSession executed with key K, when resultByIdempotency is called with K and an unused key, then it returns the receipt and empty bytes"
+scenario = "Given the layerxauth precompile ABI, when its methods are enumerated, then resultByIdempotency is absent and the nine remaining methods carry their gas rows (decision.1932)"
 contract = "contracts/ledger-auth.md#layerxauth-0x101c"
-test = "precompiles/layerxauth/views_test.go::TestPrecompileResultByIdempotency (planned)"
+test = "precompiles/layerxauth/surface_test.go::TestPrecompileSurface"
 qualification = "UNRUN"
 
 [acceptance.2.59.1]
@@ -67662,7 +67680,7 @@ qualification = "UNRUN"
 [acceptance.9.15.2]
 feature = "9"
 req = "9015.2"
-scenario = "Given a key whose earlier attempt the node reports through resultByIdempotency, when execute is called again with different request bytes, then it returns protocol_result_code -302 with reason idempotent_replay."
+scenario = "Given a key whose earlier attempt settled on the node and whose result the daemon recorded from the sequencer receipt of the retained signed transaction, when execute is called again with different request bytes, then it returns protocol_result_code -302 with reason idempotent_replay."
 contract = "contracts/agent-errors.md#idempotent-replay"
 test = "services/agent/crates/layerx-agentd/tests/idempotency_height.rs::replay_settled_on_the_node_maps_to_idempotent_replay (planned)"
 qualification = "UNRUN"
@@ -82181,11 +82199,11 @@ interface = "Precompile 0x000000000000000000000000000000000000101C named layerxa
 storage = "Kernel authority grants, identity sequences and idempotency records in the shared lxphost store; layerxauth module store holds ParamsKey 0x01 only; capability grants mirrored as authz LayerXScopeAuthorization grants"
 errors = "Error(string) reasons LXP_<CODE> from the layerxauth registrations of modules/layerxauth/types/errors.go:8-16, kernel names through LXPCodeName and LXP_PAUSED_SCOPE 735 from layerxgov"
 events = "SessionGranted, GrantBody, CapabilityGranted, GrantRevoked, IdentityStateUpdated from kernel events 0x7145, 0x7105 and 0x7125, 0x7148, 0x7108 and 0x7128, 0x7106 and 0x7110 (GrantBody carries the 256-byte body chunks 0x7105/0x7125 of a session and 0x7108/0x7128 of a capability)"
-gas = "Fixed surcharge per method plus DefaultGasCost of the input: grantSession 36680, grantSessionSuccessor 38600, grantCapability 34760, revokeGrant 5000, resultByIdempotency 1204, getGrant 1108, isLive 1300, sessionKey 1108, capabilityScope 1108, checkActivity 1396"
+gas = "Fixed surcharge per method plus DefaultGasCost of the input: grantSession 36680, grantSessionSuccessor 38600, grantCapability 34760, revokeGrant 5000, getGrant 1108, isLive 1300, sessionKey 1108, capabilityScope 1108, checkActivity 1396"
 activation = "Served from the height where MergeUpgrade v7.0 (precompiles/setup.go:50) is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxauth module"
 invariants = "A revoked kernel grant makes the matching authz grant unusable in MsgExec; idempotency records older than IdempotencyRetention are pruned and retention 0 keeps all"
 pause = "layerxauth params paused refuses grantSession, grantSessionSuccessor and grantCapability; revokeGrant and views always answer"
-interfaces = ["interface.6.pc-0x101c-grantsession", "interface.6.pc-0x101c-grantsessionsuccessor", "interface.6.pc-0x101c-grantcapability", "interface.6.pc-0x101c-revokegrant", "interface.6.pc-0x101c-resultbyidempotency", "interface.6.pc-0x101c-getgrant", "interface.6.pc-0x101c-islive", "interface.6.pc-0x101c-sessionkey", "interface.6.pc-0x101c-capabilityscope", "interface.6.pc-0x101c-checkactivity", "interface.6.pc-0x101c-evt-sessiongranted", "interface.6.pc-0x101c-evt-grantbody", "interface.6.pc-0x101c-evt-capabilitygranted", "interface.6.pc-0x101c-evt-grantrevoked", "interface.6.pc-0x101c-evt-identitystateupdated", "interface.2.pc-0x101c-err-lxp-j23", "interface.2.err-sdk-layerxauth-11-paused-scope", "interface.2.fmt-layerxauth-abi-j23", "interface.2.go-layerxauth-fromkernel-j23", "interface.2.go-pc-layerxauth-address-j23", "interface.2.go-pc-layerxauth-gastable-j23", "interface.2.go-pc-layerxauth-getabi-j23", "interface.2.go-pc-layerxauth-keepers-j23", "interface.2.go-pc-layerxauth-newmergeprecompile-j23", "interface.2.go-pc-layerxauth-newprecompile-j23", "interface.2.go-pc-layerxauth-reverterror-j23"]
+interfaces = ["interface.6.pc-0x101c-grantsession", "interface.6.pc-0x101c-grantsessionsuccessor", "interface.6.pc-0x101c-grantcapability", "interface.6.pc-0x101c-revokegrant", "interface.6.pc-0x101c-getgrant", "interface.6.pc-0x101c-islive", "interface.6.pc-0x101c-sessionkey", "interface.6.pc-0x101c-capabilityscope", "interface.6.pc-0x101c-checkactivity", "interface.6.pc-0x101c-evt-sessiongranted", "interface.6.pc-0x101c-evt-grantbody", "interface.6.pc-0x101c-evt-capabilitygranted", "interface.6.pc-0x101c-evt-grantrevoked", "interface.6.pc-0x101c-evt-identitystateupdated", "interface.2.pc-0x101c-err-lxp-j23", "interface.2.err-sdk-layerxauth-11-paused-scope", "interface.2.fmt-layerxauth-abi-j23", "interface.2.go-layerxauth-fromkernel-j23", "interface.2.go-pc-layerxauth-address-j23", "interface.2.go-pc-layerxauth-gastable-j23", "interface.2.go-pc-layerxauth-getabi-j23", "interface.2.go-pc-layerxauth-keepers-j23", "interface.2.go-pc-layerxauth-newmergeprecompile-j23", "interface.2.go-pc-layerxauth-newprecompile-j23", "interface.2.go-pc-layerxauth-reverterror-j23"]
 
 [contract_context.2.layerxledger-0x101a]
 interface = "Precompile 0x000000000000000000000000000000000000101A named layerxledger: 18 ABI methods and 9 events of precompiles/layerxledger/abi.json (planned)"
@@ -107142,7 +107160,7 @@ title = "Export the oracle observation submit and committed price read on the ex
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["3.0.2", "1.24.1", "18.1305.1"]
+requires = ["3.0.2", "1.24.1", "18.1305.1", "18.1308.1"]
 reqs = ["3963.1", "3963.2"]
 capabilities = []
 interfaces = []
@@ -107170,6 +107188,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "SubmitOracleObservation submits the signed 137-byte oracle transport (include/layerx/lx_oracle.h:15, decoded by lx_perps_oracle_transport_decode at src/modules/perps/lx_perps_command.c:112-123); the hosted kernel admits it only after lxphost_reset registers lx_perps_oracle_transport_module_iface() (include/layerx/lx_perps.h:346) in place of lx_perps_module_iface() at modules/lxphost/host.go:176-177, whose decoder refuses every oracle payload other than 72 bytes with LXP_ERR_NON_CANONICAL (src/modules/perps/lx_perps_command.c:87-89); that registration is task 18.1305.1 (required), not a change in this task's files."
 do_6 = "Keep the transport encoding in modules/layerxexchange/keeper/oracle.go and oracle_test.go: a 72-byte observation cannot be admitted through the host, because the host verifies the activity signature over the activity signing preimage (modules/lxphost/host.go:514-516) while the version-1 perps module checks that same signature over the observation message (src/modules/perps/lx_oracle_intake.c:84-91). Once 18.1305.1 is on main, re-qualify the attempt 3 candidate (665276991) unchanged."
+do_7 = "go build ./modules/layerxexchange/... links the layerxauth keeper and stops at modules/layerxauth/keeper/views.go:167 (k.host.ReadIdempotentReceipt undefined) until task 18.1308.1 lands (issue #1308); attempt 4 (13afb7145) of this task stopped there with the task's own files complete. This task now requires 18.1308.1, changes nothing under modules/layerxauth, and its candidate is re-qualified unchanged on a base that includes 18.1308.1."
 
 [task.3.93.2]
 title = "Add a keeper-free accessor for the spot precompile names and ABIs"
@@ -140894,7 +140913,7 @@ title = "Remove the LNI connection from agentd startup"
 status = "pending"
 mode = "BUILD"
 wave = 20
-requires = ["9.12.3", "9.12.4", "9.13.2", "9.1.8", "18.1131.1", "18.1304.1"]
+requires = ["9.12.3", "9.12.4", "9.13.2", "9.1.8", "18.1131.1", "18.1304.1", "18.1310.1"]
 reqs = ["9044.1"]
 capabilities = ["9.12.5"]
 interfaces = ["interface.9.env-layerx-agent-human-node-lni", "interface.9.env-layerx-agent-human-protocol-version", "interface.9.env-layerx-agent-human-network-id", "interface.9.cli-layerx-agentd-mode-human-owner"]
@@ -140920,6 +140939,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 4 (85d48f856) passed a NodeRpc to ProductionHumanOperations::new at main.rs:913, whose parameter stays layerx_client::Client (human_runtime.rs:13276, decision.1920): keep that call as it is and use NodeRpc only in human_owner_mode.rs. The layerx-agentd binary also stops at main.rs:1768 (E0061) until task 18.1310.1 lands (issue #1310), which this task now requires; do not port that call here."
 
 [task.9.12.6]
 title = "Retire the settlement, trust-history, handover and genesis startup variables"
@@ -162841,7 +162861,7 @@ do_2 = "Delete the custody and anchor fields from the three mocks at apps/explor
 do_3 = "Create apps/explorer/mocks/paxeerX/capabilities.spec.ts (planned) with capabilities_mocks_have_no_retired_keys, which asserts every exported mock has exactly the keys of the updated PaxeerXCapabilities and no custody or anchor key."
 do_4 = "Add nav_hides_feed_without_price_feed_capability to apps/explorer/lib/hooks/useNavItems.spec.tsx, which renders useNavItems with a capabilities answer lacking price_feed and asserts the feed item is absent, keeping the read at apps/explorer/lib/hooks/useNavItems.tsx:35-38 typed against the narrowed type."
 symbols = ["PaxeerXCapabilities", "capabilities_mocks_have_no_retired_keys", "nav_hides_feed_without_price_feed_capability"]
-touches = ["apps/explorer/types/api/paxeerX.ts", "apps/explorer/mocks/paxeerX/capabilities.ts", "apps/explorer/mocks/paxeerX/capabilities.spec.ts", "apps/explorer/lib/hooks/useNavItems.spec.tsx"]
+touches = ["apps/explorer/types/api/paxeerX.ts", "apps/explorer/mocks/paxeerX/capabilities.ts", "apps/explorer/mocks/paxeerX/capabilities.spec.ts", "apps/explorer/lib/hooks/useNavItems.spec.tsx", "apps/explorer/lib/api/services/general/paxeerX.spec.ts"]
 tests = ["apps/explorer/mocks/paxeerX/capabilities.spec.ts::capabilities_mocks_have_no_retired_keys", "apps/explorer/lib/hooks/useNavItems.spec.tsx::nav_hides_feed_without_price_feed_capability"]
 planned_paths = ["apps/explorer/mocks/paxeerX/capabilities.spec.ts"]
 build_cmd = "cd apps/explorer && yarn lint:tsc"
@@ -162857,6 +162877,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "apps/explorer/lib/api/services/general/paxeerX.spec.ts:57 asserts capabilities.custody toBe(false); once do_1 drops custody and anchor from the capabilities type, yarn lint:tsc fails on that line (attempt 1, 223549068). Delete the custody expectation, and any anchor expectation, from that spec; the file is now in touches and every other assertion in it stays as written."
 
 [task.14.22.1]
 title = "Freeze committed-rung vectors for sequencer receipt R7 and R8"
@@ -172474,6 +172495,7 @@ do_6 = "Attempts 1 to 3 scanned every kernel suite for lxp_receive_environment a
 do_7 = "Attempt 4 scanned every kernel suite for lxp_grant_store and failed on live uses in tests/ledger/test_receive.c:78, :149, :233, tests/ledger/test_send_allowance.c:265, :317 and tests/protocol/lxp_test_terminal_rejection.c:780, :803: the grant store is a live kernel type until task 1.12.1 (wave 30) deletes src/ledger/lxp_grant_store.c and src/ledger/lxp_receive.c. Per decision.1911, test_no_receive_or_grant_store_caller asserts that tests/test_gateway_receive.c is absent and scans only tests/modules/test_asset_registry.c (the file do_1 edits) for lxp_grant_store and the symbols of the deleted payer grant read case; do_6 is superseded by this entry."
 do_8 = "Attempt 5 (0b549ce5e) left 50 entries in the replay table and asserted the literal 49 while include/layerx/lxp_qualification.h:11 declares LXP_QUAL_ACTIVITY_TYPE_COUNT = 53: the header belongs to task 1.12.3 (wave 31, which requires this task), so the 49-entry table of do_2 cannot exist yet. Keep the replay table at the header's 53 entries and let test_qual_replay_table_matches_header assert that the table length equals the header count with no literal (decision.1914); task 1.12.3 lowers both to 49."
 do_9 = "Attempt 6 (5cb7a0ab6) passed test_no_receive_or_grant_store_caller and test_qual_replay_table_matches_header and built build/tests/lxp_test_kernel, which then exited 1 in web_genesis_checks (tests/protocol/lxp_test_kernel.c:271-328): task 1.18.1 (ad8a576e8) deleted the LXP_MODULE_WEB row of the genesis module table, so lxp_genesis_module_enable_key(LXP_MODULE_WEB) returns LXP_ERR_UNKNOWN_MODULE (src/protocol/lxp_genesis.c:147) and the case fails at its first check, contrary to req.1065 ac_1. Per decision.1929, delete web_genesis_checks, its call in main (tests/protocol/lxp_test_kernel.c:488) and the layerx/lx_web.h include at :3 (and layerx/lxp_genesis.h at :4 if nothing else uses it); keep named_iface, which prepare_staging_checks uses; req.1065 ac_1 stays asserted by web_and_bridge_rows_absent in tests/codec/lxp_test_modules_unregistered.c. test_no_handover_genesis_case keeps building and running the suite."
+do_10 = "Attempt 7 (420a6872b) deleted web_genesis_checks, and build/tests/lxp_test_kernel still exits 1 with no output, because the suite reports a failed check only through its return value (tests/protocol/lxp_test_kernel.c:422-426). The first failing case is capacity_checks (:222-257). It fills the module KV table to 385 entries and requires the next transition, which stages 64 writes in each of its two hooks, to be refused with LXP_ERR_ARENA_EXHAUSTED against a 512-entry table. Task 1.16.3 (abe4b242c) raised LXP_KERNEL_MAX_MODULE_KV to 4096 and LXP_MODULE_MAX_STAGED_WRITES to 512 (include/layerx/lxp_kernel.h:18, :21), so the shared hook budget at src/protocol/lxp_kernel.c:1772-1777 admits the 128 additions and the transition returns LXP_OK. This failure also stopped attempt 6. Per decision.1934 derive the fill from the header: keep stage_bulk at 64; run (LXP_KERNEL_MAX_MODULE_KV - 1U) / 128U fill transitions (31 at 4096) instead of 3; expect module_kv_count == 1U + 128U * fills (3969) and store->next_sequence == sequence + fills in place of the literals 385 and 3 at :242-243 and :249-250; and update the comment at :214-221 to the 4096-entry table. Keep every other assertion of the case as written. Each hook's own guarantee still clears, because 64 additions fit in the 127 entries left (src/protocol/lxp_module_ctx.c:1234), while the pair overruns the table. The refused transition must return LXP_ERR_ARENA_EXHAUSTED and leave the epoch, module_kv_count, the sequence, the journal and the state root unchanged. Do not change transition_checks, prepare_staging_checks, main's registration checks, include/layerx/lxp_kernel.h, the other three touched suites or the four test functions of tests/ci/test_kernel_suite_retired_uses.py. If the suite still exits 1 after this change, record the case it stops in and stop."
 
 [task.16.97.2]
 title = "Gate the deletion of the arbiter authority, web intake, layerxd and bridge credit suites"
@@ -189404,7 +189426,7 @@ title = "Issue #1195: Port the archive test fixture to the rung field of FundsDi
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["18.1172.2", "10.2.8", "10.2.9", "18.1297.1"]
+requires = ["18.1172.2", "10.2.8", "10.2.9", "18.1297.1", "18.1228.1"]
 reqs = ["181195.1"]
 capabilities = []
 interfaces = []
@@ -189428,13 +189450,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "services/human/crates/layerx-human-service/tests/archive.rs:288 names InvalidationReason::SessionKeyRevoked, a variant the enum no longer has (services/agent/crates/layerx-agentd/src/session_revocation.rs:217 lists GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered), so the test target fails with E0599 before this task's change is reached (attempts 1 to 4; attempt 4 (e77cb18c3)). Task 18.1228.1 do_1 replaces that variant in this file; this task now requires 18.1228.1, does not edit that line itself, and its candidate is re-qualified unchanged on a base that includes 18.1228.1."
 
 [task.18.1196.1]
 title = "Issue #1196: Port the agent_controls limit-change callers and interface entry to the authority rung parameter"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["18.1172.2", "10.2.8", "10.2.9", "18.1297.1"]
+requires = ["18.1172.2", "10.2.8", "10.2.9", "18.1297.1", "18.1228.1"]
 reqs = ["181196.1"]
 capabilities = []
 interfaces = []
@@ -189458,6 +189481,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "services/human/crates/layerx-human-service/tests/agent_controls.rs:315 names InvalidationReason::SessionKeyRevoked, a variant the enum no longer has (services/agent/crates/layerx-agentd/src/session_revocation.rs:217 lists GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered), so the test target fails with E0599 before this task's change is reached (attempts 1 to 4; attempt 4 (f2d6e0443)). Task 18.1228.1 do_1 replaces that variant in this file; this task now requires 18.1228.1, does not edit that line itself, and its candidate is re-qualified unchanged on a base that includes 18.1228.1."
 
 [task.18.1197.1]
 title = "Issue #1197: Run the live LXHAGT01 frame test in the native human peer release gate and bind the frame codec to its fixture"
@@ -189948,7 +189972,7 @@ symbols = []
 touches = ["services/agent/crates/layerx-agentd/tests/revocation.rs", "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs", "services/human/crates/layerx-human-service/tests/session_keys.rs", "services/human/crates/layerx-human-service/tests/archive.rs", "services/human/crates/layerx-human-service/tests/session_rungs.rs", "services/human/crates/layerx-human-service/tests/agent_controls.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/revocation.rs::revocation_cancels_only_unsubmitted_work_and_persists_session_invalidation", "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs::spoofed_request_tenants_are_ignored_on_every_surface", "services/human/crates/layerx-human-service/tests/session_keys.rs::real_agent_session_is_scope_bounded_and_pause_archive_revoke_both_layers"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test revocation --test tenant_resolve && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys --test archive --test session_rungs --test agent_controls --test agent_controls_rungs"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test revocation --test tenant_resolve && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys --test archive --test session_rungs --test agent_controls --test agent_controls_rungs"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -189963,6 +189987,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "10.2.9 already names GrantRevokedOnChain at agent_controls_rungs.rs:389 and :2594 while porting that file's agent-boundary double (decision.1872); make the do_2 replacement in session_keys.rs, archive.rs, session_rungs.rs and agent_controls.rs and leave agent_controls_rungs.rs as 10.2.9 left it."
 do_5 = "agent_controls.rs:634, :652 and :666 call change_limit with three arguments; since ea572906f (src/agents/controls.rs:532) it takes authority_rung: Rung first, so pass Rung::Committed as agent_controls_rungs.rs:721 and :736 do and keep every assertion as written."
+do_6 = "The build compiles only the seven test targets the verify runs. With --tests it also compiled services/agent/crates/layerx-agentd/tests/degraded.rs, which task 18.1205.1 ports to the Observation::Ready and DegradedRead fields of a71fefb65 (attempt 4, 99dc4f3fc: E0559, E0308 and E0609 at degraded.rs:103-166), and layerx-human-service targets this task does not touch. Change nothing in degraded.rs; the attempt 4 candidate is re-qualified unchanged under the narrowed build."
 
 [task.18.1229.1]
 title = "Issue #1229: Validate the sponsored-status budget in the gas station's own fields and gas units"
@@ -191310,7 +191335,7 @@ qualification = "UNRUN"
 
 [task.18.1286.1]
 title = "Issue #1286: Carry the selected actor address as the caller of agent program simulation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1304.1"]
@@ -192386,12 +192411,12 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [req.181264]
 title = "Swift ProgramsClient.receipt carries the idempotency key and recorded result"
-ac_1 = "ProgramsClient.receipt(idempotencyKey:expectedActivityID:verificationLevel:) (sdk/platform/swift/Sources/LayerXSDK/Programs.swift:562) returns a ProgramSubmission whose idempotencyKey equals the requested key and whose idempotencyResult equals the bytes resultByIdempotency recorded for it (selector 2eda9f2b on Programs.authAddress), with the state that activity(transactionHash:) reports."
+ac_1 = "ProgramsClient.receipt(idempotencyKey:expectedActivityID:verificationLevel:) (sdk/platform/swift/Sources/LayerXSDK/Programs.swift:562) returns a ProgramSubmission whose idempotencyKey equals the requested key with the state that activity(transactionHash:) reports; the idempotencyResult read through resultByIdempotency (selector 2eda9f2b) that this requirement first asked for is retired by task 18.1308.2 (decision.1932)."
 
 [acceptance.18.1264.1]
 feature = "18"
 req = "181264.1"
-scenario = "Given an RPC node whose resultByIdempotency call answers bytes 0xaabbcc and that does not know the expected transaction, when receipt(idempotencyKey:expectedActivityID:verificationLevel:) runs with level 'pending', then the submission has state 'unknown', idempotencyKey equal to the key and idempotencyResult equal to 0xaabbcc"
+scenario = "Given an RPC node that does not know the expected transaction, when receipt(idempotencyKey:expectedActivityID:verificationLevel:) runs with level 'pending', then the submission has state 'unknown' and idempotencyKey equal to the key, and no resultByIdempotency call is issued (task 18.1308.2)"
 contract = "contracts/platform-sdk.md#program-operations"
 test = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"
 qualification = "UNRUN"
@@ -192841,7 +192866,7 @@ qualification = "UNRUN"
 
 [task.18.1301.1]
 title = "Issue #1301: Port the MCP scope test to InvalidationReason::GrantRevokedOnChain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1302.1", "18.1304.1"]
@@ -193030,7 +193055,7 @@ title = "Issue #1279 follow-up: MCP web payments bind 32-byte ledger asset and a
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1304.1"]
+requires = ["18.1304.1", "18.1310.1"]
 reqs = ["1812792.1"]
 capabilities = []
 interfaces = []
@@ -193056,6 +193081,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "The build of layerx-agentd-host compiles the layerx-agentd binary from services/agent/crates/layerx-agentd/src/main.rs, which stops at main.rs:1768 (E0061: the one-argument verify_historical_deployment) until task 18.1310.1 lands (issue #1310); attempts 3 and 4 (5e9cc590c) stopped there with the task's own files complete. This task now requires 18.1310.1 and changes nothing in main.rs; its candidate continues on a base that includes it."
 
 [req.1812792]
 title = "Issue #1279 follow-up: MCP web payments bind 32-byte ledger asset and account ids"
@@ -193145,6 +193171,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "dispute_open_decode answers LXP_ERR_LENGTH_LIMIT (-5) for an evidence count of zero (src/modules/service/lx_service_payload.c:235-237), and the kernel runs decode before validate and execute (src/protocol/lxp_kernel.c:2303-2319), so the zero-evidence payload of do_4 never reaches execute_dispute_open. TestHostServiceDisputeReachesAgreementLookup sends a 99-byte payload instead: bytes 0-1 are 0x00 0x01 (LX_SERVICE_RECORD_VERSION, include/layerx/lx_service.h:51), bytes 2-33 a non-zero dispute id, bytes 34-65 a non-zero agreement id no row holds, byte 66 the evidence count 1, and bytes 67-98 one non-zero evidence hash (lx_service_hashes_check, src/modules/service/lx_service_state.c:99-113). Decode and module_validate pass, the bound runtime passes the check at src/modules/service/lx_service_module.c:324-325, and the failed lx_service_agreement_lookup answers LXP_ERR_AGREEMENT_STATE (-706) at :327-329; without the binding the same payload answers LXP_ERR_MODULE_DISABLED (-103), so every do_4 assertion stays as written."
 
 [req.181306]
 title = "Issue #1306: The hosted kernel binds a service runtime that reads escrow links"
@@ -193475,6 +193502,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Owner ruling (decision.1935) for two src unit tests that are red at main d4aaf37ed whatever the topic order is, superseding 'keep every assertion' in do_4 for these two tests only. (1) In services/interop/crates/layerx-x402/src/buyer.rs buyer_refuses_lxp_form_and_malformed_hashes (:867-885), expect Err(X402Error::TransactionForm) for all seven transactions: SettlementResponse::validate_wire (src/model.rs:478-480, task 11.6.3) runs validate_transaction (src/seller.rs:555-567, task 11.6.1) before the buyer hash check at src/buyer.rs:446-453. (2) In src/seller.rs network_is_eip155 (:970-991), expect ('layerx:beta', ProfileMismatch), ('eip155:', InvalidRequirements), ('eip155:0125', ProfileMismatch), ('eip155:0', ProfileMismatch), ('eip155:abc', ProfileMismatch): PaymentRequirements::validate (src/model.rs:178-185, issue #1162) refuses a non-LayerX offer that carries extra.layerx before Seller::new reaches validate_network (src/seller.rs:134-144). Change nothing else in either test."
 
 [req.1812112]
 title = "x402 tests build the native PaymentExact tuple from the recorded payExact calldata"
@@ -193501,7 +193529,7 @@ do_1 = "In services/interop/crates/layerx-visa-tap/tests/middleware.rs (:219) an
 do_2 = "In services/interop/crates/layerx-ap2/tests/mandates.rs sign_payment_reference (:154-180) and tests/sequencer_settlement.rs sign_payment_reference (:379-400) take payer and payee from calldata words 0 and 1 instead of recorded topics[1] and topics[2]; keep the idempotency_key in topics[1] and every assertion."
 do_3 = "In services/interop/crates/layerx-fiat/tests/adapter.rs (:110-152), tests/sequencer_settlement.rs (:169-175, :461-463) and tests/sequenced_vectors.rs (:163-195) build the reference, from and to topics from calldata words 5, 0 and 1 instead of the permutation [0, 3, 1, 2] and the recorded topics[1..3]; keep the re-signature under the pinned seed and every assertion. The payee literals at middleware.rs:273, sequencer_result.rs:146 and adapter.rs:693 stay as recorded; task 18.1211.5 updates them with the fixture."
 symbols = ["fiat_card_capture_settles_receipted_evidence"]
-touches = ["services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-ap2/tests/mandates.rs", "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs", "services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs"]
+touches = ["services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-ap2/tests/mandates.rs", "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs", "services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs", "services/interop/specs/conformance/fiat/sequenced-journeys.json"]
 tests = ["services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs::fiat_card_capture_settles_receipted_evidence"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-visa-tap -p layerx-ap2 -p layerx-fiat --tests"
@@ -193518,6 +193546,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 stopped before any test ran: services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs:21 imports layerx_portable::{PortableReceiptV2, PORTABLE_RECEIPT_FORMAT_V2} and :585 asserts parsed.format() against it, but 2c4ecdb63 (task 11.29.4) renamed the constant to PORTABLE_RECEIPT_FORMAT ('layerx-receipt-proof-v2', services/interop/crates/layerx-portable/src/receipt.rs:10). That file is in this task's touches: use PORTABLE_RECEIPT_FORMAT at :21 and :585 and change nothing else there beyond do_2."
+do_5 = "tests/adapter.rs every_provider_journey_reaches_its_declared_state (:810) is red at main d4aaf37ed: since task 11.8.2, FiatAdapter settles a reversed or charged-back leg only against a verified capture (services/interop/crates/layerx-fiat/src/lib.rs:571-572), and the test FiatPlane at tests/adapter.rs:408-430 keeps the default capture_evidence of None (src/lib.rs:293-295). Give that FiatPlane a capture: Option<SequencerEvidence> field that capture_evidence returns. In run_journey (:552), for reversal_against_verified_receipt and chargeback_against_verified_receipt, first run settled_credit_against_verified_receipt (same principal, provider, settlement and rail; sequence 250) through FiatAdapter::apply on the same gateway, then use its evidence as the capture, and authorize both receipts with one SequencerAuthorization for sequencer id 0x93 and the same signing key over heights 250 to the refund sequence (270 or 280). Keep every assertion and every declared state."
+do_6 = "In services/interop/specs/conformance/fiat/sequenced-journeys.json set sequencer.receipt_digest and expect.receipt_digest to the canonical digest of the native-order receipt that tests/sequenced_vectors.rs re-signs under the pinned test signing key: card_receipted_credit 0xe7c6a13ed062d534ce0387c8d00735e390ba1097c019e4c3da3d06e126401f6c, bank_receipted_credit 0xae073c877f5615aec23c61e051b69c703e7680e7f603be886d2163efdc15d5bb, rtp_receipted_credit 0x797340ee02757c9b4478537f26674ac8804b6b74a39658eacd3633498eb9e933. The pinned values are the legacy-order re-signed digests, which the adapter has not accepted since a56482c68. Leave source_receipt_digest, transaction_hash, payment_reference and every other field unchanged; task 18.1211.5 re-records these three pairs over the rewritten fixture. The three values were derived by reading and no gate has checked them: if sequenced_vectors reports a different digest for a case, use the digest it reports and record the correction."
 
 [req.1812113]
 title = "Visa TAP, AP2 and fiat tests build the native PaymentExact tuple from the recorded payExact calldata"
@@ -193559,6 +193589,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "In services/interop/crates/layerx-interop-gateway/tests/gateway.rs, assert_settled (:893) and the PaymentExact and PaymentDrawn settlement tests (:936, :1005) expect sha256 of the whole signed receipt, but since task 11.1.1 the gateway records canonical_receipt_digest (src/gateway.rs:593, src/evidence.rs:36-53). Per decision.1935 replace sha256(receipt) at :893 and sha256(&receipt) at :936 and :1005 with layerx_interop_gateway::evidence::canonical_receipt_digest of the same bytes (it returns Result; panic on error). Keep the sha256 helper (:672) for the receipt body hashes and keep every other assertion. These receipts are built by the test, not taken from the fixture."
 
 [req.1812114]
 title = "Gateway, UCP and migration tests build the native PaymentExact tuple from the recorded payExact calldata"
@@ -193604,6 +193635,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "In services/interop/specs/conformance/fiat/sequenced-journeys.json the digest replaced by do_5 includes sequencer.receipt_digest and expect.receipt_digest of card_receipted_credit, bank_receipted_credit and rtp_receipted_credit (which task 18.1211.3 do_6 set to native-order values over the current fixture): set each to the canonical digest of the receipt that services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs re-signs from the rewritten V1 case under the pinned test signing key, and set source_receipt_digest to the rewritten receiptDigest."
 
 [req.1812115]
 title = "The recorded payExact receipt carries a derivable payee in native PaymentExact order"
@@ -193623,7 +193655,7 @@ title = "Move the xweb state-type adapters out of query.pb.go and make the pinne
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = []
+requires = ["18.1308.1"]
 reqs = ["6806.1"]
 capabilities = []
 interfaces = []
@@ -193647,6 +193679,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "go build ./modules/xweb/... links the layerxauth keeper and stops at modules/layerxauth/keeper/views.go:167 (k.host.ReadIdempotentReceipt undefined) until task 18.1308.1 lands (issue #1308); attempts 1 (2c982e15e) and 2 of this task stopped there with the task's own files complete. This task now requires 18.1308.1, changes nothing under modules/layerxauth, and its candidate is re-qualified unchanged on a base that includes 18.1308.1."
 
 [req.6806]
 title = "The xweb generated query file is unedited generator output and compiles"
@@ -193665,7 +193698,7 @@ title = "Serve bank SupplyOf by_denom first through the generated gateway"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = []
+requires = ["18.1308.1"]
 reqs = ["7289.1"]
 capabilities = []
 interfaces = []
@@ -193688,6 +193721,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "go build ./api/... ./sdk/x/bank/... links the layerxauth keeper and stops at modules/layerxauth/keeper/views.go:167 (k.host.ReadIdempotentReceipt undefined) until task 18.1308.1 lands (issue #1308); attempts 1 (b89bb4692) and 2 (d7bd1df60) of this task stopped there with the task's own files complete. This task now requires 18.1308.1, changes nothing under modules/layerxauth, and its candidate is re-qualified unchanged on a base that includes 18.1308.1."
 
 [req.7289]
 title = "The bank gateway serves SupplyOf by_denom first from unedited generator output"
@@ -193733,6 +193767,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Attempts 1 (fee40d2f7) and 2 (da5718da8) completed every other do line and failed only the replay assertions of do_3 that expected -301 where the kernel answers -204 (decision.1933). The keeper reads the actor's identity sequence anew per call (keeper/execute.go:22), so a replay is refused by the state it finds: in TestAuthExecuteReplayedPayloadRefused the session and capability replays answer types.ErrSequenceReused with ResultCode -301 from the duplicate grant_id (src/ledger/lxp_grant_store.c:111-113), and the revoke replay answers types.ErrAuthScope with ResultCode -204 because the first execution removed the grant; TestGrantSession's replay answers -301; the TestGrantSessionSuccessor replay of the refused payload answers types.ErrAuthScope with ResultCode -204 again and leaves the grant, the session key and the params stores unchanged. In all four replays assert one more global sequence consumed (execute.go:18) and a non-empty Encoded receipt; keep every other assertion of do_3 as written and change nothing in the kernel or the keeper."
 
 [req.181308]
 title = "Issue #1308: The layerxauth keeper compiles without the retired idempotency read"
@@ -193752,7 +193787,7 @@ title = "Issue #1309: The history-readiness scenario indexes the in-tree node's 
 status = "pending"
 mode = "BUILD"
 wave = 0
-requires = []
+requires = ["18.1308.1"]
 reqs = ["181309.1"]
 capabilities = []
 interfaces = []
@@ -193779,6 +193814,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "make -f chain.mk install links the layerxauth keeper and stops at modules/layerxauth/keeper/views.go:167 (k.host.ReadIdempotentReceipt undefined) until task 18.1308.1 lands (issue #1308); attempts 1 (085bf7c30) and 2 (86f62b696) of this task stopped there with the task's own files complete. This task now requires 18.1308.1, changes nothing under modules/layerxauth, and its candidate is re-qualified unchanged on a base that includes 18.1308.1."
 
 [req.181309]
 title = "Issue #1309: The history-readiness scenario indexes the in-tree node's EVM JSON-RPC instead of the archive relay origin"
@@ -193793,4 +193829,147 @@ req = "181309.1"
 scenario = "Given the in-tree node started by tools/qualification/localnode/v6120-node.sh, when the history-readiness case starts layerx-indexer with the node's LOCAL_NODE_RPC as LAYERX_INDEXER_EVM_URL, then the paxeer source reaches ready, degrades and stalls while the node is stopped, and is freshly ready again after the node restarts"
 contract = "contracts/platform-hosted.md#indexer-env-vars"
 test = "tests/explorer/test_paxeer_x_data_boundary_cases.py::test_history_readiness_evm_source_is_the_local_node"
+qualification = "UNRUN"
+
+
+[task.18.1310.1]
+title = "Issue #1310: Replay the agent deployment journal through the four-argument chain-proof historical verifier so the layerx-agentd binary compiles"
+status = "pending"
+mode = "BUILD"
+wave = 0
+requires = []
+reqs = ["181310.1"]
+capabilities = []
+interfaces = []
+do_1 = "42c1fea30 (task 13.4.5) widened ProtocolDeploymentVerifier::verify_historical_deployment (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372-3391) to (proof, current: &chain_proof::VerifiedChainHead, trust_chain: &[(ChainHeader, Commit, ValidatorSet)], now_ms), but services/agent/crates/layerx-agentd/src/main.rs:1768 still passes only the proof, so the layerx-agentd binary of layerx-agentd-host fails with E0061 (attempt 3 of 18.1279.2: the only binary error). The registry decodes Commit and ValidatorSet only in private functions (programs/crates/layerx-programs-registry/src/chain_evidence/verify_bundle.rs:254 decode_commit, :331 decode_validators): make both pub(crate) and add to programs/crates/layerx-programs-registry/src/chain_evidence.rs `pub fn commitment_trust_step(commitment: &CommitmentProof) -> Result<(ChainHeader, Commit, ValidatorSet), ChainProofError>`, which decodes signed_header with ChainHeader::decode (chain_proof/header.rs:46), commit with decode_commit and validator_set with decode_validators and verifies nothing; the verifier authenticates every step. Change no other registry code."
+do_2 = "In services/agent/crates/layerx-agentd/src/read/program_node.rs add to impl LayerxdProgramBalanceReader `pub fn verify_journal_admission(&self, proof: &DeploymentProof, now: u64) -> Result<VerifiedDeploymentEvidence, ChainHeadError>`: refuse now == 0 as View(NonCanonicalView); GET /v1/protocol/account-state/head from the node exactly as read_chain_head does (:392-398) and pass the document to verify_head (:426), which keeps the authority cross-check, the validator-signed commitment under the trust root, the transaction proof and the freshness check; re-parse the same document with chain_head_evidence (:550) for its commitment; take trust = self.verifier.chain_trust() (protocol_evidence.rs:839), refusing None as Evidence(InvalidTrustAnchor); decode the admission step from proof.state.commitment and the current step from the head commitment with commitment_trust_step, refusing failures as Evidence(Encoding); compute current = trust.verify_head(&current_step.0, &current_step.1), refusing failures as Evidence(ChainProof)."
+do_3 = "verify_journal_admission then builds trust_chain = [admission_step] when the current header height equals the admission header height and [admission_step, current_step] otherwise, and returns self.verifier.verify_historical_deployment(proof, &current, &trust_chain, now).map_err(ChainHeadError::Evidence). Never pass an empty slice (chain_evidence/verify_deployment.rs:42-44 refuses it with HistoricalTrustAnchor), and leave verify_head, read_chain_head, chain_head_evidence and their callers (:268, :399) unchanged."
+do_4 = "In services/agent/crates/layerx-agentd/src/main.rs change load_registry (:1753) to take `reader: &LayerxdProgramBalanceReader` in place of the verifier and replace :1767-1769 with `reader.verify_journal_admission(&proof, now_ms()?)` (now_ms at :1802) mapping the error as `{} is unverified: {error:?}`; in program_authority_boot (:2114-2134) connect `let journal = program_reader(config, verifier.clone(), Registry::new())?;` (program_reader :2138) and call load_registry(Path::new(&config.deployment_journal), &journal). Keep the receipt file-name check, the .deployment record comparison, record_verified_deployment and the empty-journal refusal exactly as written. Leave the from_protected_history construction at :2118 to task 9.12.6 do_6: until it lands every admission is refused with InvalidTrustAnchor, which is the correct refusal, not a failure of this task."
+do_5 = "No node route serves (header, commit, validator set) steps between two heights, so a two-step chain only reaches admissions whose head is at most TRUST_PERIOD_MS (14 days, programs/crates/layerx-programs-registry/src/chain_proof/trust.rs:11) before the current head and whose validators hold more than a third of the current commit's power (trust.rs:71-73); others are refused with HistoricalTrustAnchor and the daemon refuses to start naming the file. Record that as one finding; do not widen the trust period, skip an admission or accept a shorter chain."
+do_6 = "Add journal_admission_verifies_through_the_current_chain_head to services/agent/crates/layerx-agentd/tests/program_chain_head.rs on real validator-signed fixtures (precedents: programs/crates/layerx-programs-registry/tests/support/mod.rs:50 verifier_for_fixture and :74 deploy_fixture, the header advance and re-signing at programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs:274-298, and HeadServer and connect at program_chain_head.rs:153-259). Sign an admission at height H. Serve a current head at a later height from the same validators, identically from the node and the authority, with its time past STALENESS_LIMIT so verifier.verify_deployment(&proof, now) is Err(Stale). Assert verify_journal_admission returns Ok, that its record equals the admission's record and that Registry::record_verified_deployment accepts it. Then assert refusal when the authority document differs (View(NonCanonicalView)), when one current-commit signature is flipped and when the current head is more than 14 days after the admission head (Evidence(HistoricalTrustAnchor))."
+symbols = ["commitment_trust_step", "verify_journal_admission", "load_registry", "program_authority_boot", "journal_admission_verifies_through_the_current_chain_head"]
+touches = ["programs/crates/layerx-programs-registry/src/chain_evidence.rs", "programs/crates/layerx-programs-registry/src/chain_evidence/verify_bundle.rs", "services/agent/crates/layerx-agentd/src/read/program_node.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/tests/program_chain_head.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/program_chain_head.rs::journal_admission_verifies_through_the_current_chain_head", "services/agent/crates/layerx-agentd/tests/program_chain_head.rs::chain_head_read_verifies_the_validator_signed_commitment"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test program_chain_head -- --exact journal_admission_verifies_through_the_current_chain_head"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the five files; main.rs:1768 calls the one-argument verify_historical_deployment again and the layerx-agentd binary stops compiling."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181310]
+title = "Issue #1310: The layerx-agentd binary replays its deployment journal through the chain-proof historical verifier"
+ac_1 = "cargo build --locked -p layerx-agentd-host builds the layerx-agentd binary; load_registry (services/agent/crates/layerx-agentd/src/main.rs) verifies every .admission through LayerxdProgramBalanceReader::verify_journal_admission and nothing under services/agent/crates/layerx-agentd/src calls verify_historical_deployment with one argument."
+ac_2 = "An admission signed by the trust-root validators at an earlier height, which verify_deployment refuses as stale, verifies against a current head that the node and the independent authority serve identically, and its record replays into the Registry."
+ac_3 = "The admission is refused, and the daemon refuses to start naming the file, when the authority document differs, a current-commit signature is forged, the current head is more than the 14-day trust period after the admission head or the verifier has no chain trust; no empty trust chain is passed and the trust period is unchanged."
+
+[acceptance.18.1310.1]
+feature = "18"
+req = "181310.1"
+scenario = "Given a deployment admission signed at an earlier height by the persisted validator set and a later current head signed by the same set and served identically by the node and the independent authority, when the daemon replays its deployment journal, then the admission verifies through the two-step trust chain ending at that head and its record enters the registry; and when the authority disagrees, a current-commit signature is forged or the current head lies beyond the 14-day trust period, then the admission is refused with the matching error."
+contract = "contracts/agent-config.md#agentd-env"
+test = "services/agent/crates/layerx-agentd/tests/program_chain_head.rs::journal_admission_verifies_through_the_current_chain_head"
+qualification = "UNRUN"
+
+[task.18.1308.2]
+title = "Platform SDKs resolve program.receipt by the retained transaction instead of the retired resultByIdempotency view"
+status = "pending"
+mode = "BUILD"
+wave = 0
+requires = ["18.1308.1"]
+reqs = ["1813082.1"]
+capabilities = []
+interfaces = []
+do_1 = "sdk/platform/conformance/operations.json:586-597: the program.receipt entry becomes 'method': 'eth_getTransactionByHash' with transport evm and no to or selector keys, the same shape as program.activity at :548-558; then run python3 sdk/platform/generators/generate_portable.py . once to rewrite sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift (:179) and sdk/platform/dotnet/Generated/OperationCatalog.cs (:181) from it."
+do_2 = "sdk/platform/go/generated.go:361-362: the AgentOperationProgramReceipt arm of EVMMetadata returns EVMOperationMetadata{Method: 'eth_getTransactionByHash', To: '', Selector: ''}, edited by hand because the Go generator does not render EVMMetadata; sdk/platform/go/operation_catalog_test.go:58 expects {Method: 'eth_getTransactionByHash'} and drops the now-unused auth constant at :51. Do not run make platform-sdk-generate or layerx-platform-sdkgen --write and do not edit sdk/platform/pipeline.kvx."
+do_3 = "sdk/platform/go/programs.go:2052-2071: Programs.Receipt keeps its signature, still refuses a non-canonical key or a zero expected transaction, drops the didID requirement and the 2eda9f2b view call, and returns Activity(ctx, expectedTransaction) with IdempotencyKey set to the key; the IdempotencyResult field (:297) and its assignment (:2069) are removed."
+do_4 = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift: remove receipt(actor:idempotencyKey:) (:558-567) and the idempotencyResult property and initializer argument of ProgramSubmission (:353, :360, :367); receipt(idempotencyKey:expectedActivityID:verificationLevel:) (:568-580) returns activity(transactionHash: expectedActivityID) with idempotencyKey set to the key; lifecycleReceipt(_:) (:581-585) returns the canonicalBytes of the sequencerReceipt that activity(transactionHash: request.activityID) verifies and throws the unknown-outcome error when that receipt is absent."
+do_5 = "sdk/platform/swift/Tests: in ProgramsEvmTests.swift replace testProgramReceiptCarriesIdempotencyResult (:183-219) with testProgramReceiptResolvesByTransaction, which asserts the recorded methods are exactly ['eth_getTransactionByHash', 'pax_sequencerReceipt', 'eth_getRawTransactionByHash'] (or the prefix the fixture reaches), that no request carries data starting 0x2eda9f2b or targets Programs.authAddress, and that the returned submission carries the key and the verified sequencer receipt; in ProgramTransportRetiredTests.swift drop the 'receipt by actor' record (:101-103), record 'receipt' (:104-106) and 'lifecycle receipt' (:128-130) with method eth_getTransactionByHash and no selector, and drop the 2eda9f2b branch at :78."
+do_6 = "sdk/platform/dotnet/Programs.cs:302-313: ReceiptAsync validates the key, the expected transaction hash and the level as today, drops the 2eda9f2b Rpc.CallAsync and the recorded-bytes cross-check, and returns ActivityAsync(expectedTransactionHash, verificationLevel) re-wrapped with the key; sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs:77 expects eth_getTransactionByHash for program.receipt."
+do_7 = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java: delete receiptByIdempotency (:708-716); receipt(IdempotencyKey, byte[], String) (:696-706) calls sequencerReceipt(raw) (:584) for the retained signed transaction in place of receiptByIdempotency(key, raw) and keeps the EXECUTED/REFUSED mapping; ProgramTransportRetiredTest.java:104-105 records program.receipt as ('program.receipt', 'pax_sequencerReceipt', () -> programs.sequencerReceipt(signed))."
+do_8 = "services/wallet/attestor/internal/policy/evm/abi/layerxauth.json becomes a byte copy of precompiles/layerxauth/abi.json as left by 18.1308.1 (the resultByIdempotency entry at :44-52 disappears); docs/system/precompiles.md:453 loses the resultByIdempotency bullet."
+do_9 = "Change nothing in services/agent/schema/agent-api (program.receipt stays a daemon operation served over HTTP), in GeneratedContract.java or GeneratedSchema.java, in sdk/platform/pipeline.kvx, or in the HTTP-transport receipt paths that ProgramsContractTests in Swift, .NET and JVM exercise."
+symbols = ["TestProgramOperationsHaveNoRestRoute", "testProgramReceiptResolvesByTransaction", "TestABICopiesMatchRepository"]
+touches = ["sdk/platform/conformance/operations.json", "sdk/platform/go/generated.go", "sdk/platform/go/operation_catalog_test.go", "sdk/platform/go/programs.go", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift", "sdk/platform/dotnet/Generated/OperationCatalog.cs", "sdk/platform/dotnet/Programs.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramTransportRetiredTest.java", "services/wallet/attestor/internal/policy/evm/abi/layerxauth.json", "docs/system/precompiles.md"]
+tests = ["sdk/platform/go/operation_catalog_test.go::TestProgramOperationsHaveNoRestRoute", "sdk/platform/go/program_transport_retired_test.go::TestProgramOperationsNeverCallProgramsRestIngress", "sdk/platform/go/portable_catalogue_test.go::TestPortableCataloguesMatchOperationsJson", "services/wallet/attestor/internal/policy/evm/evm_test.go::TestABICopiesMatchRepository", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptResolvesByTransaction", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift::testProgramOperationsNeverCallProgramsRestIngress", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs::ProgramOperationsNeverCallProgramsRestIngress", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramTransportRetiredTest.java::programOperationsNeverCallProgramsRestIngress"]
+planned_paths = []
+build_cmd = "(cd sdk/platform/go && go build ./...) && (cd services/wallet/attestor && go build ./...) && swift build --package-path sdk/platform/swift && dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj && mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_cmd = "python3 sdk/platform/generators/generate_portable.py --check . && (cd sdk/platform/go && go test -count=1 . -run '^(TestProgramOperationsHaveNoRestRoute|TestProgramOperationsNeverCallProgramsRestIngress|TestPortableCataloguesMatchOperationsJson)$') && (cd services/wallet/attestor && go test -count=1 ./internal/policy/evm/ -run '^TestABICopiesMatchRepository$') && swift test --package-path sdk/platform/swift --filter 'LayerXSDKTests.(ProgramsEvmTests/testProgramReceiptResolvesByTransaction|ProgramTransportRetiredTests/testProgramOperationsNeverCallProgramsRestIngress)' && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~ProgramTransportRetiredTests.ProgramOperationsNeverCallProgramsRestIngress' && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=ProgramTransportRetiredTest"
+gate_kind = "existing"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the fifteen touched files; the four SDKs call resultByIdempotency again and fail against a node that no longer serves it."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.1813082]
+title = "Platform SDKs resolve program.receipt by the retained transaction instead of the retired resultByIdempotency view"
+ac_1 = "operations.json, the generated Swift and C# catalogs and the Go EVMMetadata route program.receipt to eth_getTransactionByHash with no to or selector, and generate_portable.py --check passes (decision.1718)."
+ac_2 = "The Go, Swift, .NET and JVM Programs clients resolve program.receipt and the Swift lifecycle receipt through the sequencer receipt of the retained transaction (pax_sequencerReceipt) and never send selector 0x2eda9f2b or call 0x…101c for it; no idempotency-result field remains on a program submission."
+ac_3 = "services/wallet/attestor/internal/policy/evm/abi/layerxauth.json equals precompiles/layerxauth/abi.json and docs/system/precompiles.md no longer lists resultByIdempotency."
+
+[acceptance.18.1308.2]
+feature = "18"
+req = "1813082.1"
+scenario = "Given a Programs client with a retained signed transaction, when program.receipt is resolved for its idempotency key, then the client reads the transaction and its sequencer receipt by hash, returns the verified receipt with the key, and never issues an eth_call with selector 0x2eda9f2b"
+contract = "contracts/platform-sdk.md#program-operations"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptResolvesByTransaction"
+qualification = "UNRUN"
+
+[task.18.1308.3]
+title = "Agent daemon and agent API errors stop naming the retired resultByIdempotency view"
+status = "pending"
+mode = "BUILD"
+wave = 0
+requires = ["18.1308.1"]
+reqs = ["1813083.1"]
+capabilities = []
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/src/idempotency.rs:314-315: the record_node_result doc comment says it persists the original result recovered from the verified sequencer receipt that the submit path returned for the retained signed transaction (SubmissionState Executed or Committed receipt_ref), with the caller supplying that transaction's request bytes and hash; the function body, RecordState::NodeSettled and the LXID v2 codec (:451-555) stay unchanged."
+do_2 = "services/agent/crates/layerx-agentd/tests/idempotency_height.rs:187: the panic text becomes 'record node-settled result'; every assertion of replay_settled_on_the_node_maps_to_idempotent_replay (:145-229) and sweep_expires_records_older_than_the_retention_window_in_blocks (:50-142) stays as written."
+do_3 = "services/agent/schema/agent-api/errors.kvx:21 and services/agent/schema/agent-api/golden/errors.kvx:21 get the same new original_result text: 'Read the first result from the sequencer receipt of the retained signed transaction that the first submit returned; never resubmit at a new nonce.' The two files stay byte-identical; class, protocol_result_code, retriability and reason of LXP_IDEMPOTENT_REPLAY do not change."
+do_4 = "services/agent/crates/layerx-agent-api/tests/schema.rs: write_and_error_goldens_match_major_two_schema (:141) also asserts errors['error.LXP_IDEMPOTENT_REPLAY.original_result'] equals the new quoted text and that ERRORS_SOURCE does not contain resultByIdempotency."
+do_5 = "Change nothing in agent_rpc.rs, the program.receipt operation in programs.kvx or v1.kvx, their goldens, or the -302 mapping in layerx-agent-api/src/error.rs."
+symbols = ["record_node_result", "replay_settled_on_the_node_maps_to_idempotent_replay", "write_and_error_goldens_match_major_two_schema"]
+touches = ["services/agent/crates/layerx-agentd/src/idempotency.rs", "services/agent/crates/layerx-agentd/tests/idempotency_height.rs", "services/agent/schema/agent-api/errors.kvx", "services/agent/schema/agent-api/golden/errors.kvx", "services/agent/crates/layerx-agent-api/tests/schema.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/idempotency_height.rs::replay_settled_on_the_node_maps_to_idempotent_replay", "services/agent/crates/layerx-agentd/tests/idempotency_height.rs::sweep_expires_records_older_than_the_retention_window_in_blocks", "services/agent/crates/layerx-agent-api/tests/schema.rs::write_and_error_goldens_match_major_two_schema"]
+planned_paths = []
+build_cmd = "cargo build --manifest-path services/agent/Cargo.toml -p layerx-agent-api -p layerx-agentd --tests"
+verify_cmd = "cargo test --manifest-path services/agent/Cargo.toml -p layerx-agentd --test idempotency_height && cargo test --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema -- --exact write_and_error_goldens_match_major_two_schema"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the five touched files; the daemon doc, the test text and the idempotent_replay guidance name resultByIdempotency again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.1813083]
+title = "Agent daemon and agent API errors stop naming the retired resultByIdempotency view"
+ac_1 = "The idempotent_replay guidance in errors.kvx and its golden names the sequencer receipt of the retained signed transaction, both files stay byte-identical, and the schema test asserts the text and the absence of resultByIdempotency (decision.1718)."
+ac_2 = "record_node_result documents that its result comes from the verified receipt the submit path returned, and the node-settled replay test still maps a changed body to idempotent_replay -302 Terminal."
+
+[acceptance.18.1308.3]
+feature = "18"
+req = "1813083.1"
+scenario = "Given the agent API errors schema, when LXP_IDEMPOTENT_REPLAY is read, then its original_result tells the caller to read the first result from the sequencer receipt of the retained signed transaction, and the source equals the golden"
+contract = "contracts/agent-errors.md#idempotent-replay"
+test = "services/agent/crates/layerx-agent-api/tests/schema.rs::write_and_error_goldens_match_major_two_schema"
 qualification = "UNRUN"

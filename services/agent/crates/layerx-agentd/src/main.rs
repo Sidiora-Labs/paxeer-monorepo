@@ -1750,7 +1750,7 @@ fn config() -> Result<Config, String> {
     })
 }
 
-fn load_registry(root: &Path, verifier: &ProtocolDeploymentVerifier) -> Result<Registry, String> {
+fn load_registry(root: &Path, reader: &LayerxdProgramBalanceReader) -> Result<Registry, String> {
     let mut paths = fs::read_dir(root)
         .map_err(|error| format!("deployment journal is unavailable: {error}"))?
         .map(|entry| entry.map(|value| value.path()))
@@ -1764,9 +1764,9 @@ fn load_registry(root: &Path, verifier: &ProtocolDeploymentVerifier) -> Result<R
             .map_err(|error| format!("{} is unreadable: {error}", path.display()))?;
         let proof = DeploymentProof::decode(&bytes)
             .map_err(|error| format!("{} is corrupt: {error}", path.display()))?;
-        let evidence = verifier
-            .verify_historical_deployment(&proof)
-            .map_err(|error| format!("{} is unverified: {error}", path.display()))?;
+        let evidence = reader
+            .verify_journal_admission(&proof, now_ms()?)
+            .map_err(|error| format!("{} is unverified: {error:?}", path.display()))?;
         let expected = hex::encode(&evidence.receipt_digest());
         if path.file_stem().and_then(|value| value.to_str()) != Some(expected.as_str()) {
             return Err(format!(
@@ -2125,7 +2125,8 @@ fn program_authority_boot(
         .map(NativeReadRoute::signed_authority)
         .transpose()
         .map_err(|error| format!("program receipt keys unavailable: {error:?}"))?;
-    let registry = load_registry(Path::new(&config.deployment_journal), &verifier)?;
+    let journal = program_reader(config, verifier.clone(), Registry::new())?;
+    let registry = load_registry(Path::new(&config.deployment_journal), &journal)?;
     Ok(ProgramAuthorityBoot {
         verifier,
         registry,
