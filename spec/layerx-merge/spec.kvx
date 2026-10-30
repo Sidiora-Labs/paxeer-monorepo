@@ -139619,7 +139619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.0.3]
 title = "Integrate agentd startup with the node JSON-RPC endpoint end to end"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["9.12.3", "9.12.2", "9.12.5", "9.16.2", "9.7.3", "7.0.2", "9.1.8", "18.1131.1", "18.1304.1"]
@@ -164815,7 +164815,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.34.3]
 title = "Place the sequencer signature row in the transaction details"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["14.34.2"]
