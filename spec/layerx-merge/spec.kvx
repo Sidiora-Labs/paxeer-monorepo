@@ -164797,7 +164797,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.32.1]
 title = "Point the anchors and receipts resources at the archive routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["14.0.4", "14.23.2", "14.31.1", "14.34.1"]
