@@ -14,6 +14,10 @@ name = "runtime_mode"
 path = "../layerx-agentd/host-tests/runtime_mode.rs"
 
 [[test]]
+name = "serve_routes"
+path = "../layerx-agentd/host-tests/serve_routes.rs"
+
+[[test]]
 name = "payer_evm"
 path = "tests/payer_evm.rs"
 

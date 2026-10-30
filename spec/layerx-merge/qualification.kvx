@@ -11699,3 +11699,19 @@ symbol = "TestProfilesDeclarePerformanceBounds"
 observed = "Attempt 1: the gate passes on the provisional bounds and the attempt changed no file, because no release-candidate run is recorded yet."
 assumption = "The task waits for the release-candidate measurement; it is parked until then."
 severity = "task"
+
+[finding.16.95.1.1]
+task = "16.95.1"
+file = "tests/test_receipt_offline.c"
+symbol = "test_offline_suite_uses_offline_verify_only"
+observed = "Attempt 1 (daafe83a2): build and verify passed on base c5c2fead1; the merge onto the domain branch stops on a modify/delete conflict, tests/test_receipt_offline.c having been deleted by 16.32.3 (2fec9b48c)."
+assumption = "The task is superseded by the deletion (decision.1900); 1.16.2 requires 16.32.3 instead."
+severity = "blocking"
+
+[finding.8.94.3.5]
+task = "8.94.3"
+file = "services/platform/hosted/authority/src/human/dynamic.rs"
+symbol = "SponsoredRegistration::decode"
+observed = "Attempt 7 (d7fa779bf): the sweep fails on the authority's SponsoredRegistration decode, the one use decision.1889 defers to a task that does not exist yet; every other hit of attempt 7 is ported on main by 8.94.5 to 8.94.7."
+assumption = "The task is held until the authority port task is specified and done; the sweep is not narrowed."
+severity = "blocking"

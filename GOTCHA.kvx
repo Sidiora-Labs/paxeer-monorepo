@@ -11060,3 +11060,8 @@ fix = "services/wallet/gateway/src/provision/bind.ts:29 DID_PREFIX and state.ts:
 title = "A test target that stopped compiling hides its runtime failures until someone ports it"
 symptom = "The first attempt that makes an old test target compile again fails tests that nobody changed."
 fix = "When a shared test helper changes shape (raw_receipt_evidence, 351e3da14), targets that call the old shape stay unbuilt; expect the first compiling attempt to surface runtime contract drift and budget the repair for it."
+
+[gotcha.2250]
+title = "A task that edits a file another task deletes must land first or be superseded"
+symptom = "A candidate passes its gate, and the merge onto the domain branch stops on a modify/delete conflict because a later-wave deletion landed first."
+fix = "When the deleting task is already done, supersede the editing task (status superseded, dependents require the deleting task instead) rather than resurrecting the file through a continue seed; the seed step takes a path absent from the tree from the seed outright."

@@ -4509,6 +4509,12 @@ value = "The layerx-agentd binary (services/agent/crates/layerx-agentd-host, bin
 basis = "9.5.10 attempts 1 to 3 (53836aa63 and successors) failed to build on payer.rs; 18.1243.2 attempt 5 (7b48f9091) failed to build on main.rs:2004; the crate has no library target that would let either gate avoid the binary."
 affects = ["9.5.10", "18.1243.2", "10.20.3"]
 
+[decision.1900]
+title = "Task 16.95.1 is superseded by the deletion of the offline receipt suite"
+value = "tests/test_receipt_offline.c no longer exists (task 16.32.3, 2fec9b48c), so req.16962 ac_1 (the offline receipt suite calls lxp_receipt_verify_offline and not lxp_receipt_verify_checkpointed) holds with no suite left to edit; task 16.95.1 is superseded, writes no tests/ci/test_receipt_offline_verify.py, and task 1.16.2 requires 16.32.3 in its place so the retirement of lxp_receipt_verify_checkpointed follows the deletion."
+basis = "16.95.1 do_2 planned the edit before 16.32.3 deleted the file; the deletion landed first. Attempt 1 (daafe83a2) passed its gate on base c5c2fead1 and cannot be merged: the domain branch deleted the file the candidate edits (modify/delete conflict on tests/test_receipt_offline.c), and the candidate's CI test reads that file, so it would fail on every revision after 2fec9b48c."
+affects = ["16.95.1", "16.32.3", "1.16.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -93956,7 +93962,7 @@ title = "Retire lxp_receipt_verify_checkpointed and the guarantor include of lxp
 status = "pending"
 mode = "BUILD"
 wave = 20
-requires = ["1.0.2", "16.2.1", "16.95.1"]
+requires = ["1.0.2", "16.2.1", "16.32.3"]
 reqs = ["1059.1", "1059.2"]
 capabilities = ["1.16.2"]
 interfaces = ["interface.1.c-lxp-receipt-verify-checkpointed"]
@@ -93982,6 +93988,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Task 16.95.1 is superseded (decision.1900); the offline receipt suite that called lxp_receipt_verify_checkpointed is deleted by 16.32.3, which this task requires instead."
 
 [task.1.16.3]
 title = "Raise the module KV and staged write bounds for the 128-lease expiry sweep"
@@ -117526,7 +117533,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.49.4]
 title = "Conformance: module-registry and genesis builder agree on the module table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["5.49.3", "5.48.2", "5.0.3"]
@@ -138322,6 +138329,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Attempt 4 (af194c5e7): the --tests build of services/platform fails in the layerx-paxai-worker test literals that task 8.98.11 do_10 ports (now required); change nothing under services/platform/hosted/paxai-worker/ in this task and re-qualify once 8.98.11 is done. The attempt made no source edit for do_1 to do_3: confirm on the merged revision that those uses are already gone, and port any that remain."
 do_7 = "The build_cmd compiles the agent boundary's bin tests, and services/platform/hosted/agent-boundary/src/head_attestation_tests.rs:115 constructs Config without the chain_receipts field that task 8.8.2 (41fd18eac) added at services/platform/hosted/agent-boundary/src/main.rs:79 and fills at :610 with chain_receipt::ChainReceipts::from_config(url, keys_path). In config(root) write a receipt keys file under root.0 in the shape services/platform/hosted/agent-boundary/tests/chain_receipt.rs provisions for the boundary and set chain_receipts to ChainReceipts::from_config with a loopback http URL and that path; change nothing else in head_attestation_tests.rs and no assertion."
 do_8 = "Keep from attempt 7 (d7fa779bf) the sweep test no_kernel_disclosure_codec.rs (prefix check over the ten hosted files, matching unless the next byte is alphanumeric or an underscore) and the head_attestation_tests.rs config(root) chain_receipts fix of do_7; re-qualify once 8.94.4 to 8.94.8 are done."
+do_9 = "On main after 8.94.7 (31e7d5491) the sweep's ten files name the kernel codecs only at services/platform/hosted/authority/src/human/dynamic.rs:238-240 and dynamic/tests.rs:16 (layerx_crypto::onboarding::SponsoredRegistration::decode), the port decision.1889 assigns to a separate task once the sponsor-to-child proof source is decided; that task is not yet specified, so this task is held and not attempted until it is done. Attempt 7 (d7fa779bf) stays the candidate to re-qualify unchanged afterwards."
 
 [task.8.94.4]
 title = "Re-export the ledger call builders from layerx_crypto::payments"
@@ -171880,7 +171888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.95.1]
 title = "Verify offline receipts without the checkpointed verify in the offline receipt suite"
-status = "pending"
+status = "superseded"
 mode = "BUILD"
 wave = 19
 requires = ["16.0.3"]
@@ -171908,6 +171916,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Superseded (decision.1900): task 16.32.3 deleted tests/test_receipt_offline.c at 2fec9b48c before this edit landed; attempt 1 (daafe83a2) passed its gate on base c5c2fead1 and is not merged because the suite it edits no longer exists. Nothing remains to do."
 
 [task.16.95.2]
 title = "Run the bridge app checks in the bridge test workflow"
@@ -190384,7 +190393,7 @@ do_6 = "Attempt 5 kept do_1 to do_3 and did do_5 with the build green but left d
 
 [task.18.1243.2]
 title = "Issue #1243: Port the agent host payer to the ledger GrantTerms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = []
