@@ -16,7 +16,7 @@ const accountless: PaxeerXReceiptsItem = {
   ...PAXEER_X_RECEIPTS_ITEM,
   id: '0x11223344556677889900aabbccddeeff0f1e2d3c4b5a69788796a5b4c3d2e1f0',
   account: null,
-  status: 'final',
+  status: 'committed',
   block_number: PAXEER_X_RECEIPTS_ITEM.block_number - 1,
 };
 

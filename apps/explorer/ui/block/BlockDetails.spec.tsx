@@ -148,8 +148,8 @@ describe('BlockDetails', () => {
     expect(expander.querySelector('[data-content]')?.textContent).toContain(blockMock.base.nonce);
   });
 
-  it('counts the price updates of the block into its transactions sentence', async() => {
-    fetchMock.mockResponse(JSON.stringify({ ...blockMock.base, price_update_count: 1 }), responseInit);
+  it('names the price updates share of the transactions the block counts', async() => {
+    fetchMock.mockResponse(JSON.stringify({ ...blockMock.base, transactions_count: 6, price_update_count: 1 }), responseInit);
 
     await renderDetails();
 
@@ -173,11 +173,11 @@ describe('BlockDetails', () => {
 
       socket.send('blocks:new_block', 'new_block', {
         average_block_time: '200',
-        block: { ...blockMock.base, height: blockMock.base.height + 1, price_update_count: 3 },
+        block: { ...blockMock.base, height: blockMock.base.height + 1, transactions_count: 8, price_update_count: 3 },
       });
       socket.send('blocks:new_block', 'new_block', {
         average_block_time: '200',
-        block: { ...blockMock.base, price_update_count: 2 },
+        block: { ...blockMock.base, transactions_count: 7, price_update_count: 2 },
       });
 
       await waitFor(() => {

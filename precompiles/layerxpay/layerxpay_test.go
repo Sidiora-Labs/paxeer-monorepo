@@ -1,4 +1,4 @@
-package layerxpay
+package layerxpay_test
 
 import (
 	"math/big"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,42 +20,46 @@ func TestPayPrecompileRegistersMergeConstructor(t *testing.T) {
 	address := common.HexToAddress("0x000000000000000000000000000000000000101B")
 	require.Equal(t, address, h.precompile.Address())
 	require.Equal(t, "layerxpay", h.precompile.GetName())
-	require.ErrorContains(t, precompiles.RegisterMergeConstructor(address, NewMergePrecompile), "already registered")
+	require.ErrorContains(t, precompiles.RegisterMergeConstructor(address, lp.NewMergePrecompile), "already registered")
 	for _, keepers := range []utils.Keepers{nil, &utils.EmptyKeepers{}, payPrecompileKeepers{PrecompileKeepers: h.keepers.PrecompileKeepers}} {
-		p, err := NewMergePrecompile(keepers, precompiles.MergeUpgrade)
+		p, err := lp.NewMergePrecompile(keepers, precompiles.MergeUpgrade)
 		require.ErrorContains(t, err, "LXP_PRECOMPILE_NO_CONTEXT")
 		require.Nil(t, p)
 	}
-	p, err := NewMergePrecompile(h.keepers, precompiles.MergeUpgrade)
+	p, err := lp.NewMergePrecompile(h.keepers, precompiles.MergeUpgrade)
 	require.NoError(t, err)
 	require.Equal(t, address, p.Address())
-	require.Equal(t, PrecompileName, p.GetName())
+	require.Equal(t, lp.PrecompileName, p.GetName())
 	custom, err := precompiles.GetCustomPrecompilesE(precompiles.MergeUpgrade, h.keepers)
 	require.NoError(t, err)
 	require.Contains(t, custom, address)
 	require.Contains(t, custom[address], precompiles.MergeUpgrade)
+	require.Implements(t, (*vm.DynamicGasPrecompiledContract)(nil), custom[address][precompiles.MergeUpgrade])
 	registered, ok := custom[address][precompiles.MergeUpgrade].(precompiles.IPrecompile)
 	require.True(t, ok)
-	require.Equal(t, PrecompileName, registered.GetName())
+	require.Equal(t, lp.PrecompileName, registered.GetName())
 	require.Equal(t, address, registered.Address())
 }
 
 func TestPayPrecompileChargesGasTable(t *testing.T) {
 	h := newPayPrecompileHarness(t)
+	custom, err := precompiles.GetCustomPrecompilesE(precompiles.MergeUpgrade, h.keepers)
+	require.NoError(t, err)
+	require.Implements(t, (*vm.DynamicGasPrecompiledContract)(nil), custom[h.precompile.Address()][precompiles.MergeUpgrade])
 	a := h.precompile.GetABI()
 	require.Len(t, a.Methods, 57)
-	require.Len(t, methodGas, len(a.Methods))
+	require.Len(t, lp.MethodGas, len(a.Methods))
 	const supplied uint64 = 2000000
 	before := h.keeper.ExportGenesis(h.db.Ctx())
 	for name, method := range a.Methods {
 		t.Run(name, func(t *testing.T) {
 			args := make([]interface{}, len(method.Inputs))
 			for i, input := range method.Inputs {
-				args[i] = zeroArgument(input.Type)
+				args[i] = lp.ZeroArgument(input.Type)
 			}
 			input, err := a.Pack(name, args...)
 			require.NoError(t, err)
-			row, ok := methodGas[name]
+			row, ok := lp.MethodGas[name]
 			require.True(t, ok)
 			require.Equal(t, !method.IsConstant(), row.Write)
 			want := row.Gas(input[4:])
@@ -64,19 +69,31 @@ func TestPayPrecompileChargesGasTable(t *testing.T) {
 			if row.Write {
 				perByte = 30
 			}
-			require.Equal(t, want+4*perByte, RequiredGas(input), "the standalone estimator includes the selector")
+			require.Equal(t, want+4*perByte, lp.RequiredGas(input), "the standalone estimator includes the selector")
 			for _, length := range []int{4, 36, 132, 356, 4096} {
 				calldata := make([]byte, length)
 				copy(calldata, method.ID)
 				require.Equal(t, row.Gas(calldata[4:]), h.precompile.RequiredGas(calldata))
 			}
 			output, left, err := h.evm.StaticCall(h.caller, h.precompile.Address(), input, supplied)
-			require.Equal(t, supplied-want, left)
-			if method.IsConstant() && name == "progressHighWater" {
+			if row.Write {
+				require.Equal(t, supplied-want, left)
+			} else {
+				require.GreaterOrEqual(t, supplied-left, want)
+			}
+			if method.IsConstant() && (name == "progressHighWater" || name == "budgetRemaining") {
 				require.NoError(t, err)
+				require.Greater(t, supplied-left, want)
 				decoded, decodeErr := method.Outputs.Unpack(output)
 				require.NoError(t, decodeErr)
-				require.Equal(t, []interface{}{uint32(0)}, decoded)
+				if name == "budgetRemaining" {
+					require.Len(t, decoded, 1)
+					remaining, ok := decoded[0].(*big.Int)
+					require.True(t, ok)
+					require.Zero(t, remaining.Sign())
+				} else {
+					require.Equal(t, []interface{}{uint32(0)}, decoded)
+				}
 			} else {
 				require.ErrorIs(t, err, vm.ErrExecutionReverted)
 				reason, decodeErr := abi.UnpackRevert(output)
@@ -95,7 +112,7 @@ func TestPayPrecompileChargesGasTable(t *testing.T) {
 		method := a.Methods[name]
 		args := make([]interface{}, len(method.Inputs))
 		for i, input := range method.Inputs {
-			args[i] = zeroArgument(input.Type)
+			args[i] = lp.ZeroArgument(input.Type)
 		}
 		input, err := a.Pack(name, args...)
 		require.NoError(t, err)

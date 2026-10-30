@@ -12,6 +12,49 @@ use layerx_x402::model::{
 use serde::Serialize;
 use serde_json::{json, Value};
 
+fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
+    fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+        let prefix = input[0];
+        let (offset, length) = match prefix {
+            0x00..=0x7f => (0, 1),
+            0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+            0xb8..=0xbf | 0xf8..=0xff => {
+                let width = usize::from(if prefix < 0xc0 {
+                    prefix - 0xb7
+                } else {
+                    prefix - 0xf7
+                });
+                let length = input[1..1 + width]
+                    .iter()
+                    .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+                (1 + width, length)
+            }
+            0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+        };
+        let value = &input[offset..offset + length];
+        *input = &input[offset + length..];
+        value
+    }
+    let (mut envelope, data_index) = match raw[0] {
+        0x02 => (&raw[1..], 7),
+        0xc0..=0xff => (raw, 5),
+        _ => panic!("unsupported recorded transaction envelope"),
+    };
+    let mut fields = take(&mut envelope);
+    assert!(envelope.is_empty());
+    for _ in 0..data_index {
+        take(&mut fields);
+    }
+    let calldata = take(&mut fields);
+    assert_eq!(calldata.len(), 4 + 6 * 32);
+    assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    std::array::from_fn(|index| {
+        calldata[4 + index * 32..4 + (index + 1) * 32]
+            .try_into()
+            .unwrap()
+    })
+}
+
 fn encode_header(value: &impl Serialize) -> Result<String, X402Error> {
     serde_json::to_vec(value)
         .map(|bytes| STANDARD.encode(bytes))
@@ -98,7 +141,9 @@ fn settlement() -> Result<
         .map(word)
         .collect::<Result<Vec<_>, _>>()?;
     let recorded_topics = topics.concat();
-    topics[1..].rotate_right(1);
+    let words = pay_exact_words(&unhex(&text(&case["rawTransaction"])?)?);
+    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+    topics[3] = layerx_x402::model::account_identifiers("agent:did:layerx:payee:main")?[1];
     let mut receipt = unhex(&text(&case["signedReceipt"])?)?;
     let positions: Vec<_> = receipt
         .windows(recorded_topics.len())
@@ -134,7 +179,7 @@ fn settlement() -> Result<
                         .try_into()
                         .map_err(|_| X402Error::EvidenceMismatch)?)
                 ),
-                pay_to: text(&log["topics"][2])?,
+                pay_to: format!("0x{}", hex(&topics[3])),
                 max_timeout_seconds: 90,
                 extra: Some(
                     json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
@@ -143,12 +188,12 @@ fn settlement() -> Result<
             payload: json!({}),
             extensions: BTreeMap::new(),
         },
-        idempotency_key: word(&log["topics"][3])?,
+        idempotency_key: topics[1],
     };
     let response = SettlementResponse {
         success: true,
         error_reason: None,
-        payer: Some(hex(&word(&log["topics"][1])?)),
+        payer: Some(hex(&topics[2])),
         transaction: text(&case["receiptJson"]["txHash"])?,
         network: "eip155:125".to_owned(),
         amount: Some(amount),
@@ -178,7 +223,7 @@ fn settlement() -> Result<
 #[test]
 fn committed_evidence_without_block_fields_is_refused() -> Result<(), X402Error> {
     let (payment, mut response, batch) = settlement()?;
-    let receipted = capture(&payment, &response, &batch)?;
+    capture(&payment, &response, &batch)?;
     response
         .extensions
         .get_mut("layerx")
@@ -201,10 +246,10 @@ fn committed_evidence_without_block_fields_is_refused() -> Result<(), X402Error>
         .get_mut("layerx")
         .ok_or(X402Error::EvidenceMissing)?["blockHash"] = json!(format!("0x{}", "ab".repeat(32)));
     let committed = response.clone();
-    let captured = capture(&payment, &committed, &batch)?;
-    assert_eq!(captured.response, committed);
-    assert_eq!(captured.canonical_receipt, receipted.canonical_receipt);
-    assert_eq!(captured.receipt_digest, receipted.receipt_digest);
+    assert_eq!(
+        capture(&payment, &committed, &batch),
+        Err(X402Error::EvidenceMismatch)
+    );
 
     for number in ["0x0", "0x1", "0xa", "0xA", "0x100", "0xffffffffffffffff"] {
         response = committed.clone();
@@ -212,7 +257,10 @@ fn committed_evidence_without_block_fields_is_refused() -> Result<(), X402Error>
             .extensions
             .get_mut("layerx")
             .ok_or(X402Error::EvidenceMissing)?["blockNumber"] = json!(number);
-        assert_eq!(capture(&payment, &response, &batch)?.response, response);
+        assert_eq!(
+            capture(&payment, &response, &batch),
+            Err(X402Error::EvidenceMismatch)
+        );
     }
     for field in ["blockNumber", "blockHash"] {
         response = committed.clone();

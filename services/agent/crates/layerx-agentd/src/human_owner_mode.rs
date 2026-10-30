@@ -80,7 +80,8 @@ fn serve_human_owner() -> Result<(), String> {
         );
     }
     human_peers()?;
-    node_rpc_config()?;
+    NodeRpc::connect(&node_rpc_config()?)
+        .map_err(|error| format!("human node RPC is unavailable: {error}"))?;
     let human = start_human_owner(None)?;
     let listener = TcpListener::bind(listen)
         .map_err(|error| format!("human health listener failed: {error}"))?;

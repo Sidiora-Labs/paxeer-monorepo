@@ -1,4 +1,4 @@
-package layerxpay
+package layerxpay_test
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -221,8 +222,8 @@ func escrowTestWrite(t *testing.T, f *escrowTestFixture, caller common.Address, 
 	record, found := h.keeper.GetEscrow(h.db.Ctx(), id)
 	require.True(t, found)
 	assert.Equal(t, state, record.State)
-	assert.Zero(t, big.NewInt(captured).Cmp(payAmount(record.CapturedAmount)))
-	assert.Zero(t, big.NewInt(locked).Cmp(payAmount(record.LockedAmount)))
+	assert.Zero(t, big.NewInt(captured).Cmp(lp.PayAmount(record.CapturedAmount)))
+	assert.Zero(t, big.NewInt(locked).Cmp(lp.PayAmount(record.LockedAmount)))
 	if name == "escrowDisputeOpen" {
 		assert.Equal(t, disputeRecord, record)
 		require.Zero(t, disputeReceipt.ResultCode)
@@ -280,8 +281,8 @@ func TestPrecompileEscrowLifecycle(t *testing.T) {
 				account [32]byte
 				want    string
 			}{
-				{record.Owner, new(big.Int).Sub(big.NewInt(1000), payAmount(record.CapturedAmount)).String()},
-				{record.Beneficiary, payAmount(record.CapturedAmount).String()},
+				{record.Owner, new(big.Int).Sub(big.NewInt(1000), lp.PayAmount(record.CapturedAmount)).String()},
+				{record.Beneficiary, lp.PayAmount(record.CapturedAmount).String()},
 				{record.EscrowAccount, "0"},
 			} {
 				got, err := f.h.keeper.Host().ReadBalance(f.h.db.Ctx(), balance.account, record.AssetID)
@@ -324,9 +325,9 @@ func TestPrecompileEscrowViews(t *testing.T) {
 			require.Len(t, values, 1)
 			switch name {
 			case "getEscrow":
-				got := abi.ConvertType(values[0], new(escrowTuple)).(*escrowTuple)
+				got := abi.ConvertType(values[0], new(lp.EscrowTuple)).(*lp.EscrowTuple)
 				args := f.openArgs(t, id)
-				assert.Equal(t, &escrowTuple{Owner: f.owner.account, EscrowAccount: args[2].([32]byte), Beneficiary: f.beneficiary.account,
+				assert.Equal(t, &lp.EscrowTuple{Owner: f.owner.account, EscrowAccount: args[2].([32]byte), Beneficiary: f.beneficiary.account,
 					Arbiter: f.arbiter.account, AssetId: f.asset, LockedAmount: big.NewInt(75), CapturedAmount: big.NewInt(25), State: 2,
 					ExpiryMs: args[7].(uint64), DisputeWindowMs: args[8].(uint64), TermsHash: [32]byte{0x16}, AgreementReference: [32]byte{0x17}}, got)
 			case "escrowRemaining":
