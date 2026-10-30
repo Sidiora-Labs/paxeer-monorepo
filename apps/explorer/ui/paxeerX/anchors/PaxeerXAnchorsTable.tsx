@@ -1,6 +1,6 @@
 import React from 'react';
 
-import type { PaxeerXAnchorsItem } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
 
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
@@ -8,7 +8,7 @@ import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 import PaxeerXAnchorsTableItem from './PaxeerXAnchorsTableItem';
 
 interface Props {
-  items: Array<PaxeerXAnchorsItem>;
+  items: Array<PaxeerXArchiveAnchor>;
   top?: number;
   isLoading?: boolean;
 }

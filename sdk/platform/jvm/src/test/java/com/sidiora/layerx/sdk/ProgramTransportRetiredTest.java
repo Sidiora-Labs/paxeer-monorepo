@@ -101,8 +101,7 @@ public final class ProgramTransportRetiredTest {
             new ProgramOperation("program.simulate", "eth_call", () -> programs.simulate(call, fee)),
             new ProgramOperation("program.call", "eth_getTransactionCount", () -> programs.call(call, fee)),
             new ProgramOperation("program.submit", "eth_sendRawTransaction", () -> programs.submit(prepared, signed)),
-            new ProgramOperation("program.receipt", "eth_call", () -> programs.receiptByIdempotency(
-                new IdempotencyKey("01".repeat(32)), signed)),
+            new ProgramOperation("program.receipt", "pax_sequencerReceipt", () -> programs.sequencerReceipt(signed)),
             new ProgramOperation("program.activity", "eth_getTransactionByHash", () -> programs.activity(hash)),
             new ProgramOperation("program.deploy", "eth_getTransactionCount", () -> programs.deploy(deploy)),
             new ProgramOperation("program.upgrade", "eth_getTransactionCount", () -> programs.upgrade(upgrade, fee)),

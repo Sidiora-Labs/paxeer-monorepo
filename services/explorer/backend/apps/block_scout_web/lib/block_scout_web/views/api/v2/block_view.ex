@@ -15,24 +15,20 @@ defmodule BlockScoutWeb.API.V2.BlockView do
   end
 
   def render("blocks.json", %{blocks: blocks, next_page_params: next_page_params}) do
-    %{"items" => Enum.map(blocks, &prepare_block(&1, nil)), "next_page_params" => next_page_params}
+    %{"items" => prepare_blocks(blocks), "next_page_params" => next_page_params}
   end
 
   def render("blocks.json", %{blocks: blocks}) do
-    Enum.map(blocks, &prepare_block(&1, nil))
+    prepare_blocks(blocks)
   end
 
   def render("block.json", %{block: block, conn: conn}) do
-    block
-    |> prepare_block(conn, true)
-    |> Map.put("price_update_count", PriceFeed.block_update_count(block.hash))
+    prepare_block(block, conn, true, PriceFeed.block_update_count(block.hash))
   end
 
   def render("block.json", %{block: block, socket: _socket}) do
     # single_block? set to true in order to prevent heavy fetching of reward type
-    block
-    |> prepare_block(nil, false)
-    |> Map.put("price_update_count", PriceFeed.block_update_count(block.hash))
+    prepare_block(block, nil, false, PriceFeed.block_update_count(block.hash))
   end
 
   def render("block_countdown.json", %{
@@ -49,13 +45,34 @@ defmodule BlockScoutWeb.API.V2.BlockView do
     }
   end
 
-  def prepare_block(block, _conn, single_block? \\ false) do
+  @doc """
+  Renders a list of blocks, reading the price-feed submission counts of all of them at once.
+  """
+  def prepare_blocks(blocks) do
+    counts = blocks |> Enum.map(& &1.hash) |> PriceFeed.block_update_counts()
+
+    Enum.map(blocks, &prepare_block(&1, nil, false, Map.get(counts, &1.hash, 0)))
+  end
+
+  @doc """
+  Renders one block. `transactions_count` counts the EVM transactions and the native
+  price-feed submissions the block carries; `price_update_count` is the submissions' share.
+  The count is read when it is not given.
+  """
+  def prepare_block(block, conn, single_block? \\ false, price_update_count \\ nil)
+
+  def prepare_block(block, conn, single_block?, nil) do
+    prepare_block(block, conn, single_block?, PriceFeed.block_update_count(block.hash))
+  end
+
+  def prepare_block(block, _conn, single_block?, price_update_count) when is_integer(price_update_count) do
     block = Block.aggregate_transactions(block)
 
     %{
       "height" => block.number,
       "timestamp" => block.timestamp,
-      "transactions_count" => block.transactions_count,
+      "transactions_count" => block.transactions_count + price_update_count,
+      "price_update_count" => price_update_count,
       "internal_transactions_count" => count_internal_transactions(block),
       "miner" => Helper.address_with_info(nil, block.miner, block.miner_hash, false),
       "size" => block.size,

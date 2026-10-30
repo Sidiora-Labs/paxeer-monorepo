@@ -35,6 +35,59 @@ pub type ProtocolEvidence = crate::agents::ProtocolEvidence;
 const PREPARE_DOMAIN: &[u8] = b"layerx-human-journey-prepare/v1";
 const SUBMIT_DOMAIN: &[u8] = b"layerx-human-journey-submit/v1";
 
+struct SignedCreationTransaction {
+    disclosure: layerx_crypto::disclosure::Disclosure,
+    owner_public_key: [u8; 32],
+    activity_id: [u8; 32],
+    network_id: u32,
+}
+
+impl SignedCreationTransaction {
+    fn decode(bytes: &[u8]) -> Result<Self, AgentFailure> {
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(bytes)
+            .map_err(|_| AgentFailure::Refused("invalid signed creation transaction"))?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| AgentFailure::Refused("invalid creation transaction signature"))?;
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, sender)
+            .map_err(|_| AgentFailure::Refused("invalid creation transaction disclosure"))?;
+        let network_id = u32::try_from(call.chain_id)
+            .map_err(|_| AgentFailure::Refused("invalid creation transaction network"))?;
+        if network_id == 0 {
+            return Err(AgentFailure::Refused(
+                "invalid creation transaction network",
+            ));
+        }
+        let mut owner_public_key = [0; 32];
+        owner_public_key[12..].copy_from_slice(&sender);
+        Ok(Self {
+            disclosure,
+            owner_public_key,
+            activity_id: layerx_crypto::evm_transaction::transaction_hash(bytes),
+            network_id,
+        })
+    }
+
+    fn payload(
+        &self,
+        registry: &ModuleRegistry,
+    ) -> Result<layerx_types::payload::Payload, AgentFailure> {
+        let payload = match self
+            .disclosure
+            .construct_method()
+            .map_err(|_| AgentFailure::Refused("invalid creation transaction method"))?
+        {
+            Some(
+                layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }
+                | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { payload },
+            ) => payload,
+            Some(_) => self.disclosure.canonical_payload().to_vec(),
+            None => return Err(AgentFailure::Refused("missing creation transaction method")),
+        };
+        layerx_types::payload::Payload::new(registry, self.disclosure.activity_type, &payload)
+            .map_err(|_| AgentFailure::Refused("invalid creation transaction payload"))
+    }
+}
+
 #[path = "agent_creation_native.rs"]
 mod native;
 
@@ -317,7 +370,15 @@ impl<'a> ProductionAgentCreation<'a> {
         }
         let prepared = self.prepare_action(scope, action)?;
         let principal = scope.principal().clone();
-        let descriptor = self.signing_descriptor(&principal, action)?;
+        self.signing_descriptor(&principal, action)?;
+        let wallet = self
+            .custody
+            .evm_wallet(&principal, &action.custody_key)
+            .map_err(|_| AgentFailure::Refused("creation custody wallet is unavailable"))?;
+        let binding = self
+            .custody
+            .evm_binding(&principal, &action.custody_key)
+            .map_err(|_| AgentFailure::Refused("creation custody binding is unavailable"))?;
         let grant = poll_once_ready(self.custody.sign_in_scope(
             scope,
             SignRequest::new(
@@ -353,12 +414,13 @@ impl<'a> ProductionAgentCreation<'a> {
             &call, signature, from,
         )
         .map_err(|_| AgentFailure::Refused("custody signature does not bind preparation"))?;
-        let signed =
-            layerx_intents::owner_activity::verify(&signed_activity, self.runtime.registry())
-                .map_err(|_| AgentFailure::Refused("invalid signed creation activity"))?;
-        let activity_id = layerx_intents::canonical::activity_id(&signed)
-            .map_err(|_| AgentFailure::Refused("invalid signed creation identity"))?;
-        if signed.idempotency_key() != action.action_key {
+        let signed = SignedCreationTransaction::decode(&signed_activity)?;
+        let activity_id = signed.activity_id;
+        if signed.disclosure != prepared.disclosure
+            || signed.owner_public_key[12..] != wallet
+            || signed.network_id != binding.network_id()
+            || signed.disclosure.idempotency_key != action.action_key
+        {
             return Err(AgentFailure::Refused("signed creation action differs"));
         }
         retain_signed_activity(scope, action, &signed_activity)?;
@@ -371,8 +433,8 @@ impl<'a> ProductionAgentCreation<'a> {
         Ok(PreparedProtocolSubmission {
             inner: PreparedProtocolKind::Signed {
                 request: submit,
-                public_key: descriptor.public_key,
-                network_id: signed.network_id(),
+                public_key: signed.owner_public_key,
+                network_id: signed.network_id,
                 signed_activity,
                 action_key: action.action_key,
                 activity_id,
@@ -406,16 +468,12 @@ impl<'a> ProductionAgentCreation<'a> {
                     network_id,
                 ),
             };
-        let signed =
-            layerx_intents::owner_activity::verify(&signed_activity, self.runtime.registry())
-                .map_err(|_| AgentFailure::Refused("invalid prepared owner activity"))?;
-        if signed.actor_did() != self.actor.as_str().as_bytes()
-            || signed.authority() != public_key
-            || signed.idempotency_key() != action_key
-            || signed.network_id() != network_id
-            || layerx_intents::canonical::activity_id(&signed)
-                .map_err(|_| AgentFailure::Refused("invalid prepared activity identity"))?
-                != activity_id
+        let signed = SignedCreationTransaction::decode(&signed_activity)?;
+        if signed.disclosure.actor != signed.owner_public_key[12..]
+            || signed.owner_public_key != public_key
+            || signed.disclosure.idempotency_key != action_key
+            || signed.network_id != network_id
+            || signed.activity_id != activity_id
         {
             return Err(AgentFailure::Refused("prepared owner binding differs"));
         }
@@ -532,22 +590,21 @@ impl<'a> ProductionAgentCreation<'a> {
         registry: &ModuleRegistry,
         material: ReceiptMaterial,
     ) -> Result<ProtocolEvidence, AgentFailure> {
-        let activity = layerx_intents::owner_activity::verify(&signed_activity, registry)
-            .map_err(|_| AgentFailure::Refused("invalid signed creation activity"))?;
-        let activity_id = layerx_intents::canonical::activity_id(&activity)
-            .map_err(|_| AgentFailure::Refused("invalid creation activity identity"))?;
-        if activity.authority() != owner_public_key
+        let signed = SignedCreationTransaction::decode(&signed_activity)?;
+        let activity_id = signed.activity_id;
+        if signed.owner_public_key != owner_public_key
+            || !registry.declares(signed.disclosure.activity_type)
             || material.tx_hash != activity_id
             || material.receipt_hash != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
             || !matches!(material.rung, Rung::Receipted | Rung::Committed)
         {
             return Err(AgentFailure::Refused("creation receipt metadata differs"));
         }
-        Ok(ProtocolEvidence {
-            actor: activity.actor_did().to_vec(),
+        let evidence = ProtocolEvidence {
+            actor: signed.disclosure.actor.clone(),
             owner_public_key,
-            network_id: activity.network_id(),
-            action_key: activity.idempotency_key(),
+            network_id: signed.network_id,
+            action_key: signed.disclosure.idempotency_key,
             activity_id,
             signed_activity,
             receipt_bytes: material.canonical_bytes,
@@ -555,7 +612,9 @@ impl<'a> ProductionAgentCreation<'a> {
             receipt_hash: material.receipt_hash,
             block_height: material.block_height,
             rung: material.rung,
-        })
+        };
+        evidence.bound_activity(signed.disclosure.activity_type)?;
+        Ok(evidence)
     }
 
     ///
@@ -756,16 +815,10 @@ impl AgentCreationContract for ProductionAgentCreation<'_> {
             purposes: request.purposes.into_iter().collect(),
             expiry_sequence: request.expiry_sequence,
         };
-        let (object_id, observed_sequence, rung_byte, receipt_digest) = self
+        let (object_id, observed_sequence, rung, receipt_digest) = self
             .runtime
             .capability_install(&install)
             .map_err(map_boundary)?;
-        let rung = match rung_byte {
-            0 => Rung::Submitted,
-            1 => Rung::Receipted,
-            2 => Rung::Committed,
-            _ => return Err(AgentFailure::Refused("capability rung is invalid")),
-        };
         let evidence = AgentEvidence {
             action_key: request.action_key,
             object_id,

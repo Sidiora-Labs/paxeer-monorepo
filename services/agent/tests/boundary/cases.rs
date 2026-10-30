@@ -27,5 +27,5 @@ pub fn agent_boundary_conformance_suite(endpoint: &SequencerEndpoint) -> Result<
             ))
         }
     }
-    Ok(format!("agent boundary conformance suite passed: node JSON-RPC, committed block {head}, absent receipt, malformed submit\n{report}"))
+    Ok(format!("agent boundary conformance suite passed: node JSON-RPC endpoint, committed block {head}, absent receipt, malformed submit\n{report}"))
 }

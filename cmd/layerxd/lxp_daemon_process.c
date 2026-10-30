@@ -3809,6 +3809,7 @@ static lxp_result apply_canonical_batch(
     lxp_durability_group durability;
     bool durability_active = false;
     bool live_committed = false;
+    const char *commit_stage = "batch prepare";
     lxp_result status = LXP_OK;
     if (consumed_count == NULL) return LXP_ERR_NON_CANONICAL;
     *consumed_count = 0U;
@@ -4096,6 +4097,7 @@ static lxp_result apply_canonical_batch(
         post_job = calloc(1U, sizeof(*post_job));
         if (post_job == NULL) status = LXP_ERR_ARENA_EXHAUSTED;
     }
+    if (status == LXP_OK) commit_stage = "batch WAL";
     if (status == LXP_OK)
         status = commit_prepared_batch_wal(
             process, activities, canonical_activities, canonical_receipts,
@@ -4108,6 +4110,7 @@ static lxp_result apply_canonical_batch(
         status = lxp_durability_group_begin(&durability);
         durability_active = status == LXP_OK;
     }
+    if (status == LXP_OK) commit_stage = "state-feed observer";
     if (status == LXP_OK)
         status = lxp_kernel_finalize_prepared_batch_publication(
             &process->kernel, activities, prepared_batch,
@@ -4127,6 +4130,7 @@ static lxp_result apply_canonical_batch(
         status = LXP_FATAL_INVARIANT;
     owner_locked = false;
     if (status == LXP_OK && activities[0].activity_type == LX_PROGRAMS_CALL) {
+        commit_stage = "replica publication";
         const lxp_daemon_batch_wal_input *view = lxp_daemon_batch_wal_view(wal_record);
         authority_replica_job replica = {0};
         replica.process = process;
@@ -4142,6 +4146,7 @@ static lxp_result apply_canonical_batch(
         status = replica.status;
         if (status == LXP_OK) post_job->replica_acknowledged = true;
     }
+    if (status == LXP_OK) commit_stage = "receipt installation";
     if (status == LXP_OK)
         status = install_pending_receipts(process, lxp_daemon_batch_wal_view(wal_record));
     if (status == LXP_OK) {
@@ -4173,6 +4178,10 @@ static lxp_result apply_canonical_batch(
                 status = LXP_FATAL_INVARIANT;
         }
     }
+    if (status != LXP_OK)
+        (void)fprintf(stderr,
+            "layerxd: commit failed at sequence %llu during %s with result %d\n",
+            (unsigned long long)first_global_sequence, commit_stage, (int)status);
     if (live_committed && status != LXP_OK) status = LXP_FATAL_INVARIANT;
     if (status == LXP_OK) *consumed_count = count;
     free(post_job);

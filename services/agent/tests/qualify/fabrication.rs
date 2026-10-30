@@ -2,11 +2,9 @@ use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::Command;
 
-use layerx_agent_api::read::{
-    AccountRef, BalanceValue, BatchRef, CheckpointRef, Freshness, RelativeTo, VerifiedRead,
-};
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::{Amount, Sequence};
+use layerx_agent_api::read::{AccountRef, BalanceValue, Freshness, RelativeTo, VerifiedRead};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::Amount;
 use layerx_sdk::{Client, SdkError};
 
 use crate::hostile_node::{agent_hostile_node_harness, HostileAttack};
@@ -61,14 +59,13 @@ fn run_rust_suites(repository: &Path) -> Result<(), String> {
 }
 
 fn freshness() -> Result<Freshness, String> {
-    let batch = BatchRef::new("batch-1").map_err(|error| format!("batch: {error:?}"))?;
     Ok(Freshness {
-        chain_head: Sequence(1),
-        latest_sealed_batch: batch.clone(),
-        latest_finalised_checkpoint: CheckpointRef::new("checkpoint-1")
-            .map_err(|error| format!("checkpoint: {error:?}"))?,
-        value_sequence: Sequence(1),
-        relative_to: RelativeTo::Batch(batch),
+        chain_head: 1,
+        value_height: 1,
+        relative_to: RelativeTo::Block {
+            height: 1,
+            hash: [1; 32],
+        },
     })
 }
 
@@ -80,10 +77,11 @@ fn rust_sdk_refuses_unverified() -> Result<(), String> {
         amount: Amount(999),
         canonical_state: layerx_agent_api::prepare::CanonicalBytes::new(b"hostile".to_vec())
             .map_err(|error| format!("state: {error:?}"))?,
+        height: 1,
     };
     if Client::accept_verified_read(
-        Level::StateProven,
-        VerifiedRead::new(value, Level::Unverified, freshness()?),
+        Rung::Receipted,
+        VerifiedRead::new(value, Rung::Submitted, freshness()?),
     ) == Err(SdkError::UnverifiedRead)
     {
         Ok(())
@@ -154,4 +152,14 @@ pub fn agent_qualify_fabrication_gate(repository: &Path) -> Result<String, Strin
         "agent_qualify_fabrication_gate passed attacks={} read_surfaces=balance,history,checkpoint,receipt,availability,export streaming=gaps mcp=read sdks=rust,typescript,python",
         observed.len()
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rust_sdk_refuses_unverified;
+
+    #[test]
+    fn rust_sdk_refuses_a_submitted_read() {
+        assert_eq!(rust_sdk_refuses_unverified(), Ok(()));
+    }
 }

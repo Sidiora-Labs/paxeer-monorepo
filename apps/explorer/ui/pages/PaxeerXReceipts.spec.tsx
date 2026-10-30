@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import type { PaxeerXReceiptsItem } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveReceiptsItem } from 'types/api/paxeerXArchive';
 
 import { PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
@@ -17,21 +17,41 @@ vi.setConfig({ testTimeout: 60_000 });
 
 import PaxeerXReceipts from './PaxeerXReceipts';
 
-const second: PaxeerXReceiptsItem = {
+const second: PaxeerXArchiveReceiptsItem = {
   ...PAXEER_X_RECEIPTS_ITEM,
   id: '0x11223344556677889900aabbccddeeff0f1e2d3c4b5a69788796a5b4c3d2e1f0',
-  status: 'committed',
   block_number: PAXEER_X_RECEIPTS_ITEM.block_number - 1,
 };
 
 const items = [ PAXEER_X_RECEIPTS_ITEM, second ];
 
-const mockItems = (payload: Array<PaxeerXReceiptsItem>) => {
+const mockItems = (payload: Array<PaxeerXArchiveReceiptsItem>) => {
   fetchMock.mockResponse(
     JSON.stringify({ items: payload, next_page_params: null }),
     { headers: { 'Content-Type': 'application/json' } },
   );
 };
+
+async function receipts_page_shows_archive_rows_without_rung() {
+  mockItems([ second ]);
+
+  const { container } = render(<PaxeerXReceipts/>);
+
+  await waitFor(() => {
+    expect(Array.from(container.querySelectorAll('[data-receipt]')).map((row) => row.getAttribute('data-receipt')))
+      .toEqual([ second.id ]);
+  });
+
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Kernel receipts (archive)');
+  expect(container.querySelector('[data-archive-notice]')?.textContent).toContain('frozen archive');
+  expect(fetchMock.mock.calls.some(([ url ]) => String(url).includes('/api/v2/paxeer-x/archive/receipts'))).toBe(true);
+  expect(Array.from(container.querySelectorAll('[data-label="paxeer-x-receipts"] th')).map((header) => header.textContent))
+    .toEqual([ 'Receipt ID', 'Account', 'Block' ]);
+  expect(container.querySelectorAll('[data-receipt] td')).toHaveLength(3);
+  expect(container.querySelectorAll(`a[href="/paxeer-x/receipts/${ second.id }"]`)).toHaveLength(2);
+  expect(container.querySelector('[data-rung]')).toBeNull();
+  expect(screen.queryByText('Settlement')).toBeNull();
+}
 
 describe('PaxeerXReceipts', () => {
   beforeEach(() => {
@@ -40,6 +60,8 @@ describe('PaxeerXReceipts', () => {
     fetchMock.resetMocks();
     mockItems(items);
   });
+
+  it(receipts_page_shows_archive_rows_without_rung.name, receipts_page_shows_archive_rows_without_rung);
 
   it('heads the page with the kernel receipts title', async() => {
     render(<PaxeerXReceipts/>);

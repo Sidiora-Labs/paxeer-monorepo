@@ -1,5 +1,7 @@
 //! Bounded JSON-RPC history pages ordered by block position.
 
+use crate::human_node::HumanNode;
+use crate::node_rpc::NodeRpcError;
 use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope};
 use layerx_client::lni::transport::{FrameTransport, FrameViolation, TransportError};
 use layerx_client::read::{HistoryKind, ReadContext, ReadError};
@@ -113,6 +115,7 @@ pub struct HistoryPage {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HistoryReadError {
     Read(ReadError),
+    Node(NodeRpcError),
     Rpc(RpcRefusal),
     InvalidLimits,
     InvalidRange,
@@ -121,18 +124,88 @@ pub enum HistoryReadError {
     Malformed,
 }
 
-/// Reads a complete bounded px_getHistory page through the LNI transport.
+pub trait HistorySource {
+    fn read_history_page(
+        &mut self,
+        params: Value,
+        maximum_response_bytes: usize,
+        context: Option<ReadContext>,
+    ) -> Result<(Vec<u8>, u64), HistoryReadError>;
+}
+
+impl HistorySource for dyn HumanNode + '_ {
+    fn read_history_page(
+        &mut self,
+        params: Value,
+        maximum_response_bytes: usize,
+        context: Option<ReadContext>,
+    ) -> Result<(Vec<u8>, u64), HistoryReadError> {
+        if context.is_some() {
+            return Err(HistoryReadError::Read(ReadError::UnexpectedResponse));
+        }
+        self.history_page(params, maximum_response_bytes)
+            .map(|bytes| (bytes, 1))
+            .map_err(HistoryReadError::Node)
+    }
+}
+
+impl<T: FrameTransport + ?Sized> HistorySource for T {
+    fn read_history_page(
+        &mut self,
+        params: Value,
+        maximum_response_bytes: usize,
+        context: Option<ReadContext>,
+    ) -> Result<(Vec<u8>, u64), HistoryReadError> {
+        let context = context.ok_or(HistoryReadError::Read(ReadError::UnexpectedResponse))?;
+        if context.requested.level() != VerificationLevel::UNVERIFIED {
+            return Err(HistoryReadError::Read(ReadError::MissingEvidence {
+                requested: context.requested.level(),
+                achieved: VerificationLevel::UNVERIFIED,
+            }));
+        }
+        let payload = serde_json::to_vec(&json!({
+            "jsonrpc": "2.0", "id": context.correlation_id,
+            "method": "px_getHistory", "params": params
+        }))
+        .map_err(|_| HistoryReadError::Malformed)?;
+        let request = encode_envelope(Envelope {
+            version: context.interface_version,
+            message_tag: 9,
+            correlation_id: context.correlation_id,
+            canonical_payload: &payload,
+            proof_material: &[],
+        })
+        .map_err(|error| HistoryReadError::Read(ReadError::Envelope(error)))?;
+        self.send(&request).map_err(transport_error)?;
+        let frame = self.receive().map_err(transport_error)?;
+        let envelope = decode_envelope(&frame)
+            .map_err(|error| HistoryReadError::Read(ReadError::Envelope(error)))?;
+        if envelope.version.major != context.interface_version.major
+            || envelope.correlation_id != context.correlation_id
+            || envelope.message_tag != 11
+            || !envelope.proof_material.is_empty()
+        {
+            return Err(HistoryReadError::Read(ReadError::UnexpectedResponse));
+        }
+        if envelope.canonical_payload.len() > maximum_response_bytes {
+            return Err(HistoryReadError::Oversized);
+        }
+        Ok((envelope.canonical_payload.to_vec(), context.correlation_id))
+    }
+}
+
+/// Reads a complete bounded px_getHistory page through the human node connection.
 ///
 /// # Errors
 /// Refuses invalid ranges, cursors, malformed or unordered pages and oversized responses.
 /// Node transport and JSON-RPC refusals retain their original error.
 pub fn history(
-    transport: &mut dyn FrameTransport,
+    node: &mut (impl HistorySource + ?Sized),
     from_height: u64,
     to_height: u64,
     cursor: Option<Cursor>,
     limits: HistoryLimits,
-    context: ReadContext,
+    context: impl Into<Option<ReadContext>>,
 ) -> Result<HistoryPage, HistoryReadError> {
     if limits.maximum_items == 0 || limits.maximum_response_bytes == 0 {
         return Err(HistoryReadError::InvalidLimits);
@@ -143,46 +216,23 @@ pub fn history(
     if cursor.is_some_and(|position| !(from_height..=to_height).contains(&position.block_height)) {
         return Err(HistoryReadError::Cursor);
     }
-    if context.requested.level() != VerificationLevel::UNVERIFIED {
-        return Err(HistoryReadError::Read(ReadError::MissingEvidence {
-            requested: context.requested.level(),
-            achieved: VerificationLevel::UNVERIFIED,
-        }));
-    }
-    let payload = serde_json::to_vec(&json!({
-        "jsonrpc": "2.0", "id": context.correlation_id, "method": "px_getHistory",
-        "params": [{"from_height": from_height.to_string(), "to_height": to_height.to_string(),
-            "limit": limits.maximum_items.to_string(), "cursor": cursor.map(Cursor::wire)}]
-    }))
-    .map_err(|_| HistoryReadError::Malformed)?;
-    let request = encode_envelope(Envelope {
-        version: context.interface_version,
-        message_tag: 9,
-        correlation_id: context.correlation_id,
-        canonical_payload: &payload,
-        proof_material: &[],
-    })
-    .map_err(|error| HistoryReadError::Read(ReadError::Envelope(error)))?;
-    transport.send(&request).map_err(transport_error)?;
-    let frame = transport.receive().map_err(transport_error)?;
-    let envelope = decode_envelope(&frame)
-        .map_err(|error| HistoryReadError::Read(ReadError::Envelope(error)))?;
-    if envelope.version.major != context.interface_version.major
-        || envelope.correlation_id != context.correlation_id
-        || envelope.message_tag != 11
-        || !envelope.proof_material.is_empty()
-    {
-        return Err(HistoryReadError::Read(ReadError::UnexpectedResponse));
-    }
-    let bytes = envelope.canonical_payload;
+    let (bytes, correlation_id) = node.read_history_page(
+        json!([{
+            "from_height": from_height.to_string(), "to_height": to_height.to_string(),
+            "limit": limits.maximum_items.to_string(), "cursor": cursor.map(Cursor::wire)
+        }]),
+        limits.maximum_response_bytes,
+        context.into(),
+    )?;
     if bytes.len() > limits.maximum_response_bytes {
         return Err(HistoryReadError::Oversized);
     }
-    let response: Value = serde_json::from_slice(bytes).map_err(|_| HistoryReadError::Malformed)?;
+    let response: Value =
+        serde_json::from_slice(&bytes).map_err(|_| HistoryReadError::Malformed)?;
     let object = response.as_object().ok_or(HistoryReadError::Malformed)?;
     if object.len() != 3
         || response["jsonrpc"] != "2.0"
-        || response["id"].as_u64() != Some(context.correlation_id)
+        || response["id"].as_u64() != Some(correlation_id)
     {
         return Err(HistoryReadError::Malformed);
     }
