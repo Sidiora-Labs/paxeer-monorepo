@@ -307,6 +307,7 @@ var (
 		pricefeedmodule.AppModuleBasic{},
 		xwebmodule.AppModuleBasic{},
 		sequencermodule.AppModuleBasic{},
+		lxphost.StoreAppModuleBasic{},
 		layerxledgermodule.AppModuleBasic{},
 		layerxauthmodule.AppModuleBasic{},
 		layerxpaymodule.AppModuleBasic{},
@@ -359,6 +360,7 @@ var (
 		epochmoduletypes.StoreKey,
 		tokenfactorytypes.StoreKey,
 		layerxcustodytypes.StoreKey,
+		layerxanchortypes.StoreKey,
 		layerxexchangetypes.StoreKey,
 		layerxbridgetypes.StoreKey,
 		launchpadtypes.StoreKey,
@@ -624,7 +626,7 @@ type App struct {
 	sequencerSource  tmtypes.SequencerSource
 	sequencerRPC     evmrpc.SequencerOption
 	sequencerReceipt evmrpc.SequencerReceiptOption
-	commitListener   func(height int64, appHash []byte)
+	commitListener   func(height int64, appHash []byte) error
 }
 
 const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
@@ -812,6 +814,7 @@ func New(
 		app.BankKeeper.(bankkeeper.BaseKeeper).WithMintCoinsRestriction(tokenfactorytypes.NewTokenFactoryDenomMintCoinsRestriction()),
 	)
 	app.BankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
+	app.LayerXAnchorKeeper = layerxanchorkeeper.NewKeeper(keys[layerxanchortypes.StoreKey], app.AccountKeeper, app.BankKeeper)
 
 	// The last arguments can contain custom message handlers, and custom query handlers,
 	// if we want to allow any custom callbacks
@@ -1106,6 +1109,7 @@ func New(
 		pricefeedmodule.NewAppModule(app.PricefeedKeeper),
 		xwebmodule.NewAppModule(app.XWebKeeper),
 		sequencermodule.NewAppModule(app.SequencerKeeper, app.GetSubspace(seqtypes.ModuleName)),
+		lxphost.NewStoreAppModule(keys[storekeys.LayerXHostStoreKey]),
 		layerxledgermodule.NewAppModule(app.LayerXLedgerKeeper),
 		layerxauthmodule.NewAppModule(app.LayerXAuthKeeper),
 		layerxpaymodule.NewAppModule(*app.LayerXPayKeeper),
@@ -1202,6 +1206,7 @@ func New(
 		pricefeedtypes.ModuleName,
 		xwebtypes.ModuleName,
 		seqtypes.ModuleName,
+		storekeys.LayerXHostStoreKey,
 		layerxledgertypes.ModuleName,
 		layerxauthtypes.ModuleName,
 		layerxpaytypes.ModuleName,
@@ -1350,6 +1355,14 @@ func (app *App) sendEVMServerStartSignals() {
 		app.wsServerStartSignalSent = true
 		app.wsServerStartSignal <- struct{}{}
 	}
+}
+
+func (app *App) SendEVMServerStartSignals() {
+	app.sendEVMServerStartSignals()
+}
+
+func (app *App) ServeEVMServers(httpServer, wsServer evmrpc.EVMServer) {
+	app.serveEVMServers(httpServer, wsServer)
 }
 
 func (app *App) serveEVMServers(httpServer, wsServer evmrpc.EVMServer) {
@@ -1813,6 +1826,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			if err := app.SetSealedStateToCommit(sealedCtx, ms); err != nil {
 				return nil, err
 			}
+			defer app.sendEVMServerStartSignals()
 			if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
 				return &abci.ResponseFinalizeBlock{}, nil
 			}
@@ -3276,7 +3290,7 @@ func (app *App) SetSequencerRPC(opt evmrpc.SequencerOption, rcpt evmrpc.Sequence
 	app.sequencerReceipt = rcpt
 }
 
-func (app *App) SetCommitListener(fn func(height int64, appHash []byte)) {
+func (app *App) SetCommitListener(fn func(height int64, appHash []byte) error) {
 	app.commitListener = fn
 }
 

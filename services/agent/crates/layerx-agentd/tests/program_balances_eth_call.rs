@@ -12,7 +12,7 @@ use layerx_agentd::ops::program::{
     ProgramAccountBalance, ProgramOperationError, ProgramOperations,
 };
 use layerx_agentd::read::{LayerxdProgramBalanceReader, ProtocolProgramBalanceReader};
-use layerx_client::sequencer::SequencerEndpoint;
+use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_programs::{
     chain_evidence::programs_state_key,
     chain_proof::{decode::ProofOp, state::verify_state, VerifiedChainHead},
@@ -72,15 +72,22 @@ impl CommittedAccount {
 
 impl CommittedPrograms {
     fn new() -> Self {
+        Self::with_balances([Some(u128::MAX), Some((1_u128 << 96) + 42), Some(0)])
+    }
+
+    fn with_balances(balances: [Option<u128>; 3]) -> Self {
         let program = must(ProgramId::new([0x71; 32]));
         let mut bindings = Vec::new();
         let mut leaves = Vec::new();
         let mut pairs = Vec::new();
-        for (seed, amount, frozen, asset) in [
-            (b"vault\0reserve".to_vec(), u128::MAX, true, [0xaa; 32]),
-            (vec![0x37; 128], (1_u128 << 96) + 42, false, [0xbb; 32]),
-            (Vec::new(), 0, false, [0xcc; 32]),
-        ] {
+        for ((seed, frozen, asset), amount) in [
+            (b"vault\0reserve".to_vec(), true, [0xaa; 32]),
+            (vec![0x37; 128], false, [0xbb; 32]),
+            (Vec::new(), false, [0xcc; 32]),
+        ]
+        .into_iter()
+        .zip(balances)
+        {
             let account = must(layerx_programs_runtime::derive_program_account(
                 program, &seed,
             ));
@@ -98,6 +105,11 @@ impl CommittedPrograms {
                 programs_state_key(&binding.primary_key()),
                 must(binding.primary_value()),
             ));
+            bindings.push(binding);
+            let Some(amount) = amount else {
+                leaves.push(None);
+                continue;
+            };
             let leaf = CanonicalAccountLeaf {
                 account_id: account.bytes(),
                 name: format!("module:programs:value:{}", hex::encode(account.bytes()))
@@ -117,8 +129,7 @@ impl CommittedPrograms {
                 programs_state_key(&leaf.primary_key()),
                 must(leaf.primary_value()),
             ));
-            bindings.push(binding);
-            leaves.push(leaf);
+            leaves.push(Some(leaf));
         }
         let chain = must(chain::ChainFixture::new(
             "program-balance-read",
@@ -139,6 +150,9 @@ impl CommittedPrograms {
                 )),
                 chain::STATE_HEIGHT,
             );
+            let Some(leaf) = leaf else {
+                continue;
+            };
             let key = programs_state_key(&leaf.primary_key());
             let verified = must(VerifiedAccountSnapshot::verify_chain(
                 &head,
@@ -260,13 +274,11 @@ impl CommittedPrograms {
                     let snapshot = self
                         .accounts
                         .iter()
-                        .find(|snapshot| snapshot.account().account_id == input[36..])
-                        .unwrap();
-                    let mut output = word(snapshot.account().balance).to_vec();
-                    output.extend_from_slice(&word(u128::from(bool::from(
-                        snapshot.account().frozen,
-                    ))));
-                    output
+                        .find(|snapshot| snapshot.account().account_id == input[36..]);
+                    match snapshot {
+                        Some(snapshot) => encoded_balance(snapshot.account().balance, true),
+                        None => encoded_balance(0, false),
+                    }
                 };
                 json!(format!("0x{}", hex::encode(output)))
             }
@@ -296,6 +308,13 @@ struct Relay {
 
 impl Relay {
     fn start(state: CommittedPrograms) -> Self {
+        Self::start_with_response(state, |_, _| {})
+    }
+
+    fn start_with_response(
+        state: CommittedPrograms,
+        transform: impl Fn(&Value, &mut Value) + Send + 'static,
+    ) -> Self {
         let listener = must(TcpListener::bind("127.0.0.1:0"));
         let url = format!("http://{}/", must(listener.local_addr()));
         must(listener.set_nonblocking(true));
@@ -333,7 +352,9 @@ impl Relay {
                 must(reader.read_exact(&mut body));
                 let request: Value = must(serde_json::from_slice(&body));
                 must(captured.lock()).push(request.clone());
-                let answer = state.answer(&request).to_string();
+                let mut answer = state.answer(&request);
+                transform(&request, &mut answer);
+                let answer = answer.to_string();
                 let mut stream = reader.into_inner();
                 must(write!(stream,
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",
@@ -419,7 +440,7 @@ fn program_balance_is_read_by_eth_call_at_a_committed_height() {
         assert_eq!(actual.account, id(&expected.account));
         assert_eq!(actual.asset, id(&expected.asset));
         assert_eq!(actual.amount, must(expected.amount.parse::<u128>()));
-        assert_eq!(actual.frozen, expected.frozen);
+        assert_eq!(actual.frozen, None);
     }
     let requests = must(relay.requests.lock()).clone();
     assert_eq!(requests.len(), 3 + 2 * accounts.len());
@@ -495,6 +516,57 @@ fn program_balance_is_read_by_eth_call_at_a_committed_height() {
         requests.last().unwrap()["params"],
         json!([format!("{:#x}", fixture.height + 1), true])
     );
+}
+
+#[test]
+fn committed_balance_read_reports_existence_not_frozen() {
+    let state = CommittedPrograms::with_balances([None, Some(10), None]);
+    let program = must(ProgramId::new(id(&state.fixture.program)));
+    let height = state.fixture.height;
+    let funded = state.bindings[1].account_id;
+    let never_funded = state.bindings[2].account_id;
+    assert_eq!(state.accounts.len(), 1);
+    assert_eq!(state.accounts[0].account().balance, 10);
+    assert!(!bool::from(state.accounts[0].account().frozen));
+    let relay = Relay::start(state);
+    let reader = ProtocolProgramBalanceReader::bind(relay.endpoint());
+    let read = must(reader.read(program, &[funded, never_funded], height));
+    assert_eq!(read.accounts.len(), 2);
+    assert_eq!(read.accounts[0].account, funded);
+    assert_eq!(read.accounts[0].amount, 10);
+    assert_eq!(read.accounts[0].frozen, None);
+    assert_eq!(read.accounts[1].account, never_funded);
+    assert_eq!(read.accounts[1].amount, 0);
+    assert_eq!(read.accounts[1].frozen, None);
+
+    let state = CommittedPrograms::with_balances([None, Some(5), None]);
+    let selector =
+        layerx_crypto::evm_transaction::transaction_hash(b"getValueAccount(bytes32,bytes32)");
+    let calldata = format!(
+        "0x{}",
+        hex::encode(
+            [
+                selector[..4].to_vec(),
+                program.bytes().to_vec(),
+                funded.to_vec()
+            ]
+            .concat()
+        )
+    );
+    let relay = Relay::start_with_response(state, move |request, answer| {
+        if request["method"] == "eth_call" && request["params"][0]["data"] == calldata {
+            assert_eq!(
+                answer["result"],
+                format!("0x{}", hex::encode(encoded_balance(5, true)))
+            );
+            answer["result"] = json!(format!("0x{}", hex::encode(encoded_balance(5, false))));
+        }
+    });
+    let reader = ProtocolProgramBalanceReader::bind(relay.endpoint());
+    assert!(matches!(
+        reader.read(program, &[funded], height),
+        Err(SequencerError::Malformed)
+    ));
 }
 
 fn serve(replies: Vec<Value>) -> (String, JoinHandle<Vec<Value>>) {

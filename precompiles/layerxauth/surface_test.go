@@ -18,7 +18,6 @@ func TestAuthSurfaceFrozen(t *testing.T) {
 		"grantSessionSuccessor": {[]byte{1}, uint64(100), id, [32]byte{2}, [32]byte{3}},
 		"grantCapability":       {[]byte{1}},
 		"revokeGrant":           {id, uint8(1), uint64(1)},
-		"resultByIdempotency":   {id, id},
 		"getGrant":              {id},
 		"isLive":                {id, uint64(1), uint64(1_800_000_000_000)},
 		"sessionKey":            {id},
@@ -26,9 +25,9 @@ func TestAuthSurfaceFrozen(t *testing.T) {
 		"checkActivity":         {id, uint32(0x00010005), id, big.NewInt(1)},
 	}
 	a := layerxauth.GetABI()
-	require.Len(t, a.Methods, 10)
-	require.Len(t, arguments, 10)
-	require.Len(t, layerxauth.GasTable, 10)
+	require.Len(t, a.Methods, 9)
+	require.Len(t, arguments, 9)
+	require.Len(t, layerxauth.GasTable, 9)
 	for name, method := range a.Methods {
 		t.Run(name, func(t *testing.T) {
 			args, found := arguments[name]

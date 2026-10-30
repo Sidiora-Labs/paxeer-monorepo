@@ -37,7 +37,7 @@ message Params {
   option (gogoproto.goproto_stringer) = false;
 
   string authority = 1;
-  string fee = 2 [(gogoproto.customtype) = "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.Int", (gogoproto.nullable) = false];
+  string fee = 2 [(gogoproto.customtype) = "Int", (gogoproto.nullable) = false];
   uint32 max_payload_bytes = 3;
   uint64 max_callback_gas = 4;
   uint64 timeout_blocks = 5;
@@ -55,7 +55,7 @@ message Request {
   uint32 kind = 3 [(gogoproto.casttype) = "uint8"];
   bytes payload_hash = 4 [(gogoproto.customtype) = "Hash32", (gogoproto.nullable) = false];
   uint64 callback_gas = 5;
-  string fee = 6 [(gogoproto.customtype) = "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.Int", (gogoproto.nullable) = false];
+  string fee = 6 [(gogoproto.customtype) = "Int", (gogoproto.nullable) = false];
   int64 height = 7;
   int64 timeout_height = 8;
   uint32 status = 9 [(gogoproto.casttype) = "RequestStatus"];

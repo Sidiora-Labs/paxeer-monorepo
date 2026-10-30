@@ -9,6 +9,7 @@ use layerx_agentd::human_runtime::{
 use layerx_agentd::identity::{
     self, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::prepare::evm::{PrecompileTarget, ProductionEvmPreparationBoundary};
 use layerx_agentd::session::{self, OpenRequest, SessionId, SessionRecord, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
@@ -635,9 +636,16 @@ impl OwnerFixture {
         let (clock, clock_worker) = clock_peer(&root);
         let (client, node_worker) = node_peer(&root);
         let node_head = client.head();
+        let node = Node::start();
+        let chain = must(NodeRpc::connect(&NodeRpcConfig {
+            url: node.url.clone(),
+            chain_id: 125,
+            deadline: Duration::from_secs(3),
+        }));
         let mut operations = must(ProductionHumanOperations::new(
             authority,
             client,
+            Box::new(chain),
             Arc::clone(&retained),
             &peers,
             1_048_576,
@@ -700,7 +708,6 @@ impl OwnerFixture {
             1000,
             1000,
         ));
-        let node = Node::start();
         let from = account.evm_address();
         node.rpc(
             "anvil_setBalance",

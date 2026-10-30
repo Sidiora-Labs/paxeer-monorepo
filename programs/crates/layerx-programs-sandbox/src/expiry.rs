@@ -105,9 +105,7 @@ impl AuthenticatedTerminalRecord {
         }
         Ok(Self {
             canonical,
-            receipt_activity_id: header
-                .hash()
-                .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?,
+            receipt_activity_id: head.header_hash(),
             lease: expected_lease,
         })
     }
