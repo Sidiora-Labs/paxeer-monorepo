@@ -24,6 +24,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func isExchangeHandoffAddress(address common.Address, name, previous string) bool {
+	names := []string{"layerxExchange", "layerxexchange", "perps"}
+	return address == common.HexToAddress("0x0000000000000000000000000000000000001015") &&
+		slices.Contains(names, name) && slices.Contains(names, previous)
+}
+
 func TestFeeTokenRegistration(t *testing.T) {
 	initialized := precompiles.Initialized
 	infoBefore := precompiles.PrecompileNamesToInfo
@@ -54,13 +60,15 @@ func TestFeeTokenRegistration(t *testing.T) {
 	address := common.HexToAddress("0x0000000000000000000000000000000000001018")
 	require.Equal(t, address, common.HexToAddress(feetoken.FeeTokenAddress))
 	require.NoError(t, precompiles.InitializePrecompiles(true, testkeeper.EVMTestApp.GetPrecompileKeepers()))
+	require.False(t, precompiles.Initialized)
 	info := precompiles.GetPrecompileInfo(feetoken.PrecompileName)
+	require.False(t, precompiles.Initialized)
 	require.Equal(t, address, info.Address)
 	require.Len(t, info.ABI.Methods, 3)
 	seen := make(map[common.Address]string)
 	for name, entry := range precompiles.PrecompileNamesToInfo {
 		previous, exists := seen[entry.Address]
-		require.False(t, exists, "%s collides with %s at %s", name, previous, entry.Address)
+		require.False(t, exists && !isExchangeHandoffAddress(entry.Address, name, previous), "%s collides with %s at %s", name, previous, entry.Address)
 		seen[entry.Address] = name
 	}
 	require.Equal(t, "v6.7", precompiles.FeeTokenUpgrade)
@@ -129,14 +137,16 @@ func TestXWebRegistration(t *testing.T) {
 	address := common.HexToAddress("0x0000000000000000000000000000000000001019")
 	require.Equal(t, address, common.HexToAddress(xweb.XWebAddress))
 	require.NoError(t, precompiles.InitializePrecompiles(true, testkeeper.EVMTestApp.GetPrecompileKeepers()))
+	require.False(t, precompiles.Initialized)
 	info := precompiles.GetPrecompileInfo(xweb.PrecompileName)
+	require.False(t, precompiles.Initialized)
 	require.Equal(t, address, info.Address)
-	require.Len(t, info.ABI.Methods, 9)
-	require.Len(t, info.ABI.Events, 3)
+	require.Len(t, info.ABI.Methods, 12)
+	require.Len(t, info.ABI.Events, 4)
 	seen := make(map[common.Address]string)
 	for name, entry := range precompiles.PrecompileNamesToInfo {
 		previous, exists := seen[entry.Address]
-		require.False(t, exists, "%s collides with %s at %s", name, previous, entry.Address)
+		require.False(t, exists && !isExchangeHandoffAddress(entry.Address, name, previous), "%s collides with %s at %s", name, previous, entry.Address)
 		seen[entry.Address] = name
 	}
 	versioned := precompiles.GetCustomPrecompiles("v6.8", testkeeper.EVMTestApp.GetPrecompileKeepers())

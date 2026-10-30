@@ -18,7 +18,7 @@ class = "CoreRejection"
 protocol_result_code = -302
 retriability = "Terminal"
 reason = "idempotent_replay"
-original_result = "Read the first result through resultByIdempotency(bytes32 didId,bytes32 idempotencyKey); never resubmit at a new nonce."
+original_result = "Read the first result from the sequencer receipt of the retained signed transaction that the first submit returned; never resubmit at a new nonce."
 
 [error.receipt_key_unknown]
 class = "VerificationFailure"

@@ -54,8 +54,6 @@ export interface PaxeerXUnifiedAccount {
 // Precompile probe result: which unified surfaces the connected node actually answers for.
 export interface PaxeerXCapabilities {
   addr: boolean;
-  custody: boolean;
-  anchor: boolean;
   exchange: boolean;
   bridge: boolean;
   launchpad: boolean;

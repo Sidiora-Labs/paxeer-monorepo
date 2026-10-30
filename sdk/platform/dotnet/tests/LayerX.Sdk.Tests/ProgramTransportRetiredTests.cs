@@ -74,7 +74,7 @@ public sealed class ProgramTransportRetiredTests
         yield return ("program.simulate", "eth_call", (client, token) => client.SimulateAsync(call, token));
         yield return ("program.simulate", "eth_call", (client, token) => client.SimulateAsync(call, Sender, token));
         yield return ("program.call", "eth_getTransactionCount", (client, token) => client.CallAsync(call, Sender, 100, 2, token));
-        yield return ("program.receipt", "eth_call", (client, token) => client.ReceiptAsync(key, program, "receipted", token));
+        yield return ("program.receipt", "eth_getTransactionByHash", (client, token) => client.ReceiptAsync(key, program, "receipted", token));
         yield return ("program.activity", "eth_getTransactionByHash", (client, token) => client.ActivityAsync(program, "receipted", token));
         yield return ("program.deploy", "eth_getTransactionCount", (client, token) => client.DeployAsync(deploy, Sender, 100, 2, token));
         yield return ("program.upgrade", "eth_getTransactionCount", (client, token) => client.UpgradeAsync(upgrade, new ProtocolAmount("1000"), Sender, 100, 2, token));

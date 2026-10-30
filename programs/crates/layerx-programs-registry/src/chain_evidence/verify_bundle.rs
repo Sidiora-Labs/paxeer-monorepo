@@ -251,7 +251,7 @@ fn existence(ops: &[ProofOp]) -> Result<ExistenceProof, ChainProofError> {
     Ok(proof)
 }
 
-fn decode_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
+pub(crate) fn decode_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
     let mut reader = ProtoReader::new(bytes);
     let mut height = None;
     let mut round = None;
@@ -328,7 +328,7 @@ fn decode_block_id(bytes: &[u8]) -> Result<BlockId, ChainProofError> {
     Ok(block)
 }
 
-fn decode_validators(bytes: &[u8]) -> Result<ValidatorSet, ChainProofError> {
+pub(crate) fn decode_validators(bytes: &[u8]) -> Result<ValidatorSet, ChainProofError> {
     let mut reader = ProtoReader::new(bytes);
     let mut validators = Vec::new();
     let mut proposer = None;

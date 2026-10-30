@@ -36,6 +36,49 @@ const FIXTURE: &str = include_str!(concat!(
     "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
 ));
 
+fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
+    fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+        let prefix = input[0];
+        let (offset, length) = match prefix {
+            0x00..=0x7f => (0, 1),
+            0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+            0xb8..=0xbf | 0xf8..=0xff => {
+                let width = usize::from(if prefix < 0xc0 {
+                    prefix - 0xb7
+                } else {
+                    prefix - 0xf7
+                });
+                let length = input[1..1 + width]
+                    .iter()
+                    .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+                (1 + width, length)
+            }
+            0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+        };
+        let value = &input[offset..offset + length];
+        *input = &input[offset + length..];
+        value
+    }
+    let (mut envelope, data_index) = match raw[0] {
+        0x02 => (&raw[1..], 7),
+        0xc0..=0xff => (raw, 5),
+        _ => panic!("unsupported recorded transaction envelope"),
+    };
+    let mut fields = take(&mut envelope);
+    assert!(envelope.is_empty());
+    for _ in 0..data_index {
+        take(&mut fields);
+    }
+    let calldata = take(&mut fields);
+    assert_eq!(calldata.len(), 4 + 6 * 32);
+    assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    std::array::from_fn(|index| {
+        calldata[4 + index * 32..4 + (index + 1) * 32]
+            .try_into()
+            .unwrap()
+    })
+}
+
 fn recorded_case() -> Value {
     let fixture: Value =
         serde_json::from_str(FIXTURE).unwrap_or_else(|error| panic!("recorded fixture: {error}"));
@@ -114,9 +157,9 @@ fn receipt_keys(case: &Value) -> Vec<SequencerAuthorization> {
 }
 
 fn request(transaction: &str) -> FacilitatorRequest {
-    let account = "agent:did:layerx:merchant:main";
+    let account = "agent:did:layerx:payee:main";
     let pay_to = account_identifiers(account).unwrap_or_else(|error| panic!("merchant: {error}"))
-        [0]
+        [1]
     .iter()
     .map(|byte| format!("{byte:02x}"))
     .collect::<String>();
@@ -212,7 +255,10 @@ fn facilitator_settles_receipted_evidence() {
     let mut topics = log.topics().to_vec();
     let payee = array(&format!("0x{}", request.payment_requirements.pay_to));
     let recorded_topics = topics.concat();
-    topics = vec![topics[0], identity.idempotency_key, topics[1], payee];
+    let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
+    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+    topics[1] = identity.idempotency_key;
+    topics[3] = payee;
     replace(
         &mut evidence.signed_receipt,
         &recorded_topics,
@@ -253,7 +299,13 @@ fn facilitator_settles_receipted_evidence() {
     assert_eq!(response.transaction, transaction);
     assert_eq!(
         response.payer.as_deref(),
-        Some(text(&case["receiptJson"]["logs"][0]["topics"][1]).trim_start_matches("0x"))
+        Some(
+            words[0]
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+                .as_str()
+        )
     );
     assert_eq!(response.amount, Some(request.payment_requirements.amount));
     assert_eq!(
@@ -285,7 +337,7 @@ fn facilitator_settles_receipted_evidence() {
     let log = &legacy.logs[0];
     let native_topics = log.topics().to_vec();
     let mut topics = native_topics.clone();
-    topics[1..].rotate_left(1);
+    topics[1..].copy_from_slice(&[words[0], payee, identity.idempotency_key]);
     replace(
         &mut legacy.signed_receipt,
         &native_topics.concat(),
@@ -605,6 +657,8 @@ fn facilitator_reports_committed_only_with_a_proof() {
     // the recorded activity, sequence chain, batch and consensus proof.
     let mut topics = log.topics().to_vec();
     let original_topics = topics.concat();
+    let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
+    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
     topics[1] = identity.idempotency_key;
     topics[3] = array(&format!("0x{}", request.payment_requirements.pay_to));
     replace(

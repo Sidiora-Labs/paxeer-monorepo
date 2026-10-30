@@ -3,6 +3,7 @@ package sequencer_test
 import (
 	"bytes"
 	"math/big"
+	"reflect"
 	"testing"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
@@ -83,6 +84,7 @@ func TestCrashAfterReceiptReplaysIdenticalReceipt(t *testing.T) {
 				f.app.SetSequencerSource(nil)
 				f.app.SetSequencerRPC(evmrpc.SequencerOption{}, evmrpc.SequencerReceiptOption{})
 				f.app.SetCommitListener(nil)
+				require.True(t, reflect.ValueOf(f.app).Elem().FieldByName("commitListener").IsNil())
 				f.n = nil
 				_, err := f.app.PendingSnapshot()
 				require.ErrorIs(t, err, app.ErrPendingServedBySequencer)

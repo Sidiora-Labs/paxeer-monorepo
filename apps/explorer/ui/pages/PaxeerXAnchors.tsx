@@ -1,4 +1,4 @@
-import { Box } from '@chakra-ui/react';
+import { Box, Text } from '@chakra-ui/react';
 import React from 'react';
 
 import useIsMobile from 'lib/hooks/useIsMobile';
@@ -18,7 +18,7 @@ const ITEMS_NAME = 'anchor checkpoints';
 const PaxeerXAnchors = () => {
   const isMobile = useIsMobile();
 
-  const { data, isError, isPlaceholderData, pagination } = useQueryWithPages({
+  const { data, isError, isPlaceholderData, pagination } = useQueryWithPages<'general:paxeer_x_anchors'>({
     resourceName: 'general:paxeer_x_anchors',
     options: {
       placeholderData: generateListStub<'general:paxeer_x_anchors'>(
@@ -75,7 +75,10 @@ const PaxeerXAnchors = () => {
 
   return (
     <>
-      <PageTitle title="Anchor checkpoints" withTextAd/>
+      <PageTitle title="Anchor checkpoints (archive)" withTextAd/>
+      <Text data-archive-notice role="note" mb={ 6 }>
+        This archive is frozen. No new anchor checkpoints will be added.
+      </Text>
       <DataListDisplay
         isError={ isError }
         itemsNum={ data?.items.length }
