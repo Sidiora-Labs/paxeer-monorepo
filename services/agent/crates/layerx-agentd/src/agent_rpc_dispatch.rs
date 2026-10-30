@@ -1120,6 +1120,35 @@ fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)>
     Some((decode_approval(reader)?, None))
 }
 
+pub fn merge_tracked_approval(
+    id: RequestId,
+    mut approval: Value,
+    tracked: Value,
+) -> Result<Value, Rejection> {
+    let invalid = || rejection(ErrorClass::InternalFault, id, "owner.response_malformed");
+    let reference = approval
+        .get("submission_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(invalid)?;
+    if approval.get("state").and_then(Value::as_str) != Some("Approved")
+        || hex32(reference, id).is_err()
+        || tracked.get("submission_ref").and_then(Value::as_str) != Some(reference)
+        || tracked.get("tx_hash").and_then(Value::as_str) != Some(reference)
+    {
+        return Err(invalid());
+    }
+    let rung = tracked
+        .get("rung")
+        .and_then(Value::as_str)
+        .and_then(Rung::from_name)
+        .ok_or_else(invalid)?;
+    let tx_hash = tracked.get("tx_hash").cloned().ok_or_else(invalid)?;
+    let fields = approval.as_object_mut().ok_or_else(invalid)?;
+    fields.insert("tx_hash".into(), tx_hash);
+    fields.insert("rung".into(), Value::String(rung.name().into()));
+    Ok(approval)
+}
+
 /// Decodes the owner payload with the operation's bounded decoder. A payload that does not
 /// decode completely is an owner fault, never a partial value.
 pub(crate) fn dispatched(
@@ -1776,11 +1805,24 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             let _ = (request.tenant, request.agent);
             let approval_id = hex32(&request.approval_id, id)?;
             let current_sequence = decimal_u64(&request.current_sequence, id)?;
-            dispatched(
+            let mut approval = dispatched(
                 id,
                 owner.approval_get(peer, approval_id, current_sequence),
                 decode_approval_get,
-            )
+            )?;
+            if approval.value.get("state").and_then(Value::as_str) == Some("Approved") {
+                let reference = approval
+                    .value
+                    .get("submission_ref")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        rejection(ErrorClass::InternalFault, id, "owner.response_malformed")
+                    })?;
+                submission_key(reference, id)?;
+                let tracked = dispatched(id, owner.track(peer, reference), decode_tracked)?;
+                approval.value = merge_tracked_approval(id, approval.value, tracked.value)?;
+            }
+            Ok(approval)
         }
         Operation::ProgramReceipt => {
             let request: ActivityLookupRequest = decode(request, id)?;
