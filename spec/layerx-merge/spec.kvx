@@ -101141,7 +101141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.35.1]
 title = "Serve the 0x0906 stream methods over the pay keeper agent stream API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["2.25.5", "2.28.1", "2.28.6", "2.39.1"]
