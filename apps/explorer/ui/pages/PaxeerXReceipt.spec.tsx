@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import type { PaxeerXReceipt } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveReceipt } from 'types/api/paxeerXArchive';
 
 import { PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
@@ -17,8 +17,9 @@ vi.setConfig({ testTimeout: 60_000 });
 
 import PaxeerXReceiptPage from './PaxeerXReceipt';
 
-const receipt: PaxeerXReceipt = {
+const receipt: PaxeerXArchiveReceipt = {
   ...PAXEER_X_RECEIPTS_ITEM,
+  frozen: true,
   verification_status: 'checkpoint_finalised',
   payload_hash: '0x3ed9d81e7c1001bdda1caa1dc62c0acbbe3d2c671cdc20dc1e65efdaa4186967',
   transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99',
@@ -124,13 +125,22 @@ describe('PaxeerXReceiptPageContent', () => {
     expect(container.querySelector('[data-receipt-identifier]')?.textContent).toContain(receipt.id);
   });
 
-  it('keeps the settlement rung of the receipt on the ladder', async() => {
+  async function receipt_page_shows_frozen_verification_status() {
     const { container } = await renderPage();
 
-    await waitFor(() => {
-      expect(container.querySelector(`[data-rung="${ receipt.status }"]`)).toBeTruthy();
-    });
-  });
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Kernel receipt');
+    expect(container.querySelector('[data-field="id"]')?.textContent).toBe(receipt.id);
+    expect(container.querySelector('[data-verification-status]')?.getAttribute('data-verification-status'))
+      .toBe(receipt.verification_status);
+    expect(container.querySelector('[data-field="verification_status"]')?.textContent).toBe('Checkpoint finalised');
+    expect(container.querySelector('[data-archive-notice]')?.textContent)
+      .toContain('Kernel archive. This receipt and its verification status are frozen historical evidence.');
+    expect(screen.queryByText('Settlement status')).toBeNull();
+    expect(container.querySelector('[data-settlement-status]')).toBeNull();
+    expect(container.querySelector('[data-rung]')).toBeNull();
+  }
+
+  it('receipt_page_shows_frozen_verification_status', receipt_page_shows_frozen_verification_status);
 
   it('lets the receipt identifier wrap and keeps its inset for the wide layout only', () => {
     const { container } = render(<PaxeerXReceiptPage/>);
@@ -161,9 +171,9 @@ describe('PaxeerXReceiptPageContent', () => {
       expect(container.querySelector('[data-receipt-checked-at]')).toBeTruthy();
     });
 
-    it('reports the evidence complete once the receipt is final and anchored', async() => {
+    it('reports the evidence complete once verification is anchored', async() => {
       fetchMock.mockResponse(
-        JSON.stringify({ ...receipt, status: 'final', verification_status: 'settlement_anchored' }),
+        JSON.stringify({ ...receipt, verification_status: 'settlement_anchored' }),
         { headers: JSON_HEADERS },
       );
 
@@ -173,7 +183,7 @@ describe('PaxeerXReceiptPageContent', () => {
         expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('complete');
       });
       expect(freshnessOf(container)?.textContent)
-        .toContain('Final settlement and anchored verification reported. Automatic refresh stopped.');
+        .toContain('Anchored verification reported. Automatic refresh stopped.');
     });
 
     it('reports the refresh paused while the page is hidden', async() => {

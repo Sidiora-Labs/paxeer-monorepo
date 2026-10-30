@@ -17,6 +17,11 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   table holds the recent heights and the unscannable ones. `delete_expired_updates/2`
   deletes the oldest submissions, with their observations, once they are older than the
   retention period.
+
+  Submissions are the chain's native transactions, so they count as transactions of their
+  block: `block_update_counts/1` gives each block's share and `total_update_count/0` the
+  number ever stored. The total is a counter `replace_block_updates/2` moves by the
+  submissions it adds and removes, so retention leaves it untouched.
   """
 
   import Ecto.Query
@@ -27,6 +32,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   alias Explorer.{Chain, PagingOptions, Repo}
 
   @default_page_size 50
+  @total_update_counter "paxeer_x_price_update_total"
 
   @type filters :: [feeder: Hash.Address.t() | nil, market_id: non_neg_integer() | nil]
 
@@ -201,14 +207,27 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
       end)
 
     Repo.transaction(fn ->
-      Repo.delete_all(from(update in PriceUpdate, where: update.block_number == ^number))
+      {deleted, _} = Repo.delete_all(from(update in PriceUpdate, where: update.block_number == ^number))
       {count, _} = Repo.insert_all(PriceUpdate, update_rows)
       Repo.insert_all(PriceObservation, observation_rows)
 
       mark_scanned(number, "scanned", nil)
+      add_to_total_update_count(count - deleted)
 
       count
     end)
+  end
+
+  defp add_to_total_update_count(0), do: :ok
+
+  defp add_to_total_update_count(delta) do
+    seed = Repo.aggregate(PriceUpdate, :count)
+
+    %LastFetchedCounter{}
+    |> LastFetchedCounter.changeset(%{counter_type: @total_update_counter, value: seed})
+    |> Repo.insert!(on_conflict: [inc: [value: delta]], conflict_target: :counter_type)
+
+    :ok
   end
 
   @doc """
@@ -509,6 +528,41 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   @doc false
   def block_update_count_query(block_hash),
     do: from(update in PriceUpdate, where: update.block_hash == ^block_hash, select: count())
+
+  @doc """
+  How many submissions each of the blocks with the given hashes carries, by block hash;
+  a block without submissions has no entry.
+  """
+  @spec block_update_counts([Hash.Full.t()]) :: %{Hash.Full.t() => non_neg_integer()}
+  def block_update_counts([]), do: %{}
+
+  def block_update_counts(block_hashes) when is_list(block_hashes) do
+    block_hashes
+    |> block_update_counts_query()
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc false
+  def block_update_counts_query(block_hashes) do
+    from(update in PriceUpdate,
+      where: update.block_hash in ^block_hashes,
+      group_by: update.block_hash,
+      select: {update.block_hash, count()}
+    )
+  end
+
+  @doc """
+  How many submissions have been stored since the chain was first scanned, deleted by
+  retention or not. Before the counter exists it is the number of stored submissions.
+  """
+  @spec total_update_count() :: non_neg_integer()
+  def total_update_count do
+    case LastFetchedCounter.get(@total_update_counter, nullable: true) do
+      nil -> Repo.aggregate(PriceUpdate, :count)
+      value -> value |> Decimal.to_integer() |> max(0)
+    end
+  end
 
   defp cast_hashes(%{hash: hash, feeder_hash: feeder_hash} = update) do
     {:ok, hash} = Hash.Full.cast(hash)

@@ -63,7 +63,7 @@ Contract context `2.layerxpay-0x101b`:
 | Storage | No precompile-owned state; every write submits one kernel activity through the pay keeper on the shared layerxhost store (decision.221) and every view decodes the kernel record read back through the host |
 | Errors | Error(string) reasons LXP_&lt;CODE&gt; from kernel names through LXPCodeName (precompiles/common/lxp_errors.go:320), the layerxpay codespace codes 4 to 6 through PayRevertCode and LXP_PAUSED_SCOPE 735 from layerxgov |
 | Events | One 0x101B log per successful write as listed in the events context layerxpay-0x101b-events |
-| Gas | methodGas rows of precompiles/layerxpay/gas.go:18-76 charged by the framework WithGasTable (decision.235): escrow writes 60000, dispute open 30000, plus DefaultGasCost of the input; views charge the read rows |
+| Gas | methodGas rows of precompiles/layerxpay/gas.go:18-76 as the base charge of the dynamic dispatch (decision.235, decision.1962) plus the store gas the call meters under its own gas meter: escrow writes 60000, dispute open 30000, plus DefaultGasCost of the input; views charge the read rows |
 | Activation | Served from the height where MergeUpgrade is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxpay module (node/upgrades.go:526) |
 | Invariants | Every write acts for the DID bound to the EVM caller (decision.236); idempotency keys and stream ids are never zero (decision.223); the ledger effect of a call equals its kernel receipt |
 | Pause | Params.Paused refuses every write except escrowRelease, escrowTimeout, budgetClose, budgetDefund, budgetRevoke, streamPause, streamClose, serviceOfferWithdraw and serviceCommitAbandon (modules/layerxgov/types/proposal.go:28-32); views always answer |
@@ -544,7 +544,7 @@ Capabilities verified against this section: 2.21.2, 2.28.2.
 
 ## gas
 
-0x101B charges the `methodGas` rows of `precompiles/layerxpay/gas.go:17` through the framework WithGasTable (decision.235): `writeGas(flat)` sets the surcharge to the flat value minus the KV write flat cost (`precompiles/layerxpay/gas.go:77`), views charge the read row. Each row is shown in the method tables.
+0x101B charges the `methodGas` rows of `precompiles/layerxpay/gas.go:17` through the framework WithGasTable (decision.235): `writeGas(flat)` sets the surcharge to the flat value minus the KV write flat cost (`precompiles/layerxpay/gas.go:77`), views charge the read row. Each row is shown in the method tables. Under decision.1962 0x101B is a dynamic-gas precompile: each call is charged its methodGas row of `precompiles/layerxpay/gas.go:18-76` plus the store gas the call consumes under its own gas meter, so the row is the base charge and the total grows with the rows the host reads.
 
 Capabilities verified against this section: 2.40.5.
 

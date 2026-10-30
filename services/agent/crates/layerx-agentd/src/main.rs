@@ -1010,6 +1010,15 @@ fn start_shared_owner(
     let mut operations = ProductionHumanOperations::new(
         authority,
         node,
+        Box::new({
+            let config = NodeRpcConfig::from_environment().map_err(|error| {
+                format!(
+                    "human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: {error}"
+                )
+            })?;
+            NodeRpc::connect(&config)
+                .map_err(|error| format!("human node RPC is unavailable: {error}"))?
+        }),
         Arc::clone(&shared_store),
         &peers,
         required("LAYERX_AGENT_HUMAN_MAX_PAYLOAD_BYTES")?

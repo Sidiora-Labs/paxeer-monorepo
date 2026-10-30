@@ -1,10 +1,14 @@
 defmodule Explorer.Chain.Transaction.History.HistorianTest do
   use Explorer.DataCase, async: false
 
+  alias Explorer.Chain.PaxeerX.PriceFeed
   alias Explorer.Chain.Transaction.History.Historian
   alias Explorer.Chain.Transaction.History.TransactionStats
 
   import Ecto.Query, only: [from: 2]
+
+  @feeder "0xb97e177fe6e701db2cf85c1ba1307688166318cc"
+  @feeder_bech32 "pax1h9lpwllxuuqakt8ctsd6zvrk3qtxxxxvyfs9jc"
 
   setup do
     Application.put_env(:explorer, Historian, utc_today: ~D[1970-01-04])
@@ -69,6 +73,24 @@ defmodule Explorer.Chain.Transaction.History.HistorianTest do
     end
   end
 
+  describe "compile_records/1 with price-feed submissions" do
+    test "counts the submissions of a day as transactions and leaves their gas out of the sums" do
+      block = insert(:block, timestamp: DateTime.from_unix!(days_to_secs(2) + 60))
+      transaction = insert(:transaction) |> with_block(block, status: :ok)
+      assert {:ok, 2} = PriceFeed.replace_block_updates(block, [submission(0), submission(1)])
+
+      %Explorer.Chain.Wei{value: gas_price_value} = transaction.gas_price
+      total_fee = Decimal.mult(transaction.gas_used, gas_price_value)
+
+      expected = [
+        %{date: ~D[1970-01-04], number_of_transactions: 0, gas_used: 0, total_fee: 0},
+        %{date: ~D[1970-01-03], gas_used: transaction.gas_used, number_of_transactions: 3, total_fee: total_fee}
+      ]
+
+      assert {:ok, ^expected} = Historian.compile_records(2)
+    end
+  end
+
   describe "save_records/1" do
     test "saves transaction history records" do
       records = [
@@ -107,5 +129,29 @@ defmodule Explorer.Chain.Transaction.History.HistorianTest do
   @tag capture_log: true
   test "start_link" do
     assert {:ok, _} = Historian.start_link([])
+  end
+
+  defp submission(index, options \\ []) do
+    %{
+      hash: "0x" <> Base.encode16(:crypto.strong_rand_bytes(32), case: :lower),
+      index: index,
+      feeder_bech32: @feeder_bech32,
+      feeder_hash: @feeder,
+      status: Keyword.get(options, :status, 1),
+      gas_used: Keyword.get(options, :gas_used, 100_000),
+      gas_wanted: 200_000,
+      observations: Keyword.get(options, :observations, [observation(0, 1)])
+    }
+  end
+
+  defp observation(market_id, value) do
+    %{
+      market_id: market_id,
+      accepted: true,
+      sequence: value,
+      index_price: value * 1_000_000_000_000_000_000,
+      mark_price: (value + 1) * 1_000_000_000_000_000_000,
+      source_timestamp_ms: 1_792_636_042_000 + value
+    }
   end
 end
