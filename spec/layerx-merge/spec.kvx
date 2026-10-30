@@ -163892,7 +163892,7 @@ do_5 = "apps/explorer/lib/api/services/general/paxeerX.spec.ts:57 asserts capabi
 
 [task.14.32.7]
 title = "Name the Kernel archive group in the navigation menu test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["14.32.5", "14.21.3"]
