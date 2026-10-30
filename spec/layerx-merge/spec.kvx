@@ -122631,7 +122631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.1]
 title = "Pin the gas of every bank method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.1"]
@@ -122910,7 +122910,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.10]
 title = "Pin the gas of every pointer method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.10"]
@@ -165194,7 +165194,7 @@ do_4 = "The build type-checks useNavItems.tsx, its spec and what they import. Th
 
 [task.14.32.6]
 title = "Move the kernel list item specs to the archive item shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["14.32.2", "14.32.3", "14.32.4"]
