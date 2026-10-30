@@ -194390,7 +194390,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.6]
 title = "Send the EVM RPC start signal when FinalizeBlocker adopts a sealed block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
