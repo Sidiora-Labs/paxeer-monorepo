@@ -13139,3 +13139,19 @@ symbol = "TestXWebRegistration"
 observed = "At 6f2320d86 (attempt 1 on b38a9f679) the verify fails only at setup_test.go:144, require.Len(t, info.ABI.Methods, 9), because precompiles/xweb/abi.json declares 12 functions and 4 events (ccf8fa472; 144f13d49, task 5.1.2; 383bbbbd8, task 6.94.3) while the test still asserts the 9 and 3 of 00f692026; the two lines are unchanged from main and no gate of 5.1.2 or 6.94.3 ran TestXWebRegistration."
 assumption = "Decision 1965 makes the test follow the declared ABI (12 and 4); 6.6.10 do_4 applies it in a file the task touches, and the other four tests of the verify pass at 6f2320d86."
 severity = "pre-existing"
+
+[finding.12.35.4.9]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120_test.go:161"
+symbol = "TestLocalNodeV6120SequencerReceipt"
+observed = "In attempt 12 (2bbcaee77, do_12 applied) the standby chain-id assertion passes and the test fails at v6120_test.go:163 with 'pending block unavailable: sequencer: no block is open': the pending nonce read resolves through the sequencer's open block (rpc/tx.go:430-436, rpc/watermark_manager.go:57-65) and sequential.Snapshot returns ErrLayerNotOpen (node/sequencer/executor.go:329-333) between the seal of the proposal for 34742448 (consensus/internal/state/execution.go:267-270) and the Open in Driver.OnCommit (node/sequencer/driver.go:93); the primary committed 34742447 at 18:30:23.811 and finalized 34742448 at 18:30:24.194 while the 0.06 s test ran."
+assumption = "The test waits for an open block on exactly that error text, as daemon/committed-fixture/vector_v4.go:224-241 does, for the pending nonce, both pending balances and eth_sendRawTransaction (which answers the bare error from node/sequencer/receipt.go:328 and admits nothing); the steps after the nonce read have never executed against the pair and may surface a further condition."
+severity = "task"
+
+[finding.12.35.4.10]
+task = "12.35.4"
+file = "node/sequencer/standby.go:823"
+symbol = "Replicator.replicate"
+observed = "In attempt 12 the primary's node.log holds four 'unable to create proposal block ... seal height N: sequencer: standby did not acknowledge: read tcp ...: i/o timeout' lines at 18:29:05.454 (34742429), 18:29:18.924 (34742433), 18:29:31.251 (34742435) and 18:29:44.845 (34742440) and none later; each is a 10 s SEAL replication timeout (replicate node/sequencer/standby.go:314-346; the standby answers AckGap while its own commit of H is pending, :823-825, :855-857, with a 2.5 s commit wait, :893-895) and the chain recovered to 34742448 before the test ran."
+assumption = "The standby's commit of H lagged the primary's proposal of H+1 by more than 10 s during that minute; while a SEAL times out no block is open for 10 s and a timed-out ACCEPT release would halt the accepter permanently (node/sequencer/accepter.go:40-41, :58-61), so the receipt test can fail on it independently of 12.35.4's files; cause unverified because only the primary's grep tail is in evidence."
+severity = "owner"

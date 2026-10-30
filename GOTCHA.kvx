@@ -11401,3 +11401,8 @@ fix = "When narrowing a tsc build to explicit files, copy every declaration root
 title = "A registration test's hard-coded ABI counts go stale when later tasks grow the ABI without running it"
 symptom = "A precompile registration test asserted 9 methods and 3 events; three later commits grew the ABI to 12 and 4 with gates that never ran the test, so the first task to add it to a verify found a failure on main unrelated to its own change."
 fix = "A task that changes an abi.json runs the registration test that counts it; when a count assertion disagrees with a declared ABI grown by completed tasks, rule which is the authority in a decision and set the test to it rather than leaving a known-red test on main."
+
+[gotcha.2318]
+title = "A pending-tag read on the sequencer errors between every proposal and its commit by design"
+symptom = "A local-node receipt test read the sender's pending nonce once and failed with 'pending block unavailable: sequencer: no block is open'; the primary had sealed the open block for the next proposal and had not yet committed it, a window that exists for every block."
+fix = "Pending-tag reads and raw sends against the sequencer repeat on exactly that error text until a block is open, as the committed fixture does; any other error fails at once and no asserted value changes."
