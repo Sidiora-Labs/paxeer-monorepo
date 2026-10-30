@@ -137867,7 +137867,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.49.3]
 title = "layerx program discover, interface and registry commands read layerxprograms views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.46.1", "8.0.3", "8.94.2", "9.1.8", "18.1121.1", "8.48.1"]
