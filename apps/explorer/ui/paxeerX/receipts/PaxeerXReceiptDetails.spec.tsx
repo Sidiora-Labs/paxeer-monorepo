@@ -17,7 +17,7 @@ import PaxeerXReceiptDetails from './PaxeerXReceiptDetails';
 const receipt: PaxeerXReceipt = {
   id: '0x0000000000000000000000000000000000000000000000000000000000000007',
   account: '0x0000000000000000000000000000000000000000000000000000000000000009',
-  status: 'instant',
+  status: 'submitted',
   block_number: 70,
   verification_status: 'checkpoint_finalised',
   payload_hash: '0x3ed9d81e7c1001bdda1caa1dc62c0acbbe3d2c671cdc20dc1e65efdaa4186967',
@@ -63,7 +63,7 @@ describe('PaxeerXReceiptDetails', () => {
   it('puts the receipt on the settlement ladder', () => {
     const { container } = render(<PaxeerXReceiptDetails data={ receipt }/>);
 
-    expect(container.querySelector('[data-rung="instant"]')).toBeTruthy();
+    expect(container.querySelector('[data-rung="submitted"]')).toBeTruthy();
   });
 
   it('links the transaction hash to the transaction page and the block number to the block page', () => {

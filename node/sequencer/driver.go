@@ -64,13 +64,13 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	}
 	if _, snapshotErr := d.cfg.Executor.Snapshot(); !errors.Is(snapshotErr, ErrLayerNotOpen) {
 		if snapshotErr != nil {
-			return snapshotErr
+			return fmt.Errorf("sequencer: driver executor snapshot: %w", snapshotErr)
 		}
-		return ErrLayerOpen
+		return fmt.Errorf("sequencer: driver executor snapshot: %w", ErrLayerOpen)
 	}
 	lastSeq, err := d.cfg.App.SequencerKeeper.LastSeq(d.cfg.App.GetCheckCtx())
 	if err != nil {
-		return err
+		return fmt.Errorf("sequencer: driver last sequence: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -79,7 +79,7 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	}()
 	committed := &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(appHash)}
 	if _, err = d.cfg.Replicator.Release(context.Background(), committed); err != nil {
-		return err
+		return fmt.Errorf("sequencer: driver release committed: %w", err)
 	}
 	d.cfg.Metrics.SetSealedHeight(height)
 	var retainHeight uint64
@@ -87,15 +87,15 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 		retainHeight = committed.Height - d.cfg.WALRetainBlocks
 	}
 	if _, err = d.cfg.Replicator.wal.Prune(retainHeight); err != nil {
-		return err
+		return fmt.Errorf("sequencer: driver prune: %w", err)
 	}
 	openTime := time.Now().UnixMilli()
 	if err = d.cfg.Executor.Open(height+1, openTime); err != nil {
-		return err
+		return fmt.Errorf("sequencer: driver executor open: %w", err)
 	}
 	baseFee, err := d.cfg.Executor.BaseFeePerGas()
 	if err != nil {
-		return err
+		return fmt.Errorf("sequencer: driver base fee: %w", err)
 	}
 	if baseFee.IsNegative() {
 		return errors.New("sequencer: negative open base fee")
@@ -107,7 +107,7 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	if _, err = d.cfg.Replicator.Release(context.Background(), &wal.Open{
 		Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
 	}); err != nil {
-		return err
+		return fmt.Errorf("sequencer: driver release open: %w", err)
 	}
 	d.cfg.NonceQueue.Sealed()
 	d.cfg.Metrics.SetOpenSeq(lastSeq)

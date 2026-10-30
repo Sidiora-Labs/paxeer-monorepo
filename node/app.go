@@ -307,6 +307,7 @@ var (
 		pricefeedmodule.AppModuleBasic{},
 		xwebmodule.AppModuleBasic{},
 		sequencermodule.AppModuleBasic{},
+		lxphost.StoreAppModuleBasic{},
 		layerxledgermodule.AppModuleBasic{},
 		layerxauthmodule.AppModuleBasic{},
 		layerxpaymodule.AppModuleBasic{},
@@ -624,7 +625,7 @@ type App struct {
 	sequencerSource  tmtypes.SequencerSource
 	sequencerRPC     evmrpc.SequencerOption
 	sequencerReceipt evmrpc.SequencerReceiptOption
-	commitListener   func(height int64, appHash []byte)
+	commitListener   func(height int64, appHash []byte) error
 }
 
 const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
@@ -1106,6 +1107,7 @@ func New(
 		pricefeedmodule.NewAppModule(app.PricefeedKeeper),
 		xwebmodule.NewAppModule(app.XWebKeeper),
 		sequencermodule.NewAppModule(app.SequencerKeeper, app.GetSubspace(seqtypes.ModuleName)),
+		lxphost.NewStoreAppModule(keys[storekeys.LayerXHostStoreKey]),
 		layerxledgermodule.NewAppModule(app.LayerXLedgerKeeper),
 		layerxauthmodule.NewAppModule(app.LayerXAuthKeeper),
 		layerxpaymodule.NewAppModule(*app.LayerXPayKeeper),
@@ -1202,6 +1204,7 @@ func New(
 		pricefeedtypes.ModuleName,
 		xwebtypes.ModuleName,
 		seqtypes.ModuleName,
+		storekeys.LayerXHostStoreKey,
 		layerxledgertypes.ModuleName,
 		layerxauthtypes.ModuleName,
 		layerxpaytypes.ModuleName,
@@ -3276,7 +3279,7 @@ func (app *App) SetSequencerRPC(opt evmrpc.SequencerOption, rcpt evmrpc.Sequence
 	app.sequencerReceipt = rcpt
 }
 
-func (app *App) SetCommitListener(fn func(height int64, appHash []byte)) {
+func (app *App) SetCommitListener(fn func(height int64, appHash []byte) error) {
 	app.commitListener = fn
 }
 

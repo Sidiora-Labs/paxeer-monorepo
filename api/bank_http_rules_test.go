@@ -27,8 +27,8 @@ func TestBankQueryAdditionalBindings(t *testing.T) {
 	}{
 		{
 			method:     "SupplyOf",
-			path:       "/cosmos/bank/v1beta1/supply/{denom}",
-			additional: "/cosmos/bank/v1beta1/supply/by_denom",
+			path:       "/cosmos/bank/v1beta1/supply/by_denom",
+			additional: "/cosmos/bank/v1beta1/supply/{denom}",
 		},
 		{
 			method:     "DenomMetadata",

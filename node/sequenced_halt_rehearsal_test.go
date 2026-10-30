@@ -49,7 +49,10 @@ func TestHaltedBlockLeavesCommittedStateAtPreviousHeight(t *testing.T) {
 	require.NoError(t, err)
 
 	commitCalls := 0
-	a.SetCommitListener(func(height int64, hash []byte) { commitCalls++ })
+	a.SetCommitListener(func(height int64, hash []byte) error {
+		commitCalls++
+		return nil
+	})
 	_, err = a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Header: &tmproto.Header{ChainID: sequencedChainID, Height: previousHeight, Time: start},
 	})
