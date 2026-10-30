@@ -194217,7 +194217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.12.9]
 title = "Read the human preparation state from the chain id, pending nonce and latest block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["9.12.8"]
