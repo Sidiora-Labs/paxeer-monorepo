@@ -160675,7 +160675,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.0.4]
 title = "Render the send receipt and reverted outcome on the market pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.4.3", "14.0.3", "14.6.1", "14.7.4", "14.28.2", "14.54.3", "14.58.1", "14.59.1", "11.38.4"]
@@ -190628,7 +190628,7 @@ qualification = "UNRUN"
 
 [task.18.1298.1]
 title = "Issue #1298: Resolve the real-authority test fixture to the repository root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190670,7 +190670,7 @@ qualification = "UNRUN"
 
 [task.18.1299.1]
 title = "Issue #1299: Let the sequencer replication log carry the seal of an empty layer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191278,7 +191278,7 @@ qualification = "UNRUN"
 
 [task.18.1148.1]
 title = "Issue #1148: Resolve the fee denomination of a program web request from the asset mapping when no fee denomination is recorded yet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191680,7 +191680,7 @@ qualification = "UNRUN"
 
 [task.18.893.1]
 title = "Issue #893: Pin the custody forced-exit freeze that a liveness lapse triggers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192450,7 +192450,7 @@ qualification = "UNRUN"
 
 [task.18.1250.1]
 title = "Issue #1250: Make the gateway end-to-end receipt gate assert the pass-through receipt instead of the test chain's private signing scheme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
