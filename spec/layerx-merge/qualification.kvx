@@ -12531,3 +12531,19 @@ symbol = "streamHandlers"
 observed = "Attempt 7 (ffff01a28, base c64af01ce) built and its verify exited 1 only in TestPrecompileStreamViews/time and /metered at stream_test.go:234, because the getStream, getStreamResult and streamAccrued cases return the keeper's lxphost.Code(-7) unchanged and LXPReason keeps its text LXP_ERR_UNKNOWN_FIELD instead of the registry code LXP_UNKNOWN_FIELD; the assertion and the view code have been identical since attempt 1 (2471b7cfc) and were first reached once attempt 7 fixed the :210/:216 comparisons left by attempt 6 (ee967669c)."
 assumption = "Mapping errors.Is(err, lxphost.Code(-7)) to the registry-code messages in those three view cases (precedent budget.go:25, escrow.go:37, stream_agent.go:241) lets the three tests pass with every assertion kept; do_12 excepts stream.go from do_8 and do_10."
 severity = "task"
+
+[finding.9.0.3.1]
+task = "9.0.3"
+file = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs:83"
+symbol = "serve_human_owner"
+observed = "In attempts 1 (227f0d0fe) and 2 (a568af4c5) the build exits 0 and verify_cmd exits 101 on all three node_integration tests; attempt 2's LNI test fails with `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION is required` and its closed-endpoint test with `LAYERX_AGENT_HUMAN_NODE_LNI is required`, because serve_human_owner only parses NodeRpcConfig at :83 while start_shared_owner still requires the LNI variable at main.rs:980, which decision.1920 and 9.12.5 do_3 keep."
+assumption = "req.9003 ac_1 contradicted decision.1920 and ac_2 and ac_3 need a startup NodeRpc::connect in human_owner_mode.rs; decision.1942 amends ac_1 and 9.0.3 takes human_owner_mode.rs into touches."
+severity = "owner"
+
+[finding.9.0.3.2]
+task = "9.0.3"
+file = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs:204-205"
+symbol = "startup_refuses_a_chain_id_mismatch"
+observed = "Attempts 1 (227f0d0fe) and 2 (a568af4c5) both fail with `set LAYERX_AGENT_NODE_RPC_URL to the integrated devnet JSON-RPC endpoint`, because the test reads a variable no environment exports instead of LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT (decision.1896)."
+assumption = "Reading the decision.1896 variables makes the environment that runs the gates provide the in-tree node; no attempt has exercised that yet."
+severity = "task"
