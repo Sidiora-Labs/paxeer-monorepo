@@ -4821,6 +4821,12 @@ value = "lxp_daemon_protocol_owner_attach calls lxp_programs_bind_state_feed(ker
 basis = "Every layerxd --serve start exits with 'protocol owner module runtime binding failed with result -3' because bind_maintenance (src/modules/programs/feed_store.c:1041-1051) needs the observer nothing binds; 18.1200.1 attempt 13 and 10.20.3 attempt 17 fail there on e8519e92e with 5.7.3 merged."
 affects = ["5.7.4", "18.1200.1", "10.20.3", "1.15.2"]
 
+[decision.1952]
+title = "x402 transport role-message suites carry the eip155:125 profile"
+value = "The conformance suites services/interop/specs/conformance/transport-http, transport-mcp and transport-a2a/role-messages.json offer network eip155:125 with their existing payTo, carry a 0x hash of 64 lowercase hex digits where they carried pending:provider-reference, and name the eip155:* signer; no Rust source changes for this."
+basis = "PaymentRequirements::validate refuses any network other than eip155:125 that carries extra.layerx (src/model.rs:179-185, e556c8b04), validate_transaction accepts only 0x and 64 lowercase hex digits (src/seller.rs:555-567, 685b68cbc) and network_pattern accepts only eip155 signers (src/facilitator.rs:733-735, c6f95f885); every_role_round_trips_on_every_transport reads the three suites with include_str! and no other gate runs it."
+affects = ["18.1211.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -4890,7 +4896,7 @@ completion_task = "11.0.9"
 [feature.12]
 name = "wallet"
 scope = "Wallet: services/wallet/, apps/wallet/ and sdk/wallet/; wallet app, gateway, attestor and SDK status rungs."
-requirements = ["12001", "12002", "12003", "12004", "12005", "12006", "12007", "12008", "12009", "12010", "12011", "12012", "12013", "12014", "12015", "12016", "12017", "12018", "12019", "12020", "12021", "12022", "12023", "12024", "12025", "12026", "12027", "12028", "12029", "12030", "12031", "12032", "12033", "12034", "12035", "12036", "12037", "12038", "12039", "12040", "12041", "12042", "12043", "12044", "12045", "12046", "12047", "12048", "12049", "12050", "12051", "12052", "12053", "12054", "12055", "12056", "12057", "12058", "12059", "12060", "12241", "12242", "12243", "12244", "12245", "12246", "12247", "12248", "12249", "12250", "12251", "12252", "12253", "12254", "12255", "12256", "12257", "12258", "12259", "12260", "12261", "12262", "12263", "12264", "12265", "12266", "12267", "12268", "12269", "12270", "12271", "12272", "12273", "12274", "12275", "12276", "12277", "12278", "12279", "12280", "12281", "12282", "12283", "12284", "12285", "12286", "12287", "12288", "12289", "12290", "12291", "12292", "12293", "12294", "12295", "12962", "12999"]
+requirements = ["12001", "12002", "12003", "12004", "12005", "12006", "12007", "12008", "12009", "12010", "12011", "12012", "12013", "12014", "12015", "12016", "12017", "12018", "12019", "12020", "12021", "12022", "12023", "12024", "12025", "12026", "12027", "12028", "12029", "12030", "12031", "12032", "12033", "12034", "12035", "12036", "12037", "12038", "12039", "12040", "12041", "12042", "12043", "12044", "12045", "12046", "12047", "12048", "12049", "12050", "12051", "12052", "12053", "12054", "12055", "12056", "12057", "12058", "12059", "12060", "12241", "12242", "12243", "12244", "12245", "12246", "12247", "12248", "12249", "12250", "12251", "12252", "12253", "12254", "12255", "12256", "12257", "12258", "12259", "12260", "12261", "12262", "12263", "12264", "12265", "12266", "12267", "12268", "12269", "12270", "12271", "12272", "12273", "12274", "12275", "12276", "12277", "12278", "12279", "12280", "12281", "12282", "12283", "12284", "12285", "12286", "12287", "12288", "12289", "12290", "12291", "12292", "12293", "12294", "12295", "12962", "12999", "120356"]
 completion_task = "12.0.9"
 
 [feature.13]
@@ -120341,7 +120347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.94.4]
 title = "Import the agent oracle, scheduler and streams precompiles into the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.94.2", "2.34.2", "2.36.2", "2.35.2"]
@@ -139619,7 +139625,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.0.3]
 title = "Integrate agentd startup with the node JSON-RPC endpoint end to end"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["9.12.3", "9.12.2", "9.12.5", "9.16.2", "9.7.3", "7.0.2", "9.1.8", "18.1131.1", "18.1304.1"]
@@ -156656,7 +156662,7 @@ title = "Start the in-tree node as a sequencer primary with a standby for local 
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5"]
+requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5", "12.35.6"]
 reqs = ["12035.3"]
 capabilities = []
 interfaces = []
@@ -156687,10 +156693,11 @@ do_7 = "Attempt 6 (f2f2a0638) stops as attempt 5 did: the primary panics with va
 do_8 = "Attempt 7 (0ef3564c5) makes the standby a bonded validator (decision.1902) and both nodes reach consensus rounds; the primary then fails every proposal with seal height 34742403: malformed wal entry: SEAL fromSeq 1 above toSeq 0 because its first layer is empty and the replication log refuses an empty seal, and the standby answers sequencer: no sealed layer because replication never delivered one (issue #1299, task 18.1299.1, now required). Re-qualify the attempt 7 candidate unchanged once that task is on main."
 do_9 = "Attempt 8 (ba7c4c0f4) committed the activation height 34742403 and stalled at 34742404 because Driver.OnCommit(34742403) failed inside the primary's commit listener (node/sequencer/node_start.go:126-133), which fenced the executor and panicked, and node/abci.go:331-338 recovered that panic so the node kept validating while every Seal answered 'sequencer: executor fenced by a later lease' although no lease exists in this topology (no product path calls TakeLease, Failover, Handover or NewLeaseHolder); the standby's 'sequencer: no sealed layer' on odd rounds is the consequence (standby_role.go:271-272, :322). Task 18.1307.1 (required) makes a commit-listener failure stop the primary with its cause. Before re-qualifying the attempt 8 candidate, extend v6120-node.sh so every readiness deadline (:597-610, :611-625) prints both /status bodies and every node.log, standby.log and bootstrap-peer.log line matching 'commit failed for application', 'panic recovered in commit listener', 'standby stopped', 'refused', 'no ack' or 'fenced', and keeps the whole logs as evidence; the halt cause then names the OnCommit step to fix."
 do_10 = "Attempt 9 (525dff8f4) re-ran the attempt 8 files with 18.1307.1 merged. The primary's commit of 34742403 now fails with 'commit listener at height 34742403: sequencer: driver release open: sequencer: standby did not acknowledge: read tcp ...: i/o timeout', 10 s after its stores committed. That interval is the --sequencer.replication-timeout of v6120-node.sh:570. The standby and the bootstrap peer commit 34742403 only after that Commit returns, so consensus stops at 34742404. Driver.OnCommit runs inside ABCI Commit (node/abci.go:324-326, node/sequencer/node_start.go:126-136) and releases the OPEN for H+1 (node/sequencer/driver.go:107-110). The standby admits that OPEN only after its own commit of H (node/sequencer/standby.go:818, :864-890), and the primary resends on the commit-pending AckGap (standby.go:331-333) until the deadline. The two nodes wait on each other. This task requires 12.35.5 (decision.1939), which removes that wait; v6120-node.sh still gains the do_9 evidence output first."
+do_11 = "Attempt 10 (a48caaeb7) runs with 12.35.5 merged. All three nodes now commit past 34742403. The /status and /validators checks read the plain HTTP bodies the node returns (sync_info and validators at the top level, no result envelope; v6120-node.sh:648-676), so the script reports ready and the Go test runs. The test then fails at v6120_test.go:159: the standby's EVM RPC at LOCAL_NODE_STANDBY_RPC refuses connections while the standby process is alive. The EVM HTTP server binds only after the start signal that ProcessBlock sends (node/app.go:2376, :1347-1386). On restart, 34742402 is replayed against the mock app (consensus/internal/consensus/replay.go:338-347). The standby never processes a proposal and finalizes every sequenced block through the sealed branch of FinalizeBlocker (node/app.go:1798-1830, standby_role.go:288-325), so it never sends that signal. This task requires 12.35.6, which sends the start signal on sealed adoption. Re-qualify a48caaeb7 unchanged after 12.35.6 is on main."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["12.0.3", "9.0.3"]
@@ -164815,7 +164822,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.34.3]
 title = "Place the sequencer signature row in the transaction details"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["14.34.2"]
@@ -193806,7 +193813,7 @@ do_2 = "Where a site binds the payee, set to = account_identifiers('agent:did:la
 do_3 = "In buyer_refuses_legacy_payment_exact_topic_order (buyer_sequencer.rs:257-283) build the legacy order explicitly as (from, to, paymentReference) from the same calldata words and re-sign it under the test key, so the refusal with EvidenceMismatch is asserted on a constructed legacy log rather than on the recorded receipt."
 do_4 = "Apply the same tuple construction at tests/transports.rs:470, tests/evidence_format.rs:158 and :191 and tests/sequenced_vectors.rs:592; keep every assertion, capture_settlement (src/buyer.rs:434), model.rs and the fixture unchanged."
 symbols = ["buyer_refuses_legacy_payment_exact_topic_order"]
-touches = ["services/interop/crates/layerx-x402/src/buyer.rs", "services/interop/crates/layerx-x402/src/facilitator.rs", "services/interop/crates/layerx-x402/src/seller.rs", "services/interop/crates/layerx-x402/tests/buyer.rs", "services/interop/crates/layerx-x402/tests/buyer_sequencer.rs", "services/interop/crates/layerx-x402/tests/layerx_evidence.rs", "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs", "services/interop/crates/layerx-x402/tests/seller.rs", "services/interop/crates/layerx-x402/tests/transports.rs", "services/interop/crates/layerx-x402/tests/evidence_format.rs", "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs"]
+touches = ["services/interop/crates/layerx-x402/src/buyer.rs", "services/interop/crates/layerx-x402/src/facilitator.rs", "services/interop/crates/layerx-x402/src/seller.rs", "services/interop/crates/layerx-x402/tests/buyer.rs", "services/interop/crates/layerx-x402/tests/buyer_sequencer.rs", "services/interop/crates/layerx-x402/tests/layerx_evidence.rs", "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs", "services/interop/crates/layerx-x402/tests/seller.rs", "services/interop/crates/layerx-x402/tests/transports.rs", "services/interop/crates/layerx-x402/tests/evidence_format.rs", "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs", "services/interop/specs/conformance/transport-http/role-messages.json", "services/interop/specs/conformance/transport-mcp/role-messages.json", "services/interop/specs/conformance/transport-a2a/role-messages.json"]
 tests = ["services/interop/crates/layerx-x402/tests/buyer_sequencer.rs::buyer_refuses_legacy_payment_exact_topic_order"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests"
@@ -193826,6 +193833,7 @@ do_5 = "Owner ruling (decision.1935) for two src unit tests that are red at main
 do_6 = "Decision 1936 (extends decision.1935; e556c8b04, issue #1162) for two payTo assertions that are red at main 710592c26 since eip155:125 became the LayerX network, superseding 'keep every assertion' in do_4 for these two assertions only. In services/interop/crates/layerx-x402/tests/buyer_sequencer.rs buyer_captures_the_recorded_receipted_settlement (:226-237) and tests/evidence_format.rs buyer_accepts_the_model_asset_format (:260-272), keep Err(X402Error::EvidenceMismatch) for the 'asset' case and expect Err(X402Error::ProfileMismatch) for the 'payTo' case: Buyer::capture_settlement runs PaymentRequirements::validate (src/buyer.rs:566) before it compares asset, payTo and amount with the PaymentExact log (:567-571), and for network eip155:125, LAYERX_NETWORK (src/model.rs:19), validate runs layerx_terms (:179-180), which refuses a payTo that is not one of account_identifiers(extra.layerx.account) with ProfileMismatch (:215-218). Change nothing else in either test."
 do_7 = "Decision 1948 (extends decision.1935 and decision.1936; d0e763338, task 11.5.2) for the committed-rung expectations of services/interop/crates/layerx-x402/tests/layerx_evidence.rs committed_evidence_without_block_fields_is_refused (:178-287), which are red at main 265e0cc8d since a committed rung needs a verifying proof, superseding 'keep every assertion' in do_4 for these assertions only: keep the receipted capture at :181 as a checked call, replace the capture of the committed response that carries blockNumber 0x9 and blockHash 0x followed by ab repeated 32 times and no proof, and its three equality assertions (:203-207), with assert_eq!(capture(&payment, &committed, &batch), Err(X402Error::EvidenceMismatch)), and expect Err(X402Error::EvidenceMismatch) for each well-formed blockNumber in the loop at :209-216: Buyer::capture_settlement accepts verificationLevel committed only when the evidence carries a proof (src/buyer.rs:466-487, evidence.proof.is_some() at :471) and refuses otherwise with EvidenceMismatch (:488-493), and an attached proof must pass verify_committed_evidence, which binds blockNumber and blockHash to the proved block (:258-267, :588-606). The proved committed capture stays covered by tests/buyer_sequencer.rs buyer_refuses_a_committed_rung_with_a_wrong_block_hash and seller_committed_settlement_is_captured_by_the_buyer. Change nothing else in the test."
 do_8 = "Decision 1948 (same class as do_7; 0bfaed5da, task 18.1180.1) for services/interop/crates/layerx-x402/tests/seller.rs a_committed_exact_settlement_round_trips_to_the_buyer (:1104-1151), superseding 'keep every assertion' in do_4 for this test only: settlement_executed_with_rung (:772-791) builds the committed rung with committed: None (:783), and Seller::settled refuses a committed rung without a CommittedSettlementProof with EvidenceMismatch (src/seller.rs:329-337), so expect assert_eq!(settle_executed(test_requirements(), payload, executed, settlement_keys()).map_err(Traced::into_error), Err(X402Error::EvidenceMismatch)) in place of the unwrap at :1115-1121 and drop the response and buyer-capture assertions that follow it (:1122-1150); the proved seller-to-buyer committed round trip stays covered by tests/buyer_sequencer.rs seller_committed_settlement_is_captured_by_the_buyer, and the refusal without a proof by seller_refuses_committed_evidence_without_a_proof. Change nothing else in the file."
+do_9 = "Decision 1952 (extends decision.1935, decision.1936 and decision.1948; c6f95f885, 685b68cbc and e556c8b04, issue #1162) for the x402 role-message suites that tests/transports.rs every_role_round_trips_on_every_transport (:312-390) reads with include_str!, which are red at main 8b483cd25 because they still carry the layerx:beta profile; do_4's 'the fixture unchanged' does not cover these three files, and every assertion of the test stays. In services/interop/specs/conformance/transport-http/role-messages.json, transport-mcp/role-messages.json and transport-a2a/role-messages.json: (1) set every network 'layerx:beta' to 'eip155:125' (LAYERX_NETWORK, src/model.rs:19) in the accepts, accepted, paymentPayload.accepted and paymentRequirements offers, in the settlement_response and facilitator_settlement documents and in the supported_response kind, including the refused representation record (http :23, :53, :79, :97, :113, :152, :166, :197; mcp and a2a :22, :51, :76, :94, :110, :149, :163, :195): PaymentRequirements::validate refuses a network other than eip155:125 that carries extra.layerx with ProfileMismatch (src/model.rs:179-185), and FacilitatorRequest::validate and validate_supported refuse a network outside eip155 (src/facilitator.rs:53, :705; src/seller.rs:541-553); keep payTo 50ed0f69f4b8ad6a4a4722993ebba1107f34d9b04978a64038dc9d2a95a4ff2b, which is account_identifiers('agent:did:layerx:merchant:main')[0] (src/model.rs:248-257) and so binds under layerx_terms (:215-218). (2) Set the transaction 'pending:provider-reference' of settlement_response and facilitator_settlement (http :78, :151; mcp and a2a :75, :148) to '0x' followed by 61 repeated 32 times: SettlementResponse::validate_wire runs validate_transaction on every non-empty transaction (src/model.rs:478-480), which accepts only 0x and 64 lowercase hex digits not all zero (src/seller.rs:555-567). (3) Set the supported_response signers key 'layerx:*' (http :171; mcp and a2a :168) to 'eip155:*' (network_pattern, src/facilitator.rs:733-735). Change no other field, record or file, and keep each file's layout."
 
 [req.1812112]
 title = "x402 tests build the native PaymentExact tuple from the recorded payExact calldata"
@@ -194107,7 +194115,7 @@ qualification = "UNRUN"
 
 [task.18.1309.1]
 title = "Issue #1309: The history-readiness scenario indexes the in-tree node's EVM JSON-RPC instead of the archive relay origin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1308.1"]
@@ -194380,10 +194388,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.12.35.6]
+title = "Send the EVM RPC start signal when FinalizeBlocker adopts a sealed block"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = []
+reqs = ["120356.1"]
+capabilities = []
+interfaces = []
+do_1 = "The EVM HTTP and WebSocket servers created in RegisterLocalServices (node/app.go:3528-3544) bind only after sendEVMServerStartSignals (node/app.go:1347-1356). Only ProcessBlock calls it (node/app.go:2376). FinalizeBlocker adopts a sealed block and returns at node/app.go:1829 without ProcessBlock. A sequencer standby that never processes a proposal finalizes every block that way, so its EVM RPC never listens. FinalizeBlocker sends the start signal when it adopts a sealed block. TestSealedFinalizeStartsEVMRPCServers in node/rpc_restart_test.go serves real HTTP and WebSocket servers through serveEVMServers, finalizes one sealed block through FinalizeBlocker without ProcessBlock, and asserts both ports accept connections; Close still releases them as TestAppCloseStopsEVMRPCServers requires."
+do_2 = "TestLocalNodeV6120SequencerReceipt (tools/qualification/localnode/v6120_test.go:152-160, task 12.35.4) asserts the standby's chain id over its EVM RPC and fails with connection refused while the standby process is alive; it is the observation this task answers and it is re-qualified unchanged once this task is on main."
+symbols = ["App.FinalizeBlocker", "App.sendEVMServerStartSignals", "TestSealedFinalizeStartsEVMRPCServers"]
+touches = ["node/app.go", "node/rpc_restart_test.go"]
+tests = ["node/rpc_restart_test.go::TestSealedFinalizeStartsEVMRPCServers"]
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 ./node/ -run '^(TestSealedFinalizeStartsEVMRPCServers)$'"
+gate_kind = "existing"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert node/app.go and node/rpc_restart_test.go; a node that finalizes only sealed blocks again never binds its EVM HTTP and WebSocket ports and the standby chain-id check of TestLocalNodeV6120SequencerReceipt refuses connections."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [req.120355]
 title = "Issue #1235 follow-up: the sequencer primary and standby do not wait on each other across a commit"
 ac_1 = "With a committee where the primary's precommit alone is +2/3, the primary's Driver.OnCommit(H) (node/sequencer/driver.go:53-115) releases the OPEN for H+1 without waiting for the standby to commit H, or the standby acknowledges that OPEN before its own commit of H, so OnCommit returns nil and consensus proceeds to H+1 (decision.1939)."
 ac_2 = "TestDriverReleasesNextOpenAcrossStandbyCommit (node/sequencer/commit_release_test.go) commits H and H+1 across a loopback primary and standby and passes; node_start.go keeps returning the commit listener error."
+
+[req.120356]
+title = "The sequencer standby's EVM RPC listens when it finalizes only sealed blocks"
+ac_1 = "FinalizeBlocker sends the EVM server start signal when it adopts a sealed block (node/app.go:1798-1830), so a node that never runs ProcessBlock binds its EVM HTTP and WebSocket ports; TestSealedFinalizeStartsEVMRPCServers in node/rpc_restart_test.go passes and TestAppCloseStopsEVMRPCServers keeps passing."
 
 [acceptance.12.35.5]
 feature = "12"
@@ -194391,6 +194432,14 @@ req = "120355.1"
 scenario = "Given a primary and a standby over loopback with a 3:1 committee, when the primary commits height H and releases the OPEN for H+1, then the release is acknowledged before the standby commits H and OnCommit returns nil"
 contract = "contracts/node.md#commit"
 test = "node/sequencer/commit_release_test.go::TestDriverReleasesNextOpenAcrossStandbyCommit"
+qualification = "UNRUN"
+
+[acceptance.12.35.6]
+feature = "12"
+req = "120356.1"
+scenario = "Given an App whose EVM HTTP and WebSocket servers are registered and whose FinalizeBlocker adopts one sealed block without ProcessBlock, when the block is finalized, then both EVM ports accept connections and Close releases them."
+contract = "contracts/node.md#commit"
+test = "node/rpc_restart_test.go::TestSealedFinalizeStartsEVMRPCServers"
 qualification = "UNRUN"
 
 [task.18.1279.3]
@@ -194435,6 +194484,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
