@@ -127689,7 +127689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.94.2]
 title = "Check getStateHead and getProgram answer eth_call at an explicit block height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["6.0.2", "13.0.2", "18.1073.1", "18.1130.1"]
@@ -136750,7 +136750,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.5]
 title = "Swift SDK retires kernel batch, checkpoint and settlement verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.44.2", "8.44.3", "8.47.7", "8.44.6"]
@@ -136940,7 +136940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.45.3]
 title = "Generators stop rendering /v1/programs lifecycle routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.41.6", "8.42.6", "8.43.6", "8.44.6"]
@@ -138990,7 +138990,7 @@ do_7 = "Deleting Level retypes VerificationStatus, which becomes a type alias of
 
 [task.9.1.5]
 title = "Retire the faucet.claim operation from the agent-api schema and catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["9.15.1", "9.0.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1230.1"]
@@ -139962,7 +139962,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.10.1]
 title = "Run program operations against layerxprograms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["9.12.1", "9.2.2", "13.0.2", "9.1.8", "18.1131.1", "18.1206.1"]
@@ -156346,7 +156346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.1]
 title = "Build a test chain fixture that signs headers and proves store keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]
@@ -156377,7 +156377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.2]
 title = "Check the Rust ICS23 verifier against the store package proof vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "15.94.1"]
@@ -156408,7 +156408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.3]
 title = "Check the Rust commit verifier against the consensus light commit vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "5.94.3"]
@@ -156439,7 +156439,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.4]
 title = "Check the Rust results-hash verifier against the consensus results vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "5.94.3"]
@@ -156470,7 +156470,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.5]
 title = "Check the programs state key builder against the host store key vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "1.94.1"]
@@ -156501,7 +156501,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.6]
 title = "Add a chain-proof fuzz target over decode_commitment_proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]
@@ -156562,7 +156562,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.8]
 title = "Check ZIP-215 signature acceptance against the consensus ed25519 vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "13.1.14", "5.94.3"]
@@ -156902,7 +156902,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.10]
 title = "Build sandbox lease and usage store keys for chain proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]

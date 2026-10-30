@@ -1234,19 +1234,6 @@ impl Probe {
         let credential = (!bootstrap).then_some(&self.credential);
         let outcome = self.send(operation, request_id, &request, credential, key);
         self.record(case, operation, &outcome)?;
-        if operation == Operation::FaucetClaim {
-            return match outcome {
-                Err(EnvelopeError::Refused(error))
-                    if error.class == ErrorClass::UnavailableCapability
-                        && error.retriability == Retriability::Terminal
-                        && error.protocol_result_code.is_none()
-                        && error.reason.as_str() == "unavailable_capability.faucet.claim" =>
-                {
-                    Ok(())
-                }
-                other => Err(format!("faucet.claim was not retired: {other:?}").into()),
-            };
-        }
         match outcome {
             Ok(_) => Ok(()),
             Err(EnvelopeError::Refused(error))
