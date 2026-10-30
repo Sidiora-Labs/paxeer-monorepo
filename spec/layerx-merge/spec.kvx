@@ -93959,7 +93959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.16.2]
 title = "Retire lxp_receipt_verify_checkpointed and the guarantor include of lxp_verify.h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["1.0.2", "16.2.1", "16.32.3"]
