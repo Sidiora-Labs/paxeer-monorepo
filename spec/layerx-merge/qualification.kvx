@@ -12523,3 +12523,11 @@ symbol = "VerifiedChainHead::global_sequence"
 observed = "Attempt 1 (35c40fa05) deletes global_sequence and batch_header_digest (do_3) while the 13.9.3 rewrite (193d0e53b) still calls them at :173-182, :224, :234-235, :316-317 and :506-511, and neither build_cmd nor the dependents check compiles that registry target."
 assumption = "The file joins 13.4.6's touches and reads freshness().observed_sequence and the fixture header hash instead (do_8)."
 severity = "cross-task"
+
+[finding.2.28.6.5]
+task = "2.28.6"
+file = "precompiles/layerxpay/stream.go:17-34"
+symbol = "streamHandlers"
+observed = "Attempt 7 (ffff01a28, base c64af01ce) built and its verify exited 1 only in TestPrecompileStreamViews/time and /metered at stream_test.go:234, because the getStream, getStreamResult and streamAccrued cases return the keeper's lxphost.Code(-7) unchanged and LXPReason keeps its text LXP_ERR_UNKNOWN_FIELD instead of the registry code LXP_UNKNOWN_FIELD; the assertion and the view code have been identical since attempt 1 (2471b7cfc) and were first reached once attempt 7 fixed the :210/:216 comparisons left by attempt 6 (ee967669c)."
+assumption = "Mapping errors.Is(err, lxphost.Code(-7)) to the registry-code messages in those three view cases (precedent budget.go:25, escrow.go:37, stream_agent.go:241) lets the three tests pass with every assertion kept; do_12 excepts stream.go from do_8 and do_10."
+severity = "task"

@@ -100713,6 +100713,8 @@ do_7 = "Attempt 1 (2471b7cfc) built and its verify failed at setup with 'import 
 do_8 = "abi_test.go, errors_test.go and gas_test.go reach nothing that imports node and stay package layerxpay. Change no production file, no file under node/ and no file under tests/testutil/; in the moved files change only the package clause, imports and the qualification of names, and keep every test name, fixture value and assertion as written."
 do_9 = "Attempt 5 (91aa237a9) built and then failed its verify with 'FAIL github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay [build failed]' at modules/layerxauth/keeper/views.go:167 ('k.host.ReadIdempotentReceipt undefined'), which a0a08d298 (task 1.25.2) left behind and task 18.1308.1 removes (issue #1308, decision.1932); this task now requires it and changes nothing under modules/layerxauth. Re-qualify the attempt 5 candidate on a base that includes 18.1308.1."
 do_10 = "Attempt 6 (ee967669c) built and its verify failed only in TestPrecompileStreamViews/time and TestPrecompileStreamViews/metered at precompiles/layerxpay/stream_test.go:210: the expected Refunded big.NewInt(0) holds a nil nat while the zero that budgetTestView decodes with a.Unpack (budget_test.go:135) holds an empty one, so require.Equal reports 'abs: (big.nat) <nil>' against '{}' although every field is equal (gotcha.1481); stream_test.go:216 compares big.NewInt(0) the same way for the metered unsettled value (stream_test.go:213). As the one exception to do_8, change only these two assertions: at :210 pack the expected tuple and the decoded result with the getStreamResult outputs and require equal bytes, and at :216 pack the expected pair and the decoded values with the streamAccrued outputs and require equal bytes, as budget_test.go:173-178 does for getBudget. Keep every expected value and change no other file."
+do_11 = "Attempt 7 (ffff01a28) built and its verify failed only in TestPrecompileStreamViews/time and TestPrecompileStreamViews/metered at precompiles/layerxpay/stream_test.go:234 with 'LXP_ERR_UNKNOWN_FIELD' does not contain 'LXP_UNKNOWN_FIELD': the getStream, getStreamResult and streamAccrued cases of streamHandlers (precompiles/layerxpay/stream.go:17-34) return the keeper error lxphost.Code(-7) of modules/layerxpay/keeper/stream_views.go:41 and :60 unchanged, its text is the kernel name LXP_ERR_UNKNOWN_FIELD (modules/lxphost/code_names.go:13), and LXPReason keeps any text that starts with LXP_ (precompiles/common/precompiles.go:141-147), so an unknown stream reverts without the registry code LXP_UNKNOWN_FIELD (precompiles/common/lxp_errors.go:47) that getBudget, the escrow views and the service views return (budget.go:25, escrow.go:37, :48, :53, service_views.go:46, :71)."
+do_12 = "As the one production exception to do_8 and do_10, in the getStream, getStreamResult and streamAccrued cases of streamHandlers in precompiles/layerxpay/stream.go return fmt.Errorf('LXP_UNKNOWN_FIELD: stream not found') for getStream and streamAccrued and fmt.Errorf('LXP_UNKNOWN_FIELD: stream result not found') for getStreamResult when errors.Is(err, lxphost.Code(-7)) holds, as modules/layerxpay/keeper/stream_agent.go:241 tests the code, and return every other keeper error unchanged. Keep stream_test.go:234, the attempt 7 comparisons at stream_test.go:210-224 and every other assertion and expected value as written, and change no other file."
 
 [task.2.28.7]
 title = "Serve the thirteen 0x101B service writes and fourteen service events"
@@ -101232,7 +101234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.36.2]
 title = "Register the 0x0903 merge constructor with the provisional feed caps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.36.1"]
@@ -194162,4 +194164,5 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
