@@ -13,7 +13,7 @@ import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 
 // A row of the anchor log is a checkpoint the chain has already accepted, and the payload carries no
 // finality flag of its own, so every row sits on the rung the ladder spells for a submitted checkpoint.
-export const ANCHOR_SETTLEMENT_RUNG: PaxeerXStatusRung = 'sealed';
+export const ANCHOR_SETTLEMENT_RUNG: PaxeerXStatusRung = 'receipted';
 
 interface Props {
   item: PaxeerXAnchorsItem;
