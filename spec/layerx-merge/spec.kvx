@@ -158227,7 +158227,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.2]
 title = "Rewrite the registry replay tests on chain evidence and validator rotation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
