@@ -136721,7 +136721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.8]
 title = "Swift SDK receipt tests read the published V1-V3 and V5 vector files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.47.7", "8.44.7"]
@@ -140415,7 +140415,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.15.3]
 title = "Serve approval and subscription tools with major-2 shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["9.11.3", "9.15.1", "9.0.2", "9.1.8", "18.1121.1"]
@@ -143252,7 +143252,7 @@ do_7 = "Attempt 5 (b741034ab) failed to build on 22 errors in services/agent/cra
 
 [task.9.98.1]
 title = "layerx-agentd binary compiles against the ported read, export and payment APIs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.5.7", "9.6.1", "10.11.5", "9.1.8", "18.1131.1"]
@@ -189189,7 +189189,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1246.1]
 title = "Issue #1246: Present the identity session as an Authorization bearer when faucet.request posts px_requestFunds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1245.1"]
