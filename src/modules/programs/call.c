@@ -1418,7 +1418,8 @@ lxp_result layerx_programs_call_terminal_begin(
         return LXP_ERR_NON_CANONICAL;
     if (lxp_protocol_version_uses_occupancy(value->ctx->protocol_version) &&
         terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS &&
-        (value->occupancy == NULL || !value->occupancy->applied))
+        (value->occupancy == NULL || !value->occupancy->applied) &&
+        layerx_programs_call_sandbox_usage_result_occupancy(token, NULL) != LXP_OK)
         return LXP_FATAL_INVARIANT;
     if (terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS) {
         if (value->transfer_set == NULL) {
@@ -1630,18 +1631,24 @@ lxp_result layerx_programs_call_terminal_publish(uint64_t token)
                      sizeof(outcome.fee_schedule_prices));
     if (outcome.encoding_version >= 2U &&
         outcome.terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS) {
-        outcome.occupancy_byte_batches =
-            value->occupancy->receipt.byte_batches;
-        outcome.occupancy_fee_units =
-            value->occupancy->receipt.fee_units;
-        (void)memcpy(outcome.occupancy_asset_id,
-                     value->occupancy->receipt.occupancy_asset_id, 32U);
-        (void)memcpy(outcome.occupancy_evidence_digest,
-                     value->occupancy->receipt.settlement_evidence_digest,
-                     sizeof(outcome.occupancy_evidence_digest));
-        (void)memcpy(outcome.occupancy_transfer_root,
-                     value->occupancy->receipt.transfer_set_root,
-                     sizeof(outcome.occupancy_transfer_root));
+        status = layerx_programs_call_sandbox_usage_result_occupancy(token,
+                                                                    &outcome);
+        if (status == LXP_ERR_UNKNOWN_FIELD) {
+            if (value->occupancy == NULL || !value->occupancy->applied)
+                return LXP_FATAL_INVARIANT;
+            outcome.occupancy_byte_batches =
+                value->occupancy->receipt.byte_batches;
+            outcome.occupancy_fee_units =
+                value->occupancy->receipt.fee_units;
+            (void)memcpy(outcome.occupancy_asset_id,
+                         value->occupancy->receipt.occupancy_asset_id, 32U);
+            (void)memcpy(outcome.occupancy_evidence_digest,
+                         value->occupancy->receipt.settlement_evidence_digest,
+                         sizeof(outcome.occupancy_evidence_digest));
+            (void)memcpy(outcome.occupancy_transfer_root,
+                         value->occupancy->receipt.transfer_set_root,
+                         sizeof(outcome.occupancy_transfer_root));
+        } else if (status != LXP_OK) return status;
     }
     (void)memcpy(outcome.call_graph_root, graph_root, sizeof(graph_root));
     (void)memcpy(outcome.terminal_payload_root, terminal_root, sizeof(terminal_root));
@@ -2277,6 +2284,29 @@ lxp_result layerx_programs_call_transfer_apply(uint64_t token)
                                      value->ctx->ledger_admission.bound ?
                                          value->ctx->ledger_admission.account_id :
                                          value->authority->principal);
+    if (sequence_account == NULL && !value->ctx->ledger_admission.bound) {
+        uint8_t (*account_ids)[32];
+        size_t account_count = 0U;
+        lxp_result status;
+        if (runtime->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY)
+            return LXP_ERR_NON_CANONICAL;
+        account_ids = calloc(runtime->accounts->count + 1U, sizeof(*account_ids));
+        if (account_ids == NULL) return LXP_ERR_ARENA_EXHAUSTED;
+        status = lx_account_list_did(runtime->accounts,
+                                      value->authority->principal,
+                                      account_ids, runtime->accounts->count,
+                                      &account_count);
+        for (index = 0U; status == LXP_OK && index < account_count; ++index) {
+            lx_account *account = account_by_id(runtime->accounts,
+                                                account_ids[index]);
+            if (account != NULL && account->kind == LX_ACCOUNT_AGENT_MAIN) {
+                sequence_account = account;
+                break;
+            }
+        }
+        free(account_ids);
+        if (status != LXP_OK) return status;
+    }
     if (sequence_account == NULL) return LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
     for (index = 0U; index < set->leg_count; ++index) {
         lxp_result status = transfer_source_validate(value, (uint16_t)index);

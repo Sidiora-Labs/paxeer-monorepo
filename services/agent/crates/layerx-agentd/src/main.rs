@@ -256,6 +256,7 @@ struct Config {
     listen: String,
     bearer: String,
     node_endpoint: String,
+    expected_chain_id: u64,
     node_bearer: String,
     authority_endpoint: String,
     authority_bearer: String,
@@ -773,21 +774,126 @@ fn connect_human_authority(
     Ok(authority)
 }
 
-/// Selects export trust only from explicit deployment configuration and the
-/// genesis-anchored signed authority history; nothing in a request selects it.
+fn node_rpc(endpoint: &str, ca_der: &[u8]) -> Result<ureq::Agent, String> {
+    layerx_client::sequencer::SequencerEndpoint::new(endpoint, &[ca_der])
+        .map_err(|error| format!("node endpoint is invalid: {error:?}"))?;
+    Ok(ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(30)))
+        .max_redirects(0)
+        .tls_config(
+            ureq::tls::TlsConfig::builder()
+                .provider(ureq::tls::TlsProvider::Rustls)
+                .root_certs(ureq::tls::RootCerts::new_with_certs(&[
+                    ureq::tls::Certificate::from_der(ca_der).to_owned(),
+                ]))
+                .build(),
+        )
+        .build()
+        .into())
+}
+
 fn export_trust_source(
-    history: layerx_proof::signed_authority::SignedAuthorityHistory,
+    receipt_keys: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+    ca_der: &[u8],
 ) -> Result<layerx_agentd::export::ExportTrustSource, String> {
-    let domain = layerx_proof::settlement::declared_domain(&required(
-        "LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN",
-    )?)
-    .map_err(|error| format!("export settlement domain is invalid: {error:?}"))?;
-    layerx_agentd::export::ExportTrustSource::new(
-        history,
-        domain,
-        parse_u64("LAYERX_AGENT_HUMAN_EXPORT_SET_VERSION")?,
-    )
-    .map_err(|error| format!("export trust is invalid: {error:?}"))
+    use base64::Engine as _;
+    let endpoint = required("LAYERX_AGENT_NODE_CONSENSUS_ENDPOINT")?;
+    let client = node_rpc(&endpoint, ca_der)?;
+    let mut validators = Vec::new();
+    let mut height = None;
+    for page in 1..=100_u64 {
+        let url = format!(
+            "{}/validators?page={page}&per_page=100{}",
+            endpoint.trim_end_matches('/'),
+            height
+                .map(|height| format!("&height={height}"))
+                .unwrap_or_default()
+        );
+        let answer: serde_json::Value = client
+            .get(&url)
+            .call()
+            .map_err(|error| format!("node validators unavailable: {error}"))?
+            .body_mut()
+            .with_config()
+            .limit(1_048_576)
+            .read_json()
+            .map_err(|error| format!("node validators malformed: {error}"))?;
+        let result = answer
+            .get("result")
+            .ok_or("node validator result missing")?;
+        let number = |field: &str| {
+            result
+                .get(field)
+                .and_then(serde_json::Value::as_str)
+                .and_then(|value| value.parse::<u64>().ok())
+                .ok_or("node validator number malformed")
+        };
+        let block_height = number("block_height")?;
+        if height.is_some_and(|height| height != block_height) {
+            return Err("node validator height changed".to_owned());
+        }
+        height = Some(block_height);
+        let total =
+            usize::try_from(number("total")?).map_err(|_| "node validator count overflow")?;
+        let entries = result
+            .get("validators")
+            .and_then(serde_json::Value::as_array)
+            .ok_or("node validators missing")?;
+        if entries.is_empty() || total == 0 || total > 10_000 {
+            return Err("node validator count invalid".to_owned());
+        }
+        for entry in entries {
+            if entry
+                .pointer("/pub_key/type")
+                .and_then(serde_json::Value::as_str)
+                != Some("tendermint/PubKeyEd25519")
+            {
+                return Err("node validator key type unsupported".to_owned());
+            }
+            let public_key: [u8; 32] = base64::engine::general_purpose::STANDARD
+                .decode(
+                    entry
+                        .pointer("/pub_key/value")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("node validator key missing")?,
+                )
+                .map_err(|_| "node validator key malformed")?
+                .try_into()
+                .map_err(|_| "node validator key width")?;
+            let address_text = entry
+                .get("address")
+                .and_then(serde_json::Value::as_str)
+                .ok_or("node validator address missing")?;
+            let mut address = [0; 20];
+            if address_text.len() != 40
+                || !address_text.bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
+                return Err("node validator address width".to_owned());
+            }
+            for (index, byte) in address.iter_mut().enumerate() {
+                *byte = u8::from_str_radix(&address_text[index * 2..index * 2 + 2], 16)
+                    .map_err(|_| "node validator address malformed")?;
+            }
+            let voting_power = entry
+                .get("voting_power")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|value| value.parse().ok())
+                .ok_or("node validator power malformed")?;
+            validators.push(layerx_agentd::read::CommitValidator {
+                address,
+                public_key,
+                voting_power,
+            });
+        }
+        if validators.len() == total {
+            return layerx_agentd::export::ExportTrustSource::new(receipt_keys, validators)
+                .map_err(|error| format!("export trust is invalid: {error:?}"));
+        }
+        if validators.len() > total {
+            return Err("node validator count disagrees".to_owned());
+        }
+    }
+    Err("node validator pagination exhausted".to_owned())
 }
 
 type OwnerStatus = mpsc::Receiver<Result<(), String>>;
@@ -1052,15 +1158,8 @@ struct McpPayerConfig {
     tenant: String,
     session_id: String,
     payer_did: String,
-    principal: String,
     signer: layerx_human_kms::attestor::AttestorSignerConfig,
     assertion_source: PathBuf,
-    sequencer_public_key: String,
-    local_grant: serde_json::Value,
-    commitment: String,
-    fee_limit: String,
-    send_validity_ms: u64,
-    grant_validity_seconds: u64,
 }
 
 fn mcp_config_digest(value: &str) -> Result<[u8; 32], String> {
@@ -1120,45 +1219,30 @@ fn attach_mcp_payers(
         let credential = binding
             .daemon_credential()
             .map_err(|_| "MCP payer credential is unavailable")?;
-        let transport = binding
-            .daemon_transport()
-            .map_err(|_| "MCP payer transport is unavailable")?;
-        let local_grant = agent_rpc::decode_mcp_local_grant_config(&config.local_grant)
-            .map_err(|_| "MCP payer local grant is invalid")?;
-        if config.fee_limit.is_empty()
-            || !config.fee_limit.bytes().all(|byte| byte.is_ascii_digit())
-            || (config.fee_limit.len() > 1 && config.fee_limit.starts_with('0'))
-        {
-            return Err("MCP payer fee limit is invalid".to_owned());
-        }
-        let fee_limit = config
-            .fee_limit
-            .parse::<u128>()
-            .map_err(|_| "MCP payer fee limit is invalid")?;
-        let signer = Arc::new(
-            layerx_human_kms::attestor::AttestorSigner::from_config(&config.signer)
-                .map_err(|_| "MCP payer attestor is invalid")?,
+        let assertion = zeroize::Zeroizing::new(
+            layerx_agentd::config::read_protected_source(&config.assertion_source, 8192)
+                .map_err(|_| "MCP payer assertion source is invalid")?,
         );
-        let clock = owner
-            .mcp_clock()
-            .map_err(|_| "MCP payer clock is unavailable")?;
+        let assertion = std::str::from_utf8(&assertion)
+            .map_err(|_| "MCP payer assertion is invalid")?
+            .trim();
+        if assertion.is_empty() || !assertion.bytes().all(|byte| byte.is_ascii_graphic()) {
+            return Err("MCP payer assertion is invalid".to_owned());
+        }
+        let mut signer = layerx_human_kms::attestor::AttestorSigner::from_config(&config.signer)
+            .map_err(|_| "MCP payer attestor is invalid")?;
+        signer
+            .set_evm_assertion(assertion)
+            .map_err(|_| "MCP payer EVM assertion is invalid")?;
+        let endpoint = required("LAYERX_AGENT_NODE_ENDPOINT")?;
+        let ca_der = read_ca("LAYERX_AGENT_AUTHORITY_CA_DER")?;
         let payer = mcp_payer::ProductionWebPayer::from_owner(
             owner.clone(),
             credential,
             config.payer_did,
-            config.principal,
-            signer,
-            config.assertion_source,
-            transport,
-            mcp_config_digest(&config.sequencer_public_key)?,
-            clock,
-            config.grant_validity_seconds,
-            mcp_payer::RegisteredOwnerWebAccess {
-                local_grant,
-                commitment: mcp_config_digest(&config.commitment)?,
-                fee_limit,
-                send_validity_ms: config.send_validity_ms,
-            },
+            Arc::new(signer),
+            &endpoint,
+            &[&ca_der],
         )
         .map_err(|_| "MCP payer owner authority is unavailable")?;
         let approvals = owner
@@ -1168,7 +1252,7 @@ fn attach_mcp_payers(
             .clone();
         binding.attach_web(layerx_mcp::binding::WebAuthority::new(
             approvals,
-            Box::new(payer),
+            Box::new(payer.into_web_payer()),
         ));
     }
     Ok(())
@@ -1650,6 +1734,7 @@ fn config() -> Result<Config, String> {
         program_budget_denomination_sources,
         bearer,
         node_endpoint: required("LAYERX_AGENT_NODE_ENDPOINT")?,
+        expected_chain_id: parse_u64("LAYERX_EXPECTED_CHAIN_ID")?,
         node_bearer,
         authority_endpoint: required("LAYERX_AGENT_AUTHORITY_ENDPOINT")?,
         authority_bearer,
@@ -1767,19 +1852,11 @@ fn response<S: Write>(stream: &mut S, status: u16, body: &str) -> Result<(), Str
         .map_err(|error| format!("agent response failed: {error}"))
 }
 
-fn refresh_program_authority(
-    route: &mut ProgramBalanceReadRoute,
-    native: &mut Option<NativeReadRoute>,
-) -> Result<(), String> {
+fn refresh_native_receipt_keys(native: &mut Option<NativeReadRoute>) -> Result<(), String> {
     if let Some(native) = native.as_mut() {
-        if let Some(history) = native
+        native
             .signed_authority()
-            .map_err(|error| format!("program authority history unavailable: {error:?}"))?
-        {
-            route
-                .refresh_authority(&history)
-                .map_err(|error| format!("program authority policy refused: {error:?}"))?;
-        }
+            .map_err(|error| format!("program receipt keys unavailable: {error:?}"))?;
     }
     Ok(())
 }
@@ -1884,7 +1961,7 @@ fn route_request(
 ) -> (u16, String) {
     let reply = |status: u16, body: &str| (status, body.to_owned());
     if path == "/healthz" {
-        if refresh_program_authority(route, native).is_err() {
+        if refresh_native_receipt_keys(native).is_err() {
             return reply(503, "{\"ready\":false,\"transport_ready\":true,\"verified_reads_ready\":false,\"tenant_writes\":\"unknown\"}");
         }
         return match now_ms().map(|now| route.read(probe_program, now)) {
@@ -1920,7 +1997,7 @@ fn route_request(
     let Some(program) = program else {
         return reply(400, "{\"error\":\"invalid_program\"}");
     };
-    if refresh_program_authority(route, native).is_err() {
+    if refresh_native_receipt_keys(native).is_err() {
         return reply(503, "{\"error\":\"program_state_unavailable\"}");
     }
     match now_ms().map(|now| route.read(program, now)) {
@@ -1959,7 +2036,7 @@ fn native_handover_sources() -> Result<Option<(PathBuf, PathBuf)>, String> {
 struct ProgramAuthorityBoot {
     verifier: ProtocolDeploymentVerifier,
     registry: Registry,
-    signed_history: Option<layerx_proof::signed_authority::SignedAuthorityHistory>,
+    receipt_keys: Option<Vec<layerx_client::sequencer::ReceiptKeyEntry>>,
 }
 
 fn program_authority_boot(
@@ -1971,37 +2048,27 @@ fn program_authority_boot(
         config.staleness_ms,
     )
     .map_err(|error| format!("agent deployment verifier is invalid: {error}"))?;
-    let signed_history = native
+    let receipt_keys = native
         .as_mut()
         .map(NativeReadRoute::signed_authority)
         .transpose()
-        .map_err(|error| format!("program history unavailable: {error:?}"))?
-        .flatten();
-    let admission_verifier = signed_history
-        .as_ref()
-        .map(|history| verifier.with_signed_history(history))
-        .transpose()
-        .map_err(|error| format!("program admission authority refused: {error:?}"))?;
-    let registry = load_registry(
-        Path::new(&config.deployment_journal),
-        admission_verifier.as_ref().unwrap_or(&verifier),
-    )?;
+        .map_err(|error| format!("program receipt keys unavailable: {error:?}"))?;
+    let registry = load_registry(Path::new(&config.deployment_journal), &verifier)?;
     Ok(ProgramAuthorityBoot {
         verifier,
         registry,
-        signed_history,
+        receipt_keys,
     })
 }
 
 /// Connects one authenticated protocol reader from the configured node and authority,
-/// bound to the protected verifier and refreshed with the signed authority history.
+/// bound to the protected deployment verifier.
 fn program_reader(
     config: &Config,
     verifier: ProtocolDeploymentVerifier,
     registry: Registry,
-    signed_history: Option<&layerx_proof::signed_authority::SignedAuthorityHistory>,
 ) -> Result<LayerxdProgramBalanceReader, String> {
-    let mut reader = LayerxdProgramBalanceReader::connect(
+    let reader = LayerxdProgramBalanceReader::connect(
         &config.node_endpoint,
         config.node_bearer.clone(),
         ProgramAuthority {
@@ -2014,11 +2081,6 @@ fn program_reader(
         registry,
     )
     .map_err(|error| format!("agent protocol reader configuration failed: {error:?}"))?;
-    if let Some(history) = signed_history {
-        reader
-            .refresh_authority(history)
-            .map_err(|error| format!("program authority refused: {error:?}"))?;
-    }
     Ok(reader)
 }
 
@@ -2026,61 +2088,34 @@ fn serve(config: Config) -> Result<(), String> {
     let mcp = mcp_enrolment()?
         .map(|enrolment| mcp_boot(&config, enrolment))
         .transpose()?;
-    let handover_sources = native_handover_sources()?;
-    if handover_sources.is_some() && mcp.is_none() {
-        return Err("native genesis trust requires the configured native read boundary".to_owned());
+    if native_handover_sources()?.is_some() {
+        return Err("native handover trust is retired; configure node receipt keys".to_owned());
     }
     let runtime_clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
         .map_err(|error| format!("runtime clock unavailable: {error}"))?;
 
     let mut native = mcp
         .as_ref()
-        .map(|boot| {
-            let limits = human_lni_limits(boot.enrolment.deadline)?;
-            let limits = Limits {
-                maximum_frame_bytes: limits
-                    .maximum_frame_bytes
-                    .max(layerx_client::evidence::MINIMUM_FINALITY_FRAME_BYTES),
-                ..limits
-            };
-            let client = connect_human_node(
-                PathBuf::from(required("LAYERX_AGENT_HUMAN_NODE_LNI")?),
-                limits,
-            )?;
-            let route = NativeReadRoute::new(
-                client,
-                boot.enrolment.did.clone(),
-                config.bearer.clone(),
-                runtime_clock.clone(),
+        .map(|_| {
+            let client = layerx_client::sequencer::SequencerEndpoint::new(
+                &config.node_endpoint,
+                &[&config.authority_ca_der],
             )
-            .map_err(|error| format!("native read route is invalid: {error:?}"))?;
-            match handover_sources.as_ref() {
-                Some((genesis, finality)) => route
-                    .with_protected_finality(finality)
-                    .and_then(|route| route.with_protected_genesis(genesis))
-                    .map_err(|error| format!("native genesis trust is invalid: {error:?}")),
-                None => Ok(route),
-            }
+            .map_err(|error| format!("native node endpoint is invalid: {error:?}"))?;
+            Ok::<_, String>(NativeReadRoute::new(client, config.expected_chain_id))
         })
         .transpose()?;
     let ProgramAuthorityBoot {
         verifier,
         registry,
-        signed_history,
+        receipt_keys,
     } = program_authority_boot(&config, &mut native)?;
-    let mut route = ProgramBalanceReadRoute::new(program_reader(
-        &config,
-        verifier.clone(),
-        registry.clone(),
-        signed_history.as_ref(),
-    )?);
-    let programs = ProgramOperations::new(program_reader(
-        &config,
-        verifier,
-        registry,
-        signed_history.as_ref(),
-    )?);
-    let export_trust = signed_history.map(export_trust_source).transpose()?;
+    let mut route =
+        ProgramBalanceReadRoute::new(program_reader(&config, verifier.clone(), registry.clone())?);
+    let programs = ProgramOperations::new(program_reader(&config, verifier, registry)?);
+    let export_trust = receipt_keys
+        .map(|keys| export_trust_source(keys, &config.authority_ca_der))
+        .transpose()?;
     let (human, owner, status) = start_shared_owner(
         mcp,
         Some(programs),

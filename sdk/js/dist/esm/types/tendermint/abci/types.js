@@ -1,9 +1,3 @@
-export var CheckTxType;
-(function (CheckTxType) {
-    CheckTxType[CheckTxType["NEW"] = 0] = "NEW";
-    CheckTxType[CheckTxType["RECHECK"] = 1] = "RECHECK";
-    CheckTxType[CheckTxType["UNRECOGNIZED"] = -1] = "UNRECOGNIZED";
-})(CheckTxType || (CheckTxType = {}));
 export var MisbehaviorType;
 (function (MisbehaviorType) {
     MisbehaviorType[MisbehaviorType["UNKNOWN"] = 0] = "UNKNOWN";

@@ -39,6 +39,10 @@ pub enum ConstructMethod {
         grant: [u8; 32],
         revocation_sequence: u64,
     },
+    PayBudgetDefund {
+        budget: [u8; 32],
+        amount: u128,
+    },
     BankSend {
         from: [u8; 20],
         to: [u8; 20],
@@ -339,6 +343,24 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
             _ => Err(DisclosureError::MalformedPayload),
         };
     }
+    if target(&call.to, [0x10, 0x1b]) {
+        return match selector {
+            value
+                if value == ledger_selector("budgetDefund(bytes32,uint128)")
+                    && args.len() == 64 =>
+            {
+                let amount = u128::from_be_bytes(uint(word(args, 1)?)?);
+                if amount == 0 {
+                    return Err(DisclosureError::MalformedPayload);
+                }
+                Ok(ConstructMethod::PayBudgetDefund {
+                    budget: word(args, 0)?,
+                    amount,
+                })
+            }
+            _ => Err(DisclosureError::MalformedPayload),
+        };
+    }
     if target(&call.to, [0x10, 0x01]) && selector == [0x5c, 0x05, 0x96, 0x1b] {
         return Ok(ConstructMethod::BankSend {
             from: uint(word(args, 0)?)?,
@@ -366,9 +388,15 @@ pub(super) fn fields(
         ConstructMethod::LedgerIssueGrant { .. } => 7,
         ConstructMethod::LedgerDraw { .. } => 6,
         ConstructMethod::LedgerRevokeGrant { .. } => 8,
+        ConstructMethod::PayBudgetDefund { .. } => 8,
+    };
+    let module = if matches!(&method, ConstructMethod::PayBudgetDefund { .. }) {
+        ModuleId::Budget
+    } else {
+        ModuleId::Asset
     };
     let mut fields = DisclosureFields {
-        activity_type: ActivityType::new(ModuleId::Asset, ordinal)
+        activity_type: ActivityType::new(module, ordinal)
             .map_err(|_| DisclosureError::MalformedPayload)?,
         actor: from.to_vec(),
         authority: from.to_vec(),
@@ -471,6 +499,10 @@ pub(super) fn fields(
                 grant,
                 revocation_sequence,
             });
+        }
+        ConstructMethod::PayBudgetDefund { budget, amount } => {
+            disclose_party(&mut fields.counterparties, CounterpartyRole::Payer, budget);
+            disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
         }
         ConstructMethod::BankSend { from, to, .. } => {
             // Bank denominations and uint256 amounts are exposed by construct_method;

@@ -17,6 +17,7 @@ func TestReadProgramRecordFields(t *testing.T) {
 	host := chain.host(t)
 	ctx := chain.context(1, 10000, 41)
 	actor := newTestActor(t, 61)
+	seedProgramsFeeRecord(t, chain, actor.id)
 	id := repeated(0xa1)
 	before := chain.dump()
 	_, err := host.ReadProgram(ctx, id)

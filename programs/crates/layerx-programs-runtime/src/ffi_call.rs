@@ -880,7 +880,7 @@ fn transfer_error_tag(error: TransferLawError) -> u8 {
         TransferLawError::AmountOverflow => 4,
         TransferLawError::InvariantViolation => 5,
         TransferLawError::CapabilityEscalation => 6,
-        TransferLawError::KernelRefused => 7,
+        TransferLawError::KernelRefused | TransferLawError::Kernel(_) => 7,
         TransferLawError::ReceiptInvalid => 8,
         TransferLawError::ReceiptMismatch => 9,
         TransferLawError::StaleStorage => 10,
@@ -1995,12 +1995,12 @@ impl KernelTransferPrimitive for CKernel {
                     .map_err(|_| TransferLawError::InvalidTransferSet)?,
             )
         })
-        .map_err(|_| TransferLawError::ReceiptMismatch)?;
+        .map_err(TransferLawError::Kernel)?;
         for (index, leg) in transfers.legs().iter().enumerate() {
             submit_kernel_transfer_leg(self.token, index, leg)?;
         }
         c_ok(unsafe { layerx_programs_call_transfer_apply(self.token) })
-            .map_err(|_| TransferLawError::ReceiptMismatch)?;
+            .map_err(TransferLawError::Kernel)?;
         if program_spend.is_some()
             && !crate::ffi_transfer::program_spend_consumed(program_spend_token)
         {
@@ -2488,11 +2488,9 @@ fn unavailable_occupancy_payers(
 }
 
 struct CallOccupancySettlement<'a> {
-    token: u64,
     batch: u64,
     authority: OccupancyAuthority,
     schedule: crate::FeeSchedule,
-    parameter_version: u32,
     initial_sizes: &'a BTreeMap<StorageNamespace, u64>,
     program_owners: &'a BTreeMap<ProgramId, PrincipalId>,
     storage: &'a Storage,
@@ -2557,13 +2555,11 @@ fn occupancy_responsibilities(
 
 fn settle_call_occupancy(
     request: CallOccupancySettlement<'_>,
-) -> Result<(OccupancyUsage, Vec<u8>), i32> {
+) -> Result<crate::OccupancySettlement, i32> {
     let CallOccupancySettlement {
-        token,
         batch,
         authority,
         schedule,
-        parameter_version,
         initial_sizes,
         program_owners,
         storage,
@@ -2620,9 +2616,7 @@ fn settle_call_occupancy(
     if committed != settlement {
         return Err(FATAL_INVARIANT);
     }
-    let evidence = settlement.canonical_evidence();
-    publish_occupancy(token, parameter_version, &settlement, ledger)?;
-    Ok((settlement.usage(), evidence))
+    Ok(settlement)
 }
 
 fn wrap_reserved_evidence(
@@ -2891,7 +2885,7 @@ pub extern "C" fn layerx_programs_call_begin(
                 .map_err(|_| NON_CANONICAL)?;
         let sandbox = unsafe { layerx_programs_call_sandbox_context(token) } == OK;
         if sandbox {
-            if unsafe {
+            let status = unsafe {
                 layerx_programs_call_sandbox_admit(
                     token,
                     batch_number,
@@ -2902,9 +2896,9 @@ pub extern "C" fn layerx_programs_call_begin(
                             .map_err(|_| LENGTH_LIMIT)?,
                     ),
                 )
-            } != OK
-            {
-                return Err(NON_CANONICAL);
+            };
+            if status != OK {
+                return Err(status);
             }
         } else if maximum_fee > signed_fee {
             return Err(NON_CANONICAL);
@@ -3234,15 +3228,22 @@ pub extern "C" fn layerx_programs_call_begin(
                         (occupancy_authority, occupancy_ledger.as_mut())
                     {
                         match settle_call_occupancy(CallOccupancySettlement {
-                            token: occupancy_token,
                             batch: batch_number,
                             authority,
                             schedule: fee_schedule,
-                            parameter_version,
                             initial_sizes: &initial_sizes,
                             program_owners: &program_owners,
                             storage: &final_storage,
                             ledger,
+                        })
+                        .and_then(|settlement| {
+                            publish_occupancy(
+                                occupancy_token,
+                                parameter_version,
+                                &settlement,
+                                ledger,
+                            )?;
+                            Ok((settlement.usage(), settlement.canonical_evidence()))
                         }) {
                             Ok(usage) => usage,
                             Err(status) => {
@@ -3652,15 +3653,17 @@ pub extern "C" fn layerx_programs_call_begin(
                     (occupancy_authority, occupancy_ledger.as_mut())
                 {
                     match settle_call_occupancy(CallOccupancySettlement {
-                        token: occupancy_token,
                         batch: batch_number,
                         authority,
                         schedule: fee_schedule,
-                        parameter_version,
                         initial_sizes: &initial_sizes,
                         program_owners: &program_owners,
                         storage: &final_storage,
                         ledger,
+                    })
+                    .and_then(|settlement| {
+                        publish_occupancy(occupancy_token, parameter_version, &settlement, ledger)?;
+                        Ok((settlement.usage(), settlement.canonical_evidence()))
                     }) {
                         Ok(usage) => usage,
                         Err(status) => {
@@ -4172,6 +4175,295 @@ mod arbiter_authority_cases {
             unauthorized[offset..offset + 8].copy_from_slice(&bound.to_be_bytes());
             assert_eq!(check(&unauthorized, DIGEST_WORDS, BATCH), -204);
         }
+    }
+}
+
+#[cfg(test)]
+mod occupancy_cases {
+    use super::*;
+    use layerx_program_sdk::arbiter::{
+        MarketBillingCommitment, MarketSandboxProfile, ProfileLimits,
+        MARKET_SANDBOX_BILLING_CAPACITY, MARKET_SANDBOX_PROFILE_CAPACITY,
+    };
+
+    struct MarketBillingOccupancy {
+        storage: Storage,
+        initial_sizes: BTreeMap<StorageNamespace, u64>,
+        owners: BTreeMap<ProgramId, PrincipalId>,
+        ledger: OccupancyLedger,
+        authority: OccupancyAuthority,
+        schedule: crate::FeeSchedule,
+    }
+
+    impl MarketBillingOccupancy {
+        fn new() -> Self {
+            let program = ProgramId::new([0x71; 32]).unwrap_or_else(|error| panic!("{error}"));
+            let provider = PrincipalId::new([2; 32]).unwrap_or_else(|error| panic!("{error}"));
+            let namespace = StorageNamespace::shared(program);
+            let profile = MarketSandboxProfile {
+                network_id: 7,
+                market_program: program.bytes(),
+                sandbox_program: [0x77; 32],
+                offer_id: [3; 32],
+                lease_id: [5; 32],
+                claim_id: [6; 32],
+                provider: provider.bytes(),
+                tenant: [4; 32],
+                code_hash: [7; 32],
+                input_digest: [8; 32],
+                attested_input_commitment: [9; 32],
+                namespace: {
+                    use sha2::Digest;
+                    let mut hash = sha2::Sha256::new();
+                    hash.update(b"LayerX/programs/sandbox/namespace/v1\0");
+                    hash.update([0x77; 32]);
+                    hash.update([5; 32]);
+                    hash.finalize().into()
+                },
+                baseline_state_root: [11; 32],
+                initial_execution_state_root: [12; 32],
+                entrypoint_bytes: {
+                    let mut bytes = [0; 64];
+                    bytes[..7].copy_from_slice(b"compute");
+                    bytes
+                },
+                entrypoint_length: 7,
+                runtime_version: 1,
+                abi_version: 2,
+                fee_schedule_version: 1,
+                metering_schedule_version: 1,
+                limits: ProfileLimits {
+                    cpu_fuel: 100_000,
+                    memory_bytes: 65_536,
+                    storage_read_bytes: 1024,
+                    storage_write_bytes: 1024,
+                    output_values: 1,
+                    output_bytes: 64,
+                    table_elements: 0,
+                    namespace_bytes: 1024,
+                },
+                fee_budget: 100,
+                interval_start: 10,
+                interval_end: 11,
+                response_deadline: 21,
+                maximum_boundaries: 128,
+                maximum_bytes: 1_048_576,
+            };
+            let mut profile_bytes = [0; MARKET_SANDBOX_PROFILE_CAPACITY];
+            let profile_length = profile
+                .encode(&mut profile_bytes)
+                .unwrap_or_else(|error| panic!("profile: {error:?}"));
+            let billing = MarketBillingCommitment {
+                profile_digest: {
+                    use sha2::Digest;
+                    sha2::Sha256::digest(&profile_bytes[..profile_length]).into()
+                },
+                provider_trace_root: [13; 32],
+                final_execution_state_root: [14; 32],
+                output_digest: [15; 32],
+                usage: [5, 1, 0, 0, 0, 0],
+                payable: 5,
+                challenger_stake: 1,
+                challenge_window_batches: 10,
+                boundary_count: 4,
+            };
+            let mut billing_bytes = [0; MARKET_SANDBOX_BILLING_CAPACITY];
+            let billing_length = billing
+                .encode(&mut billing_bytes)
+                .unwrap_or_else(|error| panic!("billing: {error:?}"));
+            assert_eq!(
+                MarketBillingCommitment::decode(&billing_bytes[..billing_length]),
+                Ok(billing)
+            );
+            let key = |prefix: &[u8], id: [u8; 32]| {
+                let mut bytes = prefix.to_vec();
+                bytes.extend_from_slice(&id);
+                bytes
+            };
+            let mut storage = Storage::new();
+            let mut transaction = storage.transaction(namespace);
+            transaction
+                .write(
+                    &key(b"lx.market.arbitration-profile/", profile.lease_id),
+                    &profile_bytes[..profile_length],
+                )
+                .unwrap_or_else(|error| panic!("profile write: {error}"));
+            transaction.commit();
+            let initial_sizes = storage
+                .namespace_sizes()
+                .unwrap_or_else(|error| panic!("initial sizes: {error}"))
+                .into_iter()
+                .collect();
+            let owners = BTreeMap::from([(program, provider)]);
+            let mut ledger = OccupancyLedger::activated_after(10);
+            ledger
+                .import_activation_positions(&storage, &owners)
+                .unwrap_or_else(|error| panic!("activation: {error}"));
+
+            let mut claim = vec![1, 1];
+            for value in [
+                profile.claim_id,
+                profile.lease_id,
+                profile.provider,
+                profile.attested_input_commitment,
+                billing.output_digest,
+                billing.final_execution_state_root,
+            ] {
+                claim.extend_from_slice(&value);
+            }
+            for value in billing.usage {
+                claim.extend_from_slice(&value.to_be_bytes());
+            }
+            claim.extend_from_slice(&billing.payable.to_be_bytes());
+            claim.extend_from_slice(&billing.challenger_stake.to_be_bytes());
+            claim.extend_from_slice(&11_u64.to_be_bytes());
+            claim.extend_from_slice(&profile.response_deadline.to_be_bytes());
+            assert_eq!(claim.len(), 290);
+            let mut transaction = storage.transaction(namespace);
+            for (key, value) in [
+                (key(b"lx.market.claim/", profile.lease_id), claim.as_slice()),
+                (
+                    key(b"lx.market.claim-id/", profile.claim_id),
+                    profile.lease_id.as_slice(),
+                ),
+                (
+                    key(b"lx.market.arbitration-billing/", profile.lease_id),
+                    &billing_bytes[..billing_length],
+                ),
+            ] {
+                transaction
+                    .write(&key, value)
+                    .unwrap_or_else(|error| panic!("billing write: {error}"));
+            }
+            transaction.commit();
+            let schedule = crate::FeeSchedule::new_complete(crate::FeeScheduleParameters {
+                version: 1,
+                fee_units_per_cpu_fuel: 1,
+                fee_units_per_memory_byte: 1,
+                fee_units_per_storage_read_byte: 2,
+                fee_units_per_storage_write_byte: 4,
+                fee_units_per_output_value: 1,
+                fee_units_per_output_byte: 1,
+                fee_units_per_occupancy_byte_batch: 1,
+            });
+            let executor = Executor::new_versioned(
+                crate::ResourceBudget::declared(),
+                schedule,
+                crate::RUNTIME_VERSION,
+                5,
+            );
+            let declared = DeclaredBudget::new(100_000, 65_536, 4096, 4096, 1, 1024, 0)
+                .unwrap_or_else(|error| panic!("declaration: {error}"));
+            let binding = ActivityBudgetBinding::new([16; 32])
+                .unwrap_or_else(|error| panic!("binding: {error}"));
+            let admitted = executor
+                .admit_activity_budget(
+                    declared,
+                    crate::budget::PayerCoverage::new(provider, binding, 10_000_000_000),
+                )
+                .unwrap_or_else(|error| panic!("admission: {error}"));
+            let authority =
+                OccupancyAuthority::from_admitted(&admitted, 10_000_000_000, schedule, program)
+                    .unwrap_or_else(|error| panic!("authority: {error}"));
+            Self {
+                storage,
+                initial_sizes,
+                owners,
+                ledger,
+                authority,
+                schedule,
+            }
+        }
+
+        fn settle(&mut self) -> Result<crate::OccupancySettlement, i32> {
+            settle_call_occupancy(CallOccupancySettlement {
+                batch: 11,
+                authority: self.authority,
+                schedule: self.schedule,
+                initial_sizes: &self.initial_sizes,
+                program_owners: &self.owners,
+                storage: &self.storage,
+                ledger: &mut self.ledger,
+            })
+        }
+    }
+
+    #[test]
+    fn settle_call_occupancy_accepts_the_market_billing_commit() {
+        let mut fixture = MarketBillingOccupancy::new();
+        let storage_before = fixture.storage.clone();
+        let settlement = fixture
+            .settle()
+            .unwrap_or_else(|status| panic!("market billing occupancy: {status}"));
+        assert_eq!(settlement.batch(), 11);
+        assert_eq!(settlement.charges().len(), 1);
+        let charge = settlement.charges()[0];
+        assert!(charge.paid());
+        assert_eq!(
+            charge.recorded_bytes(),
+            fixture.initial_sizes[&charge.namespace()]
+        );
+        assert_eq!(
+            charge.final_bytes(),
+            fixture
+                .storage
+                .namespace_persistent_bytes(charge.namespace())
+                .unwrap_or_else(|error| panic!("final bytes: {error}"))
+        );
+        assert!(charge.final_bytes() > charge.recorded_bytes());
+        assert_eq!(
+            settlement.usage().byte_batches,
+            u128::from(charge.recorded_bytes())
+        );
+        assert_eq!(
+            settlement.usage().fee_units,
+            settlement.usage().paid_fee_units
+        );
+        assert_eq!(settlement.usage().arrears_fee_units, 0);
+        assert_eq!(
+            crate::OccupancySettlement::canonical_decode(&settlement.canonical_evidence()),
+            Ok(settlement)
+        );
+        assert_eq!(
+            OccupancyLedger::canonical_decode(&fixture.ledger.canonical_state()),
+            Ok(fixture.ledger)
+        );
+        assert_eq!(fixture.storage, storage_before);
+    }
+
+    #[test]
+    fn settle_call_occupancy_refuses_a_non_canonical_record() {
+        let mut fixture = MarketBillingOccupancy::new();
+        let canonical = fixture.ledger.canonical_state();
+        let mut mutated = canonical.clone();
+        let finalized_batch_last_byte = b"LXP/storage-occupancy-ledger/v2\0".len() + 7;
+        assert_eq!(mutated[finalized_batch_last_byte], 10);
+        mutated[finalized_batch_last_byte] = 9;
+        assert_eq!(
+            canonical
+                .iter()
+                .zip(&mutated)
+                .filter(|(a, b)| a != b)
+                .count(),
+            1
+        );
+        fixture.ledger = OccupancyLedger::canonical_decode(&mutated)
+            .unwrap_or_else(|error| panic!("ledger record: {error}"));
+        assert_eq!(
+            fixture
+                .ledger
+                .prepare_batch(11, &fixture.storage, [], fixture.schedule)
+                .err(),
+            Some(crate::occupancy::OccupancyError::BatchRegression {
+                previous: 9,
+                attempted: 11
+            })
+        );
+        let ledger_before = fixture.ledger.clone();
+        let storage_before = fixture.storage.clone();
+        assert_eq!(fixture.settle(), Err(NON_CANONICAL));
+        assert_eq!(fixture.ledger, ledger_before);
+        assert_eq!(fixture.storage, storage_before);
     }
 }
 

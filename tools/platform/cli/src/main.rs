@@ -264,7 +264,7 @@ enum PaymentCommand {
 
 #[derive(Subcommand)]
 enum ReceiptCommand {
-    /// Fetch exact receipt material from the active endpoint.
+    /// Fetch a sequencer receipt by its 0x-prefixed transaction hash.
     Get { id: String },
     /// Verify a canonical receipt against independently supplied batch facts.
     Verify(VerifyReceiptArgs),
@@ -351,7 +351,7 @@ enum ProgramCommand {
     },
     #[command(subcommand)]
     WindDown(ProgramWindDownCommand),
-    /// Submit calldata to a deployed program and render the receipt-verified result.
+    /// Sign and submit an EIP-1559 call to a deployed program.
     Call(ProgramExecutionArgs),
     /// Execute a program call against current state without committing it.
     Simulate(ProgramExecutionArgs),
@@ -365,19 +365,9 @@ struct ProgramLifecycleArgs {
     #[arg(long)]
     program_id: String,
     #[arg(long)]
-    idempotency_key: String,
-    #[arg(long)]
-    key: Option<String>,
-    #[arg(long)]
-    account_sequence: u64,
-    #[arg(long)]
-    not_before_ms: u64,
-    #[arg(long)]
-    expires_at_ms: u64,
+    evm_key_file: PathBuf,
     #[arg(long, default_value = "0")]
     fee_limit: String,
-    #[arg(long)]
-    previous_state_root: String,
 }
 
 #[derive(Subcommand)]
@@ -577,11 +567,14 @@ fn validate_wallet_transport(
     if (rpc.is_some() || gateway.is_some())
         && !matches!(
             command,
-            Command::Wallet(_) | Command::Token(_) | Command::Program(_)
+            Command::Wallet(_)
+                | Command::Token(_)
+                | Command::Program(_)
+                | Command::Receipt(ReceiptCommand::Get { .. })
         )
     {
         return Err(
-            "--rpc and --gateway-credential apply to wallet, token and program commands".into(),
+            "--rpc and --gateway-credential apply to wallet, token, program and receipt get commands".into(),
         );
     }
     Ok(())
@@ -610,7 +603,7 @@ fn run(
         Command::Register(arguments) => register::run(&arguments).map(Some),
         Command::Faucet(arguments) => faucet::run(&arguments).map(Some),
         Command::Payment(command) => payment(command).map(Some),
-        Command::Receipt(command) => receipt(command).map(Some),
+        Command::Receipt(command) => receipt(command, rpc, gateway).map(Some),
         Command::Program(command) => program(command, rpc, gateway).map(Some),
         Command::Emulator(EmulatorCommand::Provision { force }) => Ok(Some(CommandOutput::new(
             "emulator.provisioned",
@@ -1042,16 +1035,20 @@ fn payment(command: PaymentCommand) -> Result<CommandOutput, String> {
     }
 }
 
-fn receipt(command: ReceiptCommand) -> Result<CommandOutput, String> {
+fn receipt(
+    command: ReceiptCommand,
+    rpc: Option<&str>,
+    gateway: Option<&str>,
+) -> Result<CommandOutput, String> {
     match command {
         ReceiptCommand::Get { id } => {
-            http::validate_resource_id(&id, "receipt id")?;
+            programs::transaction_hash(&id)?;
             let configuration = Configuration::load()?;
-            let (environment, client) = active_client(&configuration)?;
+            let (environment, client) = program_client(&configuration, rpc, gateway)?;
             Ok(CommandOutput::new(
                 "receipt.read",
                 format!("Read receipt {id} from {environment}"),
-                client.get(&format!("/v1/receipts/{id}"))?,
+                programs::sequencer_receipt(&client, &id)?,
             ))
         }
         ReceiptCommand::Verify(arguments) => Ok(CommandOutput::new(
@@ -1077,35 +1074,15 @@ fn execute_program_lifecycle(
     gateway: Option<&str>,
     operation: impl FnOnce(
         &http::Client,
-        &programs::CallRequest<'_>,
+        &programs::EvmLifecycleRequest<'_>,
     ) -> Result<serde_json::Value, String>,
 ) -> Result<CommandOutput, String> {
     let configuration = Configuration::load()?;
     let (environment, client) = program_client(&configuration, rpc, gateway)?;
-    let (_, active) = configuration.active_environment()?;
-    let key_name = serving_key(&configuration, signing.key.as_deref())?;
-    let actor_did = &configuration
-        .keys
-        .get(key_name)
-        .ok_or_else(|| format!("key {key_name} does not exist"))?
-        .did;
-    let request = programs::CallRequest {
+    let request = programs::EvmLifecycleRequest {
         program_id: &signing.program_id,
-        calldata: "",
-        fuel: 0,
-        native: programs::NativeCallOptions::default(),
         fee_limit: &signing.fee_limit,
-        capabilities: &[],
-        idempotency_key: &signing.idempotency_key,
-        network_id: active.network_id,
-        actor_did,
-        key_name,
-        account_sequence: signing.account_sequence,
-        not_before_ms: signing.not_before_ms,
-        expires_at_ms: signing.expires_at_ms,
-        sequencer_public_key: active.sequencer_trust_anchor.as_deref().ok_or_else(|| {
-            format!("environment {environment} has no configured sequencer trust anchor")
-        })?,
+        key_file: &signing.evm_key_file,
     };
     Ok(CommandOutput::new(
         "program.lifecycle",
@@ -1173,7 +1150,6 @@ fn program(
                     upgrade_authority: upgrade_authority.as_deref(),
                     interface: interface.as_deref(),
                 },
-                &signing.previous_state_root,
             )
         }),
         ProgramCommand::Upgrade {
@@ -1196,7 +1172,6 @@ fn program(
                     clear_interface,
                     allow_breaking_interface,
                 },
-                &signing.previous_state_root,
             )
         }),
         ProgramCommand::WindDown(command) => program_wind_down(command, rpc, gateway),
@@ -1209,6 +1184,12 @@ fn program(
 #[derive(Args)]
 struct ProgramExecutionArgs {
     program_id: String,
+    /// Owner-only JSON key file exported by wallet derive.
+    #[arg(long)]
+    evm_key_file: Option<PathBuf>,
+    /// EVM sender used by pending simulation.
+    #[arg(long)]
+    from: Option<String>,
     #[command(flatten)]
     native: programs::NativeCallOptions,
     #[arg(long)]
@@ -1219,16 +1200,6 @@ struct ProgramExecutionArgs {
     fee_limit: String,
     #[arg(long = "capability")]
     capabilities: Vec<String>,
-    #[arg(long)]
-    idempotency_key: String,
-    #[arg(long)]
-    key: Option<String>,
-    #[arg(long)]
-    account_sequence: u64,
-    #[arg(long)]
-    not_before_ms: u64,
-    #[arg(long)]
-    expires_at_ms: u64,
 }
 
 fn program_interface(
@@ -1282,7 +1253,7 @@ fn program_wind_down(
                 seed: &seed,
             };
             execute_program_lifecycle(&signing, rpc, gateway, |client, request| {
-                programs::wind_down(client, request, operation, &signing.previous_state_root)
+                programs::wind_down(client, request, operation)
             })
         }
         ProgramWindDownCommand::Deprecate {
@@ -1295,17 +1266,12 @@ fn program_wind_down(
                 deadline_batch,
             };
             execute_program_lifecycle(&signing, rpc, gateway, |client, request| {
-                programs::wind_down(client, request, operation, &signing.previous_state_root)
+                programs::wind_down(client, request, operation)
             })
         }
         ProgramWindDownCommand::Tombstone { signing } => {
             execute_program_lifecycle(&signing, rpc, gateway, |client, request| {
-                programs::wind_down(
-                    client,
-                    request,
-                    ProgramWindDownOperation::Tombstone,
-                    &signing.previous_state_root,
-                )
+                programs::wind_down(client, request, ProgramWindDownOperation::Tombstone)
             })
         }
         ProgramWindDownCommand::Exit { account, signing } => {
@@ -1313,7 +1279,7 @@ fn program_wind_down(
                 account: encoding::fixed_hex("account", &account)?,
             };
             execute_program_lifecycle(&signing, rpc, gateway, |client, request| {
-                programs::wind_down(client, request, operation, &signing.previous_state_root)
+                programs::wind_down(client, request, operation)
             })
         }
     }
@@ -1377,59 +1343,28 @@ fn program_call(
     rpc: Option<&str>,
     gateway: Option<&str>,
 ) -> Result<CommandOutput, String> {
-    let ProgramExecutionArgs {
-        program_id,
-        native,
-        calldata,
-        fuel,
-        fee_limit,
-        capabilities,
-        idempotency_key,
-        key,
-        account_sequence,
-        not_before_ms,
-        expires_at_ms,
-    } = arguments;
-
+    let key_file = arguments
+        .evm_key_file
+        .as_deref()
+        .ok_or("program call requires --evm-key-file from wallet derive --export-private-keys")?;
     let configuration = Configuration::load()?;
     let (environment, client) = program_client(&configuration, rpc, gateway)?;
-    let (_, active) = configuration.active_environment()?;
-    let key_name = serving_key(&configuration, key.as_deref())?;
-    let actor_did = configuration
-        .keys
-        .get(key_name)
-        .ok_or_else(|| format!("key {key_name} does not exist"))?
-        .did
-        .clone();
     Ok(CommandOutput::new(
         "program.call_started",
         format!("Submitted program call to {environment}"),
-        programs::call(
-            &client,
-            &programs::CallRequest {
-                program_id: &program_id,
-                native,
-                calldata: calldata.as_deref().unwrap_or(""),
-                fuel,
-                fee_limit: &fee_limit,
-                capabilities: &capabilities,
-                idempotency_key: &idempotency_key,
-                network_id: active.network_id,
-                actor_did: &actor_did,
-                key_name,
-                account_sequence,
-                not_before_ms,
-                expires_at_ms,
-                sequencer_public_key: active.sequencer_trust_anchor.as_deref().ok_or_else(
-                    || {
-                        format!(
-                            "environment {environment} has no configured sequencer trust anchor"
-                        )
-                    },
-                )?,
-            },
-        )?,
+        programs::call(&client, &execution_request(&arguments), key_file)?,
     ))
+}
+
+fn execution_request(arguments: &ProgramExecutionArgs) -> programs::EvmCallRequest<'_> {
+    programs::EvmCallRequest {
+        program_id: &arguments.program_id,
+        calldata: arguments.calldata.as_deref().unwrap_or(""),
+        fuel: arguments.fuel,
+        native: &arguments.native,
+        fee_limit: &arguments.fee_limit,
+        capabilities: &arguments.capabilities,
+    }
 }
 
 fn program_simulate(
@@ -1437,57 +1372,15 @@ fn program_simulate(
     rpc: Option<&str>,
     gateway: Option<&str>,
 ) -> Result<CommandOutput, String> {
-    let ProgramExecutionArgs {
-        program_id,
-        native,
-        calldata,
-        fuel,
-        fee_limit,
-        capabilities,
-        idempotency_key,
-        key,
-        account_sequence,
-        not_before_ms,
-        expires_at_ms,
-    } = arguments;
-
     let configuration = Configuration::load()?;
     let (environment, client) = program_client(&configuration, rpc, gateway)?;
-    let (_, active) = configuration.active_environment()?;
-    let key_name = serving_key(&configuration, key.as_deref())?;
-    let actor_did = configuration
-        .keys
-        .get(key_name)
-        .ok_or_else(|| format!("key {key_name} does not exist"))?
-        .did
-        .clone();
     Ok(CommandOutput::new(
         "program.call_simulated",
         format!("Simulated program call on {environment}"),
         programs::simulate(
             &client,
-            &programs::CallRequest {
-                program_id: &program_id,
-                native,
-                calldata: calldata.as_deref().unwrap_or(""),
-                fuel,
-                fee_limit: &fee_limit,
-                capabilities: &capabilities,
-                idempotency_key: &idempotency_key,
-                network_id: active.network_id,
-                actor_did: &actor_did,
-                key_name,
-                account_sequence,
-                not_before_ms,
-                expires_at_ms,
-                sequencer_public_key: active.sequencer_trust_anchor.as_deref().ok_or_else(
-                    || {
-                        format!(
-                            "environment {environment} has no configured sequencer trust anchor"
-                        )
-                    },
-                )?,
-            },
+            &execution_request(&arguments),
+            arguments.from.as_deref(),
         )?,
     ))
 }
@@ -1591,16 +1484,8 @@ mod program_arguments_tests {
         vec![
             "--program-id",
             "1111111111111111111111111111111111111111111111111111111111111111",
-            "--idempotency-key",
-            "4444444444444444444444444444444444444444444444444444444444444444",
-            "--account-sequence",
-            "0",
-            "--not-before-ms",
-            "1",
-            "--expires-at-ms",
-            "100",
-            "--previous-state-root",
-            "2222222222222222222222222222222222222222222222222222222222222222",
+            "--evm-key-file",
+            "keys.json",
         ]
     }
 
@@ -1658,16 +1543,28 @@ mod program_arguments_tests {
 
     #[test]
     fn breaking_interface_upgrade_requires_explicit_interface_and_signing() {
-        let mut arguments = vec!["layerx", "program", "upgrade", "program.wasm",
-            "--old-hash", "33", "--allow-breaking-interface"];
+        let mut arguments = vec![
+            "layerx",
+            "program",
+            "upgrade",
+            "program.wasm",
+            "--old-hash",
+            "33",
+            "--allow-breaking-interface",
+        ];
         arguments.extend(signing());
         assert!(Cli::try_parse_from(&arguments).is_err());
         arguments.extend(["--interface", "interface.bin"]);
         let parsed = Cli::try_parse_from(&arguments)
             .unwrap_or_else(|error| panic!("explicit breaking upgrade: {error}"));
-        assert!(matches!(parsed.command, Command::Program(ProgramCommand::Upgrade {
-            allow_breaking_interface: true, clear_interface: false, ..
-        })));
+        assert!(matches!(
+            parsed.command,
+            Command::Program(ProgramCommand::Upgrade {
+                allow_breaking_interface: true,
+                clear_interface: false,
+                ..
+            })
+        ));
         arguments.push("--clear-interface");
         assert!(Cli::try_parse_from(arguments).is_err());
     }
@@ -1699,14 +1596,8 @@ mod program_arguments_tests {
                 "11",
                 "--fuel",
                 "1000",
-                "--idempotency-key",
-                "44",
-                "--account-sequence",
-                "0",
-                "--not-before-ms",
-                "1",
-                "--expires-at-ms",
-                "100",
+                "--evm-key-file",
+                "keys.json",
             ])
             .map_err(|error| error.to_string())?;
             let Command::Program(

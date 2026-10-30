@@ -4,7 +4,7 @@ import { readRuntimeState, RuntimeState, expectSameError, claimPool } from '../u
 import { EvmAccount } from '../utils/evmUtils';
 import { burnGasBurst } from '../utils/txUtils';
 import { HEX_QUANTITY } from '../utils/format';
-import { gasPrice, gasPriceAtStableBlock, assertPaxGasPriceTracks } from '../utils/gasPriceUtils';
+import { gasPrice, gasPriceAtStableBlock, assertPaxGasPriceTracks, DEFAULT_PRIORITY_FEE_WEI } from '../utils/gasPriceUtils';
 
 describe('eth_gasPrice', function () {
     this.timeout(240 * 1000);
@@ -22,7 +22,7 @@ describe('eth_gasPrice', function () {
         spammers = claimPool(runtime, pax, 5, 'eth_gasPrice');
         paxParams = await queryEip1559Params();
         floorBase = paxParams ? BigInt(paxParams.minFeePerGas) : 1_000_000_000n;
-        floorGasPrice = (floorBase * 110n) / 100n;
+        floorGasPrice = (floorBase * 110n) / 100n + DEFAULT_PRIORITY_FEE_WEI;
     });
 
     describe('happy path / schema', () => {
@@ -53,7 +53,7 @@ describe('eth_gasPrice', function () {
     });
 
     describe('relationship to base fee and priority fee', () => {
-        it('[Pax] an uncongested gas price is exactly the base fee plus the 10% buffer', async () => {
+        it('[Pax] an uncongested gas price is exactly the base fee plus the 10% buffer plus the default priority fee', async () => {
             const { gasPrice: price, block } = await gasPriceAtStableBlock(pax);
             await assertPaxGasPriceTracks(pax, price, block);
         });
@@ -75,7 +75,7 @@ describe('eth_gasPrice', function () {
     });
 
     describe('reflects base fee increases (Pax)', () => {
-        it('gas price rises with the base fee and keeps tracking nextBaseFee * 1.1', async function () {
+        it('gas price rises with the base fee and keeps tracking nextBaseFee * 1.1 plus the default priority fee', async function () {
             const samples: { gasPrice: bigint; block: number }[] = [];
             const { maxBlock } = await burnGasBurst(pax, runtime, spammers, {
                 rounds: 10,
@@ -107,7 +107,7 @@ describe('eth_gasPrice', function () {
                 },
                 { timeoutMs: 60_000, intervalMs: 500, label: 'gas price decays' },
             );
-            
+
             expect(lower! < start, `gas price ${lower} should drop below post-burst ${start}`).to.equal(true);
             expect(lower! >= floorGasPrice, `gas price ${lower} never falls below the floor`).to.equal(true);
         });

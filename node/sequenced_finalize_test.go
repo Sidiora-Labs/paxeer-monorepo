@@ -16,10 +16,12 @@ import (
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
+	protoio "github.com/gogo/protobuf/io"
 	"github.com/stretchr/testify/require"
 )
 
@@ -213,4 +215,69 @@ func TestFinalizeAdoptedBlockStoresVotes(t *testing.T) {
 			require.Equal(t, h.votes, previous)
 		})
 	}
+}
+
+func TestFinalizeAdoptedSealedBlockMatchesReexecution(t *testing.T) {
+	h := newFinalizeSealedHarness(t, true)
+	require.Len(t, h.sealed.Txs, 2)
+	batch, err := app.DecodeSequenceBatch(h.sealed.Txs[0])
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), batch.ToSeq)
+
+	var snapshot bytes.Buffer
+	require.NoError(t, h.w.App.CommitMultiStore().Snapshot(1, protoio.NewDelimitedWriter(&snapshot)))
+	follower := app.Setup(t, true, false, false, func(ba *baseapp.BaseApp) {
+		ba.SetOccEnabled(false)
+		ba.SetStoreLoader(func(ms sdk.CommitMultiStore) error {
+			if err := ms.LoadLatestVersion(); err != nil {
+				return err
+			}
+			_, err := ms.Restore(1, 0, protoio.NewDelimitedReader(bytes.NewReader(snapshot.Bytes()), 64<<20))
+			return err
+		})
+	})
+	t.Cleanup(func() { require.NoError(t, follower.Close()) })
+	require.Equal(t, h.w.App.LastCommitID(), follower.LastCommitID())
+	require.Equal(t, int64(1), follower.LastBlockHeight())
+
+	h.req.Header.AppHash = bytes.Clone(h.w.App.LastCommitID().Hash)
+	h.req.Header.DataHash = bytes.Repeat([]byte{0x12}, 32)
+	h.req.Header.ValidatorsHash = bytes.Repeat([]byte{0x23}, 32)
+	h.req.Header.NextValidatorsHash = bytes.Repeat([]byte{0x34}, 32)
+	h.req.Header.ConsensusHash = bytes.Repeat([]byte{0x45}, 32)
+	h.req.Header.LastResultsHash = bytes.Repeat([]byte{0x56}, 32)
+	provisional, found := h.w.App.StakingKeeper.GetHistoricalInfo(h.sealed.Context(), 2)
+	require.True(t, found)
+	require.NotEqual(t, *h.req.Header, provisional.Header)
+
+	adopted, err := h.w.App.FinalizeBlock(context.Background(), h.req)
+	require.NoError(t, err)
+	require.Same(t, h.sealed.Results[1], adopted.TxResults[1])
+	reexecuted, err := follower.FinalizeBlock(context.Background(), h.req)
+	require.NoError(t, err)
+	require.NotSame(t, h.sealed.Results[1], reexecuted.TxResults[1])
+	for _, response := range []*abci.ResponseFinalizeBlock{adopted, reexecuted} {
+		require.Len(t, response.TxResults, 2)
+		for _, result := range response.TxResults {
+			require.Zero(t, result.Code, result.Log)
+		}
+	}
+	require.Equal(t, reexecuted.AppHash, adopted.AppHash)
+	primaryCtx := commitFinalizedSealed(t, h)
+	_, err = follower.Commit(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), follower.LastBlockHeight())
+	require.Equal(t, adopted.AppHash, h.w.App.LastCommitID().Hash)
+	require.Equal(t, reexecuted.AppHash, follower.LastCommitID().Hash)
+	require.Equal(t, follower.LastCommitID(), h.w.App.LastCommitID())
+	for _, a := range []*app.App{h.w.App, follower} {
+		ctx := a.GetCheckCtx()
+		require.Equal(t, uint64(1), a.EvmKeeper.GetNonce(ctx, h.sender.EvmAddress))
+		requireSeqCtxWei(t, big.NewInt(1), seqCtxWei(a, ctx, h.recipient))
+		historical, found := a.StakingKeeper.GetHistoricalInfo(ctx, 2)
+		require.True(t, found)
+		require.Equal(t, *h.req.Header, historical.Header)
+		require.Equal(t, provisional.Valset, historical.Valset)
+	}
+	require.Equal(t, primaryCtx.BlockHeight(), follower.GetCheckCtx().BlockHeight())
 }

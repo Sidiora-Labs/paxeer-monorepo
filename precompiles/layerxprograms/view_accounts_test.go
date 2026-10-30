@@ -13,6 +13,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -128,6 +130,47 @@ func (f *accountViewFixture) view(t *testing.T, name string, handler func(sdk.Co
 		return nil, err
 	}
 	return method.Outputs.Unpack(output)
+}
+
+func TestProgramsViewAccountMethodsRegistered(t *testing.T) {
+	f := newAccountViewFixture(t)
+	seed := []byte("vault\x00reserve")
+	sequence := uint64(1<<63) + 42
+	id := f.register(t, "09eb48e764b8ae13a39eea521e522a2ea6b2d11d56f4aefcd20749c7827ba9cc", seed, sequence)
+	balance := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
+	f.setBalance(id, balance, true)
+	before := f.snapshot()
+	for _, tc := range []struct {
+		name string
+		args []interface{}
+		want []interface{}
+	}{
+		{"getProgramAccount", []interface{}{f.program, f.asset, seed}, []interface{}{id, f.asset, sequence}},
+		{"getProgramAccountById", []interface{}{id}, []interface{}{f.program, f.asset, seed}},
+		{"getAccountProfile", []interface{}{f.program}, []interface{}{uint8(2), f.principal}},
+		{"getValueAccount", []interface{}{f.program, id}, []interface{}{balance, true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, ok := f.executor.table()[tc.name]
+			require.True(t, ok, "%s must be registered", tc.name)
+			require.NotNil(t, h)
+			actual, err := f.view(t, tc.name, h, tc.args...)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, actual)
+			require.Equal(t, before, f.snapshot())
+		})
+	}
+	t.Run("unregistered method", func(t *testing.T) {
+		method := abi.Method{Name: "unregisteredAccountView"}
+		h, ok := f.executor.table()[method.Name]
+		require.False(t, ok)
+		require.Nil(t, h)
+		require.ErrorIs(t, checkCall(&method, new(big.Int), true), errGateUnknownMethod)
+		output, err := f.executor.Execute(f.ctx, &method, common.Address{}, common.Address{}, nil, new(big.Int), true, nil, nil)
+		require.Nil(t, output)
+		require.EqualError(t, err, "LXP_PRECOMPILE_UNKNOWN_METHOD: "+method.Name)
+		require.Equal(t, before, f.snapshot())
+	})
 }
 
 func TestProgramsViewProgramAccountLookups(t *testing.T) {

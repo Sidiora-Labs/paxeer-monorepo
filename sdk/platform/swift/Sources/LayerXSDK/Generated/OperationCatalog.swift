@@ -1,4 +1,12 @@
-// Generated from agent-api and human-api. Do not hand-edit.
+// Generated from sdk/platform/conformance/operations.json. Do not hand-edit.
+
+public struct OperationTransport: Sendable, Equatable {
+    public let kind: String
+    public let method: String
+    public let to: String?
+    public let selector: String?
+    public let perLeg: Bool
+}
 
 public enum PlatformOperation: String, CaseIterable, Sendable {
     case agentAgentRegister = "agent:agent.register"
@@ -89,16 +97,7 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
     case humanAuthenticatorSetupBegin = "human:authenticator.setup.begin"
     case humanAuthenticatorSetupFinish = "human:authenticator.setup.finish"
     case humanAuthenticatorStatus = "human:authenticator.status"
-    case humanBindingRebind = "human:binding.rebind"
-    case humanBindingRebindAction = "human:binding.rebind.action"
-    case humanBindingStatement = "human:binding.statement"
-    case humanBindingStatus = "human:binding.status"
-    case humanBindingSubmit = "human:binding.submit"
-    case humanDepositConfirm = "human:deposit.confirm"
-    case humanDepositStart = "human:deposit.start"
     case humanEvidenceGet = "human:evidence.get"
-    case humanExitEligibility = "human:exit.eligibility"
-    case humanExitStart = "human:exit.start"
     case humanHomeSummary = "human:home.summary"
     case humanIntentPlan = "human:intent.plan"
     case humanIntentSubmit = "human:intent.submit"
@@ -148,8 +147,149 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
     case humanSupportReply = "human:support.reply"
     case humanSupportStatus = "human:support.status"
     case humanVersion = "human:version"
-    case humanWithdrawClaim = "human:withdraw.claim"
-    case humanWithdrawStart = "human:withdraw.start"
+
+    public var transport: OperationTransport {
+        switch self {
+        case .agentAgentRegister: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentApprovalApprove: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentApprovalGet: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentApprovalList: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentApprovalReject: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentAvailabilityFetch: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentBudgetCreate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentBudgetFund: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentBudgetList: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentBudgetReconciliation: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentBudgetRevoke: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentBudgetState: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentCapabilityAttenuate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentCapabilityCreate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentCapabilityList: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentCapabilityRevoke: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentExportOffline: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentFaucetClaim: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentMcpInvoke: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentPolicyDryRun: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentPrepare: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentProgramActivity: return OperationTransport(kind: "evm", method: "eth_getTransactionByHash", to: nil, selector: nil, perLeg: false)
+        case .agentProgramCall: return OperationTransport(kind: "evm", method: "eth_sendRawTransaction", to: "0x000000000000000000000000000000000000101d", selector: "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)", perLeg: false)
+        case .agentProgramDeploy: return OperationTransport(kind: "evm", method: "eth_sendRawTransaction", to: "0x000000000000000000000000000000000000101d", selector: "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)", perLeg: false)
+        case .agentProgramDiscover: return OperationTransport(kind: "evm", method: "eth_call", to: "0x000000000000000000000000000000000000101d", selector: "getProgram(bytes32)", perLeg: false)
+        case .agentProgramInterface: return OperationTransport(kind: "evm", method: "eth_call", to: "0x000000000000000000000000000000000000101d", selector: "getInterface(bytes32)", perLeg: false)
+        case .agentProgramReceipt: return OperationTransport(kind: "evm", method: "eth_call", to: "0x000000000000000000000000000000000000101c", selector: "resultByIdempotency(bytes32,bytes32)", perLeg: false)
+        case .agentProgramSimulate: return OperationTransport(kind: "evm", method: "eth_call", to: "0x000000000000000000000000000000000000101d", selector: "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)", perLeg: false)
+        case .agentProgramUpgrade: return OperationTransport(kind: "evm", method: "eth_sendRawTransaction", to: "0x000000000000000000000000000000000000101d", selector: "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)", perLeg: false)
+        case .agentProgramWindDown: return OperationTransport(kind: "evm", method: "eth_sendRawTransaction", to: "0x000000000000000000000000000000000000101d", selector: "deprecate(bytes32,bytes32,uint64)", perLeg: false)
+        case .agentProject: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentReadAccount: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentReadBalance: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentReadBatch: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentReadCheckpoint: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentReadHistory: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentReadModuleState: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentReadProofBundle: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSessionClose: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSessionList: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSessionOpen: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSessionRefresh: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSign: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSubmit: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSubscriptionAcknowledge: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSubscriptionCreate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSubscriptionDelete: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSubscriptionHealth: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSubscriptionList: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSubscriptionPause: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentSubscriptionResume: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentTenantReadiness: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentTrack: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .agentWait: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAccountBalance: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanAccountCreate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanActivityEntry: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanActivityExportEvidence: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanActivityExportStatement: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanActivityQuery: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentArchive: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentCreate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanAgentLimit: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanAgentPause: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentReclaim: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentRecover: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentResume: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentRotate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentRotationDisclosure: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAgentRotationStart: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalApprove: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalProgramApprove: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalProgramBudget: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalProgramDisclosure: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalProgramGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalProgramList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalProgramMaterial: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalProgramReject: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanApprovalReject: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAuthenticatorBackupRotate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAuthenticatorDisable: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAuthenticatorSetupBegin: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAuthenticatorSetupFinish: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanAuthenticatorStatus: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanEvidenceGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanHomeSummary: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanIntentPlan: return OperationTransport(kind: "evm", method: "eth_call", to: nil, selector: nil, perLeg: true)
+        case .humanIntentSubmit: return OperationTransport(kind: "evm", method: "eth_sendRawTransaction", to: nil, selector: nil, perLeg: true)
+        case .humanJourneyGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanJourneyList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanJourneyPage: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanMoveCommit: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanMoveQuote: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanNativeSendAccessBegin: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanNativeSendAccessConfirm: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanNotificationList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanNotificationPreferencesGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanNotificationPreferencesSet: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanNotificationRead: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanOnboardingResume: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanOnboardingStatus: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanPasskeyAssertBegin: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanPasskeyAssertFinish: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanPasskeyRegisterBegin: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanPasskeyRegisterFinish: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanProfileGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanProfileUpdate: return OperationTransport(kind: "http", method: "PATCH", to: nil, selector: nil, perLeg: false)
+        case .humanSecurityAction: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSecurityKeyExportBegin: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSecurityKeyExportFinish: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSecurityPasskeyList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanSecurityPasskeyRegisterBegin: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSecurityPasskeyRegisterFinish: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSecurityPasskeyRevoke: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSecurityRecoveryReveal: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSecuritySessionRevoke: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSecuritySessionRevokeAll: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSessionFeePolicy: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanSessionList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanSessionOpen: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSessionRefresh: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSessionRevoke: return OperationTransport(kind: "http", method: "DELETE", to: nil, selector: nil, perLeg: false)
+        case .humanSessionRevokeAll: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanStepupBegin: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanStepupFinish: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanStreamNext: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanStreamOpen: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSupportCreate: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSupportFeedback: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSupportList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanSupportRead: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSupportReply: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanSupportStatus: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        case .humanVersion: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
+        }
+    }
 
     public var descriptor: OperationDescriptor {
         switch self {
@@ -174,15 +314,15 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .agentMcpInvoke: return OperationDescriptor(plane: .agent, name: "mcp.invoke", method: .post, path: "", requestType: "McpInvokeRequest", responseType: "object", requiresIdempotency: true, bodyless: false)
         case .agentPolicyDryRun: return OperationDescriptor(plane: .agent, name: "policy.dry_run", method: .post, path: "", requestType: "object", responseType: "PolicyDryRunResult", requiresIdempotency: false, bodyless: false)
         case .agentPrepare: return OperationDescriptor(plane: .agent, name: "prepare", method: .post, path: "", requestType: "PrepareRequest", responseType: "Prepared", requiresIdempotency: true, bodyless: false)
-        case .agentProgramActivity: return OperationDescriptor(plane: .agent, name: "program.activity", method: .get, path: "/v1/programs/activities/{activity_id}", requestType: "ProgramActivitySelector", responseType: "ProgramSubmission", requiresIdempotency: false, bodyless: false)
-        case .agentProgramCall: return OperationDescriptor(plane: .agent, name: "program.call", method: .post, path: "/v1/programs/call", requestType: "ProgramCallRequest", responseType: "ProgramSubmission", requiresIdempotency: true, bodyless: false)
-        case .agentProgramDeploy: return OperationDescriptor(plane: .agent, name: "program.deploy", method: .post, path: "/v1/programs/deploy", requestType: "NativeProgramDeployRequest", responseType: "ProgramLifecycleResponse", requiresIdempotency: true, bodyless: false)
-        case .agentProgramDiscover: return OperationDescriptor(plane: .agent, name: "program.discover", method: .get, path: "/v1/programs/registry/{program_id}", requestType: "ProgramSelector", responseType: "VerifiedProgramDiscovery", requiresIdempotency: false, bodyless: false)
-        case .agentProgramInterface: return OperationDescriptor(plane: .agent, name: "program.interface", method: .get, path: "/v1/programs/registry/{program_id}/interface", requestType: "ProgramSelector", responseType: "VerifiedProgramInterface", requiresIdempotency: false, bodyless: false)
-        case .agentProgramReceipt: return OperationDescriptor(plane: .agent, name: "program.receipt", method: .get, path: "/v1/programs/receipts/by-idempotency/{idempotency_key}", requestType: "ProgramReceiptSelector", responseType: "ProgramReceiptResponse", requiresIdempotency: false, bodyless: false)
-        case .agentProgramSimulate: return OperationDescriptor(plane: .agent, name: "program.simulate", method: .post, path: "/v1/programs/simulate", requestType: "ProgramCallRequest", responseType: "ProgramSimulation", requiresIdempotency: false, bodyless: false)
-        case .agentProgramUpgrade: return OperationDescriptor(plane: .agent, name: "program.upgrade", method: .post, path: "/v1/programs/upgrade", requestType: "NativeProgramUpgradeRequest", responseType: "ProgramLifecycleResponse", requiresIdempotency: true, bodyless: false)
-        case .agentProgramWindDown: return OperationDescriptor(plane: .agent, name: "program.wind-down", method: .post, path: "/v1/programs/wind-down", requestType: "NativeProgramWindDownRequest", responseType: "ProgramLifecycleResponse", requiresIdempotency: true, bodyless: false)
+        case .agentProgramActivity: return OperationDescriptor(plane: .agent, name: "program.activity", method: .post, path: "", requestType: "ProgramActivitySelector", responseType: "ProgramSubmission", requiresIdempotency: false, bodyless: false)
+        case .agentProgramCall: return OperationDescriptor(plane: .agent, name: "program.call", method: .post, path: "", requestType: "ProgramCallRequest", responseType: "ProgramSubmission", requiresIdempotency: true, bodyless: false)
+        case .agentProgramDeploy: return OperationDescriptor(plane: .agent, name: "program.deploy", method: .post, path: "", requestType: "NativeProgramDeployRequest", responseType: "ProgramLifecycleResponse", requiresIdempotency: true, bodyless: false)
+        case .agentProgramDiscover: return OperationDescriptor(plane: .agent, name: "program.discover", method: .post, path: "", requestType: "ProgramSelector", responseType: "VerifiedProgramDiscovery", requiresIdempotency: false, bodyless: false)
+        case .agentProgramInterface: return OperationDescriptor(plane: .agent, name: "program.interface", method: .post, path: "", requestType: "ProgramSelector", responseType: "VerifiedProgramInterface", requiresIdempotency: false, bodyless: false)
+        case .agentProgramReceipt: return OperationDescriptor(plane: .agent, name: "program.receipt", method: .post, path: "", requestType: "ProgramReceiptSelector", responseType: "ProgramReceiptResponse", requiresIdempotency: false, bodyless: false)
+        case .agentProgramSimulate: return OperationDescriptor(plane: .agent, name: "program.simulate", method: .post, path: "", requestType: "ProgramCallRequest", responseType: "ProgramSimulation", requiresIdempotency: false, bodyless: false)
+        case .agentProgramUpgrade: return OperationDescriptor(plane: .agent, name: "program.upgrade", method: .post, path: "", requestType: "NativeProgramUpgradeRequest", responseType: "ProgramLifecycleResponse", requiresIdempotency: true, bodyless: false)
+        case .agentProgramWindDown: return OperationDescriptor(plane: .agent, name: "program.wind-down", method: .post, path: "", requestType: "NativeProgramWindDownRequest", responseType: "ProgramLifecycleResponse", requiresIdempotency: true, bodyless: false)
         case .agentProject: return OperationDescriptor(plane: .agent, name: "project", method: .post, path: "", requestType: "FeeProjectionRequest", responseType: "ProjectionResult", requiresIdempotency: false, bodyless: false)
         case .agentReadAccount: return OperationDescriptor(plane: .agent, name: "read.account", method: .post, path: "", requestType: "object", responseType: "VerifiedRead<AccountValue>", requiresIdempotency: false, bodyless: false)
         case .agentReadBalance: return OperationDescriptor(plane: .agent, name: "read.balance", method: .post, path: "", requestType: "object", responseType: "VerifiedRead<BalanceValue>", requiresIdempotency: false, bodyless: false)
@@ -241,19 +381,10 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .humanAuthenticatorSetupBegin: return OperationDescriptor(plane: .human, name: "authenticator.setup.begin", method: .post, path: "/v1/security/authenticators/setups", requestType: "AuthenticatorSetupBegin", responseType: "AuthenticatorSetupChallenge", requiresIdempotency: false, bodyless: false)
         case .humanAuthenticatorSetupFinish: return OperationDescriptor(plane: .human, name: "authenticator.setup.finish", method: .post, path: "/v1/security/authenticators/setups/{setup_id}", requestType: "AuthenticatorSetupFinish", responseType: "AuthenticatorSetupResult", requiresIdempotency: false, bodyless: false)
         case .humanAuthenticatorStatus: return OperationDescriptor(plane: .human, name: "authenticator.status", method: .get, path: "/v1/security/authenticators", requestType: "Empty", responseType: "AuthenticatorStatus", requiresIdempotency: false, bodyless: true)
-        case .humanBindingRebind: return OperationDescriptor(plane: .human, name: "binding.rebind", method: .post, path: "/v1/wallet-binding/rebind", requestType: "RebindingSubmission", responseType: "Journey", requiresIdempotency: true, bodyless: false)
-        case .humanBindingRebindAction: return OperationDescriptor(plane: .human, name: "binding.rebind.action", method: .post, path: "/v1/wallet-binding/rebind/action", requestType: "BindingStatementRequest", responseType: "BindingRebindAction", requiresIdempotency: false, bodyless: false)
-        case .humanBindingStatement: return OperationDescriptor(plane: .human, name: "binding.statement", method: .post, path: "/v1/wallet-binding/statement", requestType: "BindingStatementRequest", responseType: "BindingStatement", requiresIdempotency: false, bodyless: false)
-        case .humanBindingStatus: return OperationDescriptor(plane: .human, name: "binding.status", method: .get, path: "/v1/wallet-binding", requestType: "Empty", responseType: "WalletBinding", requiresIdempotency: false, bodyless: true)
-        case .humanBindingSubmit: return OperationDescriptor(plane: .human, name: "binding.submit", method: .post, path: "/v1/wallet-binding", requestType: "BindingSubmission", responseType: "Journey", requiresIdempotency: true, bodyless: false)
-        case .humanDepositConfirm: return OperationDescriptor(plane: .human, name: "deposit.confirm", method: .post, path: "/v1/deposits/{journey_id}/confirm", requestType: "DepositConfirmRequest", responseType: "Journey", requiresIdempotency: false, bodyless: false)
-        case .humanDepositStart: return OperationDescriptor(plane: .human, name: "deposit.start", method: .post, path: "/v1/deposits", requestType: "DepositStartRequest", responseType: "Journey", requiresIdempotency: true, bodyless: false)
         case .humanEvidenceGet: return OperationDescriptor(plane: .human, name: "evidence.get", method: .get, path: "/v1/evidence/{evidence_id}", requestType: "Empty", responseType: "EvidenceMaterial", requiresIdempotency: false, bodyless: true)
-        case .humanExitEligibility: return OperationDescriptor(plane: .human, name: "exit.eligibility", method: .get, path: "/v1/exit/eligibility", requestType: "Empty", responseType: "ExitEligibility", requiresIdempotency: false, bodyless: true)
-        case .humanExitStart: return OperationDescriptor(plane: .human, name: "exit.start", method: .post, path: "/v1/exit", requestType: "ExitStartRequest", responseType: "Journey", requiresIdempotency: true, bodyless: false)
         case .humanHomeSummary: return OperationDescriptor(plane: .human, name: "home.summary", method: .get, path: "/v1/home", requestType: "Empty", responseType: "HomeSummary", requiresIdempotency: false, bodyless: true)
-        case .humanIntentPlan: return OperationDescriptor(plane: .human, name: "intent.plan", method: .post, path: "/v1/intents/plan", requestType: "PlanIntentRequest", responseType: "IntentPlan", requiresIdempotency: false, bodyless: false)
-        case .humanIntentSubmit: return OperationDescriptor(plane: .human, name: "intent.submit", method: .post, path: "/v1/intents/submit", requestType: "SubmitPlanRequest", responseType: "IntentSubmission", requiresIdempotency: true, bodyless: false)
+        case .humanIntentPlan: return OperationDescriptor(plane: .human, name: "intent.plan", method: .post, path: "", requestType: "PlanIntentRequest", responseType: "IntentPlan", requiresIdempotency: false, bodyless: false)
+        case .humanIntentSubmit: return OperationDescriptor(plane: .human, name: "intent.submit", method: .post, path: "", requestType: "SubmitPlanRequest", responseType: "IntentSubmission", requiresIdempotency: true, bodyless: false)
         case .humanJourneyGet: return OperationDescriptor(plane: .human, name: "journey.get", method: .get, path: "/v1/journeys/{journey_id}", requestType: "Empty", responseType: "Journey", requiresIdempotency: false, bodyless: true)
         case .humanJourneyList: return OperationDescriptor(plane: .human, name: "journey.list", method: .get, path: "/v1/journeys", requestType: "Empty", responseType: "JourneyPage", requiresIdempotency: false, bodyless: true)
         case .humanJourneyPage: return OperationDescriptor(plane: .human, name: "journey.page", method: .get, path: "/v1/journeys/page/{cursor}", requestType: "Empty", responseType: "JourneyPage", requiresIdempotency: false, bodyless: true)
@@ -300,8 +431,6 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .humanSupportReply: return OperationDescriptor(plane: .human, name: "support.reply", method: .post, path: "/v1/support/conversations/{conversation_id}/replies", requestType: "SupportReplyRequest", responseType: "SupportConversation", requiresIdempotency: true, bodyless: false)
         case .humanSupportStatus: return OperationDescriptor(plane: .human, name: "support.status", method: .get, path: "/v1/support/conversations/{conversation_id}/status", requestType: "Empty", responseType: "SupportConversationStatus", requiresIdempotency: false, bodyless: true)
         case .humanVersion: return OperationDescriptor(plane: .human, name: "version", method: .get, path: "/v1/version", requestType: "Empty", responseType: "VersionInfo", requiresIdempotency: false, bodyless: true)
-        case .humanWithdrawClaim: return OperationDescriptor(plane: .human, name: "withdraw.claim", method: .post, path: "/v1/withdrawals/{journey_id}/claim", requestType: "WithdrawClaimRequest", responseType: "Journey", requiresIdempotency: false, bodyless: false)
-        case .humanWithdrawStart: return OperationDescriptor(plane: .human, name: "withdraw.start", method: .post, path: "/v1/withdrawals", requestType: "WithdrawStartRequest", responseType: "Journey", requiresIdempotency: true, bodyless: false)
         }
     }
 }
@@ -571,35 +700,8 @@ public extension PlatformClient {
     func humanAuthenticatorStatus(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.humanAuthenticatorStatus, request: request, pathParameters: pathParameters)
     }
-    func humanBindingRebind(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanBindingRebind, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
-    }
-    func humanBindingRebindAction(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanBindingRebindAction, request: request, pathParameters: pathParameters)
-    }
-    func humanBindingStatement(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanBindingStatement, request: request, pathParameters: pathParameters)
-    }
-    func humanBindingStatus(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanBindingStatus, request: request, pathParameters: pathParameters)
-    }
-    func humanBindingSubmit(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanBindingSubmit, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
-    }
-    func humanDepositConfirm(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanDepositConfirm, request: request, pathParameters: pathParameters)
-    }
-    func humanDepositStart(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanDepositStart, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
-    }
     func humanEvidenceGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.humanEvidenceGet, request: request, pathParameters: pathParameters)
-    }
-    func humanExitEligibility(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanExitEligibility, request: request, pathParameters: pathParameters)
-    }
-    func humanExitStart(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanExitStart, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
     }
     func humanHomeSummary(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.humanHomeSummary, request: request, pathParameters: pathParameters)
@@ -748,14 +850,8 @@ public extension PlatformClient {
     func humanVersion(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.humanVersion, request: request, pathParameters: pathParameters)
     }
-    func humanWithdrawClaim(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.humanWithdrawClaim, request: request, pathParameters: pathParameters)
-    }
-    func humanWithdrawStart(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await mutate(.humanWithdrawStart, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
-    }
 }
 
-private let sdkMetadata = SDKMetadata(name: "LayerXSDK", version: "0.1.0", agentOperations: 54, humanOperations: 95)
+private let sdkMetadata = SDKMetadata(name: "LayerXSDK", version: "0.1.0", agentOperations: 54, humanOperations: 84)
 
 public func platform_sdk_swift() -> SDKMetadata { sdkMetadata }

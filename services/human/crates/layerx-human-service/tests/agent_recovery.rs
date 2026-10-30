@@ -2,6 +2,9 @@ use layerx_human_test_support as support;
 
 use std::fs;
 
+use ed25519_dalek::{Signer as _, SigningKey};
+use sha2::{Digest as _, Sha256};
+
 use layerx_human_service::agents::{
     AgentKeyChangeKind, AgentKeyChangeRequest, AgentKeyChangeStage, AgentRecovery,
     AgentRecoveryBoundary, AgentRecoveryBoundaryError, AgentRecoveryError, CompetingRotation,
@@ -13,7 +16,7 @@ use layerx_human_service::notify::{AgentId, Dispatcher, NotificationClass};
 use layerx_human_service::store::{EvidenceRef, PrincipalId, Table};
 use layerx_human_service::trace::TraceId;
 use layerx_types::ids::Did;
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 
 use support::{directory, install_and_open, principal, retention_uniform, row_key, tenancy};
 
@@ -21,6 +24,7 @@ const DELAY: u64 = 60;
 
 #[derive(Clone)]
 struct RotationState {
+    tx_hash: [u8; 32],
     previous: [u8; 32],
     pending: [u8; 32],
     effective_at: u64,
@@ -31,6 +35,7 @@ struct RotationState {
 
 #[derive(Clone)]
 struct RecoveryState {
+    tx_hash: [u8; 32],
     previous: [u8; 32],
     pending: [u8; 32],
     effective_at: u64,
@@ -170,6 +175,26 @@ impl AgentRecoveryBoundary for CoreRecoveryContract {
         self.next_key = self.next_key.saturating_add(1);
         let effective_at = self.now.saturating_add(DELAY);
         let lapse_at = effective_at.saturating_add(DELAY);
+        let mut transaction = request.idempotency_key.to_vec();
+        transaction.extend_from_slice(request.did.as_bytes());
+        transaction.extend_from_slice(request.human_recovery_authority.as_bytes());
+        transaction.extend_from_slice(&request.authority_evidence_digest);
+        transaction.extend_from_slice(&self.primary);
+        transaction.extend_from_slice(&pending);
+        transaction.extend_from_slice(&effective_at.to_be_bytes());
+        transaction.extend_from_slice(&lapse_at.to_be_bytes());
+        transaction.push(match kind {
+            AgentKeyChangeKind::Rotation => 1,
+            AgentKeyChangeKind::Recovery => 2,
+        });
+        let signing_key = SigningKey::from_bytes(&[0x91; 32]);
+        let signature = signing_key.sign(&transaction);
+        signing_key
+            .verifying_key()
+            .verify_strict(&transaction, &signature)
+            .map_err(|_| AgentRecoveryBoundaryError::Refused("invalid key-change signature"))?;
+        transaction.extend_from_slice(&signature.to_bytes());
+        let tx_hash = Sha256::digest(&transaction).into();
         let (effective_sequence, competing_rotation) = match kind {
             AgentKeyChangeKind::Rotation => {
                 if let Some(existing) = self.rotation_competition() {
@@ -177,6 +202,7 @@ impl AgentRecoveryBoundary for CoreRecoveryContract {
                 }
                 let effective_sequence = self.sequence.saturating_add(40);
                 self.rotation = Some(RotationState {
+                    tx_hash,
                     previous: self.primary,
                     pending,
                     effective_at,
@@ -191,6 +217,7 @@ impl AgentRecoveryBoundary for CoreRecoveryContract {
                     return Err(AgentRecoveryBoundaryError::Refused("recovery already open"));
                 }
                 self.recovery = Some(RecoveryState {
+                    tx_hash,
                     previous: self.primary,
                     pending,
                     effective_at,
@@ -213,7 +240,8 @@ impl AgentRecoveryBoundary for CoreRecoveryContract {
             effective_sequence,
             observed_at: self.now,
             observed_sequence: self.sequence,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: Rung::Receipted,
+            tx_hash,
             receipt_digest: [0; 32],
             competing_rotation,
         };
@@ -262,7 +290,8 @@ impl AgentRecoveryBoundary for CoreRecoveryContract {
                     state,
                     observed_at: self.now,
                     observed_sequence: self.sequence,
-                    verification_level: VerificationLevel::STATE_PROVEN,
+                    rung: Rung::Committed,
+                    tx_hash: rotation.tx_hash,
                     competing_rotation: None,
                 })
             }
@@ -299,7 +328,8 @@ impl AgentRecoveryBoundary for CoreRecoveryContract {
                     state,
                     observed_at: self.now,
                     observed_sequence: self.sequence,
-                    verification_level: VerificationLevel::STATE_PROVEN,
+                    rung: Rung::Committed,
+                    tx_hash: recovery.tx_hash,
                     competing_rotation: self.rotation_competition(),
                 })
             }

@@ -66,8 +66,8 @@ export function LaunchpadView({ sidRate, legs, now = Date.now }: LaunchpadViewPr
           const buying = action === 'buy';
           const order = {
             pool,
-            amountIn: buying ? parseUnits(amountIn, 18) : BigInt(amountIn),
-            minOut: buying ? BigInt(minOut) : parseUnits(minOut, 18),
+            amountIn: buying ? parseUnits(amountIn, 6) : BigInt(amountIn),
+            minOut: buying ? BigInt(minOut) : parseUnits(minOut, 6),
             deadline: BigInt(Math.floor(now() / 1000) + parseDeadlineMinutes(deadlineMinutes) * 60),
           };
           return buying
@@ -137,14 +137,14 @@ export function LaunchpadView({ sidRate, legs, now = Date.now }: LaunchpadViewPr
             onChange={(e) => setPool(e.target.value)}
           />
           <TextField
-            label={action === 'buy' ? 'Pay (PAX)' : 'Sell (token base units)'}
+            label={action === 'buy' ? 'Pay (USDL)' : 'Sell (token base units)'}
             name="amountIn"
             value={amountIn}
             onChange={(e) => setAmountIn(e.target.value)}
           />
           <TextField
             label={
-              action === 'buy' ? 'Receive at least (token base units)' : 'Receive at least (PAX)'
+              action === 'buy' ? 'Receive at least (token base units)' : 'Receive at least (USDL)'
             }
             name="minOut"
             value={minOut}

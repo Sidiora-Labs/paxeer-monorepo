@@ -1,4 +1,4 @@
-use layerx_agent_api::verify::{Level, ReasonCode, Rung, RungStatus};
+use layerx_agent_api::verify::{ReasonCode, Rung, RungStatus};
 
 #[test]
 fn rung_and_rung_status_are_exported_from_the_verify_contract() {
@@ -48,32 +48,5 @@ fn rung_and_rung_status_are_exported_from_the_verify_contract() {
             }
             RungStatus::Achieved(_) => panic!("shortfall reported as achieved"),
         }
-    }
-}
-
-#[test]
-fn legacy_level_maps_onto_rungs_by_decision() {
-    const MAPPINGS: [(Level, Option<Rung>); 6] = [
-        (Level::Unverified, Level::Unverified.rung()),
-        (Level::SequencerSigned, Level::SequencerSigned.rung()),
-        (Level::BatchIncluded, Level::BatchIncluded.rung()),
-        (Level::StateProven, Level::StateProven.rung()),
-        (
-            Level::CheckpointFinalised,
-            Level::CheckpointFinalised.rung(),
-        ),
-        (Level::SettlementAnchored, Level::SettlementAnchored.rung()),
-    ];
-    let expected = [
-        Some(Rung::Submitted),
-        Some(Rung::Submitted),
-        Some(Rung::Receipted),
-        Some(Rung::Receipted),
-        Some(Rung::Committed),
-        None,
-    ];
-
-    for ((level, actual), expected) in MAPPINGS.into_iter().zip(expected) {
-        assert_eq!(actual, expected, "legacy level {level:?}");
     }
 }

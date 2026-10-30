@@ -1,12 +1,13 @@
 import { getAddress, isAddress, parseEventLogs } from 'viem';
-import type { Log, TransactionReceipt } from 'viem';
+import type { Log, ParseEventLogsReturnType, TransactionReceipt } from 'viem';
 
 import { bridgeChainById, type BridgeChain } from './chains';
 import { LAYERX_BRIDGE_ADDRESS, layerxBridgeAbi, paxeerXVaultAbi } from './contracts';
 import { paxeerRecipient } from './digests';
 import { transferIdOf, type BridgeTransfer } from './transfers';
 
-export function matchDepositLog(transfer: BridgeTransfer, logs: ReadonlyArray<Log>) {
+export function matchDepositLog(transfer: BridgeTransfer, logs: ReadonlyArray<Log>):
+  ParseEventLogsReturnType<typeof paxeerXVaultAbi, 'BridgeDeposit', true>[number] | undefined {
   if (!transfer.vault || !isAddress(transfer.recipient)) return undefined;
 
   const recipient = paxeerRecipient(transfer.recipient).toLowerCase();
@@ -78,7 +79,7 @@ export function importDeposit(chain: BridgeChain, receipt: TransactionReceipt): 
 export function importWithdrawal(receipt: TransactionReceipt): BridgeTransfer {
   if (receipt.status !== 'success') throw new Error('The source transaction reverted.');
   const nonce = nonceFromBridgeOutLogs(receipt.logs);
-  const events = parseEventLogs({
+  const events = parseEventLogs<typeof layerxBridgeAbi, true, string>({
     abi: layerxBridgeAbi,
     eventName: 'BridgeOut',
     logs: receipt.logs.filter((log) => log.address.toLowerCase() === LAYERX_BRIDGE_ADDRESS),

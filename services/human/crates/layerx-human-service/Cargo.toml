@@ -42,6 +42,7 @@ layerx-intents = { workspace = true, features = ["test-vectors"] }
 proptest.workspace = true
 layerx-human-identity-provider = { path = "../layerx-human-identity-provider" }
 p256 = { version = "=0.13.2", default-features = false, features = ["ecdsa", "std"] }
+ureq = { version = "=3.4.0", default-features = false, features = ["rustls-no-provider", "_ring"] }
 
 [lints]
 workspace = true

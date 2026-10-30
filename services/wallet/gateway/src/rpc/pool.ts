@@ -3,14 +3,13 @@ import {
   custom,
   defineChain,
   type Chain,
-  keccak256,
   type Hex,
   type PublicClient,
   parseTransaction,
   recoverTransactionAddress,
 } from 'viem';
 import { env } from '../env.js';
-import { BROADCAST_GRACE_MS } from '../chain.js';
+import { BROADCAST_GRACE_MS, transactionHash } from '../chain.js';
 
 export type EndpointState = 'unknown' | 'healthy' | 'lagging' | 'down';
 
@@ -186,8 +185,8 @@ export class RpcPool {
   private readonly chain: Chain;
   private timer: NodeJS.Timeout | null = null;
   private client: PublicClient | null = null;
-  /** When each member started failing every request, cleared by its next answer. */
-  private readonly failingSince = new Map<string, number>();
+  /** When each member started failing a method, cleared by its next answer to that method. */
+  private readonly failingSince = new Map<string, Map<string, number>>();
 
   constructor(opts: RpcPoolOptions) {
     if (opts.urls.length === 0) throw new Error('RpcPool needs at least one URL');
@@ -351,7 +350,7 @@ export class RpcPool {
   /**
    * Ask every pool member and the node that accepted the broadcast for the transaction by hash. Known
    * anywhere is known. Otherwise not known needs an answer from every member that still counts and at
-   * least one answer: a member that has failed every request for longer than the broadcast grace period
+   * least one answer: a member that has failed transaction lookups for longer than the broadcast grace period
    * drops out, so a dead member holds a wallet's nonces for at most that long, and a member that failed
    * more recently is named as unreachable, so a partition is never read as not known.
    */
@@ -362,7 +361,7 @@ export class RpcPool {
     const failed = urls.map((_, i) => i).filter((i) => answers[i]!.status === 'rejected');
     const now = Date.now();
     const unreachable = known ? [] : failed.length === urls.length ? failed
-      : failed.filter((i) => now - (this.failingSince.get(urls[i]!) ?? now) <= BROADCAST_GRACE_MS);
+      : failed.filter((i) => now - (this.failingSince.get(urls[i]!)?.get('eth_getTransactionByHash') ?? now) <= BROADCAST_GRACE_MS);
     return { known, unreachable, members: urls.length };
   }
 
@@ -414,7 +413,7 @@ export class RpcPool {
    */
   async sendRawTransactionVia(signed: Hex): Promise<{ hash: Hex; member: string | null }> {
     const member = this.sequencerEndpoint();
-    const hash = keccak256(signed);
+    const hash = transactionHash(signed);
     try {
       const result = (await this.post(member, 'eth_sendRawTransaction', [signed])) as Hex;
       return { hash: result, member };
@@ -451,14 +450,21 @@ export class RpcPool {
     }
   }
 
-  /** One request to one member, recording when the member started failing every request. */
+  /** One request to one member, recording when the member started failing this method. */
   private async post(url: string, method: string, params: unknown[]): Promise<unknown> {
     try {
       const result = await this.postOnce(url, method, params);
-      this.failingSince.delete(url);
+      const failures = this.failingSince.get(url);
+      failures?.delete(method);
+      if (failures?.size === 0) this.failingSince.delete(url);
       return result;
     } catch (err) {
-      if (!this.failingSince.has(url)) this.failingSince.set(url, Date.now());
+      let failures = this.failingSince.get(url);
+      if (!failures) {
+        failures = new Map<string, number>();
+        this.failingSince.set(url, failures);
+      }
+      if (!failures.has(method)) failures.set(method, Date.now());
       throw err;
     }
   }

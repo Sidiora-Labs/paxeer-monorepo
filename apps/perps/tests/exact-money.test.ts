@@ -11,7 +11,7 @@ const TENTH = '100000000000000000'; // 0.1 USD = 1e17 wei, above 2^53
 const ODD = '9007199254740993'; // 2^53 + 1 wei
 const day = (date: string, pnl: string, volume = '0', trades = 1): DailyPnl => ({ date, pnl, volume, trades });
 
-function overviewProps(daily: { dailyPnl: DailyPnl[]; skippedDays: number; isLoading: boolean; error: Error | null }, page: typeof import('../src/page-modules/portfolio/index')) {
+function overviewProps(daily: { dailyPnl: DailyPnl[]; skippedDays: number; historyCapped: boolean; isLoading: boolean; error: Error | null }, page: typeof import('../src/page-modules/portfolio/index')) {
   return {
     isConnected: true, hasVault: true, address: '0x0000000000000000000000000000000000000001',
     totalVaultUsd: 10, unrealizedPnl: 0, openPositions: 0, realizedPnl: 0, totalTrades: 0, balances: [],
@@ -24,9 +24,9 @@ function overviewProps(daily: { dailyPnl: DailyPnl[]; skippedDays: number; isLoa
 test('portfolioPageShowsDailyPnlErrorAndSkippedDays', async () => {
   const page = await import('../src/page-modules/portfolio/index');
   const { PortfolioOverviewPanel } = await import('../src/widgets/portfolio/PortfolioOverviewPanel');
-  const failed = renderToStaticMarkup(createElement(PortfolioOverviewPanel, overviewProps({ dailyPnl: [], skippedDays: 0, isLoading: false, error: new Error('both reads failed') }, page)));
+  const failed = renderToStaticMarkup(createElement(PortfolioOverviewPanel, overviewProps({ dailyPnl: [], skippedDays: 0, historyCapped: false, isLoading: false, error: new Error('both reads failed') }, page)));
   assert.match(failed, /Performance history is unavailable/);
-  const partial = renderToStaticMarkup(createElement(PortfolioOverviewPanel, overviewProps({ dailyPnl: [day('2026-10-21', TENTH)], skippedDays: 3, isLoading: false, error: null }, page)));
+  const partial = renderToStaticMarkup(createElement(PortfolioOverviewPanel, overviewProps({ dailyPnl: [day('2026-10-21', TENTH)], skippedDays: 3, historyCapped: false, isLoading: false, error: null }, page)));
   assert.match(partial, /3 days skipped/);
   assert.doesNotMatch(partial, /Performance history is unavailable/);
 });

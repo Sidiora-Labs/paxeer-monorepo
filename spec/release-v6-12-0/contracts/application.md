@@ -81,7 +81,7 @@ The compatibility methods keep their fixed arity in contracts/perps.md. A bounde
 |---|---|---|
 | `openPosition` (Hyperpax:src/hooks/perps/usePosition.ts:63-64) | Diamond PositionFacet (Hyperpax:src/core/network/abi/PositionFacet.ts:765) | placeOrder with orderType MARKET, timeInForce IOC (FOK when chosen), collateral, leverage, acceptablePrice, deadline, takeProfitPrice, stopLossPrice |
 | `addSize` (Hyperpax:src/hooks/perps/usePosition.ts:121-122) | Diamond (PositionFacet.ts:556) | placeOrder with orderType MARKET, timeInForce IOC, on the market and side of the position, with the added collateral, leverage, acceptablePrice and deadline |
-| `closePosition` (Hyperpax:src/hooks/perps/usePosition.ts:79-80) | Diamond (PositionFacet.ts:569) | closePositionWithParams with closeSizeUsd equal to the position size |
+| `closePosition` (Hyperpax:src/hooks/perps/usePosition.ts:79-80) | Diamond (PositionFacet.ts:569) | closePositionWithParams with closeSizeUsd 0, the whole position (contracts/perps.md:665) |
 | `partialClose` (Hyperpax:src/hooks/perps/usePosition.ts:89-90) | Diamond (PositionFacet.ts:789) | closePositionWithParams with the chosen closeSizeUsd |
 | `addCollateral` (Hyperpax:src/hooks/perps/usePosition.ts:100-101) | Diamond (PositionFacet.ts:533) | addCollateral, unchanged arguments |
 | `removeCollateral` (Hyperpax:src/hooks/perps/usePosition.ts:110-111) | Diamond (PositionFacet.ts:807) | removeCollateral, unchanged arguments |

@@ -19,4 +19,4 @@ for target in "${targets[@]}"; do
 done
 
 exec python3 "$root/scripts/gates/run_gate.py" \
-    --wave 2 --log-dir "$root/.logs/wave-2" "${commands[@]}"
+    --wave 2 --log-dir "${GATE_LOG_DIR:-$root/logs/waves/2}" "${commands[@]}"

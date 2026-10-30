@@ -450,6 +450,13 @@ func requireIDs(sessionID, keyID string) *Error {
 	return nil
 }
 
+func requireCeremonyID(ceremonyID string) *Error {
+	if ceremonyID == "" || strings.Contains(ceremonyID, "/") || len(ceremonyID) > 128 {
+		return newError(CodeSessionBadRequest, "ceremony_id must be 1 to 128 characters without a slash")
+	}
+	return nil
+}
+
 func ridFor(keyID string) []byte {
 	sum := sha256.Sum256([]byte("paxeer-x-attestor/rid\x00" + keyID))
 	return sum[:]
@@ -498,7 +505,7 @@ func (s *Server) doImport(body []byte) (KeyResponse, *Error) {
 	}
 	unlock := s.lockKey(req.KeyID)
 	defer unlock()
-	if e := requireIDs(req.CeremonyID, req.KeyID); e != nil {
+	if e := requireCeremonyID(req.CeremonyID); e != nil {
 		return KeyResponse{}, e
 	}
 	participants := b.ParticipantIDs()

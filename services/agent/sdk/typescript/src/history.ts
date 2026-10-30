@@ -122,7 +122,11 @@ export function historyParams(
 export function historyAccount(account: string): string {
   const lowered =
     typeof account === "string" ? account.trim().toLowerCase() : "";
-  if (EVM_ADDRESS.test(lowered) || DID.test(lowered)) return lowered;
+  if (
+    EVM_ADDRESS.test(lowered) ||
+    (DID.test(lowered) && lowered !== `did:layerx:${"0".repeat(64)}`)
+  )
+    return lowered;
   throw new Error("Invalid account identifier");
 }
 

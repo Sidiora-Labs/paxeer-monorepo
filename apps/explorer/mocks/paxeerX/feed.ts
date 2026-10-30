@@ -34,8 +34,24 @@ export const priceUpdate: PriceUpdateItem = {
     feeder_bech32: feederBech32,
     observation_count: 2,
     observations: [
-      { market_id: 1, symbol: 'ETH-USD', index_price: ethIndexPrice, mark_price: ethMarkPrice, source_timestamp_ms: 1767323044500, sequence: 9001 },
-      { market_id: 0, symbol: 'BTC-USD', index_price: btcIndexPrice, mark_price: btcMarkPrice, source_timestamp_ms: 1767323044400, sequence: 9002 },
+      {
+        accepted: true,
+        market_id: 1,
+        symbol: 'ETH-USD',
+        index_price: ethIndexPrice,
+        mark_price: ethMarkPrice,
+        source_timestamp_ms: 1767323044500,
+        sequence: 9001,
+      },
+      {
+        accepted: true,
+        market_id: 0,
+        symbol: 'BTC-USD',
+        index_price: btcIndexPrice,
+        mark_price: btcMarkPrice,
+        source_timestamp_ms: 1767323044400,
+        sequence: 9002,
+      },
     ],
   },
 };
@@ -54,6 +70,7 @@ export const markets: FeedMarketsResponse = {
       symbol: 'BTC-USD',
       chainflow_symbol: 'BTCUSDT',
       latest: {
+        index: 0,
         index_price: btcIndexPrice,
         mark_price: btcMarkPrice,
         source_timestamp_ms: 1767323044400,
@@ -77,6 +94,7 @@ export const marketUpdates: Array<MarketUpdate> = [
   {
     update_hash: updateHash,
     block_number: 34800123,
+    index: 0,
     timestamp: '2026-01-02T03:04:05.000000Z',
     index_price: '67012500000000000000000',
     mark_price: btcMarkPrice,
@@ -86,6 +104,7 @@ export const marketUpdates: Array<MarketUpdate> = [
   {
     update_hash: olderUpdateHash,
     block_number: 34800122,
+    index: 0,
     timestamp: '2026-01-02T03:04:04.000000Z',
     index_price: '67100000000000000000000',
     mark_price: '67105000000000000000000',
@@ -95,6 +114,7 @@ export const marketUpdates: Array<MarketUpdate> = [
   {
     update_hash: oldestUpdateHash,
     block_number: 34800121,
+    index: 0,
     timestamp: '2026-01-02T03:04:03.000000Z',
     index_price: '67000000000000000000000',
     mark_price: '67001000000000000000000',

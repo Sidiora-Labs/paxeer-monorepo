@@ -1,6 +1,7 @@
 package layerx
 
 import (
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -32,19 +33,18 @@ func TestSignedTerminalV4Vectors(t *testing.T) {
 			if err := json.Unmarshal(raw, &vector); err != nil {
 				t.Fatal(err)
 			}
-			authority := AuthorizedBatch{
-				BatchID: fixture32(t, vector.Authority.BatchIDHex), Asset: fixture32(t, vector.Authority.AssetHex),
-				PreviousStateRoot: fixture32(t, vector.Authority.PreviousStateRootHex), ResultingStateRoot: fixture32(t, vector.Authority.ResultingStateRootHex),
-				SequencerPublicKey: fixture32(t, vector.Authority.SequencerPublicKeyHex),
-			}
-			verified, err := VerifyReceiptOutcome(fixtureBytes(t, vector.Canonical), authority, 3)
+			decoded, err := decodeProtocolReceipt(fixtureBytes(t, vector.Canonical))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if verified.ReceiptDigest != fixture32(t, vector.Digest) || verified.Receipt.ActivityID != domainDigest([]byte("LXP/v1/activity-id\x00"), fixtureBytes(t, vector.Activity)) {
+			digest := domainDigest(receiptDomain, decoded.unsigned)
+			if !ed25519.Verify(fixtureBytes(t, vector.Authority.SequencerPublicKeyHex), digest[:], decoded.signature[:]) {
+				t.Fatal("signed vector signature mismatch")
+			}
+			if digest != fixture32(t, vector.Digest) || decoded.protocol.ActivityID != domainDigest([]byte("LXP/v1/activity-id\x00"), fixtureBytes(t, vector.Activity)) {
 				t.Fatal("signed vector identity mismatch")
 			}
-			outcome := verified.Receipt.ProgramOutcome
+			outcome := decoded.protocol.ProgramOutcome
 			if outcome == nil {
 				t.Fatal("missing outcome")
 			}
@@ -64,12 +64,12 @@ func TestSignedTerminalV4Vectors(t *testing.T) {
 				t.Fatal(err)
 			}
 			execution := ProgramExecutionDocument{
-				ActivityID: hex.EncodeToString(verified.Receipt.ActivityID[:]), ProgramID: vector.Program,
-				ModuleVersion: verified.Receipt.ModuleVersion, GuestABIVersion: outcome.ABIVersion,
+				ActivityID: hex.EncodeToString(decoded.protocol.ActivityID[:]), ProgramID: vector.Program,
+				ModuleVersion: decoded.protocol.ModuleVersion, GuestABIVersion: outcome.ABIVersion,
 				Receipt: vector.Canonical, ReceiptDigest: vector.Digest, TerminalPayload: vector.Terminal, CallGraph: vector.Graph,
 				ResultCode: outcome.ResultCode, Outcome: projection.Outcome,
 			}
-			result, err := VerifyProgramReceipt(execution, authority, 3)
+			result, err := VerifyProgramReceipt(execution, 3)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -83,17 +83,17 @@ func TestSignedTerminalV4Vectors(t *testing.T) {
 			if len(result.OccupancyPaymentAccounts) != 0 {
 				t.Fatalf("unpaid occupancy reported %d payment accounts", len(result.OccupancyPaymentAccounts))
 			}
-			offered, offeredError := VerifyProgramReceiptWithPayers(execution, authority, []OccupancyPayer{{DID: []byte("did:layerx:payer0")}}, 3)
+			offered, offeredError := VerifyProgramReceiptWithPayers(execution, []OccupancyPayer{{DID: []byte("did:layerx:payer0")}}, 3)
 			if offeredError != nil || offered.TransferVerification != expected || len(offered.OccupancyPaymentAccounts) != 0 {
 				t.Fatalf("payer-offering entry point diverged: %q %v", offered.TransferVerification, offeredError)
 			}
 			if name == "executed-v4" || name == "account-bound-v4" {
 				for length := 0; length < len(terminal); length++ {
-					if _, _, err := verifyProgramTerminal(execution, verified.Receipt, terminal[:length], graph, nil); err == nil {
+					if _, _, err := verifyProgramTerminal(execution, decoded.protocol, terminal[:length], graph, nil); err == nil {
 						t.Fatalf("accepted truncation %d", length)
 					}
 				}
-				if _, _, err := verifyProgramTerminal(execution, verified.Receipt, append(append([]byte{}, terminal...), 0), graph, nil); err == nil {
+				if _, _, err := verifyProgramTerminal(execution, decoded.protocol, append(append([]byte{}, terminal...), 0), graph, nil); err == nil {
 					t.Fatal("accepted trailing byte")
 				}
 			}

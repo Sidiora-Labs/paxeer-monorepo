@@ -1,9 +1,14 @@
 import { Box, Center, Flex, HStack, Text } from '@chakra-ui/react';
 import React from 'react';
 
+import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 import type { Transaction } from 'types/api/transaction';
 
+import { route } from 'nextjs/routes';
+
 import config from 'configs/app';
+import { Badge } from 'toolkit/chakra/badge';
+import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tag } from 'toolkit/chakra/tag';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
@@ -17,16 +22,39 @@ import TxFee from 'ui/shared/tx/TxFee';
 import TxWatchListTags from 'ui/shared/tx/TxWatchListTags';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import TxAdditionalInfo from 'ui/txs/TxAdditionalInfo';
-import { isPriceUpdate, PriceUpdateFromTo, priceUpdateHref, priceUpdateMethod } from 'ui/txs/TxPriceUpdate';
+import { isPriceUpdate, priceUpdateHref, priceUpdateMethod } from 'ui/txs/TxPriceUpdate';
 import TxType from 'ui/txs/TxType';
 
 type Props = {
-  tx: Transaction;
+  tx: Transaction | PriceUpdateItem;
   isLoading?: boolean;
 };
 
+export const isPriceUpdateItem = (tx: Transaction | PriceUpdateItem): tx is PriceUpdateItem => isPriceUpdate(tx);
+
+export const PriceUpdateWatchListTags = ({ from, isLoading }: {
+  from: React.ComponentProps<typeof AddressEntity>['address'];
+  isLoading?: boolean;
+}) => {
+  const tags = (from.watchlist_names || []).filter(Boolean);
+
+  if (tags.length === 0) {
+    return null;
+  }
+
+  return (
+    <Flex columnGap={ 2 } rowGap={ 2 } flexWrap="wrap" overflow="hidden" maxW="100%">
+      { tags.map((tag) => (
+        <Badge key={ tag.label } loading={ isLoading } truncated maxW={{ base: '115px', lg: '100%' }} colorPalette="gray">
+          { tag.display_name }
+        </Badge>
+      )) }
+    </Flex>
+  );
+};
+
 const LatestTxsItem = ({ tx, isLoading }: Props) => {
-  const priceUpdate = isPriceUpdate(tx);
+  const priceUpdate = isPriceUpdateItem(tx);
   const evmTx = priceUpdate ? undefined : tx;
   const dataTo = evmTx?.to ? evmTx.to : evmTx?.created_contract;
 
@@ -77,26 +105,26 @@ const LatestTxsItem = ({ tx, isLoading }: Props) => {
               <ScanMethodChip method={ priceUpdateMethod(tx) } isLoading={ isLoading }/> :
               <TxType types={ tx.transaction_types } isLoading={ isLoading }/> }
             { tx.status !== 'ok' && <TxStatus status={ tx.status } errorText={ tx.status === 'error' ? tx.result : undefined } isLoading={ isLoading }/> }
-            { evmTx && <TxWatchListTags tx={ evmTx } isLoading={ isLoading }/> }
+            { evmTx ?
+              <TxWatchListTags tx={ evmTx } isLoading={ isLoading }/> :
+              <PriceUpdateWatchListTags from={ tx.from } isLoading={ isLoading }/> }
             { protocolTag && <EntityTag data={ protocolTag } isLoading={ isLoading } minW="0" noColors/> }
           </HStack>
         </Flex>
       </Box>
       <Box minW={ 0 } flexGrow={ 1 } data-label="tx-parties">
-        { evmTx ? (
-          <>
-            <Flex alignItems="center" columnGap={ 1 } minW={ 0 }>
-              <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>From</Skeleton>
-              <AddressEntity address={ evmTx.from } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/>
-            </Flex>
-            { dataTo && (
-              <Flex alignItems="center" columnGap={ 1 } minW={ 0 } mt="2px">
-                <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>To</Skeleton>
-                <AddressEntity address={ dataTo } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/>
-              </Flex>
-            ) }
-          </>
-        ) : <PriceUpdateFromTo tx={ tx } isLoading={ isLoading }/> }
+        <Flex alignItems="center" columnGap={ 1 } minW={ 0 }>
+          <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>From</Skeleton>
+          <AddressEntity address={ tx.from } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/>
+        </Flex>
+        { (priceUpdate || dataTo) && (
+          <Flex alignItems="center" columnGap={ 1 } minW={ 0 } mt="2px">
+            <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>To</Skeleton>
+            { priceUpdate ? (
+              <Link href={ route({ pathname: '/feed' }) } loading={ isLoading } textStyle="xs" whiteSpace="nowrap">Price feed</Link>
+            ) : dataTo && <AddressEntity address={ dataTo } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/> }
+          </Flex>
+        ) }
       </Box>
       { !(config.UI.views.tx.hiddenFields?.value && config.UI.views.tx.hiddenFields?.tx_fee) && (
         <Box flexShrink={ 0 } textAlign="right" data-label="tx-value">

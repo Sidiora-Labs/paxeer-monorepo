@@ -1,6 +1,6 @@
 ARG PAXCTL_VERSION=v0.0.5-pax.1
 
-FROM docker.io/golang:1.25.6-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS paxctl
+FROM docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS paxctl
 ARG PAXCTL_VERSION
 RUN GOBIN=/usr/bin go install github.com/Paxeer-Network/paxctl@${PAXCTL_VERSION}
 
@@ -18,25 +18,31 @@ COPY contracts/config/checkpoint-settlement.json contracts/config/
 COPY spec/layerx-merge/contracts/address-table.md spec/layerx-merge/contracts/
 COPY services/agent services/agent/
 COPY programs programs/
+COPY src src/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     make programs-release-build
-COPY src src/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     set -eu; \
     make -j"$(nproc)" paxd-native-libs; \
+    test -s build/liblayerx.a; \
+    test -s build/generated/lxp_checkpoint_settlement.h; \
+    test -s programs/target/release/liblayerx_programs_sandbox.a; \
     mkdir -p /out/build/generated /out/programs/target/release; \
     cp build/liblayerx.a /out/build/; \
     cp build/generated/lxp_checkpoint_settlement.h /out/build/generated/; \
     cp programs/target/release/liblayerx_programs_sandbox.a /out/programs/target/release/
 
-FROM docker.io/golang:1.25.6-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS builder
+FROM docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS builder
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /go/src/pax-chain
 
 ARG TARGETARCH
-COPY wasm-runtime/libwasmvm-linux.sha256 /tmp/libwasmvm-linux.sha256
+COPY wasm-runtime/internal/api/ wasm-runtime/internal/api/
+COPY wasm/x/wasm/artifacts/v152/api/ wasm/x/wasm/artifacts/v152/api/
+COPY wasm/x/wasm/artifacts/v155/api/ wasm/x/wasm/artifacts/v155/api/
+COPY wasm-runtime/libwasmvm-linux.sha256 wasm-runtime/libwasmvm-linux.sha256
 RUN set -eu; \
     case "${TARGETARCH}" in \
       amd64) ARCH_SUFFIX="x86_64" ;; \
@@ -44,24 +50,18 @@ RUN set -eu; \
       *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
     esac; \
     mkdir -p /go/lib; \
+    cp "wasm-runtime/internal/api/libwasmvm.${ARCH_SUFFIX}.so" /go/lib/; \
+    cp "wasm/x/wasm/artifacts/v152/api/libwasmvm152.${ARCH_SUFFIX}.so" /go/lib/; \
+    cp "wasm/x/wasm/artifacts/v155/api/libwasmvm155.${ARCH_SUFFIX}.so" /go/lib/; \
     for library in \
       "libwasmvm.${ARCH_SUFFIX}.so" \
       "libwasmvm152.${ARCH_SUFFIX}.so" \
       "libwasmvm155.${ARCH_SUFFIX}.so"; do \
-        expected=$(awk -v name="${library}" '$2 == name { print $1 }' /tmp/libwasmvm-linux.sha256); \
-        test -n "${expected}"; \
-        curl --fail --location --proto '=https' --tlsv1.2 --retry 5 \
-          --output "/go/lib/${library}" \
-          "https://node.hyperpaxeer.com/lib/${library}"; \
-        echo "${expected}  /go/lib/${library}" | sha256sum --check --strict; \
+        expected=$(awk -v name="${library}" '$2 == name { print $1 }' wasm-runtime/libwasmvm-linux.sha256); \
+        test "${#expected}" -eq 64; \
+        printf '%s  %s\n' "${expected}" "${library}" >> /go/lib/libwasmvm.sha256; \
     done; \
-    mkdir -p \
-      wasm-runtime/internal/api \
-      wasm/x/wasm/artifacts/v152/api \
-      wasm/x/wasm/artifacts/v155/api; \
-    cp "/go/lib/libwasmvm.${ARCH_SUFFIX}.so" wasm-runtime/internal/api/; \
-    cp "/go/lib/libwasmvm152.${ARCH_SUFFIX}.so" wasm/x/wasm/artifacts/v152/api/; \
-    cp "/go/lib/libwasmvm155.${ARCH_SUFFIX}.so" wasm/x/wasm/artifacts/v155/api/
+    (cd /go/lib && sha256sum --check --strict libwasmvm.sha256)
 
 COPY go.* ./
 RUN --mount=type=cache,target=/go/pkg/mod \
