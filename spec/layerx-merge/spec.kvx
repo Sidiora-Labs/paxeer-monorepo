@@ -4935,6 +4935,12 @@ value = "The agent SDK generator fills {{RUNGS}} of services/agent/tools/sdk-gen
 basis = "Attempt 5 of 9.33.8 (f389355d9 on bf4e10a64) regenerated the three clients with agent-sdk-gen --write and build_cmd exited 2 with 13 errors: ten on Rung.Submitted/Receipted/Committed (src/verifier.ts:208 and :887, test/receipt-fixture.test.ts:115, test/integration.test.ts:66, :74, :76, examples/payment-with-verification.ts:17, test/generated-rung.test.ts:43) because 0246e6ea4 (9.18.4) added to_ascii_lowercase at main.rs:467 while errors.kvx:31, layerx-types rung.rs:13-17, acceptance.9.358.1, 9.359.2 and 9.372.1 spell the members PascalCase; three on 'faucet.claim' (src/agent-http.ts:391, src/production.ts:21, test/agent-operation-envelope.test.ts:461) because 77f70145f (9.1.5) removed [operation.faucet.claim] and the committed client.ts:85 is the 291e43bc0 output that predates it."
 affects = ["9.18.4", "9.18.10", "9.33.8", "9.33.9"]
 
+[decision.1971]
+title = "The platform registry port to the chain-proof verifier is task 8.12.3 and precedes the gateway reader tasks; the human security provider verifies recovery receipts with the chain trust root in task 10.99.1"
+value = "Tasks 13.4.5 and 13.4.6 replaced the sequencer-signed head model of ProtocolDeploymentVerifier with chain-proof verification and left two callers unported on main: layerx-platform-registry (31 errors) and layerx-human-security-provider (state.rs:56 and :136). The registry port is task 8.12.3, moved to wave 28 with requires 13.4.5 and 13.4.6 in place of 8.0.4, touching journal.rs as well; 8.4.3 and 8.5.2 require it because every platform crate build fails on the registry first. The security provider port is the new task 10.99.1 (wave 18), which 17.5.1 requires: RecoveryReceipt carries the chain header, its commit and the transaction proof in place of the sequencer-signed header, and the trust file holds a chain trust root."
+basis = "A done task that deletes a public type or constructor leaves its callers red until an owner task ports them; the ports are ordered before the gates that build those crates, and an aggregate gate requires every port its workspace build needs."
+affects = ["8.12.3", "8.4.3", "8.5.2", "8.0.4", "10.99.1", "17.5.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -19073,6 +19079,10 @@ ac_1 = "After the migration no file of layerx-human-kms listed by task 10.98.2 n
 [req.10943]
 title = "Migrate the layerx-human-movement-provider callers of wiring.J44.21"
 ac_1 = "After the migration no file of layerx-human-movement-provider listed by task 10.98.3 names a retired path of wiring.J44.21, and layerx-human-movement-provider builds against the layerx_client and layerx_crypto of wave 3; the first caller is services/human/crates/layerx-human-movement-provider/src/config.rs:6."
+
+[req.10991]
+title = "The human security provider verifies recovery receipts against the chain trust root"
+ac_1 = "layerx-human-security-provider builds against the chain-proof ProtocolDeploymentVerifier and ChainProofVerifier of programs/crates/layerx-programs-registry; a recovery receipt is admitted only when its chain header carries a commit of the trust-root validator set and its transaction proof binds the canonical receipt to that header, a tampered header, commit, proof or receipt is refused, and the provider refuses to open when the trust file is missing, unprotected or not a chain trust root."
 
 [req.10944]
 title = "Migrate the layerx-human-service callers of wiring.J44.21 (wave 2)"
@@ -37282,7 +37292,7 @@ symbols = ["ingest_deployment", "registry_deployment_reads_the_program_record"]
 [capability.8.12.3]
 title = "Remove the kernel socket and node-state proofs from the program registry"
 reqs = ["8116.1"]
-touches = ["services/platform/hosted/registry/src/main.rs", "services/platform/hosted/registry/src/routes.rs", "services/platform/hosted/registry/src/deployment.rs", "services/platform/hosted/registry/src/head_attestation.rs", "services/platform/hosted/registry/src/node_state.rs", "services/platform/hosted/registry/tests/relayed_head_attestation.rs", "services/platform/hosted/registry/tests/native_deployment.rs", "services/platform/hosted/registry/tests/programs_chain.rs"]
+touches = ["services/platform/hosted/registry/src/main.rs", "services/platform/hosted/registry/src/routes.rs", "services/platform/hosted/registry/src/deployment.rs", "services/platform/hosted/registry/src/head_attestation.rs", "services/platform/hosted/registry/src/node_state.rs", "services/platform/hosted/registry/tests/relayed_head_attestation.rs", "services/platform/hosted/registry/tests/native_deployment.rs", "services/platform/hosted/registry/tests/programs_chain.rs", "services/platform/hosted/registry/src/journal.rs"]
 tests = ["services/platform/hosted/registry/tests/programs_chain.rs::registry_starts_without_an_lni_socket"]
 verification_contract = "contracts/platform-hosted.md#registry-env-vars"
 do_1 = "Delete LAYERX_REGISTRY_LNI_SOCKET (services/platform/hosted/registry/src/main.rs:434), its notice (services/platform/hosted/registry/src/main.rs:927-931) and deployment_lni_socket (services/platform/hosted/registry/src/routes.rs:69, services/platform/hosted/registry/src/routes.rs:141, services/platform/hosted/registry/src/routes.rs:736)."
@@ -41214,6 +41224,15 @@ tests = ["services/human/crates/layerx-human-movement-provider/tests/retired_cli
 verification_contract = "contracts/agent-rust-api.md#client"
 do_1 = "Replace the retired layerx_client module uses at services/human/crates/layerx-human-movement-provider/src/config.rs:6 with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.21)."
 symbols = ["no_retired_layerx_client_module_paths"]
+
+[capability.10.99.1]
+title = "Verify the human security provider recovery receipts against the chain trust root"
+reqs = ["10991.1"]
+touches = ["services/human/crates/layerx-human-security-provider/src/state.rs", "services/human/crates/layerx-human-security-provider/src/transport.rs", "services/human/crates/layerx-human-security-provider/src/main.rs", "services/human/crates/layerx-human-security-provider/Cargo.toml", "services/human/crates/layerx-human-security-provider/tests/support/mod.rs", "services/human/crates/layerx-human-security-provider/tests/support/chain.rs", "services/human/crates/layerx-human-security-provider/tests/server.rs"]
+tests = ["services/human/crates/layerx-human-security-provider/tests/server.rs::verified_admin_ingest_reveal_and_tamper_refusal"]
+verification_contract = "contracts/programs.md#registry-crate"
+do_1 = "RecoveryReceipt (state.rs:26-34) keeps version, principal, evidence_id and canonical_receipt and replaces receipt_proof, header and header_signature with header (base64 of the canonical ChainHeader bytes, programs/crates/layerx-programs-registry/src/chain_proof/header.rs:46 decodes them), commit (base64 of the canonical Commit bytes, chain_proof/vote.rs:143) and transaction_proof (base64 of the SimpleProof, chain_proof/merkle.rs:21) of the canonical receipt as the block transaction. verify (state.rs:36-60) keeps the version, principal, text and canonical re-encoding checks, builds layerx_programs::ChainProofVerifier { chain_id: root.chain_id, validators: root.validators } (chain_proof/head_verify.rs:12) from the decoded trust root, calls verify_head(&header, &commit) (head_verify.rs:18: chain id, validators hash, height, block id and the two-thirds commit power) and then layerx_programs::verify_tx(&head, &receipt, &proof) (chain_proof/tx.rs:5: sha256 of the receipt against head.data_hash()); every failure maps to Error::Refused as today, and validate_state (state.rs:497) and ingest_recovery_receipt (state.rs:602) call the same verify."
+symbols = ["RecoveryReceipt", "verify", "verified_admin_ingest_reveal_and_tamper_refusal"]
 
 [capability.10.98.4]
 title = "Migrate the layerx-human-service callers of wiring.J44.21 (wave 2)"
@@ -132834,7 +132853,7 @@ do_1 = "Add chain_only_router_serves_receipts_balances_and_assets to services/pl
 do_2 = "Assert the readiness document of that gateway is ready with paxeer_chain and consensus ready (services/platform/hosted/gateway/src/main.rs:3980) and names no kernel backend."
 do_3 = "This task is the wave-5 gate the wave-6 retirements require (tasks 8.3.1, 8.7.3, 8.8.4, 8.11.3, 8.12.3, 8.13.2); it edits no service code (services/platform/hosted/gateway/src/lib.rs:1)."
 symbols = ["chain_only_router_serves_receipts_balances_and_assets"]
-touches = ["services/platform/hosted/gateway/tests/router_surface.rs"]
+touches = ["services/platform/hosted/gateway/tests/router_surface.rs", "services/platform/hosted/gateway/openrpc.json"]
 tests = ["services/platform/hosted/gateway/tests/router_surface.rs::chain_only_router_serves_receipts_balances_and_assets"]
 planned_paths = ["services/platform/hosted/gateway/tests/router_surface.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway"
@@ -132850,6 +132869,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Record the two surfaces task 8.4.3 adds in the release rows this test shares: services/platform/hosted/gateway/tests/router_surface.rs:453-457 lists the probe calldata rows (0x8162486b, 1), (0xb187bd26, 1), (0x8eec5d70, 1), (0xd7778749 followed by 32 zero bytes, 1) and (0xbbe2e42d, 9) and the fixture panics at :475-483 on undeclared calldata, so add the accountId(bytes32,bytes32) row (its ledger ABI selector followed by 64 zero bytes, answering one word) and the isLive(bytes32,uint64,uint64) row (its auth ABI selector followed by 96 zero bytes, answering four words: false and the string LXP_UNKNOWN_FIELD); the surface list asserted at :726 (exchange, bridge, launchpad, pay, programs) gains ledger and auth; and the px_getCapabilities description of services/platform/hosted/gateway/openrpc.json:3472 names the two surfaces. Task 8.12.3 no longer waits for this gate: it requires 13.4.5 and 13.4.6 and precedes 8.4.3 and 8.5.2 (decision.1971), so do_3 lists 8.3.1, 8.7.3, 8.8.4, 8.11.3 and 8.13.2 only."
 
 [task.8.0.9]
 title = "Gate domain 8 completion on its retired surfaces and planned paths"
@@ -133256,13 +133276,13 @@ title = "Probe the ledger and authority surfaces in px_getCapabilities"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.4.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1"]
+requires = ["8.4.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.12.3"]
 reqs = ["8039.1"]
 capabilities = ["8.4.3"]
 interfaces = []
 wiring = ["wiring.J40.3"]
 do_1 = "Add Surface::Ledger and Surface::Auth to the surface enum (services/platform/hosted/gateway/src/capabilities.rs:47-56) with addresses LEDGER_PRECOMPILE and AUTH_PRECOMPILE from task 8.4.1."
-do_2 = "Give Ledger the probe view totalUnits(bytes32) and Auth a no-argument view of its served ABI, read from precompiles/layerxledger/abi.json and precompiles/layerxauth/abi.json once domain 6 publishes them (wiring.J40.3), in probe_view (services/platform/hosted/gateway/src/capabilities.rs:75-96)."
+do_2 = "Give Ledger the probe view accountId(bytes32,bytes32) with two zero words, output bytes32, one word, which precompiles/layerxledger/views.go:66-78 derives without a state read, and Auth the probe view isLive(bytes32,uint64,uint64) with three zero words, output (bool, string), four words, which answers false with the text LXP_UNKNOWN_FIELD for a missing grant without reverting (modules/layerxauth/keeper/views.go:62-70 and :182-188; precompiles/common/lxp_errors.go:47), both read from precompiles/layerxledger/abi.json and precompiles/layerxauth/abi.json (wiring.J40.3), in probe_view (services/platform/hosted/gateway/src/capabilities.rs:75-96); the string at word 1 decodes with evm::Answer::string (services/platform/hosted/gateway/src/evm.rs:323), a revert stays not live (capabilities.rs:266-273) and neither ABI file changes."
 do_3 = "Add ledger and auth fields to Capabilities and its document (services/platform/hosted/gateway/src/capabilities.rs:121-146)."
 do_4 = "Add ledger_and_auth_surfaces_probe_their_served_views to the capabilities unit tests (services/platform/hosted/gateway/src/capabilities.rs:540)."
 symbols = ["Surface", "Capabilities", "probe_view", "ledger_and_auth_surfaces_probe_their_served_views"]
@@ -133282,6 +133302,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 1 (00e58c18b on de9686155) added Surface::Ledger probing totalUnits(bytes32) with a zero asset id, no Surface::Auth, and a test asserting a no-argument auth view; its build passed and the gate never ran because layerx-platform-registry does not compile at every base since tasks 13.4.5 and 13.4.6 (finding 8.4.3.1; task 8.12.3 ports it and is now required), and the do_2 views did not hold: totalUnits(bytes32) reverts LXP_ASSET_MISMATCH for an unknown asset (precompiles/layerxledger/views_test.go:243) and the frozen auth ABI (task 2.2.2, exactly its 9 methods) has no argument-free view (finding 8.4.3.2). Attempts 2 to 4 (81054ddd7, 1aef069ec, 55d82a8c2) stopped at the same registry build. Continue from 00e58c18b: keep the Surface::Ledger plumbing (enum, ALL, name, address, Capabilities.ledger, document, probe destructure, submission routing) and the shape of its assertions; change the ledger probe to accountId(bytes32,bytes32) with the selector from the ledger ABI, calldata selector plus 64 zero bytes, outputs [bytes32], words 1, decodes word(0); add Surface::Auth with evm::AUTH_PRECOMPILE (services/platform/hosted/gateway/src/evm.rs:55), name auth, abi precompiles/layerxauth/abi.json, probe isLive(bytes32,uint64,uint64), calldata selector plus 96 zero bytes, outputs [bool, string], words 4, decodes len == 128 and bool(0) and string(1, 0); replace the no-argument-view assertion with the existing capabilities_probe_views_exist_in_the_served_abi_of_each_surface check extended to the two-word and three-word zero calldata (capabilities.rs:1052); add auth to Capabilities, the document, live, the capabilities(...) fixture helper and the recorded_node arm; the call counts move from 7/14 to 8/16 and ALL.len from 6 to 7."
+do_6 = "Do not treat a revert as served (services/platform/hosted/gateway/src/capabilities.rs:266-273 stays), do not change any served ABI json, do not edit services/platform/hosted/registry. capabilities is private to the gateway binary (services/platform/hosted/gateway/src/main.rs:1; services/platform/hosted/gateway/src/lib.rs:6-11 exports ai_views, authority_evidence, evm, explorer_target, http and store), so the two probe calldata rows of services/platform/hosted/gateway/tests/router_surface.rs:453-457, its surface list at :726 and the px_getCapabilities sentence of services/platform/hosted/gateway/openrpc.json:3472 belong to task 8.0.4 (do_4), which runs after this task."
 
 [task.8.4.4]
 title = "Remove the custody and anchor constructs from the EVM table"
@@ -133351,7 +133373,7 @@ title = "Answer px_listAssets from the indexer asset list and chain metadata"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.5.1", "8.2.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1"]
+requires = ["8.5.1", "8.2.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.12.3"]
 reqs = ["8041.1"]
 capabilities = ["8.5.2"]
 interfaces = []
@@ -133378,6 +133400,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempts 1 to 3 (f9d7a9c98 on de9686155, ad2cb2232 on 042310e9e, 9c314362a on 16f187251) built layerx-platform-gateway and never reached the gate: the build of the crates that depend on the gateway library fails in layerx-platform-registry, red since tasks 13.4.5 and 13.4.6 (finding 8.4.3.1), which task 8.12.3 ports and which this task now requires (decision.1971). The next attempt starts from the latest candidate 9c314362a after checking it against do_1 to do_5, edits only the four touched files, and spends no repair cycle on services/platform/hosted/registry."
 
 [task.8.5.3]
 title = "Answer px_getNetwork with the consensus head instead of the anchor checkpoint"
@@ -134018,8 +134041,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Remove the kernel socket and node-state proofs from the program registry"
 status = "pending"
 mode = "BUILD"
-wave = 29
-requires = ["8.12.2", "8.0.4", "18.1083.1", "18.1297.1"]
+wave = 28
+requires = ["8.12.2", "13.4.5", "13.4.6", "18.1083.1", "18.1297.1"]
 reqs = ["8116.1"]
 capabilities = ["8.12.3"]
 interfaces = ["interface.8.env-registry-layerx-registry-lni-socket"]
@@ -134030,7 +134053,7 @@ do_3 = "Delete the kernel imports of services/platform/hosted/registry/src/node_
 do_4 = "Delete services/platform/hosted/registry/tests/relayed_head_attestation.rs (services/platform/hosted/registry/tests/relayed_head_attestation.rs:1-441) and the kernel deployment cases of services/platform/hosted/registry/tests/native_deployment.rs (services/platform/hosted/registry/tests/native_deployment.rs:1-1731), which drive the retired ingestion paths."
 do_5 = "Add registry_starts_without_an_lni_socket to services/platform/hosted/registry/tests/programs_chain.rs (planned)."
 symbols = ["node_state", "registry_starts_without_an_lni_socket"]
-touches = ["services/platform/hosted/registry/src/main.rs", "services/platform/hosted/registry/src/routes.rs", "services/platform/hosted/registry/src/deployment.rs", "services/platform/hosted/registry/src/head_attestation.rs", "services/platform/hosted/registry/src/node_state.rs", "services/platform/hosted/registry/tests/relayed_head_attestation.rs", "services/platform/hosted/registry/tests/native_deployment.rs", "services/platform/hosted/registry/tests/programs_chain.rs"]
+touches = ["services/platform/hosted/registry/src/main.rs", "services/platform/hosted/registry/src/routes.rs", "services/platform/hosted/registry/src/deployment.rs", "services/platform/hosted/registry/src/head_attestation.rs", "services/platform/hosted/registry/src/node_state.rs", "services/platform/hosted/registry/tests/relayed_head_attestation.rs", "services/platform/hosted/registry/tests/native_deployment.rs", "services/platform/hosted/registry/tests/programs_chain.rs", "services/platform/hosted/registry/src/journal.rs"]
 tests = ["services/platform/hosted/registry/tests/programs_chain.rs::registry_starts_without_an_lni_socket"]
 planned_paths = ["services/platform/hosted/registry/tests/programs_chain.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry"
@@ -134046,6 +134069,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "layerx-platform-registry does not compile on main (31 errors, finding 8.4.3.1): tasks 13.4.5 (42c1fea30) and 13.4.6 (0461a4f71) reshaped the chain-proof verifier of programs/crates/layerx-programs-registry/src/protocol_evidence.rs without porting this crate. services/platform/hosted/registry/src/node_state.rs:7 imports the deleted layerx_programs::ProtocolHeadMaintenanceProof; node_state.rs:304 and services/platform/hosted/registry/src/deployment.rs:90 read DeploymentProof.activity where DeploymentProof is { state: ProgramStateProof, deployment: ChainDeploymentProof }; node_state.rs:400, :415-417 and :426 read ProgramStateProof.receipt, .header, .header_signature and .receipt_proof where it is { commitment: CommitmentProof, state: ChainProgramStateProof, lifecycle: ProgramLifecycleProof, wind_down: ChainWindDownProof, transaction: Vec<u8>, transaction_proof: SimpleProof }; node_state.rs:512 and :526 read ProgramStateBundle.state and .head_kind where it is { commitment, program, program_record_ops, interface_ops, wind_down }; node_state.rs:356 calls verify_historical_deployment with one argument where it takes (proof, current: &VerifiedHeader, trust_chain: &[(ChainHeader, Commit, ValidatorSet)], now_ms) (protocol_evidence.rs:642); node_state.rs:525 passes six arguments to verify_current_chain_head(kind, proof: &CommitmentProof, transaction, transaction_proof, now_ms) (:852) and :544 five to verify_current_program_bundle(bundle, chain: &VerifiedChainHead, expected_program, now_ms) (:890); node_state.rs:537 and :894 read sequencer_public_key, which VerifiedChainHead and VerifiedProtocolHead no longer carry; node_state.rs:860 and :867 call the deleted verify_current_maintenance_head and verify_historical_maintenance_head, :877-881 build ProtocolHeadProof from receipt, receipt_proof, header, header_signature and maintenance where it is ProtocolHeadProof { commitment: &CommitmentProof, chain: ChainProtocolHeadProof, transaction: &[u8], transaction_proof: &SimpleProof } verified by verify_current_protocol_head(proof, now_ms) (:769) or verify_historical_protocol_head(proof, trusted_header, trusted_commit, history) (:803), and :885 passes the old arity; services/platform/hosted/registry/src/journal.rs:137-138, :615, :619 and :627 use canonical_encoding as Vec<u8> where it returns Result<Vec<u8>, ProtocolEvidenceError> (:946) and Result<Vec<u8>, ProgramBundleError> (:573); services/platform/hosted/registry/src/routes.rs:137 calls the deleted ProtocolDeploymentVerifier::from_protected_history(&config.sequencer_trust_history, config.staleness_ms) where the constructor is from_chain_trust(chain_id, validators, max_age_ms) (programs/crates/layerx-programs-registry/src/chain_evidence/trust_root.rs:10) fed by chain_proof::trust_store::TrustRoot::decode of the trust file exactly as journal.rs:985-997 and services/human/crates/layerx-explorer-index/src/main.rs:325-337 already do; routes.rs:1979 and :1995 serialize VerifiedDeploymentEvidence.batch_header_digest, which no longer exists. Port every site that do_1 to do_4 keep onto these types, delete the rest with the modules they belong to, and keep every served route and JSON field name except batch_header_digest, which becomes header_hash (the verified header hash) in the provenance struct and document, the replacement task 13.4.6 do_8 made for the agent."
+do_7 = "This task no longer waits for task 8.0.4: that gateway router proof covers px_* reads of the gateway, while every crate build of the platform workspace fails on this crate first (attempts 8.4.3 00e58c18b, 81054ddd7, 1aef069ec, 55d82a8c2 and 8.5.2 f9d7a9c98, ad2cb2232, 9c314362a all stopped there), so tasks 8.4.3 and 8.5.2 now require this task and this task requires 13.4.5 and 13.4.6 (decision.1971). The build_cmd is the first gate: the crate must compile before registry_starts_without_an_lni_socket runs. Edit no file outside the touches; services/platform/hosted/registry/tests/journal_chain_trust.rs already uses open_from_chain_trust and needs no change."
 
 [task.8.13.1]
 title = "Add the block-committed verification word to webhook events"
@@ -148947,6 +148972,38 @@ sandbox_profile = "rust"
 owner_role = "fm-human"
 fulfils = ["wiring.J44.21"]
 rollback = "Revert the 2 migrated files of layerx-human-movement-provider and delete services/human/crates/layerx-human-movement-provider/tests/retired_client_modules.rs."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.10.99.1]
+title = "Verify the human security provider recovery receipts against the chain trust root"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["10.0.1", "10.0.2"]
+reqs = ["10991.1"]
+capabilities = ["10.99.1"]
+interfaces = []
+do_1 = "layerx-human-security-provider does not compile on main: services/human/crates/layerx-human-security-provider/src/state.rs:56 and :136 call ProtocolDeploymentVerifier::from_protected_history, deleted by task 13.4.6 (0461a4f71) with the sequencer-signed head model, and state.rs:58 calls verify_historical_protocol_head with (receipt, proof, header, signature) where it now takes (proof: &ProtocolHeadProof, trusted_header: &ChainHeader, trusted_commit: &Commit, history: &[(ChainHeader, Commit, ValidatorSet)]) (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:803); this is the human-build failure of the wave 0 aggregate gate (task 17.5.1, attempt ee7d7eaf0 on de9686155)."
+do_2 = "The file named by LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY (src/main.rs:13, src/transport.rs:36) is a chain trust root: protected_read (state.rs:19 LIMIT) then layerx_programs::chain_proof::trust_store::TrustRoot::decode (programs/crates/layerx-programs-registry/src/chain_proof/trust_store.rs:53), as services/human/crates/layerx-explorer-index/src/main.rs:325-337 does; Store::open (state.rs:122-137) keeps refusing with Error::Configuration when the file is missing, unprotected, not a trust root or has an empty validator set, and the variable keeps its name."
+do_3 = "RecoveryReceipt (state.rs:26-34) keeps version, principal, evidence_id and canonical_receipt and replaces receipt_proof, header and header_signature with header (base64 of the canonical ChainHeader bytes, programs/crates/layerx-programs-registry/src/chain_proof/header.rs:46 decodes them), commit (base64 of the canonical Commit bytes, chain_proof/vote.rs:143) and transaction_proof (base64 of the SimpleProof, chain_proof/merkle.rs:21) of the canonical receipt as the block transaction. verify (state.rs:36-60) keeps the version, principal, text and canonical re-encoding checks, builds layerx_programs::ChainProofVerifier { chain_id: root.chain_id, validators: root.validators } (chain_proof/head_verify.rs:12) from the decoded trust root, calls verify_head(&header, &commit) (head_verify.rs:18: chain id, validators hash, height, block id and the two-thirds commit power) and then layerx_programs::verify_tx(&head, &receipt, &proof) (chain_proof/tx.rs:5: sha256 of the receipt against head.data_hash()); every failure maps to Error::Refused as today, and validate_state (state.rs:497) and ingest_recovery_receipt (state.rs:602) call the same verify."
+do_4 = "Copy the ChainFixture of programs/crates/layerx-programs-registry/tests/support/chain.rs to services/human/crates/layerx-human-security-provider/tests/support/chain.rs (planned) and rewrite evidence() in tests/support/mod.rs:9-55: the trust file is TrustRoot::canonical_bytes of the fixture chain id, height, time, header hash and validator set (trust_store.rs:17-32), the header gets data_hash of the one-transaction merkle root and the commit comes from the fixture validators, and the transaction proof is the SimpleProof over that single transaction, the construction services/agent/crates/layerx-agentd/tests/program_chain_head.rs:104 and :141 uses with merkle::hash_from_byte_slices; the tamper cases of verified_admin_ingest_reveal_and_tamper_refusal (tests/server.rs:264-313) flip a header byte, a commit signature byte, a proof byte and a receipt byte and are refused; add ed25519-dalek and sha2 to [dev-dependencies] of Cargo.toml only if the fixture needs them and they are absent; keep every other test unchanged."
+symbols = ["RecoveryReceipt", "verify", "verified_admin_ingest_reveal_and_tamper_refusal"]
+touches = ["services/human/crates/layerx-human-security-provider/src/state.rs", "services/human/crates/layerx-human-security-provider/src/transport.rs", "services/human/crates/layerx-human-security-provider/src/main.rs", "services/human/crates/layerx-human-security-provider/Cargo.toml", "services/human/crates/layerx-human-security-provider/tests/support/mod.rs", "services/human/crates/layerx-human-security-provider/tests/support/chain.rs", "services/human/crates/layerx-human-security-provider/tests/server.rs"]
+tests = ["services/human/crates/layerx-human-security-provider/tests/server.rs::verified_admin_ingest_reveal_and_tamper_refusal"]
+planned_paths = ["services/human/crates/layerx-human-security-provider/tests/support/chain.rs"]
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-security-provider"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-security-provider --test server -- --exact verified_admin_ingest_reveal_and_tamper_refusal"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+fulfils = []
+rollback = "Restore the sequencer-signed receipt fields and the trust history file; the provider does not build against the chain-proof verifier."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -174584,7 +174641,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -174615,6 +174672,7 @@ do_6 = "Attempt 7 (dd5b5641f, base 710592c26) exited 2 in step 2, make workspace
 do_7 = "Attempt 9 (14a682e57, base f352b312c) carries the attempt 6 test unchanged and exited 2 in step 2, make workspace-build: build and agent-build pass, and human-build (Makefile:1958) stops in the api-gen crate tests at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, because the test counts all 95 operation sections while the generator skips the eleven operations 10.15.2 (c51f67b3b) retires (src/lib.rs:640-642, :1541); tests/retired_operations.rs:73-77 and :133 still assume no retired operation. The repair belongs to fm-human in 10.16.4, outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; make workspace-lint has not run on any attempt."
 do_8 = "Attempt 11 (778c340aa, base 9f8c07033 with 10.16.4 at f478f7a5a) carries the attempt 9 test unchanged and exited 2 in step 2, make workspace-build: build and agent-build pass, the api-gen tests and the client check of human-build (Makefile:1958-1959) pass, and the human workspace build (Makefile:1960) stops at services/human/crates/layerx-explorer-index/src/lib.rs:225 with E0631, because ProtocolProgramIngestor::ingest maps the error of LayerxdProgramBalanceReader::read_protocol_state through IndexError::ProgramProtocolUnavailable, whose payload is still ProtocolAdapterError (lib.rs:15, :186), while 9.94.1 (a02e09aec) made the reader return layerx_agentd::read::ProgramReadError (services/agent/crates/layerx-agentd/src/read/program_node.rs:26, :223-229). The port belongs to fm-human in 10.16.5, outside this task's touches; the requires gain 10.16.5. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.5 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; the human crates not yet compiled, the human web build (Makefile:1961), the later workspace-build targets (Makefile:2917-2919) and make workspace-lint have not run on any attempt, and the step 2 log already shows rustc warnings in members of the agent and human workspaces that agent-lint and human-lint (clippy --all-targets -D warnings, Makefile:2112, :2230-2231) deny."
 do_9 = "Attempt 12 (af44d7420, base a373fef18 with 10.16.5 at 3441fc681) carries the attempt 9 test unchanged and exited 2 in step 2, make workspace-build, one target earlier than attempt 11: build passes and agent-build (Makefile:1947) stops compiling the layerx-agentd binary of services/agent/crates/layerx-agentd-host at services/agent/crates/layerx-agentd/src/main.rs:1013 with E0277 twice, because 8c526e4f0 (9.12.7, do_3) added `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` inside start_shared_owner, which returns Result<_, String> (main.rs:948-955), while NodeRpcConfig::from_environment (node_rpc.rs:23) and NodeRpc::connect (node_rpc.rs:90) return NodeRpcError and no From<NodeRpcError> for String exists (only for GateError at boot.rs:34 and FinalityError at finality.rs:35). 9.12.7's gates built -p layerx-agentd --test human_node only; the binary is declared in services/agent/crates/layerx-agentd-host/Cargo.toml with path ../layerx-agentd/src/main.rs and layerx-agentd sets autobins = false, so main.rs was never compiled before the merge (decision.1964). The repair belongs to 9.12.11, outside this task's touches; this task now requires it. The test is unchanged and right: in attempt 12 the ledger, stdout, log-file and size assertions (test_wave_0_gate.py:41-44) passed and only :45 (exit_code == 0) failed. Re-qualify it once on a revision that includes 9.12.11 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; human-build (Makefile:1957-1961, so the lib.rs:225 repair of 10.16.5 is unconfirmed by this gate), the later workspace-build targets (Makefile:2917-2919) and make workspace-lint have not run on any attempt, and the step 2 log shows 81 rustc warnings in the layerx-agentd library plus warnings in layerx-sdk, layerx-intents, layerx-human-kms and layerx-programs-registry that agent-lint and human-lint (clippy --all-targets -D warnings, Makefile:2112, :2230-2231) deny."
+do_10 = "Attempt 13 (ee7d7eaf0, base de9686155) carries the attempt 9 test unchanged and exited in step 2, make workspace-build: build and agent-build pass and human-build (Makefile:1960) stops at services/human/crates/layerx-human-security-provider/src/state.rs:56 and :136 with E0599, no function from_protected_history on ProtocolDeploymentVerifier, deleted by task 13.4.6 (0461a4f71). Task 10.99.1 ports the provider onto the chain trust root and is now required (decision.1971); the next attempt starts after it lands and changes no file."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
@@ -195184,6 +195242,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
