@@ -4767,6 +4767,24 @@ value = "req.9003 ac_1 is amended: under decision.1920 the human runtime keeps L
 basis = "Attempts 1 (227f0d0fe) and 2 (a568af4c5) of 9.0.3 failed all three node_integration tests: the LNI test hit `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION is required` because nothing at base retires the variable (refuse_retired_environment at main.rs:2378-2391 lists five other names) and 9.12.5 do_3 keeps the read at main.rs:980; the closed-endpoint test hit `LAYERX_AGENT_HUMAN_NODE_LNI is required` because serve_human_owner (human_owner_mode.rs:83) only parses NodeRpcConfig and NodeRpc::connect runs only in the readiness check (:49-55). The previous ac_1 could not be met without breaking human-owner mode."
 affects = ["9.0.3"]
 
+[decision.1943]
+title = "The tenant_resolve expectations follow the require_caller_coordinates contract"
+value = "The source contract is authoritative for services/agent/crates/layerx-agentd/tests/tenant_resolve.rs: since ae4fbabcf resolve refuses a supplied header or body tenant that differs from the token tenant with NotAuthorized (tenant.rs:447-459, require_caller_coordinates :588-599, interface.9.rs-agentd-tenant-require-caller-coordinates-j43), since bd7bceea8 McpInvoke is the only operation OperationClass::for_operation leaves unclassified, and since d796727bb (task 9.7.3 do_1) AgentRegister and SessionOpen are Prepare. Task 18.1228.1 ports the five stale expectations at tenant_resolve.rs:215, :369, :456, :540 and :586 under do_9 and do_10; its do_3 no longer applies to the lines those two do lines name and still applies to every other line of the file and to every file under src."
+basis = "Attempt 6 (0be1b800c) of 18.1228.1 is the first to reach the verify: all seven targets build, tests/revocation.rs passes, and only five tenant_resolve tests fail at lines the task never changed, each on an expectation the three source commits moved. The alternative, restoring the pre-ae4fbabcf tolerance of spoofed tenants in src, would weaken the tenant gate the stable interface pins."
+affects = ["18.1228.1"]
+
+[decision.1944]
+title = "layerxd --serve starts without binding the retired anchor finality authority"
+value = "A node-runtime task, 5.7.3, removes the 'finality authority' stage from layerxd --serve startup (cmd/layerxd/lxp_daemon_process.c:5972-5986): the evidence history opens with a NULL finality verifier and context, the verify_finality_authority assignment at :5983-5985 and the LXP_ERR_MODULE_DISABLED refusal at :6047-6049 go, and lxp_finality_authority_bind is no longer called at startup. No environment variable and no scripted anchor answer is added; cmd/layerxd/lxp_daemon_finality_authority.c and the authority replica stay as written, and task 5.50.4 (wave 30) still deletes the authority itself. Tasks 18.1200.1 and 10.20.3 require 5.7.3 and re-qualify their last candidates unchanged once it is on main."
+basis = "Since fc5bb55cf (task 5.7.2) PrecompileKeepers.AnchorK returns nil (node/precompiles.go:127), so threshold() and latestFinalized() on the anchor precompile 0x0000000000000000000000000000000000001014 revert 'layerxanchor: anchor module is not wired' (precompiles/layerxanchor/layerxanchor.go:218-219) and lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_finality_authority.c:540-579) refuses the error body with -213 (LXP_ERR_CONTEXT_MISMATCH). Every test that starts layerxd --serve against the in-tree node of decision.1896 fails there: 10.20.3 attempts 14 and 15 (0548c127f, e299ec5de) and 18.1200.1 attempt 11 (593fa04a4), and recovery.rs and unknown.rs reach the same start through support::evidence_verifier. Waiting for 5.50.4 at wave 30 would park the agent and human chains behind the 16.x waves; lxp_daemon_evidence.c:2588 already accepts a verify function and context that are both NULL and lxp_daemon_lni.c:1711 and :5080 already take the NULL-verifier branch."
+affects = ["5.7.3", "18.1200.1", "10.20.3"]
+
+[decision.1945]
+title = "The human-api generator tests follow the eleven operations retired at schema minor 10"
+value = "A human task, 10.16.4, aligns services/human/tools/api-gen/tests/generation.rs and tests/retired_operations.rs with the retirement 10.15.2 (c51f67b3b) made and the generator behaviour 10.16.1 (b7a323711) gave plan_operations (src/lib.rs:640-642, :1541): the coverage test counts live and retired operations separately and the retirement tests state their expectations against the real retired count. src/lib.rs, the schema and the committed client are unchanged. The four programme gate tasks 17.5.1, 17.5.2, 17.5.3 and 17.5.4 require 10.16.4 and re-qualify their last candidates unchanged."
+basis = "make workspace-build (human-build, Makefile:1958) runs the api-gen crate tests, and generation.rs:183 compares 84 planned operations with 95 declared sections, so every wave gate attempt since base c64af01ce stops there: 17.5.1 attempt 9 (14a682e57), 17.5.2 attempts 8 and 9 (0cf367b66, c62f113af), 17.5.3 attempt 7 (e97a1e588) and 17.5.4 attempts 6 and 7 (6e73533de, 3e5283efb). The generator and the retirement are right and the tests are stale; the gate tasks own only their programme test files."
+affects = ["10.16.4", "17.5.1", "17.5.2", "17.5.3", "17.5.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -4794,7 +4812,7 @@ completion_task = "4.0.9"
 [feature.5]
 name = "node-runtime"
 scope = "Node runtime: node/, modules/sequencer/, modules/store/, storage/, engine/, consensus/, wasm-runtime/, cmd/, daemon/, admin/, go.mod, go.sum, tests/chain, tests/daemon, occ_tests/; application assembly, upgrade plans, the sequencer runtime, receipts, WAL and standby, proposal validation and node persistence."
-requirements = ["5001", "5002", "5003", "5004", "5005", "5006", "5007", "5008", "5009", "5010", "5011", "5012", "5013", "5014", "5015", "5016", "5017", "5018", "5019", "5020", "5021", "5022", "5023", "5024", "5025", "5026", "5027", "5028", "5029", "5030", "5031", "5032", "5033", "5034", "5035", "5036", "5037", "5038", "5039", "5040", "5041", "5042", "5043", "5044", "5045", "5046", "5047", "5048", "5049", "5050", "5051", "5052", "5053", "5054", "5055", "5056", "5057", "5058", "5059", "5060", "5061", "5062", "5063", "5064", "5065", "5066", "5067", "5068", "5069", "5070", "5071", "5072", "5073", "5074", "5075", "5076", "5077", "5078", "5079", "5080", "5241", "5242", "5243", "5244", "5245", "5246", "5247", "5248", "5249", "5250", "5251", "5252", "5253", "5254", "5255", "5256", "5257", "5258", "5259", "5260", "5261", "5262", "5263", "5264", "5265", "5266", "5267", "5268", "5269", "5270", "5271", "5272", "5273", "5274", "5275", "5481", "5482", "5483", "5484", "5485", "5486", "5487", "5488", "5489", "5490", "5491", "5492", "5493", "5494", "5495", "5496", "5497", "5498", "5499", "5500", "5501", "5502", "5503", "5504", "5505", "5506", "5507", "5508", "5509", "5510", "5511", "5512", "5513", "5514", "5515", "5516", "5517", "5518", "5519", "5520", "5521", "5522", "5523", "5524", "5525", "5526", "5527", "5528", "5529", "5530", "5531", "5532", "5533", "5534", "5535", "5536", "5537", "5538", "5539", "5540", "5541", "5542", "5543", "5544", "5545", "5546", "5961", "5962", "5963", "5964", "5965", "5966", "5967", "5969", "5970", "5971", "5972", "5973", "5974", "5975", "5999"]
+requirements = ["5001", "5002", "5003", "5004", "5005", "5006", "5007", "5008", "5009", "5010", "5011", "5012", "5013", "5014", "5015", "5016", "5017", "5018", "5019", "5020", "5021", "5022", "5023", "5024", "5025", "5026", "5027", "5028", "5029", "5030", "5031", "5032", "5033", "5034", "5035", "5036", "5037", "5038", "5039", "5040", "5041", "5042", "5043", "5044", "5045", "5046", "5047", "5048", "5049", "5050", "5051", "5052", "5053", "5054", "5055", "5056", "5057", "5058", "5059", "5060", "5061", "5062", "5063", "5064", "5065", "5066", "5067", "5068", "5069", "5070", "5071", "5072", "5073", "5074", "5075", "5076", "5077", "5078", "5079", "5080", "5241", "5242", "5243", "5244", "5245", "5246", "5247", "5248", "5249", "5250", "5251", "5252", "5253", "5254", "5255", "5256", "5257", "5258", "5259", "5260", "5261", "5262", "5263", "5264", "5265", "5266", "5267", "5268", "5269", "5270", "5271", "5272", "5273", "5274", "5275", "5481", "5482", "5483", "5484", "5485", "5486", "5487", "5488", "5489", "5490", "5491", "5492", "5493", "5494", "5495", "5496", "5497", "5498", "5499", "5500", "5501", "5502", "5503", "5504", "5505", "5506", "5507", "5508", "5509", "5510", "5511", "5512", "5513", "5514", "5515", "5516", "5517", "5518", "5519", "5520", "5521", "5522", "5523", "5524", "5525", "5526", "5527", "5528", "5529", "5530", "5531", "5532", "5533", "5534", "5535", "5536", "5537", "5538", "5539", "5540", "5541", "5542", "5543", "5544", "5545", "5546", "5961", "5962", "5963", "5964", "5965", "5966", "5967", "5969", "5970", "5971", "5972", "5973", "5974", "5975", "5999", "5081"]
 completion_task = "5.0.9"
 
 [feature.6]
@@ -4824,7 +4842,7 @@ completion_task = "9.0.9"
 [feature.10]
 name = "human"
 scope = "Human: services/human/; identity, intents, KMS and application services that reuse the agent clients."
-requirements = ["10001", "10002", "10003", "10004", "10005", "10006", "10007", "10008", "10009", "10010", "10011", "10012", "10013", "10014", "10015", "10016", "10017", "10018", "10019", "10020", "10021", "10022", "10023", "10024", "10025", "10026", "10027", "10028", "10029", "10030", "10031", "10032", "10033", "10034", "10035", "10036", "10037", "10038", "10039", "10040", "10041", "10042", "10043", "10044", "10045", "10046", "10047", "10048", "10049", "10050", "10051", "10052", "10053", "10054", "10055", "10056", "10057", "10058", "10059", "10060", "10061", "10062", "10063", "10241", "10242", "10243", "10244", "10245", "10246", "10247", "10248", "10249", "10250", "10251", "10252", "10253", "10254", "10255", "10256", "10257", "10258", "10259", "10260", "10261", "10262", "10263", "10264", "10265", "10266", "10267", "10268", "10269", "10270", "10271", "10272", "10273", "10274", "10275", "10276", "10277", "10278", "10279", "10280", "10281", "10310", "10961", "10962", "10963", "10964", "10965", "10999"]
+requirements = ["10001", "10002", "10003", "10004", "10005", "10006", "10007", "10008", "10009", "10010", "10011", "10012", "10013", "10014", "10015", "10016", "10017", "10018", "10019", "10020", "10021", "10022", "10023", "10024", "10025", "10026", "10027", "10028", "10029", "10030", "10031", "10032", "10033", "10034", "10035", "10036", "10037", "10038", "10039", "10040", "10041", "10042", "10043", "10044", "10045", "10046", "10047", "10048", "10049", "10050", "10051", "10052", "10053", "10054", "10055", "10056", "10057", "10058", "10059", "10060", "10061", "10062", "10063", "10241", "10242", "10243", "10244", "10245", "10246", "10247", "10248", "10249", "10250", "10251", "10252", "10253", "10254", "10255", "10256", "10257", "10258", "10259", "10260", "10261", "10262", "10263", "10264", "10265", "10266", "10267", "10268", "10269", "10270", "10271", "10272", "10273", "10274", "10275", "10276", "10277", "10278", "10279", "10280", "10281", "10310", "10961", "10962", "10963", "10964", "10965", "10999", "10164"]
 completion_task = "10.0.9"
 
 [feature.11]
@@ -18944,6 +18962,10 @@ ac_1 = "The four edited files name no layerx_intents::canonical or layerx_intent
 [req.10999]
 title = "Domain 10 is complete"
 ac_1 = "human_completion_retired_surfaces_absent passes on the merged candidate: no retired domain-10 surface remains and every planned domain-10 wave-6 path exists."
+
+[req.10164]
+title = "The human-api generator tests count the operations retired at schema minor 10"
+ac_1 = "generated_client_covers_every_schema_declaration passes on the real schema with client.operations equal to the live operation count, client.retired() equal to the retired count and the two summing to the declared sections, and retired_operation_has_no_generated_client_method and retired_variant_stays_in_the_generated_union pass against a baseline that already carries ten retired operations."
 
 [req.11001]
 title = "Add the gateway evidence module with settlement rungs and the canonical receipt digest"
@@ -59983,6 +60005,10 @@ title = "Standby crosses commits and the sequencer serves a base fee"
 ac_1 = "The standby applies wal.Open(H+1) only after its app has committed H: standby.receive (node/sequencer/standby.go:693-701) waits, bounded by the replication timeout, for LastBlockHeight to reach H and answers the gap acknowledgement instead of setting the sticky failure when it has not, so sequential.Open (node/sequencer/executor.go:247) no longer fails with ErrOpenHeight on a following standby."
 ac_2 = "rpcPendingSnapshot (node/app.go:3288-3299) satisfies evmrpc.PendingBaseFee (rpc/info.go:376) with the base fee the open block fixed, so eth_gasPrice (rpc/info.go:105) and eth_feeHistory (rpc/info.go:282) are served on the sequencer and standby instead of failing with 'pending block does not fix a base fee' (rpc/info.go:389)."
 
+[req.5081]
+title = "layerxd --serve starts on a chain whose anchor module is not wired"
+ac_1 = "Starting layerxd --serve against a node whose anchor precompile 0x1014 answers 'layerxanchor: anchor module is not wired' to threshold() and latestFinalized() no longer exits with 'bootstrap finality authority failed with result -213'; the evidence history opens with no finality verifier and startup reaches the 'history' stage."
+
 [acceptance.5.556.1]
 feature = "5"
 req = "5556.1"
@@ -60413,6 +60439,14 @@ req = "5999.1"
 scenario = "Given the candidate after every domain-5 wave-6 task, when TestNodeCompletionRetiredSurfacesAbsent runs, then no retired surface remains and every planned path exists"
 contract = "contracts/sequencer.md#node-go-api"
 test = "node/sequencer/completion_gate_test.go::TestNodeCompletionRetiredSurfacesAbsent (planned)"
+qualification = "UNRUN"
+
+[acceptance.5.7.3]
+feature = "5"
+req = "5081.1"
+scenario = "Given a node whose PrecompileKeepers.AnchorK is nil, when layerxd --serve starts, then startup passes the former finality authority stage without calling lxp_finality_authority_bind and reaches the history stage."
+contract = "contracts/sequencer.md#node-abci"
+test = "tests/daemon/test_serve_startup_without_anchor_bind.py::test_serve_startup_no_longer_binds_the_finality_authority (planned)"
 qualification = "UNRUN"
 
 [acceptance.6.1.1]
@@ -71341,6 +71375,14 @@ req = "10999.1"
 scenario = "Given the candidate after every domain-10 wave-6 task, when human_completion_retired_surfaces_absent runs, then no retired surface remains and every planned path exists"
 contract = "contracts/services.md#human-tools"
 test = "services/human/tools/api-gen/tests/completion_gate.rs::human_completion_retired_surfaces_absent (planned)"
+qualification = "UNRUN"
+
+[acceptance.10.16.4]
+feature = "10"
+req = "10164.1"
+scenario = "Given the real human-api schema with eleven operations retired at minor 10, when the api-gen crate tests run, then the coverage test accepts the live and retired counts separately and the retirement tests state their expectations against the real retired count."
+contract = "contracts/services.md#human-tools"
+test = "services/human/tools/api-gen/tests/generation.rs::generated_client_covers_every_schema_declaration"
 qualification = "UNRUN"
 
 [acceptance.11.1.1]
@@ -113242,7 +113284,7 @@ title = "Gate domain 5 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7"]
+requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3"]
 reqs = ["5999.1"]
 capabilities = ["5.0.9"]
 interfaces = []
@@ -120592,6 +120634,36 @@ gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-node-runtime"
 rollback = "Revert v6120-node.sh and v6120_test.go; the local node starts with the empty perps default genesis again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.5.7.3]
+title = "Start layerxd --serve without binding the retired anchor finality authority"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["5081.1"]
+capabilities = []
+interfaces = []
+do_1 = "cmd/layerxd/lxp_daemon_process.c:5972-5986 runs the 'finality authority' stage: lxp_finality_authority_bind(&process->finality_authority, &process->evidence_store) (cmd/layerxd/lxp_daemon_finality_authority.c:540-579) reads eth_chainId, threshold() and latestFinalized() from the anchor precompile 0x0000000000000000000000000000000000001014 and fails with -213 (LXP_ERR_CONTEXT_MISMATCH) on a JSON-RPC error body (:330-333); since fc5bb55cf (task 5.7.2) AnchorK returns nil (node/precompiles.go:127) and both reads revert 'layerxanchor: anchor module is not wired' (precompiles/layerxanchor/layerxanchor.go:218-219), so layerxd --serve exits 1 with 'bootstrap finality authority failed with result -213' against every in-tree node. Remove the bind call and its stage from the --serve path: pass a NULL verify function and a NULL context to lxp_daemon_evidence_open_history in place of lxp_finality_authority_verify_history and &process->finality_authority (lxp_daemon_evidence.c:2588 accepts both NULL), drop the assignment of process->evidence_store.verify_finality_authority at :5983-5985, and delete the LXP_ERR_MODULE_DISABLED refusal at :6047-6049 that demands a verifier before the 'history' stage."
+do_2 = "The other readers of process->finality_authority keep their behaviour: handover_trust_finality (lxp_daemon_process.c:166-173) and lxp_daemon_finality_authority_init_pins (:268, reached only when a handover chain is given) still use the field, and lxp_daemon_lni.c:1711 and :5080 already take their NULL-verifier branch. Change no line of cmd/layerxd/lxp_daemon_finality_authority.c or its header, cmd/layerxd/lxp_daemon_authority_replica.c or cmd/layerxd/lxp_daemon_lni.c; add no environment variable and no scripted anchor answer. Task 5.50.4 deletes the authority itself."
+do_3 = "tests/daemon/test_serve_startup_without_anchor_bind.py (planned) runs `make -C . layerxd` from the repository root and asserts exit 0, then asserts the shape of cmd/layerxd/lxp_daemon_process.c: no call to lxp_finality_authority_bind, no stage named 'finality authority', no assignment to evidence_store.verify_finality_authority, and no LXP_ERR_MODULE_DISABLED refusal between the lxp_daemon_evidence_open_history call and the 'history' stage, while cmd/layerxd/lxp_daemon_finality_authority.c still defines lxp_finality_authority_bind for task 5.50.4 to delete. The behavioural proof is the layerxd --serve start inside the 18.1200.1 and 10.20.3 verifies, which this task unblocks."
+symbols = ["lxp_finality_authority_bind", "lxp_daemon_evidence_open_history", "test_serve_startup_no_longer_binds_the_finality_authority"]
+touches = ["cmd/layerxd/lxp_daemon_process.c", "tests/daemon/test_serve_startup_without_anchor_bind.py"]
+tests = ["tests/daemon/test_serve_startup_without_anchor_bind.py::test_serve_startup_no_longer_binds_the_finality_authority"]
+planned_paths = ["tests/daemon/test_serve_startup_without_anchor_bind.py"]
+build_cmd = "make -C . layerxd"
+verify_cmd = "python3 -m pytest tests/daemon/test_serve_startup_without_anchor_bind.py::test_serve_startup_no_longer_binds_the_finality_authority -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-node-runtime"
+rollback = "Restore the finality authority stage, the verify_finality_authority assignment and the LXP_ERR_MODULE_DISABLED refusal in cmd/layerxd/lxp_daemon_process.c and delete the test file."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -144546,7 +144618,7 @@ title = "Gate domain 10 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 35
-requires = ["10.0.1", "10.0.2", "10.0.3", "10.0.4", "10.1.2", "10.1.3", "10.1.4", "10.10.1", "10.10.2", "10.14.1", "10.16.2", "10.21.4", "10.21.5", "10.21.6", "10.24.3", "10.25.4", "10.97.1", "18.1119.1"]
+requires = ["10.0.1", "10.0.2", "10.0.3", "10.0.4", "10.1.2", "10.1.3", "10.1.4", "10.10.1", "10.10.2", "10.14.1", "10.16.2", "10.21.4", "10.21.5", "10.21.6", "10.24.3", "10.25.4", "10.97.1", "18.1119.1", "10.16.4"]
 reqs = ["10999.1"]
 capabilities = ["10.0.9"]
 interfaces = []
@@ -146475,7 +146547,7 @@ title = "Unhook retired journeys, wallet binding and the settlement recipient fr
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1"]
+requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.3"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -146517,6 +146589,7 @@ do_17 = "Task 9.5.10 is on main (attempt 4); re-run the attempt 8 candidate (0e3
 do_18 = "Attempts 9 and 10 (3e2a62ed9, 6918a6980) start layerx-agentd in human-owner mode from tests/production_unhooked.rs:125-233 without LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT, LAYERX_AGENT_HUMAN_AUTHORITY_BEARER, LAYERX_AGENT_HUMAN_AUTHORITY_CA_DER and LAYERX_AGENT_HUMAN_NODE_LNI, which services/agent/crates/layerx-agentd/src/human_owner_mode.rs:75 and src/main.rs:757-763, :967 and :981-982 have required since 3b0d29172 and 7bffafd0b; the environment that runs the gates exports none of them. Per decision.1913 the test serves the Human authority itself on loopback (decision.1884) as services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:353-410 does, a native_tls listener with an openssl-generated CA whose DER file is the CA_DER input, checking the bearer and answering GET /v1/agent/registry (src/human_runtime.rs:1456-1461) with the module registry of the one peer, and starts layerxd from LAYERX_TEST_NATIVE_BIN_DIR (decision.1896) for the NODE_LNI input, reading LAYERX_TEST_PAXEER_CHAIN_ID in its source; a missing LAYERX_TEST_NATIVE_BIN_DIR or a non-root test process is recorded as the finding of do_16, never scripted."
 do_19 = "Attempt 13 (1565a0751, the attempt 12 candidate f189d2634 re-qualified unchanged on base fb1c2cf88) passes the first two build_cmd members and fails the third, cargo build -p layerx-agentd-host --bin layerx-agentd, with E0061 at services/agent/crates/layerx-agentd/src/main.rs:1768: load_registry (:1753) still calls verify_historical_deployment(&proof) with one argument while 42c1fea30 (task 13.4.5) widened ProtocolDeploymentVerifier::verify_historical_deployment (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372-3378) to (proof, current, trust_chain, now_ms). The call is the same on main at the base and at 710592c26, in a file this task does not touch; task 18.1310.1 do_4 ports load_registry. This task now requires 18.1310.1 and changes nothing under services/agent or programs; the attempt 13 candidate continues unchanged on a base that includes it. Attempt 12 stopped earlier in the layerx-agentd library on the chain-proof head API that 18.1304.1 ported at c552f4ca5, which hid this binary error until attempt 13."
 do_20 = "Attempt 14 (0548c127f, the attempt 13 candidate 1565a0751 re-qualified unchanged on base 73dfa5565) passes all three build_cmd members, and both startup tests fail when layerxd --serve (tests/production_unhooked.rs:590-667) exits 1 with 'layerxd: bootstrap finality authority failed with result -213'. -213 is LXP_ERR_CONTEXT_MISMATCH (include/layerx/lxp_result.h:62). The stage is lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_process.c:5972-5975, cmd/layerxd/lxp_daemon_finality_authority.c:540-579), which since 411c57eaa reads eth_chainId, threshold() and latestFinalized() from the anchor precompile 0x0000000000000000000000000000000000001014 over 127.0.0.1:LAYERX_NODE_PAXEER_RPC_PORT and refuses to start on a body that is not a strict JSON-RPC result (:330-337), a chain id other than LAYERX_NODE_PAXEER_CHAIN_ID (:554) or an inconsistent latestFinalized pair (:561). The test's chain id, port and anchor pins are accepted (a misconfiguration returns -3 at :378-401) and match services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1222-1265, so keep the layerxd environment and every assertion exactly as they are. In start_node, before spawning layerxd, send the same three JSON-RPC requests to 127.0.0.1:LAYERX_TEST_PAXEER_RPC_PORT and put their raw HTTP status and bodies into the 'real node exited' error of wait_for_process (:705-724). An answer the in-tree node of decision.1896 gives that layerxd refuses is recorded as the finding of do_16, never scripted and never worked around in cmd/layerxd."
+do_21 = "Attempt 15 (e299ec5de, the attempt 14 candidate re-qualified unchanged on 265e0cc8d) fails both startup tests at the same layerxd --serve exit that do_20 records, 'bootstrap finality authority failed with result -213', and the cause is in the product, not in the environment: since fc5bb55cf (task 5.7.2) AnchorK returns nil (node/precompiles.go:127), so threshold() and latestFinalized() on the anchor precompile 0x0000000000000000000000000000000000001014 revert 'layerxanchor: anchor module is not wired' (precompiles/layerxanchor/layerxanchor.go:218-219) and lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_finality_authority.c:540-579) refuses the JSON-RPC error body (:330-333). Per decision.1944 task 5.7.3 removes that stage from layerxd --serve startup and the requires gain it. Keep every file and assertion as written, change nothing under cmd/, node/ or precompiles/, do not script the anchor answers, and re-qualify the attempt 15 candidate unchanged once 5.7.3 is on main."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -148632,6 +148705,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempts 2 and 3 fail the --tests build in tests/journey_faults.rs (ported by tasks 18.1149.1 and 10.98.11) and tests/archive.rs:101 and :288 (stale at main, no open owner); the build now compiles only this task's test targets: evidence_node, native_journey_approval, native_send_producer and retired_client_modules."
 do_7 = "Attempt 5 built do_6 and no test ran because the gate named --exact twice and the test harness refuses a repeated option; the gate now lists both test names after one --exact. Re-qualify the same candidate (14b440de0) without further change."
+
+[task.10.16.4]
+title = "Align the human-api generator coverage and retirement tests with the eleven operations retired at schema minor 10"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["10.15.2", "10.16.1"]
+reqs = ["10164.1"]
+capabilities = []
+interfaces = []
+do_1 = "services/human/tools/api-gen/tests/generation.rs:182-183 compares client.operations with every operation section, but plan_operations skips retired operations (src/lib.rs:640-642) and reports planned.len() (src/lib.rs:1541), so the real schema gives 84 against 95 since 10.15.2 (c51f67b3b) retired eleven operations; split the declared sections into retired and live with the scan used at generation.rs:243-275, assert client.operations equals the live count, client.retired() equals the retired count and the two sum to the declared count, keep the shape, method and conformance assertions of :184-196 for every live operation, assert index.ts and conformance.ts declare none of them for a retired operation, and keep :198-239 exactly as written."
+do_2 = "services/human/tools/api-gen/tests/retired_operations.rs:73-77, :87-90, :98-100 and :133 assume a real schema with no retired operation; in the temp copy first remove the retired flag of operation.deposit.start (services/human/schema/human-api/movement.kvx:145) so the baseline has ten retired operations and a live depositStart, retire it again and assert exactly one more retired operation, one fewer operation and no depositStart, deposit.start or /v1/deposits text, check a still-live operation where :98-100 checked depositConfirm, and state :107-111 and :133 against the real retired count without duplicating the existing retired_variants key of type.JourneyKind."
+do_3 = "Do not change src/lib.rs, the schema or the committed client; the generator behaviour of 10.16.1 and the retirement of 10.15.2 are right and the tests follow them."
+symbols = ["generated_client_covers_every_schema_declaration", "retired_operation_has_no_generated_client_method", "retired_variant_stays_in_the_generated_union"]
+touches = ["services/human/tools/api-gen/tests/generation.rs", "services/human/tools/api-gen/tests/retired_operations.rs"]
+tests = ["services/human/tools/api-gen/tests/generation.rs::generated_client_covers_every_schema_declaration", "services/human/tools/api-gen/tests/retired_operations.rs::retired_operation_has_no_generated_client_method", "services/human/tools/api-gen/tests/retired_operations.rs::retired_variant_stays_in_the_generated_union"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/tools/api-gen/Cargo.toml -p layerx-human-api-gen"
+verify_cmd = "cargo test --locked --manifest-path services/human/tools/api-gen/Cargo.toml -p layerx-human-api-gen"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the two test files; src/lib.rs, the schema and the committed client are unchanged."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.11.0.1]
 title = "Add the gateway evidence module with settlement rungs and the canonical receipt digest"
@@ -173716,7 +173819,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -173744,13 +173847,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 6 stops in make workspace-build: agent-build fails in the layerx-agentd binary (services/agent/crates/layerx-agentd/src/main.rs:785, :1775, :1974, :2050 and services/agent/crates/layerx-agentd-host/src/payer.rs:389, :393, :441) and platform-build in tools/platform/cli/src/wallet.rs:331-333 and :794; those ports are tasks 9.98.1 and 8.48.1 (now required, decision.1847). The test file of attempt 5 is unchanged and right; qualify it on a revision that includes both, and record any further workspace break the gate reports with its file, line and owning task."
 do_5 = "Attempt 6 (827decfcd) stopped in make workspace-build before 9.98.1 (18d25efac) landed; since then 1e3b37aee (18.1243.1) left services/agent/crates/layerx-agentd-host/src/payer.rs:333, :336 and :353 unported and dc4290e1f (9.5.8) broke balance_json at services/agent/crates/layerx-agentd/src/main.rs:2004, and 18.1243.2 (37888aa9c) and 9.5.10 (1da2c7d62), both on main, port both. The requires gain 18.1301.1. The test of attempt 6 is unchanged and right: it reads only logs/waves/0/wave-0.log and evidence.log, which 17.5.9 does not move. Re-qualify it once on a revision that includes 18.1301.1, because the third step, make workspace-lint, runs agent-lint (clippy --all-targets -D warnings, Makefile:2230-2232) over services/agent/crates/layerx-mcp/tests/scope.rs:525, which names the removed InvalidationReason::CapabilityGrantRevoked, and over the unused binding at services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1738; record each further failure that the step log under logs/waves/0 names, with its file, line and owning task."
 do_6 = "Attempt 7 (dd5b5641f, base 710592c26) exited 2 in step 2, make workspace-build: agent-build (Makefile:1947) stops in the layerx-agentd binary at services/agent/crates/layerx-agentd/src/main.rs:1768 (E0061), the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372. Task 18.1310.1 (096e161e1, on main) ports it to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The test of attempt 6 is unchanged and right; re-qualify it once on a revision that includes 18.1310.1, and record each further failure the step log under logs/waves/0 names, with its file, line and owning task."
+do_7 = "Attempt 9 (14a682e57, base f352b312c) carries the attempt 6 test unchanged and exited 2 in step 2, make workspace-build: build and agent-build pass, and human-build (Makefile:1958) stops in the api-gen crate tests at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, because the test counts all 95 operation sections while the generator skips the eleven operations 10.15.2 (c51f67b3b) retires (src/lib.rs:640-642, :1541); tests/retired_operations.rs:73-77 and :133 still assume no retired operation. The repair belongs to fm-human in 10.16.4, outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; make workspace-lint has not run on any attempt."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1"]
+requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4"]
 reqs = ["17055.1"]
 capabilities = ["17.5.2"]
 interfaces = []
@@ -173779,13 +173883,14 @@ do_4 = "Attempt 6 stops in make workspace-build: agent-build fails in the layerx
 do_5 = "Attempt 6 (1b496750a) stopped on the same layerx-agentd binary break as 17.5.1 attempt 6, which 9.98.1 (18d25efac) ports; 18.1243.2 (37888aa9c) and 9.5.10 (1da2c7d62) are on main as well. The requires gain 18.1301.1, because step 2, make workspace-test, runs agent-test (cargo test --workspace, Makefile:2227-2228), which compiles services/agent/crates/layerx-mcp/tests/scope.rs:525."
 do_6 = "In spec/layerx-merge/programme/tests/test_wave_1_gate.py:73 the passing branch reads the step logs from GATE_LOG_DIR or ROOT/.logs/gates, but since 266e32829 (17.5.9) wave-1.sh:22 writes them to logs/waves/1, the wave's evidence_dir, so a passing wave fails the assertions at :86-87; take the directory as os.environ.get('GATE_LOG_DIR', directory) and keep every assertion and the failure branch at :53-70 exactly as written."
 do_7 = "Attempt 7 (d9c803cc7, base 710592c26) carries the do_6 change at spec/layerx-merge/programme/tests/test_wave_1_gate.py:73 and exited 2 in step 1, make workspace-build: agent-build (Makefile:1947) fails with E0061 at services/agent/crates/layerx-agentd/src/main.rs:1768, the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372; the layerx-agentd library compiles. Task 18.1310.1 (096e161e1, on main) ports the call to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The attempt 7 test is unchanged and right; re-qualify it once on a revision that includes 18.1310.1 and record each further failure the step logs under logs/waves/1 name, with file, line and owning task."
+do_8 = "Attempt 9 (c62f113af, base f352b312c) carries the attempt 7 test unchanged and exited 2 in step 1, make workspace-build: human-build (Makefile:1958) stops at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, the stale operation count left by 10.15.2 (c51f67b3b) and 10.16.1 (b7a323711) that 10.16.4 repairs outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4; workspace-test, core-test-all and test-sanitizer-suite have not run on any attempt, so record each further failure the step logs under logs/waves/1 name, with file, line and owning task."
 
 [task.17.5.3]
 title = "Run the wave 2 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["17.5.8", "17.0.2", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.3", "18.1121.1", "17.5.9", "18.1301.1", "18.1310.1"]
+requires = ["17.5.8", "17.0.2", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.3", "18.1121.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4"]
 reqs = ["17056.1"]
 capabilities = ["17.5.3"]
 interfaces = []
@@ -173812,13 +173917,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempts 1 to 4 (568c457fd, 8949374a1, 4a9bc8586, e9affcc7b) stopped in make workspace-build on services/agent/crates/layerx-agentd-host/src/payer.rs:333 (E0609 current_height), :336 (E0599 prepare_budget) and :353 (E0061 prepare_draw), which 1e3b37aee (18.1243.1) introduced and 37888aa9c (18.1243.2) ported after attempt 4; 9.5.10 (1da2c7d62) is on main as well. The requires gain 18.1301.1. The test of attempt 4 is unchanged and right. Re-qualify it once on a revision that includes 18.1301.1, because steps 2 and 4 (make workspace-test, make agent-test) compile services/agent/crates/layerx-mcp/tests/scope.rs:525, which names the removed InvalidationReason::CapabilityGrantRevoked; record each further failure that the step log under logs/waves/2 names, with its file, line and owning task."
 do_5 = "Attempt 5 (21bc0a531, base 710592c26) exited 2 in step 1, make workspace-build: agent-build (Makefile:1947) stops in the layerx-agentd binary at services/agent/crates/layerx-agentd/src/main.rs:1768 (E0061), the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372. Task 18.1310.1 (096e161e1, on main) ports it to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The test of attempt 4 is unchanged and right; re-qualify it once on a revision that includes 18.1310.1 and record each further failure the step logs under logs/waves/2 name, with file, line and owning task."
+do_6 = "Attempt 7 (e97a1e588, base f352b312c) carries the attempt 4 test unchanged and exited 2 in step 1, make workspace-build: human-build (Makefile:1958) stops at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, the stale operation count left by 10.15.2 (c51f67b3b) and 10.16.1 (b7a323711) that 10.16.4 repairs outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4; workspace-test, core-test-all and agent-test have not run on any attempt, so record each further failure the step logs under logs/waves/2 name, with file, line and owning task."
 
 [task.17.5.4]
 title = "Run the wave 3 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["17.5.8", "17.13.1", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.4", "18.1121.1", "17.5.9", "18.1301.1", "18.1310.1"]
+requires = ["17.5.8", "17.13.1", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.4", "18.1121.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4"]
 reqs = ["17057.1"]
 capabilities = ["17.5.4"]
 interfaces = []
@@ -173845,6 +173951,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempts 1 to 4 (916900383, df91151a3, bba8fd9c6, 59add741d) stopped in make workspace-build on services/agent/crates/layerx-agentd-host/src/payer.rs:333, :336 and :353 (E0609 current_height, E0599 prepare_budget, E0061 prepare_draw), which 1e3b37aee (18.1243.1) introduced and 37888aa9c (18.1243.2) ported after attempt 4; 9.5.10 (1da2c7d62) is on main as well. The requires gain 18.1301.1. The test of attempt 4 is unchanged and right. Re-qualify it once on a revision that includes 18.1301.1, because steps 2 and 3 (make workspace-test, make agent-test) compile services/agent/crates/layerx-mcp/tests/scope.rs:525; interop-test and programs-test have not run yet, so record each further failure that the step log under logs/waves/3 names, with its file, line and owning task."
 do_5 = "Attempt 5 (b78eee5c8, base 710592c26) exited 2 in step 1, make workspace-build: agent-build (Makefile:1947) fails with E0061 at services/agent/crates/layerx-agentd/src/main.rs:1768, the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372; the layerx-agentd library compiles. Task 18.1310.1 (096e161e1, on main) ports the call to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The test of attempt 4 is unchanged and right; re-qualify it once on a revision that includes 18.1310.1; make workspace-test, make agent-test, interop-test and programs-test have not run yet, so record each further failure the step logs under logs/waves/3 name, with file, line and owning task."
+do_6 = "Attempt 7 (3e5283efb, base f352b312c) carries the attempt 4 test unchanged and exited 2 in step 1, make workspace-build: human-build (Makefile:1958) stops at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, the stale operation count left by 10.15.2 (c51f67b3b) and 10.16.1 (b7a323711) that 10.16.4 repairs outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4; workspace-test, agent-test, interop-test and programs-test have not run on any attempt, so record each further failure the step logs under logs/waves/3 name, with file, line and owning task."
 
 [task.17.5.5]
 title = "Run the wave 4 aggregate gate once on the merged wave revision"
@@ -189615,7 +189722,7 @@ title = "Issue #1200: Port the stale outbox test callers to the three-argument e
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["18.1199.1", "18.1206.1", "18.1298.1", "18.1304.1"]
+requires = ["18.1199.1", "18.1206.1", "18.1298.1", "18.1304.1", "5.7.3"]
 reqs = ["181200.1"]
 capabilities = []
 interfaces = []
@@ -189645,6 +189752,7 @@ do_6 = "Attempt 6 (migration.rs:239 published_compatibility_matrix_accepts_only_
 do_7 = "Attempt 7 (63db9d1d6) builds the five targets; migration passes (8 tests) and operator fails only inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal, which panics at tests/support/real_authority.rs:46 with real isolated Paxeer chain id is required: NotPresent because node_storage_environment (:1215-1240) reads LAYERX_TEST_PAXEER_CHAIN_ID, LAYERX_TEST_PAXEER_RPC_PORT, LAYERX_TEST_SETTLEMENT_CONTRACT and LAYERX_TEST_CHECKPOINT_REGISTRY and spawn_daemon (:371, :1006) needs LAYERX_TEST_NATIVE_BIN_DIR; operator_route, recovery and unknown did not run after that failure. The environment that runs the gates provides those variables from the in-tree node (decision.1896); re-qualify attempt 7 unchanged."
 do_8 = "Attempt 9 (18c428082): with the in-tree node provided, five of the six tests pass; inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal panics at tests/support/real_authority.rs:1011 because the authority fixture needs build/bin/layerx-genesis-build beside layerxd (Makefile:1125, target layerx-genesis-build) in LAYERX_TEST_NATIVE_BIN_DIR. The environment that runs the gates now builds both; re-qualify the attempt 9 candidate unchanged."
 do_9 = "Attempt 10 (candidate on bd45f5f64) passes five of the six tests; the real-authority operator test panics at tests/support/real_authority.rs:46 with migrations listing NotFound because repository_root() (:71-77) resolves to services/ (issue #1298, task 18.1298.1, now required). Continue the attempt 10 candidate once that task is on main; real_authority.rs is outside this task."
+do_10 = "Attempt 11 (593fa04a4, the attempt 10 candidate re-qualified unchanged on 265e0cc8d) builds green; migration passes 9 tests including repository_root_holds_migrations_and_agent_workspace, so 18.1298.1 holds, and operator passes 6 of 7. inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal now panics at tests/support/real_authority.rs:493 (wait_for_lni) because layerxd --serve, started by start_sequencer (:1363-1385), exits 1 with 'bootstrap finality authority failed with result -213' (LXP_ERR_CONTEXT_MISMATCH, include/layerx/lxp_result.h:62) at lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_process.c:5972-5975, cmd/layerxd/lxp_daemon_finality_authority.c:540-579), which reads threshold() and latestFinalized() from the anchor precompile 0x0000000000000000000000000000000000001014 and refuses a JSON-RPC error body (:330-333). On the in-tree node of decision.1896 both reads revert with 'layerxanchor: anchor module is not wired' (precompiles/layerxanchor/layerxanchor.go:218-219) because PrecompileKeepers.AnchorK returns nil (node/precompiles.go:127) since fc5bb55cf (task 5.7.2), as task 10.20.3 attempt 15 recorded on the same base; the bind itself retires only in task 5.50.4. recovery.rs (:29, :54, :213) and unknown.rs (:97) reach the same layerxd start through support::evidence_verifier (tests/support/mod.rs:476, :493). Keep the seven files and every assertion exactly as written, change nothing under cmd/, node/, precompiles/ or tests/support/real_authority.rs, and re-qualify the attempt 11 candidate unchanged once the task that removes the finality authority stage from layerxd --serve startup is on main."
 
 [task.18.1203.1]
 title = "Issue #1203: Refuse operator verification retries for settlement-anchored requests"
@@ -190052,6 +190160,8 @@ do_5 = "agent_controls.rs:634, :652 and :666 call change_limit with three argume
 do_6 = "The build compiles only the seven test targets the verify runs. With --tests it also compiled services/agent/crates/layerx-agentd/tests/degraded.rs, which task 18.1205.1 ports to the Observation::Ready and DegradedRead fields of a71fefb65 (attempt 4, 99dc4f3fc: E0559, E0308 and E0609 at degraded.rs:103-166), and layerx-human-service targets this task does not touch. Change nothing in degraded.rs; the attempt 4 candidate is re-qualified unchanged under the narrowed build."
 do_7 = "Since c03f97f8e (task 9.2.2) self_sign takes &SigningPreparation (services/agent/crates/layerx-agentd/src/sign.rs:270-276, struct at sign.rs:62-66), so services/human/crates/layerx-human-service/tests/session_keys.rs:248, which passes the Prepared of prepared_send (:632), fails with E0308 (attempt 5, beb1eb527). In direct_sign (:235-254) wrap that Prepared the way services/agent/crates/layerx-agentd/tests/evm_signing.rs:171-188 does: an Eip1559Call with chain_id u64::from(NETWORK_ID) (:51), nonce 7 (the account_sequence at :637), the fees, gas_limit and to of evm_signing.rs:173-177 and data prepared.canonical_bytes; transaction is EvmPrepared { signing_hash: call.signing_hash(), call, observed_head_height: 90 } (:639); authorization is the Prepared; actor_address is the EVM address of the same 32-byte session secret that provision passes to ProvisionedSessionKey::new at :336, derived as evm_signing.rs:139-143 does (k256 SigningKey::from_slice, then layerx_crypto::secp256k1::evm_address of the uncompressed point; k256 is a dependency at services/human/crates/layerx-human-service/Cargo.toml:29), stored in a new InstalledSession field (:133-139) when the session is inserted at :385-393, because ProvisionedSessionKey exposes no address (sign.rs:80-88) and attach_signature refuses any other sender with SignerMismatch (services/agent/crates/layerx-agentd/src/sign_verify.rs:52-63). Import SigningPreparation from layerx_agentd::sign, EvmPrepared from layerx_agentd::prepare and Eip1559Call from layerx_crypto::evm_transaction; keep every direct_sign assertion (:731-732, :743-744, :752-753, :805-806, :811-812, :898-899, :902-903) as written."
 do_8 = "services/human/crates/layerx-human-service/tests/archive.rs:101 sets verification_level in the FundsDispositionEvidence literal, a field 014c0f8d7 (task 10.13.6) replaced with rung: Rung (services/human/crates/layerx-human-service/src/agents/archive.rs:52-59), so the archive target fails with E0560 (attempt 5, beb1eb527). The archive target compiles only once both :101 and :288 change, and 18.1195.1, whose do_1 names :101, requires this task; set rung: layerx_types::rung::Rung::Committed at :101 in the form :164 already uses, keep verification_level: VerificationLevel::STATE_PROVEN at :189, which belongs to CoreIdentity, and the VerificationLevel import at :32, and change no assertion."
+do_9 = "Attempt 6 (0be1b800c) builds all seven targets and passes tests/revocation.rs, but five tests in services/agent/crates/layerx-agentd/tests/tenant_resolve.rs fail at lines this task never changed, because the source contract moved after the file was written; do_3 does not apply to the tenant_resolve.rs lines named in do_9 and do_10. Since ae4fbabcf resolve refuses any supplied header or body tenant that differs from the token tenant with NotAuthorized (services/agent/crates/layerx-agentd/src/tenant.rs:447-459 calling require_caller_coordinates at :588-599, interface.9.rs-agentd-tenant-require-caller-coordinates-j43), so request (:159-168) and operation_request (:170-190), which supply tenant_id('spoof-header') and tenant_id('spoof-body') at :164-165 and :186-187, make :215, :540 and :586 fail. Set supplied_header_tenant and supplied_body_tenant in both builders to Some(tenant_id('tenant-a')), the tenant fixture registers at :135. In spoofed_request_tenants_are_ignored_on_every_surface keep the test name and :208-244 as written and, for every surface, also resolve one context whose supplied_header_tenant is Some(tenant_id('spoof-header')) and one whose supplied_body_tenant is Some(tenant_id('spoof-body')) into a second TenantObservability, assert each returns Err(AuthorizationError::NotAuthorized), and after the loop assert that the second observability holds 2 * Surface::ALL.len() audit entries, each with tenant equal to fixture.tenant and outcome AuthorizationOutcome::NotAuthorized. Keep every other assertion in the file as written."
+do_10 = "Since bd7bceea8 McpInvoke is the only operation OperationClass::for_operation leaves unclassified (tenant.rs:114), and since d796727bb (task 9.7.3, whose do_1 lets AgentRegister and SessionOpen reach adapters) both are classified Prepare (tenant.rs:120-122), so tenant_resolve.rs:369 fails with 52 against 51 and :456 with Some(Prepare) against None (attempt 6, 0be1b800c). At :369 assert operations.len() equals Operation::ALL.len() - 1, and replace :370-374 with for_operation(Operation::McpInvoke) equal to None and for_operation of Operation::AgentRegister and of Operation::SessionOpen each equal to Some(OperationClass::Prepare). Rename bootstrap_operations_are_explicitly_outside_the_existing_token_gate (:449-470) to only_mcp_invoke_is_outside_the_token_gate, run its :456-462 checks over [Operation::McpInvoke] only (authorized_scopes is empty for it, so resolve answers InvalidRequest at tenant.rs:207-215 and :407-417), assert one InvalidRequest audit entry in place of the two at :464-468, then resolve Operation::AgentRegister and Operation::SessionOpen on Surface::RustSdk into a second TenantObservability and assert each returns SessionId([1; 32]) and that both of its audit entries are AuthorizationOutcome::Allowed. Change no file under src and no other file."
 
 [task.18.1229.1]
 title = "Issue #1229: Validate the sponsored-status budget in the gas station's own fields and gas units"
@@ -194172,6 +194282,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 

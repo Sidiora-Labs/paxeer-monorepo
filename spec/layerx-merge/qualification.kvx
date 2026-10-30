@@ -12547,3 +12547,59 @@ symbol = "startup_refuses_a_chain_id_mismatch"
 observed = "Attempts 1 (227f0d0fe) and 2 (a568af4c5) both fail with `set LAYERX_AGENT_NODE_RPC_URL to the integrated devnet JSON-RPC endpoint`, because the test reads a variable no environment exports instead of LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT (decision.1896)."
 assumption = "Reading the decision.1896 variables makes the environment that runs the gates provide the in-tree node; no attempt has exercised that yet."
 severity = "task"
+
+[finding.18.1228.1.4]
+task = "18.1228.1"
+file = "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:369"
+symbol = "OperationClass::for_operation, resolve"
+observed = "Attempt 6 (0be1b800c) is the first attempt to reach the verify, after attempts 2-5 (ecd1749e6, 22bfbbffd, 99dc4f3fc, beb1eb527) stopped in the build. It passes revocation but fails five tenant_resolve tests at unchanged lines :215, :369, :456, :540 and :586, because resolve refuses supplied tenants since ae4fbabcf and d796727bb (9.7.3) classified AgentRegister and SessionOpen as Prepare."
+assumption = "The source contract is authoritative (the stable require_caller_coordinates interface and 9.7.3 do_1), so do_9 and do_10 port the stale tenant_resolve expectations and lift do_3 for those lines only."
+severity = "owner"
+
+[finding.18.1200.1.6]
+task = "18.1200.1"
+file = "cmd/layerxd/lxp_daemon_finality_authority.c:540"
+symbol = "lxp_finality_authority_bind"
+observed = "Attempt 11 (593fa04a4, the attempt 10 candidate bab94e872 unchanged on 265e0cc8d) passes the 18.1298.1 root fix (migration 9/9, operator 6/7), but the real-authority operator test panics at tests/support/real_authority.rs:493 because layerxd --serve exits -213 at the finality authority stage, whose threshold() and latestFinalized() reads of 0x1014 revert 'anchor module is not wired' on the in-tree node since fc5bb55cf (5.7.2) made AnchorK return nil (node/precompiles.go:127), as 10.20.3 attempt 15 (e299ec5de, same base) captured."
+assumption = "No layerx-agentd test that starts layerxd --serve can pass on the merged chain until an owner-ruled task removes the finality authority stage from layerxd startup (today only 5.50.4, pending wave 30) or retargets the real-authority fixture; the seven task files need no change."
+severity = "owner"
+
+[finding.10.20.3.9]
+task = "10.20.3"
+file = "cmd/layerxd/lxp_daemon_finality_authority.c:540"
+symbol = "lxp_finality_authority_bind"
+observed = "Attempt 15 (e299ec5de, the attempt 14 candidate 0548c127f unchanged on 265e0cc8d) builds all three build_cmd members and both startup tests fail because layerxd --serve exits 1 with 'bootstrap finality authority failed with result -213': threshold() and latestFinalized() on 0x1014 revert 'anchor module is not wired' because fc5bb55cf (5.7.2) made AnchorK return nil (node/precompiles.go:127), the same exit 18.1200.1 attempt 11 (593fa04a4) met on the same base."
+assumption = "finding.10.20.3.8 read the refusal as an environment answer; it is the product's own retired anchor module, so no layerxd --serve start passes until task 5.7.3 (decision.1944) removes the finality authority stage, and the task files need no change."
+severity = "owner"
+
+[finding.17.5.1.8]
+task = "17.5.1"
+file = "services/human/tools/api-gen/tests/generation.rs:183"
+symbol = "generated_client_covers_every_schema_declaration"
+observed = "Attempt 9 (14a682e57, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_0_gate.py::test_wave_0_gate_passes exit 1, logs/waves/0/wave-0-2.log) exited 2 in make workspace-build at human-build (Makefile:1958), where generation.rs:183 compares 84 planned operations with 95 declared sections because c51f67b3b (10.15.2) retires eleven that b7a323711 (10.16.1) skips; attempt 8 (8b976bd00) ran on c64af01ce, the first base past the agent-build break that hid it."
+assumption = "17.5.1 requires the fm-human task that aligns generation.rs and retired_operations.rs with the minor-10 retirement and re-qualifies the attempt 9 test unchanged; make workspace-lint has not yet run on any attempt."
+severity = "owner"
+
+[finding.17.5.2.8]
+task = "17.5.2"
+file = "services/human/tools/api-gen/tests/generation.rs:183"
+symbol = "generated_client_covers_every_schema_declaration"
+observed = "Attempts 8 (0cf367b66, base c64af01ce) and 9 (c62f113af, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_1_gate.py::test_wave_1_gate_passes exit 1, logs/waves/1/wave-1-1.log) exited 2 in make workspace-build at human-build (Makefile:1958) with left 84 right 95 at generation.rs:183, the operation count c51f67b3b (10.15.2) and b7a323711 (10.16.1) left stale."
+assumption = "17.5.2 requires the fm-human repair task and re-qualifies the attempt 9 test unchanged; steps 2 to 4 have not yet run on any attempt."
+severity = "owner"
+
+[finding.17.5.3.4]
+task = "17.5.3"
+file = "services/human/tools/api-gen/tests/generation.rs:183"
+symbol = "generated_client_covers_every_schema_declaration"
+observed = "Attempt 7 (e97a1e588, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_2_gate.py::test_wave_2_gate_passes exit 1, logs/waves/2/wave-2-1.log) exited 2 in make workspace-build at human-build (Makefile:1958) with left 84 right 95 at generation.rs:183, the same stale operation count as 17.5.2 attempt 9 (c62f113af) on the same base; attempt 6 (e7b9f1825) ran on c64af01ce."
+assumption = "17.5.3 requires the fm-human repair task and re-qualifies the attempt 7 test unchanged; steps 2 to 4 have not yet run on any attempt."
+severity = "owner"
+
+[finding.17.5.4.3]
+task = "17.5.4"
+file = "services/human/tools/api-gen/tests/generation.rs:183"
+symbol = "generated_client_covers_every_schema_declaration"
+observed = "Attempts 6 (6e73533de, base c64af01ce) and 7 (3e5283efb, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_3_gate.py::test_wave_3_gate_passes exit 1, logs/waves/3/wave-3-1.log) exited 2 in make workspace-build at human-build (Makefile:1958) with left 84 right 95 at generation.rs:183, the operation count c51f67b3b (10.15.2) and b7a323711 (10.16.1) left stale."
+assumption = "17.5.4 requires the fm-human repair task and re-qualifies the attempt 7 test unchanged; the later wave 3 steps have not yet run on any attempt."
+severity = "owner"
