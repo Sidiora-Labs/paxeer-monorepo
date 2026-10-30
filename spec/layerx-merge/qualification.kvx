@@ -11803,3 +11803,59 @@ symbol = "ProductionHumanOperations"
 observed = "Attempts 1 to 4 fail to compile layerx-agentd-host: ProductionHumanOperations::new (human_runtime.rs:13218) takes layerx_client::Client and the human runtime reads head(), handshake(), proof_bundle, submit_signed, module_state, lookup_receipt and checkpoint_evidence from it (85 layerx_client uses); NodeRpc offers none of these, and the human runtime is outside the task's touches."
 assumption = "The task is held until the owner rules between porting the human runtime's node access to node JSON-RPC and keeping its LNI client; no further attempt runs on the current do_ list."
 severity = "owner"
+
+[finding.1.31.4.1]
+task = "1.31.4"
+file = "src/guarantor/lxp_guarantor.c"
+symbol = "lxp_guarantor_process_batch"
+observed = "The retirement commit 5f2b11fa7 deleted lxp_guarantor_withhold while lxp_guarantor_process_batch (:167-192) still calls it; the task's do_2 named only tests/test_guarantor_disagreement.c:111 as an outside caller and its gate built the archive, which carries the unresolved reference, so build/bin/layerx-guarantor and every core-building Rust build fail on main."
+assumption = "Issue #1300 and task 18.1300.1 (wave 0) remove the branch and extend the retirement scan to src, include and cmd."
+severity = "cross-task"
+
+[finding.8.96.5.1]
+task = "8.96.5"
+file = "emulator/build.rs"
+symbol = "main"
+observed = "Attempts 2 and 3: LayerX core build failed with exit status 2 because build/bin/layerx-guarantor does not link (undefined reference to lxp_guarantor_withhold since 5f2b11fa7)."
+assumption = "Blocked on task 18.1300.1; the attempt 1 candidate is the one to continue."
+severity = "cross-task"
+
+[finding.13.4.5.1]
+task = "13.4.5"
+file = "programs/crates/layerx-programs-registry/src/chain_evidence/lifecycle.rs"
+symbol = "decode_program_record"
+observed = "Attempts 1 and 2 fail the library build with E0308 at lifecycle.rs:39 and program_state.rs:81: expected Vec<ProofOp>, found StateProof, because the switch of StateLeafWitness.proof reaches two callers outside the task's touches."
+assumption = "The two chain_evidence files join the touches; no other task owns them (13.3.1 and 13.3.4 are done)."
+severity = "task"
+
+[finding.10.96.2.1]
+task = "10.96.2"
+file = "services/human/crates/layerx-human-service/tests/agent_controls.rs"
+symbol = "change_limit"
+observed = "Attempt 2: cargo build -p layerx-human-service --tests fails in agent_controls.rs (no variant SessionKeyRevoked on InvalidationReason; change_limit takes 4 arguments) and attempt 1 in archive.rs (no field verification_level on FundsDispositionEvidence); neither file is in this task's touches."
+assumption = "The task's build is narrowed to its own targets; agent_controls.rs is ported by 18.1228.1 and archive.rs by 18.1195.1."
+severity = "cross-task"
+
+[finding.16.97.1.1]
+task = "16.97.1"
+file = "tests/ci/test_kernel_suite_retired_uses.py"
+symbol = "test_no_receive_or_grant_store_caller"
+observed = "Attempts 1 to 3 fail their own scan on live lxp_receive_environment uses in suites outside the task's touches."
+assumption = "The scan is scoped to the retired path and the grant store symbols; the receive environment stays."
+severity = "task"
+
+[finding.18.1279.1.1]
+task = "18.1279.1"
+file = "services/agent/crates/layerx-mcp/tests/scope.rs"
+symbol = "authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live"
+observed = "Attempt 1: cargo build -p layerx-mcp --tests fails with E0599 (no variant CapabilityGrantRevoked on InvalidationReason) in a test file this task does not touch."
+assumption = "Issue #1301 and task 18.1301.1 port scope.rs; this task's build now compiles only its web target."
+severity = "cross-task"
+
+[finding.9.7.2.1]
+task = "9.7.2"
+file = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+symbol = "InvalidationReason"
+observed = "The rename to GrantRevokedOnChain (0665915dc) left services/agent/crates/layerx-mcp/tests/scope.rs:525 on CapabilityGrantRevoked, so the layerx-mcp scope target does not compile on main and no task touched that file."
+assumption = "Task 18.1301.1 (wave 0) ports the caller."
+severity = "cross-task"

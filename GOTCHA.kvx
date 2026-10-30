@@ -11110,3 +11110,23 @@ fix = "repository_root() takes ancestors().nth(3) of CARGO_MANIFEST_DIR, correct
 title = "A package-wide --tests build is gated by every stale test file of the package"
 symptom = "A task whose build_cmd is cargo build -p <crate> --tests fails on a test file it does not touch (archive.rs: FundsDispositionEvidence has no field verification_level)."
 fix = "Find the pending task that owns the stale file and add it to requires; do not widen the failing task's touches."
+
+[gotcha.2260]
+title = "Deleting a kernel definition file passes the archive gate and breaks the binary link"
+symptom = "After src/guarantor/lxp_dissent.c was deleted, make paxd-native-libs and the Go module gate passed, yet make build/bin/layerx-guarantor fails with undefined reference to lxp_guarantor_withhold and every Rust build script that builds the core panics."
+fix = "A retirement task that deletes definitions must grep src, include and cmd for every deleted symbol (not only tests) and its build_cmd must link a binary that pulls the object, e.g. make build/bin/layerx-guarantor (issue #1300, task 18.1300.1)."
+
+[gotcha.2261]
+title = "lxp_receive_environment is a live kernel type, not a retired symbol"
+symptom = "A retired-uses scan over tests/ for lxp_receive_environment fails on tests/codec and tests/ledger suites that legitimately use the receive environment of include/layerx/lxp_ledger.h."
+fix = "Scan for the retired path (tests/test_gateway_receive.c) and the lxp_grant_store symbols only; exclude the codec, crypto, fuzz, chain, daemon, bridge and explorer suites as test_retired_guarantor_duties.py does."
+
+[gotcha.2262]
+title = "A second task for one issue reuses the issue's req block"
+symptom = "check-draft.py accepts only task.18.<issue>.1 ids, so a follow-on task for the same issue cannot pass it and an invented req id (req.1812912) does not match the spec convention."
+fix = "Follow the 18.1172.2 pattern: task.18.<issue>.k with reqs ['18<issue>.k'], ac_k appended to [req.18<issue>] and [acceptance.18.<issue>.k] with req = '18<issue>.k'; normalise at assembly time."
+
+[gotcha.2263]
+title = "An enum variant rename must be grepped across every crate's tests, not only the crate's own"
+symptom = "InvalidationReason::CapabilityGrantRevoked became GrantRevokedOnChain in layerx-agentd; the layerx-mcp scope test kept the old name and every layerx-mcp --tests build fails (issue #1301)."
+fix = "grep -rn the old variant across services/ before publishing a rename; a package-wide --tests build of a dependent crate is where the leftover surfaces."
