@@ -362,6 +362,9 @@ impl SandboxSubmissionReceipt {
         evidence: SandboxReceiptEvidence,
         now_ms: u64,
     ) -> Result<Self, SandboxActivityRefusal> {
+        if evidence.tx != submission.payload() {
+            return Err(SandboxActivityRefusal::InvalidReceipt);
+        }
         let invalid = |_| SandboxActivityRefusal::InvalidReceipt;
         let current = verifier
             .verify_head(&evidence.tx_proof.header, &evidence.tx_proof.commit)
