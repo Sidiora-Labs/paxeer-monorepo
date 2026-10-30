@@ -520,20 +520,8 @@ $(BUILD_DIR)/tests/test_escrow_timeout: tests/modules/test_escrow_timeout.c \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-$(BUILD_DIR)/tests/lxp_test_epoch_escrow_timeout: \
-		tests/daemon/lxp_test_epoch_escrow_timeout.c \
-		tests/daemon/lxp_test_epoch_modules.h \
-		cmd/layerxd/lxp_daemon_modules.h $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-escrow-timeout: $(BUILD_DIR)/tests/test_escrow_timeout \
-		$(BUILD_DIR)/tests/lxp_test_epoch_escrow_timeout
+test-escrow-timeout: $(BUILD_DIR)/tests/test_escrow_timeout
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_escrow_timeout
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_epoch_escrow_timeout
 	tests/ledger/lxp_check_sole_writer.sh
 
 $(BUILD_DIR)/tests/test_escrow_dispute: tests/modules/test_escrow_dispute.c \
@@ -577,20 +565,8 @@ $(BUILD_DIR)/tests/test_budget_period: tests/modules/test_budget_period.c \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-$(BUILD_DIR)/tests/lxp_test_epoch_budget_rollback: \
-		tests/daemon/lxp_test_epoch_budget_rollback.c \
-		tests/daemon/lxp_test_epoch_modules.h \
-		cmd/layerxd/lxp_daemon_modules.h $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-budget-period: $(BUILD_DIR)/tests/test_budget_period \
-		$(BUILD_DIR)/tests/lxp_test_epoch_budget_rollback
+test-budget-period: $(BUILD_DIR)/tests/test_budget_period
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_budget_period
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_epoch_budget_rollback
 
 $(BUILD_DIR)/tests/test_budget_spend: tests/modules/test_budget_spend.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -735,20 +711,8 @@ $(BUILD_DIR)/tests/test_service_acceptance: \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-$(BUILD_DIR)/tests/lxp_test_epoch_service_acceptance: \
-		tests/daemon/lxp_test_epoch_service_acceptance.c \
-		tests/daemon/lxp_test_epoch_modules.h \
-		cmd/layerxd/lxp_daemon_modules.h $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-service-acceptance: $(BUILD_DIR)/tests/test_service_acceptance \
-		$(BUILD_DIR)/tests/lxp_test_epoch_service_acceptance
+test-service-acceptance: $(BUILD_DIR)/tests/test_service_acceptance
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_service_acceptance
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_epoch_service_acceptance
 	tests/ledger/lxp_check_sole_writer.sh
 
 $(BUILD_DIR)/tests/test_service_dispute: \
