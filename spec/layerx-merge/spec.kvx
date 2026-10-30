@@ -157638,7 +157638,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.4.5]
 title = "Switch ProtocolDeploymentVerifier and the verified evidence types to chain proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["13.4.1", "13.4.2", "13.4.3", "13.4.4", "13.0.3"]
@@ -190773,7 +190773,7 @@ qualification = "UNRUN"
 
 [task.18.1295.1]
 title = "Issue #1295: Page the CLI program registry listing through bounded eth_getLogs ranges"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191014,7 +191014,7 @@ qualification = "UNRUN"
 
 [task.18.1289.1]
 title = "Issue #1289: Decode the getValueAccount existence flag in the committed program balance reader instead of reporting it as frozen"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191189,7 +191189,7 @@ qualification = "UNRUN"
 
 [task.18.1262.1]
 title = "Issue #1262: Keep an A2A raw submission unknown with its local transaction hash when the node response is lost"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192321,7 +192321,7 @@ qualification = "UNRUN"
 
 [task.18.1258.1]
 title = "Issue #1258: Stop requiring source-account and asset bindings for full-mode A2A start and install"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
