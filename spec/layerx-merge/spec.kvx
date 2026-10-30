@@ -107157,7 +107157,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.93.1]
 title = "Export the oracle observation submit and committed price read on the exchange keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["3.0.2", "1.24.1", "18.1305.1", "18.1308.1"]
@@ -140910,7 +140910,7 @@ do_7 = "Attempts 2 (1869510f1) and 3 fail to build the layerx-agentd binary at s
 
 [task.9.12.5]
 title = "Remove the LNI connection from agentd startup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["9.12.3", "9.12.4", "9.13.2", "9.1.8", "18.1131.1", "18.1304.1", "18.1310.1"]
@@ -193652,7 +193652,7 @@ qualification = "UNRUN"
 
 [task.6.68.2]
 title = "Move the xweb state-type adapters out of query.pb.go and make the pinned generator's output compile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["18.1308.1"]
@@ -193695,7 +193695,7 @@ qualification = "UNRUN"
 
 [task.7.26.5]
 title = "Serve bank SupplyOf by_denom first through the generated gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["18.1308.1"]
