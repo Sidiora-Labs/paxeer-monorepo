@@ -3,11 +3,11 @@
 mod daemon;
 
 use daemon::HEADER_LIMIT;
-use layerx_agentd::node_rpc::NodeRpcConfig;
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig, NodeRpcError};
 use layerx_agentd::read::{
     LayerxdProgramBalanceReader, NativeReadRoute, ProgramAuthority, ProgramBalanceReadRoute,
 };
-use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
 use layerx_programs::{hex, ProtocolDeploymentVerifier, Registry};
 use serde_json::{json, Value};
 use std::error::Error;
@@ -100,6 +100,80 @@ impl Authority {
             verifier,
         })
     }
+
+    fn node_tls_config(&self) -> Result<rustls::ServerConfig> {
+        fs::write(
+            self.root.join("leaf.ext"),
+            "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:localhost\n",
+        )?;
+        for args in [
+            vec!["x509", "-inform", "DER", "-in", "ca.der", "-out", "ca.pem"],
+            vec![
+                "req",
+                "-new",
+                "-newkey",
+                "ed25519",
+                "-nodes",
+                "-subj",
+                "/CN=localhost",
+                "-keyout",
+                "leaf-key.pem",
+                "-out",
+                "leaf.csr",
+            ],
+            vec![
+                "x509",
+                "-req",
+                "-in",
+                "leaf.csr",
+                "-CA",
+                "ca.pem",
+                "-CAkey",
+                "key.pem",
+                "-set_serial",
+                "2",
+                "-days",
+                "1",
+                "-extfile",
+                "leaf.ext",
+                "-outform",
+                "DER",
+                "-out",
+                "leaf.der",
+            ],
+            vec![
+                "pkcs8",
+                "-topk8",
+                "-nocrypt",
+                "-in",
+                "leaf-key.pem",
+                "-outform",
+                "DER",
+                "-out",
+                "leaf-key.der",
+            ],
+        ] {
+            let generated = Command::new("openssl")
+                .args(args)
+                .current_dir(&self.root)
+                .output()?;
+            assert!(
+                generated.status.success(),
+                "{}",
+                String::from_utf8_lossy(&generated.stderr)
+            );
+        }
+        let certificate =
+            rustls::pki_types::CertificateDer::from(fs::read(self.root.join("leaf.der"))?);
+        let key =
+            rustls::pki_types::PrivatePkcs8KeyDer::from(fs::read(self.root.join("leaf-key.der"))?);
+        Ok(rustls::ServerConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()?
+        .with_no_client_auth()
+        .with_single_cert(vec![certificate], key.into())?)
+    }
 }
 
 impl Drop for Authority {
@@ -126,6 +200,17 @@ struct NodePeer {
 
 impl NodePeer {
     fn start(key: ReceiptKeyEntry) -> Result<Self> {
+        Self::start_transport(key, None)
+    }
+
+    fn start_https(authority: &Authority) -> Result<Self> {
+        Self::start_transport(authority.key, Some(Arc::new(authority.node_tls_config()?)))
+    }
+
+    fn start_transport(
+        key: ReceiptKeyEntry,
+        tls: Option<Arc<rustls::ServerConfig>>,
+    ) -> Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         listener.set_nonblocking(true)?;
@@ -136,7 +221,7 @@ impl NodePeer {
         let captured = Arc::clone(&requests);
         let stopped = Arc::clone(&stopping);
         let worker = thread::spawn(move || {
-            while !stopped.load(Ordering::Acquire) {
+            'connections: while !stopped.load(Ordering::Acquire) {
                 let (stream, _) = match listener.accept() {
                     Ok(connection) => connection,
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -151,59 +236,18 @@ impl NodePeer {
                 stream
                     .set_write_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
-                let mut reader = BufReader::new(stream);
-                let mut length = None;
-                loop {
-                    let mut line = String::new();
-                    assert_ne!(reader.read_line(&mut line).unwrap(), 0);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = Some(value.trim().parse::<usize>().unwrap());
-                    }
-                }
-                let length = length.unwrap();
-                assert!(length <= 64 * 1024);
-                let mut bytes = vec![0; length];
-                reader.read_exact(&mut bytes).unwrap();
-                let request: Value = serde_json::from_slice(&bytes).unwrap();
-                assert_eq!(request["jsonrpc"], "2.0");
-                assert_eq!(request["params"], json!([]));
-                captured.fetch_add(1, Ordering::AcqRel);
-                let state = *current.lock().unwrap();
-                let (status, answer) = if matches!(state, NodeState::Unavailable) {
-                    (503, json!({"error": "node_unavailable"}))
-                } else {
-                    let result = match request["method"].as_str() {
-                        Some("eth_chainId") => json!(if matches!(state, NodeState::WrongChain) {
-                            "0x7e"
-                        } else {
-                            "0x7d"
-                        }),
-                        Some("px_getReceiptKeys") => {
-                            if matches!(state, NodeState::NoKeys) {
-                                json!([])
-                            } else {
-                                json!([{
-                                    "keyId": format!("0x{}", hex::encode(&key.key_id)),
-                                    "publicKey": format!("0x{}", hex::encode(&key.public_key)),
-                                    "firstHeight": format!("{:#x}", key.first_height),
-                                    "lastHeight": format!("{:#x}", key.last_height),
-                                }])
-                            }
+                if let Some(config) = &tls {
+                    let connection = rustls::ServerConnection::new(Arc::clone(config)).unwrap();
+                    let mut stream = rustls::StreamOwned::new(connection, stream);
+                    while stream.conn.is_handshaking() {
+                        if stream.conn.complete_io(&mut stream.sock).is_err() {
+                            continue 'connections;
                         }
-                        other => panic!("health or invalid route issued unexpected RPC: {other:?}"),
-                    };
-                    (
-                        200,
-                        json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
-                    )
-                };
-                let answer = answer.to_string();
-                let mut stream = reader.into_inner();
-                write!(stream, "HTTP/1.1 {status} Result\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).unwrap();
-                stream.flush().unwrap();
+                    }
+                    Self::answer(stream, &current, &captured, &key);
+                } else {
+                    Self::answer(stream, &current, &captured, &key);
+                }
             }
         });
         Ok(Self {
@@ -213,6 +257,67 @@ impl NodePeer {
             stopping,
             worker: Some(worker),
         })
+    }
+
+    fn answer(
+        stream: impl Read + Write,
+        current: &Mutex<NodeState>,
+        captured: &AtomicUsize,
+        key: &ReceiptKeyEntry,
+    ) {
+        let mut reader = BufReader::new(stream);
+        let mut length = None;
+        loop {
+            let mut line = String::new();
+            assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = Some(value.trim().parse::<usize>().unwrap());
+            }
+        }
+        let length = length.unwrap();
+        assert!(length <= 64 * 1024);
+        let mut bytes = vec![0; length];
+        reader.read_exact(&mut bytes).unwrap();
+        let request: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(request["jsonrpc"], "2.0");
+        assert_eq!(request["params"], json!([]));
+        captured.fetch_add(1, Ordering::AcqRel);
+        let state = *current.lock().unwrap();
+        let (status, answer) = if matches!(state, NodeState::Unavailable) {
+            (503, json!({"error": "node_unavailable"}))
+        } else {
+            let result = match request["method"].as_str() {
+                Some("eth_chainId") => json!(if matches!(state, NodeState::WrongChain) {
+                    "0x7e"
+                } else {
+                    "0x7d"
+                }),
+                Some("px_getReceiptKeys") => {
+                    if matches!(state, NodeState::NoKeys) {
+                        json!([])
+                    } else {
+                        json!([{
+                            "keyId": format!("0x{}", hex::encode(&key.key_id)),
+                            "publicKey": format!("0x{}", hex::encode(&key.public_key)),
+                            "firstHeight": format!("{:#x}", key.first_height),
+                            "lastHeight": format!("{:#x}", key.last_height),
+                        }])
+                    }
+                }
+                other => panic!("health or invalid route issued unexpected RPC: {other:?}"),
+            };
+            (
+                200,
+                json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
+            )
+        };
+        let answer = answer.to_string();
+        let mut stream = reader.into_inner();
+        write!(stream, "HTTP/1.1 {status} Result\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).unwrap();
+        stream.flush().unwrap();
     }
 
     fn set(&self, state: NodeState) {
@@ -242,8 +347,12 @@ struct RouteService {
 
 impl RouteService {
     fn start(authority: &Authority, node: &NodePeer, with_native: bool) -> Result<Self> {
+        Self::start_at(authority, format!("http://{}/", node.address), with_native)
+    }
+
+    fn start_at(authority: &Authority, node_url: String, with_native: bool) -> Result<Self> {
         let node_config = NodeRpcConfig {
-            url: format!("http://{}/", node.address),
+            url: node_url,
             chain_id: 125,
             deadline: Duration::from_secs(2),
         };
@@ -279,6 +388,7 @@ impl RouteService {
             ProgramBalanceReadRoute::new(reader),
             native,
             node_config,
+            authority.ca.clone(),
             endpoint,
         )?;
         Ok(Self {
@@ -307,6 +417,56 @@ impl RouteService {
         assert!(header.contains("Cache-Control: no-store"));
         Ok((status, serde_json::from_str(body)?))
     }
+}
+
+#[test]
+fn healthz_trusts_the_configured_node_ca_over_https() -> Result<()> {
+    let authority = Authority::new()?;
+    let other_authority = Authority::new()?;
+    let node = NodePeer::start_https(&authority)?;
+    node.set(NodeState::Ready);
+    let url = format!("https://localhost:{}/", node.address.port());
+    let node_config = NodeRpcConfig {
+        url: url.clone(),
+        chain_id: 125,
+        deadline: Duration::from_secs(2),
+    };
+    assert_eq!(
+        NodeRpc::connect_with_ca(&node_config, &[]).unwrap_err(),
+        NodeRpcError::Sequencer(SequencerError::Tls)
+    );
+    let service = RouteService::start_at(&authority, url.clone(), false)?;
+    let (status, body) = service.get("/healthz")?;
+    assert_eq!(status, 200);
+    assert_eq!(body["ready"], true);
+    assert_eq!(body["transport_ready"], true);
+    assert_eq!(node.requests.load(Ordering::Acquire), 2);
+
+    let wrong_ca = RouteService::start_at(&other_authority, url, false)?;
+    let wrong_host =
+        RouteService::start_at(&authority, format!("https://{}/", node.address), false)?;
+    for refused in [&wrong_ca, &wrong_host] {
+        let (status, body) = refused.get("/healthz")?;
+        assert_eq!(status, 503);
+        assert_eq!(body["ready"], false);
+        assert_eq!(body["transport_ready"], false);
+    }
+    let (status, body) = wrong_ca.get(&format!("/v1/programs/{}/balances", "11".repeat(32)))?;
+    assert_eq!(status, 503);
+    assert_eq!(body, json!({"error": "program_state_unavailable"}));
+    assert_eq!(node.requests.load(Ordering::Acquire), 2);
+
+    node.set(NodeState::WrongChain);
+    let (status, body) = service.get("/healthz")?;
+    assert_eq!(status, 503);
+    assert_eq!(body["ready"], false);
+    assert_eq!(body["transport_ready"], false);
+    node.set(NodeState::Ready);
+    let (status, body) = service.get("/healthz")?;
+    assert_eq!(status, 200);
+    assert_eq!(body["ready"], true);
+    assert_eq!(body["transport_ready"], true);
+    Ok(())
 }
 
 #[test]

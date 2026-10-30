@@ -69,6 +69,27 @@ public final class ProgramsContractTest {
     }
 
     @Test
+    void programsDecoderRefusesRetiredRestEnvelopes() {
+        var transport = new HttpProductionTransport(HttpClient.newHttpClient(), JSON,
+            URI.create("http://localhost:8080"), URI.create("http://localhost:9090"),
+            Duration.ofSeconds(1), null);
+        JavaType object = JSON.constructType(ObjectNode.class);
+        byte[] result = "{\"result\":{}}".getBytes(StandardCharsets.UTF_8);
+        PlatformSdkException deploy = assertThrows(PlatformSdkException.class,
+            () -> transport.decodePrograms("program.deploy", 200, result, object));
+        assertEquals(PlatformSdkException.Code.DECODE_FAILURE, deploy.code());
+        PlatformSdkException receipt = assertThrows(PlatformSdkException.class,
+            () -> transport.decodePrograms("program.receipt", 200, result, object));
+        assertEquals(PlatformSdkException.Code.DECODE_FAILURE, receipt.code());
+
+        byte[] error = "{\"error\":{\"code\":\"policy_refusal\",\"retry\":\"never\"}}"
+            .getBytes(StandardCharsets.UTF_8);
+        PlatformSdkException windDown = assertThrows(PlatformSdkException.class,
+            () -> transport.decodePrograms("program.wind-down", 400, error, object));
+        assertEquals(PlatformSdkException.Code.DECODE_FAILURE, windDown.code());
+    }
+
+    @Test
     void programsAgentEnvelopeUsesExactOperationStatusMatrix() throws Exception {
         var credential = new HttpProductionTransport.LayerXKeyCredential("test",
             new SecretBytes(LAYERX_SECRET.getBytes(StandardCharsets.US_ASCII)));

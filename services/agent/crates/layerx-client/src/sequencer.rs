@@ -390,6 +390,22 @@ impl SequencerEndpoint {
         self.eth_call(to, data, "pending")
     }
 
+    pub fn call_pending_from(
+        &self,
+        from: &[u8; 20],
+        to: &[u8; 20],
+        data: &[u8],
+    ) -> Result<Vec<u8>, SequencerError> {
+        let result = self.call(
+            "eth_call",
+            &json!([{"from": hex(from), "to": hex(to), "data": hex(data)}, "pending"]),
+        )?;
+        result
+            .as_str()
+            .and_then(bytes)
+            .ok_or(SequencerError::Malformed)
+    }
+
     /// Return data of a read-only call of `to` with `data` against the
     /// committed state at block `height`.
     ///
