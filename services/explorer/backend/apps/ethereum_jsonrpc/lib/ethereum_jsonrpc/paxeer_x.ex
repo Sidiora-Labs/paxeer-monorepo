@@ -59,8 +59,9 @@ defmodule EthereumJSONRPC.PaxeerX do
   `new_head_full.json` freezes the header and body pair with parity.
 
   `fetch_block_by_new_head/2` still fetches the body by the announced hash,
-  checks that the body agrees with the announced number, and refetches by
-  number when it does not. The fetched body supplies the data for import.
+  checks that the body agrees with the announced number, hash, parent hash and
+  receipts root, and refetches by number when it does not. The fetched body
+  supplies the data for import.
 
   ## 4. `eth_syncing` always errors
 
@@ -237,14 +238,16 @@ defmodule EthereumJSONRPC.PaxeerX do
   Whether a `newHeads` notification and a fetched block body describe the same
   block.
 
-  Only the height and the hash are compared, so both full parity headers and
-  pre-parity notifications can identify the fetched block body.
+  The height, hash, parent hash and receipts root must agree with the fetched
+  block body. The receipts root is compared for equality only.
   """
   @spec new_head_matches_block?(map(), map()) :: boolean()
   def new_head_matches_block?(new_head, block_params) when is_map(new_head) and is_map(block_params) do
     with {:ok, number} <- new_head_number(new_head),
          {:ok, hash} <- new_head_hash(new_head) do
-      number == block_params[:number] and hashes_equal?(hash, block_params[:hash])
+      number == block_params[:number] and hashes_equal?(hash, block_params[:hash]) and
+        hashes_equal?(new_head["parentHash"], block_params[:parent_hash]) and
+        hashes_equal?(new_head["receiptsRoot"], block_params[:receipts_root])
     else
       _ -> false
     end
@@ -255,9 +258,9 @@ defmodule EthereumJSONRPC.PaxeerX do
   body.
 
   The body is fetched by the announced hash. When that fetch yields no block, or
-  yields a body whose number disagrees with the announced one, the block is
-  refetched by number and that result is returned instead. The notification's
-  own header fields are never used.
+  yields a body whose number, hash, parent hash or receipts root disagrees with
+  the announced header, the block is refetched by number and that result is
+  returned instead. The notification's own header fields are never imported.
   """
   @spec fetch_block_by_new_head(map(), EthereumJSONRPC.json_rpc_named_arguments()) ::
           {:ok, Blocks.t()} | {:error, reason :: term()}
@@ -383,4 +386,3 @@ defmodule EthereumJSONRPC.PaxeerX do
     |> Keyword.get(key)
   end
 end
-
