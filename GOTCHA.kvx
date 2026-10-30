@@ -11271,3 +11271,8 @@ fix = "The scheduler now re-parses the plan when the spec file has changed and b
 title = "The in-tree node starts only when a file under the task's paths already names LAYERX_TEST_PAXEER_CHAIN_ID before implementation"
 symptom = "9.0.3 attempt 5 wrote the first reader of LAYERX_TEST_PAXEER_CHAIN_ID inside its own paths, so the environment, which scans those paths once before implementation, started no node and the chain-id test failed by name"
 fix = "A task whose own test is the first reader of the variable gets the node on a re-qualify of the unchanged candidate, where the paths are applied before the scan; record the attempt and re-qualify instead of changing the test"
+
+[gotcha.2292]
+title = "A touches entry naming a directory did not cover the files inside it"
+symptom = "13.8.1 attempt 6 (efa450e95) passed its build and verify and was then refused because the 28 re-recorded fixture files under programs/fixtures/pay5/native-token and native-merchant were compared against the touches entries as exact file names."
+fix = "The scope check covers a changed path when it equals a touches or planned_paths entry or lies under an entry that names a directory; the attempt 6 candidate is re-qualified unchanged."
