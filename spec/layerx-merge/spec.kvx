@@ -164150,7 +164150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.33.1]
 title = "Align the frontend unified account types and mocks with the backend answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["14.0.4", "14.27.1"]
