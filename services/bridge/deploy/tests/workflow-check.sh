@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Offline check of .github/workflows/bridge-test.yml: the workflow triggers on
 # pull requests, the merge group and pushes to main and the release branches; it
-# carries exactly the four path filters contracts/bridge/**, services/bridge/**,
-# services/interop/crates/layerx-bridge-relayer/** and the workflow file itself, each
-# naming a path this repository holds or this feature's spec declares; it runs
-# four jobs whose names are the four legs and whose names claim no tool the job
-# does not invoke; every command runs from the repository root with a tool the
-# same job installs, at a version this repository already pins; every action is
+# carries exactly the five path filters contracts/bridge/**, services/bridge/**,
+# services/interop/crates/layerx-bridge-relayer/**, the workflow file itself and
+# apps/bridge/**, each naming a path this repository holds or this feature's
+# spec declares; it runs
+# five jobs whose names are the five legs and whose names claim no tool the job
+# does not invoke; commands run from the repository root, or apps/bridge for the
+# bridge-app leg, with a tool the same job installs, at a version this repository
+# already pins; every action is
 # pinned by commit to a pin another workflow in this repository already uses; and
-# no continue-on-error is present. The check then mutates the workflow seven ways
+# no continue-on-error is present. The check then mutates the workflow twelve ways
 # and requires each mutation to be refused, so the assertions are known to bite.
 # No network and no runner are involved.
 set -euo pipefail
@@ -52,11 +54,12 @@ FILTERS = [
     "services/bridge/**",
     "services/interop/crates/layerx-bridge-relayer/**",
     WORKFLOW_PATH,
+    "apps/bridge/**",
 ]
 PUSH_BRANCHES = ["main", "release/**"]
 TRIGGERS = ["pull_request", "merge_group", "push"]
 
-# The four legs: job id -> the job name, the tool phrases the name carries and
+# The five legs: job id -> the job name, the tool phrases the name carries and
 # the repository paths the job's commands must name.
 LEGS = {
     "evm-vault": {
@@ -82,6 +85,11 @@ LEGS = {
         "tools": ["go test"],
         "paths": ["contracts/bridge/vectors", "services/bridge/deploy"],
     },
+    "bridge-app": {
+        "name": "Typecheck and test the bridge app",
+        "tools": ["pnpm test"],
+        "paths": ["apps/bridge"],
+    },
 }
 
 # "go test" is a substring of "cargo test", so a phrase matches only where it
@@ -98,6 +106,8 @@ TOOL_INSTALLERS = {
     "cargo": ("run", "rustup toolchain install"),
     "go": ("uses", "actions/setup-go@"),
     "cargo build-sbf": ("run", "release.anza.xyz"),
+    "npm": ("uses", "actions/setup-node@"),
+    "pnpm": ("run", "npm install --global pnpm@"),
 }
 
 ALLOWED_PROGRAMS = {
@@ -115,6 +125,7 @@ ALLOWED_PROGRAMS = {
 # Paths the commands read: each must exist in the repository or be declared by
 # this feature's spec, which is what a sibling wave task creates.
 INPUT_PATHS = {
+    "apps/bridge",
     "contracts/bridge/evm",
     "contracts/bridge/solana/Cargo.toml",
     "services/interop/Cargo.toml",
@@ -137,8 +148,8 @@ OFFLINE_CHECKS = {
     "services/bridge/deploy/tests/docs-check.sh",
 }
 
-SPEC_PATH = "spec/paxeer-x-bridge/spec.kvx"
-REFERENCE_WORKFLOW = ".github/workflows/paxeer-forge-test.yml"
+SPEC_PATH = "spec/layerx-merge/spec.kvx"
+LIBRARY_BOOTSTRAP = "contracts/bootstrap-libs.sh"
 
 PATH_TOKEN = re.compile(
     r"(?<![A-Za-z0-9._/-])\.?/?((?:contracts/bridge|services/bridge|services/interop)/[A-Za-z0-9._/*-]+)"
@@ -312,7 +323,7 @@ def check_jobs_are_the_legs(jobs):
         missing = sorted(set(LEGS) - set(jobs))
         extra = sorted(set(jobs) - set(LEGS))
         refuse(
-            "the jobs are %s, not the four legs %s (missing %s, unexpected %s)"
+            "the jobs are %s, not the five legs %s (missing %s, unexpected %s)"
             % (sorted(jobs), sorted(LEGS), missing, extra)
         )
     for job_id, leg in LEGS.items():
@@ -385,10 +396,16 @@ def check_commands_run_from_the_root(root, document, jobs, spec_text):
             "repository root"
         )
     else:
-        note("every command runs with the repository root as its directory")
+        note("commands default to the repository root as their directory")
     named = set()
     for job_id, job in jobs.items():
-        if "defaults" in job:
+        job_paths = set()
+        if job_id == "bridge-app":
+            if job.get("defaults") != {"run": {"working-directory": "apps/bridge"}}:
+                refuse("the bridge-app job must run in apps/bridge")
+            else:
+                job_paths.add("apps/bridge")
+        elif "defaults" in job:
             refuse("the job %s overrides the working directory" % job_id)
         uses = [
             str(step["uses"]) for step in (job.get("steps") or []) if "uses" in step
@@ -403,11 +420,22 @@ def check_commands_run_from_the_root(root, document, jobs, spec_text):
             if "run" in step:
                 runs.extend(command_lines(step["run"]))
         joined = " ".join(runs)
+        for tool in LEGS.get(job_id, {}).get("tools", []):
+            if not any(
+                re.match(r"%s(?:\s|$)" % re.escape(tool), line)
+                for line in runs
+            ):
+                refuse("the job %s runs no %s command" % (job_id, tool))
+        if job_id == "bridge-app" and "pnpm install --frozen-lockfile" not in runs:
+            refuse("the bridge-app job must run pnpm install --frozen-lockfile")
+        allowed_programs = ALLOWED_PROGRAMS
+        if job_id == "bridge-app":
+            allowed_programs = allowed_programs | {"npm", "pnpm"}
         for line in runs:
             tokens = shlex.split(line)
             if not tokens:
                 continue
-            if tokens[0] not in ALLOWED_PROGRAMS:
+            if tokens[0] not in allowed_programs:
                 refuse(
                     "the job %s runs %r, whose program is not one this "
                     "repository's runners carry" % (job_id, tokens[0])
@@ -454,18 +482,14 @@ def check_commands_run_from_the_root(root, document, jobs, spec_text):
                 if path.endswith(suffix):
                     path = path[: -len(suffix)]
             path = path.rstrip("/")
-            named.add(path)
+            job_paths.add(path)
+        named.update(job_paths)
         for path in LEGS.get(job_id, {}).get("paths", []):
-            if path not in PATH_TOKEN.findall(joined):
-                stripped = {
-                    re.sub(r"(/\.\.\.|/\*\*)$", "", found)
-                    for found in PATH_TOKEN.findall(joined)
-                }
-                if path not in stripped:
-                    refuse(
-                        "the job %s names none of the paths its leg exercises: "
-                        "%s is absent" % (job_id, path)
-                    )
+            if path not in job_paths:
+                refuse(
+                    "the job %s names none of the paths its leg exercises: "
+                    "%s is absent" % (job_id, path)
+                )
     unknown = named - INPUT_PATHS - CLONE_DESTINATIONS
     if unknown:
         refuse(
@@ -573,10 +597,24 @@ def check_versions_are_the_repository_pins(root, document, jobs):
         else:
             note("the workflow installs the Go %s go.mod names" % version)
 
-    reference = set(
-        (url, tag)
-        for tag, url, _ in CLONE_LINE.findall(read(root, REFERENCE_WORKFLOW))
+    assignments = re.findall(
+        r"""^(FORGE_STD_URL|FORGE_STD_TAG|OPENZEPPELIN_URL|OPENZEPPELIN_TAG)=(['"])([^'"\s]+)\2[ \t]*$""",
+        read(root, LIBRARY_BOOTSTRAP),
+        re.M,
     )
+    pins = {name: value for name, _, value in assignments}
+    reference = set()
+    if len(assignments) != 4 or len(pins) != 4:
+        refuse(
+            "%s must carry the four pinned library assignments "
+            "FORGE_STD_URL, FORGE_STD_TAG, OPENZEPPELIN_URL and OPENZEPPELIN_TAG"
+            % LIBRARY_BOOTSTRAP
+        )
+    else:
+        reference = {
+            (pins["FORGE_STD_URL"], pins["FORGE_STD_TAG"]),
+            (pins["OPENZEPPELIN_URL"], pins["OPENZEPPELIN_TAG"]),
+        }
     mine = set()
     for line in runs:
         match = CLONE_LINE.match(line)
@@ -585,19 +623,17 @@ def check_versions_are_the_repository_pins(root, document, jobs):
         elif line.startswith("git clone"):
             refuse(
                 "the clone %r does not follow the --depth 1 --branch form %s "
-                "uses" % (line, REFERENCE_WORKFLOW)
+                "uses" % (line, LIBRARY_BOOTSTRAP)
             )
-    if not reference:
-        refuse("%s carries no pinned library clone to follow" % REFERENCE_WORKFLOW)
-    elif mine != reference:
+    if mine != reference:
         refuse(
             "the workflow clones %s, not the %s pinned in %s"
-            % (sorted(mine), sorted(reference), REFERENCE_WORKFLOW)
+            % (sorted(mine), sorted(reference), LIBRARY_BOOTSTRAP)
         )
-    else:
+    elif reference:
         note(
             "the workflow clones the same pinned libraries at the same tags as %s"
-            % REFERENCE_WORKFLOW
+            % LIBRARY_BOOTSTRAP
         )
 
     anza = {
@@ -708,9 +744,8 @@ import sys
 
 MUTATIONS = {
     "continue-on-error": (
-        "    runs-on: ubuntu-24.04\n    timeout-minutes: 30\n",
-        "    runs-on: ubuntu-24.04\n    continue-on-error: true\n"
-        "    timeout-minutes: 30\n",
+        "\n  evm-vault:\n",
+        "\n  evm-vault:\n    continue-on-error: true\n",
         1,
     ),
     "extra-filter": (
@@ -744,6 +779,26 @@ MUTATIONS = {
         "        run: forge test --root contracts/bridge/evm -vvv\n",
         "        run: forge test --root contracts/bridge/evm -vvv\n"
         "        working-directory: contracts/bridge/evm\n",
+        1,
+    ),
+    "bridge-app-filter": (
+        "      - 'apps/bridge/**'\n",
+        "",
+        2,
+    ),
+    "bridge-app-install": (
+        "        run: pnpm install --frozen-lockfile\n",
+        "        run: pnpm install\n",
+        1,
+    ),
+    "bridge-app-test": (
+        "        run: pnpm test\n",
+        "",
+        1,
+    ),
+    "bridge-app-directory": (
+        "        working-directory: apps/bridge\n",
+        "        working-directory: .\n",
         1,
     ),
 }
@@ -787,7 +842,11 @@ for entry in \
     "unpinned-action|actions/checkout@v4" \
     "renamed-job|evm-vault" \
     "floating-foundry|moving channel" \
-    "working-directory|working-directory"; do
+    "working-directory|working-directory" \
+    "bridge-app-filter|apps/bridge/**" \
+    "bridge-app-install|pnpm install --frozen-lockfile" \
+    "bridge-app-test|pnpm test" \
+    "bridge-app-directory|apps/bridge"; do
     mutation=${entry%%|*}
     keyword=${entry#*|}
     python3 "$WORK/mutate.py" "$mutation" "$WORKFLOW" "$WORK/$mutation.yml" \
@@ -800,4 +859,4 @@ for entry in \
         || fail "the check refused the $mutation mutation without naming $keyword: $output"
 done
 
-printf 'workflow-check: the bridge workflow carries the four path filters, the four legs and no excused step, and refuses every mutation of them\n' >&2
+printf 'workflow-check: the bridge workflow carries the five path filters, the five legs and no excused step, and refuses every mutation of them\n' >&2
