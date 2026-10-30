@@ -144073,7 +144073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.8]
 title = "Retire the kernel verification Level from the human service library and tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189157,7 +189157,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1245.1]
 title = "Issue #1245: Parse the gateway funded-claim object in faucet.request and audit a malformed answer as unknown"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
