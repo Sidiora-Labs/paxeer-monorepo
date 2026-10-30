@@ -40,10 +40,10 @@ export enum Rung {
 }
 
 export type SubmissionState =
-  | { kind: "Unknown" }
-  | { kind: "Executed"; receiptRef: string }
-  | { kind: "Failed"; protocolResultCode: number }
-  | { kind: "Pending"; stage: string };
+  | { kind: "Submitted"; txHash: string }
+  | { kind: "Receipted" }
+  | { kind: "Committed" }
+  | { kind: "Reverted"; revertReason: string };
 
 export interface VerifiedRead<T> {
   value: T;
