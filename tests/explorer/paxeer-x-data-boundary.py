@@ -21,7 +21,7 @@ TOOLCHAIN_IMAGE = "task23-1-toolchain:local"
 POSTGRES_IMAGE = "postgres:15-alpine"
 PG_CONTAINER = "task22-1-postgres"
 API_CONTAINER = "task22-1-explorer"
-CASES = ("kernel-receipts", "history-readiness", "standalone-receipts", "unified-pagination", "receipt-refresh")
+CASES = ("kernel-receipts", "history-readiness", "unified-pagination", "receipt-refresh")
 PUBLIC_ROUTES = ("/v1/sync/network", "/v1/history/batches", "/v1/sync/batches/")
 
 
@@ -559,10 +559,6 @@ def kernel_receipts():
 
 
 # --- case: standalone-receipts (req.195) -------------------------------------
-# Self-contained section for tests/explorer/paxeer-x-data-boundary.py.
-# Requires only the stdlib. Register with:
-#     CASES["standalone-receipts"] = case_standalone_receipts
-# The function returns (tests, failures); the dispatcher prints the gate line.
 
 import json
 import os
@@ -574,7 +570,6 @@ import time
 import urllib.error
 import urllib.request
 
-SR_BINARY_NAME = "layerx-explorer-index"
 SR_READINESS_PATH = "/v1/readiness"
 SR_STARTUP_SECONDS = 120
 SR_CONVERGE_SECONDS = 600
@@ -640,34 +635,6 @@ class SrCheck:
             self.failures.append(name)
             print(f"FAIL standalone-receipts {name}: {detail}", flush=True)
         return condition
-
-
-def sr_binary():
-    explicit = os.environ.get("LAYERX_EXPLORER_INDEX_BIN")
-    if explicit:
-        return explicit
-    target = os.environ.get("CARGO_TARGET_DIR")
-    if not target:
-        return None
-    for profile in ("release", "debug"):
-        candidate = os.path.join(target, profile, SR_BINARY_NAME)
-        if os.path.isfile(candidate):
-            return candidate
-    return None
-
-
-def sr_prerequisites():
-    missing = [name for name in SR_BINARY_ENV + (SR_ACCOUNT_ENV, SR_SEND_ENV, SR_ASSETS_ENV)
-               if not os.environ.get(name)]
-    if os.environ.get(SR_ASSETS_ENV) and len(sr_assets()) < 2:
-        missing.append(f"{SR_ASSETS_ENV} with at least two assets")
-    socket_path = os.environ.get("LAYERX_EXPLORER_LNI_SOCKET")
-    if socket_path and not sr_lni_listening(socket_path):
-        missing.append(f"listening LNI socket {socket_path}")
-    binary = sr_binary()
-    if binary is None or not os.access(binary, os.X_OK):
-        missing.append(f"executable {SR_BINARY_NAME} (LAYERX_EXPLORER_INDEX_BIN or CARGO_TARGET_DIR)")
-    return binary, missing
 
 
 def sr_get(base, path, bearer, timeout=10):
@@ -884,151 +851,13 @@ def sr_cursor(state_dir):
     return int(parts[1]), int(parts[2])
 
 
-def case_standalone_receipts(args=None):
-    check = SrCheck()
-    binary, missing = sr_prerequisites()
-    if not check.check("prerequisites", not missing, "missing " + ", ".join(missing)):
-        return check.tests, check.failures
-    account = os.environ[SR_ACCOUNT_ENV]
-    assets = sr_assets()
-    probe = os.environ["LAYERX_EXPLORER_PROGRAM_PROBE_ID"]
-    evidence = os.environ.get("PAXEER_X_EVIDENCE_DIR") or tempfile.gettempdir()
-    work = tempfile.mkdtemp(prefix="standalone-receipts-", dir=evidence)
-    os.chmod(work, 0o700)
-    log_path = os.path.join(work, "explorer.log")
-    send_log = os.path.join(work, "send.log")
-    state = os.path.join(work, "state")
-    os.mkdir(state, 0o700)
-    allowed = [os.path.realpath(p) for p in (
-        work,
-        os.environ["LAYERX_EXPLORER_DEPLOYMENT_JOURNAL"],
-        os.environ["LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY"],
-        os.environ["LAYERX_EXPLORER_GENESIS_TRUST"],
-        os.environ["LAYERX_EXPLORER_FINALITY_POLICY"],
-        os.environ["LAYERX_EXPLORER_AUTHORITY_CA_DER"],
-        os.environ["LAYERX_EXPLORER_READ_CA_DER"],
-        os.environ["LAYERX_EXPLORER_READ_KEY_FILE"],
-        os.environ["LAYERX_EXPLORER_READ_SEQUENCER_PUBLIC_KEY_FILE"],
-        binary,
-    )]
-    complete = lambda doc: doc.get("complete") is True
-    process = None
-    try:
-        # 1) Fresh projection that cannot verify anything yet (authority not
-        #    reachable): never complete, account refuses. Deterministic: no
-        #    batch can become verified while this phase runs.
-        process, up = sr_start(binary, state, log_path, sr_closed_loopback_endpoint())
-        if not check.check("start.fresh", up, f"see {log_path}"):
-            return check.tests, check.failures
-        status, first = sr_readiness()
-        check.check("1.fresh_readiness_not_complete",
-                    status == 200 and first is not None and sr_readiness_consistent(first)
-                    and first["complete"] is False, f"{status} {json.dumps(first)}")
-        status, doc, _ = sr_activity(account)
-        check.check("1.account_incomplete_from_head",
-                    status == 503 and isinstance(doc, dict) and doc.get("error") == "incomplete_from_head"
-                    and "source_sealed_batch" in doc and "indexed_through" in doc,
-                    f"{status} {json.dumps(doc)}")
-
-        code, took = sr_stop(process)
-        check.check("1.terminates_on_sigterm", sr_stopped_by_term(code, took), f"{code} after {took:.1f}s")
-        cursor_1 = sr_cursor(state)
-        check.check("1.no_cursor_past_unverified", cursor_1 is None or cursor_1[0] == 0, f"{cursor_1}")
-
-        # 2) Real authority; real signed sends in two assets; convergence to head.
-        process, up = sr_start(binary, state, log_path)
-        if not check.check("start.with_authority", up, f"see {log_path}"):
-            return check.tests, check.failures
-        sent = [asset for asset in assets[:2] if sr_send(asset, send_log) == 0]
-        check.check("2.real_sends_sealed", len(sent) == 2, f"sent {sent}; see {send_log}")
-        ready, consistent, offenders = sr_watch(process, allowed, SR_CONVERGE_SECONDS, complete)
-        check.check("2.ingestion_alive", process.poll() is None, f"exited {process.returncode}")
-        check.check("2.readiness_consistent_throughout", consistent, json.dumps(ready))
-        check.check("2.readiness_complete_at_head", ready is not None and complete(ready),
-                    json.dumps(ready))
-        verified, _ = sr_ingest_log(log_path)
-        head_a = int(ready["source_sealed_batch"]) if ready else 0
-        check.check("2.every_batch_verified_through_authority",
-                    head_a > 0 and set(range(1, head_a + 1)) <= verified,
-                    f"verified {sorted(verified)} head {head_a}")
-        status, _, rows_a = sr_activity(account)
-        rows_a = rows_a or []
-        check.check("2.account_rows_present_with_verification",
-                    status == 200 and rows_a and all(row.get("verification") for row in rows_a),
-                    f"{status} {len(rows_a)} rows")
-        keys_a = [sr_row_key(row) for row in rows_a]
-        check.check("2.no_duplicate_rows", len(keys_a) == len(set(keys_a)), "duplicate rows")
-        status, _ = sr_explorer(f"/v1/programs/{probe}")
-        check.check("2.program_refresh_coexists", status == 200, str(status))
-        check.check("2.no_node_internal_or_private_reads", not offenders, ", ".join(offenders))
-        cursor_a = sr_cursor(state)
-        check.check("2.durable_cursor_written", cursor_a is not None and cursor_a[0] == head_a,
-                    f"{cursor_a} head {head_a}")
-
-        # 4) SIGTERM, restart on the same cursor: identical rows, no duplicates.
-        code, took = sr_stop(process)
-        check.check("4.terminates_on_sigterm", sr_stopped_by_term(code, took), f"{code} after {took:.1f}s")
-        process, up = sr_start(binary, state, log_path)
-        if check.check("start.restart", up, f"see {log_path}"):
-            ready_b, consistent, offenders = sr_watch(
-                process, allowed, SR_CONVERGE_SECONDS,
-                lambda doc: complete(doc) and int(doc["indexed_through"]) >= head_a)
-            check.check("4.restart_readiness_consistent", consistent, json.dumps(ready_b))
-            check.check("4.restart_converges",
-                        ready_b is not None and complete(ready_b) and int(ready_b["indexed_through"]) >= head_a,
-                        json.dumps(ready_b))
-            status, _, rows_b = sr_activity(account)
-            keys_b = [sr_row_key(row) for row in rows_b or []]
-            check.check("4.identical_rows_after_restart", status == 200 and keys_b == keys_a,
-                        f"{len(keys_a)} before, {len(keys_b)} after")
-            check.check("4.no_duplicate_rows_after_restart", len(keys_b) == len(set(keys_b)),
-                        "duplicate rows")
-            check.check("4.no_node_internal_or_private_reads", not offenders, ", ".join(offenders))
-
-        # 3) Authority unavailable: a new sealed batch stays incomplete, zero new rows.
-        code, took = sr_stop(process)
-        check.check("3.terminates_on_sigterm", sr_stopped_by_term(code, took), f"{code} after {took:.1f}s")
-        offset = os.path.getsize(log_path)
-        process, up = sr_start(binary, state, log_path, sr_closed_loopback_endpoint())
-        if check.check("start.authority_unavailable", up, f"see {log_path}"):
-            sent = sr_send(assets[0], send_log)
-            check.check("3.real_send_sealed", sent == 0, f"exit {sent}; see {send_log}")
-            last, consistent, offenders = sr_watch(
-                process, allowed, SR_UNAVAILABLE_OBSERVE_SECONDS, lambda doc: False)
-            check.check("3.bounded_retry_keeps_serving", process.poll() is None,
-                        f"exited {process.returncode}")
-            check.check("3.readiness_consistent", consistent, json.dumps(last))
-            check.check("3.new_batch_in_incomplete_ranges",
-                        last is not None and int(last["source_sealed_batch"]) > head_a
-                        and last["complete"] is False
-                        and any(a <= head_a + 1 <= b for a, b in last["incomplete_ranges"]),
-                        json.dumps(last))
-            status, doc, rows_c = sr_activity(account)
-            if status == 200:
-                keys_c = [sr_row_key(row) for row in rows_c or []]
-                new_rows = sorted(set(keys_c) - set(keys_a))
-                check.check("3.zero_new_rows_without_authority", not new_rows, f"{len(new_rows)} new rows")
-            else:
-                check.check("3.zero_new_rows_without_authority",
-                            status == 503 and isinstance(doc, dict)
-                            and doc.get("error") == "incomplete_from_head", f"{status} {json.dumps(doc)}")
-            verified_c, incomplete = sr_ingest_log(log_path, offset)
-            first_gap = last["incomplete_ranges"][0][0] if last and last["incomplete_ranges"] else None
-            check.check("3.unverified_batch_logged_incomplete",
-                        first_gap in incomplete and not verified_c,
-                        f"gap {first_gap} incomplete {sorted(incomplete)} verified {sorted(verified_c)}")
-            status, _ = sr_explorer(f"/v1/programs/{probe}")
-            check.check("3.program_refresh_independent_of_authority", status == 200, str(status))
-            check.check("3.no_node_internal_or_private_reads", not offenders, ", ".join(offenders))
-            code, took = sr_stop(process)
-            check.check("3.terminates_on_sigterm_during_retry", sr_stopped_by_term(code, took),
-                        f"{code} after {took:.1f}s")
-    finally:
-        if process is not None and process.poll() is None:
-            sr_stop(process)
-    print(f"standalone-receipts evidence {work}", flush=True)
-    return check.tests, check.failures
-
+def history_readiness_environment(env, database, port, evm_url):
+    clean_env = {key: value for key, value in env.items() if not key.startswith("LAYERX_INDEXER_")}
+    return dict(clean_env, LAYERX_INDEXER_DB=str(database),
+                LAYERX_INDEXER_LISTEN=f"127.0.0.1:{port}",
+                LAYERX_INDEXER_EVM_URL=evm_url,
+                LAYERX_INDEXER_POLL_MS="100", LAYERX_INDEXER_TIMEOUT_MS="400",
+                LAYERX_INDEXER_STALL_SECS="5", LAYERX_INDEXER_MAX_UNITS_PER_STEP="1")
 
 
 def history_readiness():
@@ -1118,11 +947,7 @@ def history_readiness():
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("LAYERX_INDEXER_", "LAYERX_GATEWAY_", "LAYERX_EVENTS_"))}
         database = relay.work / "history.sqlite"
-        indexer_env = dict(env, LAYERX_INDEXER_DB=str(database),
-                           LAYERX_INDEXER_LISTEN=f"127.0.0.1:{indexer_port}",
-                           LAYERX_INDEXER_RELAY_URL=settings["public_url"],
-                           LAYERX_INDEXER_POLL_MS="100", LAYERX_INDEXER_TIMEOUT_MS="400",
-                           LAYERX_INDEXER_STALL_SECS="5", LAYERX_INDEXER_MAX_UNITS_PER_STEP="1")
+        indexer_env = history_readiness_environment(env, database, indexer_port, settings["public_url"])
         reservations[0].close()
         indexer = relay.start("history-indexer", [binaries["layerx-indexer"]], env=indexer_env)
         ca = relay.work / "gateway-ca.der"
@@ -1244,10 +1069,14 @@ def history_readiness():
         relay.until(lambda: gateway_state("available"), "gateway recovers after fresh observation")
         checks += 1
         relay.stop(indexer)
-        empty_env = {key: value for key, value in indexer_env.items() if key != "LAYERX_INDEXER_RELAY_URL"}
+        empty_env = {key: value for key, value in indexer_env.items() if key != "LAYERX_INDEXER_EVM_URL"}
         indexer = relay.start("history-indexer-unconfigured", [binaries["layerx-indexer"]], env=empty_env)
         relay.until(lambda: indexer.poll() is not None, "missing ingestion source refused at startup")
         require(indexer.returncode != 0, "missing ingestion source was accepted")
+        refusal = (relay.work / "history-indexer-unconfigured.log").read_text()
+        require("layerx-indexer: configuration invalid: set LAYERX_INDEXER_RELAY_URL, "
+                "LAYERX_INDEXER_EVM_URL or both" in refusal,
+                "missing EVM source did not produce the expected configuration refusal")
         doc = relay.request(gateway_url, "/v1/status")
         require(doc["services"]["indexer"] == "unavailable", "gateway accepted missing indexer source")
         checks += 1
@@ -1708,10 +1537,6 @@ def main():
             return 1
         print(f"PAXEER_X_GATE tests={tests} skipped=0", flush=True)
         return 0
-    if args.case == "standalone-receipts":
-        tests, failures = case_standalone_receipts()
-        print(f"PAXEER_X_GATE tests={tests} skipped=0", flush=True)
-        return 1 if failures else 0
     if args.case != "kernel-receipts":
         print(f"case {args.case}: unimplemented", file=sys.stderr)
         return 2

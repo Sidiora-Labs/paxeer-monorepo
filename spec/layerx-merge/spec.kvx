@@ -4611,6 +4611,18 @@ value = "core_create_identity_is_read_from_the_signed_v1_and_v2_bytes asserts, f
 basis = "The budgetCreate ABI has no source argument (create.rs:15, precompiles/layerxpay/budget.go:60-70); the decoder recovers only a 20-byte sender and no interface maps an EVM address to a 32-byte protocol account; the product applies the owner as the effective v1 source downstream (mutate.rs:79, budget_proof.rs:366); neither req.181275 nor the acceptance scenario names a v1 source value, so the two assertions are leftovers of the retired kernel disclosure (native.rs:308-309 at 9a440656d) that task 9.9.2 did not port."
 affects = ["18.1275.1"]
 
+[decision.1917]
+title = "A kernel receipt truncated by one byte is refused by DecodeReceipt with ErrTruncated; IsProtocolReceiptShape stays a four-byte header classifier"
+value = "req.1301 ac_2, acceptance.1.301.2 and task.1.40.1 do_3 hold the truncation refusal to DecodeReceipt (layerxproof/codec/receipt.go:364), which returns an error wrapping ErrTruncated for each kernel receipt truncated by one byte, and hold IsProtocolReceiptShape (receipt.go:136) only to accepting the full values. The predicate keeps its documented contract (receipt.go:134-135) and its stable interface row (contracts/kernel.md:1316); no product file changes."
+basis = "IsProtocolReceiptShape reads bytes[0..3] only (version 1..3 and tag 0x5201/0x5202, reader.go:226-239); truncating a host receipt removes the trailing signature-presence byte written at src/protocol/lxp_receipt.c:719, so the predicate is true for the truncated value by contract, and the codec vector table already assigns truncation to DecodeReceipt as ErrTruncated (layerxproof/codec/codec_test.go:112-122). Attempt 1 of 1.40.1 (d3ed36895) asserted the written wording and failed at modules/lxphost/codec_conformance_test.go:72 with no weakening available inside its single touched file."
+affects = ["1.40.1"]
+
+[decision.1918]
+title = "The checked-in .pb.go and .pb.gw.go of api and sdk/proto are regenerated with the pinned toolchain; the byte-for-byte comparison of req.7288 stays"
+value = "Task 7.29.2 regenerates the 104 checked-in files that attempt 3 (2aaf437b7) reported as differing, with the buf generate of its do_2 and do_3 (protoc-gen-gocosmos from go.mod:144, grpc-gateway v1.16.0, the buf CLI of scripts/protoc.sh:26) copied over the checked-in paths as scripts/protoc.sh:33-34 does, and the test keeps asserting byte equality. No comparison is normalised: a gzipped FileDescriptorProto or an import block that differs between plugin releases is a toolchain drift the repository resolves by regenerating, not by relaxing the check."
+basis = "Attempt 3 found every one of the 104 differing files produced by an older plugin than the pinned one (admin/types/admin.pb.go gzipped descriptor 419 vs 425 bytes; modules/evm/types/ethtx/tx.pb.go first difference at byte 123; modules/xweb/types/query.pb.go 115350 vs 113689 bytes), so req.7288 ac_1 cannot hold until the checked-in files are what the pinned toolchain emits, and relaxing the comparison is forbidden."
+affects = ["7.29.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -12053,7 +12065,7 @@ ac_1 = "Host.Execute (modules/lxphost/host.go:669) never panics, never returns a
 [req.1301]
 title = "Decode kernel receipts from the host with the Go layerxproof codec"
 ac_1 = "The Go codec decodes kernel receipts from Host.Execute and its UnsignedBytes (layerxproof/codec/receipt.go:119) re-encoding is a prefix of the kernel bytes."
-ac_2 = "IsProtocolReceiptShape (layerxproof/codec/receipt.go:136) accepts every kernel receipt from the host and rejects each one truncated by one byte."
+ac_2 = "IsProtocolReceiptShape (layerxproof/codec/receipt.go:136) accepts every kernel receipt from the host, and DecodeReceipt (layerxproof/codec/receipt.go:364) refuses each one truncated by one byte with an error wrapping ErrTruncated (decision.1917)."
 
 [req.1961]
 title = "Export NextSequence over the host store sequence counter"
@@ -51155,7 +51167,7 @@ qualification = "UNRUN"
 [acceptance.1.301.2]
 feature = "1"
 req = "1301.2"
-scenario = "Given the three kernel receipts, when IsProtocolReceiptShape is called on each and on each truncated by one byte, then it returns true for the full values and false for the truncated ones"
+scenario = "Given the three kernel receipts, when IsProtocolReceiptShape is called on each and DecodeReceipt on each truncated by one byte, then the predicate returns true for the full values and the decoder returns an error wrapping ErrTruncated for the truncated ones"
 contract = "contracts/kernel.md#layerxproof-codec"
 test = "modules/lxphost/codec_conformance_test.go::TestCodecProtocolReceiptShapeOnHostReceipts (planned)"
 qualification = "UNRUN"
@@ -95026,7 +95038,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.25.2]
 title = "Remove ReadIdempotentReceipt from the read bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["1.25.1", "1.21.2", "2.3.7", "1.98.1", "2.24.3", "1.23.5"]
@@ -96520,7 +96532,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.39.1]
 title = "Bound the store gas of one execution independently of unrelated store rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["1.22.1", "1.25.1"]
@@ -96613,7 +96625,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.39.4]
 title = "Fuzz the host execute path with arbitrary activity payloads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["1.23.1", "1.25.1"]
@@ -96653,7 +96665,7 @@ capabilities = ["1.40.1"]
 interfaces = []
 do_1 = "Create modules/lxphost/codec_conformance_test.go (planned); execute an asset register, a mint and a governance activity through Host.Execute and keep Receipt.Encoded (modules/lxphost/host.go:574)."
 do_2 = "TestCodecDecodesHostReceipts decodes each Encoded value with the layerxproof codec receipt decoder and checks GlobalSequence, Timestamp, ResultCode and both state roots equal the Receipt fields, and that Receipt.UnsignedBytes (layerxproof/codec/receipt.go:119) is a prefix of Encoded."
-do_3 = "TestCodecProtocolReceiptShapeOnHostReceipts asserts IsProtocolReceiptShape (layerxproof/codec/receipt.go:136) is true for each Encoded value and false for each value truncated by one byte."
+do_3 = "TestCodecProtocolReceiptShapeOnHostReceipts asserts IsProtocolReceiptShape (layerxproof/codec/receipt.go:136) is true for each Encoded value, and that DecodeReceipt (layerxproof/codec/receipt.go:364) returns an error wrapping ErrTruncated for each Encoded value truncated by one byte, the refusal the codec vector table assigns to truncation (layerxproof/codec/codec_test.go:114). The header predicate classifies only the four-byte structure header, so it is not expected to detect the missing trailing presence byte (src/protocol/lxp_receipt.c:719); decision.1917."
 symbols = ["TestCodecDecodesHostReceipts", "TestCodecProtocolReceiptShapeOnHostReceipts"]
 touches = ["modules/lxphost/codec_conformance_test.go"]
 tests = ["modules/lxphost/codec_conformance_test.go::TestCodecDecodesHostReceipts", "modules/lxphost/codec_conformance_test.go::TestCodecProtocolReceiptShapeOnHostReceipts"]
@@ -96671,6 +96683,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (d3ed36895) implemented codecHostReceipts (:14-46) and TestCodecDecodesHostReceipts (:48-63) correctly and failed only at codec_conformance_test.go:72, which asserted the former do_3 wording against the header predicate. Keep that file and replace the require.False at :72 with a DecodeReceipt call on encoded[:len(encoded)-1] and require.ErrorIs against codec.ErrTruncated, per the current do_3."
 
 [task.1.91.1]
 title = "Export NextSequence over the host store sequence counter"
@@ -131887,10 +131900,10 @@ do_2 = "Write a temporary template that copies the gocosmos opts of ./buf.gen.ya
 do_3 = "Run the buf CLI pinned at scripts/protoc.sh:26 as `generate --template <tmp>/buf.gen.yaml` from the repository root, and map each output file to its repository path the way scripts/protoc.sh:33-34 copies it."
 do_4 = "Assert each output .pb.go and .pb.gw.go is byte-equal to the checked-in file, and that every checked-in .pb.go and .pb.gw.go under the go_package directories of api and sdk/proto is produced by the run; report each differing, missing or orphaned path (planned)."
 symbols = ["TestBufGenerateMatchesCheckedInGo"]
-touches = ["api/buf_generate_test.go"]
+touches = ["api/buf_generate_test.go", "admin/types/admin.pb.go", "modules/epoch/types/epoch.pb.go", "modules/epoch/types/genesis.pb.go", "modules/epoch/types/params.pb.go", "modules/epoch/types/query.pb.go", "modules/epoch/types/tx.pb.go", "modules/evm/types/config.pb.go", "modules/evm/types/enums.pb.go", "modules/evm/types/ethtx/tx.pb.go", "modules/evm/types/genesis.pb.go", "modules/evm/types/gov.pb.go", "modules/evm/types/params.pb.go", "modules/evm/types/query.pb.go", "modules/evm/types/receipt.pb.go", "modules/evm/types/tx.pb.go", "modules/evm/types/types.pb.go", "modules/layerxanchor/types/tx.pb.go", "modules/layerxbridge/types/proposal.pb.go", "modules/layerxbridge/types/tx.pb.go", "modules/layerxcustody/types/genesis.pb.go", "modules/layerxcustody/types/params.pb.go", "modules/layerxcustody/types/proposal.pb.go", "modules/layerxcustody/types/state.pb.go", "modules/layerxcustody/types/tx.pb.go", "modules/layerxexchange/types/genesis.pb.go", "modules/layerxexchange/types/state.pb.go", "modules/layerxexchange/types/tx.pb.go", "modules/layerxgov/types/proposal.pb.go", "modules/mint/types/genesis.pb.go", "modules/mint/types/gov.pb.go", "modules/mint/types/mint.pb.go", "modules/mint/types/query.pb.go", "modules/oracle/types/genesis.pb.go", "modules/oracle/types/oracle.pb.go", "modules/oracle/types/query.pb.go", "modules/tokenfactory/types/params.pb.go", "modules/xweb/types/query.pb.go", "sdk/client/grpc/reflection/reflection.pb.go", "sdk/client/grpc/tmservice/query.pb.go", "sdk/crypto/keys/ed25519/keys.pb.go", "sdk/crypto/keys/multisig/keys.pb.go", "sdk/crypto/keys/secp256k1/keys.pb.go", "sdk/crypto/keys/secp256r1/keys.pb.go", "sdk/crypto/keys/sr25519/keys.pb.go", "sdk/crypto/types/multisig.pb.go", "sdk/server/grpc/reflection/v2alpha1/reflection.pb.go", "sdk/snapshots/types/snapshot.pb.go", "sdk/store/types/commit_info.pb.go", "sdk/store/types/listening.pb.go", "sdk/types/abci.pb.go", "sdk/types/coin.pb.go", "sdk/types/kv/kv.pb.go", "sdk/types/query/pagination.pb.go", "sdk/types/tx/service.pb.go", "sdk/types/tx/signing/signing.pb.go", "sdk/types/tx/tx.pb.go", "sdk/x/auth/types/auth.pb.go", "sdk/x/auth/types/genesis.pb.go", "sdk/x/auth/types/query.pb.go", "sdk/x/auth/vesting/types/tx.pb.go", "sdk/x/auth/vesting/types/vesting.pb.go", "sdk/x/authz/authz.pb.go", "sdk/x/authz/event.pb.go", "sdk/x/authz/genesis.pb.go", "sdk/x/authz/query.pb.go", "sdk/x/authz/tx.pb.go", "sdk/x/bank/types/authz.pb.go", "sdk/x/bank/types/bank.pb.go", "sdk/x/bank/types/genesis.pb.go", "sdk/x/bank/types/query.pb.gw.go", "sdk/x/bank/types/tx.pb.go", "sdk/x/capability/types/capability.pb.go", "sdk/x/capability/types/genesis.pb.go", "sdk/x/distribution/types/distribution.pb.go", "sdk/x/distribution/types/genesis.pb.go", "sdk/x/distribution/types/query.pb.go", "sdk/x/distribution/types/tx.pb.go", "sdk/x/evidence/types/evidence.pb.go", "sdk/x/evidence/types/genesis.pb.go", "sdk/x/evidence/types/query.pb.go", "sdk/x/evidence/types/tx.pb.go", "sdk/x/feegrant/feegrant.pb.go", "sdk/x/feegrant/genesis.pb.go", "sdk/x/feegrant/query.pb.go", "sdk/x/feegrant/tx.pb.go", "sdk/x/genutil/types/genesis.pb.go", "sdk/x/gov/types/genesis.pb.go", "sdk/x/gov/types/gov.pb.go", "sdk/x/gov/types/query.pb.go", "sdk/x/gov/types/tx.pb.go", "sdk/x/params/types/proposal/params.pb.go", "sdk/x/params/types/proposal/query.pb.go", "sdk/x/params/types/types.pb.go", "sdk/x/slashing/types/genesis.pb.go", "sdk/x/slashing/types/query.pb.go", "sdk/x/slashing/types/slashing.pb.go", "sdk/x/slashing/types/tx.pb.go", "sdk/x/staking/types/authz.pb.go", "sdk/x/staking/types/genesis.pb.go", "sdk/x/staking/types/query.pb.go", "sdk/x/staking/types/staking.pb.go", "sdk/x/staking/types/tx.pb.go", "sdk/x/upgrade/types/query.pb.go", "sdk/x/upgrade/types/upgrade.pb.go"]
 tests = ["api/buf_generate_test.go::TestBufGenerateMatchesCheckedInGo"]
 planned_paths = ["api/buf_generate_test.go"]
-build_cmd = "go test -c -o /dev/null ./api/"
+build_cmd = "go test -c -o /dev/null ./api/ && go build ./admin/types/ ./modules/epoch/types/ ./modules/evm/types/ ./modules/evm/types/ethtx/ ./modules/layerxanchor/types/ ./modules/layerxbridge/types/ ./modules/layerxcustody/types/ ./modules/layerxexchange/types/ ./modules/layerxgov/types/ ./modules/mint/types/ ./modules/oracle/types/ ./modules/tokenfactory/types/ ./modules/xweb/types/ ./sdk/client/grpc/reflection/ ./sdk/client/grpc/tmservice/ ./sdk/crypto/keys/ed25519/ ./sdk/crypto/keys/multisig/ ./sdk/crypto/keys/secp256k1/ ./sdk/crypto/keys/secp256r1/ ./sdk/crypto/keys/sr25519/ ./sdk/crypto/types/ ./sdk/server/grpc/reflection/v2alpha1/ ./sdk/snapshots/types/ ./sdk/store/types/ ./sdk/types/ ./sdk/types/kv/ ./sdk/types/query/ ./sdk/types/tx/ ./sdk/types/tx/signing/ ./sdk/x/auth/types/ ./sdk/x/auth/vesting/types/ ./sdk/x/authz/ ./sdk/x/bank/types/ ./sdk/x/capability/types/ ./sdk/x/distribution/types/ ./sdk/x/evidence/types/ ./sdk/x/feegrant/ ./sdk/x/genutil/types/ ./sdk/x/gov/types/ ./sdk/x/params/types/ ./sdk/x/params/types/proposal/ ./sdk/x/slashing/types/ ./sdk/x/staking/types/ ./sdk/x/upgrade/types/"
 verify_cmd = "go test -count=1 ./api/ -run '^(TestBufGenerateMatchesCheckedInGo)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -131903,6 +131916,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempts 1 to 3 (latest 2aaf437b7) fail because the 104 checked-in files now in touches were generated by an older plugin than the pinned toolchain (admin/types/admin.pb.go carries a 419-byte gzipped FileDescriptorProto where the pinned plugin emits 425; modules/evm/types/ethtx/tx.pb.go differs from byte 123; modules/xweb/types/query.pb.go is 115350 bytes against 113689 generated). Per decision.1918 regenerate them in this task with the buf generate of do_2 and do_3 and copy each output over its checked-in path as scripts/protoc.sh:33-34 does, so the assertion of do_4 holds unchanged; the build compiles the regenerated packages."
 
 [task.7.94.1]
 title = "Serve pax_sequencerReceipt with signed receipt bytes and signing key on the chain listener"
@@ -158182,7 +158196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.1]
 title = "Rebuild the shared registry test support on the chain fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["13.0.4", "13.2.1", "13.4.5"]
@@ -158243,7 +158257,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.3]
 title = "Rewrite the program bundle verification tests on version 2 bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -158303,7 +158317,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.5]
 title = "Rewrite the interface binding test on a single chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -158333,7 +158347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.6]
 title = "Rewrite the sandbox lease lifecycle tests on proven lease records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1", "13.6.6"]
@@ -158363,7 +158377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.7]
 title = "Rewrite the sandbox snapshot tests on chain-proven call receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -163696,7 +163710,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.29.3]
 title = "Start the history indexer from the EVM URL and drop the index binary probe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["14.0.4", "8.0.3", "14.35.1"]
@@ -191652,7 +191666,7 @@ qualification = "UNRUN"
 
 [task.18.1259.1]
 title = "Issue #1259: Document activity.submit as one signed raw_transaction sent to /rpc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192795,4 +192809,48 @@ req = "181302.1"
 scenario = "Given sessions bound under SessionKey(G), CapabilityGrant(G) and CapabilityGrant(H), when a GrantRevokedOnChain event for G is applied with either authority shape, then the two sessions under G are invalidated at the next generation and the session under H stays live."
 contract = "contracts/agent.md#session-revocation"
 test = "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs::on_chain_grant_revocation_invalidates_capability_grant_sessions"
+qualification = "UNRUN"
+
+
+[task.18.1272.1]
+title = "Issue #1272: Admit call-sourced disclosures in the agent creation preparation check"
+status = "pending"
+mode = "BUILD"
+wave = 20
+requires = ["10.13.5"]
+reqs = ["181272.1"]
+capabilities = []
+interfaces = []
+do_1 = "In prepare_action (services/human/crates/layerx-human-service/src/server/agent_creation.rs:253-271) replace the arm prepared.disclosure.reencode() != prepared.unsigned_canonical_bytes (:264-267): Disclosure::reencode returns FieldMismatch('source') for a Source::Call disclosure (services/agent/crates/layerx-crypto/src/disclosure.rs:1117-1123), so once the agent runtime yields unsigned EIP-1559 call bytes and bind_call disclosures (task 10.13.5) every creation preparation is refused with 'agent preparation differs from creation intent'."
+do_2 = "Check the disclosure the way the KMS does (services/human/crates/layerx-human-kms/src/server.rs:158-176): decode prepared.unsigned_canonical_bytes with layerx_human_kms::attestor::decode_unsigned_evm_transaction as prepare_scoped already does at :336-338, take from as the 20-byte prepared.disclosure.actor as :340-344 does, and refuse with the same message unless layerx_crypto::disclosure::call::bind_call(&call, from) equals prepared.disclosure; a disclosure that still re-encodes as a kernel activity envelope is refused by the same arm."
+do_3 = "Keep every other equality arm of :253-263 as written, change nothing in agent_runtime.rs, journeys/engine.rs or custody/provider.rs (10.13.5 ports those producers), and leave the decode at :336-344 in place for the submit path."
+do_4 = "In creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths (services/human/crates/layerx-human-service/tests/agent_create.rs:796) assert that the creation reaches its receipt-gated evidence with a prepared disclosure whose source is a call (bind_call of the decoded preparation equals it), and that a preparation whose disclosure actor differs from the call sender is refused with 'agent preparation differs from creation intent'."
+symbols = ["prepare_action", "creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths"]
+touches = ["services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/tests/agent_create.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/agent_create.rs::creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create -- --exact creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the two files; prepare_action again requires an envelope re-encoding and refuses every call-sourced creation preparation."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181272]
+title = "Agent creation admits a preparation whose disclosure is bind_call of its unsigned EIP-1559 call"
+ac_1 = "prepare_action (services/human/crates/layerx-human-service/src/server/agent_creation.rs:253) accepts a preparation whose unsigned_canonical_bytes decode as an unsigned EIP-1559 call and whose disclosure equals bind_call of that call with the disclosure actor as sender, and refuses with 'agent preparation differs from creation intent' a preparation whose disclosure does not match the call, without calling Disclosure::reencode."
+
+[acceptance.18.1272.1]
+feature = "18"
+req = "181272.1"
+scenario = "Given an agent creation whose runtime prepares an unsigned EIP-1559 call with a bind_call disclosure, when prepare_action compares the preparation with the creation intent, then the preparation is admitted and custody signs it, while a preparation whose disclosure actor differs from the call sender is refused."
+contract = "contracts/agent-human-peer.md#prepare"
+test = "services/human/crates/layerx-human-service/tests/agent_create.rs::creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths"
 qualification = "UNRUN"
