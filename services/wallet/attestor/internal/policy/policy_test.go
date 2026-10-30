@@ -853,6 +853,142 @@ func TestShippedPolicyRefusesUsdlApproveToListedPrecompile(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, usdl, big.NewInt(0), approve), h.ledger), CodeSelectorNotAllowed)
 }
 
+func TestShippedPolicyTrustedSpenderApprovalsAndUsdlCaps(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	effective, err := compile(doc.Defaults)
+	if err != nil {
+		t.Fatal(err)
+	}
+	usdl := common.HexToAddress("0x85fcd13735f4309833a503ee804ea32395851479")
+	sid := common.HexToAddress(sidiora)
+	perps := common.HexToAddress("0x0000000000000000000000000000000000001015")
+	launchpad := common.HexToAddress("0x0000000000000000000000000000000000001017")
+	untrusted := common.HexToAddress("0x0000000000000000000000000000000000001018")
+	for _, tc := range []struct {
+		asset          string
+		perTransaction uint64
+		daily          uint64
+	}{
+		{TokenAsset(usdl), 1_000_000_000, 10_000_000_000},
+		{AssetNative, 1_000_000_000_000_000_000, 10_000_000_000_000_000_000},
+	} {
+		cap, ok := effective.caps[tc.asset]
+		if !ok || cap.perTransaction == nil || cap.daily == nil ||
+			cap.perTransaction.Cmp(new(big.Int).SetUint64(tc.perTransaction)) != 0 ||
+			cap.daily.Cmp(new(big.Int).SetUint64(tc.daily)) != 0 {
+			t.Fatalf("compiled cap for %s = %+v, want per transaction %d and daily %d", tc.asset, cap, tc.perTransaction, tc.daily)
+		}
+	}
+	if len(doc.Defaults.TrustedSpenders) != 2 || len(effective.trusted) != 2 || !effective.trusted[perps] || !effective.trusted[launchpad] {
+		t.Fatalf("trusted spenders %v, want exactly perps %s and launchpad %s", doc.Defaults.TrustedSpenders, perps, launchpad)
+	}
+	if _, ok := effective.caps[TokenAsset(sid)]; ok {
+		t.Fatal("SID has an ordinary spend cap, want no cap")
+	}
+	if _, ok := effective.selectors[untrusted]; !ok {
+		t.Fatal("untrusted precompile must be selector-listed")
+	}
+	erc20, err := evm.PrecompileABI("erc20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := func(t *testing.T, h *harness, method string, token, spender common.Address, amount *big.Int) Request {
+		t.Helper()
+		if method == "approve" {
+			data, err := erc20.Pack("approve", spender, amount)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return h.tx(t, token, big.NewInt(0), data)
+		}
+		typed := permitDataTo(t, spender.Hex(), amount.String())
+		typed.Data.Domain.VerifyingContract = token.Hex()
+		typed.Digest, err = evm.TypedDataDigest(typed.Data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return Request{Kind: KindTypedData, View: typed}
+	}
+	ceiling := new(big.Int).Lsh(big.NewInt(1), 255)
+	for _, method := range []string{"approve", "permit"} {
+		t.Run(method, func(t *testing.T) {
+			for _, tc := range []struct {
+				name    string
+				token   common.Address
+				spender common.Address
+				amount  *big.Int
+				code    string
+				counted bool
+			}{
+				{"USDL launchpad at cap", usdl, launchpad, big.NewInt(1_000_000_000), CodeAllowed, true},
+				{"USDL launchpad over cap", usdl, launchpad, big.NewInt(1_000_000_001), CodeValueCap, false},
+				{"USDL perps at cap", usdl, perps, big.NewInt(1_000_000_000), CodeAllowed, false},
+				{"USDL perps over cap", usdl, perps, big.NewInt(1_000_000_001), CodeAllowed, false},
+				{"SID launchpad exact", sid, launchpad, big.NewInt(1_000_000_000), CodeAllowed, false},
+				{"USDL perps at ceiling", usdl, perps, ceiling, CodeUnlimitedApproval, false},
+				{"USDL launchpad at ceiling", usdl, launchpad, ceiling, CodeUnlimitedApproval, false},
+				{"SID launchpad at ceiling", sid, launchpad, ceiling, CodeUnlimitedApproval, false},
+				{"USDL perps above ceiling", usdl, perps, maxUint256, CodeUnlimitedApproval, false},
+				{"USDL launchpad above ceiling", usdl, launchpad, maxUint256, CodeUnlimitedApproval, false},
+				{"USDL untrusted listed spender", usdl, untrusted, big.NewInt(1), CodeSelectorNotAllowed, false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					h := newHarness(t)
+					h.policy = New(doc)
+					decision := h.policy.Evaluate(testAccount, request(t, h, method, tc.token, tc.spender, tc.amount), h.ledger)
+					expect(t, decision, tc.code)
+					want := new(big.Int)
+					if tc.counted {
+						want.Set(tc.amount)
+						if len(decision.Spends) != 1 || decision.Spends[0].Asset != TokenAsset(tc.token) || decision.Spends[0].Amount.Cmp(want) != 0 {
+							t.Fatalf("spends %+v, want one spend of %s %s", decision.Spends, want, TokenAsset(tc.token))
+						}
+					} else if len(decision.Spends) != 0 || len(h.ledger.spends) != 0 {
+						t.Fatalf("uncounted or refused approval recorded spends: decision %+v, ledger %+v", decision.Spends, h.ledger.spends)
+					}
+					spent, err := h.ledger.Spent(AccountKey(testAccount), TokenAsset(tc.token), h.now.Add(-SpendWindow))
+					if err != nil {
+						t.Fatal(err)
+					}
+					if spent.Cmp(want) != 0 {
+						t.Fatalf("ledger spent %s, want %s", spent, want)
+					}
+				})
+			}
+			t.Run("rolling daily cap", func(t *testing.T) {
+				h := newHarness(t)
+				h.policy = New(doc)
+				start := h.now
+				amount := big.NewInt(1_000_000_000)
+				evaluate := func(value *big.Int) Decision {
+					return h.policy.Evaluate(testAccount, request(t, h, method, usdl, launchpad, value), h.ledger)
+				}
+				expect(t, evaluate(amount), CodeAllowed)
+				h.now = start.Add(time.Hour)
+				for i := 0; i < 9; i++ {
+					expect(t, evaluate(amount), CodeAllowed)
+				}
+				expect(t, evaluate(big.NewInt(1)), CodeDailyCap)
+				spent, err := h.ledger.Spent(AccountKey(testAccount), TokenAsset(usdl), h.now.Add(-SpendWindow))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if spent.Cmp(big.NewInt(10_000_000_000)) != 0 {
+					t.Fatalf("daily ledger spent %s, want 10000000000", spent)
+				}
+				h.now = start.Add(24*time.Hour - time.Nanosecond)
+				expect(t, evaluate(big.NewInt(1)), CodeDailyCap)
+				h.now = start.Add(24 * time.Hour)
+				expect(t, evaluate(amount), CodeAllowed)
+				expect(t, evaluate(big.NewInt(1)), CodeDailyCap)
+			})
+		})
+	}
+}
+
 func TestShippedPolicyAllowsPerpsApproveThenDeposit(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
@@ -915,6 +1051,88 @@ func TestShippedPolicyAllowsPerpsApproveThenDeposit(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, perps, big.NewInt(0), transfer), h.ledger), CodeSelectorNotAllowed)
 	legacy := append(crypto.Keccak256([]byte("placeOrder(bytes32,uint8,uint256,uint256,uint8)"))[:4], make([]byte, 160)...)
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, perps, big.NewInt(0), legacy), h.ledger), CodeDecodeError)
+}
+
+func TestShippedPolicyBridgeOutMovesUsdlOnly(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bridgeABI, err := evm.PrecompileABI("layerxbridge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bridge := common.HexToAddress("0x0000000000000000000000000000000000001016")
+	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
+	recipient := common.HexToAddress(friend)
+	bridgeOut := func(t *testing.T, h *harness, asset common.Address, amount int64) Decision {
+		t.Helper()
+		data, err := bridgeABI.Pack("bridgeOut", uint64(1), asset, big.NewInt(amount), recipient)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return h.policy.Evaluate(testAccount, h.tx(t, bridge, big.NewInt(0), data), h.ledger)
+	}
+	counted := func(t *testing.T, decision Decision, amount int64) {
+		t.Helper()
+		expect(t, decision, CodeAllowed)
+		if len(decision.Spends) != 1 || decision.Spends[0].Asset != TokenAsset(usdl) || decision.Spends[0].Amount.Cmp(big.NewInt(amount)) != 0 {
+			t.Fatalf("spends %+v, want exactly %d of USDL", decision.Spends, amount)
+		}
+	}
+	for _, tc := range []struct {
+		name   string
+		asset  common.Address
+		amount int64
+		code   string
+	}{
+		{"USDL at transaction cap", usdl, 1_000_000_000, CodeAllowed},
+		{"USDL above transaction cap", usdl, 1_000_000_001, CodeValueCap},
+		{"SID", common.HexToAddress(sidiora), 1, CodeNoCap},
+		{"WPAX9", common.HexToAddress("0xD152891923C7D6fE84d3DCF58621aB2be0eFCbc2"), 1, CodeNoCap},
+		{"zero address", common.Address{}, 1, CodeNoCap},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.policy = New(doc)
+			decision := bridgeOut(t, h, tc.asset, tc.amount)
+			expect(t, decision, tc.code)
+			if tc.code == CodeAllowed {
+				counted(t, decision, tc.amount)
+			}
+		})
+	}
+
+	t.Run("daily cap shared with USDL transfers", func(t *testing.T) {
+		h := newHarness(t)
+		h.policy = New(doc)
+		start := h.now
+		erc20, err := evm.PrecompileABI("erc20")
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := erc20.Pack("transfer", recipient, big.NewInt(1_000_000_000))
+		if err != nil {
+			t.Fatal(err)
+		}
+		counted(t, h.policy.Evaluate(testAccount, h.tx(t, usdl, big.NewInt(0), data), h.ledger), 1_000_000_000)
+		for i := 0; i < 9; i++ {
+			counted(t, bridgeOut(t, h, usdl, 1_000_000_000), 1_000_000_000)
+		}
+		spent, err := h.ledger.Spent(AccountKey(testAccount), TokenAsset(usdl), h.now.Add(-24*time.Hour))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if spent.Cmp(big.NewInt(10_000_000_000)) != 0 {
+			t.Fatalf("ledger spent %s of USDL, want the full daily cap of 10000000000", spent)
+		}
+		expect(t, bridgeOut(t, h, usdl, 1), CodeDailyCap)
+		expect(t, h.policy.Evaluate(testAccount, h.tx(t, usdl, big.NewInt(0), data), h.ledger), CodeDailyCap)
+		h.now = start.Add(24*time.Hour - time.Second)
+		expect(t, bridgeOut(t, h, usdl, 1), CodeDailyCap)
+		h.now = start.Add(24 * time.Hour)
+		counted(t, bridgeOut(t, h, usdl, 1_000_000_000), 1_000_000_000)
+	})
 }
 
 func TestTransferToPrecompileRecipientRefused(t *testing.T) {
