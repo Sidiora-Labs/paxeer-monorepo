@@ -156778,7 +156778,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.6]
 title = "Derive read freshness from verified header time"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
