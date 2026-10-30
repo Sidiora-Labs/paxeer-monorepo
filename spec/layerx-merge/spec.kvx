@@ -193188,7 +193188,7 @@ qualification = "UNRUN"
 
 [task.18.1307.1]
 title = "Issue #1307: A failing commit listener fails Commit instead of being recovered and logged"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1308.1"]
@@ -193236,7 +193236,7 @@ qualification = "UNRUN"
 
 [task.2.41.1]
 title = "Export and import the shared host store in genesis before every host-writing module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["1.24.1", "1.25.1", "2.22.5", "2.38.6", "18.1308.1"]
