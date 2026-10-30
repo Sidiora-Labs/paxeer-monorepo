@@ -13107,3 +13107,59 @@ symbol = "submit_and_wait"
 observed = "Attempt 14 (51fc68ead on 4f424c474, the first base with 5.7.3 and 5.7.4) builds green, migration passes 9 and operator passes 6 of 7; layerxd --serve stays alive and admits the NativeProgramCall but answers every LNI V1_4 by-id receipt lookup for 30 s with an empty envelope (cmd/layerxd/lxp_daemon_lni.c:2946-2962, :2997-2999), so the admitted LX_PROGRAMS_CALL never reached install_pending_receipts (cmd/layerxd/lxp_daemon_process.c:4145-4146) nor a refusal disposition; the seven task files are byte-identical to attempts 7-13."
 assumption = "The executor stopped or stalled inside apply_canonical_batch after admission (cmd/layerxd/lxp_daemon_main.c:189-194 stops the executor without exiting; the serve loop at lxp_daemon_process.c:6303-6306 polls only the LNI server), most plausibly in the state-feed observer re-bound by 5.7.4 (379db0bd0) at cmd/layerxd/lxp_daemon_protocol.c:1124-1125 or in the synchronous replica publication at lxp_daemon_process.c:4129-4144; unverified because layerxd's stderr (real_authority.rs:397-400 writes it to <temp>/layerx-authority-*/sequencer.stderr) was not collected. Task 5.7.6 reproduces with stderr kept and fixes the named stage; 18.1200.1 requires it."
 severity = "cross-task"
+
+[finding.17.5.1.10]
+task = "17.5.1"
+file = "services/agent/crates/layerx-agentd/src/main.rs:1013"
+symbol = "start_shared_owner"
+observed = "Attempt 12 (af44d7420, base a373fef18 with 10.16.5 at 3441fc681; test_wave_0_gate.py::test_wave_0_gate_passes exit 1, only :45 exit_code == 0 failing) exited 2 in make workspace-build at agent-build (Makefile:1947) with E0277 twice at main.rs:1013, where 8c526e4f0 (9.12.7 do_3) wrote `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` in a function returning Result<_, String> although both calls return NodeRpcError and no From<NodeRpcError> for String exists; the layerx-agentd binary lives in layerx-agentd-host (Cargo.toml [[bin]] path ../layerx-agentd/src/main.rs, autobins = false), which 9.12.7's -p layerx-agentd gates never built, and human-build was not reached."
+assumption = "Task 9.12.11 maps both errors with the human_owner_mode.rs:41-47 and :83-84 texts; 17.5.1 requires it and re-qualifies the attempt 9 test unchanged; human-build, the later workspace-build targets and make workspace-lint remain unrun on every attempt, with 81 denied-by-lint warnings now in the layerx-agentd library."
+severity = "cross-task"
+
+[finding.10.20.3.12]
+task = "10.20.3"
+file = "services/agent/crates/layerx-agentd/src/main.rs:1013"
+symbol = "start_shared_owner"
+observed = "Attempt 19 (9b9d22da9, the attempt 18 candidate 5f4c319c4 continued on d4bf62f09 with the do_23 node RPC pair added to the test's layerx-agentd command) builds layerx-human-service and layerx-runtime-clock and the layerx-agentd binary fails with E0277 at main.rs:1013, `?` on NodeRpcError inside a Result<_, String> function with no From impl, a line 8c526e4f0 (9.12.7 do_3) added and qualified with a lib-only gate that never compiles main.rs; the 22 task files are unchanged since attempt 15 and every failure since arrived through a new base (18.1304.1 at attempt 12, 18.1310.1 at attempt 13, 9.12.7 now)."
+assumption = "Task 9.12.11 maps the two errors to String as human_owner_mode.rs:41-47 and :83-84 do; this task requires it and re-qualifies the attempt 19 candidate unchanged."
+severity = "cross-task"
+
+[finding.14.32.1.2]
+task = "14.32.1"
+file = "apps/explorer/types/client/navigation.ts:3"
+symbol = "Route"
+observed = "At f5e525592 (attempt 5, do_6 applied, five attempt 4 files unchanged) the narrowed build_cmd exits 2 with one error, types/client/navigation.ts(3,15) TS2724 ''nextjs-routes'' has no exported member named 'Route'; the file and the declaration file apps/explorer/nextjs/nextjs-routes.d.ts:7-8 are identical to main, and the build_cmd root list lacked nextjs/nextjs-routes.d.ts, which tsconfig.json:20 includes for the whole-application check and which the 14.32.2 to 14.32.5 build commands already list."
+assumption = "With nextjs/nextjs-routes.d.ts added to the root list the narrowed check exits 0 at f5e525592 and the verify_cmd, which runs vitest without type checking, passes on the attempt 5 candidate unchanged."
+severity = "spec"
+
+[finding.6.6.10.1]
+task = "6.6.10"
+file = "precompiles/setup_test.go:144"
+symbol = "TestXWebRegistration"
+observed = "At 6f2320d86 (attempt 1 on b38a9f679) the verify fails only at setup_test.go:144, require.Len(t, info.ABI.Methods, 9), because precompiles/xweb/abi.json declares 12 functions and 4 events (ccf8fa472; 144f13d49, task 5.1.2; 383bbbbd8, task 6.94.3) while the test still asserts the 9 and 3 of 00f692026; the two lines are unchanged from main and no gate of 5.1.2 or 6.94.3 ran TestXWebRegistration."
+assumption = "Decision 1965 makes the test follow the declared ABI (12 and 4); 6.6.10 do_4 applies it in a file the task touches, and the other four tests of the verify pass at 6f2320d86."
+severity = "pre-existing"
+
+[finding.12.35.4.9]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120_test.go:161"
+symbol = "TestLocalNodeV6120SequencerReceipt"
+observed = "In attempt 12 (2bbcaee77, do_12 applied) the standby chain-id assertion passes and the test fails at v6120_test.go:163 with 'pending block unavailable: sequencer: no block is open': the pending nonce read resolves through the sequencer's open block (rpc/tx.go:430-436, rpc/watermark_manager.go:57-65) and sequential.Snapshot returns ErrLayerNotOpen (node/sequencer/executor.go:329-333) between the seal of the proposal for 34742448 (consensus/internal/state/execution.go:267-270) and the Open in Driver.OnCommit (node/sequencer/driver.go:93); the primary committed 34742447 at 18:30:23.811 and finalized 34742448 at 18:30:24.194 while the 0.06 s test ran."
+assumption = "The test waits for an open block on exactly that error text, as daemon/committed-fixture/vector_v4.go:224-241 does, for the pending nonce, both pending balances and eth_sendRawTransaction (which answers the bare error from node/sequencer/receipt.go:328 and admits nothing); the steps after the nonce read have never executed against the pair and may surface a further condition."
+severity = "task"
+
+[finding.12.35.4.10]
+task = "12.35.4"
+file = "node/sequencer/standby.go:823"
+symbol = "Replicator.replicate"
+observed = "In attempt 12 the primary's node.log holds four 'unable to create proposal block ... seal height N: sequencer: standby did not acknowledge: read tcp ...: i/o timeout' lines at 18:29:05.454 (34742429), 18:29:18.924 (34742433), 18:29:31.251 (34742435) and 18:29:44.845 (34742440) and none later; each is a 10 s SEAL replication timeout (replicate node/sequencer/standby.go:314-346; the standby answers AckGap while its own commit of H is pending, :823-825, :855-857, with a 2.5 s commit wait, :893-895) and the chain recovered to 34742448 before the test ran."
+assumption = "The standby's commit of H lagged the primary's proposal of H+1 by more than 10 s during that minute; while a SEAL times out no block is open for 10 s and a timed-out ACCEPT release would halt the accepter permanently (node/sequencer/accepter.go:40-41, :58-61), so the receipt test can fail on it independently of 12.35.4's files; cause unverified because only the primary's grep tail is in evidence."
+severity = "owner"
+
+[finding.18.1204.2.3]
+task = "18.1204.2"
+file = "services/agent/crates/layerx-client/src/lni/schema.rs:4"
+symbol = "LNI_V1_SOURCE"
+observed = "Attempt 6 (b3481553d on 019a38eed) exited in the build_cmd before any test ran: layerx-human-service pulls layerx-client (services/human/Cargo.toml:31) and schema.rs:4 include_str!s services/agent/schema/lni/v1.kvx, which 019a38eed (task 9.19.1 do_1) deleted while its gate built only the boundary-check tool crate; the constant has no reader in services/ and the same error stops every crate of services/agent, services/human and services/platform that depends on layerx-client."
+assumption = "Task 9.19.2 (wave 1) deletes schema.rs:3-4; 18.1204.2 requires it and re-qualifies the attempt 6 implementation unchanged on a base carrying it."
+severity = "owner"

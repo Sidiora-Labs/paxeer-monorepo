@@ -3,6 +3,7 @@ package layerx
 import (
 	"encoding/json"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -29,8 +30,21 @@ func loadOperationCatalog(t *testing.T) []catalogOperation {
 		Schema     int                `json:"schema"`
 		Operations []catalogOperation `json:"operations"`
 	}
-	if err := json.Unmarshal(encoded, &catalog); err != nil {
+	var grouped struct {
+		Schema     int                           `json:"schema"`
+		Operations map[string][]catalogOperation `json:"operations"`
+	}
+	if err := json.Unmarshal(encoded, &grouped); err != nil {
 		t.Fatal(err)
+	}
+	catalog.Schema = grouped.Schema
+	identifiers := make([]string, 0, len(grouped.Operations))
+	for identifier := range grouped.Operations {
+		identifiers = append(identifiers, identifier)
+	}
+	sort.Strings(identifiers)
+	for _, identifier := range identifiers {
+		catalog.Operations = append(catalog.Operations, grouped.Operations[identifier]...)
 	}
 	if catalog.Schema != 1 || len(catalog.Operations) == 0 {
 		t.Fatalf("invalid operation catalogue: schema %d, %d operations", catalog.Schema, len(catalog.Operations))
@@ -48,14 +62,13 @@ func loadOperationCatalog(t *testing.T) []catalogOperation {
 
 func TestProgramOperationsHaveNoRestRoute(t *testing.T) {
 	const programs = "0x000000000000000000000000000000000000101d"
-	const auth = "0x000000000000000000000000000000000000101c"
 	expected := map[AgentOperation]EVMOperationMetadata{
 		AgentOperationProgramActivity:  {Method: "eth_getTransactionByHash"},
 		AgentOperationProgramCall:      {Method: "eth_sendRawTransaction", To: programs, Selector: "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"},
 		AgentOperationProgramDeploy:    {Method: "eth_sendRawTransaction", To: programs, Selector: "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"},
 		AgentOperationProgramDiscover:  {Method: "eth_call", To: programs, Selector: "getProgram(bytes32)"},
 		AgentOperationProgramInterface: {Method: "eth_call", To: programs, Selector: "getInterface(bytes32)"},
-		AgentOperationProgramReceipt:   {Method: "eth_call", To: auth, Selector: "resultByIdempotency(bytes32,bytes32)"},
+		AgentOperationProgramReceipt:   {Method: "eth_getTransactionByHash"},
 		AgentOperationProgramSimulate:  {Method: "eth_call", To: programs, Selector: "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"},
 		AgentOperationProgramUpgrade:   {Method: "eth_sendRawTransaction", To: programs, Selector: "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"},
 		AgentOperationProgramWindDown:  {Method: "eth_sendRawTransaction", To: programs, Selector: "deprecate(bytes32,bytes32,uint64)"},
