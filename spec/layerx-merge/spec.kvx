@@ -120644,7 +120644,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.7.3]
 title = "Start layerxd --serve without binding the retired anchor finality authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194199,7 +194199,7 @@ qualification = "UNRUN"
 
 [task.12.35.5]
 title = "Release the next OPEN without waiting inside ABCI Commit for the standby's commit of the same height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1307.1"]
