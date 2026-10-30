@@ -12,6 +12,29 @@ export function layerx_sdk_ts_package(): typeof PACKAGE_METADATA {
 
 {{SCALARS}}
 
+export type SignatureBytes = Uint8Array & { readonly length: 65 };
+export type AddressBytes = Uint8Array & { readonly length: 20 };
+
+export function signatureBytes(value: Uint8Array): SignatureBytes {
+  if (!(value instanceof Uint8Array) || value.length !== 65) throw new RangeError("invalid signature length");
+  return new Uint8Array(value) as SignatureBytes;
+}
+
+export function addressBytes(value: Uint8Array): AddressBytes {
+  if (!(value instanceof Uint8Array) || value.length !== 20) throw new RangeError("invalid address length");
+  return new Uint8Array(value) as AddressBytes;
+}
+
+export interface SignRequest {
+  preparation_ref: string;
+  signature: SignatureBytes;
+}
+
+export interface SubmitRequest {
+  preparation_ref: string;
+  signature: SignatureBytes;
+}
+
 export enum Rung {
 {{RUNGS}}
 }
