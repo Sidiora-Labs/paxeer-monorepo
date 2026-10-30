@@ -70,7 +70,10 @@ def main():
         os.setuid(uid)
     require(os.getuid() in (0, uid), 'test must use the genuine admitted kernel peer')
     for test_target, test_name in TESTS:
-        binaries = [binary for binary in (target / 'debug/deps').glob(test_target + '-*')
+        candidates = ((target / 'debug/deps').glob('human_frame-*')
+                      if test_target == 'human_frame'
+                      else (target / 'debug/deps').glob(test_target + '-*'))
+        binaries = [binary for binary in candidates
                     if binary.is_file() and os.access(binary, os.X_OK) and not binary.name.endswith('.d')]
         require(len(binaries) == 1, 'genuine native owner peer gate failed or did not execute')
         result = subprocess.run([str(binaries[0]), '--exact', test_name], cwd=ROOT, env=os.environ,

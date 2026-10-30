@@ -306,6 +306,124 @@ static int sandbox_execute_lifecycle_accepts_call_token(void)
     return 0;
 }
 
+static int sandbox_execute_success_publishes_occupancy_from_usage(void)
+{
+    static const uint8_t wasm[] = {
+        0,97,115,109,1,0,0,0,1,12,2,96,2,127,127,1,127,96,1,127,1,127,
+        3,3,2,0,1,5,3,1,0,1,7,41,3,
+        11,'l','a','y','e','r','x','_','c','a','l','l',0,0,
+        14,'l','a','y','e','r','x','_','r','e','s','e','r','v','e',0,1,
+        6,'m','e','m','o','r','y',2,0,10,11,2,4,0,65,0,11,4,0,65,0,11
+    };
+    static const uint8_t entrypoint[] = "layerx_call";
+    const uint16_t protocols[] = {
+        LXP_PROTOCOL_VERSION_OCCUPANCY, LXP_PROTOCOL_VERSION_STATE_COMMITMENT
+    };
+    uint8_t receipt[] = {0U, 1U, 0x80U, 0xffU, 0x42U};
+    uint8_t evidence_digest[32];
+
+    LXP_CASE_CHECK(lxp_hash_sha256(receipt, sizeof(receipt),
+                                   evidence_digest) == LXP_OK);
+    LXP_CASE_CHECK(!lxp_ct_is_zero(evidence_digest, sizeof(evidence_digest)));
+    for (size_t protocol = 0U; protocol < 2U; ++protocol) {
+        sandbox_fixture *f = calloc(1U, sizeof(*f));
+        const size_t arena_capacity = sizeof(lxp_programs_occupancy_bridge) +
+            sizeof(lxp_receipt) + 2U * sizeof(f->arena_bytes);
+        uint8_t *arena_bytes = malloc(arena_capacity);
+        programs_sandbox_activity value = {0};
+        uint8_t payload[50U + LX_PROGRAMS_CALL_BUDGET_FIELDS * 8U +
+                        sizeof(entrypoint) - 1U] = {0};
+        uint8_t key[40] = "program", record[71] = {1U};
+        const lxp_program_outcome *outcome;
+        void *call;
+        uint64_t token;
+        size_t offset = 32U;
+
+        LXP_CASE_CHECK(f != NULL && arena_bytes != NULL && fixture_init(f) == 0);
+        LXP_CASE_CHECK(lxp_arena_init(&f->arena, arena_bytes,
+                                       arena_capacity) == LXP_OK);
+        f->ctx.protocol_version = protocols[protocol];
+        f->ctx.call_admission.present = true;
+        f->ctx.call_admission.fee_schedule_version = 1U;
+        f->ctx.call_admission.metering_schedule_version =
+            LXP_PROGRAM_METERING_SCHEDULE_VERSION_V1;
+        f->activity.activity_type = LX_PROGRAMS_CALL;
+        (void)memcpy(key + 8U, f->host, 32U);
+        (void)memcpy(record + 1U, f->tenant->id, 32U);
+        LXP_CASE_CHECK(lxp_hash_sha256(wasm, sizeof(wasm), record + 33U) == LXP_OK);
+        record[66U] = LX_PROGRAMS_GUEST_ABI_V2_VERSION;
+        put_u32(record + 67U, 1U);
+        LXP_CASE_CHECK(lxp_ctx_kv_put(&f->ctx, key, sizeof(key),
+                                      record, sizeof(record)) == LXP_OK);
+        LXP_CASE_CHECK(lxp_programs_artifact_store(&f->ctx, f->host,
+                        record + 33U, wasm, sizeof(wasm)) == LXP_OK);
+        (void)memcpy(payload, f->host, 32U);
+        payload[offset + 1U] = LX_PROGRAMS_GUEST_ABI_V2_VERSION; offset += 2U;
+        payload[offset + 1U] = (uint8_t)(sizeof(entrypoint) - 1U); offset += 2U;
+        offset += 14U + LX_PROGRAMS_CALL_BUDGET_FIELDS * 8U;
+        (void)memcpy(payload + offset, entrypoint, sizeof(entrypoint) - 1U);
+        LXP_CASE_CHECK(lxp_programs_call_decode(&f->ctx, payload, sizeof(payload),
+                                                 &call) == LXP_OK);
+        LXP_CASE_CHECK(lxp_programs_call_validate(&f->ctx, &f->activity,
+                                                 &f->authority, call) == LXP_OK);
+        token = (uint64_t)(uintptr_t)call;
+        LXP_CASE_CHECK(layerx_programs_call_terminal_reserve(
+                            token, 1U, 128U, 1U) == LXP_OK);
+        value.ctx = &f->ctx;
+        (void)memcpy(value.asset, f->asset.asset_id, 32U);
+        write_u64(value.usage_result.occupancy, 2U);
+        write_u64(value.usage_result.occupancy + 8U, 37U);
+        write_u64(value.usage_result.occupancy_fee, 3U);
+        write_u64(value.usage_result.occupancy_fee + 8U, 91U);
+        for (size_t i = 0U; i < 32U; ++i)
+            value.usage_result.transfer_root[i] = (uint8_t)(i + 1U);
+        value.usage_result.receipt = receipt;
+        value.usage_result.receipt_length = (uint32_t)sizeof(receipt);
+        for (size_t guard = 0U; guard < 4U; ++guard) {
+            active_sandbox = guard == 0U ? NULL : &value;
+            value.operation = guard == 1U ? SANDBOX_FUND : SANDBOX_EXECUTE;
+            value.usage_result.published = (uint8_t)(guard != 2U);
+            value.call = guard == 3U ? (void *)&f->activity : call;
+            LXP_CASE_CHECK(layerx_programs_call_terminal_begin(token,
+                LXP_PROGRAM_TERMINAL_SUCCESS, LXP_OK,
+                1U, LX_PROGRAMS_GUEST_ABI_V2_VERSION, 1U,
+                LXP_PROGRAM_METERING_SCHEDULE_VERSION_V1,
+                0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U,
+                0U, 0U, 0U, 0U, 1U, 1U, 1U) == LXP_FATAL_INVARIANT);
+        }
+        value.call = call;
+        value.operation = SANDBOX_EXECUTE;
+        value.usage_result.published = 1U;
+        active_sandbox = &value;
+        LXP_CASE_CHECK(layerx_programs_call_terminal_begin(token,
+            LXP_PROGRAM_TERMINAL_SUCCESS, LXP_OK,
+            1U, LX_PROGRAMS_GUEST_ABI_V2_VERSION, 1U,
+            LXP_PROGRAM_METERING_SCHEDULE_VERSION_V1,
+            0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U,
+            0U, 0U, 0U, 0U, 1U, 1U, 1U) == LXP_OK);
+        for (uint16_t section = 0U; section < 3U; ++section)
+            LXP_CASE_CHECK(layerx_programs_call_terminal_byte(
+                token, section, 0U, (uint8_t)(section + 1U)) == LXP_OK);
+        LXP_CASE_CHECK(layerx_programs_call_terminal_publish(token) == LXP_OK);
+        outcome = lxp_ctx_program_outcome(&f->ctx);
+        LXP_CASE_CHECK(outcome != NULL &&
+                        outcome->terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS);
+        LXP_CASE_CHECK(outcome->occupancy_byte_batches.hi == 2U &&
+                        outcome->occupancy_byte_batches.lo == 37U);
+        LXP_CASE_CHECK(outcome->occupancy_fee_units.hi == 3U &&
+                        outcome->occupancy_fee_units.lo == 91U);
+        LXP_CASE_CHECK(memcmp(outcome->occupancy_asset_id, value.asset, 32U) == 0);
+        LXP_CASE_CHECK(memcmp(outcome->occupancy_evidence_digest,
+                               evidence_digest, 32U) == 0);
+        LXP_CASE_CHECK(memcmp(outcome->occupancy_transfer_root,
+                               value.usage_result.transfer_root, 32U) == 0);
+        active_sandbox = NULL;
+        LXP_CASE_CHECK(fixture_destroy(f) == 0);
+        free(arena_bytes);
+    }
+    return 0;
+}
+
 static int sandbox_fund_activate_native(void)
 {
     sandbox_fixture *f = calloc(1U, sizeof(*f));
@@ -414,7 +532,8 @@ static int sandbox_stage_begin_accepts_lifecycle(void)
     return fixture_destroy(f);
 }
 
-static int sandbox_execute_refusal_propagates(void)
+static int sandbox_execute_admission_refusal(int corrupt_digest,
+                                             lxp_result expected_result)
 {
     static const uint8_t wasm[] = {
         0,97,115,109,1,0,0,0,1,12,2,96,2,127,127,1,127,96,1,127,1,127,
@@ -480,7 +599,8 @@ static int sandbox_execute_refusal_propagates(void)
     LXP_CASE_CHECK(lxp_programs_sandbox_read(&f->ctx, f->lease_id, 0U,
                                              &lease, &lease_length) == LXP_OK);
     LXP_CASE_CHECK(lxp_hash_sha256(lease, lease_length, payload + offset) == LXP_OK);
-    payload[offset] ^= 1U; offset += 32U;
+    if (corrupt_digest) payload[offset] ^= 1U;
+    offset += 32U;
     (void)memcpy(payload + offset, f->escrow->id, 32U); offset += 32U;
     (void)memcpy(payload + offset, f->asset.asset_id, 32U); offset += 32U;
     LXP_CASE_CHECK(lx_account_id_from_string((const uint8_t *)"system:fees",
@@ -504,13 +624,24 @@ static int sandbox_execute_refusal_propagates(void)
     put_u32(payload + call_offset - 4U, (uint32_t)(offset - call_offset));
     staged_count = f->ctx.staged_count;
     effect_count = f->effects.count;
-    LXP_CASE_CHECK(execute_payload(f, payload, offset, LXP_ERR_NON_CANONICAL) == 0);
+    LXP_CASE_CHECK(execute_payload(f, payload, offset, expected_result) == 0);
     LXP_CASE_CHECK(f->ctx.staged_count == staged_count && f->ctx.staged_reserve == 0U);
     LXP_CASE_CHECK(f->effects.count == effect_count);
-    LXP_CASE_CHECK(f->tenant->balance.lo == 900U && f->escrow->balance.lo == 100U);
+    LXP_CASE_CHECK(f->tenant->balance.hi == 0U && f->tenant->balance.lo == 900U);
+    LXP_CASE_CHECK(f->escrow->balance.hi == 0U && f->escrow->balance.lo == 100U);
     LXP_CASE_CHECK(fixture_destroy(f) == 0);
     free(arena_bytes);
     return 0;
+}
+
+static int sandbox_execute_refusal_propagates(void)
+{
+    return sandbox_execute_admission_refusal(1, LXP_ERR_CONTEXT_MISMATCH);
+}
+
+static int sandbox_execute_unpayable_charge_is_named(void)
+{
+    return sandbox_execute_admission_refusal(0, LXP_ERR_FEE_UNPAYABLE);
 }
 
 int main(int argc, char **argv)
@@ -518,10 +649,14 @@ int main(int argc, char **argv)
     const lxp_kernel_case cases[] = {
         { "sandbox_execute_lifecycle_accepts_call_token",
           sandbox_execute_lifecycle_accepts_call_token },
+        { "sandbox_execute_success_publishes_occupancy_from_usage",
+          sandbox_execute_success_publishes_occupancy_from_usage },
         { "sandbox_fund_activate_native", sandbox_fund_activate_native },
         { "sandbox_stage_begin_accepts_lifecycle",
           sandbox_stage_begin_accepts_lifecycle },
-        { "sandbox_execute_refusal_propagates", sandbox_execute_refusal_propagates }
+        { "sandbox_execute_refusal_propagates", sandbox_execute_refusal_propagates },
+        { "sandbox_execute_unpayable_charge_is_named",
+          sandbox_execute_unpayable_charge_is_named }
     };
     return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]),
                                argc, argv);

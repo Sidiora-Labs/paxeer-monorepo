@@ -276,15 +276,15 @@ impl<'a> NativeConsentRequest<'a> {
 /// Public material returned after one audited custody signing grant.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct SignatureGrant {
-    signature: [u8; 64],
+    signature: [u8; 65],
     signer_public_key: [u8; 32],
     disclosure_digest: [u8; 32],
 }
 
 impl SignatureGrant {
-    /// Returns the Ed25519 signature bytes.
+    /// Returns the recoverable secp256k1 signature bytes.
     #[must_use]
-    pub const fn signature(&self) -> &[u8; 64] {
+    pub const fn signature(&self) -> &[u8; 65] {
         &self.signature
     }
 
@@ -305,6 +305,45 @@ impl Debug for SignatureGrant {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("SignatureGrant")
+            .field("signature", &"[public signature]")
+            .field("signer_public_key", &self.signer_public_key)
+            .field("disclosure_digest", &self.disclosure_digest)
+            .finish()
+    }
+}
+
+/// Public material returned after one audited custody signing grant.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct NativeConsentSignatureGrant {
+    signature: [u8; 64],
+    signer_public_key: [u8; 32],
+    disclosure_digest: [u8; 32],
+}
+
+impl NativeConsentSignatureGrant {
+    /// Returns the Ed25519 signature bytes.
+    #[must_use]
+    pub const fn signature(&self) -> &[u8; 64] {
+        &self.signature
+    }
+
+    /// Returns the public key that produced the signature.
+    #[must_use]
+    pub const fn signer_public_key(&self) -> [u8; 32] {
+        self.signer_public_key
+    }
+
+    /// Returns the domain-separated disclosure digest audited for the grant.
+    #[must_use]
+    pub const fn disclosure_digest(&self) -> [u8; 32] {
+        self.disclosure_digest
+    }
+}
+
+impl Debug for NativeConsentSignatureGrant {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("NativeConsentSignatureGrant")
             .field("signature", &"[public signature]")
             .field("signer_public_key", &self.signer_public_key)
             .field("disclosure_digest", &self.disclosure_digest)
@@ -929,7 +968,7 @@ impl CustodySigner {
         &self,
         scope: &mut PrincipalScope<'_>,
         request: NativeConsentRequest<'_>,
-    ) -> Result<SignatureGrant, CustodyError> {
+    ) -> Result<NativeConsentSignatureGrant, CustodyError> {
         if scope.principal() != request.principal {
             return Err(CustodyError::InvalidEvidence);
         }
@@ -972,7 +1011,7 @@ impl CustodySigner {
         scope: &mut PrincipalScope<'_>,
         request: &NativeConsentRequest<'_>,
         digest: Option<[u8; 32]>,
-    ) -> Result<SignatureGrant, CustodyError> {
+    ) -> Result<NativeConsentSignatureGrant, CustodyError> {
         let digest = digest.ok_or(CustodyError::InvalidEvidence)?;
         let expected_operation = match request.consent {
             super::NativeConsent::PreparationPurpose(_) => Operation::ProtocolMutation,
@@ -1017,7 +1056,7 @@ impl CustodySigner {
             return Err(CustodyError::InvalidEvidence);
         }
         let signature = signer.sign_native_consent(request.consent, now_ms).await?;
-        Ok(SignatureGrant {
+        Ok(NativeConsentSignatureGrant {
             signature,
             signer_public_key: signer.public_key(),
             disclosure_digest: digest,

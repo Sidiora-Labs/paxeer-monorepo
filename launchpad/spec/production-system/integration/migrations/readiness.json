@@ -1,0 +1,68 @@
+{
+  "schema_version": 2,
+  "registry_sha256": "7e62c0cc39e4a11ed85b83c612bf30f2fda486a1fd6d7e5be250ac4f5b4e3101",
+  "mode": "trusted_expected_schema_readonly",
+  "expected_catalog_fingerprints": null,
+  "expected_reader_versions": null,
+  "required_recovery_epoch": null,
+  "required_recovery_region": null,
+  "runtime_can_read_history": false,
+  "readiness_function": "migration_control.readiness(text)",
+  "current_epoch_function": "recovery.current_epoch()",
+  "state": "requires_real_combined_postgres_qualification",
+  "expected_schema_file": "operator-supplied JSON bound by EXPECTED_SCHEMA_SHA256",
+  "required_role": "effective CURRENT_USER; SESSION_USER may be separately authenticated delegated login",
+  "denies_unexpected_effective_privileges": true,
+  "additional_required_migrations_by_role": {
+    "indexer_runtime": [
+      160001,
+      190001
+    ],
+    "pnl_runtime": [
+      80000,
+      150002,
+      160001,
+      190001
+    ],
+    "metadata_runtime": [
+      190001
+    ],
+    "stats_runtime": [
+      150002,
+      190001
+    ],
+    "api_runtime": [
+      130000,
+      150002,
+      160001,
+      210002
+    ],
+    "recovery_fencer": [
+      440000,
+      440001
+    ],
+    "recovery_operator": [
+      440000,
+      440001
+    ],
+    "candles_runtime": [
+      80000,
+      190001
+    ],
+    "api_rest_runtime": [
+      130000,
+      150002,
+      160001,
+      190001,
+      210002
+    ],
+    "api_sockets_runtime": [
+      130000,
+      150002,
+      160001
+    ]
+  },
+  "unused_runtime_roles": [
+    "api_runtime"
+  ]
+}

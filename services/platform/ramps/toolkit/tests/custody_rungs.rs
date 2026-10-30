@@ -70,6 +70,9 @@ fn executed_receipt() -> ExecutedReceipt {
         vm_error: String::new(),
         key_id: [3; 32],
         receipt: Vec::new(),
+        signing_key: ed25519_dalek::SigningKey::from_bytes(&[8; 32])
+            .verifying_key()
+            .to_bytes(),
     }
 }
 
