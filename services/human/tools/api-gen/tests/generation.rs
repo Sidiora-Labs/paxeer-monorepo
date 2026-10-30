@@ -240,6 +240,53 @@ fn generated_client_covers_every_schema_declaration() {
 }
 
 #[test]
+fn committed_client_has_no_retired_operation_method() {
+    let mut retired = BTreeSet::new();
+    let entries = fs::read_dir(real_schema_root())
+        .unwrap_or_else(|error| panic!("read schema root: {error}"));
+    for entry in entries {
+        let path = entry
+            .unwrap_or_else(|error| panic!("read entry: {error}"))
+            .path();
+        if path.extension().is_none_or(|extension| extension != "kvx") {
+            continue;
+        }
+        let body = fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+        let mut operation = None;
+        for line in body.lines().map(str::trim) {
+            if line.starts_with('[') {
+                operation = line
+                    .strip_prefix("[operation.")
+                    .and_then(|name| name.strip_suffix(']'));
+            } else if line
+                .split_once('=')
+                .is_some_and(|(key, value)| key.trim() == "retired" && value.trim() == "\"true\"")
+            {
+                if let Some(name) = operation {
+                    assert!(
+                        retired.insert(name.to_owned()),
+                        "duplicate operation: {name}"
+                    );
+                }
+            }
+        }
+    }
+    assert_eq!(retired.len(), 11, "minor 10 retires eleven operations");
+
+    let path = committed_output_root().join("index.ts");
+    let index = fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+    assert!(index.contains("export const schemaVersion = { major: 1, minor: 10 } as const;"));
+    for operation in retired {
+        assert!(
+            !index.contains(&format!("  {}(", camel(&operation))),
+            "committed client must not declare the retired {operation} method"
+        );
+    }
+}
+
+#[test]
 fn committed_client_matches_regeneration() {
     let client = check_client(&real_schema_root(), &committed_output_root())
         .unwrap_or_else(|violations| panic!("committed output drifted: {violations:#?}"));
