@@ -10,7 +10,7 @@ fn main() {
         .canonicalize()
         .required("core source");
     let repository = core
-        .join("../../..")
+        .join("../../../..")
         .canonicalize()
         .required("repository source");
     let source = core.join("tests/boundary.rs");
@@ -44,7 +44,7 @@ fn main() {
             format!("{:?}", binary.to_str().required("binary path")),
         ),
         (
-            "\"../../../../tests/support/lxgb_metadata.rs\"",
+            "\"../../../../../tests/support/lxgb_metadata.rs\"",
             format!(
                 "{:?}",
                 repository

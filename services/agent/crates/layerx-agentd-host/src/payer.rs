@@ -6,6 +6,7 @@ use layerx_client::sequencer::{
     CallRequest, RpcRefusal, SequencerEndpoint, SequencerError, SequencerReceipt,
 };
 use layerx_crypto::evm_transaction::{assemble, transaction_hash, Eip1559Call};
+use layerx_crypto::payments::Grant;
 use layerx_crypto::signer::AgentSignature;
 use layerx_human_kms::attestor::{unsigned_evm_transaction, AttestorError, AttestorSigner};
 use layerx_mcp::tools::web::{ExactPayment, ExactTerms, GrantTerms, WebPayer, WebPayerError};
@@ -166,7 +167,7 @@ impl ProductionWebPayer {
             (call.target, call.selector),
             (PrecompileTarget::Ledger, [0x78, 0xea, 0x11, 0xdb])
                 | (PrecompileTarget::Ledger, [0x2e, 0x89, 0x49, 0x0f])
-                | (PrecompileTarget::Pay, [0xa8, 0x63, 0x16, 0x2b])
+                | (PrecompileTarget::Ledger, [0xd0, 0xd5, 0x34, 0x80])
         ) || self.node.chain_id().map_err(node_error)? != CHAIN_ID
         {
             return Err(WebPayerError::Refused.into());
@@ -324,16 +325,50 @@ impl ProductionWebPayer {
     }
 
     fn prepare_grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
+        let grant = self.sign_grant(terms)?;
+        self.remember(terms.prepare_grant(&grant)?)
+    }
+
+    fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
         self.validate(
             &terms.payer_did,
             terms.payer_account,
             terms.amount,
             terms.idempotency_key,
         )?;
-        if terms.purpose_hash == [0; 32] || terms.current_height == u64::MAX {
+        if terms.purpose_hash == [0; 32] {
             return Err(WebPayerError::Refused);
         }
-        self.remember(terms.prepare_budget())
+        let address_word = |address: [u8; 20]| {
+            let mut word = [0; 32];
+            word[12..].copy_from_slice(&address);
+            word
+        };
+        let mut grant = Grant {
+            id: [0; 32],
+            from: address_word(terms.payer_account),
+            recipient: address_word(terms.recipient),
+            asset: address_word(terms.asset),
+            per_draw_maximum: terms.amount,
+            allowance: terms.amount,
+            recurring: false,
+            window_length: 0,
+            expiration: terms.expires_at_ms,
+            purpose_hash: terms.purpose_hash,
+            has_reference: true,
+            reference_hash: terms.idempotency_key,
+            revocation_sequence: 0,
+            public_key: self.signer.public_key(),
+            signature: [0; 64],
+        };
+        grant.id = grant.signing_digest().map_err(|_| WebPayerError::Refused)?;
+        grant.signature = *self
+            .signer
+            .sign_ledger_grant_with_stored_assertion(&grant)
+            .map_err(attestor_error)
+            .map_err(WebPayerError::from)?
+            .signature();
+        Ok(grant)
     }
 
     pub fn draw(
@@ -350,7 +385,22 @@ impl ProductionWebPayer {
         if grant_id == [0; 32] || terms.purpose_hash == [0; 32] {
             return Err(WebPayerError::Refused);
         }
-        self.remember(terms.prepare_draw(grant_id))
+        let call = terms.next_sequence_call();
+        let data = call.encode().map_err(|_| WebPayerError::Refused)?;
+        let result = self
+            .node
+            .call_pending(&call.target.address(), &data)
+            .map_err(node_error)
+            .map_err(WebPayerError::from)?;
+        if result.len() != 32 || result[..24] != [0; 24] {
+            return Err(WebPayerError::Refused);
+        }
+        let receiver_sequence = u64::from_be_bytes(
+            result[24..]
+                .try_into()
+                .map_err(|_| WebPayerError::Refused)?,
+        );
+        self.remember(terms.prepare_draw(grant_id, receiver_sequence))
     }
 }
 
@@ -369,8 +419,10 @@ impl WebPayer for WebPayerBoundary {
         self.0.prepare_payment(terms)
     }
 
-    fn grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
-        self.0.prepare_grant(terms)
+    fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
+        let grant = self.0.sign_grant(terms)?;
+        self.0.remember(terms.prepare_grant(&grant)?)?;
+        Ok(grant)
     }
 
     fn draw(
