@@ -11147,3 +11147,59 @@ symbol = "TestEndToEnd"
 observed = "The verify command needs PERPS_DATA_TEST_COMET, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_DATABASE_URL and a funded seed key in the environment that runs the gates; none is provided, so the end-to-end test cannot run."
 assumption = "Held under test_services_env until the environment provides the three endpoints and a funded key."
 severity = "blocker"
+
+[finding.10.2.8.2]
+task = "10.2.8"
+file = "services/human/crates/layerx-human-service/src/activity/mod.rs"
+symbol = "ReceiptEvidence::rung"
+observed = "Attempt 4 (1ada04c7b) passed its build and both verify targets, and the done record was refused because the graph check counts the field rung and the accessor fn rung of ReceiptEvidence (mod.rs:224, :236) and of EvidenceLink (detail.rs:191, :215) as two definitions of one symbol."
+assumption = "The candidate is correct Rust; the task's symbols now name the two structs, and attempt 4 is re-qualified on the same candidate."
+severity = "low"
+
+[finding.10.98.7.4]
+task = "10.98.7"
+file = "services/human/crates/layerx-human-service/src/activity/detail.rs"
+symbol = "layerx_agent_api::verify::Level"
+observed = "Attempt 9 built layerx-human-kms and its verify compiled layerx-human-service, which fails with E0432 on layerx_agent_api::verify::Level in activity/detail.rs, a path the retired kernel Level left behind."
+assumption = "That import is repaired by 10.2.8, which 10.98.7 now requires; attempt 9 is re-qualified once 10.2.8 is in the base."
+severity = "medium"
+
+[finding.9.98.1.1]
+task = "9.98.1"
+file = "services/agent/Cargo.lock"
+symbol = "payer_evm"
+observed = "Attempt 6 (c2145fcdf) failed its gate with Cargo.lock needs to be updated but --locked was passed, because the new payer_evm test target and its base64, p256, k256 and sha3 dependencies add lock entries and the lock file was not in the task's touches."
+assumption = "services/agent/Cargo.lock joins the touches and the next attempt continues from attempt 6, adding only the missing entries."
+severity = "medium"
+
+[finding.9.15.3.1]
+task = "9.15.3"
+file = "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs"
+symbol = "approval_get_tool_reports_tx_hash_and_rung"
+observed = "Attempts 2 and 3 (95fe4aba2, 39d447b2c) panicked at session_tools_major_two.rs:89 because the test reads an approval owner fixture from the environment variable PAXEER_X_MCP_APPROVAL_MAJOR_TWO_FIXTURE, which no environment that runs the gates sets."
+assumption = "The approval fixture is built in-test from ApprovalRegistry as tests/web.rs:665 does; do_5 rules it and the next attempt continues from attempt 3."
+severity = "medium"
+
+[finding.18.1206.1.1]
+task = "18.1206.1"
+file = "services/agent/crates/layerx-agentd/src/human_runtime/tenant_resolve.rs"
+symbol = "InvalidationReason::SessionKeyRevoked"
+observed = "Attempt 5 failed its build with E0599 on InvalidationReason::SessionKeyRevoked at tenant_resolve.rs:86 (the enum at session_revocation.rs:217 has GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered) while building the whole layerx-agentd test set, and carried a services/human file from attempt 4 outside its touches."
+assumption = "tenant_resolve.rs belongs to 18.1228.1, which requires this task; the build now covers only the library and the four touched test targets, and the next attempt continues from attempt 5 without the human file."
+severity = "medium"
+
+[finding.13.27.1.14]
+task = "13.27.1"
+file = "src/modules/programs/call.c"
+symbol = "layerx_programs_call_transfer_apply"
+observed = "Attempt 32 (28dfb4c7c) reverted the funded sandboxExecute with LXP_SEQUENCE_GAP at src/ledger/lxp_apply.c:319-322 because the sandbox fee leg uses the activity's global sequence (call.c:2325, no ledger admission bound for a sandbox activity at src/protocol/lxp_kernel.c:486-487) while the funding leg of sandboxFund uses the account sequence (src/modules/programs/transfer.c:233-235), so one activity type checks two different sequences against the main account."
+assumption = "The test seeds the fee account at ReadLastSequence+1 for the sandboxExecute step (do_15); binding sandbox ledger admission to the payer as CALL does is a kernel change outside this task and stays recorded here."
+severity = "medium"
+
+[finding.18.1113.1.1]
+task = "18.1113.1"
+file = "services/wallet/gateway/test/provisioning.test.ts"
+symbol = "readKernelAvailability"
+observed = "Attempts 3, 4 and 5 (2c225db68) failed the same two flow tests: the /v1/wallet/me assertion expects kernel state unavailable while bind.ts:133-140 answers available whenever the test chain serves layerXBindNonce, and the backfill test's legacy agent wallet (encrypted local key, no attestor key, no agent_policies row, no signed agent request) cannot reach awaiting_agent_signature under state.ts:383 and :389-390."
+assumption = "Both expectations are stale test fixtures, not production faults; do_3 and do_6 now state the current contract and the next attempt continues from attempt 5."
+severity = "low"
