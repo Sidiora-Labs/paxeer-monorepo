@@ -8900,7 +8900,7 @@ impl AttestorKms {
         binding: &PrincipalKeyBinding,
         reference: &ProviderKeyReference,
         request: ProviderSignRequest<'_>,
-    ) -> Result<[u8; 64], CustodyError> {
+    ) -> Result<[u8; 65], CustodyError> {
         let (key_id, public_key, owner) =
             attestor_reference_parts(reference).map_err(CustodyError::Kms)?;
         if key_id != attestor_key_id(binding)
@@ -8923,13 +8923,17 @@ impl AttestorKms {
         let approval = layerx_human_kms::attestor::Approval {
             principal: &owner,
             session_id: &session,
-            expires_at: request.disclosure().expiry.not_after,
+            expires_at: request
+                .disclosure()
+                .expiry
+                .not_after
+                .min(request.disclosure().expiry.payload_expires_at),
         };
         let signature = signer
             .sign_activity(
-                request.canonical_bytes(),
+                request.call(),
                 request.disclosure(),
-                request.registry(),
+                request.from(),
                 &approval,
                 &assertion,
             )
@@ -8937,7 +8941,16 @@ impl AttestorKms {
                 self.refused(&error);
                 attestor_custody_failure(error)
             })?;
-        Ok(*signature.signature())
+        let signature = *signature.signature();
+        let parsed = layerx_crypto::signer::AgentSignature::new(signature)
+            .map_err(|_| CustodyError::Kms(KmsError::Integrity))?;
+        if layerx_crypto::evm_transaction::recover_sender(request.call(), &parsed)
+            .map_err(|_| CustodyError::Kms(KmsError::Integrity))?
+            != request.from()
+        {
+            return Err(CustodyError::Kms(KmsError::Integrity));
+        }
+        Ok(signature)
     }
     fn sign_native_now(
         &self,
@@ -9139,7 +9152,7 @@ impl crate::custody::KmsProvider for AttestorKms {
         reference: &'a ProviderKeyReference,
         request: ProviderSignRequest<'a>,
     ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<[u8; 64], CustodyError>> + Send + 'a>,
+        Box<dyn std::future::Future<Output = Result<[u8; 65], CustodyError>> + Send + 'a>,
     > {
         Box::pin(async move { self.sign_now(binding, reference, request) })
     }

@@ -238,15 +238,6 @@ impl ReceiptEvidence {
     }
 
     #[must_use]
-    pub const fn level(&self) -> layerx_agent_api::verify::Level {
-        match self.rung {
-            Rung::Submitted => layerx_agent_api::verify::Level::Unverified,
-            Rung::Receipted => layerx_agent_api::verify::Level::BatchIncluded,
-            Rung::Committed => layerx_agent_api::verify::Level::CheckpointFinalised,
-        }
-    }
-
-    #[must_use]
     pub fn canonical(&self) -> Option<&[u8]> {
         self.canonical.as_deref()
     }
@@ -1373,15 +1364,6 @@ fn decode_cursor(bytes: &[u8]) -> Result<CursorFields, FeedError> {
         upper,
         after,
     })
-}
-
-const fn rung_level(rung: Rung) -> layerx_agent_api::verify::Level {
-    use layerx_agent_api::verify::Level;
-    match rung {
-        Rung::Submitted => Level::Unverified,
-        Rung::Receipted => Level::BatchIncluded,
-        Rung::Committed => Level::CheckpointFinalised,
-    }
 }
 
 const fn rung_code(rung: Rung) -> u8 {
