@@ -164667,7 +164667,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.34.2]
 title = "Show the verified sequencer signature on the transaction page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["14.34.1"]
