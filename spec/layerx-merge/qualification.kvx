@@ -11387,3 +11387,11 @@ symbol = "platform_names_no_kernel_disclosure_or_send_codec"
 observed = "Attempt 7 (d7fa779bf) added the chain_receipts configuration of do_6 with both builds green and the verify still found 26 kernel-codec references across hosted crates; the attempt reports that the remaining migrations need native-envelope and sponsored-registration interfaces outside the touched files."
 assumption = "The sweep test spans more crates than the task owns; the task needs a decomposition into per-crate ports before another attempt, recorded here and not re-run."
 severity = "medium"
+
+[finding.9.1.5.1]
+task = "9.1.5"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+symbol = "RETIRED_OPERATIONS"
+observed = "Attempt 4 (4e0db9602) completed do_1 to do_5 and the build failed at agent_rpc.rs:25 and :130 (E0599: no variant FaucetClaim), a file the touches did not name; tests/rpc_surface_major_two.rs:66 and :258, layerx-sdk/tests/agent_operation_envelope.rs:1237 and layerx-mcp/tests/faucet.rs:270 name the variant as well and have no pending owner other than 18.1230.1 for the first."
+assumption = "do_6 to do_9 port the four files; the task requires 18.1230.1 and continues from the attempt 4 candidate."
+severity = "high"
