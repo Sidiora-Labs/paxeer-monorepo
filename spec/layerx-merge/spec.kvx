@@ -120240,7 +120240,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.97.4]
 title = "Drop the bridge custody profile option from the module registry tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["5.0.4", "1.0.4"]
@@ -190517,7 +190517,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1297.1]
 title = "Issue #1297: Refresh the eight Cargo lock files that still pin layerx-programs-protocol-adapter under layerx-agentd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
