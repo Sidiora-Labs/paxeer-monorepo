@@ -66,17 +66,6 @@ fn every_schema_operation_is_dispatched_retired_or_bootstrap_gated() {
         let decoded = decode(body.as_bytes());
         let target = dispatch_target(operation, RequestId(7));
         match operation {
-            Operation::FaucetClaim => {
-                let error = decoded
-                    .err()
-                    .unwrap_or_else(|| panic!("retired operation decoded"));
-                assert_refusal(
-                    &error,
-                    ErrorClass::UnavailableCapability,
-                    "unavailable_capability.faucet.claim",
-                );
-                assert_eq!(target, Err(error));
-            }
             Operation::AgentRegister | Operation::SessionOpen => {
                 let decoded = decoded.unwrap_or_else(|error| panic!("bootstrap decode: {error:?}"));
                 assert_eq!(decoded.operation, operation);
@@ -158,6 +147,20 @@ fn every_schema_operation_is_dispatched_retired_or_bootstrap_gated() {
             status
         );
     }
+}
+
+#[test]
+fn retired_faucet_claim_wire_name_is_refused() {
+    let mut retired = envelope(Operation::TenantReadiness);
+    retired["operation"] = json!("faucet.claim");
+    let error = decode(retired.to_string().as_bytes())
+        .err()
+        .unwrap_or_else(|| panic!("retired operation accepted"));
+    assert_refusal(
+        &error,
+        ErrorClass::UnavailableCapability,
+        "unavailable_capability.faucet.claim",
+    );
 }
 
 #[test]
@@ -256,11 +259,7 @@ fn version_exchange_reports_contract_major_two() {
 #[test]
 fn envelope_version_other_than_one_is_refused() {
     assert_eq!(ENVELOPE_VERSION, 1);
-    for operation in [
-        Operation::TenantReadiness,
-        Operation::FaucetClaim,
-        Operation::SessionOpen,
-    ] {
+    for operation in [Operation::TenantReadiness, Operation::SessionOpen] {
         for version in 0..=u8::MAX {
             if version == ENVELOPE_VERSION {
                 continue;

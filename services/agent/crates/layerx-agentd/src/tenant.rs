@@ -154,7 +154,6 @@ impl OperationClass {
             | Operation::CapabilityAttenuate
             | Operation::CapabilityCreate
             | Operation::CapabilityRevoke
-            | Operation::FaucetClaim
             | Operation::ProgramCall
             | Operation::ProgramDeploy
             | Operation::ProgramUpgrade
@@ -185,7 +184,6 @@ impl OperationClass {
             Operation::ProgramDeploy => &["write", "program:deploy"],
             Operation::ProgramUpgrade => &["write", "program:upgrade"],
             Operation::ProgramWindDown => &["write", "program:wind-down"],
-            Operation::FaucetClaim => &["write", "write:faucet:claim"],
             Operation::ReadCheckpoint => &["read", "read:checkpoint"],
             Operation::ReadProofBundle => &["read", "read:proof"],
             Operation::AvailabilityFetch => &["read", "read:availability"],
@@ -691,27 +689,13 @@ mod lifecycle_scope_tests {
     }
 
     #[test]
-    fn the_faucet_alias_authorizes_the_faucet_claim_only() {
-        assert_eq!(
-            OperationClass::for_operation(Operation::FaucetClaim),
-            Some(OperationClass::Write)
-        );
-        assert_eq!(
-            OperationClass::authorized_scopes(Operation::FaucetClaim),
-            &["write", "write:faucet:claim"]
-        );
+    fn the_retired_faucet_alias_authorizes_no_operation() {
         for operation in Operation::ALL.iter().copied() {
-            if operation == Operation::FaucetClaim {
-                continue;
-            }
             assert!(
                 !OperationClass::authorized_scopes(operation).contains(&"write:faucet:claim"),
                 "{} must not be authorized by the faucet alias",
                 operation.name()
             );
-        }
-        for scope in ["write:submit", "write:sign", "write:prepare", "read"] {
-            assert!(!OperationClass::authorized_scopes(Operation::FaucetClaim).contains(&scope));
         }
     }
 
