@@ -324,6 +324,7 @@ extension String {
     }
     let code: SDKErrorCode
     switch self {
+    case "InvalidRequest": code = .invalidArgument
     case "TransportFailure": code = .transportFailure
     case "Deadline": code = .deadline
     case "ProtocolIncompatibility": code = .protocolIncompatibility
@@ -436,10 +437,7 @@ public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendabl
   public static let routePath = "/v1/agent/rpc"
   public static let daemonRoutePath = "/rpc"
   static let bootstrapOperations: Set<String> = ["agent.register", "session.open"]
-  private static let verificationLevels = [
-    "Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised",
-    "SettlementAnchored",
-  ]
+  private static let verificationRungs = ["submitted", "receipted", "committed"]
   private let endpoint: URL
   private let session: URLSession
   private let gatewayKey: LayerXKeyCredential?
@@ -628,14 +626,11 @@ public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendabl
     let document: JSONValue
     do { document = try JSONDecoder().decode(JSONValue.self, from: data) } catch { throw decode() }
     guard let object = document.objectValue else { throw decode() }
-    guard object["version"] == .integer(Self.version) else {
-      throw decode(object["request_id"]?.stringValue)
-    }
     if object["class"] != nil {
       guard !(200..<300).contains(status),
         exact(
           object,
-          ["version", "class", "protocol_result_code", "retriability", "request_id", "reason"]),
+          ["class", "protocol_result_code", "retriability", "request_id", "reason"]),
         let responseID = object["request_id"]?.stringValue,
         responseID == requestID || responseID == "0",
         let errorClass = object["class"]?.stringValue,
@@ -657,7 +652,7 @@ public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendabl
           errorClass: errorClass, protocolResultCode: resultCode,
           retriability: object["retriability"]?.stringValue, reason: reason))
     }
-    guard status == 200, exact(object, ["version", "request_id", "value", "verification_status"]),
+    guard status == 200, exact(object, ["request_id", "value", "verification_status"]),
       object["request_id"]?.stringValue == requestID, let value = object["value"],
       let verification = object["verification_status"], validVerification(verification)
     else {
@@ -668,18 +663,18 @@ public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendabl
 
   static func validVerification(_ status: JSONValue) -> Bool {
     guard let object = status.objectValue else { return false }
-    if exact(object, ["state", "level"]), object["state"]?.stringValue == "achieved",
-      let level = object["level"]?.stringValue
+    if exact(object, ["state", "rung"]), object["state"]?.stringValue == "achieved",
+      let rung = object["rung"]?.stringValue
     {
-      return verificationLevels.contains(level)
+      return verificationRungs.contains(rung)
     }
     guard exact(object, ["state", "requested", "achieved", "reason"]),
       object["state"]?.stringValue == "unverified",
       let requested = object["requested"]?.stringValue.flatMap({
-        verificationLevels.firstIndex(of: $0)
+        verificationRungs.firstIndex(of: $0)
       }),
       let achieved = object["achieved"]?.stringValue.flatMap({
-        verificationLevels.firstIndex(of: $0)
+        verificationRungs.firstIndex(of: $0)
       }),
       let reason = object["reason"]?.stringValue
     else { return false }

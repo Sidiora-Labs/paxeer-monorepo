@@ -350,19 +350,21 @@ public struct ProgramSubmission: Sendable {
   public var activityID: Data { transactionHash }
   public let sequencerReceipt: SequencerReceiptVerification?
   public let idempotencyKey: String
+  public let idempotencyResult: Data?
   public let retainedSignedActivity: Data?
   public let execution: VerifiedProgramExecution?
   public var isUnknown: Bool { state == "unknown" }
   fileprivate init(
     _ value: JSONValue, state: String, activityID: Data, idempotencyKey: String,
     retainedSignedActivity: Data?, execution: VerifiedProgramExecution?,
-    sequencerReceipt: SequencerReceiptVerification? = nil
+    sequencerReceipt: SequencerReceiptVerification? = nil, idempotencyResult: Data? = nil
   ) {
     self.sequencerReceipt = sequencerReceipt
     self.value = value
     self.state = state
     self.transactionHash = activityID
     self.idempotencyKey = idempotencyKey
+    self.idempotencyResult = idempotencyResult
     self.retainedSignedActivity = retainedSignedActivity
     self.execution = execution
   }
@@ -568,8 +570,13 @@ public struct ProgramsClient: Sendable {
     verificationLevel: String
   ) async throws -> ProgramSubmission {
     guard let actor, verificationLevel == "pending" else { throw programInvalid() }
-    _ = try await receipt(actor: actor, idempotencyKey: idempotencyKey)
-    return try await activity(transactionHash: expectedActivityID)
+    let recorded = try await receipt(actor: actor, idempotencyKey: idempotencyKey)
+    let submission = try await activity(transactionHash: expectedActivityID)
+    return ProgramSubmission(
+      submission.value, state: submission.state, activityID: submission.activityID,
+      idempotencyKey: idempotencyKey.rawValue,
+      retainedSignedActivity: submission.retainedSignedActivity, execution: submission.execution,
+      sequencerReceipt: submission.sequencerReceipt, idempotencyResult: recorded)
   }
   public func lifecycleReceipt(_ request: NativeProgramLifecycleRequest) async throws -> Data {
     guard let actor else { throw programInvalid() }
