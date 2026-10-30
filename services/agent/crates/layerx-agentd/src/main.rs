@@ -14,6 +14,7 @@ use layerx_agent_api::error::ErrorClass;
 use layerx_agentd::agent_rpc::{self, AgentRpcResponse};
 use layerx_agentd::agent_rpc_tls::{AgentRpcTls, AgentRpcTlsPaths};
 use layerx_agentd::audit::Redacted;
+use layerx_agentd::boot::readiness_gate;
 use layerx_agentd::budget::{LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::enrolment::{
@@ -26,6 +27,7 @@ use layerx_agentd::human_runtime::{
     UnifiedAgentOwner,
 };
 use layerx_agentd::identity::{self, CoreIdentity, IdentityError, IdentityResolver};
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::ops::program::ProgramOperations;
 use layerx_agentd::read::{
     CommittedProgramBalanceFreshness, LayerxdProgramBalanceReader, NativeReadRoute,
@@ -51,7 +53,7 @@ mod human_peer_config;
 #[path = "../../layerx-agentd-host/src/payer.rs"]
 mod mcp_payer;
 
-const HEADER_LIMIT: usize = 16 * 1024;
+pub(crate) const HEADER_LIMIT: usize = 16 * 1024;
 const BODY_LIMIT: usize = 0;
 const PROGRAM_WORKERS: usize = 8;
 const PROGRAM_QUEUE: usize = 16;
@@ -112,7 +114,7 @@ struct HttpAdmissions {
     queue: std::collections::VecDeque<DeadlineStream>,
 }
 
-struct HttpPool {
+pub(crate) struct HttpPool {
     admissions: Arc<(Mutex<HttpAdmissions>, std::sync::Condvar)>,
     threads: Vec<thread::JoinHandle<()>>,
 }
@@ -1813,29 +1815,29 @@ fn lifecycle(value: ProgramLifecycle) -> &'static str {
 }
 
 fn balance_json(read: &ProgramBalanceRead<CommittedProgramBalanceFreshness>) -> String {
-    let accounts = read
+    let accounts: Vec<_> = read
         .accounts
         .iter()
         .map(|account| {
-            format!(
-                "{{\"account\":\"{}\",\"asset\":\"{}\",\"amount\":\"{}\",\"frozen\":{}}}",
-                hex::encode(&account.account),
-                hex::encode(&account.asset),
-                account.amount,
-                account.frozen
-            )
+            serde_json::json!({
+                "account": hex::encode(&account.account),
+                "asset": hex::encode(&account.asset),
+                "amount": account.amount.to_string(),
+                "frozen": account.frozen,
+            })
         })
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        "{{\"program\":\"{}\",\"lifecycle\":\"{}\",\"accounts\":[{}],\"freshness\":{{\"height\":{},\"block_hash\":\"{}\",\"timestamp\":{}}}}}",
-        hex::encode(&read.program),
-        lifecycle(read.lifecycle),
-        accounts,
-        read.freshness.height,
-        hex::encode(&read.freshness.block_hash),
-        read.freshness.timestamp
-    )
+        .collect();
+    serde_json::json!({
+        "program": hex::encode(&read.program),
+        "lifecycle": lifecycle(read.lifecycle),
+        "accounts": accounts,
+        "freshness": {
+            "height": read.freshness.height,
+            "block_hash": hex::encode(&read.freshness.block_hash),
+            "timestamp": read.freshness.timestamp,
+        },
+    })
+    .to_string()
 }
 
 fn response<S: Write>(stream: &mut S, status: u16, body: &str) -> Result<(), String> {
@@ -1953,19 +1955,27 @@ fn parse_request(stream: &mut DeadlineStream, bearer: &str) -> Parsed {
 
 fn route_request(
     path: &str,
-    probe_program: ProgramId,
+    node_config: &NodeRpcConfig,
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
     route: &mut ProgramBalanceReadRoute,
     native: &mut Option<NativeReadRoute>,
 ) -> (u16, String) {
     let reply = |status: u16, body: &str| (status, body.to_owned());
     if path == "/healthz" {
-        if refresh_native_receipt_keys(native).is_err() {
-            return reply(503, "{\"ready\":false,\"transport_ready\":true,\"verified_reads_ready\":false,\"tenant_writes\":\"unknown\"}");
-        }
-        return match now_ms().map(|now| route.read(probe_program, now)) {
-            Ok(Ok(_)) => reply(200, "{\"ready\":true,\"transport_ready\":true,\"verified_reads_ready\":true,\"tenant_writes\":\"unknown\"}"),
-            _ => reply(503, "{\"ready\":false,\"transport_ready\":true,\"verified_reads_ready\":false,\"tenant_writes\":\"unknown\"}"),
+        let (transport_ready, ready) = match NodeRpc::connect(node_config) {
+            Ok(node) => (true, readiness_gate(&node).is_ok()),
+            Err(_) => (false, false),
         };
+        return (
+            if ready { 200 } else { 503 },
+            serde_json::json!({
+                "ready": ready,
+                "transport_ready": transport_ready,
+                "verified_reads_ready": ready,
+                "tenant_writes": "unknown",
+            })
+            .to_string(),
+        );
     }
     if path.starts_with("/v1/reads/") {
         let Some(reader) = native.as_mut() else {
@@ -1998,8 +2008,14 @@ fn route_request(
     if refresh_native_receipt_keys(native).is_err() {
         return reply(503, "{\"error\":\"program_state_unavailable\"}");
     }
-    match now_ms().map(|now| route.read(program, now)) {
-        Ok(Ok(read)) => (200, balance_json(&read)),
+    let read = (|| {
+        let node = NodeRpc::connect(node_config).map_err(|_| ())?;
+        readiness_gate(&node).map_err(|_| ())?;
+        let height = endpoint.block_number().map_err(|_| ())?;
+        route.read(program, height).map_err(|_| ())
+    })();
+    match read {
+        Ok(read) => (200, balance_json(&read)),
         _ => reply(503, "{\"error\":\"program_state_unavailable\"}"),
     }
 }
@@ -2082,6 +2098,37 @@ fn program_reader(
     Ok(reader)
 }
 
+pub(crate) fn serve_read_routes(
+    listener: TcpListener,
+    bearer: String,
+    route: ProgramBalanceReadRoute,
+    native: Option<NativeReadRoute>,
+    node_config: NodeRpcConfig,
+    endpoint: layerx_client::sequencer::SequencerEndpoint,
+) -> Result<HttpPool, String> {
+    let shared_reads = Arc::new(Mutex::new((route, native)));
+    HttpPool::start(listener, move |mut stream| {
+        let answer = match parse_request(&mut stream, &bearer) {
+            Parsed::Closed => return,
+            Parsed::Refused(status, body) => (status, body.to_owned()),
+            Parsed::Admitted(path) => loop {
+                if stream.remaining().is_err() {
+                    return;
+                }
+                match shared_reads.try_lock() {
+                    Ok(mut reads) => {
+                        let (route, native) = &mut *reads;
+                        break route_request(&path, &node_config, &endpoint, route, native);
+                    }
+                    Err(std::sync::TryLockError::WouldBlock) => thread::sleep(SUPERVISION_INTERVAL),
+                    Err(std::sync::TryLockError::Poisoned(_)) => return,
+                }
+            },
+        };
+        let _ = response(&mut stream, answer.0, &answer.1);
+    })
+}
+
 fn serve(config: Config) -> Result<(), String> {
     let mcp = mcp_enrolment()?
         .map(|enrolment| mcp_boot(&config, enrolment))
@@ -2108,7 +2155,7 @@ fn serve(config: Config) -> Result<(), String> {
         registry,
         receipt_keys,
     } = program_authority_boot(&config, &mut native)?;
-    let mut route =
+    let route =
         ProgramBalanceReadRoute::new(program_reader(&config, verifier.clone(), registry.clone())?);
     let programs = ProgramOperations::new(program_reader(&config, verifier, registry)?);
     let export_trust = receipt_keys
@@ -2126,32 +2173,26 @@ fn serve(config: Config) -> Result<(), String> {
     )?;
     let rpc = start_agent_rpc(owner)?;
     drop(status);
-    route
-        .read(config.probe_program, now_ms()?)
-        .map_err(|error| format!("agent protocol reader is not ready: {error:?}"))?;
+    let node_config = NodeRpcConfig {
+        url: config.node_endpoint.clone(),
+        chain_id: config.expected_chain_id,
+        deadline: REQUEST_DEADLINE,
+    };
+    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
+        &node_config.url,
+        &[&config.authority_ca_der],
+    )
+    .map_err(|error| format!("program node endpoint is invalid: {error:?}"))?;
     let listener = TcpListener::bind(&config.listen)
         .map_err(|error| format!("agent program listener failed: {error}"))?;
-    let shared_reads = Arc::new(Mutex::new((route, native)));
-    let program = HttpPool::start(listener, move |mut stream| {
-        let answer = match parse_request(&mut stream, &config.bearer) {
-            Parsed::Closed => return,
-            Parsed::Refused(status, body) => (status, body.to_owned()),
-            Parsed::Admitted(path) => loop {
-                if stream.remaining().is_err() {
-                    return;
-                }
-                match shared_reads.try_lock() {
-                    Ok(mut reads) => {
-                        let (route, native) = &mut *reads;
-                        break route_request(&path, config.probe_program, route, native);
-                    }
-                    Err(std::sync::TryLockError::WouldBlock) => thread::sleep(SUPERVISION_INTERVAL),
-                    Err(std::sync::TryLockError::Poisoned(_)) => return,
-                }
-            },
-        };
-        let _ = response(&mut stream, answer.0, &answer.1);
-    })?;
+    let program = serve_read_routes(
+        listener,
+        config.bearer,
+        route,
+        native,
+        node_config,
+        endpoint,
+    )?;
     loop {
         match human.try_recv() {
             Ok(result) => return result,
