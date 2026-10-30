@@ -191666,7 +191666,7 @@ qualification = "UNRUN"
 
 [task.18.1259.1]
 title = "Issue #1259: Document activity.submit as one signed raw_transaction sent to /rpc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
