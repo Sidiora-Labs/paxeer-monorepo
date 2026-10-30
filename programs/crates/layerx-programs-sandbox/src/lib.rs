@@ -3,6 +3,7 @@
 #![deny(unsafe_code)]
 
 pub mod activity;
+pub mod chain_keys;
 pub mod escrow;
 pub mod execute;
 pub mod expiry;
@@ -32,6 +33,7 @@ pub use activity::{
     SandboxExecuteRefusal, SandboxProtocolContext, SandboxReceiptEvidence, SandboxSubmission,
     SandboxSubmissionReceipt, PROGRAMS_SANDBOX_ACTIVITY_TYPE,
 };
+pub use chain_keys::sandbox_state_key;
 
 pub use escrow::{settle, Escrow, EscrowOutcome, EscrowRefusal};
 pub use execute::{
