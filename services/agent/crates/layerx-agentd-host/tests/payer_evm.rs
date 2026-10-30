@@ -139,6 +139,38 @@ fn unhex(value: &Value) -> Vec<u8> {
         .collect()
 }
 
+fn asset_account(owner: [u8; 20], asset: [u8; 32]) -> [u8; 32] {
+    let mut owner_word = [0; 32];
+    owner_word[12..].copy_from_slice(&owner);
+    let name = format!(
+        "agent:did:layerx:{}:asset:{}",
+        attestor_cluster::hex(&owner_word),
+        attestor_cluster::hex(&asset)
+    );
+    let length = u32::try_from(name.len())
+        .expect("account name length")
+        .to_be_bytes();
+    <sha2::Sha256 as sha2::Digest>::digest(
+        [b"LX:ACCOUNT:v1".as_slice(), &length, name.as_bytes()].concat(),
+    )
+    .into()
+}
+
+fn recipient_account(asset: [u8; 32]) -> (String, [u8; 32]) {
+    let name = format!(
+        "agent:did:layerx:receiver:asset:{}",
+        attestor_cluster::hex(&asset)
+    );
+    let length = u32::try_from(name.len())
+        .expect("account name length")
+        .to_be_bytes();
+    let id = <sha2::Sha256 as sha2::Digest>::digest(
+        [b"LX:ACCOUNT:v1".as_slice(), &length, name.as_bytes()].concat(),
+    )
+    .into();
+    (name, id)
+}
+
 struct RpcServer {
     endpoint: String,
     stop: Arc<AtomicBool>,
@@ -239,18 +271,36 @@ impl RpcServer {
                             assert_eq!(request["params"][0]["to"], hex(&LEDGER_ADDRESS));
                             assert_eq!(request["params"][1], "pending");
                             let data = unhex(&request["params"][0]["data"]);
-                            assert_eq!(
-                                &data[..4],
-                                &Keccak256::digest(b"nextSequence(bytes32,bytes32)")[..4]
-                            );
-                            assert_eq!(data.len(), 4 + 2 * 32);
-                            assert_eq!(&data[4..16], &[0; 12]);
-                            assert_eq!(&data[16..36], &[0x32; 20]);
-                            assert_eq!(&data[36..48], &[0; 12]);
-                            assert_eq!(&data[48..68], &[0x42; 20]);
-                            let mut result = [0; 32];
-                            result[24..].copy_from_slice(&RECEIVER_SEQUENCE.to_be_bytes());
-                            json!(hex(&result))
+                            if data[..4] == [0x3f, 0x05, 0x0c, 0xbc] {
+                                assert_eq!(data.len(), 68);
+                                assert_eq!(&data[4..16], &[0; 12]);
+                                assert_eq!(&data[16..36], &sender);
+                                let asset = data[36..68].try_into().expect("asset word");
+                                json!(hex(&asset_account(sender, asset)))
+                            } else if data[..4] == Keccak256::digest(b"accountOwner(bytes32)")[..4]
+                            {
+                                assert_eq!(data.len(), 36);
+                                let account = &data[4..36];
+                                let mut owner = [0; 32];
+                                if [[0x41; 32], [0x42; 32]]
+                                    .iter()
+                                    .any(|asset| account == asset_account(sender, *asset))
+                                {
+                                    owner[12..].copy_from_slice(&sender);
+                                }
+                                json!(hex(&owner))
+                            } else {
+                                assert_eq!(
+                                    &data[..4],
+                                    &Keccak256::digest(b"nextSequence(bytes32,bytes32)")[..4]
+                                );
+                                assert_eq!(data.len(), 4 + 2 * 32);
+                                assert_eq!(&data[4..36], &recipient_account([0x42; 32]).1);
+                                assert_eq!(&data[36..68], &[0x42; 32]);
+                                let mut result = [0; 32];
+                                result[24..].copy_from_slice(&RECEIVER_SEQUENCE.to_be_bytes());
+                                json!(hex(&result))
+                            }
                         }
                         "eth_gasPrice" => json!("0x3b9aca00"),
                         "eth_sendRawTransaction" => {
@@ -396,10 +446,10 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
             "scheme": "exact",
             "network": "eip155:125",
             "amount": "123456",
-            "asset": hex(&[0x41; 20]),
-            "payTo": hex(&[0x31; 20]),
+            "asset": hex(&[0x41; 32]),
+            "payTo": hex(&recipient_account([0x41; 32]).1),
             "maxTimeoutSeconds": 30,
-            "extra": {"layerx": {"currency": "USDC", "receiverDid": "did:layerx:receiver"}},
+            "extra": {"layerx": {"currency": "USDC", "account": recipient_account([0x41; 32]).0}},
         }))?;
         let terms = checked(web_call.exact_terms(&config, &offer, 100))?;
         let mut wrong = terms.clone();
@@ -425,9 +475,9 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
             &data[..4],
             &Keccak256::digest(b"payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)")[..4]
         );
-        assert_eq!(&data[16..36], &terms.payer_account);
-        assert_eq!(&data[48..68], &terms.recipient);
-        assert_eq!(&data[80..100], &terms.asset);
+        assert_eq!(&data[4..36], &terms.payer_account);
+        assert_eq!(&data[36..68], &terms.recipient);
+        assert_eq!(&data[68..100], &terms.asset);
         assert_eq!(&data[116..132], &terms.amount.to_be_bytes());
         assert_eq!(&data[156..164], &terms.expires_at_ms.to_be_bytes());
         assert_eq!(&data[164..196], &terms.idempotency_key);
@@ -446,6 +496,9 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
         assert_eq!(
             *methods,
             [
+                "eth_call",
+                "eth_call",
+                "eth_call",
                 "eth_chainId",
                 "eth_getTransactionCount",
                 "eth_estimateGas",
@@ -466,9 +519,9 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
         let mut payer = payer(Arc::clone(&signer), &rpc.endpoint)?;
         let terms = GrantTerms {
             payer_did: format!("did:layerx:{}", attestor_cluster::hex(&signer.public_key())),
-            payer_account: signer.evm_address(),
-            recipient: [0x32; 20],
-            asset: [0x42; 20],
+            payer_account: asset_account(signer.evm_address(), [0x42; 32]),
+            recipient: recipient_account([0x42; 32]).1,
+            asset: [0x42; 32],
             expires_at_ms: 1_900_000_000_000,
             amount: 654_321,
             purpose_hash: [0x62; 32],
@@ -503,12 +556,9 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
         let Payment::IssueGrant(grant) = &payment else {
             return Err("expected IssueGrant payload".into());
         };
-        assert_eq!(grant.from[..12], [0; 12]);
-        assert_eq!(grant.from[12..], terms.payer_account);
-        assert_eq!(grant.recipient[..12], [0; 12]);
-        assert_eq!(grant.recipient[12..], terms.recipient);
-        assert_eq!(grant.asset[..12], [0; 12]);
-        assert_eq!(grant.asset[12..], terms.asset);
+        assert_eq!(grant.from, terms.payer_account);
+        assert_eq!(grant.recipient, terms.recipient);
+        assert_eq!(grant.asset, terms.asset);
         assert_eq!(grant.per_draw_maximum, terms.amount);
         assert_eq!(grant.allowance, terms.amount);
         assert!(!grant.recurring);
@@ -562,7 +612,7 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
             &Keccak256::digest(b"draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)")
                 [..4]
         );
-        assert_eq!(&draw_data[48..68], &terms.recipient);
+        assert_eq!(&draw_data[36..68], &terms.recipient);
         assert_eq!(&draw_data[84..100], &terms.amount.to_be_bytes());
         assert_eq!(&draw_data[100..132], &terms.idempotency_key);
         assert_eq!(&draw_data[4..36], &grant.id);
@@ -576,7 +626,7 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
                 .iter()
                 .filter(|method| *method == "eth_call")
                 .count(),
-            1
+            3
         );
         Ok(())
     })

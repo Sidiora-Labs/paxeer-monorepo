@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"testing"
@@ -73,22 +74,25 @@ func TestSetCommitListenerKeepsListener(t *testing.T) {
 	firstCalls, secondCalls := 0, 0
 	var gotHeight int64
 	var gotHash []byte
-	app.SetCommitListener(func(height int64, appHash []byte) {
+	app.SetCommitListener(func(height int64, appHash []byte) error {
 		firstCalls++
 		gotHeight, gotHash = height, appHash
+		return nil
 	})
 	require.NotNil(t, app.commitListener)
-	app.commitListener(11, []byte{1, 2, 3})
+	require.NoError(t, app.commitListener(11, []byte{1, 2, 3}))
 	require.Equal(t, 1, firstCalls)
 	require.Equal(t, int64(11), gotHeight)
 	require.Equal(t, []byte{1, 2, 3}, gotHash)
 
-	app.SetCommitListener(func(height int64, appHash []byte) {
+	listenerErr := errors.New("replacement listener failed")
+	app.SetCommitListener(func(height int64, appHash []byte) error {
 		secondCalls++
 		gotHeight, gotHash = height, appHash
+		return listenerErr
 	})
 	require.NotNil(t, app.commitListener)
-	app.commitListener(12, []byte{4, 5, 6})
+	require.ErrorIs(t, app.commitListener(12, []byte{4, 5, 6}), listenerErr)
 	require.Equal(t, 1, firstCalls)
 	require.Equal(t, 1, secondCalls)
 	require.Equal(t, int64(12), gotHeight)

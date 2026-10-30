@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 
+import { useQueryClient } from '@tanstack/react-query';
+
+import type { PaxeerXCapabilities } from 'types/api/paxeerX';
 import type { NavItem, NavGroupItem } from 'types/client/navigation';
 
 import * as capabilitiesMock from 'mocks/paxeerX/capabilities';
 import { routerState } from 'ui/shared/layout/testWrapper';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, test, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor, wrapper } from 'vitest/lib';
 
 vi.hoisted(() => {
@@ -151,4 +154,27 @@ describe('useNavItems', () => {
 
     expect(textsOf(groupOf(result.current.mainNavItems, 'Blockchain').subItems.flat())).not.toContain('Price feed');
   });
+
+  async function nav_hides_feed_without_price_feed_capability() {
+    const capabilities: PaxeerXCapabilities = { ...capabilitiesMock.allEnabled };
+    expect(capabilities).not.toHaveProperty('price_feed');
+    mockCapabilities(capabilities);
+
+    const { result } = renderHook(() => ({
+      navigation: useNavItems(),
+      queryClient: useQueryClient(),
+    }), { wrapper });
+    const queryKey = [ 'general:paxeer_x_capabilities' ];
+
+    await waitFor(() => {
+      expect(result.current.queryClient.getQueryState(queryKey)?.status).toBe('success');
+    });
+
+    expect(result.current.queryClient.getQueryData(queryKey)).toEqual(capabilities);
+    const items = groupOf(result.current.navigation.mainNavItems, 'Blockchain').subItems.flat();
+    expect(textsOf(items)).not.toContain('Price feed');
+    expect(items.some((item) => isInternalItem(item) && item.nextRoute.pathname === '/feed')).toBe(false);
+  }
+
+  test(nav_hides_feed_without_price_feed_capability);
 });
