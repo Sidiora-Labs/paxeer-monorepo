@@ -812,11 +812,38 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             peer,
             &owner_did,
         )?;
-        let head = operations.node.head();
-        if snapshot.observed_head_sequence != head.chain_sequence {
+        let chain_head = operations
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if snapshot.observed_head_sequence != chain_head.number {
             return Err(HumanOperationError::Refused);
         }
-        let node = operations.node.handshake().node().clone();
+        let block = operations
+            .chain
+            .block(chain_head.number)
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .ok_or(HumanOperationError::Unavailable)?;
+        if block != chain_head {
+            return Err(HumanOperationError::Refused);
+        }
+        let network_id = u32::try_from(
+            operations
+                .chain
+                .chain_id()
+                .map_err(|_| HumanOperationError::Unavailable)?,
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        let key = operations
+            .chain
+            .receipt_key_at_head()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        human_receipt_commit_material(u64::from(network_id), &block)?;
+        let head = layerx_client::head::Head {
+            chain_sequence: chain_head.number,
+            sealed_batch: chain_head.number,
+            finalised_checkpoint: operations.node.head().finalised_checkpoint,
+        };
         let (_, _, _, _, age_seconds, maximum_age_seconds, _) =
             operations.authority.balance_context(peer)?;
         if maximum_age_seconds == 0 || age_seconds > maximum_age_seconds {
@@ -829,6 +856,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 boundary_correlation(peer, &budget_id, b"budget-proof-checkpoint"),
             )
             .map_err(|_| HumanOperationError::Refused)?;
+        if checkpoint.observed_block_hash() != Some(block.hash) {
+            return Err(HumanOperationError::Refused);
+        }
         let raw = operations
             .authority
             .budget_proof_export(&bound, budget_id, &owner_did)?;
@@ -843,9 +873,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             tenant: peer.transport_tenant(),
             principal: &subject.transport_principal,
             owner: &owner_did,
-            protocol_version: node.protocol_version,
-            network_id: node.network_id,
-            sequencer_key: node.authorised_sequencer_key,
+            protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
+            network_id,
+            sequencer_key: key.public_key,
             head,
             checkpoint: &checkpoint,
             now_ms,
@@ -853,7 +883,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         };
         let proof = verify_budget_proof(&raw, budget_id, &trust)
             .map_err(|_| HumanOperationError::Refused)?;
-        if operations.node.head() != head {
+        if operations
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            != chain_head
+        {
             return Err(HumanOperationError::Refused);
         }
         Ok(proof)
@@ -9451,11 +9486,38 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             peer,
             &owner_did,
         )?;
-        let head = operations.node.head();
-        if snapshot.observed_head_sequence != head.chain_sequence {
+        let chain_head = operations
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if snapshot.observed_head_sequence != chain_head.number {
             return Err(HumanOperationError::Refused);
         }
-        let node = operations.node.handshake().node().clone();
+        let block = operations
+            .chain
+            .block(chain_head.number)
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .ok_or(HumanOperationError::Unavailable)?;
+        if block != chain_head {
+            return Err(HumanOperationError::Refused);
+        }
+        let network_id = u32::try_from(
+            operations
+                .chain
+                .chain_id()
+                .map_err(|_| HumanOperationError::Unavailable)?,
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        let key = operations
+            .chain
+            .receipt_key_at_head()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        human_receipt_commit_material(u64::from(network_id), &block)?;
+        let head = layerx_client::head::Head {
+            chain_sequence: chain_head.number,
+            sealed_batch: chain_head.number,
+            finalised_checkpoint: operations.node.head().finalised_checkpoint,
+        };
         let (_, _, _, _, age_seconds, maximum_age_seconds, _) =
             operations.authority.balance_context(peer)?;
         if maximum_age_seconds == 0 || age_seconds > maximum_age_seconds {
@@ -9468,6 +9530,9 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                 boundary_correlation(peer, &budget_id, b"budget-proof-checkpoint"),
             )
             .map_err(|_| HumanOperationError::Refused)?;
+        if checkpoint.observed_block_hash() != Some(block.hash) {
+            return Err(HumanOperationError::Refused);
+        }
         let raw = operations
             .authority
             .budget_proof_export(&bound, budget_id, &owner_did)?;
@@ -9482,9 +9547,9 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             tenant: peer.transport_tenant(),
             principal: &subject.transport_principal,
             owner: &owner_did,
-            protocol_version: node.protocol_version,
-            network_id: node.network_id,
-            sequencer_key: node.authorised_sequencer_key,
+            protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
+            network_id,
+            sequencer_key: key.public_key,
             head,
             checkpoint: &checkpoint,
             now_ms,
@@ -9492,7 +9557,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         };
         let proof = verify_budget_proof(&raw, budget_id, &trust)
             .map_err(|_| HumanOperationError::Refused)?;
-        if operations.node.head() != head {
+        if operations
+            .chain
+            .head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            != chain_head
+        {
             return Err(HumanOperationError::Refused);
         }
         let mut out = Encoder::new();
@@ -12219,18 +12289,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             cached.prepared.envelope.actor_did(),
         )?
         .protocol_timestamp;
-        let (verifier, sequencer_key, authorization) = self.budget_read_parts(peer)?;
-        let correlation = boundary_correlation(peer, &agent, b"budget-create");
-        let mut pipeline = NodeBudgetPipeline {
-            node: &mut self.node,
-            registry: &cached.registry,
-            signer: signer_public_key,
-            correlation,
-            authorization,
-            sequencer_key,
-            receipt_poll: BUDGET_RECEIPT_POLL,
-            receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
-        };
+        let (verifier, _, _) = self.budget_read_parts(peer)?;
+        let mut pipeline =
+            NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
         if candidate.active_budget_id != [0; 32]
             && live_protocol_budget(&mut pipeline, &verifier, candidate.active_budget_id)
         {
@@ -12271,15 +12332,24 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         &mut self,
         peer: &HumanPeer,
     ) -> Result<(EvidenceAuthority, [u8; 32], SequencerAuthorization), HumanOperationError> {
-        let node = self.node.handshake().node().clone();
+        let key = self
+            .chain
+            .receipt_key_at_head()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let chain_id = u32::try_from(
+            self.chain
+                .chain_id()
+                .map_err(|_| HumanOperationError::Unavailable)?,
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
         let verifier = EvidenceAuthority::pinned_to_handshake(
-            node.protocol_version,
-            node.network_id,
-            node.authorised_sequencer_key,
+            layerx_wire::limits::PROTOCOL_VERSION,
+            chain_id,
+            key.public_key,
         )
         .map_err(|_| HumanOperationError::Refused)?;
         let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
-        Ok((verifier, node.authorised_sequencer_key, authorization))
+        Ok((verifier, key.public_key, authorization))
     }
 
     fn budget_mutation_context(
@@ -12304,31 +12374,22 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let Authority::Owner(owner) = authority else {
             return Err(HumanOperationError::Refused);
         };
-        let signer: [u8; 32] = owner
+        let _signer: [u8; 32] = owner
             .as_ref()
             .try_into()
             .map_err(|_| HumanOperationError::Refused)?;
-        let registry = self.authority.registry(peer).map_err(map_core)?;
+        let _registry = self.authority.registry(peer).map_err(map_core)?;
         let head = core_preparation_snapshot(self.chain.as_ref(), &self.authority, peer, actor)?
             .observed_head_sequence;
-        let (verifier, sequencer_key, authorization) = self.budget_read_parts(peer)?;
-        let mut pipeline = NodeBudgetPipeline {
-            node: &mut self.node,
-            registry: &registry,
-            signer,
-            correlation: boundary_correlation(peer, actor.as_bytes(), b"budget-context"),
-            authorization,
-            sequencer_key,
-            receipt_poll: BUDGET_RECEIPT_POLL,
-            receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
-        };
-        let state =
-            BudgetPipeline::budget_state(&mut pipeline, budget_id).map_err(budget_refusal)?;
-        let proven = verifier
-            .verify_state(&state.evidence)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let record = ProtocolBudgetRecord::decode(proven.canonical_state())
-            .map_err(|_| HumanOperationError::Refused)?;
+        let (_, _, _) = self.budget_read_parts(peer)?;
+        let mut pipeline =
+            NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
+        let (record, state_height) = pipeline.read_record(budget_id).map_err(budget_refusal)?;
+        pipeline.committed_height = Some(state_height);
+        if state_height != head {
+            return Err(HumanOperationError::Refused);
+        }
+        let canonical_state = canonical_budget_record(&record)?;
         if record.budget_id != budget_id {
             return Err(HumanOperationError::Refused);
         }
@@ -12338,7 +12399,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             record.asset_id,
         )
         .map_err(budget_refusal)?;
-        crate::budget::budget_state_context(&record, proven.canonical_state(), head, balance)
+        crate::budget::budget_state_context(&record, &canonical_state, head, balance)
             .map(Some)
             .map_err(budget_refusal)
     }
@@ -12482,21 +12543,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             carrier.preparation_ref.as_str(),
             &submission,
         )?;
-        let (verifier, sequencer_key, authorization) = self.budget_read_parts(peer)?;
-        let mut pipeline = NodeBudgetPipeline {
-            node: &mut self.node,
-            registry: &cached.registry,
-            signer,
-            correlation: boundary_correlation(
-                peer,
-                cached.prepared.envelope.actor_did().as_bytes(),
-                b"budget-mutation",
-            ),
-            authorization,
-            sequencer_key,
-            receipt_poll: BUDGET_RECEIPT_POLL,
-            receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
-        };
+        let (verifier, _, _) = self.budget_read_parts(peer)?;
+        let mut pipeline =
+            NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
         let outcome = context
             .commit(control, |_| {
                 Ok(crate::budget::confirm_budget_mutation(
@@ -14480,13 +14529,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         };
         let registry = self.authority.registry(peer).map_err(map_core)?;
         let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
-        let node = self.node.handshake().node().clone();
-        let verifier = EvidenceAuthority::pinned_to_handshake(
-            node.protocol_version,
-            node.network_id,
-            node.authorised_sequencer_key,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
+        let (verifier, sequencer_key, _) = self.budget_read_parts(peer)?;
         let budget_id = owner.active_budget_id;
         let (with_evidence, without_evidence) = self.attribute_receipts(
             &peer.tenant,
@@ -14494,6 +14537,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             owner.agent_did.as_bytes(),
             &inventory,
         );
+        let pipeline =
+            NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
+        let (committed_record, committed_height) =
+            pipeline.read_record(budget_id).map_err(budget_refusal)?;
         let key = budget_state_key(budget_id);
         let value = self
             .node
@@ -14512,7 +14559,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 key,
                 value.proof_material().to_vec(),
                 RootSelector::Latest,
-                node.authorised_sequencer_key,
+                sequencer_key,
             ),
         };
         let verified = verifier
@@ -14520,7 +14567,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .map_err(|_| HumanOperationError::Refused)?;
         let record = ProtocolBudgetRecord::decode(verified.canonical_state())
             .map_err(|_| HumanOperationError::Refused)?;
-        if record.budget_id != budget_id {
+        if record.budget_id != budget_id
+            || record != committed_record
+            || verified.observed_head_sequence() != committed_height
+        {
             return Err(HumanOperationError::Refused);
         }
         let window = record.period_start..record.window_end_sequence();
@@ -14858,16 +14908,14 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .authority
             .balance_context(peer)
             .map_err(RecoveryRefusal::Store)?;
-        let node = self.node.handshake().node().clone();
-        let verifier = EvidenceAuthority::pinned_to_handshake(
-            node.protocol_version,
-            node.network_id,
-            node.authorised_sequencer_key,
-        )
-        .map_err(|error| {
-            eprintln!("layerx-agentd: recovery handshake pin refused: {error:?}");
-            RecoveryRefusal::Store(HumanOperationError::Refused)
-        })?;
+        let (verifier, sequencer_key, _) = self
+            .budget_read_parts(peer)
+            .map_err(RecoveryRefusal::Store)?;
+        let current_sequence = self
+            .chain
+            .head()
+            .map_err(|_| RecoveryRefusal::Store(HumanOperationError::Unavailable))?
+            .number;
         let context = TenantRecoveryContext {
             peer,
             tenant_id: &tenant_id,
@@ -14875,9 +14923,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             inventory: &inventory,
             verifier: &verifier,
             authorization,
-            sequencer_key: node.authorised_sequencer_key,
+            sequencer_key,
             ceiling_maximum,
-            current_sequence: self.node.head().chain_sequence,
+            current_sequence,
         };
         let mut admission = Ok(());
         for owner in owners {
@@ -14902,6 +14950,21 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             owner.agent_did.as_bytes(),
             context.inventory,
         );
+        let pipeline =
+            NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
+        let (committed_record, committed_height) =
+            pipeline
+                .read_record(budget_id)
+                .map_err(|error| RecoveryRefusal::BudgetState {
+                    budget_id,
+                    reason: format!("{error:?}"),
+                })?;
+        if committed_height != context.current_sequence {
+            return Err(RecoveryRefusal::BudgetState {
+                budget_id,
+                reason: "budget read height changed during recovery".to_owned(),
+            });
+        }
         let correlation = boundary_correlation(peer, &budget_id, b"budget-recovery");
         let key = budget_state_key(budget_id);
         let outcome = match self.node.module_state(
@@ -14920,6 +14983,27 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     RootSelector::Latest,
                     context.sequencer_key,
                 );
+                let verified = context.verifier.verify_state(&evidence).map_err(|error| {
+                    RecoveryRefusal::BudgetState {
+                        budget_id,
+                        reason: format!("{error:?}"),
+                    }
+                })?;
+                let record =
+                    ProtocolBudgetRecord::decode(verified.canonical_state()).map_err(|error| {
+                        RecoveryRefusal::BudgetState {
+                            budget_id,
+                            reason: format!("{error:?}"),
+                        }
+                    })?;
+                if record != committed_record
+                    || verified.observed_head_sequence() != committed_height
+                {
+                    return Err(RecoveryRefusal::BudgetState {
+                        budget_id,
+                        reason: "budget proof differs from committed getBudget".to_owned(),
+                    });
+                }
                 let request = BudgetRecoveryRequest {
                     budget_id,
                     protocol_budget: ProtocolBudgetState { evidence },
@@ -15354,21 +15438,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 let created = budget.record();
                 let peer = context.peer();
                 let registry = self.authority.registry(peer).map_err(map_core)?;
-                let (_, sequencer_key, authorization) = self.budget_read_parts(peer)?;
-                let mut pipeline = NodeBudgetPipeline {
-                    node: &mut self.node,
-                    registry: &registry,
-                    signer,
-                    correlation: boundary_correlation(
-                        peer,
-                        create.agent_did.as_str().as_bytes(),
-                        b"budget-create-balance",
-                    ),
-                    authorization,
-                    sequencer_key,
-                    receipt_poll: BUDGET_RECEIPT_POLL,
-                    receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
-                };
+                let (_, _, _) = self.budget_read_parts(peer)?;
+                let mut pipeline = NodeBudgetPipeline::new(
+                    self.chain.as_ref(),
+                    ProtocolBudgetState::decode_get_budget,
+                );
                 let balance = crate::budget::BudgetMutationPipeline::budget_balance(
                     &mut pipeline,
                     created.budget_account,
@@ -16988,21 +17062,9 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let funded = confirmed.record();
         let peer = context.peer();
         let registry = self.authority.registry(peer).map_err(map_core)?;
-        let (_, sequencer_key, authorization) = self.budget_read_parts(peer)?;
-        let mut pipeline = NodeBudgetPipeline {
-            node: &mut self.node,
-            registry: &registry,
-            signer: fund_signer,
-            correlation: boundary_correlation(
-                peer,
-                fund.agent_did.as_str().as_bytes(),
-                b"budget-fund-balance",
-            ),
-            authorization,
-            sequencer_key,
-            receipt_poll: BUDGET_RECEIPT_POLL,
-            receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
-        };
+        let (_, _, _) = self.budget_read_parts(peer)?;
+        let mut pipeline =
+            NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
         let balance = crate::budget::BudgetMutationPipeline::budget_balance(
             &mut pipeline,
             funded.budget_account,
@@ -17151,21 +17213,9 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let revoked = confirmed.record();
         let peer = context.peer();
         let registry = self.authority.registry(peer).map_err(map_core)?;
-        let (_, sequencer_key, authorization) = self.budget_read_parts(peer)?;
-        let mut pipeline = NodeBudgetPipeline {
-            node: &mut self.node,
-            registry: &registry,
-            signer: revoke_signer,
-            correlation: boundary_correlation(
-                peer,
-                target.agent_did.as_str().as_bytes(),
-                b"budget-revoke-balance",
-            ),
-            authorization,
-            sequencer_key,
-            receipt_poll: BUDGET_RECEIPT_POLL,
-            receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
-        };
+        let (_, _, _) = self.budget_read_parts(peer)?;
+        let mut pipeline =
+            NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
         let balance = crate::budget::BudgetMutationPipeline::budget_balance(
             &mut pipeline,
             revoked.budget_account,
@@ -17453,79 +17503,153 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
     }
 }
 
-/// Production budget pipeline over the sole frozen node client: the exact
-/// verified bytes are submitted through `submit_signed`, the receipt is fetched
-/// as a raw proof bundle, and the created record is read as proof-gated module
-/// state so the caller can verify both against the pinned handshake authority.
-struct NodeBudgetPipeline<'a> {
-    node: &'a mut layerx_client::Client,
-    registry: &'a ModuleRegistry,
-    signer: [u8; 32],
-    correlation: u64,
-    authorization: SequencerAuthorization,
-    sequencer_key: [u8; 32],
+fn canonical_budget_record(record: &ProtocolBudgetRecord) -> Result<Vec<u8>, HumanOperationError> {
+    let mut bytes = vec![
+        0,
+        if record.source_account.is_some() {
+            2
+        } else {
+            1
+        },
+    ];
+    for value in [
+        record.budget_id,
+        record.owner,
+        record.budget_account,
+        record.asset_id,
+        record.purpose_hash,
+    ] {
+        bytes.extend_from_slice(&value);
+    }
+    for value in [
+        record.per_period_limit,
+        record.configured_period_limit,
+        record.carry_cap,
+        record.spent_this_period,
+        record.carried,
+    ] {
+        bytes.extend_from_slice(&value.to_be_bytes());
+    }
+    for value in [
+        record.period_length,
+        record.period_start,
+        record.expiry,
+        record.revocation_sequence,
+    ] {
+        bytes.extend_from_slice(&value.to_be_bytes());
+    }
+    bytes.extend_from_slice(&[
+        record.rollover_policy,
+        u8::from(record.closed),
+        u8::from(record.revoked),
+        u8::try_from(record.delegates.len()).map_err(|_| HumanOperationError::Refused)?,
+    ]);
+    for delegate in &record.delegates {
+        bytes.extend_from_slice(delegate);
+    }
+    if let Some(source) = record.source_account {
+        bytes.extend_from_slice(&source);
+    }
+    if ProtocolBudgetRecord::decode(&bytes).map_err(|_| HumanOperationError::Refused)? != *record {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(bytes)
+}
+
+pub struct NodeBudgetPipeline<'a, S> {
+    chain: &'a dyn HumanNode,
+    decode:
+        fn([u8; 32], u64, &[u8]) -> Result<ProtocolBudgetState<S>, crate::budget::ReconcileError>,
+    committed_height: Option<u64>,
     receipt_poll: Duration,
     receipt_attempts: u32,
 }
 
-impl BudgetPipeline for NodeBudgetPipeline<'_> {
+impl<'a, S> NodeBudgetPipeline<'a, S> {
+    pub fn new(
+        chain: &'a dyn HumanNode,
+        decode: fn(
+            [u8; 32],
+            u64,
+            &[u8],
+        ) -> Result<ProtocolBudgetState<S>, crate::budget::ReconcileError>,
+    ) -> Self {
+        Self {
+            chain,
+            decode,
+            committed_height: None,
+            receipt_poll: BUDGET_RECEIPT_POLL,
+            receipt_attempts: BUDGET_RECEIPT_ATTEMPTS,
+        }
+    }
+
+    fn read_result(&self, budget_id: [u8; 32]) -> Result<(u64, Vec<u8>), BudgetCreationError> {
+        let height = match self.committed_height {
+            Some(height) => height,
+            None => {
+                self.chain
+                    .head()
+                    .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?
+                    .number
+            }
+        };
+        let mut data =
+            layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4].to_vec();
+        data.extend_from_slice(&budget_id);
+        let result = self
+            .chain
+            .call_at(
+                height,
+                &crate::prepare::evm::PrecompileTarget::Pay.address(),
+                &data,
+            )
+            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
+        Ok((height, result))
+    }
+
+    fn read_record(
+        &self,
+        budget_id: [u8; 32],
+    ) -> Result<(ProtocolBudgetRecord, u64), BudgetCreationError> {
+        let (height, result) = self.read_result(budget_id)?;
+        let state = ProtocolBudgetState::decode_get_budget(budget_id, height, &result)
+            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
+        Ok((state.record().clone(), height))
+    }
+}
+
+impl<S> BudgetPipeline<layerx_client::sequencer::SequencerReceipt, S>
+    for NodeBudgetPipeline<'_, S>
+{
     fn submit_budget(
         &mut self,
         request: &BudgetRequest,
-    ) -> Result<CoreBudgetReceipt, BudgetCreationError> {
+    ) -> Result<CoreBudgetReceipt<layerx_client::sequencer::SequencerReceipt>, BudgetCreationError>
+    {
         let submission = request
             .verified_submission
             .as_ref()
             .ok_or(BudgetCreationError::ActivityBindingUnavailable)?;
         crate::budget::BudgetMutationPipeline::submit_verified(self, submission)
     }
-
     fn budget_state(
         &mut self,
         budget_id: [u8; 32],
-    ) -> Result<ProtocolBudgetState, BudgetCreationError> {
-        let key = budget_state_key(budget_id);
-        let value = self
-            .node
-            .module_state(
-                BUDGET_MODULE_ID,
-                &key,
-                VerificationLevel::STATE_PROVEN,
-                self.correlation.wrapping_add(2).max(1),
-                self.authorization,
-            )
-            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
-        Ok(ProtocolBudgetState {
-            evidence: RawStateEvidence::module_witness(
-                value.canonical_bytes().to_vec(),
-                BUDGET_MODULE_ID,
-                key,
-                value.proof_material().to_vec(),
-                RootSelector::Latest,
-                self.sequencer_key,
-            ),
-        })
+    ) -> Result<ProtocolBudgetState<S>, BudgetCreationError> {
+        let (height, result) = self.read_result(budget_id)?;
+        (self.decode)(budget_id, height, &result)
+            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)
     }
 }
 
-/// Returns whether proven core state currently holds a live (not closed, not
-/// revoked) budget record named `budget_id`. Any missing, unverifiable or
-/// mismatched state is reported as not live.
-fn live_protocol_budget(
-    pipeline: &mut dyn BudgetPipeline,
-    verifier: &EvidenceAuthority,
+fn live_protocol_budget<S>(
+    pipeline: &mut NodeBudgetPipeline<'_, S>,
+    _verifier: &EvidenceAuthority,
     budget_id: [u8; 32],
 ) -> bool {
-    let Ok(state) = pipeline.budget_state(budget_id) else {
-        return false;
-    };
-    let Ok(proven) = verifier.verify_state(&state.evidence) else {
-        return false;
-    };
-    let Ok(record) = ProtocolBudgetRecord::decode(proven.canonical_state()) else {
-        return false;
-    };
-    record.budget_id == budget_id && !record.closed && !record.revoked
+    pipeline
+        .read_record(budget_id)
+        .is_ok_and(|(record, _)| record.budget_id == budget_id && !record.closed && !record.revoked)
 }
 
 fn raw_receipt_evidence(
@@ -19417,72 +19541,228 @@ fn sweep_capability_cleanups(
     Ok(())
 }
 
-impl crate::budget::BudgetMutationPipeline for NodeBudgetPipeline<'_> {
+fn verify_budget_execution(
+    receipt: &layerx_wire::receipt::Receipt,
+    execution: &layerx_client::sequencer::ExecutedReceipt,
+    tx_hash: [u8; 32],
+) -> Result<u16, BudgetCreationError> {
+    let protocol = receipt
+        .protocol()
+        .ok_or(BudgetCreationError::UnverifiedReceipt)?;
+    let logs = execution
+        .logs
+        .iter()
+        .map(|log| {
+            layerx_proof::sequencer_logs::SequencerLog::new(
+                log.address,
+                log.topics.clone(),
+                log.data.clone(),
+                log.log_index,
+            )
+        })
+        .collect();
+    let verified = layerx_proof::sequencer_logs::verify_logs(receipt, logs)
+        .map_err(|_| BudgetCreationError::UnverifiedReceipt)?;
+    let summary = verified.summary();
+    let mut height = [0; 32];
+    height[24..].copy_from_slice(&execution.height.to_be_bytes());
+    let mut fee = [0; 32];
+    fee[16..].copy_from_slice(&protocol.fee_charged().to_be_bytes());
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&execution.from);
+    let mut to = [0; 32];
+    to[12..].copy_from_slice(&execution.to);
+    for (matches, _field) in [
+        (protocol.activity_id() == tx_hash, "txHash"),
+        (protocol.debit_sequence() == execution.nonce, "nonce"),
+        (protocol.global_sequence() == execution.seq, "seq"),
+        (protocol.batch_id() == height, "height"),
+        (protocol.timestamp() == execution.timestamp, "timestamp"),
+        (protocol.context_hash() == execution.key_id, "keyId"),
+        (protocol.parameter_version() == 0, "parameterVersion"),
+        (
+            protocol.result_code() == i32::from(!execution.success),
+            "status",
+        ),
+        (summary.gas_used() == execution.gas_used, "gasUsed"),
+        (
+            summary.cumulative_gas_used() == execution.cumulative_gas_used,
+            "cumulativeGasUsed",
+        ),
+        (
+            summary.effective_gas_price() == execution.effective_gas_price,
+            "effectiveGasPrice",
+        ),
+        (u64::from(summary.tx_index()) == execution.index, "index"),
+        (
+            summary.contract_address() == execution.contract_address,
+            "contractAddress",
+        ),
+        (summary.sponsor() == execution.sponsor, "sponsor"),
+        (summary.fee_denom() == execution.fee_denom, "feeDenom"),
+        (
+            protocol.asset() == budget_sha256(execution.fee_denom.as_bytes()),
+            "feeDenom",
+        ),
+        (fee == execution.fee_amount, "feeAmount"),
+        (protocol.from() == from, "from"),
+        (protocol.to() == to, "to"),
+        (
+            usize::try_from(summary.return_data_len()).ok() == Some(execution.return_data.len())
+                && protocol.activity_root() == budget_sha256(&execution.return_data),
+            "returnData",
+        ),
+        (
+            summary.vm_error_hash() == budget_sha256(execution.vm_error.as_bytes()),
+            "vmError",
+        ),
+    ] {
+        if !matches {
+            return Err(BudgetCreationError::UnverifiedReceipt);
+        }
+    }
+    Ok(protocol.module_id())
+}
+
+fn budget_sha256(bytes: &[u8]) -> [u8; 32] {
+    Sha256::digest(bytes).into()
+}
+
+impl<S> crate::budget::BudgetMutationPipeline<layerx_client::sequencer::SequencerReceipt, S>
+    for NodeBudgetPipeline<'_, S>
+{
     fn submit_verified(
         &mut self,
         submission: &VerifiedSubmission,
-    ) -> Result<CoreBudgetReceipt, BudgetCreationError> {
-        let activity_id = match self.node.submit_signed(
-            self.registry,
-            self.signer,
-            self.correlation,
-            0,
-            submission.exact_bytes(),
-        ) {
-            Ok(Submission::Acknowledged(acknowledgement)) => acknowledgement.activity_id(),
-            Ok(Submission::Unknown(_)) | Err(_) => return Err(BudgetCreationError::Submission),
-        };
-        if activity_id != submission.activity_id() {
-            return Err(BudgetCreationError::Submission);
+    ) -> Result<CoreBudgetReceipt<layerx_client::sequencer::SequencerReceipt>, BudgetCreationError>
+    {
+        use layerx_client::sequencer::SequencerReceipt;
+        self.committed_height = None;
+        let hash = self
+            .chain
+            .send_raw_transaction(submission.exact_bytes())
+            .map_err(|_| BudgetCreationError::Submission)?;
+        if hash != submission.activity_id() {
+            return Err(BudgetCreationError::ReceiptActivityMismatch);
         }
-        let receipt_correlation = self.correlation.wrapping_add(1).max(1);
-        let mut attempt = 0;
-        loop {
-            match self.node.proof_bundle(
-                ProofBundleSelector::Receipt(activity_id),
-                receipt_correlation,
-                self.registry,
-            ) {
-                Ok(bundle) => {
-                    let evidence = raw_receipt_evidence(&bundle)
-                        .map_err(|_| BudgetCreationError::Submission)?;
-                    return Ok(CoreBudgetReceipt { evidence });
+        for attempt in 0..=self.receipt_attempts {
+            let answer = self
+                .chain
+                .sequencer_receipt(&hash)
+                .map_err(|_| BudgetCreationError::Submission)?;
+            if let Some(evidence @ SequencerReceipt::Committed { .. }) = answer {
+                let SequencerReceipt::Committed {
+                    receipt,
+                    block_number,
+                    block_hash,
+                } = &evidence
+                else {
+                    unreachable!()
+                };
+                let keys = self
+                    .chain
+                    .receipt_keys()
+                    .map_err(|_| BudgetCreationError::UnverifiedReceipt)?;
+                let head = self
+                    .chain
+                    .head()
+                    .map_err(|_| BudgetCreationError::UnverifiedReceipt)?;
+                let block = self
+                    .chain
+                    .block(*block_number)
+                    .map_err(|_| BudgetCreationError::UnverifiedReceipt)?
+                    .ok_or(BudgetCreationError::UnverifiedReceipt)?;
+                if receipt.height != *block_number
+                    || *block_number > head.number
+                    || block.hash != *block_hash
+                {
+                    return Err(BudgetCreationError::UnverifiedReceipt);
                 }
-                Err(error) if evidence_unavailable(&error) && attempt < self.receipt_attempts => {
-                    attempt += 1;
-                    std::thread::sleep(self.receipt_poll);
+                receipt_proof_operation(
+                    layerx_agent_api::proof::ProofBundleTarget::Receipt(hash),
+                    layerx_types::rung::Rung::Receipted,
+                    submission.exact_bytes(),
+                    &receipt.receipt,
+                    &keys,
+                    self.chain
+                        .chain_id()
+                        .map_err(|_| BudgetCreationError::UnverifiedReceipt)?,
+                    head.number,
+                    head.hash,
+                )
+                .map_err(|_| BudgetCreationError::UnverifiedReceipt)?;
+                let decoded = layerx_wire::receipt::decode(&receipt.receipt)
+                    .map_err(|_| BudgetCreationError::UnverifiedReceipt)?;
+                verify_budget_execution(&decoded, receipt, hash)?;
+                let (call, signature) =
+                    layerx_crypto::evm_transaction::decode_signed(submission.exact_bytes())
+                        .map_err(|_| BudgetCreationError::UnverifiedReceipt)?;
+                if receipt.from
+                    != layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                        .map_err(|_| BudgetCreationError::UnverifiedReceipt)?
+                    || receipt.to != call.to
+                    || receipt.nonce != call.nonce
+                    || !keys.iter().any(|key| {
+                        key.key_id == receipt.key_id && key.public_key == receipt.signing_key
+                    })
+                {
+                    return Err(BudgetCreationError::UnverifiedReceipt);
                 }
-                Err(_) => return Err(BudgetCreationError::Submission),
+                self.committed_height = Some(*block_number);
+                return Ok(CoreBudgetReceipt { evidence });
+            }
+            if attempt < self.receipt_attempts {
+                std::thread::sleep(self.receipt_poll);
             }
         }
+        Err(BudgetCreationError::Submission)
     }
-
     fn budget_state(
         &mut self,
         budget_id: [u8; 32],
-    ) -> Result<ProtocolBudgetState, BudgetCreationError> {
+    ) -> Result<ProtocolBudgetState<S>, BudgetCreationError> {
         BudgetPipeline::budget_state(self, budget_id)
     }
-
     fn budget_balance(
         &mut self,
         account: [u8; 32],
         asset: [u8; 32],
     ) -> Result<u128, BudgetCreationError> {
-        let balance = self
-            .node
-            .balance(
-                account,
-                asset,
-                VerificationLevel::STATE_PROVEN,
-                self.correlation.wrapping_add(3).max(1),
-                self.authorization,
-            )
-            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
-        if balance.account != account || balance.asset != asset {
+        let endpoint =
+            committed_read_endpoint().map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?;
+        if endpoint
+            .chain_id()
+            .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?
+            != self
+                .chain
+                .chain_id()
+                .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?
+        {
             return Err(BudgetCreationError::ContextMismatch);
         }
-        Ok(balance.amount.value())
+        let height = match self.committed_height {
+            Some(height) => height,
+            None => {
+                self.chain
+                    .head()
+                    .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?
+                    .number
+            }
+        };
+        layerx_client::rpc::account::balance(
+            &endpoint,
+            account,
+            asset,
+            layerx_client::rpc::account::ReadContext {
+                committed_height: height,
+                requested: layerx_client::rpc::account::Requested::new(
+                    layerx_types::rung::Rung::Committed,
+                )
+                .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)?,
+            },
+        )
+        .map(|amount| amount.value())
+        .map_err(|_| BudgetCreationError::CreatedBudgetUnconfirmed)
     }
 }
 
