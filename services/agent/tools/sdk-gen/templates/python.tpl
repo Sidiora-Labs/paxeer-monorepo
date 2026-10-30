@@ -17,6 +17,30 @@ def layerx_sdk_py_package() -> Mapping[str, str | int]:
 
 {{SCALARS}}
 
+class SignatureBytes(bytes):
+    def __new__(cls, value: bytes) -> "SignatureBytes":
+        if not isinstance(value, bytes) or len(value) != 65:
+            raise ValueError("invalid signature length")
+        return super().__new__(cls, value)
+
+
+class AddressBytes(bytes):
+    def __new__(cls, value: bytes) -> "AddressBytes":
+        if not isinstance(value, bytes) or len(value) != 20:
+            raise ValueError("invalid address length")
+        return super().__new__(cls, value)
+
+
+class SignRequest(TypedDict):
+    preparation_ref: str
+    signature: SignatureBytes
+
+
+class SubmitRequest(TypedDict):
+    preparation_ref: str
+    signature: SignatureBytes
+
+
 class Rung(IntEnum):
 {{RUNGS}}
 
