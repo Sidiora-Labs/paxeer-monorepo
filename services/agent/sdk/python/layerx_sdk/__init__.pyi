@@ -32,11 +32,11 @@ from .generated.client import Sequence as Sequence
 from .generated.client import (
     StructuredActivityDisclosure as StructuredActivityDisclosure,
 )
-from .generated.client import SubmissionExecuted as SubmissionExecuted
-from .generated.client import SubmissionFailed as SubmissionFailed
-from .generated.client import SubmissionPending as SubmissionPending
+from .generated.client import SubmissionCommitted as SubmissionCommitted
+from .generated.client import SubmissionReceipted as SubmissionReceipted
+from .generated.client import SubmissionReverted as SubmissionReverted
 from .generated.client import SubmissionState as SubmissionState
-from .generated.client import SubmissionUnknown as SubmissionUnknown
+from .generated.client import SubmissionSubmitted as SubmissionSubmitted
 from .generated.client import TimestampSeconds as TimestampSeconds
 from .generated.client import Transport as Transport
 from .generated.client import VerifiedRead as VerifiedRead
