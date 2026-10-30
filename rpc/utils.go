@@ -19,6 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/rpcutils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/stats"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -328,6 +329,11 @@ func validateBlockExecutionReceipts(
 	decoder := txConfigProvider(blockHeight).TxDecoder()
 	latestCtx := ctxProvider(LatestCtxHeight)
 	for txIndex, txBytes := range block.Block.Txs {
+		if txIndex == 0 {
+			if _, err := seqtypes.DecodeSequenceBatchTx(txBytes); err == nil {
+				continue
+			}
+		}
 		tx, err := decoder(txBytes)
 		if err != nil {
 			return fmt.Errorf("decode consensus transaction %d in block %d: %w", txIndex, block.Block.Height, err)
