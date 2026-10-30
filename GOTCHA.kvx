@@ -10895,3 +10895,28 @@ fix = "Build only the gate's own targets; give each drifting sibling target to t
 title = "Two CI checks can constrain the same workflow line in opposite directions"
 symptom = "16.5.6 asserted runner-routing-check.sh exits 0, which demands the routed runner expression on publish-images.yml jobs, while publish-images.test.sh forbids CI_LINUX_RUNNER anywhere in that file; the workflow failed one check whatever it carried."
 fix = "Pick the check that encodes the product rule (the test that owns the workflow) and list the jobs as excluded in the other; record the decision."
+
+[gotcha.2217]
+title = "Deleting an enum variant or adding a struct field leaves test targets outside the task's build red at main"
+symptom = "10.98.13 deleted IntentKind::NativeOwnerRotation and the kms provider test still built it; 8.8.2 added Config.chain_receipts and the head attestation bin test still built the old initializer; four later attempts of two other tasks failed on those two lines."
+fix = "Before deleting a variant or adding a required field, grep the workspace tests for its users and put every user in the task's touches or in a sibling task the gate requires; a task's done record must name the targets its symbol change compiles."
+
+[gotcha.2218]
+title = "A test that reads an operator fixture through an environment variable cannot qualify"
+symptom = "18.1242.1 attempts 1 and 2 panicked at bootstrap_bind_layerx.rs:89 expecting PAXEER_X_AGENT_OWNER_FIXTURE, a document schema the attempt invented; nothing provisions such files where the gates run."
+fix = "Tests serve their peers in-process on loopback from real types (anvil, served SequencerEndpoint), generate their keys and read nothing from the environment; a fixture-file test is rewritten, not supplied."
+
+[gotcha.2219]
+title = "Changing a shared struct in one crate breaks the binaries of every consumer crate"
+symptom = "1e3b37aee (18.1243.1) removed current_height and prepare_budget from GrantTerms in layerx-mcp; layerx-agentd-host/src/payer.rs still used them, so the agentd binary stopped compiling and 9.94.1 failed two attempts on lines it never touched."
+fix = "When a task changes a public struct or trait, grep every crate that names it and either add those files to touches or open the consumer port as its own task before the change lands."
+
+[gotcha.2220]
+title = "Kernel C tests build with -Werror=conversion"
+symptom = "13.27.6 attempt 1 built the kernel but the test binary failed at lxp_test_sandbox_lifecycle.c:385 on an implicit unsigned int to uint8_t conversion, treated as an error."
+fix = "Cast narrowing conversions explicitly in kernel tests; a warning in a test file is a verify failure."
+
+[gotcha.2221]
+title = "A build_cmd with --tests inherits every drifted sibling test target"
+symptom = "18.1200.1, 18.1230.1 and 18.1159.1 implemented their steps and failed only because the crate's --tests build compiled revocation.rs, unknown.rs, migration.rs and owner_bootstrap.rs, which other tasks own."
+fix = "Name the gate's own targets (--lib --test a --test b); record the drifted sibling once and leave it to its owner, unless the task's single gate binary includes the drifted module, in which case the task ports it."

@@ -4395,6 +4395,36 @@ value = "A sandboxed call settles its occupancy through the lease escrow (progra
 basis = "13.27.1 attempts 1 to 33 reverted at successive points of the settlement path and attempt 33 (ef3be2b2f) at the terminal step; the read-only trace of tree ef3be2b2f (qualification.kvx finding.13.27.1 for attempt 33) found no other FATAL site reachable; no test has run a sandboxed SUCCESS to its terminal step (tests/codec/lxp_test_sandbox_lifecycle.c execute cases are admission refusals at :417, :519, :524; determinism_test.go:151-184 and method_call_test.go:162-172 use the ordinary call path)."
 affects = ["13.27.6", "13.27.1", "13.27.5"]
 
+[decision.1881]
+title = "The sponsored agent bind runs two sequential reauthorization challenges"
+value = "Agent provisioning sponsors the bind through the gas station like a standard user. The attestor (*Authority).Evaluate admits a sponsored_batch view for an agent subject when the batch account is the agent wallet, every call targets the bind precompile 0x1004 with the bindLayerX selector and zero value and the quote lies within the agent caps, and admits an eip7702 authorization view only when its address equals the configured paymaster. The gateway persists the quoted construction before the first signature and answers one 409 reauthorization per envelope, the batch digest first and the authorization second; the client matches a supplied reauthorization by key_id and kind."
+basis = "Owner ruling of 2026-10-30 choosing this over one combined envelope and over leaving agents unsponsored; finding 18.1113.1.2; the gateway client already handles one reauthorization per envelope (services/wallet/gateway/src/attestor/client.ts:685-716), so no new envelope kind is needed."
+affects = ["18.1113.1", "12.6.5", "12.6.6"]
+
+[decision.1882]
+title = "Tests whose only subject is API the same task retires leave with that API"
+value = "When a task is ordered to delete an API, the tests that exist only to exercise that API are deleted by the same task, and the touches list names their files. This is not a relaxation under No Weakening: no surviving assertion changes, and nothing is removed to make an unrelated check pass. 8.44.6 lands before 8.44.5 so the Swift test target compiles at each step."
+basis = "Owner ruling of 2026-10-30 choosing this over keeping AuthorizedReceiptBatch alive (which contradicts 8.44.5 do_3) and over a prior port to the sequencer path; read-only trace of 8.44.5 and 8.44.6 attempts 2 to 4: ProgramsContractTests.swift:273-410 and ReceiptFixtureTests.swift:71-74, :91-110 reference only the API ordered deleted by 8.44.5 do_1 to do_3 and 8.44.6 do_1."
+affects = ["8.44.5", "8.44.6"]
+
+[decision.1883]
+title = "10.2.9 verifies the rung tests that its port controls; the journey tests are gated where their engine fix lands"
+value = "10.2.9's verify command names the seven agent_controls_rungs tests that pass at its candidate; its build still compiles all seven targets. The three archive_fixture journey tests and the journey_faults target join the tests and verify command of 18.1149.1 (wave 12, requires 10.13.5, 10.0.3 and 10.2.9), where the custody-signer disclosure and the Budget 8 fixture registry are fixed. No test is altered or deleted."
+basis = "Owner ruling of 2026-10-30 choosing this over waiting for wave 11 (209 dependents blocked) and over pulling the engine port into 10.2.9; finding 10.2.9."
+affects = ["10.2.9", "18.1149.1"]
+
+[decision.1884]
+title = "Gate tests are self-contained and run their peers in-process"
+value = "A task's tests serve every peer they need on loopback from the crate's real types (anvil for an EVM chain as tests/balance.rs does, a served SequencerEndpoint for the sequencer), generate their keys and credentials in-process and read no fixture document from the environment. A test that needs an operator-provided PAXEER_X_*_FIXTURE file cannot qualify in the environment that runs the gates and is not an acceptable gate; existing env-var fixture tests are ported when their owning task next touches them."
+basis = "Owner ruling of 2026-10-30 choosing self-contained fixtures over provided fixture files and over compile-only gates; 18.1242.1 attempts 1 and 2 panicked at bootstrap_bind_layerx.rs:89 for a missing PAXEER_X_AGENT_OWNER_FIXTURE."
+affects = ["18.1242.1"]
+
+[decision.1885]
+title = "A task's build compiles only the targets its gate runs"
+value = "build_cmd names the library and the test targets that verify_cmd runs (cargo build --lib --test a --test b), never --tests for a crate whose other test targets the task does not own. A sibling test target that no longer compiles is recorded once and ported by the task that owns it; where a task's own gate target is a single binary that includes the drifted module, the task ports it and names the file in touches."
+basis = "18.1200.1 attempt 3, 18.1230.1 attempt 5 and 18.1159.1 attempt 5 all implemented their steps and failed only compiling test targets owned by other tasks (revocation.rs, unknown.rs, migration.rs, owner_bootstrap.rs); 13.0.2 attempts 2 and 3 stopped at a dependent-crate test with no pending owner."
+affects = ["18.1200.1", "18.1230.1", "18.1159.1", "13.0.2", "18.1228.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -19697,6 +19727,17 @@ ac_1 = "The kernel vector generator names no layerx_crypto::disclosure or layerx
 [req.12999]
 title = "Domain 12 is complete"
 ac_1 = "walletCompletionRetiredSurfacesAbsent passes on the merged candidate: no retired domain-12 surface remains and every planned domain-12 wave-6 path exists."
+
+[req.12065]
+title = "The attestor admits the sponsored agent bind envelopes"
+ac_1 = "Evaluate admits a sponsored_batch view for an agent subject when the batch account is the agent wallet, every call targets 0x1004 with the bindLayerX selector and zero value and the quote lies within the agent caps; any other call, account or value keeps the existing agent refusal (decision.1881)."
+ac_2 = "Evaluate admits an eip7702 authorization view for an agent subject only when the authorized address equals the configured paymaster; every other view kind keeps the refusal."
+
+[req.12066]
+title = "The gateway challenges the agent once per sponsored bind envelope"
+ac_1 = "provisionAccount for an agent persists the quoted station construction before requesting the first signature, so the challenge envelope replays byte for byte on the retried call."
+ac_2 = "Each envelope (sponsored batch digest, then eip7702 authorization) raises its own AttestorReauthorizationRequired carrying that envelope's key_id and kind, and the attestor client matches a supplied reauthorization by key_id and kind."
+ac_3 = "After both reauthorizations the agent wallet row reaches binding_state bound with one station submit and the chain holds the agent binding; the provisioning flow test and the custody production e2e assert the two-challenge flow."
 
 [req.13001]
 title = "Scaffold the registry chain_proof module with a strict protobuf reader and its deps"
@@ -74136,6 +74177,46 @@ req = "12999.1"
 scenario = "Given the candidate after every domain-12 wave-6 task, when walletCompletionRetiredSurfacesAbsent runs, then no retired surface remains and every planned path exists"
 contract = "contracts/clients.md#wallet-demo"
 test = "services/wallet/demo/src/components/Completion.test.tsx::walletCompletionRetiredSurfacesAbsent (planned)"
+qualification = "UNRUN"
+
+[acceptance.12.65.1]
+feature = "12"
+req = "12065.1"
+scenario = "Given an agent subject and a sponsored_batch view whose account is the agent wallet and whose only call is bindLayerX on 0x1004 with zero value, when Evaluate runs, then the view is admitted."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateAdmitsSponsoredBatchBindForAgent"
+qualification = "UNRUN"
+
+[acceptance.12.65.2]
+feature = "12"
+req = "12065.2"
+scenario = "Given an agent subject and an eip7702 authorization view naming the configured paymaster, when Evaluate runs, then the view is admitted; a sponsored batch outside the bind precompile is refused."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateAdmitsPaymasterAuthorizationForAgent"
+qualification = "UNRUN"
+
+[acceptance.12.66.1]
+feature = "12"
+req = "12066.1"
+scenario = "Given an agent provisioning that stopped at the first challenge, when the call is retried, then the same persisted construction is signed and no second quote is fetched."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/gateway/test/provisioning.test.ts::provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+qualification = "UNRUN"
+
+[acceptance.12.66.2]
+feature = "12"
+req = "12066.2"
+scenario = "Given the batch-digest reauthorization, when provisioning continues, then a second challenge of kind eip7702_authorization is raised for the same key."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/gateway/test/provisioning.test.ts::provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+qualification = "UNRUN"
+
+[acceptance.12.66.3]
+feature = "12"
+req = "12066.3"
+scenario = "Given both reauthorizations, when provisioning completes, then the agent wallet is bound with one station submit and the chain holds the binding."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/gateway/test/provisioning.test.ts::provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
 qualification = "UNRUN"
 
 [acceptance.13.1.1]
@@ -136672,7 +136753,7 @@ title = "Swift SDK retires kernel batch, checkpoint and settlement verification"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["8.44.2", "8.44.3", "8.47.7"]
+requires = ["8.44.2", "8.44.3", "8.47.7", "8.44.6"]
 reqs = ["8503.1", "8503.2", "8503.3"]
 capabilities = ["8.44.5"]
 interfaces = ["interface.8.go-sdkswift-batchheader", "interface.8.go-sdkswift-sequencerauthorization", "interface.8.go-sdkswift-sequencerauthorization-init", "interface.8.go-sdkswift-inclusionkind", "interface.8.go-sdkswift-inclusionkind-activity", "interface.8.go-sdkswift-inclusionkind-event", "interface.8.go-sdkswift-inclusionkind-receipt", "interface.8.go-sdkswift-inclusionkind-state", "interface.8.go-sdkswift-inclusionverification", "interface.8.go-sdkswift-checkpointattestation", "interface.8.go-sdkswift-checkpointattestation-init", "interface.8.go-sdkswift-guarantorkey", "interface.8.go-sdkswift-guarantorkey-init", "interface.8.go-sdkswift-checkpointcertificate", "interface.8.go-sdkswift-checkpointcertificate-init", "interface.8.go-sdkswift-checkpointverificationinput", "interface.8.go-sdkswift-checkpointverificationinput-init", "interface.8.go-sdkswift-localsignatureverifier", "interface.8.go-sdkswift-localsignatureverifier-verifyrecoverablesecp256k1", "interface.8.go-sdkswift-checkpointverification", "interface.8.go-sdkswift-authorizedreceiptbatch", "interface.8.go-sdkswift-authorizedreceiptbatch-init", "interface.8.go-sdkswift-localverifier-decodebatchheader", "interface.8.go-sdkswift-localverifier-verifybatchinclusion", "interface.8.go-sdkswift-localverifier-verifycheckpoint"]
@@ -136682,7 +136763,7 @@ do_3 = "Delete the AuthorizedBatch receipt input from sdk/platform/swift/Sources
 do_4 = "Delete the tests of sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:1 that read the kernel receipt-positive, receipt-refusals and receipt-programs vectors retired by tasks 8.47.4, 8.47.5 and 8.47.6."
 do_5 = "Create sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift (planned) with the tests below."
 symbols = ["VerificationLevel", "VerifyBatchInclusion", "VerifyCheckpoint", "AuthorizedBatch"]
-touches = ["sdk/platform/swift/Sources/LayerXSDK/Verifier.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Verifier.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift"]
 tests = ["sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift::testVerificationRungsAreReceiptedAndCommittedOnly", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift::testKernelReceiptBytesAreRefusedBySequencerVerifier", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift::testCommittedVectorV4Verifies"]
 planned_paths = ["sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift"]
 build_cmd = "swift build --package-path sdk/platform/swift"
@@ -136698,6 +136779,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Retire the last callers of the AuthorizedBatch receipt input in sdk/platform/swift/Sources/LayerXSDK/Programs.swift: delete the deprecated ProgramsClient.verifyReceipt(_:authorized:expectedActivityID:expectedGuestABIVersion:terminalPayload:callGraph:protocolVersion:expectedProgramID:documentOutcome:) (:624-663) and ProgramsClient.verifyRawV5Receipt(_:authorized:call:terminalPayload:callGraph:protocolVersion:) (:664-681), the kernel receipt-document verifiers verifiedSubmission (:745-791), verifiedExecution (:793-885) and verifiedSimulation (:887-949), which have had no caller since task 8.44.3, and the authorized(_:) helper (:2366-2374). Keep the sequencer entry points ProgramsClient.verifyReceipt(_:rawTransaction:keys:receiptJSON:prevSeqHash:), verifyRawV5Receipt(_:rawTransaction:keys:receiptJSON:prevSeqHash:) and verifySubmission (:594-622), VerifiedProgramExecution (:326) and verifiedDiscovery (:951) exactly as written."
+do_7 = "Delete from sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift the kernel receipt tests that construct AuthorizedReceiptBatch and call the deleted ProgramsClient.verifyReceipt(_:authorized:...), ProgramsClient.verifyRawV5Receipt(_:authorized:...) and LocalVerifier.verifyReceiptOutcome: testNativeGuestAdmissionDoesNotWidenSignedExecutionReceiptABI (:273-297, reads sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json retired by task 8.47.6), testTerminalV5ActualNativeSignedCorpus (:299-401, reads the PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS kernel corpus) and the helper assertRawV5Refusal (:403-410). Every other test in the file stays as written; task 8.44.6 lands first and reformats the file, so locate the three members by name (decision.1882). This task requires 8.44.6 and re-qualifies on a base that includes it."
 
 [task.8.44.6]
 title = "Swift SDK removes the /v1/programs REST transport"
@@ -136712,7 +136795,7 @@ do_1 = "Delete the program route table and the program transport entry points (s
 do_2 = "Delete the route-table tests of sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift:1 that assert /v1/programs paths."
 do_3 = "Create sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift (planned) driving every program operation through a recording transport."
 symbols = ["programRoutes", "sendProgram"]
-touches = ["sdk/platform/swift/Sources/LayerXSDK/Transport.swift", "sdk/platform/swift/Sources/LayerXSDK/Production.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Transport.swift", "sdk/platform/swift/Sources/LayerXSDK/Production.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift"]
 tests = ["sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift::testProgramOperationsNeverCallProgramsRestIngress"]
 planned_paths = ["sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift"]
 build_cmd = "swift build --package-path sdk/platform/swift"
@@ -136728,6 +136811,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Delete from sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift the /v1/programs route assertions in testNativeLifecycleCFixtures that drive the deleted AgentHTTPTransport.programRequest: the AccessToken and AgentHTTPTransport construction (:71-74), the operation, path, hex and body locals (:91-99) and the programRequest call with its six assertions and the idempotency refusal (:100-110). Keep the test and its codec, binding, truncation and tamper assertions on decodeNativeProgramLifecycle and NativeProgramLifecycleRequest (:75-90 and :111-141) and every other test in the file unchanged; the remaining body uses only payload, signed, value, ordinal and request (decision.1882)."
 
 [task.8.44.7]
 title = "Swift SDK exports and verifies portable receipt v2 bundles"
@@ -137952,7 +138036,7 @@ do_3 = "Replace the layerx_crypto::onboarding::SponsoredRegistration decode at s
 do_4 = "Leave the uses at services/platform/hosted/core/src/main.rs:846, :856 and :2390 to task 8.10.1, which owns that file in this wave; the builders come from tasks 9.31.2 and 9.32.2 by wave 3."
 do_5 = "Write services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs (planned) with the test below."
 symbols = ["platform_names_no_kernel_disclosure_or_send_codec"]
-touches = ["services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/human/dynamic/tests.rs", "services/platform/hosted/core/src/lib.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "tools/platform/cli/src/wallet_send.rs", "tools/platform/cli/src/wallet_signing.rs", "tools/platform/cli/src/wallet.rs", "tools/platform/cli/examples/hosted-send.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"]
+touches = ["services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/human/dynamic/tests.rs", "services/platform/hosted/core/src/lib.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "tools/platform/cli/src/wallet_send.rs", "tools/platform/cli/src/wallet_signing.rs", "tools/platform/cli/src/wallet.rs", "tools/platform/cli/examples/hosted-send.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/agent-boundary/src/head_attestation_tests.rs"]
 tests = ["services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs::platform_names_no_kernel_disclosure_or_send_codec"]
 planned_paths = ["services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"]
 build_cmd = "cargo build --manifest-path services/platform/Cargo.toml --tests && cargo build --manifest-path tools/platform/cli/Cargo.toml --examples"
@@ -137969,6 +138053,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempt 4 (af194c5e7): the --tests build of services/platform fails in the layerx-paxai-worker test literals that task 8.98.11 do_10 ports (now required); change nothing under services/platform/hosted/paxai-worker/ in this task and re-qualify once 8.98.11 is done. The attempt made no source edit for do_1 to do_3: confirm on the merged revision that those uses are already gone, and port any that remain."
+do_7 = "The build_cmd compiles the agent boundary's bin tests, and services/platform/hosted/agent-boundary/src/head_attestation_tests.rs:115 constructs Config without the chain_receipts field that task 8.8.2 (41fd18eac) added at services/platform/hosted/agent-boundary/src/main.rs:79 and fills at :610 with chain_receipt::ChainReceipts::from_config(url, keys_path). In config(root) write a receipt keys file under root.0 in the shape services/platform/hosted/agent-boundary/tests/chain_receipt.rs provisions for the boundary and set chain_receipts to ChainReceipts::from_config with a loopback http URL and that path; change nothing else in head_attestation_tests.rs and no assertion."
 
 [task.8.96.1]
 title = "Remove the bridge withdrawal compile from the gateway local withdrawal test"
@@ -143262,7 +143347,7 @@ title = "Read program balances through eth_call on 0x101D in agentd instead of t
 status = "pending"
 mode = "BUILD"
 wave = 14
-requires = ["9.0.2", "6.0.2", "9.1.8", "18.1131.1", "18.1121.1", "9.98.1", "18.1206.1"]
+requires = ["9.0.2", "6.0.2", "9.1.8", "18.1131.1", "18.1121.1", "9.98.1", "18.1206.1", "18.1243.2"]
 reqs = ["9973.1"]
 capabilities = []
 interfaces = []
@@ -144158,13 +144243,13 @@ do_2 = "Outbox::enqueue now takes (store, tenant, raw: Vec<u8>) and returns Resu
 do_3 = "SubmissionState has nine variants (Prepared, Signed, Queued, Submitted, Unknown, Executed, Failed, Expired, Committed) and legal_transition admits Queued to Submitted, Expired or Failed, Submitted to Submitted, Unknown, Executed or Failed, Unknown to Executed or Failed and Executed to Committed. The core-acknowledged step (journey_faults.rs:462, agent_controls_rungs.rs:1451 and their siblings) becomes a transition to OutboxState::Submitted with the same cause text; every comparison with OutboxState::Acknowledged compares with OutboxState::Submitted; the verified-receipt step passes Some(evidence) with OutboxState::Executed and the final step OutboxState::Committed; the tracked observation keeps SubmissionState::Submitted. Refuse nothing the old double accepted and accept nothing it refused."
 do_4 = "raw_receipt_evidence takes six arguments (services/human/crates/layerx-human-test-support/src/lib.rs:423): canonical_receipt, pinned_sequencer_receipt_key, previous_state_root, resulting_state_root, global_sequence and the signer, and asserts the pinned key equals signer.verifying_key().to_bytes(). At every four-argument call (journey_faults.rs:519-525, move_money.rs:491, intent_submit.rs:726-734, deposit.rs:857-867, agent_controls_rungs.rs:1517 and the wallet_identity_e2e and withdraw sites) pass the signer's verifying key bytes and the previous_state_root and resulting_state_root the double's receipt() helper already derives from the marker byte (journey_faults.rs:607-612), storing those two roots in ReceiptMaterial when it does not carry them."
 do_5 = "InvalidationReason has the variants GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered (services/agent/crates/layerx-agentd/src/session_revocation.rs:217); agent_controls_rungs.rs:389 and :2594 name GrantRevokedOnChain in place of the retired SessionKeyRevoked. 18.1228.1 ports the same name in session_keys.rs, archive.rs, session_rungs.rs and agent_controls.rs and leaves agent_controls_rungs.rs as this task leaves it."
-do_6 = "Rung stands wherever Level stood, as 10.2.8 left the files; change nothing under services/agent, nothing under services/human/crates/layerx-human-service/src and no test outside the seven files; delete no test and weaken no assertion. The seven targets compile with the build command and the journey_faults and agent_controls_rungs targets pass."
+do_6 = "Rung stands wherever Level stood, as 10.2.8 left the files; change nothing under services/agent, nothing under services/human/crates/layerx-human-service/src and no test outside the seven files; delete no test and weaken no assertion. The seven targets compile with the build command and the agent_controls_rungs tests named in the verify command pass. The archive_fixture journey tests (every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity, crashes_after_every_durable_stage_resume_with_one_effect_per_leg, acknowledgement_gap_faults_converge_without_resubmitting_unknown) and the journey_faults target drive JourneyEngine::advance through CustodySigner::sign_in_scope (src/journeys/engine.rs:967-984, :1205-1231), which since a1c4e2dbb signs only an EIP-1559 call with a complete bind_call disclosure (SignError::InvalidDisclosure, services/agent/crates/layerx-crypto/src/signer.rs:207) while the doubles prepare kernel envelopes, and Reclaim::start compiles BudgetDefund to 0x00030008 (services/human/crates/layerx-intents/src/compile.rs:497), which the fixture registries at agent_controls_rungs.rs:1072-1080, :1092 and journey_faults.rs:90, :107 do not declare; both are qualified by 10.13.5 do_5, 10.0.3 and 18.1149.1 do_1 and do_6, not here (decision.1883)."
 symbols = ["attach_kernel_signature", "verify_kernel_before_submit", "Outbox::enqueue", "legal_transition", "raw_receipt_evidence", "InvalidationReason::GrantRevokedOnChain"]
 touches = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/move_money.rs", "services/human/crates/layerx-human-service/tests/intent_submit.rs", "services/human/crates/layerx-human-service/tests/deposit.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs", "services/human/crates/layerx-human-service/tests/withdraw.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test journey_faults --test move_money --test intent_submit --test deposit --test agent_controls_rungs --test wallet_identity_e2e --test withdraw"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test journey_faults --test agent_controls_rungs"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_controls_rungs -- --exact agent_controls_refuse_a_change_read_below_committed archive_waits_for_committed_fund_disposition control_fixture::pause_revokes_real_authority_promptly_and_resume_is_receipt_gated control_fixture::protocol_and_app_limit_changes_keep_their_real_enforcement_labels archive_fixture::reclaim_contract_is_closed_to_returns_and_rejects_conflicting_reuse archive_fixture::repeated_start_repairs_initial_progress_after_restart archive_fixture::archive_requires_committed_disposition_and_step_up_then_retires_authority_once"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -152721,6 +152806,67 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.12.6.5]
+title = "Admit the sponsored agent bind envelopes in the attestor agent authority"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["12065.1", "12065.2"]
+capabilities = []
+interfaces = []
+do_1 = "services/wallet/attestor/internal/auth/agent/authority.go (*Authority).Evaluate (:427-434) gains a policy.KindSponsoredBatch branch: the view is *evm.SponsoredBatchClaim; admit when Batch.Account equals the principal agent wallet, every call targets the bind precompile 0x1004 with the bindLayerX selector and zero value and the quote lies within the agent caps, reusing inspectSponsoredBatch (services/wallet/attestor/internal/policy/policy.go:975) for the batch shape; anything else keeps the existing refusal (decision.1881)."
+do_2 = "Evaluate gains a policy.KindAuthorization branch: the view is *evm.AuthorizationClaim; admit only when Address equals the configured paymaster; every other kind keeps the refusal at :430-432."
+do_3 = "services/wallet/attestor/internal/auth/agent/authority_test.go covers TestEvaluateAdmitsSponsoredBatchBindForAgent, TestEvaluateAdmitsPaymasterAuthorizationForAgent and TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile with real claims built the way the internal/policy tests build them; no other test changes."
+symbols = ["Evaluate", "TestEvaluateAdmitsSponsoredBatchBindForAgent", "TestEvaluateAdmitsPaymasterAuthorizationForAgent", "TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile"]
+touches = ["services/wallet/attestor/internal/auth/agent/authority.go", "services/wallet/attestor/internal/auth/agent/authority_test.go"]
+tests = ["services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateAdmitsSponsoredBatchBindForAgent", "services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateAdmitsPaymasterAuthorizationForAgent", "services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile"]
+planned_paths = ["services/wallet/attestor/internal/auth/agent/authority_test.go"]
+build_cmd = "go -C services/wallet/attestor build ./internal/auth/agent/ ./internal/policy/"
+verify_cmd = "go -C services/wallet/attestor test -count=1 ./internal/auth/agent/ -run '^(TestEvaluateAdmitsSponsoredBatchBindForAgent|TestEvaluateAdmitsPaymasterAuthorizationForAgent|TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert authority.go and delete authority_test.go; agent subjects return to refusing every sponsored_batch and authorization view."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.12.6.6]
+title = "Challenge the agent once per sponsored bind envelope and confirm the bound agent"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["12.6.5", "18.1113.1"]
+reqs = ["12066.1", "12066.2", "12066.3"]
+capabilities = []
+interfaces = []
+do_1 = "services/wallet/gateway/src/provision/state.ts signStationPayload (:380-395) and the bind_signed branch (:496-510) persist the quoted construction (station quote, sponsored batch and authorization envelopes) on the account_provisioning row before the first signature request and reuse it on every retried call instead of re-fetching the quote (services/wallet/gateway/src/provision/bind.ts:395), so the challenge envelope replays byte for byte (decision.1881)."
+do_2 = "The two envelopes sponsoredBindRequest signs (bind.ts:420 batch digest, :424 eip7702 authorization) each carry their own custody.reauthorization: the first missing one raises AttestorReauthorizationRequired for that envelope's key_id and kind; services/wallet/gateway/src/attestor/client.ts:685-716 matches the supplied reauthorization by key_id and kind instead of assuming a single one."
+do_3 = "In services/wallet/gateway/test/provisioning.test.ts the agent flow of 18.1113.1 do_7 continues past the first challenge: answer the batch-digest challenge, assert the second challenge names kind eip7702_authorization, answer it, then assert the wallets row binding_state bound with layerx_key_id set, one station submit, chain.bindings.has(agentAddress) and the agent bind nonce 1n; the test is named provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active."
+do_4 = "services/wallet/gateway/test/e2e/wallet-custody-production.ts:245-250 moves to the two-challenge flow with the same assertions; no other e2e step changes."
+symbols = ["signStationPayload", "sponsoredBindRequest", "provisionAccount"]
+touches = ["services/wallet/gateway/src/provision/state.ts", "services/wallet/gateway/src/provision/bind.ts", "services/wallet/gateway/src/attestor/client.ts", "services/wallet/gateway/test/provisioning.test.ts", "services/wallet/gateway/test/e2e/wallet-custody-production.ts"]
+tests = ["services/wallet/gateway/test/provisioning.test.ts::provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"]
+planned_paths = []
+build_cmd = "pnpm --dir services/wallet/gateway exec tsc -p tsconfig.json --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/provisioning.test.ts -t 'two reauthorization challenges'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the five touched files; the agent bind returns to one reauthorization over two envelopes and the flow test to the refusal assertion of 18.1113.1 do_7."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.12.7.1]
 title = "Remove the agent LayerX deposit route, plan and vault inputs"
 status = "done"
@@ -155615,7 +155761,7 @@ do_4 = "Declare the submodules program_state, deployment, protocol_head, lifecyc
 do_5 = "Write programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs (planned) with chain_evidence_program_key_uses_module_kv_layout."
 do_6 = "Replace each empty inline module left in programs/crates/layerx-programs-registry/src/chain_proof.rs (`pub mod merkle {}`, `pub mod tx {}`, `pub mod results {}`, `pub mod trust {}`) with `pub mod <name>;` so the library exports verify_tx, verify_tx_result and ChainProofVerifier::advance from src/chain_proof/<name>.rs instead of the tests reaching them through #[path] includes."
 symbols = ["chain_evidence", "programs_state_key", "chain_evidence_program_key_uses_module_kv_layout"]
-touches = ["programs/crates/layerx-programs-registry/src/lib.rs", "programs/crates/layerx-programs-registry/src/chain_evidence.rs", "programs/crates/layerx-programs-registry/src/protocol_evidence.rs", "programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs", "programs/crates/layerx-programs-registry/src/chain_proof.rs"]
+touches = ["programs/crates/layerx-programs-registry/src/lib.rs", "programs/crates/layerx-programs-registry/src/chain_evidence.rs", "programs/crates/layerx-programs-registry/src/protocol_evidence.rs", "programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs", "programs/crates/layerx-programs-registry/src/chain_proof.rs", "programs/crates/layerx-programs-registry/tests/chain_trust.rs", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs::chain_evidence_program_key_uses_module_kv_layout"]
 planned_paths = ["programs/crates/layerx-programs-registry/src/chain_evidence.rs", "programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs"]
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
@@ -155631,6 +155777,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "programs/crates/layerx-programs-registry/tests/chain_trust.rs:3-6 compiles the whole src tree through #[path = ../src] mod source { pub mod chain_proof; } and :7-8 additionally includes src/chain_proof/trust.rs as its own mod trust, which was the only definition of ChainProofVerifier::advance while chain_proof.rs carried pub mod trust {}. After do_6 makes chain_proof::trust a real module the impl exists twice on the same type (E0592 at src/chain_proof/trust.rs:14, E0034 at tests/chain_trust.rs:141, :165 and seventeen more call sites): delete the two lines :7-8 so advance comes from source::chain_proof::trust, change no assertion and no other line of the test, and apply the same deletion to any other test under programs/crates/layerx-programs-registry/tests that pairs the whole-tree include with a direct include of a module do_6 turns real."
+do_8 = "The qualification of this task also checks the dependent crates of the registry (cargo check --all-targets over the programs workspace dependents), where programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:425, :497, :510, :523 and :536 still call VerifiedReplay::verify_with_batch_context with the eight arguments that preceded 13.30.4 and 13.30.5 (db2f3d738, 08d74d55d). Pass the ten arguments of src/step.rs:466-476 in the order tests/verified_step.rs:534-544 passes them (commit, host_store_root and host_multistore_proof after the header, then the metadata proof, authority bytes, hosts bytes and catalogue), building the trusted fixture the way verified_step.rs builds it; change no assertion."
 
 [task.13.0.3]
 title = "Integrate the sandbox staticlib exports with the kernel host at the merged height"
@@ -158764,7 +158912,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.6]
 title = "Complete a sandboxed SUCCESS terminal from the published sandbox usage result"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.27.5"]
@@ -167809,7 +167957,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.5.6]
 title = "Remove the replay golden release gate from CI and the core gate inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["16.2.2", "16.4.5", "8.51.2"]
@@ -181458,6 +181606,7 @@ ac_2 = "The prepared grant.issue and grant.draw calls pass layerx_crypto::disclo
 title = "MCP web payments settle on layerxledger 0x101A with a millisecond expiry"
 ac_1 = "payment_call builds payExact, draw and the issueGrant grant step for layerxledger 0x101A, and the receipt verifier accepts PaymentExact, PaymentDrawn and PayerGrantIssued logs only from the 0x101A ledger address."
 ac_2 = "The approved disclosure expiry is wall-clock unix seconds (now plus min(offer max_timeout_seconds, APPROVAL_WINDOW)); the payExact fifth word is that expiry in milliseconds and the draw fifth word is the receiver sequence from layerxledger nextSequence; neither is a block height."
+ac_3 = "The agent host payer prepares the grant as the ledger issueGrant call GrantTerms::prepare_grant builds and the draw with the receiver sequence read through nextSequence; the host binary and its payer tests compile and pass against the ledger GrantTerms."
 
 [req.181242]
 title = "agent.register and session.open answer a prepared unsigned transaction the owner signs"
@@ -183318,6 +183467,14 @@ req = "181242.2"
 scenario = "Given a provisioned session key, when session.open is posted through handle_rpc, then the answer is a prepared unsigned grantSession call to 0x101C naming the session address and no transaction is broadcast."
 contract = "contracts/agent-api.md#agent-register"
 test = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs::session_open_prepares_grant_session_for_the_session_address"
+qualification = "UNRUN"
+
+[acceptance.18.1243.3]
+feature = "18"
+req = "181243.3"
+scenario = "Given ledger GrantTerms, when the host payer prepares a grant and a draw, then the grant is the issueGrant call GrantTerms::prepare_grant builds and the draw carries the receiver sequence read through nextSequence, and the host binary compiles."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs::web_grant_submits_a_signed_ledger_issue_grant_call"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -186869,10 +187026,10 @@ do_3 = "In the fixtures sign the prepared call with a secp256k1 test signer thro
 do_4 = "If the engine after 10.13.5 still cannot carry the defund leg, stop and record the exact prepared and signed bytes; change no file under src/ other than src/agents/reclaim.rs."
 symbols = ["Reclaim::start", "prepare_bound", "sign_disclosed_call", "transaction_hash"]
 touches = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"]
-tests = []
+tests = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs::archive_fixture::every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs::archive_fixture::crashes_after_every_durable_stage_resume_with_one_effect_per_leg", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs::archive_fixture::acknowledgement_gap_faults_converge_without_resubmitting_unknown"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim --test journey_faults --test agent_controls_rungs"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim --test journey_faults --test agent_controls_rungs"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -188214,6 +188371,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "In the beforeAll of services/wallet/gateway/test/provisioning.test.ts keep the signed inventory of :201-219 and add approveInventory(keys: WalletInventoryKey[]) beside it exactly as services/wallet/gateway/test/provisioning-station.test.ts:226-235 does: decode inventoryPayload, set sequence to String(++inventorySequence) and keys to the argument, re-sign with authority.privateKey (ES256, ieee-p1363) and rewrite inventoryFile, which both the gateway (WALLET_CUSTODY_INVENTORY_FILE, :291) and the five attestors (ATTESTOR_INVENTORY_FILE, :244) reread on every call; import WalletInventoryKey from ../src/agent/authority.js. Every generate in this file goes through requireInventoryKey (services/wallet/gateway/src/attestor/client.ts:763) and every bind signature through requireInventoryKey(keyId, 'sign') (services/wallet/gateway/src/attestor/client.ts:657), and one inventory entry cannot admit both (services/wallet/gateway/src/agent/authority.ts:95-98)."
 do_6 = "In the flow test of do_3, before the first POST /v1/wallet/provision call approveInventory with generate admissions {key_id: `wallet:${user}:standard:secp256k1:0`, owner: user, curve: 'secp256k1', epoch: 0, public_key: '', operations: ['generate']} and {key_id: `account:${user}:standard:ed25519:0`, owner: user, curve: 'ed25519', epoch: 0, public_key: '', operations: ['generate']}; after that call read the provisioning row (evm_key_id, ed_key_id, ed_public_key) and the wallets row, approveInventory again with the two keys carrying their generated public keys and operations ['sign'] (services/wallet/gateway/test/provisioning-station.test.ts:469), then POST again and assert 200, state active, bound, and the station, bind_tx_hash and audit ['bind'] facts of do_3; the first call's answer is asserted as observed (a custody_inventory_pending 503 or the state src/provision/state.ts:484-485 returns without the sign admission) and recorded in qualification.kvx when it is neither. Apply the same two approvals in the resume test of do_4 before its first provisionAccount and in 'provisioning refuses and records an address already bound to a different DID', and in the backfill test approve generate for `wallet:${owner}:standard:secp256k1:0` before its first call and generate then sign for the migrated wallet's `account:${owner}:standard:ed25519:0` around its POST; the agent's bind signature is its own Ed25519 key and needs no entry, but the agent wallet must be attestor-held (services/wallet/gateway/src/provision/state.ts:383 refuses wallet_key_missing otherwise): create it migrated with an attestor key as test/backfill-command.test.ts:110-120 does, approve generate for `wallet:${agentUserId}:agent:secp256k1:0` before it is generated and sign with its public key before the bound provisionAccount call, register the principal with its agent_policies row (src/db/agents.ts:168 or :272) instead of a bare agent_principals insert, pass custody.origin from a signed agent request as src/routes/agent.ts:121 does (state.ts:389-390 refuses agent_request_required otherwise), and give the backfill outcome assertion the outcome as its message so a failure prints its reason; keep the awaiting_agent_signature expectation."
+do_7 = "In the backfill test keep the migrated-wallet flow, the awaiting_agent_signature outcome and the impostor agent_signature_invalid refusal of do_6, then drive the agent exactly as POST /v1/agent/provision does (services/wallet/gateway/src/routes/agent.ts:112-124): build origin as a signed POST /v1/agent/provision request whose body is {bind_signature: agent.sign(message)} (agentRequestDigest from src/agent/verify.ts) and call stateModule.provisionAccount(d, { kind: 'agent', did: agent.did, agentSignature: agent.sign(message), custody: { origin } }); assert it rejects with AttestorReauthorizationRequired (src/attestor/client.ts:296, thrown at :713) whose code is agent_reauthorization_required, whose keyId is wallet:${agentUserId}:agent:secp256k1:0 and whose request parses to kind eth_sign_digest, key_id that id, origin.did agent.did, origin.method POST /v1/agent/provision and construction.kind sponsored_batch with construction.account equal to the agent address; then assert the account_provisioning row for the agent wallet is state bind_signed with bind_signature equal to agent.sign(message) without 0x and station_request null, that the station received exactly one quote and no submit for the agent address, that chain.bindings.has(agentAddress) is false and sentTo(agentAddress) and sentFrom(agentAddress) are empty, and that the wallets row keeps binding_state pending, layerx_key_id null and did did:layerx:${agent.publicKeyHex}. Do not assert a bound agent (the retired :661-669 assertions): the sponsored agent bind cannot complete under the current product because (*Authority).Evaluate (services/wallet/attestor/internal/auth/agent/authority.go:427-434) refuses every sponsored_batch and eip7702_authorization view for an agent subject, and signStationPayload (services/wallet/gateway/src/provision/state.ts:380-395) carries one custody.reauthorization for the two envelopes sponsoredBindRequest signs (services/wallet/gateway/src/provision/bind.ts:420, :424) over a quote re-fetched on every call (bind.ts:395) and persisted only after both (state.ts:508-510); finding 18.1113.1.2 records it and tasks 12.6.5 and 12.6.6 (decision.1881) carry the bound-agent assertion."
 
 [task.18.1180.1]
 title = "Issue #1180: Carry the committed proof from the x402 seller's settlement response to the buyer's committed gate"
@@ -188482,7 +188640,7 @@ symbols = ["signed_transaction"]
 touches = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs", "services/agent/crates/layerx-agentd/tests/migration.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/operator.rs", "services/agent/crates/layerx-agentd/tests/operator_route.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/recovery.rs::restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema", "services/agent/crates/layerx-agentd/tests/migration.rs::every_supported_prior_schema_migrates_forward_without_changing_core_bytes", "services/agent/crates/layerx-agentd/tests/unknown.rs::acknowledgement_loss_is_resolved_only_by_the_existing_receipt", "services/agent/crates/layerx-agentd/tests/operator.rs::catalogue_routes_every_operator_action_without_protocol_mutating_power", "services/agent/crates/layerx-agentd/tests/operator_route.rs::human_socket_operator_commands_reach_the_audited_admin_dispatch"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test recovery --test migration --test unknown --test operator --test operator_route"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test recovery --test migration --test unknown --test operator --test operator_route"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -188591,7 +188749,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1206.1]
 title = "Issue #1206: Move the remaining kernel-envelope signing callers to attach_kernel_signature and verify_kernel_before_submit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1199.1"]
@@ -188946,7 +189104,7 @@ symbols = ["agentEnvelopeVersion", "decodeAgentEnvelopeResponse", "acceptedAgent
 touches = ["sdk/platform/go/http.go", "sdk/platform/go/agent_envelope_major2_test.go", "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs", "services/agent/schema/agent-api/golden/agent-http-request.json", "services/agent/schema/agent-api/golden/agent-http-success.json", "services/agent/schema/agent-api/golden/agent-http-refusal.json"]
 tests = ["sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesDaemonRequestGolden", "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeDecodesDaemonResponseGoldens", "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs::agent_http_envelope_goldens_round_trip"]
 planned_paths = ["services/agent/schema/agent-api/golden/agent-http-request.json", "services/agent/schema/agent-api/golden/agent-http-success.json", "services/agent/schema/agent-api/golden/agent-http-refusal.json"]
-build_cmd = "go -C sdk/platform/go build . && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "go -C sdk/platform/go build . && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test rpc_surface_major_two"
 verify_cmd = "go -C sdk/platform/go test -count=1 . -run '^(TestAgentEnvelopeEncodesDaemonRequestGolden|TestAgentEnvelopeDecodesDaemonResponseGoldens)$' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test rpc_surface_major_two agent_http_envelope_goldens_round_trip"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -189373,7 +189531,7 @@ do_1 = "In mutated_native (services/human/crates/layerx-human-kms/tests/provider
 do_2 = "In the mutation match at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:82-97 add explicit arms for the same eight variants that panic as unreachable, beside the OwnerRotation arm at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:94-96; add no wildcard arm in either match, so the compiler keeps refusing the next new variant."
 do_3 = "Keep the existing IdentityRegistration, BudgetCreate and RecoveryPolicy mutations and counts, every assertion of native_setup_refuses_wrong_accounts_limits_and_payload_shapes (services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:233) and of the owner_bootstrap caller (services/human/crates/layerx-human-kms/tests/provider/owner_bootstrap.rs:70) unchanged; change no source file and remove no test."
 symbols = ["mutated_native", "native_setup_refuses_wrong_accounts_limits_and_payload_shapes"]
-touches = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"]
+touches = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs", "services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs", "services/human/crates/layerx-human-kms/tests/provider/owner_bootstrap.rs", "services/human/crates/layerx-intents/src/owner_activity.rs"]
 tests = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs::native_setup_refuses_wrong_accounts_limits_and_payload_shapes"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
@@ -189389,6 +189547,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The provider target also compiles services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs, whose rotation helper (:128-140) builds layerx_intents::Intent::v3(IntentKind::NativeOwnerRotation(value.clone())) and compiles it only to assert that the compiled payload equals value.payload(); task 10.98.13 deleted IntentKind::NativeOwnerRotation (services/human/crates/layerx-intents/src/vocabulary.rs), so the target fails with E0599. Sign checked(value.payload())? directly in rotation, delete the intent construction, the compile call and the parity assertion, remove registry() if it becomes unused, and keep every case of provider_cases (:143) and kms_owner_rotation_disclosure (:532) exactly as written."
+do_5 = "The provider target also compiles tests/provider/owner_bootstrap.rs, whose :63 and :69 call attach_signature with the four-argument native form (unsigned envelope bytes, 64-byte ed25519 signature, 32-byte owner key, registry) that a1c4e2dbb (10.98.7) replaced with the EIP-1559 form (services/human/crates/layerx-intents/src/owner_activity.rs:109-113). Restore the native form in owner_activity.rs under the name attach_native_signature with the body a1c4e2dbb removed (decode_unsigned_activity, the authority check against the owner key, the EnvelopeBuilder re-encode carrying the signature) and call it at owner_bootstrap.rs:63 and :69; the EIP-1559 attach_signature stays as written, no assertion in owner_bootstrap.rs changes, and 10.21.4 retires attach_native_signature with the envelope (decision.1885)."
 
 [task.18.1201.1]
 title = "Issue #1201: Regenerate the budget golden vectors to the kernel canonical payloads the compiler now emits"
@@ -189487,7 +189647,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1240.1]
 title = "Issue #1240: Map grant.issue and grant.draw onto layerxledger 0x101A and bind the prepared calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189517,7 +189677,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1243.1]
 title = "Issue #1243: Settle MCP web payments on layerxledger 0x101A with a millisecond expiry and a ledger receipt address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.98.1"]
@@ -189558,9 +189718,9 @@ interfaces = []
 do_1 = "dispatch_operation (services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1619-1623) answers AgentRegister and SessionOpen instead of refusing them: it decodes the typed request, resolves the owner bound address the way prepare_evm_write does (services/agent/crates/layerx-agentd/src/human_runtime.rs:20529-20532, reused and not edited) and prepares the call through evm::ProductionEvmPreparationBoundary (src/prepare/mod.rs:162-210), whose preparation_state (:194) reads chain id, pending nonce and base fee from the node, with the request fee_limit bounding max_fee_per_gas; agent.register prepares bindLayerX to the addr precompile 0x1004 (decision.1844) from the owner EVM address carried in the request, verifying the owner-signed binding consent carried in the request with signed_binding().verify() and producing no consent itself; session.open prepares grantSession to layerxauth 0x101C naming the provisioned session address from the session_keys registry; both answer AuthorityResponse<Prepared> and neither signs nor broadcasts (decision.1879)."
 do_2 = "agent_register and session_open (agent_rpc_dispatch.rs:77-158) return the unsigned preparation and take no DerivedAccount, chain id, bind_nonce or BindFees argument; AgentRegistration (services/agent/crates/layerx-agent-api/src/identity.rs:851-900) gains owner_address (20-byte hex) and binding_consent (hex bytes) and SessionOpen gains the session grant id, each required in the schema."
 do_3 = "services/agent/schema/agent-api/identity.kvx:29 and :34 and services/agent/schema/agent-api/golden/identity.kvx:12 and :17 answer AuthorityResponse<Prepared>; the AgentRecord name, defined nowhere, leaves identity.kvx; services/agent/schema/agent-api/golden/v1.kvx:153-159 and :518-524 drop disposition refused_pending_bootstrap_artifact and name the typed decoders; the credential text at services/agent/schema/agent-api/v1.kvx:103 and golden/v1.kvx:103 becomes: Required for every operation; agent.register and session.open are prepare operations under the owner session credential (decision.1844)."
-do_4 = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs drives both operations through handle_rpc with the real owner credential fixture and asserts the prepared to, selector, chain id and signing_hash in agent_register_prepares_bind_layerx and session_open_prepares_grant_session_for_the_session_address; refusals stay for a missing credential, a binding consent that does not verify, an unavailable session key and a fee above fee_limit."
+do_4 = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs is self-contained (decision.1884): it serves the chain itself by spawning anvil with chain id 125 the way services/agent/crates/layerx-agentd/tests/balance.rs:24-40 does (LAYERX_TEST_ANVIL or anvil on PATH; the test fails, never skips, when it is missing), runs every other peer the daemon needs in-process on loopback from the crate's real types, builds the retained Store, the SessionKeyRegistry, the owner and the owner session credential from the crate's real constructors and keys it generates, signs the binding consent with that owner key, and reads no fixture document from the environment (no PAXEER_X_*_FIXTURE variable). agent_register_prepares_bind_layerx and session_open_prepares_grant_session_for_the_session_address drive both operations through handle_rpc and assert the prepared to, selector, chain id and signing_hash; refusals stay for a missing credential, a binding consent that does not verify, an unavailable session key and a fee above fee_limit."
 symbols = ["dispatch_operation", "agent_register", "session_open", "AgentRegistration", "agent_register_prepares_bind_layerx", "session_open_prepares_grant_session_for_the_session_address"]
-touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agent-api/src/identity.rs", "services/agent/schema/agent-api/identity.kvx", "services/agent/schema/agent-api/golden/identity.kvx", "services/agent/schema/agent-api/golden/v1.kvx", "services/agent/schema/agent-api/v1.kvx"]
+touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agent-api/src/identity.rs", "services/agent/schema/agent-api/identity.kvx", "services/agent/schema/agent-api/golden/identity.kvx", "services/agent/schema/agent-api/golden/v1.kvx", "services/agent/schema/agent-api/v1.kvx", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs::agent_register_prepares_bind_layerx", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs::session_open_prepares_grant_session_for_the_session_address"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test bootstrap_bind_layerx"
@@ -189569,6 +189729,37 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the seven touched files; agent.register and session.open return to the refused_pending_bootstrap_artifact refusal and the record response types."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "services/agent/crates/layerx-agentd/src/human_runtime.rs target_object_owner (:4876) lists AgentRegister and SessionOpen (:4918-4919) in the arm that answers HumanOperationError::Refused, which refuses both operations before dispatch_operation sees them; move the two into the Ok(None) arm that ends with Operation::FaucetClaim, beside Prepare, BudgetCreate and CapabilityCreate, since a prepare operation has no target object and its owner is the credential owner. Change nothing else in that file; do_1 still reuses :20529-20532 unedited."
+
+[task.18.1243.2]
+title = "Issue #1243: Port the agent host payer to the ledger GrantTerms"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181243.3"]
+capabilities = []
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd-host/src/payer.rs:326-337 prepare_grant: GrantTerms (services/agent/crates/layerx-mcp/src/tools/web.rs:461-470, changed by 1e3b37aee) no longer has current_height or prepare_budget; build the ledger Grant (layerx_crypto::payments::Grant, services/agent/crates/layerx-crypto/src/payments.rs:33) from the terms exactly as GrantTerms::prepare_grant (web.rs:579-606) checks it (from the payer account word, recipient and asset words, per_draw_maximum and allowance equal to amount, recurring false, window_length 0, expiration expires_at_ms, purpose_hash, has_reference true, reference_hash the idempotency key, revocation_sequence 0), keep the zero purpose_hash refusal and call terms.prepare_grant(&grant)."
+do_2 = "payer.rs:339-353 draw: read the receiver sequence with terms.next_sequence_call() (web.rs:611) through the host's eth_call path and decode it as web.rs sequence_result does, then call terms.prepare_draw(grant_id, receiver_sequence) (web.rs:620); keep the zero grant_id and zero purpose_hash refusals."
+do_3 = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs drops current_height from its GrantTerms literals (:358, :429) and the :389 assertion on it; web_grant_submits_a_signed_layerxpay_call becomes web_grant_submits_a_signed_ledger_issue_grant_call and asserts the submitted call targets the ledger precompile 0x101A with the issueGrant selector and the encoded IssueGrant payload; web_pay_exact_submits_a_signed_layerxpay_call keeps every assertion except the removed field."
+symbols = ["prepare_grant", "draw", "web_grant_submits_a_signed_ledger_issue_grant_call"]
+touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/payer_evm.rs::web_grant_submits_a_signed_ledger_issue_grant_call"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bins --test payer_evm"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test payer_evm -- --exact web_grant_submits_a_signed_ledger_issue_grant_call"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert payer.rs and payer_evm.rs; the host binary returns to the GrantTerms fields 1e3b37aee removed and does not compile."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
