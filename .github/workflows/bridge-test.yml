@@ -7,6 +7,7 @@ on:
       - 'services/bridge/**'
       - 'services/interop/crates/layerx-bridge-relayer/**'
       - '.github/workflows/bridge-test.yml'
+      - 'apps/bridge/**'
   merge_group:
   push:
     branches:
@@ -17,6 +18,7 @@ on:
       - 'services/bridge/**'
       - 'services/interop/crates/layerx-bridge-relayer/**'
       - '.github/workflows/bridge-test.yml'
+      - 'apps/bridge/**'
 
 permissions:
   contents: read
@@ -118,3 +120,33 @@ jobs:
           bash services/bridge/deploy/tests/deploy-scripts-check.sh
           bash services/bridge/deploy/tests/checklist-check.sh
           bash services/bridge/deploy/tests/docs-check.sh
+
+  bridge-app:
+    name: Typecheck and test the bridge app
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/bridge
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.11.0
+
+      - name: Install the pinned pnpm version
+        run: npm install --global pnpm@12.15.0
+
+      - name: Install bridge app dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck the bridge app
+        run: pnpm typecheck
+
+      - name: Test the bridge app
+        run: pnpm test

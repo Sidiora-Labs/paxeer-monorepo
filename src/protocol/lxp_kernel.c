@@ -16,6 +16,7 @@
 #include "../modules/programs/event.h"
 
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -2387,11 +2388,33 @@ static lxp_result receipt_bind_ledger_projection(
     if (!module_ctx->ledger_receipt_present) {
         size_t index;
         if (module_ctx->effects == NULL) return LXP_FATAL_INVARIANT;
-        for (index = 0U; index < module_ctx->effects->count; ++index)
-            if (module_ctx->effects->effects[index].monetary &&
-                module_ctx->effects->effects[index].kind ==
-                    LXP_EFFECT_TRANSFER)
+        for (index = 0U; index < module_ctx->effects->count; ++index) {
+            const lxp_effect *effect = &module_ctx->effects->effects[index];
+            if (effect->monetary && effect->kind == LXP_EFFECT_TRANSFER) {
+                size_t byte;
+                if (module_ctx->module_id == LXP_MODULE_PROGRAMS &&
+                    module_ctx->program_outcome.present &&
+                    lxp_ct_memcmp(effect->transfer_set_root,
+                        module_ctx->program_outcome.occupancy_transfer_root,
+                        32U) == 0) {
+                    (void)memcpy(receipt->transfer_set_root,
+                                 effect->transfer_set_root, 32U);
+                    continue;
+                }
+                (void)fprintf(stderr,
+                    "receipt_bind_ledger_projection: unreceipted monetary "
+                    "transfer effect=%zu effect_root=", index);
+                for (byte = 0U; byte < 32U; ++byte)
+                    (void)fprintf(stderr, "%02x",
+                                  (unsigned int)effect->transfer_set_root[byte]);
+                (void)fprintf(stderr, " outcome_root=");
+                for (byte = 0U; byte < 32U; ++byte)
+                    (void)fprintf(stderr, "%02x", (unsigned int)
+                        module_ctx->program_outcome.occupancy_transfer_root[byte]);
+                (void)fprintf(stderr, "\n");
                 return LXP_FATAL_INVARIANT;
+            }
+        }
         return LXP_OK;
     }
     if (receipt->result_code != LXP_OK ||

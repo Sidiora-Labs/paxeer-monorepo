@@ -9,6 +9,7 @@ use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::disclosure::{
     AmountRole, Counterparty, CounterpartyRole, DisclosedAmount, Disclosure,
 };
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::payments::Payment;
 use layerx_crypto::signer::SignError;
 use layerx_types::payload::ModuleId;
@@ -809,7 +810,7 @@ impl AttestorSigner {
     /// Signs a disclosure-bound EIP-1559 ledger call through the attestor quorum.
     pub fn sign_activity(
         &self,
-        call: &layerx_crypto::evm_transaction::Eip1559Call,
+        call: &Eip1559Call,
         disclosure: &Disclosure,
         from: [u8; 20],
         approval: &Approval<'_>,
@@ -820,7 +821,7 @@ impl AttestorSigner {
 
     fn sign_activity_with_clock(
         &self,
-        call: &layerx_crypto::evm_transaction::Eip1559Call,
+        call: &Eip1559Call,
         disclosure: &Disclosure,
         from: [u8; 20],
         approval: &Approval<'_>,
@@ -916,6 +917,7 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "preparation-purpose",
                 signers: &self.signers,
+                grant: None,
                 purpose: Some(&purpose),
                 capability: None,
                 native_session: None,
@@ -947,6 +949,7 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "send-purpose",
                 signers: &self.signers,
+                grant: None,
                 purpose: Some(&purpose),
                 capability: None,
                 native_session: None,
@@ -978,6 +981,7 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "local-grant-consent",
                 signers: &self.signers,
+                grant: None,
                 purpose: None,
                 capability: Some(&capability),
                 native_session: Some(&native_session),
@@ -986,6 +990,64 @@ impl AttestorSigner {
             Sha256::digest(&canonical).into(),
             assertion,
         )
+    }
+
+    pub fn sign_ledger_grant(
+        &self,
+        grant: &layerx_crypto::payments::Grant,
+        session_id: &str,
+        assertion: &str,
+    ) -> Result<AttestorSignature, AttestorError> {
+        if grant.public_key != self.public_key || grant.signature != [0; 64] {
+            return Err(native_invalid());
+        }
+        let digest = grant.signing_digest().map_err(|_| native_invalid())?;
+        let canonical = [
+            grant.id.as_slice(),
+            grant.from.as_slice(),
+            grant.recipient.as_slice(),
+            grant.asset.as_slice(),
+            &grant.per_draw_maximum.to_be_bytes(),
+            &grant.allowance.to_be_bytes(),
+            &[u8::from(grant.recurring)],
+            &grant.window_length.to_be_bytes(),
+            &grant.expiration.to_be_bytes(),
+            &grant.purpose_hash,
+            &[u8::from(grant.has_reference)],
+            &grant.reference_hash,
+            &grant.revocation_sequence.to_be_bytes(),
+            &grant.public_key,
+            &grant.signature,
+        ]
+        .concat();
+        let grant = encode_hex(&canonical);
+        self.request_native_signature(
+            NativeSignBody {
+                profile: 2,
+                session_id,
+                key_id: &self.key_id,
+                operation: "ledger-issue-grant",
+                signers: &self.signers,
+                grant: Some(&grant),
+                purpose: None,
+                capability: None,
+                native_session: None,
+                expiry_ms: None,
+            },
+            digest,
+            assertion,
+        )
+    }
+
+    pub fn sign_ledger_grant_with_stored_assertion(
+        &self,
+        grant: &layerx_crypto::payments::Grant,
+    ) -> Result<AttestorSignature, AttestorError> {
+        let assertion = self
+            .evm_assertion
+            .as_ref()
+            .ok_or(AttestorError::Configuration("EVM owner assertion"))?;
+        self.sign_ledger_grant(grant, &session_id("ledger-grant")?, assertion)
     }
 
     fn request_native_signature(
@@ -1094,7 +1156,7 @@ impl AttestorSigner {
 }
 
 fn validate_disclosure(
-    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    call: &Eip1559Call,
     disclosure: &Disclosure,
     from: [u8; 20],
 ) -> Result<(), AttestorError> {
@@ -1192,7 +1254,7 @@ impl layerx_crypto::signer::Signer for AttestorTransactionSigner<'_> {
 
     fn sign_transaction<'a>(
         &'a self,
-        call: &'a layerx_crypto::evm_transaction::Eip1559Call,
+        call: &'a Eip1559Call,
     ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
         Box::pin(async move {
             let result = self.signer.sign_evm_transaction_with_assertion(
@@ -1274,7 +1336,7 @@ fn evm_rlp_list(payload: &[u8]) -> Vec<u8> {
     out
 }
 
-pub fn unsigned_evm_transaction(call: &layerx_crypto::evm_transaction::Eip1559Call) -> Vec<u8> {
+pub fn unsigned_evm_transaction(call: &Eip1559Call) -> Vec<u8> {
     fn bytes(value: &[u8], out: &mut Vec<u8>) {
         if value.len() == 1 && value[0] < 0x80 {
             out.extend_from_slice(value);
@@ -1306,9 +1368,7 @@ pub fn unsigned_evm_transaction(call: &layerx_crypto::evm_transaction::Eip1559Ca
     unsigned
 }
 
-pub fn decode_unsigned_evm_transaction(
-    unsigned: &[u8],
-) -> Result<layerx_crypto::evm_transaction::Eip1559Call, AttestorError> {
+pub fn decode_unsigned_evm_transaction(unsigned: &[u8]) -> Result<Eip1559Call, AttestorError> {
     let invalid = || AttestorError::Configuration("unsigned EIP-1559 call");
     if unsigned.first() != Some(&2) || unsigned.len() > 1_048_576 {
         return Err(invalid());
@@ -1345,7 +1405,7 @@ pub fn decode_unsigned_evm_transaction(
     if list || take(&mut fields) != Some((&[][..], true)) || !fields.is_empty() || chain_id == 0 {
         return Err(invalid());
     }
-    let call = layerx_crypto::evm_transaction::Eip1559Call {
+    let call = Eip1559Call {
         chain_id,
         nonce,
         max_priority_fee_per_gas,
@@ -1783,6 +1843,8 @@ struct NativeSignBody<'a> {
     key_id: &'a str,
     operation: &'a str,
     signers: &'a [String],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    grant: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     purpose: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]

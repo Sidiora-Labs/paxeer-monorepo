@@ -10,10 +10,10 @@ pub mod proto;
 pub mod results;
 pub mod state;
 pub mod trust;
+pub mod trust_store;
 pub mod tx;
 pub mod validators;
 pub mod vote;
-pub mod trust_store {}
 
 pub use head_verify::ChainProofVerifier;
 
@@ -30,6 +30,7 @@ pub struct VerifiedChainHead {
     pub(crate) chain_id: String,
     pub(crate) height: i64,
     pub(crate) time_ms: i64,
+    pub(crate) header_hash: [u8; 32],
     pub(crate) app_hash: [u8; 32],
     pub(crate) data_hash: [u8; 32],
     pub(crate) last_results_hash: [u8; 32],
@@ -50,6 +51,11 @@ impl VerifiedChainHead {
     #[must_use]
     pub const fn time_ms(&self) -> i64 {
         self.time_ms
+    }
+
+    #[must_use]
+    pub const fn header_hash(&self) -> [u8; 32] {
+        self.header_hash
     }
 
     #[must_use]

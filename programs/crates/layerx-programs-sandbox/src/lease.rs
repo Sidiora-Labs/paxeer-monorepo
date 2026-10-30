@@ -3,23 +3,14 @@
 use core::fmt::{self, Display};
 use std::collections::BTreeMap;
 
-use layerx_programs::VerifiedProtocolHead;
+use layerx_programs::chain_proof::{decode::ProofOp, state::verify_state, VerifiedChainHead};
 use layerx_programs_runtime::{
     derive_program_account, hash_bytes, AuthorizationContext, CodeHash, FeeSchedule, HashAlgorithm,
     Meter, PrincipalId, ProgramId, ResourceBudget, Storage, StorageNamespace,
 };
-use layerx_proof::merkle::{verify_path, Proof};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::activity::{decode_signed, encode_signed};
-use layerx_wire::hash::{activity_id, batch_header_digest, payload_hash};
-use layerx_wire::receipt::{decode_batch_header, encode_batch_header};
 
 const NAMESPACE_DOMAIN: &[u8] = b"LayerX/programs/sandbox/namespace/v1\0";
 const USAGE_OBSERVATION_DOMAIN: &[u8] = b"LayerX/programs/sandbox/usage-observation/v1\0";
-const SANDBOX_TRANSITION_ENTRYPOINT: &[u8] = b"sandbox_transition";
-const PROGRAMS_CALL_ORDINAL: u16 = 3;
-const PROGRAMS_CALL_FIXED_BYTES: usize = 106;
-const TRANSITION_CALLDATA_BYTES: usize = 101;
 const ESCROW_SEED_DOMAIN: &[u8] = b"sandbox-lease-escrow/v1\0";
 const LEASE_STATE_DOMAIN: &[u8] = b"LayerX/programs/sandbox/lease-state/v3\0";
 const ACCOUNT_ID_DOMAIN: &[u8] = b"LX:ACCOUNT:v1";
@@ -396,9 +387,10 @@ pub fn usage_observation_digest(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TransitionEvidence {
-    activity_id: [u8; 32],
-    receipt_digest: [u8; 32],
-    batch_sequence: u64,
+    tx_hash: [u8; 32],
+    lease_digest: [u8; 32],
+    state_height: u64,
+    proven_receipt: LeaseTransitionReceipt,
     declared_transition: LeaseTransition,
     invoking_principal: PrincipalId,
 }
@@ -406,110 +398,81 @@ pub struct TransitionEvidence {
 impl TransitionEvidence {
     /// # Errors
     ///
-    /// Returns a refusal when receipt verification, execution binding or usage evidence is invalid.
+    /// Returns a refusal when the lease proof, resulting state or transition binding is invalid.
     pub fn verify_call(
-        head: &VerifiedProtocolHead,
+        head: &VerifiedChainHead,
         lease: &Lease,
         transition: LeaseTransition,
         authorization: &AuthorizationContext,
-        canonical_activity: &[u8],
-        activity_proof: &Proof,
-        canonical_header: &[u8],
+        canonical_lease: &[u8],
+        lease_ops: &[ProofOp],
     ) -> Result<Self, LeaseRefusal> {
-        let header = decode_batch_header(canonical_header)
+        let key = crate::sandbox_state_key(0, lease.id.bytes())
             .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-        if encode_batch_header(&header).map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?
-            != canonical_header
-            || batch_header_digest(canonical_header)
-                .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?
-                != head.batch_header_digest()
-        {
-            return Err(LeaseRefusal::InvalidCanonicalEvidence);
+        let state_height = verify_state(head, "lxphost", &key, canonical_lease, lease_ops)
+            .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
+        let proven = Lease::decode_state(canonical_lease)?;
+        if proven.id != lease.id || transition.lease != lease.id {
+            return Err(LeaseRefusal::LeaseMismatch);
         }
-        verify_path(
-            canonical_activity,
-            activity_proof,
-            &header.activity_merkle_root(),
-        )
-        .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-        let call = ActivityType::new(ModuleId::Programs, PROGRAMS_CALL_ORDINAL)
-            .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-        let registration = ModuleRegistration::new(ModuleId::Programs, &[call])
-            .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-        let registry = ModuleRegistry::new(&[registration])
-            .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-        let activity = decode_signed(canonical_activity, &registry)
-            .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-        if encode_signed(&activity).map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?
-            != canonical_activity
-            || payload_hash(&activity).map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?
-                != activity.payload_hash()
-        {
-            return Err(LeaseRefusal::InvalidCanonicalEvidence);
-        }
-        let identifier =
-            activity_id(&activity).map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-        if identifier != head.activity_id() || identifier != transition.activity_id {
-            return Err(LeaseRefusal::ActivityReceiptMismatch);
-        }
-        verify_transition_call(activity.payload(), lease, transition)?;
         if authorization.principal() != lease.tenant
             || transition.tenant != authorization.principal()
+            || proven.tenant != lease.tenant
         {
             return Err(LeaseRefusal::TenantMismatch);
         }
+        if proven.request_binding_digest()? != lease.request_binding_digest()? {
+            return Err(LeaseRefusal::ActivityReceiptMismatch);
+        }
+        if !declared_edge(transition.activity, transition.from, transition.to)
+            || proven.state != transition.to
+        {
+            return Err(LeaseRefusal::InvalidTransition);
+        }
+        if transition.from != lease.state {
+            return Err(LeaseRefusal::StaleState {
+                expected: lease.state,
+                declared: transition.from,
+            });
+        }
+        let state_height =
+            u64::try_from(state_height).map_err(|_| LeaseRefusal::InvalidSequence)?;
+        let receipt = proven
+            .history
+            .last()
+            .ok_or(LeaseRefusal::InvalidStateEncoding)?;
+        if receipt.transition != transition
+            || proven.history[..proven.history.len() - 1] != lease.history
+        {
+            return Err(LeaseRefusal::ActivityReceiptMismatch);
+        }
+        if receipt.batch_sequence > state_height {
+            return Err(LeaseRefusal::InvalidSequence);
+        }
         Ok(Self {
-            activity_id: identifier,
-            receipt_digest: head.receipt_digest(),
-            batch_sequence: header.batch_number(),
+            tx_hash: transition.activity_id,
+            lease_digest: proven.state_digest()?,
+            state_height,
+            proven_receipt: *receipt,
             declared_transition: transition,
             invoking_principal: authorization.principal(),
         })
     }
-}
 
-fn verify_transition_call(
-    payload: &[u8],
-    lease: &Lease,
-    transition: LeaseTransition,
-) -> Result<(), LeaseRefusal> {
-    if payload.len() < PROGRAMS_CALL_FIXED_BYTES {
-        return Err(LeaseRefusal::InvalidCanonicalEvidence);
+    #[must_use]
+    pub const fn tx_hash(&self) -> [u8; 32] {
+        self.tx_hash
     }
-    let entrypoint_length = usize::from(u16::from_be_bytes([payload[34], payload[35]]));
-    let calldata_length = usize::try_from(u32::from_be_bytes(
-        payload[36..40]
-            .try_into()
-            .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?,
-    ))
-    .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-    let entrypoint_end = PROGRAMS_CALL_FIXED_BYTES
-        .checked_add(entrypoint_length)
-        .ok_or(LeaseRefusal::InvalidCanonicalEvidence)?;
-    let calldata_end = entrypoint_end
-        .checked_add(calldata_length)
-        .ok_or(LeaseRefusal::InvalidCanonicalEvidence)?;
-    if payload.get(..32) != Some(lease.host_program.bytes().as_slice())
-        || payload.get(PROGRAMS_CALL_FIXED_BYTES..entrypoint_end)
-            != Some(SANDBOX_TRANSITION_ENTRYPOINT)
-        || payload.get(entrypoint_end..calldata_end)
-            != Some(transition_calldata(transition).as_slice())
-    {
-        return Err(LeaseRefusal::ActivityReceiptMismatch);
-    }
-    Ok(())
-}
 
-fn transition_calldata(transition: LeaseTransition) -> [u8; TRANSITION_CALLDATA_BYTES] {
-    let mut bytes = [0u8; TRANSITION_CALLDATA_BYTES];
-    bytes[..2].copy_from_slice(&1u16.to_be_bytes());
-    bytes[2..34].copy_from_slice(&transition.lease.bytes());
-    bytes[34..66].copy_from_slice(&transition.tenant.bytes());
-    bytes[66] = transition.activity as u8;
-    bytes[67] = transition.from as u8;
-    bytes[68] = transition.to as u8;
-    bytes[69..101].copy_from_slice(&transition.usage_observation_digest);
-    bytes
+    #[must_use]
+    pub const fn lease_digest(&self) -> [u8; 32] {
+        self.lease_digest
+    }
+
+    #[must_use]
+    pub const fn state_height(&self) -> u64 {
+        self.state_height
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1589,8 +1552,7 @@ impl Lease {
         transition: LeaseTransition,
         evidence: TransitionEvidence,
     ) -> Result<TransitionOutcome, LeaseRefusal> {
-        if transition != evidence.declared_transition
-            || transition.activity_id != evidence.activity_id
+        if transition != evidence.declared_transition || transition.activity_id != evidence.tx_hash
         {
             return Err(LeaseRefusal::ActivityReceiptMismatch);
         }
@@ -1616,8 +1578,8 @@ impl Lease {
             return Err(LeaseRefusal::UnexpectedUsageObservation);
         }
         if self.history.iter().any(|prior| {
-            prior.transition.activity_id == evidence.activity_id
-                || prior.receipt_digest == evidence.receipt_digest
+            prior.transition.activity_id == evidence.tx_hash
+                || prior.receipt_digest == evidence.proven_receipt.receipt_digest
         }) {
             return Err(LeaseRefusal::ReplayedEvidence);
         }
@@ -1630,27 +1592,27 @@ impl Lease {
         if transition.activity == LeaseActivity::Request
             && (!self.history.is_empty()
                 || transition.usage_observation_digest != self.request_binding_digest()?
-                || evidence.batch_sequence != self.opened_at)
+                || evidence.proven_receipt.batch_sequence != self.opened_at)
         {
             return Err(LeaseRefusal::InvalidRequestBinding);
         }
         if matches!(
             transition.activity,
             LeaseActivity::Fund | LeaseActivity::Activate | LeaseActivity::BeginSettlement
-        ) && evidence.batch_sequence >= self.expiry
+        ) && evidence.proven_receipt.batch_sequence >= self.expiry
         {
             return Err(LeaseRefusal::LeaseExpired {
                 expiry: self.expiry,
-                observed: evidence.batch_sequence,
+                observed: evidence.proven_receipt.batch_sequence,
             });
         }
-        if evidence.batch_sequence < self.opened_at {
+        if evidence.proven_receipt.batch_sequence < self.opened_at {
             return Err(LeaseRefusal::InvalidSequence);
         }
         if self
             .history
             .last()
-            .is_some_and(|prior| evidence.batch_sequence < prior.batch_sequence)
+            .is_some_and(|prior| evidence.proven_receipt.batch_sequence < prior.batch_sequence)
         {
             return Err(LeaseRefusal::InvalidSequence);
         }
@@ -1662,19 +1624,14 @@ impl Lease {
         }
         if transition.activity == LeaseActivity::Expire
             && transition.from != LeaseState::Settling
-            && evidence.batch_sequence < self.expiry
+            && evidence.proven_receipt.batch_sequence < self.expiry
         {
             return Err(LeaseRefusal::NotExpired {
                 expiry: self.expiry,
-                observed: evidence.batch_sequence,
+                observed: evidence.proven_receipt.batch_sequence,
             });
         }
-        let receipt = LeaseTransitionReceipt {
-            lease: self.id,
-            transition,
-            receipt_digest: evidence.receipt_digest,
-            batch_sequence: evidence.batch_sequence,
-        };
+        let receipt = evidence.proven_receipt;
         self.state = transition.to;
         self.history.push(receipt);
         Ok(TransitionOutcome::Advanced(receipt))
@@ -1726,7 +1683,7 @@ impl Lease {
         if closure.activity != LeaseActivity::CloseBoundExceeded {
             return Err(LeaseRefusal::WrongActivity);
         }
-        if evidence.batch_sequence != observed_batch {
+        if evidence.proven_receipt.batch_sequence != observed_batch {
             return Err(LeaseRefusal::ObservationReceiptMismatch);
         }
         let expected_observation =
@@ -2348,9 +2305,15 @@ mod tests {
         (
             transition,
             TransitionEvidence {
-                activity_id,
-                receipt_digest,
-                batch_sequence: batch,
+                tx_hash: activity_id,
+                lease_digest: receipt_digest,
+                state_height: batch,
+                proven_receipt: LeaseTransitionReceipt {
+                    lease: lease.id,
+                    transition,
+                    receipt_digest,
+                    batch_sequence: batch,
+                },
                 declared_transition: transition,
                 invoking_principal: lease.tenant,
             },
@@ -2470,8 +2433,11 @@ mod tests {
                         };
                         assert_eq!(candidate.state(), to);
                         assert_eq!(candidate.history().last(), Some(&receipt));
-                        assert_eq!(receipt.receipt_digest, evidence.receipt_digest);
-                        assert_eq!(receipt.batch_sequence, evidence.batch_sequence);
+                        assert_eq!(
+                            receipt.receipt_digest,
+                            evidence.proven_receipt.receipt_digest
+                        );
+                        assert_eq!(receipt.batch_sequence, evidence.state_height);
                     } else {
                         assert!(result.is_err(), "{activity:?}: {from:?} -> {to:?} admitted");
                         assert_eq!(candidate, current);
@@ -2555,8 +2521,8 @@ mod tests {
                 forged.history.push(LeaseTransitionReceipt {
                     lease: forged.id,
                     transition,
-                    receipt_digest: evidence.receipt_digest,
-                    batch_sequence: evidence.batch_sequence,
+                    receipt_digest: evidence.proven_receipt.receipt_digest,
+                    batch_sequence: evidence.proven_receipt.batch_sequence,
                 });
                 forged.state = to;
                 assert_eq!(
@@ -2780,7 +2746,7 @@ mod tests {
             ),
             (
                 LeaseActivity::Fund,
-                evidence.activity_id,
+                evidence.tx_hash,
                 11,
                 LeaseRefusal::ReplayedEvidence,
             ),

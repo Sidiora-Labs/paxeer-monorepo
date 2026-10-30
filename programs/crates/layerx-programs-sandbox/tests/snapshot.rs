@@ -1,5 +1,7 @@
-#[path = "../../layerx-programs-registry/tests/support/mod.rs"]
-pub mod protocol_support;
+#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
+mod chain;
+
+use sha2::{Digest, Sha256};
 
 use layerx_programs_runtime::test_support::{
     code_section, func_body, function_section, module, raw_section, type_section, unsigned_leb,
@@ -104,36 +106,70 @@ fn call_payload(host: ProgramId, transition: LeaseTransition) -> Vec<u8> {
     payload
 }
 
-fn evidence(
+fn proven_transition(
     lease: &Lease,
     mut transition: LeaseTransition,
     batch: u64,
+) -> (LeaseTransition, Vec<u8>, chain::ChainFixture) {
+    transition.activity_id = Sha256::digest(call_payload(lease.host_program(), transition)).into();
+    let mut canonical = lease
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("lease state: {error}"));
+    // The fixed fields precede the state tag and the length-prefixed receipt history.
+    let state_offset =
+        b"LayerX/programs/sandbox/lease-state/v3\0".len() + 8 * 32 + 16 + 18 * 8 + 4 + 7 * 8 + 16;
+    canonical[state_offset] = transition.to as u8;
+    canonical[state_offset + 1] = u8::try_from(lease.history().len() + 1)
+        .unwrap_or_else(|error| panic!("history length: {error}"));
+    let history_end = state_offset + 2 + lease.history().len() * (3 + 3 * 32 + 8);
+    let mut receipt = vec![
+        transition.activity as u8,
+        transition.from as u8,
+        transition.to as u8,
+    ];
+    receipt.extend_from_slice(&transition.activity_id);
+    receipt.extend_from_slice(&transition.usage_observation_digest);
+    let mut digest = Sha256::new();
+    digest.update(lease.id().bytes());
+    digest.update(&receipt);
+    digest.update(batch.to_be_bytes());
+    receipt.extend_from_slice(&digest.finalize());
+    receipt.extend_from_slice(&batch.to_be_bytes());
+    canonical.splice(history_end..history_end, receipt);
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let fixture = chain::ChainFixture::new_in_store(
+        "lxphost",
+        "paxeer-lease-chain",
+        &[[1; 32], [2; 32], [3; 32]],
+        vec![(key, canonical.clone())],
+    )
+    .unwrap_or_else(|error| panic!("chain: {error:?}"));
+    (transition, canonical, fixture)
+}
+
+fn evidence(
+    lease: &Lease,
+    transition: LeaseTransition,
+    batch: u64,
 ) -> (LeaseTransition, TransitionEvidence) {
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        batch,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, batch, batch, None, 1_000);
-    let proof = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &proof.receipt,
-            &proof.receipt_proof,
-            &proof.header,
-            &proof.header_signature,
-            protocol_support::NOW,
-        )
-        .unwrap_or_else(|error| panic!("head: {error}"));
-    transition.activity_id = head.activity_id();
+    let (transition, canonical, fixture) = proven_transition(lease, transition, batch);
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let ops = fixture
+        .prove(&key)
+        .unwrap_or_else(|error| panic!("lease proof: {error:?}"));
     let call_evidence = TransitionEvidence::verify_call(
         &head,
         lease,
         transition,
         &AuthorizationContext::new(lease.tenant(), CapabilitySet::empty()),
-        &fixture.proof.activity,
-        &fixture.proof.activity_proof,
-        &proof.header,
+        &canonical,
+        &ops,
     )
     .unwrap_or_else(|error| panic!("evidence: {error}"));
     (transition, call_evidence)

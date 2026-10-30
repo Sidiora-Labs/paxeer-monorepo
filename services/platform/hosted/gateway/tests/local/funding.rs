@@ -1,6 +1,5 @@
 use super::*;
 use layerx_crypto::payments::{Grant, Payment, ReceiverAuthorization};
-use layerx_crypto::send::{encode_payment_envelope, EnvelopeOptions};
 use layerx_intents::{compile, Intent, IntentKind, LxpSend};
 use layerx_platform_core::{
     asset_registry, domain_hash, main_account, send_context_hash, SignedSend,
@@ -136,7 +135,8 @@ impl Funding {
             "one custody chain per funded cluster"
         );
         let stderr = self.root.join("custody-chain.log");
-        let script = repository_root().join("services/platform/hosted/gateway/tests/local/custody_chain.py");
+        let script =
+            repository_root().join("services/platform/hosted/gateway/tests/local/custody_chain.py");
         let mut child = must(
             Command::new("python3")
                 .arg(&script)
@@ -860,7 +860,10 @@ fn start_checkpoint_settlement(
     let stdout = root.join("checkpoint-settlement.stdout");
     let mut command = Command::new("python3");
     command
-        .arg(repository.join("services/platform/hosted/gateway/tests/local/checkpoint_settlement.py"))
+        .arg(
+            repository
+                .join("services/platform/hosted/gateway/tests/local/checkpoint_settlement.py"),
+        )
         .args([
             text(root),
             text(&binary),
@@ -1010,7 +1013,7 @@ pub(super) fn send(
     let unsigned_bytes = layerx_wire::activity::encode_unsigned_envelope(&unsigned)
         .map_err(|error| format!("send signing bytes are invalid: {error:?}"))?;
     let digest = domain_hash(Domain::SignaturePreimage, &unsigned_bytes);
-    let signature = disclosed_signature(seed, &unsigned_bytes, &registry)?;
+    let signature = signing_key.sign(&digest).to_bytes();
     layerx_crypto::ed25519::verify_digest(&public_key, &signature, &digest)
         .map_err(|error| format!("send signature does not verify: {error:?}"))?;
     let signed = unsigned.attach_signature(
@@ -1141,37 +1144,55 @@ pub(super) fn payment(
     idempotency_key: [u8; 32],
     payment: &Payment,
 ) -> Result<SignedPayment, String> {
-    let public_key = SigningKey::from_bytes(seed).verifying_key().to_bytes();
+    let signing_key = SigningKey::from_bytes(seed);
+    let public_key = signing_key.verifying_key().to_bytes();
     let (module, ordinal) = payment.activity_type();
     let payload = payment
         .encode(actor.as_bytes())
         .map_err(|error| format!("payment payload: {error:?}"))?;
     let now = now_ms();
-    let encoded = encode_payment_envelope(
-        module,
-        ordinal,
-        &payload,
-        &EnvelopeOptions {
-            actor,
-            public_key,
-            protocol_version: PROTOCOL_VERSION,
-            network_id: NETWORK_ID,
-            identity_sequence,
-            idempotency_key,
-            fee_limit: 1_000_000_000_000,
-            not_before: now.saturating_sub(1_000),
-            not_after: now.saturating_add(60_000),
-        },
-    )
-    .map_err(|error| format!("payment envelope: {error:?}"))?;
-    let signature = disclosed_signature(seed, &encoded.canonical, &encoded.registry)?;
-    let signed = encoded.envelope.attach_signature(
+    let activity_type = ActivityType::new(module, ordinal)
+        .map_err(|error| format!("payment activity type: {error:?}"))?;
+    let registration = ModuleRegistration::new(module, &[activity_type])
+        .map_err(|error| format!("payment registration: {error:?}"))?;
+    let registry = ModuleRegistry::new(&[registration])
+        .map_err(|error| format!("payment registry: {error:?}"))?;
+    let payload = Payload::new(&registry, activity_type, &payload)
+        .map_err(|error| format!("payment payload: {error:?}"))?;
+    let payload_hash = layerx_wire::hash::payload_hash_for(&payload)
+        .map_err(|error| format!("payment payload hash: {error:?}"))?;
+    let actor = Did::new(actor.as_bytes()).map_err(|error| format!("payment actor: {error:?}"))?;
+    let authority =
+        Authority::owner(&public_key).map_err(|error| format!("payment authority: {error:?}"))?;
+    let timestamp = TimestampBound::new(now.saturating_sub(1_000), now.saturating_add(60_000))
+        .map_err(|error| format!("payment timestamp bound: {error:?}"))?;
+    let mut builder = EnvelopeBuilder::new();
+    builder
+        .protocol_version(PROTOCOL_VERSION)
+        .and_then(|value| value.network_id(NETWORK_ID))
+        .and_then(|value| value.activity_type(activity_type))
+        .and_then(|value| value.actor_did(actor))
+        .and_then(|value| value.authority(authority))
+        .and_then(|value| value.account_sequence(identity_sequence))
+        .and_then(|value| value.timestamp_bound(timestamp))
+        .and_then(|value| value.idempotency_key(IdempotencyKey::new(idempotency_key)))
+        .and_then(|value| value.fee_limit(Amount::from_u128(1_000_000_000_000)))
+        .and_then(|value| value.payload_hash(payload_hash))
+        .and_then(|value| value.payload(payload))
+        .map_err(|error| format!("payment envelope: {error:?}"))?;
+    let unsigned = builder
+        .build()
+        .map_err(|error| format!("payment envelope is incomplete: {error:?}"))?;
+    let digest = layerx_wire::sign::preimage_unsigned(&unsigned)
+        .map_err(|error| format!("payment signing digest: {error:?}"))?;
+    let signature = signing_key.sign(digest.as_bytes()).to_bytes();
+    let signed = unsigned.attach_signature(
         Signature::new(&signature)
             .map_err(|error| format!("payment signature is invalid: {error:?}"))?,
     );
     let canonical = layerx_wire::activity::encode_signed_envelope(&signed)
         .map_err(|error| format!("signed payment is invalid: {error:?}"))?;
-    let decoded = layerx_wire::activity::decode_signed(&canonical, &encoded.registry)
+    let decoded = layerx_wire::activity::decode_signed(&canonical, &registry)
         .map_err(|error| format!("signed payment does not decode: {error:?}"))?;
     let activity_id = layerx_wire::hash::activity_id(&decoded)
         .map_err(|error| format!("payment activity id is invalid: {error:?}"))?;
@@ -1179,26 +1200,6 @@ pub(super) fn payment(
         canonical,
         activity_id,
     })
-}
-
-fn disclosed_signature(
-    seed: &[u8; 32],
-    canonical: &[u8],
-    registry: &ModuleRegistry,
-) -> Result<[u8; 64], String> {
-    let disclosure = layerx_crypto::disclosure::bind(canonical, registry)
-        .map_err(|error| format!("send disclosure is invalid: {error:?}"))?;
-    let local_key = layerx_crypto::signer::LocalSigner::new(*seed);
-    let mut future =
-        layerx_crypto::signer::sign_disclosed(&local_key, canonical, &disclosure, registry);
-    let mut context = std::task::Context::from_waker(std::task::Waker::noop());
-    let signature = match std::future::Future::poll(future.as_mut(), &mut context) {
-        std::task::Poll::Ready(result) => *result
-            .map_err(|error| format!("send signer refused: {error:?}"))?
-            .as_bytes(),
-        std::task::Poll::Pending => return Err("local signer unexpectedly pending".into()),
-    };
-    Ok(signature)
 }
 
 fn send_authorization(
