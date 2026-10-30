@@ -616,7 +616,6 @@ use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
     TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
     prepare_activity_for_protocol, PreparationDefaults, PrepareRequest, Prepared,
@@ -650,6 +649,7 @@ use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{EvmAddress, NetworkId};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use paxd::{JourneyChain, PaxdNode, Settlement, VAULT_BALANCE};
@@ -793,7 +793,7 @@ impl RealWithdrawalAgent {
                     kind: "sequencer-receipt".to_owned(),
                     digest,
                 }],
-                rung: layerx_types::rung::Rung::Receipted,
+                rung: Rung::Receipted,
                 transitions: Vec::new(),
             },
             activity_id,

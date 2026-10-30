@@ -16,7 +16,6 @@ use layerx_agent_api::subscription::{
     SubscriptionTarget, TenantObject,
 };
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::verify::Level;
 use layerx_agentd::events::subscription::Store as SubscriptionStore;
 use layerx_agentd::events::{
     backfill, deliver, ingest, CoreEvent, DeliveryEngine, DeliveryItem, EventAttributes,
@@ -36,6 +35,7 @@ use layerx_human_service::trace::TraceId;
 use layerx_intents::canonical::PROTOCOL_VERSION;
 use layerx_proof::receipt::{verify as verify_receipt, AuthorizedBatch};
 use layerx_types::result::ResultCode;
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
@@ -514,7 +514,7 @@ fn real_agent_receipts_restart_and_snapshot_cursors_drive_one_unified_feed() {
         ActivityStatus::Deposit(DepositStage::Done)
     );
     assert_eq!(completed.receipts().len(), 1);
-    assert_eq!(completed.receipts()[0].level(), Level::BatchIncluded);
+    assert_eq!(completed.receipts()[0].rung(), Rung::Receipted);
 
     drop(scope);
     drop(store);
@@ -681,7 +681,7 @@ fn completion_is_unrepresentable_without_verified_receipt_evidence() {
             },
             ReceiptReference::Verified {
                 receipt_ref: text(ReceiptRef::new("receipt-unverified"), "receipt ref"),
-                rung: Level::Unverified.rung().expect("source rung"),
+                rung: Rung::Submitted,
             },
         ),
         "event delivery",
@@ -734,11 +734,7 @@ fn cached_receipt_rows_are_labelled_only_by_the_verifier() {
         last_height: 30,
     }];
     let fact = text(
-        EvidenceBundle::receipt_fact(
-            &entry_id,
-            canonical.clone(),
-            layerx_types::rung::Rung::Receipted,
-        ),
+        EvidenceBundle::receipt_fact(&entry_id, canonical.clone(), Rung::Receipted),
         "receipt fact",
     );
     let mut scope = text(store.principal(&alice), "alice scope");
