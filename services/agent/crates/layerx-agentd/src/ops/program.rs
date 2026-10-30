@@ -1743,16 +1743,20 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
 
     pub fn simulate(
         &self,
+        actor: [u8; 20],
         call: NativeProgramCall<'_>,
         fee_limit: u128,
     ) -> Result<ProgramCallResult, ProgramRpcOperationError> {
+        if actor == [0; 20] {
+            return Err(ProgramOperationError::InvalidRequest);
+        }
         let precompile = Self::call_precompile(call, fee_limit)?;
         let data = precompile
             .encode()
             .map_err(|_| ProgramOperationError::InvalidRequest)?;
         let bytes = self
             .reader
-            .call_pending(&precompile.target.address(), &data)
+            .call_pending_from(&actor, &precompile.target.address(), &data)
             .map_err(simulation_error)?;
         if bytes.len() < 128 {
             return Err(ProgramOperationError::UnverifiedReceipt);
@@ -1780,10 +1784,11 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
 
     pub fn simulate_native(
         &self,
+        actor: [u8; 20],
         call: NativeProgramCall<'_>,
         fee_limit: u128,
     ) -> Result<ProgramCallResult, ProgramRpcOperationError> {
-        self.simulate(call, fee_limit)
+        self.simulate(actor, call, fee_limit)
     }
 
     fn registry_call(
