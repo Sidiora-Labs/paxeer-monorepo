@@ -11261,3 +11261,13 @@ fix = "After a spec batch that adds requires, reopen the affected tasks only onc
 title = "Calling the gate build helper with --help runs the whole build"
 symptom = "18.1211.2 attempt 6 and 18.1308.2 attempt 5 each spent one of their builds on hf-build --help, which ignores its arguments and runs the build of the untouched tree, leaving one build for the real tree"
 fix = "The build helper answers --help and -h with its usage and exits 0 without building; read the task section for the build and verify commands instead of probing the helper"
+
+[gotcha.2290]
+title = "The scheduler loads the task plan once per process, so a spec batch took effect only after a restart"
+symptom = "The plan digest on the board stayed at the value of the last restart while three batches landed; gotcha.2288 assumed a four-minute re-read that does not exist, and a task whose touches grew in a batch would have been held for changing files outside its scope until the next restart"
+fix = "The scheduler now re-parses the plan when the spec file has changed and been still for five seconds, re-syncs the board and logs plan_reloaded; after a batch, wait for that line (or for the board digest to equal the plan digest) before reopening the affected tasks"
+
+[gotcha.2291]
+title = "The in-tree node starts only when a file under the task's paths already names LAYERX_TEST_PAXEER_CHAIN_ID before implementation"
+symptom = "9.0.3 attempt 5 wrote the first reader of LAYERX_TEST_PAXEER_CHAIN_ID inside its own paths, so the environment, which scans those paths once before implementation, started no node and the chain-id test failed by name"
+fix = "A task whose own test is the first reader of the variable gets the node on a re-qualify of the unchanged candidate, where the paths are applied before the scan; record the attempt and re-qualify instead of changing the test"

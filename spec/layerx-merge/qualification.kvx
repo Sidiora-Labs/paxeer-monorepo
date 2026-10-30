@@ -12635,3 +12635,27 @@ symbol = "sandbox_profile"
 observed = "Attempt 5 (e172d4190 on base 265e0cc8d) passed both Go legs of build_cmd for the first time after do_10, then exited 127 at swift build with '/bin/sh: 1: swift: not found' (build-2.log:41); attempts 1-4 (ea5d6ad4e, 0e474f40e, 850259b73, 9b339fe5a) never got past http.go:178."
 assumption = "The mixed environment that runs the gates provides only the base toolchains (go, rust, python, node) and no environment provides go, swift, dotnet and mvn together; e172d4190 is re-qualified unchanged once one does."
 severity = "environment"
+
+[finding.9.0.3.3]
+task = "9.0.3"
+file = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211-216"
+symbol = "startup_refuses_a_chain_id_mismatch"
+observed = "At c1598b8a1 the build exits 0 and verify_cmd exits 101 with 2 passed and 1 failed: startup_refuses_a_chain_id_mismatch fails by name with `LAYERX_TEST_PAXEER_CHAIN_ID is required for the in-tree local node`, because the environment that ran the gates started no in-tree node, no file under the task's paths having named the variable before this candidate wrote it."
+assumption = "Re-qualifying c1598b8a1 unchanged lets the environment detect the variable in node_integration.rs, start the decision.1896 node and export LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT; the test is not weakened or skipped."
+severity = "environment"
+
+[finding.18.1309.1.3]
+task = "18.1309.1"
+file = "tools/qualification/localnode/v6120-node.sh:132"
+symbol = "cleanup"
+observed = "Attempt 5 of 18.1309.1 (84dcacf1c, base c64af01ce, candidate unchanged from 8a7140771) passed the build and the five pytest cases, then the history-readiness case failed at tests/explorer/paxeer-x-data-boundary.py:277 with 'history-node-stop exited 1': the --stop helper sent TERM to the feeder, whose EXIT cleanup ran tail -n 40 on feeder.log, its own stderr (v6120-node.sh:407), and was still running 12 s later; the feeder never exited, stop_node failed before it signalled the node, and no earlier gate had run --stop with a live feeder."
+assumption = "On Ubuntu 26.04 tail copies to end of file, so a feeder that tails its own stderr file never exits; with the feed_loop TERM trap setting SUCCESS=1 and cleanup skipping log tails when FEEDER_PROCESS=1 (do_8, v6120-node.sh added to touches), --stop completes and the unchanged candidate proceeds past :277."
+severity = "owner"
+
+[finding.5.94.4.1]
+task = "5.94.4"
+file = "node/precompiles_agent_imports_test.go:11"
+symbol = "TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"
+observed = "At f6b2cda8e (attempt 2) the build passed and the verify failed with the test redeclared: c833bda08 (5.94.2) already declares it at node/precompiles_agent_imports_test.go:11 with GetCustomPrecompilesE assertions for 0x0903, 0x0905 and 0x0906 that are red on main without the imports, and 5.94.4's touches excluded that file."
+assumption = "5.94.4's touches gain node/precompiles_agent_imports_test.go and do_4 moves the existing test, all assertions kept, into node/precompiles_agent_merge_imports_test.go with the MissingMergeConstructors check added; verify_cmd is unchanged."
+severity = "owner"
