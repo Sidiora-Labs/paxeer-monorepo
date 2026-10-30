@@ -11715,3 +11715,51 @@ symbol = "SponsoredRegistration::decode"
 observed = "Attempt 7 (d7fa779bf): the sweep fails on the authority's SponsoredRegistration decode, the one use decision.1889 defers to a task that does not exist yet; every other hit of attempt 7 is ported on main by 8.94.5 to 8.94.7."
 assumption = "The task is held until the authority port task is specified and done; the sweep is not narrowed."
 severity = "blocking"
+
+[finding.4.22.6.1]
+task = "4.22.6"
+file = "services/launchpad/gateway/internal/proxy/connected.go"
+symbol = "allowedConnectedRoute"
+observed = "Attempt 1 (642bc4599): TestConnectedTablesCoverFrozenMediaCatalog finds seven frozen metadata operations in none of UserConnectedRoutes, MetadataConnectedRoutes, LivestreamConnectedRoutes, SocialConnectedRoutes or RetiredConnectedRoutes; the gateway admits them through the local map of allowedConnectedRoute (connected.go:81-86), and MetadataConnectedRoutes forwards three /v3 publication templates outside the catalog."
+assumption = "decision.1901: the map is hoisted and read as the fifth table; the /v3 publication templates and the voice-room recording object are named connected templates."
+severity = "task"
+
+[finding.12.35.4.3]
+task = "12.35.4"
+file = "consensus/internal/consensus/types/round_state.go"
+symbol = "RoundState.Leader"
+observed = "Attempts 4-6 (8b312e552, ed80b37a0, f2f2a0638): the primary panics with validator ... not in committee at the first round above zero because the second pinned sequencer leader, the standby, is not in the validator set; daemon/committed-fixture/main.go:231-233 and :455-459 build the same shape (standby in mode full, one genesis validator, two leaders)."
+assumption = "decision.1902 makes the standby a bonded validator in v6120-node.sh; the committed fixture's shape is recorded here and not changed by this task."
+severity = "task"
+
+[finding.14.53.4.3]
+task = "14.53.4"
+file = "services/bridge/deploy/tests/workflow-check.sh"
+symbol = "check_versions_are_the_repository_pins"
+observed = "Attempt 6 (0a00dd0b1): the check refuses because .github/workflows/paxeer-forge-test.yml has no pinned library clone line; it installs its libraries by running contracts/bootstrap-libs.sh (:172), whose tags match the bridge workflow's clones."
+assumption = "decision.1903: the reference pins are the four assignments of contracts/bootstrap-libs.sh."
+severity = "task"
+
+[finding.18.1172.2.6]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/tests/binding.rs"
+symbol = "InProcessAgentContract::submit_binding"
+observed = "Attempt 8 (c1044489c): ledger_payment_call rejects the Governance binding payload with MalformedPayload (the 0x2bb1ae7c send(bytes) form is decoded with decode_send and decode_method has no form for a governance activity), so both binding tests fail at :58 with ContractViolation."
+assumption = "decision.1904: the test submits through the kernel signing pair; no crate under src/ changes."
+severity = "task"
+
+[finding.12.6.6.3]
+task = "12.6.6"
+file = "services/wallet/gateway/src/provision/backfill.ts"
+symbol = "backfillOne"
+observed = "Attempt 6 (e8ebdd88e): the migrated standard wallet's backfill outcome is failed at provisioning.test.ts:894 where attempt 5 saw awaiting_owner from unchanged gateway sources; the assertion prints no reason code."
+assumption = "The next attempt prints the outcome in the assertion message and acts on the reason."
+severity = "task"
+
+[finding.13.27.8.1]
+task = "13.27.8"
+file = "src/protocol/lxp_kernel.c"
+symbol = "receipt_bind_ledger_projection"
+observed = "Attempt 1 (e11bf9866): the new case fails with LXP_FATAL_INVARIANT from lxp_kernel_execute_activity and the loop diagnostic the attempt added did not print, so the fault comes from another invariant return."
+assumption = "The next attempt locates the returning site first."
+severity = "task"
