@@ -44,7 +44,6 @@ const GENERATORS: [(&str, &str, &[&str]); 3] = [
         &[
             "Cargo.toml",
             "generate_jvm.py",
-            "generate_lifecycle.py",
             "generate_portable.py",
             "receipt.kvx",
             "src",
@@ -67,7 +66,6 @@ const HANDWRITTEN: &str = "handwritten";
 pub const JVM_FILES: &[&str] = &[
     "pom.xml",
     "src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java",
-    "src/main/java/com/sidiora/layerx/sdk/ProgramLifecycleRoutes.java",
     "src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java",
     "src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java",
     "src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java",
@@ -134,7 +132,6 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
             "generated.go",
             "mirror_generated.go",
             "receipt_generated.go",
-            "program_lifecycle_generated.go",
         ]),
     ),
     ("platform-jvm", "jvm", "sdk/platform/jvm", Some(JVM_FILES)),
@@ -152,7 +149,6 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
             "OperationCatalog.swift",
             "MirrorSchema.swift",
             "ReceiptContract.swift",
-            "ProgramLifecycleRoutes.swift",
         ]),
     ),
     (
@@ -163,7 +159,6 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
             "OperationCatalog.cs",
             "MirrorSchema.cs",
             "ReceiptContract.cs",
-            "ProgramLifecycleRoutes.cs",
         ]),
     ),
     (
@@ -425,6 +420,20 @@ fn receipt_contract(repo_root: &Path) -> Result<ReceiptContract, String> {
     let source =
         fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
     let document = layerx_platform_kvx::parse(&source)?;
+    for line in source.lines() {
+        if let Some(section) = line
+            .trim()
+            .strip_prefix('[')
+            .and_then(|name| name.strip_suffix(']'))
+        {
+            let section = section.trim();
+            if section == "program_lifecycle" || section.starts_with("program_lifecycle.") {
+                return Err(format!(
+                    "{RECEIPT_CONTRACT_PATH}: retired section [{section}] is forbidden"
+                ));
+            }
+        }
+    }
     let versions =
         layerx_platform_kvx::string_list(document.required("receipt", "receipt_versions")?)?;
     let receipt_versions: [u16; 2] = versions
@@ -2064,7 +2073,6 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
         )
     })?;
     let committed = parse_lock(&committed)?;
-    lifecycle_sources(repo_root, true)?;
     let live = capture(repo_root)?;
     drift_gate(&committed, &live)?;
     check_rust_operation_catalog(repo_root)?;
@@ -2082,7 +2090,6 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
 /// Fails when a tree is unreadable, a shipped file inside an explicit output root is neither
 /// generated nor declared handwritten, or the lock cannot be written.
 pub fn write_lock(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
-    lifecycle_sources(repo_root, false)?;
     write_rust_operation_catalog(repo_root)?;
     write_go(repo_root)?;
     write_jvm_contract(repo_root)?;
@@ -2140,40 +2147,11 @@ fn replace_lock(lock_path: &Path, text: &str) -> Result<(), String> {
         .map_err(|error| format!("replace {}: {error}", lock_path.display()))
 }
 
-fn lifecycle_sources(repo_root: &Path, check: bool) -> Result<(), String> {
-    let mut command = Command::new("python3");
-    command.arg(repo_root.join("sdk/platform/generators/generate_lifecycle.py"));
-    command.arg(repo_root);
-    if check {
-        command.arg("--check");
-    }
-    let output = command
-        .output()
-        .map_err(|error| format!("lifecycle generator: {error}"))?;
-    if !output.status.success() {
-        return Err(format!(
-            "lifecycle generator failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
-    Ok(())
-}
-
-fn programs_contracts(repo_root: &Path, lock_path: &Path, write: bool) -> Result<(), String> {
-    let source_path = repo_root.join("services/agent/schema/agent-api/programs.kvx");
-    let golden_path = repo_root.join("services/agent/schema/agent-api/golden/programs.kvx");
-    let source = fs::read(&source_path).map_err(|error| error.to_string())?;
+fn programs_contracts(repo_root: &Path, write: bool) -> Result<(), String> {
     if write {
-        write_receipt_contracts(repo_root)?;
-        fs::write(golden_path, source).map_err(|error| error.to_string())?;
-        replace_lock(lock_path, &classified_lock(repo_root, lock_path)?)
+        write_receipt_contracts(repo_root)
     } else {
-        if fs::read(golden_path).map_err(|error| error.to_string())? != source {
-            return Err("Programs schema golden drift".to_owned());
-        }
-        check_receipt_contracts(repo_root)?;
-        let committed = fs::read_to_string(lock_path).map_err(|error| error.to_string())?;
-        drift_gate(&parse_lock(&committed)?, &capture(repo_root)?)
+        check_receipt_contracts(repo_root)
     }
 }
 
@@ -2440,8 +2418,8 @@ fn run() -> Result<(), String> {
             }
             write_rust_operation_catalog(&repo_root)
         }
-        "--write-program-contracts" => programs_contracts(&repo_root, &lock_path, true),
-        "--check-program-contracts" => programs_contracts(&repo_root, &lock_path, false),
+        "--write-program-contracts" => programs_contracts(&repo_root, true),
+        "--check-program-contracts" => programs_contracts(&repo_root, false),
         "--write" => write_lock(&repo_root, &lock_path),
         "--check" => check(&repo_root, &lock_path),
         "--check-paxai" => {

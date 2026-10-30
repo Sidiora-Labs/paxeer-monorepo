@@ -6,8 +6,11 @@ use layerx_agent_api::{
     AGENT_API_V1_SOURCE,
 };
 use layerx_agentd::agent_rpc::{
-    decode, dispatch_target, error_body, http_status, version_exchange, Rejection, ENVELOPE_VERSION,
+    decode, dispatch_target, error_body, http_status, mcp_result_response, version_exchange,
+    Rejection, ENVELOPE_VERSION,
 };
+use layerx_agentd::session::{SessionCredential, SessionId};
+use layerx_agentd::store::TenantId;
 use serde_json::{json, Value};
 
 fn envelope(operation: Operation) -> Value {
@@ -275,4 +278,53 @@ fn envelope_version_other_than_one_is_refused() {
             assert_eq!(http_status(&error), 400);
         }
     }
+}
+
+#[test]
+fn agent_http_envelope_goldens_round_trip() {
+    let request = include_bytes!("../../../schema/agent-api/golden/agent-http-request.json");
+    let success = include_bytes!("../../../schema/agent-api/golden/agent-http-success.json");
+    let refusal = include_bytes!("../../../schema/agent-api/golden/agent-http-refusal.json");
+
+    let decoded = decode(request).unwrap_or_else(|error| panic!("Go request golden: {error:?}"));
+    assert_eq!(decoded.request_id, RequestId(7));
+    assert_eq!(decoded.operation, Operation::TenantReadiness);
+    assert_eq!(decoded.idempotency_key, None);
+    assert!(decoded.request.is_empty());
+    assert_eq!(
+        decoded.credential,
+        Some(SessionCredential::new(
+            TenantId::new("tenant-a").expect("golden tenant"),
+            SessionId([0xcd; 32]),
+            [0xab; 32],
+            7,
+        ))
+    );
+    assert_eq!(
+        dispatch_target(decoded.operation, decoded.request_id),
+        Ok(Operation::TenantReadiness)
+    );
+
+    let mut unsupported: Value = serde_json::from_slice(request).expect("request JSON");
+    unsupported["version"] = json!(2);
+    let error = decode(unsupported.to_string().as_bytes())
+        .err()
+        .expect("version-2 request must be refused");
+    assert_refusal(
+        &error,
+        ErrorClass::ProtocolIncompatibility,
+        "envelope.version",
+    );
+
+    let response = mcp_result_response(decoded.request_id, json!({ "account": "ready" }));
+    assert_eq!(response.status, 200);
+    assert_eq!(response.body.as_slice(), success);
+    let rejection = Rejection {
+        class: ErrorClass::PolicyRefusal,
+        retriability: Retriability::Terminal,
+        request_id: decoded.request_id,
+        reason: "policy.refused",
+    };
+    assert_eq!(http_status(&rejection), 403);
+    assert_eq!(error_body(&rejection).as_slice(), refusal);
 }
