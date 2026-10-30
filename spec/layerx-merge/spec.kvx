@@ -134039,7 +134039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.12.3]
 title = "Remove the kernel socket and node-state proofs from the program registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["8.12.2", "13.4.5", "13.4.6", "18.1083.1", "18.1297.1"]
