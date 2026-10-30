@@ -263,26 +263,25 @@ def require_verified(requested: Rung, read: VerifiedRead[_R]) -> VerifiedRead[_R
     return read
 
 @dataclass(frozen=True)
-class SubmissionUnknown:
-    kind: Literal["Unknown"] = "Unknown"
+class SubmissionSubmitted:
+    tx_hash: str
+    kind: Literal["Submitted"] = "Submitted"
 
 @dataclass(frozen=True)
-class SubmissionExecuted:
-    receipt_ref: str
-    kind: Literal["Executed"] = "Executed"
+class SubmissionReceipted:
+    kind: Literal["Receipted"] = "Receipted"
 
 @dataclass(frozen=True)
-class SubmissionFailed:
-    protocol_result_code: int
-    kind: Literal["Failed"] = "Failed"
+class SubmissionCommitted:
+    kind: Literal["Committed"] = "Committed"
 
 @dataclass(frozen=True)
-class SubmissionPending:
-    stage: str
-    kind: Literal["Pending"] = "Pending"
+class SubmissionReverted:
+    revert_reason: str
+    kind: Literal["Reverted"] = "Reverted"
 
 SubmissionState: TypeAlias = (
-    SubmissionUnknown | SubmissionExecuted | SubmissionFailed | SubmissionPending
+    SubmissionSubmitted | SubmissionReceipted | SubmissionCommitted | SubmissionReverted
 )
 
 @dataclass(frozen=True)

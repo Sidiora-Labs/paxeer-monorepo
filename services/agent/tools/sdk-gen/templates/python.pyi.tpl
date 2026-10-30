@@ -140,26 +140,25 @@ class VerifiedRead(Generic[_R]):
 
 def require_verified(requested: Rung, read: VerifiedRead[_R]) -> VerifiedRead[_R]: ...
 
-class SubmissionUnknown:
-    kind: Literal["Unknown"]
-    def __init__(self, kind: Literal["Unknown"] = "Unknown") -> None: ...
+class SubmissionSubmitted:
+    tx_hash: str
+    kind: Literal["Submitted"]
+    def __init__(self, tx_hash: str, kind: Literal["Submitted"] = "Submitted") -> None: ...
 
-class SubmissionExecuted:
-    receipt_ref: str
-    kind: Literal["Executed"]
-    def __init__(self, receipt_ref: str, kind: Literal["Executed"] = "Executed") -> None: ...
+class SubmissionReceipted:
+    kind: Literal["Receipted"]
+    def __init__(self, kind: Literal["Receipted"] = "Receipted") -> None: ...
 
-class SubmissionFailed:
-    protocol_result_code: int
-    kind: Literal["Failed"]
-    def __init__(self, protocol_result_code: int, kind: Literal["Failed"] = "Failed") -> None: ...
+class SubmissionCommitted:
+    kind: Literal["Committed"]
+    def __init__(self, kind: Literal["Committed"] = "Committed") -> None: ...
 
-class SubmissionPending:
-    stage: str
-    kind: Literal["Pending"]
-    def __init__(self, stage: str, kind: Literal["Pending"] = "Pending") -> None: ...
+class SubmissionReverted:
+    revert_reason: str
+    kind: Literal["Reverted"]
+    def __init__(self, revert_reason: str, kind: Literal["Reverted"] = "Reverted") -> None: ...
 
-SubmissionState: TypeAlias = SubmissionUnknown | SubmissionExecuted | SubmissionFailed | SubmissionPending
+SubmissionState: TypeAlias = SubmissionSubmitted | SubmissionReceipted | SubmissionCommitted | SubmissionReverted
 
 class IdempotentMutation(Generic[_T]):
     request_id: int
