@@ -8,6 +8,7 @@ use super::{
     ChainProofError, Commit, VerifiedChainHead,
 };
 
+#[derive(Clone, Debug)]
 pub struct ChainProofVerifier {
     pub chain_id: String,
     pub validators: ValidatorSet,
