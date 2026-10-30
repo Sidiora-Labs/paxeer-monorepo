@@ -18113,6 +18113,10 @@ title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
 ac_1 = "services/agent contains no include/layerx_lni_abi.h, no schema/lni directory and no stable-abi-allowlist.toml."
 ac_2 = "services/agent/unsafe-allowlist.toml holds version 1 and no exceptions entry."
 
+[req.9192]
+title = "layerx-client compiles without the deleted LNI schema file"
+ac_1 = "services/agent/crates/layerx-client/src/lni/schema.rs declares no LNI_V1_SOURCE constant and no include_str! of schema/lni/v1.kvx, and cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer exits 0 on a tree without services/agent/schema/lni."
+
 [req.9066]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
 ac_1 = "The limits suite still converges restarts and duplicates on one economic effect, one receipt, final state Executed and two attempts when submissions are EIP-1559 raw transactions."
@@ -102023,7 +102027,7 @@ do_5 = "The planned test file is package layerxpay_test and reaches unexported n
 
 [task.2.40.4]
 title = "Match 0x0906 stream records against the 0x101B stream path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.35.2", "2.38.2", "2.40.8"]
@@ -142216,6 +142220,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.19.2]
+title = "Drop the LNI_V1_SOURCE include that 9.19.1 left in layerx-client"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["9192.1"]
+capabilities = []
+interfaces = ["interface.9.rs-client-lni-schema-lni-v1-source-j44"]
+do_1 = "019a38eed (task 9.19.1, do_1) deleted services/agent/schema/lni/v1.kvx while services/agent/crates/layerx-client/src/lni/schema.rs:4 still reads `pub const LNI_V1_SOURCE: &str = include_str!('../../../../schema/lni/v1.kvx');`, so since that commit every build of layerx-client fails at schema.rs:4 with `couldn't read ../../../../schema/lni/v1.kvx`, and with it every crate that depends on layerx-client: the services/agent workspace, services/human (services/human/Cargo.toml:31) and services/platform (services/platform/Cargo.toml:46). Delete the constant and its doc comment at schema.rs:3-4. Nothing reads LNI_V1_SOURCE in services/ (grep over *.rs finds only the declaration); interfaces.kvx already marks the interface retired; lni_schema_v1 (schema.rs:566) builds the schema from Rust constants and does not use the file. Do not restore v1.kvx: agent_tree_has_no_lni_artifacts (services/agent/tools/boundary-check/tests/workspace.rs:13-33) asserts the directory is absent, and task 9.24.7 deletes the whole lni module per decision.923. Change no other line of schema.rs and no other file."
+do_2 = "scripts/ci/lni-version-parity.sh:96-101 (Makefile:3424) reads the deleted schema file and fails since 019a38eed independently of this task; record it, do not edit the script or the Makefile. The verify runs an existing layerx-client integration test, refusal_keeps_code_message_and_data in tests/sequencer.rs, whose only purpose here is to compile the crate and its test target on a tree without services/agent/schema/lni."
+symbols = ["LNI_V1_SOURCE"]
+touches = ["services/agent/crates/layerx-client/src/lni/schema.rs"]
+tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::refusal_keeps_code_message_and_data"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact refusal_keeps_code_message_and_data"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore schema.rs:3-4 from HEAD; layerx-client fails to compile again at schema.rs:4."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.20.1]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
 status = "done"
@@ -157062,6 +157095,7 @@ do_9 = "Attempt 8 (ba7c4c0f4) committed the activation height 34742403 and stall
 do_10 = "Attempt 9 (525dff8f4) re-ran the attempt 8 files with 18.1307.1 merged. The primary's commit of 34742403 now fails with 'commit listener at height 34742403: sequencer: driver release open: sequencer: standby did not acknowledge: read tcp ...: i/o timeout', 10 s after its stores committed. That interval is the --sequencer.replication-timeout of v6120-node.sh:570. The standby and the bootstrap peer commit 34742403 only after that Commit returns, so consensus stops at 34742404. Driver.OnCommit runs inside ABCI Commit (node/abci.go:324-326, node/sequencer/node_start.go:126-136) and releases the OPEN for H+1 (node/sequencer/driver.go:107-110). The standby admits that OPEN only after its own commit of H (node/sequencer/standby.go:818, :864-890), and the primary resends on the commit-pending AckGap (standby.go:331-333) until the deadline. The two nodes wait on each other. This task requires 12.35.5 (decision.1939), which removes that wait; v6120-node.sh still gains the do_9 evidence output first."
 do_11 = "Attempt 10 (a48caaeb7) runs with 12.35.5 merged. All three nodes now commit past 34742403. The /status and /validators checks read the plain HTTP bodies the node returns (sync_info and validators at the top level, no result envelope; v6120-node.sh:648-676), so the script reports ready and the Go test runs. The test then fails at v6120_test.go:159: the standby's EVM RPC at LOCAL_NODE_STANDBY_RPC refuses connections while the standby process is alive. The EVM HTTP server binds only after the start signal that ProcessBlock sends (node/app.go:2376, :1347-1386). On restart, 34742402 is replayed against the mock app (consensus/internal/consensus/replay.go:338-347). The standby never processes a proposal and finalizes every sequenced block through the sealed branch of FinalizeBlocker (node/app.go:1798-1830, standby_role.go:288-325), so it never sends that signal. This task requires 12.35.6, which sends the start signal on sealed adoption. Re-qualify a48caaeb7 unchanged after 12.35.6 is on main."
 do_12 = "Attempt 11 (29f5c75f6) re-ran the a48caaeb7 files with 12.35.6 merged. The standby still refuses connections on LOCAL_NODE_STANDBY_RPC at v6120_test.go:159 while it commits blocks (34742450). The standby home is created with paxd init --mode validator (v6120-node.sh:233), which writes app.toml with api.enable, grpc.enable and state-store.enable false (node/params/config.go:141-147). configure_node keeps api enable false (v6120-node.sh:534) and never enables grpc, so sdk/server/start.go:369-376 skips RegisterLocalServices. That is the only place that builds the EVM HTTP server (node/app.go:3537-3553), so the standby has no EVM server for the start signal of 12.35.6 to bind. Its halt log has no 'Stopping EVM HTTP Server' line, while the primary's has one (rpc/rpcstack.go:285). configure_node sets grpc enable true beside the grpc address (v6120-node.sh:535) so every node home, including the standby, registers its local services and serves EVM RPC on its own http_port. The standby keeps consensus mode validator (decision.1902), api enable false and the standby chain-id assertion of v6120_test.go:152-160. Continue 29f5c75f6 with that one line."
+do_13 = "Attempt 12 (2bbcaee77) applies do_12 and the standby answers eth_chainId, so v6120_test.go:152-160 passes for the first time. The test then fails at v6120_test.go:163: eth_getTransactionCount(sender, pending) answers 'pending block unavailable: sequencer: no block is open'. On the sequencer a pending-tag read resolves through the open block (rpc/tx.go:430-436, rpc/watermark_manager.go:57-65) and sequential.Snapshot returns ErrLayerNotOpen while no block is open (node/sequencer/executor.go:28, :329-333). The primary seals its open block when it builds the proposal for H+1 (consensus/internal/state/execution.go:267-270; executor.go:295-305 sets open to nil) and opens the next block only in Driver.OnCommit(H+1) (node/sequencer/driver.go:93), so between the proposal and the commit of every block there is no open block by design (rpc/utils.go:55-58). The primary committed 34742447 at 18:30:23.811 and finalized 34742448 at 18:30:24.194 while the 0.06 s test ran. eth_sendRawTransaction in that window answers the bare 'sequencer: no block is open' (rpc/send.go:293, node/sequencer/receipt.go:328, rpc/send_sequencer_test.go:265-268) and admits nothing, and eth_getBalance pending answers the wrapped text (rpc/state.go:55). TestLocalNodeV6120SequencerReceipt gains one helper that repeats a single RPC call every 20 ms until the test context ends while the error text is exactly 'pending block unavailable: sequencer: no block is open' or 'sequencer: no block is open', as daemon/committed-fixture/vector_v4.go:224-241 does, and uses it for the pending nonce (:161), the pending balance before the send (:174) and after the receipt (:215) and eth_sendRawTransaction (:189). Any other error still fails the test at once and every asserted value stays as written; HeaderByNumber(nil) stays a latest read. v6120-node.sh is unchanged. The primary's node.log also shows four proposal failures 'seal height N: sequencer: standby did not acknowledge: ... i/o timeout' at 34742429, 34742433, 34742435 and 34742440 between 18:29:05 and 18:29:44, each a 10 s SEAL replication timeout (node/sequencer/standby.go:314-346 with the standby's commit-pending AckGap at :823-825, :855-857); the chain recovered and the test did not run in such a window. Continue 2bbcaee77."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -168223,7 +168257,7 @@ do_8 = "ReceiptGate keeps the single constructor ReceiptGate(ReceiptResolver, Lo
 
 [task.15.4.8]
 title = "Resolve signed receipts in the android sample relay resolver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.7"]
@@ -168253,7 +168287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.9]
 title = "Verify signed sequencer receipts in the iOS ReceiptGate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["15.0.3", "8.0.3", "9.0.3", "8.44.1", "8.44.5"]
@@ -168285,7 +168319,7 @@ do_5 = "Add the declared key layerx.receipt_keys, read from the environment vari
 
 [task.15.4.10]
 title = "Decode signed receipts in the iOS sample environment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.9"]
@@ -168315,7 +168349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.11]
 title = "Drop SettlementAnchored and authorized batches from the agents daemon providers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.92.1", "8.24.2", "8.24.3", "12.27.2"]
@@ -168354,7 +168388,7 @@ do_12 = "do_9 is superseded (decision.1963). AgentSigner.sign(prepared) must ans
 
 [task.15.4.12]
 title = "Verify signed sequencer receipts in the agents tools and service client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.11"]
@@ -194762,7 +194796,7 @@ title = "Bind agent creation lifecycle evidence to the signed EIP-1559 transacti
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["9.19.2"]
 reqs = ["1812042.1"]
 capabilities = []
 interfaces = []
@@ -194792,6 +194826,7 @@ do_6 = "In fields (services/agent/crates/layerx-crypto/src/disclosure/call.rs:37
 do_7 = "In ProtocolEvidence::bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:558-596) project ConstructMethod::PayBudgetCreate from its carried payload with protocol version 3 (layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION), and in SignedCreationTransaction::payload (services/human/crates/layerx-human-service/src/server/agent_creation.rs:72-87) take the same carried payload, because Disclosure::canonical_payload returns the ABI calldata for a call source (services/agent/crates/layerx-crypto/src/disclosure.rs:1036-1041) and never equals action.compiled.payload()."
 do_8 = "Decision 1946: an EIP-1559 disclosure carries the 20-byte sender as its actor (services/agent/crates/layerx-crypto/src/disclosure/call.rs:401), never the creation DID; submit_prepared (services/human/crates/layerx-human-service/src/server/agent_creation.rs:467) and retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:332) compare signed.disclosure.actor with the sender bound by the owner_public_key check (owner_public_key[12..]), and ProtocolEvidence.actor is that sender, as create.rs:546 reads it. Keep every assertion of finalization_evidence_reports_the_runtime_rung as written; if the HumanPrimary descriptor public key differs from the left-padded sender, record the conflict and do not loosen the check."
 do_9 = "Decision 1961: KeyDescriptor.public_key (services/human/crates/layerx-human-service/src/custody/mod.rs:435-440) is the Ed25519 verification key of the held 32-byte secret (services/human/crates/layerx-human-service/src/custody/provider.rs:1198 and :1223, services/agent/crates/layerx-crypto/src/local.rs:31-33), while the key's EVM identity is the secp256k1 wallet of the same secret that CustodySigner::evm_wallet returns (services/human/crates/layerx-human-service/src/custody/signer.rs:911-917, provider.rs:1029-1040) and that the provider binds beside the public key on every transaction signature (provider.rs:1285-1286), so the left-padded sender of a signed EIP-1559 transaction never equals descriptor.public_key. In retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:327-343) and prepare_scoped (services/human/crates/layerx-human-service/src/server/agent_creation.rs:373-421) resolve the wallet with self.custody.evm_wallet(principal, &action.custody_key), refuse unless signed.owner_public_key[12..] == wallet, keep the class check of signing_descriptor (agent_creation.rs:329-350), and carry signed.owner_public_key (the left-padded wallet) as the owner public key of PreparedProtocolKind::Signed (agent_creation.rs:432), of protocol_evidence (agent_creation_native.rs:355, agent_creation.rs:583-591) and so of ProtocolEvidence (agent_creation.rs:601), which bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:541-547) compares with the recovered sender. Compare the sender with descriptor.public_key nowhere on the creation path; change neither KeyDescriptor, evm_wallet, the test nor any assertion of finalization_evidence_reports_the_runtime_rung."
+do_10 = "Attempt 6 (b3481553d on 019a38eed) applied do_9 in the two files and failed in the build_cmd before any test ran: layerx-human-service depends on layerx-client (services/human/Cargo.toml:31), and since 019a38eed (task 9.19.1 do_1 deleted services/agent/schema/lni/v1.kvx) services/agent/crates/layerx-client/src/lni/schema.rs:4 fails with `couldn't read ../../../../schema/lni/v1.kvx` on every build of that crate, in a file this task does not touch. Task 9.19.2 removes the orphaned include; this task now requires it. Keep the do_1 to do_9 implementation of attempt 6 unchanged and re-qualify it once on a base that carries 9.19.2, repairing only type errors the compiler reports inside the do_9 lines of the two touched files, without changing any compared value or loosening an assertion."
 
 [req.1812042]
 title = "Issue #1204 follow-up: agent creation lifecycle evidence binds the signed EIP-1559 transaction"
@@ -194932,6 +194967,8 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
+
 
 
 
