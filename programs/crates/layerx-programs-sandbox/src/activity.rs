@@ -13,8 +13,8 @@ use layerx_programs::{verify_state, verify_tx, verify_tx_result};
 use layerx_programs_runtime::{hash_bytes, HashAlgorithm};
 
 use crate::{
-    sandbox_state_key, AuthenticatedUsageReceipt, Lease, LeaseId, LeaseState, UsageReceipt,
-    MAX_USAGE_STATE_VALUE_BYTES,
+    sandbox_state_key, AuthenticatedUsageReceipt, Lease, LeaseActivity, LeaseId, LeaseState,
+    UsageReceipt, MAX_USAGE_STATE_VALUE_BYTES,
 };
 
 pub const PROGRAMS_SANDBOX_ACTIVITY_TYPE: u32 = 0x0009_0009;
@@ -387,7 +387,8 @@ impl SandboxSubmissionReceipt {
             verify_tx(&current, &evidence.tx, &evidence.tx_proof.proof).map_err(invalid)?;
         verify_tx_result(&next, &evidence.tx_result, &evidence.result_proof.proof)
             .map_err(invalid)?;
-        let key = sandbox_state_key(1, submission.lease.bytes())?;
+        let funding = submission.payload.get(1) == Some(&OP_FUND);
+        let key = sandbox_state_key(if funding { 0 } else { 1 }, submission.lease.bytes())?;
         let value = evidence
             .commitment
             .value
@@ -407,7 +408,11 @@ impl SandboxSubmissionReceipt {
             expected_usage_sequence: submission.expected_usage_sequence,
             expected_lease_digest: submission.expected_lease_digest,
         };
-        receipt.authenticated_usage_receipt()?;
+        if funding {
+            funded_lease_record(submission, activity_id, &receipt.canonical_receipt)?;
+        } else {
+            receipt.authenticated_usage_receipt()?;
+        }
         Ok(receipt)
     }
 
@@ -462,6 +467,63 @@ impl SandboxSubmissionReceipt {
         }
         Ok(AuthenticatedUsageReceipt::new(usage))
     }
+}
+
+fn funded_lease_record(
+    submission: &SandboxSubmission,
+    activity_id: [u8; 32],
+    value: &[u8],
+) -> Result<(), SandboxActivityRefusal> {
+    let length_bytes = submission
+        .payload
+        .get(248..252)
+        .ok_or(SandboxActivityRefusal::InvalidReceipt)?;
+    let lease_length = usize::try_from(u32::from_be_bytes(
+        length_bytes
+            .try_into()
+            .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?,
+    ))
+    .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
+    let lease_end = 252usize
+        .checked_add(lease_length)
+        .ok_or(SandboxActivityRefusal::InvalidReceipt)?;
+    let requested_bytes = submission
+        .payload
+        .get(252..lease_end)
+        .ok_or(SandboxActivityRefusal::InvalidReceipt)?;
+    if hash_bytes(HashAlgorithm::Sha256, requested_bytes)
+        .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?
+        != submission.expected_lease_digest
+    {
+        return Err(SandboxActivityRefusal::InvalidReceipt);
+    }
+    let requested =
+        Lease::decode_state(requested_bytes).map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
+    let record = Lease::decode_state(value).map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
+    let (receipt, history) = record
+        .history()
+        .split_last()
+        .ok_or(SandboxActivityRefusal::InvalidReceipt)?;
+    if requested.id() != submission.lease
+        || requested.state() != LeaseState::Requested
+        || record.id() != requested.id()
+        || record.tenant() != requested.tenant()
+        || record
+            .request_binding_digest()
+            .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?
+            != requested
+                .request_binding_digest()
+                .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?
+        || record.state() != LeaseState::Funded
+        || history != requested.history()
+        || receipt.transition.activity != LeaseActivity::Fund
+        || receipt.transition.from != LeaseState::Requested
+        || receipt.transition.to != LeaseState::Funded
+        || receipt.transition.activity_id != activity_id
+    {
+        return Err(SandboxActivityRefusal::InvalidReceipt);
+    }
+    Ok(())
 }
 
 pub trait SandboxActivityPlane {

@@ -478,7 +478,7 @@ pub struct ProtocolEvidence {
 
 impl ProtocolEvidence {
     /// # Errors
-    /// Refuses canonical owner activity or native receipt authority mismatches.
+    /// Refuses signed transaction or native receipt authority mismatches.
     pub fn verify_outcome(
         &self,
         expected: ActivityType,
@@ -487,9 +487,9 @@ impl ProtocolEvidence {
         if self.rung != Rung::Committed {
             return Err(AgentFailure::Unavailable);
         }
-        let receipt = layerx_intents::canonical::decode_receipt(&self.receipt_bytes)
+        let receipt = layerx_wire::receipt::decode(&self.receipt_bytes)
             .map_err(|_| AgentFailure::Refused("invalid transaction receipt"))?;
-        let canonical = layerx_intents::canonical::receipt_bytes(&receipt)
+        let canonical = layerx_wire::receipt::encode(&receipt)
             .map_err(|_| AgentFailure::Refused("invalid canonical receipt"))?;
         let hash: [u8; 32] = Sha256::digest(&canonical).into();
         let protocol = receipt
@@ -524,26 +524,137 @@ impl ProtocolEvidence {
     pub fn bound_activity(
         &self,
         expected: ActivityType,
-    ) -> Result<layerx_intents::canonical::Activity, AgentFailure> {
+    ) -> Result<layerx_wire::activity::Activity, AgentFailure> {
         let registry = ModuleRegistry::new(&[layerx_types::payload::ModuleRegistration::new(
             expected.module(),
             &[expected],
         )
         .map_err(|_| AgentFailure::Refused("invalid expected lifecycle operation"))?])
         .map_err(|_| AgentFailure::Refused("invalid lifecycle registry"))?;
-        let activity = layerx_intents::owner_activity::verify(&self.signed_activity, &registry)
-            .map_err(|_| AgentFailure::Refused("invalid signed lifecycle activity"))?;
-        if activity.activity_type() != expected
-            || activity.actor_did() != self.actor
-            || activity.authority() != self.owner_public_key
-            || activity.network_id() != self.network_id
-            || activity.idempotency_key() != self.action_key
-            || layerx_intents::canonical::activity_id(&activity)
-                .map_err(|_| AgentFailure::Refused("invalid lifecycle activity identity"))?
-                != self.activity_id
+        let (call, signature) =
+            layerx_crypto::evm_transaction::decode_signed(&self.signed_activity)
+                .map_err(|_| AgentFailure::Refused("invalid signed lifecycle transaction"))?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction signature"))?;
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, sender)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction disclosure"))?;
+        let mut authority = [0; 32];
+        authority[12..].copy_from_slice(&sender);
+        let transaction_hash =
+            layerx_crypto::evm_transaction::transaction_hash(&self.signed_activity);
+        if disclosure.activity_type != expected
+            || disclosure.actor != self.actor
+            || authority != self.owner_public_key
+            || call.chain_id != u64::from(self.network_id)
+            || self.network_id == 0
+            || disclosure.idempotency_key != self.action_key
+            || transaction_hash != self.activity_id
+            || transaction_hash != self.tx_hash
         {
-            return Err(AgentFailure::Refused("lifecycle activity binding differs"));
+            return Err(AgentFailure::Refused(
+                "lifecycle transaction binding differs",
+            ));
         }
+        let (payload, protocol_version) = match disclosure
+            .construct_method()
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction method"))?
+        {
+            Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) => {
+                let scope = payload
+                    .get(
+                        payload
+                            .len()
+                            .checked_sub(6)
+                            .ok_or(AgentFailure::Refused("invalid lifecycle payload scope"))?..,
+                    )
+                    .ok_or(AgentFailure::Refused("invalid lifecycle payload scope"))?;
+                if scope[..4] != self.network_id.to_be_bytes() {
+                    return Err(AgentFailure::Refused("lifecycle payload network differs"));
+                }
+                let version = u16::from_be_bytes([scope[4], scope[5]]);
+                if !layerx_wire::limits::protocol_version_supported(version) {
+                    return Err(AgentFailure::Refused("invalid lifecycle payload protocol"));
+                }
+                (payload, version)
+            }
+            Some(
+                layerx_crypto::disclosure::call::ConstructMethod::LedgerOpenAccount { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerRegister { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerMint { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerBurn { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerIssueGrant { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerDraw { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerRevokeGrant { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetDefund { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::BankSend { .. },
+            ) => (disclosure.canonical_payload().to_vec(), 3),
+            None => {
+                return Err(AgentFailure::Refused(
+                    "missing lifecycle transaction method",
+                ))
+            }
+        };
+        let payload = layerx_types::payload::Payload::new(&registry, expected, &payload)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        let mut builder = layerx_types::activity::EnvelopeBuilder::new();
+        builder
+            .protocol_version(protocol_version)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .network_id(self.network_id)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .activity_type(expected)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .actor_did(
+                Did::new(&disclosure.actor).map_err(|_| {
+                    AgentFailure::Refused("invalid lifecycle transaction projection")
+                })?,
+            )
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .authority(
+                layerx_types::activity::Authority::owner(&authority).map_err(|_| {
+                    AgentFailure::Refused("invalid lifecycle transaction projection")
+                })?,
+            )
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .account_sequence(call.nonce)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .timestamp_bound(
+                layerx_types::activity::TimestampBound::new(
+                    disclosure.expiry.not_before,
+                    disclosure.expiry.not_after,
+                )
+                .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?,
+            )
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .idempotency_key(IdempotencyKey::new(disclosure.idempotency_key))
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .fee_limit(Amount::from_u128(disclosure.fee_limit))
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .payload_hash(
+                layerx_wire::hash::payload_hash_for(&payload).map_err(|_| {
+                    AgentFailure::Refused("invalid lifecycle transaction projection")
+                })?,
+            )
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        builder
+            .payload(payload)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        let envelope = builder
+            .build()
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        let bytes = layerx_wire::activity::encode_unsigned_envelope(&envelope)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
+        let activity = layerx_wire::activity::decode_unsigned(&bytes, &registry)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction projection"))?;
         Ok(activity)
     }
 }
