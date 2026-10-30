@@ -2,8 +2,9 @@ use std::{collections::BTreeMap, fs, path::Path};
 
 use layerx_client::evidence::{verify_arbiter_admission_v3, VerifiedAdmissionPrestate};
 use layerx_programs_arbiter::{
-    ics23::decode_existence, AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, ReplayError,
-    VerifiedReplay, VerifiedReplayAuthority,
+    ics23::{decode_existence, ExistenceProof},
+    AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, ReplayError, VerifiedReplay,
+    VerifiedReplayAuthority,
 };
 use layerx_programs_runtime::portable_replay::PortableReplayRecord;
 use layerx_proof::{
@@ -13,7 +14,6 @@ use layerx_proof::{
         verify_outcome_maintained_chain, verify_program_preexecution_rejection_maintained_chain,
         AuthorizedBatch, MaintainedOutcomeEvidence, VerifiedReceipt,
     },
-    state_witness::StateWitness,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -259,6 +259,24 @@ struct Capture {
     header: VerifiedBatchHeader,
     receipt_proof: ChainCommitProof,
     admission: VerifiedAdmissionPrestate,
+    host_store_root: [u8; 32],
+    host_multistore_proof: Vec<u8>,
+    code_proofs: BTreeMap<[u8; 32], ExistenceProof>,
+}
+impl Capture {
+    fn catalogue(
+        &self,
+        code: &BTreeMap<[u8; 32], Vec<u8>>,
+    ) -> Result<AuthenticatedCatalogue, ReplayError> {
+        AuthenticatedCatalogue::verify_with_module(
+            &self.admission,
+            &self.receipt_proof,
+            self.host_store_root,
+            &self.host_multistore_proof,
+            &self.code_proofs,
+            code,
+        )
+    }
 }
 struct Fixture {
     directory: std::path::PathBuf,
@@ -328,12 +346,29 @@ impl Fixture {
                     assert_eq!(&digest, &payload[68..100]);
                     code.insert(digest, wasm);
                 }
+                let mut code_proofs = BTreeMap::new();
+                for entry in v["code_proofs"]
+                    .as_array()
+                    .expect("host module 9 code-blob proofs")
+                {
+                    let proof = decode_existence(&read(entry, "proof_path"))
+                        .expect("host code-blob existence proof");
+                    assert!(
+                        code_proofs
+                            .insert(hash(entry, "code_hash"), proof)
+                            .is_none(),
+                        "exactly one host proof per deployed code blob"
+                    );
+                }
                 Capture {
                     path: field(v, "receipt_path").to_owned(),
                     receipt,
                     header,
                     receipt_proof,
                     admission,
+                    host_store_root: hash(v, "host_store_root"),
+                    host_multistore_proof: read(v, "host_multistore_proof_path"),
+                    code_proofs,
                 }
             })
             .collect();
@@ -368,7 +403,7 @@ fn canonical_native_authority_matches_authenticated_historical_facts() {
     let mut verified_scheduled = 0;
     for capture in captures {
         let trusted = fixture.receipt(capture);
-        let proof = StateWitness::decode(&fixture.file(capture, "metadata_proof"))
+        let proof = decode_existence(&fixture.file(capture, "metadata_proof"))
             .expect("real metadata state proof");
         let portable =
             PortableReplayRecord::decode_untrusted(&fixture.file(capture, "witness"), 1_048_576)
@@ -419,7 +454,8 @@ fn canonical_native_authority_matches_authenticated_historical_facts() {
         )
         .is_err());
         let catalogue = || {
-            AuthenticatedCatalogue::verify(&trusted.admission, &fixture.code)
+            trusted
+                .catalogue(&fixture.code)
                 .expect("genuine previous-root catalogue and signed deployed code")
         };
         let replay = VerifiedReplay::verify_with_batch_context(
@@ -427,6 +463,8 @@ fn canonical_native_authority_matches_authenticated_historical_facts() {
             &trusted.admission,
             &trusted.header,
             &trusted.receipt_proof,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &portable.authority_bytes,
             &portable.hosts_bytes,
@@ -499,6 +537,8 @@ fn canonical_native_authority_matches_authenticated_historical_facts() {
             &trusted.admission,
             &trusted.header,
             &trusted.receipt_proof,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &bad_authority,
             &portable.hosts_bytes,
@@ -512,6 +552,8 @@ fn canonical_native_authority_matches_authenticated_historical_facts() {
             &trusted.admission,
             &trusted.header,
             &trusted.receipt_proof,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &portable.authority_bytes,
             &bad_hosts,
@@ -525,6 +567,8 @@ fn canonical_native_authority_matches_authenticated_historical_facts() {
             &trusted.admission,
             &trusted.header,
             &trusted.receipt_proof,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &bad_metadata,
             &portable.authority_bytes,
             &portable.hosts_bytes,
@@ -538,6 +582,8 @@ fn canonical_native_authority_matches_authenticated_historical_facts() {
             &trusted.admission,
             &trusted.header,
             &trusted.receipt_proof,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &bad_key,
             &portable.authority_bytes,
             &portable.hosts_bytes,
