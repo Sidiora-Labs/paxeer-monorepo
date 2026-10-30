@@ -100685,7 +100685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.6]
 title = "Serve the ten 0x101B stream methods and eight stream events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.28.2", "2.28.3", "2.25.1", "2.25.2", "2.25.3", "2.25.4", "2.28.5", "18.1308.1"]
