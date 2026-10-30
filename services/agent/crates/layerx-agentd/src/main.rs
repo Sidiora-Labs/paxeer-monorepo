@@ -978,7 +978,7 @@ fn start_shared_owner(
     {
         return Err("human daemon paths must be absolute".to_owned());
     }
-    let node = connect_human_node(node_path, node_limits)?;
+    let node: Client = connect_human_node(node_path, node_limits)?;
     let mut authority = connect_human_authority(deadline, &peers)?;
     let shared_store =
         Arc::new(Mutex::new(Store::open(&store_path).map_err(|error| {
