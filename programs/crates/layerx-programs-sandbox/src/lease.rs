@@ -411,7 +411,8 @@ impl TransitionEvidence {
             .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
         let state_height = verify_state(head, "lxphost", &key, canonical_lease, lease_ops)
             .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
-        let proven = Lease::decode_state(canonical_lease)?;
+        let proven = Lease::decode_state(canonical_lease)
+            .map_err(|_| LeaseRefusal::InvalidCanonicalEvidence)?;
         if proven.id != lease.id || transition.lease != lease.id {
             return Err(LeaseRefusal::LeaseMismatch);
         }
