@@ -189314,7 +189314,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1244.1]
 title = "Issue #1244: Carry an explicit sender into wallet estimate-fee simulations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
