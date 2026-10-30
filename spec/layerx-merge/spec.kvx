@@ -136750,7 +136750,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.5]
 title = "Swift SDK retires kernel batch, checkpoint and settlement verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.44.2", "8.44.3", "8.47.7", "8.44.6"]
@@ -136940,7 +136940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.45.3]
 title = "Generators stop rendering /v1/programs lifecycle routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.41.6", "8.42.6", "8.43.6", "8.44.6"]
@@ -138990,7 +138990,7 @@ do_7 = "Deleting Level retypes VerificationStatus, which becomes a type alias of
 
 [task.9.1.5]
 title = "Retire the faucet.claim operation from the agent-api schema and catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["9.15.1", "9.0.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1230.1"]
@@ -156346,7 +156346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.1]
 title = "Build a test chain fixture that signs headers and proves store keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]
