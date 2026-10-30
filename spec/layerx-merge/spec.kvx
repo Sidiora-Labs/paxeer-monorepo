@@ -102162,7 +102162,7 @@ do_5 = "go vet ./precompiles/layerxagent/streams/ exits 1 at precompiles/layerxa
 
 [task.2.40.5]
 title = "Bound 0x101B charged gas against the measured host store work"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.28.4", "2.28.5", "2.28.6", "2.28.7", "2.38.2", "2.40.10"]
