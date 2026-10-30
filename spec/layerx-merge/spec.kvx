@@ -164514,7 +164514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.34.1]
 title = "Add the sequencer signature type and API resource"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.0.4", "14.22.6", "14.31.1"]
