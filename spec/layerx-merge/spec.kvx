@@ -192090,7 +192090,7 @@ qualification = "UNRUN"
 
 [task.18.1269.1]
 title = "Issue #1269: Verify the published V5 compact bundle bytes in Swift and compare export() with them byte for byte"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1268.1"]
@@ -192186,7 +192186,7 @@ qualification = "UNRUN"
 
 [task.18.1264.1]
 title = "Issue #1264: Return the idempotency key and recorded result from Swift ProgramsClient.receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1263.1"]
@@ -192270,7 +192270,7 @@ qualification = "UNRUN"
 
 [task.18.1256.1]
 title = "Issue #1256: Decode the daemon's agent success and refusal bodies in the Swift SDK without a response version field"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1255.1"]
@@ -192426,7 +192426,7 @@ qualification = "UNRUN"
 
 [task.18.1252.1]
 title = "Issue #1252: Restore the generated Swift ReceiptContract.swift to the exact generator output and gate it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
