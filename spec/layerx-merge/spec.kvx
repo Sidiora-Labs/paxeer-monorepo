@@ -120294,11 +120294,11 @@ reqs = ["5965.1"]
 capabilities = []
 interfaces = []
 fulfils = ["wiring.J34.12", "wiring.J34.14", "wiring.J34.15"]
-do_1 = "Add blank imports of precompiles/layerxagent/oracle (0x0903), precompiles/layerxagent/scheduler (0x0905) and precompiles/layerxagent/streams (0x0906), created by tasks 2.36.1, 2.34.1 and 2.35.1 and registered by tasks 2.36.2, 2.34.2 and 2.35.2, to the import block at node/precompiles.go:3-24, so their init calls RegisterMergeConstructor (precompiles/setup.go:89) before node/app.go:990 builds the custom precompile set."
+do_1 = "Add blank imports of precompiles/layerxagent/oracle (0x0903), precompiles/layerxagent/scheduler (0x0905) and precompiles/layerxagent/streams (0x0906), created by tasks 2.36.1, 2.34.1 and 2.35.1 and registered by tasks 2.36.2, 2.34.2 and 2.35.2, to the import block at node/precompiles.go:3-38, so their init calls RegisterMergeConstructor (precompiles/setup.go:89) before node/app.go:990 builds the custom precompile set."
 do_2 = "Leave every other import of node/precompiles.go as tasks 5.19.4 and 5.94.2 left it, so no import is declared twice."
 do_3 = "Write node/precompiles_agent_merge_imports_test.go (planned) in package app with TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams, asserting that the merge constructor registry of precompiles/setup.go:89 holds constructors for 0x0903, 0x0905 and 0x0906 after the imports."
 symbols = ["TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"]
-touches = ["node/precompiles.go", "node/precompiles_agent_merge_imports_test.go"]
+touches = ["node/precompiles.go", "node/precompiles_agent_merge_imports_test.go", "node/precompiles_agent_imports_test.go"]
 tests = ["node/precompiles_agent_merge_imports_test.go::TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"]
 planned_paths = ["node/precompiles_agent_merge_imports_test.go"]
 build_cmd = "go build ./node/..."
@@ -120314,6 +120314,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Move TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams from node/precompiles_agent_imports_test.go:11-37, where task 5.94.2 (c833bda08) declared it, into node/precompiles_agent_merge_imports_test.go so package app declares the name once. Keep every moved assertion: Setup, GetCustomPrecompilesE(LatestUpgrade, NewPrecompileKeepers(a)) with no error, and for 0x0903 'oracle aggregator', 0x0905 'scheduler' and 0x0906 'streams' a MergeUpgrade entry that is an IPrecompile with that Address, that GetName and a non-empty ABI method set. Add to each subtest that precompiles.MissingMergeConstructors() (precompiles/setup.go:90) does not contain the address's MergeAddressTable entry. Then delete the moved function and the now-unused precompiles and go-ethereum common imports (lines 6-7) from node/precompiles_agent_imports_test.go, leaving TestPrecompileKeepersExposePayAndAgent and TestPrecompileKeepersExposeSharedHost unchanged. verify_cmd stays as written and runs the one declaration, which fails without the do_1 imports."
 
 [task.5.95.1]
 title = "Charge the agent RunDue gas to the block gas before the EVM end block"
@@ -194310,6 +194311,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
