@@ -136529,7 +136529,7 @@ do_6 = "Create sdk/platform/swift/.gitignore with the single line .build/ (as sd
 
 [task.8.44.2]
 title = "Swift SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.44.1", "8.0.2"]
@@ -136592,7 +136592,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.4]
 title = "Swift SDK agent operation envelope at major 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["8.44.1", "9.0.2"]
