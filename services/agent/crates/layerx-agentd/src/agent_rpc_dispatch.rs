@@ -1357,7 +1357,6 @@ pub(crate) fn canonical_request_bytes(
         | Operation::BudgetReconciliation
         | Operation::CapabilityList
         | Operation::ExportOffline
-        | Operation::FaucetClaim
         | Operation::ProgramActivity
         | Operation::ProgramDiscover
         | Operation::ProgramInterface
@@ -1559,11 +1558,6 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
                 dispatched(id, response, decode_submitted)
             }
         }
-        Operation::FaucetClaim => Err(rejection(
-            ErrorClass::UnavailableCapability,
-            id,
-            "unavailable_capability.faucet.claim",
-        )),
         Operation::BudgetCreate => adapters::budget_create(shared, context, request, ctx),
         Operation::BudgetFund => adapters::budget_fund(shared, context, request, ctx),
         Operation::BudgetList => adapters::budget_list(shared, context, request, ctx),
