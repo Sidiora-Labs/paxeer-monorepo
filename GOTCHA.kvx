@@ -11291,3 +11291,33 @@ fix = "Set HUSKY=0 for dependency installs; the gates never need git hooks, and 
 title = "A touches entry that names a directory covers every file under it, and a cargo target directory beside a Cargo.toml is build output"
 symptom = "A task whose touches list a directory (a receipts folder) or whose verify compiles a test crate in place was refused with 'files changed outside scope' naming files under that directory or under <crate>/target/ although its verify passed."
 fix = "Declare a directory deliberately when a task owns a whole folder; never list a target directory in touches; a verify that compiles a crate in place leaves <crate>/target, which is generated output, not a change."
+
+[gotcha.2296]
+title = "A keeper removed from the application left its upgrade handler calling a zero value"
+symptom = "5.7.1 removed the LayerXAnchorKeeper construction and 5.41.3 its store key while 5.6.5's v7.0 handler kept RetireAtMerge (node/upgrades.go:490); 5.16.3, 5.6.9 and 6.47.1 then panicked with a nil pointer dereference at modules/layerxanchor/keeper/keeper.go:31 on every v7.0 application, five attempts spent on one wiring gap."
+fix = "Removing a keeper, a store key or a mount is complete only when every upgrade handler and test that calls the keeper is changed in the same task or ruled by a decision; decision.1954 and task 5.7.5 keep the anchor keeper and store until the store-delete step."
+
+[gotcha.2297]
+title = "A Maven profile that adds sample sources compiles files owned by a later task"
+symptom = "15.4.7's build and verify run with -Psample, which test-compiles src/sample/java; RelayReceiptResolver.java there still used the retired AuthorizedReceiptBatch and belonged to 15.4.8, which required 15.4.7, so the gate could not pass in either order (attempts 3 and 4)."
+fix = "Every source a gate compiles belongs to the task that runs the gate or to a task it requires; the resolver port moved into 15.4.7 as do_6 and 15.4.8 kept only its test."
+
+[gotcha.2298]
+title = "go test does not run the copylocks analyzer, so a by-value copy of the application struct passes go test and fails a sibling's go vet"
+symptom = "A done task's test copied *testkeeper.EVMTestApp by value to swap one keeper; its go build and go test gates passed. A later task whose build_cmd is go vet over the same package exits 1 with 'assignment copies lock value to application: node.App contains sync.RWMutex' before its own test compiles, in a file outside its touches."
+fix = "Build the precompile's keepers from a test-local type that embeds utils.Keepers from EVMTestApp.GetPrecompileKeepers() and adds the module keeper method; put the fix in the touches of the first vet-gated task of the package and make its siblings require it (decision.1956)."
+
+[gotcha.2299]
+title = "A source file compiled into a test binary that no task owns breaks every task whose gate builds that binary"
+symptom = "Three retyping tasks ported their named callers but not services/agent/tests/qualify/fabrication.rs, which is mod fabrication of the agent-qualification-gates bin; every qualify gate test builds that bin through CARGO_BIN_EXE or --bin, so three sibling tasks failed the same cargo build four times each with E0432 on an import none of them touches."
+fix = "Give the orphan file its own small port task that requires the retyping tasks, make the gate-sharing siblings require it, and re-qualify their candidates unchanged; narrowing build_cmd does not help when the verify builds the same binary (decision.1955)."
+
+[gotcha.2300]
+title = "paxd init --mode validator writes grpc.enable false, so the node never registers local services and its EVM HTTP server is never built"
+symptom = "A standby node created with paxd init --mode validator committed blocks but refused every EVM RPC connection; its halt log lacked 'Stopping EVM HTTP Server'. app.toml from that init has api.enable, grpc.enable and state-store.enable false, and sdk/server/start.go:369-376 calls RegisterLocalServices, the only place that builds the EVM server, only when grpc or api is enabled."
+fix = "Set grpc enable true in the node's app.toml beside the grpc address; evm http_enabled alone is not enough."
+
+[gotcha.2301]
+title = "A whole-application tsc as a task build gate fails on sibling-owned consumers of the types the task deletes"
+symptom = "An explorer task deleted five exported type names and repointed stubs; yarn lint:tsc then reported 20 errors in 17 files, none in the task's touches, because the pages, tables and specs that import those names belong to later sibling tasks."
+fix = "Narrow the task's build to tsc over its touched files and their imports with the tsconfig flags written out, give each sibling the same narrowed build, and keep the whole-application check on the last task of the family, which requires every consumer task."
