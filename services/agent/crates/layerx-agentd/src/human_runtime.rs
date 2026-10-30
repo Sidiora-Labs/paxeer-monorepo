@@ -280,7 +280,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 &actor,
                 &Authority::owner(&owner_public_key).map_err(|_| HumanOperationError::Refused)?,
             )?;
-            let snapshot = core_preparation_snapshot(&mut ops.node, context.peer(), &actor)?;
+            let snapshot = core_preparation_snapshot(
+                ops.chain.as_ref(),
+                &ops.authority,
+                context.peer(),
+                &actor,
+            )?;
             let fee = ops
                 .node
                 .native_fee_policy(boundary_correlation(
@@ -492,7 +497,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .registry(context.peer())
             .map_err(map_core)?;
         let snapshot = core_preparation_snapshot(
-            &mut operations.node,
+            operations.chain.as_ref(),
+            &operations.authority,
             context.peer(),
             &context.principal().agent,
         )?;
@@ -644,7 +650,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .cloned()
             .ok_or(HumanOperationError::Refused)?;
         let snapshot = core_preparation_snapshot(
-            &mut operations.node,
+            operations.chain.as_ref(),
+            &operations.authority,
             peer,
             cached.prepared.envelope.actor_did(),
         )?;
@@ -799,7 +806,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         operations.authority.authorize_subject(peer)?;
         let registry = operations.authority.registry(peer).map_err(map_core)?;
         let bound = subject::for_did(&operations.store, peer, &owner_did, &registry)?;
-        let snapshot = core_preparation_snapshot(&mut operations.node, peer, &owner_did)?;
+        let snapshot = core_preparation_snapshot(
+            operations.chain.as_ref(),
+            &operations.authority,
+            peer,
+            &owner_did,
+        )?;
         let head = operations.node.head();
         if snapshot.observed_head_sequence != head.chain_sequence {
             return Err(HumanOperationError::Refused);
@@ -4298,8 +4310,16 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .programs
             .as_mut()
             .ok_or(HumanOperationError::Unavailable)?;
-        let (now, bound) =
-            current_program_bundle(programs, &mut operations.node, context, program)?;
+        let (now, bound) = {
+            let now = core_preparation_snapshot(
+                operations.chain.as_ref(),
+                &operations.authority,
+                context.peer(),
+                &context.principal().agent,
+            )?
+            .protocol_timestamp;
+            current_program_bundle(programs, &mut operations.node, now, context, program)?
+        };
         let guest_abi_version = bound.program_head().abi_version();
         let sequencer_public_key = operations.node.handshake().node().authorised_sequencer_key;
         let correlation = boundary_correlation(context.peer(), &program_id, b"program-simulate");
@@ -4468,8 +4488,16 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .programs
             .as_mut()
             .ok_or(HumanOperationError::Unavailable)?;
-        let (now, bound) =
-            current_program_bundle(programs, &mut operations.node, context, program)?;
+        let (now, bound) = {
+            let now = core_preparation_snapshot(
+                operations.chain.as_ref(),
+                &operations.authority,
+                context.peer(),
+                &context.principal().agent,
+            )?
+            .protocol_timestamp;
+            current_program_bundle(programs, &mut operations.node, now, context, program)?
+        };
         let discovery = programs
             .discover(program, now, &bound)
             .map_err(program_operation_error)?;
@@ -4497,8 +4525,16 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .programs
             .as_mut()
             .ok_or(HumanOperationError::Unavailable)?;
-        let (now, bound) =
-            current_program_bundle(programs, &mut operations.node, context, program)?;
+        let (now, bound) = {
+            let now = core_preparation_snapshot(
+                operations.chain.as_ref(),
+                &operations.authority,
+                context.peer(),
+                &context.principal().agent,
+            )?
+            .protocol_timestamp;
+            current_program_bundle(programs, &mut operations.node, now, context, program)?
+        };
         let read = programs
             .interface(program, now, &bound)
             .map_err(program_operation_error)?;
@@ -4539,8 +4575,16 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .programs
             .as_mut()
             .ok_or(HumanOperationError::Unavailable)?;
-        let (now, bound) =
-            current_program_bundle(programs, &mut operations.node, context, program)?;
+        let (now, bound) = {
+            let now = core_preparation_snapshot(
+                operations.chain.as_ref(),
+                &operations.authority,
+                context.peer(),
+                &context.principal().agent,
+            )?
+            .protocol_timestamp;
+            current_program_bundle(programs, &mut operations.node, now, context, program)?
+        };
         let interface = programs
             .interface(program, now, &bound)
             .map_err(program_operation_error)?;
@@ -4555,8 +4599,16 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 }
                 _ => HumanOperationError::Refused,
             })?;
-        let (after, current) =
-            current_program_bundle(programs, &mut operations.node, context, program)?;
+        let (after, current) = {
+            let now = core_preparation_snapshot(
+                operations.chain.as_ref(),
+                &operations.authority,
+                context.peer(),
+                &context.principal().agent,
+            )?
+            .protocol_timestamp;
+            current_program_bundle(programs, &mut operations.node, now, context, program)?
+        };
         let current = programs
             .interface(program, after, &current)
             .map_err(program_operation_error)?;
@@ -5567,7 +5619,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .prepared
                 .clone();
             let snapshot = core_preparation_snapshot(
-                &mut operations.node,
+                operations.chain.as_ref(),
+                &operations.authority,
                 context.peer(),
                 prepared.envelope.actor_did(),
             )?;
@@ -5928,15 +5981,16 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             }
             ops.require_write_admission(&peer.tenant)?;
             ops.subject_owner(peer, &actor, &authority)?;
-            let protocol_version = ops.node.handshake().node().protocol_version;
+            let protocol_version = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
             let defaults = PreparationDefaults {
                 timestamp_span: ops.timestamp_span,
                 fee_limit: Amount::from_u128(human.fee_limit),
                 maximum_payload_bytes: ops.maximum_payload_bytes,
             };
-            let mut boundary =
-                ProductionCorePreparationBoundary::new(&mut ops.node, request.request_id)
-                    .map_err(map_core)?;
+            let mut boundary = ProductionCorePreparationBoundary::new(
+                ops.chain.as_ref(),
+                ops.authority.registry(peer).map_err(map_core)?,
+            );
             let prepared = prepare_activity_for_protocol(
                 &mut boundary,
                 defaults,
@@ -6204,15 +6258,16 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             }
             ops.require_write_admission(&peer.tenant)?;
             ops.subject_owner(peer, &actor, &authority)?;
-            let protocol_version = ops.node.handshake().node().protocol_version;
+            let protocol_version = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
             let defaults = PreparationDefaults {
                 timestamp_span: ops.timestamp_span,
                 fee_limit: Amount::from_u128(human.fee_limit),
                 maximum_payload_bytes: ops.maximum_payload_bytes,
             };
-            let mut boundary =
-                ProductionCorePreparationBoundary::new(&mut ops.node, request.request_id)
-                    .map_err(map_core)?;
+            let mut boundary = ProductionCorePreparationBoundary::new(
+                ops.chain.as_ref(),
+                ops.authority.registry(peer).map_err(map_core)?,
+            );
             let prepared = prepare_activity_for_protocol(
                 &mut boundary,
                 defaults,
@@ -6512,7 +6567,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .prepared
                 .clone();
             let snapshot = core_preparation_snapshot(
-                &mut operations.node,
+                operations.chain.as_ref(),
+                &operations.authority,
                 context.peer(),
                 prepared.envelope.actor_did(),
             )?;
@@ -6965,7 +7021,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .prepared
                 .clone();
             let snapshot = core_preparation_snapshot(
-                &mut operations.node,
+                operations.chain.as_ref(),
+                &operations.authority,
                 context.peer(),
                 prepared.envelope.actor_did(),
             )?;
@@ -7514,7 +7571,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let admitted = (|| -> Result<(), HumanOperationError> {
             let preparation_id = digest_from_hex(&key.2).ok_or(HumanOperationError::Refused)?;
             let snapshot = core_preparation_snapshot(
-                &mut operations.node,
+                operations.chain.as_ref(),
+                &operations.authority,
                 peer,
                 prepared.envelope.actor_did(),
             )?;
@@ -7849,7 +7907,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .cloned()
                 .ok_or(HumanOperationError::Refused)?;
             let snapshot = core_preparation_snapshot(
-                &mut operations.node,
+                operations.chain.as_ref(),
+                &operations.authority,
                 peer,
                 cached.prepared.envelope.actor_did(),
             )?;
@@ -8031,7 +8090,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .cloned()
                 .ok_or(HumanOperationError::Refused)?;
             let snapshot = core_preparation_snapshot(
-                &mut operations.node,
+                operations.chain.as_ref(),
+                &operations.authority,
                 peer,
                 cached.prepared.envelope.actor_did(),
             )?;
@@ -8252,7 +8312,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .cloned()
                 .ok_or(HumanOperationError::Refused)?;
             let snapshot = core_preparation_snapshot(
-                &mut operations.node,
+                operations.chain.as_ref(),
+                &operations.authority,
                 peer,
                 cached.prepared.envelope.actor_did(),
             )?;
@@ -8603,7 +8664,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .ok_or(HumanOperationError::Refused)?;
             let verified = verify_evm_write(&cached, &request.operation.signature)?;
             let snapshot = core_preparation_snapshot(
-                &mut operations.node,
+                operations.chain.as_ref(),
+                &operations.authority,
                 peer,
                 cached.prepared.envelope.actor_did(),
             )?;
@@ -8969,7 +9031,8 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                 &Authority::owner(&request.owner_public_key)
                     .map_err(|_| HumanOperationError::Refused)?,
             )?;
-            let snapshot = core_preparation_snapshot(&mut ops.node, peer, &actor)?;
+            let snapshot =
+                core_preparation_snapshot(ops.chain.as_ref(), &ops.authority, peer, &actor)?;
             let fee = ops
                 .node
                 .native_fee_policy(request.request_id)
@@ -9382,7 +9445,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         operations.authority.authorize_subject(peer)?;
         let registry = operations.authority.registry(peer).map_err(map_core)?;
         let bound = subject::for_did(&operations.store, peer, &owner_did, &registry)?;
-        let snapshot = core_preparation_snapshot(&mut operations.node, peer, &owner_did)?;
+        let snapshot = core_preparation_snapshot(
+            operations.chain.as_ref(),
+            &operations.authority,
+            peer,
+            &owner_did,
+        )?;
         let head = operations.node.head();
         if snapshot.observed_head_sequence != head.chain_sequence {
             return Err(HumanOperationError::Refused);
@@ -9957,7 +10025,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         let mut operations = self.lock_operations()?;
         let actor = Did::new(record.held_activity.actor.as_str().as_bytes())
             .map_err(|_| HumanOperationError::Refused)?;
-        let snapshot = core_preparation_snapshot(&mut operations.node, peer, &actor)?;
+        let snapshot = core_preparation_snapshot(
+            operations.chain.as_ref(),
+            &operations.authority,
+            peer,
+            &actor,
+        )?;
         if snapshot.observed_head_sequence != current_sequence {
             return Err(HumanOperationError::Refused);
         };
@@ -11276,7 +11349,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             .map_err(|_| HumanOperationError::Refused)?;
         let mut operations = self.lock_operations()?;
         let response = operations.budget_revoke(context, control, request)?;
-        let snapshot = core_preparation_snapshot(&mut operations.node, context.peer(), &actor)?;
+        let snapshot = core_preparation_snapshot(
+            operations.chain.as_ref(),
+            &operations.authority,
+            context.peer(),
+            &actor,
+        )?;
         drop(operations);
         sweep_budget_revocation(
             control,
@@ -12081,7 +12159,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 .map_err(budget_refusal)?
                 .expiry_ms;
         let observed_head_sequence = core_preparation_snapshot(
-            &mut self.node,
+            self.chain.as_ref(),
+            &self.authority,
             peer,
             operator_cached.prepared.envelope.actor_did(),
         )?
@@ -12133,9 +12212,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         if candidate.state == 4 {
             return Err(HumanOperationError::Refused);
         }
-        let core_time_ms =
-            core_preparation_snapshot(&mut self.node, peer, cached.prepared.envelope.actor_did())?
-                .protocol_timestamp;
+        let core_time_ms = core_preparation_snapshot(
+            self.chain.as_ref(),
+            &self.authority,
+            peer,
+            cached.prepared.envelope.actor_did(),
+        )?
+        .protocol_timestamp;
         let (verifier, sequencer_key, authorization) = self.budget_read_parts(peer)?;
         let correlation = boundary_correlation(peer, &agent, b"budget-create");
         let mut pipeline = NodeBudgetPipeline {
@@ -12226,7 +12309,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .try_into()
             .map_err(|_| HumanOperationError::Refused)?;
         let registry = self.authority.registry(peer).map_err(map_core)?;
-        let head = core_preparation_snapshot(&mut self.node, peer, actor)?.observed_head_sequence;
+        let head = core_preparation_snapshot(self.chain.as_ref(), &self.authority, peer, actor)?
+            .observed_head_sequence;
         let (verifier, sequencer_key, authorization) = self.budget_read_parts(peer)?;
         let mut pipeline = NodeBudgetPipeline {
             node: &mut self.node,
@@ -12306,7 +12390,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let preparation_id =
             digest_from_hex(preparation_ref).ok_or(HumanOperationError::Refused)?;
         let snapshot = core_preparation_snapshot(
-            &mut self.node,
+            self.chain.as_ref(),
+            &self.authority,
             context.peer(),
             cached.prepared.envelope.actor_did(),
         )?;
@@ -13808,7 +13893,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         self.node
             .reconnect()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let snapshot = core_preparation_snapshot(&mut self.node, peer, actor)?;
+        let snapshot =
+            core_preparation_snapshot(self.chain.as_ref(), &self.authority, peer, actor)?;
         let head = self.node.head();
         if head.chain_sequence == 0
             || head.sealed_batch == 0
@@ -15100,7 +15186,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     .clone()
                     .ok_or(HumanOperationError::Unavailable)?;
                 let snapshot = core_preparation_snapshot(
-                    &mut self.node,
+                    self.chain.as_ref(),
+                    &self.authority,
                     context.peer(),
                     &context.principal().agent,
                 )?;
@@ -15386,10 +15473,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             &authority,
         )?;
 
-        let protocol_version = self.node.handshake().node().protocol_version;
-        let mut boundary =
-            ProductionCorePreparationBoundary::new(&mut self.node, request.request_id)
-                .map_err(map_core)?;
+        let protocol_version = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
+        let mut boundary = ProductionCorePreparationBoundary::new(
+            self.chain.as_ref(),
+            self.authority.registry(peer).map_err(map_core)?,
+        );
         let prepared = budget_aware_prepare(
             budget_context.as_ref(),
             &mut boundary,
@@ -15574,9 +15662,10 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let actor = Did::new(actor.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
         let owner = decode_owner_authority(authority).map_err(|_| HumanOperationError::Refused)?;
         self.subject_owner(peer, &actor, &owner)?;
-        let correlation = boundary_correlation(peer, actor.as_bytes(), b"account-sequence");
-        let mut boundary = ProductionCorePreparationBoundary::new(&mut self.node, correlation)
-            .map_err(map_core)?;
+        let mut boundary = ProductionCorePreparationBoundary::new(
+            self.chain.as_ref(),
+            self.authority.registry(peer).map_err(map_core)?,
+        );
         let state = crate::prepare::legacy::CorePreparationBoundary::preparation_state(
             &mut boundary,
             &actor,
@@ -16402,7 +16491,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
             request.operation.tenant.as_str(),
             request.operation.agent_did.as_str(),
         )?;
-        let snapshot = core_preparation_snapshot(&mut self.node, context.peer(), &actor)?;
+        let snapshot = core_preparation_snapshot(
+            self.chain.as_ref(),
+            &self.authority,
+            context.peer(),
+            &actor,
+        )?;
         let now_ms = snapshot.protocol_timestamp;
         let head = snapshot.observed_head_sequence;
         let authority = capability_session_authority(context, control)?;
@@ -16481,7 +16575,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let parent_id =
             crate::capability::timed::parse_id(request.operation.parent_id.as_str(), request_id)
                 .map_err(|error| capability_refusal(&error))?;
-        let snapshot = core_preparation_snapshot(&mut self.node, context.peer(), &actor)?;
+        let snapshot = core_preparation_snapshot(
+            self.chain.as_ref(),
+            &self.authority,
+            context.peer(),
+            &actor,
+        )?;
         let now_ms = snapshot.protocol_timestamp;
         let authority = capability_session_authority(context, control)?;
         let observed = capability_grant_scope(
@@ -16567,7 +16666,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
     ) -> Result<HumanResponse, HumanOperationError> {
         let (tenant, actor, agent) =
             capability_coordinates(context, request.tenant.as_str(), request.agent_did.as_str())?;
-        let snapshot = core_preparation_snapshot(&mut self.node, context.peer(), &actor)?;
+        let snapshot = core_preparation_snapshot(
+            self.chain.as_ref(),
+            &self.authority,
+            context.peer(),
+            &actor,
+        )?;
         let now_ms = snapshot.protocol_timestamp;
         let authority = capability_session_authority(context, control)?;
         let shared = Arc::clone(&self.store);
@@ -16614,7 +16718,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
             layerx_agent_api::error::RequestId(request.request_id),
         )
         .map_err(|error| capability_refusal(&error))?;
-        let snapshot = core_preparation_snapshot(&mut self.node, context.peer(), &actor)?;
+        let snapshot = core_preparation_snapshot(
+            self.chain.as_ref(),
+            &self.authority,
+            context.peer(),
+            &actor,
+        )?;
         let now_ms = snapshot.protocol_timestamp;
         let head = snapshot.observed_head_sequence;
         let authority = capability_session_authority(context, control)?;
@@ -16961,7 +17070,8 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 .clone()
                 .ok_or(HumanOperationError::Unavailable)?;
             let snapshot = core_preparation_snapshot(
-                &mut self.node,
+                self.chain.as_ref(),
+                &self.authority,
                 context.peer(),
                 &context.principal().agent,
             )?;
@@ -17109,9 +17219,13 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 .ceiling
                 .checked_sub(record.consumed)
                 .ok_or(HumanOperationError::Unavailable)?;
-            let proven_head =
-                core_preparation_snapshot(&mut self.node, peer, &context.principal().agent)?
-                    .observed_head_sequence;
+            let proven_head = core_preparation_snapshot(
+                self.chain.as_ref(),
+                &self.authority,
+                peer,
+                &context.principal().agent,
+            )?
+            .observed_head_sequence;
             return Ok(layerx_agent_api::budget::AuthorityResponse {
                 authority,
                 value: crate::human::BudgetState {
@@ -17176,7 +17290,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         if asserted.authority_ref.as_str() != crate::agent_rpc_dispatch::lower_hex(&authority_id) {
             return Err(policy_context_mismatch(PolicyContextField::AuthorityRef));
         }
-        let snapshot = core_preparation_snapshot(&mut self.node, context.peer(), &actor)?;
+        let snapshot = core_preparation_snapshot(
+            self.chain.as_ref(),
+            &self.authority,
+            context.peer(),
+            &actor,
+        )?;
         let binding = control
             .capability_binding(&tenant, credential.session_id())
             .map_err(legacy_binding_error)?
@@ -18011,13 +18130,13 @@ fn map_core(error: CoreStateError) -> HumanOperationError {
     }
 }
 fn core_preparation_snapshot(
-    node: &mut layerx_client::Client,
+    node: &dyn HumanNode,
+    authority: &dyn HumanAuthorityBoundary,
     peer: &HumanPeer,
     actor: &Did,
 ) -> Result<crate::prepare::legacy::CorePreparationState, HumanOperationError> {
-    let correlation = boundary_correlation(peer, actor.as_bytes(), b"core-batch-time");
-    let mut boundary =
-        ProductionCorePreparationBoundary::new(node, correlation).map_err(map_core)?;
+    let registry = authority.registry(peer).map_err(map_core)?;
+    let mut boundary = ProductionCorePreparationBoundary::new(node, registry);
     crate::prepare::legacy::CorePreparationBoundary::preparation_state(&mut boundary, actor)
         .map_err(map_core)
 }
@@ -18874,11 +18993,10 @@ fn policy_refusal(refusal: crate::policy::PolicyDryRunRefusal) -> HumanOperation
 fn current_program_bundle(
     programs: &mut crate::ops::program::ProgramOperations,
     node: &mut layerx_client::Client,
+    now: u64,
     context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
     program: layerx_programs::ProgramId,
 ) -> Result<(u64, layerx_programs::VerifiedProgramBundle), HumanOperationError> {
-    let now = core_preparation_snapshot(node, context.peer(), &context.principal().agent)?
-        .protocol_timestamp;
     let correlation = boundary_correlation(context.peer(), &program.bytes(), b"program-state");
     let bound = programs
         .current_program(node, program, now, correlation)
@@ -20640,15 +20758,17 @@ mod owner_authority_tests {
             .checked_add(30_000)
             .ok_or_else(|| "test clock overflow".to_owned())?;
         let payload = native_send(&actor, &signing_key, asset, expires)?;
-        for (index, reference) in [public.clone(), format!("did:layerx:{public}")]
-            .iter()
-            .enumerate()
-        {
-            let mut boundary = ProductionCorePreparationBoundary::new(
-                &mut client,
-                u64::try_from(index + 1).map_err(|error| format!("correlation: {error:?}"))?,
-            )
-            .map_err(|error| format!("production adapter: {error:?}"))?;
+        let chain = crate::node_rpc::NodeRpc::connect(
+            &crate::node_rpc::NodeRpcConfig::from_environment()
+                .map_err(|error| format!("node config: {error:?}"))?,
+        )
+        .map_err(|error| format!("node connection: {error:?}"))?;
+        let registry = client
+            .preparation_state(&native_actor, 101)
+            .map_err(|error| format!("native registry: {error:?}"))?
+            .module_registry;
+        for reference in [public.clone(), format!("did:layerx:{public}")].iter() {
+            let mut boundary = ProductionCorePreparationBoundary::new(&chain, registry.clone());
             let authority = decode_owner_authority(reference)
                 .map_err(|error| format!("canonical authority: {error:?}"))?;
             let prepared = prepare_activity_for_protocol(
@@ -21017,7 +21137,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     .ok_or(HumanOperationError::Refused)?;
                 let prepared = cached.prepared.clone();
                 let snapshot = core_preparation_snapshot(
-                    &mut operations.node,
+                    operations.chain.as_ref(),
+                    &operations.authority,
                     context.peer(),
                     prepared.envelope.actor_did(),
                 )?;
