@@ -131768,7 +131768,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.28.3]
 title = "Check the layerxprograms proto sources against their generated descriptors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["7.21.1", "13.0.3", "13.95.1", "7.26.4"]
@@ -163464,7 +163464,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.2]
 title = "Compare receiptsRoot and parentHash when matching a newHeads header to its block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["14.28.1", "18.1055.1"]
