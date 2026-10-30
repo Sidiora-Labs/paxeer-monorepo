@@ -138363,7 +138363,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.94.6]
 title = "Port the platform gateway and its local tests off the kernel disclosure and send codecs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.94.5"]
@@ -169788,7 +169788,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.23.2]
 title = "Expect refusal of --migrate-snapshot-issuance in the genesis builder CLI suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["16.21.1", "16.23.1", "16.0.3"]
