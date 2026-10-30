@@ -4,7 +4,12 @@ use core::fmt::{self, Display};
 
 use layerx_programs_runtime::{derive_program_account, ProgramId};
 
-use crate::{hash::sha256, ReadFreshness};
+use crate::{
+    chain_evidence::programs_state_key,
+    chain_proof::{decode::ProofOp, state::verify_state, VerifiedChainHead},
+    hash::sha256,
+    ReadFreshness,
+};
 
 const PROTOCOL_VERSION_ACCOUNT_TREE: u16 = 2;
 const MODULE_VALUE_KIND: u8 = 13;
@@ -199,6 +204,31 @@ pub struct VerifiedAccountSnapshot {
     pub freshness: ReadFreshness,
     pub bindings: Vec<ProvenProgramBinding>,
     pub accounts: Vec<ProvenAccountLeaf>,
+}
+
+/// One account authenticated directly by a chain head, without journal proofs.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedChainAccountSnapshot {
+    head: VerifiedChainHead,
+    leaf: CanonicalAccountLeaf,
+    state_height: i64,
+}
+
+impl VerifiedChainAccountSnapshot {
+    #[must_use]
+    pub const fn chain_head(&self) -> &VerifiedChainHead {
+        &self.head
+    }
+
+    #[must_use]
+    pub const fn account(&self) -> &CanonicalAccountLeaf {
+        &self.leaf
+    }
+
+    #[must_use]
+    pub const fn height(&self) -> i64 {
+        self.state_height
+    }
 }
 
 /// A real, currently observed program balance after registry derivation and
@@ -450,6 +480,18 @@ pub fn program_account_registration_commitment(binding: &ProgramValueAccountBind
 }
 
 impl CanonicalAccountLeaf {
+    #[must_use]
+    pub fn primary_key(&self) -> [u8; 33] {
+        self.key()
+    }
+
+    /// # Errors
+    ///
+    /// Refuses a record which is not a canonical `MODULE_VALUE` account.
+    pub fn primary_value(&self) -> Result<Vec<u8>, AccountStateError> {
+        self.value()
+    }
+
     fn validate_module_value(&self) -> Result<(), AccountStateError> {
         if self.account_id == [0; 32]
             || self.asset_id == [0; 32]
@@ -507,6 +549,26 @@ impl CanonicalAccountLeaf {
 }
 
 impl VerifiedAccountSnapshot {
+    /// # Errors
+    ///
+    /// Refuses malformed accounts or evidence that does not prove their exact
+    /// canonical value under the Programs store key at the supplied chain head.
+    pub fn verify_chain(
+        next: &VerifiedChainHead,
+        leaf: &CanonicalAccountLeaf,
+        ops: &[ProofOp],
+    ) -> Result<VerifiedChainAccountSnapshot, AccountStateError> {
+        let key = programs_state_key(&leaf.primary_key());
+        let value = leaf.primary_value()?;
+        let state_height = verify_state(next, "layerx", &key, &value, ops)
+            .map_err(|_| AccountStateError::InvalidAccountLeaf)?;
+        Ok(VerifiedChainAccountSnapshot {
+            head: next.clone(),
+            leaf: leaf.clone(),
+            state_height,
+        })
+    }
+
     /// Verifies the receipt, both outer account-tree inclusions and every
     /// supplied account leaf before returning any balance.
     ///
