@@ -156408,7 +156408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.3]
 title = "Check the Rust commit verifier against the consensus light commit vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "5.94.3"]
@@ -156470,7 +156470,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.5]
 title = "Check the programs state key builder against the host store key vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "1.94.1"]
@@ -156562,7 +156562,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.8]
 title = "Check ZIP-215 signature acceptance against the consensus ed25519 vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "13.1.14", "5.94.3"]
