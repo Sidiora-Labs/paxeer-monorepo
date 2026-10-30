@@ -142071,7 +142071,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.19.1]
 title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["9.18.3", "9.1.4", "9.12.6"]
