@@ -17,7 +17,9 @@ use layerx_agentd::prepare::{
     CoreStateError, PreparationDefaults, PrepareRequest,
 };
 use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, RawStateEvidence};
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit, VerifiedSubmission};
+use layerx_agentd::sign::{
+    attach_kernel_signature, verify_kernel_before_submit, VerifiedSubmission,
+};
 use layerx_agentd::store::TenantId;
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::{sign_disclosed, Signer};
@@ -175,9 +177,9 @@ pub fn verified_submission(id: u8) -> VerifiedSubmission {
         &registry(),
     ))
     .unwrap_or_else(|error| panic!("sign: {error:?}"));
-    let signed_bytes = attach_external_signature(&prepared, *signature.as_bytes())
+    let signed_bytes = attach_kernel_signature(&prepared, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach: {error:?}"));
-    verify_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry())
+    verify_kernel_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry())
         .unwrap_or_else(|error| panic!("verify: {error:?}"))
 }
 
@@ -299,9 +301,9 @@ pub fn budget_create_submission(
         &registry,
     ))
     .unwrap_or_else(|error| panic!("sign: {error:?}"));
-    let signed_bytes = attach_external_signature(&prepared, *signature.as_bytes())
+    let signed_bytes = attach_kernel_signature(&prepared, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach: {error:?}"));
-    verify_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry)
+    verify_kernel_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry)
         .unwrap_or_else(|error| panic!("verify: {error:?}"))
 }
 

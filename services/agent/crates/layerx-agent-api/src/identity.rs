@@ -889,6 +889,9 @@ impl SessionContext {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentRegistration {
+    pub owner_address: [u8; 20],
+    pub binding_consent: Vec<u8>,
+    pub fee_limit: Amount,
     pub tenant: TenantId,
     pub agent_did: AgentDid,
     pub authority_ref: AuthorityRef,
@@ -897,7 +900,14 @@ pub struct AgentRegistration {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SessionOpen(pub SessionContext);
+pub struct SessionOpen {
+    pub context: SessionContext,
+    pub grant_id: [u8; 32],
+    pub registration_payload: Vec<u8>,
+    pub expiry_sequence: u64,
+    pub purpose: [u8; 32],
+    pub fee_limit: Amount,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SessionRefresh {

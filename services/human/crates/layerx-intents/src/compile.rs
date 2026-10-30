@@ -137,10 +137,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             intent.kind(),
             IntentKind::SessionGrant(_)
                 | IntentKind::RecoveryRegistration(_)
-                | IntentKind::NativeOnboarding(_)
-                | IntentKind::NativeOnboardingConsent(_)
                 | IntentKind::NativeBudgetCreate(_)
-                | IntentKind::NativeOwnerRotation(_)
                 | IntentKind::NativeAssetAccountOpen(_)
         )
     {
@@ -155,11 +152,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
     let mut encoder = Encoder::new(MAX_PAYLOAD_BYTES);
     if matches!(
         intent.kind(),
-        IntentKind::NativeOnboarding(_)
-            | IntentKind::NativeOnboardingConsent(_)
-            | IntentKind::NativeBudgetCreate(_)
-            | IntentKind::NativeOwnerRotation(_)
-            | IntentKind::NativeAssetAccountOpen(_)
+        IntentKind::NativeBudgetCreate(_) | IntentKind::NativeAssetAccountOpen(_)
     ) && intent.version() != IntentVersion::V3
     {
         return Err(CompileError::wire(
@@ -175,30 +168,6 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             wire(CompileField::Header, encoder.u16(1))?;
             fixed(&mut encoder, &asset.bytes(), CompileField::Asset)?;
             finish(registry, ModuleId::Asset, 4, encoder)
-        }
-        IntentKind::NativeOnboardingConsent(value) => {
-            fixed(
-                &mut encoder,
-                &value.payload().map_err(|_| native_invalid())?,
-                CompileField::Payload,
-            )?;
-            finish(registry, ModuleId::Governance, 1, encoder)
-        }
-        IntentKind::NativeOnboarding(value) => {
-            fixed(
-                &mut encoder,
-                &value.payload().map_err(|_| native_invalid())?,
-                CompileField::Payload,
-            )?;
-            finish(registry, ModuleId::Governance, 1, encoder)
-        }
-        IntentKind::NativeOwnerRotation(value) => {
-            fixed(
-                &mut encoder,
-                &value.payload().map_err(|_| native_invalid())?,
-                CompileField::Payload,
-            )?;
-            finish(registry, ModuleId::Governance, 2, encoder)
         }
         IntentKind::NativeBudgetCreate(value) => {
             fixed(
@@ -477,58 +446,54 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             finish(registry, ModuleId::Budget, 4, encoder)
         }
         IntentKind::BudgetCreate(value) => {
-            header(&mut encoder, 0x4201, 10)?;
+            wire(CompileField::Header, encoder.u16(1))?;
             fixed(&mut encoder, &value.budget_id.bytes(), CompileField::Budget)?;
-            account(&mut encoder, &value.owner, CompileField::From)?;
-            account(&mut encoder, &value.budget_account, CompileField::Account)?;
+            let budget_account = hash::account_id_for_protocol(&value.budget_account, 3)
+                .map_err(|error| CompileError::wire(CompileField::Account, error))?;
+            fixed(&mut encoder, &budget_account, CompileField::Account)?;
             fixed(&mut encoder, &value.asset.bytes(), CompileField::Asset)?;
+            fixed(&mut encoder, &value.purpose.bytes(), CompileField::Purpose)?;
+            wire(
+                CompileField::Amount,
+                encoder.u128(value.per_period_limit.value()),
+            )?;
+            wire(
+                CompileField::CarryCap,
+                encoder.u128(value.carry_cap.value()),
+            )?;
             wire(
                 CompileField::Amount,
                 encoder.u128(value.per_period_limit.value()),
             )?;
             wire(
                 CompileField::Period,
-                encoder.u64(value.period_length.value()),
+                encoder.u64(budget_milliseconds(
+                    value.period_length.value(),
+                    CompileField::Period,
+                )?),
             )?;
-            rollover(&mut encoder, value.rollover)?;
+            wire(CompileField::Period, encoder.u64(0))?;
             wire(
-                CompileField::CarryCap,
-                encoder.u128(value.carry_cap.value()),
+                CompileField::Expiration,
+                encoder.u64(budget_milliseconds(
+                    value.expiry.value(),
+                    CompileField::Expiration,
+                )?),
             )?;
-            fixed(&mut encoder, &value.purpose.bytes(), CompileField::Purpose)?;
-            wire(CompileField::Expiration, encoder.u64(value.expiry.value()))?;
+            wire(CompileField::Sequence, encoder.u64(0))?;
+            rollover(&mut encoder, value.rollover)?;
             finish(registry, ModuleId::Budget, 1, encoder)
         }
         IntentKind::BudgetFund(value) => {
-            header(&mut encoder, 0x4202, 6)?;
+            wire(CompileField::Header, encoder.u16(1))?;
             fixed(&mut encoder, &value.budget_id.bytes(), CompileField::Budget)?;
-            account(&mut encoder, &value.owner, CompileField::From)?;
-            account(&mut encoder, &value.budget_account, CompileField::To)?;
-            fixed(&mut encoder, &value.asset.bytes(), CompileField::Asset)?;
             wire(CompileField::Amount, encoder.u128(value.amount.value()))?;
-            fixed(
-                &mut encoder,
-                &value.idempotency_key.bytes(),
-                CompileField::IdempotencyKey,
-            )?;
             finish(registry, ModuleId::Budget, 2, encoder)
         }
         IntentKind::BudgetDefund(value) => {
-            header(&mut encoder, 0x4207, 7)?;
+            wire(CompileField::Header, encoder.u16(1))?;
             fixed(&mut encoder, &value.budget_id.bytes(), CompileField::Budget)?;
-            account(&mut encoder, &value.budget_account, CompileField::From)?;
-            account(&mut encoder, &value.owner, CompileField::To)?;
-            fixed(&mut encoder, &value.asset.bytes(), CompileField::Asset)?;
             wire(CompileField::Amount, encoder.u128(value.amount.value()))?;
-            wire(
-                CompileField::Sequence,
-                encoder.u64(value.revocation_sequence.value()),
-            )?;
-            fixed(
-                &mut encoder,
-                &value.idempotency_key.bytes(),
-                CompileField::IdempotencyKey,
-            )?;
             finish(registry, ModuleId::Budget, 8, encoder)
         }
         IntentKind::BridgeDepositCredit(value) => {
@@ -692,4 +657,16 @@ fn native_invalid() -> CompileError {
             offset: 0,
         },
     )
+}
+
+fn budget_milliseconds(seconds: u64, field: CompileField) -> Result<u64, CompileError> {
+    seconds.checked_mul(1_000).ok_or_else(|| {
+        CompileError::wire(
+            field,
+            WireError {
+                result: layerx_types::result::KnownResult::LengthLimit.into(),
+                offset: 0,
+            },
+        )
+    })
 }

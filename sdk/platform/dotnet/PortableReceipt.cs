@@ -41,6 +41,15 @@ public sealed class PortableReceipt
             ?? throw Failure();
         var committed = blockHeader is not null || receiptInclusion is not null || commit is not null || validatorSet is not null;
         Require(!committed || (blockHeader is not null && receiptInclusion is not null && commit is not null && validatorSet is not null));
+        if (receiptJson.GetProperty("rung").GetString() == "committed")
+        {
+            Require(committed && blockHeader is not null && Height(receiptJson, "blockNumber") == (ulong)blockHeader.Height &&
+                Equal(ReadHex(receiptJson.GetProperty("blockHash"), 32), Committed.HeaderHash(blockHeader)));
+            receiptJson = JsonSerializer.SerializeToElement(receiptJson.EnumerateObject()
+                .Where(property => property.Name is not ("blockNumber" or "blockHash"))
+                .ToDictionary(property => property.Name, property => property.Name == "rung"
+                    ? JsonSerializer.SerializeToElement("receipted") : property.Value), Options);
+        }
         var bundle = new Dictionary<string, object?>
         {
             ["format"] = Format,

@@ -126,11 +126,9 @@ pub mod idempotency {
     };
 }
 
-/// Contract-level verification lattice and success envelope.
+/// Transaction verification rungs and success envelope.
 pub mod verify {
-    pub use crate::error_contract::{
-        ApiSuccess, Level, ReasonCode, Rung, RungStatus, VerificationStatus,
-    };
+    pub use crate::error_contract::{ApiSuccess, ReasonCode, Rung, RungStatus, VerificationStatus};
 }
 
 pub use generated::{

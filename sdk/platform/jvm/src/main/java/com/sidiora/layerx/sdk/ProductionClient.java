@@ -101,33 +101,6 @@ public final class ProductionClient {
         return execute(OperationCatalog.human(operation), objectBody(typed, request), mapper.constructType(responseType), options);
     }
 
-    <T> CompletionStage<T> programs(String operation, ObjectNode request, Class<T> responseType, Options options) {
-        Objects.requireNonNull(operation, "operation");
-        Objects.requireNonNull(request, "request");
-        Objects.requireNonNull(responseType, "responseType");
-        Options safeOptions = options == null ? Options.none() : options;
-        var catalog = OperationCatalog.agent(operation);
-        if (catalog.idempotencyRequired() && safeOptions.idempotencyKey() == null) {
-            throw new PlatformSdkException(PlatformSdkException.Code.IDEMPOTENCY_REQUIRED, PlatformSdkException.Retry.NEVER, null, null, null);
-        }
-        try {
-            return transport.<T>callPrograms(new ProductionTransport.ProgramsCall(operation,
-                    SchemaTypes.canonicalBody(request), SchemaTypes.PathParameters.of(safeOptions.pathParameters()),
-                    safeOptions.idempotencyKey()), mapper.constructType(responseType))
-                .whenComplete((value, error) -> {
-                    if (telemetry != null) telemetry.record(new TelemetryEvent(OperationCatalog.Plane.AGENT,
-                        operation, error == null ? "completed" : "refused",
-                        error instanceof PlatformSdkException sdk ? sdk.code() :
-                            error == null ? null : PlatformSdkException.Code.TRANSPORT_FAILURE));
-                });
-        } catch (PlatformSdkException error) {
-            throw error;
-        } catch (RuntimeException error) {
-            throw new PlatformSdkException(PlatformSdkException.Code.TRANSPORT_FAILURE,
-                PlatformSdkException.Retry.SAFE, null, null, null);
-        }
-    }
-
     private <T> CompletionStage<T> execute(SchemaTypes.Operation operation, ObjectNode request,
                                             JavaType responseType, Options options) {
         Options safeOptions = options == null ? Options.none() : options;

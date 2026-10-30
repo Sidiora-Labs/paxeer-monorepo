@@ -34,6 +34,360 @@ pub struct DispatchContext {
     pub peer: HumanPeer,
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AgentRegistrationWire {
+    tenant: String,
+    agent_did: String,
+    authority_ref: String,
+    client: String,
+    policy_version: String,
+    owner_address: String,
+    binding_consent: String,
+    fee_limit: String,
+}
+
+impl AgentRegistrationWire {
+    fn into_request(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::AgentRegistration, Rejection> {
+        use layerx_agent_api::identity::*;
+        let owner_address = hex_bytes(&self.owner_address, id)?
+            .try_into()
+            .map_err(|_| malformed(id))?;
+        let binding_consent = hex_bytes(&self.binding_consent, id)?;
+        if binding_consent.len() != 64 || owner_address == [0; 20] {
+            return Err(malformed(id));
+        }
+        Ok(AgentRegistration {
+            tenant: TenantId::new(self.tenant).map_err(|_| malformed(id))?,
+            agent_did: AgentDid::new(self.agent_did).map_err(|_| malformed(id))?,
+            authority_ref: AuthorityRef::new(self.authority_ref).map_err(|_| malformed(id))?,
+            client: ClientId::new(self.client).map_err(|_| malformed(id))?,
+            policy_version: PolicyVersion::new(self.policy_version).map_err(|_| malformed(id))?,
+            owner_address,
+            binding_consent,
+            fee_limit: layerx_agent_api::Amount(decimal_u128(&self.fee_limit, id)?),
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct BootstrapSessionContextWire {
+    tenant: String,
+    agent_did: String,
+    authority_ref: String,
+    permitted_activity_types: Vec<String>,
+    expiry: String,
+    client: String,
+    policy_version: String,
+}
+
+impl BootstrapSessionContextWire {
+    fn into_context(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::SessionContext, Rejection> {
+        use layerx_agent_api::identity::*;
+        let permitted = self
+            .permitted_activity_types
+            .iter()
+            .map(|value| {
+                decimal_u64(value, id)?
+                    .try_into()
+                    .map(ActivityType)
+                    .map_err(|_| malformed(id))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        SessionContext::new(
+            TenantId::new(self.tenant).map_err(|_| malformed(id))?,
+            AgentDid::new(self.agent_did).map_err(|_| malformed(id))?,
+            AuthorityRef::new(self.authority_ref).map_err(|_| malformed(id))?,
+            ExplicitSet::allow(permitted),
+            layerx_agent_api::TimestampSeconds(decimal_u64(&self.expiry, id)?),
+            ClientId::new(self.client).map_err(|_| malformed(id))?,
+            PolicyVersion::new(self.policy_version).map_err(|_| malformed(id))?,
+        )
+        .map_err(|_| malformed(id))
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct SessionOpenWire {
+    context: BootstrapSessionContextWire,
+    grant_id: String,
+    registration_payload: String,
+    expiry_sequence: String,
+    purpose: String,
+    fee_limit: String,
+}
+
+impl SessionOpenWire {
+    fn into_request(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::SessionOpen, Rejection> {
+        let expiry_sequence = decimal_u64(&self.expiry_sequence, id)?;
+        if expiry_sequence == 0 {
+            return Err(malformed(id));
+        }
+        Ok(layerx_agent_api::identity::SessionOpen {
+            context: self.context.into_context(id)?,
+            grant_id: hex32(&self.grant_id, id)?,
+            registration_payload: hex_bytes(&self.registration_payload, id)?,
+            expiry_sequence,
+            purpose: hex32(&self.purpose, id)?,
+            fee_limit: layerx_agent_api::Amount(decimal_u128(&self.fee_limit, id)?),
+        })
+    }
+}
+
+fn prepare_bootstrap_transaction(
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    state: crate::prepare::evm::EvmPreparationState,
+    from: [u8; 20],
+    to: [u8; 20],
+    data: Vec<u8>,
+    fee_limit: u128,
+    id: RequestId,
+) -> Result<crate::prepare::evm::Prepared, Rejection> {
+    let max_fee_per_gas = state
+        .base_fee_per_gas
+        .checked_mul(2)
+        .filter(|fee| *fee <= fee_limit)
+        .ok_or_else(|| rejection(ErrorClass::PolicyRefusal, id, "preparation.fee_limit"))?;
+    if state.chain_id == 0 || data.len() > MAX_BYTES {
+        return Err(malformed(id));
+    }
+    let gas_limit = endpoint
+        .estimate_gas(&layerx_client::sequencer::CallRequest {
+            from: Some(from),
+            to: Some(to),
+            value: 0,
+            data: data.clone(),
+        })
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    if gas_limit == 0 {
+        return Err(malformed(id));
+    }
+    let call = Eip1559Call {
+        chain_id: state.chain_id,
+        nonce: state.pending_nonce,
+        max_priority_fee_per_gas: 0,
+        max_fee_per_gas,
+        gas_limit,
+        to,
+        data,
+    };
+    Ok(crate::prepare::evm::Prepared {
+        signing_hash: call.signing_hash(),
+        call,
+        observed_head_height: state.head_height,
+    })
+}
+
+pub fn agent_register(
+    boundary: &crate::prepare::evm::ProductionEvmPreparationBoundary,
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    request: &layerx_agent_api::identity::AgentRegistration,
+    owner_public_key: [u8; 32],
+    id: RequestId,
+) -> Result<crate::prepare::evm::Prepared, Rejection> {
+    use layerx_client::account_binding::{
+        bind_nonce_call, decode_bind_nonce, ADDR_PRECOMPILE, SELECTOR_BIND_LAYERX,
+    };
+    let state = boundary
+        .preparation_state(&request.owner_address)
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let nonce = endpoint
+        .call_pending(&ADDR_PRECOMPILE, &bind_nonce_call(&request.owner_address))
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let nonce = decode_bind_nonce(&nonce).map_err(|_| malformed(id))?;
+    let signature: [u8; 64] = request
+        .binding_consent
+        .as_slice()
+        .try_into()
+        .map_err(|_| malformed(id))?;
+    layerx_client::paxeer_binding::Binding::new(state.chain_id, request.owner_address, nonce)
+        .verify(&owner_public_key, &signature)
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "binding.invalid_consent"))?;
+    let mut data = SELECTOR_BIND_LAYERX.to_vec();
+    data.extend_from_slice(&owner_public_key);
+    let mut word = [0; 32];
+    word[31] = 64;
+    data.extend_from_slice(&word);
+    data.extend_from_slice(&word);
+    data.extend_from_slice(&signature);
+    prepare_bootstrap_transaction(
+        endpoint,
+        state,
+        request.owner_address,
+        ADDR_PRECOMPILE,
+        data,
+        request.fee_limit.0,
+        id,
+    )
+}
+
+pub fn session_open(
+    boundary: &crate::prepare::evm::ProductionEvmPreparationBoundary,
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    registry: &crate::session_keys::SessionKeyRegistry,
+    request: &layerx_agent_api::identity::SessionOpen,
+    owner_public_key: [u8; 32],
+    id: RequestId,
+) -> Result<crate::prepare::evm::Prepared, Rejection> {
+    use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+    let issued = layerx_crypto::session::decode_session_key(&request.registration_payload)
+        .map_err(|_| malformed(id))?;
+    let agent = layerx_types::ids::Did::new(request.context.agent_did.as_str().as_bytes())
+        .map_err(|_| malformed(id))?;
+    if issued.grant_id != request.grant_id
+        || request.expiry_sequence == 0
+        || issued.grantor
+            != layerx_wire::hash::did_id_for_protocol(&agent, 3).map_err(|_| malformed(id))?
+    {
+        return Err(malformed(id));
+    }
+    let key = registry
+        .load(request.grant_id, issued.clone())
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "session.key_unavailable"))?;
+    if issued.session_public_key[12..] != key.evm_address() {
+        return Err(malformed(id));
+    }
+    key.with_secret(|_| ())
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "session.key_unavailable"))?;
+    let from = endpoint
+        .bound_address(&owner_public_key)
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?
+        .ok_or_else(|| owner_error(id, HumanOperationError::Refused))?;
+    let state = boundary
+        .preparation_state(&from)
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let mut expiry = [0; 32];
+    expiry[24..].copy_from_slice(&request.expiry_sequence.to_be_bytes());
+    let call = PrecompileCall {
+        target: PrecompileTarget::Auth,
+        selector: [0x11, 0x07, 0xb4, 0x9e],
+        arguments: vec![
+            AbiArgument::Bytes(issued.registration_payload),
+            AbiArgument::Word(expiry),
+            AbiArgument::Word(request.purpose),
+        ],
+    };
+    prepare_bootstrap_transaction(
+        endpoint,
+        state,
+        from,
+        call.target.address(),
+        call.encode().map_err(|_| malformed(id))?,
+        request.fee_limit.0,
+        id,
+    )
+}
+
+fn bootstrap_authority<A: HumanAuthorityBoundary>(
+    owner: &SharedAgentOwner<A>,
+    context: &RpcOwnerContext<'_>,
+    tenant: &str,
+    agent: &str,
+    authority_ref: &str,
+    client: &str,
+    policy: &str,
+    session_context: Option<&layerx_agent_api::identity::SessionContext>,
+    id: RequestId,
+) -> Result<layerx_agent_api::identity::AuthorityDescription, Rejection> {
+    use crate::identity::ProtocolAuthority;
+    use layerx_agent_api::identity::{AgentDid, AuthorityDescription, AuthorityRef, TenantId};
+    let principal = context.principal();
+    if tenant != principal.tenant.as_str() || agent.as_bytes() != principal.agent.as_bytes() {
+        return Err(owner_error(id, HumanOperationError::Refused));
+    }
+    let public_key = hex32(
+        agent
+            .strip_prefix("did:layerx:")
+            .ok_or_else(|| malformed(id))?,
+        id,
+    )?;
+    let head = owner
+        .current_core_sequence()
+        .map_err(|e| owner_error(id, e))?;
+    let mut guard = owner.lock().map_err(|e| owner_error(id, e))?;
+    guard
+        .native_purpose_owner(context, public_key, head)
+        .map_err(|e| owner_error(id, e))?;
+    let sessions = guard
+        .sessions
+        .read()
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let record = sessions
+        .get(&principal.tenant, principal.session_id)
+        .ok_or_else(|| owner_error(id, HumanOperationError::Refused))?;
+    let (kind, authority_id) = match record.request.authority {
+        ProtocolAuthority::PrimaryKey(key) => (1, key),
+        ProtocolAuthority::SessionKey(key) => (2, key),
+        ProtocolAuthority::CapabilityGrant(_) => {
+            return Err(owner_error(id, HumanOperationError::Refused))
+        }
+    };
+    if !record.open
+        || record.generation != context.permit().credential().generation()
+        || authority_ref != lower_hex(&authority_id)
+        || client != record.request.opening_client
+        || policy != record.request.policy_version
+    {
+        return Err(owner_error(id, HumanOperationError::Refused));
+    }
+    if let Some(asserted) = session_context {
+        let types: Vec<_> = record
+            .request
+            .permitted_activity_types
+            .iter()
+            .copied()
+            .map(layerx_agent_api::identity::ActivityType)
+            .collect();
+        if asserted.permitted_activity_types.values() != types
+            || Some(asserted.expiry.0) != record.request.expiry_seconds
+        {
+            return Err(owner_error(id, HumanOperationError::Refused));
+        }
+    }
+    let mut protocol_authority = vec![kind];
+    protocol_authority.extend_from_slice(&authority_id);
+    AuthorityDescription::new(
+        TenantId::new(tenant).map_err(|_| malformed(id))?,
+        AgentDid::new(agent).map_err(|_| malformed(id))?,
+        AuthorityRef::new(authority_ref).map_err(|_| malformed(id))?,
+        protocol_authority,
+    )
+    .map_err(|_| malformed(id))
+}
+
+fn bootstrap_response(
+    authority: layerx_agent_api::identity::AuthorityDescription,
+    prepared: crate::prepare::evm::Prepared,
+) -> Dispatched {
+    let response = layerx_agent_api::identity::AuthorityResponse {
+        authority,
+        value: prepared,
+    };
+    let call = &response.value.call;
+    Dispatched {
+        value: serde_json::json!({
+            "authority": {"tenant": response.authority.tenant.as_str(), "agent_did": response.authority.agent_did.as_str(),
+                "authority_ref": response.authority.authority_ref.as_str(), "protocol_authority": lower_hex(&response.authority.protocol_authority)},
+            "value": {"chain_id": call.chain_id.to_string(), "nonce": call.nonce.to_string(),
+                "max_priority_fee_per_gas": call.max_priority_fee_per_gas.to_string(), "max_fee_per_gas": call.max_fee_per_gas.to_string(),
+                "gas_limit": call.gas_limit.to_string(), "to": lower_hex(&call.to), "value": "0", "data": lower_hex(&call.data),
+                "signing_hash": lower_hex(&response.value.signing_hash), "observed_head_height": response.value.observed_head_height.to_string()},
+        }),
+        verification: None,
+    }
+}
+
 /// `verification` is `Some` only when the decoded owner payload carries a verification level;
 /// payloads without one (head, approval records) report `None` and no level is invented.
 pub(crate) struct Dispatched {
@@ -376,62 +730,40 @@ fn state_name(value: u8) -> Option<&'static str> {
     })
 }
 
+fn decode_read_json(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let value: Value = serde_json::from_slice(reader.bytes()?).ok()?;
+    let freshness = value.get("freshness")?;
+    for field in ["chain_head", "value_height"] {
+        let text = freshness.get(field)?.as_str()?;
+        if text.parse::<u64>().ok()?.to_string() != text {
+            return None;
+        }
+    }
+    if !value.get("achieved_verification_level")?.is_null() {
+        return None;
+    }
+    Some((value, None))
+}
+
 fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    let mut out = Map::new();
-    out.insert("chain_sequence".into(), dec(reader.u64()?));
-    out.insert("sealed_batch".into(), dec(reader.u64()?));
-    out.insert("finalised_checkpoint".into(), hexv(&reader.fixed::<32>()?));
-    Some((Value::Object(out), None))
+    decode_read_json(reader)
 }
 
 fn decode_account_state(
     reader: &mut Reader<'_>,
     account_id: [u8; 32],
 ) -> Option<(Value, Option<Rung>)> {
-    let observed = reader.fixed::<32>()?;
-    let achieved = rung(reader.u8()?)?;
-    let value = reader.bytes()?;
-    let proof = reader.bytes()?;
-    let sequence = reader.u64()?;
-    if observed != account_id || achieved < Rung::Committed || sequence == 0 {
-        return None;
-    }
-    let mut out = Map::new();
-    out.insert("account_id".into(), hexv(&observed));
-    out.insert("canonical_value".into(), hexv(value));
-    out.insert("proof".into(), hexv(proof));
-    out.insert("sequence".into(), dec(sequence));
-    Some((Value::Object(out), Some(achieved)))
+    let result = decode_read_json(reader)?;
+    (result.0["value"]["account"] == hexv(&account_id)).then_some(result)
 }
 
 fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    let mut out = Map::new();
-    let account = reader.fixed::<32>()?;
-    let asset = reader.fixed::<32>()?;
-    let currency = reader.text()?;
-    let observed_at = reader.text()?;
-    out.insert("age_seconds".into(), dec(reader.u64()?));
-    out.insert("amount".into(), dec(reader.u128()?));
-    let achieved = rung(reader.u8()?)?;
-    out.insert("global_sequence".into(), dec(reader.u64()?));
-    out.insert("batch_number".into(), dec(reader.u64()?));
-    out.insert("observed_head_sequence".into(), dec(reader.u64()?));
-    out.insert("observed_checkpoint".into(), hexv(&reader.fixed::<32>()?));
-    out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
-    out.insert("proof_material".into(), hexv(reader.bytes()?));
-    if achieved < Rung::Committed
-        || account == [0; 32]
-        || asset == [0; 32]
-        || currency.is_empty()
-        || observed_at.is_empty()
-    {
+    let result = decode_read_json(reader)?;
+    let text = result.0["value"]["amount"].as_str()?;
+    if text.parse::<u128>().ok()?.to_string() != text {
         return None;
     }
-    out.insert("account".into(), hexv(&account));
-    out.insert("asset".into(), hexv(&asset));
-    out.insert("currency".into(), Value::String(currency));
-    out.insert("observed_at".into(), Value::String(observed_at));
-    Some((Value::Object(out), Some(achieved)))
+    Some(result)
 }
 
 pub(crate) fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
@@ -851,7 +1183,27 @@ struct ReadAccountRequest {
     tenant: Option<String>,
     #[serde(default, skip_serializing)]
     agent: Option<String>,
+    #[serde(alias = "account")]
     account_id: String,
+    #[serde(
+        default,
+        alias = "requested_rung",
+        skip_serializing_if = "Option::is_none"
+    )]
+    requested_verification_level: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ReadBalanceRequest {
+    #[serde(default, skip_serializing)]
+    tenant: Option<String>,
+    #[serde(default, skip_serializing)]
+    agent: Option<String>,
+    account: String,
+    asset: String,
+    #[serde(alias = "requested_rung")]
+    requested_verification_level: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -964,9 +1316,9 @@ pub(crate) fn human_prepare(
             .map_err(|_| noncanonical(request_id))?,
         actor: request.actor,
         authority: request.authority,
-        account_sequence: decimal_u64(&request.account_sequence, request_id)?,
-        not_before: decimal_u64(&request.not_before, request_id)?,
-        not_after: decimal_u64(&request.not_after, request_id)?,
+        nonce: decimal_u64(&request.account_sequence, request_id)?,
+        not_before_height: decimal_u64(&request.not_before, request_id)?,
+        not_after_height: decimal_u64(&request.not_after, request_id)?,
         idempotency_key: request.idempotency_key,
         fee_limit: decimal_u128(&request.fee_limit, request_id)?,
         payload: hex_bytes(&request.payload, request_id)?,
@@ -1043,7 +1395,10 @@ pub(crate) fn canonical_request_bytes(
         Operation::ReadAccount => {
             named(operation, &decode::<ReadAccountRequest>(request, id)?, id)?
         }
-        Operation::ReadBalance | Operation::ReadCheckpoint => {
+        Operation::ReadBalance => {
+            named(operation, &decode::<ReadBalanceRequest>(request, id)?, id)?
+        }
+        Operation::ReadCheckpoint => {
             named(operation, &decode::<CoordinatesOnly>(request, id)?, id)?
         }
         Operation::Track => named(operation, &decode::<TrackRequest>(request, id)?, id)?,
@@ -1231,14 +1586,23 @@ pub(crate) fn canonical_request_bytes(
             id,
             ProgramWindDownWire::into_request,
         )?,
-        Operation::AgentRegister
-        | Operation::SessionOpen
-        | Operation::AvailabilityFetch
+        Operation::AgentRegister => {
+            let wire: AgentRegistrationWire = decode(request, id)?;
+            let canonical = named(operation, &wire, id)?;
+            wire.into_request(id)?;
+            canonical
+        }
+        Operation::SessionOpen => {
+            let wire: SessionOpenWire = decode(request, id)?;
+            let canonical = named(operation, &wire, id)?;
+            wire.into_request(id)?;
+            canonical
+        }
+        Operation::AvailabilityFetch
         | Operation::BudgetList
         | Operation::BudgetReconciliation
         | Operation::CapabilityList
         | Operation::ExportOffline
-        | Operation::FaucetClaim
         | Operation::ProgramActivity
         | Operation::ProgramDiscover
         | Operation::ProgramInterface
@@ -1307,21 +1671,24 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             let request: ReadAccountRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
             let account_id = hex32(&request.account_id, id)?;
+            if let Some(level) = &request.requested_verification_level {
+                Rung::from_name(level).ok_or_else(|| malformed(id))?;
+            }
             dispatched(id, owner.account_state(peer, account_id), |reader| {
                 decode_account_state(reader, account_id)
             })
         }
         Operation::ReadBalance => {
-            let request: CoordinatesOnly = decode(request, id)?;
+            let request: ReadBalanceRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
-            let error =
-                layerx_agent_api::error::ApiError::unavailable_capability(id, "read.balance")
-                    .expect("static operation name");
-            Err(Rejection {
-                class: error.class,
-                retriability: error.retriability,
-                request_id: id,
-                reason: "unavailable_capability.read.balance",
+            let account = hex32(&request.account, id)?;
+            let asset = hex32(&request.asset, id)?;
+            Rung::from_name(&request.requested_verification_level).ok_or_else(|| malformed(id))?;
+            dispatched(id, owner.balance(peer), |reader| {
+                let result = decode_balance(reader)?;
+                (result.0["value"]["account"] == hexv(&account)
+                    && result.0["value"]["asset"] == hexv(&asset))
+                .then_some(result)
             })
         }
         Operation::ReadCheckpoint => {
@@ -1437,11 +1804,6 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
                 dispatched(id, response, decode_submitted)
             }
         }
-        Operation::FaucetClaim => Err(rejection(
-            ErrorClass::UnavailableCapability,
-            id,
-            "unavailable_capability.faucet.claim",
-        )),
         Operation::BudgetCreate => adapters::budget_create(shared, context, request, ctx),
         Operation::BudgetFund => adapters::budget_fund(shared, context, request, ctx),
         Operation::BudgetList => adapters::budget_list(shared, context, request, ctx),
@@ -1494,11 +1856,97 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
         Operation::ProgramSimulate => adapters::program_simulate(shared, context, request, ctx),
         Operation::ProgramUpgrade => adapters::program_upgrade(shared, context, request, ctx),
         Operation::ProgramWindDown => adapters::program_wind_down(shared, context, request, ctx),
-        Operation::AgentRegister | Operation::SessionOpen => Err(rejection(
-            ErrorClass::PolicyRefusal,
-            id,
-            "refused_pending_bootstrap_artifact",
-        )),
+        Operation::AgentRegister | Operation::SessionOpen => {
+            let registration = if operation == Operation::AgentRegister {
+                Some(decode::<AgentRegistrationWire>(request, id)?.into_request(id)?)
+            } else {
+                None
+            };
+            let session = if operation == Operation::SessionOpen {
+                Some(decode::<SessionOpenWire>(request, id)?.into_request(id)?)
+            } else {
+                None
+            };
+            let authority = if let Some(request) = &registration {
+                bootstrap_authority(
+                    shared,
+                    context,
+                    request.tenant.as_str(),
+                    request.agent_did.as_str(),
+                    request.authority_ref.as_str(),
+                    request.client.as_str(),
+                    request.policy_version.as_str(),
+                    None,
+                    id,
+                )?
+            } else {
+                let asserted = &session.as_ref().ok_or_else(|| malformed(id))?.context;
+                bootstrap_authority(
+                    shared,
+                    context,
+                    asserted.tenant.as_str(),
+                    asserted.agent_did.as_str(),
+                    asserted.authority_ref.as_str(),
+                    asserted.client.as_str(),
+                    asserted.policy_version.as_str(),
+                    Some(asserted),
+                    id,
+                )?
+            };
+            let public_key = hex32(
+                authority
+                    .agent_did
+                    .as_str()
+                    .strip_prefix("did:layerx:")
+                    .ok_or_else(|| malformed(id))?,
+                id,
+            )?;
+            let config = crate::node_rpc::NodeRpcConfig::from_environment()
+                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+            let certificates = rustls_native_certs::load_native_certs();
+            if !certificates.errors.is_empty() {
+                return Err(owner_error(id, HumanOperationError::Unavailable));
+            }
+            let roots: Vec<&[u8]> = certificates
+                .certs
+                .iter()
+                .map(|cert| cert.as_ref())
+                .collect();
+            let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
+                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+            if endpoint
+                .chain_id()
+                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?
+                != config.chain_id
+            {
+                return Err(owner_error(id, HumanOperationError::Refused));
+            }
+            let boundary =
+                crate::prepare::evm::ProductionEvmPreparationBoundary::new(&config.url, &roots)
+                    .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+            let prepared = if let Some(request) = &registration {
+                agent_register(&boundary, &endpoint, request, public_key, id)?
+            } else {
+                let guard = shared.lock().map_err(|e| owner_error(id, e))?;
+                session_open(
+                    &boundary,
+                    &endpoint,
+                    &guard.session_keys,
+                    session.as_ref().ok_or_else(|| malformed(id))?,
+                    public_key,
+                    id,
+                )?
+            };
+            if prepared.call.chain_id != config.chain_id {
+                return Err(owner_error(id, HumanOperationError::Refused));
+            }
+            let guard = shared.lock().map_err(|e| owner_error(id, e))?;
+            context
+                .permit()
+                .boundary(&guard.session_control)
+                .map_err(|_| owner_error(id, HumanOperationError::Refused))?;
+            Ok(bootstrap_response(authority, prepared))
+        }
         Operation::ReadProofBundle => adapters::read_proof_bundle(shared, context, request, ctx),
         Operation::ProgramInterface => adapters::program_interface(shared, context, request, ctx),
         Operation::McpInvoke => Err(rejection(
@@ -1547,7 +1995,6 @@ fn typed_owner_refusals_keep_their_class_and_reason() {
     let id = RequestId(11);
     for refusal in [
         crate::human::HumanRefusal::StalePinnedHead,
-        crate::human::HumanRefusal::ExportSettlementAnchoringUnavailable,
         crate::human::HumanRefusal::BudgetAuthorizationRequired,
         crate::human::HumanRefusal::Policy(
             crate::policy::PolicyDryRunRefusal::LegacyProjectPayload,

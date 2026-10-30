@@ -9,9 +9,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::frame::Limits;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
-use layerx_client::lni::transport::Limits;
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest};
 use layerx_crypto::signer::Signer as _;
@@ -23,7 +23,6 @@ use layerx_paxeer_client::{
     raw_call, EmergencyExit, EndpointConfig, EndpointTransport, ExitConfig, ExitEligibility,
 };
 use layerx_proof::checkpoint::SettlementDomain;
-use layerx_proof::export::OfflineExport;
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount as ProtocolAmount;
 use layerx_types::ids::Did;
@@ -35,6 +34,7 @@ use layerx_types::intent::{
     TimestampSeconds,
 };
 use layerx_types::payload::ModuleId;
+use layerx_types::rung::Rung;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
 use serde_json::json;
@@ -43,7 +43,7 @@ use sha2::{Digest as _, Sha256};
 use super::agent_creation::ProductionAgentCreation;
 use crate::activity::{
     verification_status, AppliedFilters, EvidenceBundle, EvidenceExport, Feed, FeedCursor,
-    FilterDraft, PageRequest, ReceiptAuthority,
+    FilterDraft, PageRequest, ReceiptExport,
 };
 use crate::agents::{
     CreateAgentRequest, CreationContext, CreationJourney, PurposePresetCatalog,
@@ -202,6 +202,158 @@ fn managed_protocol_identity(value: &str) -> Result<[u8; 32], ApiFailure> {
 }
 use super::component::ComponentMaintenance;
 
+pub struct AccountBalance {
+    balance: super::agent_runtime::VerifiedBalance,
+    rung: Option<Rung>,
+}
+
+impl AccountBalance {
+    pub fn from_agent(balance: super::agent_runtime::VerifiedBalance) -> Result<Self, ApiFailure> {
+        let rung = balance.verification;
+        Ok(Self { balance, rung })
+    }
+
+    pub fn evidence_material(&self) -> Result<Vec<u8>, ApiFailure> {
+        let balance = &self.balance;
+        let mut material = Vec::with_capacity(
+            5 + 1 + balance.canonical_bytes.len() + balance.proof_material.len(),
+        );
+        material.extend_from_slice(b"LXHB1");
+        if let Some(rung) = self.rung {
+            material.push(rung.wire_rank());
+        }
+        material.extend_from_slice(
+            &u32::try_from(balance.observed_at.len())
+                .map_err(|_| ApiFailure::upstream_degraded())?
+                .to_be_bytes(),
+        );
+        material.extend_from_slice(balance.observed_at.as_bytes());
+        material.extend_from_slice(&balance.age_seconds.to_be_bytes());
+        material.extend_from_slice(
+            &u32::try_from(balance.canonical_bytes.len())
+                .map_err(|_| ApiFailure::upstream_degraded())?
+                .to_be_bytes(),
+        );
+        material.extend_from_slice(&balance.canonical_bytes);
+        material.extend_from_slice(&balance.proof_material);
+        Ok(material)
+    }
+
+    pub fn project(&self, evidence_digest: [u8; 32], freshness_seconds: u64) -> serde_json::Value {
+        let balance = &self.balance;
+        let verification = self
+            .rung
+            .map(super::HumanComponentServer::verification_level_name)
+            .unwrap_or("unverified");
+        let mut result = json!({
+            "account_id": format!("act_{}", hex_bytes(&balance.account)),
+            "money": {"amount": balance.amount.to_string(), "currency": balance.currency},
+            "verification": verification,
+            "freshness": {"observed_at": balance.observed_at, "age_seconds": balance.age_seconds,
+                "source_head": balance.observed_head_sequence.to_string(),
+                "within_bound": balance.observed_head_sequence == balance.global_sequence && balance.age_seconds <= freshness_seconds,
+                },
+            "evidence": [{"evidence_id": format!("evd_{}", hex_bytes(&evidence_digest)),
+                "class": match self.rung { Some(Rung::Committed) => "checkpoint-proof", Some(Rung::Receipted) => "layerx-receipt", _ => "submission-record" },
+                "verification": verification}]
+        });
+        if let Some(rung) = self.rung {
+            result["rung"] = json!(rung.name());
+        }
+        if balance.observed_checkpoint != [0; 32] {
+            result["freshness"]["checkpoint"] = json!(hex_bytes(&balance.observed_checkpoint));
+        }
+        result
+    }
+
+    pub fn read(
+        agent: &mut AgentRuntime,
+        scope: &mut crate::store::PrincipalScope<'_>,
+        now: u64,
+        freshness_seconds: u64,
+    ) -> Result<serde_json::Value, ApiFailure> {
+        let balance = Self::from_agent(agent.balance().map_err(agent_failure)?)?;
+        let material = balance.evidence_material()?;
+        let digest: [u8; 32] = Sha256::digest(&material).into();
+        scope
+            .put(
+                Table::Cache,
+                RowKey::new(format!("state-proof-{}", hex_bytes(&digest)))
+                    .map_err(|_| ApiFailure::upstream_degraded())?,
+                now,
+                material,
+            )
+            .map_err(|_| ApiFailure::unavailable())?;
+        Ok(balance.project(digest, freshness_seconds))
+    }
+
+    pub fn read_home_summary(
+        agent: &mut AgentRuntime,
+        scope: &mut crate::store::PrincipalScope<'_>,
+        now: u64,
+        freshness_seconds: u64,
+        settlement_domain: SettlementDomain,
+    ) -> Result<serde_json::Value, ApiFailure> {
+        let balance_json = AccountBalance::read(agent, scope, now, freshness_seconds)?;
+        let managed_page = agent.agent_list(None, 100).map_err(agent_failure)?;
+        let agents = managed_page
+            .agents
+            .into_iter()
+            .map(|value| managed_agent_json(agent, value))
+            .collect::<Result<Vec<_>, _>>()?;
+        let sequence = agent.head().map_err(agent_failure)?.chain_sequence;
+        let (approvals, _) = approval_inventory(agent, scope, sequence, now)?;
+        let (program_approvals, _) = program_approval_inventory(agent, scope, None, sequence, now)?;
+        let filters = Feed::apply_filters(FilterDraft::new())
+            .map_err(|error| activity_feed_failure(&error))?;
+        let recent_page = Feed::new(freshness_seconds)
+            .map_err(|_| ApiFailure::unavailable())?
+            .page(scope, PageRequest::new(20, filters), now, sequence)
+            .map_err(|error| activity_feed_failure(&error))?;
+        let recent = recent_page
+            .entries()
+            .iter()
+            .map(|entry| {
+                super::production_reads::activity_entry_json(
+                    settlement_domain,
+                    scope,
+                    entry.entry_id(),
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self::home_summary(
+            balance_json,
+            agents,
+            approvals,
+            program_approvals,
+            recent,
+        ))
+    }
+
+    pub fn home_summary(
+        balance: serde_json::Value,
+        agents: Vec<serde_json::Value>,
+        approvals: Vec<serde_json::Value>,
+        program_approvals: Vec<serde_json::Value>,
+        recent_activity: Vec<serde_json::Value>,
+    ) -> serde_json::Value {
+        let mut result = json!({"balance": balance, "agents": agents, "approvals": approvals, "program_approvals": program_approvals, "recent_activity": recent_activity});
+        if let Some(rung) = result["balance"].get("rung").cloned() {
+            result["rung"] = rung;
+        }
+        result
+    }
+}
+
+fn balance_rung(rank: u8) -> Result<Rung, ApiFailure> {
+    match rank {
+        0 => Ok(Rung::Submitted),
+        1 => Ok(Rung::Receipted),
+        2 => Ok(Rung::Committed),
+        _ => Err(ApiFailure::upstream_degraded()),
+    }
+}
+
 /// Mandatory, bounded production settings. There are deliberately no defaults:
 /// an omitted trust root, retention limit or transport bound refuses startup.
 pub struct ProductionComponentsConfig {
@@ -326,18 +478,7 @@ impl ProductionComponentsConfig {
             agent_owner_account: required("LAYERX_HUMAN_AGENT_OWNER_ACCOUNT")?,
             agent_recovery_root: secret32("LAYERX_HUMAN_AGENT_RECOVERY_ROOT")?,
             agent_recovery_threshold: number("LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD")?,
-            paxeer_endpoint: EndpointConfig {
-                url: required("LAYERX_HUMAN_PAXEER_RPC_URL")?,
-                request_timeout: Duration::from_secs(number(
-                    "LAYERX_HUMAN_PAXEER_RPC_TIMEOUT_SECONDS",
-                )?),
-                transport: EndpointTransport::PinnedTls {
-                    trust_anchor_der: read_nonempty(&absolute(
-                        "LAYERX_HUMAN_PAXEER_TRUST_ANCHOR_DER",
-                    )?)?,
-                },
-                expected_chain_id: number("LAYERX_HUMAN_PAXEER_CHAIN_ID")?,
-            },
+            paxeer_endpoint: paxeer_endpoint_from_environment()?,
             paxeer_finality_endpoints: finality_endpoints()?,
             paxeer_minimum_agreement: finality_minimum_agreement()?,
             exit_required_confirmations: number("LAYERX_HUMAN_EXIT_REQUIRED_CONFIRMATIONS")?,
@@ -3506,6 +3647,17 @@ fn finality_minimum_agreement() -> Result<usize, String> {
     Ok(minimum)
 }
 
+pub(super) fn paxeer_endpoint_from_environment() -> Result<EndpointConfig, String> {
+    Ok(EndpointConfig {
+        url: required("LAYERX_HUMAN_PAXEER_RPC_URL")?,
+        request_timeout: Duration::from_secs(number("LAYERX_HUMAN_PAXEER_RPC_TIMEOUT_SECONDS")?),
+        transport: EndpointTransport::PinnedTls {
+            trust_anchor_der: read_nonempty(&absolute("LAYERX_HUMAN_PAXEER_TRUST_ANCHOR_DER")?)?,
+        },
+        expected_chain_id: number("LAYERX_HUMAN_PAXEER_CHAIN_ID")?,
+    })
+}
+
 fn finality_endpoints() -> Result<Vec<EndpointConfig>, String> {
     let urls: Vec<String> = serde_json::from_str(&required("LAYERX_HUMAN_PAXEER_RPC_URLS")?)
         .map_err(|_| "LAYERX_HUMAN_PAXEER_RPC_URLS must be a JSON array".to_owned())?;
@@ -3540,7 +3692,7 @@ fn withdrawal_anchor_ready(
     balance: &super::agent_runtime::VerifiedBalance,
 ) -> bool {
     request.operation.name != "withdraw.start"
-        || (balance.verification >= 4 && balance.observed_checkpoint != [0; 32])
+        || (balance.verification == Some(Rung::Committed) && balance.observed_checkpoint != [0; 32])
 }
 
 fn resolve_movement_context(
@@ -6889,11 +7041,38 @@ impl ProductionComponents {
                         .get(Table::Cache, &proof_key)
                         .ok_or_else(ApiFailure::upstream_degraded)?;
                     let digest: [u8; 32] = Sha256::digest(proof.bytes()).into();
-                    let level = match proof.bytes().get(5) {
-                        Some(4) => "checkpoint-finalised",
-                        Some(5) => "settlement-anchored",
-                        _ => return Err(ApiFailure::upstream_degraded()),
-                    };
+                    let rung = balance
+                        .get("rung")
+                        .map(|name| {
+                            name.as_str()
+                                .and_then(Rung::from_name)
+                                .ok_or_else(ApiFailure::upstream_degraded)
+                        })
+                        .transpose()?;
+                    if let Some(rung) = rung {
+                        if balance_rung(
+                            *proof
+                                .bytes()
+                                .get(5)
+                                .ok_or_else(ApiFailure::upstream_degraded)?,
+                        )? != rung
+                        {
+                            return Err(ApiFailure::upstream_degraded());
+                        }
+                    } else if proof.bytes().get(5..9)
+                        != balance
+                            .pointer("/freshness/observed_at")
+                            .and_then(serde_json::Value::as_str)
+                            .and_then(|text| u32::try_from(text.len()).ok())
+                            .map(u32::to_be_bytes)
+                            .as_ref()
+                            .map(|bytes| bytes.as_slice())
+                    {
+                        return Err(ApiFailure::upstream_degraded());
+                    }
+                    let level = rung
+                        .map(super::HumanComponentServer::verification_level_name)
+                        .unwrap_or("unverified");
                     if proof.bytes().get(..5) != Some(b"LXHB1")
                         || hex_bytes(&digest) != id
                         || balance
@@ -6933,73 +7112,14 @@ impl ProductionComponents {
         scope: &mut crate::store::PrincipalScope<'_>,
     ) -> Result<BackendResponse, ApiFailure> {
         let mut agent = self.principal_agent(scope)?;
-        let balance = agent
-            .balance()
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        let mut material =
-            Vec::with_capacity(4 + balance.canonical_bytes.len() + balance.proof_material.len());
-        material.extend_from_slice(b"LXHB1");
-        material.push(balance.verification);
-        material.extend_from_slice(
-            &u32::try_from(balance.observed_at.len())
-                .map_err(|_| ApiFailure::upstream_degraded())?
-                .to_be_bytes(),
-        );
-        material.extend_from_slice(balance.observed_at.as_bytes());
-        material.extend_from_slice(&balance.age_seconds.to_be_bytes());
-        material.extend_from_slice(
-            &u32::try_from(balance.canonical_bytes.len())
-                .map_err(|_| ApiFailure::upstream_degraded())?
-                .to_be_bytes(),
-        );
-        material.extend_from_slice(&balance.canonical_bytes);
-        material.extend_from_slice(&balance.proof_material);
-        let evidence_digest: [u8; 32] = Sha256::digest(&material).into();
-        scope
-            .put(
-                Table::Cache,
-                RowKey::new(format!("state-proof-{}", hex_bytes(&evidence_digest)))
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                self.now()?,
-                material,
-            )
-            .map_err(|_| ApiFailure::unavailable())?;
-        let verification = match balance.verification {
-            4 => "checkpoint-finalised",
-            5 => "settlement-anchored",
-            _ => return Err(ApiFailure::upstream_degraded()),
-        };
-        let balance_json = json!({"account_id":format!("act_{}",hex_bytes(&balance.account)),"money":{"amount":balance.amount.to_string(),"currency":balance.currency},"verification":verification,"freshness":{"observed_at":balance.observed_at,"age_seconds":balance.age_seconds,"source_head":balance.observed_head_sequence.to_string(),"within_bound":balance.observed_head_sequence==balance.global_sequence && balance.age_seconds <= self.activity_freshness_seconds,"checkpoint":hex_bytes(&balance.observed_checkpoint)},"evidence":[{"evidence_id":format!("evd_{}",hex_bytes(&evidence_digest)),"class":if balance.verification>=4{"checkpoint-proof"}else{"layerx-receipt"},"verification":verification}]});
-        let managed_page = agent.agent_list(None, 100).map_err(agent_failure)?;
-        let agents = managed_page
-            .agents
-            .into_iter()
-            .map(|value| managed_agent_json(&mut agent, value))
-            .collect::<Result<Vec<_>, _>>()?;
-        let sequence = agent.head().map_err(agent_failure)?.chain_sequence;
-        let (approvals, _) = approval_inventory(&mut agent, scope, sequence, self.now()?)?;
-        let (program_approvals, _) =
-            program_approval_inventory(&mut agent, scope, None, sequence, self.now()?)?;
-        drop(agent);
-        let filters = Feed::apply_filters(FilterDraft::new())
-            .map_err(|error| activity_feed_failure(&error))?;
-        let recent_page = self
-            .feed
-            .page(scope, PageRequest::new(20, filters), self.now()?, sequence)
-            .map_err(|error| activity_feed_failure(&error))?;
-        let recent = recent_page
-            .entries()
-            .iter()
-            .map(|entry| {
-                super::production_reads::activity_entry_json(
-                    self.settlement_domain,
-                    scope,
-                    entry.entry_id(),
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
         Ok(BackendResponse {
-            result: json!({"balance":balance_json,"agents":agents,"approvals":approvals,"program_approvals":program_approvals,"recent_activity":recent}),
+            result: AccountBalance::read_home_summary(
+                &mut agent,
+                scope,
+                self.now()?,
+                self.activity_freshness_seconds,
+                self.settlement_domain,
+            )?,
             session: None,
         })
     }
@@ -7008,52 +7128,14 @@ impl ProductionComponents {
         &self,
         scope: &mut crate::store::PrincipalScope<'_>,
     ) -> Result<BackendResponse, ApiFailure> {
-        let balance = self
-            .principal_agent(scope)?
-            .balance()
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        let mut material =
-            Vec::with_capacity(4 + balance.canonical_bytes.len() + balance.proof_material.len());
-        material.extend_from_slice(b"LXHB1");
-        material.push(balance.verification);
-        material.extend_from_slice(
-            &u32::try_from(balance.observed_at.len())
-                .map_err(|_| ApiFailure::upstream_degraded())?
-                .to_be_bytes(),
-        );
-        material.extend_from_slice(balance.observed_at.as_bytes());
-        material.extend_from_slice(&balance.age_seconds.to_be_bytes());
-        material.extend_from_slice(
-            &u32::try_from(balance.canonical_bytes.len())
-                .map_err(|_| ApiFailure::upstream_degraded())?
-                .to_be_bytes(),
-        );
-        material.extend_from_slice(&balance.canonical_bytes);
-        material.extend_from_slice(&balance.proof_material);
-        let evidence_digest: [u8; 32] = sha2::Sha256::digest(&material).into();
-        let evidence_id = format!("evd_{}", hex_bytes(&evidence_digest));
-        scope
-            .put(
-                Table::Cache,
-                RowKey::new(format!("state-proof-{}", hex_bytes(&evidence_digest)))
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                self.now()?,
-                material,
-            )
-            .map_err(|_| ApiFailure::unavailable())?;
-        let verification = match balance.verification {
-            4 => "checkpoint-finalised",
-            5 => "settlement-anchored",
-            _ => return Err(ApiFailure::upstream_degraded()),
-        };
+        let mut agent = self.principal_agent(scope)?;
         Ok(BackendResponse {
-            result: json!({"account_id": format!("act_{}", hex_bytes(&balance.account)),
-                "money": {"amount": balance.amount.to_string(), "currency": balance.currency}, "verification": verification,
-                "freshness": {"observed_at": balance.observed_at, "age_seconds": balance.age_seconds,
-                    "source_head": balance.observed_head_sequence.to_string(), "within_bound": balance.observed_head_sequence == balance.global_sequence && balance.age_seconds <= self.activity_freshness_seconds,
-                    "checkpoint": hex_bytes(&balance.observed_checkpoint)},
-                "evidence": [{"evidence_id": evidence_id, "class": if balance.verification >= 4 {"checkpoint-proof"} else {"layerx-receipt"}, "verification": verification}]
-            }),
+            result: AccountBalance::read(
+                &mut agent,
+                scope,
+                self.now()?,
+                self.activity_freshness_seconds,
+            )?,
             session: None,
         })
     }
@@ -7133,7 +7215,6 @@ impl ProductionComponents {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let mut exports = Vec::new();
-        let mut entries = Vec::new();
         for id in &ids {
             let entry = Feed::entry(scope, id)
                 .map_err(|error| activity_feed_failure(&error))?
@@ -7143,26 +7224,23 @@ impl ProductionComponents {
                     .canonical()
                     .ok_or_else(ApiFailure::upstream_degraded)?
                     .to_vec();
-                let authority = receipt
-                    .authority()
-                    .copied()
-                    .ok_or_else(ApiFailure::upstream_degraded)?;
                 let digest: [u8; 32] = sha2::Sha256::digest(&canonical).into();
                 if hex_bytes(&digest) != receipt.reference() {
                     return Err(ApiFailure::upstream_degraded());
                 }
-                let fact = EvidenceBundle::receipt_fact(id, canonical, authority)
+                let fact = receipt
+                    .export_fact(id)
                     .map_err(|_| ApiFailure::upstream_degraded())?;
-                exports.push(OfflineExport {
+                exports.push(ReceiptExport {
                     receipts: vec![fact],
                     inclusions: Vec::new(),
                     checkpoints: Vec::new(),
                     derived_aggregates: Vec::new(),
                 });
             }
-            entries.push(entry);
         }
-        let receipt_authority = ReceiptAuthority::from_entries(&entries);
+        let receipt_keys =
+            AgentRuntime::receipt_keys(&self.paxeer_endpoint).map_err(agent_failure)?;
         let head = self
             .principal_agent(scope)?
             .head()
@@ -7174,8 +7252,7 @@ impl ProductionComponents {
                 &filters,
                 &ids,
                 exports,
-                self.settlement_domain,
-                &receipt_authority,
+                &receipt_keys,
                 self.now()?,
                 head.chain_sequence,
             )
@@ -7183,13 +7260,9 @@ impl ProductionComponents {
         let bytes = bundle.encode().map_err(activity_export_failure)?;
         let digest: [u8; 32] = sha2::Sha256::digest(&bytes).into();
         let text = hex_bytes(&digest);
-        let verification =
-            super::production_reads::verification_label(&verification_status(bundle.verify(
-                digest,
-                scope.principal(),
-                self.settlement_domain,
-                &receipt_authority,
-            )))?;
+        let verification = super::production_reads::verification_label(&verification_status(
+            bundle.verify(digest, scope.principal(), &receipt_keys),
+        ))?;
         scope
             .put(
                 Table::Cache,
@@ -8827,7 +8900,7 @@ impl AttestorKms {
         binding: &PrincipalKeyBinding,
         reference: &ProviderKeyReference,
         request: ProviderSignRequest<'_>,
-    ) -> Result<[u8; 64], CustodyError> {
+    ) -> Result<[u8; 65], CustodyError> {
         let (key_id, public_key, owner) =
             attestor_reference_parts(reference).map_err(CustodyError::Kms)?;
         if key_id != attestor_key_id(binding)
@@ -8850,13 +8923,17 @@ impl AttestorKms {
         let approval = layerx_human_kms::attestor::Approval {
             principal: &owner,
             session_id: &session,
-            expires_at: request.disclosure().expiry.not_after,
+            expires_at: request
+                .disclosure()
+                .expiry
+                .not_after
+                .min(request.disclosure().expiry.payload_expires_at),
         };
         let signature = signer
             .sign_activity(
-                request.canonical_bytes(),
+                request.call(),
                 request.disclosure(),
-                request.registry(),
+                request.from(),
                 &approval,
                 &assertion,
             )
@@ -8864,7 +8941,16 @@ impl AttestorKms {
                 self.refused(&error);
                 attestor_custody_failure(error)
             })?;
-        Ok(*signature.signature())
+        let signature = *signature.signature();
+        let parsed = layerx_crypto::signer::AgentSignature::new(signature)
+            .map_err(|_| CustodyError::Kms(KmsError::Integrity))?;
+        if layerx_crypto::evm_transaction::recover_sender(request.call(), &parsed)
+            .map_err(|_| CustodyError::Kms(KmsError::Integrity))?
+            != request.from()
+        {
+            return Err(CustodyError::Kms(KmsError::Integrity));
+        }
+        Ok(signature)
     }
     fn sign_native_now(
         &self,
@@ -9066,7 +9152,7 @@ impl crate::custody::KmsProvider for AttestorKms {
         reference: &'a ProviderKeyReference,
         request: ProviderSignRequest<'a>,
     ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<[u8; 64], CustodyError>> + Send + 'a>,
+        Box<dyn std::future::Future<Output = Result<[u8; 65], CustodyError>> + Send + 'a>,
     > {
         Box::pin(async move { self.sign_now(binding, reference, request) })
     }

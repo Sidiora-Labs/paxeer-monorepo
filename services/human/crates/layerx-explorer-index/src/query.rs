@@ -386,13 +386,11 @@ fn page<T>(records: &mut Vec<T>, limit: usize, coordinate: impl Fn(&T) -> u64) -
 
 #[cfg(test)]
 mod readiness_tests {
-    use layerx_client::head::Head;
-
     use super::{incomplete_ranges, QueryError, Readiness};
-    use crate::Indexer;
+    use crate::{IndexHead, Indexer};
 
-    fn head(sealed_batch: u64) -> Head {
-        Head {
+    fn head(sealed_batch: u64) -> IndexHead {
+        IndexHead {
             chain_sequence: sealed_batch.saturating_mul(10),
             sealed_batch,
             finalised_checkpoint: [0x5a; 32],

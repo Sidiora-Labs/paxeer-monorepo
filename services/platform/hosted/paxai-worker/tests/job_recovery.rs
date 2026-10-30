@@ -4,7 +4,7 @@
 //! tombstones and late results, all against a really opened market. Cases that need the real
 //! model runner read its executable from `PAXAI_RUNNER` and fail when it is not provisioned.
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_client::head::Head;
+use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::{
         acknowledgment_digest, admit, decode_acknowledgment, decode_service, encode_service,
@@ -953,10 +953,14 @@ impl View {
                 state: &self.bytes,
                 facts: &self.facts,
                 finality: &finality,
-                head: Head {
-                    chain_sequence: 77,
-                    sealed_batch: knobs.sealed,
-                    finalised_checkpoint: [0xC1; 32],
+                head: PxNetworkHead {
+                    network_id: "paxeer".to_owned(),
+                    paxeer: PxPaxeerHead {
+                        chain_id: 125,
+                        latest_block: knobs.sealed,
+                    },
+                    layerx: None,
+                    latest_committed_height: knobs.sealed,
                 },
                 owner: IdentityEvidence {
                     principal: owner,

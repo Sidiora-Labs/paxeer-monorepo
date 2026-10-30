@@ -21,8 +21,8 @@ use crate::tenant::{self, surface_for, AuthorizationError, ObjectOwner, Operatio
 
 pub const ENVELOPE_VERSION: u8 = 1;
 pub const MAX_BODY_BYTES: usize = 1_048_576;
-const BOOTSTRAP_OPERATIONS: &[Operation] = &[Operation::AgentRegister, Operation::SessionOpen];
-const RETIRED_OPERATIONS: &[Operation] = &[Operation::FaucetClaim];
+const BOOTSTRAP_OPERATIONS: &[Operation] = &[];
+const RETIRED_OPERATIONS: &[&str] = &["faucet.claim"];
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -127,17 +127,9 @@ pub fn dispatch_target(
     request_id: RequestId,
 ) -> Result<Operation, Rejection> {
     match operation {
-        Operation::FaucetClaim => Err(Rejection::new(
-            ErrorClass::UnavailableCapability,
-            request_id,
-            "unavailable_capability.faucet.claim",
-        )),
-        Operation::AgentRegister | Operation::SessionOpen => Err(Rejection::new(
-            ErrorClass::PolicyRefusal,
-            request_id,
-            "refused_pending_bootstrap_artifact",
-        )),
-        Operation::ApprovalApprove
+        Operation::AgentRegister
+        | Operation::SessionOpen
+        | Operation::ApprovalApprove
         | Operation::ApprovalGet
         | Operation::ApprovalList
         | Operation::ApprovalReject
@@ -236,6 +228,13 @@ pub fn decode(body: &[u8]) -> Result<Envelope, Rejection> {
             "envelope.version",
         ));
     }
+    if RETIRED_OPERATIONS.contains(&wire.operation.as_str()) {
+        return Err(Rejection::new(
+            ErrorClass::UnavailableCapability,
+            request_id,
+            "unavailable_capability.faucet.claim",
+        ));
+    }
     let operation = lookup(&wire.operation).ok_or_else(|| {
         Rejection::new(
             ErrorClass::ProtocolIncompatibility,
@@ -243,9 +242,6 @@ pub fn decode(body: &[u8]) -> Result<Envelope, Rejection> {
             "envelope.unknown_operation",
         )
     })?;
-    if RETIRED_OPERATIONS.contains(&operation) {
-        dispatch_target(operation, request_id)?;
-    }
     let idempotency_key = match (operation.mutating(), wire.idempotency_key.as_deref()) {
         (true, Some(text)) => Some(parse_hex32(text).filter(|key| *key != [0; 32]).ok_or_else(
             || {
