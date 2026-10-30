@@ -1823,7 +1823,7 @@ fn balance_json(read: &ProgramBalanceRead<CommittedProgramBalanceFreshness>) -> 
                 "account": hex::encode(&account.account),
                 "asset": hex::encode(&account.asset),
                 "amount": account.amount.to_string(),
-                "frozen": account.frozen,
+                "frozen": account.frozen.map_or(serde_json::Value::Null, serde_json::Value::Bool),
             })
         })
         .collect();
@@ -1847,14 +1847,14 @@ mod tests {
 
     #[test]
     fn balance_json_renders_committed_freshness() {
-        let read = ProgramBalanceRead::<CommittedProgramBalanceFreshness> {
+        let mut read = ProgramBalanceRead::<CommittedProgramBalanceFreshness> {
             program: [0x11; 32],
             lifecycle: ProgramLifecycle::Active,
             accounts: vec![ProgramValueBalance {
                 account: [0x22; 32],
                 asset: [0x33; 32],
                 amount: u128::MAX,
-                frozen: true,
+                frozen: Some(true),
             }],
             freshness: CommittedProgramBalanceFreshness {
                 height: 12_345,
@@ -1884,6 +1884,16 @@ mod tests {
                 },
             })
         );
+
+        read.accounts[0].frozen = None;
+        let rendered: serde_json::Value =
+            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
+        assert!(rendered["accounts"][0]["frozen"].is_null());
+
+        read.accounts[0].frozen = Some(false);
+        let rendered: serde_json::Value =
+            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
+        assert_eq!(rendered["accounts"][0]["frozen"], false);
     }
 }
 
