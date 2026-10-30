@@ -1,4 +1,6 @@
 export const runtimeMessages: readonly (readonly [string, string])[] = [
+  ["markets.send.receipt","Receipt: block {blockNumber}, logs {logCount}."],
+  ["markets.send.reverted","Transaction {transactionHash} reverted."],
   ["gas.sidiora.title","Transaction fees"],
   ["gas.sidiora.scope","Choose how this tab pays wallet transaction fees on Paxeer X Network."],
   ["gas.sidiora.paxeer","Pay fees in Paxeer"],

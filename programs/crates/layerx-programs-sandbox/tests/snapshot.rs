@@ -138,7 +138,8 @@ fn proven_transition(
     canonical.splice(history_end..history_end, receipt);
     let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
         .unwrap_or_else(|error| panic!("lease key: {error}"));
-    let fixture = chain::ChainFixture::new(
+    let fixture = chain::ChainFixture::new_in_store(
+        "lxphost",
         "paxeer-lease-chain",
         &[[1; 32], [2; 32], [3; 32]],
         vec![(key, canonical.clone())],

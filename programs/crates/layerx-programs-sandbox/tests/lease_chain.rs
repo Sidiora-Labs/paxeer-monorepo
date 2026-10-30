@@ -117,7 +117,8 @@ fn lease_transition_verifies_against_proven_lease_record() {
         sandbox_state_key(0, active.id().bytes()).unwrap_or_else(|error| panic!("key: {error}"));
     let usage_key = sandbox_state_key(1, active.id().bytes())
         .unwrap_or_else(|error| panic!("usage key: {error}"));
-    let fixture = ChainFixture::new(
+    let fixture = ChainFixture::new_in_store(
+        "lxphost",
         "paxeer-lease-chain",
         &[[1; 32], [2; 32], [3; 32]],
         vec![
@@ -192,6 +193,61 @@ fn lease_transition_verifies_against_proven_lease_record() {
 }
 
 #[test]
+fn lease_transition_verifies_only_against_mounted_lxphost_store() {
+    let (funded, _) = record(2);
+    let (active, transition) = record(3);
+    assert_eq!(funded.state(), LeaseState::Funded);
+    assert_eq!(active.state(), LeaseState::Active);
+    let canonical = active
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("encode: {error}"));
+    let key =
+        sandbox_state_key(0, active.id().bytes()).unwrap_or_else(|error| panic!("key: {error}"));
+    let authorization = AuthorizationContext::new(funded.tenant(), CapabilitySet::empty());
+    for store_name in ["lxphost", "layerx", "unmounted"] {
+        let fixture = ChainFixture::new_in_store(
+            store_name,
+            "paxeer-lease-chain",
+            &[[1; 32], [2; 32], [3; 32]],
+            vec![(key.clone(), canonical.clone())],
+        )
+        .unwrap_or_else(|error| panic!("chain: {error:?}"));
+        let head = fixture
+            .verifier
+            .verify_head(&fixture.header, &fixture.commit)
+            .unwrap_or_else(|error| panic!("head: {error:?}"));
+        let ops = fixture
+            .prove(&key)
+            .unwrap_or_else(|error| panic!("proof: {error:?}"));
+        assert_eq!(
+            verify_state(&head, store_name, &key, &canonical, &ops),
+            Ok(STATE_HEIGHT)
+        );
+        let evidence = TransitionEvidence::verify_call(
+            &head,
+            &funded,
+            transition,
+            &authorization,
+            &canonical,
+            &ops,
+        );
+        if store_name == "lxphost" {
+            let evidence = evidence.unwrap_or_else(|error| panic!("activate: {error}"));
+            assert_eq!(evidence.state_height(), STATE_HEIGHT as u64);
+            assert_eq!(evidence.tx_hash(), transition.activity_id);
+            assert_eq!(
+                evidence.lease_digest(),
+                active
+                    .state_digest()
+                    .unwrap_or_else(|error| panic!("digest: {error}"))
+            );
+        } else {
+            assert_eq!(evidence, Err(LeaseRefusal::InvalidCanonicalEvidence));
+        }
+    }
+}
+
+#[test]
 fn lease_transition_refuses_regressed_state() {
     let (funded, _) = record(2);
     let (_, activate) = record(3);
@@ -200,7 +256,8 @@ fn lease_transition_refuses_regressed_state() {
         .unwrap_or_else(|error| panic!("encode: {error}"));
     let key =
         sandbox_state_key(0, funded.id().bytes()).unwrap_or_else(|error| panic!("key: {error}"));
-    let fixture = ChainFixture::new(
+    let fixture = ChainFixture::new_in_store(
+        "lxphost",
         "paxeer-lease-chain",
         &[[1; 32]],
         vec![(key.clone(), canonical.clone())],
@@ -214,7 +271,7 @@ fn lease_transition_refuses_regressed_state() {
         .prove(&key)
         .unwrap_or_else(|error| panic!("proof: {error:?}"));
     assert_eq!(
-        verify_state(&head, "layerx", &key, &canonical, &ops),
+        verify_state(&head, "lxphost", &key, &canonical, &ops),
         Ok(STATE_HEIGHT)
     );
     assert_eq!(funded.state(), LeaseState::Funded);

@@ -2003,13 +2003,14 @@ fn parse_request(stream: &mut DeadlineStream, bearer: &str) -> Parsed {
 fn route_request(
     path: &str,
     node_config: &NodeRpcConfig,
+    node_ca_der: &[u8],
     endpoint: &layerx_client::sequencer::SequencerEndpoint,
     route: &mut ProgramBalanceReadRoute,
     native: &mut Option<NativeReadRoute>,
 ) -> (u16, String) {
     let reply = |status: u16, body: &str| (status, body.to_owned());
     if path == "/healthz" {
-        let (transport_ready, ready) = match NodeRpc::connect(node_config) {
+        let (transport_ready, ready) = match NodeRpc::connect_with_ca(node_config, node_ca_der) {
             Ok(node) => (true, readiness_gate(&node).is_ok()),
             Err(_) => (false, false),
         };
@@ -2056,7 +2057,7 @@ fn route_request(
         return reply(503, "{\"error\":\"program_state_unavailable\"}");
     }
     let read = (|| {
-        let node = NodeRpc::connect(node_config).map_err(|_| ())?;
+        let node = NodeRpc::connect_with_ca(node_config, node_ca_der).map_err(|_| ())?;
         readiness_gate(&node).map_err(|_| ())?;
         let height = endpoint.block_number().map_err(|_| ())?;
         route.read(program, height).map_err(|_| ())
@@ -2153,6 +2154,7 @@ pub(crate) fn serve_read_routes(
     route: ProgramBalanceReadRoute,
     native: Option<NativeReadRoute>,
     node_config: NodeRpcConfig,
+    node_ca_der: Vec<u8>,
     endpoint: layerx_client::sequencer::SequencerEndpoint,
 ) -> Result<HttpPool, String> {
     let shared_reads = Arc::new(Mutex::new((route, native)));
@@ -2167,7 +2169,14 @@ pub(crate) fn serve_read_routes(
                 match shared_reads.try_lock() {
                     Ok(mut reads) => {
                         let (route, native) = &mut *reads;
-                        break route_request(&path, &node_config, &endpoint, route, native);
+                        break route_request(
+                            &path,
+                            &node_config,
+                            &node_ca_der,
+                            &endpoint,
+                            route,
+                            native,
+                        );
                     }
                     Err(std::sync::TryLockError::WouldBlock) => thread::sleep(SUPERVISION_INTERVAL),
                     Err(std::sync::TryLockError::Poisoned(_)) => return,
@@ -2240,6 +2249,7 @@ fn serve(config: Config) -> Result<(), String> {
         route,
         native,
         node_config,
+        config.authority_ca_der.clone(),
         endpoint,
     )?;
     loop {
