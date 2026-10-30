@@ -158766,7 +158766,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.6]
 title = "Complete a sandboxed SUCCESS terminal from the published sandbox usage result"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.27.5"]
