@@ -132787,7 +132787,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.12.1]
 title = "Observe program heads from the programs construct getStateHead"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["6.0.2", "6.94.2", "18.1083.1"]
