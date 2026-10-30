@@ -53,7 +53,7 @@ describe('useNavItems', () => {
 
     const texts = textsOf(result.current.mainNavItems);
 
-    expect(texts.slice(0, 4)).toEqual([ 'Home', 'Blockchain', 'Tokens', 'Kernel' ]);
+    expect(texts.slice(0, 4)).toEqual([ 'Home', 'Blockchain', 'Tokens', 'Kernel archive' ]);
     expect(texts).toContain('Resources');
     expect(texts[texts.length - 1]).toBe('More');
   });
@@ -98,7 +98,7 @@ describe('useNavItems', () => {
   it('collects the kernel pages in their own group', () => {
     const { result } = renderNavItems();
 
-    const kernel = groupOf(result.current.mainNavItems, 'Kernel');
+    const kernel = groupOf(result.current.mainNavItems, 'Kernel archive');
 
     expect(textsOf(kernel.subItems.flat())).toEqual([ 'Anchor checkpoints', 'Kernel receipts' ]);
   });
