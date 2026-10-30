@@ -100064,7 +100064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.25.5]
 title = "Expose the 0x0906 agent stream API on the pay keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.25.1", "2.25.2", "2.25.3", "2.25.4"]
@@ -163744,7 +163744,7 @@ do_6 = "Attempts 2 and 3 (a207581ea and the third) pass the verify and fail the 
 
 [task.14.29.4]
 title = "Drop the kernel receipt cases and the layerxd prerequisites from the data-boundary test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.29.3", "14.35.1"]
