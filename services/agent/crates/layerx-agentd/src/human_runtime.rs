@@ -3914,7 +3914,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let (now, bound) =
             current_program_bundle(programs, &mut operations.node, context, program)?;
         let guest_abi_version = bound.program_head().abi_version();
-        let sequencer_public_key = bound.chain_head().sequencer_public_key();
+        let sequencer_public_key = operations.node.handshake().node().authorised_sequencer_key;
         let correlation = boundary_correlation(context.peer(), &program_id, b"program-simulate");
         let mut captured = None;
         let execution = {
@@ -3926,8 +3926,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 ),
                 captured: &mut captured,
             };
-            let mut simulator = ReceiptVerifiedProgramSimulator::new(transport, registry, &bound)
-                .map_err(program_operation_error)?;
+            let mut simulator = ReceiptVerifiedProgramSimulator::new(
+                transport,
+                registry,
+                &bound,
+                sequencer_public_key,
+            )
+            .map_err(program_operation_error)?;
             match &request {
                 ProgramSimulationRequest::Legacy(call) => {
                     let call = ProgramCall::new(
@@ -8056,6 +8061,49 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         Some(permit.preparation_authorization()),
                     )
                     .map_err(SessionControlError::Human)
+            })
+            .map_err(rpc_commit_error)
+    }
+
+    pub(crate) fn rpc_submit_raw(
+        &mut self,
+        context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
+        raw: Vec<u8>,
+    ) -> Result<HumanResponse, HumanOperationError> {
+        let control = self.session_control.clone();
+        context
+            .commit(&control, |peer| {
+                let mut operations = self
+                    .lock_operations()
+                    .map_err(crate::session_control::SessionControlError::Human)?;
+                let result = (|| {
+                    operations.require_write_admission(&peer.tenant)?;
+                    let tenant = TenantId::new(peer.tenant.clone())
+                        .map_err(|_| HumanOperationError::Refused)?;
+                    let node = write_node()?;
+                    let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
+                    let mut store = self
+                        .store
+                        .lock()
+                        .map_err(|_| HumanOperationError::Unavailable)?;
+                    let response = submit_raw_write(
+                        operations.outboxes.entry(peer.tenant.clone()).or_default(),
+                        &mut store,
+                        tenant,
+                        raw,
+                        &node,
+                    )?;
+                    operations.submissions.insert(
+                        (
+                            peer.tenant.clone(),
+                            peer.principal.clone(),
+                            layerx_programs::hex::encode(&hash),
+                        ),
+                        hash,
+                    );
+                    Ok(response)
+                })();
+                result.map_err(crate::session_control::SessionControlError::Human)
             })
             .map_err(rpc_commit_error)
     }
@@ -20920,6 +20968,44 @@ pub fn write_submission(
     }
     out.u8(0);
     out.finish()
+}
+
+pub fn submit_raw_write(
+    outbox: &mut Outbox,
+    store: &mut Store,
+    tenant: TenantId,
+    raw: Vec<u8>,
+    node: &crate::node_rpc::NodeRpc,
+) -> Result<HumanResponse, HumanOperationError> {
+    let (call, _) = layerx_crypto::evm_transaction::decode_signed(&raw)
+        .map_err(|_| HumanOperationError::Refused)?;
+    if call.chain_id != node.chain_id() {
+        return Err(HumanOperationError::Refused);
+    }
+    let hash = outbox
+        .enqueue(store, tenant, raw)
+        .map_err(|error| match error {
+            crate::outbox::OutboxError::Store(_) => HumanOperationError::Unavailable,
+            _ => HumanOperationError::Refused,
+        })?;
+    let bytes = subject::begin_transmission(outbox, store, hash)?;
+    let (state, reason) = match node.send_raw_transaction(&bytes) {
+        Ok(returned_hash) => {
+            let status = accept_raw_write(outbox, store, hash, returned_hash)?;
+            return write_submission(&status, None);
+        }
+        Err(crate::node_rpc::NodeRpcError::Unavailable) => {
+            (SubmissionState::Unknown, "submission outcome indeterminate")
+        }
+        Err(crate::node_rpc::NodeRpcError::Sequencer(
+            layerx_client::sequencer::SequencerError::Rpc(_),
+        )) => (SubmissionState::Failed, "eth_sendRawTransaction refused"),
+        Err(_) => return Err(HumanOperationError::Unavailable),
+    };
+    let status = outbox
+        .transition(store, hash, state, reason, None)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    write_submission(&status, None)
 }
 
 pub fn accept_raw_write(

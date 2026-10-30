@@ -29,12 +29,11 @@ describe('ActivityList', () => {
   it('renders one row per activity entry', () => {
     const { container } = render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
 
-    expect(container.querySelectorAll('[data-activity]')).toHaveLength(3);
+    expect(container.querySelectorAll('[data-activity]')).toHaveLength(2);
 
-    // the first cell of a row names the kind and, under it, the side of the network it happened on
     const kinds = Array.from(container.querySelectorAll('[data-activity] td:first-child')).map((cell) => cell.textContent);
 
-    expect(kinds).toEqual([ 'Custody depositKernel', 'Token transferChain', 'TransactionChain' ]);
+    expect(kinds).toEqual([ 'Token transfer', 'Transaction' ]);
   });
 
   it('humanizes a kind outside the known vocabulary', () => {
@@ -46,34 +45,48 @@ describe('ActivityList', () => {
   });
 
   it('puts every row on the status ladder', () => {
-    const { container } = render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
+    const { container, rerender } = render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
 
-    expect(container.querySelectorAll('[data-rung]')).toHaveLength(3);
+    expect(container.querySelectorAll('[data-rung]')).toHaveLength(2);
     expect(container.querySelector('[data-rung="final"]')).toBeTruthy();
     expect(container.querySelector('[data-rung="sealed"]')).toBeTruthy();
+
+    rerender(<ActivityList
+      { ...pagination }
+      items={ [ { ...paxeerXMock.unifiedAccount.activity[0], status: 'instant' } ] }
+      total={ 1 }
+    />);
+
+    expect(container.querySelectorAll('[data-rung]')).toHaveLength(1);
     expect(container.querySelector('[data-rung="instant"]')).toBeTruthy();
   });
 
-  it('scales amounts by the asset decimals and marks the chain and kernel sides', () => {
+  it('scales amounts by the asset decimals without network-side labels', () => {
     render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
 
     expect(screen.getByText('1.5 HPX')).toBeTruthy();
     expect(screen.getByText('2.5 USDX')).toBeTruthy();
-    expect(screen.getAllByText('Chain')).toHaveLength(2);
-    expect(screen.getByText('Kernel')).toBeTruthy();
+    expect(screen.queryByText('Chain')).toBeNull();
+    expect(screen.queryByText('Kernel')).toBeNull();
   });
 
-  it('shows a custody amount unscaled and labelled by its kernel asset id', () => {
-    render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
+  it('shows an amount unscaled and labelled by its denom when metadata is absent', () => {
+    const item = {
+      ...paxeerXMock.unifiedAccount.activity[0],
+      asset: { ...paxeerXMock.tokenAsset, symbol: null, decimals: null },
+      amount: '1200',
+    };
 
-    expect(screen.getByText(`1,200 ${ paxeerXMock.custodyAsset.denom }`)).toBeTruthy();
+    render(<ActivityList { ...pagination } items={ [ item ] } total={ 1 }/>);
+
+    expect(screen.getByText(`1,200 ${ paxeerXMock.tokenAsset.denom }`)).toBeTruthy();
   });
   it('heads the scan table card with the entry count and its note', () => {
     const { container } = render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
 
     const card = container.querySelector('[data-scan-table-card]');
 
-    expect(card?.querySelector('[data-title]')?.textContent).toBe('A total of 3 activity entries found');
+    expect(card?.querySelector('[data-title]')?.textContent).toBe('A total of 2 activity entries found');
     expect(card?.querySelector('[data-note]')?.textContent).toBe('Chain-side and kernel-side entries in one feed, newest first');
   });
 
@@ -83,7 +96,7 @@ describe('ActivityList', () => {
     const methods = Array.from(container.querySelectorAll('[data-activity] [data-scan-method]'))
       .map((chip) => chip.getAttribute('data-scan-method'));
 
-    expect(methods).toEqual([ 'Custody deposit', 'Token transfer', 'Transaction' ]);
+    expect(methods).toEqual([ 'Token transfer', 'Transaction' ]);
   });
 
   it('heads the card with a loading title while the page is on its way', () => {
@@ -95,7 +108,7 @@ describe('ActivityList', () => {
   it('counts the entries of the page when the node reports no total', () => {
     const { container } = render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity } total={ null }/>);
 
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent).toBe('3 activity entries on this page');
+    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent).toBe('2 activity entries on this page');
   });
 
 });

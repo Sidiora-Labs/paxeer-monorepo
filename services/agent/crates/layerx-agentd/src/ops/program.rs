@@ -588,6 +588,7 @@ impl<T: ProgramSimulationTransport> ReceiptVerifiedProgramSimulator<T> {
         transport: T,
         registry: ModuleRegistry,
         bound: &VerifiedProgramBundle,
+        simulation_public_key: [u8; 32],
     ) -> Result<Self, ProgramOperationError> {
         let program_head = bound.program_head();
         let chain = bound.chain_head();
@@ -597,7 +598,6 @@ impl<T: ProgramSimulationTransport> ReceiptVerifiedProgramSimulator<T> {
         {
             return Err(ProgramOperationError::UnverifiedReceipt);
         }
-        let simulation_public_key = chain.sequencer_public_key();
         let mut boundary = b"LayerX/emulator/simulation-boundary/v1\0".to_vec();
         boundary.extend_from_slice(&simulation_public_key);
         Ok(Self {
@@ -1106,7 +1106,7 @@ impl ProgramOperations {
         })?;
         let selector = ProgramStateSelector::new(
             program.bytes(),
-            chain.global_sequence(),
+            chain.freshness().observed_sequence,
             chain.receipt_digest(),
             chain.state_root(),
         )
@@ -1125,9 +1125,8 @@ impl ProgramOperations {
         if response.selector() != selector {
             return Err(ProgramOperationError::UnverifiedReceipt);
         }
-        let signer = client.handshake().node().authorised_sequencer_key;
         self.reader
-            .verify_program_bundle(response.canonical_payload(), &chain, program, &signer, now)
+            .verify_program_bundle(response.canonical_payload(), &chain, program, now)
             .map_err(|error| match error {
                 ProgramBundleError::Evidence(ProtocolEvidenceError::Stale) => {
                     ProgramOperationError::Stale
