@@ -94932,7 +94932,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 [task.1.24.1]
 title = "Register perps, spot, stream and service modules in the hosted kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["1.23.3", "1.0.3", "2.95.1", "1.23.5"]
@@ -138649,7 +138649,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.96.5]
 title = "Drop the native state feed, its history store and the daemon header from the emulator core"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["8.0.3", "1.0.3", "18.1121.1", "18.1297.1", "18.1300.1"]
@@ -147810,7 +147810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.96.2]
 title = "Remove the retired bridge and custody intent kinds from the human render fixtures and onboarding sponsor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["10.12.2", "10.0.4", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "18.1297.1"]
@@ -157638,7 +157638,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.4.5]
 title = "Switch ProtocolDeploymentVerifier and the verified evidence types to chain proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["13.4.1", "13.4.2", "13.4.3", "13.4.4", "13.0.3"]
@@ -163542,7 +163542,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.4]
 title = "Check call_tracer traces decode into internal transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.28.2", "18.1055.1"]
@@ -190773,7 +190773,7 @@ qualification = "UNRUN"
 
 [task.18.1295.1]
 title = "Issue #1295: Page the CLI program registry listing through bounded eth_getLogs ranges"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191014,7 +191014,7 @@ qualification = "UNRUN"
 
 [task.18.1289.1]
 title = "Issue #1289: Decode the getValueAccount existence flag in the committed program balance reader instead of reporting it as frozen"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191189,7 +191189,7 @@ qualification = "UNRUN"
 
 [task.18.1262.1]
 title = "Issue #1262: Keep an A2A raw submission unknown with its local transaction hash when the node response is lost"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191481,7 +191481,7 @@ qualification = "UNRUN"
 
 [task.18.1257.1]
 title = "Issue #1257: Accept and send the raw_transaction form of activity.submit in the agent daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192321,7 +192321,7 @@ qualification = "UNRUN"
 
 [task.18.1258.1]
 title = "Issue #1258: Stop requiring source-account and asset bindings for full-mode A2A start and install"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192550,7 +192550,7 @@ qualification = "UNRUN"
 
 [task.18.1293.2]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the JVM SDK envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1293.1"]
@@ -192590,7 +192590,7 @@ qualification = "UNRUN"
 
 [task.18.1293.3]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the Python SDK envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1293.1"]
@@ -192630,7 +192630,7 @@ qualification = "UNRUN"
 
 [task.18.1293.4]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the TypeScript SDK envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1293.1"]

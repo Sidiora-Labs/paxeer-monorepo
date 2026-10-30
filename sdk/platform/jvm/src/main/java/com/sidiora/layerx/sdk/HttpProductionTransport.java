@@ -24,7 +24,6 @@ public final class HttpProductionTransport implements ProductionTransport {
     private static final int MAXIMUM_RESPONSE_BYTES = 8 * 1024 * 1024;
     private static final String AGENT_RPC_PATH = "/v1/agent/rpc";
     private static final int MAXIMUM_AGENT_ENVELOPE_BYTES = 1_048_576;
-    private static final Set<String> AGENT_BOOTSTRAP_OPERATIONS = Set.of("agent.register", "session.open");
     private static final Set<String> VERIFICATION_LEVELS = Set.of("Unverified", "SequencerSigned",
         "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored");
     private static final java.security.SecureRandom REQUEST_IDS = new java.security.SecureRandom();
@@ -275,16 +274,14 @@ public final class HttpProductionTransport implements ProductionTransport {
         } else if (call.idempotencyKey() != null) {
             throw PlatformSdkException.invalidArgument();
         }
-        boolean bootstrap = AGENT_BOOTSTRAP_OPERATIONS.contains(operation);
-        if (!bootstrap && session == null) throw new PlatformSdkException(
+        if (session == null) throw new PlatformSdkException(
             PlatformSdkException.Code.CAPABILITY_REFUSAL, PlatformSdkException.Retry.NEVER, null, null, null);
         var body = mapper.createObjectNode();
         body.put("version", 2);
         body.put("request_id", requestId);
         body.put("operation", operation);
         body.set("request", call.request());
-        if (bootstrap) body.putNull("credential");
-        else body.set("credential", session.encode(mapper));
+        body.set("credential", session.encode(mapper));
         if (mutating) body.put("idempotency_key", call.idempotencyKey().value());
         else body.putNull("idempotency_key");
         byte[] encoded = mapper.writeValueAsBytes(body);
