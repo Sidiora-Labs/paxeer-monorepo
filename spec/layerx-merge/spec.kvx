@@ -100292,7 +100292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.26.4]
 title = "Implement service dispute open and resolve with the escrow arbiter link"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.22.4", "2.23.2", "1.20.2", "1.24.1", "18.1306.1"]
