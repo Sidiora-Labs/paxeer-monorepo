@@ -117526,7 +117526,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.49.4]
 title = "Conformance: module-registry and genesis builder agree on the module table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["5.49.3", "5.48.2", "5.0.3"]
