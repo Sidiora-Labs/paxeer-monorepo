@@ -11275,3 +11275,11 @@ symbol = "config"
 observed = "Attempt 6 (32ec3e7a2) re-qualified unchanged on a base with f2e14e618 and the platform --tests build failed E0063 missing field chain_receipts in the Config initializer at head_attestation_tests.rs:115, left behind by 8.8.2."
 assumption = "The new do ports the test initializer; 8.8.4 (wave 29) later deletes the file; attempt 7 continues from attempt 6."
 severity = "low"
+
+[finding.13.0.2.1]
+task = "13.0.2"
+file = "programs/crates/layerx-programs-registry/tests/chain_trust.rs"
+symbol = "advance"
+observed = "Attempt 1 (79b9d1a5d) implemented do_1 to do_6 and the --tests build failed E0592 duplicate definitions with name advance, because tests/chain_trust.rs:7-8 includes src/chain_proof/trust.rs directly beside its whole-tree include and do_6 made chain_proof::trust real."
+assumption = "do_7 drops the direct include; attempt 2 continues from attempt 1."
+severity = "medium"
