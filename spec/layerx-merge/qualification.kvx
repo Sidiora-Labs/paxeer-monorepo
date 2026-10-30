@@ -13035,3 +13035,75 @@ symbol = "BuyerMiddlewareConfig.receiptKeys"
 observed = "8.23.2 do_1 names the pinned PxReceiptKeyEntry list (strings and bigint, px.ts:118-123) as the buyer's receipt-key type while the seller (services/platform/middleware/seller/src/index.ts:160, :365-370) and the 15.0.4 and 15.4.1 candidates (sdk/integrations/express/src/index.ts:380 at 3d2412740, sdk/integrations/next/src/index.ts:356 at 7bbe6682f) pass one readonly SequencerReceiptKey[] value (Uint8Array and bigint, verifier.ts:967-972) to both middlewares."
 assumption = "8.23.2 do_10 types the buyer field as readonly SequencerReceiptKey[], so 15.0.4 and 15.4.1 compile against it once 8.23.2 and 8.23.3 are done; implemented as do_1 was worded, both integrations would fail again on the buyer literal."
 severity = "owner"
+
+[finding.2.40.5.1]
+task = "2.40.5"
+file = "precompiles/layerxpay/gas.go:18"
+symbol = "methodGas"
+observed = "At 080b1e02a all 49 metered 0x101B writes in TestPayChargedGasCoversHostStoreWork consume more KV gas than their methodGas row charges (gas_bound_test.go:51), short by 961 to 58806, and the shortfall grows with the store because HostExecute's branch.load, restoreAccounts and loadBlobs (lxphost/ctx.go:143-204, host.go:1343-1366) re-read every loading-set and account row on each call."
+assumption = "Decision 1962 makes the charge track the consumed KV gas on top of the row (task 2.40.10); raising the frozen rows at a declared store state could not bound state-proportional work, and narrowing the window to HostExecute removes only about 11.5k per call."
+severity = "owner"
+
+[finding.2.40.5.2]
+task = "2.40.5"
+file = "precompiles/common/precompiles.go:197"
+symbol = "Run"
+observed = "At 4273fb82e an EVM call of 0x101B pays only RequiredGas: RunPrecompiledContract deducts the row before Run and returns suppliedGas minus that row (core/deps/geth/core/vm/contracts.go:237-246), Run installs no meter (precompiles/common/precompiles.go:197-241), and inside a transaction the DBImpl ctx meter is the infinite meter of modules/evm/keeper/msg_server.go:64-65 and :82 whose consumption is never billed (:166-167), so the store gas HostExecute consumes above the row is unpaid."
+assumption = "Task 2.40.10 serves 0x101B as a vm.DynamicGasPrecompiledContract charging the row plus the metered store gas, and 2.40.5 compares the gas the EVM call leaves against the metered store gas."
+severity = "owner"
+
+[finding.2.40.5.3]
+task = "2.40.5"
+file = "spec/layerx-merge/interfaces.kvx:31203"
+symbol = "NewPrecompile"
+observed = "The interface row lists NewPrecompile(k *paykeeper.Keeper, evm *evmkeeper.Keeper, upgrade *upgradekeeper.Keeper, planName string) as planned and absent at HEAD, while precompiles/layerxpay/layerxpay.go:41 exports NewPrecompile(keeper *paykeeper.Keeper) and is called at layerxpay.go:58 and precompiles/layerxpay/harness_test.go:81."
+assumption = "2.40.10 adds NewServedPrecompile beside NewPrecompile instead of changing the one-argument signature; the interface row is refreshed to the exported signature at the next interface render."
+severity = "minor"
+
+[finding.15.4.9.2]
+task = "15.4.9"
+file = "spec/layerx-merge/spec.kvx [task.15.4.9] touches"
+symbol = "task.15.4.9.touches"
+observed = "Attempt 4 (920b3de4c, base aaf15c1c5) is byte-identical in sdk/ to attempt 1 (a8c1d088a) and failed on the same SampleEnvironment.swift:64 and :66 AuthorizedReceiptBatch errors because its base predates 4eb486713, which added do_4 and SampleEnvironment.swift to touches."
+assumption = "Attempt 5 continues 920b3de4c against a base at or after 4eb486713 and applies do_4 and do_5; the three files of attempt 4 need no change."
+severity = "cross-task"
+
+[finding.15.4.9.3]
+task = "15.4.9"
+file = "sdk/integrations/ios/Sources/LayerXMobile/LayerXMobile.swift:67"
+symbol = "LayerXMobile.gate(receipts:)"
+observed = "ReceiptGate.init(receipts:receiptKeys:) of attempt 4 (920b3de4c, ReceiptGate.swift:59) defaults receiptKeys to [] and LayerXMobile.gate(receipts:) at :67-68 passes none, so every gate built through LayerXMobile refuses every receipt at ReceiptGate.swift:79-86; no do line of 15.4.9 or 15.4.10 gave iOS a receipt-key source, unlike Android do_4 and do_5 of 15.4.7."
+assumption = "do_5 gives PublishableConfiguration the declared key layerx.receipt_keys and LayerXMobile.gate the configuration-held keys; the verify_cmd of 15.4.9 passes either way because ReceiptGateTests loads the fixture keys itself (ReceiptGateTests.swift:30-34)."
+severity = "owner"
+
+[finding.15.4.11.2]
+task = "15.4.11"
+file = "spec/layerx-merge/spec.kvx [task.15.4.11] touches"
+symbol = "task.15.4.11.touches"
+observed = "Attempt 4 (9829f82e8, base a91018ef6) is byte-identical in sdk/ to attempt 1 (f5a9811e6) and reproduced the identical 19-error build log of attempts 1 to 3 because its base predates 4eb486713, which added do_6 to do_11 and six files to touches."
+assumption = "Attempt 5 continues 9829f82e8 against a base at or after 4eb486713 and applies do_6, do_7, do_8, do_10, do_11 and do_12."
+severity = "cross-task"
+
+[finding.15.4.11.3]
+task = "15.4.11"
+file = "sdk/integrations/agents/src/service-providers.ts:154"
+symbol = "ApprovedWalletSigner.sign"
+observed = "do_9 ports ApprovedWalletSigner to the PaxeerWallet EVM approval, but AgentMiddleware submits the string sign() answers as the detached signature (services/platform/middleware/agent/src/index.ts:349, :361-366) and the EVM approval surface answers none: EvmApproval (sdk/wallet/src/index.ts:60-70) has no signature field and POST /v1/wallet/evm/sign (services/wallet/gateway/src/routes/evmApprovals.ts:254) submits the raw transaction itself (:296) and answers tx_hash, rung and receipt (:298-301)."
+assumption = "Decision 1963 removes the wallet-signer provider path from the agents package (do_12); wallet-approved spending completes inside the wallet gateway and no stand-in signature is answered."
+severity = "owner"
+
+[finding.15.4.7.4]
+task = "15.4.7"
+file = "spec/layerx-merge/spec.kvx [task.15.4.7] touches"
+symbol = "task.15.4.7.touches"
+observed = "Attempt 4 (ce3064d37, base a91018ef6) built against a task block predating 3f01e80da, stopped at the recorded RelayReceiptResolver.java:82 AuthorizedReceiptBatch error outside its then-declared three-file touches, and differs from attempt 3 (faaeae131) only by the one-argument ReceiptGate constructor and ReceiptResolver.receiptKeys default that do_8 rejects, while still carrying the published-sdk profile that do_7 removes."
+assumption = "Attempt 5 continues faaeae131 against a base at or after 3f01e80da, applies do_4 to do_8, and the -Psample build and verify_cmd pass with the JVM SDK installed before the build (rc=0 in attempt 4)."
+severity = "cross-task"
+
+[finding.18.1200.1.8]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:659"
+symbol = "submit_and_wait"
+observed = "Attempt 14 (51fc68ead on 4f424c474, the first base with 5.7.3 and 5.7.4) builds green, migration passes 9 and operator passes 6 of 7; layerxd --serve stays alive and admits the NativeProgramCall but answers every LNI V1_4 by-id receipt lookup for 30 s with an empty envelope (cmd/layerxd/lxp_daemon_lni.c:2946-2962, :2997-2999), so the admitted LX_PROGRAMS_CALL never reached install_pending_receipts (cmd/layerxd/lxp_daemon_process.c:4145-4146) nor a refusal disposition; the seven task files are byte-identical to attempts 7-13."
+assumption = "The executor stopped or stalled inside apply_canonical_batch after admission (cmd/layerxd/lxp_daemon_main.c:189-194 stops the executor without exiting; the serve loop at lxp_daemon_process.c:6303-6306 polls only the LNI server), most plausibly in the state-feed observer re-bound by 5.7.4 (379db0bd0) at cmd/layerxd/lxp_daemon_protocol.c:1124-1125 or in the synchronous replica publication at lxp_daemon_process.c:4129-4144; unverified because layerxd's stderr (real_authority.rs:397-400 writes it to <temp>/layerx-authority-*/sequencer.stderr) was not collected. Task 5.7.6 reproduces with stderr kept and fixes the named stage; 18.1200.1 requires it."
+severity = "cross-task"

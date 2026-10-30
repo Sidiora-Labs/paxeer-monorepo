@@ -7,6 +7,7 @@ import (
 
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
+	paykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
@@ -20,12 +21,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type payKeepers struct {
+	utils.Keepers
+	pay *paykeeper.Keeper
+}
+
+func (k payKeepers) LayerXPayK() *paykeeper.Keeper { return k.pay }
+
 func TestStreamsMergeConstructorNeedsPayKeeper(t *testing.T) {
 	application := testkeeper.EVMTestApp
 	keepers := app.NewPrecompileKeepers(application)
 	var _ layerxpay.LayerXPayKeepers = keepers
-	withoutPay := *application
-	withoutPay.LayerXPayKeeper = nil
 	missingEVM := app.NewPrecompileKeepers(application)
 	missingEVM.EVMKeeper = nil
 	nilEVM := app.NewPrecompileKeepers(application)
@@ -37,7 +43,7 @@ func TestStreamsMergeConstructorNeedsPayKeeper(t *testing.T) {
 		{"nil keepers", nil},
 		{"empty keepers", &utils.EmptyKeepers{}},
 		{"missing pay capability", struct{ utils.Keepers }{keepers}},
-		{"nil pay keeper", app.NewPrecompileKeepers(&withoutPay)},
+		{"nil pay keeper", payKeepers{keepers, nil}},
 		{"missing evm", missingEVM},
 		{"nil evm pointer", nilEVM},
 	} {
@@ -68,10 +74,9 @@ func TestStreamsMergeConstructorNeedsPayKeeper(t *testing.T) {
 
 func TestStreamsMergePrecompileHeightGated(t *testing.T) {
 	h := newStreamsHarness(t)
-	application := *testkeeper.EVMTestApp
-	application.LayerXPayKeeper = h.keeper
+	application := testkeeper.EVMTestApp
 	const plan = "streams-constructor-merge"
-	built, err := streams.NewMergePrecompile(app.NewPrecompileKeepers(&application), plan)
+	built, err := streams.NewMergePrecompile(payKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), h.keeper}, plan)
 	require.NoError(t, err)
 	h.precompile = built.(*agentcommon.Precompile)
 	h.evm.SetPrecompiles(map[common.Address]vm.PrecompiledContract{built.Address(): built})

@@ -345,10 +345,10 @@ fn validate_model(model: &Model) -> Result<(), String> {
 }
 
 fn validate_lifecycle_schema(entries: &BTreeMap<String, String>) -> Result<(), String> {
-    for (operation, request, ordinal) in [
-        ("deploy", "NativeProgramDeployRequest", "1"),
-        ("upgrade", "NativeProgramUpgradeRequest", "2"),
-        ("wind-down", "NativeProgramWindDownRequest", "7"),
+    for (operation, request) in [
+        ("deploy", "NativeProgramDeployRequest"),
+        ("upgrade", "NativeProgramUpgradeRequest"),
+        ("wind-down", "NativeProgramWindDownRequest"),
     ] {
         let prefix = format!("operation.program.{operation}");
         for (field, expected) in [
@@ -369,25 +369,60 @@ fn validate_lifecycle_schema(entries: &BTreeMap<String, String>) -> Result<(), S
             ));
         }
         let request = format!("type.{request}");
-        if quoted_list(required(entries, &format!("{request}.required"))?)? != ["signed_activity"]
-            || required(entries, &format!("{request}.protocol_version"))? != "3"
-            || required(entries, &format!("{request}.module_id"))? != "9"
-            || required(entries, &format!("{request}.ordinal"))? != ordinal
-        {
+        let precompile = unquote(required(entries, &format!("{request}.precompile"))?)?;
+        if precompile != "0x000000000000000000000000000000000000101d" {
             return Err(format!("invalid lifecycle request binding {request}"));
+        }
+        let selectors: &[&str] = if operation == "wind-down" {
+            &[
+                "selector_route",
+                "selector_deprecate",
+                "selector_tombstone",
+                "selector_exit",
+            ]
+        } else {
+            &["selector"]
+        };
+        for field in selectors {
+            let key = format!("{request}.{field}");
+            let selector = unquote(required(entries, &key)?)?;
+            let selector_bytes = selector
+                .strip_prefix("0x")
+                .ok_or_else(|| format!("invalid lifecycle call selector {key}"))?;
+            if selector_bytes.len() != 8
+                || !selector_bytes
+                    .bytes()
+                    .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+                || selector_bytes == "00000000"
+            {
+                return Err(format!("invalid lifecycle call selector {key}"));
+            }
         }
     }
     for name in [
         "NativeProgramDeploy",
         "NativeProgramUpgrade",
         "NativeProgramWindDown",
-        "ProgramLifecycleResultEnvelope",
-        "ProgramLifecycleResult",
-        "ProgramLifecycleUnknown",
-        "ProgramLifecycleErrorEnvelope",
-        "ProgramLifecycleError",
     ] {
         required(entries, &format!("type.{name}.required"))?;
+    }
+    for (key, expected) in [
+        (
+            "type.ProgramLifecycleResponse.variants",
+            &["ProgramSubmission"][..],
+        ),
+        (
+            "type.ProgramSubmission.required",
+            &["tx_hash", "submission_ref", "state", "rung"][..],
+        ),
+        (
+            "type.ProgramSubmission.rung",
+            &["submitted", "receipted", "committed"][..],
+        ),
+    ] {
+        if quoted_list(required(entries, key)?)? != expected {
+            return Err(format!("invalid lifecycle schema {key}"));
+        }
     }
     Ok(())
 }
@@ -429,7 +464,7 @@ fn typescript(model: &Model) -> Result<String, String> {
         .rungs
         .iter()
         .enumerate()
-        .map(|(rank, rung)| format!("  {rung} = {rank},"))
+        .map(|(rank, rung)| format!("  {} = {rank},", rung.to_ascii_lowercase()))
         .collect::<Vec<_>>()
         .join("\n");
     let errors = model
@@ -954,9 +989,10 @@ pub fn write_programs_golden(schema_root: &Path) -> Result<(), String> {
 fn run() -> Result<(), String> {
     let arguments = env::args().skip(1).collect::<Vec<_>>();
     let mode = arguments.first().map_or("--check", String::as_str);
-    let schema = arguments
-        .get(1)
-        .map_or_else(|| PathBuf::from("services/agent/schema/agent-api"), PathBuf::from);
+    let schema = arguments.get(1).map_or_else(
+        || PathBuf::from("services/agent/schema/agent-api"),
+        PathBuf::from,
+    );
     let output = arguments
         .get(2)
         .map_or_else(|| PathBuf::from("services/agent/sdk"), PathBuf::from);
