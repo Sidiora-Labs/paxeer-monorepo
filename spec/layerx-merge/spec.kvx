@@ -140943,7 +140943,7 @@ do_6 = "Attempt 4 (85d48f856) passed a NodeRpc to ProductionHumanOperations::new
 
 [task.9.12.6]
 title = "Retire the settlement, trust-history, handover and genesis startup variables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.12.5", "9.6.1", "9.5.7", "13.0.3", "9.1.8", "18.1131.1", "18.1304.1"]
@@ -162849,7 +162849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.21.3]
 title = "Drop custody and anchor from the frontend capabilities type and mocks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["14.21.2", "14.33.6"]
