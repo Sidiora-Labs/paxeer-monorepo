@@ -235,9 +235,9 @@ fn registration_binding(
     network: u32,
     owner: &str,
     target: &str,
-) -> Result<(Activity, layerx_crypto::onboarding::SponsoredRegistration), Response> {
+) -> Result<(Activity, layerx_crypto::payments::SponsoredRegistration), Response> {
     let activity = signed(bytes, registry, network)?;
-    let registration = layerx_crypto::onboarding::SponsoredRegistration::decode(activity.payload())
+    let registration = layerx_crypto::payments::SponsoredRegistration::decode(activity.payload())
         .map_err(|_| refusal(403, "child_not_bound", None))?;
     registration
         .validate_outer(&activity)

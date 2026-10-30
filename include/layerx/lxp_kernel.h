@@ -669,30 +669,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
                                        lxp_receipt *receipt);
 uint8_t lxp_kernel_step_order(size_t index);
 
-typedef struct lxp_replay_record {
-    uint16_t module_id;
-    uint16_t key_length;
-    uint32_t value_length;
-    uint8_t key[LXP_MODULE_MAX_KEY_BYTES];
-    uint8_t value[LXP_MODULE_MAX_VALUE_BYTES];
-} lxp_replay_record;
-#define lxp_replay_record lxp_replay_record
-
-lxp_result lxp_determinism_guard_check(void);
-lxp_result lxp_determinism_guard_trip(const char *symbol);
-void lxp_determinism_guard_reset(void);
-lxp_result lxp_kernel_replay(lxp_kernel *kernel,
-                             const lxp_replay_record *records,
-                             const uint8_t (*expected_roots)[32],
-                             size_t record_count, size_t worker_threads,
-                             uint8_t terminal_root[32]);
-lxp_result lxp_replay_compare_roots(const uint8_t expected[32],
-                                    const uint8_t produced[32]);
-lxp_result lxp_replay_golden_run(const lxp_replay_record *records,
-                                 size_t record_count,
-                                 const uint8_t (*roots)[32],
-                                 size_t worker_threads,
-                                 uint8_t digest[32]);
 lxp_result lxp_kernel_module_by_id(
     const lxp_kernel *kernel, uint16_t module_id, uint64_t epoch,
     const lxp_module_registration **registration);

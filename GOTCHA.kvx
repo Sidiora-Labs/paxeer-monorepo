@@ -11090,3 +11090,53 @@ fix = "Hoist the map into a package-level function the product reads and the tes
 title = "Changing a crate's dependency list leaves every other workspace's Cargo.lock stale"
 symptom = "After a path dependency is removed from one crate's Cargo.toml and only that workspace's Cargo.lock is refreshed, --locked builds in the eight other workspaces that pin the crate by path are refused with the lock file needs to be updated."
 fix = "List every Cargo.lock whose layerx-agentd (or changed crate) entry exists (grep -l 'name = <crate>' over git ls-files '*Cargo.lock') and regenerate each in the same task."
+
+[gotcha.2256]
+title = "A kernel refusal still advances the host sequence"
+symptom = "A keeper test asserting that a refused activity leaves the lxphost store byte-identical fails: NextSequence and the actor's identity sequence advance by one because HostExecute commits the branch after every kernel outcome, refusal included."
+fix = "Compare the store excluding the global-sequence and identity-sequence keys and assert both advanced by one; only a request refused before the kernel runs leaves the store unchanged (decision.1907)."
+
+[gotcha.2257]
+title = "The sequencer replication log refuses the seal of an empty layer"
+symptom = "With a standby configured the primary stalls at its first height: malformed wal entry: SEAL fromSeq 1 above toSeq 0, and the standby reports sequencer: no sealed layer."
+fix = "An empty layer is FromSeq = ToSeq + 1; wal.go must refuse only FromSeq > ToSeq + 1 (issue #1299, task 18.1299.1). Single-node runs never log the seal, which hides the defect."
+
+[gotcha.2258]
+title = "The real-authority test fixture resolves the repository root one level short"
+symptom = "migrations listing: NotFound at tests/support/real_authority.rs:46 although migrations/ exists; build/bin is searched under services/."
+fix = "repository_root() takes ancestors().nth(3) of CARGO_MANIFEST_DIR, correct before the agent moved to services/agent; nth(4) is the repository root (issue #1298, task 18.1298.1)."
+
+[gotcha.2259]
+title = "A package-wide --tests build is gated by every stale test file of the package"
+symptom = "A task whose build_cmd is cargo build -p <crate> --tests fails on a test file it does not touch (archive.rs: FundsDispositionEvidence has no field verification_level)."
+fix = "Find the pending task that owns the stale file and add it to requires; do not widen the failing task's touches."
+
+[gotcha.2260]
+title = "Deleting a kernel definition file passes the archive gate and breaks the binary link"
+symptom = "After src/guarantor/lxp_dissent.c was deleted, make paxd-native-libs and the Go module gate passed, yet make build/bin/layerx-guarantor fails with undefined reference to lxp_guarantor_withhold and every Rust build script that builds the core panics."
+fix = "A retirement task that deletes definitions must grep src, include and cmd for every deleted symbol (not only tests) and its build_cmd must link a binary that pulls the object, e.g. make build/bin/layerx-guarantor (issue #1300, task 18.1300.1)."
+
+[gotcha.2261]
+title = "lxp_receive_environment is a live kernel type, not a retired symbol"
+symptom = "A retired-uses scan over tests/ for lxp_receive_environment fails on tests/codec and tests/ledger suites that legitimately use the receive environment of include/layerx/lxp_ledger.h."
+fix = "Scan for the retired path (tests/test_gateway_receive.c) and the lxp_grant_store symbols only; exclude the codec, crypto, fuzz, chain, daemon, bridge and explorer suites as test_retired_guarantor_duties.py does."
+
+[gotcha.2262]
+title = "A second task for one issue reuses the issue's req block"
+symptom = "check-draft.py accepts only task.18.<issue>.1 ids, so a follow-on task for the same issue cannot pass it and an invented req id (req.1812912) does not match the spec convention."
+fix = "Follow the 18.1172.2 pattern: task.18.<issue>.k with reqs ['18<issue>.k'], ac_k appended to [req.18<issue>] and [acceptance.18.<issue>.k] with req = '18<issue>.k'; normalise at assembly time."
+
+[gotcha.2263]
+title = "An enum variant rename must be grepped across every crate's tests, not only the crate's own"
+symptom = "InvalidationReason::CapabilityGrantRevoked became GrantRevokedOnChain in layerx-agentd; the layerx-mcp scope test kept the old name and every layerx-mcp --tests build fails (issue #1301)."
+fix = "grep -rn the old variant across services/ before publishing a rename; a package-wide --tests build of a dependent crate is where the leftover surfaces."
+
+[gotcha.2264]
+title = "Check src/ before scoping a retired-symbol scan to a symbol"
+symptom = "16.97.1 do_6 scoped the kernel scan to lxp_grant_store on the assumption it was retired; it is live (src/ledger/lxp_grant_store.c) until 1.12.1, so attempt 4 failed on seven live uses."
+fix = "grep include/ and src/ for the symbol's definition first; if it is live, the scan may only cover the files the task edits (decision.1911)."
+
+[gotcha.2265]
+title = "A task that changes a struct's fields must own, or hand off, the shared test support that fills them"
+symptom = "13.4.5 removed the kernel-batch fields from DeploymentProof and ProgramStateProof; tests/support/mod.rs, shared by seven test targets, stopped compiling and the package-wide --tests build failed every attempt."
+fix = "Build only the task's own --test target (decision.1910) and make the task that rebuilds the shared support require the type change; record the interval in which the other targets do not compile."

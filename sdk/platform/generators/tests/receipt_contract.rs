@@ -121,7 +121,6 @@ fn repository() -> Repository {
             "platform-sdkgen" => &[
                 "Cargo.toml",
                 "generate_jvm.py",
-                "generate_lifecycle.py",
                 "generate_portable.py",
                 "receipt.kvx",
                 "src",
@@ -135,12 +134,6 @@ fn repository() -> Repository {
             copy_path(&source.join(&relative), &root.0.join(&relative));
         }
     }
-    for output in &pipeline.outputs {
-        for (file, _) in &output.files {
-            let relative = Path::new(&output.root).join(file);
-            copy_path(&source.join(&relative), &root.0.join(&relative));
-        }
-    }
     for relative in [
         lock,
         "programs/sdk/rust/src/abi_policy.rs",
@@ -150,6 +143,22 @@ fn repository() -> Repository {
     }
     assert_success(&generator(&root.0, "--write-program-contracts"));
     root
+}
+
+#[test]
+fn committed_swift_receipt_contract_matches_generator() {
+    let root = repository();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let relative = "sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift";
+    let generated = fs::read(root.0.join(relative))
+        .unwrap_or_else(|error| panic!("read generated {relative}: {error}"));
+    let committed = fs::read(source.join(relative))
+        .unwrap_or_else(|error| panic!("read committed {relative}: {error}"));
+
+    assert_eq!(
+        committed, generated,
+        "{relative} differs from generator output"
+    );
 }
 
 #[test]

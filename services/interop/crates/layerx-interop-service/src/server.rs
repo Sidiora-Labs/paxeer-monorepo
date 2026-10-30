@@ -33,8 +33,7 @@ use layerx_platform_gateway::store::{
     TapNonceConsumption,
 };
 use layerx_platform_gateway::{
-    authenticate_gateway_key, gateway_audit_event, gateway_digest, verify_submission, AccessError,
-    ModuleRegistry, VerifiedSubmission, VerifiedTransfer,
+    authenticate_gateway_key, gateway_audit_event, gateway_digest, AccessError,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
@@ -1123,57 +1122,6 @@ fn verified_x402_transfer_reference(
         return Err("activity_time_window_refused");
     }
     Ok((transfer, transaction_hash))
-}
-
-fn verified_x402_activity(
-    request: &FacilitatorPaymentRequest,
-    modules: &ModuleRegistry,
-    protocol_version: u16,
-    protocol_network_id: u32,
-    expected_signer: &[u8; 32],
-    observed_at: u64,
-) -> Result<(VerifiedSubmission, VerifiedTransfer), &'static str> {
-    let activity = request
-        .payment_payload
-        .payload
-        .get("layerxActivity")
-        .and_then(Value::as_str)
-        .and_then(|value| decode_hex(value, MAX_BODY).ok())
-        .filter(|value| !value.is_empty())
-        .ok_or("typed_intent_required")?;
-    let declared_idempotency = request
-        .payment_payload
-        .payload
-        .get("layerxIdempotencyKey")
-        .and_then(Value::as_str)
-        .and_then(|value| parse_hex32(value).ok())
-        .ok_or("protocol_idempotency_required")?;
-    let submission = verify_submission(
-        &activity,
-        modules,
-        protocol_version,
-        protocol_network_id,
-        expected_signer,
-    )
-    .map_err(|_| "activity_authorization_refused")?;
-    if submission.idempotency_key() != declared_idempotency {
-        return Err("protocol_idempotency_mismatch");
-    }
-    let transfer = submission.transfer().ok_or("typed_transfer_required")?;
-    let (asset, recipient) = x402_facts(&request.payment_requirements)?;
-    if transfer.asset() != asset
-        || transfer.recipient() != recipient
-        || transfer.amount() != request.payment_requirements.amount.value()
-    {
-        return Err("payment_requirements_mismatch");
-    }
-    if observed_at < transfer.not_before()
-        || observed_at > transfer.not_after()
-        || observed_at > transfer.expires_at()
-    {
-        return Err("activity_time_window_refused");
-    }
-    Ok((submission, transfer))
 }
 
 fn x402_facts(requirements: &PaymentRequirements) -> Result<([u8; 32], [u8; 32]), &'static str> {
@@ -5309,6 +5257,20 @@ mod tests {
         assert_eq!(plane.activity_id, Some(hex(&tx_hash)));
         assert!(!plane.unavailable);
         response.validate_wire()?;
+        Ok(())
+    }
+
+    #[test]
+    fn x402_verify_refuses_an_activity_only_payload() -> X402TestResult {
+        let (mut request, _) = recorded_x402_request("V1-layerxledger-pay-exact")?;
+        request.payment_payload.payload = json!({
+            "layerxActivity": "deadbeef",
+            "layerxIdempotencyKey": hex(&request.idempotency_key),
+        });
+        assert_eq!(
+            verified_x402_transfer(&request, 1_750_000_000_000),
+            Err("typed_intent_required"),
+        );
         Ok(())
     }
 
