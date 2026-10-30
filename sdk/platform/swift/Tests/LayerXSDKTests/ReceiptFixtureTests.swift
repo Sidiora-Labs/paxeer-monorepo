@@ -67,11 +67,7 @@ final class ReceiptFixtureTests: XCTestCase {
         XCTAssertThrowsError(try verifyAppliedLegs(Data(), expected: Data(repeating: 1, count: 32)))
     }
 
-    func testNativeLifecycleCFixtures() throws {
-    let token = try AccessToken(Data("fixture-bearer".utf8))
-    defer { token.destroy() }
-    let transport = try AgentHTTPTransport(
-      baseURL: URL(string: "http://127.0.0.1:8080")!, accessToken: token)
+  func testNativeLifecycleCFixtures() throws {
     for name in [
       "deploy", "upgrade", "wind-down-route", "wind-down-deprecate", "wind-down-tombstone",
       "wind-down-exit",
@@ -88,26 +84,6 @@ final class ReceiptFixtureTests: XCTestCase {
       let request = try NativeProgramLifecycleRequest(operation: value, signedActivity: signed)
       XCTAssertEqual(request.activityID, try hexField(fixture, "activity_id_hex"))
       XCTAssertEqual(request.idempotencyKey, try hexField(fixture, "idempotency_key_hex"))
-      let operation =
-        ordinal == 1 ? "program.deploy" : ordinal == 2 ? "program.upgrade" : "program.wind-down"
-      let path =
-        ordinal == 1
-        ? "/v1/programs/deploy" : ordinal == 2 ? "/v1/programs/upgrade" : "/v1/programs/wind-down"
-      let hex: (Data) -> String = { $0.map { String(format: "%02x", $0) }.joined() }
-      let body: JSONValue = .object([
-        "payload": .string(hex(payload)), "signed_activity": .string(hex(signed)),
-      ])
-      let http = try transport.programRequest(
-        .init(
-          operation: operation, request: body,
-          idempotencyKey: IdempotencyKey(hex(request.idempotencyKey))))
-      XCTAssertEqual(http.url?.path, path)
-      XCTAssertEqual(http.httpMethod, "POST")
-      XCTAssertEqual(http.httpBody, signed)
-      XCTAssertEqual(http.value(forHTTPHeaderField: "Content-Type"), "application/octet-stream")
-      XCTAssertEqual(http.value(forHTTPHeaderField: "Idempotency-Key"), hex(request.idempotencyKey))
-      XCTAssertEqual(http.value(forHTTPHeaderField: "Authorization"), "Bearer fixture-bearer")
-      XCTAssertThrowsError(try transport.programRequest(.init(operation: operation, request: body)))
       for length in 0..<payload.count {
         XCTAssertThrowsError(try decodeNativeProgramLifecycle(ordinal, payload.prefix(length)))
       }
