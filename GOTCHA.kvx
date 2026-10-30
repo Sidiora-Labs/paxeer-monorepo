@@ -11291,3 +11291,13 @@ fix = "Set HUSKY=0 for dependency installs; the gates never need git hooks, and 
 title = "A touches entry that names a directory covers every file under it, and a cargo target directory beside a Cargo.toml is build output"
 symptom = "A task whose touches list a directory (a receipts folder) or whose verify compiles a test crate in place was refused with 'files changed outside scope' naming files under that directory or under <crate>/target/ although its verify passed."
 fix = "Declare a directory deliberately when a task owns a whole folder; never list a target directory in touches; a verify that compiles a crate in place leaves <crate>/target, which is generated output, not a change."
+
+[gotcha.2296]
+title = "A keeper removed from the application left its upgrade handler calling a zero value"
+symptom = "5.7.1 removed the LayerXAnchorKeeper construction and 5.41.3 its store key while 5.6.5's v7.0 handler kept RetireAtMerge (node/upgrades.go:490); 5.16.3, 5.6.9 and 6.47.1 then panicked with a nil pointer dereference at modules/layerxanchor/keeper/keeper.go:31 on every v7.0 application, five attempts spent on one wiring gap."
+fix = "Removing a keeper, a store key or a mount is complete only when every upgrade handler and test that calls the keeper is changed in the same task or ruled by a decision; decision.1954 and task 5.7.5 keep the anchor keeper and store until the store-delete step."
+
+[gotcha.2297]
+title = "A Maven profile that adds sample sources compiles files owned by a later task"
+symptom = "15.4.7's build and verify run with -Psample, which test-compiles src/sample/java; RelayReceiptResolver.java there still used the retired AuthorizedReceiptBatch and belonged to 15.4.8, which required 15.4.7, so the gate could not pass in either order (attempts 3 and 4)."
+fix = "Every source a gate compiles belongs to the task that runs the gate or to a task it requires; the resolver port moved into 15.4.7 as do_6 and 15.4.8 kept only its test."

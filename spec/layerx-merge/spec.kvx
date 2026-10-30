@@ -4833,6 +4833,12 @@ value = "[type.NativeProgramWindDownRequest] declares precompile 0x0000000000000
 basis = "precompiles/layerxprograms/abi.json declares setExitRoute, deprecate, tombstone and exitValue as separate writes and [type.NativeProgramWindDown] (services/agent/schema/agent-api/programs.kvx) already tags its payload as route, deprecate, tombstone or exit, so the selector is a function of the variant tag; the values are the keccak-256 selectors recorded in spec/layerx-merge/contracts/programs.md:113-146; attempt 1 of 9.10.2 stopped under decision.1840 for exactly this ambiguity"
 affects = ["task.9.10.2", "task.9.18.4"]
 
+[decision.1954]
+title = "The binary that applies the v7.0 plan keeps the anchor keeper constructed and its store mounted until the store-delete step"
+value = "LayerXAnchorKeeper stays constructed in New and the layerxanchor store stays in kvStoreKeyNames and MemIAVLStoreKeys in every binary up to and including the one that applies v7.0-anchor-store-delete, with the layerxanchor module out of the module manager and SetAnchorReader removed; RetireAtMerge returns every bond inside the v7.0 handler, reads answer until the store-delete height, and the store key and the keeper are dropped only by a later change after that step has run."
+basis = "mergeUpgradePlan calls app.LayerXAnchorKeeper.RetireAtMerge at node/upgrades.go:490 (req.5049 ac_4, decision.631) and the v6.10 step reads its params at node/upgrades.go:349-352, while 5.7.1 do_4 removed the construction and 5.41.3 removed the store key and its mount, so node/app.go:522 is a zero value and every v7.0 application panics at modules/layerxanchor/keeper/keeper.go:31 (5.16.3 attempts 3 and 4, 5.6.9 attempts 3 and 4, 6.47.1 attempt 3); req.6288 ac_1 requires reads to answer until the store-delete height, which needs a mounted store."
+affects = ["5.7.1", "5.41.3", "5.6.5", "5.7.5", "5.16.3", "5.6.9", "6.34.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -31793,6 +31799,15 @@ verification_contract = "go test -count=1 ./node/ -run '^(TestAnchorStoreDeleted
 do_1 = "Add const AnchorStoreDeleteUpgrade = \"v7.0-anchor-store-delete\" beside MergeUpgrade (node/upgrades.go:112), register its handler with SetUpgradeHandler beside node/upgrades.go:201, and append it after MergeUpgrade in knownUpgradePlans (node/upgrades.go:543-545)."
 symbols = ["AnchorStoreDeleteUpgrade", "layerxStoreUpgrades", "RegisterBalanceChangeHook"]
 
+[capability.5.7.5]
+title = "Keep the anchor keeper and its store mounted in the binary that applies the v7.0 plan"
+reqs = ["6288.1", "5049.4"]
+touches = ["node/app.go", "storage/common/keys/store_keys.go", "node/store_delete_test.go", "storage/common/keys/store_keys_test.go"]
+tests = ["node/store_delete_test.go::TestAnchorStoreDeletedAtStep", "storage/common/keys/store_keys_test.go::TestAnchorStoreKeyStaysMountedUntilDelete", "node/upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"]
+verification_contract = "go test -count=1 ./storage/common/keys/ && go test -count=1 ./node/ -run '^(TestAnchorStoreDeletedAtStep|TestAnchorPrecompileStaysRegisteredWithoutModule|TestMergePlanReturnsGuarantorBonds)$'"
+do_1 = "Per decision.1954 restore const LayerXAnchorStoreKey = 'layerxanchor' after LayerXCustodyStoreKey (storage/common/keys/store_keys.go:34) and its entry after LayerXCustodyStoreKey in MemIAVLStoreKeys (storage/common/keys/store_keys.go:76), and restore layerxanchortypes.StoreKey after layerxcustodytypes.StoreKey in kvStoreKeyNames (node/app.go:362), so the two lists match as the kvStoreKeyNames comment requires and the layerxanchor store is mounted until the v7.0-anchor-store-delete step deletes it."
+symbols = ["LayerXAnchorStoreKey", "kvStoreKeyNames", "LayerXAnchorKeeper"]
+
 [capability.5.7.2]
 title = "Make the precompile keepers answer no anchor keeper"
 reqs = ["5065.1"]
@@ -46961,13 +46976,13 @@ do_1 = "Remove authorized_batches from the options dataclass at sdk/integrations
 symbols = ["create_integration", "parse_receipt_keys", "test_package_exports_no_authorized_batch_names", "test_create_integration_uses_receipt_keys"]
 
 [capability.15.4.5]
-title = "Bind pinned receipt keys in the spring starter configuration"
-reqs = ["15009.1", "15009.2"]
-touches = ["sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java", "sdk/integrations/spring/example/src/main/resources/application.yaml", "sdk/integrations/spring/pom.xml", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java"]
-tests = ["sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java::declaredConfigBindsReceiptKeys", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java::autoConfigurationBuildsAuthorityFromReceiptKeys"]
-verification_contract = "mvn -q -f sdk/integrations/spring/pom.xml -Dtest='ReceiptKeysConfigTest#declaredConfigBindsReceiptKeys+autoConfigurationBuildsAuthorityFromReceiptKeys' test"
-do_1 = "Replace the authorizedBatch component of LayerXDeclaredConfig at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java:8 with ReceiptKeys receiptKeys from the JVM SDK after task 9.0.3."
-symbols = ["LayerXDeclaredConfig", "ReceiptKeys", "declaredConfigBindsReceiptKeys", "autoConfigurationBuildsAuthorityFromReceiptKeys"]
+title = "Bind pinned receipt keys and settle signed sequencer receipts in the spring starter"
+reqs = ["15009.1", "15009.2", "15010.1", "15010.2"]
+touches = ["sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXProperties.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Fulfillments.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java", "sdk/integrations/spring/example/src/main/resources/application.yaml", "sdk/integrations/spring/pom.xml", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java"]
+tests = ["sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java::declaredConfigBindsReceiptKeys", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java::autoConfigurationBuildsAuthorityFromReceiptKeys", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java::settlesSignedSequencerReceipt", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java::durableStoreRoundTripsReceiptKey"]
+verification_contract = "mvn -q -f sdk/integrations/spring/pom.xml -Dtest='ReceiptKeysConfigTest#declaredConfigBindsReceiptKeys+autoConfigurationBuildsAuthorityFromReceiptKeys,SellerReceiptsTest#settlesSignedSequencerReceipt+durableStoreRoundTripsReceiptKey' test"
+do_1 = "Replace the authorizedBatch component of LayerXDeclaredConfig at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java:8 with LocalVerifier.ReceiptKeys receiptKeys (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:86) from the JVM SDK after task 8.42.1."
+symbols = ["LayerXDeclaredConfig", "ReceiptKeys", "LayerXProperties", "SellerMiddleware", "Settled", "verifyPaymentReceipt", "DurableStores"]
 
 [capability.15.4.6]
 title = "Settle signed sequencer receipts in the spring seller middleware and stores"
@@ -46981,7 +46996,7 @@ symbols = ["SellerMiddleware", "Settled", "verifyPaymentReceipt", "DurableStores
 [capability.15.4.7]
 title = "Verify signed sequencer receipts in the android ReceiptGate"
 reqs = ["15011.1", "15011.2"]
-touches = ["sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java", "sdk/integrations/android/pom.xml", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java"]
+touches = ["sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java", "sdk/integrations/android/pom.xml", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java", "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/LayerXAndroid.java", "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java", "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java"]
 tests = ["sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java::verifiesSignedSequencerReceipt", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java::refusesReceiptUnderUnpinnedKey"]
 verification_contract = "mvn -q -f sdk/integrations/android/pom.xml -Psample -Dtest='ReceiptGateTest#verifiesSignedSequencerReceipt+refusesReceiptUnderUnpinnedKey' test"
 do_1 = "Replace the authorizedBatch component of Evidence at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java:12 and its null check at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java:15 with rawTransaction, signedReceipt and receiptKey."
@@ -46993,7 +47008,7 @@ reqs = ["15012.1"]
 touches = ["sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java"]
 tests = ["sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java::parsesSignedReceiptPayload"]
 verification_contract = "mvn -q -f sdk/integrations/android/pom.xml -Psample -Dtest='RelayReceiptResolverTest#parsesSignedReceiptPayload' test"
-do_1 = "Replace the authorized_batch presence check at sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java:72 with checks for raw_transaction, signed_receipt and receipt_key."
+do_1 = "Covered by task 15.4.7 do_6: RelayReceiptResolver reads raw_transaction, signed_receipt and receipt_key in place of authorized_batch."
 symbols = ["RelayReceiptResolver", "parsesSignedReceiptPayload"]
 
 [capability.15.4.9]
@@ -114573,7 +114588,7 @@ title = "Rehearse the activation of the merge precompiles"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["5.6.5", "5.19.4", "5.94.4"]
+requires = ["5.6.5", "5.19.4", "5.94.4", "5.7.5"]
 reqs = ["5063.1"]
 capabilities = ["5.6.9"]
 interfaces = []
@@ -114598,6 +114613,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "At 666996bb3 the v7.0 handler panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584, validateMergePrecompiles): the node imports the oracle, scheduler and streams precompiles only in 5.94.4, which this task now requires. Do not register the missing constructors from the test and do not relax the check."
+do_5 = "Applying the v7.0 plan at the attempt 3 candidate (63f39679f) panics with a nil pointer dereference in Keeper.ModuleAddress (modules/layerxanchor/keeper/keeper.go:31) reached from RetireAtMerge at node/upgrades.go:490: node/app.go:522 declares LayerXAnchorKeeper but New no longer constructs it and kvStoreKeyNames (node/app.go:354-375) no longer mounts the layerxanchor store, both removed by task 5.7.1 do_4, while decision.631 keeps RetireAtMerge inside the v7.0 handler. This task now requires 5.7.5 (decision.1954), which restores the keeper over a mounted store in the binary that applies v7.0. Do not construct the anchor keeper from the test and do not bypass RetireAtMerge or apply only part of the plan; if a later assertion at node/upgrades_merge_activation_test.go:100-118 then fails, record its line and actual value and do not change the expectation."
 
 [task.5.7.1]
 title = "Delete the anchor store and module at a second plan after the merge"
@@ -114626,6 +114642,38 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
 rollback = "Revert node/app.go and node/upgrades.go before the plan is scheduled; once applied the deleted store is restored only from a snapshot taken before the plan height."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.5.7.5]
+title = "Keep the anchor keeper and its store mounted in the binary that applies the v7.0 plan"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["5.7.1", "5.41.3", "5.6.5"]
+reqs = ["6288.1", "5049.4"]
+capabilities = ["5.7.5"]
+interfaces = []
+fulfils = []
+do_1 = "Per decision.1954 restore const LayerXAnchorStoreKey = 'layerxanchor' after LayerXCustodyStoreKey (storage/common/keys/store_keys.go:34) and its entry after LayerXCustodyStoreKey in MemIAVLStoreKeys (storage/common/keys/store_keys.go:76), and restore layerxanchortypes.StoreKey after layerxcustodytypes.StoreKey in kvStoreKeyNames (node/app.go:362), so the two lists match as the kvStoreKeyNames comment requires and the layerxanchor store is mounted until the v7.0-anchor-store-delete step deletes it."
+do_2 = "Construct app.LayerXAnchorKeeper = layerxanchorkeeper.NewKeeper(keys[layerxanchortypes.StoreKey], app.AccountKeeper, app.BankKeeper) after app.BankKeeper.RegisterSendEnabledChecker (node/app.go:815), where maccPerms (node/app.go:333) still grants the anchor module account NewKeeper checks, so RetireAtMerge (node/upgrades.go:490) and the v6.10 anchor parameter step (node/upgrades.go:349-352) run on a constructed keeper; keep the layerxanchor module out of the module manager, SetAnchorReader removed, 0x1014 registered without the module, case AnchorStoreDeleteUpgrade (node/app.go:1565) deleting the store, and an empty Deleted list for MergeUpgrade."
+do_3 = "Replace the unmounted-store assertions of TestAnchorStoreDeletedAtStep at node/store_delete_test.go:21-24, :36 and :41 with assertions that 'layerxanchor' is in MemIAVLStoreKeys and kvStoreKeyNames and that a.GetKey returns its key before the v7.0-anchor-store-delete step, keeping :25-35 (both plans known, the delete plan deletes exactly layerxanchor, the merge plan deletes nothing), :42-43 (module out of the manager), :44-57 and :84 (AnchorK nil) as written; rename TestAnchorStoreKeyIsNotMounted (storage/common/keys/store_keys_test.go:143) to TestAnchorStoreKeyStaysMountedUntilDelete asserting LayerXAnchorStoreKey is in MemIAVLStoreKeys, and add 'layerxanchor' after 'layerxcustody' in the exact list of TestXWebStoreKeyFollowsTheV6120StoreKeys (storage/common/keys/store_keys_test.go:95)."
+do_4 = "TestMergePlanReturnsGuarantorBonds (node/upgrades_merge_bonds_test.go:15) runs unchanged on the constructed keeper; change nothing in node/upgrades.go, modules/layerxanchor or precompiles/layerxanchor, and change no other assertion."
+symbols = ["LayerXAnchorStoreKey", "kvStoreKeyNames", "LayerXAnchorKeeper", "TestAnchorStoreDeletedAtStep", "TestAnchorStoreKeyStaysMountedUntilDelete"]
+touches = ["node/app.go", "storage/common/keys/store_keys.go", "node/store_delete_test.go", "storage/common/keys/store_keys_test.go"]
+tests = ["node/store_delete_test.go::TestAnchorStoreDeletedAtStep", "storage/common/keys/store_keys_test.go::TestAnchorStoreKeyStaysMountedUntilDelete", "node/upgrades_merge_bonds_test.go::TestMergePlanReturnsGuarantorBonds"]
+planned_paths = []
+build_cmd = "go build ./node/ ./storage/common/keys/"
+verify_cmd = "go test -count=1 ./storage/common/keys/ && go test -count=1 ./node/ -run '^(TestAnchorStoreDeletedAtStep|TestAnchorPrecompileStaysRegisteredWithoutModule|TestMergePlanReturnsGuarantorBonds)$'"
+gate_kind = "existing"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert node/app.go, storage/common/keys/store_keys.go, node/store_delete_test.go and storage/common/keys/store_keys_test.go; the v7.0 handler then panics again in RetireAtMerge on the zero-value keeper."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -115412,7 +115460,7 @@ title = "Rehearse the merge plan from a v6.12.0 chain to the first sequenced blo
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["5.6.5", "5.0.3", "5.94.4"]
+requires = ["5.6.5", "5.0.3", "5.94.4", "5.7.5"]
 reqs = ["5076.1"]
 capabilities = ["5.16.3"]
 interfaces = []
@@ -115437,6 +115485,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "At 8e69e3525 the v7.0 handler panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584, validateMergePrecompiles): the node imports the oracle, scheduler and streams precompiles only in 5.94.4, which this task now requires. Do not register the missing constructors from the test and do not relax the check; the test stays as written and runs once the wiring has landed."
+do_5 = "At the attempt 3 candidate (f44cda72d) the constructor gate passes and the v7.0 handler then panics with a nil pointer dereference in RetireAtMerge (node/upgrades.go:490, modules/layerxanchor/keeper/bond_return.go:9, modules/layerxanchor/keeper/genesis.go:29, modules/layerxanchor/keeper/keeper.go:31): node/app.go:522 declares LayerXAnchorKeeper but nothing constructs it, and neither kvStoreKeyNames (node/app.go:354) nor MemIAVLStoreKeys (storage/common/keys/store_keys.go:55) mounts the layerxanchor store, since tasks 5.7.1 and 5.41.3 removed them. Task 5.7.5 (decision.1954) restores the keeper over a mounted anchor store until the v7.0-anchor-store-delete step, and this task now requires it. Do not construct the anchor keeper, mount a store or skip RetireAtMerge from the test, and do not relax the check; the test stays as written, including RefreshPrecompiles and the empty ActivationAddressesWithoutPrecompile check at node/merge_rehearsal_test.go:73-74, and runs once that wiring is on the base."
 
 [task.5.16.4]
 title = "Compare SealBatch with giga ProcessBlock on the same sequenced block"
@@ -124617,7 +124666,7 @@ title = "Return LXP_MODULE_DISABLED from an unwired layerxAnchor and drop the ke
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["6.32.2", "6.0.3", "5.7.1", "5.7.2"]
+requires = ["6.32.2", "6.0.3", "5.7.1", "5.7.2", "5.7.5"]
 reqs = ["6287.1"]
 capabilities = ["6.34.1"]
 interfaces = ["interface.6.go-layerxanchor-anchorreader-j35", "interface.6.go-layerxanchor-precompile-execute-j35"]
@@ -124643,6 +124692,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Per decision.1954 the anchor keeper stays constructed in node/app.go and the layerxanchor store stays mounted until the v7.0-anchor-store-delete step has run; this task keeps NewKeeper (modules/layerxanchor/keeper/keeper.go) constructible with the signature task 5.7.5 calls and changes nothing in node/app.go or storage/common/keys."
 
 [task.6.35.1]
 title = "Rehearse the anchor retirement from bonds posted to store delete"
@@ -167747,28 +167797,28 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.15.4.5]
-title = "Bind pinned receipt keys in the spring starter configuration"
+title = "Bind pinned receipt keys and settle signed sequencer receipts in the spring starter"
 status = "pending"
 mode = "BUILD"
 wave = 23
-requires = ["15.0.3", "8.0.3", "9.0.3"]
-reqs = ["15009.1", "15009.2"]
+requires = ["8.42.1", "8.42.5", "8.22.1"]
+reqs = ["15009.1", "15009.2", "15010.1", "15010.2"]
 capabilities = ["15.4.5"]
-interfaces = []
-do_1 = "Replace the authorizedBatch component of LayerXDeclaredConfig at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java:8 with ReceiptKeys receiptKeys from the JVM SDK after task 9.0.3."
+interfaces = ["interface.15.fmt-integrations-spring-authorized-batch-resolver-j56"]
+do_1 = "Replace the authorizedBatch component of LayerXDeclaredConfig at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java:8 with LocalVerifier.ReceiptKeys receiptKeys (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:86) from the JVM SDK after task 8.42.1."
 do_2 = "Delete the bean layerXAuthorizedBatchResolver at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java:30 and pass config.receiptKeys() to ReceiptPayloadAuthority at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java:38."
 do_3 = "Replace the authorized-batch block of sdk/integrations/spring/example/src/main/resources/application.yaml (sdk/integrations/spring/example/src/main/resources/application.yaml:21) with receipt-keys."
 do_4 = "Add junit-jupiter and spring-boot-test test dependencies to sdk/integrations/spring/pom.xml (sdk/integrations/spring/pom.xml:32) and write sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java (planned)."
-symbols = ["LayerXDeclaredConfig", "ReceiptKeys", "declaredConfigBindsReceiptKeys", "autoConfigurationBuildsAuthorityFromReceiptKeys"]
-touches = ["sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java", "sdk/integrations/spring/example/src/main/resources/application.yaml", "sdk/integrations/spring/pom.xml", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java"]
-tests = ["sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java::declaredConfigBindsReceiptKeys", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java::autoConfigurationBuildsAuthorityFromReceiptKeys"]
-planned_paths = ["sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java"]
+symbols = ["LayerXDeclaredConfig", "ReceiptKeys", "LayerXProperties", "SellerMiddleware", "Settled", "verifyPaymentReceipt", "DurableStores", "declaredConfigBindsReceiptKeys", "autoConfigurationBuildsAuthorityFromReceiptKeys", "settlesSignedSequencerReceipt", "durableStoreRoundTripsReceiptKey"]
+touches = ["sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXProperties.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Fulfillments.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java", "sdk/integrations/spring/example/src/main/resources/application.yaml", "sdk/integrations/spring/pom.xml", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java"]
+tests = ["sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java::declaredConfigBindsReceiptKeys", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java::autoConfigurationBuildsAuthorityFromReceiptKeys", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java::settlesSignedSequencerReceipt", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java::durableStoreRoundTripsReceiptKey"]
+planned_paths = ["sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java"]
 build_cmd = "mvn -q -f sdk/integrations/spring/pom.xml -DskipTests package"
-verify_cmd = "mvn -q -f sdk/integrations/spring/pom.xml -Dtest='ReceiptKeysConfigTest#declaredConfigBindsReceiptKeys+autoConfigurationBuildsAuthorityFromReceiptKeys' test"
+verify_cmd = "mvn -q -f sdk/integrations/spring/pom.xml -Dtest='ReceiptKeysConfigTest#declaredConfigBindsReceiptKeys+autoConfigurationBuildsAuthorityFromReceiptKeys,SellerReceiptsTest#settlesSignedSequencerReceipt+durableStoreRoundTripsReceiptKey' test"
 gate_kind = "planned"
 sandbox_profile = "jvm"
 owner_role = "fm-cosmos-fork"
-rollback = "Revert sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXDeclaredConfig.java, sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXAutoConfiguration.java, sdk/integrations/spring/example/src/main/resources/application.yaml and sdk/integrations/spring/pom.xml."
+rollback = "Revert LayerXDeclaredConfig.java, LayerXAutoConfiguration.java, LayerXProperties.java, SellerMiddleware.java, Fulfillments.java, DurableStores.java and X402.java under sdk/integrations/spring, the example application.yaml and pom.xml, and delete the two planned tests; the module returns to failing against the JVM SDK with the eight AuthorizedReceiptBatch errors."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -167776,10 +167826,18 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Replace the Batch authorizedBatch property of LayerXProperties (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXProperties.java:20, :39, :99-125) with a receipt-keys property holding a mutable entries list of key-id, public-key, first-height and last-height, and in toDeclaredConfig build LocalVerifier.ReceiptKeys of LocalVerifier.ReceiptKey (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:72) in place of the AuthorizedReceiptBatch at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/LayerXProperties.java:181-186, parsing ids and keys with hex32 (:214), heights as unsigned decimal, and refusing an invalid entry with MiddlewareException INVALID_DECLARED_KEY."
+do_6 = "Delete AuthorizedBatchResolver (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:56) and staticAuthorizedBatches (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:80) and give ReceiptPayloadAuthority (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:60) one LocalVerifier.ReceiptKeys field set as passed by a ReceiptPayloadAuthority(LocalVerifier.ReceiptKeys) constructor; settle selects the pinned key whose keyId, publicKey, firstHeight and lastHeight equal the evidence receiptKey and refuses any other with VERIFICATION_FAILURE, as the platform seller does after task 8.22.1 (services/platform/middleware/seller/src/index.ts:189-208)."
+do_7 = "Replace the receipt, receiptDigest and verificationLevel sequencer-signed evidence of X402.ReceiptEvidence (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java:145) and parseReceiptEvidence (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java:355) with verificationLevel receipted, rawTransaction, signedReceipt, receiptDigest and receiptKey {keyId, publicKey, firstHeight, lastHeight}, the field names of GeneratedSchema.ProofBundle (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:872), refusing sequencer-signed with VERIFICATION_FAILURE."
+do_8 = "Make Settled (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:43) carry rawTransaction, signedReceipt and the pinned LocalVerifier.ReceiptKey, change verifyPaymentReceipt (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:152) to call LocalVerifier.verifySequencerReceipt(signedReceipt, rawTransaction, keys) (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:107) and return SequencerReceiptVerification, carry that type in ReleasedDecision (:31), have handle (:121-134) verify the proposed and the stored receipt under the Settled key, and compare the evidence receiptDigest with SequencerReceiptVerification.receiptDigest() as PortableReceipt does (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:106)."
+do_9 = "Require VerificationLevel.RECEIPTED (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:41-46) in assertReceiptBacked at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:180 in place of the retired SEQUENCER_SIGNED."
+do_10 = "Replace the authorizedBatch components of Fulfillments at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Fulfillments.java:12 and :15 with receiptKey and transactionHash."
+do_11 = "Replace the authorizedBatch JSON read at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java:171 and write at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java:193 with receiptKey and transactionHash, compare them in place of same at sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java:524, and carry them at :76-78 and :185."
+do_12 = "Write sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java (planned) with settlesSignedSequencerReceipt and durableStoreRoundTripsReceiptKey on case V1-pax-transfer of sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json, and set the surefire argLine in sdk/integrations/spring/pom.xml to -Djava.io.tmpdir=${project.build.directory} so test storage directories pass the owner-only ancestor checks of DurableStores (sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java:362-374); task 15.4.6 is folded into this one because the starter is one Maven module whose main sources compile together or not at all."
 
 [task.15.4.6]
 title = "Settle signed sequencer receipts in the spring seller middleware and stores"
-status = "pending"
+status = "superseded"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.5"]
@@ -167808,21 +167866,22 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Folded into task 15.4.5: the spring starter is one Maven module, and once task 8.42.5 removed LocalVerifier.AuthorizedReceiptBatch, LayerXDeclaredConfig, LayerXProperties and LayerXAutoConfiguration cannot compile apart from SellerMiddleware, Fulfillments and DurableStores, so the two are qualified as one change under 15.4.5 do_5 to do_12."
 
 [task.15.4.7]
 title = "Verify signed sequencer receipts in the android ReceiptGate"
 status = "pending"
 mode = "BUILD"
 wave = 23
-requires = ["15.0.3", "8.0.3", "9.0.3"]
+requires = ["8.0.3", "9.0.3", "8.42.1", "8.42.5"]
 reqs = ["15011.1", "15011.2"]
 capabilities = ["15.4.7"]
 interfaces = []
 do_1 = "Replace the authorizedBatch component of Evidence at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java:12 and its null check at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java:15 with rawTransaction, signedReceipt and receiptKey."
 do_2 = "Change the verification call at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java:58 to the JVM SDK sequencer receipt verifier with the receipt keys passed to the ReceiptGate constructor."
 do_3 = "Add junit-jupiter as a test dependency in sdk/integrations/android/pom.xml (sdk/integrations/android/pom.xml:1) and write sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java (planned)."
-symbols = ["ReceiptGate", "Evidence", "verifiesSignedSequencerReceipt", "refusesReceiptUnderUnpinnedKey"]
-touches = ["sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java", "sdk/integrations/android/pom.xml", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java"]
+symbols = ["ReceiptGate", "Evidence", "verifiesSignedSequencerReceipt", "refusesReceiptUnderUnpinnedKey", "LayerXAndroid", "PublishableConfiguration", "RelayReceiptResolver"]
+touches = ["sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java", "sdk/integrations/android/pom.xml", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java", "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/LayerXAndroid.java", "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java", "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java"]
 tests = ["sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java::verifiesSignedSequencerReceipt", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java::refusesReceiptUnderUnpinnedKey"]
 planned_paths = ["sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java"]
 build_cmd = "mvn -q -f sdk/integrations/android/pom.xml -Psample -DskipTests package"
@@ -167830,7 +167889,7 @@ verify_cmd = "mvn -q -f sdk/integrations/android/pom.xml -Psample -Dtest='Receip
 gate_kind = "planned"
 sandbox_profile = "jvm"
 owner_role = "fm-cosmos-fork"
-rollback = "Revert sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java and sdk/integrations/android/pom.xml."
+rollback = "Revert ReceiptGate.java, LayerXAndroid.java, PublishableConfiguration.java, RelayReceiptResolver.java and pom.xml under sdk/integrations/android and delete ReceiptGateTest.java; the module returns to failing against the JVM SDK at ReceiptGate.java:12 and RelayReceiptResolver.java:82."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -167838,6 +167897,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Change LayerXAndroid.gate at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/LayerXAndroid.java:79 to construct ReceiptGate with the receipt keys of its PublishableConfiguration, keeping the one-argument gate(ReceiptGate.ReceiptResolver) called at sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/WalletModel.java:41, and to throw MobileIntegrationException INVALID_CONFIGURATION when the configuration declares no receipt keys."
+do_5 = "Add the declared key layerx.receipt_keys, read from the environment variable LAYERX_RECEIPT_KEYS_JSON, to PublishableConfiguration at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java:19: its value is a non-empty JSON array of {keyId, publicKey, firstHeight, lastHeight} entries parsed in of (sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java:54) into LocalVerifier.ReceiptKeys, mapped in declaredKeyForEnvironmentVariable (sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java:100), listed in declaredKeyNames (sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java:117), exposed as Optional<LocalVerifier.ReceiptKeys> receiptKeys() so a configuration without receipts (WebhookConformanceMain) still loads, and each entry's keyId and publicKey hexadecimal is added to exemptScannerValues (sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java:135)."
+do_6 = "Replace the authorized_batch presence check at sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java:72 with checks for raw_transaction and signed_receipt (0x-prefixed hexadecimal, as rawTransaction and signedReceipt in sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json) and receipt_key (an object with keyId, publicKey, firstHeight and lastHeight, as pinnedKey in the same fixture), and replace the LocalVerifier.AuthorizedReceiptBatch construction at sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java:82 with ReceiptGate.Evidence(rawTransaction, signedReceipt, receiptKey); the -Psample build and verify compile this file, so the port belongs here and task 15.4.8 keeps only its test."
+do_7 = "sdk/integrations/android/pom.xml keeps com.sidiora.layerx:layerx-sdk as an unconditional compile dependency and adds no JVM SDK source directory to any profile; the published-sdk profile and the add-checkout-sdk-source execution of the attempt 3 candidate (faaeae131) are removed, junit-jupiter and the surefire pin stay."
+do_8 = "ReceiptGate keeps the single constructor ReceiptGate(ReceiptResolver, LocalVerifier.ReceiptKeys) and ReceiptResolver stays the one-method interface at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java:40; the pinned keys come from PublishableConfiguration, never from the resolver, so the one-argument constructor and the resolver default method of attempt 4 (ce3064d37) are not kept."
 
 [task.15.4.8]
 title = "Resolve signed receipts in the android sample relay resolver"
@@ -167848,8 +167912,8 @@ requires = ["15.4.7"]
 reqs = ["15012.1"]
 capabilities = ["15.4.8"]
 interfaces = []
-do_1 = "Replace the authorized_batch presence check at sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java:72 with checks for raw_transaction, signed_receipt and receipt_key."
-do_2 = "Replace the LocalVerifier.AuthorizedReceiptBatch construction at sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java:82 with the Evidence of task 15.4.7."
+do_1 = "Covered by task 15.4.7 do_6: RelayReceiptResolver reads raw_transaction, signed_receipt and receipt_key in place of authorized_batch."
+do_2 = "Covered by task 15.4.7 do_6: the resolver returns ReceiptGate.Evidence(rawTransaction, signedReceipt, receiptKey); this task changes RelayReceiptResolver.java only if parsesSignedReceiptPayload finds a defect in it."
 do_3 = "Write sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java (planned) with parsesSignedReceiptPayload."
 symbols = ["RelayReceiptResolver", "parsesSignedReceiptPayload"]
 touches = ["sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java"]
@@ -194508,6 +194572,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
