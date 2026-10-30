@@ -359,7 +359,7 @@ func (operation AgentOperation) EVMMetadata() (EVMOperationMetadata, bool) {
 	case AgentOperationProgramInterface:
 		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101d", Selector: "getInterface(bytes32)"}, true
 	case AgentOperationProgramReceipt:
-		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101c", Selector: "resultByIdempotency(bytes32,bytes32)"}, true
+		return EVMOperationMetadata{Method: "eth_getTransactionByHash", To: "", Selector: ""}, true
 	case AgentOperationProgramSimulate:
 		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101d", Selector: "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"}, true
 	case AgentOperationProgramUpgrade:
