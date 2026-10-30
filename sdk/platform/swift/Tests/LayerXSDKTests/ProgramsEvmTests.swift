@@ -180,6 +180,43 @@ final class ProgramsEvmTests: XCTestCase {
     XCTAssertThrowsError(try NativeProgramDeploy.decode(invalid))
   }
 
+  func testProgramReceiptCarriesIdempotencyResult() async throws {
+    let recorded = Data([0xaa, 0xbb, 0xcc])
+    let encodedResult =
+      "0x" + String(repeating: "0", count: 62) + "20"
+      + String(repeating: "0", count: 63) + "3"
+      + "aabbcc" + String(repeating: "0", count: 58)
+    let server = try RPCFixtureServer(results: [
+      "eth_call": .string(encodedResult),
+      "eth_getTransactionByHash": .null,
+    ])
+    defer { server.stop() }
+    let key = try IdempotencyKey(String(repeating: "77", count: 32))
+    let hash = Data(repeating: 0x88, count: 32)
+    let submission = try await client(server).receipt(
+      idempotencyKey: key, expectedActivityID: hash, verificationLevel: "pending")
+    XCTAssertEqual(submission.state, "unknown")
+    XCTAssertEqual(submission.transactionHash, hash)
+    XCTAssertEqual(submission.idempotencyKey, key.rawValue)
+    XCTAssertEqual(submission.idempotencyResult, recorded)
+    let requests = try server.requests()
+    XCTAssertEqual(
+      requests.compactMap { $0["method"]?.stringValue },
+      ["eth_call", "eth_getTransactionByHash"])
+    let call = try XCTUnwrap(requests.first)
+    XCTAssertEqual(
+      call["params"],
+      .array([
+        .object([
+          "from": .string("0x" + String(repeating: "55", count: 20)),
+          "to": .string(Programs.authAddress),
+          "data": .string("0x2eda9f2b" + String(repeating: "66", count: 32) + key.rawValue),
+        ]), .string("pending"),
+      ]))
+    XCTAssertEqual(
+      requests.last?["params"], .array([.string("0x" + String(repeating: "88", count: 32))]))
+  }
+
   func testProgramActivityVerifiesSequencerReceipt() async throws {
     let root = URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent().deletingLastPathComponent()
