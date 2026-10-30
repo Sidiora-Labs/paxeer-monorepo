@@ -140011,7 +140011,7 @@ do_7 = "At c1598b8a1 startup_checks_node_json_rpc_before_the_human_lni_variable 
 
 [task.9.0.4]
 title = "Repoint the SDK parity harness at the node JSON-RPC endpoint and rungs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.0.3", "9.18.4", "18.1297.1"]
@@ -142088,7 +142088,7 @@ do_8 = "Attempt 5 (a3cd2e90b on base a9863352f, which carries the 9.10.2 schema)
 
 [task.9.18.9]
 title = "Emit the four rung submission states from the agent SDK generator templates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.18.4"]
@@ -164893,7 +164893,7 @@ do_8 = "The build root list must include apps/explorer/nextjs/nextjs-routes.d.ts
 
 [task.14.32.2]
 title = "Show the anchors page as a frozen archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["14.32.1"]
@@ -164925,7 +164925,7 @@ do_5 = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx:3 imports Paxee
 
 [task.14.32.3]
 title = "Show the kernel receipts page as a frozen archive without a settlement rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["14.32.1"]
@@ -164957,7 +164957,7 @@ do_5 = "Retype the PaxeerXReceiptsItem imports at apps/explorer/ui/paxeerX/recei
 
 [task.14.32.4]
 title = "Show one archived kernel receipt with its frozen verification status"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["14.32.1"]
@@ -164990,7 +164990,7 @@ do_6 = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx:5 impor
 
 [task.14.32.5]
 title = "Label the kernel pages Kernel archive in the navigation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["14.32.1"]
@@ -194856,7 +194856,7 @@ qualification = "UNRUN"
 
 [task.18.1204.2]
 title = "Bind agent creation lifecycle evidence to the signed EIP-1559 transaction end to end"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.19.2"]
