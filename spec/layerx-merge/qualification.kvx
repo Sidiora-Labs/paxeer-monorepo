@@ -11203,3 +11203,59 @@ symbol = "readKernelAvailability"
 observed = "Attempts 3, 4 and 5 (2c225db68) failed the same two flow tests: the /v1/wallet/me assertion expects kernel state unavailable while bind.ts:133-140 answers available whenever the test chain serves layerXBindNonce, and the backfill test's legacy agent wallet (encrypted local key, no attestor key, no agent_policies row, no signed agent request) cannot reach awaiting_agent_signature under state.ts:383 and :389-390."
 assumption = "Both expectations are stale test fixtures, not production faults; do_3 and do_6 now state the current contract and the next attempt continues from attempt 5."
 severity = "low"
+
+[finding.16.5.6.1]
+task = "16.5.6"
+file = "scripts/ci/runner-routing-check.sh"
+symbol = "EXCLUDED"
+observed = "Attempts 2, 3 and 4 (17cb39a5e, 968a99846, e8e6d06a5) implemented the six steps and failed the gate on six pre-existing fixed-runner violations in publish-images.yml and wallet-go-test.yml."
+assumption = "do_7 (decision.1877) adds the exclusion rows and routes the two wallet jobs; attempt 5 continues from attempt 4."
+severity = "medium"
+
+[finding.18.1159.1.1]
+task = "18.1159.1"
+file = "services/human/crates/layerx-human-service"
+symbol = "layerx_agent_api::verify::Level"
+observed = "Attempts 1 and 2 (a2deb40e0 and the next) failed the build on unresolved layerx_agent_api::verify::Level inside layerx-human-service, which the kms provider test target compiles."
+assumption = "10.2.8 published the rung port of the human service at 01:16Z; the task now requires 10.2.8 and re-qualifies on a base that includes it."
+severity = "low"
+
+[finding.18.1206.1.2]
+task = "18.1206.1"
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+symbol = "ReceiptLookup"
+observed = "Attempt 6 (92cba1bfd) fixed the signing call sites and the build failed on the unknown target (retired ReceiptLookup members, missing sequencer_endpoint) and on budget_durable_limits (BudgetCreateIdentity has sender, not owner; Vec<u8> is not a BudgetIdentitySource)."
+assumption = "The unknown target leaves this task's build; 18.1200.1 do_5 ports it; do_7 ports the identity assertions; attempt 7 continues from attempt 6."
+severity = "medium"
+
+[finding.13.27.1.15]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+symbol = "TestProgramsSandboxExecuteEmitsUsage"
+observed = "Attempt 33 (ef3be2b2f) applied do_15 (fundFeeLimit seeds ReadLastSequence+1); the funded sandboxExecute then reverted LXP_FATAL_INVARIANT with the lease, escrow and ledger states dumped in the attempt log."
+assumption = "The fault is the kernel terminal contract (call.c:1419-1422 and :1632-1644 demand an applied ordinary occupancy bridge that the runtime never builds for a sandboxed call, ffi_call.rs:2919); kernel task 13.27.6 (decision.1880) closes it and 13.27.1 requires it, its two files unchanged."
+severity = "high"
+
+[finding.8.98.5.4]
+task = "8.98.5"
+file = "services/platform/hosted/core/src/lib.rs"
+symbol = "custody_read"
+observed = "Attempt 4 (d1f30e78b) rewrote the custody block onto rpc::evidence and rpc::transport paths that do not exist, against do_1 (decision.1875), and failed the build on three unresolved imports at lib.rs:457-462."
+assumption = "Attempt 5 continues from attempt 4 with lib.rs restored to the base revision and the main.rs port kept."
+severity = "low"
+
+[finding.8.94.3.2]
+task = "8.94.3"
+file = "services/platform/ramps/toolkit/tests/custody_rungs.rs"
+symbol = "executed_receipt"
+observed = "Attempt 5 (23109fc55) failed the platform test build on the ExecutedReceipt literal missing signing_key at custody_rungs.rs:47, a fixture 8.29.4 ported at f2e14e618."
+assumption = "Attempt 6 re-qualifies unchanged on a base that includes f2e14e618."
+severity = "low"
+
+[finding.18.1243.1.1]
+task = "18.1243.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+symbol = "address_word"
+observed = "web.rs:534-536 pads 20-byte EVM addresses into the 32-byte from, to and assetId words of payExact, while the ramp producer converts to ledger account ids with ledger_account (services/platform/ramps/toolkit/src/lib.rs:345-346)."
+assumption = "Recorded from the issue #1243 trace; the account-id shape of web payments is ruled separately and 18.1243.1 does not change it."
+severity = "medium"

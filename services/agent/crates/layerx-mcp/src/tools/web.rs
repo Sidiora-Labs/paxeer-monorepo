@@ -516,10 +516,10 @@ fn amount_word(amount: u128) -> [u8; 32] {
     word
 }
 
-fn payment_call(signature: &str, words: Vec<[u8; 32]>) -> PrecompileCall {
+fn payment_call(target: PrecompileTarget, signature: &str, words: Vec<[u8; 32]>) -> PrecompileCall {
     let digest = Keccak256::digest(signature.as_bytes());
     PrecompileCall {
-        target: PrecompileTarget::Pay,
+        target,
         selector: [digest[0], digest[1], digest[2], digest[3]],
         arguments: words.into_iter().map(AbiArgument::Word).collect(),
     }
@@ -529,6 +529,7 @@ impl ExactTerms {
     #[must_use]
     pub fn prepare_pay_exact(&self) -> PrecompileCall {
         payment_call(
+            PrecompileTarget::Ledger,
             "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)",
             vec![
                 address_word(self.payer_account),
@@ -545,7 +546,7 @@ impl ExactTerms {
 impl GrantTerms {
     #[must_use]
     pub fn prepare_budget(&self) -> PrecompileCall {
-        payment_call("budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)", vec![
+        payment_call(PrecompileTarget::Pay, "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)", vec![
             self.idempotency_key, address_word(self.payer_account), address_word(self.asset), self.purpose_hash,
             amount_word(self.amount), amount_word(0), amount_word(self.amount), amount_word(1),
             amount_word(u128::from(self.current_height)), amount_word(u128::from(self.current_height) + 1),
@@ -556,6 +557,7 @@ impl GrantTerms {
     #[must_use]
     pub fn prepare_draw(&self, grant_id: [u8; 32]) -> PrecompileCall {
         payment_call(
+            PrecompileTarget::Ledger,
             "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)",
             vec![
                 grant_id,

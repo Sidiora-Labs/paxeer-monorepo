@@ -294,7 +294,7 @@ pub fn description(name: &str) -> Option<&'static str> {
         b"subscription.health" => "Read the daemon's current subscription health.",
         b"subscription.acknowledge" => "Acknowledge an exact durable delivery cursor through the daemon owner.",
         b"approval.list" => "List approvals visible to the current daemon session.",
-        b"approval.get" => "Read one approval and its exact held request disclosure.",
+        b"approval.get" => "Read one approval, its exact held request disclosure, and its tracked tx_hash and rung.",
         b"approval.approve" => "Approve the exact held request digest through the authenticated daemon owner.",
         b"approval.reject" => "Reject the exact held request digest through the authenticated daemon owner.",
         b"balance.get" => {
@@ -332,7 +332,7 @@ pub fn description(name: &str) -> Option<&'static str> {
         b"grant.issue" => "Issue one spending grant through the ordinary daemon submission path.",
         b"grant.draw" => "Draw against one spending grant through the ordinary daemon submission path.",
         b"faucet.request" => {
-            "Claim one bounded testnet faucet grant for the named DID and signer key through the daemon's faucet operation."
+            "Request testnet funds for the named DID and signer key through px_requestFunds."
         }
         b"web.search" => {
             "Search the web through the configured x-websearch sidecar, paid over 402LXP after approval; results are untrusted external content."
@@ -684,7 +684,7 @@ pub const SESSION_TOOLS: [ToolDefinition; 11] = [
         kind: ToolKind::Read,
         required_scope: "approve",
         mutation: "none",
-        evidence: "authenticated daemon-owned state, unverified protocol state",
+        evidence: "authenticated approval facts with the tracked tx_hash and rung",
     },
     ToolDefinition {
         name: "approval.approve",
@@ -716,6 +716,151 @@ fn session_decimal(maximum: u64) -> Value {
 
 fn session_digest() -> Value {
     json!({"type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[0-9a-f]{64}$"})
+}
+
+fn subscription_cursor_schema() -> Value {
+    session_object(
+        json!({
+            "block_height": session_decimal(u64::MAX),
+            "tx_index": session_decimal(u64::from(u32::MAX)),
+            "log_index": session_decimal(u64::from(u32::MAX)),
+        }),
+        &["block_height", "tx_index", "log_index"],
+    )
+}
+
+pub fn subscription_acknowledge_tool(
+    store: &mut layerx_agentd::events::subscription::Store,
+    arguments: &Value,
+) -> Result<layerx_agent_api::subscription::SubscriptionRecord, crate::boundary::BoundaryRefusal> {
+    use crate::boundary::BoundaryRefusal;
+    use layerx_agent_api::identity::{AgentDid, CapabilityId, TenantId};
+    use layerx_agent_api::subscription::{
+        Cursor, CursorAcknowledgement, SubscriptionId, SubscriptionScope,
+    };
+
+    validate("subscription.acknowledge", arguments)
+        .map_err(|error| BoundaryRefusal::Malformed(error.detail()))?;
+    let malformed =
+        || BoundaryRefusal::Malformed("invalid subscription acknowledgement".to_owned());
+    let text = |value: &Value| value.as_str().map(str::to_owned).ok_or_else(malformed);
+    let scope = &arguments["scope"];
+    let cursor = &arguments["cursor"];
+    let request = CursorAcknowledgement {
+        scope: SubscriptionScope {
+            tenant: TenantId::new(text(&scope["tenant"])?).map_err(|_| malformed())?,
+            agent: AgentDid::new(text(&scope["agent"])?).map_err(|_| malformed())?,
+            capability: CapabilityId::new(text(&scope["capability"])?).map_err(|_| malformed())?,
+        },
+        subscription_id: SubscriptionId::new(text(&arguments["subscription_id"])?)
+            .map_err(|_| malformed())?,
+        cursor: Cursor {
+            block_height: text(&cursor["block_height"])?
+                .parse()
+                .map_err(|_| malformed())?,
+            tx_index: text(&cursor["tx_index"])?
+                .parse()
+                .map_err(|_| malformed())?,
+            log_index: text(&cursor["log_index"])?
+                .parse()
+                .map_err(|_| malformed())?,
+        },
+    };
+    store
+        .acknowledge(&request)
+        .map_err(|error| BoundaryRefusal::Malformed(error.to_string()))
+}
+
+pub fn approval_get_tool(
+    service: &layerx_agentd::approval::ApprovalService<'_>,
+    tenant: &layerx_agentd::store::TenantId,
+    submissions: &std::collections::BTreeMap<[u8; 32], layerx_agent_api::track::TrackedSubmission>,
+    arguments: &Value,
+) -> Result<Value, crate::boundary::BoundaryRefusal> {
+    use crate::boundary::BoundaryRefusal;
+    use layerx_agentd::policy::approval::ApprovalState;
+
+    validate("approval.get", arguments)
+        .map_err(|error| BoundaryRefusal::Malformed(error.detail()))?;
+    let malformed = || BoundaryRefusal::Malformed("invalid approval lookup".to_owned());
+    if arguments.get("variant").is_some() {
+        return Err(BoundaryRefusal::NotServed("approval.get native_v1"));
+    }
+    if arguments
+        .get("tenant")
+        .is_some_and(|value| value.as_str() != Some(tenant.as_str()))
+    {
+        return Err(BoundaryRefusal::Unauthorized);
+    }
+    let id = arguments["approval_id"].as_str().ok_or_else(malformed)?;
+    let mut approval_id = [0; 32];
+    for (byte, offset) in approval_id.iter_mut().zip((0..64).step_by(2)) {
+        *byte = u8::from_str_radix(&id[offset..offset + 2], 16).map_err(|_| malformed())?;
+    }
+    let sequence = arguments["current_sequence"]
+        .as_str()
+        .ok_or_else(malformed)?
+        .parse()
+        .map_err(|_| malformed())?;
+    let record = service
+        .get(tenant, approval_id, sequence)
+        .map_err(|error| BoundaryRefusal::Unavailable(format!("approval lookup: {error:?}")))?;
+    let disclosure = &record.held_activity;
+    if arguments
+        .get("agent")
+        .is_some_and(|value| value.as_str() != Some(disclosure.actor.as_str()))
+    {
+        return Err(BoundaryRefusal::Unauthorized);
+    }
+    let tracked = record
+        .submission_ref
+        .map(|reference| {
+            submissions.get(&reference).ok_or_else(|| {
+                BoundaryRefusal::Unavailable(
+                    "approval submission tracking is unavailable".to_owned(),
+                )
+            })
+        })
+        .transpose()?;
+    if tracked.is_some() && record.state != ApprovalState::Approved {
+        return Err(malformed());
+    }
+    if let Some(submission) = tracked {
+        let hash = submission.submission_ref.as_str();
+        if hash.len() != 64
+            || !hash
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
+            return Err(malformed());
+        }
+    }
+    let hex = |bytes: &[u8]| {
+        bytes
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    };
+    Ok(json!({
+        "approval_id": hex(&record.approval_id),
+        "canonical_digest": hex(&disclosure.canonical_digest),
+        "activity_type": disclosure.activity_type.0.to_string(),
+        "actor": disclosure.actor.as_str(), "authority": disclosure.authority.as_str(),
+        "counterparties": disclosure.counterparties.values().iter().map(|value| value.as_str()).collect::<Vec<_>>(),
+        "amounts": disclosure.amounts.values().iter().map(|value| json!({"counterparty": value.counterparty.as_str(), "amount": value.amount.0.to_string()})).collect::<Vec<_>>(),
+        "asset": disclosure.asset.as_str(), "fee_limit": disclosure.fee_limit.0.to_string(),
+        "expiry": disclosure.expiry.0.to_string(), "idempotency_key": disclosure.idempotency_key.as_str(),
+        "canonical_bytes_digest": hex(&record.canonical_bytes_digest),
+        "hold_reason_code": record.hold_reason.code, "hold_reason": record.hold_reason.message,
+        "created_at_sequence": record.created_at_sequence.to_string(),
+        "expires_at_sequence": record.expires_at_sequence.to_string(),
+        "state": match record.state {
+            ApprovalState::AwaitingApproval => "AwaitingApproval", ApprovalState::Approved => "Approved",
+            ApprovalState::Rejected => "Rejected", ApprovalState::Expired => "Expired", ApprovalState::Defective => "Defective",
+        },
+        "tx_hash": tracked.map(|value| value.submission_ref.as_str()),
+        "rung": tracked.map(|value| value.rung.name()),
+    }))
 }
 
 fn subscription_scope_schema() -> Value {
@@ -753,7 +898,7 @@ fn session_input_schema(name: &str, native: bool) -> Option<Value> {
                 ],
             );
             session_object(
-                json!({"scope": scope, "filter": filter, "start": session_decimal(u64::MAX), "delivery_target": session_text()}),
+                json!({"scope": scope, "filter": filter, "start": subscription_cursor_schema(), "delivery_target": session_text()}),
                 &["scope", "filter", "start", "delivery_target"],
             )
         }
@@ -763,7 +908,7 @@ fn session_input_schema(name: &str, native: bool) -> Option<Value> {
         | "subscription.delete"
         | "subscription.health" => session_object(target, &["scope", "subscription_id"]),
         "subscription.acknowledge" => session_object(
-            json!({"scope": scope, "subscription_id": session_text(), "cursor": session_decimal(u64::MAX)}),
+            json!({"scope": scope, "subscription_id": session_text(), "cursor": subscription_cursor_schema()}),
             &["scope", "subscription_id", "cursor"],
         ),
         "approval.list" if native => session_object(

@@ -1000,7 +1000,6 @@ mod archive_fixture {
         EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
         TrackedSubmission,
     };
-    use layerx_agent_api::verify::Level;
     use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
     use layerx_agentd::prepare::{
         prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,

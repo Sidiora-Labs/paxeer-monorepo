@@ -17,7 +17,6 @@ use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
     TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agentd::outbox::{Outbox, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
@@ -60,6 +59,7 @@ use layerx_types::intent::{
     SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
@@ -356,9 +356,9 @@ impl RealAgentLayer {
                 .unwrap_or_else(|error| panic!("submission ref: {error:?}")),
             state,
             rung: if evidence.is_empty() {
-                layerx_types::rung::Rung::Submitted
+                Rung::Submitted
             } else {
-                layerx_types::rung::Rung::Receipted
+                Rung::Receipted
             },
             evidence,
             transitions: Vec::new(),
@@ -632,7 +632,7 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
         canonical_bytes,
         tx_hash: activity_id,
         block_height: sequence,
-        rung: layerx_types::rung::Rung::Receipted,
+        rung: Rung::Receipted,
     };
     let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
         .unwrap_or_else(|error| panic!("intent receipt: {error:?}"));
@@ -643,7 +643,7 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
         material.receipt_hash,
         <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
     );
-    assert_eq!(material.rung, layerx_types::rung::Rung::Receipted);
+    assert_eq!(material.rung, Rung::Receipted);
     material
 }
 
