@@ -188654,7 +188654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1113.1]
 title = "Issue #1113: Port the provisioning flow tests from the retired sponsor top-up to the gas station sponsored bind"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
