@@ -1,10 +1,11 @@
 use layerx_agent_api::error::RequestId;
 use layerx_agent_api::verify::RungStatus;
 use layerx_agentd::agent_rpc_dispatch::{
-    decode_write_answer, track_write_answer, wait_write_answer,
+    decode_write_answer, dispatch_raw_submit, track_write_answer, wait_write_answer,
 };
 use layerx_agentd::finality::{wait_for_rung, SubmissionProgress, VerifiedReceipt};
-use layerx_agentd::human_runtime::{accept_raw_write, write_submission};
+use layerx_agentd::human_runtime::{accept_raw_write, submit_raw_write, write_submission};
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::outbox::{Outbox, SubmissionState, SubmissionStatus};
 use layerx_agentd::store::{Store, TenantId};
 use layerx_crypto::evm_transaction::{decode_signed, transaction_hash, Eip1559Call};
@@ -54,6 +55,160 @@ impl Drop for DurableWrite {
     fn drop(&mut self) {
         std::fs::remove_dir_all(&self.root).unwrap();
     }
+}
+
+#[test]
+fn raw_transaction_submit_sends_eth_send_raw_transaction() {
+    use serde_json::{json, Value};
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    let raw = Eip1559Call {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to: [0x1a; 20],
+        data: vec![1, 2, 3, 4],
+    }
+    .sign(&[0xa5; 32])
+    .unwrap();
+    let hash = transaction_hash(&raw);
+    let signed_hex = format!("0x{}", hex::encode(&raw));
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let config = NodeRpcConfig {
+        url: format!("http://{}/", listener.local_addr().unwrap()),
+        chain_id: 125,
+        deadline: Duration::from_secs(2),
+    };
+    let (finished, stop) = mpsc::channel();
+    let expected_hex = signed_hex.clone();
+    let server = std::thread::spawn(move || {
+        let expires = Instant::now() + Duration::from_secs(5);
+        let mut submissions = Vec::new();
+        let mut chain_checks = 0;
+        loop {
+            let stream = match listener.accept() {
+                Ok((stream, _)) => stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if stop.try_recv().is_ok() {
+                        break;
+                    }
+                    assert!(Instant::now() < expires, "JSON-RPC exchange timed out");
+                    std::thread::sleep(Duration::from_millis(1));
+                    continue;
+                }
+                Err(error) => panic!("accept: {error}"),
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            stream
+                .set_write_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(value.trim().parse::<usize>().unwrap());
+                }
+            }
+            let length = length.expect("content length required");
+            assert!(length <= 64 * 1024);
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).unwrap();
+            let request: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(request["jsonrpc"], "2.0");
+            let result = match request["method"].as_str().unwrap() {
+                "eth_chainId" => {
+                    chain_checks += 1;
+                    assert_eq!(request["params"], json!([]));
+                    json!("0x7d")
+                }
+                "eth_sendRawTransaction" => {
+                    assert_eq!(request["params"], json!([expected_hex]));
+                    submissions.push(request.clone());
+                    json!(format!("0x{}", hex::encode(hash)))
+                }
+                method => panic!("unexpected node method: {method}"),
+            };
+            let answer = json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+            let mut stream = reader.into_inner();
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).unwrap();
+            stream.flush().unwrap();
+        }
+        assert_eq!(chain_checks, 1);
+        assert_eq!(submissions.len(), 1);
+        submissions
+    });
+    let node = NodeRpc::connect(&config).unwrap();
+    let root =
+        std::env::temp_dir().join(format!("write-path-evm-{}-raw-submit", std::process::id()));
+    std::fs::create_dir(&root).unwrap();
+    let store = Store::open(&root).unwrap();
+    let mut write = DurableWrite {
+        root,
+        store,
+        outbox: Outbox::default(),
+        hash,
+    };
+    let request = json!({"raw_transaction": signed_hex});
+    let mut submit = |raw| {
+        submit_raw_write(
+            &mut write.outbox,
+            &mut write.store,
+            TenantId::new("write-tenant").unwrap(),
+            raw,
+            &node,
+        )
+    };
+    let (answer, rung) =
+        dispatch_raw_submit(request.as_object().unwrap(), RequestId(7), &mut submit).unwrap();
+    assert_eq!(answer["tx_hash"], hex::encode(hash));
+    assert_eq!(answer["submission_ref"], hex::encode(hash));
+    assert_eq!(answer["state"], "Submitted");
+    assert_eq!(answer["rung"], "submitted");
+    assert_eq!(rung, Rung::Submitted);
+    assert!(dispatch_raw_submit(request.as_object().unwrap(), RequestId(8), &mut submit).is_err());
+    let mixed = json!({"raw_transaction": signed_hex, "preparation_ref": "00".repeat(32)});
+    assert!(dispatch_raw_submit(mixed.as_object().unwrap(), RequestId(9), &mut submit).is_err());
+    let unknown = json!({"raw_transaction": signed_hex, "unexpected": true});
+    assert!(dispatch_raw_submit(unknown.as_object().unwrap(), RequestId(10), &mut submit).is_err());
+    finished.send(()).unwrap();
+    let received = server.join().unwrap();
+    assert_eq!(received.len(), 1);
+    assert_eq!(
+        hex::decode(
+            received[0]["params"][0]
+                .as_str()
+                .unwrap()
+                .strip_prefix("0x")
+                .unwrap()
+        )
+        .unwrap(),
+        raw
+    );
+    assert_eq!(
+        write.outbox.status(hash).unwrap().state,
+        SubmissionState::Submitted
+    );
+    let mut restored = Outbox::default();
+    restored
+        .restore(&write.store, TenantId::new("write-tenant").unwrap(), hash)
+        .unwrap();
+    let (tracked, tracked_rung) =
+        track_write_answer(RequestId(11), &restored, &hex::encode(hash)).unwrap();
+    assert_eq!(tracked, answer);
+    assert_eq!(tracked_rung, Rung::Submitted);
 }
 
 #[test]

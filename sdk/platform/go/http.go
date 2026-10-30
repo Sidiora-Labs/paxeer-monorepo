@@ -410,10 +410,6 @@ func NewAgentSessionCredential(tenant string, sessionID string, tokenID *SecretB
 	return &AgentSessionCredential{tenant: tenant, sessionID: sessionID, tokenID: tokenID, generation: generation}, nil
 }
 
-func agentEnvelopeBootstrap(operation AgentOperation) bool {
-	return operation == AgentOperationAgentRegister || operation == AgentOperationSessionOpen
-}
-
 type AgentEnvelopeHTTPTransport struct {
 	endpoint   *HumanHTTPTransport
 	credential *AgentSessionCredential
@@ -493,21 +489,15 @@ func (transport *AgentEnvelopeHTTPTransport) encode(call TransportCall, requestI
 		encoded, err = json.Marshal(envelope)
 		return err
 	}
-	if agentEnvelopeBootstrap(operation) {
-		if err := encode(); err != nil {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
-	} else {
-		if transport.credential == nil {
-			return nil, newSDKError(ErrorCapabilityRefusal, RetryNever)
-		}
-		credential := transport.credential
-		if err := credential.tokenID.Expose(func(token []byte) error {
-			envelope.Credential = &agentEnvelopeCredential{Tenant: credential.tenant, SessionID: credential.sessionID, TokenID: string(token), Generation: strconv.FormatUint(credential.generation, 10)}
-			return encode()
-		}); err != nil {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
+	if transport.credential == nil {
+		return nil, newSDKError(ErrorCapabilityRefusal, RetryNever)
+	}
+	credential := transport.credential
+	if err := credential.tokenID.Expose(func(token []byte) error {
+		envelope.Credential = &agentEnvelopeCredential{Tenant: credential.tenant, SessionID: credential.sessionID, TokenID: string(token), Generation: strconv.FormatUint(credential.generation, 10)}
+		return encode()
+	}); err != nil {
+		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	if len(encoded) > maximumAgentEnvelopeRequestBytes {
 		clear(encoded)

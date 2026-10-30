@@ -11110,3 +11110,129 @@ fix = "repository_root() takes ancestors().nth(3) of CARGO_MANIFEST_DIR, correct
 title = "A package-wide --tests build is gated by every stale test file of the package"
 symptom = "A task whose build_cmd is cargo build -p <crate> --tests fails on a test file it does not touch (archive.rs: FundsDispositionEvidence has no field verification_level)."
 fix = "Find the pending task that owns the stale file and add it to requires; do not widen the failing task's touches."
+
+[gotcha.2260]
+title = "Deleting a kernel definition file passes the archive gate and breaks the binary link"
+symptom = "After src/guarantor/lxp_dissent.c was deleted, make paxd-native-libs and the Go module gate passed, yet make build/bin/layerx-guarantor fails with undefined reference to lxp_guarantor_withhold and every Rust build script that builds the core panics."
+fix = "A retirement task that deletes definitions must grep src, include and cmd for every deleted symbol (not only tests) and its build_cmd must link a binary that pulls the object, e.g. make build/bin/layerx-guarantor (issue #1300, task 18.1300.1)."
+
+[gotcha.2261]
+title = "lxp_receive_environment is a live kernel type, not a retired symbol"
+symptom = "A retired-uses scan over tests/ for lxp_receive_environment fails on tests/codec and tests/ledger suites that legitimately use the receive environment of include/layerx/lxp_ledger.h."
+fix = "Scan for the retired path (tests/test_gateway_receive.c) and the lxp_grant_store symbols only; exclude the codec, crypto, fuzz, chain, daemon, bridge and explorer suites as test_retired_guarantor_duties.py does."
+
+[gotcha.2262]
+title = "A second task for one issue reuses the issue's req block"
+symptom = "check-draft.py accepts only task.18.<issue>.1 ids, so a follow-on task for the same issue cannot pass it and an invented req id (req.1812912) does not match the spec convention."
+fix = "Follow the 18.1172.2 pattern: task.18.<issue>.k with reqs ['18<issue>.k'], ac_k appended to [req.18<issue>] and [acceptance.18.<issue>.k] with req = '18<issue>.k'; normalise at assembly time."
+
+[gotcha.2263]
+title = "An enum variant rename must be grepped across every crate's tests, not only the crate's own"
+symptom = "InvalidationReason::CapabilityGrantRevoked became GrantRevokedOnChain in layerx-agentd; the layerx-mcp scope test kept the old name and every layerx-mcp --tests build fails (issue #1301)."
+fix = "grep -rn the old variant across services/ before publishing a rename; a package-wide --tests build of a dependent crate is where the leftover surfaces."
+
+[gotcha.2264]
+title = "Check src/ before scoping a retired-symbol scan to a symbol"
+symptom = "16.97.1 do_6 scoped the kernel scan to lxp_grant_store on the assumption it was retired; it is live (src/ledger/lxp_grant_store.c) until 1.12.1, so attempt 4 failed on seven live uses."
+fix = "grep include/ and src/ for the symbol's definition first; if it is live, the scan may only cover the files the task edits (decision.1911)."
+
+[gotcha.2265]
+title = "A task that changes a struct's fields must own, or hand off, the shared test support that fills them"
+symptom = "13.4.5 removed the kernel-batch fields from DeploymentProof and ProgramStateProof; tests/support/mod.rs, shared by seven test targets, stopped compiling and the package-wide --tests build failed every attempt."
+fix = "Build only the task's own --test target (decision.1910) and make the task that rebuilds the shared support require the type change; record the interval in which the other targets do not compile."
+
+[gotcha.2266]
+title = "Symbols a task removes, and documentation headings, fail the graph check as not defined"
+symptom = "cg spec done refuses a task after a passing verify with 'symbol X not defined in the graph' (14.29.3 named the three functions it deleted; 18.1259.1, a documentation task, named two headings)."
+fix = "A task's symbols list names code definitions that exist after the task. Removed names are described in do_ lines only; a documentation-only task declares symbols = []."
+
+[gotcha.2267]
+title = "A symbol defined twice in one file fails the graph check as ambiguous"
+symptom = "cg spec done reports 'symbol ProgramOperations::simulate ambiguous: 2 definitions (ops/program.rs)' when the generic impl and the SequencerEndpoint impl both define the method (18.1286.1)."
+fix = "Declare only names with one definition; the touched file carries the change. Check with grep -n 'fn <name>' before listing a method of a type that has several impl blocks."
+
+[gotcha.2268]
+title = "An explorer type change must port every caller because the build is the app-wide type check"
+symptom = "cd apps/explorer && yarn lint:tsc fails in spec, mock and page files outside touches as soon as a shared union or interface is narrowed (14.31.1 nine errors in seven files; 14.33.1 five errors in three files)."
+fix = "Before narrowing a shared TS type, grep its literals and members across apps/explorer and add every caller to touches with a do_ line that ports them; the graph check refuses touched files that are not declared."
+
+[gotcha.2269]
+title = "A reproducibility test over generated code fails until the checked-in files come from the pinned toolchain"
+symptom = "TestBufGenerateMatchesCheckedInGo reports 104 .pb.go files differing in gzipped FileDescriptorProto size and import blocks although no .proto changed (7.29.2 attempts 1-3)."
+fix = "Generated code is regenerated with the pinned plugin in the same task that adds the comparison; the comparison is never normalised. List the regenerated files in touches and build their packages."
+
+[gotcha.2270]
+area = "spec/layerx-merge/qualification.kvx"
+symptom = "The qualification log on main at d028bd92b and 5b9b60520 held one character per line (2.1 MB then 4.3 MB) and every finding appended after it inherited the interleave."
+cause = "The batch wrote the log with '\\n'.join(qual) although qual is one string, so every character was followed by a newline; the next batch read the interleaved text as its base and doubled it."
+do = "Write the log with open(QUAL, 'w').write(qual) exactly as spec-batch-105 does, and have spec-lint refuse a qualification.kvx whose line count exceeds three times its finding count. Restore an interleaved file with text[0::2] after checking set(text[1::2]) == {'\\n'}."
+
+[gotcha.2271]
+title = "Two merged tasks can contradict each other and surface as an unrelated failure in a third task's gate"
+symptom = "18.1279.1's recorded challenge (18.1129.1) is refused by the 20-byte offer contract 9.16.1 wrote; 3.93.1's 137-byte oracle transport is refused by the abi-1 perps interface 1.24.1 registered; 2.26.4's dispute path answers LXP_ERR_MODULE_DISABLED because no task bound the service runtime."
+fix = "Record one cross-task finding naming producer and consumer with their commits, open an issue task that owns the producer file, add it to the blocked task's requires, and re-qualify the blocked candidate unchanged once it lands; never patch the consumer's test around it."
+
+[gotcha.2272]
+title = "A recovered panic inside a commit listener leaves a validator that keeps proposing with a fenced sequencer"
+symptom = "12.35.4 attempt 8: Driver.OnCommit failed at the first sequenced commit, the listener fenced the executor and panicked, node/abci.go recovered it into a log line, and every Seal afterwards answered 'executor fenced by a later lease' with no lease involved."
+fix = "A commit listener returns an error that Commit propagates so consensus halts the node with the cause (task 18.1307.1); a diagnosis keeps whole node logs and greps for 'panic recovered in commit listener' and 'fenced' before suspecting the topology."
+
+[gotcha.2273]
+title = "A library compile break in a shared crate fails every dependent task's build until the port task lands"
+symptom = "After 42c1fea30 (13.4.5) changed the registry verifier API, layerx-agentd stopped compiling and 18.1302.1, 18.1286.1, 18.1275.1, 10.20.3 and 18.1172.2 each failed their build on the same 13 errors across repeated attempts."
+fix = "Open the port task first (18.1304.1), add it to requires of every open task whose build or verify names the broken crate, and hold their attempts until it is on main; an attempt against a broken crate is wasted."
+
+[gotcha.2274]
+title = "Re-recording a shared fixture with many consumers: land the consumers first in a form that is invariant to the change"
+symptom = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json has about 35 consumers in eight crates that rotate or permute the recorded PaymentExact topics; re-recording it first would leave about 25 test targets red until every consumer task lands."
+fix = "Make each consumer derive its expected values from the recorded inputs (here the payExact calldata words) so it passes on the old and the new recording, land those in wave 0, then re-record the fixture together with its byte-equal copies and pinned literals in one revision."
+
+[gotcha.2275]
+title = "A requirement on a done task that sits in a later wave is a bad_ref for the plan validator"
+symptom = "18.1304.1 (wave 0) requiring 13.4.5 (wave 23, done) and 18.1305.1 requiring 1.24.1 (wave 23, done) raised bad_refs 2 although both requirements were satisfied."
+fix = "Do not list a done task from a later wave in requires; cite its commit in a do line and give the new task an empty requires or requires in its own or earlier waves."
+
+[gotcha.2276]
+title = "Retiring a host read must retire its keeper caller in the same revision"
+symptom = "a0a08d298 (1.25.2) deleted Host.ReadIdempotentReceipt while Keeper.ResultByIdempotency (modules/layerxauth/keeper/views.go:167) still called it, so every Go build that links the layerxauth keeper, including go build ./node/..., failed for four tasks' attempts (issue #1308)."
+fix = "When a task deletes an exported method, grep the whole module tree for callers before its verify; a caller outside the touches is a stop condition that needs its own task (18.1308.1) and a requires edge, not a silent omission."
+
+[gotcha.2277]
+title = "A test that asserts the retired idempotency replay cannot pass after the kernel stopped the lookup"
+symptom = "modules/layerxauth/keeper tests assert types.ErrIdempotentReplay on a second submission of the same payload, but 787dd93be (1.2.1) stopped kernel idempotency lookups, so the replay is a reused account sequence (-301) and the stored-receipt comparison has no store to read."
+fix = "Follow decision.1718: migrate the consumer to the sequence guard and the returned receipt under an explicit decision (decision.1932); never flip the expected code to whatever the kernel answers without that ruling."
+
+[gotcha.2278]
+title = "Hand edits inside generated protobuf or gateway files are reverted by the reproducibility task"
+symptom = "7.29.2 regenerated 104 files and the build failed because modules/xweb/types/query.pb.go carried 13 hand-written adapters (4d1f8830d) and sdk/x/bank/types/query.pb.gw.go a hand-reordered registration (5b9c0e997)."
+fix = "Put adapters in codec.go and binding order in the .proto; a generated file is committed only as unedited generator output (6.68.2, 7.26.5)."
+
+[gotcha.2279]
+title = "A renamed constant in a shared crate breaks test files of other crates that pin the old name"
+symptom = "18.1211.3 attempt 1 failed to compile layerx-ap2/tests/sequencer_settlement.rs:21 on PORTABLE_RECEIPT_FORMAT_V2, renamed to PORTABLE_RECEIPT_FORMAT by 2c4ecdb63 (11.29.4)."
+fix = "When a task's touches include a test file of another crate, build the test target first and fix pinned imports from the current crate exports before any behaviour change."
+
+[gotcha.2280]
+title = "A layerxauth replay through the keeper never reaches the identity-sequence refusal"
+symptom = "A replay test expected LXP_ERR_SEQUENCE_REUSED (-301) for every second submission and received LXP_ERR_AUTH_SCOPE (-204) for a refused flow and for a second revoke."
+fix = "Keeper.execute reads the actor's sequence anew per call (execute.go:22) and the kernel consumes it only on LXP_OK; -301 comes from the duplicate grant_id in lxp_grant_store_put, so assert the code the kernel answers for the flow (decision.1933)."
+
+[gotcha.2281]
+title = "An attempt that fails on a defect in the task text is relaunched with the same text"
+symptom = "Four attempts of one task failed identically within an hour because each continuation reproduced the payload the task text prescribed."
+fix = "When the failure needs a spec change, set the task aside before the next attempt starts, land the do line, then continue the latest candidate with a note that names the do line."
+
+[gotcha.2282]
+title = "A candidate bundle is thin and cannot be cloned on its own"
+symptom = "git clone of a task bundle fails with 'remote transport reported error' because the bundle assumes the base commit."
+fix = "Clone the repository once with --shared --no-checkout and fetch the bundle into refs/bundles/<task>-<attempt>/*, then read files with git show <ref>:<path>."
+
+[gotcha.2283]
+title = "tests/protocol/lxp_test_kernel reports only through its exit code"
+symptom = "The suite exited 1 with an empty stderr tail and the failing case could not be read from the log."
+fix = "Every check is a bare return 1 (tests/protocol/lxp_test_kernel.c:422-426); read the cases in main's order against the header constants they hard-code, as decision.1934 did for capacity_checks."
+
+[gotcha.2284]
+title = "A build with --tests compiles every stale test target of the package"
+symptom = "A task whose files were complete failed its build in a test file owned by another task because cargo build --tests compiled it."
+fix = "Build only the test targets the verify runs (--test <name> per target); record the stale file against its owner."

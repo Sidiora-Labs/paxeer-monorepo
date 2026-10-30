@@ -1294,16 +1294,39 @@ pub(crate) struct PrepareRequest {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct SubmitRequest {
-    #[serde(default)]
-    tenant: Option<String>,
-    #[serde(default)]
-    agent: Option<String>,
-    preparation_ref: String,
-    signature: String,
-    signer_public_key: String,
-    approval_release_ref: Option<String>,
+#[serde(untagged, deny_unknown_fields)]
+pub(crate) enum SubmitRequest {
+    Raw {
+        raw_transaction: String,
+    },
+    Prepared {
+        #[serde(default)]
+        tenant: Option<String>,
+        #[serde(default)]
+        agent: Option<String>,
+        preparation_ref: String,
+        signature: String,
+        signer_public_key: String,
+        approval_release_ref: Option<String>,
+    },
+}
+
+fn raw_submit_bytes(request: SubmitRequest, id: RequestId) -> Result<Vec<u8>, Rejection> {
+    let SubmitRequest::Raw { raw_transaction } = request else {
+        return Err(malformed(id));
+    };
+    let raw = hex_bytes(
+        raw_transaction
+            .strip_prefix("0x")
+            .ok_or_else(|| malformed(id))?,
+        id,
+    )?;
+    if raw.len() > MAX_BYTES {
+        return Err(malformed(id));
+    }
+    let (call, signature) = decode_signed(&raw).map_err(|_| malformed(id))?;
+    recover_sender(&call, &signature).map_err(|_| malformed(id))?;
+    Ok(raw)
 }
 
 pub(crate) fn human_prepare(
@@ -1335,13 +1358,23 @@ pub(crate) fn human_submit(
     request: SubmitRequest,
     request_id: RequestId,
 ) -> Result<HumanSubmit, Rejection> {
-    let _ = (request.tenant, request.agent);
+    let SubmitRequest::Prepared {
+        tenant,
+        agent,
+        preparation_ref,
+        signature,
+        signer_public_key,
+        approval_release_ref,
+    } = request
+    else {
+        return Err(malformed(request_id));
+    };
+    let _ = (tenant, agent);
     Ok(HumanSubmit {
-        preparation_ref: request.preparation_ref,
-        signature: hex_bytes(&request.signature, request_id)?,
-        signer_public_key: hex32(&request.signer_public_key, request_id)?,
-        approval_release_ref: request
-            .approval_release_ref
+        preparation_ref,
+        signature: hex_bytes(&signature, request_id)?,
+        signer_public_key: hex32(&signer_public_key, request_id)?,
+        approval_release_ref: approval_release_ref
             .map(|text| hex32(&text, request_id))
             .transpose()?,
     })
@@ -1491,7 +1524,12 @@ pub(crate) fn canonical_request_bytes(
             .to_vec()
         }
         Operation::Submit => {
-            if native_send_submit_variant(request) {
+            if request.contains_key("raw_transaction") {
+                let raw = raw_submit_bytes(decode(request, id)?, id)?;
+                let mut bytes = b"activity.submit/raw_transaction\0".to_vec();
+                bytes.extend(raw);
+                bytes
+            } else if native_send_submit_variant(request) {
                 let typed = decode_wire::<NativeSendSubmitV1Wire>(request, id)?.into_request(id)?;
                 submit_digest(&typed).to_vec()
             } else {
@@ -1776,7 +1814,15 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             }
         }
         Operation::Submit => {
-            if native_send_submit_variant(request) {
+            if request.contains_key("raw_transaction") {
+                let (value, rung) = dispatch_raw_submit(request, id, |raw| {
+                    shared.lock()?.rpc_submit_raw(context, raw)
+                })?;
+                Ok(Dispatched {
+                    value,
+                    verification: Some(VerificationStatus::Achieved(rung)),
+                })
+            } else if native_send_submit_variant(request) {
                 let typed = decode_wire::<NativeSendSubmitV1Wire>(request, id)?.into_request(id)?;
                 let preparation_id = hex32(&typed.preparation_ref, id)?;
                 let envelope = crate::human::MutationEnvelope {
@@ -2038,6 +2084,16 @@ pub fn submission_key(text: &str, id: RequestId) -> Result<[u8; 32], Rejection> 
 pub(crate) fn decode_submitted(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let (observation, rung) = decode_observation(reader)?;
     Some((observation.get("submission")?.clone(), rung))
+}
+
+pub fn dispatch_raw_submit(
+    request: &Map<String, Value>,
+    id: RequestId,
+    submit: impl FnOnce(Vec<u8>) -> Result<HumanResponse, HumanOperationError>,
+) -> Result<(Value, Rung), Rejection> {
+    let raw = raw_submit_bytes(decode(request, id)?, id)?;
+    let response = submit(raw).map_err(|error| owner_error(id, error))?;
+    decode_write_answer(id, response)
 }
 
 pub fn decode_write_answer(
