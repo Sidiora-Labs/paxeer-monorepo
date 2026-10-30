@@ -11395,3 +11395,35 @@ symbol = "RETIRED_OPERATIONS"
 observed = "Attempt 4 (4e0db9602) completed do_1 to do_5 and the build failed at agent_rpc.rs:25 and :130 (E0599: no variant FaucetClaim), a file the touches did not name; tests/rpc_surface_major_two.rs:66 and :258, layerx-sdk/tests/agent_operation_envelope.rs:1237 and layerx-mcp/tests/faucet.rs:270 name the variant as well and have no pending owner other than 18.1230.1 for the first."
 assumption = "do_6 to do_9 port the four files; the task requires 18.1230.1 and continues from the attempt 4 candidate."
 severity = "high"
+
+[finding.18.1113.1.3]
+task = "18.1113.1"
+file = "services/wallet/gateway/test/provisioning.test.ts"
+symbol = "provisionAccount"
+observed = "Attempt 7 passed the declared vitest gate (4 passed, 3 skipped) and failed only the completion check, which resolves every entry of symbols in the code graph: the two entries were the flow test titles, which the graph does not index."
+assumption = "symbols now name provisionAccount and provisionDepsFromEnv, the exported functions the flow drives; the attempt 7 candidate re-qualifies unchanged."
+severity = "low"
+
+[finding.18.1200.1.2]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "wait_request_refuses_retired_level_names_and_field"
+observed = "Attempt 5 passed every test of the five declared targets and failed because --lib also ran the 259 crate unit tests, six of which fail on main outside the task's files: wait_request_refuses_retired_level_names_and_field (agent_rpc_adapters.rs:2855, both inputs answer envelope.malformed), two activity_submission_index_tests cases (human_runtime.rs:19412, :19636, Refused), two TLS boundary tests that need the built layerx-paxeer-boundary binary (tests/support/tls_boundary.rs:187) and the native terminal evidence check (protocol_evidence_native_tests.rs:6, ReceiptMismatch)."
+assumption = "Pre-existing failures outside recovery, migration, unknown, operator and operator_route; the verify names only those five targets and the attempt 5 candidate re-qualifies unchanged; the six failures stay recorded here for their owners."
+severity = "medium"
+
+[finding.13.27.1.16]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+symbol = "TestProgramsSandboxExecuteEmitsUsage"
+observed = "Attempt 34 (base 4a75f973f, including 13.27.6) re-ran the attempt 33 files unchanged and reverted at method_sandbox_execute_test.go:313 with the bare reason LXP_FATAL_INVARIANT, which only host Execute returns (submit.go:87-89); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, the ledger initial; the 13.27.6 kernel case never runs lxp_programs_sandbox_execute to SUCCESS."
+assumption = "The breach is on the kernel or runtime SUCCESS path, not in the handler or test; task 13.27.7 proves and fixes it end to end and 13.27.1 requires it (decision.1890)."
+severity = "high"
+
+[finding.4.24.3.2]
+task = "4.24.3"
+file = "services/launchpad/api/internal/rest/frozen_response_schema_test.go"
+symbol = "TestFrozenV2ResponseSchemasMatchHandlerBytes"
+observed = "Attempts 6 to 8 failed opening launchpad/spec/production-system/integration/migrations/150002.sql five directories above services/launchpad/api/internal/rest; the directory the ranking-algo runtime database fixture, the security control workflow test, the social tests and the indexer canonical store tests read was absent from the repository."
+assumption = "Commit 01d2bf319 imports the reviewed migration set (registry, grants, readiness, legacy history aliases and the numbered SQL sources); 4.24.3 and 4.24.7 re-qualify unchanged on a base that includes it."
+severity = "medium"

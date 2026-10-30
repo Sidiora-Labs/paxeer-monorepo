@@ -4425,6 +4425,36 @@ value = "build_cmd names the library and the test targets that verify_cmd runs (
 basis = "18.1200.1 attempt 3, 18.1230.1 attempt 5 and 18.1159.1 attempt 5 all implemented their steps and failed only compiling test targets owned by other tasks (revocation.rs, unknown.rs, migration.rs, owner_bootstrap.rs); 13.0.2 attempts 2 and 3 stopped at a dependent-crate test with no pending owner."
 affects = ["18.1200.1", "18.1230.1", "18.1159.1", "13.0.2", "18.1228.1"]
 
+[decision.1886]
+title = "The wallet send end-to-end test observes the sequencer receipt from the in-tree node"
+value = "The controlled chain of the wallet transfer truth is the in-tree Paxeer-X node started by tools/qualification/localnode/v6120-node.sh, run as a sequencer primary (node/sequencer/node_start.go:125 serves pax_sequencerReceipt from the node's own receipt source) beside a standby of the same binary, with the test key funded from the dev genesis the script writes. The send test signs its transfer with that key and submits it to the node, so the Receipted rung is a receipt the node issued; no route stub answers pax_sequencerReceipt."
+basis = "Owner ruling of 2026-10-30 choosing the in-tree node over an anvil stub and over a hosted endpoint; anvil never answers pax_sequencerReceipt (finding 12.35.2) and a node without the sequencer enabled only forwards or refuses the method (rpc/sequencer_receipt.go:325-328)."
+affects = ["12.35.2", "12.35.4"]
+
+[decision.1887]
+title = "The perps data end-to-end test runs against the in-tree local node"
+value = "PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET come from the env file tools/qualification/localnode/v6120-node.sh writes (the in-tree node with the v6.12.0 set live, its dev genesis and funded test key); PERPS_DATA_TEST_SEED_KEY_FILE holds LOCAL_NODE_KEY from that file; PERPS_DATA_TEST_DATABASE_URL is the database the environment that runs the gates provisions for a test that names it. No hosted endpoint is used."
+basis = "Owner ruling of 2026-10-30 choosing an isolated in-tree node fixture over a hosted RPC and over skipping the test; 5.98.1 and 5.98.2 already start that node and name both variables (v6120-node.sh:419-425), and 3.42.2 qualified against it."
+affects = ["18.670.1"]
+
+[decision.1888]
+title = "The receipt latency bound stays at 50 ms and the replication path overlaps its waits"
+value = "req.5074 ac_1 keeps its 50 ms p99 bound. The standby acknowledges a group only after it is durable and re-executed, as today, but runs the WAL group sync and the ordered re-execution concurrently instead of one after the other; the primary overlaps its own WAL group sync with the replication exchange and returns the receipt only when both have completed. Refusal semantics are unchanged: a tampered receipt is refused in the same acknowledgement and no receipt is released."
+basis = "Owner ruling of 2026-10-30 choosing a product fix over relaxing the bound or moving where it is measured; finding 5.16.1 measured a 21 ms mean with a p99 beyond 100 ms when the primary sync, the exchange, the standby sync and the standby re-execution ran serially (node/sequencer/standby.go:272, :831, :883)."
+affects = ["5.16.1", "5.16.7"]
+
+[decision.1889]
+title = "The hosted crates reach the ledger call builders through layerx_crypto::payments"
+value = "layerx_crypto::payments re-exports bind_call, Disclosure, ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition and SendDebit, so the platform core, gateway and CLI name no layerx_crypto::disclosure, ::send, ::onboarding or sign_disclosed path; each crate is ported by its own task and the sweep test of 8.94.3 runs last. The authority's sponsored registration decode (SponsoredRegistration, dynamic.rs:238-240) is ported by a separate task once the sponsor-to-child proof source is decided; 9.35.1 later moves the kept definitions into payments and deletes the disclosure and send modules."
+basis = "Attempt 7 of 8.94.3 left 26 references across four crates the one task could not own (finding 8.94.3.1); the re-export keeps every existing call site type-identical while the sweep's prefix check (candidate test file no_kernel_disclosure_codec.rs) passes."
+affects = ["8.94.3", "8.94.4", "8.94.5", "8.94.6", "8.94.7", "9.35.1"]
+
+[decision.1890]
+title = "The sandboxed SUCCESS path is proven end to end in the kernel before the Go handler re-qualifies"
+value = "A kernel test takes a funded and activated lease through lxp_programs_sandbox_execute with a guest that completes to SUCCESS and asserts LXP_OK with a published usage receipt; every LXP_FATAL_INVARIANT return on that path (sandbox.c:419-468, call.c:1592, lxp_module_ctx.c:1790-1795) is reached only by a named contract breach, and the one that fires today is fixed where the contract is broken. 13.27.1 requires that task and re-qualifies its attempt 33 files unchanged."
+basis = "Attempt 34 of 13.27.1 re-ran the attempt 33 handler and test on a base with 13.27.6 (28118b910) and still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute; the 13.27.6 case hand-sets a published usage result and drives terminal_begin and terminal_publish directly, so no kernel test exercises the sandboxed execute SUCCESS path (finding 13.27.1)."
+affects = ["13.27.1", "13.27.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -14411,6 +14441,7 @@ ac_1 = "Every receipt returned before a primary failure survives promotion of th
 [req.5074]
 title = "Receipts return within the latency bound"
 ac_1 = "The 99th percentile of sequencer_receipt_latency_seconds stays below 50 ms for 500 sequential transfers with a loopback standby (node/sequencer/standby.go:249)."
+ac_2 = "The standby runs its WAL group sync and its ordered re-execution of a group concurrently and still acknowledges only when both have completed; the primary overlaps its WAL group sync with the replication exchange; a tampered receipt anywhere in a group is refused in that acknowledgement with no cursor advance and no receipt released."
 
 [req.5075]
 title = "Mixed load is deterministic across both paths"
@@ -17264,6 +17295,10 @@ ac_1 = "The registry journal accepts a deployment proof that verifies against th
 [req.8968]
 title = "Move the platform authority, core, gateway and CLI uses of the kernel disclosure and send codecs to the ledger call builders"
 ac_1 = "None of the ten edited files names layerx_crypto::disclosure, layerx_crypto::send, layerx_crypto::onboarding or layerx_crypto::signer::sign_disclosed, and the crates build."
+ac_2 = "layerx_crypto::payments re-exports bind_call, Disclosure, ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition and SendDebit (decision.1889)."
+ac_3 = "The platform core names the ledger call builders through layerx_crypto::payments: disclosed_signature signs the SignatureMessage digest directly and send_context_hash is reached through payments."
+ac_4 = "The platform gateway and its local qualification tests name no kernel disclosure or send codec; the unused verified transfer decoder is gone and the local tests build their envelopes with the layerx_types EnvelopeBuilder."
+ac_5 = "The CLI prepares and signs sends through bind_call and ledger_payment_call reached via layerx_crypto::payments, including the hosted-send example and its tests."
 
 [req.8969]
 title = "Drop the native state feed, its history store and the daemon header from the emulator core"
@@ -19377,6 +19412,7 @@ ac_1 = "The backfill command (services/wallet/gateway/src/jobs/backfillAccounts.
 title = "Demo supported-wallet panel drops the custody handoff"
 ac_1 = "SupportedWalletPanel (services/wallet/demo/src/components/FundedAccountPanel.tsx:23) renders no data-custody-prepare control and no paxeer_prepareCustody call path."
 ac_2 = "Mounting the panel removes any paxeer-demo:custody:125:<account> entry (services/wallet/demo/src/components/FundedAccountPanel.tsx:54) from localStorage."
+ac_3 = "The local node script starts the in-tree node as a sequencer primary with a standby, pins both receipt keys in the dev genesis and names the sequencer RPC, the funded test key and its address in its env file; a transfer signed with that key and sent to the node answers pax_sequencerReceipt with a receipted rung."
 
 [req.12036]
 title = "Serve the agent function precompiles 0x0901-0x0908 once the node registers them"
@@ -20201,6 +20237,7 @@ ac_1 = "sandboxExecute (precompiles/layerxprograms/abi.json:777) submits sandbox
 ac_2 = "sandboxExecute with a zero asset reverts with LXP_NON_CANONICAL before submission, the refusal of src/modules/programs/sandbox.c:239-262."
 ac_3 = "A sandboxExecute that the host refuses at admission, settlement context or escrow settlement reverts with the result code of the refusing check: LXP_CONTEXT_MISMATCH when the payload's lease id, escrow, asset, fee destination or expected lease digest differs from the stored lease, LXP_TERMS_MISMATCH when the payload's fee schedule differs from the lease schedule, LXP_NOT_YET_VALID or LXP_EXPIRED when the batch lies outside the lease window, LXP_FEE_UNPAYABLE when the admitted or reserved charge exceeds the remaining escrow, LXP_SEQUENCE_MISMATCH when the expected sequence is not the ledger receipt count plus one, LXP_AUTH_SCOPE when the escrow charge authority is refused, LXP_ESCROW_STATE when the escrow does not permit the exact fee, and the kernel's own code when the escrow debit is refused by the kernel. LXP_NON_CANONICAL is reserved for a lease, escrow or ledger state that does not decode, a sandbox token or operation precondition, and a host fault."
 ac_4 = "A sandboxed call that reaches a SUCCESS terminal with a published sandbox usage result completes terminal_begin and terminal_publish with LXP_OK, and its outcome carries the usage result occupancy, fee units, the lease asset, a nonzero evidence digest and the usage transfer root (decision.1880)."
+ac_5 = "A funded and activated sandbox lease executed through lxp_programs_sandbox_execute with a guest that completes to SUCCESS returns LXP_OK, publishes exactly one usage receipt whose effect follows the seal frontier, and binds the outcome to the call admission; the sandboxExecute precompile handler then emits SandboxUsageReceipt for the same path."
 
 [req.13269]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -58470,6 +58507,14 @@ contract = "contracts/sequencer.md#sequencer-receipt"
 test = "node/sequencer/receipt_latency_test.go::TestReceiptLatencyP99UnderBound (planned)"
 qualification = "UNRUN"
 
+[acceptance.5.74.2]
+feature = "5"
+req = "5074.2"
+scenario = "Given a replication group whose second accept carries a tampered receipt, when the primary releases it, then the standby refuses the group with no cursor advance and no receipt is released, while well-formed groups are acknowledged after concurrent sync and re-execution."
+contract = "contracts/sequencer.md#sequencer-receipt"
+test = "node/sequencer/standby_test.go::TestStandbyRefusesTamperedGroupMidway"
+qualification = "UNRUN"
+
 [acceptance.5.75.1]
 feature = "5"
 req = "5075.1"
@@ -67003,6 +67048,38 @@ contract = "contracts/clients.md#wiring-integration"
 test = "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs::platform_names_no_kernel_disclosure_or_send_codec (planned)"
 qualification = "UNRUN"
 
+[acceptance.8.968.2]
+feature = "8"
+req = "8968.2"
+scenario = "Given layerx_crypto::payments, when a hosted crate names bind_call, ledger_payment_call and the send types through it, then the bytes equal those of the module paths."
+contract = "contracts/clients.md#wiring-integration"
+test = "services/agent/crates/layerx-crypto/tests/payments.rs::payments_reexports_the_ledger_call_builders"
+qualification = "UNRUN"
+
+[acceptance.8.968.3]
+feature = "8"
+req = "8968.3"
+scenario = "Given the platform core, when a beta send is signed, then the signature covers the SignatureMessage digest with no kernel disclosure binding and the payload keeps native account ids."
+contract = "contracts/clients.md#wiring-integration"
+test = "services/platform/hosted/core/tests/send.rs::beta_send_uses_native_account_ids_in_signed_payload_and_authorization"
+qualification = "UNRUN"
+
+[acceptance.8.968.4]
+feature = "8"
+req = "8968.4"
+scenario = "Given the platform gateway without the verified transfer decoder, when a signed lifecycle activity is checked, then it binds the exact route, protocol and payload."
+contract = "contracts/clients.md#wiring-integration"
+test = "services/platform/hosted/gateway/src/program_lifecycle.rs::lifecycle_signed_activity_binds_exact_route_protocol_and_payload"
+qualification = "UNRUN"
+
+[acceptance.8.968.5]
+feature = "8"
+req = "8968.5"
+scenario = "Given the CLI prepared through the ledger call builders, when wallet send submits, then a raw EVM transaction carrying the ledger call is submitted."
+contract = "contracts/clients.md#wiring-integration"
+test = "tools/platform/cli/tests/wallet_evm_writes.rs::wallet_send_submits_raw_evm_transaction"
+qualification = "UNRUN"
+
 [acceptance.8.969.1]
 feature = "8"
 req = "8969.1"
@@ -73347,6 +73424,14 @@ contract = "contracts/clients.md#wallet-demo"
 test = "services/wallet/demo/src/components/FundedAccountPanel.test.tsx::supportedWalletPanelClearsRetainedCustodyKey (planned)"
 qualification = "UNRUN"
 
+[acceptance.12.35.3]
+feature = "12"
+req = "12035.3"
+scenario = "Given the local node started with --sequencer, when a transfer signed with the funded test key is sent to the primary, then pax_sequencerReceipt for its hash answers a receipted rung carrying a signed receipt."
+contract = "contracts/clients.md#wallet-demo"
+test = "tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120SequencerReceipt"
+qualification = "UNRUN"
+
 [acceptance.12.36.1]
 feature = "12"
 req = "12036.1"
@@ -75427,6 +75512,14 @@ req = "13268.4"
 scenario = "Given an active sandboxExecute activity with a published usage result, when its call reaches a SUCCESS terminal without an applied occupancy bridge, then terminal_begin and terminal_publish return LXP_OK and the outcome carries the usage occupancy, fee units, lease asset, evidence digest and transfer root."
 contract = "contracts/programs.md#layerxprograms-0x101d"
 test = "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_success_publishes_occupancy_from_usage"
+qualification = "UNRUN"
+
+[acceptance.13.268.5]
+feature = "13"
+req = "13268.5"
+scenario = "Given a funded and activated sandbox lease, when a SANDBOX_EXECUTE with a guest that completes to SUCCESS runs through lxp_programs_sandbox_execute, then the kernel returns LXP_OK with one published usage receipt and a bound outcome."
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_success_end_to_end"
 qualification = "UNRUN"
 
 [acceptance.13.269.1]
@@ -114739,7 +114832,7 @@ title = "Bound the receipt latency of the sequencer"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["5.0.4"]
+requires = ["5.0.4", "5.16.7"]
 reqs = ["5074.1"]
 capabilities = ["5.16.1"]
 interfaces = []
@@ -114764,6 +114857,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Log the sequencer_wal_sync_seconds and sequencer_standby_ack_seconds histograms (node/sequencer/metrics.go:33, :41) beside the receipt histogram at receipt_latency_test.go:172 so a p99 miss is attributed to the primary group sync (standby.go:272), the standby persist (:883) or the standby re-execution (:831); the 50 ms bound of req.5074 ac_1 stays as written."
+do_5 = "Re-qualify the attempt 3 test unchanged on a base that includes 5.16.7 (decision.1888); the 50 ms bound of req.5074 ac_1 stays as written, and a miss is recorded with the three histograms of do_4."
 
 [task.5.16.2]
 title = "Run a mixed EVM and Cosmos load through the sequencer and the block path"
@@ -114910,6 +115004,37 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
 rollback = "Revert the files in touches; the change is confined to them and to the activation-gated sequenced path."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.5.16.7]
+title = "Overlap the standby sync with re-execution and the primary sync with the exchange"
+status = "pending"
+mode = "BUILD"
+wave = 16
+requires = ["5.0.4"]
+reqs = ["5074.2"]
+capabilities = []
+interfaces = []
+do_1 = "In Standby.receive (node/sequencer/standby.go:825-838) start the ordered execute loop over fresh (execute, :895) in a goroutine while persist(fresh) (:874) appends and group-syncs, join both before answering, and fail the acknowledgement exactly as today (s.failed, s.refusal, AckRefused, no cursor advance) when either returns an error; the cursor advances over fresh only after both succeed, so LastSeq (:664) still reports persisted and re-executed entries and TestStandbyNoAckNoReceipt and TestStandbyAckBeforeRelease stay as written."
+do_2 = "In Replicator.Release (standby.go:270-285) run r.wal.GroupSync() and r.replicate(ctx, frames, maxSeq) concurrently (frames are built before the lock, :235-246), wait for both, keep r.onWALSync over the sync alone and pruneRetained, and return the first error; the receipt is still released only when both completed."
+do_3 = "Add TestStandbyRefusesTamperedGroupMidway to node/sequencer/standby_test.go using newPrimary (:77), newStandby (:126) and receiptBytes (:55): Release one group of an Open and three Accepts whose second Receipt is tampered the way TestStandbyNoAckNoReceipt tampers (:199-201); assert ErrStandbyRefused, an empty Ack, the standby LastSeq unchanged, Err wrapping wal.ErrReceiptMismatch, and that the following Release of a fresh Lease is refused."
+do_4 = "The sequencer_standby_ack_seconds and sequencer_wal_sync_seconds histograms (node/sequencer/metrics.go:33, :41) keep their meaning; 5.16.1 requires this task and re-qualifies its unchanged receipt latency test against the 50 ms bound of req.5074 ac_1."
+symbols = ["Release", "receive", "persist", "TestStandbyRefusesTamperedGroupMidway"]
+touches = ["node/sequencer/standby.go", "node/sequencer/standby_test.go"]
+tests = ["node/sequencer/standby_test.go::TestStandbyRefusesTamperedGroupMidway", "node/sequencer/standby_test.go::TestStandbyNoAckNoReceipt", "node/sequencer/standby_test.go::TestStandbyAckBeforeRelease", "node/sequencer/standby_test.go::TestStandbyAppliesInSeqOrder"]
+planned_paths = []
+build_cmd = "go build ./node/sequencer/..."
+verify_cmd = "go test -count=1 ./node/sequencer/ -run '^(TestStandbyRefusesTamperedGroupMidway|TestStandbyNoAckNoReceipt|TestStandbyAckBeforeRelease|TestStandbyAppliesInSeqOrder)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert standby.go and standby_test.go; the standby syncs then re-executes and the primary syncs then exchanges, serially."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -138024,22 +138149,22 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Move the platform authority, core, gateway and CLI uses of the kernel disclosure and send codecs to the ledger call builders"
 status = "pending"
 mode = "BUILD"
-wave = 18
-requires = ["8.0.2", "9.0.2", "8.1.5", "9.1.8", "18.1083.1", "8.98.11", "8.48.1", "8.29.4"]
+wave = 19
+requires = ["8.0.2", "9.0.2", "8.1.5", "9.1.8", "18.1083.1", "8.98.11", "8.48.1", "8.29.4", "8.94.4", "8.94.5", "8.94.6", "8.94.7"]
 reqs = ["8968.1"]
 capabilities = []
 interfaces = []
 fulfils = ["wiring.J44.26"]
-do_1 = "Replace layerx_crypto::disclosure::bind and layerx_crypto::signer::sign_disclosed with bind_call and sign_disclosed_call at services/platform/hosted/core/src/lib.rs:274, services/platform/hosted/gateway/src/lib.rs:13, services/platform/hosted/gateway/tests/local/funding.rs:1189-1193, services/platform/hosted/gateway/tests/local/withdrawal.rs:145-148 and tools/platform/cli/src/wallet_signing.rs:5."
-do_2 = "Replace the layerx_crypto::send payment envelope, SendDebit and send_context_hash uses with ledger_payment_call at services/platform/hosted/core/src/lib.rs:94, services/platform/hosted/gateway/tests/local/funding.rs:3, services/platform/hosted/gateway/tests/local/withdrawal.rs:128-132, tools/platform/cli/src/wallet_send.rs:50-63, tools/platform/cli/src/wallet_signing.rs:7, tools/platform/cli/src/wallet.rs:838-846 and tools/platform/cli/examples/hosted-send.rs:7."
-do_3 = "Replace the layerx_crypto::onboarding::SponsoredRegistration decode at services/platform/hosted/authority/src/human/dynamic.rs:238-240 and services/platform/hosted/authority/src/human/dynamic/tests.rs:16 with the bind_call registration decode."
+do_1 = "Ported by tasks 8.94.5 (core), 8.94.6 (gateway and its local tests) and 8.94.7 (CLI) through the layerx_crypto::payments re-exports of 8.94.4 (decision.1889); this task edits none of those crates."
+do_2 = "Confirm on the merged revision that core, gateway, tests/local and the CLI name no layerx_crypto::disclosure, layerx_crypto::send, layerx_crypto::onboarding or sign_disclosed path; a remaining use is recorded against its owning task, not ported here."
+do_3 = "The authority's SponsoredRegistration decode (services/platform/hosted/authority/src/human/dynamic.rs:238-240, dynamic/tests.rs:16) is ported by task 8.94.8 once the sponsor-to-child proof source is decided; until that task is done the sweep cannot pass and this task is not attempted."
 do_4 = "Leave the uses at services/platform/hosted/core/src/main.rs:846, :856 and :2390 to task 8.10.1, which owns that file in this wave; the builders come from tasks 9.31.2 and 9.32.2 by wave 3."
 do_5 = "Write services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs (planned) with the test below."
 symbols = ["platform_names_no_kernel_disclosure_or_send_codec"]
-touches = ["services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/human/dynamic/tests.rs", "services/platform/hosted/core/src/lib.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "tools/platform/cli/src/wallet_send.rs", "tools/platform/cli/src/wallet_signing.rs", "tools/platform/cli/src/wallet.rs", "tools/platform/cli/examples/hosted-send.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/agent-boundary/src/head_attestation_tests.rs"]
+touches = ["services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/agent-boundary/src/head_attestation_tests.rs"]
 tests = ["services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs::platform_names_no_kernel_disclosure_or_send_codec"]
 planned_paths = ["services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"]
-build_cmd = "cargo build --manifest-path services/platform/Cargo.toml --tests && cargo build --manifest-path tools/platform/cli/Cargo.toml --examples"
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --test no_kernel_disclosure_codec && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary --bins"
 verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --test no_kernel_disclosure_codec -- --exact platform_names_no_kernel_disclosure_or_send_codec"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -138054,6 +138179,126 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempt 4 (af194c5e7): the --tests build of services/platform fails in the layerx-paxai-worker test literals that task 8.98.11 do_10 ports (now required); change nothing under services/platform/hosted/paxai-worker/ in this task and re-qualify once 8.98.11 is done. The attempt made no source edit for do_1 to do_3: confirm on the merged revision that those uses are already gone, and port any that remain."
 do_7 = "The build_cmd compiles the agent boundary's bin tests, and services/platform/hosted/agent-boundary/src/head_attestation_tests.rs:115 constructs Config without the chain_receipts field that task 8.8.2 (41fd18eac) added at services/platform/hosted/agent-boundary/src/main.rs:79 and fills at :610 with chain_receipt::ChainReceipts::from_config(url, keys_path). In config(root) write a receipt keys file under root.0 in the shape services/platform/hosted/agent-boundary/tests/chain_receipt.rs provisions for the boundary and set chain_receipts to ChainReceipts::from_config with a loopback http URL and that path; change nothing else in head_attestation_tests.rs and no assertion."
+do_8 = "Keep from attempt 7 (d7fa779bf) the sweep test no_kernel_disclosure_codec.rs (prefix check over the ten hosted files, matching unless the next byte is alphanumeric or an underscore) and the head_attestation_tests.rs config(root) chain_receipts fix of do_7; re-qualify once 8.94.4 to 8.94.8 are done."
+
+[task.8.94.4]
+title = "Re-export the ledger call builders from layerx_crypto::payments"
+status = "pending"
+mode = "BUILD"
+wave = 8
+requires = ["9.31.2", "9.32.2"]
+reqs = ["8968.2"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-crypto/src/payments.rs add pub use crate::disclosure::call::bind_call; pub use crate::disclosure::Disclosure; pub use crate::send::{ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition, SendDebit}; so every hosted crate can name the builders without the disclosure or send module paths (decision.1889); no definition moves and no signature changes."
+do_2 = "Add payments_reexports_the_ledger_call_builders to services/agent/crates/layerx-crypto/tests/payments.rs: build one ledger payment call through layerx_crypto::payments::{bind_call, ledger_payment_call, SendDebit, SendCondition, CallOptions} and assert its bytes equal the call built through the module paths, and that send_context_hash agrees."
+symbols = ["bind_call", "ledger_payment_call", "payments_reexports_the_ledger_call_builders"]
+touches = ["services/agent/crates/layerx-crypto/src/payments.rs", "services/agent/crates/layerx-crypto/tests/payments.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/payments.rs::payments_reexports_the_ledger_call_builders"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --lib"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test payments -- --exact payments_reexports_the_ledger_call_builders"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert payments.rs and the test; the hosted crates keep naming the disclosure and send module paths."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.94.5]
+title = "Port the platform core to the ledger call builders via payments"
+status = "pending"
+mode = "BUILD"
+wave = 16
+requires = ["8.94.4", "8.10.1"]
+reqs = ["8968.3"]
+capabilities = []
+interfaces = []
+do_1 = "services/platform/hosted/core/src/lib.rs:94 keeps the send_context_hash wrapper (readers funding.rs:6 and pay2e_test.rs:555) but imports it through layerx_crypto::payments (task 8.94.4, decision.1889)."
+do_2 = "disclosed_signature (core/src/lib.rs:268-292) stops binding a native SEND disclosure for SigningRequest::new: sign SignatureMessage::digest() directly through signer.sign_digest and keep the ed25519 verification at :288; the bind at :274 goes."
+do_3 = "After the port core/src/lib.rs names no layerx_crypto::disclosure, layerx_crypto::send, layerx_crypto::onboarding or sign_disclosed path; main.rs is left to its owner (8.94.3 do_4)."
+symbols = ["send_context_hash", "disclosed_signature", "beta_send_uses_native_account_ids_in_signed_payload_and_authorization"]
+touches = ["services/platform/hosted/core/src/lib.rs"]
+tests = ["services/platform/hosted/core/tests/send.rs::beta_send_uses_native_account_ids_in_signed_payload_and_authorization"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --lib"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --test send -- --exact beta_send_uses_native_account_ids_in_signed_payload_and_authorization"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert core/src/lib.rs; the core keeps the disclosure-bound signing request and the send module import."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.94.6]
+title = "Port the platform gateway and its local tests off the kernel disclosure and send codecs"
+status = "pending"
+mode = "BUILD"
+wave = 17
+requires = ["8.94.5"]
+reqs = ["8968.4"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/gateway/src/lib.rs delete verified_transfer (:455-490), VerifiedTransfer (:384-431), the transfer field (:381, :450) and its calls (:526, :531) together with the layerx_crypto::send import at :39; no crate outside the gateway reads them (decision.1889)."
+do_2 = "services/platform/hosted/gateway/tests/local/funding.rs (:3, :1189, :1193) and withdrawal.rs (:128, :132, :145, :148) rebuild their envelopes with the layerx_types EnvelopeBuilder exactly as core/src/lib.rs:208-217 does and sign the digest with ed25519, replacing the kernel send envelope and sign_disclosed; the local workspace target lifecycle (tests/local/Cargo.toml) keeps compiling; 8.96.1 and 8.19.5 later edit and delete those files and are unaffected."
+do_3 = "After the port the gateway crate and tests/local name no layerx_crypto::disclosure, layerx_crypto::send or sign_disclosed path."
+symbols = ["program_lifecycle", "lifecycle_signed_activity_binds_exact_route_protocol_and_payload"]
+touches = ["services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs"]
+tests = ["services/platform/hosted/gateway/src/program_lifecycle.rs::lifecycle_signed_activity_binds_exact_route_protocol_and_payload"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --lib --bin layerx-gateway && cargo build --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --test lifecycle"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway -- --exact program_lifecycle::tests::lifecycle_signed_activity_binds_exact_route_protocol_and_payload"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the three files; the gateway keeps the unused verified transfer decoder and the local tests their kernel envelopes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.94.7]
+title = "Port the CLI send preparation to the ledger call builders via payments"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["8.94.4", "8.48.1"]
+reqs = ["8968.5"]
+capabilities = []
+interfaces = []
+do_1 = "tools/platform/cli/src/wallet_signing.rs (:5, :7, :8, :118, :141, :168-317 PreparedPayment with sign_disclosed at :304) and wallet_send.rs (:8, :13, :62-63, :75) and wallet.rs (:844, :1295, :1303) import bind_call, Disclosure, ledger_payment_call, SendDebit, SendCondition and CallOptions through layerx_crypto::payments (task 8.94.4, decision.1889) and build the payment as a ledger call instead of the kernel payment envelope; the disclosure fields at wallet_signing.rs:101 and :172 keep their Disclosure type."
+do_2 = "tools/platform/cli/examples/hosted-send.rs (:7, :143 PreparedPayment::from_send) prepares its send through ledger_payment_call; if its printed output changes, the reader at tools/bringup/check-live.sh:3397 is updated to the new shape and added to touches."
+do_3 = "tools/platform/cli/tests/wallet_send.rs (:118-133) and tests/wallet_estimate_fee.rs (:293-310) assert the ledger call bytes the builders produce; after the port the CLI names no layerx_crypto::disclosure, layerx_crypto::send or sign_disclosed path."
+symbols = ["PreparedPayment", "wallet_send_submits_raw_evm_transaction"]
+touches = ["tools/platform/cli/src/wallet_signing.rs", "tools/platform/cli/src/wallet_send.rs", "tools/platform/cli/src/wallet.rs", "tools/platform/cli/examples/hosted-send.rs", "tools/platform/cli/tests/wallet_send.rs", "tools/platform/cli/tests/wallet_estimate_fee.rs"]
+tests = ["tools/platform/cli/tests/wallet_evm_writes.rs::wallet_send_submits_raw_evm_transaction"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path tools/platform/cli/Cargo.toml --lib --bins --examples"
+verify_cmd = "cargo test --locked --manifest-path tools/platform/cli/Cargo.toml --test wallet_evm_writes -- --exact wallet_send_submits_raw_evm_transaction"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the six files; the CLI keeps preparing sends through the kernel payment envelope."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.8.96.1]
 title = "Remove the bridge withdrawal compile from the gateway local withdrawal test"
@@ -143096,6 +143341,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "After do_1 to do_6, move the kept definitions bind_call, Disclosure, DisclosedCall, CallOptions, ledger_payment_call, send_context_hash, SendCondition and SendDebit into services/agent/crates/layerx-crypto/src/payments.rs so the re-exports of task 8.94.4 become definitions, then delete src/disclosure.rs and src/send.rs with their pub mod lines (decision.1889); every hosted crate already names them through layerx_crypto::payments (8.94.5 to 8.94.7)."
 
 [task.9.35.2]
 title = "Remove the checkpoint settlement types and activity decoders from layerx-sdk"
@@ -155630,7 +155876,7 @@ title = "Assert the receipted rung of a sent transfer in the send end-to-end tes
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["12.35.1", "12.22.5"]
+requires = ["12.35.1", "12.22.5", "12.35.4"]
 reqs = ["12294.1"]
 capabilities = ["12.35.2"]
 interfaces = []
@@ -155641,10 +155887,10 @@ symbols = ["send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_relo
 touches = ["apps/wallet/e2e/send.spec.ts"]
 tests = ["apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"]
 planned_paths = []
-build_cmd = "pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts --list"
-verify_cmd = "pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts -g 'send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload$'"
+build_cmd = "make -f chain.mk install && pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts --list"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && WALLET_TRANSFER_TRUTH_ANVIL_URL=$LOCAL_NODE_SEQUENCER_RPC WALLET_TRANSFER_TRUTH_SENDER=$LOCAL_NODE_ADDRESS WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL=$LOCAL_NODE_SEQUENCER_RPC WALLET_TRANSFER_TRUTH_SEQUENCER_KEY=$LOCAL_NODE_KEY pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts -g 'send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload$'"
 gate_kind = "planned"
-sandbox_profile = "node"
+sandbox_profile = "mixed"
 owner_role = "fm-wallet"
 rollback = "Revert apps/wallet/e2e/send.spec.ts."
 max_builds = 1
@@ -155654,7 +155900,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-do_4 = "Run the transfer truth against a chain whose RPC serves pax_sequencerReceipt (rpc/sequencer_receipt.go:27, :252), named by a new WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL added to the OBSERVED_METHODS routing at apps/wallet/e2e/send.spec.ts:26, :85-89; anvil alone never answers that method, so a Receipted rung cannot be observed without it, and no stub answer is added to page.route."
+do_4 = "Run the transfer truth against the in-tree node that tools/qualification/localnode/v6120-node.sh --sequencer starts (task 12.35.4, decision.1886): the verify names WALLET_TRANSFER_TRUTH_ANVIL_URL and the new WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL as LOCAL_NODE_SEQUENCER_RPC, WALLET_TRANSFER_TRUTH_SENDER as LOCAL_NODE_ADDRESS and the new WALLET_TRANSFER_TRUTH_SEQUENCER_KEY as LOCAL_NODE_KEY from the script's env file; add the sequencer URL to the OBSERVED_METHODS routing at apps/wallet/e2e/send.spec.ts:26, :85-89 so pax_sequencerReceipt reaches that node, and derive any other WALLET_TRANSFER_TRUTH_* or PAXEER_X_* variable the suite requires (send.spec.ts:24-31, :75-76) from the same node instead of requiring a second chain. No stub answer for pax_sequencerReceipt is added to page.route."
+do_5 = "The new test signs its one-wei transfer with WALLET_TRANSFER_TRUTH_SEQUENCER_KEY through viem (privateKeyToAccount, the chain id read from the node) and submits it with eth_sendRawTransaction to WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL instead of the eth_sendTransaction helper of send.spec.ts:46-51, which assumes an unlocked anvil account; the existing tests keep that helper."
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"
@@ -155678,6 +155925,37 @@ gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-wallet"
 rollback = "Revert apps/wallet/e2e/send.spec.ts."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.12.35.4]
+title = "Start the in-tree node as a sequencer primary with a standby for local qualification"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["5.98.2"]
+reqs = ["12035.3"]
+capabilities = []
+interfaces = []
+do_1 = "tools/qualification/localnode/v6120-node.sh gains a --sequencer option: it writes two ed25519 receipt seeds as hex files with mode 0600 under the node homes (node/sequencer/receiptkey.go:42 LoadReceiptKey refuses looser modes and the consensus key file), pins both public keys where modules/sequencer/keeper/pins.go:8 ReceiptKeyPins reads them in the dev genesis it already rewrites (v6120-node.sh:211-312, before validate-genesis), and starts a second node home of the same binary in the standby role (sequencer.role standby, sequencer.standby-address a loopback host:port it listens on) before the primary."
+do_2 = "The primary starts with sequencer.enable, sequencer.mode sequential, sequencer.wal-dir under its home, sequencer.receipt-key-file and sequencer.standby-address pointing at the standby (node/sequencer/config.go:15-28, Validate :165-200); node_start.go:125 then serves pax_sequencerReceipt from the node's own receipt source, and rpc/send.go:293 routes eth_sendRawTransaction through the accepter so a sent transfer gains a receipt."
+do_3 = "The env block of v6120-node.sh:419-425 adds LOCAL_NODE_SEQUENCER_RPC (the primary EVM RPC), LOCAL_NODE_ADDRESS (the EVM address of the test key behind LOCAL_NODE_KEY, ETH_ADDRESSES[0]) and LOCAL_NODE_STANDBY_RPC, quoted with %q like the existing lines; without --sequencer the script behaves exactly as today and stop_node (v6120-node.sh:21) also stops the standby."
+do_4 = "tools/qualification/localnode/v6120_test.go gains TestLocalNodeV6120SequencerReceipt: it signs a one-wei transfer with LOCAL_NODE_KEY using go-ethereum types and the chain id the node reports, sends it with eth_sendRawTransaction to LOCAL_NODE_SEQUENCER_RPC, waits for the receipt and asserts pax_sequencerReceipt for the hash answers a result whose rung is receipted (rpc/sequencer_receipt.go:252-290 result shape) with a non-empty signed receipt."
+symbols = ["TestLocalNodeV6120SequencerReceipt"]
+touches = ["tools/qualification/localnode/v6120-node.sh", "tools/qualification/localnode/v6120_test.go"]
+tests = ["tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120SequencerReceipt"]
+planned_paths = []
+build_cmd = "make -f chain.mk install"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./tools/qualification/localnode/ -run '^(TestLocalNodeV6120SequencerReceipt)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert v6120-node.sh and v6120_test.go; the local node starts without a sequencer and never answers pax_sequencerReceipt."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -158745,7 +159023,7 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1", "13.27.5", "13.27.6"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1", "13.27.5", "13.27.6", "13.27.7"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
@@ -158781,7 +159059,7 @@ do_12 = "Attempt 28 reverts at the escrow registerAccount with LXP_VERSION_UNSUP
 do_13 = "Attempt 29 (18e0e0955) reached the ordinary ABI-v3 call, which settled with status 0 and kind 1; callHandler (precompiles/layerxprograms/method_call.go:45) packs outcome.Response as the third output and the market guest answers the terminal receipt envelope ('LXP/programs/terminal-applied-legs/v1' ...), so the ladder's expectation of empty response bytes at method_sandbox_execute_test.go:293 is wrong. Assert only plainOutput[0] == int32(0) and plainOutput[1] == uint8(1), as determinism_test.go:183-184 does, then continue to the sandboxExecute call and the SandboxUsageReceipt assertions; nothing else changes."
 do_14 = "Attempt 30 (4b77fc397) settled the identical ABI-v3 payload through the call handler, and the funded sandboxExecute then reverted LXP_ERR_NON_CANONICAL. Every host refusal on the sandbox path reports that code: admit_host (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:480-570, collapsed at src/modules/programs/sandbox.c:104-107 and by the panic guard at host_ffi.rs:20), the final reserve (:612-660), validate_settlement_context (:662-700) and the escrow settlement (:770-774). The test's lease id, escrow, asset, fee destination, digest, fee schedule v1, batch 100 and expected_sequence 1 already match the stored lease. Change the sandboxExecute output assertion at precompiles/layerxprograms/method_sandbox_execute_test.go:317 the same way as do_13: assert only output[0] == int32(0) and output[1] == uint8(1). Keep everything else. If sandboxExecute still reverts, the revert string names the refusing check (task 13.27.5, decision.1856); record that code with the three stored states and stop."
 do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUENCE_GAP (-300) at the ledger check src/ledger/lxp_apply.c:319-322 on the escrow-to-fees leg: a sandbox activity binds no ledger admission (src/protocol/lxp_kernel.c:486-487), so layerx_programs_call_transfer_apply (src/modules/programs/call.c:2276-2325) compares the activity's global sequence (ReadLastSequence+1, the WithSequence value of precompiles/layerxprograms/submit.go:64-87) with the main account's next_sequence, which fundFeeLimit (precompiles/layerxprograms/method_sandbox_execute_test.go:153-164) seeds from ReadIdentitySequence. In that closure seed next_sequence from ReadLastSequence(ctx, did)+1 instead of ReadIdentitySequence; keep seedAccount and every assertion including require.Equal(t, sequence, main.NextSequence), keep the initial identity-sequence seed at :89 that sandboxFund and sandboxActivate need (src/modules/programs/transfer.c:233-235 uses the account sequence there), and change nothing else, not expected_sequence 1, the digest, the fee limit, the ABI-v3 payloads, the ladder or method_sandbox_execute.go. The kernel's use of the account sequence in transfer.c and the global sequence in call.c for one activity type is recorded in qualification.kvx and is not this task's to change. If the gate then shows a different named code, record it and stop."
-do_16 = "Attempt 33 reached the terminal step and reverted LXP_FATAL_INVARIANT from src/modules/programs/call.c:1419-1422, a kernel contract gap that task 13.27.6 (decision.1880) closes; this task requires 13.27.6 and changes nothing in response to that revert. Re-qualify on a base that includes 13.27.6 with the attempt 33 files (ef3be2b2f) unchanged."
+do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 
 [task.13.27.2]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -158937,6 +159215,36 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
 rollback = "Revert the four touched files; every sandboxed SUCCESS terminal returns to LXP_FATAL_INVARIANT."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.13.27.7]
+title = "Complete a sandboxed execute to SUCCESS end to end in the kernel"
+status = "pending"
+mode = "BUILD"
+wave = 16
+requires = ["13.27.6"]
+reqs = ["13268.5"]
+capabilities = []
+interfaces = []
+do_1 = "Add sandbox_execute_success_end_to_end to tests/codec/lxp_test_sandbox_lifecycle.c, registered in main (:647-660): fund and activate a lease through execute_payload (:215) as sandbox_execute_lifecycle_accepts_call_token (:254-307) does, then drive a SANDBOX_EXECUTE payload through lxp_programs_sandbox_execute (src/modules/programs/sandbox.c:313) with an ABI-v3 guest that completes to SUCCESS, the guest the Go test precompiles/layerxprograms/method_sandbox_execute_test.go (candidate ef3be2b2f, prepareSandboxExecute) uses; assert LXP_OK, one published usage receipt and the outcome occupancy fields of 13.27.6."
+do_2 = "Run the case; it fails today with LXP_FATAL_INVARIANT (decision.1890). Find the firing site among sandbox.c:376-378 (a staged write begun or applied before execution), :392-394 and :422 (staged write not applied), :433 (result never published), :436 (guest savepoint active), :459-468 (emit_usage_receipt: seal, publication, receipt, effect count equal to the seal frontier plus one), call.c:1592 (terminal_publish admission or activity id) and src/protocol/lxp_module_ctx.c:1790-1795 (lxp_ctx_bind_program_outcome admission and schedule versions), fix the breach where the contract is broken (the runtime order is seal, settle and publish usage, execution receipt, terminal: programs/crates/layerx-programs-runtime/src/ffi_call.rs:3454-3507) and leave every invariant check in place."
+do_3 = "Do not touch precompiles/layerxprograms: 13.27.1 requires this task and re-qualifies its attempt 33 files (ef3be2b2f) unchanged on a base that includes it; include the kernel diagnostics in the case output so a later breach names its site."
+symbols = ["lxp_programs_sandbox_execute", "emit_usage_receipt", "sandbox_execute_success_end_to_end"]
+touches = ["src/modules/programs/sandbox.c", "src/modules/programs/call.c", "src/protocol/lxp_module_ctx.c", "tests/codec/lxp_test_sandbox_lifecycle.c"]
+tests = ["tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_success_end_to_end"]
+planned_paths = []
+build_cmd = "make -C . programs-release-build"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_lifecycle && ./build/tests/kernel/codec/lxp_test_sandbox_lifecycle sandbox_execute_success_end_to_end"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the four files; a sandboxed execute that reaches SUCCESS returns to LXP_FATAL_INVARIANT."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -173805,8 +174113,8 @@ completion_task = "18.0.1"
 title = "Issue #670: Keep the restarted perps data gateway and socket alive through the post-restart end-to-end checks"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 3
+requires = ["5.98.2"]
 reqs = ["18670.1"]
 capabilities = []
 interfaces = []
@@ -173818,8 +174126,8 @@ symbols = ["TestEndToEnd"]
 touches = ["services/platform/perps-data/e2e_test.go"]
 tests = ["services/platform/perps-data/e2e_test.go::TestEndToEnd"]
 planned_paths = []
-build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/ -run '^TestEndToEnd$'"
+build_cmd = "make -f chain.mk install && go build ./services/platform/perps-data/..."
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && umask 077 && echo $LOCAL_NODE_KEY > ${TMPDIR:-/tmp}/lx-localnode/seed.key && PERPS_DATA_TEST_SEED_KEY_FILE=${TMPDIR:-/tmp}/lx-localnode/seed.key go test -count=1 ./services/platform/perps-data/ -run '^TestEndToEnd$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-platform"
@@ -173831,6 +174139,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Qualify against the in-tree node of tools/qualification/localnode/v6120-node.sh (decision.1887): the verify starts it, sources its env file for PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET, writes LOCAL_NODE_KEY to a 0600 file named by PERPS_DATA_TEST_SEED_KEY_FILE (seedKey, e2e_test.go:841 reads a hex key), and PERPS_DATA_TEST_DATABASE_URL is provisioned by the environment that runs the gates because e2e_test.go names it (:57); if setupE2E (e2e_test.go:782) needs state the dev genesis lacks, record it as a finding rather than reaching for a hosted endpoint."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"
@@ -188356,7 +188665,7 @@ do_1 = "In services/wallet/gateway/test/provisioning.test.ts stop programming th
 do_2 = "In the suite setup start a loopback gas station that answers /quote with a relayer-signed sponsorQuoteDigest quote and /submit by broadcasting the sponsored bind, as test/provisioning-station.test.ts:349-422 does, and set WALLET_GAS_STATION_URL to it so provisionDepsFromEnv (src/routes/wallet.ts:65) builds a station and provisioning no longer stops at gas_station_unconfigured."
 do_3 = "Rewrite the first flow test (provisioning.test.ts:435-497) as 'provisioning creates both keys, has the gas station sponsor the binding and confirms it before active': keep every key, DID, main account, wallet row, /v1/wallet/me and idempotent re-provision assertion (the /v1/wallet/me kernel state is asserted as available, since readKernelAvailability reads layerXBindNonce on addr 0x1004 (services/wallet/gateway/src/provision/bind.ts:133-140), which the test chain serves at test/support/chain.ts:139-142), and replace the top-up assertions (:453-458, audit events ['topup', 'bind'] at :480-481) with: no transfer is sent to the address, the station receives exactly one submit, row.bind_tx_hash equals the submitted hash and the audit events are ['bind']."
 do_4 = "Rewrite the second flow test (provisioning.test.ts:500-557) as 'provisioning resumes after a failure at each step without a second key, station request or binding': keep the getUnifiedAccount and eth_estimateGas failure steps, replace the top-up broadcast failures (:516-530) with a station that fails once after submit (provisioning-station.test.ts:405-410), and assert one persisted station_request reused on resume, one binding (chain.bindNonces.get(address) is 1n), no topup audit row and one wallet."
-symbols = ["provisioning creates both keys, has the gas station sponsor the binding and confirms it before active", "provisioning resumes after a failure at each step without a second key, station request or binding"]
+symbols = ["provisionAccount", "provisionDepsFromEnv"]
 touches = ["services/wallet/gateway/test/provisioning.test.ts"]
 tests = ["services/wallet/gateway/test/provisioning.test.ts::provisioning creates both keys, has the gas station sponsor the binding and confirms it before active", "services/wallet/gateway/test/provisioning.test.ts::provisioning resumes after a failure at each step without a second key, station request or binding"]
 planned_paths = []
@@ -188645,7 +188954,7 @@ touches = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services
 tests = ["services/agent/crates/layerx-agentd/tests/recovery.rs::restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema", "services/agent/crates/layerx-agentd/tests/migration.rs::every_supported_prior_schema_migrates_forward_without_changing_core_bytes", "services/agent/crates/layerx-agentd/tests/unknown.rs::acknowledgement_loss_is_resolved_only_by_the_existing_receipt", "services/agent/crates/layerx-agentd/tests/operator.rs::catalogue_routes_every_operator_action_without_protocol_mutating_power", "services/agent/crates/layerx-agentd/tests/operator_route.rs::human_socket_operator_commands_reach_the_audited_admin_dispatch"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test recovery --test migration --test unknown --test operator --test operator_route"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test recovery --test migration --test unknown --test operator --test operator_route"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test recovery --test migration --test unknown --test operator --test operator_route"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -189741,6 +190050,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "services/agent/crates/layerx-agentd/src/human_runtime.rs target_object_owner (:4876) lists AgentRegister and SessionOpen (:4918-4919) in the arm that answers HumanOperationError::Refused, which refuses both operations before dispatch_operation sees them; move the two into the Ok(None) arm that ends with Operation::FaucetClaim, beside Prepare, BudgetCreate and CapabilityCreate, since a prepare operation has no target object and its owner is the credential owner. Change nothing else in that file; do_1 still reuses :20529-20532 unedited."
+do_6 = "Attempt 5 kept do_1 to do_3 and did do_5 with the build green but left do_4 undone: both tests still panic at tests/bootstrap_bind_layerx.rs:90 reading an operator fixture. Write do_4 the way services/agent/crates/layerx-mcp/tests/faucet.rs:40-150 serves its peers in-process (directory(label), records(scopes) returning a SessionRecord and Capability, control(root, session, capability) returning the SessionControl and credential), the way tests/session.rs and tests/session_grants_layerxauth.rs build a SessionCredential in-process, and anvil per tests/balance.rs:24-40; generate every key in the test and read nothing from the environment (decision.1884)."
 
 [task.18.1243.2]
 title = "Issue #1243: Port the agent host payer to the ledger GrantTerms"
