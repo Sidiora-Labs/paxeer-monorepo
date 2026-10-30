@@ -132045,7 +132045,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.29.2]
 title = "Check buf generate reproduces the checked-in Go for api and sdk/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["7.21.1", "7.22.2", "7.28.3", "7.26.4", "6.68.2", "7.26.5"]
@@ -194124,7 +194124,7 @@ qualification = "UNRUN"
 
 [task.18.1279.3]
 title = "MCP metered web payments present a standing ledger grant the payer holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1279.2"]
