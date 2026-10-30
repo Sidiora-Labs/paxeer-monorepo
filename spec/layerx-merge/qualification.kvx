@@ -11019,3 +11019,131 @@ symbol = "claim_params"
 observed = "8.2.1 serves px_requestFunds only through the gateway faucet module with params [DID, hex32 signer key] under an authenticated session (:60, :259), while 9.15.1 do_2 and attempt 4 (7bf9501be) sent [address, amount] to a node endpoint read from an unnamed environment variable; the two parameter shapes cannot both hold."
 assumption = "Resolved by decision.1869: the tool carries the gateway's shape and its test serves px_requestFunds on a loopback listener."
 severity = "major"
+
+[finding.13.27.5.1]
+task = "13.27.5"
+file = "programs/crates/layerx-programs-arbiter/tests/verified_step.rs"
+symbol = "VerifiedReplayAuthority::derive"
+observed = "Attempts 1-3 (90a380a89, db2c3c330) built, then the dependents check cargo check --locked --manifest-path programs/Cargo.toml --all-targets exited 101 with nine E0308 at verified_step.rs:378-544 passing &Proof where aaacf6f8a (13.30.3) made derive and verify_with_batch_context take &ChainCommitProof; log /out/logs/dependents-1.log."
+assumption = "Pre-existing since aaacf6f8a; 13.30.4 rewrites the file; the crate is left out of the dependents check until 13.30.4 is on main."
+severity = "blocker"
+
+[finding.18.1172.2.1]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/src/activity/mod.rs"
+symbol = "ReceiptEvidence::level"
+observed = "Attempt 1 build: cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests exited 101 with 15 errors (E0412, E0432, E0433) on layerx_agent_api::verify::Level in the library since b20ecde23 (9.1.4); log /out/logs/build-1.log."
+assumption = "Pre-existing at main; repaired by 10.2.8 (decision.1870), which this task now requires."
+severity = "blocker"
+
+[finding.18.1230.1.1]
+task = "18.1230.1"
+file = "services/agent/crates/layerx-agentd/tests/budget_create.rs"
+symbol = "ExecutedReceipt"
+observed = "Attempt 4 build: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests exited 101 with E0063 missing signing_key at budget_create.rs:18 (since 98b857055, 9.21.8) and four E0308 at tests/support/mod.rs:178-304 on attach_external_signature and verify_before_submit (since c03f97f8e, 9.2.2); log /out/logs/build-1.log."
+assumption = "Pre-existing at main; 18.1206.1 carries both slices (decision.1871) and the agentd test tasks now require it."
+severity = "blocker"
+
+[finding.8.29.4.1]
+task = "8.29.4"
+file = "services/platform/ramps/toolkit/tests/engine_legs.rs"
+symbol = "order"
+observed = "Attempts 1-3 build: cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit --tests exited 101 with E0063 missing payer_grant_purpose at engine_legs.rs:51 since 430d83c17 (18.1027.1); log /out/logs/build-1.log."
+assumption = "Pre-existing at main; repaired by 8.29.5 (decision.1871), which this task now requires."
+severity = "blocker"
+
+[finding.10.2.8.1]
+task = "10.2.8"
+file = "services/human/crates/layerx-human-service/tests/journey_faults.rs"
+symbol = "attach_external_signature"
+observed = "Attempts 1-2 ported Level to Rung, then the twelve-target build command exited 101 in seven test targets on an agent-boundary double that calls attach_external_signature with a 64-byte signature, a four-argument Outbox::enqueue returning (), OutboxState::Acknowledged and a four-argument raw_receipt_evidence (journey_faults.rs:418-427, :462, :519-525), none of which exist at main; log /out/logs/build-1.log."
+assumption = "Not Level-related; the build command now covers the library and the five clean targets and 10.2.9 ports the seven doubles (decision.1872)."
+severity = "blocker"
+
+[finding.13.30.4.2]
+task = "13.30.4"
+file = "programs/crates/layerx-programs-arbiter/tests/verified_step.rs"
+symbol = "TestModuleCatalogueAppHashVector"
+observed = "Attempt 5 build exit 0, verify exit 101: the generator added by the attempt itself requires LAYERX_AUTHENTICATED_REPLAY_INPUTS, so the vector was never written and verified_step.rs:212 panicked NotFound; attempts 1-4 panicked NotPresent at :176/:181 on the same variable; log result/logs-verify-1.log."
+assumption = "do_6 now names ICS23-only entry points and a keeper-written vector (decision.1874); the task is continued from attempt 5."
+severity = "blocker"
+
+[finding.8.50.3.1]
+task = "8.50.3"
+file = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+symbol = "ACTIVITY_SUBMIT"
+observed = "Attempts 3-4 could not pass a raw EVM transaction through activity.submit: catalogue.rs:150-154 declares the kernel triple (preparation_ref, signature Hex64, signer_public_key Hex32) and validate (:404) refuses any other argument set before server.rs:1026-1035 binds the preparation, and catalogue.rs was outside the task's touches."
+assumption = "catalogue.rs joins the touches and do_5 admits a raw_transaction form beside the unchanged kernel form."
+severity = "blocker"
+
+[finding.8.34.7.1]
+task = "8.34.7"
+file = "tools/platform/cli/src/main.rs"
+symbol = "program call"
+observed = "Attempts 3-4 failed because do_3 asked for layerx program call with the program id, --fuel and --fee-limit only, while main.rs:1346-1349 requires --evm-key-file and programs.rs:1313 refuses any key file that is not a 0600 regular file owned by the current user."
+assumption = "do_3 and do_6 now pass a 0600 key file in the wallet derive export format and the listener answers the eight RPC methods the call issues; the attempt is continued."
+severity = "blocker"
+
+[finding.8.44.1.5]
+task = "8.44.1"
+file = "sdk/platform/swift/.gitignore"
+symbol = "SequencerReceiptTests"
+observed = "Attempt 10 (d91a36957) built and cg spec done exited 0 after Executed 0 tests because the verify filter reached swift test as a literal backslash before the dot, and the run was then failed for 2413 paths under sdk/platform/swift/.build/ changed outside the touches, since that directory has no .gitignore; log result/logs-verify-1.log."
+assumption = "The filter drops the escape (the target and class names were correct), the .gitignore joins the touches and the attempt-9 three-file candidate is re-qualified unchanged."
+severity = "blocker"
+
+[finding.8.51.2.4]
+task = "8.51.2"
+file = "tools/platform/release/src/main.rs"
+symbol = "publication_evidence"
+observed = "Attempt 6 (796ad06e4) built, then release_pipeline_has_no_replay_gate panicked at tests/registries.rs:59: job publish-go-modules lacks refs/tags/platform/sdk/go/v; main.rs:179 (since 83667c8d3) was not updated when c9ffc8b98 (18.820.1) retagged the Go module as sdk/platform/go/v, a mismatch hidden until the attempt removed the if always() step at platform.yml:1552."
+assumption = "do_7 corrects the one needle to the module-path convention without weakening the validator; whether a further go-modules needle fails is unverified."
+severity = "blocker"
+
+[finding.8.98.5.3]
+task = "8.98.5"
+file = "services/platform/hosted/core/src/lib.rs"
+symbol = "read_custody_profile"
+observed = "Attempts 3-4 exited 101 with eleven errors in lib.rs (rpc::transport, rpc::evidence::{VerifiedEffectiveAsset, RootSelector, AccountEvidencePolicy}, verify_account_evidence, rpc::account::module_state, verify_module_evidence) because do_5 and do_6 named items layerx-client does not export and asked for a PxEndpoint where every rpc function takes a SequencerEndpoint; the custody block has no rpc twin and the LNI routes of main.rs stay live until 8.20.1."
+assumption = "8.98.5 moves to wave 30 after 8.20.1 and ports main.rs only; 8.98.14 deletes the custody block at wave 34 (decision.1873). Cross-task: 9.25.1 do_2 deletes evidence.rs, which rpc/module_state.rs:8 imports; 8.98.6 shares connect_client and connect_raw with this task."
+severity = "blocker"
+
+[finding.12.35.2.2]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts"
+symbol = "OBSERVED_METHODS"
+observed = "The attempt-base typecheck errors (StatusLadder.test.tsx:50, WebDataView.test.tsx:53-66) are fixed at main by 3e726112a, e90ee7775 and e232a2fa3; the remaining blocker is that anvil and the page.route proxy (send.spec.ts:26, :85-89) never answer pax_sequencerReceipt, so the Receipted rung cannot be observed, and 18.1001.1 changes only the wallet gateway vitest chain."
+assumption = "Held under test_services_env until the environment that runs the gates provides a sequencer-backed node URL beside anvil (do_4); no stub answer is added."
+severity = "blocker"
+
+[finding.16.24.5.2]
+task = "16.24.5"
+file = "tools/loadtest/config/config.go"
+symbol = "BoundsConfig"
+observed = "No paxload measurement exists in docs/, tools/loadtest/ or spec/; the only TPS and p99 figures are the README.md:158 format sample and the x402 draw latencies of docs/site/docs/interop/x402.md:121, neither tied to one of the seven profiles, so do_1 has no release-candidate run to derive bounds from."
+assumption = "Held until the owner records seven minAverageTps and maxP99LatencyMs pairs as a decision or a release-candidate run records per-profile TPS and p99."
+severity = "blocker"
+
+[finding.5.16.1.2]
+task = "5.16.1"
+file = "node/sequencer/receipt_latency_test.go"
+symbol = "sequencer_receipt_latency_seconds"
+observed = "At attempt 3 (1978b4068) 11 of 500 receipts exceeded 50 ms (9 in 50-100 ms, 2 in 100-200 ms, max 117.7 ms, mean 14 ms); each receipt serialises two fdatasyncs (wal.go:584 on both nodes) and two executions (accepter.go:43, standby.go:831) under the Accepter mutex, and the test does not yet log the wal-sync and standby-ack histograms."
+assumption = "req.5074 ac_1 fixes the 50 ms bound; the test stays as written, do_4 adds the attribution logging and the task is held until the owner rules on a product change to the replication ack path or on the measurement host."
+severity = "blocker"
+
+[finding.4.22.3.2]
+task = "4.22.3"
+file = "services/launchpad/gateway/internal/app/retired_routes_test.go"
+symbol = "bootDevIdentity"
+observed = "retired_routes_test.go:15 boots the full development gateway; NewMinIO (internaltest/containers.go:63-66) fails without GATEWAY_TEST_MINIO_ENDPOINT, the environment that runs the gates provisions Postgres and Redis but no MinIO, and no done launchpad task verifies ./internal/app/."
+assumption = "Held under test_services_env; MinIO is added to the gate environment per readings/local-node-env-plan.json and the attempt-4 candidate d0fb58398 is re-qualified unchanged."
+severity = "blocker"
+
+[finding.18.670.1.2]
+task = "18.670.1"
+file = "services/platform/perps-data/e2e_test.go"
+symbol = "TestEndToEnd"
+observed = "The verify command needs PERPS_DATA_TEST_COMET, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_DATABASE_URL and a funded seed key in the environment that runs the gates; none is provided, so the end-to-end test cannot run."
+assumption = "Held under test_services_env until the environment provides the three endpoints and a funded key."
+severity = "blocker"

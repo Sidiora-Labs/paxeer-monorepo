@@ -1,0 +1,107 @@
+use std::io::{BufRead as _, BufReader, Read as _, Write as _};
+use std::net::TcpListener;
+use std::time::Duration;
+
+use layerx_crypto::signer::{LocalSigner, Signer};
+use layerx_mcp::server::{tool_operation, ToolKind, FAUCET_REQUEST};
+use layerx_mcp::tools::faucet::{execute, FaucetSession};
+use serde_json::json;
+
+#[path = "faucet.rs"]
+mod faucet;
+
+#[test]
+fn faucet_request_calls_px_request_funds() {
+    let root = std::env::temp_dir().join(format!("mcp-request-funds-{}", std::process::id()));
+    let mut server = faucet::bind(&root, &[FAUCET_REQUEST.required_scope]);
+    assert_eq!(server.tools(), [FAUCET_REQUEST]);
+    assert_eq!(server.audit_entries(), 0);
+    let did = server.binding().agent().clone();
+    let signer = LocalSigner::new([0x42; 32]);
+    let signer_key = signer.public_key();
+    let session = FaucetSession {
+        did: &did,
+        signer_key: &signer_key,
+    };
+    let expected_did = std::str::from_utf8(did.as_bytes())
+        .expect("session DID")
+        .to_owned();
+    let expected_key: String = signer_key
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    let hash = format!("0x{}", "a1".repeat(32));
+    let funding_hash = hash.clone();
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind faucet RPC");
+    let node = format!("http://{}", listener.local_addr().expect("RPC address"));
+    let responder = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept faucet request");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("request timeout");
+        stream
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .expect("response timeout");
+        let mut reader = BufReader::new(&stream);
+        let mut line = String::new();
+        reader.read_line(&mut line).expect("request line");
+        assert_eq!(line, "POST / HTTP/1.1\r\n");
+        let mut length = None;
+        let mut content_type = None;
+        loop {
+            line.clear();
+            assert!(reader.read_line(&mut line).expect("request header") > 0);
+            if line == "\r\n" {
+                break;
+            }
+            let (name, value) = line.trim_end().split_once(':').expect("HTTP header");
+            if name.eq_ignore_ascii_case("content-length") {
+                assert!(length.is_none(), "one content length");
+                length = Some(value.trim().parse::<usize>().expect("body length"));
+            }
+            if name.eq_ignore_ascii_case("content-type") {
+                content_type = Some(value.trim().to_owned());
+            }
+        }
+        assert_eq!(content_type.as_deref(), Some("application/json"));
+        let length = length.expect("content length");
+        assert!(length <= 4096);
+        let mut body = vec![0; length];
+        reader.read_exact(&mut body).expect("request body");
+        let request: serde_json::Value = serde_json::from_slice(&body).expect("JSON-RPC request");
+        assert_eq!(
+            request,
+            json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "px_requestFunds",
+                "params": [expected_did, expected_key],
+            })
+        );
+        let body =
+            json!({"jsonrpc": "2.0", "id": request["id"], "result": funding_hash}).to_string();
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).expect("funding response");
+    });
+    let result = execute(&mut server, 50, &node, &session)
+        .expect("faucet.request must send px_requestFunds and return its funding hash");
+    responder.join().expect("faucet RPC assertions");
+    assert_eq!(result, json!({"tx_hash": hash}));
+    assert_eq!(server.audit_entries(), 2);
+    let audit = layerx_agentd::audit::Log::open(&root, server.binding().tenant())
+        .expect("persisted faucet audit");
+    assert_eq!(
+        layerx_agentd::audit::verify_chain(audit.path())
+            .expect("valid audit chain")
+            .entries,
+        2
+    );
+    std::fs::remove_dir_all(root).expect("remove test session state");
+}
+
+#[test]
+fn faucet_request_maps_to_no_agent_operation() {
+    assert_eq!(tool_operation("faucet.request"), None);
+    assert_eq!(FAUCET_REQUEST.required_scope, "write:faucet:claim");
+    assert_eq!(FAUCET_REQUEST.kind, ToolKind::Write);
+    assert!(FAUCET_REQUEST.mutation.contains("px_requestFunds"));
+}
