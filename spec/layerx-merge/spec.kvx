@@ -125046,7 +125046,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.47.1]
 title = "Prove the merge plan releases custody and keeps the module solvent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.46.1", "6.44.1", "5.6.5", "5.94.4"]
