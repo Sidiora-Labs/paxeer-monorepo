@@ -178,7 +178,7 @@ public static class GeneratedOperationCatalog
             PlatformOperation.AgentProgramDeploy => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)", false),
             PlatformOperation.AgentProgramDiscover => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "getProgram(bytes32)", false),
             PlatformOperation.AgentProgramInterface => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "getInterface(bytes32)", false),
-            PlatformOperation.AgentProgramReceipt => new("evm", "eth_call", "0x000000000000000000000000000000000000101c", "resultByIdempotency(bytes32,bytes32)", false),
+            PlatformOperation.AgentProgramReceipt => new("evm", "eth_getTransactionByHash", null, null, false),
             PlatformOperation.AgentProgramSimulate => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)", false),
             PlatformOperation.AgentProgramUpgrade => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)", false),
             PlatformOperation.AgentProgramWindDown => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "deprecate(bytes32,bytes32,uint64)", false),

@@ -1075,7 +1075,7 @@ affects = ["2.28.3", "2.28.4", "2.28.5", "2.28.6", "2.28.7"]
 
 [decision.235]
 title = "0x101B charges the gas table through WithGasTable"
-value = "The 0x101B precompile is built WithGasTable(methodGas) so the framework charges the methodGas rows; gas.go RequiredGas stays as the estimator used by tests."
+value = "The 0x101B precompile is built WithGasTable(methodGas) so the framework charges the methodGas rows; gas.go RequiredGas stays as the estimator used by tests. Decision.1962 supersedes the charging half: the rows are the base charge of the dynamic dispatch and the store gas the call meters is charged on top."
 basis = "methodGas rows exist at precompiles/layerxpay/gas.go:18-76 and RequiredGas at precompiles/layerxpay/gas.go:82, and the framework hook is WithGasTable (precompiles/common/precompiles.go:115)."
 affects = ["2.28.1"]
 
@@ -4880,6 +4880,30 @@ title = "The creation path binds a signed EIP-1559 transaction to the custody EV
 value = "KeyDescriptor.public_key (services/human/crates/layerx-human-service/src/custody/mod.rs:435-440) is the Ed25519 verification key of the held 32-byte secret (services/human/crates/layerx-human-service/src/custody/provider.rs:1198 and :1223, services/agent/crates/layerx-crypto/src/local.rs:31-33); the EVM identity of the same key is the secp256k1 wallet CustodySigner::evm_wallet returns (services/human/crates/layerx-human-service/src/custody/signer.rs:911-917, provider.rs:1029-1040), which the provider binds beside the Ed25519 key on every transaction signature (provider.rs:1285-1286). The human service compares the left-padded recovered sender of a signed creation transaction with that wallet and carries the left-padded wallet as the owner public key of its creation evidence, the value ProtocolEvidence::bound_activity compares with the recovered sender (services/human/crates/layerx-human-service/src/agents/create.rs:541-547); it never compares the sender with descriptor.public_key."
 basis = "Attempt 5 of 18.1204.2 (ca9d97c1b on 8b483cd25) implements do_5 to do_8, builds, and fails finalization_evidence_reports_the_runtime_rung at tests/agent_creation_rungs.rs:42 with Refused('retained owner request differs') from src/server/agent_creation_native.rs:342 because :333 compares the left-padded secp256k1 sender with the Ed25519 descriptor key; the fixture derives the custody key and the transaction signature from the same 32-byte secret (tests/agent_creation_rungs.rs:225, tests/support/canonical_owner.rs:110), so the wallet equals the sender while the descriptor key is a point on another curve."
 affects = ["18.1204.2"]
+
+[decision.1962]
+title = "0x101B charges its gas row plus the store gas the call meters"
+value = "0x101B is served as a vm.DynamicGasPrecompiledContract whose RunAndCalculateGas deducts the methodGas row from the supplied gas, runs the call under a gas meter limited to the remainder and returns what that meter leaves, so an EVM caller pays the row plus the KV gas the call consumes divided by PriorityNormalizer. The rows of precompiles/layerxpay/gas.go:19-58 are the fixed base charge, RequiredGas keeps returning them, and no row is the whole charge; the sum, not the larger of the two, is the charge, as precompiles/spot/spot.go:240-242 and :303-318 already do."
+basis = "RunPrecompiledContract deducts RequiredGas before Run and cannot charge more (core/deps/geth/core/vm/contracts.go:237-246) but hands a DynamicGasPrecompiledContract the supplied gas (:234-236); in a transaction the DBImpl ctx carries the infinite meter of modules/evm/keeper/msg_server.go:64-65 and :82 whose consumption is never billed (:166-167); every methodGas row is below the KV gas its call consumes and the gas grows with the store, escrowOpen 75770, 81857, 85925, 89993 against 70560 (2.40.5 attempt 1, 080b1e02a), because HostExecute (modules/lxphost/host.go:1072) re-reads every loading-set and account row on each call (decision.125); a flat row therefore cannot bound state-proportional work, while a charge that tracks the meter does."
+affects = ["2.40.10", "2.40.5", "2.28.1"]
+
+[decision.1963]
+title = "Wallet-approved spending completes inside the wallet gateway; the agents package offers no wallet-held detached signer"
+value = "AgentSigner.sign(prepared) answers the detached signature that AgentMiddleware submits together with preparation_ref and signer_public_key (services/platform/middleware/agent/src/index.ts:349, :361-366). The PaxeerWallet EVM approval surface never answers one: EvmApproval (sdk/wallet/src/index.ts:60-70) carries state and the approval fields only, the SDK wraps review (:284), approve (:312) and approvals/:id (:338) and nothing else, and POST /v1/wallet/evm/sign (services/wallet/gateway/src/routes/evmApprovals.ts:254) signs (:280-283), serialises (:289), submits the raw transaction itself (:296) and answers tx_hash, rung and receipt (:298-301). The agents package therefore offers no wallet-signer provider: ApprovedWalletSigner, approvedArtifact, WalletLxSigningClient and WalletLxArtifact and the walletSigner branch of the provider selection are removed, the selection accepts only providers.signer, and wallet-approved spending completes inside the wallet gateway as decision.1229 describes. 15.4.11 do_9 is superseded by do_12, and no new wallet route or SDK method is added."
+basis = "12.27.2 retired the lx_activity review, approval and signing from PaxeerWallet (decision.1229); do_9 of 15.4.11 asked to port ApprovedWalletSigner to the EVM approval, which cannot answer a detached signature, so sdk/integrations/agents/src/service-providers.ts:167-219 cannot compile without a stand-in (attempts 1 to 4 of 15.4.11, byte-identical builds with 19 errors); a wallet-held detached signer would need a new route in services/wallet/gateway/src/routes/evmApprovals.ts and a new SDK method in sdk/wallet/src/index.ts, files held only by the done tasks 12.10.3, 12.10.4, 12.23.1, 12.23.3, 12.27.1, 12.27.2 and 12.27.3, for a flow the wallet gateway already completes."
+affects = ["15.4.11", "12.27.2"]
+
+[decision.1964]
+title = "A task that touches services/agent/crates/layerx-agentd/src/main.rs builds the layerx-agentd binary"
+value = "layerx-agentd sets autobins = false (services/agent/crates/layerx-agentd/Cargo.toml:3) and the layerx-agentd binary is declared in services/agent/crates/layerx-agentd-host/Cargo.toml:8-10 with path ../layerx-agentd/src/main.rs, so a task whose touches include that main.rs names `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd` in its build_cmd; a -p layerx-agentd lib or test build never compiles main.rs. Task 9.12.11 repairs the line 8c526e4f0 left uncompiled, and 17.5.1 and 10.20.3 require it."
+basis = "9.12.7 (8c526e4f0, do_3) passed its build_cmd and verify_cmd on -p layerx-agentd --test human_node while its one-line change at main.rs:1013 fails E0277 twice: `?` on NodeRpcError inside start_shared_owner, which returns Result<_, String> (main.rs:948-955), with no From<NodeRpcError> for String; 17.5.1 attempt 12 (af44d7420) found it in make workspace-build at agent-build (Makefile:1947) and 10.20.3 attempt 19 (9b9d22da9) in its third build_cmd member, both in a file neither task touches."
+affects = ["9.12.11", "17.5.1", "10.20.3", "17.5.2", "17.5.3", "17.5.4"]
+
+[decision.1965]
+title = "TestXWebRegistration asserts the xweb ABI as declared: 12 functions and 4 events"
+value = "precompiles/setup_test.go TestXWebRegistration asserts the method and event counts of precompiles/xweb/abi.json as the completed xweb tasks declared them: 12 functions (fee, fulfil, fulfilProgram, getAttestors, getKernelNetworkId, getParams, getProgramResult, getRequest, getResult, refund, request, threshold) and 4 events (XWebRequested, XWebProgramRequested, XWebFulfilled, XWebRefunded). The abi.json is the product surface; the registration test follows it, and a task that grows the xweb ABI runs TestXWebRegistration in its verify."
+basis = "The counts 9 and 3 at setup_test.go:144-145 date from 00f692026, the first xweb commit; ccf8fa472 added the api request kind, 144f13d49 (task 5.1.2) extended ABI parity and 383bbbbd8 (task 6.94.3) declared XWebProgramRequested, each qualified by gates that never ran TestXWebRegistration, so the test has failed on main since and 6.6.10 attempt 1 (6f2320d86 on b38a9f679) was the first gate to run it."
+affects = ["6.6.10", "5.1.2", "6.94.3"]
 
 [feature.1]
 name = "kernel"
@@ -13084,7 +13108,11 @@ ac_1 = "A stream opened, settled and closed through 0x0906 leaves the same kerne
 
 [req.2315]
 title = "Bound 0x101B charged gas against the measured host store work"
-ac_1 = "For every nonpayable method of precompiles/layerxpay/abi.json:2-58 the gas charged by methodGas (precompiles/layerxpay/gas.go:18-76) is at least the KV gas the context gas meter records during the method's HostExecute (modules/lxphost/host.go:678) on a typical payload."
+ac_1 = "For every nonpayable method of precompiles/layerxpay/abi.json:2-58 the gas the EVM call deducts for 0x101B (its methodGas row plus the metered store gas, decision.1962) is at least the KV gas the context gas meter records during the method's HostExecute (modules/lxphost/host.go:1072) on a typical payload."
+
+[req.24010]
+title = "Serve 0x101B with dynamic gas: the row plus the metered store gas"
+ac_1 = "0x101B is served as a vm.DynamicGasPrecompiledContract: an EVM call of any method of precompiles/layerxpay/abi.json is charged its methodGas row (precompiles/layerxpay/gas.go:19-58) plus the KV gas the call consumes under a gas meter limited to the remaining supplied gas, divided by PriorityNormalizer; RequiredGas keeps returning the row, a call whose supplied gas is below the row fails with vm.ErrOutOfGas, and a call that exhausts the remainder fails with vm.ErrOutOfGas (core/deps/geth/core/vm/contracts.go:234-236; precompiles/spot/spot.go:275-324)."
 
 [req.2316]
 title = "Bound the worst-case scheduler end block by MaxBlockGas"
@@ -18084,6 +18112,10 @@ ac_1 = "services/agent/tests/qualify/fabrication.rs compiles inside the agent-qu
 title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
 ac_1 = "services/agent contains no include/layerx_lni_abi.h, no schema/lni directory and no stable-abi-allowlist.toml."
 ac_2 = "services/agent/unsafe-allowlist.toml holds version 1 and no exceptions entry."
+
+[req.9192]
+title = "layerx-client compiles without the deleted LNI schema file"
+ac_1 = "services/agent/crates/layerx-client/src/lni/schema.rs declares no LNI_V1_SOURCE constant and no include_str! of schema/lni/v1.kvx, and cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer exits 0 on a tree without services/agent/schema/lni."
 
 [req.9066]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
@@ -28198,9 +28230,18 @@ tests = ["precompiles/layerxpay/gas_bound_test.go::TestPayChargedGasCoversHostSt
 verification_contract = "contracts/pay.md#gas"
 do_1 = "Build one newPayPrecompileHarness in precompiles/layerxpay/harness_test.go (planned)."
 do_2 = "Run every write method with a typical payload under sdk.NewGasMeter (sdk/types/store.go:185) and read GasConsumed."
-do_3 = "Compare with RequiredGas of the precompile for the same input (precompiles/layerxpay/gas.go:82) and report the method name on failure."
+do_3 = "For each metered call take rev := h.db.Snapshot(), install the fresh meter on h.db.Ctx() through WithCtx (modules/evm/state/statedb.go:270-272), run h.precompile.GetExecutor().Execute and read GasConsumed as the measured store gas, then h.db.RevertToSnapshot(rev) (modules/evm/state/state.go:109-125); run the same input through h.evm.Call(h.caller, h.precompile.Address(), input, supplied, uint256 zero) (core/deps/geth/core/vm/evm.go:199) and compare testkeeper.EVMTestApp.EvmKeeper.GetCosmosGasLimitFromEVMGas(h.db.Ctx(), supplied-left) (modules/evm/keeper/params.go:258-265) against the measured gas, reporting the method name on failure; RequiredGas (precompiles/layerxpay/gas.go:82) is the row and is no longer the charge (decision.1962)."
 do_4 = "Write TestPayChargedGasCoversHostStoreWork in precompiles/layerxpay/gas_bound_test.go (planned)."
 symbols = ["TestPayChargedGasCoversHostStoreWork"]
+
+[capability.2.40.10]
+title = "Serve 0x101B with dynamic gas: the row plus the metered store gas"
+reqs = ["24010.1"]
+touches = ["precompiles/layerxpay/layerxpay.go", "precompiles/layerxpay/harness_test.go", "precompiles/layerxpay/layerxpay_test.go", "precompiles/layerxpay/charge_test.go"]
+tests = ["precompiles/layerxpay/layerxpay_test.go::TestPayPrecompileChargesGasTable", "precompiles/layerxpay/charge_test.go::TestPayServedChargeTracksStoreGas"]
+verification_contract = "contracts/pay.md#gas"
+do_1 = "In precompiles/layerxpay/layerxpay.go add `type Precompile struct { *pcommon.Precompile; executor *Executor; evm utils.EVMKeeper }` with `var _ vm.DynamicGasPrecompiledContract = (*Precompile)(nil)` and `NewServedPrecompile(keeper *paykeeper.Keeper, evm utils.EVMKeeper) (*Precompile, error)` wrapping NewPrecompile(keeper) (layerxpay.go:41-51) as precompiles/spot/spot.go:243-256 wraps its base; make NewMergePrecompile (layerxpay.go:53-63) return NewServedPrecompile(wired.LayerXPayK(), keepers.EVMK()) (precompiles/utils/expected_keepers.go:37) and leave NewPrecompile, gas.go and methodGas unchanged."
+symbols = ["Precompile", "NewServedPrecompile", "RunAndCalculateGas", "TestPayServedChargeTracksStoreGas"]
 
 [capability.2.40.6]
 title = "Bound the worst-case scheduler end block by MaxBlockGas"
@@ -31861,6 +31902,15 @@ tests = ["node/store_delete_test.go::TestAnchorStoreDeletedAtStep", "storage/com
 verification_contract = "go test -count=1 ./storage/common/keys/ && go test -count=1 ./node/ -run '^(TestAnchorStoreDeletedAtStep|TestAnchorPrecompileStaysRegisteredWithoutModule|TestMergePlanReturnsGuarantorBonds)$'"
 do_1 = "Per decision.1954 restore const LayerXAnchorStoreKey = 'layerxanchor' after LayerXCustodyStoreKey (storage/common/keys/store_keys.go:34) and its entry after LayerXCustodyStoreKey in MemIAVLStoreKeys (storage/common/keys/store_keys.go:76), and restore layerxanchortypes.StoreKey after layerxcustodytypes.StoreKey in kvStoreKeyNames (node/app.go:362), so the two lists match as the kvStoreKeyNames comment requires and the layerxanchor store is mounted until the v7.0-anchor-store-delete step deletes it."
 symbols = ["LayerXAnchorStoreKey", "kvStoreKeyNames", "LayerXAnchorKeeper"]
+
+[capability.5.7.6]
+title = "layerxd --serve commits an admitted Programs call to a receipt under the daemon-bound state feed"
+reqs = ["5706.1"]
+touches = ["cmd/layerxd/lxp_daemon_protocol.c", "cmd/layerxd/lxp_daemon_process.c", "src/modules/programs/feed_store.c", "tests/daemon/test_serve_commits_programs_call.py"]
+tests = ["tests/daemon/test_serve_commits_programs_call.py::test_serve_commits_an_admitted_programs_call"]
+verification_contract = "python3 -m pytest tests/daemon/test_serve_commits_programs_call.py::test_serve_commits_an_admitted_programs_call -q"
+do_1 = "Reproduce attempt 14 of task 18.1200.1 with layerxd's stderr kept: start layerxd --authority-replica and layerxd --serve from a fresh genesis as services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1641-1693 does, submit one NativeProgramCall (ActivityType Programs/3 = LX_PROGRAMS_CALL 0x00090003) over LNI V1_4, poll the by-id receipt lookup, and read <root>/sequencer.stderr for the 'layerxd: execution failed at sequence ... with result ...' line (cmd/layerxd/lxp_daemon_main.c:189-190) or its absence (a stall). Record the result code and the stage (batch prepare, observer, replica publication) before changing code."
+symbols = ["install_pending_receipts", "lxp_programs_state_feed_store_bind_maintenance", "test_serve_commits_an_admitted_programs_call"]
 
 [capability.5.7.2]
 title = "Make the precompile keepers answer no anchor keeper"
@@ -47095,7 +47145,7 @@ symbols = ["RelayReceiptResolver", "parsesSignedReceiptPayload"]
 [capability.15.4.9]
 title = "Verify signed sequencer receipts in the iOS ReceiptGate"
 reqs = ["15013.1", "15013.2"]
-touches = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift", "sdk/integrations/ios/Package.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift", "sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift"]
+touches = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift", "sdk/integrations/ios/Package.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift", "sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift", "sdk/integrations/ios/Sources/LayerXMobile/LayerXMobile.swift", "sdk/integrations/ios/Sources/LayerXMobile/PublishableConfiguration.swift"]
 tests = ["sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift::testVerifiesSignedSequencerReceipt", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift::testRefusesReceiptUnderUnpinnedKey"]
 verification_contract = "swift test --package-path sdk/integrations/ios --filter 'LayerXMobileTests.ReceiptGateTests/(testVerifiesSignedSequencerReceipt|testRefusesReceiptUnderUnpinnedKey)'"
 do_1 = "Replace authorizedBatch at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:6 and the initializer at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:8 with rawTransaction, signedReceipt and receiptKey."
@@ -60156,6 +60206,10 @@ ac_2 = "rpcPendingSnapshot (node/app.go:3288-3299) satisfies evmrpc.PendingBaseF
 [req.5081]
 title = "layerxd --serve starts on a chain whose anchor module is not wired"
 ac_1 = "Starting layerxd --serve against a node whose anchor precompile 0x1014 answers 'layerxanchor: anchor module is not wired' to threshold() and latestFinalized() no longer exits with 'bootstrap finality authority failed with result -213'; the evidence history opens with no finality verifier and startup reaches the 'history' stage."
+
+[req.5706]
+title = "layerxd --serve commits an admitted Programs call to a receipt under the daemon-bound state feed"
+ac_1 = "From a fresh genesis, layerxd --serve admits one NativeProgramCall (LX_PROGRAMS_CALL 0x00090003, include/layerx/programs.h:173) over LNI V1_4 and a by-id receipt lookup returns a non-empty receipt within 10 s, with no 'execution failed' line in the daemon's stderr (cmd/layerxd/lxp_daemon_main.c:189-190), because the first committed batch reaches install_pending_receipts (cmd/layerxd/lxp_daemon_process.c:4145-4146) under the Programs state-feed observer bound at cmd/layerxd/lxp_daemon_protocol.c:1124-1125."
 
 [acceptance.5.556.1]
 feature = "5"
@@ -82453,7 +82507,7 @@ interface = "Precompile 0x000000000000000000000000000000000000101B named layerxp
 storage = "No precompile-owned state; every write submits one kernel activity through the pay keeper on the shared lxphost store (decision.221) and every view decodes the kernel record read back through the host"
 errors = "Error(string) reasons LXP_<CODE> from kernel names through LXPCodeName (precompiles/common/lxp_errors.go:320), the layerxpay codespace codes 4 to 6 through PayRevertCode and LXP_PAUSED_SCOPE 735 from layerxgov"
 events = "One 0x101B log per successful write as listed in the events context layerxpay-0x101b-events"
-gas = "methodGas rows of precompiles/layerxpay/gas.go:18-76 charged by the framework WithGasTable (decision.235): escrow writes 60000 except escrowDisputeResolve 80000 (precompiles/layerxpay/gas.go:25), dispute open 30000, plus DefaultGasCost of the input; views charge the read rows"
+gas = "methodGas rows of precompiles/layerxpay/gas.go:18-76 as the base charge of the dynamic dispatch (decision.235, decision.1962) plus the store gas the call meters under its own gas meter: escrow writes 60000 except escrowDisputeResolve 80000 (precompiles/layerxpay/gas.go:25), dispute open 30000, plus DefaultGasCost of the input; views charge the read rows"
 activation = "Served from the height where MergeUpgrade is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxpay module (node/upgrades.go:526)"
 invariants = "Every write acts for the DID bound to the EVM caller (decision.236); idempotency keys and stream ids are never zero (decision.223); the ledger effect of a call equals its kernel receipt"
 pause = "Params.Paused refuses every write except escrowRelease, escrowTimeout, budgetClose, budgetDefund, budgetRevoke, streamPause, streamClose, serviceOfferWithdraw and serviceCommitAbandon (modules/layerxgov/types/proposal.go:28-32); views always answer"
@@ -102008,13 +102062,13 @@ title = "Bound 0x101B charged gas against the measured host store work"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["2.28.4", "2.28.5", "2.28.6", "2.28.7", "2.38.2"]
+requires = ["2.28.4", "2.28.5", "2.28.6", "2.28.7", "2.38.2", "2.40.10"]
 reqs = ["2315.1"]
 capabilities = ["2.40.5"]
 interfaces = []
 do_1 = "Build one newPayPrecompileHarness in precompiles/layerxpay/harness_test.go (planned)."
 do_2 = "Run every write method with a typical payload under sdk.NewGasMeter (sdk/types/store.go:185) and read GasConsumed."
-do_3 = "Compare with RequiredGas of the precompile for the same input (precompiles/layerxpay/gas.go:82) and report the method name on failure."
+do_3 = "For each metered call take rev := h.db.Snapshot(), install the fresh meter on h.db.Ctx() through WithCtx (modules/evm/state/statedb.go:270-272), run h.precompile.GetExecutor().Execute and read GasConsumed as the measured store gas, then h.db.RevertToSnapshot(rev) (modules/evm/state/state.go:109-125); run the same input through h.evm.Call(h.caller, h.precompile.Address(), input, supplied, uint256 zero) (core/deps/geth/core/vm/evm.go:199) and compare testkeeper.EVMTestApp.EvmKeeper.GetCosmosGasLimitFromEVMGas(h.db.Ctx(), supplied-left) (modules/evm/keeper/params.go:258-265) against the measured gas, reporting the method name on failure; RequiredGas (precompiles/layerxpay/gas.go:82) is the row and is no longer the charge (decision.1962)."
 do_4 = "Write TestPayChargedGasCoversHostStoreWork in precompiles/layerxpay/gas_bound_test.go (planned)."
 symbols = ["TestPayChargedGasCoversHostStoreWork"]
 touches = ["precompiles/layerxpay/gas_bound_test.go"]
@@ -102034,6 +102088,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "The planned test file is package layerxpay_test and reaches unexported names through precompiles/layerxpay/export_test.go (2.28.6 do_7), because a package layerxpay test that imports node or tests/testutil/keeper forms an import cycle (node/precompiles.go:27, node/upgrades.go:41)."
+do_6 = "Attempt 1 (080b1e02a) built and its verify failed at precompiles/layerxpay/gas_bound_test.go:51 for all 49 metered calls of the 40 nonpayable methods: every methodGas row (precompiles/layerxpay/gas.go:19-58) charges less than the KV gas its call consumes, by 961 (budgetPull) to 58806 (serviceDisputeResolve), and the gas of one method grows with the store (escrowOpen 75770, 81857, 85925, 89993 on four successive opens). The growth is inside HostExecute (modules/lxphost/host.go:1072): on every call branch.load (modules/lxphost/ctx.go:143-171) iterates every 0x01 row of the loading set (activityModules, host.go:1287-1297; decision.125), restoreAccounts (ctx.go:181-204) every 0x06 account row and loadBlobs (host.go:1343-1366) every 0x05 row of the set, and gaskv charges 30 plus 3 per key and value byte for each row (sdk/store/gaskv/store.go:249-258), while a row charges a flat amount plus 30 per argument byte (gas.go:78-80, precompiles/common/precompiles.go:69-75). The point reads outside HostExecute (CheckWrite at precompiles/layerxpay/layerxpay.go:118 and modules/layerxpay/keeper/execute.go:17, AuthorityFor at layerxpay.go:121 and execute.go:20, ReadLastSequence and ReadIdentitySequence at execute.go:28-35, and the record read after the write such as escrow.go:98) cost about 11500 gas per call under sdk/store/types/gas.go:349-358, so metering HostExecute alone still leaves 33 of the 49 calls above their rows. The rows are frozen by gas.go, gas_test.go:20-40, contracts/pay.md and contract_context.2.layerxpay-0x101b, outside this task's touches; this task keeps every assertion of gas_bound_test.go as written. This task requires 2.40.10, which serves 0x101B as a vm.DynamicGasPrecompiledContract charging the methodGas row plus the store gas the call meters (core/deps/geth/core/vm/contracts.go:234-236; decision.1962), so the comparison of do_3 reads the gas the EVM call leaves instead of RequiredGas."
+
+[task.2.40.10]
+title = "Serve 0x101B with dynamic gas: the row plus the metered store gas"
+status = "pending"
+mode = "BUILD"
+wave = 28
+requires = ["2.28.4", "2.28.5", "2.28.6", "2.28.7", "2.28.8"]
+reqs = ["24010.1"]
+capabilities = ["2.40.10"]
+interfaces = ["interface.2.go-layerxpay-pc-newmergeprecompile-j24"]
+do_1 = "In precompiles/layerxpay/layerxpay.go add `type Precompile struct { *pcommon.Precompile; executor *Executor; evm utils.EVMKeeper }` with `var _ vm.DynamicGasPrecompiledContract = (*Precompile)(nil)` and `NewServedPrecompile(keeper *paykeeper.Keeper, evm utils.EVMKeeper) (*Precompile, error)` wrapping NewPrecompile(keeper) (layerxpay.go:41-51) as precompiles/spot/spot.go:243-256 wraps its base; make NewMergePrecompile (layerxpay.go:53-63) return NewServedPrecompile(wired.LayerXPayK(), keepers.EVMK()) (precompiles/utils/expected_keepers.go:37) and leave NewPrecompile, gas.go and methodGas unchanged."
+do_2 = "Write Precompile.RunAndCalculateGas after precompiles/spot/spot.go:275-313: Prepare the call (precompiles/common/precompiles.go:252-262) and on a refused selector return the LXP revert data with suppliedGas minus UnknownMethodCallGas (:175-179, :200-208); charge := methodGas[method.Name].Gas(input[4:]) (:69-75); when suppliedGas < charge return nil, 0, vm.ErrOutOfGas; otherwise limit := p.evm.GetCosmosGasLimitFromEVMGas(ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx)), suppliedGas-charge) and ctx = ctx.WithGasMeter(sdk.NewGasMeterWithMultiplier(ctx, limit)) with a fresh event manager and the delegatecall flag (precompiles/common/precompiles.go:229-231)."
+do_3 = "Run p.executor.Execute (layerxpay.go:80-162) on that ctx, recovering sdk.ErrorOutOfGas into nil, 0, vm.ErrOutOfGas (precompiles/spot/spot.go:219-225); return remainingGas = p.evm.GetEVMGasLimitFromCtx(ctx) (precompiles/common/precompiles.go:451-453) together with LXPReason revert data and vm.ErrExecutionReverted on error, HandlePrecompileError (:243-250) and the collected events re-emitted on success (:236-239), so the EVM caller pays the row plus the store gas the call metered (decision.1962)."
+do_4 = "In precompiles/layerxpay/harness_test.go build the harness precompile with NewServedPrecompile(&keeper, &application.EvmKeeper) (:81) and serve that value in the EVM map (:106); the field keeps resolving RequiredGas, Run, GetExecutor and Address through the embedded *pcommon.Precompile."
+do_5 = "In precompiles/layerxpay/layerxpay_test.go TestPayPrecompileChargesGasTable keep :74-75 exact for the 40 writes (refused at layerxpay.go:98-100 before any store access), and for the 17 views assert supplied-left is at least want and, for the progressHighWater call that succeeds (:76-80), more than want; assert at :33 that GetCustomPrecompilesE serves 0x101B as a vm.DynamicGasPrecompiledContract."
+do_6 = "Write TestPayServedChargeTracksStoreGas in precompiles/layerxpay/charge_test.go (planned, package layerxpay_test) on newEscrowTestFixture (precompiles/layerxpay/escrow_test.go:120-178): take rev := h.db.Snapshot(), install sdk.NewGasMeter(math.MaxUint64, 1, 1) on h.db.Ctx() through WithCtx (modules/evm/state/statedb.go:270-272), run h.precompile.GetExecutor().Execute for escrowOpen, read GasConsumed as kv and h.db.RevertToSnapshot(rev) (modules/evm/state/state.go:109-125); then run the same input through h.evm.Call(h.caller, h.precompile.Address(), input, 2000000, uint256 zero) (core/deps/geth/core/vm/evm.go:199) and assert supplied-left equals row.Gas(input[4:]) + kv converted through GetCosmosGasLimitFromEVMGas (PriorityNormalizer default one, modules/evm/types/params.go:46), that supplied-left exceeds RequiredGas(input), and that a second escrowOpen with another id is charged more than the first (decision.125)."
+symbols = ["Precompile", "NewServedPrecompile", "RunAndCalculateGas", "TestPayServedChargeTracksStoreGas"]
+touches = ["precompiles/layerxpay/layerxpay.go", "precompiles/layerxpay/harness_test.go", "precompiles/layerxpay/layerxpay_test.go", "precompiles/layerxpay/charge_test.go"]
+tests = ["precompiles/layerxpay/layerxpay_test.go::TestPayPrecompileChargesGasTable", "precompiles/layerxpay/charge_test.go::TestPayServedChargeTracksStoreGas"]
+planned_paths = ["precompiles/layerxpay/charge_test.go"]
+build_cmd = "go build ./precompiles/layerxpay/"
+verify_cmd = "go test -count=1 ./precompiles/layerxpay/ -run '^(TestPayPrecompileChargesGasTable|TestPayServedChargeTracksStoreGas)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the touched files; NewPrecompile, gas.go and the gas rows are unchanged, so 0x101B falls back to the RequiredGas and Run dispatch."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.2.40.6]
 title = "Bound the worst-case scheduler end block by MaxBlockGas"
@@ -102101,7 +102189,7 @@ do_6 = "go vet copylocks rejects precompiles/layerxagent/scheduler/merge_test.go
 
 [task.2.40.8]
 title = "Freeze the 0x0906 event topics against the contract table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.35.2", "2.38.2"]
@@ -120927,6 +121015,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.5.7.6]
+title = "layerxd --serve commits an admitted Programs call to a receipt under the daemon-bound state feed"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["5.7.4"]
+reqs = ["5706.1"]
+capabilities = ["5.7.6"]
+interfaces = []
+do_1 = "Reproduce attempt 14 of task 18.1200.1 with layerxd's stderr kept: start layerxd --authority-replica and layerxd --serve from a fresh genesis as services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1641-1693 does, submit one NativeProgramCall (ActivityType Programs/3 = LX_PROGRAMS_CALL 0x00090003) over LNI V1_4, poll the by-id receipt lookup, and read <root>/sequencer.stderr for the 'layerxd: execution failed at sequence ... with result ...' line (cmd/layerxd/lxp_daemon_main.c:189-190) or its absence (a stall). Record the result code and the stage (batch prepare, observer, replica publication) before changing code."
+do_2 = "Fix the stage the stderr names so that the first committed batch of a fresh genesis passes the Programs state-feed observer bound at cmd/layerxd/lxp_daemon_protocol.c:1124-1125 (src/modules/programs/feed.c:43-103; src/modules/programs/feed_store.c:421-516 store_begin and :560-637 store_advance preconditions against the baseline written by lxp_programs_state_feed_store_open :988-1012 and the anchor callers at cmd/layerxd/lxp_daemon_process.c:4460 and :4515) and the synchronous replica publication at cmd/layerxd/lxp_daemon_process.c:4129-4144, so the batch reaches install_pending_receipts (:4145-4146) and publish_canonical_batch_view (:2470-2821). Do not weaken the preconditions, do not unbind the observer (decision.1951), and do not touch src/protocol/lxp_kernel.c (task 1.15.1, 38c544316, made the kernel side optional on purpose)."
+do_3 = "Add tests/daemon/test_serve_commits_programs_call.py: start both layerxd modes from a fresh genesis, speak LNI V1_4, submit one NativeProgramCall, and assert that a by-id receipt lookup returns a non-empty receipt within 10 s and that sequencer.stderr contains no 'execution failed' line. Every existing layerxd gate stops at startup; this is the first that commits a call."
+symbols = ["install_pending_receipts", "lxp_programs_state_feed_store_bind_maintenance", "test_serve_commits_an_admitted_programs_call"]
+touches = ["cmd/layerxd/lxp_daemon_protocol.c", "cmd/layerxd/lxp_daemon_process.c", "src/modules/programs/feed_store.c", "tests/daemon/test_serve_commits_programs_call.py"]
+tests = ["tests/daemon/test_serve_commits_programs_call.py::test_serve_commits_an_admitted_programs_call"]
+planned_paths = ["tests/daemon/test_serve_commits_programs_call.py"]
+build_cmd = "make -C . layerxd"
+verify_cmd = "python3 -m pytest tests/daemon/test_serve_commits_programs_call.py::test_serve_commits_an_admitted_programs_call -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-node-runtime"
+rollback = "Revert the three C files and delete tests/daemon/test_serve_commits_programs_call.py; layerxd --serve returns to answering empty receipt lookups after admitting a Programs call."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.6.0.1]
 title = "Gate the domain-6 foundation wave on the merge table and the retire gate"
 status = "done"
@@ -121616,7 +121734,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.7.10]
 title = "Track the anchor module removal and the v7.0 latest upgrade in the two-entry activation test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["5.7.1", "5.97.2"]
@@ -121673,6 +121791,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 1 (6f2320d86 on b38a9f679) built and its verify failed only in TestXWebRegistration at precompiles/setup_test.go:144: require.Len(t, info.ABI.Methods, 9) and :145 require.Len(t, info.ABI.Events, 3) date from 00f692026, while precompiles/xweb/abi.json has declared 12 functions (fee, fulfil, fulfilProgram, getAttestors, getKernelNetworkId, getParams, getProgramResult, getRequest, getResult, refund, request, threshold) and 4 events (XWebRequested, XWebProgramRequested, XWebFulfilled, XWebRefunded) since ccf8fa472, 144f13d49 (task 5.1.2) and 383bbbbd8 (task 6.94.3), whose gates never ran this test, so it has failed on main since. Per decision.1965 set the two expectations in TestXWebRegistration to 12 methods and 4 events; change no other assertion of this test, no abi.json and no other file. The GetPrecompileInfoE early return in setup.go and the isExchangeHandoffAddress helper of attempt 1 are right and stay."
 
 [task.6.6.5]
 title = "Add MissingMergeConstructors for the node start check"
@@ -141908,7 +142027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.18.4]
 title = "Generate SDK bindings from the major-2 schema with EVM write bindings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.0.2", "9.1.3", "9.10.2"]
@@ -142071,7 +142190,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.19.1]
 title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["9.18.3", "9.1.4", "9.12.6"]
@@ -142093,6 +142212,35 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Restore the deleted files from HEAD."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.19.2]
+title = "Drop the LNI_V1_SOURCE include that 9.19.1 left in layerx-client"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["9192.1"]
+capabilities = []
+interfaces = ["interface.9.rs-client-lni-schema-lni-v1-source-j44"]
+do_1 = "019a38eed (task 9.19.1, do_1) deleted services/agent/schema/lni/v1.kvx while services/agent/crates/layerx-client/src/lni/schema.rs:4 still reads `pub const LNI_V1_SOURCE: &str = include_str!('../../../../schema/lni/v1.kvx');`, so since that commit every build of layerx-client fails at schema.rs:4 with `couldn't read ../../../../schema/lni/v1.kvx`, and with it every crate that depends on layerx-client: the services/agent workspace, services/human (services/human/Cargo.toml:31) and services/platform (services/platform/Cargo.toml:46). Delete the constant and its doc comment at schema.rs:3-4. Nothing reads LNI_V1_SOURCE in services/ (grep over *.rs finds only the declaration); interfaces.kvx already marks the interface retired; lni_schema_v1 (schema.rs:566) builds the schema from Rust constants and does not use the file. Do not restore v1.kvx: agent_tree_has_no_lni_artifacts (services/agent/tools/boundary-check/tests/workspace.rs:13-33) asserts the directory is absent, and task 9.24.7 deletes the whole lni module per decision.923. Change no other line of schema.rs and no other file."
+do_2 = "scripts/ci/lni-version-parity.sh:96-101 (Makefile:3424) reads the deleted schema file and fails since 019a38eed independently of this task; record it, do not edit the script or the Makefile. The verify runs an existing layerx-client integration test, refusal_keeps_code_message_and_data in tests/sequencer.rs, whose only purpose here is to compile the crate and its test target on a tree without services/agent/schema/lni."
+symbols = ["LNI_V1_SOURCE"]
+touches = ["services/agent/crates/layerx-client/src/lni/schema.rs"]
+tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::refusal_keeps_code_message_and_data"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact refusal_keeps_code_message_and_data"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore schema.rs:3-4 from HEAD; layerx-client fails to compile again at schema.rs:4."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -146906,7 +147054,7 @@ title = "Unhook retired journeys, wallet binding and the settlement recipient fr
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3", "5.7.4"]
+requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3", "5.7.4", "9.12.11"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.3"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -146951,6 +147099,7 @@ do_20 = "Attempt 14 (0548c127f, the attempt 13 candidate 1565a0751 re-qualified 
 do_21 = "Attempt 15 (e299ec5de, the attempt 14 candidate re-qualified unchanged on 265e0cc8d) fails both startup tests at the same layerxd --serve exit that do_20 records, 'bootstrap finality authority failed with result -213', and the cause is in the product, not in the environment: since fc5bb55cf (task 5.7.2) AnchorK returns nil (node/precompiles.go:127), so threshold() and latestFinalized() on the anchor precompile 0x0000000000000000000000000000000000001014 revert 'layerxanchor: anchor module is not wired' (precompiles/layerxanchor/layerxanchor.go:218-219) and lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_finality_authority.c:540-579) refuses the JSON-RPC error body (:330-333). Per decision.1944 task 5.7.3 removes that stage from layerxd --serve startup and the requires gain it. Keep every file and assertion as written, change nothing under cmd/, node/ or precompiles/, do not script the anchor answers, and re-qualify the attempt 15 candidate unchanged once 5.7.3 is on main."
 do_22 = "Attempt 17 (19d2b3b6d, the attempt 15 candidate e299ec5de re-qualified unchanged on e8519e92e with 5.7.3 merged) passes all three build_cmd members, and both startup tests fail when layerxd --serve exits 1 with 'layerxd: protocol owner module runtime binding failed with result -3' and 'bootstrap protocol owner failed with result -3'. The finality authority stage that 5.7.3 removed is passed. -3 is LXP_ERR_NON_CANONICAL (include/layerx/lxp_result.h:34). It comes from lxp_programs_state_feed_store_bind_maintenance (src/modules/programs/feed_store.c:1041-1052), which lxp_daemon_protocol_owner_attach calls at cmd/layerxd/lxp_daemon_protocol.c:1121-1122 under the stage set at :1116. That function requires the daemon's feed store to be the kernel's commit observer (:1048), and nothing installs it: 38c544316 (task 1.15.1 do_1) deleted the lxp_programs_bind_state_feed call from lxp_kernel_bind_module_runtime (src/protocol/lxp_kernel.c), and lxp_programs_bind_state_feed (src/modules/programs/feed.c:114-123) now has no caller under src/ or cmd/. Every layerxd --serve start fails there, whatever its input; 18.1200.1 attempt 13 meets the same exit on the same base. Per task 5.7.4 the daemon binds its own feed observer; this task now requires 5.7.4. Keep every file and assertion as written, change nothing under cmd/, src/ or include/, and re-qualify the attempt 17 candidate unchanged once 5.7.4 is on main."
 do_23 = "Attempt 18 (5f4c319c4, the attempt 17 candidate 19d2b3b6d re-qualified unchanged on 4f424c474 with 5.7.4 merged) passes all three build_cmd members; layerxd --serve now starts and creates its LNI socket, and both startup tests fail when layerx-agentd exits 2 with 'human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: missing LAYERX_AGENT_NODE_RPC_URL' (services/human/crates/layerx-human-service/tests/production_unhooked.rs:245-250). Since 8012f3c12 (task 9.12.5, decision.1920) and e5da82547 (task 9.0.3, decision.1942), serve_human_owner (services/agent/crates/layerx-agentd/src/human_owner_mode.rs:67-100) reads NodeRpcConfig::from_environment (src/node_rpc.rs:23-43) after human_peers and calls NodeRpc::connect (:83-84), which posts eth_chainId to LAYERX_AGENT_NODE_RPC_URL and refuses any value other than LAYERX_AGENT_NODE_CHAIN_ID (node_rpc.rs:140-146), before start_human_owner reads LAYERX_AGENT_HUMAN_NODE_LNI (src/main.rs:980); do_18 and decision.1913 predate that contract. In Environment::start_agent (tests/production_unhooked.rs:132-266) read LAYERX_TEST_PAXEER_RPC_PORT and LAYERX_TEST_PAXEER_CHAIN_ID as start_node does (:433-434), failing by name when either is missing, and give the layerx-agentd command LAYERX_AGENT_NODE_RPC_URL=http://127.0.0.1:<that port> and LAYERX_AGENT_NODE_CHAIN_ID=<that chain id>, as services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211-222 does for the in-tree node of decision.1896 (eth_chainId 0x7d); keep LAYERX_AGENT_HUMAN_NODE_LNI (:183-186), which the human runtime still reads. Change no other file and no assertion, and nothing under services/agent, cmd/, src/ or include/; a later layerx-agentd startup refusal is recorded as the finding of do_16."
+do_24 = "Attempt 19 (9b9d22da9, the attempt 18 candidate 5f4c319c4 continued on d4bf62f09 with the do_23 change applied: tests/production_unhooked.rs:144-149 read LAYERX_TEST_PAXEER_RPC_PORT and LAYERX_TEST_PAXEER_CHAIN_ID by name and :189-193 give layerx-agentd LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID, LNI kept at :195) passes the first two build_cmd members and fails the third, cargo build -p layerx-agentd-host --bin layerx-agentd, with E0277 twice at services/agent/crates/layerx-agentd/src/main.rs:1013: `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` carries NodeRpcError (src/node_rpc.rs:23, :90) through `?` inside start_shared_owner (:936), which returns Result<_, String> (:948-955), and no From<NodeRpcError> for String exists. 8c526e4f0 (task 9.12.7 do_3) added the line and qualified with -p layerx-agentd --test human_node, which never compiles main.rs (autobins = false, services/agent/crates/layerx-agentd/Cargo.toml:3; the binary belongs to layerx-agentd-host, Cargo.toml:8-10; decision.1964). The line is the same on main at the base and at 8a2c936b0, in a file this task does not touch; task 9.12.11 maps both errors as src/human_owner_mode.rs:41-47 and :83-84 do. This task now requires 9.12.11 and changes nothing under services/agent; re-qualify the attempt 19 candidate unchanged once 9.12.11 is on main, confirming first that main.rs:1013 shows .map_err around both calls, and record any later layerx-agentd or layerx-human-components startup refusal as the finding of do_16."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -156946,6 +157095,7 @@ do_9 = "Attempt 8 (ba7c4c0f4) committed the activation height 34742403 and stall
 do_10 = "Attempt 9 (525dff8f4) re-ran the attempt 8 files with 18.1307.1 merged. The primary's commit of 34742403 now fails with 'commit listener at height 34742403: sequencer: driver release open: sequencer: standby did not acknowledge: read tcp ...: i/o timeout', 10 s after its stores committed. That interval is the --sequencer.replication-timeout of v6120-node.sh:570. The standby and the bootstrap peer commit 34742403 only after that Commit returns, so consensus stops at 34742404. Driver.OnCommit runs inside ABCI Commit (node/abci.go:324-326, node/sequencer/node_start.go:126-136) and releases the OPEN for H+1 (node/sequencer/driver.go:107-110). The standby admits that OPEN only after its own commit of H (node/sequencer/standby.go:818, :864-890), and the primary resends on the commit-pending AckGap (standby.go:331-333) until the deadline. The two nodes wait on each other. This task requires 12.35.5 (decision.1939), which removes that wait; v6120-node.sh still gains the do_9 evidence output first."
 do_11 = "Attempt 10 (a48caaeb7) runs with 12.35.5 merged. All three nodes now commit past 34742403. The /status and /validators checks read the plain HTTP bodies the node returns (sync_info and validators at the top level, no result envelope; v6120-node.sh:648-676), so the script reports ready and the Go test runs. The test then fails at v6120_test.go:159: the standby's EVM RPC at LOCAL_NODE_STANDBY_RPC refuses connections while the standby process is alive. The EVM HTTP server binds only after the start signal that ProcessBlock sends (node/app.go:2376, :1347-1386). On restart, 34742402 is replayed against the mock app (consensus/internal/consensus/replay.go:338-347). The standby never processes a proposal and finalizes every sequenced block through the sealed branch of FinalizeBlocker (node/app.go:1798-1830, standby_role.go:288-325), so it never sends that signal. This task requires 12.35.6, which sends the start signal on sealed adoption. Re-qualify a48caaeb7 unchanged after 12.35.6 is on main."
 do_12 = "Attempt 11 (29f5c75f6) re-ran the a48caaeb7 files with 12.35.6 merged. The standby still refuses connections on LOCAL_NODE_STANDBY_RPC at v6120_test.go:159 while it commits blocks (34742450). The standby home is created with paxd init --mode validator (v6120-node.sh:233), which writes app.toml with api.enable, grpc.enable and state-store.enable false (node/params/config.go:141-147). configure_node keeps api enable false (v6120-node.sh:534) and never enables grpc, so sdk/server/start.go:369-376 skips RegisterLocalServices. That is the only place that builds the EVM HTTP server (node/app.go:3537-3553), so the standby has no EVM server for the start signal of 12.35.6 to bind. Its halt log has no 'Stopping EVM HTTP Server' line, while the primary's has one (rpc/rpcstack.go:285). configure_node sets grpc enable true beside the grpc address (v6120-node.sh:535) so every node home, including the standby, registers its local services and serves EVM RPC on its own http_port. The standby keeps consensus mode validator (decision.1902), api enable false and the standby chain-id assertion of v6120_test.go:152-160. Continue 29f5c75f6 with that one line."
+do_13 = "Attempt 12 (2bbcaee77) applies do_12 and the standby answers eth_chainId, so v6120_test.go:152-160 passes for the first time. The test then fails at v6120_test.go:163: eth_getTransactionCount(sender, pending) answers 'pending block unavailable: sequencer: no block is open'. On the sequencer a pending-tag read resolves through the open block (rpc/tx.go:430-436, rpc/watermark_manager.go:57-65) and sequential.Snapshot returns ErrLayerNotOpen while no block is open (node/sequencer/executor.go:28, :329-333). The primary seals its open block when it builds the proposal for H+1 (consensus/internal/state/execution.go:267-270; executor.go:295-305 sets open to nil) and opens the next block only in Driver.OnCommit(H+1) (node/sequencer/driver.go:93), so between the proposal and the commit of every block there is no open block by design (rpc/utils.go:55-58). The primary committed 34742447 at 18:30:23.811 and finalized 34742448 at 18:30:24.194 while the 0.06 s test ran. eth_sendRawTransaction in that window answers the bare 'sequencer: no block is open' (rpc/send.go:293, node/sequencer/receipt.go:328, rpc/send_sequencer_test.go:265-268) and admits nothing, and eth_getBalance pending answers the wrapped text (rpc/state.go:55). TestLocalNodeV6120SequencerReceipt gains one helper that repeats a single RPC call every 20 ms until the test context ends while the error text is exactly 'pending block unavailable: sequencer: no block is open' or 'sequencer: no block is open', as daemon/committed-fixture/vector_v4.go:224-241 does, and uses it for the pending nonce (:161), the pending balance before the send (:174) and after the receipt (:215) and eth_sendRawTransaction (:189). Any other error still fails the test at once and every asserted value stays as written; HeaderByNumber(nil) stays a latest read. v6120-node.sh is unchanged. The primary's node.log also shows four proposal failures 'seal height N: sequencer: standby did not acknowledge: ... i/o timeout' at 34742429, 34742433, 34742435 and 34742440 between 18:29:05 and 18:29:44, each a 10 s SEAL replication timeout (node/sequencer/standby.go:314-346 with the standby's commit-pending AckGap at :823-825, :855-857); the chain recovered and the test did not run in such a window. Continue 2bbcaee77."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -164662,7 +164812,7 @@ symbols = ["PaxeerXArchiveAnchor", "PaxeerXArchiveReceipt", "GENERAL_API_PAXEER_
 touches = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.ts", "apps/explorer/types/api/paxeerXLists.ts", "apps/explorer/stubs/paxeerXLists.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts", "apps/explorer/lib/api/services/general/paxeerX.spec.ts"]
 tests = ["apps/explorer/lib/api/services/general/paxeerXLists.spec.ts::kernel_resources_use_archive_paths"]
 planned_paths = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts"]
-build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node global.d.ts decs.d.ts reset.d.ts types/api/paxeerXArchive.ts types/api/paxeerXLists.ts stubs/paxeerXLists.ts lib/api/services/general/paxeerXLists.ts lib/api/services/general/paxeerXLists.spec.ts lib/api/services/general/paxeerX.spec.ts"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node global.d.ts decs.d.ts reset.d.ts nextjs/nextjs-routes.d.ts types/api/paxeerXArchive.ts types/api/paxeerXLists.ts stubs/paxeerXLists.ts lib/api/services/general/paxeerXLists.ts lib/api/services/general/paxeerXLists.spec.ts lib/api/services/general/paxeerX.spec.ts"
 verify_cmd = "cd apps/explorer && yarn vitest run lib/api/services/general/paxeerXLists.spec.ts -t '(?:^|\s)(kernel_resources_use_archive_paths)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164677,6 +164827,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "apps/explorer/lib/api/services/general/paxeerX.spec.ts is the existing spec of the three resources do_2 repoints and of the receipts stub do_4 retypes. Its expected paths at :21, :23 and :28 still read /api/v2/paxeer-x/anchors, /api/v2/paxeer-x/receipts and /api/v2/paxeer-x/receipts/:id. Line :59 compares the removed status field, which fails with TS2339 at (59,30) and (59,66) (attempt 4, 4ebcacc3f). Set the expected paths at :21, :23 and :28 to /api/v2/paxeer-x/archive/anchors, /api/v2/paxeer-x/archive/receipts and /api/v2/paxeer-x/archive/receipts/:id. Replace .status with .frozen on both sides of :59. Keep every other assertion as written."
 do_7 = "The build type-checks the files this task touches and what they import, not the whole application. tsc -p ./tsconfig.json also checks 17 files that import PaxeerXAnchorsItem, PaxeerXReceiptsItem, PaxeerXReceipt, PaxeerXVerificationStatus or PAXEER_X_VERIFICATION_STATUSES, which do_3 deletes, or that read status from the stubs do_4 retypes (attempt 4, 4ebcacc3f: 20 errors, none in this task's files). Tasks 14.32.2, 14.32.3, 14.32.4 and 14.32.6 port those files, including apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx and apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx. Change none of them here. The whole-application check runs on 14.32.6, once every consumer is ported. The attempt 4 files need no change apart from do_6."
+do_8 = "The build root list must include apps/explorer/nextjs/nextjs-routes.d.ts. apps/explorer/global.d.ts:2 imports types/multichain, which imports configs/app, whose apps/explorer/configs/app/ui.ts:2 imports types/client/navigation, and apps/explorer/types/client/navigation.ts:3 imports the Route type from nextjs-routes. The installed nextjs-routes package exports only the route function; Route is declared by the generated declaration file apps/explorer/nextjs/nextjs-routes.d.ts:7-8 (declare module 'nextjs-routes' { export type Route = ... }). tsc -p ./tsconfig.json picks that file up through the **/*.ts include at apps/explorer/tsconfig.json:20, but tsc with files on the command line ignores tsconfig.json, so the narrowed check fails with types/client/navigation.ts(3,15) TS2724 as its only error (attempt 5, f5e525592, which applied do_6 and left the five attempt 4 files unchanged). The build_cmd now lists nextjs/nextjs-routes.d.ts after reset.d.ts, exactly as the 14.32.2, 14.32.3, 14.32.4 and 14.32.5 build commands do; --types node stays sufficient because nothing in this task's import closure imports next/link, next/router or an asset module. Change no source file: navigation.ts, ui.ts, global.d.ts and nextjs-routes.d.ts are identical to main, and the attempt 5 files need no change."
 
 [task.14.32.2]
 title = "Show the anchors page as a frozen archive"
@@ -167903,7 +168054,7 @@ do_7 = "Each LAYERX_RECEIPT_KEYS_JSON entry is an object with exactly keyId, pub
 
 [task.15.4.2]
 title = "Read pinned receipt keys in the fastapi integration config"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["15.0.3", "8.0.3", "9.0.3"]
@@ -167999,7 +168150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.5]
 title = "Bind pinned receipt keys and settle signed sequencer receipts in the spring starter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["8.42.1", "8.42.5", "8.22.1"]
@@ -168071,7 +168222,7 @@ do_6 = "Folded into task 15.4.5: the spring starter is one Maven module, and onc
 
 [task.15.4.7]
 title = "Verify signed sequencer receipts in the android ReceiptGate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["8.0.3", "9.0.3", "8.42.1", "8.42.5"]
@@ -168106,7 +168257,7 @@ do_8 = "ReceiptGate keeps the single constructor ReceiptGate(ReceiptResolver, Lo
 
 [task.15.4.8]
 title = "Resolve signed receipts in the android sample relay resolver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.7"]
@@ -168136,7 +168287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.9]
 title = "Verify signed sequencer receipts in the iOS ReceiptGate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["15.0.3", "8.0.3", "9.0.3", "8.44.1", "8.44.5"]
@@ -168147,7 +168298,7 @@ do_1 = "Replace authorizedBatch at sdk/integrations/ios/Sources/LayerXMobile/Rec
 do_2 = "Change the verification at sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift:65 to the Swift SDK sequencer receipt verifier with the pinned keys after task 9.0.3."
 do_3 = "Add .testTarget(name: \"LayerXMobileTests\", dependencies: [\"LayerXMobile\", \"LayerXMobileSampleKit\"], path: \"Tests/LayerXMobileTests\") after the LayerXMobileSecretScan executable target at sdk/integrations/ios/Package.swift:43 in sdk/integrations/ios/Package.swift and write sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift (planned)."
 symbols = ["ReceiptGate", "Evidence", "testVerifiesSignedSequencerReceipt", "testRefusesReceiptUnderUnpinnedKey"]
-touches = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift", "sdk/integrations/ios/Package.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift", "sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift"]
+touches = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift", "sdk/integrations/ios/Package.swift", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift", "sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift", "sdk/integrations/ios/Sources/LayerXMobile/LayerXMobile.swift", "sdk/integrations/ios/Sources/LayerXMobile/PublishableConfiguration.swift"]
 tests = ["sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift::testVerifiesSignedSequencerReceipt", "sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift::testRefusesReceiptUnderUnpinnedKey"]
 planned_paths = ["sdk/integrations/ios/Tests/LayerXMobileTests/ReceiptGateTests.swift"]
 build_cmd = "swift build --package-path sdk/integrations/ios"
@@ -168164,6 +168315,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Replace the canonical_receipt_base64 decode at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:61 and the AuthorizedReceiptBatch construction at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:64-73 with ReceiptGate.Evidence(rawTransaction:signedReceipt:receiptKey:receiptJSON:prevSeqHash:), and replace RelayReceiptPayload.Batch at :116-130, the canonicalReceiptBase64 and authorizedBatch properties at :132-133 and their coding keys at :136-137 with raw_transaction, signed_receipt, receipt_key (key_id, public_key, first_height, last_height), receipt_json and prev_seq_hash, using the existing hex32 at :93 for the 32-byte fields; LayerXSDK has no AuthorizedReceiptBatch since task 8.44.5 and the LayerXMobileTests target of do_3 depends on LayerXMobileSampleKit, so the package compiles only with this change."
+do_5 = "Add the declared key layerx.receipt_keys, read from the environment variable LAYERX_RECEIPT_KEYS_JSON, to PublishableConfiguration at sdk/integrations/ios/Sources/LayerXMobile/PublishableConfiguration.swift:4 (declared keys :4-8, init(declaredKeys:) :16, init(environment:) :72, declaredKey(forEnvironmentVariable:) :96, exemptScannerValues :113): its value is a non-empty JSON array of {keyId, publicKey, firstHeight, lastHeight} entries decoded into [ReceiptKeys] and exposed as receiptKeys: [ReceiptKeys] (empty when the key is absent, so a configuration without receipts still loads), with each entry's keyId and publicKey hexadecimal added to exemptScannerValues; change LayerXMobile.gate(receipts:) at sdk/integrations/ios/Sources/LayerXMobile/LayerXMobile.swift:67 to construct ReceiptGate(receipts:receiptKeys:) with those keys and to throw MobileIntegrationError with code invalidConfiguration (sdk/integrations/ios/Sources/LayerXMobile/Errors.swift:4) when none are declared, keeping the one-argument gate(receipts:) called at sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletModel.swift:37; without this every gate built through LayerXMobile.gate refuses every receipt, because ReceiptGate.init(receipts:receiptKeys:) of attempt 4 (920b3de4c, ReceiptGate.swift:59) defaults receiptKeys to [] and the pinned-key match at ReceiptGate.swift:79-86 never succeeds."
 
 [task.15.4.10]
 title = "Decode signed receipts in the iOS sample environment"
@@ -168197,7 +168349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.11]
 title = "Drop SettlementAnchored and authorized batches from the agents daemon providers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.92.1", "8.24.2", "8.24.3", "12.27.2"]
@@ -168232,6 +168384,7 @@ do_8 = "Add LAYERX_RECEIPT_KEYS_JSON to DECLARED_KEYS at sdk/integrations/agents
 do_9 = "Port ApprovedWalletSigner and approvedArtifact at sdk/integrations/agents/src/service-providers.ts:146 from the retired lx_activity artifact (unsigned_canonical_bytes, signing_preimage, lxApprovalStatus, signApprovedLxActivity; retired by task 12.27.2) to the PaxeerWallet EVM approval (evmApprovalStatus at sdk/wallet/src/index.ts:334, approveEvmTransaction at sdk/wallet/src/index.ts:307), binding the approval to PreparedActivity.signing_hash (services/platform/middleware/agent/src/index.ts:126)."
 do_10 = "Send signing_hash: prepared.signing_hash in place of signing_preimage at sdk/integrations/agents/src/services.ts:185, and replace the authorized_batch parse at sdk/integrations/agents/src/services.ts:206 and the canonicalReceipt object at sdk/integrations/agents/src/services.ts:212 with the PortableReceiptV2 fields format, verificationLevel, rawTransaction, signedReceipt, receiptDigest and receiptKey (services/platform/middleware/agent/src/index.ts:153)."
 do_11 = "Replace submission.activity_id with submission.tx_hash at sdk/integrations/agents/src/tools.ts:402 and sdk/integrations/agents/src/tools.ts:405, and replace verifyReceipt at sdk/integrations/agents/src/tools.ts:404 and sdk/integrations/agents/src/tools.ts:422 with verifySequencerReceipt over the bytes of evidence.signedReceipt and evidence.rawTransaction and this.#config.receiptKeys."
+do_12 = "do_9 is superseded (decision.1963). AgentSigner.sign(prepared) must answer the detached signature that AgentMiddleware submits together with preparation_ref and signer_public_key (services/platform/middleware/agent/src/index.ts:349 and :361-366). The PaxeerWallet EVM approval never answers one: EvmApproval at sdk/wallet/src/index.ts:60-70 carries state and the approval fields only, the SDK wraps review (:284), approve (:312) and approvals/:id (:338) and nothing else, and POST /v1/wallet/evm/sign at services/wallet/gateway/src/routes/evmApprovals.ts:254 signs (:280-283), serialises (:289), submits the raw transaction itself (:296) and answers tx_hash, rung and receipt (:298-301). Remove ApprovedWalletSigner, approvedArtifact, WalletLxSigningClient and WalletLxArtifact from sdk/integrations/agents/src/service-providers.ts (:141-175 and their helpers) together with the walletSigner branch of the provider selection at :44-48, so the selection accepts only providers.signer (:49-51) and wallet-approved spending completes inside the wallet gateway as decision.1229 describes; never answer a stand-in signature from ApprovedWalletSigner.sign, and add no wallet route or SDK method."
 
 [task.15.4.12]
 title = "Verify signed sequencer receipts in the agents tools and service client"
@@ -174252,7 +174405,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -174282,6 +174435,7 @@ do_5 = "Attempt 6 (827decfcd) stopped in make workspace-build before 9.98.1 (18d
 do_6 = "Attempt 7 (dd5b5641f, base 710592c26) exited 2 in step 2, make workspace-build: agent-build (Makefile:1947) stops in the layerx-agentd binary at services/agent/crates/layerx-agentd/src/main.rs:1768 (E0061), the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372. Task 18.1310.1 (096e161e1, on main) ports it to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The test of attempt 6 is unchanged and right; re-qualify it once on a revision that includes 18.1310.1, and record each further failure the step log under logs/waves/0 names, with its file, line and owning task."
 do_7 = "Attempt 9 (14a682e57, base f352b312c) carries the attempt 6 test unchanged and exited 2 in step 2, make workspace-build: build and agent-build pass, and human-build (Makefile:1958) stops in the api-gen crate tests at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, because the test counts all 95 operation sections while the generator skips the eleven operations 10.15.2 (c51f67b3b) retires (src/lib.rs:640-642, :1541); tests/retired_operations.rs:73-77 and :133 still assume no retired operation. The repair belongs to fm-human in 10.16.4, outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; make workspace-lint has not run on any attempt."
 do_8 = "Attempt 11 (778c340aa, base 9f8c07033 with 10.16.4 at f478f7a5a) carries the attempt 9 test unchanged and exited 2 in step 2, make workspace-build: build and agent-build pass, the api-gen tests and the client check of human-build (Makefile:1958-1959) pass, and the human workspace build (Makefile:1960) stops at services/human/crates/layerx-explorer-index/src/lib.rs:225 with E0631, because ProtocolProgramIngestor::ingest maps the error of LayerxdProgramBalanceReader::read_protocol_state through IndexError::ProgramProtocolUnavailable, whose payload is still ProtocolAdapterError (lib.rs:15, :186), while 9.94.1 (a02e09aec) made the reader return layerx_agentd::read::ProgramReadError (services/agent/crates/layerx-agentd/src/read/program_node.rs:26, :223-229). The port belongs to fm-human in 10.16.5, outside this task's touches; the requires gain 10.16.5. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.5 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; the human crates not yet compiled, the human web build (Makefile:1961), the later workspace-build targets (Makefile:2917-2919) and make workspace-lint have not run on any attempt, and the step 2 log already shows rustc warnings in members of the agent and human workspaces that agent-lint and human-lint (clippy --all-targets -D warnings, Makefile:2112, :2230-2231) deny."
+do_9 = "Attempt 12 (af44d7420, base a373fef18 with 10.16.5 at 3441fc681) carries the attempt 9 test unchanged and exited 2 in step 2, make workspace-build, one target earlier than attempt 11: build passes and agent-build (Makefile:1947) stops compiling the layerx-agentd binary of services/agent/crates/layerx-agentd-host at services/agent/crates/layerx-agentd/src/main.rs:1013 with E0277 twice, because 8c526e4f0 (9.12.7, do_3) added `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` inside start_shared_owner, which returns Result<_, String> (main.rs:948-955), while NodeRpcConfig::from_environment (node_rpc.rs:23) and NodeRpc::connect (node_rpc.rs:90) return NodeRpcError and no From<NodeRpcError> for String exists (only for GateError at boot.rs:34 and FinalityError at finality.rs:35). 9.12.7's gates built -p layerx-agentd --test human_node only; the binary is declared in services/agent/crates/layerx-agentd-host/Cargo.toml with path ../layerx-agentd/src/main.rs and layerx-agentd sets autobins = false, so main.rs was never compiled before the merge (decision.1964). The repair belongs to 9.12.11, outside this task's touches; this task now requires it. The test is unchanged and right: in attempt 12 the ledger, stdout, log-file and size assertions (test_wave_0_gate.py:41-44) passed and only :45 (exit_code == 0) failed. Re-qualify it once on a revision that includes 9.12.11 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; human-build (Makefile:1957-1961, so the lib.rs:225 repair of 10.16.5 is unconfirmed by this gate), the later workspace-build targets (Makefile:2917-2919) and make workspace-lint have not run on any attempt, and the step 2 log shows 81 rustc warnings in the layerx-agentd library plus warnings in layerx-sdk, layerx-intents, layerx-human-kms and layerx-programs-registry that agent-lint and human-lint (clippy --all-targets -D warnings, Makefile:2112, :2230-2231) deny."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
@@ -190159,7 +190313,7 @@ title = "Issue #1200: Port the stale outbox test callers to the three-argument e
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["18.1199.1", "18.1206.1", "18.1298.1", "18.1304.1", "5.7.3", "5.7.4"]
+requires = ["18.1199.1", "18.1206.1", "18.1298.1", "18.1304.1", "5.7.3", "5.7.4", "5.7.6"]
 reqs = ["181200.1"]
 capabilities = []
 interfaces = []
@@ -190191,6 +190345,7 @@ do_8 = "Attempt 9 (18c428082): with the in-tree node provided, five of the six t
 do_9 = "Attempt 10 (candidate on bd45f5f64) passes five of the six tests; the real-authority operator test panics at tests/support/real_authority.rs:46 with migrations listing NotFound because repository_root() (:71-77) resolves to services/ (issue #1298, task 18.1298.1, now required). Continue the attempt 10 candidate once that task is on main; real_authority.rs is outside this task."
 do_10 = "Attempt 11 (593fa04a4, the attempt 10 candidate re-qualified unchanged on 265e0cc8d) builds green; migration passes 9 tests including repository_root_holds_migrations_and_agent_workspace, so 18.1298.1 holds, and operator passes 6 of 7. inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal now panics at tests/support/real_authority.rs:493 (wait_for_lni) because layerxd --serve, started by start_sequencer (:1363-1385), exits 1 with 'bootstrap finality authority failed with result -213' (LXP_ERR_CONTEXT_MISMATCH, include/layerx/lxp_result.h:62) at lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_process.c:5972-5975, cmd/layerxd/lxp_daemon_finality_authority.c:540-579), which reads threshold() and latestFinalized() from the anchor precompile 0x0000000000000000000000000000000000001014 and refuses a JSON-RPC error body (:330-333). On the in-tree node of decision.1896 both reads revert with 'layerxanchor: anchor module is not wired' (precompiles/layerxanchor/layerxanchor.go:218-219) because PrecompileKeepers.AnchorK returns nil (node/precompiles.go:127) since fc5bb55cf (task 5.7.2), as task 10.20.3 attempt 15 recorded on the same base; the bind itself retires only in task 5.50.4. recovery.rs (:29, :54, :213) and unknown.rs (:97) reach the same layerxd start through support::evidence_verifier (tests/support/mod.rs:476, :493). Keep the seven files and every assertion exactly as written, change nothing under cmd/, node/, precompiles/ or tests/support/real_authority.rs, and re-qualify the attempt 11 candidate unchanged once the task that removes the finality authority stage from layerxd --serve startup is on main."
 do_11 = "Attempt 13 (6ef704375, the attempt 11 candidate re-qualified unchanged on e8519e92e with 5.7.3 merged) builds green; migration passes 9 tests and operator passes 6 of 7. The finality authority stage is gone, and inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal now panics at tests/support/real_authority.rs:493 (wait_for_lni) because layerxd --serve exits 1 with 'protocol owner module runtime binding failed with result -3' (LXP_ERR_NON_CANONICAL): lxp_daemon_protocol_owner_attach (cmd/layerxd/lxp_daemon_protocol.c:1115-1122) sets programs_runtime->state_feed and calls lxp_kernel_bind_module_runtime and then lxp_programs_state_feed_store_bind_maintenance (src/modules/programs/feed_store.c:1041-1051). bind_maintenance refuses unless kernel->commit_observer_context is the feed and observe_commit is set, and only lxp_programs_bind_state_feed (src/modules/programs/feed.c:114-123) sets them; 38c544316 (task 1.15.1) deleted its call from lxp_kernel_bind_module_runtime, and no daemon code replaced it. Task 10.20.3 attempt 17 fails identically on the same base. Keep the seven files and every assertion exactly as written, change nothing under cmd/, src/ or tests/support/real_authority.rs, and re-qualify the attempt 13 candidate unchanged once task 5.7.4 is on main."
+do_12 = "Attempt 14 (51fc68ead on 4f424c474, the first base carrying 5.7.3 and 5.7.4) builds green, migration passes 9 tests and operator passes 6 of 7; inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal now gets past layerxd startup: layerxd --serve stays alive, admits the NativeProgramCall (LNI tag 4, real_authority.rs:635-642) and then answers every by-id receipt lookup over LNI V1_4 for 30 s with an empty envelope (cmd/layerxd/lxp_daemon_lni.c:2946-2962, :2997-2999), so submit_and_wait panics at tests/support/real_authority.rs:659 'receipt never became durable'. The admitted LX_PROGRAMS_CALL (0x00090003, include/layerx/programs.h:173) never reached install_pending_receipts (cmd/layerxd/lxp_daemon_process.c:4145-4146) nor a refusal disposition, which points at the executor stopping or stalling inside apply_canonical_batch after admission (cmd/layerxd/lxp_daemon_main.c:189-194 stops the executor without exiting the process; the serve loop at lxp_daemon_process.c:6303-6306 polls only the LNI server), most plausibly in the Programs state-feed observer re-bound by 5.7.4 at cmd/layerxd/lxp_daemon_protocol.c:1124-1125 (src/modules/programs/feed_store.c:438-472, :572-580; src/protocol/lxp_kernel.c:6384) or in the synchronous replica publication at lxp_daemon_process.c:4129-4144. The seven files of this task and real_authority.rs are byte-identical to attempts 7-13 and are not at fault; the fix belongs to task 5.7.6, which this task now requires. The environment that runs the gates keeps <temp>/layerx-authority-*/sequencer.stderr and replica.stderr (real_authority.rs:397-400, :1133, :1381) next to the verify log, because the :659 panic does not print them. Re-qualify the attempt 14 candidate unchanged once 5.7.6 is done; change none of this task's files unless the verify names one of them."
 
 [task.18.1203.1]
 title = "Issue #1203: Refuse operator verification retries for settlement-anchored requests"
@@ -193937,9 +194092,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.12.11]
+title = "Map the human runtime's node connection errors into the shared owner's String error so the layerx-agentd binary compiles"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = []
+reqs = ["91211.1"]
+capabilities = []
+interfaces = []
+do_1 = "8c526e4f0 (task 9.12.7 do_3) added `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` at services/agent/crates/layerx-agentd/src/main.rs:1013 inside start_shared_owner (:936), whose return type is Result<_, String> (:948-955); NodeRpcConfig::from_environment (src/node_rpc.rs:23) and NodeRpc::connect (:90) return NodeRpcError, which has Display (:56) and no From into String, so `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd` fails with E0277 twice at main.rs:1013:69 and :71. 9.12.7's gate built only -p layerx-agentd --test human_node; the package has autobins = false (services/agent/crates/layerx-agentd/Cargo.toml:3) and main.rs is compiled only as the layerx-agentd binary of layerx-agentd-host (services/agent/crates/layerx-agentd-host/Cargo.toml:8-10), so the file was never compiled before the merge (decision.1964)."
+do_2 = "Replace main.rs:1013 with the two explicit maps the daemon already uses for the same calls: `NodeRpcConfig::from_environment().map_err(|error| format!('human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: {error}'))?` as src/human_owner_mode.rs:41-47 does, and `NodeRpc::connect(&config).map_err(|error| format!('human node RPC is unavailable: {error}'))?` as src/human_owner_mode.rs:83-84 does, still boxed as the `chain: Box<dyn HumanNode>` argument of ProductionHumanOperations::new. Add no From impl, change no other line of main.rs, nothing in node_rpc.rs, human_runtime.rs or human_owner_mode.rs, and no test; 9.12.7 do_3 is read as this mapped form."
+do_3 = "The verify runs the existing host test human_owner_mode_lists_node_rpc_variables (services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs:133-199, declared as the runtime_mode test of layerx-agentd-host at services/agent/crates/layerx-agentd-host/Cargo.toml:17-18), which spawns the rebuilt binary in human-owner mode and asserts the missing LAYERX_AGENT_NODE_RPC_URL refusal; it compiles main.rs, which no -p layerx-agentd gate does."
+symbols = ["start_shared_owner"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs::human_owner_mode_lists_node_rpc_variables"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test runtime_mode -- --exact human_owner_mode_lists_node_rpc_variables"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert main.rs:1013 to the two bare `?`; the layerx-agentd binary stops compiling again with E0277 at main.rs:1013."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.12.8]
 title = "Look up human receipts and receipt evidence through pax_sequencerReceipt and px_getReceiptKeys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["9.12.7"]
@@ -194034,6 +194219,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Hold the human runtime's node connection behind HumanNode and read heads, receipt keys and history through it"
 ac_1 = "ProductionHumanOperations reads the chain head and the receipt key covering it from eth_blockNumber, eth_getBlockByNumber and px_getReceiptKeys of the node JSON-RPC connection."
 ac_2 = "A human history read pages px_getHistory through HumanNode::history_page and no LNI FrameTransport implementation remains in human_runtime.rs."
+
+[req.91211]
+title = "The layerx-agentd binary compiles with the human runtime's node connection in the shared owner"
+ac_1 = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd exits 0: start_shared_owner (services/agent/crates/layerx-agentd/src/main.rs:936, Result<_, String>) maps the NodeRpcError of NodeRpcConfig::from_environment and NodeRpc::connect (src/node_rpc.rs:23, :90) to the two texts src/human_owner_mode.rs:41-47 and :83-84 already use, and the host test human_owner_mode_lists_node_rpc_variables (services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs:133-199) passes against the rebuilt binary."
 
 [req.9068]
 title = "Look up human receipts and receipt evidence through pax_sequencerReceipt and px_getReceiptKeys"
@@ -194502,7 +194691,7 @@ qualification = "UNRUN"
 
 [task.18.1308.2]
 title = "Platform SDKs resolve program.receipt by the retained transaction instead of the retired resultByIdempotency view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1308.1"]
@@ -194607,7 +194796,7 @@ title = "Bind agent creation lifecycle evidence to the signed EIP-1559 transacti
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["9.19.2"]
 reqs = ["1812042.1"]
 capabilities = []
 interfaces = []
@@ -194637,6 +194826,7 @@ do_6 = "In fields (services/agent/crates/layerx-crypto/src/disclosure/call.rs:37
 do_7 = "In ProtocolEvidence::bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:558-596) project ConstructMethod::PayBudgetCreate from its carried payload with protocol version 3 (layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION), and in SignedCreationTransaction::payload (services/human/crates/layerx-human-service/src/server/agent_creation.rs:72-87) take the same carried payload, because Disclosure::canonical_payload returns the ABI calldata for a call source (services/agent/crates/layerx-crypto/src/disclosure.rs:1036-1041) and never equals action.compiled.payload()."
 do_8 = "Decision 1946: an EIP-1559 disclosure carries the 20-byte sender as its actor (services/agent/crates/layerx-crypto/src/disclosure/call.rs:401), never the creation DID; submit_prepared (services/human/crates/layerx-human-service/src/server/agent_creation.rs:467) and retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:332) compare signed.disclosure.actor with the sender bound by the owner_public_key check (owner_public_key[12..]), and ProtocolEvidence.actor is that sender, as create.rs:546 reads it. Keep every assertion of finalization_evidence_reports_the_runtime_rung as written; if the HumanPrimary descriptor public key differs from the left-padded sender, record the conflict and do not loosen the check."
 do_9 = "Decision 1961: KeyDescriptor.public_key (services/human/crates/layerx-human-service/src/custody/mod.rs:435-440) is the Ed25519 verification key of the held 32-byte secret (services/human/crates/layerx-human-service/src/custody/provider.rs:1198 and :1223, services/agent/crates/layerx-crypto/src/local.rs:31-33), while the key's EVM identity is the secp256k1 wallet of the same secret that CustodySigner::evm_wallet returns (services/human/crates/layerx-human-service/src/custody/signer.rs:911-917, provider.rs:1029-1040) and that the provider binds beside the public key on every transaction signature (provider.rs:1285-1286), so the left-padded sender of a signed EIP-1559 transaction never equals descriptor.public_key. In retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:327-343) and prepare_scoped (services/human/crates/layerx-human-service/src/server/agent_creation.rs:373-421) resolve the wallet with self.custody.evm_wallet(principal, &action.custody_key), refuse unless signed.owner_public_key[12..] == wallet, keep the class check of signing_descriptor (agent_creation.rs:329-350), and carry signed.owner_public_key (the left-padded wallet) as the owner public key of PreparedProtocolKind::Signed (agent_creation.rs:432), of protocol_evidence (agent_creation_native.rs:355, agent_creation.rs:583-591) and so of ProtocolEvidence (agent_creation.rs:601), which bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:541-547) compares with the recovered sender. Compare the sender with descriptor.public_key nowhere on the creation path; change neither KeyDescriptor, evm_wallet, the test nor any assertion of finalization_evidence_reports_the_runtime_rung."
+do_10 = "Attempt 6 (b3481553d on 019a38eed) applied do_9 in the two files and failed in the build_cmd before any test ran: layerx-human-service depends on layerx-client (services/human/Cargo.toml:31), and since 019a38eed (task 9.19.1 do_1 deleted services/agent/schema/lni/v1.kvx) services/agent/crates/layerx-client/src/lni/schema.rs:4 fails with `couldn't read ../../../../schema/lni/v1.kvx` on every build of that crate, in a file this task does not touch. Task 9.19.2 removes the orphaned include; this task now requires it. Keep the do_1 to do_9 implementation of attempt 6 unchanged and re-qualify it once on a base that carries 9.19.2, repairing only type errors the compiler reports inside the do_9 lines of the two touched files, without changing any compared value or loosening an assertion."
 
 [req.1812042]
 title = "Issue #1204 follow-up: agent creation lifecycle evidence binds the signed EIP-1559 transaction"
@@ -194777,6 +194967,10 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
+
+
+
 
 
 
