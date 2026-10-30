@@ -21,9 +21,11 @@ fn faucet_request_calls_px_request_funds() {
     let did = server.binding().agent().clone();
     let signer = LocalSigner::new([0x42; 32]);
     let signer_key = signer.public_key();
+    let session_token = "identity-session-token";
     let session = FaucetSession {
         did: &did,
         signer_key: &signer_key,
+        session_token,
     };
     let expected_did = std::str::from_utf8(did.as_bytes())
         .expect("session DID")
@@ -50,13 +52,18 @@ fn faucet_request_calls_px_request_funds() {
         assert_eq!(line, "POST / HTTP/1.1\r\n");
         let mut length = None;
         let mut content_type = None;
+        let mut authorization = None;
         loop {
             line.clear();
             assert!(reader.read_line(&mut line).expect("request header") > 0);
             if line == "\r\n" {
                 break;
             }
-            let (name, value) = line.trim_end().split_once(':').expect("HTTP header");
+            let (name, value) = line
+                .strip_suffix("\r\n")
+                .expect("header line ending")
+                .split_once(':')
+                .expect("HTTP header");
             if name.eq_ignore_ascii_case("content-length") {
                 assert!(length.is_none(), "one content length");
                 length = Some(value.trim().parse::<usize>().expect("body length"));
@@ -64,8 +71,13 @@ fn faucet_request_calls_px_request_funds() {
             if name.eq_ignore_ascii_case("content-type") {
                 content_type = Some(value.trim().to_owned());
             }
+            if name.eq_ignore_ascii_case("authorization") {
+                assert!(authorization.is_none(), "one authorization header");
+                authorization = Some(value.to_owned());
+            }
         }
         assert_eq!(content_type.as_deref(), Some("application/json"));
+        assert_eq!(authorization, Some(format!(" Bearer {session_token}")));
         let length = length.expect("content length");
         assert!(length <= 4096);
         let mut body = vec![0; length];
@@ -109,6 +121,36 @@ fn faucet_request_calls_px_request_funds() {
         2
     );
     std::fs::remove_dir_all(root).expect("remove test session state");
+}
+
+#[test]
+fn faucet_request_calls_px_request_funds_needs_a_session_token() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind faucet RPC");
+    listener
+        .set_nonblocking(true)
+        .expect("nonblocking faucet listener");
+    let node = format!("http://{}", listener.local_addr().expect("RPC address"));
+    let mut invalid_tokens = vec![
+        String::new(),
+        "session\r\nInjected: header".to_owned(),
+        "a".repeat(4097),
+    ];
+    invalid_tokens.extend(
+        (0_u8..=127)
+            .filter(|byte| byte.is_ascii_control() || byte.is_ascii_whitespace())
+            .map(|byte| format!("session{}token", char::from(byte))),
+    );
+    for token in invalid_tokens {
+        let result = request_funds(&node, "did:layerx:model", &[0x42; 32], &token);
+        assert!(
+            matches!(result, Err(FaucetError::InvalidRequest)),
+            "invalid token must be refused: {result:?}"
+        );
+        match listener.accept() {
+            Err(error) => assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock),
+            Ok(_) => panic!("invalid token opened a connection"),
+        }
+    }
 }
 
 #[test]
@@ -170,7 +212,12 @@ fn faucet_request_calls_px_request_funds_refuses_unfunded_claims() {
         }
     });
     for _ in 0..3 {
-        let result = request_funds(&node, "did:layerx:model", &[0x42; 32]);
+        let result = request_funds(
+            &node,
+            "did:layerx:model",
+            &[0x42; 32],
+            "identity-session-token",
+        );
         assert!(
             matches!(result, Err(FaucetError::InvalidResponse)),
             "{result:?}"

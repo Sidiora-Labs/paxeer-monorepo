@@ -28,6 +28,7 @@ pub enum FaucetError {
 pub struct FaucetSession<'a> {
     pub did: &'a Did,
     pub signer_key: &'a [u8; 32],
+    pub session_token: &'a str,
 }
 
 pub fn execute(
@@ -49,7 +50,7 @@ pub fn execute(
     .map_err(|_| FaucetError::InvalidRequest)?;
     server
         .execute_committed(core_sequence, FAUCET_REQUEST.name, arguments, |_| {
-            let result = request_funds(node, did, session.signer_key);
+            let result = request_funds(node, did, session.signer_key, session.session_token);
             let outcome = invocation_outcome(&result);
             (result.map(|tx_hash| json!({"tx_hash": tx_hash})), outcome)
         })
@@ -64,7 +65,20 @@ pub fn invocation_outcome(result: &Result<String, FaucetError>) -> InvocationOut
     }
 }
 
-pub fn request_funds(node: &str, did: &str, signer_key: &[u8; 32]) -> Result<String, FaucetError> {
+pub fn request_funds(
+    node: &str,
+    did: &str,
+    signer_key: &[u8; 32],
+    session_token: &str,
+) -> Result<String, FaucetError> {
+    if session_token.is_empty()
+        || session_token.len() > 4096
+        || session_token
+            .bytes()
+            .any(|byte| byte.is_ascii_control() || byte.is_ascii_whitespace())
+    {
+        return Err(FaucetError::InvalidRequest);
+    }
     let method_and_identifier = did.strip_prefix("did:").and_then(|did| did.split_once(':'));
     if Did::new(did.as_bytes()).is_err()
         || !method_and_identifier
@@ -84,7 +98,7 @@ pub fn request_funds(node: &str, did: &str, signer_key: &[u8; 32]) -> Result<Str
         "params": [did, encode_key(signer_key)],
     }))
     .map_err(|_| FaucetError::InvalidRequest)?;
-    let bytes = post(node, &body)?;
+    let bytes = post(node, &body, session_token)?;
     let response: Value =
         serde_json::from_slice(&bytes).map_err(|_| FaucetError::InvalidResponse)?;
     let object = response.as_object().ok_or(FaucetError::InvalidResponse)?;
@@ -150,7 +164,7 @@ fn encode_key(key: &[u8; 32]) -> String {
     key.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-fn post(node: &str, body: &[u8]) -> Result<Vec<u8>, FaucetError> {
+fn post(node: &str, body: &[u8], session_token: &str) -> Result<Vec<u8>, FaucetError> {
     let rest = node.strip_prefix("http://").ok_or(FaucetError::Endpoint)?;
     if rest.is_empty()
         || rest
@@ -207,7 +221,7 @@ fn post(node: &str, body: &[u8]) -> Result<Vec<u8>, FaucetError> {
         .map_err(FaucetError::Transport)?;
     write!(
         stream,
-        "POST {path} HTTP/1.1\r\nHost: {authority}\r\nContent-Type: application/json\r\nAccept: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+        "POST {path} HTTP/1.1\r\nHost: {authority}\r\nAuthorization: Bearer {session_token}\r\nContent-Type: application/json\r\nAccept: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
         body.len(),
     )
     .and_then(|()| stream.write_all(body))

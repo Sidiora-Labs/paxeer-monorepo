@@ -4319,9 +4319,9 @@ affects = ["18.1043.1"]
 
 [decision.1868]
 title = "payExact and draw are layerxledger 0x101A methods; only budgetCreate is a layerxpay 0x101B call"
-value = "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32) (selector 0x78ea11db) and draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32) (0x2e89490f) are methods of the layerxledger precompile at 0x101A (spec/layerx-merge/contracts/address-table.md:95-96; ledger-auth.md:84, 92; services/wallet/attestor/internal/policy/evm/abi/layerxledger.json:7-8); the budget grant budgetCreate (0xa863162b, pay.md:79) is the layerxpay 0x101B call. The web payer's exact payment and its draw target 0x101A and its grant targets 0x101B. req.9055 ac_1 reads 'a payExact call to layerxledger 0x101A' and req.9056 ac_3 reads 'a signed EIP-1559 call to layerxledger 0x101A for pay and to layerxpay 0x101B for grant'. The production attestor policy (services/wallet/deploy/attestor-policy.json) lists payExact and draw under the 0x101A selectors."
+value = "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32) (selector 0x78ea11db) and draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32) (0x2e89490f) are methods of the layerxledger precompile at 0x101A (spec/layerx-merge/contracts/address-table.md:95-96; ledger-auth.md:84, 92; services/wallet/attestor/internal/policy/evm/abi/layerxledger.json:7-8); the budget grant budgetCreate (0xa863162b, pay.md:79) is the layerxpay 0x101B call. The web payer's exact payment and its draw target 0x101A; its grant also targets 0x101A as issueGrant (decision.1878), because a layerxledger draw consumes only a layerxledger PayerGrant. req.9055 ac_1 reads 'a payExact call to layerxledger 0x101A' and req.9056 ac_3 reads 'a signed EIP-1559 call to layerxledger 0x101A for pay (payExact) and for grant (issueGrant, decision.1878)'. The production attestor policy (services/wallet/deploy/attestor-policy.json) lists payExact and draw under the 0x101A selectors."
 basis = "The attestor's layerxpay ABI (services/wallet/attestor/internal/policy/evm/abi/layerxpay.json, 57 functions) has no payExact: a 0x101B payExact decodes to ErrUnknownMethod (decode.go:240-246), Policy.Evaluate answers decode_error (policy.go:487-493) and the signer refuses. decision.827 already names 'LedgerCall to the 0x101A ledger (payExact for operator sends, draw for customer grants)'; req.9055 ac_1 and 9.98.1 do_3 and do_4 carried the 0x101B wording and services/agent/crates/layerx-mcp/src/tools/web.rs:530-545 and :557-569 build those calls with PrecompileTarget::Pay. 9.98.1 attempts 1 and 3 (60f717743, df2bccb8f) were refused by a real attestor on both tests."
-affects = ["9.98.1", "9.16.2", "9.94.1"]
+affects = ["9.98.1", "9.16.2", "9.94.1", "9.15.2", "9.16.1", "18.1240.1", "18.1243.1"]
 
 [decision.1869]
 title = "The MCP faucet tool calls px_requestFunds with the gateway faucet module's parameters"
@@ -4364,6 +4364,66 @@ title = "Core custody reads port onto the sequencer endpoint instead of being de
 value = "read_custody_profile, read_custody_asset and custody_read of services/platform/hosted/core/src/lib.rs take &SequencerEndpoint and read module state through rpc::module_state::module_state with a ModuleReadContext and account state through rpc::account::account with a ReadContext; the layerx_client::caps VerifiedEffectiveAsset cross-check is dropped because caps has no rpc twin; validate_custody_profile, validate_custody_metadata, custody_policy, custody_key, custody_u64, RegisteredCustodyAsset, AuthenticatedCustodyAsset and the build_asset_send builders stay as written. Task 8.98.14 does that port and ports the node probe custody steps at wave 33 (after 8.20.2 has deleted tests/custody_asset_send.rs), before 8.98.10 ports the rest of the probe at wave 34; the deletion decision.1873 ordered is withdrawn."
 basis = "Issues #1247, #1248 and #1249: the probe custody-asset-profile and write-asset-send steps (services/platform/hosted/node/tests/probe/src/main.rs:489-562, driven by tools/bringup/value-loop.sh:184 and :342) are product value-loop steps that need the custody reads, so deleting the reads in 8.98.14 after 8.98.10 ported the probe left 8.98.10 without a callee and req.8945 ac_1 naming lib.rs:429 as a caller that no task migrates."
 affects = ["8.98.14", "8.98.10", "8.98.5", "req.8945", "acceptance.8.945.2"]
+
+[decision.1876]
+title = "The chain evidence freeze 13.0.2 does not wait for the sandboxExecute fee receipt 13.27.1"
+value = "Task 13.0.2 freezes the layerx-programs-registry chain evidence surface (programs/crates/layerx-programs-registry/src/lib.rs, chain_evidence.rs, protocol_evidence.rs, chain_proof.rs and tests/chain_evidence_keys.rs); none of its six steps reads the SandboxUsageReceipt or any symbol of precompiles/layerxprograms/method_sandbox_execute.go, so 13.27.1 leaves its requires list. 13.34.8, which proves the 0x101D gas rows including sandboxExecute, keeps 13.27.1. 13.27.1 keeps its own gate and its wave."
+basis = "13.0.2 touches only Rust registry files and its do_1 to do_6 name no sandbox symbol; its other twenty-six prerequisites are done; 13.27.1 has reverted its funded sandboxExecute in thirty-three qualification attempts, each at a later point of the settlement path (qualification.kvx finding.13.27.1.*), and thirty-three other tasks were waiting on 13.0.2 for it."
+affects = ["13.0.2", "13.27.1", "13.34.8"]
+
+[decision.1877]
+title = "The publish-images jobs are excluded from runner routing and the wallet Go test jobs are routed"
+value = "scripts/ci/runner-routing-check.sh requires every CI job to carry the routed runner expression or an EXCLUDED row. The publish-images workflow cannot carry the expression because tools/ci/tests/publish-images.test.sh:127-129 forbids CI_LINUX_RUNNER in that file (task 18.1054.1 do_2), so its jobs plan, images, images-dependent and gate are listed as excluded with reason class publish and original ubuntu-latest, like its publish, attest and promote jobs. The wallet Go test jobs attestor and ceremony carry the routed expression. Task 16.5.6 carries both edits because its gate asserts the routing check exits 0."
+basis = "runner-routing-check.sh:195-206 fails a non-excluded fixed runner; publish-images.test.sh:127 asserts CI_LINUX_RUNNER not in text and :129 asserts an ubuntu label; wallet-go-test.yml was added by 18.883.1 with ubuntu-latest and no test constrains its runner; 16.5.6 attempts 2 to 4 failed only on these six jobs."
+affects = ["16.5.6", "18.1054.1", "18.883.1"]
+
+[decision.1878]
+title = "Grants are layerxledger issueGrant: grant aliases, the web grant step and the agentd-host payer grant target 0x101A; budgetCreate stays a budget operation"
+value = "A layerxledger draw consumes a layerxledger PayerGrant (modules/layerxledger/keeper/draw.go:21 GetPayerGrant), so a budget created by layerxpay budgetCreate (0xa863162b, 0x101B) can never be drawn by draw (0x2e89490f, 0x101A). Every grant that a draw later consumes is therefore issueGrant(bytes) (selector 0xd0d53480) at 0x101A: the MCP aliases grant.issue and grant.draw (services/agent/crates/layerx-mcp/src/catalogue.rs:1062-1063), the web payer grant step (services/agent/crates/layerx-mcp/src/tools/web.rs:548-555) and the agentd-host payer grant (services/agent/crates/layerx-agentd-host/src/payer.rs:357). The 0x101A disclosure branch admits issueGrant and draw (services/agent/crates/layerx-crypto/src/disclosure/call.rs:319-336) and the attestor ledger ABI carries them; the layerxpay ABI has no grant method and refuses unknown selectors (precompiles/layerxpay/layerxpay.go:93-96). budgetCreate remains the budget creation of budget.create and is not a web grant. decision.1868 keeps payExact and draw on 0x101A and is amended for the grant. The payExact fifth word is ExpiresAt in milliseconds (precompiles/layerxledger/payments.go:157-162; modules/layerxledger/keeper/payexact.go:22-28), never a block height."
+basis = "precompiles/layerxledger/payments.go:25-28 serves issueGrant, revokeGrant, draw and payExact; the ledger ABI events are PayerGrantIssued, PaymentDrawn and PaymentExact; services/wallet/attestor/internal/policy/evm/decode.go:38-39 maps 0x101A to the ledger ABI; req.8247 and req.8255 already name 0x101A draw; task 9.98.1 attempt 7 landed the payer grant as budgetCreate under the first wording of decision.1868, which 9.16.2 corrects."
+affects = ["18.1240.1", "18.1243.1", "9.16.2", "9.15.2", "9.16.1", "9.98.1"]
+
+[decision.1879]
+title = "agent.register and session.open answer a prepared unsigned transaction that the owner signs"
+value = "agent.register and session.open answer AuthorityResponse<Prepared>: an unsigned type-2 call whose chain id, pending nonce and fees the daemon reads from the node at preparation through evm::ProductionEvmPreparationBoundary (services/agent/crates/layerx-agentd/src/prepare/mod.rs:162-210, preparation_state :194), bounded by the request fee_limit. The owner signs it and posts it through the existing operation.submit with the preparation_ref (services/agent/schema/agent-api/write.kvx:19-36; HumanSubmit services/agent/crates/layerx-agentd/src/human.rs:259-264). agent.register prepares bindLayerX to the addr precompile 0x1004 (decision.1844) from the owner EVM address carried in the request, with the owner-signed binding consent carried in the request and verified by the daemon, which holds no owner key and produces no consent; session.open prepares grantSession to layerxauth 0x101C naming the provisioned session address. Neither operation returns a record: AgentRecord is defined nowhere and SessionRecord is the daemon store record (src/session.rs:318). Both are prepare operations under the owner session credential (decision.1844); the credential text of v1.kvx:103 that calls it null is wrong."
+basis = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:64-66 and :77-158 sign with an owner DerivedAccount that dispatch_operation (:1387-1399) does not hold, so :1619-1623 refuses both operations; the request types (services/agent/crates/layerx-agent-api/src/identity.rs:851-900) carry no chain id, nonce, fees or owner address; prepare_evm_write (src/human_runtime.rs:20498-20560) already resolves the owner bound address and prepares through the production boundary; issue #1242."
+affects = ["18.1242.1", "9.7.3", "9.1.5"]
+
+[decision.1880]
+title = "A sandboxed SUCCESS terminal takes the published sandbox usage result as its occupancy evidence"
+value = "A sandboxed call settles its occupancy through the lease escrow (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:765-770 charges occupancy_fee_units in the escrow leg), so the runtime builds no ordinary occupancy authority for it (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2919, protocol_uses_occupancy && !sandbox) and publish_occupancy never sets occupancy->applied (src/modules/programs/occupancy.c:823). The kernel terminal contract still demands an applied bridge for every protocol-v2/v3 SUCCESS (src/modules/programs/call.c:1419-1422) and fills the outcome occupancy fields only from that bridge (call.c:1632-1644), fields lxp_receipt.c:216-221 requires nonzero. Therefore every successful sandboxExecute halts LXP_FATAL_INVARIANT. layerx_programs_call_terminal_begin and layerx_programs_call_terminal_publish accept the published usage result of the active SANDBOX_EXECUTE activity as the occupancy evidence of a sandboxed SUCCESS: byte batches and fee units from usage_result.occupancy and occupancy_fee, asset from the lease asset, evidence digest the sha256 of the published usage receipt, transfer root from usage_result.transfer_root. The FATAL stays for every non-sandbox SUCCESS without an applied bridge; no assertion is relaxed."
+basis = "13.27.1 attempts 1 to 33 reverted at successive points of the settlement path and attempt 33 (ef3be2b2f) at the terminal step; the read-only trace of tree ef3be2b2f (qualification.kvx finding.13.27.1 for attempt 33) found no other FATAL site reachable; no test has run a sandboxed SUCCESS to its terminal step (tests/codec/lxp_test_sandbox_lifecycle.c execute cases are admission refusals at :417, :519, :524; determinism_test.go:151-184 and method_call_test.go:162-172 use the ordinary call path)."
+affects = ["13.27.6", "13.27.1", "13.27.5"]
+
+[decision.1881]
+title = "The sponsored agent bind runs two sequential reauthorization challenges"
+value = "Agent provisioning sponsors the bind through the gas station like a standard user. The attestor (*Authority).Evaluate admits a sponsored_batch view for an agent subject when the batch account is the agent wallet, every call targets the bind precompile 0x1004 with the bindLayerX selector and zero value and the quote lies within the agent caps, and admits an eip7702 authorization view only when its address equals the configured paymaster. The gateway persists the quoted construction before the first signature and answers one 409 reauthorization per envelope, the batch digest first and the authorization second; the client matches a supplied reauthorization by key_id and kind."
+basis = "Owner ruling of 2026-10-30 choosing this over one combined envelope and over leaving agents unsponsored; finding 18.1113.1.2; the gateway client already handles one reauthorization per envelope (services/wallet/gateway/src/attestor/client.ts:685-716), so no new envelope kind is needed."
+affects = ["18.1113.1", "12.6.5", "12.6.6"]
+
+[decision.1882]
+title = "Tests whose only subject is API the same task retires leave with that API"
+value = "When a task is ordered to delete an API, the tests that exist only to exercise that API are deleted by the same task, and the touches list names their files. This is not a relaxation under No Weakening: no surviving assertion changes, and nothing is removed to make an unrelated check pass. 8.44.6 lands before 8.44.5 so the Swift test target compiles at each step."
+basis = "Owner ruling of 2026-10-30 choosing this over keeping AuthorizedReceiptBatch alive (which contradicts 8.44.5 do_3) and over a prior port to the sequencer path; read-only trace of 8.44.5 and 8.44.6 attempts 2 to 4: ProgramsContractTests.swift:273-410 and ReceiptFixtureTests.swift:71-74, :91-110 reference only the API ordered deleted by 8.44.5 do_1 to do_3 and 8.44.6 do_1."
+affects = ["8.44.5", "8.44.6"]
+
+[decision.1883]
+title = "10.2.9 verifies the rung tests that its port controls; the journey tests are gated where their engine fix lands"
+value = "10.2.9's verify command names the seven agent_controls_rungs tests that pass at its candidate; its build still compiles all seven targets. The three archive_fixture journey tests and the journey_faults target join the tests and verify command of 18.1149.1 (wave 12, requires 10.13.5, 10.0.3 and 10.2.9), where the custody-signer disclosure and the Budget 8 fixture registry are fixed. No test is altered or deleted."
+basis = "Owner ruling of 2026-10-30 choosing this over waiting for wave 11 (209 dependents blocked) and over pulling the engine port into 10.2.9; finding 10.2.9."
+affects = ["10.2.9", "18.1149.1"]
+
+[decision.1884]
+title = "Gate tests are self-contained and run their peers in-process"
+value = "A task's tests serve every peer they need on loopback from the crate's real types (anvil for an EVM chain as tests/balance.rs does, a served SequencerEndpoint for the sequencer), generate their keys and credentials in-process and read no fixture document from the environment. A test that needs an operator-provided PAXEER_X_*_FIXTURE file cannot qualify in the environment that runs the gates and is not an acceptable gate; existing env-var fixture tests are ported when their owning task next touches them."
+basis = "Owner ruling of 2026-10-30 choosing self-contained fixtures over provided fixture files and over compile-only gates; 18.1242.1 attempts 1 and 2 panicked at bootstrap_bind_layerx.rs:89 for a missing PAXEER_X_AGENT_OWNER_FIXTURE."
+affects = ["18.1242.1"]
+
+[decision.1885]
+title = "A task's build compiles only the targets its gate runs"
+value = "build_cmd names the library and the test targets that verify_cmd runs (cargo build --lib --test a --test b), never --tests for a crate whose other test targets the task does not own. A sibling test target that no longer compiles is recorded once and ported by the task that owns it; where a task's own gate target is a single binary that includes the drifted module, the task ports it and names the file in touches."
+basis = "18.1200.1 attempt 3, 18.1230.1 attempt 5 and 18.1159.1 attempt 5 all implemented their steps and failed only compiling test targets owned by other tasks (revocation.rs, unknown.rs, migration.rs, owner_bootstrap.rs); 13.0.2 attempts 2 and 3 stopped at a dependent-crate test with no pending owner."
+affects = ["18.1200.1", "18.1230.1", "18.1159.1", "13.0.2", "18.1228.1"]
 
 [feature.1]
 name = "kernel"
@@ -17378,8 +17438,8 @@ ac_2 = "session.refresh is refused with reason session.grant_missing when no gra
 
 [req.9031]
 title = "Open sessions and register agents through bindLayerX"
-ac_1 = "agent.register answers with a prepared bindLayerX transaction to 0x101C instead of refused_pending_bootstrap_artifact."
-ac_2 = "session.open answers with a prepared grantSession transaction naming the provisioned session address."
+ac_1 = "agent.register posted through handle_rpc answers AuthorityResponse<Prepared> carrying an unsigned bindLayerX call to the addr precompile 0x1004 with chain id, nonce and fees read at preparation, instead of refused_pending_bootstrap_artifact (decision.1879)."
+ac_2 = "session.open posted through handle_rpc answers AuthorityResponse<Prepared> carrying an unsigned grantSession call to layerxauth 0x101C naming the provisioned session address; the daemon signs and broadcasts nothing (decision.1879)."
 
 [req.9032]
 title = "Reconcile budgets against layerxpay getBudget"
@@ -17483,7 +17543,8 @@ ac_2 = "tool_operation returns None for faucet.request (services/agent/crates/la
 [req.9052]
 title = "Map wallet, token and grant aliases onto ledger and pay precompiles"
 ac_1 = "wallet.send prepares a transfer call to 0x101A."
-ac_2 = "grant.draw prepares a draw call to 0x101B."
+ac_2 = "grant.draw prepares a draw call to layerxledger 0x101A (decision.1878)."
+ac_3 = "grant.issue prepares an issueGrant call to layerxledger 0x101A, and the prepared grant.issue and grant.draw calls pass layerx_crypto::disclosure::bind_call."
 
 [req.9053]
 title = "Serve approval and subscription tools with major-2 shapes"
@@ -17496,15 +17557,16 @@ ac_1 = "A binding document holding core_sequence is refused with reason mcp.bind
 ac_2 = "A binding document with core_height binds and reports that height."
 
 [req.9055]
-title = "Pay for web tools with layerxpay payExact and draw"
+title = "Pay for web tools with layerxledger payExact and draw"
 ac_1 = "web.fetch with an exact price pays through a payExact call to layerxledger 0x101A (decision.1868)."
 ac_2 = "The web binding requires receipt_key_index and refuses sequencer_public_key."
+ac_3 = "The payExact expiresAt word is the approved disclosure expiry in milliseconds, the draw sequence word is the receiver sequence from layerxledger nextSequence, and the receipt verifier accepts PaymentExact and PaymentDrawn only from the 0x101A ledger address (decision.1878)."
 
 [req.9056]
-title = "Settle agentd-host web payments through layerxpay receipts"
+title = "Settle agentd-host web payments through layerxledger receipts"
 ac_1 = "A payExact receipt signed by a key outside px_getReceiptKeys is refused with WebPayerError."
 ac_2 = "A verified payExact receipt reports the amount and recipient from its log."
-ac_3 = "The layerx-agentd binary builds against read/native.rs, export.rs and the KMS signing surface, and ProductionWebPayer::pay submits a signed EIP-1559 call to layerxledger 0x101A for pay and to layerxpay 0x101B for grant (decision.1868) through eth_sendRawTransaction and returns the ExactPayment of the Receipted rung."
+ac_3 = "The layerx-agentd binary builds against read/native.rs, export.rs and the KMS signing surface, and ProductionWebPayer::pay submits a signed EIP-1559 call to layerxledger 0x101A for pay (payExact) and for grant (issueGrant, decision.1878) through eth_sendRawTransaction and returns the ExactPayment of the Receipted rung."
 
 [req.9057]
 title = "Label metrics and tenant errors by rung and node availability"
@@ -19666,6 +19728,17 @@ ac_1 = "The kernel vector generator names no layerx_crypto::disclosure or layerx
 title = "Domain 12 is complete"
 ac_1 = "walletCompletionRetiredSurfacesAbsent passes on the merged candidate: no retired domain-12 surface remains and every planned domain-12 wave-6 path exists."
 
+[req.12065]
+title = "The attestor admits the sponsored agent bind envelopes"
+ac_1 = "Evaluate admits a sponsored_batch view for an agent subject when the batch account is the agent wallet, every call targets 0x1004 with the bindLayerX selector and zero value and the quote lies within the agent caps; any other call, account or value keeps the existing agent refusal (decision.1881)."
+ac_2 = "Evaluate admits an eip7702 authorization view for an agent subject only when the authorized address equals the configured paymaster; every other view kind keeps the refusal."
+
+[req.12066]
+title = "The gateway challenges the agent once per sponsored bind envelope"
+ac_1 = "provisionAccount for an agent persists the quoted station construction before requesting the first signature, so the challenge envelope replays byte for byte on the retried call."
+ac_2 = "Each envelope (sponsored batch digest, then eip7702 authorization) raises its own AttestorReauthorizationRequired carrying that envelope's key_id and kind, and the attestor client matches a supplied reauthorization by key_id and kind."
+ac_3 = "After both reauthorizations the agent wallet row reaches binding_state bound with one station submit and the chain holds the agent binding; the provisioning flow test and the custody production e2e assert the two-challenge flow."
+
 [req.13001]
 title = "Scaffold the registry chain_proof module with a strict protobuf reader and its deps"
 ac_1 = "The chain_proof protobuf reader (planned) decodes varint, fixed64 and length-delimited fields of a canonical gogoproto Header encoding in field order and reports the exact byte cursor after each field."
@@ -20127,6 +20200,7 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 ac_1 = "sandboxExecute (precompiles/layerxprograms/abi.json:777) submits sandbox operation 1 (src/modules/programs/sandbox.c:163) with its feeLimit and emits SandboxUsageReceipt."
 ac_2 = "sandboxExecute with a zero asset reverts with LXP_NON_CANONICAL before submission, the refusal of src/modules/programs/sandbox.c:239-262."
 ac_3 = "A sandboxExecute that the host refuses at admission, settlement context or escrow settlement reverts with the result code of the refusing check: LXP_CONTEXT_MISMATCH when the payload's lease id, escrow, asset, fee destination or expected lease digest differs from the stored lease, LXP_TERMS_MISMATCH when the payload's fee schedule differs from the lease schedule, LXP_NOT_YET_VALID or LXP_EXPIRED when the batch lies outside the lease window, LXP_FEE_UNPAYABLE when the admitted or reserved charge exceeds the remaining escrow, LXP_SEQUENCE_MISMATCH when the expected sequence is not the ledger receipt count plus one, LXP_AUTH_SCOPE when the escrow charge authority is refused, LXP_ESCROW_STATE when the escrow does not permit the exact fee, and the kernel's own code when the escrow debit is refused by the kernel. LXP_NON_CANONICAL is reserved for a lease, escrow or ledger state that does not decode, a sandbox token or operation precondition, and a host fault."
+ac_4 = "A sandboxed call that reaches a SUCCESS terminal with a published sandbox usage result completes terminal_begin and terminal_publish with LXP_OK, and its outcome carries the usage result occupancy, fee units, the lease asset, a nonzero evidence digest and the usage transfer root (decision.1880)."
 
 [req.13269]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -74105,6 +74179,46 @@ contract = "contracts/clients.md#wallet-demo"
 test = "services/wallet/demo/src/components/Completion.test.tsx::walletCompletionRetiredSurfacesAbsent (planned)"
 qualification = "UNRUN"
 
+[acceptance.12.65.1]
+feature = "12"
+req = "12065.1"
+scenario = "Given an agent subject and a sponsored_batch view whose account is the agent wallet and whose only call is bindLayerX on 0x1004 with zero value, when Evaluate runs, then the view is admitted."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateAdmitsSponsoredBatchBindForAgent"
+qualification = "UNRUN"
+
+[acceptance.12.65.2]
+feature = "12"
+req = "12065.2"
+scenario = "Given an agent subject and an eip7702 authorization view naming the configured paymaster, when Evaluate runs, then the view is admitted; a sponsored batch outside the bind precompile is refused."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateAdmitsPaymasterAuthorizationForAgent"
+qualification = "UNRUN"
+
+[acceptance.12.66.1]
+feature = "12"
+req = "12066.1"
+scenario = "Given an agent provisioning that stopped at the first challenge, when the call is retried, then the same persisted construction is signed and no second quote is fetched."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/gateway/test/provisioning.test.ts::provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+qualification = "UNRUN"
+
+[acceptance.12.66.2]
+feature = "12"
+req = "12066.2"
+scenario = "Given the batch-digest reauthorization, when provisioning continues, then a second challenge of kind eip7702_authorization is raised for the same key."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/gateway/test/provisioning.test.ts::provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+qualification = "UNRUN"
+
+[acceptance.12.66.3]
+feature = "12"
+req = "12066.3"
+scenario = "Given both reauthorizations, when provisioning completes, then the agent wallet is bound with one station submit and the chain holds the binding."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/wallet/gateway/test/provisioning.test.ts::provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"
+qualification = "UNRUN"
+
 [acceptance.13.1.1]
 feature = "13"
 req = "13001.1"
@@ -75305,6 +75419,14 @@ req = "13268.3"
 scenario = "Given a funded sandbox lease, when sandboxExecute is admitted with a corrupted expected lease digest, then the call reverts with LXP_CONTEXT_MISMATCH rather than LXP_NON_CANONICAL and staged effects and balances are unchanged"
 contract = "contracts/programs.md#layerxprograms-0x101d"
 test = "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_refusal_propagates"
+qualification = "UNRUN"
+
+[acceptance.13.268.4]
+feature = "13"
+req = "13268.4"
+scenario = "Given an active sandboxExecute activity with a published usage result, when its call reaches a SUCCESS terminal without an applied occupancy bridge, then terminal_begin and terminal_publish return LXP_OK and the outcome carries the usage occupancy, fee units, lease asset, evidence digest and transfer root."
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_success_publishes_occupancy_from_usage"
 qualification = "UNRUN"
 
 [acceptance.13.269.1]
@@ -136631,7 +136753,7 @@ title = "Swift SDK retires kernel batch, checkpoint and settlement verification"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["8.44.2", "8.44.3", "8.47.7"]
+requires = ["8.44.2", "8.44.3", "8.47.7", "8.44.6"]
 reqs = ["8503.1", "8503.2", "8503.3"]
 capabilities = ["8.44.5"]
 interfaces = ["interface.8.go-sdkswift-batchheader", "interface.8.go-sdkswift-sequencerauthorization", "interface.8.go-sdkswift-sequencerauthorization-init", "interface.8.go-sdkswift-inclusionkind", "interface.8.go-sdkswift-inclusionkind-activity", "interface.8.go-sdkswift-inclusionkind-event", "interface.8.go-sdkswift-inclusionkind-receipt", "interface.8.go-sdkswift-inclusionkind-state", "interface.8.go-sdkswift-inclusionverification", "interface.8.go-sdkswift-checkpointattestation", "interface.8.go-sdkswift-checkpointattestation-init", "interface.8.go-sdkswift-guarantorkey", "interface.8.go-sdkswift-guarantorkey-init", "interface.8.go-sdkswift-checkpointcertificate", "interface.8.go-sdkswift-checkpointcertificate-init", "interface.8.go-sdkswift-checkpointverificationinput", "interface.8.go-sdkswift-checkpointverificationinput-init", "interface.8.go-sdkswift-localsignatureverifier", "interface.8.go-sdkswift-localsignatureverifier-verifyrecoverablesecp256k1", "interface.8.go-sdkswift-checkpointverification", "interface.8.go-sdkswift-authorizedreceiptbatch", "interface.8.go-sdkswift-authorizedreceiptbatch-init", "interface.8.go-sdkswift-localverifier-decodebatchheader", "interface.8.go-sdkswift-localverifier-verifybatchinclusion", "interface.8.go-sdkswift-localverifier-verifycheckpoint"]
@@ -136641,7 +136763,7 @@ do_3 = "Delete the AuthorizedBatch receipt input from sdk/platform/swift/Sources
 do_4 = "Delete the tests of sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:1 that read the kernel receipt-positive, receipt-refusals and receipt-programs vectors retired by tasks 8.47.4, 8.47.5 and 8.47.6."
 do_5 = "Create sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift (planned) with the tests below."
 symbols = ["VerificationLevel", "VerifyBatchInclusion", "VerifyCheckpoint", "AuthorizedBatch"]
-touches = ["sdk/platform/swift/Sources/LayerXSDK/Verifier.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Verifier.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift"]
 tests = ["sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift::testVerificationRungsAreReceiptedAndCommittedOnly", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift::testKernelReceiptBytesAreRefusedBySequencerVerifier", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift::testCommittedVectorV4Verifies"]
 planned_paths = ["sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift"]
 build_cmd = "swift build --package-path sdk/platform/swift"
@@ -136657,6 +136779,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Retire the last callers of the AuthorizedBatch receipt input in sdk/platform/swift/Sources/LayerXSDK/Programs.swift: delete the deprecated ProgramsClient.verifyReceipt(_:authorized:expectedActivityID:expectedGuestABIVersion:terminalPayload:callGraph:protocolVersion:expectedProgramID:documentOutcome:) (:624-663) and ProgramsClient.verifyRawV5Receipt(_:authorized:call:terminalPayload:callGraph:protocolVersion:) (:664-681), the kernel receipt-document verifiers verifiedSubmission (:745-791), verifiedExecution (:793-885) and verifiedSimulation (:887-949), which have had no caller since task 8.44.3, and the authorized(_:) helper (:2366-2374). Keep the sequencer entry points ProgramsClient.verifyReceipt(_:rawTransaction:keys:receiptJSON:prevSeqHash:), verifyRawV5Receipt(_:rawTransaction:keys:receiptJSON:prevSeqHash:) and verifySubmission (:594-622), VerifiedProgramExecution (:326) and verifiedDiscovery (:951) exactly as written."
+do_7 = "Delete from sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift the kernel receipt tests that construct AuthorizedReceiptBatch and call the deleted ProgramsClient.verifyReceipt(_:authorized:...), ProgramsClient.verifyRawV5Receipt(_:authorized:...) and LocalVerifier.verifyReceiptOutcome: testNativeGuestAdmissionDoesNotWidenSignedExecutionReceiptABI (:273-297, reads sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json retired by task 8.47.6), testTerminalV5ActualNativeSignedCorpus (:299-401, reads the PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS kernel corpus) and the helper assertRawV5Refusal (:403-410). Every other test in the file stays as written; task 8.44.6 lands first and reformats the file, so locate the three members by name (decision.1882). This task requires 8.44.6 and re-qualifies on a base that includes it."
 
 [task.8.44.6]
 title = "Swift SDK removes the /v1/programs REST transport"
@@ -136671,7 +136795,7 @@ do_1 = "Delete the program route table and the program transport entry points (s
 do_2 = "Delete the route-table tests of sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift:1 that assert /v1/programs paths."
 do_3 = "Create sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift (planned) driving every program operation through a recording transport."
 symbols = ["programRoutes", "sendProgram"]
-touches = ["sdk/platform/swift/Sources/LayerXSDK/Transport.swift", "sdk/platform/swift/Sources/LayerXSDK/Production.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Transport.swift", "sdk/platform/swift/Sources/LayerXSDK/Production.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift"]
 tests = ["sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift::testProgramOperationsNeverCallProgramsRestIngress"]
 planned_paths = ["sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift"]
 build_cmd = "swift build --package-path sdk/platform/swift"
@@ -136687,6 +136811,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Delete from sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift the /v1/programs route assertions in testNativeLifecycleCFixtures that drive the deleted AgentHTTPTransport.programRequest: the AccessToken and AgentHTTPTransport construction (:71-74), the operation, path, hex and body locals (:91-99) and the programRequest call with its six assertions and the idempotency refusal (:100-110). Keep the test and its codec, binding, truncation and tamper assertions on decodeNativeProgramLifecycle and NativeProgramLifecycleRequest (:75-90 and :111-141) and every other test in the file unchanged; the remaining body uses only payload, signed, value, ordinal and request (decision.1882)."
 
 [task.8.44.7]
 title = "Swift SDK exports and verifies portable receipt v2 bundles"
@@ -136721,7 +136846,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.8]
 title = "Swift SDK receipt tests read the published V1-V3 and V5 vector files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.47.7", "8.44.7"]
@@ -137911,7 +138036,7 @@ do_3 = "Replace the layerx_crypto::onboarding::SponsoredRegistration decode at s
 do_4 = "Leave the uses at services/platform/hosted/core/src/main.rs:846, :856 and :2390 to task 8.10.1, which owns that file in this wave; the builders come from tasks 9.31.2 and 9.32.2 by wave 3."
 do_5 = "Write services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs (planned) with the test below."
 symbols = ["platform_names_no_kernel_disclosure_or_send_codec"]
-touches = ["services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/human/dynamic/tests.rs", "services/platform/hosted/core/src/lib.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "tools/platform/cli/src/wallet_send.rs", "tools/platform/cli/src/wallet_signing.rs", "tools/platform/cli/src/wallet.rs", "tools/platform/cli/examples/hosted-send.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"]
+touches = ["services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/human/dynamic/tests.rs", "services/platform/hosted/core/src/lib.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "tools/platform/cli/src/wallet_send.rs", "tools/platform/cli/src/wallet_signing.rs", "tools/platform/cli/src/wallet.rs", "tools/platform/cli/examples/hosted-send.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/agent-boundary/src/head_attestation_tests.rs"]
 tests = ["services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs::platform_names_no_kernel_disclosure_or_send_codec"]
 planned_paths = ["services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"]
 build_cmd = "cargo build --manifest-path services/platform/Cargo.toml --tests && cargo build --manifest-path tools/platform/cli/Cargo.toml --examples"
@@ -137928,6 +138053,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempt 4 (af194c5e7): the --tests build of services/platform fails in the layerx-paxai-worker test literals that task 8.98.11 do_10 ports (now required); change nothing under services/platform/hosted/paxai-worker/ in this task and re-qualify once 8.98.11 is done. The attempt made no source edit for do_1 to do_3: confirm on the merged revision that those uses are already gone, and port any that remain."
+do_7 = "The build_cmd compiles the agent boundary's bin tests, and services/platform/hosted/agent-boundary/src/head_attestation_tests.rs:115 constructs Config without the chain_receipts field that task 8.8.2 (41fd18eac) added at services/platform/hosted/agent-boundary/src/main.rs:79 and fills at :610 with chain_receipt::ChainReceipts::from_config(url, keys_path). In config(root) write a receipt keys file under root.0 in the shape services/platform/hosted/agent-boundary/tests/chain_receipt.rs provisions for the boundary and set chain_receipts to ChainReceipts::from_config with a loopback http URL and that path; change nothing else in head_attestation_tests.rs and no assertion."
 
 [task.8.96.1]
 title = "Remove the bridge withdrawal compile from the gateway local withdrawal test"
@@ -139713,7 +139839,7 @@ capabilities = ["9.7.3"]
 interfaces = ["interface.9.http-rpc-agent-register", "interface.9.http-rpc-session-open"]
 do_1 = "services/agent/crates/layerx-agentd/src/agent_rpc.rs:23 `BOOTSTRAP_OPERATIONS` lists AgentRegister and SessionOpen and services/agent/crates/layerx-agentd/src/agent_rpc.rs:755-760 refuses them with refused_pending_bootstrap_artifact; the list becomes empty and both operations reach adapters."
 do_2 = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1355 refuses AgentRegister and SessionOpen; agent.register prepares a layerxauth 0x101C bindLayerX transaction and session.open prepares grantSession for the session address of task 9.7.1."
-do_3 = "Both operations return identity.kvx shapes (services/agent/schema/agent-api/identity.kvx:26 and :31) with the tx_hash and the bound address."
+do_3 = "Both operations answer AuthorityResponse<Prepared> (the write.kvx operation.prepare response); the owner signs the call and posts it through operation.submit with the preparation_ref (decision.1879; as landed the helpers signed with an owner account the dispatcher does not hold, which 18.1242.1 corrects together with identity.kvx:29 and :34)."
 do_4 = "Create services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs (planned)."
 symbols = ["BOOTSTRAP_OPERATIONS", "agent_register", "session_open"]
 touches = ["services/agent/crates/layerx-agentd/src/agent_rpc.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/src/tenant.rs"]
@@ -140390,17 +140516,17 @@ requires = ["9.14.1", "9.9.2", "2.0.2", "9.1.8", "18.1121.1"]
 reqs = ["9052.1", "9052.2"]
 capabilities = ["9.15.2"]
 interfaces = ["interface.9.http-mcp-tool-wallet-accounts", "interface.9.http-mcp-tool-wallet-balance", "interface.9.http-mcp-tool-wallet-send", "interface.9.http-mcp-tool-token-create", "interface.9.http-mcp-tool-token-mint", "interface.9.http-mcp-tool-token-transfer", "interface.9.http-mcp-tool-grant-issue", "interface.9.http-mcp-tool-grant-draw"]
-do_1 = "services/agent/crates/layerx-mcp/src/catalogue.rs:1018 `native_alias_ordinal` maps aliases to kernel activity ordinals (services/agent/crates/layerx-mcp/src/catalogue.rs:1020-1024); it maps wallet.send and token.transfer to layerxledger 0x101A transfer, token.create and token.mint to 0x101A createToken and mint, and grant.issue and grant.draw to layerxpay 0x101B createBudget and draw."
+do_1 = "services/agent/crates/layerx-mcp/src/catalogue.rs:1018 `native_alias_ordinal` maps aliases to kernel activity ordinals (services/agent/crates/layerx-mcp/src/catalogue.rs:1020-1024); it maps wallet.send and token.transfer to layerxledger 0x101A transfer, token.create and token.mint to 0x101A createToken and mint, and grant.issue and grant.draw to layerxledger 0x101A issueGrant and draw (decision.1878; the 0x101B mapping that landed is corrected by 18.1240.1)."
 do_2 = "services/agent/crates/layerx-mcp/src/tools/wallet.rs:59 duplicates the ordinal table; it uses the same precompile target table."
 do_3 = "services/agent/crates/layerx-mcp/src/tools/wallet.rs:178 `accounts` lists EVM addresses and services/agent/crates/layerx-mcp/src/tools/wallet.rs:207 `balance` reads through the daemon read.balance of task 9.5.6."
 do_4 = "services/agent/crates/layerx-mcp/src/tools/wallet.rs:38 `execute` refuses an alias whose intent has more than one effect, as today."
 do_5 = "Create services/agent/crates/layerx-mcp/tests/alias_precompiles.rs (planned)."
 symbols = ["native_alias_ordinal", "execute", "accounts", "balance"]
 touches = ["services/agent/crates/layerx-mcp/src/catalogue.rs", "services/agent/crates/layerx-mcp/src/tools/wallet.rs", "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs"]
-tests = ["services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::wallet_send_targets_the_ledger_precompile", "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_draw_targets_the_pay_precompile"]
+tests = ["services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::wallet_send_targets_the_ledger_precompile", "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_draw_targets_the_ledger_precompile"]
 planned_paths = ["services/agent/crates/layerx-mcp/tests/alias_precompiles.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test alias_precompiles -- --exact wallet_send_targets_the_ledger_precompile grant_draw_targets_the_pay_precompile"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test alias_precompiles -- --exact wallet_send_targets_the_ledger_precompile grant_draw_targets_the_ledger_precompile"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -140415,7 +140541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.15.3]
 title = "Serve approval and subscription tools with major-2 shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["9.11.3", "9.15.1", "9.0.2", "9.1.8", "18.1121.1"]
@@ -140477,7 +140603,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.9.16.1]
-title = "Pay for web tools with layerxpay payExact and draw"
+title = "Pay for web tools with layerxledger payExact and draw"
 status = "done"
 mode = "BUILD"
 wave = 13
@@ -140486,7 +140612,7 @@ reqs = ["9055.1", "9055.2"]
 capabilities = ["9.16.1"]
 interfaces = ["interface.9.rs-mcp-tools-web-grantterms", "interface.9.rs-mcp-tools-web-exactterms", "interface.9.rs-mcp-tools-web-webpayer", "interface.9.http-mcp-tool-web-search", "interface.9.http-mcp-tool-web-fetch", "interface.9.http-mcp-tool-web-content", "interface.9.cfg-mcp-binding-web-sequencer-public-key"]
 do_1 = "services/agent/crates/layerx-mcp/src/tools/web.rs:367 `GrantTerms` and :379 `ExactTerms` carry 32-byte payer_account, recipient and asset; they carry 20-byte addresses and the token address, and services/agent/crates/layerx-mcp/src/tools/web.rs:362 `current_sequence` becomes current_height."
-do_2 = "services/agent/crates/layerx-mcp/src/tools/web.rs:398 `WebPayer::grant` prepares layerxpay 0x101B createBudget and `pay` prepares payExact; draw against an existing grant prepares draw."
+do_2 = "services/agent/crates/layerx-mcp/src/tools/web.rs:398 `WebPayer::grant` prepares the layerxledger 0x101A issueGrant grant step and `pay` prepares layerxledger 0x101A payExact; draw against an existing grant prepares layerxledger 0x101A draw (decision.1878; as landed these targeted 0x101B, which 18.1243.1 corrects)."
 do_3 = "services/agent/crates/layerx-mcp/src/catalogue.rs:224-238 web.search, web.fetch and web.content keep their scopes and name payExact in their mutation text."
 do_4 = "services/agent/crates/layerx-mcp/src/binding.rs:61 WEB_KEYS sequencer_public_key becomes receipt_key_index."
 do_5 = "Re-target services/agent/crates/layerx-mcp/tests/web.rs and create services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs (planned)."
@@ -140509,7 +140635,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.9.16.2]
-title = "Settle agentd-host web payments through layerxpay receipts"
+title = "Settle agentd-host web payments through layerxledger receipts"
 status = "pending"
 mode = "BUILD"
 wave = 21
@@ -140519,11 +140645,11 @@ capabilities = ["9.16.2"]
 interfaces = ["interface.9.rs-agentd-host-payer-productionwebpayer-j43"]
 do_1 = "services/agent/crates/layerx-agentd-host/src/payer.rs:45 `ProductionWebPayer` holds a 32-byte sequencer public key (services/agent/crates/layerx-agentd-host/src/payer.rs:53); it holds the receipt key set from px_getReceiptKeys."
 do_2 = "services/agent/crates/layerx-agentd-host/src/payer.rs:273 `receipt` verifies with verify_sequencer_signature (services/agent/crates/layerx-agentd-host/src/payer.rs:299) and decodes an AuthorizedBatch (services/agent/crates/layerx-agentd-host/src/payer.rs:332); it verifies the pax_sequencerReceipt signature against the receipt keys and decodes the payExact or draw log."
-do_3 = "services/agent/crates/layerx-agentd-host/src/payer.rs:357 `grant` and :393 `pay` submit the 0x101B calls through eth_sendRawTransaction and wait for Receipted."
+do_3 = "services/agent/crates/layerx-agentd-host/src/payer.rs:357 `grant` and :393 `pay` submit the 0x101A calls (payExact for pay, issueGrant for grant) through eth_sendRawTransaction and wait for Receipted."
 do_4 = "services/agent/crates/layerx-agentd/src/main.rs:1145 `ProductionWebPayer::from_owner` is called with the receipt keys from the node connection of task 9.12.5."
 do_5 = "Create services/agent/crates/layerx-agentd-host/tests/payer.rs (planned) that includes the payer through `#[path = \"../src/payer.rs\"] mod payer;`."
 symbols = ["ProductionWebPayer", "ProductionWebPayer::from_owner", "receipt"]
-touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/tests/payer.rs", "services/wallet/deploy/attestor-policy.json"]
+touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/tests/payer.rs", "services/wallet/deploy/attestor-policy.json", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs"]
 tests = ["services/agent/crates/layerx-agentd-host/tests/payer.rs::web_payment_receipt_must_be_signed_by_a_published_key", "services/agent/crates/layerx-agentd-host/tests/payer.rs::web_payment_reports_the_pay_exact_log_amount"]
 planned_paths = ["services/agent/crates/layerx-agentd-host/tests/payer.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host"
@@ -140541,6 +140667,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Task 9.98.1 lands grant and pay on eth_sendRawTransaction and the Receipted rung and ports the main.rs call sites (decision.1847); do_3 keeps that path, and do_1, do_2 and do_4 add the receipt-key verification and the node connection on top of it."
 do_7 = "services/wallet/deploy/attestor-policy.json lists for 0x000000000000000000000000000000000000101a only send 0x2bb1ae7c: add payExact 0x78ea11db and draw 0x2e89490f under that address so a production attestor admits the web payer's exact payment and draw (decision.1868; the budget selectors under 0x101b are already present)."
+do_8 = "services/agent/crates/layerx-agentd-host/src/payer.rs:357 grant builds layerxledger 0x101A issueGrant(bytes) (selector 0xd0d53480) with the grant terms encoded as services/agent/crates/layerx-crypto/src/disclosure/call.rs:188-219 encodes them, replacing the layerxpay budgetCreate call that 9.98.1 landed (decision.1878); services/agent/crates/layerx-agentd-host/tests/payer_evm.rs asserts 0x101A and selector 0xd0d53480 for grant; the payer_evm attestor cluster policy selectors map of 0x000000000000000000000000000000000000101a gains 0xd0d53480 and its 0x000000000000000000000000000000000000101b entry is removed."
 
 [task.9.17.1]
 title = "Label metrics and tenant errors by rung and node availability"
@@ -143220,7 +143347,7 @@ title = "Read program balances through eth_call on 0x101D in agentd instead of t
 status = "pending"
 mode = "BUILD"
 wave = 14
-requires = ["9.0.2", "6.0.2", "9.1.8", "18.1131.1", "18.1121.1", "9.98.1", "18.1206.1"]
+requires = ["9.0.2", "6.0.2", "9.1.8", "18.1131.1", "18.1121.1", "9.98.1", "18.1206.1", "18.1243.2"]
 reqs = ["9973.1"]
 capabilities = []
 interfaces = []
@@ -143252,7 +143379,7 @@ do_7 = "Attempt 5 (b741034ab) failed to build on 22 errors in services/agent/cra
 
 [task.9.98.1]
 title = "layerx-agentd binary compiles against the ported read, export and payment APIs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.5.7", "9.6.1", "10.11.5", "9.1.8", "18.1131.1"]
@@ -143261,8 +143388,8 @@ capabilities = []
 interfaces = []
 do_1 = "services/agent/crates/layerx-agentd/src/main.rs:2050-2056 builds NativeReadRoute::new(client, boot.enrolment.did.clone(), config.bearer.clone(), runtime_clock.clone()).map_err(..) while services/agent/crates/layerx-agentd/src/read/native.rs:31 is new(client: SequencerEndpoint, chain_id: u64) -> Self: pass the node client and the configured chain id and drop the map_err; :1775-1777 and :1974-1979 call signed_authority as an Option while native.rs:53 returns Result<Vec<ReceiptKeyEntry>, NativeReadError>: propagate the error and use the receipt key set."
 do_2 = "services/agent/crates/layerx-agentd/src/main.rs:785-789 calls ExportTrustSource::new(history, domain, parse_u64(..)) while services/agent/crates/layerx-agentd/src/export.rs:46 is new(receipt_keys: Vec<ReceiptKeyEntry>, validator_set: Vec<CommitValidator>) -> Result<Self, OfflineTrustError>: pass the receipt key set the native route read and the validator set from the node connection, and delete the settlement domain and its parse_u64 argument (decision.1847). Port any remaining trait-signature mismatch the binary build reports in main.rs the same way."
-do_3 = "services/agent/crates/layerx-agentd-host/src/payer.rs:357 grant and :393 pay still call sign_payment_grant and sign_native_send, which 10.11.5 deleted from services/human/crates/layerx-human-kms/src/attestor.rs: build each as an unsigned type-2 EIP-1559 call with chainId 125 to layerxledger 0x101A for payExact and to layerxpay 0x101B for budgetCreate (decision.1868; spec/layerx-merge/contracts/address-table.md:95-96 and :108-110; pay.md A.1-A.4) bound to the terms (payer account, recipient, asset, amount, idempotency key, and purpose hash for a grant), sign it with AttestorSigner::sign_evm_transaction (attestor.rs:640), submit it with eth_sendRawTransaction and wait for the Receipted rung through pax_sequencerReceipt; pay returns ExactPayment { tx_hash, receipt, logs } (services/agent/crates/layerx-mcp/src/tools/web.rs:420) and grant returns the signed call bytes. The receipt-key verification of the answer is task 9.16.2's."
-do_4 = "Create services/agent/crates/layerx-agentd-host/tests/payer_evm.rs (planned), registered as a [[test]] in services/agent/crates/layerx-agentd-host/Cargo.toml and including the payer through #[path = '../src/payer.rs'] mod payer;: it serves a local HTTP JSON-RPC responder on 127.0.0.1 answering eth_chainId, eth_getTransactionCount, eth_estimateGas, eth_gasPrice, eth_sendRawTransaction and pax_sequencerReceipt, drives pay and grant with a real KMS attestor signer, and asserts the submitted raw transaction decodes to a type-2 call with chainId 125 to 0x101A for pay and to 0x101B for grant carrying the terms and that pay returns the tx hash and receipt the responder served."
+do_3 = "services/agent/crates/layerx-agentd-host/src/payer.rs:357 grant and :393 pay still call sign_payment_grant and sign_native_send, which 10.11.5 deleted from services/human/crates/layerx-human-kms/src/attestor.rs: build each as an unsigned type-2 EIP-1559 call with chainId 125 to layerxledger 0x101A for payExact and to layerxpay 0x101B for budgetCreate (decision.1868 as first written; decision.1878 moves the grant to layerxledger issueGrant in 9.16.2; spec/layerx-merge/contracts/address-table.md:95-96 and :108-110; pay.md A.1-A.4) bound to the terms (payer account, recipient, asset, amount, idempotency key, and purpose hash for a grant), sign it with AttestorSigner::sign_evm_transaction (attestor.rs:640), submit it with eth_sendRawTransaction and wait for the Receipted rung through pax_sequencerReceipt; pay returns ExactPayment { tx_hash, receipt, logs } (services/agent/crates/layerx-mcp/src/tools/web.rs:420) and grant returns the signed call bytes. The receipt-key verification of the answer is task 9.16.2's."
+do_4 = "Create services/agent/crates/layerx-agentd-host/tests/payer_evm.rs (planned), registered as a [[test]] in services/agent/crates/layerx-agentd-host/Cargo.toml and including the payer through #[path = '../src/payer.rs'] mod payer;: it serves a local HTTP JSON-RPC responder on 127.0.0.1 answering eth_chainId, eth_getTransactionCount, eth_estimateGas, eth_gasPrice, eth_sendRawTransaction and pax_sequencerReceipt, drives pay and grant with a real KMS attestor signer, and asserts the submitted raw transaction decodes to a type-2 call with chainId 125 to 0x101A for pay and to 0x101B for grant (moved to 0x101A issueGrant by 9.16.2, decision.1878) carrying the terms and that pay returns the tx hash and receipt the responder served."
 symbols = ["NativeReadRoute::new", "ExportTrustSource::new", "ProductionWebPayer::pay", "ProductionWebPayer::grant", "web_pay_exact_submits_a_signed_layerxpay_call", "web_grant_submits_a_signed_layerxpay_call"]
 touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd-host/Cargo.toml", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/agent/Cargo.lock"]
 tests = ["services/agent/crates/layerx-agentd-host/tests/payer_evm.rs::web_pay_exact_submits_a_signed_layerxpay_call", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs::web_grant_submits_a_signed_layerxpay_call"]
@@ -144116,13 +144243,13 @@ do_2 = "Outbox::enqueue now takes (store, tenant, raw: Vec<u8>) and returns Resu
 do_3 = "SubmissionState has nine variants (Prepared, Signed, Queued, Submitted, Unknown, Executed, Failed, Expired, Committed) and legal_transition admits Queued to Submitted, Expired or Failed, Submitted to Submitted, Unknown, Executed or Failed, Unknown to Executed or Failed and Executed to Committed. The core-acknowledged step (journey_faults.rs:462, agent_controls_rungs.rs:1451 and their siblings) becomes a transition to OutboxState::Submitted with the same cause text; every comparison with OutboxState::Acknowledged compares with OutboxState::Submitted; the verified-receipt step passes Some(evidence) with OutboxState::Executed and the final step OutboxState::Committed; the tracked observation keeps SubmissionState::Submitted. Refuse nothing the old double accepted and accept nothing it refused."
 do_4 = "raw_receipt_evidence takes six arguments (services/human/crates/layerx-human-test-support/src/lib.rs:423): canonical_receipt, pinned_sequencer_receipt_key, previous_state_root, resulting_state_root, global_sequence and the signer, and asserts the pinned key equals signer.verifying_key().to_bytes(). At every four-argument call (journey_faults.rs:519-525, move_money.rs:491, intent_submit.rs:726-734, deposit.rs:857-867, agent_controls_rungs.rs:1517 and the wallet_identity_e2e and withdraw sites) pass the signer's verifying key bytes and the previous_state_root and resulting_state_root the double's receipt() helper already derives from the marker byte (journey_faults.rs:607-612), storing those two roots in ReceiptMaterial when it does not carry them."
 do_5 = "InvalidationReason has the variants GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered (services/agent/crates/layerx-agentd/src/session_revocation.rs:217); agent_controls_rungs.rs:389 and :2594 name GrantRevokedOnChain in place of the retired SessionKeyRevoked. 18.1228.1 ports the same name in session_keys.rs, archive.rs, session_rungs.rs and agent_controls.rs and leaves agent_controls_rungs.rs as this task leaves it."
-do_6 = "Rung stands wherever Level stood, as 10.2.8 left the files; change nothing under services/agent, nothing under services/human/crates/layerx-human-service/src and no test outside the seven files; delete no test and weaken no assertion. The seven targets compile with the build command and the journey_faults and agent_controls_rungs targets pass."
+do_6 = "Rung stands wherever Level stood, as 10.2.8 left the files; change nothing under services/agent, nothing under services/human/crates/layerx-human-service/src and no test outside the seven files; delete no test and weaken no assertion. The seven targets compile with the build command and the agent_controls_rungs tests named in the verify command pass. The archive_fixture journey tests (every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity, crashes_after_every_durable_stage_resume_with_one_effect_per_leg, acknowledgement_gap_faults_converge_without_resubmitting_unknown) and the journey_faults target drive JourneyEngine::advance through CustodySigner::sign_in_scope (src/journeys/engine.rs:967-984, :1205-1231), which since a1c4e2dbb signs only an EIP-1559 call with a complete bind_call disclosure (SignError::InvalidDisclosure, services/agent/crates/layerx-crypto/src/signer.rs:207) while the doubles prepare kernel envelopes, and Reclaim::start compiles BudgetDefund to 0x00030008 (services/human/crates/layerx-intents/src/compile.rs:497), which the fixture registries at agent_controls_rungs.rs:1072-1080, :1092 and journey_faults.rs:90, :107 do not declare; both are qualified by 10.13.5 do_5, 10.0.3 and 18.1149.1 do_1 and do_6, not here (decision.1883)."
 symbols = ["attach_kernel_signature", "verify_kernel_before_submit", "Outbox::enqueue", "legal_transition", "raw_receipt_evidence", "InvalidationReason::GrantRevokedOnChain"]
 touches = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/move_money.rs", "services/human/crates/layerx-human-service/tests/intent_submit.rs", "services/human/crates/layerx-human-service/tests/deposit.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs", "services/human/crates/layerx-human-service/tests/withdraw.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test journey_faults --test move_money --test intent_submit --test deposit --test agent_controls_rungs --test wallet_identity_e2e --test withdraw"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test journey_faults --test agent_controls_rungs"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_controls_rungs -- --exact agent_controls_refuse_a_change_read_below_committed archive_waits_for_committed_fund_disposition control_fixture::pause_revokes_real_authority_promptly_and_resume_is_receipt_gated control_fixture::protocol_and_app_limit_changes_keep_their_real_enforcement_labels archive_fixture::reclaim_contract_is_closed_to_returns_and_rejects_conflicting_reuse archive_fixture::repeated_start_repairs_initial_progress_after_restart archive_fixture::archive_requires_committed_disposition_and_step_up_then_retires_authority_once"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -147455,7 +147582,7 @@ do_5 = "Attempt 2's gate reports src/evidence_node.rs still naming layerx_client
 
 [task.10.98.7]
 title = "Migrate the layerx-human-kms callers of wiring.J44.25 (wave 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.2", "9.1.7", "9.1.8", "18.1119.1", "10.98.13", "10.2.8"]
@@ -152679,6 +152806,67 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.12.6.5]
+title = "Admit the sponsored agent bind envelopes in the attestor agent authority"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["12065.1", "12065.2"]
+capabilities = []
+interfaces = []
+do_1 = "services/wallet/attestor/internal/auth/agent/authority.go (*Authority).Evaluate (:427-434) gains a policy.KindSponsoredBatch branch: the view is *evm.SponsoredBatchClaim; admit when Batch.Account equals the principal agent wallet, every call targets the bind precompile 0x1004 with the bindLayerX selector and zero value and the quote lies within the agent caps, reusing inspectSponsoredBatch (services/wallet/attestor/internal/policy/policy.go:975) for the batch shape; anything else keeps the existing refusal (decision.1881)."
+do_2 = "Evaluate gains a policy.KindAuthorization branch: the view is *evm.AuthorizationClaim; admit only when Address equals the configured paymaster; every other kind keeps the refusal at :430-432."
+do_3 = "services/wallet/attestor/internal/auth/agent/authority_test.go covers TestEvaluateAdmitsSponsoredBatchBindForAgent, TestEvaluateAdmitsPaymasterAuthorizationForAgent and TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile with real claims built the way the internal/policy tests build them; no other test changes."
+symbols = ["Evaluate", "TestEvaluateAdmitsSponsoredBatchBindForAgent", "TestEvaluateAdmitsPaymasterAuthorizationForAgent", "TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile"]
+touches = ["services/wallet/attestor/internal/auth/agent/authority.go", "services/wallet/attestor/internal/auth/agent/authority_test.go"]
+tests = ["services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateAdmitsSponsoredBatchBindForAgent", "services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateAdmitsPaymasterAuthorizationForAgent", "services/wallet/attestor/internal/auth/agent/authority_test.go::TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile"]
+planned_paths = ["services/wallet/attestor/internal/auth/agent/authority_test.go"]
+build_cmd = "go -C services/wallet/attestor build ./internal/auth/agent/ ./internal/policy/"
+verify_cmd = "go -C services/wallet/attestor test -count=1 ./internal/auth/agent/ -run '^(TestEvaluateAdmitsSponsoredBatchBindForAgent|TestEvaluateAdmitsPaymasterAuthorizationForAgent|TestEvaluateRefusesSponsoredBatchOutsideBindPrecompile)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert authority.go and delete authority_test.go; agent subjects return to refusing every sponsored_batch and authorization view."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.12.6.6]
+title = "Challenge the agent once per sponsored bind envelope and confirm the bound agent"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["12.6.5", "18.1113.1"]
+reqs = ["12066.1", "12066.2", "12066.3"]
+capabilities = []
+interfaces = []
+do_1 = "services/wallet/gateway/src/provision/state.ts signStationPayload (:380-395) and the bind_signed branch (:496-510) persist the quoted construction (station quote, sponsored batch and authorization envelopes) on the account_provisioning row before the first signature request and reuse it on every retried call instead of re-fetching the quote (services/wallet/gateway/src/provision/bind.ts:395), so the challenge envelope replays byte for byte (decision.1881)."
+do_2 = "The two envelopes sponsoredBindRequest signs (bind.ts:420 batch digest, :424 eip7702 authorization) each carry their own custody.reauthorization: the first missing one raises AttestorReauthorizationRequired for that envelope's key_id and kind; services/wallet/gateway/src/attestor/client.ts:685-716 matches the supplied reauthorization by key_id and kind instead of assuming a single one."
+do_3 = "In services/wallet/gateway/test/provisioning.test.ts the agent flow of 18.1113.1 do_7 continues past the first challenge: answer the batch-digest challenge, assert the second challenge names kind eip7702_authorization, answer it, then assert the wallets row binding_state bound with layerx_key_id set, one station submit, chain.bindings.has(agentAddress) and the agent bind nonce 1n; the test is named provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active."
+do_4 = "services/wallet/gateway/test/e2e/wallet-custody-production.ts:245-250 moves to the two-challenge flow with the same assertions; no other e2e step changes."
+symbols = ["signStationPayload", "sponsoredBindRequest", "provisionAccount"]
+touches = ["services/wallet/gateway/src/provision/state.ts", "services/wallet/gateway/src/provision/bind.ts", "services/wallet/gateway/src/attestor/client.ts", "services/wallet/gateway/test/provisioning.test.ts", "services/wallet/gateway/test/e2e/wallet-custody-production.ts"]
+tests = ["services/wallet/gateway/test/provisioning.test.ts::provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active"]
+planned_paths = []
+build_cmd = "pnpm --dir services/wallet/gateway exec tsc -p tsconfig.json --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/provisioning.test.ts -t 'two reauthorization challenges'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the five touched files; the agent bind returns to one reauthorization over two envelopes and the flow test to the refusal assertion of 18.1113.1 do_7."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.12.7.1]
 title = "Remove the agent LayerX deposit route, plan and vault inputs"
 status = "done"
@@ -155562,7 +155750,7 @@ title = "Freeze the chain evidence surface: module, store key builder and crate 
 status = "pending"
 mode = "BUILD"
 wave = 17
-requires = ["13.1.9", "13.1.10", "13.1.11", "13.1.12", "13.1.13", "13.23.1", "13.23.2", "13.23.3", "13.24.1", "13.24.2", "13.24.3", "13.25.1", "13.25.2", "13.26.1", "13.26.2", "13.26.3", "13.27.1", "13.27.2", "13.27.3", "13.27.4", "13.28.1", "13.28.2", "13.28.3", "13.28.4", "13.28.5", "13.28.6", "13.28.7"]
+requires = ["13.1.9", "13.1.10", "13.1.11", "13.1.12", "13.1.13", "13.23.1", "13.23.2", "13.23.3", "13.24.1", "13.24.2", "13.24.3", "13.25.1", "13.25.2", "13.26.1", "13.26.2", "13.26.3", "13.27.2", "13.27.3", "13.27.4", "13.28.1", "13.28.2", "13.28.3", "13.28.4", "13.28.5", "13.28.6", "13.28.7"]
 reqs = ["13002.1"]
 capabilities = ["13.0.2"]
 interfaces = ["interface.13.rs-reg-chain-evidence-programs-state-key-j51"]
@@ -155573,7 +155761,7 @@ do_4 = "Declare the submodules program_state, deployment, protocol_head, lifecyc
 do_5 = "Write programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs (planned) with chain_evidence_program_key_uses_module_kv_layout."
 do_6 = "Replace each empty inline module left in programs/crates/layerx-programs-registry/src/chain_proof.rs (`pub mod merkle {}`, `pub mod tx {}`, `pub mod results {}`, `pub mod trust {}`) with `pub mod <name>;` so the library exports verify_tx, verify_tx_result and ChainProofVerifier::advance from src/chain_proof/<name>.rs instead of the tests reaching them through #[path] includes."
 symbols = ["chain_evidence", "programs_state_key", "chain_evidence_program_key_uses_module_kv_layout"]
-touches = ["programs/crates/layerx-programs-registry/src/lib.rs", "programs/crates/layerx-programs-registry/src/chain_evidence.rs", "programs/crates/layerx-programs-registry/src/protocol_evidence.rs", "programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs", "programs/crates/layerx-programs-registry/src/chain_proof.rs"]
+touches = ["programs/crates/layerx-programs-registry/src/lib.rs", "programs/crates/layerx-programs-registry/src/chain_evidence.rs", "programs/crates/layerx-programs-registry/src/protocol_evidence.rs", "programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs", "programs/crates/layerx-programs-registry/src/chain_proof.rs", "programs/crates/layerx-programs-registry/tests/chain_trust.rs", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs::chain_evidence_program_key_uses_module_kv_layout"]
 planned_paths = ["programs/crates/layerx-programs-registry/src/chain_evidence.rs", "programs/crates/layerx-programs-registry/tests/chain_evidence_keys.rs"]
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
@@ -155589,6 +155777,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "programs/crates/layerx-programs-registry/tests/chain_trust.rs:3-6 compiles the whole src tree through #[path = ../src] mod source { pub mod chain_proof; } and :7-8 additionally includes src/chain_proof/trust.rs as its own mod trust, which was the only definition of ChainProofVerifier::advance while chain_proof.rs carried pub mod trust {}. After do_6 makes chain_proof::trust a real module the impl exists twice on the same type (E0592 at src/chain_proof/trust.rs:14, E0034 at tests/chain_trust.rs:141, :165 and seventeen more call sites): delete the two lines :7-8 so advance comes from source::chain_proof::trust, change no assertion and no other line of the test, and apply the same deletion to any other test under programs/crates/layerx-programs-registry/tests that pairs the whole-tree include with a direct include of a module do_6 turns real."
+do_8 = "The qualification of this task also checks the dependent crates of the registry (cargo check --all-targets over the programs workspace dependents), where programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:425, :497, :510, :523 and :536 still call VerifiedReplay::verify_with_batch_context with the eight arguments that preceded 13.30.4 and 13.30.5 (db2f3d738, 08d74d55d). Pass the ten arguments of src/step.rs:466-476 in the order tests/verified_step.rs:534-544 passes them (commit, host_store_root and host_multistore_proof after the header, then the metadata proof, authority bytes, hosts bytes and catalogue), building the trusted fixture the way verified_step.rs builds it; change no assertion."
 
 [task.13.0.3]
 title = "Integrate the sandbox staticlib exports with the kernel host at the merged height"
@@ -158551,7 +158741,7 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1", "13.27.5"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1", "13.27.5", "13.27.6"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
@@ -158587,6 +158777,7 @@ do_12 = "Attempt 28 reverts at the escrow registerAccount with LXP_VERSION_UNSUP
 do_13 = "Attempt 29 (18e0e0955) reached the ordinary ABI-v3 call, which settled with status 0 and kind 1; callHandler (precompiles/layerxprograms/method_call.go:45) packs outcome.Response as the third output and the market guest answers the terminal receipt envelope ('LXP/programs/terminal-applied-legs/v1' ...), so the ladder's expectation of empty response bytes at method_sandbox_execute_test.go:293 is wrong. Assert only plainOutput[0] == int32(0) and plainOutput[1] == uint8(1), as determinism_test.go:183-184 does, then continue to the sandboxExecute call and the SandboxUsageReceipt assertions; nothing else changes."
 do_14 = "Attempt 30 (4b77fc397) settled the identical ABI-v3 payload through the call handler, and the funded sandboxExecute then reverted LXP_ERR_NON_CANONICAL. Every host refusal on the sandbox path reports that code: admit_host (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:480-570, collapsed at src/modules/programs/sandbox.c:104-107 and by the panic guard at host_ffi.rs:20), the final reserve (:612-660), validate_settlement_context (:662-700) and the escrow settlement (:770-774). The test's lease id, escrow, asset, fee destination, digest, fee schedule v1, batch 100 and expected_sequence 1 already match the stored lease. Change the sandboxExecute output assertion at precompiles/layerxprograms/method_sandbox_execute_test.go:317 the same way as do_13: assert only output[0] == int32(0) and output[1] == uint8(1). Keep everything else. If sandboxExecute still reverts, the revert string names the refusing check (task 13.27.5, decision.1856); record that code with the three stored states and stop."
 do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUENCE_GAP (-300) at the ledger check src/ledger/lxp_apply.c:319-322 on the escrow-to-fees leg: a sandbox activity binds no ledger admission (src/protocol/lxp_kernel.c:486-487), so layerx_programs_call_transfer_apply (src/modules/programs/call.c:2276-2325) compares the activity's global sequence (ReadLastSequence+1, the WithSequence value of precompiles/layerxprograms/submit.go:64-87) with the main account's next_sequence, which fundFeeLimit (precompiles/layerxprograms/method_sandbox_execute_test.go:153-164) seeds from ReadIdentitySequence. In that closure seed next_sequence from ReadLastSequence(ctx, did)+1 instead of ReadIdentitySequence; keep seedAccount and every assertion including require.Equal(t, sequence, main.NextSequence), keep the initial identity-sequence seed at :89 that sandboxFund and sandboxActivate need (src/modules/programs/transfer.c:233-235 uses the account sequence there), and change nothing else, not expected_sequence 1, the digest, the fee limit, the ABI-v3 payloads, the ladder or method_sandbox_execute.go. The kernel's use of the account sequence in transfer.c and the global sequence in call.c for one activity type is recorded in qualification.kvx and is not this task's to change. If the gate then shows a different named code, record it and stop."
+do_16 = "Attempt 33 reached the terminal step and reverted LXP_FATAL_INVARIANT from src/modules/programs/call.c:1419-1422, a kernel contract gap that task 13.27.6 (decision.1880) closes; this task requires 13.27.6 and changes nothing in response to that revert. Re-qualify on a base that includes 13.27.6 with the attempt 33 files (ef3be2b2f) unchanged."
 
 [task.13.27.2]
 title = "Serve sandboxFund for lease escrow funding legs"
@@ -158711,6 +158902,37 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
 rollback = "Revert the five touched files; every sandbox host refusal again reports LXP_ERR_NON_CANONICAL and the kernel debit again collapses to ReceiptMismatch."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.13.27.6]
+title = "Complete a sandboxed SUCCESS terminal from the published sandbox usage result"
+status = "done"
+mode = "BUILD"
+wave = 16
+requires = ["13.27.5"]
+reqs = ["13268.4"]
+capabilities = []
+interfaces = []
+do_1 = "A sandboxed call settles occupancy through its lease escrow (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:765-770), so the runtime builds no ordinary occupancy authority for it (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2919) and occupancy->applied is never set (src/modules/programs/occupancy.c:823 is the only writer); layerx_programs_call_terminal_begin (src/modules/programs/call.c:1419-1422) then returns LXP_FATAL_INVARIANT for every sandboxed protocol-v2/v3 SUCCESS. In terminal_begin, when sandbox_for_call(token) (src/modules/programs/sandbox.c:562) names an active activity with operation SANDBOX_EXECUTE whose usage_result.published is set, accept that result in place of value->occupancy->applied; keep the FATAL for every other SUCCESS without an applied bridge (decision.1880)."
+do_2 = "In layerx_programs_call_terminal_publish (call.c:1630-1645) fill the outcome occupancy fields of such a sandboxed SUCCESS from the activity: occupancy_byte_batches from usage_result.occupancy, occupancy_fee_units from usage_result.occupancy_fee, occupancy_asset_id from the lease asset of the activity, occupancy_evidence_digest the sha256 of the published usage receipt bytes, occupancy_transfer_root from usage_result.transfer_root, so that src/protocol/lxp_receipt.c:216-221 accepts the outcome; expose the activity fields through one read accessor in src/modules/programs/sandbox.c beside layerx_programs_call_sandbox_usage_result_byte (:652), declared in include/layerx/programs.h:914 next to it, and read nothing else of the activity from call.c."
+do_3 = "Add sandbox_execute_success_publishes_occupancy_from_usage to tests/codec/lxp_test_sandbox_lifecycle.c, registered in main (:529): hand-set an active SANDBOX_EXECUTE activity with a published usage result the way sandbox_execute_lifecycle_accepts_call_token (:254-307) hand-sets active_sandbox, drive terminal_begin and terminal_publish for a SUCCESS terminal whose call value has no applied occupancy, and assert LXP_OK and the five occupancy outcome fields; assert that the same terminal without an active sandbox activity still returns LXP_FATAL_INVARIANT. Change no existing case and no assertion."
+do_4 = "Do not touch precompiles/layerxprograms, the Rust runtime or the sandbox crate: 13.27.1 (which requires this task) keeps its Go handler and test unchanged and re-qualifies on a base that includes this task."
+symbols = ["layerx_programs_call_terminal_begin", "layerx_programs_call_terminal_publish", "sandbox_execute_success_publishes_occupancy_from_usage"]
+touches = ["src/modules/programs/call.c", "src/modules/programs/sandbox.c", "include/layerx/programs.h", "tests/codec/lxp_test_sandbox_lifecycle.c"]
+tests = ["tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_success_publishes_occupancy_from_usage"]
+planned_paths = []
+build_cmd = "make -C . programs-release-build"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_lifecycle && ./build/tests/kernel/codec/lxp_test_sandbox_lifecycle sandbox_execute_success_publishes_occupancy_from_usage"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the four touched files; every sandboxed SUCCESS terminal returns to LXP_FATAL_INVARIANT."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -167735,7 +167957,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.5.6]
 title = "Remove the replay golden release gate from CI and the core gate inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["16.2.2", "16.4.5", "8.51.2"]
@@ -167750,7 +167972,7 @@ do_4 = "Delete the platform.yml replay-matrix row from the EXCLUDED table at scr
 do_5 = "Rely on wiring.J58.2 to drop the replay-matrix ReleaseGate at tools/platform/release/src/main.rs:144-148 and its expectations at tools/platform/release/tests/registries.rs:147."
 do_6 = "Create tools/ci/tests/test_replay_golden_ci.py (planned) with ReplayGoldenCiTest.test_core_gates_and_routing_pass_without_replay_golden, which runs scripts/workspace/check-core-gates.sh and scripts/ci/runner-routing-check.sh asserting exit 0 for both, asserts scripts/ci/replay-matrix.sh is absent and asserts no platform.yml job is named replay-matrix."
 symbols = ["ReplayGoldenCiTest", "test_core_gates_and_routing_pass_without_replay_golden"]
-touches = [".github/workflows/platform.yml", "scripts/ci/replay-matrix.sh", "scripts/workspace/check-core-gates.sh", "tools/workspace/core-gates.txt", "scripts/ci/runner-routing-check.sh", "tools/ci/tests/test_replay_golden_ci.py"]
+touches = [".github/workflows/platform.yml", "scripts/ci/replay-matrix.sh", "scripts/workspace/check-core-gates.sh", "tools/workspace/core-gates.txt", "scripts/ci/runner-routing-check.sh", "tools/ci/tests/test_replay_golden_ci.py", ".github/workflows/wallet-go-test.yml"]
 tests = ["tools/ci/tests/test_replay_golden_ci.py::ReplayGoldenCiTest.test_core_gates_and_routing_pass_without_replay_golden"]
 planned_paths = ["tools/ci/tests/test_replay_golden_ci.py"]
 build_cmd = "bash -n scripts/workspace/check-core-gates.sh"
@@ -167766,6 +167988,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "The task gate also runs scripts/ci/runner-routing-check.sh, which fails at main on six jobs outside the first six steps: .github/workflows/publish-images.yml jobs plan (:70), images (:110), images-dependent (:155) and gate (:200) and .github/workflows/wallet-go-test.yml jobs attestor (:42) and ceremony (:59) carry runs-on ubuntu-latest. tools/ci/tests/publish-images.test.sh:127-129 forbids CI_LINUX_RUNNER anywhere in publish-images.yml (task 18.1054.1 do_2 removed it), so those four jobs cannot carry the routed expression: add four rows to the EXCLUDED table of scripts/ci/runner-routing-check.sh (publish-images.yml plan, images, images-dependent and gate; reason class publish; original ubuntu-latest), next to the existing publish-images.yml rows. No test forbids routing wallet-go-test.yml: write the ROUTED expression of scripts/ci/runner-routing-check.sh:80-85 (the fork pull-request guard, vars.CI_LINUX_RUNNER, the ubuntu-latest fallback) on the runs-on line of attestor (:42) and ceremony (:59) exactly as the routed jobs of platform.yml write it (decision.1877). Change nothing else in those two workflow files."
 
 [task.16.6.1]
 title = "Retire the beta deployment script for the retired root contracts"
@@ -180245,7 +180468,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -181373,6 +181596,22 @@ ac_2 = "A manifest whose operations key is not an O identifier, whose group is e
 title = "Wallet fee estimates simulate the intended sender"
 ac_1 = "layerx wallet estimate-fee --from <address> <unsigned hex> (tools/platform/cli/src/wallet.rs:56) sends eth_estimateGas with the unsigned fields decoded at tools/platform/cli/src/wallet.rs:392 plus from equal to the given address in lowercase, so the served estimator (rpc/simulate.go:117) judges balance and caller against that sender rather than the zero address."
 ac_2 = "estimate-fee without --from, or with a --from that is not a 20-byte hexadecimal address, fails before any RPC request, and estimate-fee never signs or broadcasts."
+
+[req.181240]
+title = "grant.issue and grant.draw prepare layerxledger 0x101A calls that the disclosure decoder admits"
+ac_1 = "native_alias_target maps grant.issue and grant.draw to layerxledger 0x101A with ordinals 7 (issueGrant) and 6 (draw), and no alias maps to a layerxpay selector the 0x101B disclosure branch does not admit."
+ac_2 = "The prepared grant.issue and grant.draw calls pass layerx_crypto::disclosure::bind_call for the preparing account, and grant_draw_targets_the_ledger_precompile and grant_issue_targets_the_ledger_precompile prove it."
+
+[req.181243]
+title = "MCP web payments settle on layerxledger 0x101A with a millisecond expiry"
+ac_1 = "payment_call builds payExact, draw and the issueGrant grant step for layerxledger 0x101A, and the receipt verifier accepts PaymentExact, PaymentDrawn and PayerGrantIssued logs only from the 0x101A ledger address."
+ac_2 = "The approved disclosure expiry is wall-clock unix seconds (now plus min(offer max_timeout_seconds, APPROVAL_WINDOW)); the payExact fifth word is that expiry in milliseconds and the draw fifth word is the receiver sequence from layerxledger nextSequence; neither is a block height."
+ac_3 = "The agent host payer prepares the grant as the ledger issueGrant call GrantTerms::prepare_grant builds and the draw with the receiver sequence read through nextSequence; the host binary and its payer tests compile and pass against the ledger GrantTerms."
+
+[req.181242]
+title = "agent.register and session.open answer a prepared unsigned transaction the owner signs"
+ac_1 = "agent.register and session.open posted through handle_rpc answer AuthorityResponse<Prepared> whose chain id, nonce and fees were read from the node at preparation, bounded by fee_limit, and the daemon signs and broadcasts nothing for either."
+ac_2 = "The schema (identity.kvx, golden/identity.kvx, golden/v1.kvx, v1.kvx) names AuthorityResponse<Prepared> for both operations, carries no AgentRecord and no refused_pending_bootstrap_artifact disposition, and states that both run under the owner session credential."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -183180,6 +183419,62 @@ req = "181244.2"
 scenario = "Given estimate-fee with no --from, with --from 0x11, or with a 40-digit non-hex sender, when it runs, then it fails and the loopback RPC receives no request."
 contract = "contracts/platform-cli.md#cli-cli-commands"
 test = "tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_sends_the_intended_sender (planned)"
+qualification = "UNRUN"
+
+[acceptance.18.1240.1]
+feature = "18"
+req = "181240.1"
+scenario = "Given the MCP catalogue, when grant.issue and grant.draw are prepared, then both calls target address suffix 0x101a with ordinals 7 and 6."
+contract = "contracts/mcp-tools.md#wallet-send"
+test = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_draw_targets_the_ledger_precompile"
+qualification = "UNRUN"
+
+[acceptance.18.1240.2]
+feature = "18"
+req = "181240.2"
+scenario = "Given a prepared grant.issue or grant.draw call, when it is passed through bind_call with the preparing account, then the disclosure binds without error."
+contract = "contracts/mcp-tools.md#wallet-send"
+test = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_issue_targets_the_ledger_precompile"
+qualification = "UNRUN"
+
+[acceptance.18.1243.1]
+feature = "18"
+req = "181243.1"
+scenario = "Given a priced web offer, when web.fetch prepares its payment, then the payExact, draw and issueGrant calls target 0x101A and the verifier takes payment logs only from that address."
+contract = "contracts/mcp-tools.md#web-fetch"
+test = "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs::web_fetch_pays_with_pay_exact"
+qualification = "UNRUN"
+
+[acceptance.18.1243.2]
+feature = "18"
+req = "181243.2"
+scenario = "Given a prepared exact payment at block height 7, when its payExact words are decoded, then the fifth word equals the disclosure expiry times 1000 and exceeds a realistic block time in milliseconds."
+contract = "contracts/mcp-tools.md#web-fetch"
+test = "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs::web_fetch_pay_exact_expiry_is_the_disclosure_expiry_in_milliseconds"
+qualification = "UNRUN"
+
+[acceptance.18.1242.1]
+feature = "18"
+req = "181242.1"
+scenario = "Given an owner session credential and an owner-signed binding consent, when agent.register is posted through handle_rpc, then the answer is a prepared unsigned bindLayerX call to 0x1004 with chain id, nonce and fees set."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs::agent_register_prepares_bind_layerx"
+qualification = "UNRUN"
+
+[acceptance.18.1242.2]
+feature = "18"
+req = "181242.2"
+scenario = "Given a provisioned session key, when session.open is posted through handle_rpc, then the answer is a prepared unsigned grantSession call to 0x101C naming the session address and no transaction is broadcast."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs::session_open_prepares_grant_session_for_the_session_address"
+qualification = "UNRUN"
+
+[acceptance.18.1243.3]
+feature = "18"
+req = "181243.3"
+scenario = "Given ledger GrantTerms, when the host payer prepares a grant and a draw, then the grant is the issueGrant call GrantTerms::prepare_grant builds and the draw carries the receiver sequence read through nextSequence, and the host binary compiles."
+contract = "contracts/agent-api.md#agent-register"
+test = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs::web_grant_submits_a_signed_ledger_issue_grant_call"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -186731,10 +187026,10 @@ do_3 = "In the fixtures sign the prepared call with a secp256k1 test signer thro
 do_4 = "If the engine after 10.13.5 still cannot carry the defund leg, stop and record the exact prepared and signed bytes; change no file under src/ other than src/agents/reclaim.rs."
 symbols = ["Reclaim::start", "prepare_bound", "sign_disclosed_call", "transaction_hash"]
 touches = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"]
-tests = []
+tests = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs::archive_fixture::every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs::archive_fixture::crashes_after_every_durable_stage_resume_with_one_effect_per_leg", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs::archive_fixture::acknowledgement_gap_faults_converge_without_resubmitting_unknown"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim --test journey_faults --test agent_controls_rungs"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim --test journey_faults --test agent_controls_rungs"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -188076,6 +188371,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "In the beforeAll of services/wallet/gateway/test/provisioning.test.ts keep the signed inventory of :201-219 and add approveInventory(keys: WalletInventoryKey[]) beside it exactly as services/wallet/gateway/test/provisioning-station.test.ts:226-235 does: decode inventoryPayload, set sequence to String(++inventorySequence) and keys to the argument, re-sign with authority.privateKey (ES256, ieee-p1363) and rewrite inventoryFile, which both the gateway (WALLET_CUSTODY_INVENTORY_FILE, :291) and the five attestors (ATTESTOR_INVENTORY_FILE, :244) reread on every call; import WalletInventoryKey from ../src/agent/authority.js. Every generate in this file goes through requireInventoryKey (services/wallet/gateway/src/attestor/client.ts:763) and every bind signature through requireInventoryKey(keyId, 'sign') (services/wallet/gateway/src/attestor/client.ts:657), and one inventory entry cannot admit both (services/wallet/gateway/src/agent/authority.ts:95-98)."
 do_6 = "In the flow test of do_3, before the first POST /v1/wallet/provision call approveInventory with generate admissions {key_id: `wallet:${user}:standard:secp256k1:0`, owner: user, curve: 'secp256k1', epoch: 0, public_key: '', operations: ['generate']} and {key_id: `account:${user}:standard:ed25519:0`, owner: user, curve: 'ed25519', epoch: 0, public_key: '', operations: ['generate']}; after that call read the provisioning row (evm_key_id, ed_key_id, ed_public_key) and the wallets row, approveInventory again with the two keys carrying their generated public keys and operations ['sign'] (services/wallet/gateway/test/provisioning-station.test.ts:469), then POST again and assert 200, state active, bound, and the station, bind_tx_hash and audit ['bind'] facts of do_3; the first call's answer is asserted as observed (a custody_inventory_pending 503 or the state src/provision/state.ts:484-485 returns without the sign admission) and recorded in qualification.kvx when it is neither. Apply the same two approvals in the resume test of do_4 before its first provisionAccount and in 'provisioning refuses and records an address already bound to a different DID', and in the backfill test approve generate for `wallet:${owner}:standard:secp256k1:0` before its first call and generate then sign for the migrated wallet's `account:${owner}:standard:ed25519:0` around its POST; the agent's bind signature is its own Ed25519 key and needs no entry, but the agent wallet must be attestor-held (services/wallet/gateway/src/provision/state.ts:383 refuses wallet_key_missing otherwise): create it migrated with an attestor key as test/backfill-command.test.ts:110-120 does, approve generate for `wallet:${agentUserId}:agent:secp256k1:0` before it is generated and sign with its public key before the bound provisionAccount call, register the principal with its agent_policies row (src/db/agents.ts:168 or :272) instead of a bare agent_principals insert, pass custody.origin from a signed agent request as src/routes/agent.ts:121 does (state.ts:389-390 refuses agent_request_required otherwise), and give the backfill outcome assertion the outcome as its message so a failure prints its reason; keep the awaiting_agent_signature expectation."
+do_7 = "In the backfill test keep the migrated-wallet flow, the awaiting_agent_signature outcome and the impostor agent_signature_invalid refusal of do_6, then drive the agent exactly as POST /v1/agent/provision does (services/wallet/gateway/src/routes/agent.ts:112-124): build origin as a signed POST /v1/agent/provision request whose body is {bind_signature: agent.sign(message)} (agentRequestDigest from src/agent/verify.ts) and call stateModule.provisionAccount(d, { kind: 'agent', did: agent.did, agentSignature: agent.sign(message), custody: { origin } }); assert it rejects with AttestorReauthorizationRequired (src/attestor/client.ts:296, thrown at :713) whose code is agent_reauthorization_required, whose keyId is wallet:${agentUserId}:agent:secp256k1:0 and whose request parses to kind eth_sign_digest, key_id that id, origin.did agent.did, origin.method POST /v1/agent/provision and construction.kind sponsored_batch with construction.account equal to the agent address; then assert the account_provisioning row for the agent wallet is state bind_signed with bind_signature equal to agent.sign(message) without 0x and station_request null, that the station received exactly one quote and no submit for the agent address, that chain.bindings.has(agentAddress) is false and sentTo(agentAddress) and sentFrom(agentAddress) are empty, and that the wallets row keeps binding_state pending, layerx_key_id null and did did:layerx:${agent.publicKeyHex}. Do not assert a bound agent (the retired :661-669 assertions): the sponsored agent bind cannot complete under the current product because (*Authority).Evaluate (services/wallet/attestor/internal/auth/agent/authority.go:427-434) refuses every sponsored_batch and eip7702_authorization view for an agent subject, and signStationPayload (services/wallet/gateway/src/provision/state.ts:380-395) carries one custody.reauthorization for the two envelopes sponsoredBindRequest signs (services/wallet/gateway/src/provision/bind.ts:420, :424) over a quote re-fetched on every call (bind.ts:395) and persisted only after both (state.ts:508-510); finding 18.1113.1.2 records it and tasks 12.6.5 and 12.6.6 (decision.1881) carry the bound-agent assertion."
 
 [task.18.1180.1]
 title = "Issue #1180: Carry the committed proof from the x402 seller's settlement response to the buyer's committed gate"
@@ -188344,7 +188640,7 @@ symbols = ["signed_transaction"]
 touches = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs", "services/agent/crates/layerx-agentd/tests/migration.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/operator.rs", "services/agent/crates/layerx-agentd/tests/operator_route.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/recovery.rs::restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema", "services/agent/crates/layerx-agentd/tests/migration.rs::every_supported_prior_schema_migrates_forward_without_changing_core_bytes", "services/agent/crates/layerx-agentd/tests/unknown.rs::acknowledgement_loss_is_resolved_only_by_the_existing_receipt", "services/agent/crates/layerx-agentd/tests/operator.rs::catalogue_routes_every_operator_action_without_protocol_mutating_power", "services/agent/crates/layerx-agentd/tests/operator_route.rs::human_socket_operator_commands_reach_the_audited_admin_dispatch"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test recovery --test migration --test unknown --test operator --test operator_route"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test recovery --test migration --test unknown --test operator --test operator_route"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -188357,6 +188653,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "tests/unknown.rs:60-90 FaultInjectedNode implements ReceiptLookup through receipt_by_idempotency_key and resend_exact, members the trait no longer has: ReceiptLookup (services/agent/crates/layerx-agentd/src/outbox/unknown.rs:37-39) has the single member sequencer_endpoint(&self) -> &SequencerEndpoint, implemented for SequencerEndpoint. Serve the lookup from a loopback SequencerEndpoint the way tests/unknown_receipt_lookup.rs:257 serve(exchanges) does, scripting the receipt-missing, unverified and executed answers the fault injection used to return, pass the endpoint to resolve_unknown, and keep every assertion on state and observation (ResolutionObservation::ExecutedReceipt at :281, ReceiptMissing at :333) exactly as written."
 
 [task.18.1203.1]
 title = "Issue #1203: Refuse operator verification retries for settlement-anchored requests"
@@ -188423,8 +188720,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1205: Port the degraded-mode tests to rungs and the current metric labels"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["18.1199.1", "18.1206.1"]
+wave = 2
+requires = ["18.1199.1", "18.1206.1", "18.1200.1"]
 reqs = ["181205.1"]
 capabilities = []
 interfaces = []
@@ -188452,7 +188749,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1206.1]
 title = "Issue #1206: Move the remaining kernel-envelope signing callers to attach_kernel_signature and verify_kernel_before_submit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1199.1"]
@@ -188468,7 +188765,7 @@ symbols = ["attach_kernel_signature", "verify_kernel_before_submit", "a_foreign_
 touches = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/agent/crates/layerx-agentd/tests/budget_create.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::a_foreign_key_signature_over_the_owner_preimage_is_refused", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs::the_bound_owner_key_still_verifies"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test unknown --test w7_owner_binding --test budget_durable_limits --test budget_create"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test w7_owner_binding --test budget_durable_limits --test budget_create"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test w7_owner_binding"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -188482,6 +188779,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "At services/agent/crates/layerx-agentd/tests/budget_create.rs:18-47 the ExecutedReceipt literal gains the signing_key field 9.21.8 (98b857055) added to layerx_client::sequencer::ExecutedReceipt (services/agent/crates/layerx-client/src/sequencer.rs:149, the 32-byte ed25519 key served with the receipt): signing_key: ed25519_dalek::SigningKey::from_bytes(&[8; 32]).verifying_key().to_bytes(), the derivation services/agent/crates/layerx-client/tests/sequencer_receipts.rs:235-237 uses; this is the only ExecutedReceipt literal in the crate's tests and budget_create_identity never reads the key (decision.1871)."
+do_7 = "tests/budget_durable_limits.rs:509-532 core_create_identity_is_read_from_the_signed_v1_and_v2_bytes reads BudgetCreateIdentity (services/agent/crates/layerx-agentd/src/budget/create.rs:75-91), which carries sender: [u8; 20] (the recovered EVM sender) and no owner field, and budget_create_identity takes a BudgetIdentitySource, implemented for [u8] and for (&[u8], &SequencerReceipt) (create.rs:131, :183) and not for Vec<u8>: pass byte slices (exact_bytes() and canonical_bytes.as_slice()), replace the owner assertion with assert_eq!(identity.sender, <the fixture signer EVM address>) derived from the same signing key that signed the v1 bytes, and keep every other field assertion exactly as written. The same two slice fixes apply at :265-269 where the signing calls change."
+do_8 = "tests/unknown.rs FaultInjectedNode (:60-90) still implements the retired ReceiptLookup members receipt_by_idempotency_key and resend_exact; that outbox port belongs to 18.1200.1 do_5, which requires this task. Here change only the signing lines of tests/unknown.rs that do_3 names, and the build gate no longer compiles the unknown target."
 
 [task.18.1218.1]
 title = "Issue #1218: Track the eth_gasPrice integration suite to the base fee plus 10% plus the default priority fee"
@@ -188547,8 +188846,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1221: Encode the receipt lookup's achieved evidence as a write rung"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["18.1199.1", "18.1206.1"]
+wave = 2
+requires = ["18.1199.1", "18.1206.1", "18.1200.1"]
 reqs = ["181221.1", "181221.2"]
 capabilities = []
 interfaces = []
@@ -188805,7 +189104,7 @@ symbols = ["agentEnvelopeVersion", "decodeAgentEnvelopeResponse", "acceptedAgent
 touches = ["sdk/platform/go/http.go", "sdk/platform/go/agent_envelope_major2_test.go", "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs", "services/agent/schema/agent-api/golden/agent-http-request.json", "services/agent/schema/agent-api/golden/agent-http-success.json", "services/agent/schema/agent-api/golden/agent-http-refusal.json"]
 tests = ["sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesDaemonRequestGolden", "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeDecodesDaemonResponseGoldens", "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs::agent_http_envelope_goldens_round_trip"]
 planned_paths = ["services/agent/schema/agent-api/golden/agent-http-request.json", "services/agent/schema/agent-api/golden/agent-http-success.json", "services/agent/schema/agent-api/golden/agent-http-refusal.json"]
-build_cmd = "go -C sdk/platform/go build . && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "go -C sdk/platform/go build . && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test rpc_surface_major_two"
 verify_cmd = "go -C sdk/platform/go test -count=1 . -run '^(TestAgentEnvelopeEncodesDaemonRequestGolden|TestAgentEnvelopeDecodesDaemonResponseGoldens)$' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test rpc_surface_major_two agent_http_envelope_goldens_round_trip"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -188854,8 +189153,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1233: Read the requested asset's ledger balance for read.balance instead of the native EVM balance"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["18.1199.1", "18.1206.1"]
+wave = 2
+requires = ["18.1199.1", "18.1206.1", "18.1200.1"]
 reqs = ["181233.1"]
 capabilities = []
 interfaces = []
@@ -189189,7 +189488,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1246.1]
 title = "Issue #1246: Present the identity session as an Authorization bearer when faucet.request posts px_requestFunds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1245.1"]
@@ -189224,7 +189523,7 @@ title = "Issue #1159: Make the KMS provider test disclosure matches exhaustive s
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["10.2.8"]
 reqs = ["181159.1"]
 capabilities = []
 interfaces = []
@@ -189232,7 +189531,7 @@ do_1 = "In mutated_native (services/human/crates/layerx-human-kms/tests/provider
 do_2 = "In the mutation match at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:82-97 add explicit arms for the same eight variants that panic as unreachable, beside the OwnerRotation arm at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:94-96; add no wildcard arm in either match, so the compiler keeps refusing the next new variant."
 do_3 = "Keep the existing IdentityRegistration, BudgetCreate and RecoveryPolicy mutations and counts, every assertion of native_setup_refuses_wrong_accounts_limits_and_payload_shapes (services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:233) and of the owner_bootstrap caller (services/human/crates/layerx-human-kms/tests/provider/owner_bootstrap.rs:70) unchanged; change no source file and remove no test."
 symbols = ["mutated_native", "native_setup_refuses_wrong_accounts_limits_and_payload_shapes"]
-touches = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"]
+touches = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs", "services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs", "services/human/crates/layerx-human-kms/tests/provider/owner_bootstrap.rs", "services/human/crates/layerx-intents/src/owner_activity.rs"]
 tests = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs::native_setup_refuses_wrong_accounts_limits_and_payload_shapes"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
@@ -189248,6 +189547,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The provider target also compiles services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs, whose rotation helper (:128-140) builds layerx_intents::Intent::v3(IntentKind::NativeOwnerRotation(value.clone())) and compiles it only to assert that the compiled payload equals value.payload(); task 10.98.13 deleted IntentKind::NativeOwnerRotation (services/human/crates/layerx-intents/src/vocabulary.rs), so the target fails with E0599. Sign checked(value.payload())? directly in rotation, delete the intent construction, the compile call and the parity assertion, remove registry() if it becomes unused, and keep every case of provider_cases (:143) and kms_owner_rotation_disclosure (:532) exactly as written."
+do_5 = "The provider target also compiles tests/provider/owner_bootstrap.rs, whose :63 and :69 call attach_signature with the four-argument native form (unsigned envelope bytes, 64-byte ed25519 signature, 32-byte owner key, registry) that a1c4e2dbb (10.98.7) replaced with the EIP-1559 form (services/human/crates/layerx-intents/src/owner_activity.rs:109-113). Restore the native form in owner_activity.rs under the name attach_native_signature with the body a1c4e2dbb removed (decode_unsigned_activity, the authority check against the owner key, the EnvelopeBuilder re-encode carrying the signature) and call it at owner_bootstrap.rs:63 and :69; the EIP-1559 attach_signature stays as written, no assertion in owner_bootstrap.rs changes, and 10.21.4 retires attach_native_signature with the envelope (decision.1885)."
 
 [task.18.1201.1]
 title = "Issue #1201: Regenerate the budget golden vectors to the kernel canonical payloads the compiler now emits"
@@ -189336,6 +189637,129 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-tools-ops"
 rollback = "Revert the two touched files; estimate-fee returns to simulating without a sender."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1240.1]
+title = "Issue #1240: Map grant.issue and grant.draw onto layerxledger 0x101A and bind the prepared calls"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181240.1", "181240.2", "9052.2", "9052.3"]
+capabilities = []
+interfaces = []
+do_1 = "services/agent/crates/layerx-mcp/src/catalogue.rs:1062-1063 native_alias_target maps grant.issue (ordinal 7) and grant.draw (ordinal 6) to the 0x101b suffix, while the disclosure decoder admits issueGrant (0xd0d53480) and draw (0x2e89490f) only under 0x101a (services/agent/crates/layerx-crypto/src/disclosure/call.rs:319-336) and the layerxpay executor refuses every unknown selector (precompiles/layerxpay/layerxpay.go:93-96): map both aliases to 0x101a and keep the ordinals, which are already the ledger ordinals (call.rs:388-389) (decision.1878)."
+do_2 = "In services/agent/crates/layerx-mcp/tests/alias_precompiles.rs rename grant_draw_targets_the_pay_precompile (:63) to grant_draw_targets_the_ledger_precompile and assert address[18..] == [0x10, 0x1a] at :89-95; add grant_issue_targets_the_ledger_precompile with the same shape for grant.issue; in both, pass the prepared call as an Eip1559Call through layerx_crypto::disclosure::bind_call(&call, options.from) and assert it returns Ok, so the prepared aliases are proven admissible."
+do_3 = "Change nothing else in catalogue.rs: wallet.send, token.transfer, token.create and token.mint keep 0x101a and their ordinals, and wallet_send_targets_the_ledger_precompile stays as written."
+symbols = ["native_alias_target", "grant_draw_targets_the_ledger_precompile", "grant_issue_targets_the_ledger_precompile"]
+touches = ["services/agent/crates/layerx-mcp/src/catalogue.rs", "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_draw_targets_the_ledger_precompile", "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_issue_targets_the_ledger_precompile"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test alias_precompiles"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test alias_precompiles -- --exact grant_draw_targets_the_ledger_precompile grant_issue_targets_the_ledger_precompile"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the two touched files; the grant aliases return to the 0x101B target that the disclosure decoder refuses."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1243.1]
+title = "Issue #1243: Settle MCP web payments on layerxledger 0x101A with a millisecond expiry and a ledger receipt address"
+status = "done"
+mode = "BUILD"
+wave = 10
+requires = ["9.98.1"]
+reqs = ["181243.1", "181243.2", "9055.1", "9055.3"]
+capabilities = []
+interfaces = []
+do_1 = "services/agent/crates/layerx-mcp/src/tools/web.rs:519-526 payment_call takes the PrecompileTarget as an argument: prepare_pay_exact (:530) and prepare_draw (:558) use PrecompileTarget::Ledger, and the grant step prepare_budget (:548-555) becomes prepare_grant, building layerxledger 0x101A issueGrant(bytes) (selector 0xd0d53480) with the grant terms encoded as services/agent/crates/layerx-crypto/src/disclosure/call.rs:188-219 encodes them (GRANT_OPERATION 7 at web.rs:61 is already the ledger ordinal); check_budget (:1215) becomes check_grant matching the PayerGrantIssued log at the 0x101A ledger address, check_receipt (:1258) accepts PaymentExact and PaymentDrawn only at the 0x101A ledger address, and PAY_PRECOMPILE (:58-60) is deleted once no site reads it (decision.1878)."
+do_2 = "spend_preparation (web.rs:1167-1192) sets Disclosure.expiry and Prepared.expiry to the clock unix seconds plus min(offer max_timeout_seconds, APPROVAL_WINDOW) and never to a height, because services/agent/crates/layerx-agentd/src/policy/approval.rs:700-712 compares that value with clock seconds; ExactTerms and GrantTerms carry expires_at_ms equal to that expiry times 1000, which fills the payExact fifth word (precompiles/layerxledger/payments.go:157-162 decodes it as ExpiresAt; modules/layerxledger/keeper/payexact.go:22-28 compares it with block time in milliseconds) and the grant expiry; prepare_draw's fifth word is the receiver sequence read through the layerxledger nextSequence view, not current_height (:566). The height window expires_at_sequence of the approval ticket (web.rs:1118) stays as written."
+do_3 = "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs: the assertions at :52-56 and :114 expect the ledger target (address ending 0x10, 0x1a); :111 expects the grant call to be issueGrant at 0x101A with selector 0xd0d53480 instead of budgetCreate; add web_fetch_pay_exact_expiry_is_the_disclosure_expiry_in_milliseconds asserting the payExact fifth word equals the disclosure expiry times 1000 and exceeds a realistic block time in milliseconds, independent of the height 7 passed at :48; keep web_fetch_pays_with_pay_exact and web_binding_names_a_receipt_key_index passing."
+do_4 = "web.rs:534-536 keeps address_word for the 20-byte payer and recipient words; whether web payments must carry 32-byte ledger account ids as the ramp producer does (services/platform/ramps/toolkit/src/lib.rs:345-346 ledger_account) is recorded in qualification.kvx and is not this task's to change."
+symbols = ["payment_call", "prepare_grant", "check_grant", "check_receipt", "spend_preparation", "web_fetch_pay_exact_expiry_is_the_disclosure_expiry_in_milliseconds"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs::web_fetch_pays_with_pay_exact", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs::web_fetch_pay_exact_expiry_is_the_disclosure_expiry_in_milliseconds"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test web_payments_layerxpay"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test web_payments_layerxpay"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the two touched files; web payments return to the layerxpay target and the height-valued expiry."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1242.1]
+title = "Issue #1242: Prepare agent.register and session.open as unsigned transactions the owner signs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181242.1", "181242.2", "9031.1", "9031.2"]
+capabilities = []
+interfaces = []
+do_1 = "dispatch_operation (services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1619-1623) answers AgentRegister and SessionOpen instead of refusing them: it decodes the typed request, resolves the owner bound address the way prepare_evm_write does (services/agent/crates/layerx-agentd/src/human_runtime.rs:20529-20532, reused and not edited) and prepares the call through evm::ProductionEvmPreparationBoundary (src/prepare/mod.rs:162-210), whose preparation_state (:194) reads chain id, pending nonce and base fee from the node, with the request fee_limit bounding max_fee_per_gas; agent.register prepares bindLayerX to the addr precompile 0x1004 (decision.1844) from the owner EVM address carried in the request, verifying the owner-signed binding consent carried in the request with signed_binding().verify() and producing no consent itself; session.open prepares grantSession to layerxauth 0x101C naming the provisioned session address from the session_keys registry; both answer AuthorityResponse<Prepared> and neither signs nor broadcasts (decision.1879)."
+do_2 = "agent_register and session_open (agent_rpc_dispatch.rs:77-158) return the unsigned preparation and take no DerivedAccount, chain id, bind_nonce or BindFees argument; AgentRegistration (services/agent/crates/layerx-agent-api/src/identity.rs:851-900) gains owner_address (20-byte hex) and binding_consent (hex bytes) and SessionOpen gains the session grant id, each required in the schema."
+do_3 = "services/agent/schema/agent-api/identity.kvx:29 and :34 and services/agent/schema/agent-api/golden/identity.kvx:12 and :17 answer AuthorityResponse<Prepared>; the AgentRecord name, defined nowhere, leaves identity.kvx; services/agent/schema/agent-api/golden/v1.kvx:153-159 and :518-524 drop disposition refused_pending_bootstrap_artifact and name the typed decoders; the credential text at services/agent/schema/agent-api/v1.kvx:103 and golden/v1.kvx:103 becomes: Required for every operation; agent.register and session.open are prepare operations under the owner session credential (decision.1844)."
+do_4 = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs is self-contained (decision.1884): it serves the chain itself by spawning anvil with chain id 125 the way services/agent/crates/layerx-agentd/tests/balance.rs:24-40 does (LAYERX_TEST_ANVIL or anvil on PATH; the test fails, never skips, when it is missing), runs every other peer the daemon needs in-process on loopback from the crate's real types, builds the retained Store, the SessionKeyRegistry, the owner and the owner session credential from the crate's real constructors and keys it generates, signs the binding consent with that owner key, and reads no fixture document from the environment (no PAXEER_X_*_FIXTURE variable). agent_register_prepares_bind_layerx and session_open_prepares_grant_session_for_the_session_address drive both operations through handle_rpc and assert the prepared to, selector, chain id and signing_hash; refusals stay for a missing credential, a binding consent that does not verify, an unavailable session key and a fee above fee_limit."
+symbols = ["dispatch_operation", "agent_register", "session_open", "AgentRegistration", "agent_register_prepares_bind_layerx", "session_open_prepares_grant_session_for_the_session_address"]
+touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agent-api/src/identity.rs", "services/agent/schema/agent-api/identity.kvx", "services/agent/schema/agent-api/golden/identity.kvx", "services/agent/schema/agent-api/golden/v1.kvx", "services/agent/schema/agent-api/v1.kvx", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs::agent_register_prepares_bind_layerx", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs::session_open_prepares_grant_session_for_the_session_address"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test bootstrap_bind_layerx"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test bootstrap_bind_layerx -- --exact agent_register_prepares_bind_layerx session_open_prepares_grant_session_for_the_session_address"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the seven touched files; agent.register and session.open return to the refused_pending_bootstrap_artifact refusal and the record response types."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "services/agent/crates/layerx-agentd/src/human_runtime.rs target_object_owner (:4876) lists AgentRegister and SessionOpen (:4918-4919) in the arm that answers HumanOperationError::Refused, which refuses both operations before dispatch_operation sees them; move the two into the Ok(None) arm that ends with Operation::FaucetClaim, beside Prepare, BudgetCreate and CapabilityCreate, since a prepare operation has no target object and its owner is the credential owner. Change nothing else in that file; do_1 still reuses :20529-20532 unedited."
+
+[task.18.1243.2]
+title = "Issue #1243: Port the agent host payer to the ledger GrantTerms"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181243.3"]
+capabilities = []
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd-host/src/payer.rs:326-337 prepare_grant: GrantTerms (services/agent/crates/layerx-mcp/src/tools/web.rs:461-470, changed by 1e3b37aee) no longer has current_height or prepare_budget; build the ledger Grant (layerx_crypto::payments::Grant, services/agent/crates/layerx-crypto/src/payments.rs:33) from the terms exactly as GrantTerms::prepare_grant (web.rs:579-606) checks it (from the payer account word, recipient and asset words, per_draw_maximum and allowance equal to amount, recurring false, window_length 0, expiration expires_at_ms, purpose_hash, has_reference true, reference_hash the idempotency key, revocation_sequence 0), keep the zero purpose_hash refusal and call terms.prepare_grant(&grant)."
+do_2 = "payer.rs:339-353 draw: read the receiver sequence with terms.next_sequence_call() (web.rs:611) through the host's eth_call path and decode it as web.rs sequence_result does, then call terms.prepare_draw(grant_id, receiver_sequence) (web.rs:620); keep the zero grant_id and zero purpose_hash refusals."
+do_3 = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs drops current_height from its GrantTerms literals (:358, :429) and the :389 assertion on it; web_grant_submits_a_signed_layerxpay_call becomes web_grant_submits_a_signed_ledger_issue_grant_call and asserts the submitted call targets the ledger precompile 0x101A with the issueGrant selector and the encoded IssueGrant payload; web_pay_exact_submits_a_signed_layerxpay_call keeps every assertion except the removed field."
+symbols = ["prepare_grant", "draw", "web_grant_submits_a_signed_ledger_issue_grant_call"]
+touches = ["services/agent/crates/layerx-agentd-host/src/payer.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs"]
+tests = ["services/agent/crates/layerx-agentd-host/tests/payer_evm.rs::web_grant_submits_a_signed_ledger_issue_grant_call"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bins --test payer_evm"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test payer_evm -- --exact web_grant_submits_a_signed_ledger_issue_grant_call"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert payer.rs and payer_evm.rs; the host binary returns to the GrantTerms fields 1e3b37aee removed and does not compile."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
