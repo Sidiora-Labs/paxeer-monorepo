@@ -4929,6 +4929,12 @@ value = "kernel_settled_snapshot_validate (src/protocol/lxp_kernel.c:4580-4675) 
 basis = "Attempt 1 of 5.7.6 (6e23a6c2f) fails at tests/daemon/test_serve_commits_programs_call.py:238 with 'commit failed at sequence 1 during batch WAL with result -1001': every batch under LXP_PROTOCOL_VERSION_STATE_COMMITMENT carries the occupancy maintenance (cmd/layerxd/lxp_daemon_process.c:4061-4062, lxp_kernel.c:5393-5445) and the validator demands a latest receipt in store->idempotency (:4642-4650), whose only writer lxp_idempotency_record lost its last caller in 787dd93be (task 1.2.1; tests/codec/lxp_test_idempotency_retired.c:279-294 pins the table empty). The sweep is built from exactly that chain (src/modules/programs/occupancy.c:905-906 copies kernel->current_state_root, advanced to the last receipt's resulting root at lxp_kernel.c:4498-4499; the sequence is candidate->kernel.state->next_sequence at :5374 and :5386) and publication re-checks it at :6367-6376, so the receipt is the authority the table used to stand in for. No pending task lists :4580-4700 (1.2.4 touches :684, :3187-3260, :5101-5103, :5697, :7920-8721; 1.2.3 does not touch the file). tests/storage/lxp_test_maintenance_publication.c:625 and tests/protocol/lxp_test_terminal_rejection.c:642 expect LXP_OK from the same commit and stay as written (finding.5.7.6.1)."
 affects = ["1.2.6", "5.7.6", "18.1200.1", "10.20.3"]
 
+[decision.1970]
+title = "The generated TypeScript Rung members are the schema variant names and retired operations stay out of the Operation union"
+value = "The agent SDK generator fills {{RUNGS}} of services/agent/tools/sdk-gen/templates/typescript.tpl:38-40 with the type.Rung.variants text of services/agent/schema/agent-api/errors.kvx:31 unchanged, Submitted = 0, Receipted = 1, Committed = 2, as eceed9a16 and 291e43bc0 emitted it; the Python members stay snake_case(variant).to_ascii_uppercase() (SUBMITTED, RECEIPTED, COMMITTED). req.9061 ac_1 'exactly the rungs submitted, receipted and committed' names the rung set (the wire_names of errors.kvx:32 and type.ProgramSubmission.rung), not the TypeScript member spelling; tests/major_two.rs:50 is corrected to the PascalCase literal by task 9.18.10. The generated Operation union carries only [operation.*] sections (main.rs:164); the retired faucet.claim (v1.kvx:317-323 disposition retired, decision.904, task 9.1.5) is not an Operation in any client, and the TypeScript SDK names it as a retired wire-name string it refuses before the request is sent, with UnavailableCapability unavailable_capability.faucet.claim, as RETIRED_OPERATIONS does at services/agent/crates/layerx-agentd/src/agent_rpc.rs:25."
+basis = "Attempt 5 of 9.33.8 (f389355d9 on bf4e10a64) regenerated the three clients with agent-sdk-gen --write and build_cmd exited 2 with 13 errors: ten on Rung.Submitted/Receipted/Committed (src/verifier.ts:208 and :887, test/receipt-fixture.test.ts:115, test/integration.test.ts:66, :74, :76, examples/payment-with-verification.ts:17, test/generated-rung.test.ts:43) because 0246e6ea4 (9.18.4) added to_ascii_lowercase at main.rs:467 while errors.kvx:31, layerx-types rung.rs:13-17, acceptance.9.358.1, 9.359.2 and 9.372.1 spell the members PascalCase; three on 'faucet.claim' (src/agent-http.ts:391, src/production.ts:21, test/agent-operation-envelope.test.ts:461) because 77f70145f (9.1.5) removed [operation.faucet.claim] and the committed client.ts:85 is the 291e43bc0 output that predates it."
+affects = ["9.18.4", "9.18.10", "9.33.8", "9.33.9"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -18431,6 +18437,10 @@ ac_1 = "The generated SubmissionState variants are Submitted, Receipted, Committ
 [req.9189]
 title = "The agent SDK generator templates emit the four rung submission states"
 ac_1 = "The TypeScript, Python and Python stub templates of the agent SDK generator declare SubmissionState as Submitted with txHash, Receipted, Committed and Reverted with revertReason, and their generated client files contain no other submission variant."
+
+[req.9190]
+title = "The agent SDK generator emits the Rung members verbatim from the schema variants"
+ac_1 = "The generated TypeScript enum Rung has exactly the members Submitted = 0, Receipted = 1 and Committed = 2, the text of type.Rung.variants in services/agent/schema/agent-api/errors.kvx in declaration order, and the generated Python client and stub name SUBMITTED, RECEIPTED and COMMITTED."
 
 [req.9359]
 title = "Send contract major 2 on agent envelope requests and report proof rungs"
@@ -39347,6 +39357,15 @@ touches = ["services/agent/tools/sdk-gen/templates/typescript.tpl", "services/ag
 tests = ["services/agent/tools/sdk-gen/tests/rung_states.rs::generated_submission_state_names_the_rungs"]
 verification_contract = "contracts/agent-cli.md#agent-sdk-gen"
 do_1 = "The three generator templates declare Submitted, Receipted, Committed and Reverted as the only submission states and tests/rung_states.rs proves the generated clients name exactly them."
+symbols = ["agent_sdk_generator", "agent_sdk_drift_gate"]
+
+[capability.9.18.10]
+title = "Agent SDK generator emits the Rung members verbatim from the schema variants"
+reqs = ["9190.1"]
+touches = ["services/agent/tools/sdk-gen/src/main.rs", "services/agent/tools/sdk-gen/tests/major_two.rs", "services/agent/tools/sdk-gen/tests/rung_members.rs"]
+tests = ["services/agent/tools/sdk-gen/tests/rung_members.rs::generated_rung_members_are_the_schema_variants"]
+verification_contract = "contracts/agent-cli.md#agent-sdk-gen"
+do_1 = "The TypeScript emission of the generator copies type.Rung.variants unchanged into enum Rung and tests/rung_members.rs proves the generated clients name exactly Submitted, Receipted, Committed (TypeScript) and SUBMITTED, RECEIPTED, COMMITTED (Python)."
 symbols = ["agent_sdk_generator", "agent_sdk_drift_gate"]
 
 [capability.9.18.5]
@@ -142180,6 +142199,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.18.10]
+title = "Emit the Rung enum members verbatim from the schema variants in the agent SDK generator"
+status = "pending"
+mode = "BUILD"
+wave = 24
+requires = ["9.18.9"]
+reqs = ["9190.1"]
+capabilities = ["9.18.10"]
+interfaces = ["interface.9.cli-agent-sdk-gen-write", "interface.9.cli-agent-sdk-gen-check", "interface.9.ts-sdk-generated-client-rung"]
+do_1 = "services/agent/tools/sdk-gen/src/main.rs:463-469 (fn typescript) fills {{RUNGS}} of templates/typescript.tpl:38-40 with `rung.to_ascii_lowercase()` (:467, introduced by 0246e6ea4, task 9.18.4; eceed9a16 :416 and 291e43bc0 :432 emitted `{rung} = {rank},`); it emits instead each type.Rung variant of services/agent/schema/agent-api/errors.kvx:31 unchanged with its declaration rank, so the TypeScript enum body is `Submitted = 0,` `Receipted = 1,` `Committed = 2,` (req.9190 ac_1, decision.1970)."
+do_2 = "services/agent/tools/sdk-gen/src/main.rs:177 keeps reading type.Rung.variants and never wire_names; the Python emissions at main.rs:582-588 and :733-739 keep `snake_case(rung).to_ascii_uppercase()` (SUBMITTED, RECEIPTED, COMMITTED); agent_sdk_generator (main.rs:889) and agent_sdk_drift_gate (main.rs:925) keep their output set and the --write and --check modes; the templates of 9.18.9 are not changed."
+do_3 = "services/agent/tools/sdk-gen/tests/major_two.rs:44-51 asserts the Rung enum body equals ['submitted = 0,', 'receipted = 1,', 'committed = 2,']; under decision.1970 it asserts ['Submitted = 0,', 'Receipted = 1,', 'Committed = 2,']; the contractMajor assertion (:31-38), the Python contract_major and Rung member-name assertions (:52-53, :108-109) and generated_bindings_use_65_byte_signatures are unchanged."
+do_4 = "Create services/agent/tools/sdk-gen/tests/rung_members.rs (planned) in the manner of tests/rung_states.rs: generate from services/agent/schema/agent-api into a temporary directory, read type.Rung.variants from errors.kvx, and assert the TypeScript `export enum Rung {` body is exactly those names with ranks 0, 1, 2 in declaration order and that client.py and client.pyi declare `SUBMITTED = 0`, `RECEIPTED = 1`, `COMMITTED = 2`; assert the TypeScript body contains none of submitted, receipted, committed in lowercase. The committed services/agent/sdk files are not rewritten by this task."
+do_5 = "Register every test named in tests as a Rust #[test] with exactly that name, so verify_cmd --exact selects it."
+do_6 = "After this task lands, agent-sdk-gen --check (make agent-test-sdk-generate, Makefile:2646-2648) keeps reporting drift on the committed client files until 9.33.8 regenerates them; that ordering is intended (9.18.9 do_7) and is recorded on the wave revision, not repaired here."
+symbols = ["agent_sdk_generator", "agent_sdk_drift_gate"]
+touches = ["services/agent/tools/sdk-gen/src/main.rs", "services/agent/tools/sdk-gen/tests/major_two.rs", "services/agent/tools/sdk-gen/tests/rung_members.rs"]
+tests = ["services/agent/tools/sdk-gen/tests/rung_members.rs::generated_rung_members_are_the_schema_variants"]
+planned_paths = ["services/agent/tools/sdk-gen/tests/rung_members.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml"
+verify_cmd = "cargo test --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml --test rung_members -- --exact generated_rung_members_are_the_schema_variants"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert main.rs and tests/major_two.rs to the 9.18.9 revision and delete tests/rung_members.rs."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.18.5]
 title = "Run the qualification boundary gate against a node JSON-RPC URL and delete the LNI test node"
 status = "done"
@@ -144147,7 +144199,7 @@ title = "Regenerate the TypeScript and Python client types with rung submission 
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["9.18.4", "9.18.9"]
+requires = ["9.18.4", "9.18.9", "9.18.10"]
 reqs = ["9358.1"]
 capabilities = ["9.33.8"]
 interfaces = ["interface.9.ts-sdk-generated-client-rung", "interface.9.ts-sdk-generated-client-submissionstate"]
@@ -144156,7 +144208,7 @@ do_2 = "Regenerate services/agent/sdk/typescript/src/generated/client.ts, servic
 do_3 = "Create services/agent/sdk/typescript/test/generated-rung.test.ts (planned) checking the exported union and enum."
 do_4 = "Register each gate test in services/agent/sdk/typescript/test/generated-rung.test.ts (planned) as a node:test case named exactly generated_submission_state_names_the_rungs (`import { test } from \"node:test\"`), so the anchored --test-name-pattern of verify_cmd selects every one of them and cannot pass on a file with no matching case."
 symbols = ["SubmissionState", "Rung"]
-touches = ["services/agent/sdk/typescript/src/generated/client.ts", "services/agent/sdk/python/layerx_sdk/generated/client.py", "services/agent/sdk/python/layerx_sdk/generated/client.pyi", "services/agent/sdk/typescript/test/generated-rung.test.ts", "services/agent/sdk/typescript/examples/http-402-settlement.ts", "services/agent/sdk/typescript/examples/payment-with-verification.ts", "services/agent/sdk/typescript/test/integration.test.ts", "services/agent/sdk/python/layerx_sdk/__init__.py", "services/agent/sdk/python/layerx_sdk/__init__.pyi", "services/agent/sdk/python/examples/http_402_settlement.py", "services/agent/sdk/python/examples/payment_with_verification.py"]
+touches = ["services/agent/sdk/typescript/src/generated/client.ts", "services/agent/sdk/python/layerx_sdk/generated/client.py", "services/agent/sdk/python/layerx_sdk/generated/client.pyi", "services/agent/sdk/typescript/test/generated-rung.test.ts", "services/agent/sdk/typescript/examples/http-402-settlement.ts", "services/agent/sdk/typescript/examples/payment-with-verification.ts", "services/agent/sdk/typescript/test/integration.test.ts", "services/agent/sdk/python/layerx_sdk/__init__.py", "services/agent/sdk/python/layerx_sdk/__init__.pyi", "services/agent/sdk/python/examples/http_402_settlement.py", "services/agent/sdk/python/examples/payment_with_verification.py", "services/agent/sdk/typescript/src/agent-http.ts", "services/agent/sdk/typescript/src/production.ts", "services/agent/sdk/typescript/test/agent-operation-envelope.test.ts"]
 tests = ["services/agent/sdk/typescript/test/generated-rung.test.ts::generated_submission_state_names_the_rungs"]
 planned_paths = ["services/agent/sdk/typescript/test/generated-rung.test.ts"]
 build_cmd = "npm --prefix services/agent/sdk/typescript run build"
@@ -144174,6 +144226,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempts 1 to 3 (6418af87d, eef8c0c40, 5f0c552d0 on bases 061689853, 101b73f3d, 7095cd3de) fail build_cmd with twelve TS2322/TS2678/TS2339/TS2353 errors in test/generated-rung.test.ts because the generated SubmissionState is still Unknown, Executed, Failed and Pending: the generator templates services/agent/tools/sdk-gen/templates/typescript.tpl:42-46, python.tpl:265-286 and python.pyi.tpl:143-162 carry that union as literal text, 9.18.4 (0246e6ea4) never changed them, and services/agent/tools/sdk-gen/src/main.rs reads no type.SubmissionState. The generator of the three files is agent-sdk-gen (make agent-sdk-generate, Makefile:2643: cargo run --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml -- --write), not layerx-platform-sdkgen, which digests sdk/platform outputs and writes only generated/receipt.* under services/agent/sdk (sdk/platform/generators/src/main.rs:22-26). Task 9.18.9 (now required) changes the templates; regenerate with agent-sdk-gen --write after it is done, commit client.ts, client.py and client.pyi unchanged by hand, and update the callers that tsconfig.json compiles: examples/http-402-settlement.ts:11-12, examples/payment-with-verification.ts:18 and test/integration.test.ts:80-83, plus the Python callers now in touches. The attempt-3 test services/agent/sdk/typescript/test/generated-rung.test.ts stands."
+do_7 = "Attempt 5 (f389355d9 on bf4e10a64, the first main revision carrying 9.18.9) regenerated the three files with make agent-sdk-generate, kept the generated headers and the attempt 3 test, and updated the eleven declared files; build_cmd exited 2 with 13 errors of two kinds, neither repairable inside the declared touches. (1) Rung casing: the generator lowercases the TypeScript members (services/agent/tools/sdk-gen/src/main.rs:467, 0246e6ea4), so the regenerated client.ts:42-46 read submitted, receipted, committed while errors.kvx:31, the committed client, acceptance.9.358.1 and every caller (src/verifier.ts:208 and :887, test/receipt-fixture.test.ts:115, test/integration.test.ts:66, :74 and :76, examples/payment-with-verification.ts:17, test/generated-rung.test.ts:43) spell Submitted, Receipted, Committed. Task 9.18.10 (now required, decision.1970) restores verbatim emission: regenerate after it lands and rename no caller to lowercase; src/verifier.ts and test/receipt-fixture.test.ts are not touched. (2) faucet.claim: the regenerated Operation union has 53 names, not 54, because the schema has carried no [operation.faucet.claim] since 77f70145f (task 9.1.5, decision.904) and the generator collects [operation.*] sections only (main.rs:164); the committed client.ts:85 is the stale 291e43bc0 output. In src/agent-http.ts:388-399 AGENT_ENVELOPE_OPERATION_NAMES (typed readonly AgentOperation[]) and src/production.ts:3-52 AGENT_OPERATIONS (as const satisfies readonly AgentOperation[]), now in touches, remove 'faucet.claim' and carry it in a string-typed retired list (for example `RETIRED_OPERATION_NAMES: readonly string[] = ['faucet.claim']`) that AgentHttpTransport refuses before the request is sent with UnavailableCapability, reason unavailable_capability.faucet.claim, Terminal, mirroring RETIRED_OPERATIONS at services/agent/crates/layerx-agentd/src/agent_rpc.rs:25; the faucet_retired case of test/agent-operation-envelope.test.ts:459-462 (now in touches) keeps asserting the unavailable-capability refusal and reaches the transport through the retired-name path, never by widening Operation or casting to it. The regenerated client.ts, client.py and client.pyi stay unchanged by hand (decision.1970); the attempt 5 example, integration-test and Python caller updates stand. 9.33.9 also touches src/agent-http.ts and requires this task, so the two edits are sequential."
 
 [task.9.33.9]
 title = "Send contract major 2 on agent envelope requests and report proof rungs"
@@ -144897,7 +144950,7 @@ title = "Decode SnapshotBinding v2 in the client AI market reader"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["9.0.4", "13.0.4", "18.1304.1"]
+requires = ["9.0.4", "13.0.4", "18.1304.1", "13.29.3"]
 reqs = ["9969.1"]
 capabilities = []
 interfaces = []
@@ -144922,6 +144975,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempts 1 to 3 (d25f05df6 on bf4e10a64, 45ff20d08 on ee47e6751, 4b6c6654a on de9686155) implement the decoder and the test and fail verify_cmd at tests/snapshot_binding_v2.rs:17 with 'cannot read shared vector ../../../../programs/tests/vectors/snapshot-binding-v2.hex: No such file or directory' because task 13.29.3 writes that vector and until now required this task. 13.29.3 now precedes this task (wave 24) and this task requires it; once 13.29.3 is on main, re-qualify the attempt 3 content unchanged (the decoder, the test and its include path stay as written) and never write the vector from this task."
 
 [task.9.96.3]
 title = "Drop the custody-proof binary from the real-node test script"
@@ -160894,8 +160948,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Pin the SnapshotBinding v2 golden vector consumed by the agent client and indexer"
 status = "pending"
 mode = "BUILD"
-wave = 29
-requires = ["13.29.2", "13.0.4", "9.96.2", "8.96.2"]
+wave = 24
+requires = ["13.29.2", "13.0.4"]
 reqs = ["13281.1"]
 capabilities = ["13.29.3"]
 interfaces = []
@@ -160920,6 +160974,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "This task writes programs/tests/vectors/snapshot-binding-v2.hex, which the layerx-client test of task 9.96.2 (services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs:17, include path ../../../../programs/tests/vectors/snapshot-binding-v2.hex) reads at test time; it therefore runs in wave 24 after 13.29.2 and 13.0.4 and before 9.96.2, which requires it, and it no longer requires 9.96.2 or 8.96.2. layerx-programs-ai-market encodes the fixture binding and is the authority for the SnapshotBinding v2 bytes; the client and indexer decoders consume what this task pins, and the decoder line references of do_3 are read at the revision this task starts from."
 
 [task.13.30.1]
 title = "Write an in-crate ICS23 IAVL existence proof verifier for the arbiter"
@@ -165093,7 +165148,7 @@ do_1 = "Rebuild the fixtures of apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsT
 do_2 = "Rebuild the fixtures of apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx:1, apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx:1 and apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx:1 from PaxeerXArchiveReceiptsItem and delete their status badge assertions."
 do_3 = "Add anchors_table_item_renders_archive_row to apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx:1 and receipts_table_item_has_no_rung_badge to apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx:1."
 symbols = ["anchors_table_item_renders_archive_row", "receipts_table_item_has_no_rung_badge"]
-touches = ["apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.spec.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx"]
+touches = ["apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.spec.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx"]
 tests = ["apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx::anchors_table_item_renders_archive_row", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx::receipts_table_item_has_no_rung_badge"]
 planned_paths = []
 build_cmd = "cd apps/explorer && yarn lint:tsc"
@@ -165110,6 +165165,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "This task's build is the whole-application check for the archive move. It requires 14.32.4 as well, because apps/explorer/ui/pages/PaxeerXReceipt.tsx, PaxeerXReceipt.spec.tsx, ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx and PaxeerXReceiptDetails.spec.tsx import the names 14.32.1 deletes, and 14.32.4 ports them."
+do_5 = "Attempt 1 (0bc000881 on 1edd22588) wrote the six spec files, passed receipts_table_item_has_no_rung_badge and failed anchors_table_item_renders_archive_row with 'Unable to find an element with the text: 1042' because apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx, ported by 14.32.2 (cac32b02a), renders the checkpoint height, sealed height, state root, block, timestamp and settlement cells and no batch number, although PaxeerXArchiveAnchor (apps/explorer/types/api/paxeerXArchive.ts) carries batch_number and req.14287 ac_1 names the batch number and the checkpoint id. The component and PaxeerXAnchorsTable.tsx are now in touches: render item.batch_number in its own first TableCell (Skeleton loading={ isLoading } data-label='batch-number', fontWeight 600) and add the matching 'Batch' TableColumnHeader before 'Checkpoint height' at PaxeerXAnchorsTable.tsx:21, so within(row).getByText(String(anchor.batch_number)) resolves; keep ANCHOR_SETTLEMENT_RUNG = 'receipted' (PAXEER_X_STATUS_RUNGS at apps/explorer/types/api/paxeerXLists.ts:5 has only submitted, receipted and committed since 14.31.1) and change the stale expect(ANCHOR_SETTLEMENT_RUNG).toBe('sealed') at PaxeerXAnchorsTableItem.spec.tsx:45 to 'receipted'; keep the other cells, the list item and the receipts components as they are."
 
 [task.14.33.1]
 title = "Align the frontend unified account types and mocks with the backend answer"
@@ -190882,6 +190938,7 @@ do_11 = "Since c4739fc6c (task 10.97.1) ProtocolEvidence::bound_activity (servic
 do_12 = "assert_outcome in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs (:65-96) has one caller, agent_controls.rs:765. Its verify_native_owner_outcome call (:71-82) decodes canonical_activity as a kernel owner envelope and checks an ed25519 signature (services/agent/crates/layerx-proof/src/receipt/owner_module.rs:47-93). It also requires the receipt activity_id to equal the ActivityId digest of those bytes (owner_module.rs:148). :70 and :83 require a signed EIP-1559 transaction whose transaction_hash is that activity_id (create.rs:545-552, :501). No evidence satisfies both. Per decision.929 (verify_native_owner_outcome retires and receipts verify through receipt::verify_outcome), replace :71-82 with layerx_proof::receipt::verify_outcome(&evidence.receipt_bytes, authorized_batch) (services/agent/crates/layerx-proof/src/receipt.rs:334-337). Keep :70 and :83-95 as written, and leave sign and sign_transaction as task 18.1204.2 leaves them."
 do_13 = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1-69 holds a copy of the kernel owner signer. protocol_receipt_for_payload (:815-857) passes its bytes to ProtocolEvidence::verify_outcome, which unwraps at :854-855 and refuses them by the mechanism of do_11. protocol_and_app_limit_changes_keep_their_real_enforcement_labels (:679) reaches that path at :680 and :693, and submit_protocol reaches it at :443. do_4 does not apply to the lines named here. Replace the inline mod canonical_owner (:1-69) with the #[path = 'support/canonical_owner.rs'] mod canonical_owner declaration of agent_controls.rs:1-2. Build the owner at :819-820 with canonical_owner::sign_transaction, and set the actor at :842 to owner.public_key[12..].to_vec(). Keep :827-831 and every assertion as written."
 do_14 = "Attempt 8 (fa18da842 on 9f8c07033) ran on a base without 64c4d6a23 (task 18.1204.2), so services/human/crates/layerx-human-service/tests/support/canonical_owner.rs held sign and assert_outcome only and bind_call had no budgetCreate branch; do_11 to do_13 apply only on a base that carries 64c4d6a23, where the fixture is :1-162 with sign_transaction at :65-129, assert_outcome at :131-162, the verify_native_owner_outcome call of do_12 at :137-148 and the batch assertions of do_11 at :154-157. The second cargo invocation of the verify stops at the first failing binary, so attempt 8 observed none of session_keys, archive, session_rungs or agent_controls_rungs; agent_controls_rungs.rs:854-855 reaches the same refusal (do_13). Build the owner as services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs does with sign_transaction(compiled.payload(), action_key, STATE_COMMITMENT_PROTOCOL_VERSION, 77); keep encode_receipt (agent_controls.rs:779-812, agent_controls_rungs.rs) as written, since its timestamp 1_002 and fee_charged 1 satisfy verify_outcome (create.rs:503-506) against the bind_call disclosure (fee_limit = gas_limit 100_000, expiry 0..u64::MAX at services/agent/crates/layerx-crypto/src/disclosure/call.rs:432-437); the Governance 1 and Budget 7 refusals at agent_controls.rs:613-623 keep holding through finalization_evidence (services/human/crates/layerx-human-service/src/server/agent_creation.rs:640-642)."
+do_15 = "Attempt 9 (09ee34cfb on bf4e10a64) applied do_11 to do_13 in full and moved the agent_controls failure one statement forward: bound_activity now accepts the sign_transaction owner (services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:136 passes) and the do_12 call layerx_proof::receipt::verify_outcome at canonical_owner.rs:137-140 fails with VerificationFailure { check: Operation }. receipt::verify_outcome (services/agent/crates/layerx-proof/src/receipt.rs:334-368) refuses every receipt whose operation tag (the u8 at services/agent/crates/layerx-wire/src/receipt.rs:209, decoded at :794 after parameter_version) is 0 unless the module is Bridge 8, Programs 9 or Asset 1 with operation 9 (:351-366); the tag is compared with 0 and with nothing else. The fixture writes operation 0 (agent_controls.rs `bytes.push(0)` after module_version 1 and parameter_version 1, :794 on main, :805 in attempt 9; agent_controls_rungs.rs:876 / :814; tests/agent_creation_rungs.rs:103 writes the same 0 and passes because it never calls layerx_proof), and 0 is the product contract for a native owner Budget receipt: finalization_evidence refuses operation != 0 at services/human/crates/layerx-human-service/src/server/agent_creation.rs:649 and change_protocol_limit refuses it at services/human/crates/layerx-human-service/src/agents/controls.rs:628, while the agent double submit_protocol (agent_controls.rs:373-378, agent_controls_rungs.rs:448-453) needs finalization_evidence to succeed on the same bytes for every change_limit (:634, :652). A non-zero tag therefore fails the same test at the next step; the two verifiers admit one receipt only after task 9.27.5 (decision.929, wave 35) reworks receipt.rs, and services/agent/crates/layerx-proof/tests/native_owner_outcome.rs:61-68 pins the present behaviour (operation 0, verify_outcome answers Operation). Keep the operation tag 0 and change no file under src. In assert_outcome (canonical_owner.rs:131-154 of attempt 9) replace the :137-140 call with checked(layerx_proof::receipt::verify_sequencer_signature(&evidence.receipt_bytes, authorized_batch.sequencer_public_key())) (receipt.rs:707-738; a bare [u8; 32] is ReceiptKeys::HistoricalKernel, :46-50, accepted for module 3 at :769-773; it checks decoding, canonical re-encoding, protocol version, non-zero activity_id and the sequencer signature over receipt_digest, the LXP/v1/receipt tagged preimage the fixture signs, services/agent/crates/layerx-wire/src/hash.rs:69 and :330), and after `let protocol = receipt.protocol().expect(...)` add assert_eq!(protocol.batch_id(), authorized_batch.batch_id()), assert_eq!(protocol.previous_state_root(), authorized_batch.previous_state_root()) and assert_eq!(protocol.resulting_state_root(), authorized_batch.resulting_state_root()) (accessors receipt.rs:148-170), which restores the batch, root and signature checks verify_native_owner_outcome made (services/agent/crates/layerx-proof/src/receipt/owner_module.rs:130). Keep the AuthorizedBatch::new call at agent_controls.rs:777-782 of attempt 9 as written, keep every other line of attempt 9, and keep every assertion. After agent_controls passes, cargo runs agent_controls_rungs, archive, session_keys and session_rungs for the first time under this verify."
 
 [task.18.1229.1]
 title = "Issue #1229: Validate the sponsored-status budget in the gas station's own fields and gas units"
@@ -195127,6 +195184,8 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
+
 
 
 
