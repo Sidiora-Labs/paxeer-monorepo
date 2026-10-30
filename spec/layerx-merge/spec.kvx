@@ -92620,7 +92620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.5]
 title = "Retire the process-global determinism guard and golden replay entry points"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["1.0.3", "1.4.3", "16.2.1", "16.98.1"]
@@ -146073,7 +146073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.16.2]
 title = "Reject retired human-api routes in web sources from the copy lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["10.0.4", "18.1119.1"]
@@ -160056,7 +160056,7 @@ do_6 = "Attempt 3 panics with NotPresent at tests/market_sandbox_profile.rs:208:
 
 [task.13.31.1]
 title = "Pin the AI market chain domain to the merged chain at activation rehearsal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["13.29.1", "13.0.3", "16.0.3"]
@@ -160400,7 +160400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.8]
 title = "Prove every 0x101D write method charges the gas table row through the EVM"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.23.1", "13.24.1", "13.25.1", "13.26.1", "13.27.1", "18.1073.1", "18.1130.1"]
