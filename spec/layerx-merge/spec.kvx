@@ -101828,7 +101828,7 @@ do_5 = "The planned test file is package layerxpay_test and reaches unexported n
 
 [task.2.40.2]
 title = "Match 0x101B budget writes against direct HostExecute of the same payloads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.28.5", "2.38.2", "2.28.6"]
