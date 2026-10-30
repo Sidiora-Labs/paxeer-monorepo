@@ -136496,7 +136496,7 @@ do_4 = "Attempt 4 conflicts with main: 18.1185.1 (dd9b28672) rewrote sdk/platfor
 
 [task.8.44.1]
 title = "Swift SDK verifies sequencer receipts at the receipted rung (R1-R6)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["8.0.1", "8.45.1"]
@@ -137761,7 +137761,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.51.2]
 title = "Release pipeline drops the replay-matrix gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["8.0.1", "18.1121.1"]
@@ -178449,7 +178449,7 @@ qualification = "UNRUN"
 
 [task.18.1001.1]
 title = "Issue #1001: Answer pax_sequencerReceipt in the gateway test chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1065.1", "18.1001.2", "18.1001.3"]
