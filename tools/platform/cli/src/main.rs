@@ -288,7 +288,7 @@ struct VerifyReceiptArgs {
 
 #[derive(Subcommand)]
 enum ProgramCommand {
-    /// Discover one active program from receipt-backed registry state.
+    /// Discover one active program from the layerxprograms contract.
     Discover { program_id: String },
     /// Read or publish a canonical code-bound program interface.
     #[command(subcommand)]
@@ -413,6 +413,13 @@ enum ProgramInterfaceCommand {
         program_id: String,
         #[arg(long)]
         interface: PathBuf,
+        /// Deployed WASM artifact, republished with the interface through upgrade.
+        #[arg(long)]
+        artifact: PathBuf,
+        #[arg(long)]
+        evm_key_file: PathBuf,
+        #[arg(long, default_value = "0")]
+        fee_limit: String,
         #[arg(long)]
         idempotency_key: String,
     },
@@ -420,12 +427,14 @@ enum ProgramInterfaceCommand {
 
 #[derive(Subcommand)]
 enum RegistryCommand {
-    /// List every program the receipt-backed registry projection carries.
+    /// List programs from layerxprograms deployment events.
     List,
-    /// Read one program's receipt-backed registry record.
+    /// Read one program's layerxprograms contract record.
     Get { program_id: String },
     /// Mirror one program's build plan and source archive into the registry mirror.
     MirrorSource {
+        #[arg(long)]
+        program_id: String,
         #[arg(long)]
         source_uri: String,
         #[arg(long)]
@@ -433,7 +442,7 @@ enum RegistryCommand {
         #[arg(long)]
         archive: PathBuf,
     },
-    /// Submit a source digest and source location to the registry.
+    /// Check source verification availability against the deployed program record.
     VerifySource {
         program_id: String,
         #[arg(long)]
@@ -1106,7 +1115,7 @@ fn program(
                 programs::discover(&client, &program_id)?,
             ))
         }
-        ProgramCommand::Interface(command) => program_interface(command, rpc, gateway),
+        ProgramCommand::Interface(command) => interface(command, rpc, gateway),
         ProgramCommand::Build {
             manifest_path,
             artifact,
@@ -1177,7 +1186,7 @@ fn program(
         ProgramCommand::WindDown(command) => program_wind_down(command, rpc, gateway),
         ProgramCommand::Call(arguments) => program_call(arguments, rpc, gateway),
         ProgramCommand::Simulate(arguments) => program_simulate(arguments, rpc, gateway),
-        ProgramCommand::Registry(command) => program_registry(command, rpc, gateway),
+        ProgramCommand::Registry(command) => registry(command, rpc, gateway),
     }
 }
 
@@ -1202,7 +1211,7 @@ struct ProgramExecutionArgs {
     capabilities: Vec<String>,
 }
 
-fn program_interface(
+fn interface(
     command: ProgramInterfaceCommand,
     rpc: Option<&str>,
     gateway: Option<&str>,
@@ -1218,11 +1227,24 @@ fn program_interface(
         ProgramInterfaceCommand::Publish {
             program_id,
             interface,
+            artifact,
+            evm_key_file,
+            fee_limit,
             idempotency_key,
         } => Ok(CommandOutput::new(
-            "program.interface_published",
-            format!("Published program interface for {program_id} on {environment}"),
-            programs::interface_publish(&client, &program_id, &interface, &idempotency_key)?,
+            "program.interface_submitted",
+            format!("Submitted program interface for {program_id} on {environment}"),
+            programs::interface_publish(
+                &client,
+                &programs::EvmLifecycleRequest {
+                    program_id: &program_id,
+                    fee_limit: &fee_limit,
+                    key_file: &evm_key_file,
+                },
+                &artifact,
+                &interface,
+                &idempotency_key,
+            )?,
         )),
     }
 }
@@ -1285,29 +1307,32 @@ fn program_wind_down(
     }
 }
 
-fn program_registry(
+fn registry(
     command: RegistryCommand,
     rpc: Option<&str>,
     gateway: Option<&str>,
 ) -> Result<CommandOutput, String> {
-    if let RegistryCommand::MirrorSource {
-        source_uri,
-        plan,
-        archive,
-    } = &command
-    {
-        let mirrored = programs::registry_mirror_source(source_uri, plan, archive)?;
-        return Ok(CommandOutput::new(
-            "program.source_mirrored",
-            format!("Mirrored {source_uri} into the program registry source mirror"),
-            mirrored,
-        ));
-    }
     let configuration = Configuration::load()?;
     let (environment, client) = program_client(&configuration, rpc, gateway)?;
     match command {
-        RegistryCommand::MirrorSource { .. } => {
-            Err("source mirroring does not use the program transport".to_owned())
+        RegistryCommand::MirrorSource {
+            program_id,
+            source_uri,
+            plan,
+            archive,
+        } => {
+            let mirrored = programs::registry_mirror_source(
+                &client,
+                &program_id,
+                &source_uri,
+                &plan,
+                &archive,
+            )?;
+            Ok(CommandOutput::new(
+                "program.source_mirrored",
+                format!("Mirrored {source_uri} into the program registry source mirror"),
+                mirrored,
+            ))
         }
         RegistryCommand::List => Ok(CommandOutput::new(
             "program.registry_list",
@@ -1628,6 +1653,8 @@ mod program_arguments_tests {
             "program",
             "registry",
             "mirror-source",
+            "--program-id",
+            "1111111111111111111111111111111111111111111111111111111111111111",
             "--source-uri",
             "https://sources.example/program.tar.zst",
             "--plan",
@@ -1637,6 +1664,7 @@ mod program_arguments_tests {
         ])
         .unwrap_or_else(|error| panic!("registry mirror-source must parse: {error}"));
         let Command::Program(ProgramCommand::Registry(RegistryCommand::MirrorSource {
+            program_id,
             source_uri,
             plan,
             archive,
@@ -1644,6 +1672,7 @@ mod program_arguments_tests {
         else {
             panic!("parsed a different command");
         };
+        assert_eq!(program_id, "11".repeat(32));
         assert_eq!(source_uri, "https://sources.example/program.tar.zst");
         assert_eq!(plan, PathBuf::from("plan.toml"));
         assert_eq!(archive, PathBuf::from("program.tar.zst"));

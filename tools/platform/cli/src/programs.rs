@@ -3,6 +3,22 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_programs::{
+    chain_evidence::{
+        deployment::ChainDeploymentProof, freshness::chain_freshness,
+        program_state::ChainProgramStateProof,
+    },
+    chain_proof::{
+        decode::decode_commitment_proof,
+        header::ChainHeader,
+        proto::{ProtoReader, ProtoValue},
+        trust_store::TrustRoot,
+        vote::{BlockId, CommitSig, PartSetHeader},
+        ChainProofError, Commit,
+    },
+    ProtocolDeploymentVerifier,
+};
+
 use layerx_crypto::ed25519;
 use layerx_programs_runtime::access::AccessDeclaration;
 use layerx_programs_runtime::terminal::{
@@ -62,32 +78,28 @@ pub fn program_bindings(request: &BindingRequest<'_>) -> Result<Value, String> {
     })?;
     let interface = read_program_file(&interface_path)?;
     let proof_bytes = read_program_file(request.deployment_proof)?;
-    let proof = layerx_programs::DeploymentProof::decode(&proof_bytes)
-        .map_err(|error| format!("deployment proof is not canonical: {error}"))?;
-    let verifier = layerx_programs::ProtocolDeploymentVerifier::from_protected_history(
-        request.trust_history,
-        1_000,
-    )
-    .map_err(|error| format!("deployment trust history is unavailable or invalid: {error}"))?;
-    let deployment = if request.historical {
-        verifier.verify_historical_deployment(&proof)
+    let now_ms = if request.historical {
+        None
     } else {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|error| format!("system clock is unavailable: {error}"))?;
-        let now_ms = u64::try_from(now.as_millis())
-            .map_err(|error| format!("system clock exceeds the protocol range: {error}"))?;
-        verifier.verify_deployment(&proof, now_ms)
-    }
-    .map_err(|error| format!("deployment proof verification refused: {error}"))?;
+        Some(
+            u64::try_from(now.as_millis())
+                .map_err(|error| format!("system clock exceeds the protocol range: {error}"))?,
+        )
+    };
+    let (deployment, header_hash) =
+        verify_chain_deployment_package(request.trust_history, &proof_bytes, 1_000, now_ms)?;
     let published = deployment
         .interface()
         .ok_or("verified deployment does not publish an interface")?;
     if interface.as_slice() != published.canonical_encoding() {
         return Err("interface differs from the interface in the verified deployment".into());
     }
-    let bound = layerx_programs::ProgramInterface::bind_deployment(
-        &deployment,
+    let bound = layerx_programs::ProgramInterface::bind(
+        deployment.module(),
+        deployment.abi_version(),
         published.entries().to_vec(),
     )
     .map_err(|error| format!("published interface is not bound to the deployed module: {error}"))?;
@@ -126,7 +138,7 @@ pub fn program_bindings(request: &BindingRequest<'_>) -> Result<Value, String> {
     let evidence_scope = if request.historical {
         "historical-deployment"
     } else {
-        "recent-deployment-receipt"
+        "recent-chain-deployment"
     };
     let names: Vec<_> = artifacts.iter().map(|(name, _)| *name).collect();
     let manifest = json!({
@@ -137,8 +149,9 @@ pub fn program_bindings(request: &BindingRequest<'_>) -> Result<Value, String> {
         "capability_descriptors": generator.capability_descriptors(),
         "program_id": hex_encode(&deployment.program().bytes()),
         "program_version": deployment.version(),
-        "receipt_digest": hex_encode(&deployment.receipt_digest()),
+        "header_hash": hex_encode(&header_hash),
         "state_root": hex_encode(&deployment.state_root()),
+        "state_height": deployment.state_height(),
         "deployment_proof_sha256": hex_encode(&Sha256::digest(&proof_bytes)),
         "evidence_scope": evidence_scope,
         "artifacts": names,
@@ -159,11 +172,11 @@ pub fn program_bindings(request: &BindingRequest<'_>) -> Result<Value, String> {
         "output": request.output.display().to_string(),
         "interface_digest": hex_encode(&digest),
         "code_hash": hex_encode(&code_hash),
-        "receipt_digest": hex_encode(&deployment.receipt_digest()),
+        "header_hash": hex_encode(&header_hash),
         "evidence_scope": evidence_scope,
         "artifacts": ["client.rs", "client.ts", "guest.rs", "client.go", "ProgramBindings.java",
             "client.kt", "client.py", "client.swift", "Client.cs", "bindings.json"],
-        "binding": "verified signed deployment interface and module; generated calls require matching interface digest",
+        "binding": "verified chain deployment interface and module; generated calls require matching interface digest",
     }))
 }
 
@@ -748,9 +761,8 @@ fn refuse_transport_response(response: &Value) -> Result<(), String> {
 }
 
 pub fn registry_get(client: &Client, program_id: &str) -> Result<Value, String> {
-    validate_resource_id(program_id, "program id")?;
-    let response = read_program_registry(client, program_id, false)?;
-    registry_program_document(&response, program_id)
+    let result = program_view(client, program_id, [0xb1, 0xff, 0xb3, 0xd4])?;
+    decode_program_view(program_id, &result)
 }
 
 /// Validates the program registry read behind `program registry get` out of the
@@ -897,26 +909,107 @@ fn program_registry_freshness(document: &Value) -> Result<(u64, [u8; 32]), Strin
 }
 
 pub fn discover(client: &Client, program_id: &str) -> Result<Value, String> {
-    validate_resource_id(program_id, "program id")?;
-    let response = read_program_registry(client, program_id, false)?;
-    let value = program_registry_document(&response)?;
-    if value["program_id"]
-        .as_str()
-        .is_none_or(|value| !value.eq_ignore_ascii_case(program_id))
-    {
-        return Err("program discovery changed the requested program identity".to_owned());
-    }
-    if value["lifecycle"].as_str() != Some("active") {
+    let value = registry_get(client, program_id)?;
+    if value["active"] != true {
         return Err("program discovery refused an inactive program".to_owned());
     }
-    program_registry_freshness(&value)?;
     Ok(value)
 }
 
 pub fn interface_get(client: &Client, program_id: &str) -> Result<Value, String> {
-    validate_resource_id(program_id, "program id")?;
-    let response = read_program_registry(client, program_id, true)?;
-    interface_program_document(&response)
+    let result = program_view(client, program_id, [0x8e, 0xfc, 0x72, 0x40])?;
+    decode_interface_view(program_id, &result)
+}
+
+fn program_view(client: &Client, program_id: &str, selector: [u8; 4]) -> Result<Value, String> {
+    let program = fixed_hex::<32>("program id", program_id)?;
+    let mut data = selector.to_vec();
+    data.extend_from_slice(&program);
+    rpc_call(
+        client,
+        "eth_call",
+        json!([
+            {"to": PROGRAMS_ADDRESS, "data": format!("0x{}", hex_encode(&data))}, "pending"
+        ]),
+    )
+}
+
+fn view_bytes(result: &Value) -> Result<Vec<u8>, String> {
+    let encoded = result
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .ok_or("program view must return 0x-prefixed ABI bytes")?;
+    if !encoded.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("program view contains non-hexadecimal input".into());
+    }
+    hex_decode("program view", encoded)
+}
+
+fn view_uint(word: &[u8], width: usize) -> Result<u64, String> {
+    if word.len() != 32 || width > 8 || word[..32 - width].iter().any(|byte| *byte != 0) {
+        return Err("program view contains a noncanonical ABI integer".into());
+    }
+    Ok(word[32 - width..]
+        .iter()
+        .fold(0, |value, byte| (value << 8) | u64::from(*byte)))
+}
+
+pub(crate) fn decode_program_view(program_id: &str, result: &Value) -> Result<Value, String> {
+    let program = fixed_hex::<32>("program id", program_id)?;
+    let bytes = view_bytes(result)?;
+    if bytes.len() != 192 {
+        return Err("getProgram must return six ABI words".into());
+    }
+    let policy = view_uint(&bytes[..32], 1)?;
+    let abi = view_uint(&bytes[96..128], 2)?;
+    let version = view_uint(&bytes[128..160], 4)?;
+    let active = view_uint(&bytes[160..192], 1)?;
+    if active > 1 {
+        return Err("getProgram returned a noncanonical boolean".into());
+    }
+    Ok(json!({
+        "program_id": hex_encode(&program), "policy": policy,
+        "authority": hex_encode(&bytes[32..64]), "code_hash": hex_encode(&bytes[64..96]),
+        "abi_version": abi, "version": version, "active": active == 1,
+        "lifecycle": if active == 1 { "active" } else { "inactive" },
+        "source": "eth_call", "block_tag": "pending"
+    }))
+}
+
+pub(crate) fn decode_interface_view(program_id: &str, result: &Value) -> Result<Value, String> {
+    let program = fixed_hex::<32>("program id", program_id)?;
+    let bytes = view_bytes(result)?;
+    if bytes.len() < 128 || bytes.len() % 32 != 0 {
+        return Err("getInterface must return a canonical ABI tuple".into());
+    }
+    let version = view_uint(&bytes[..32], 4)?;
+    if view_uint(&bytes[64..96], 8)? != 96 {
+        return Err("getInterface returned a noncanonical encoding offset".into());
+    }
+    let length = usize::try_from(view_uint(&bytes[96..128], 8)?)
+        .map_err(|_| "interface length exceeds address space")?;
+    let end = 128_usize
+        .checked_add(length)
+        .ok_or("interface length overflow")?;
+    let padded = end.checked_add(31).ok_or("interface length overflow")? / 32 * 32;
+    if bytes.len() != padded
+        || bytes
+            .get(end..)
+            .is_none_or(|padding| padding.iter().any(|b| *b != 0))
+    {
+        return Err("getInterface returned invalid encoding length or padding".into());
+    }
+    let interface = layerx_programs::ProgramInterface::decode(&bytes[128..end])
+        .map_err(|error| format!("program interface is not canonical: {error}"))?;
+    if interface.digest().as_bytes().as_slice() != &bytes[32..64] {
+        return Err("getInterface encoding disagrees with its published digest".into());
+    }
+    Ok(json!({
+        "program_id": hex_encode(&program), "version": version,
+        "interface": hex_encode(&bytes[128..end]), "interface_digest": hex_encode(&bytes[32..64]),
+        "code_hash": hex_encode(&interface.code_hash()), "abi_version": interface.abi_version(),
+        "source": "eth_call", "block_tag": "pending"
+    }))
 }
 
 /// Validates the published interface read behind `program interface get` out of
@@ -960,25 +1053,31 @@ fn interface_program_document(response: &Value) -> Result<Value, String> {
 
 pub fn interface_publish(
     client: &Client,
-    program_id: &str,
+    request: &EvmLifecycleRequest<'_>,
+    artifact: &Path,
     interface_path: &Path,
     idempotency_key: &str,
 ) -> Result<Value, String> {
-    validate_resource_id(program_id, "program id")?;
     validate_idempotency_key(idempotency_key)?;
-    let bytes = fs::read(interface_path)
-        .map_err(|error| format!("could not read {}: {error}", interface_path.display()))?;
-    let interface = layerx_programs::ProgramInterface::decode(&bytes)
-        .map_err(|error| format!("program interface is not canonical: {error}"))?;
-    client.post(
-        &format!("/v1/programs/registry/{program_id}/interface"),
-        &json!({
-            "interface": hex_encode(&bytes),
-            "interface_digest": hex_encode(interface.digest().as_bytes()),
-            "code_hash": hex_encode(&interface.code_hash()),
-            "abi_version": interface.abi_version(),
-        }),
-        Some(idempotency_key),
+    let head = registry_get(client, request.program_id)?;
+    let old_hash = head["code_hash"]
+        .as_str()
+        .ok_or("getProgram omitted its code hash")?;
+    let wasm = read_program_file(artifact)?;
+    if hex_encode(&Sha256::digest(&wasm)) != old_hash {
+        return Err("interface publication artifact differs from the deployed code".into());
+    }
+    upgrade(
+        client,
+        request,
+        &UpgradeRequest {
+            artifact,
+            old_hash,
+            migration_hook: None,
+            interface: Some(interface_path),
+            clear_interface: false,
+            allow_breaking_interface: false,
+        },
     )
 }
 
@@ -986,34 +1085,56 @@ pub const REGISTRY_URL_VARIABLE: &str = "LAYERX_BETA_REGISTRY_URL";
 pub const REGISTRY_PUBLICATION_TOKEN_VARIABLE: &str = "LAYERX_BETA_REGISTRY_PUBLICATION_TOKEN_FILE";
 pub const REGISTRY_PUBLICATION_KEY_VARIABLE: &str = "LAYERX_BETA_REGISTRY_PUBLICATION_KEY_FILE";
 
-/// Lists every program identity the receipt-backed registry projection carries.
-///
-/// # Errors
-/// Refuses transport failures and listings without verified freshness.
+pub const PROGRAM_DEPLOYED_TOPIC: &str =
+    "0x2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709";
+
 pub fn registry_list(client: &Client) -> Result<Value, String> {
-    let response = client.get("/v1/programs/registry")?;
-    let listing = response
-        .get("result")
-        .or_else(|| response.get("value"))
-        .unwrap_or(&response)
-        .clone();
-    let Some(program_ids) = listing["program_ids"].as_array() else {
-        return Err("registry listing omitted its program identities".to_owned());
-    };
-    let mut seen = std::collections::BTreeSet::new();
-    for entry in program_ids {
-        let program_id = entry
+    let logs = rpc_call(
+        client,
+        "eth_getLogs",
+        json!([{
+            "address": PROGRAMS_ADDRESS, "fromBlock": "earliest", "toBlock": "latest",
+            "topics": [PROGRAM_DEPLOYED_TOPIC]
+        }]),
+    )?;
+    decode_registry_logs(&logs)
+}
+
+pub(crate) fn decode_registry_logs(logs: &Value) -> Result<Value, String> {
+    let entries = logs.as_array().ok_or("eth_getLogs must return an array")?;
+    let mut program_ids = std::collections::BTreeSet::new();
+    for entry in entries {
+        let address = entry["address"]
             .as_str()
-            .ok_or_else(|| "registry listing carries a non-string program identity".to_owned())?;
-        let decoded: [u8; 32] = fixed_hex("program id", program_id)?;
-        if !seen.insert(decoded) {
-            return Err("registry listing repeats a program identity".to_owned());
+            .ok_or("program event omitted its address")?;
+        if !address.eq_ignore_ascii_case(PROGRAMS_ADDRESS) || entry["removed"] != false {
+            return Err("registry log is removed or belongs to another address".into());
         }
+        let topics = entry["topics"]
+            .as_array()
+            .ok_or("program event omitted its topics")?;
+        if topics.len() != 2
+            || topics[0]
+                .as_str()
+                .is_none_or(|topic| !topic.eq_ignore_ascii_case(PROGRAM_DEPLOYED_TOPIC))
+        {
+            return Err("registry log is not a ProgramDeployed event".into());
+        }
+        let id = transaction_hash(
+            topics[1]
+                .as_str()
+                .ok_or("program event omitted its identity")?,
+        )?;
+        transaction_hash(
+            entry["data"]
+                .as_str()
+                .ok_or("program event omitted its code hash")?,
+        )?;
+        program_ids.insert(hex_encode(&id));
     }
-    if listing["observed_sequence"].is_null() || listing["state_root"].as_str().is_none() {
-        return Err("registry listing omitted current-state freshness".to_owned());
-    }
-    Ok(listing)
+    Ok(
+        json!({"program_ids": program_ids, "events": entries, "source": "eth_getLogs", "block_tag": "latest"}),
+    )
 }
 
 fn required_variable(name: &str) -> Result<String, String> {
@@ -1047,6 +1168,8 @@ fn secret_from(name: &str) -> Result<Zeroizing<String>, String> {
 /// Refuses missing operator inputs, unreadable build inputs, transport
 /// failures, and mirror refusals.
 pub fn registry_mirror_source(
+    client: &Client,
+    program_id: &str,
     source_uri: &str,
     plan_path: &Path,
     archive_path: &Path,
@@ -1057,6 +1180,7 @@ pub fn registry_mirror_source(
     {
         return Err("source URI must be 1-1024 printable ASCII characters".to_owned());
     }
+    let head = registry_get(client, program_id)?;
     let endpoint = required_variable(REGISTRY_URL_VARIABLE)?;
     let token = secret_from(REGISTRY_PUBLICATION_TOKEN_VARIABLE)?;
     let publication_key = secret_from(REGISTRY_PUBLICATION_KEY_VARIABLE)?;
@@ -1077,7 +1201,7 @@ pub fn registry_mirror_source(
         }),
         publication_key.as_str(),
     )?;
-    let mirrored = response.get("result").unwrap_or(&response).clone();
+    let mut mirrored = response.get("result").unwrap_or(&response).clone();
     if mirrored["mirrored"] != Value::Bool(true) {
         return Err("registry did not confirm the source mirror".to_owned());
     }
@@ -1090,6 +1214,12 @@ pub fn registry_mirror_source(
             .as_str()
             .ok_or_else(|| "registry mirror omitted its source digest".to_owned())?,
     )?;
+    mirrored["program_id"] = head["program_id"].clone();
+    mirrored["deployed_code_hash"] = head["code_hash"].clone();
+    mirrored["source_verification"] = json!({
+        "state": "unavailable",
+        "reason": "layerxprograms getProgram does not expose a source digest"
+    });
     Ok(mirrored)
 }
 
@@ -1103,14 +1233,14 @@ pub fn registry_verify_source(
     validate_resource_id(program_id, "program id")?;
     validate_idempotency_key(idempotency_key)?;
     let _: [u8; 32] = crate::encoding::fixed_hex("source digest", source_digest)?;
-    client.post(
-        &format!("/v1/programs/registry/{program_id}/source"),
-        &json!({
-            "source_uri": source_uri,
-            "source_digest": source_digest,
-        }),
-        Some(idempotency_key),
-    )
+    if source_uri.is_empty()
+        || source_uri.len() > 1024
+        || !source_uri.bytes().all(|b| b.is_ascii_graphic())
+    {
+        return Err("source URI must be 1-1024 printable ASCII characters".into());
+    }
+    let _head = registry_get(client, program_id)?;
+    Err("source verification unavailable: layerxprograms getProgram does not expose a source digest".into())
 }
 
 /// Native guest arguments encoded for the layerxprograms precompile.
@@ -4195,4 +4325,221 @@ mod registry_read_tests {
             Err("interface read omitted current-state freshness".to_owned())
         );
     }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChainDeploymentPackage {
+    commitment: Vec<u8>,
+    code: Vec<u8>,
+    interface: Option<Vec<u8>>,
+}
+
+fn persisted_chain_trust(
+    path: &Path,
+    max_age_ms: u64,
+) -> Result<(TrustRoot, ProtocolDeploymentVerifier), String> {
+    use std::io::Read as _;
+    use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _};
+
+    let before = fs::symlink_metadata(path)
+        .map_err(|error| format!("chain trust root is unavailable: {error}"))?;
+    if !before.is_file() || before.permissions().mode() & 0o077 != 0 {
+        return Err("chain trust root must be a private regular file".into());
+    }
+    let flags = rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(i32::try_from(flags.bits()).map_err(|_| "invalid trust root open flags")?)
+        .open(path)
+        .map_err(|error| format!("chain trust root is unavailable: {error}"))?;
+    let after = file.metadata().map_err(|error| error.to_string())?;
+    if !after.is_file()
+        || after.permissions().mode() & 0o077 != 0
+        || before.dev() != after.dev()
+        || before.ino() != after.ino()
+        || after.len() == 0
+        || after.len() > 524_288
+    {
+        return Err("chain trust root changed or exceeds its bounds".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(524_289)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if bytes.len() as u64 != after.len() {
+        return Err("chain trust root changed while reading".into());
+    }
+    let root = TrustRoot::decode(&bytes)
+        .map_err(|error| format!("chain trust root is invalid: {error:?}"))?;
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        root.chain_id.clone(),
+        root.validators.validators().to_vec(),
+        max_age_ms,
+    )
+    .map_err(|error| format!("chain trust root is invalid: {error}"))?;
+    Ok((root, verifier))
+}
+
+fn verify_chain_deployment_package(
+    path: &Path,
+    bytes: &[u8],
+    max_age_ms: u64,
+    now_ms: Option<u64>,
+) -> Result<
+    (
+        layerx_programs::chain_evidence::deployment::VerifiedDeploymentEvidence,
+        [u8; 32],
+    ),
+    String,
+> {
+    if bytes.len() > 40 * 1024 * 1024 {
+        return Err("chain deployment proof exceeds its bounds".into());
+    }
+    let (root, verifier) = persisted_chain_trust(path, max_age_ms)?;
+    let package: ChainDeploymentPackage = serde_json::from_slice(bytes)
+        .map_err(|error| format!("chain deployment package is invalid: {error}"))?;
+    if package.code.len() > 32 * 1024 * 1024 {
+        return Err("deployed module exceeds its bounds".into());
+    }
+    let commitment = decode_commitment_proof(&package.commitment)
+        .map_err(|error| format!("chain deployment commitment is invalid: {error:?}"))?;
+    let header = ChainHeader::decode(&commitment.signed_header)
+        .map_err(|error| format!("chain deployment header is invalid: {error:?}"))?;
+    let commit = decode_chain_commit(&commitment.commit)
+        .map_err(|error| format!("chain deployment commit is invalid: {error:?}"))?;
+    let head = verifier
+        .chain_trust()
+        .ok_or("chain trust is unavailable")?
+        .verify_head(&header, &commit)
+        .map_err(|error| format!("chain deployment head verification refused: {error:?}"))?;
+    let height = u64::try_from(head.height()).map_err(|_| "invalid chain deployment height")?;
+    let time_ms = u64::try_from(head.time_ms()).map_err(|_| "invalid chain deployment time")?;
+    if height < root.height
+        || time_ms < root.time_ms
+        || (height == root.height
+            && (head.header_hash() != root.header_hash || time_ms != root.time_ms))
+        || (height > root.height
+            && (time_ms == root.time_ms || time_ms - root.time_ms > 1_209_600_000))
+        || (root.height.checked_add(1) == Some(height)
+            && header.last_block_id.hash != root.header_hash)
+    {
+        return Err("chain deployment head does not extend the persisted trust root".into());
+    }
+    if let Some(now_ms) = now_ms {
+        chain_freshness(&head, now_ms, verifier.staleness_limit_ms())
+            .map_err(|error| format!("chain deployment freshness refused: {error}"))?;
+    }
+    if commitment.store_name != "layerx" {
+        return Err("deployment proof must use the layerx store".into());
+    }
+    let prefix = layerx_programs::chain_evidence::programs_state_key(b"program\0");
+    let program_bytes = commitment
+        .key
+        .strip_prefix(prefix.as_slice())
+        .and_then(|bytes| <[u8; 32]>::try_from(bytes).ok())
+        .ok_or("deployment proof must address a Programs record")?;
+    let program =
+        layerx_programs::ProgramId::new(program_bytes).map_err(|error| error.to_string())?;
+    let value = commitment
+        .value
+        .as_deref()
+        .ok_or("deployment proof has no program record")?;
+    layerx_programs::chain_proof::state::verify_state(
+        &head,
+        &commitment.store_name,
+        &commitment.key,
+        value,
+        &commitment.proof_ops,
+    )
+    .map_err(|error| format!("chain deployment state verification refused: {error:?}"))?;
+    let proof = ChainDeploymentProof {
+        program_state: ChainProgramStateProof {
+            program,
+            ops: commitment.proof_ops,
+        },
+        code: package.code,
+        interface: package.interface,
+    };
+    let evidence = proof
+        .verify(&head)
+        .map_err(|error| format!("chain deployment proof verification refused: {error}"))?;
+    Ok((evidence, head.header_hash()))
+}
+
+fn decode_chain_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
+    let mut reader = ProtoReader::new(bytes);
+    let mut height = None;
+    let mut round = None;
+    let mut block_id = None;
+    let mut signatures = Vec::new();
+    while let Some(field) = reader.next_field()? {
+        match (field.number, field.value) {
+            (1, ProtoValue::Varint(value)) if height.is_none() => {
+                height = Some(i64::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
+            }
+            (2, ProtoValue::Varint(value)) if round.is_none() => {
+                round = Some(i32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
+            }
+            (3, ProtoValue::Bytes(value)) if block_id.is_none() => {
+                block_id = Some(decode_chain_block_id(value)?)
+            }
+            (4, ProtoValue::Bytes(value)) => signatures.push(CommitSig::decode(value)?),
+            _ => return Err(ChainProofError::NonCanonical),
+        }
+    }
+    reader.finish()?;
+    Ok(Commit {
+        height: height.ok_or(ChainProofError::NonCanonical)?,
+        round: round.unwrap_or(0),
+        block_id: block_id.ok_or(ChainProofError::NonCanonical)?,
+        signatures,
+    })
+}
+
+fn decode_chain_block_id(bytes: &[u8]) -> Result<BlockId, ChainProofError> {
+    let mut reader = ProtoReader::new(bytes);
+    let mut hash = None;
+    let mut parts = None;
+    while let Some(field) = reader.next_field()? {
+        match (field.number, field.value) {
+            (1, ProtoValue::Bytes(value)) if hash.is_none() => hash = Some(value.to_vec()),
+            (2, ProtoValue::Bytes(value)) if parts.is_none() => {
+                let mut part_reader = ProtoReader::new(value);
+                let mut total = None;
+                let mut part_hash = None;
+                while let Some(part) = part_reader.next_field()? {
+                    match (part.number, part.value) {
+                        (1, ProtoValue::Varint(value)) if total.is_none() => {
+                            total = Some(
+                                u32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?,
+                            );
+                        }
+                        (2, ProtoValue::Bytes(value)) if part_hash.is_none() => {
+                            part_hash = Some(value.to_vec())
+                        }
+                        _ => return Err(ChainProofError::NonCanonical),
+                    }
+                }
+                part_reader.finish()?;
+                parts = Some(PartSetHeader {
+                    total: total.ok_or(ChainProofError::NonCanonical)?,
+                    hash: part_hash.ok_or(ChainProofError::NonCanonical)?,
+                });
+            }
+            _ => return Err(ChainProofError::NonCanonical),
+        }
+    }
+    reader.finish()?;
+    let block = BlockId {
+        hash: hash.ok_or(ChainProofError::NonCanonical)?,
+        part_set_header: parts.ok_or(ChainProofError::NonCanonical)?,
+    };
+    if block.hash.len() != 32
+        || block.part_set_header.hash.len() != 32
+        || !(1..=101).contains(&block.part_set_header.total)
+    {
+        return Err(ChainProofError::NonCanonical);
+    }
+    Ok(block)
 }
