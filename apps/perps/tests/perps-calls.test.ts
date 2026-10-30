@@ -1,13 +1,19 @@
-import { afterEach, beforeEach, describe, it, mock } from "node:test";
+import { afterEach, beforeEach, describe, it, mock, test } from "node:test";
 import { strict as assert } from "node:assert";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { encodeFunctionData, type Address, type Hex } from "viem";
 
-import * as calls from "../src/core/perps/calls";
-import {
+import type { AccountState } from "../src/core/perps/calls";
+import { PerpsPrecompileABI, OrderType, TimeInForce } from "../src/core/network/abi/PerpsPrecompile";
+import { buildDeadline, parsePrice } from "../src/core/spot/slippage";
+
+process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL = "https://perps-gateway.invalid";
+
+const calls = require("../src/core/perps/calls") as typeof import("../src/core/perps/calls");
+const {
   acceptablePrice,
   buildAddCollateral,
   buildAddSize,
@@ -36,11 +42,9 @@ import {
   buildWithdraw,
   buildWithdrawAll,
   ladderCloid,
-  type AccountState,
-} from "../src/core/perps/calls";
-import { deriveImpliedCollateral, safeParseUnits } from "../src/core/perps/amounts";
-import { PerpsPrecompileABI, OrderType, TimeInForce } from "../src/core/network/abi/PerpsPrecompile";
-import { buildDeadline, parsePrice } from "../src/core/spot/slippage";
+} = calls;
+const { deriveImpliedCollateral, safeParseUnits } =
+  require("../src/core/perps/amounts") as typeof import("../src/core/perps/amounts");
 
 const ROOT = path.resolve(__dirname, "..");
 const PERPS: Address = "0x0000000000000000000000000000000000001015";
@@ -510,38 +514,58 @@ describe("refusals", () => {
   });
 });
 
-describe("typing", () => {
-  it("buildersAreTyped", { timeout: 300_000 }, () => {
-    const dir = mkdtempSync(path.join(os.tmpdir(), "perps-calls-typed-"));
-    try {
-      const probe = [
-        `import { PerpsPrecompileABI } from ${JSON.stringify(path.join(ROOT, "src/core/network/abi/PerpsPrecompile"))};`,
-        `import type { PerpsCall } from ${JSON.stringify(path.join(ROOT, "src/core/perps/calls"))};`,
-        `export const good: PerpsCall<"closePositionWithParams"> = { address: "${PERPS}", abi: PerpsPrecompileABI, functionName: "closePositionWithParams", args: [7n, 1n, 2n, 3n] };`,
-        `export const bad: PerpsCall<"closePositionWithParams"> = { address: "${PERPS}", abi: PerpsPrecompileABI, functionName: "closePositionWithParams", args: [7n, 1n, 2n] };`,
-        "",
-      ].join("\n");
-      writeFileSync(path.join(dir, "probe.ts"), probe);
-      writeFileSync(
-        path.join(dir, "tsconfig.json"),
-        JSON.stringify({
-          extends: path.join(ROOT, "tsconfig.json"),
-          compilerOptions: { incremental: false, noEmit: true, typeRoots: [path.join(ROOT, "node_modules/@types")] },
-          include: [],
-          files: ["probe.ts"],
-        }),
-      );
-      const result = spawnSync(path.join(ROOT, "node_modules/.bin/tsc"), ["-p", dir, "--pretty", "false"], {
-        cwd: ROOT,
-        encoding: "utf8",
-      });
-      assert.notEqual(result.status, 0);
-      const errors = result.stdout.split("\n").filter((line) => line.includes("error TS"));
-      assert.equal(errors.length, 1, result.stdout);
-      assert.match(errors[0], /probe\.ts\(4,/);
-      assert.match(result.stdout, /Source has 3 element\(s\) but target requires 4/);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-});
+function lockfilesCarryNoMinimatchStubTypes(): void {
+  const npmLock = JSON.parse(readFileSync(path.join(ROOT, "package-lock.json"), "utf8")) as {
+    packages: Record<string, { version?: string }>;
+  };
+  const npmMinimatchTypes = Object.entries(npmLock.packages).filter(([name]) =>
+    name.endsWith("node_modules/@types/minimatch"),
+  );
+  assert.ok(npmMinimatchTypes.length > 0, "npm lockfile must resolve @types/minimatch");
+  for (const [name, entry] of npmMinimatchTypes) {
+    assert.equal(entry.version, "5.1.2", `${name} must ship declarations`);
+  }
+
+  const pnpmLock = readFileSync(path.join(ROOT, "pnpm-lock.yaml"), "utf8");
+  assert.match(pnpmLock, /'@types\/minimatch@5\.1\.2':/);
+  assert.match(pnpmLock, /'@types\/minimatch': 5\.1\.2/);
+  assert.doesNotMatch(pnpmLock, /@types\/minimatch(?:@|['"]?:\s*)6\.0\.0/);
+}
+
+test(lockfilesCarryNoMinimatchStubTypes);
+
+function buildersAreTyped(): void {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "perps-calls-typed-"));
+  try {
+    const probe = [
+      `import { PerpsPrecompileABI } from ${JSON.stringify(path.join(ROOT, "src/core/network/abi/PerpsPrecompile"))};`,
+      `import type { PerpsCall } from ${JSON.stringify(path.join(ROOT, "src/core/perps/calls"))};`,
+      `export const good: PerpsCall<"closePositionWithParams"> = { address: "${PERPS}", abi: PerpsPrecompileABI, functionName: "closePositionWithParams", args: [7n, 1n, 2n, 3n] };`,
+      `export const bad: PerpsCall<"closePositionWithParams"> = { address: "${PERPS}", abi: PerpsPrecompileABI, functionName: "closePositionWithParams", args: [7n, 1n, 2n] };`,
+      "",
+    ].join("\n");
+    writeFileSync(path.join(dir, "probe.ts"), probe);
+    writeFileSync(
+      path.join(dir, "tsconfig.json"),
+      JSON.stringify({
+        extends: path.join(ROOT, "tsconfig.json"),
+        compilerOptions: { incremental: false, noEmit: true, typeRoots: [path.join(ROOT, "node_modules/@types")] },
+        include: [],
+        files: ["probe.ts"],
+      }),
+    );
+    const result = spawnSync(path.join(ROOT, "node_modules/.bin/tsc"), ["-p", dir, "--pretty", "false"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    assert.notEqual(result.status, 0);
+    const errors = result.stdout.split("\n").filter((line) => line.includes("error TS"));
+    assert.equal(errors.length, 1, result.stdout);
+    assert.match(errors[0], /probe\.ts\(4,/);
+    assert.match(result.stdout, /Source has 3 element\(s\) but target requires 4/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test({ timeout: 300_000 }, buildersAreTyped);

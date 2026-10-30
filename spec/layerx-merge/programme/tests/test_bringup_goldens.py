@@ -67,10 +67,31 @@ def test_golden_cases_cover_every_refusal() -> None:
 def test_refusal_texts_match_handler() -> None:
     goldens = load(GOLDEN_PATH)
     source = (ROOT / "node/upgrades.go").read_text(encoding="utf-8")
-    handler = "\n".join(source.splitlines()[431:464])
+    handlers = {}
+    for name in (
+        "mergeUpgradePlan",
+        "continueMergeUpgradePlan",
+        "migrateMergeState",
+    ):
+        match = re.search(
+            rf"^func \(app \*App\) {name}\([^\n]* \{{\n.*?^\}}",
+            source,
+            re.MULTILINE | re.DOTALL,
+        )
+        assert match is not None, name
+        handlers[name] = match[0]
+    assert (
+        "return app.continueMergeUpgradePlan(ctx, plan, fromVM)"
+        in handlers["mergeUpgradePlan"]
+    )
+    assert (
+        "versions, err := app.migrateMergeState(cached, plan, fromVM)"
+        in handlers["continueMergeUpgradePlan"]
+    )
+    handler = "\n".join(handlers.values())
     assert "func (app *App) mergeUpgradePlan(" in handler
     messages = re.findall(r'(?:fmt\.Errorf|\.Wrapf)\("([^"\n]*)"', handler)
-    assert len(messages) == 5
+    assert len(messages) == 8
     for case, text in REFUSALS.items():
         expect_text = goldens[f"golden.{case}"]["expect_text"]
         assert expect_text == text, case

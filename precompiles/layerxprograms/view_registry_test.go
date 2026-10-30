@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -67,26 +68,26 @@ func TestProgramsViewGetProgramRecord(t *testing.T) {
 	require.NoError(t, err)
 	lastSequence, err := h.host.ReadLastSequence(ctx, did)
 	require.NoError(t, err)
+	head := binary.BigEndian.AppendUint16(nil, 1)
+	head = binary.BigEndian.AppendUint32(head, 0)
+	manifestDigest := sha256.Sum256([]byte{0, 1, 0, 0, 0, 0})
+	head = append(head, manifestDigest[:]...)
 	t.Run("missing state head", func(t *testing.T) {
 		before := h.dump(h.stateDB.Ctx())
 		input, err := lp.ProgramsABI.Pack("getStateHead", program)
 		require.NoError(t, err)
 		out, _, err := h.evm.StaticCall(h.caller, h.precompile.Address(), input, 2000000)
-		require.ErrorIs(t, err, vm.ErrExecutionReverted)
-		reason, err := abi.UnpackRevert(out)
 		require.NoError(t, err)
-		require.True(t, strings.HasPrefix(reason, "LXP_NOT_FOUND:"), "unexpected revert: %s", reason)
+		values, err := lp.ProgramsABI.Methods["getStateHead"].Outputs.Unpack(out)
+		require.NoError(t, err)
+		require.Equal(t, []interface{}{head}, values)
 		require.Equal(t, before, h.dump(h.stateDB.Ctx()))
 	})
-	head := binary.BigEndian.AppendUint16(nil, 1)
-	head = binary.BigEndian.AppendUint32(head, 0)
-	manifestDigest := sha256.Sum256([]byte{0, 1, 0, 0, 0, 0})
-	head = append(head, manifestDigest[:]...)
 	headKey := append([]byte{1, 0, 9}, []byte("progstor")...)
 	headKey = append(headKey, program[:]...)
 	headKey = append(headKey, 1)
 	h.stateDB.Ctx().KVStore(h.key).Set(headKey, head)
-	before := h.dump(ctx)
+	before := h.dump(h.stateDB.Ctx())
 	for _, tc := range []struct {
 		name string
 		want []interface{}
@@ -113,6 +114,44 @@ func TestProgramsViewGetProgramRecord(t *testing.T) {
 	require.Equal(t, lastSequence, afterLastSequence)
 	require.Equal(t, before, h.dump(h.stateDB.Ctx()))
 	require.Empty(t, h.stateDB.Ctx().EventManager().Events())
+}
+
+func TestProgramsViewGetStateHeadEmptyAndUnknown(t *testing.T) {
+	h := newHarness(t)
+	program, _, _, _ := deployRegistryViewProgram(t, h, false)
+	_, err := h.host.ReadProgramStateHead(h.stateDB.Ctx(), program)
+	require.ErrorIs(t, err, lxphost.Code(-7))
+	t.Run("empty storage", func(t *testing.T) {
+		before := h.dump(h.stateDB.Ctx())
+		input, err := lp.ProgramsABI.Pack("getStateHead", program)
+		require.NoError(t, err)
+		out, _, err := h.evm.StaticCall(h.caller, h.precompile.Address(), input, 2000000)
+		require.NoError(t, err)
+		values, err := lp.ProgramsABI.Methods["getStateHead"].Outputs.Unpack(out)
+		require.NoError(t, err)
+		require.Len(t, values, 1)
+		head, ok := values[0].([]byte)
+		require.True(t, ok)
+		require.Len(t, head, 38)
+		require.Equal(t, uint16(1), binary.BigEndian.Uint16(head[:2]))
+		require.Zero(t, binary.BigEndian.Uint32(head[2:6]))
+		digest := sha256.Sum256([]byte{0, 1, 0, 0, 0, 0})
+		require.Equal(t, digest[:], head[6:])
+		require.Equal(t, before, h.dump(h.stateDB.Ctx()))
+		require.Empty(t, h.stateDB.Ctx().EventManager().Events())
+	})
+	t.Run("unknown program", func(t *testing.T) {
+		before := h.dump(h.stateDB.Ctx())
+		input, err := lp.ProgramsABI.Pack("getStateHead", [32]byte{0xff})
+		require.NoError(t, err)
+		out, _, err := h.evm.StaticCall(h.caller, h.precompile.Address(), input, 2000000)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		reason, err := abi.UnpackRevert(out)
+		require.NoError(t, err)
+		require.True(t, strings.HasPrefix(reason, "LXP_NOT_FOUND:"), "unexpected revert: %s", reason)
+		require.Equal(t, before, h.dump(h.stateDB.Ctx()))
+		require.Empty(t, h.stateDB.Ctx().EventManager().Events())
+	})
 }
 
 func TestProgramsViewGetInterfaceAndAbsent(t *testing.T) {

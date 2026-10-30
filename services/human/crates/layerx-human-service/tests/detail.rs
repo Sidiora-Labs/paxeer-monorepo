@@ -7,8 +7,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, EventDelivery, EventIdentity, ReceiptReference,
 };
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
 use layerx_human_service::activity::detail::{
     DetailError, EvidenceKind, FinalityReference, ReceiptActual, StageState,
 };
@@ -162,19 +160,23 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
         .flat_map(|kind| [(kind, false), (kind, true)])
         .enumerate()
     {
-        let level = if finalised {
-            Level::CheckpointFinalised
+        let rung = if finalised {
+            Rung::Committed
         } else {
-            Level::SequencerSigned
+            Rung::Receipted
         };
         let sequence = u64::try_from(index).unwrap_or(0).saturating_add(1);
         let delivery = EventDelivery::new(
             EventIdentity::new([u8::try_from(sequence).unwrap_or(1); 32]),
             receipt.canonical_bytes().to_vec(),
-            ApiCursor(Sequence(sequence)),
+            ApiCursor {
+                block_height: sequence,
+                tx_index: 0,
+                log_index: 0,
+            },
             ReceiptReference::Verified {
                 receipt_ref: receipt_ref.clone(),
-                verification_level: level,
+                rung,
             },
         )
         .unwrap_or_else(|error| panic!("delivery: {error:?}"));
@@ -250,11 +252,15 @@ fn refuses_unbacked_actuals_and_states_refusal_funds_disposition() {
     let completed_delivery = EventDelivery::new(
         EventIdentity::new([1; 32]),
         receipt.canonical_bytes().to_vec(),
-        ApiCursor(Sequence(1)),
+        ApiCursor {
+            block_height: 1,
+            tx_index: 0,
+            log_index: 0,
+        },
         ReceiptReference::Verified {
             receipt_ref: ReceiptRef::new(actual.reference())
                 .unwrap_or_else(|error| panic!("receipt reference: {error:?}")),
-            verification_level: Level::SequencerSigned,
+            rung: Rung::Receipted,
         },
     )
     .unwrap_or_else(|error| panic!("delivery: {error:?}"));
@@ -284,7 +290,11 @@ fn refuses_unbacked_actuals_and_states_refusal_funds_disposition() {
     let refusal_delivery = EventDelivery::new(
         EventIdentity::new([2; 32]),
         vec![1, 2, 3],
-        ApiCursor(Sequence(2)),
+        ApiCursor {
+            block_height: 2,
+            tx_index: 0,
+            log_index: 0,
+        },
         ReceiptReference::None,
     )
     .unwrap_or_else(|error| panic!("refusal delivery: {error:?}"));

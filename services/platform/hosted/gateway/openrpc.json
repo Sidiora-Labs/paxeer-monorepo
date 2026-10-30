@@ -3446,15 +3446,15 @@
           "properties": {
             "exchange": {
               "type": "boolean",
-              "description": "True when eth_getCode at the exchange precompile 0x0000000000000000000000000000000000001015 answers code."
+              "description": "True when eth_call of totalMarkets() at the exchange precompile 0x0000000000000000000000000000000000001015 decodes as the view's uint256 return value; false when the call reverts or answers a malformed value."
             },
             "bridge": {
               "type": "boolean",
-              "description": "True when eth_getCode at the bridge precompile 0x0000000000000000000000000000000000001016 answers code."
+              "description": "True when eth_call of isPaused() at the bridge precompile 0x0000000000000000000000000000000000001016 decodes as the view's bool return value; false when the call reverts or answers a malformed value."
             },
             "launchpad": {
               "type": "boolean",
-              "description": "True when eth_getCode at the launchpad precompile 0x0000000000000000000000000000000000001017 answers code."
+              "description": "True when eth_call of getPoolCount() at the launchpad precompile 0x0000000000000000000000000000000000001017 decodes as the view's uint256 return value; false when the call reverts or answers a malformed value."
             },
             "probed_at": {
               "type": "integer",
@@ -3464,12 +3464,12 @@
             "rpc_height": {
               "type": "string",
               "pattern": "^(0|[1-9][0-9]*)$",
-              "description": "The Paxeer block height, as a decimal string, at which every eth_getCode was read."
+              "description": "The Paxeer block height, as a decimal string, at which every probe call was made."
             }
           }
         }
       },
-      "description": "Which Paxeer X fork surfaces the chain answers for. The gateway reads eth_blockNumber and then eth_getCode at that height for the exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016) and launchpad (0x0000000000000000000000000000000000001017) precompiles: 0x is false, any code is true. The answer is cached for LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS (default 15). While a surface is false, eth_sendRawTransaction and eth_sendRawTransactionSync addressed to its precompile are refused with -32003 Surface unavailable and data {code: surface_unavailable, surface, address}; reads and history are never gated. Takes no arguments.",
+      "description": "Which Paxeer X fork surfaces the chain answers for. The gateway reads eth_blockNumber and then uses eth_call at that height to probe each precompile's view: exchange at 0x0000000000000000000000000000000000001015 with totalMarkets(), bridge at 0x0000000000000000000000000000000000001016 with isPaused(), launchpad at 0x0000000000000000000000000000000000001017 with getPoolCount(), pay at 0x000000000000000000000000000000000000101b with budgetRemaining(bytes32) using a zero bytes32 argument, and programs at 0x000000000000000000000000000000000000101d with getCurrentFeeSchedule(). A surface is true when the answer decodes as its view's return value, and false when the call reverts or answers a malformed value, including an empty answer. The answer is cached for LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS (default 15). While a surface is false, eth_sendRawTransaction and eth_sendRawTransactionSync addressed to its precompile are refused with -32003 Surface unavailable and data {code: surface_unavailable, surface, address}; reads and history are never gated. Takes no arguments.",
       "errors": [
         {
           "code": -32602,

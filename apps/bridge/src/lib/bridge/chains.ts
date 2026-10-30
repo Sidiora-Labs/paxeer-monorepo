@@ -38,9 +38,9 @@ export const paxeer = defineChain({
   rpcUrls: {
     'default': { http: bridgeConfig.paxeerRpcUrl ? [ bridgeConfig.paxeerRpcUrl ] : [] },
   },
-  blockExplorers: {
+  blockExplorers: bridgeConfig.paxeerExplorerUrl ? {
     'default': { name: 'Paxscan', url: bridgeConfig.paxeerExplorerUrl },
-  },
+  } : undefined,
 });
 
 export type BridgeAsset = {

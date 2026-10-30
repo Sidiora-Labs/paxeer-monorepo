@@ -249,7 +249,7 @@ export interface UnifiedAccountDocument {
 }
 
 export interface ChainAccount {
-  account: string;
+  account: UnifiedAccountDocument;
   paxeer: { address: string; balance: string; nonce: string; height: string };
 }
 
@@ -259,7 +259,7 @@ export interface BankBalance {
 }
 
 export interface Balances {
-  account: string;
+  account: UnifiedAccountDocument;
   height: string;
   balances: BankBalance[];
 }
@@ -493,6 +493,7 @@ export interface IntentLeg {
   destination: IntentEndpoint;
   money: HumanMoney;
   fee: HumanMoney;
+  tx_hash?: string;
 }
 
 export interface IntentSigningRequirement {
@@ -516,7 +517,9 @@ export interface IntentLegBinding {
   actor: string;
   authority: string;
   relationship: string;
+  /** Pending-tag EVM nonce of the leg sender (human decision.1003). */
   account_sequence: number;
+  tx_hash?: string;
   not_before: number;
   not_after: number;
   fee_limit: HumanMoney;
@@ -561,6 +564,7 @@ export interface EvidenceRef {
   evidence_id: string;
   class: EvidenceClass;
   verification: VerificationLevel;
+  tx_hash?: string;
   settlement_domain?: string;
 }
 

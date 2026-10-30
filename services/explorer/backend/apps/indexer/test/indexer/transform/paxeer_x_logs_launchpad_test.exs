@@ -165,7 +165,7 @@ defmodule Indexer.Transform.PaxeerXLogsLaunchpadTest do
         topic: "0x021f03e8a1315704c74c03e8c022c12bc80c4a2bd4fec8bd36b217322c340ad3",
         indexed: [word(20), word(21), word(22)],
         data: encode([904, 1_700_000_007, 4_000_007], [{:uint, 256}, {:uint, 256}, {:uint, 256}]),
-        address_hash: address(22),
+        address_hash: address(21),
         asset_address_hash: nil,
         amount: nil,
         parameters: %{
@@ -380,7 +380,19 @@ defmodule Indexer.Transform.PaxeerXLogsLaunchpadTest do
       end)
 
     assert capture_log(fn ->
-             assert PaxeerXLogs.parse(logs) == %{lx_market_events: expected_rows, lx_account_bindings: []}
+             result = PaxeerXLogs.parse(logs)
+             rows = Map.fetch!(result, :lx_market_events)
+
+             assert Map.delete(result, :lx_market_events) == %{
+                      lx_account_bindings: [],
+                      undecoded_log_count: 0
+                    }
+
+             assert length(rows) == length(expected_rows)
+
+             Enum.zip(rows, expected_rows)
+             |> Enum.with_index()
+             |> Enum.each(fn {{got, want}, i} -> assert {i, got} == {i, want} end)
            end) == ""
   end
 
@@ -438,6 +450,7 @@ defmodule Indexer.Transform.PaxeerXLogsLaunchpadTest do
     assert capture_log(fn ->
              assert PaxeerXLogs.parse([fees_claimed_log, swap_log]) == %{
                       lx_account_bindings: [],
+                      undecoded_log_count: 0,
                       lx_market_events: [
                         %{
                           transaction_hash: fees_claimed_log.transaction_hash,

@@ -180,8 +180,8 @@ func TestCmdQueryAirdropNetwork(t *testing.T) {
 			abciCode uint32
 		}{
 			{cli.CmdQueryAirdropEpoch, []string{pool[2:], "1"}, "AirdropEpoch", &types.QueryAirdropEpochRequest{Pool: pool[2:], Epoch: 1}, codes.InvalidArgument, 18},
-			{cli.CmdQueryAirdropClaimed, []string{pool[2:], holder, "1"}, "AirdropClaimed", &types.QueryAirdropClaimedRequest{Pool: pool[2:], Holder: holder, Epoch: 1}, codes.Unknown, 7},
-			{cli.CmdQueryAirdropClaimed, []string{pool, holder[2:], "1"}, "AirdropClaimed", &types.QueryAirdropClaimedRequest{Pool: pool, Holder: holder[2:], Epoch: 1}, codes.Unknown, 7},
+			{cli.CmdQueryAirdropClaimed, []string{pool[2:], holder, "1"}, "AirdropClaimed", &types.QueryAirdropClaimedRequest{Pool: pool[2:], Holder: holder, Epoch: 1}, codes.InvalidArgument, 18},
+			{cli.CmdQueryAirdropClaimed, []string{pool, holder[2:], "1"}, "AirdropClaimed", &types.QueryAirdropClaimedRequest{Pool: pool, Holder: holder[2:], Epoch: 1}, codes.InvalidArgument, 18},
 		} {
 			output, commandErr := run(tc.newCmd(), tc.args...)
 			require.ErrorContains(t, commandErr, "invalid address")

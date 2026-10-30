@@ -12,7 +12,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -23,24 +22,6 @@ import java.util.concurrent.CompletionStage;
 /** HTTP/JSON transport for the schema-defined human and Agent routes. */
 public final class HttpProductionTransport implements ProductionTransport {
     private static final int MAXIMUM_RESPONSE_BYTES = 8 * 1024 * 1024;
-    private static final int MAXIMUM_PROGRAMS_REQUEST_BYTES = 8 * 1024 * 1024;
-    private static final int MAXIMUM_PROGRAM_BYTES = 1_048_576;
-    private record ProgramRoute(String method, String path, List<String> pathParameters,
-                                boolean idempotency) {}
-    private static final Map<String, ProgramRoute> PROGRAM_ROUTES = Map.of(
-        "program.deploy", new ProgramRoute("POST", ProgramLifecycleRoutes.PATHS.get("program.deploy"), List.of(), true),
-        "program.upgrade", new ProgramRoute("POST", ProgramLifecycleRoutes.PATHS.get("program.upgrade"), List.of(), true),
-        "program.wind-down", new ProgramRoute("POST", ProgramLifecycleRoutes.PATHS.get("program.wind-down"), List.of(), true),
-        "program.discover", new ProgramRoute("GET", "/v1/programs/registry/{program_id}",
-            List.of("program_id"), false),
-        "program.interface", new ProgramRoute("GET", "/v1/programs/registry/{program_id}/interface",
-            List.of("program_id"), false),
-        "program.simulate", new ProgramRoute("POST", "/v1/programs/simulate", List.of(), false),
-        "program.call", new ProgramRoute("POST", "/v1/programs/call", List.of(), true),
-        "program.receipt", new ProgramRoute("GET", "/v1/programs/receipts/by-idempotency/{idempotency_key}",
-            List.of("idempotency_key"), false),
-        "program.activity", new ProgramRoute("GET", "/v1/programs/activities/{activity_id}",
-            List.of("activity_id"), false));
     private static final String AGENT_RPC_PATH = "/v1/agent/rpc";
     private static final int MAXIMUM_AGENT_ENVELOPE_BYTES = 1_048_576;
     private static final Set<String> AGENT_BOOTSTRAP_OPERATIONS = Set.of("agent.register", "session.open");
@@ -99,14 +80,6 @@ public final class HttpProductionTransport implements ProductionTransport {
             });
         }
         @Override public void close() { token.close(); }
-        @Override public String toString() { return "[REDACTED]"; }
-    }
-
-    public static final class ProgramsBearerCredential implements Credential, AutoCloseable {
-        private final BearerCredential credential;
-        public ProgramsBearerCredential(SecretBytes token) { credential = new BearerCredential(token); }
-        @Override public void apply(HttpRequest.Builder request) { credential.apply(request); }
-        @Override public void close() { credential.close(); }
         @Override public String toString() { return "[REDACTED]"; }
     }
 
@@ -277,43 +250,6 @@ public final class HttpProductionTransport implements ProductionTransport {
         });
     }
 
-    @Override
-    public <T> CompletionStage<T> callPrograms(ProgramsCall call, JavaType responseType) {
-        Objects.requireNonNull(call, "call");
-        Objects.requireNonNull(responseType, "responseType");
-        final HttpRequest request;
-        try {
-            request = programRequest(call);
-        } catch (IOException error) {
-            return CompletableFuture.failedFuture(PlatformSdkException.invalidArgument());
-        } catch (PlatformSdkException error) {
-            return CompletableFuture.failedFuture(error);
-        }
-        final CompletableFuture<HttpResponse<java.io.InputStream>> pending;
-        try {
-            pending = client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream());
-        } catch (RuntimeException error) {
-            return CompletableFuture.failedFuture(programTransportFailure(call.operation()));
-        }
-        return pending.handle((response, failure) -> {
-            if (failure != null) throw new CompletionException(programTransportFailure(call.operation()));
-            try (var body = response.body()) {
-                if (!jsonContentType(response)) throw programDecodeFailure(call.operation(), null);
-                byte[] encoded = body.readNBytes(MAXIMUM_RESPONSE_BYTES + 1);
-                if (encoded.length > MAXIMUM_RESPONSE_BYTES) throw programDecodeFailure(call.operation(), null);
-                return decodePrograms(call.operation(), response.statusCode(), encoded, responseType);
-            } catch (IOException error) {
-                throw new CompletionException(programTransportFailure(call.operation()));
-            } catch (PlatformSdkException error) {
-                if (("program.call".equals(call.operation()) || ProgramLifecycleRoutes.ORDINALS.containsKey(call.operation()))
-                        && error.code() == PlatformSdkException.Code.DECODE_FAILURE) {
-                    throw new CompletionException(unknownOutcome());
-                }
-                throw error;
-            }
-        });
-    }
-
     private HttpRequest humanRequest(Call call) throws IOException {
         var route = OperationCatalog.HUMAN_ROUTES.get(call.operation().wireName());
         if (route == null) throw PlatformSdkException.invalidArgument();
@@ -328,7 +264,7 @@ public final class HttpProductionTransport implements ProductionTransport {
         return builder.build();
     }
 
-    private byte[] agentEnvelope(Call call, String requestId, boolean mutating) throws IOException {
+    byte[] agentEnvelope(Call call, String requestId, boolean mutating) throws IOException {
         String operation = call.operation().wireName();
         OperationCatalog.requireKnown(OperationCatalog.Plane.AGENT, operation);
         if (!call.pathParameters().values().isEmpty()) throw PlatformSdkException.invalidArgument();
@@ -343,7 +279,7 @@ public final class HttpProductionTransport implements ProductionTransport {
         if (!bootstrap && session == null) throw new PlatformSdkException(
             PlatformSdkException.Code.CAPABILITY_REFUSAL, PlatformSdkException.Retry.NEVER, null, null, null);
         var body = mapper.createObjectNode();
-        body.put("version", 1);
+        body.put("version", 2);
         body.put("request_id", requestId);
         body.put("operation", operation);
         body.set("request", call.request());
@@ -361,8 +297,6 @@ public final class HttpProductionTransport implements ProductionTransport {
     }
 
     private HttpRequest agentRequest(byte[] envelope) {
-        if (credential instanceof ProgramsBearerCredential) throw new PlatformSdkException(
-            PlatformSdkException.Code.CAPABILITY_REFUSAL, PlatformSdkException.Retry.NEVER, null, null, null);
         var builder = HttpRequest.newBuilder(rootEndpoint(agentEndpoint, agentPath)).timeout(timeout)
             .header("Accept", "application/json").header("Content-Type", "application/json")
             .header("User-Agent", "layerx-jvm/0.1.0");
@@ -370,137 +304,9 @@ public final class HttpProductionTransport implements ProductionTransport {
         return builder.POST(HttpRequest.BodyPublishers.ofByteArray(envelope)).build();
     }
 
-    HttpRequest programRequest(ProgramsCall call) throws IOException {
-        ProgramRoute route = PROGRAM_ROUTES.get(call.operation());
-        if (route == null || !call.pathParameters().values().keySet().equals(Set.copyOf(route.pathParameters()))) {
-            throw PlatformSdkException.invalidArgument();
-        }
-        if (route.idempotency()) {
-            if (call.idempotencyKey() == null || !canonicalLowerHex(call.idempotencyKey().value(), 32)) {
-                throw new PlatformSdkException(PlatformSdkException.Code.IDEMPOTENCY_REQUIRED,
-                    PlatformSdkException.Retry.NEVER, null, null, null);
-            }
-        } else if (call.idempotencyKey() != null) {
-            throw PlatformSdkException.invalidArgument();
-        }
-        validateProgramRequest(call);
-        byte[] body = "POST".equals(route.method()) ? java.util.HexFormat.of().parseHex(call.request().path("signed_activity").asText()) : mapper.writeValueAsBytes(call.request());
-        if (body.length == 0 || body.length > MAXIMUM_PROGRAMS_REQUEST_BYTES) {
-            throw PlatformSdkException.invalidArgument();
-        }
-        String path = route.path();
-        for (String parameter : route.pathParameters()) {
-            String value = call.pathParameters().require(parameter);
-            JsonNode bodyValue = call.request().get(parameter);
-            if (!canonicalLowerHex(value, 32) || bodyValue == null || !bodyValue.isTextual()
-                    || !value.equals(bodyValue.textValue())) throw PlatformSdkException.invalidArgument();
-            path = path.replace("{" + parameter + "}", encodePath(value));
-        }
-        var builder = HttpRequest.newBuilder(rootEndpoint(agentEndpoint, path)).timeout(timeout)
-            .header("Accept", "application/json").header("Content-Type", "POST".equals(route.method()) ? "application/octet-stream" : "application/json")
-            .header("User-Agent", "layerx-jvm/0.1.0");
-        if (route.idempotency()) builder.header("Idempotency-Key", call.idempotencyKey().value());
-        if (credential != null) credential.apply(builder);
-        HttpRequest request = builder.method(route.method(), HttpRequest.BodyPublishers.ofByteArray(body)).build();
-        List<String> authorization = request.headers().allValues("Authorization");
-        boolean bearer = credential instanceof ProgramsBearerCredential && authorization.size() == 1
-            && authorization.get(0).startsWith("Bearer ") && authorization.get(0).length() > 7
-            && authorization.get(0).substring(7).chars().allMatch(value -> value >= 0x21 && value <= 0x7e);
-        if (authorization.size() != 1 || !(bearer || validLayerXAuthorization(authorization.get(0)))) {
-            throw new PlatformSdkException(PlatformSdkException.Code.CAPABILITY_REFUSAL,
-                PlatformSdkException.Retry.NEVER, null, null, null);
-        }
-        return request;
-    }
-
-    private static void validateProgramRequest(ProgramsCall call) {
-        Integer ordinal = ProgramLifecycleRoutes.ORDINALS.get(call.operation());
-        if (ordinal != null) {
-            if (!exactFields(call.request(), "payload", "signed_activity") || !canonicalBoundedHex(call.request().get("payload"), MAXIMUM_PROGRAM_BYTES, false)
-                    || !canonicalBoundedHex(call.request().get("signed_activity"), MAXIMUM_PROGRAM_BYTES, false)) throw PlatformSdkException.invalidArgument();
-            var hex = java.util.HexFormat.of();
-            var bound = new NativeProgramLifecycleRequest(NativeProgramLifecycle.decode(ordinal, hex.parseHex(call.request().path("payload").asText())), hex.parseHex(call.request().path("signed_activity").asText()));
-            if (call.idempotencyKey() == null || !bound.idempotencyKey().equals(call.idempotencyKey().value())) throw PlatformSdkException.invalidArgument();
-            return;
-        }
-        JsonNode request = call.request();
-        switch (call.operation()) {
-            case "program.discover", "program.interface" -> {
-                if (!exactFields(request, "program_id", "requested_verification_level")
-                        || !canonicalProgram(request.get("program_id"))
-                        || !"sequencer-signed".equals(request.path("requested_verification_level").textValue())) {
-                    throw PlatformSdkException.invalidArgument();
-                }
-            }
-            case "program.receipt" -> {
-                if (!exactFields(request, "idempotency_key", "expected_activity_id",
-                        "requested_verification_level")
-                        || !canonicalHexNode(request.get("idempotency_key"), 32, false)
-                        || !canonicalHexNode(request.get("expected_activity_id"), 32, false)
-                        || !"sequencer-signed".equals(request.path("requested_verification_level").textValue())) {
-                    throw PlatformSdkException.invalidArgument();
-                }
-            }
-            case "program.activity" -> {
-                if (!exactFields(request, "activity_id", "requested_verification_level")
-                        || !canonicalHexNode(request.get("activity_id"), 32, false)
-                        || !"sequencer-signed".equals(request.path("requested_verification_level").textValue())) {
-                    throw PlatformSdkException.invalidArgument();
-                }
-            }
-            case "program.simulate", "program.call" -> {
-                if (exactFields(request, "payload", "signed_activity")) {
-                    if (!canonicalBoundedHex(request.get("payload"), MAXIMUM_PROGRAM_BYTES, false) || !canonicalBoundedHex(request.get("signed_activity"), MAXIMUM_PROGRAM_BYTES, false)) throw PlatformSdkException.invalidArgument();
-                    var hex = java.util.HexFormat.of();
-                    byte[] payload = NativeProgramCall.decode(hex.parseHex(request.path("payload").asText())).encode();
-                    byte[] key = NativeProgramLifecycleRequest.bind(3, payload, hex.parseHex(request.path("signed_activity").asText()));
-                    if ("program.call".equals(call.operation()) && (call.idempotencyKey() == null || !call.idempotencyKey().value().equals(hex.formatHex(key)))) throw PlatformSdkException.invalidArgument();
-                } else validateProgramCall(request);
-            }
-            default -> throw PlatformSdkException.invalidArgument();
-        }
-    }
-
-    private static void validateProgramCall(JsonNode request) {
-        if (!exactFields(request, "program_id", "calldata", "budget", "capabilities", "signed_activity")
-                || !canonicalProgram(request.get("program_id"))
-                || !canonicalBoundedHex(request.get("calldata"), MAXIMUM_PROGRAM_BYTES, true)
-                || !canonicalBoundedHex(request.get("signed_activity"), MAXIMUM_PROGRAM_BYTES, false)) {
-            throw PlatformSdkException.invalidArgument();
-        }
-        JsonNode budget = request.get("budget");
-        if (!exactFields(budget, "fuel", "fee_limit")
-                || !canonicalUnsigned(budget.get("fuel"), 64, true)
-                || !canonicalUnsigned(budget.get("fee_limit"), 128, false)) {
-            throw PlatformSdkException.invalidArgument();
-        }
-        JsonNode capabilities = request.get("capabilities");
-        List<String> order = List.of("storage_read", "storage_write", "transfer", "emit_event", "compose");
-        if (capabilities == null || !capabilities.isArray() || capabilities.size() > order.size()) {
-            throw PlatformSdkException.invalidArgument();
-        }
-        int previous = -1;
-        for (JsonNode capability : capabilities) {
-            int current = capability.isTextual() ? order.indexOf(capability.textValue()) : -1;
-            if (current <= previous) throw PlatformSdkException.invalidArgument();
-            previous = current;
-        }
-    }
-
-    private static boolean canonicalProgram(JsonNode value) {
-        return canonicalHexNode(value, 32, false) && !"0".repeat(64).equals(value.textValue());
-    }
-
     private static boolean canonicalHexNode(JsonNode value, int bytes, boolean emptyAllowed) {
         return value != null && value.isTextual()
             && (emptyAllowed && value.textValue().isEmpty() || canonicalLowerHex(value.textValue(), bytes));
-    }
-
-    private static boolean canonicalBoundedHex(JsonNode value, int maximumBytes, boolean emptyAllowed) {
-        if (value == null || !value.isTextual()) return false;
-        String text = value.textValue();
-        return text.length() <= maximumBytes * 2 && (text.length() & 1) == 0
-            && (emptyAllowed || !text.isEmpty()) && canonicalLowerHex(text, text.length() / 2);
     }
 
     private static boolean canonicalUnsigned(JsonNode value, int bits, boolean positive) {
@@ -568,16 +374,20 @@ public final class HttpProductionTransport implements ProductionTransport {
         try {
             JsonNode envelope = mapper.readTree(encoded);
             if (envelope == null || !envelope.isObject()) throw decodeFailure(null);
+            if (!version(envelope.get("version"))) {
+                throw new PlatformSdkException(PlatformSdkException.Code.PROTOCOL_INCOMPATIBILITY,
+                    PlatformSdkException.Retry.NEVER, null, null, null);
+            }
             if (envelope.has("class")) {
                 if (status < 400 || status > 599 || !exactFields(envelope,
-                        "class", "protocol_result_code", "retriability", "request_id", "reason")) {
+                        "version", "class", "protocol_result_code", "retriability", "request_id", "reason")) {
                     throw decodeFailure(null);
                 }
                 String echoed = envelope.get("request_id").textValue();
                 if (!requestId.equals(echoed) && !"0".equals(echoed)) throw decodeFailure(null);
                 throw agentServiceError(envelope);
             }
-            if (status != 200 || !exactFields(envelope, "request_id", "value", "verification_status")
+            if (status != 200 || !exactFields(envelope, "version", "request_id", "value", "verification_status")
                     || !requestId.equals(envelope.get("request_id").textValue())
                     || !validAgentVerification(envelope.get("verification_status"))) {
                 throw decodeFailure(null);
@@ -592,6 +402,10 @@ public final class HttpProductionTransport implements ProductionTransport {
         } catch (IOException | IllegalArgumentException error) {
             throw decodeFailure(null);
         }
+    }
+
+    private static boolean version(JsonNode value) {
+        return value != null && value.isIntegralNumber() && value.canConvertToInt() && value.intValue() == 2;
     }
 
     private static boolean validAgentVerification(JsonNode verification) {
@@ -842,14 +656,6 @@ public final class HttpProductionTransport implements ProductionTransport {
         return value != null && value.startsWith("lxp_live_")
             && canonicalLowerHex(value.substring("lxp_live_".length()), 32);
     }
-    private static boolean validLayerXAuthorization(String value) {
-        if (value == null || !value.startsWith("LayerX-Key ")) return false;
-        int separator = value.indexOf(':', "LayerX-Key ".length());
-        return separator > "LayerX-Key ".length()
-            && value.indexOf(':', separator + 1) < 0
-            && validLayerXKeyId(value.substring("LayerX-Key ".length(), separator))
-            && validLayerXKeySecret(value.substring(separator + 1));
-    }
     private static boolean jsonContentType(HttpResponse<?> response) {
         String value = response.headers().firstValue("Content-Type").orElse("");
         int separator = value.indexOf(';');
@@ -874,10 +680,6 @@ public final class HttpProductionTransport implements ProductionTransport {
         }
         return trace;
     }
-    private static PlatformSdkException programTransportFailure(String operation) {
-        return ("program.call".equals(operation) || ProgramLifecycleRoutes.ORDINALS.containsKey(operation)) ? unknownOutcome() : new PlatformSdkException(
-            PlatformSdkException.Code.TRANSPORT_FAILURE, PlatformSdkException.Retry.SAFE, null, null, null);
-    }
     private static PlatformSdkException agentTransportFailure(boolean mutating) {
         return mutating ? unknownOutcome() : new PlatformSdkException(
             PlatformSdkException.Code.TRANSPORT_FAILURE, PlatformSdkException.Retry.SAFE, null, null, null);
@@ -896,10 +698,6 @@ public final class HttpProductionTransport implements ProductionTransport {
             return agentTransportFailure(false);
         }
         return decodeFailure(null);
-    }
-    private static PlatformSdkException programDecodeFailure(String operation, String requestId) {
-        return new PlatformSdkException(PlatformSdkException.Code.DECODE_FAILURE,
-            PlatformSdkException.Retry.NEVER, requestId, null, null);
     }
     private static PlatformSdkException unknownOutcome() {
         return new PlatformSdkException(PlatformSdkException.Code.UNKNOWN_OUTCOME,

@@ -21,6 +21,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
 
   @api_true [api?: true]
   @router_timeout 10_000
+  @sequence_batch_domain "PAXEER/v1/sequence-batch\0"
 
   tags(["paxeer-x"])
 
@@ -93,15 +94,14 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
          true <- height > 0,
          {:ok, commit} <- SequencerReceipt.commit(height, router_url),
          {:ok, validators} <- SequencerReceipt.validators(height, router_url),
-         {:ok, %{"from_seq" => from_seq, "to_seq" => to_seq}} <-
-           router_call(router_url, "px_getSequenceBatch", [height]),
-         true <- is_integer(from_seq) and is_integer(to_seq),
+         {:ok, batch_answer} <- router_call(router_url, "px_getSequenceBatch", [Integer.to_string(height)]),
+         {:ok, batch} <- sequence_batch(batch_answer, height),
          %{"header" => %{"chain_id" => chain_id}} <- Map.get(commit, "signed_header", commit),
          true <- is_binary(chain_id) and chain_id != "" do
       {:ok,
        [
          eth_receipt: eth_receipt,
-         batch: %{from_seq: from_seq, to_seq: to_seq},
+         batch: batch,
          chain_id: chain_id,
          commit: commit,
          validators: validators
@@ -110,6 +110,19 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
       _unavailable -> :disabled
     end
   end
+
+  defp sequence_batch(%{"height" => batch_height, "tx" => "0x" <> tx}, height) do
+    with true <- batch_height == Integer.to_string(height),
+         {:ok, <<@sequence_batch_domain, tx_height::64, from_seq::64, to_seq::64, _rest::binary-size(192)>>} <-
+           Base.decode16(tx, case: :mixed),
+         true <- tx_height == height do
+      {:ok, %{from_seq: from_seq, to_seq: to_seq}}
+    else
+      _invalid -> :error
+    end
+  end
+
+  defp sequence_batch(_answer, _height), do: :error
 
   defp quantity("0x" <> digits) when digits != "" do
     case Integer.parse(digits, 16) do

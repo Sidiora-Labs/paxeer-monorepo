@@ -1,6 +1,9 @@
 package layerx
 
-import "encoding/binary"
+import (
+	"context"
+	"encoding/binary"
+)
 
 type NativeProgramCall struct {
 	ProgramID         [32]byte
@@ -76,6 +79,7 @@ func DecodeNativeProgramCall(payload []byte) (NativeProgramCall, error) {
 }
 
 type NativeProgramRequest struct {
+	From           [20]byte
 	Call           NativeProgramCall
 	FeeLimit       Uint128
 	SignedActivity []byte
@@ -85,9 +89,45 @@ func (request NativeProgramRequest) ProgramCall() (ProgramCall, error) {
 	if _, err := EncodeNativeProgramCall(request.Call); err != nil {
 		return ProgramCall{}, err
 	}
-	call := ProgramCall{NativeCall: &request.Call, ProgramID: request.Call.ProgramID, Calldata: request.Call.Calldata, Budget: ProgramBudget{Fuel: request.Call.Resources[0], FeeLimit: request.FeeLimit}, SignedActivity: request.SignedActivity}
+	call := ProgramCall{From: request.From, NativeCall: &request.Call, ProgramID: request.Call.ProgramID, Calldata: request.Call.Calldata, Budget: ProgramBudget{Fuel: request.Call.Resources[0], FeeLimit: request.FeeLimit}, SignedActivity: request.SignedActivity}
 	if err := validateProgramCall(call); err != nil {
 		return ProgramCall{}, err
 	}
 	return call, nil
+}
+
+func (call ProgramCall) EVMCalldata(simulate bool) ([]byte, error) {
+	if call.NativeCall == nil {
+		return nil, lifecycleInvalid()
+	}
+	if err := validateProgramCall(call); err != nil {
+		return nil, err
+	}
+	n := *call.NativeCall
+	if _, err := EncodeNativeProgramCall(n); err != nil {
+		return nil, err
+	}
+	head := make([][]byte, 15)
+	head[0], head[1], head[6] = n.ProgramID[:], programABIWord(uint64(n.GuestABI)), programABIWord(uint64(n.ResponseCapacity))
+	for i, resource := range n.Resources {
+		head[7+i] = programABIWord(resource)
+	}
+	head[14] = programABIFee(call.Budget.FeeLimit)
+	selector := "54bd2b48"
+	if simulate {
+		selector = "3044bd56"
+	}
+	return programABIDynamic(selector, head, []int{2, 3, 4, 5}, [][]byte{[]byte(n.Entrypoint), n.Calldata, n.Capabilities, n.AccessDeclaration}), nil
+}
+
+func (request NativeProgramRequest) Transaction(ctx context.Context, programs *Programs) (ProgramTransaction, error) {
+	call, err := request.ProgramCall()
+	if err != nil {
+		return ProgramTransaction{}, err
+	}
+	data, err := call.EVMCalldata(false)
+	if err != nil {
+		return ProgramTransaction{}, err
+	}
+	return programs.buildTransaction(ctx, call.From, data)
 }

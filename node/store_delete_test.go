@@ -9,7 +9,6 @@ import (
 	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	anchorprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
-	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
@@ -88,20 +87,22 @@ func TestAnchorPrecompileStaysRegisteredWithoutModule(t *testing.T) {
 type RegisterBalanceChangeHook func(string, bankkeeper.BalanceChangeHook)
 
 func TestBankKeepersCarryNoLaunchpadBalanceHook(t *testing.T) {
-	var launchpadHook bankkeeper.BalanceChangeHook = func(sdk.Context, sdk.AccAddress, string, func() sdk.Int) error { return nil }
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a := w.App
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	legacyLaunchpad := NewPrecompileKeepers(a).LaunchpadV610K()
+	require.NotNil(t, legacyLaunchpad)
+	hook := legacyLaunchpad.BeforeBalanceChange
 	for name, register := range map[string]RegisterBalanceChangeHook{
 		"BankKeeper":     a.BankKeeper.(bankkeeper.BaseKeeper).RegisterBalanceChangeHook,
 		"GigaBankKeeper": a.GigaBankKeeper.RegisterBalanceChangeHook,
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.NotPanics(t, func() {
-				register(launchpadtypes.ModuleName, launchpadHook)
+				register(launchpadtypes.ModuleName, hook)
 			})
 			require.PanicsWithValue(t, "bank: duplicate balance change hook \"launchpad\"", func() {
-				register(launchpadtypes.ModuleName, launchpadHook)
+				register(launchpadtypes.ModuleName, hook)
 			})
 		})
 	}

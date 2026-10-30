@@ -145,6 +145,8 @@ pub struct ExecutedReceipt {
     pub key_id: [u8; 32],
     /// Canonical signed receipt bytes.
     pub receipt: Vec<u8>,
+    /// Signing public key served with the receipt.
+    pub signing_key: [u8; 32],
 }
 
 /// The answer of `pax_sequencerReceipt` for a known transaction.
@@ -196,6 +198,8 @@ pub struct SequencerBlock {
     pub timestamp: u64,
     /// Root the header commits over the block's transactions.
     pub transactions_root: [u8; 32],
+    /// Root the header commits over the block's receipts.
+    pub receipts_root: [u8; 32],
     /// The signed transactions in block index order, each in the encoding
     /// `eth_sendRawTransaction` takes.
     pub transactions: Vec<Vec<u8>>,
@@ -246,11 +250,28 @@ impl SequencerEndpoint {
     /// [`SequencerError::Endpoint`] for another scheme, a non-loopback plain
     /// URL, an `https` URL without trust anchors or an empty anchor.
     pub fn new(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
+        Self::new_with_plaintext_policy(url, trust_anchors, false)
+    }
+
+    pub fn new_with_railway_private_network(
+        url: &str,
+        trust_anchors: &[&[u8]],
+    ) -> Result<Self, SequencerError> {
+        Self::new_with_plaintext_policy(url, trust_anchors, true)
+    }
+
+    fn new_with_plaintext_policy(
+        url: &str,
+        trust_anchors: &[&[u8]],
+        allow_railway_private_network: bool,
+    ) -> Result<Self, SequencerError> {
         let uri: ureq::http::Uri = url.parse().map_err(|_| SequencerError::Endpoint)?;
         let host = uri.host().ok_or(SequencerError::Endpoint)?;
         match uri.scheme_str() {
             Some("https") if !trust_anchors.is_empty() => {}
-            Some("http") if matches!(host, "127.0.0.1" | "[::1]" | "localhost") => {}
+            Some("http")
+                if matches!(host, "127.0.0.1" | "[::1]" | "localhost")
+                    || (allow_railway_private_network && railway_private_url(url)) => {}
             _ => return Err(SequencerError::Endpoint),
         }
         if trust_anchors.iter().any(|anchor| anchor.is_empty()) {
@@ -478,6 +499,16 @@ impl SequencerEndpoint {
         }
     }
 
+    /// The node's current block height.
+    ///
+    /// # Errors
+    /// Transport and refusal failures as [`SequencerError`];
+    /// [`SequencerError::Malformed`] for an invalid or overflowing quantity.
+    pub fn block_number(&self) -> Result<u64, SequencerError> {
+        let result = self.call("eth_blockNumber", &json!([]))?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
+    }
+
     /// The committed block at `height` with full transactions; `None` when the
     /// node has no block at that height.
     ///
@@ -562,6 +593,29 @@ impl SequencerEndpoint {
             serde_json::from_slice(&answer).map_err(|_| SequencerError::Malformed)?;
         decode_response(document, id)
     }
+}
+
+fn railway_private_url(url: &str) -> bool {
+    let Some(authority) = url.strip_prefix("http://") else {
+        return false;
+    };
+    let Some((host, port)) = authority.rsplit_once(':') else {
+        return false;
+    };
+    let Some(name) = host.strip_suffix(".railway.internal") else {
+        return false;
+    };
+    !name.is_empty()
+        && name.len() <= 63
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        && !name.starts_with('-')
+        && !name.ends_with('-')
+        && !port.is_empty()
+        && port.len() <= 5
+        && port.bytes().all(|byte| byte.is_ascii_digit())
+        && port.parse::<u16>().is_ok_and(|port| port != 0)
 }
 
 fn transport(error: &ureq::Error) -> SequencerError {
@@ -720,7 +774,7 @@ fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
 }
 
 const SUBMITTED_FIELDS: [&str; 3] = ["rung", "txHash", "nonce"];
-const RECEIPTED_FIELDS: [&str; 22] = [
+const RECEIPTED_FIELDS: [&str; 23] = [
     "rung",
     "txHash",
     "nonce",
@@ -743,6 +797,7 @@ const RECEIPTED_FIELDS: [&str; 22] = [
     "vmError",
     "keyId",
     "receipt",
+    "signingKey",
 ];
 
 fn decode_receipt(value: &Value) -> Option<SequencerReceipt> {
@@ -817,6 +872,7 @@ fn executed(fields: &Fields<'_>) -> Option<ExecutedReceipt> {
         vm_error: fields.string("vmError")?,
         key_id: fields.fixed("keyId")?,
         receipt,
+        signing_key: fields.fixed("signingKey")?,
     })
 }
 
@@ -881,6 +937,7 @@ fn decode_block(value: &Value, height: u64) -> Option<SequencerBlock> {
         parent_hash: fields.fixed("parentHash")?,
         timestamp: fields.u64("timestamp")?,
         transactions_root: fields.fixed("transactionsRoot")?,
+        receipts_root: fields.fixed("receiptsRoot")?,
         transactions,
     })
 }

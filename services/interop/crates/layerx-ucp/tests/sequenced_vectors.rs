@@ -204,13 +204,25 @@ fn gateway(trace: &TraceId, count: u64) -> GatewayCore {
 fn assert_payment_derivation(vector: &Value, source: &Value, submission: &CheckoutSubmission) {
     let name = string(vector, "name");
     let mut expected_logs = source["receiptJson"]["logs"].clone();
+    let recorded_topics: Vec<u8> = expected_logs[0]["topics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{name}: recorded topics"))
+        .iter()
+        .flat_map(hex)
+        .collect();
     let reference: [u8; 32] = array(&expected_logs[0]["topics"][3]);
+    expected_logs[0]["topics"] = serde_json::json!([
+        expected_logs[0]["topics"][0],
+        expected_logs[0]["topics"][3],
+        expected_logs[0]["topics"][1],
+        expected_logs[0]["topics"][2],
+    ]);
     let gateway_key = submission.idempotency_key.gateway_key();
     assert_ne!(
         reference, gateway_key,
         "{name}: replace the recorded reference"
     );
-    expected_logs[0]["topics"][3] = Value::String(format!(
+    expected_logs[0]["topics"][1] = Value::String(format!(
         "0x{}",
         gateway_key
             .iter()
@@ -225,12 +237,18 @@ fn assert_payment_derivation(vector: &Value, source: &Value, submission: &Checko
     let recorded = hex(&source["signedReceipt"]);
     let mut unsigned = recorded[..recorded.len() - 69].to_vec();
     let offsets: Vec<usize> = unsigned
-        .windows(32)
+        .windows(recorded_topics.len())
         .enumerate()
-        .filter_map(|(offset, bytes)| (bytes == reference).then_some(offset))
+        .filter_map(|(offset, bytes)| (bytes == recorded_topics).then_some(offset))
         .collect();
-    assert_eq!(offsets.len(), 1, "{name}: one signed payment reference");
-    unsigned[offsets[0]..offsets[0] + 32].copy_from_slice(&gateway_key);
+    assert_eq!(offsets.len(), 1, "{name}: one signed payment log");
+    let native_topics: Vec<u8> = expected_logs[0]["topics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{name}: native topics"))
+        .iter()
+        .flat_map(hex)
+        .collect();
+    unsigned[offsets[0]..offsets[0] + recorded_topics.len()].copy_from_slice(&native_topics);
     let mut digest = Sha256::new();
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
@@ -347,7 +365,7 @@ fn ucp_sequenced_order_vectors_replay() {
                     "{name} at {now}: expected {:?}, got {:?}; payment reference {:?}, UCP reference {:?}",
                     expected.as_ref().map(|outcome| outcome.status),
                     actual.as_ref().map(|outcome| outcome.status),
-                    payment.evidence.logs.first().and_then(|log| log.topics().get(3)),
+                    payment.evidence.logs.first().and_then(|log| log.topics().get(1)),
                     submission.idempotency_key.gateway_key()
                 ));
             }

@@ -1,3 +1,12 @@
+use std::{
+    collections::BTreeSet,
+    env, fs,
+    io::{Read, Write},
+    os::unix::net::UnixStream,
+    path::Path,
+    time::Duration,
+};
+
 use layerx_client::availability::RetrievalLimits;
 use layerx_client::handover::SequencerHistory;
 use layerx_client::lni::handshake::{perform, HandshakeConfig};
@@ -7,14 +16,6 @@ use layerx_explorer_index::receipt_authority::{
     ConfigurationError, ReadOutcome, ReceiptAuthorityReader, MAX_RESPONSE_BYTES,
 };
 use layerx_platform_authority::{hex, receipt_locator};
-use std::{
-    collections::BTreeSet,
-    env, fs,
-    io::{Read, Write},
-    os::unix::net::UnixStream,
-    path::Path,
-    time::Duration,
-};
 
 fn input(name: &str) -> String {
     env::var(name).unwrap_or_else(|_| panic!("required real fixture input missing: {name}"))

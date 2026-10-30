@@ -90,6 +90,7 @@ render_ethereum_only() {
         --paxeer-endpoint "https://paxeer-a.invalid:9443/rpc,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
         --paxeer-endpoint "https://paxeer-b.invalid:9443/rpc,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
         --paxeer-chain-id 125 \
+        --paxeer-genesis-hash "$(printf 'paxeer-genesis' | sha256sum | cut -d ' ' -f 1)" \
         --receipt-keys-file "$WORK/receipt-keys.json" \
         --ethereum-endpoint "https://ethereum-a.invalid:9443/rpc,ethereum-a,$WORK/rpc.der,$WORK/ethereum-a.token" \
         --ethereum-endpoint "https://ethereum-b.invalid:9443/rpc,ethereum-b,$WORK/rpc.der,$WORK/ethereum-b.token" \
@@ -176,6 +177,7 @@ status=0
 render_output=$(python3 "$RENDERER" --output "$WORK/never.json" --state-directory relative \
     --first-height 1 --status-listen 127.0.0.1:1 \
     --paxeer-chain-id 125 --receipt-keys-file "$WORK/receipt-keys.json" \
+    --paxeer-genesis-hash "$(printf 'paxeer-genesis' | sha256sum | cut -d ' ' -f 1)" \
     --paxeer-endpoint "https://paxeer-a.invalid/rpc,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
     --paxeer-endpoint "https://paxeer-b.invalid/rpc,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
     --ethereum-chain-id 125 --ethereum-genesis-hash 00 \

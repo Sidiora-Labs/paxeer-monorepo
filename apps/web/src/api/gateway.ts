@@ -92,7 +92,15 @@ async function rpc(method: string, params: readonly unknown[]): Promise<unknown>
   if (body.length > MAX_RESPONSE_BYTES) {
     throw new GatewayUnavailableError(`${method} answer too large`);
   }
-  const document: unknown = JSON.parse(body);
+  let document: unknown;
+  try {
+    document = JSON.parse(body);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new GatewayUnavailableError(`${method} answered malformed JSON`);
+    }
+    throw error;
+  }
   if (!isObject(document) || document.jsonrpc !== "2.0" || document.id !== id) {
     throw new GatewayUnavailableError(`${method} answered a malformed envelope`);
   }
@@ -113,9 +121,12 @@ async function rpc(method: string, params: readonly unknown[]): Promise<unknown>
   return document.result;
 }
 
-export async function ethCall(call: Readonly<{ to: string; data: string; from?: string }>): Promise<string> {
+export async function ethCall(
+  call: Readonly<{ to: string; data: string; from?: string }>,
+  block?: bigint,
+): Promise<string> {
   const request = call.from === undefined ? { to: call.to, data: call.data } : { from: call.from, to: call.to, data: call.data };
-  const result = await rpc("eth_call", [request, "latest"]);
+  const result = await rpc("eth_call", [request, block === undefined ? "latest" : `0x${block.toString(16)}`]);
   if (typeof result !== "string" || !DATA.test(result)) {
     throw new GatewayUnavailableError("eth_call answered malformed data");
   }

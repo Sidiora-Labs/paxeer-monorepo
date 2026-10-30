@@ -1,7 +1,5 @@
 use layerx_agent_api::subscription::{Cursor, EventDelivery, EventIdentity, ReceiptReference};
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
 use layerx_human_service::activity::{
     ActivityKind, ActivityStatus, AgentActivity, Feed, FeedError, FilterDraft, PageRequest,
     PendingStatus, VerifiedStatus,
@@ -11,7 +9,7 @@ use layerx_human_service::store::{PrincipalScope, PrincipalStore, RowKey, Table}
 use layerx_human_test_support as support;
 use layerx_types::rung::Rung;
 
-fn record_event(scope: &mut PrincipalScope<'_>, sequence: u8, level: Level) -> ActivityEntryId {
+fn record_event(scope: &mut PrincipalScope<'_>, sequence: u8, rung: Rung) -> ActivityEntryId {
     let entry_id = ActivityEntryId::new(format!("act_rung{sequence}")).expect("entry id");
     let activity = AgentActivity::new(
         entry_id.clone(),
@@ -25,10 +23,14 @@ fn record_event(scope: &mut PrincipalScope<'_>, sequence: u8, level: Level) -> A
     let delivery = EventDelivery::new(
         EventIdentity::new([sequence; 32]),
         vec![sequence],
-        Cursor(Sequence(u64::from(sequence))),
+        Cursor {
+            block_height: u64::from(sequence),
+            tx_index: 0,
+            log_index: 0,
+        },
         ReceiptReference::Verified {
             receipt_ref: ReceiptRef::new(format!("receipt-{sequence}")).expect("receipt ref"),
-            verification_level: level,
+            rung,
         },
     )
     .expect("delivery");
@@ -36,10 +38,7 @@ fn record_event(scope: &mut PrincipalScope<'_>, sequence: u8, level: Level) -> A
         .expect("record agent event");
     assert_eq!(entry.entry_id(), &entry_id);
     assert_eq!(entry.receipts().len(), 1);
-    assert_eq!(
-        entry.receipts()[0].rung(),
-        level.rung().expect("source rung")
-    );
+    assert_eq!(entry.receipts()[0].rung(), rung);
     entry_id
 }
 
@@ -52,8 +51,8 @@ fn agent_event_is_recorded_and_reread_with_its_rung() {
     let alice = support::principal("alice");
     let ids = {
         let mut scope = store.principal(&alice).expect("principal scope");
-        let receipted = record_event(&mut scope, 1, Level::BatchIncluded);
-        let committed = record_event(&mut scope, 2, Level::CheckpointFinalised);
+        let receipted = record_event(&mut scope, 1, Rung::Receipted);
+        let committed = record_event(&mut scope, 2, Rung::Committed);
         let row = scope
             .get(
                 Table::Journeys,
@@ -110,7 +109,7 @@ fn stored_verification_byte_above_committed_is_refused() {
     let alice = support::principal("alice");
     let entry_id = {
         let mut scope = store.principal(&alice).expect("principal scope");
-        let entry_id = record_event(&mut scope, 1, Level::BatchIncluded);
+        let entry_id = record_event(&mut scope, 1, Rung::Receipted);
         let key = RowKey::new("activity-feed").expect("feed key");
         let row = scope.get(Table::Journeys, &key).expect("stored feed");
         let mut state: serde_json::Value =

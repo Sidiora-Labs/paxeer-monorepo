@@ -58,7 +58,7 @@ fn registry() -> ModuleRegistry {
                 activity(ModuleId::Budget, 1),
                 activity(ModuleId::Budget, 2),
                 activity(ModuleId::Budget, 4),
-                activity(ModuleId::Budget, 7),
+                activity(ModuleId::Budget, 8),
             ],
         )
         .unwrap_or_else(|error| panic!("budget: {error:?}")),
@@ -362,6 +362,51 @@ fn render_vectors() -> String {
         .unwrap_or_else(|error| panic!("render {}: {error}", fixture.name));
     }
     rendered
+}
+
+#[test]
+fn budget_vectors_hold_the_kernel_canonical_payloads() {
+    let registry = registry();
+    let fixtures = fixtures();
+    for name in ["budget_create", "budget_fund", "budget_defund"] {
+        let fixture = fixtures
+            .iter()
+            .find(|fixture| fixture.name == name)
+            .unwrap_or_else(|| panic!("missing fixture {name}"));
+        let compiled = compile(&fixture.intent, &registry)
+            .unwrap_or_else(|error| panic!("compile {name}: {error:?}"));
+        let payload_hex = format!("\"{}\"", hex(compiled.payload().as_bytes()));
+        let payload_hash_hex = format!("\"{}\"", hex(&compiled.payload_hash()));
+        for (version, source) in [(1, golden::V1_SOURCE), (2, golden::V2_SOURCE)] {
+            let header = format!("\n[vector.{name}]\n");
+            let (_, remainder) = source
+                .split_once(header.as_str())
+                .unwrap_or_else(|| panic!("missing v{version} vector {name}"));
+            let vector = remainder
+                .split("\n[")
+                .next()
+                .expect("vector section must exist");
+            assert_eq!(
+                vector
+                    .lines()
+                    .find_map(|line| line.strip_prefix("payload_hex = ")),
+                Some(payload_hex.as_str()),
+                "v{version} {name} payload",
+            );
+            assert_eq!(
+                vector
+                    .lines()
+                    .find_map(|line| line.strip_prefix("payload_hash_hex = ")),
+                Some(payload_hash_hex.as_str()),
+                "v{version} {name} payload hash",
+            );
+        }
+        if name == "budget_defund" {
+            assert_eq!(compiled.payload().as_bytes().len(), 50);
+            assert_eq!(&compiled.payload().as_bytes()[..2], &[0, 1]);
+            assert_eq!(compiled.activity_type().value(), 196616);
+        }
+    }
 }
 
 #[test]

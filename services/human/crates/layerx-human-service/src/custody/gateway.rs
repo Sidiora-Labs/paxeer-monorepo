@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
 use std::time::{Duration, Instant};
 
-use layerx_client::lni::transport::{ConnectionGate, ConnectionPermit};
+use crate::frame::{read_frame, write_frame, ConnectionGate, ConnectionPermit};
 use layerx_types::payload::ModuleRegistry;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -58,7 +58,7 @@ impl Operation {
             (1, 3) => Some(Self::Rotate),
             (2, 3) => Some(Self::RotateIfCurrent),
             (1, 4) => Some(Self::Destroy),
-            (1, 5) => Some(Self::Sign),
+            (7, 5) => Some(Self::Sign),
             _ => None,
         }
     }
@@ -182,6 +182,29 @@ pub struct LxkpGateway {
     window: Mutex<(Instant, u32)>,
 }
 
+struct GatewayRequestReader<'a> {
+    gateway: &'a LxkpGateway,
+    stream: &'a mut StreamOwned<ServerConnection, TcpStream>,
+    started: Instant,
+    failure: Option<KmsError>,
+}
+
+impl Read for GatewayRequestReader<'_> {
+    fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+        if let Err(error) = self.gateway.bound(&self.stream.sock, self.started) {
+            self.failure = Some(error);
+            return Err(std::io::Error::other("gateway request read refused"));
+        }
+        match self.stream.read(output) {
+            Err(error) if error.kind() != ErrorKind::Interrupted => {
+                self.failure = Some(KmsError::Timeout);
+                Err(error)
+            }
+            result => result,
+        }
+    }
+}
+
 impl std::fmt::Debug for LxkpGateway {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
@@ -220,7 +243,7 @@ impl LxkpGateway {
             return Err(CustodyError::InvalidKeyReference);
         }
         if policy.network_id == 0
-            || !layerx_intents::canonical::protocol_version_supported(policy.protocol_version)
+            || !layerx_wire::limits::protocol_version_supported(policy.protocol_version)
         {
             return Err(CustodyError::InvalidNetwork);
         }
@@ -299,15 +322,11 @@ impl LxkpGateway {
             return Err(KmsError::Refused);
         };
         let response = Zeroizing::new(response);
-        let length = u32::try_from(response.len()).map_err(|_| KmsError::Refused)?;
         stream
             .sock
             .set_write_timeout(Some(self.limits.deadline))
             .map_err(|_| KmsError::Unavailable)?;
-        stream
-            .write_all(&length.to_be_bytes())
-            .and_then(|()| stream.write_all(&response))
-            .and_then(|()| stream.flush())
+        write_frame(&mut stream, &response, GATEWAY_FRAME_LIMIT)
             .map_err(|_| KmsError::Unavailable)?;
         stream.conn.send_close_notify();
         stream.flush().map_err(|_| KmsError::Unavailable)
@@ -330,34 +349,19 @@ impl LxkpGateway {
         stream: &mut StreamOwned<ServerConnection, TcpStream>,
         started: Instant,
     ) -> Result<Zeroizing<Vec<u8>>, KmsError> {
-        let mut prefix = [0_u8; 4];
-        self.read_exact(stream, &mut prefix, started)?;
-        let length = usize::try_from(u32::from_be_bytes(prefix)).map_err(|_| KmsError::Refused)?;
-        if length == 0 || length > self.limits.maximum_frame_bytes {
+        let mut reader = GatewayRequestReader {
+            gateway: self,
+            stream,
+            started,
+            failure: None,
+        };
+        let frame = read_frame(&mut reader, self.limits.maximum_frame_bytes)
+            .map(Zeroizing::new)
+            .map_err(|_| reader.failure.unwrap_or(KmsError::Refused))?;
+        if frame.is_empty() {
             return Err(KmsError::Refused);
         }
-        let mut frame = Zeroizing::new(vec![0_u8; length]);
-        self.read_exact(stream, &mut frame, started)?;
         Ok(frame)
-    }
-
-    fn read_exact(
-        &self,
-        stream: &mut StreamOwned<ServerConnection, TcpStream>,
-        output: &mut [u8],
-        started: Instant,
-    ) -> Result<(), KmsError> {
-        let mut offset = 0;
-        while offset < output.len() {
-            self.bound(&stream.sock, started)?;
-            match stream.read(&mut output[offset..]) {
-                Ok(0) => return Err(KmsError::Refused),
-                Ok(read) => offset += read,
-                Err(error) if error.kind() == ErrorKind::Interrupted => {}
-                Err(_) => return Err(KmsError::Timeout),
-            }
-        }
-        Ok(())
     }
 
     fn admit(&self) -> bool {
@@ -437,28 +441,36 @@ impl LxkpGateway {
         }
     }
 
-    /// Re-derives the disclosure from the canonical bytes under the gateway's
-    /// own registry, requires the client's digest and disclosure to match it
-    /// exactly, relays the request bound to the described public key and
-    /// verifies the returned signature before answering.
+    /// Rebinds and verifies the complete EIP-1559 call at the gateway boundary.
     fn sign(
         &self,
         binding: &PrincipalKeyBinding,
         reference: &ProviderKeyReference,
         request: &Request<'_>,
     ) -> Result<Vec<u8>, KmsError> {
-        let activity =
-            layerx_intents::canonical::decode_unsigned_activity(request.canonical, &self.registry)
-                .map_err(|_| KmsError::Refused)?;
-        if activity.network_id() != self.network_id
-            || activity.protocol_version() != self.protocol_version
-        {
+        let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(request.canonical)
+            .map_err(|_| KmsError::Refused)?;
+        if call.chain_id != u64::from(self.network_id) {
             return Err(KmsError::Refused);
         }
-        let disclosure = layerx_crypto::disclosure::bind(request.canonical, &self.registry)
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, request.from)
             .map_err(|_| KmsError::Refused)?;
-        let admitted = validate_disclosed(request.canonical, &disclosure, &self.registry)
-            .map_err(|_| KmsError::Refused)?;
+        if let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) =
+            disclosure
+                .construct_method()
+                .map_err(|_| KmsError::Refused)?
+        {
+            let scope = payload
+                .get(payload.len().checked_sub(6).ok_or(KmsError::Refused)?..)
+                .ok_or(KmsError::Refused)?;
+            if scope[..4] != self.network_id.to_be_bytes()
+                || scope[4..] != self.protocol_version.to_be_bytes()
+            {
+                return Err(KmsError::Refused);
+            }
+        }
+        let admitted =
+            validate_disclosed(&call, &disclosure, request.from).map_err(|_| KmsError::Refused)?;
         if !layerx_crypto::ct::eq_fixed(&admitted.canonical_digest, &request.digest) {
             return Err(KmsError::Integrity);
         }
@@ -469,22 +481,21 @@ impl LxkpGateway {
         if !layerx_crypto::ct::eq_fixed(&description.binding_digest(), &binding.digest()) {
             return Err(KmsError::Integrity);
         }
-        let public_key = description.public_key();
         let signature = block_on(
             self.provider.sign(
                 binding,
                 reference,
                 ProviderSignRequest::new(
-                    request.canonical,
+                    &call,
                     &disclosure,
-                    &self.registry,
-                    public_key,
+                    request.from,
+                    description.public_key(),
                 ),
             ),
             self.limits.deadline,
         )?
         .map_err(custody_refusal)?;
-        layerx_crypto::ed25519::verify_digest(&public_key, &signature, &admitted.canonical_digest)
+        super::provider::verify_call_signature(&call, request.from, &signature)
             .map_err(|_| KmsError::Integrity)?;
         Ok(signature.to_vec())
     }
@@ -523,6 +534,7 @@ struct Request<'a> {
     reference: &'a [u8],
     expected: [u8; 32],
     digest: [u8; 32],
+    from: [u8; 20],
     canonical: &'a [u8],
     disclosure: &'a [u8],
 }
@@ -563,6 +575,7 @@ fn decode<'a>(
         reference: &[],
         expected: [0; 32],
         digest: [0; 32],
+        from: [0; 20],
         canonical: &[],
         disclosure: &[],
     };
@@ -587,6 +600,7 @@ fn decode<'a>(
     }
     if operation == Operation::Sign {
         request.digest = reader.fixed()?;
+        request.from = reader.fixed()?;
         request.canonical = reader.blob(GATEWAY_FRAME_LIMIT)?;
         request.disclosure = reader.blob(GATEWAY_FRAME_LIMIT)?;
         if request.canonical.is_empty() || request.disclosure.is_empty() {

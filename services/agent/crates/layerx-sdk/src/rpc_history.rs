@@ -156,7 +156,7 @@ impl AgentEnvelopeTransport {
         )?;
         let achieved = crate::rpc_export::rung_from_wire(&read["achieved_rung"], operation)?;
         if achieved < requested
-            || !matches!(success.verification_status, VerificationStatus::Achieved(level) if level.rung() == Some(achieved))
+            || !matches!(success.verification_status, VerificationStatus::Achieved(rung) if rung == achieved)
         {
             return Err(violation(operation));
         }

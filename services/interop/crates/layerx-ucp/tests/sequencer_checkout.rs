@@ -124,16 +124,21 @@ fn checkout_payment(case: &Value, submission: &CheckoutSubmission) -> ExecutedUc
         .iter()
         .map(array)
         .collect();
-    let reference = topics[3];
-    topics[3] = submission.idempotency_key.gateway_key();
+    let recorded_topics = topics.concat();
+    topics = vec![
+        topics[0],
+        submission.idempotency_key.gateway_key(),
+        topics[1],
+        topics[2],
+    ];
     let mut unsigned = signed[..signed.len() - 69].to_vec();
     let offsets: Vec<usize> = unsigned
-        .windows(32)
+        .windows(recorded_topics.len())
         .enumerate()
-        .filter_map(|(offset, bytes)| (bytes == reference).then_some(offset))
+        .filter_map(|(offset, bytes)| (bytes == recorded_topics).then_some(offset))
         .collect();
-    assert_eq!(offsets.len(), 1, "one signed payment reference");
-    unsigned[offsets[0]..offsets[0] + 32].copy_from_slice(&topics[3]);
+    assert_eq!(offsets.len(), 1, "one signed payment log");
+    unsigned[offsets[0]..offsets[0] + recorded_topics.len()].copy_from_slice(&topics.concat());
     let mut digest = Sha256::new();
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
@@ -384,5 +389,107 @@ fn complete_checkout_on_a_submitted_rung_stays_open() {
                 .len(),
             1
         );
+    }
+}
+
+#[test]
+fn payment_exact_native_topics_preserve_reference_and_identity_checks() {
+    let case = fixture_case();
+    let submission = submission(&case);
+    let keys = receipt_keys(&case);
+    let original = checkout_payment(&case, &submission);
+    let original_log = &original.evidence.logs[0];
+    let original_topics = original_log.topics();
+    assert_ne!(original_topics[1], original_topics[2]);
+    assert_ne!(original_topics[1], original_topics[3]);
+    assert_ne!(original_topics[2], original_topics[3]);
+    for permutation in [
+        [1, 2, 3],
+        [1, 3, 2],
+        [2, 1, 3],
+        [2, 3, 1],
+        [3, 1, 2],
+        [3, 2, 1],
+    ] {
+        let topics = vec![
+            original_topics[0],
+            original_topics[permutation[0]],
+            original_topics[permutation[1]],
+            original_topics[permutation[2]],
+        ];
+        let payment = with_signed_log(&original, topics, original_log.data().to_vec());
+        let result = verify_sequencer_receipt(&submission, &payment.evidence.signed_receipt, &keys);
+        if permutation == [1, 2, 3] {
+            assert!(result.is_ok());
+        } else {
+            assert_eq!(result, Err(UcpError::ReceiptMismatch), "{permutation:?}");
+        }
+    }
+    for mutation in [
+        "zero-payer",
+        "self-payment",
+        "reference",
+        "recipient",
+        "asset",
+        "amount",
+    ] {
+        let mut topics = original_topics.to_vec();
+        let mut data = original_log.data().to_vec();
+        match mutation {
+            "zero-payer" => topics[2] = [0; 32],
+            "self-payment" => topics[2] = topics[3],
+            "reference" => topics[1][0] ^= 1,
+            "recipient" => topics[3][0] ^= 1,
+            "asset" => data[0] ^= 1,
+            "amount" => data[63] ^= 1,
+            _ => unreachable!(),
+        }
+        let payment = with_signed_log(&original, topics, data);
+        assert_eq!(
+            verify_sequencer_receipt(&submission, &payment.evidence.signed_receipt, &keys),
+            Err(UcpError::ReceiptMismatch),
+            "{mutation}",
+        );
+    }
+}
+
+fn with_signed_log(
+    original: &ExecutedUcpPayment,
+    topics: Vec<[u8; 32]>,
+    data: Vec<u8>,
+) -> ExecutedUcpPayment {
+    let log = &original.evidence.logs[0];
+    let before = [log.topics().concat(), Sha256::digest(log.data()).to_vec()].concat();
+    let after = [topics.concat(), Sha256::digest(&data).to_vec()].concat();
+    let receipt = &original.evidence.signed_receipt;
+    let mut unsigned = receipt[..receipt.len() - 69].to_vec();
+    let offsets: Vec<usize> = unsigned
+        .windows(before.len())
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == before).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one signed payment log");
+    unsigned[offsets[0]..offsets[0] + before.len()].copy_from_slice(&after);
+    let digest = Sha256::digest([b"LXP/v1/receipt\0".as_slice(), &unsigned, &[0]].concat());
+    let signature = SigningKey::from_bytes(&[0x5e; 32]).sign(&digest);
+    unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
+    unsigned.extend_from_slice(&signature.to_bytes());
+    let verified = verify_sequencer_signature(&unsigned, &receipt_keys(&fixture_case()))
+        .unwrap_or_else(|error| panic!("mutated signature: {error:?}"));
+    let logs = vec![SequencerLog::new(
+        log.address(),
+        topics,
+        data,
+        log.log_index(),
+    )];
+    layerx_proof::sequencer_logs::verify_logs(&verified, logs.clone())
+        .unwrap_or_else(|error| panic!("mutated log commitment: {error:?}"));
+    ExecutedUcpPayment {
+        metadata: original.metadata.clone(),
+        evidence: SequencerEvidence {
+            signed_receipt: unsigned,
+            logs,
+            ..original.evidence.clone()
+        },
     }
 }

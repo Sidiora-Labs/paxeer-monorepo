@@ -17,7 +17,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use k256::ecdsa::SigningKey;
 use layerx_crypto::payments::{Grant, Payment};
-use layerx_interop_gateway::adapter::ConformanceSuite;
+use layerx_interop_gateway::adapter::{AdapterDescriptor, ConformanceSuite};
 use layerx_interop_gateway::evidence::{
     canonical_receipt_digest, SequencerEvidence, SettlementRung,
 };
@@ -56,7 +56,6 @@ pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE: &str = "PAYMENT-RESPONSE";
 /// Names the buyer's EVM address so metered offers can be bound to its accounts.
 pub const PAYER_ADDRESS: &str = "LAYERX-PAYER-ADDRESS";
-pub const PAYER_DID: &str = "LAYERX-PAYER-DID";
 pub const COMMITMENT: &str = "executed";
 pub const METERED: &str = "metered";
 pub const EXACT: &str = "exact";
@@ -139,9 +138,17 @@ fn ledger_account(
 ) -> Result<[u8; 32], SettlementError> {
     let mut owner = [0; 32];
     owner[12..].copy_from_slice(address);
+    ledger_account_for_owner(rpc, &owner, asset)
+}
+
+fn ledger_account_for_owner(
+    rpc: &SettlementRpc,
+    owner: &[u8; 32],
+    asset: &AcceptedAsset,
+) -> Result<[u8; 32], SettlementError> {
     let data = [
         &keccak(b"accountId(bytes32,bytes32)")[..4],
-        &owner,
+        owner.as_slice(),
         &asset.asset_id,
     ]
     .concat();
@@ -151,6 +158,12 @@ fn ledger_account(
         .map_err(|_| SettlementError::Malformed)?;
     if account == [0; 32] {
         return Err(SettlementError::Malformed);
+    }
+    if asset.symbol == crate::config::AssetSymbol::Pax {
+        let name = format!("agent:did:layerx:{}:main", hex(owner));
+        return layerx_x402::model::account_identifiers(&name)
+            .map(|ids| ids[1])
+            .map_err(|_| SettlementError::Malformed);
     }
     Ok(account)
 }
@@ -231,6 +244,56 @@ pub fn read_payer_grant(
         return Err(SettlementError::Malformed);
     }
     Ok(Some(grant))
+}
+
+pub fn read_receiver_did(
+    rpc: &SettlementRpc,
+    address: &[u8; 20],
+) -> Result<[u8; 32], SettlementError> {
+    let mut precompile = [0; 20];
+    precompile[18..].copy_from_slice(&[0x10, 0x04]);
+    let data = [&keccak(b"getLayerXDid(address)")[..4], &[0; 12], address].concat();
+    let answer = rpc.eth_call(precompile, &data)?;
+    if answer.len() != 192 {
+        return Err(SettlementError::Malformed);
+    }
+    let key: [u8; 32] = answer[..32]
+        .try_into()
+        .map_err(|_| SettlementError::Malformed)?;
+    let did = format!("did:layerx:{}", hex(&key));
+    if key == [0; 32]
+        || answer[32..63].iter().any(|byte| *byte != 0)
+        || answer[63] != 64
+        || answer[64..95].iter().any(|byte| *byte != 0)
+        || usize::from(answer[95]) != did.len()
+        || answer[96..96 + did.len()] != *did.as_bytes()
+        || answer[96 + did.len()..].iter().any(|byte| *byte != 0)
+    {
+        return Err(SettlementError::Malformed);
+    }
+    Ok(key)
+}
+
+pub fn read_receiver_sequence(
+    rpc: &SettlementRpc,
+    did_key: &[u8; 32],
+    asset: &[u8; 32],
+) -> Result<u64, SettlementError> {
+    let data = [
+        &keccak(b"nextSequence(bytes32,bytes32)")[..4],
+        did_key,
+        asset,
+    ]
+    .concat();
+    let answer = rpc.eth_call(LEDGER_PRECOMPILE, &data)?;
+    if answer.len() != 32 || answer[..24].iter().any(|byte| *byte != 0) {
+        return Err(SettlementError::Malformed);
+    }
+    Ok(u64::from_be_bytes(
+        answer[24..]
+            .try_into()
+            .map_err(|_| SettlementError::Malformed)?,
+    ))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -315,7 +378,7 @@ pub fn draw_calldata(
     recipient: &[u8; 32],
     amount: u128,
     idempotency_key: &[u8; 32],
-    deadline_ms: u64,
+    receiver_sequence: u64,
     purpose: &[u8; 32],
     trace: &[u8; 32],
 ) -> Vec<u8> {
@@ -327,7 +390,7 @@ pub fn draw_calldata(
     calldata.extend_from_slice(&amount.to_be_bytes());
     calldata.extend_from_slice(idempotency_key);
     calldata.extend_from_slice(&[0; 24]);
-    calldata.extend_from_slice(&deadline_ms.to_be_bytes());
+    calldata.extend_from_slice(&receiver_sequence.to_be_bytes());
     calldata.extend_from_slice(purpose);
     calldata.extend_from_slice(trace);
     calldata
@@ -598,9 +661,9 @@ pub fn decode_payment_exact(log: &SettlementLog) -> Option<PaymentExactLog> {
         return None;
     }
     Some(PaymentExactLog {
-        payer: log.topics[1],
-        payee: log.topics[2],
-        reference: log.topics[3],
+        payer: log.topics[2],
+        payee: log.topics[3],
+        reference: log.topics[1],
         asset: log.data[..32].try_into().ok()?,
         amount: u128::from_be_bytes(log.data[48..64].try_into().ok()?),
     })
@@ -1065,6 +1128,7 @@ impl std::error::Error for GateError {}
 struct Receiver {
     key: SigningKey,
     address: [u8; 20],
+    did_key: [u8; 32],
     purpose: [u8; 32],
     accounts: [[u8; 32]; 4],
 }
@@ -1081,7 +1145,7 @@ pub struct PaymentGate {
     rpc: SettlementRpc,
     store: PaymentStore,
     clock: Clock,
-    gateway: Mutex<GatewayCore>,
+    adapter: AdapterDescriptor,
     delivery_lock: Mutex<()>,
     payment_lock: Mutex<()>,
     _lease: fs::File,
@@ -1151,37 +1215,20 @@ impl PaymentGate {
             .try_lock()
             .map_err(|_| GateError::Store(io::Error::other("payment journal already open")))?;
         let address = signer_address(receiver);
-        let mut owner = [0; 32];
-        owner[12..].copy_from_slice(&address);
+        let owner = read_receiver_did(&rpc, &address).map_err(|_| GateError::Adapter)?;
         let mut accounts = [[0; 32]; 4];
         for (slot, asset) in accounts.iter_mut().zip(assets.all()) {
-            let data = [
-                &keccak(b"accountId(bytes32,bytes32)")[..4],
-                &owner,
-                &asset.asset_id,
-            ]
-            .concat();
-            *slot = rpc
-                .eth_call(LEDGER_PRECOMPILE, &data)
-                .map_err(|_| GateError::Adapter)?
-                .try_into()
-                .map_err(|_| GateError::Adapter)?;
-            if *slot == [0; 32] {
-                return Err(GateError::Adapter);
-            }
+            *slot =
+                ledger_account_for_owner(&rpc, &owner, asset).map_err(|_| GateError::Adapter)?;
         }
-        let trace = TraceId::mint([0; 16]);
-        let mut gateway = GatewayCore::new();
-        let descriptor = x402_adapter_descriptor(conformance).map_err(|_| GateError::Adapter)?;
-        gateway
-            .register_adapter(descriptor, &trace, clock() / 1_000)
-            .map_err(|_| GateError::Adapter)?;
+        let adapter = x402_adapter_descriptor(conformance).map_err(|_| GateError::Adapter)?;
         Ok(Self {
             assets,
             receiver: Receiver {
                 key: receiver.clone(),
                 purpose: purpose_hash(&address),
                 address,
+                did_key: owner,
                 accounts,
             },
             network: format!("eip155:{}", config.evm.chain_id),
@@ -1192,7 +1239,7 @@ impl PaymentGate {
             rpc,
             store,
             clock,
-            gateway: Mutex::new(gateway),
+            adapter,
             delivery_lock: Mutex::new(()),
             payment_lock: Mutex::new(()),
             _lease: lease,
@@ -1249,11 +1296,18 @@ impl PaymentGate {
         scheme: &str,
         payer: Option<[u8; 20]>,
     ) -> Result<PaymentRequirements, Response> {
-        let mut owner = [0; 32];
-        owner[12..].copy_from_slice(&self.receiver.address);
+        let account = if asset.symbol == crate::config::AssetSymbol::Pax {
+            format!("agent:did:layerx:{}:main", hex(&self.receiver.did_key))
+        } else {
+            format!(
+                "agent:did:layerx:{}:asset:{}",
+                hex(&self.receiver.did_key),
+                asset.id_hex()
+            )
+        };
         let mut layerx = json!({
             "commitment": COMMITMENT,
-            "account": format!("agent:did:layerx:{}:asset:{}", hex(&owner), asset.id_hex()),
+            "account": account,
             "currency": asset.symbol.code(),
         });
         if let (Some(payer), Some(terms)) = (payer, layerx.as_object_mut()) {
@@ -1377,7 +1431,13 @@ impl PaymentGate {
             refusal: None,
         };
         let outcome = {
-            let mut gateway = self.gateway.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut gateway = GatewayCore::new();
+            if gateway
+                .register_adapter(self.adapter.clone(), &trace, now_ms / 1_000)
+                .is_err()
+            {
+                return Response::error(503, "payment_unavailable");
+            }
             seller.settle(
                 &mut gateway,
                 &principal,
@@ -2014,6 +2074,9 @@ impl<'Plane> Plane<'Plane> {
             return Err("payment_pending");
         };
         if let Some(record) = existing {
+            if request.scheme == METERED && record.offer != offer_record(request) {
+                return Err("idempotency_conflict");
+            }
             if record.principal != request.principal.as_str()
                 || record.request_digest != hex(&request.request_digest)
                 || record.resource != self.resource
@@ -2090,6 +2153,13 @@ impl<'Plane> Plane<'Plane> {
             Err(_) => return Err("payment_pending"),
         }
         let rpc = &self.gate.rpc;
+        let did_key =
+            read_receiver_did(rpc, &self.gate.receiver.address).map_err(|_| "payment_pending")?;
+        if did_key != self.gate.receiver.did_key {
+            return Err("payment_pending");
+        }
+        let receiver_sequence = read_receiver_sequence(rpc, &did_key, &asset.asset_id)
+            .map_err(|_| "payment_pending")?;
         let nonce = rpc
             .pending_nonce(self.gate.receiver.address)
             .map_err(|_| "payment_pending")?;
@@ -2098,7 +2168,7 @@ impl<'Plane> Plane<'Plane> {
             &pay_to,
             asset.price,
             &receive_key,
-            self.now_ms.saturating_add(DRAW_VALIDITY_MS),
+            receiver_sequence,
             &self.gate.receiver.purpose,
             &request.request_digest,
         );
@@ -2265,6 +2335,7 @@ impl<'Plane> Plane<'Plane> {
             return Err("receipt_mismatch");
         }
         Ok(PlanePaymentOutcome::Executed(ExecutedPayment {
+            committed: None,
             evidence: SequencerEvidence {
                 transaction_hash: answer.tx_hash,
                 signed_receipt: bytes,
@@ -2351,8 +2422,8 @@ impl<'Plane> Plane<'Plane> {
                                 .as_ref()
                                 .is_some_and(|key| data[64..96] == key[..])
                     } else {
-                        expected.from.is_none_or(|from| topics[1] == from)
-                            && topics[2] == expected.to
+                        expected.from.is_none_or(|from| topics[2] == from)
+                            && topics[3] == expected.to
                             && data.len() == 64
                     }
                     && data[..32] == expected.asset
@@ -2677,10 +2748,25 @@ mod offer_tests {
             serde_json::from_str(include_str!("../tests/fixtures/gateway/metered.json"))?;
         let ledger = std::thread::spawn(move || {
             use std::io::{Read as _, Write as _};
-            let rules = recording["endpoints"]["gateway"]["*"]
+            let mut rules = recording["endpoints"]["gateway"]["*"]
                 .as_array()
-                .expect("rules");
-            for _ in 0..24 {
+                .expect("rules")
+                .clone();
+            let payer_rules: Vec<Value> = rules
+                .iter()
+                .filter_map(|rule| {
+                    let data = rule["params"][0]["data"].as_str()?;
+                    let asset = data.strip_prefix("0x3f050cbc")?.get(64..)?;
+                    let owner = format!("{:0>64}", "6813eb9362372eef6200f3b1dbc3f819671cba69");
+                    let account = super::keccak(&super::unhex(&format!("{owner}{asset}"))?);
+                    let mut payer = rule.clone();
+                    payer["params"][0]["data"] = json!(format!("0x3f050cbc{owner}{asset}"));
+                    payer["result"] = json!(format!("0x{}", super::hex(&account)));
+                    Some(payer)
+                })
+                .collect();
+            rules.extend(payer_rules);
+            for _ in 0..26 {
                 let (mut stream, _) = listener.accept().expect("ledger connection");
                 let mut raw = Vec::new();
                 let request = loop {

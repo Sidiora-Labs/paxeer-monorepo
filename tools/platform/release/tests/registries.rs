@@ -31,6 +31,51 @@ fn committed_pipeline() -> release::ReleasePipeline {
 }
 
 #[test]
+fn release_pipeline_has_no_replay_gate() {
+    let mut source = committed_workflow();
+    if let Some(start) = source.find("  replay-matrix:\n") {
+        let end = start
+            + source[start..]
+                .find("  release-pipeline:\n")
+                .expect("release-pipeline must follow replay-matrix");
+        source.replace_range(start..end, "");
+    }
+    source = source.replace(", replay-matrix]", "]");
+    let document = workflow::parse(&source).expect("parse release workflow without replay");
+    assert!(document.path(&["jobs", "replay-matrix"]).is_none());
+    let dependencies = document
+        .path(&["jobs", "release-pipeline", "needs"])
+        .expect("release-pipeline needs")
+        .strings();
+    assert_eq!(
+        dependencies,
+        vec![
+            "programs-acceptance",
+            "agent-sanitizers",
+            "agent-fuzz-corpus"
+        ]
+    );
+    let pipeline = release_pipeline(&committed_manifest(), &source)
+        .expect("release pipeline must accept a workflow without replay");
+    assert_eq!(
+        pipeline
+            .gates
+            .iter()
+            .map(|gate| gate.job.as_str())
+            .collect::<Vec<_>>(),
+        dependencies
+    );
+    assert!(pipeline
+        .gates
+        .iter()
+        .all(|gate| { gate.job != "replay-matrix" && gate.command != "make test-replay-golden" }));
+    assert_eq!(committed_pipeline().gates, pipeline.gates);
+    let rendered = plan(&pipeline).expect("release plan without replay");
+    assert!(!rendered.contains("replay-matrix"));
+    assert!(!rendered.contains("make test-replay-golden"));
+}
+
+#[test]
 fn committed_manifest_declares_all_seven_registries() {
     let declarations = registries_declarations(&committed_manifest())
         .unwrap_or_else(|error| panic!("manifest refused: {error}"));
@@ -94,11 +139,61 @@ fn every_registry_is_active_with_real_sorted_package_identities() {
     assert!(package("pypi").contains(&"layerx-sdk".to_owned()));
     assert_eq!(
         package("go-modules"),
-        vec!["github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go"]
+        vec!["github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"]
     );
     assert!(package("maven-central").contains(&"com.sidiora.layerx:layerx-sdk".to_owned()));
     assert_eq!(package("swiftpm"), vec!["LayerXSDK"]);
     assert_eq!(package("nuget"), vec!["LayerX.Sdk"]);
+}
+
+#[test]
+fn go_module_release_tags_the_module_directory() {
+    let declarations = registries_declarations(&committed_manifest())
+        .expect("committed registry manifest must parse");
+    let registry = declarations
+        .registries
+        .iter()
+        .find(|registry| registry.name == "go-modules")
+        .expect("Go module registry missing");
+    let manifest = read("../../../sdk/platform/go/go.mod");
+    let module = manifest
+        .lines()
+        .next()
+        .and_then(|line| line.strip_prefix("module "))
+        .expect("Go SDK manifest must start with its module declaration");
+    assert_eq!(
+        module,
+        "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
+    );
+    assert_eq!(registry.packages, vec![module]);
+    assert!(module.ends_with("/sdk/platform/go"));
+
+    let source = committed_workflow();
+    let document = workflow::parse(&source).expect("committed workflow must parse");
+    let job = document
+        .path(&["jobs", "publish-go-modules"])
+        .expect("Go module publication job missing");
+    assert_eq!(
+        job.path(&["env", "LAYERX_RELEASE_PACKAGES"])
+            .and_then(workflow::Node::as_str),
+        Some(module)
+    );
+    let steps = job
+        .get("steps")
+        .expect("Go module publication steps missing")
+        .items();
+    let signing = steps
+        .iter()
+        .filter_map(|step| step.get("run").and_then(workflow::Node::as_str))
+        .find(|script| script.contains("git tag -s"))
+        .expect("Go module signed tag publication missing");
+    assert!(signing.contains("tag=sdk/platform/go/v$LAYERX_RELEASE_VERSION"));
+    assert!(signing.contains("git tag -s \"$tag\""));
+    assert!(signing.contains("repository=${LAYERX_RELEASE_PACKAGES%/sdk/platform/go}"));
+    assert!(signing.contains(
+        "git push \"https://x-access-token:$LAYERX_RELEASE_GO_TAG_TOKEN@$repository.git\" \"refs/tags/sdk/platform/go/v$LAYERX_RELEASE_VERSION\""
+    ));
+    assert!(!source.contains("platform/sdk/go"));
 }
 
 #[test]
@@ -144,15 +239,8 @@ fn committed_workflow_requires_every_release_gate() {
             ("programs-acceptance", "make programs-test"),
             ("agent-sanitizers", "make agent-test-sanitize"),
             ("agent-fuzz-corpus", "make agent-fuzz-long"),
-            ("replay-matrix", "make test-replay-golden"),
         ]
     );
-    let replay = pipeline
-        .gates
-        .iter()
-        .find(|gate| gate.job == "replay-matrix")
-        .unwrap_or_else(|| panic!("replay gate missing"));
-    assert_eq!(replay.machines, vec!["aarch64", "x86_64"]);
 }
 
 #[test]
@@ -161,7 +249,7 @@ fn plan_is_deterministic_and_machine_readable() {
     let first = plan(&pipeline).unwrap_or_else(|error| panic!("plan: {error}"));
     let second = plan(&pipeline).unwrap_or_else(|error| panic!("plan: {error}"));
     assert_eq!(first, second);
-    assert_eq!(first.lines().count(), 3 + 7 + 1 + 4 + 1);
+    assert_eq!(first.lines().count(), 3 + 7 + 1 + 3 + 1);
     assert!(first.starts_with("tag_format=sdk-v{version}\n"));
     assert!(first
         .lines()
@@ -198,14 +286,12 @@ fn plan_is_deterministic_and_machine_readable() {
             && image_line.contains(" images=layerx-agent-boundary,"),
         "plan line lost its container binding: {image_line}"
     );
-    for line in first.lines().skip(11).take(4) {
+    for line in first.lines().skip(11).take(3) {
         assert!(
             line.starts_with("gate=") && line.contains(" command=make "),
             "unexpected gate line: {line}"
         );
     }
-    assert!(first
-        .contains("gate=replay-matrix command=make test-replay-golden machines=aarch64,x86_64"));
     assert!(first
         .lines()
         .last()
@@ -699,25 +785,12 @@ fn release_gate_run_outside_the_gate_runner_is_refused() {
 fn release_without_every_gate_is_refused() {
     let source = replaced(
         &committed_workflow(),
-        "needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus, replay-matrix]",
-        "needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus]",
+        "needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus",
+        "needs: [programs-acceptance, agent-sanitizers",
     );
     expect_workflow_refusal(
         &source,
-        "job release-pipeline must need the release gate replay-matrix",
-    );
-}
-
-#[test]
-fn replay_on_a_single_architecture_is_refused() {
-    let source = replaced(
-        &committed_workflow(),
-        "          - machine: aarch64\n            runner: ubuntu-24.04-arm\n            ordinal: 5\n",
-        "",
-    );
-    expect_workflow_refusal(
-        &source,
-        "release gate replay-matrix must replay on every supported architecture",
+        "job release-pipeline must need the release gate agent-fuzz-corpus",
     );
 }
 

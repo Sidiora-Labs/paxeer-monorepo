@@ -16,6 +16,7 @@
 #include "../modules/programs/event.h"
 
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -2387,11 +2388,33 @@ static lxp_result receipt_bind_ledger_projection(
     if (!module_ctx->ledger_receipt_present) {
         size_t index;
         if (module_ctx->effects == NULL) return LXP_FATAL_INVARIANT;
-        for (index = 0U; index < module_ctx->effects->count; ++index)
-            if (module_ctx->effects->effects[index].monetary &&
-                module_ctx->effects->effects[index].kind ==
-                    LXP_EFFECT_TRANSFER)
+        for (index = 0U; index < module_ctx->effects->count; ++index) {
+            const lxp_effect *effect = &module_ctx->effects->effects[index];
+            if (effect->monetary && effect->kind == LXP_EFFECT_TRANSFER) {
+                size_t byte;
+                if (module_ctx->module_id == LXP_MODULE_PROGRAMS &&
+                    module_ctx->program_outcome.present &&
+                    lxp_ct_memcmp(effect->transfer_set_root,
+                        module_ctx->program_outcome.occupancy_transfer_root,
+                        32U) == 0) {
+                    (void)memcpy(receipt->transfer_set_root,
+                                 effect->transfer_set_root, 32U);
+                    continue;
+                }
+                (void)fprintf(stderr,
+                    "receipt_bind_ledger_projection: unreceipted monetary "
+                    "transfer effect=%zu effect_root=", index);
+                for (byte = 0U; byte < 32U; ++byte)
+                    (void)fprintf(stderr, "%02x",
+                                  (unsigned int)effect->transfer_set_root[byte]);
+                (void)fprintf(stderr, " outcome_root=");
+                for (byte = 0U; byte < 32U; ++byte)
+                    (void)fprintf(stderr, "%02x", (unsigned int)
+                        module_ctx->program_outcome.occupancy_transfer_root[byte]);
+                (void)fprintf(stderr, "\n");
                 return LXP_FATAL_INVARIANT;
+            }
+        }
         return LXP_OK;
     }
     if (receipt->result_code != LXP_OK ||
@@ -4984,7 +5007,7 @@ static lxp_result kernel_prepare_serial_activity_batch(
     runtime = kernel->module_runtime[LXP_MODULE_PROGRAMS];
     if ((activity->activity_type == LX_PROGRAMS_ACCOUNT ||
          activity->activity_type == LX_PROGRAMS_WIND_DOWN) &&
-        (runtime == NULL || kernel->observe_commit == NULL))
+        runtime == NULL)
         return LXP_ERR_MODULE_DISABLED;
     batch = calloc(1U, sizeof(*batch));
     storage = malloc(LXP_KERNEL_PREPARE_ARENA_BYTES);
@@ -6757,8 +6780,7 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
         (activity->payload.bytes[34U] & 1U) != 0U;
     if (programs_state_activity &&
         (!lxp_protocol_version_uses_occupancy(activity->protocol_version) ||
-         kernel->module_runtime[LXP_MODULE_PROGRAMS] == NULL ||
-         kernel->observe_commit == NULL))
+         kernel->module_runtime[LXP_MODULE_PROGRAMS] == NULL))
         return LXP_ERR_MODULE_DISABLED;
     if (programs_call) {
         programs_runtime = (const lx_programs_transfer_runtime *)

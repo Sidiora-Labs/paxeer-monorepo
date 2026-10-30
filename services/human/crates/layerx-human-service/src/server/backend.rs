@@ -109,6 +109,18 @@ impl ApiFailure {
     }
 
     #[must_use]
+    pub fn operation_retired() -> Self {
+        Self {
+            status: 410,
+            code: "operation-retired".to_owned(),
+            copy_key: "error.operation.retired".to_owned(),
+            retry: "final".to_owned(),
+            retry_after_ms: None,
+            field: None,
+        }
+    }
+
+    #[must_use]
     pub fn upstream_degraded() -> Self {
         Self {
             status: 503,
@@ -1109,6 +1121,7 @@ const ERROR_CODES: &[&str] = &[
     "step-up-required",
     "forbidden",
     "not-found",
+    "operation-retired",
     "invalid-request",
     "conflict",
     "rate-limited",

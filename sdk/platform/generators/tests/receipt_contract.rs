@@ -37,6 +37,13 @@ const CHECKS: [&str; 12] = [
 
 struct Repository(PathBuf);
 
+impl Repository {
+    fn create(path: PathBuf) -> std::io::Result<Self> {
+        fs::create_dir(&path)?;
+        Ok(Self(path))
+    }
+}
+
 impl Drop for Repository {
     fn drop(&mut self) {
         fs::remove_dir_all(&self.0)
@@ -88,12 +95,12 @@ fn assert_success(output: &Output) {
 }
 
 fn repository() -> Repository {
-    let root = Repository(std::env::temp_dir().join(format!(
+    let root = Repository::create(std::env::temp_dir().join(format!(
         "layerx-receipt-contract-{}-{}",
         std::process::id(),
         NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
-    )));
-    fs::create_dir(&root.0).unwrap_or_else(|error| panic!("create fixture: {error}"));
+    )))
+    .unwrap_or_else(|error| panic!("create fixture: {error}"));
     let initialized = Command::new("git")
         .arg("-C")
         .arg(&root.0)
@@ -143,6 +150,41 @@ fn repository() -> Repository {
     }
     assert_success(&generator(&root.0, "--write-program-contracts"));
     root
+}
+
+#[test]
+fn repository_cleanup_requires_directory_ownership() {
+    let path = std::env::temp_dir().join(format!(
+        "layerx-receipt-contract-cleanup-{}-{}",
+        std::process::id(),
+        NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir(&path).unwrap_or_else(|error| panic!("create isolated root: {error}"));
+    let root = Repository(path);
+    let existing = root.0.join("existing");
+    fs::create_dir(&existing).unwrap_or_else(|error| panic!("create existing fixture: {error}"));
+    let sentinel = existing.join("sentinel");
+    fs::write(&sentinel, b"keep this fixture")
+        .unwrap_or_else(|error| panic!("write sentinel: {error}"));
+
+    let error = Repository::create(existing.clone())
+        .err()
+        .unwrap_or_else(|| panic!("existing fixture must not be acquired"));
+    assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+    assert!(existing.is_dir());
+    assert_eq!(
+        fs::read(&sentinel).unwrap_or_else(|error| panic!("read sentinel: {error}")),
+        b"keep this fixture"
+    );
+
+    let created = root.0.join("created");
+    let owned = Repository::create(created.clone())
+        .unwrap_or_else(|error| panic!("create owned fixture: {error}"));
+    fs::write(created.join("sentinel"), b"remove this fixture")
+        .unwrap_or_else(|error| panic!("write owned sentinel: {error}"));
+    drop(owned);
+    assert!(!created.exists());
+    assert!(sentinel.is_file());
 }
 
 #[test]

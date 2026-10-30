@@ -66,6 +66,7 @@ def _gate(name: str) -> tuple[str, dict[str, list[str]]]:
 
 def test_merge_gate_lists_twelve_addresses() -> None:
     rows = load(TABLE)
+    assert rows.pop("meta") == {"format_version": 1}
     expected_rows = {}
     for gate, expected_plan, count in (
         ("activationPrecompileGate", "v6.9", 8),

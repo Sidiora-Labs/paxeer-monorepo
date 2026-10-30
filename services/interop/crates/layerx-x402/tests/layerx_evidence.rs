@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_x402::buyer::{BuiltPayment, Buyer, CapturedSettlement};
@@ -90,6 +91,32 @@ fn settlement() -> Result<
             .map_err(|_| X402Error::EvidenceMismatch)
     };
     let log = &case["receiptJson"]["logs"][0];
+    let mut topics = log["topics"]
+        .as_array()
+        .ok_or(X402Error::EvidenceMismatch)?
+        .iter()
+        .map(word)
+        .collect::<Result<Vec<_>, _>>()?;
+    let recorded_topics = topics.concat();
+    topics[1..].rotate_right(1);
+    let mut receipt = unhex(&text(&case["signedReceipt"])?)?;
+    let positions: Vec<_> = receipt
+        .windows(recorded_topics.len())
+        .enumerate()
+        .filter_map(|(index, value)| (value == recorded_topics).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1);
+    receipt[positions[0]..positions[0] + recorded_topics.len()].copy_from_slice(&topics.concat());
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)
+        .map_err(|_| X402Error::EvidenceMismatch)?;
+    let signer = SigningKey::from_bytes(&[0x72; 32]);
+    let signature_start = receipt.len() - 64;
+    receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let mut logs = case["receiptJson"]["logs"].clone();
+    logs[0]["topics"] = json!(topics
+        .iter()
+        .map(|topic| format!("0x{}", hex(topic)))
+        .collect::<Vec<_>>());
     let data = unhex(&text(&log["data"])?)?;
     let amount = AtomicAmount::from_u128(1_000_000);
     let payment = BuiltPayment {
@@ -128,16 +155,16 @@ fn settlement() -> Result<
         extensions: BTreeMap::from([(
             "layerx".to_owned(),
             json!({
-                "receipt": STANDARD.encode(unhex(&text(&case["signedReceipt"])?)?),
-                "receiptDigest": text(&case["receiptDigest"])?.trim_start_matches("0x"),
-                "verificationLevel": "receipted", "logs": case["receiptJson"]["logs"],
+                "receipt": STANDARD.encode(&receipt),
+                "receiptDigest": hex(&digest),
+                "verificationLevel": "receipted", "logs": logs,
             }),
         )]),
     };
     let key = &case["pinnedKey"];
     let keys = vec![SequencerAuthorization::new(
         word(&key["keyId"])?,
-        word(&key["publicKey"])?,
+        signer.verifying_key().to_bytes(),
         key["firstHeight"]
             .as_u64()
             .ok_or(X402Error::EvidenceMismatch)?,

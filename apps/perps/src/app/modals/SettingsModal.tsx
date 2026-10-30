@@ -30,7 +30,7 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [selected, setSelected] = useState(0);
+  const activeTheme = theme === 'system' ? resolvedTheme : theme;
   const isMobile = useIsMobile();
 
   // Real settings state
@@ -55,23 +55,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // Handle initial theme setup after mount
   useEffect(() => {
     setMounted(true);
-    switch (theme) {
-      case 'dark':
-        setSelected(1);
-        break;
-      case 'greenify':
-        setSelected(2);
-        break;
-      case 'hotline':
-        setSelected(3);
-        break;
-      case 'oled':
-        setSelected(4);
-        break;
-      default:
-        setSelected(0);
-    }
-  }, [theme]);
+  }, []);
 
   const themeOptions = [
    {
@@ -116,12 +100,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       border: '#333333'
     },
   ];
-
-  const handleThemeChange = (index: number) => {
-    const newTheme = themeOptions[index].value;
-    setSelected(index);
-    setTheme(newTheme);
-  };
 
   // Don't render anything until mounted to prevent hydration mismatch
   if (!mounted) return null;
@@ -202,17 +180,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    {themeOptions.map((option, index) => (
+                    {themeOptions.map((option) => (
                       <button
                         key={option.value}
-                        onClick={() => handleThemeChange(index)}
+                        onClick={() => setTheme(option.value)}
+                        aria-pressed={option.value === activeTheme}
                         className={cn(
                           // Apple-style interactive card. Adds the
                           // specular hairline + hover lift + sweep on
                           // top of the existing selected-ring affordance.
                           "au-card au-card--interactive",
                           "flex items-center gap-4 !p-3 rounded-xl !border-2 transition-all duration-200",
-                          index === selected
+                          option.value === activeTheme
                             ? "!border-accent bg-accent/10 ring-2 ring-accent/20"
                             : "!border-border hover:!border-accent/50 hover:!bg-accent/5"
                         )}
@@ -228,7 +207,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             borderColor: option.border
                           }}
                         >
-                          {index === selected && (
+                          {option.value === activeTheme && (
                             <Check
                               className="w-5 h-5 text-white drop-shadow-sm"
                               style={{ color: option.badgeColor }}

@@ -15,7 +15,7 @@ public sealed class PortableReceipt
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        Converters = { new HexBytesConverter() }
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
     private readonly byte[] bytes;
     public SequencerReceiptVerification Verification { get; }
@@ -41,6 +41,15 @@ public sealed class PortableReceipt
             ?? throw Failure();
         var committed = blockHeader is not null || receiptInclusion is not null || commit is not null || validatorSet is not null;
         Require(!committed || (blockHeader is not null && receiptInclusion is not null && commit is not null && validatorSet is not null));
+        if (receiptJson.GetProperty("rung").GetString() == "committed")
+        {
+            Require(committed && blockHeader is not null && Height(receiptJson, "blockNumber") == (ulong)blockHeader.Height &&
+                Equal(ReadHex(receiptJson.GetProperty("blockHash"), 32), Committed.HeaderHash(blockHeader)));
+            receiptJson = JsonSerializer.SerializeToElement(receiptJson.EnumerateObject()
+                .Where(property => property.Name is not ("blockNumber" or "blockHash"))
+                .ToDictionary(property => property.Name, property => property.Name == "rung"
+                    ? JsonSerializer.SerializeToElement("receipted") : property.Value), Options);
+        }
         var bundle = new Dictionary<string, object?>
         {
             ["format"] = Format,
@@ -54,10 +63,10 @@ public sealed class PortableReceipt
         };
         if (committed)
         {
-            bundle["blockHeader"] = blockHeader;
-            bundle["receiptInclusion"] = receiptInclusion;
-            bundle["commit"] = commit;
-            bundle["validatorSet"] = validatorSet;
+            bundle["blockHeader"] = JsonSerializer.SerializeToElement(blockHeader, Committed.WireOptions);
+            bundle["receiptInclusion"] = JsonSerializer.SerializeToElement(receiptInclusion, Committed.WireOptions);
+            bundle["commit"] = JsonSerializer.SerializeToElement(commit, Committed.WireOptions);
+            bundle["validatorSet"] = JsonSerializer.SerializeToElement(validatorSet, Committed.WireOptions);
         }
         return verify(JsonSerializer.SerializeToUtf8Bytes(bundle, Options), keys);
     }
@@ -97,7 +106,9 @@ public sealed class PortableReceipt
                 if (view.GetProperty("rung").GetString() == "committed")
                     Require(Height(view, "blockNumber") == (ulong)header.Height &&
                         Equal(ReadHex(view.GetProperty("blockHash"), 32), Committed.HeaderHash(header)));
-                verified = Committed.Verify(verified, header, Read<CommittedReceiptInclusion>(root, "receiptInclusion"),
+                var inclusion = Read<CommittedReceiptInclusion>(root, "receiptInclusion");
+                Require(Equal(raw, Committed.EVMTransaction(inclusion.Transaction)));
+                verified = Committed.Verify(verified, header, inclusion,
                     Read<CometCommit>(root, "commit"), Read<CometValidator[]>(root, "validatorSet"));
             }
             return new(owned, verified);
@@ -111,7 +122,7 @@ public sealed class PortableReceipt
     }
 
     private static T Read<T>(JsonElement root, string name) where T : class =>
-        root.GetProperty(name).Deserialize<T>(Options) ?? throw Failure();
+        root.GetProperty(name).Deserialize<T>(Committed.WireOptions) ?? throw Failure();
 
     private static void CheckFields(JsonElement value)
     {
@@ -121,7 +132,9 @@ public sealed class PortableReceipt
             foreach (var property in value.EnumerateObject())
             {
                 Require(names.Add(property.Name) && property.Name is not
-                    ("batchId" or "asset" or "previousStateRoot" or "resultingStateRoot"));
+                    ("batchId" or "asset" or "previousStateRoot" or "resultingStateRoot" or
+                     "ActivityIds" or "ResultsHeader" or "ResultsCommit" or "ResultsValidators" or
+                     "LeafIndex" or "LeafCount" or "Siblings"));
                 CheckFields(property.Value);
             }
         }
@@ -152,16 +165,4 @@ public sealed class PortableReceipt
     private static bool Equal(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right) => CryptographicOperations.FixedTimeEquals(left, right);
     private static void Require(bool condition) { if (!condition) throw Failure(); }
     private static PlatformSdkException Failure() => new(SdkErrorCode.VerificationFailure, RetryClass.Never);
-
-    private sealed class HexBytesConverter : JsonConverter<byte[]>
-    {
-        public override byte[] Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
-        {
-            using var document = JsonDocument.ParseValue(ref reader);
-            return ReadHex(document.RootElement);
-        }
-
-        public override void Write(Utf8JsonWriter writer, byte[] value, JsonSerializerOptions options) =>
-            writer.WriteStringValue(Hex(value));
-    }
 }

@@ -6,12 +6,12 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::thread::{self, JoinHandle};
 
-use layerx_client::lni::framing::{read_frame, write_frame};
 use layerx_client::lni::handshake::{encode_node_info, NodeInfo, NodeRole};
 use layerx_client::lni::schema::{
     decode_envelope, encode_envelope, Capability, Envelope, SchemaError, Version,
 };
 use layerx_crypto::{ed25519, SignatureMessage};
+use layerx_human_service::frame::{read_frame, write_frame, FrameViolation, TransportError};
 use layerx_intents::canonical::{activity_id, payload_hash, Domain};
 use layerx_intents::canonical::{
     decode_signed_activity as decode_signed, unsigned_activity_bytes as encode_unsigned,
@@ -299,18 +299,20 @@ impl EvidenceNode {
     /// Panics if a worker cannot start; the worker panics on invalid handshakes or I/O failures.
     #[must_use]
     pub fn serve(mut self, listener: UnixListener) -> JoinHandle<Self> {
-        thread::spawn(move || {
+        thread::spawn(move || loop {
             let (mut stream, _) = listener
                 .accept()
                 .unwrap_or_else(|error| panic!("accept evidence node connection: {error}"));
-            self.serve_connection(&mut stream);
-            self
+            match self.serve_connection(&mut stream) {
+                Ok(()) => return self,
+                Err(TransportError::Frame(FrameViolation::Oversized { .. })) => continue,
+                Err(error) => panic!("read evidence handshake: {error:?}"),
+            }
         })
     }
 
-    fn serve_connection(&mut self, stream: &mut UnixStream) {
-        let request = read_frame(stream, FRAME_BYTES)
-            .unwrap_or_else(|error| panic!("read evidence handshake: {error:?}"));
+    fn serve_connection(&mut self, stream: &mut UnixStream) -> Result<(), TransportError> {
+        let request = read_frame(stream, FRAME_BYTES)?;
         let request = decode_envelope(&request)
             .unwrap_or_else(|error| panic!("decode evidence handshake: {error:?}"));
         assert_eq!(request.message_tag, NODE_INFO_REQUEST_TAG);
@@ -321,8 +323,12 @@ impl EvidenceNode {
             .unwrap_or_else(|error| panic!("encode evidence node information: {error:?}"));
         self.respond(stream, NODE_INFO_RESPONSE_TAG, 0, &payload, &[]);
         while !self.fail_stopped {
-            let Ok(frame) = read_frame(stream, FRAME_BYTES) else {
-                break;
+            let frame = match read_frame(stream, FRAME_BYTES) {
+                Ok(frame) => frame,
+                Err(error @ TransportError::Frame(FrameViolation::Oversized { .. })) => {
+                    return Err(error);
+                }
+                Err(_) => break,
             };
             let Ok(request) = decode_envelope(&frame) else {
                 break;
@@ -365,6 +371,7 @@ impl EvidenceNode {
                 }
             }
         }
+        Ok(())
     }
 
     fn respond(

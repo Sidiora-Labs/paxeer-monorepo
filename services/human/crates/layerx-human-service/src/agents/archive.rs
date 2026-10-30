@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter};
 
 use layerx_types::ids::{AssetId, Did};
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -55,7 +55,7 @@ pub struct FundsDispositionEvidence {
     pub protocol_state_digest: [u8; 32],
     pub observed_sequence: u64,
     pub observed_at: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
 }
 
 /// Real agent contract required by archive in addition to session authority.
@@ -446,6 +446,18 @@ impl ArchiveJourney {
                 .record
                 .requested_at
                 .ok_or(ArchiveError::Corrupt("archive request time missing"))?;
+            let agent_id = AgentId::new(self.record.agent_id.clone())?;
+            let evidence = boundary.funds_disposition(&principal, &did, &agent_id)?;
+            validate_disposition(&evidence)?;
+            let remaining = evidence
+                .after
+                .iter()
+                .copied()
+                .filter(|balance| balance.amount != 0)
+                .collect::<Vec<_>>();
+            if !remaining.is_empty() {
+                return Err(ArchiveError::FundsRemain(remaining));
+            }
             let outcome = boundary.archive_authority(&principal, &did, requested_at)?;
             validate_outcome(&outcome, requested_at)?;
             self.record.suspended_at = Some(outcome.suspended_at);
@@ -637,7 +649,7 @@ fn validate_disposition(evidence: &FundsDispositionEvidence) -> Result<(), Archi
     if evidence.protocol_state_digest == [0; 32]
         || evidence.observed_sequence == 0
         || evidence.observed_at == 0
-        || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
+        || evidence.rung != Rung::Committed
         || evidence.before.is_empty()
         || evidence.after.is_empty()
     {

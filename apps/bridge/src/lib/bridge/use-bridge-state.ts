@@ -197,7 +197,7 @@ export function useForeignBalance(chain: BridgeChain, assetAddress: Address, isN
 }
 
 /** Paxeer-side bridged balance of a denom, via the Bank precompile. */
-export function useBridgedBalance(denom: string | undefined) {
+export function useBridgedBalance(denom: string | undefined): UseReadContractReturnType<typeof bankAbi, 'balance'> {
   const { address } = useAccount();
   return useReadContract({
     abi: bankAbi,

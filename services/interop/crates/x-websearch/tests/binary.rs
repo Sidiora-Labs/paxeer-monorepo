@@ -17,7 +17,7 @@ use sha2::{Digest as _, Sha256};
 use x_websearch::canonical::digest_hex;
 use x_websearch::index::WebIndex;
 use x_websearch::keys::{ATTESTOR_KEY_FILE, RECEIVER_KEY_FILE, SUBMITTER_KEY_FILE};
-use x_websearch::payment::{hex, PAYER_DID, PAYMENT_REQUIRED};
+use x_websearch::payment::{hex, PAYER_ADDRESS, PAYMENT_REQUIRED};
 use x_websearch::program::PROGRAM_ATTESTATION_PATH;
 use x_websearch::search::search;
 use x_websearch::watch::{
@@ -308,9 +308,9 @@ impl Gateway {
                 .iter()
                 .filter(|call| {
                     call["method"] == "eth_call"
-                        && call["params"][0]["data"]
-                            .as_str()
-                            .is_some_and(|data| data.starts_with("0x3f050cbc"))
+                        && call["params"][0]["data"].as_str().is_some_and(|data| {
+                            data.starts_with("0x3f050cbc") || data.starts_with("0xd3600b24")
+                        })
                 })
                 .cloned()
                 .collect::<Vec<_>>()
@@ -318,6 +318,27 @@ impl Gateway {
             Vec::new()
         };
         if chain_id.is_some() {
+            let mut payer_calls = Vec::new();
+            for call in &ledger_calls {
+                let data = call["params"][0]["data"]
+                    .as_str()
+                    .ok_or_else(|| std::io::Error::other("missing recorded ledger calldata"))?;
+                if let Some(arguments) = data.strip_prefix("0x3f050cbc") {
+                    let asset = arguments
+                        .get(64..)
+                        .ok_or_else(|| std::io::Error::other("missing recorded ledger asset"))?;
+                    let owner = format!("{:0>64}", "abababababababababababababababababababab");
+                    let account = layerx_x402::model::account_identifiers(&format!(
+                        "agent:did:layerx:{owner}:asset:{asset}"
+                    ))
+                    .map_err(std::io::Error::other)?[1];
+                    let mut payer = call.clone();
+                    payer["params"][0]["data"] = json!(format!("0x3f050cbc{owner}{asset}"));
+                    payer["result"] = json!(hex0x(&account));
+                    payer_calls.push(payer);
+                }
+            }
+            ledger_calls.extend(payer_calls);
             for name in ["chain.json", "watch.json"] {
                 let recording: Value =
                     serde_json::from_slice(&std::fs::read(fixtures().join("evm").join(name))?)?;
@@ -889,14 +910,31 @@ fn the_conformance_vector_count_is_the_number_of_recorded_answers() -> TestResul
 fn the_binary_serves_health_free_and_every_paid_route_behind_the_payment_gate() -> TestResult {
     let scratch = Scratch::new("routes")?;
     let site = Site::start(&fixtures().join("binary/site"))?;
-    let config = configure(&scratch, &site, |_| {})?;
-    let (receiver, secret) = receiver_key(&scratch)?;
+    let gateway = Gateway::start_with_chain_id(Some(125))?;
+    let config = configure(&scratch, &site, |config| {
+        settlement_settings(config, &gateway);
+    })?;
+    let receiver = settlement_receiver_key(&scratch)?;
+    let secret = std::fs::read_to_string(&receiver)?;
     let sidecar = Sidecar::start(&scratch, &config, &receiver)?;
+    let deadline = Instant::now() + WAIT;
+    loop {
+        let (status, _, body) = sidecar.get("/readyz", "")?;
+        let readiness: Value = serde_json::from_slice(&body)?;
+        if status == 200 {
+            assert_eq!(readiness["ready"], true);
+            break;
+        }
+        if Instant::now() > deadline {
+            return Err(format!("the sidecar never became ready: {readiness}").into());
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
 
     let (status, head, _) = sidecar.get("/search?q=lighthouse", "")?;
     assert_eq!(status, 402);
     assert_offers_every_asset(&offers(&head)?, &config, &["exact"])?;
-    let payer = format!("{PAYER_DID}: did:layerx:buyer\r\n");
+    let payer = format!("{PAYER_ADDRESS}: 0xabababababababababababababababababababab\r\n");
     let (status, head, _) = sidecar.get("/search?q=lighthouse", &payer)?;
     assert_eq!(status, 402);
     assert_offers_every_asset(&offers(&head)?, &config, &["metered", "exact"])?;

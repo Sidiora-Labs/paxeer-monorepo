@@ -20,7 +20,9 @@ export type PrecompileAbiErrorCode =
   | "data_length"
   | "non_canonical_word"
   | "invalid_string"
-  | "malformed_wallet_answer";
+  | "malformed_wallet_answer"
+  | "approve_reverted"
+  | "approve_not_mined";
 
 export class PrecompileAbiError extends Error {
   readonly code: PrecompileAbiErrorCode;
@@ -281,13 +283,20 @@ function dynamicType(type: string): boolean {
   return type.startsWith("(") && tupleTypes(type).some(dynamicType);
 }
 
+function headWidth(type: string): number {
+  if (!dynamicType(type) && type.startsWith("(") && type.endsWith(")")) {
+    return tupleTypes(type).reduce((width, item) => width + headWidth(item), 0);
+  }
+  return WORD;
+}
+
 function encodeSequence(types: readonly string[], values: readonly AbiArgument[], label: string): Uint8Array {
   if (types.length !== values.length) {
     throw new PrecompileAbiError("invalid_value", `${label} argument count`);
   }
   const heads: Uint8Array[] = [];
   const tails: Uint8Array[] = [];
-  let tailOffset = types.length * WORD;
+  let tailOffset = types.reduce((width, type) => width + headWidth(type), 0);
   types.forEach((type, index) => {
     const encoded = encodeArgument(type, values[index] as AbiArgument, `${label} argument ${index}`);
     if (dynamicType(type)) {

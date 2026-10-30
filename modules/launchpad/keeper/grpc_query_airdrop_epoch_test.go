@@ -3,16 +3,23 @@ package keeper_test
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -88,11 +95,21 @@ func TestQueryAirdropEpochRefusals(t *testing.T) {
 			var addressErr *sdkerrors.Error
 			require.ErrorAs(t, err, &addressErr)
 			require.Same(t, sdkerrors.ErrInvalidAddress, addressErr)
-			codespace, code, _ := sdkerrors.ABCIInfo(addressErr, false)
+			codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 			require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
 			require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
 		})
 	}
+
+	t.Run("zero pool", func(t *testing.T) {
+		response, err := client.AirdropEpoch(goCtx, &types.QueryAirdropEpochRequest{Pool: (common.Address{}).Hex(), Epoch: 1})
+		require.Nil(t, response)
+		require.ErrorIs(t, err, types.ErrZeroAddress)
+		require.Contains(t, err.Error(), "pool must not be the zero address")
+		codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+		require.Equal(t, types.ErrZeroAddress.Codespace(), codespace)
+		require.Equal(t, types.ErrZeroAddress.ABCICode(), code)
+	})
 
 	t.Run("zero epoch", func(t *testing.T) {
 		response, err := client.AirdropEpoch(goCtx, &types.QueryAirdropEpochRequest{Pool: pool.Hex(), Epoch: 0})
@@ -116,12 +133,73 @@ func TestQueryAirdropEpochRefusals(t *testing.T) {
 		require.Nil(t, response)
 		require.ErrorIs(t, err, types.ErrAirdropBasis)
 		require.EqualError(t, err, keeperErr.Error())
-		require.IsType(t, keeperErr, err)
+		require.IsType(t, keeperErr, errors.Unwrap(err))
+		require.EqualError(t, errors.Unwrap(err), keeperErr.Error())
+		require.True(t, types.ErrAirdropBasis.Is(err))
 		var basisErr *sdkerrors.Error
 		require.ErrorAs(t, err, &basisErr)
 		require.Same(t, types.ErrAirdropBasis, basisErr)
-		codespace, code, _ := sdkerrors.ABCIInfo(basisErr, false)
+		codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 		require.Equal(t, types.ErrAirdropBasis.Codespace(), codespace)
 		require.Equal(t, types.ErrAirdropBasis.ABCICode(), code)
 	})
+}
+
+func TestQueryAirdropEpochABCICodes(t *testing.T) {
+	e := newEnv(t)
+	app := baseapp.NewBaseApp(t.Name(), dbm.NewMemDB(), nil, nil, &testutil.TestAppOpts{})
+	app.MountStores(e.key)
+	app.SetInterfaceRegistry(testkeeper.EVMTestApp.InterfaceRegistry())
+	types.RegisterQueryServer(app.GRPCQueryRouter(), keeper.NewQuerier(e.k))
+	require.NoError(t, app.LoadLatestVersion())
+
+	pool := address("query airdrop ABCI pool")
+	store := app.CommitMultiStore().CacheMultiStore()
+	ctx := sdk.NewContext(store, tmproto.Header{Height: 1}, false)
+	mismatchedRecord, err := json.Marshal(types.PoolAirdropEpoch{
+		Pool: pool.Hex(), Epoch: 4, Amount: sdk.OneInt(), EligibleSupply: sdk.OneInt(),
+		Remaining: sdk.OneInt(), ClaimedSupply: sdk.ZeroInt(), LegacyRemaining: sdk.ZeroInt(),
+	})
+	require.NoError(t, err)
+	for i, data := range [][]byte{[]byte("invalid epoch JSON"), []byte("{}"), mismatchedRecord} {
+		key := append([]byte{0x26}, pool.Bytes()...)
+		key = binary.BigEndian.AppendUint64(key, uint64(i+1))
+		ctx.KVStore(e.key).Set(key, data)
+	}
+	require.NoError(t, app.SetSealedStateToCommit(ctx, store))
+	_, err = app.Commit(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), app.LastBlockHeight())
+
+	for _, tc := range []struct {
+		name    string
+		pool    string
+		epoch   uint64
+		root    *sdkerrors.Error
+		context string
+	}{
+		{"malformed pool", "0x1234", 1, sdkerrors.ErrInvalidAddress, "pool must be a 0x-prefixed 40-hex-digit address"},
+		{"zero pool", (common.Address{}).Hex(), 1, types.ErrZeroAddress, "pool must not be the zero address"},
+		{"zero epoch", pool.Hex(), 0, types.ErrInvalidAirdropEpoch, types.ErrInvalidAirdropEpoch.Error()},
+		{"invalid epoch JSON", pool.Hex(), 1, types.ErrAirdropBasis, pool.Hex() + "/1"},
+		{"invalid epoch record", pool.Hex(), 2, types.ErrAirdropBasis, "/0"},
+		{"mismatched epoch", pool.Hex(), 3, types.ErrAirdropBasis, pool.Hex() + "/3"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request := &types.QueryAirdropEpochRequest{Pool: tc.pool, Epoch: tc.epoch}
+			data, err := request.Marshal()
+			require.NoError(t, err)
+			response, err := app.Query(context.Background(), &abci.RequestQuery{
+				Path: "/paxprotocol.paxchain.launchpad.Query/AirdropEpoch", Data: data, Height: 1,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, response)
+			require.Equal(t, tc.root.Codespace(), response.Codespace)
+			require.Equal(t, tc.root.ABCICode(), response.Code)
+			require.Equal(t, int64(1), response.Height)
+			require.Empty(t, response.Value)
+			require.Contains(t, response.Log, tc.context)
+			require.Contains(t, response.Log, tc.root.Error())
+		})
+	}
 }

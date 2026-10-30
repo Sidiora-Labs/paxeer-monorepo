@@ -5,16 +5,33 @@ import argparse
 import shlex
 import subprocess
 import sys
+from collections import deque
 from collections.abc import Sequence
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-USAGE = "run_gate.py --wave N --log-dir DIR -- COMMAND"
+USAGE = "run_gate.py --wave N|programme --log-dir DIR -- COMMAND"
+
+
+def wave_identifier(value: str) -> int | str:
+    if value == "programme":
+        return value
+    try:
+        wave = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "wave must be a non-negative integer or programme"
+        ) from None
+    if wave < 0:
+        raise argparse.ArgumentTypeError(
+            "wave must be a non-negative integer or programme"
+        )
+    return wave
 
 
 def run_gate(
-    wave: int, commands: Sequence[Sequence[str]], log_dir: str | Path
+    wave: int | str, commands: Sequence[Sequence[str]], log_dir: str | Path
 ) -> int:
     if not commands or any(not command for command in commands):
         raise ValueError("commands must contain nonempty argument lists")
@@ -45,6 +62,9 @@ def run_gate(
             flush=True,
         )
         if completed.returncode != 0:
+            print(f"=== last 200 lines of {log_path} ===", flush=True)
+            with log_path.open(encoding="utf-8", errors="replace") as log:
+                print("".join(deque(log, maxlen=200)), end="", flush=True)
             return completed.returncode
     return 0
 
@@ -52,7 +72,9 @@ def run_gate(
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(prog="run_gate.py", usage=USAGE)
-    parser.add_argument("--wave", required=True, type=int, metavar="N")
+    parser.add_argument(
+        "--wave", required=True, type=wave_identifier, metavar="N|programme"
+    )
     parser.add_argument("--log-dir", required=True, type=Path, metavar="DIR")
     separator = arguments.index("--") if "--" in arguments else len(arguments)
     options = parser.parse_args(arguments[:separator])

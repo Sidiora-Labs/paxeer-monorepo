@@ -657,6 +657,44 @@ fn cosmos_transaction(type_url: &str, memo: &str) -> Vec<u8> {
     tx
 }
 
+fn sequence_batch(from_seq: u64, transactions: &[Vec<u8>]) -> Vec<u8> {
+    use ed25519_dalek::Signer;
+
+    let domain = b"PAXEER/v1/sequence-batch\0";
+    let previous_hash = [0x11; 32];
+    let mut last_hash = previous_hash;
+    let mut root = Sha256::new();
+    for (index, tx) in transactions.iter().enumerate() {
+        let activity_id = Sha256::digest(tx);
+        root.update(activity_id);
+        let mut hash = Sha256::new();
+        hash.update(b"PAXEER/v1/sequence\0");
+        hash.update(last_hash);
+        hash.update((from_seq + index as u64).to_be_bytes());
+        hash.update(activity_id);
+        last_hash = hash.finalize().into();
+    }
+    let mut fields = Vec::new();
+    fields.extend_from_slice(&5_u64.to_be_bytes());
+    fields.extend_from_slice(&from_seq.to_be_bytes());
+    fields.extend_from_slice(&(from_seq - 1 + transactions.len() as u64).to_be_bytes());
+    fields.extend_from_slice(&previous_hash);
+    fields.extend_from_slice(&last_hash);
+    fields.extend_from_slice(&root.finalize());
+    let private = ed25519_dalek::SigningKey::from_bytes(&[0x07; 32]);
+    let mut digest = Sha256::new();
+    digest.update(domain);
+    digest.update(b"chain-reads");
+    digest.update(&fields);
+    let signature = private.sign(&digest.finalize());
+    let mut tx = domain.to_vec();
+    tx.extend(fields);
+    tx.extend_from_slice(&[0x44; 32]);
+    tx.extend_from_slice(&signature.to_bytes());
+    assert_eq!(tx.len(), 241);
+    tx
+}
+
 fn hex_bytes(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
@@ -715,17 +753,17 @@ fn block_response(transactions: &[Vec<u8>]) -> Value {
 #[test]
 fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
     let fixture = Fixture::start();
-    let batch = cosmos_transaction(
-        "/paxeer.sequencer.v1.MsgSequenceBatch",
-        &"batch memo".repeat(20),
-    );
     for total in [1_usize, 2, 3, 5, 8, 9] {
-        let mut transactions = vec![batch.clone()];
-        transactions.extend(
-            (1..total).map(|index| {
-                cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", &index.to_string())
-            }),
-        );
+        let mut transactions: Vec<_> = (1..total)
+            .map(|index| cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", &index.to_string()))
+            .collect();
+        let from_seq = match total {
+            1 => 1,
+            2 => u64::MAX,
+            _ => 0x0102_0304_0506_0708,
+        };
+        let batch = sequence_batch(from_seq, &transactions);
+        transactions.insert(0, batch.clone());
         let block = block_response(&transactions);
         let consensus = Consensus::start(&fixture.tls, "block", vec![block.clone()]);
         let gateway = Gateway::start(&fixture, Some(&consensus.url()));
@@ -759,10 +797,9 @@ fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
         assert_eq!(consensus.hits.load(Ordering::Acquire), 1);
     }
 
-    let valid = block_response(&[
-        batch,
-        cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", "second"),
-    ]);
+    let second = cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", "second");
+    let batch = sequence_batch(31, std::slice::from_ref(&second));
+    let valid = block_response(&[batch.clone(), second]);
     let mut corruptions = Vec::new();
     let mut wrong_root = valid.clone();
     wrong_root["block"]["header"]["data_hash"] = json!("00".repeat(32));
@@ -778,11 +815,31 @@ fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
     corruptions.push(bad_base64);
     for index in [0, 1] {
         let mut changed_tx = valid.clone();
+        let mut changed_batch = batch.clone();
+        changed_batch[49] ^= 1;
         changed_tx["block"]["data"]["txs"][index] =
-            json!(layerx_platform_internal::base64::encode(
-                &cosmos_transaction("/paxeer.sequencer.v1.MsgSequenceBatch", "changed")
-            ));
+            json!(layerx_platform_internal::base64::encode(&changed_batch));
         corruptions.push(changed_tx);
+    }
+    for length in 25..batch.len() {
+        corruptions.push(block_response(&[batch[..length].to_vec()]));
+    }
+    let mut trailing = batch.clone();
+    trailing.push(0);
+    corruptions.push(block_response(&[trailing]));
+    corruptions.push(block_response(&[
+        [batch.as_slice(), batch.as_slice()].concat()
+    ]));
+    for (offset, value) in [(25, 0_u64), (25, 6), (33, 0), (41, 29)] {
+        let mut malformed = batch.clone();
+        malformed[offset..offset + 8].copy_from_slice(&value.to_be_bytes());
+        corruptions.push(block_response(&[malformed]));
+    }
+    let empty = sequence_batch(31, &[]);
+    for offset in [49, 81, 113] {
+        let mut malformed = empty.clone();
+        malformed[offset] ^= 1;
+        corruptions.push(block_response(&[malformed]));
     }
     for block in corruptions {
         let consensus = Consensus::start(&fixture.tls, "block", vec![block]);
@@ -804,8 +861,8 @@ fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
 fn px_get_sequence_batch_refuses_a_block_without_a_batch() {
     let fixture = Fixture::start();
     let batch_url = "/paxeer.sequencer.v1.MsgSequenceBatch";
-    let batch = cosmos_transaction(batch_url, "batch");
-    for transactions in [
+    let batch = sequence_batch(1, &[]);
+    let mut non_batches = vec![
         vec![
             cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", "send"),
             batch.clone(),
@@ -826,8 +883,20 @@ fn px_get_sequence_batch_refuses_a_block_without_a_batch() {
             "/paxeer.sequencer.v1.MsgSequenceBatchExtra",
             "",
         )],
+        vec![cosmos_transaction(
+            batch_url,
+            "protobuf is not the node encoding",
+        )],
+        vec![b"PAXEER/v1/sequence-batch".to_vec()],
+        vec![Vec::new()],
         Vec::new(),
-    ] {
+    ];
+    for index in 0..25 {
+        let mut wrong_domain = batch.clone();
+        wrong_domain[index] ^= 1;
+        non_batches.push(vec![wrong_domain]);
+    }
+    for transactions in non_batches {
         let block = block_response(&transactions);
         let consensus = Consensus::start(&fixture.tls, "block", vec![block]);
         let gateway = Gateway::start(&fixture, Some(&consensus.url()));

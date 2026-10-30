@@ -17,6 +17,7 @@ import {
   requireLayerXBinding,
 } from "./account-derivation.js";
 import {
+  PrecompileAbiError,
   decodeEventFrom,
   encodeAbiCall,
   precompileWriteCall,
@@ -711,7 +712,11 @@ export type PerpsWrite = keyof typeof PERPS_WRITES;
  * signature and the argument types come from precompiles/perps/abi/abi.json.
  */
 export function perpsCall(method: PerpsWrite, args: readonly AbiArgument[]): PrecompileCall {
-  return precompileWriteCall(PERPS_PRECOMPILE, method, PERPS_WRITES[method], args);
+  const write = PERPS_WRITES[method];
+  if (write === undefined) {
+    throw new PrecompileAbiError("invalid_value", `perps has no ${method}`);
+  }
+  return precompileWriteCall(PERPS_PRECOMPILE, method, write, args);
 }
 
 /** A market order opening a position for an account through exchange v2. */

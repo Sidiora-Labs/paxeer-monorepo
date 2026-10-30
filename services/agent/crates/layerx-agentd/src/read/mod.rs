@@ -17,10 +17,7 @@ mod program_node;
 pub(crate) mod proof_bundle_owner;
 pub use native::{NativeReadError, NativeReadRoute};
 
-pub use available::{
-    availability, AvailabilityAudit, AvailabilityFailure, AvailabilityRead, AvailabilityRequest,
-    ReplayFraming,
-};
+pub use available::{availability, AvailabilityRead, AvailabilityReadError, AvailabilityRequest};
 pub use balances::{balance, BalanceRead, Freshness};
 pub use checkpoint_impl::{
     proof_bundle, validator_set_hash, BlockCommit, BlockId, CheckpointHeader, CheckpointReadError,
@@ -28,10 +25,12 @@ pub use checkpoint_impl::{
     ServedCheckpoint, ServedProofBundle,
 };
 pub use program_balances_impl::{
-    program_balances_from_protocol, ProgramBalanceFreshness, ProgramBalanceRead,
-    ProgramValueBalance, ProtocolProgramBalanceReader,
+    program_balances_from_protocol, CommittedProgramBalanceFreshness, ProgramBalanceFreshness,
+    ProgramBalanceRead, ProgramValueBalance, ProtocolProgramBalanceReader,
 };
-pub use program_node::{LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute};
+pub use program_node::{
+    LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute, ProgramReadError,
+};
 
 /// Verifies the block header and its Comet precommit quorum at the requested height.
 /// The caller supplies the trusted validator set for this chain and height in consensus order.

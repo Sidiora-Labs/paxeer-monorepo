@@ -35,10 +35,10 @@ export function decodeSequencerReceipt(
     txHash,
     nonce: decodeHex(value.nonce, QUANTITY, 'nonce'),
   };
-  if (rung !== 'submitted' || value.blockNumber !== undefined) {
+  if (rung === 'committed' || value.blockNumber !== undefined) {
     answer.blockNumber = decodeHex(value.blockNumber, QUANTITY, 'blockNumber');
   }
-  if (rung !== 'submitted' || value.blockHash !== undefined) {
+  if (rung === 'committed' || value.blockHash !== undefined) {
     answer.blockHash = decodeHex(value.blockHash, HASH, 'blockHash');
   }
   for (const field of [

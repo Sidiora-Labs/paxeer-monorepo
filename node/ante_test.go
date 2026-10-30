@@ -94,13 +94,14 @@ func (suite *AnteTestSuite) SetupTest(isCheckTx bool) {
 				SigGasConsumer:  ante.DefaultSigVerificationGasConsumer,
 				// BatchVerifier:   app.batchVerifier,
 			},
-			IBCKeeper:       suite.App.IBCKeeper,
-			WasmConfig:      &wasmConfig,
-			WasmKeeper:      &suite.App.WasmKeeper,
-			OracleKeeper:    &suite.App.OracleKeeper,
-			TracingInfo:     tracingInfo,
-			EVMKeeper:       &suite.App.EvmKeeper,
-			LatestCtxGetter: func() sdk.Context { return suite.Ctx },
+			IBCKeeper:        suite.App.IBCKeeper,
+			WasmConfig:       &wasmConfig,
+			WasmKeeper:       &suite.App.WasmKeeper,
+			OracleKeeper:     &suite.App.OracleKeeper,
+			TracingInfo:      tracingInfo,
+			EVMKeeper:        &suite.App.EvmKeeper,
+			LayerXAuthKeeper: suite.App.LayerXAuthKeeper,
+			LatestCtxGetter:  func() sdk.Context { return suite.Ctx },
 		},
 	)
 
@@ -394,7 +395,7 @@ func TestFeeDenomDecoratorOrder(t *testing.T) {
 		"NewValidateBasicDecorator", "NewTxTimeoutHeightDecorator", "NewValidateMemoDecorator",
 		"NewConsumeGasForTxSizeDecorator", "NewPriorityDecorator", "NewSetPubKeyDecorator",
 		"NewValidateSigCountDecorator", "NewSigGasConsumeDecorator", "sequentialVerifyDecorator",
-		"NewIncrementSequenceDecorator", "NewEVMAddressDecorator", "NewAuthzNestedMessageDecorator", "NewAnteDecorator",
+		"NewIncrementSequenceDecorator", "NewEVMAddressDecorator", "NewAuthzNestedMessageDecorator", "NewRevocationDecorator", "NewAnteDecorator",
 	}, constructors)
 }
 

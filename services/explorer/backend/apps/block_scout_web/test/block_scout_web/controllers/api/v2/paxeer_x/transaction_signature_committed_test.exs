@@ -76,7 +76,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureCommittedTest do
 
     calls = [
       {"pax_sequencerReceipt", [hash], vector["receiptJson"]},
-      {"px_getReceiptKeys", [], [key]},
+      {"px_getReceiptKeys", [], %{"keys" => [key]}},
       {"eth_getTransactionReceipt", [hash], nil}
     ]
 
@@ -87,18 +87,121 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureCommittedTest do
     assert_calls(calls)
   end
 
+  test "signature_route_reports_receipted_for_malformed_gateway_batch", context do
+    signature_route_reports_receipted_for_malformed_gateway_batch(context)
+  end
+
+  defp signature_route_reports_receipted_for_malformed_gateway_batch(%{conn: conn, cases: cases}) do
+    vector = Map.fetch!(cases, "committed-ok")
+    hash = tx_hash(vector)
+    batch = gateway_batch(vector)
+    tx = bytes(batch["tx"])
+    <<domain::binary-size(25), _height::64, rest::binary>> = tx
+    {:ok, receipt} = vector["receiptJson"]["receipt"] |> bytes() |> SequencerReceipt.decode()
+    key = vector["pinnedKey"]
+
+    for malformed_batch <- [
+          Map.put(batch, "height", "1001"),
+          Map.put(batch, "tx", hex(domain <> <<1_001::64>> <> rest)),
+          Map.put(batch, "tx", hex(binary_part(tx, 0, byte_size(tx) - 1))),
+          Map.put(batch, "height", 1_000)
+        ] do
+      calls =
+        List.keyreplace(
+          committed_calls(vector, hash),
+          "px_getSequenceBatch",
+          0,
+          {"px_getSequenceBatch", ["1000"], malformed_batch}
+        )
+
+      serve_rpc(calls)
+      response = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 200)
+
+      assert response == %{
+               "rung" => "receipted",
+               "receipt" => vector["receiptJson"]["receipt"],
+               "receipt_key" => %{"key_id" => key["keyId"], "public_key" => key["publicKey"]},
+               "signature" => hex(receipt.signature)
+             }
+
+      assert {:ok, ^receipt} = SequencerReceipt.verify_signature(bytes(response["receipt"]), bytes(key["publicKey"]))
+      assert_calls(calls)
+    end
+  end
+
+  test "signature route rejects a bare receipt key list", %{conn: conn, cases: cases} do
+    vector = Map.fetch!(cases, "committed-ok")
+    hash = tx_hash(vector)
+
+    calls = [
+      {"pax_sequencerReceipt", [hash], vector["receiptJson"]},
+      {"px_getReceiptKeys", [], [vector["pinnedKey"]]}
+    ]
+
+    serve_rpc(calls)
+    assert %{"message" => "Not found"} = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 404)
+    assert_calls(calls)
+  end
+
   defp committed_calls(vector, hash) do
     "0x" <> height = vector["eth_receipt"]["blockNumber"]
     height = String.to_integer(height, 16)
+    decimal_height = Integer.to_string(height)
+
+    validators = %{
+      "height" => decimal_height,
+      "total" => vector["validators"]["total"],
+      "validators" =>
+        Enum.map(vector["validators"]["validators"], fn validator ->
+          %{
+            "address" => validator["address"],
+            "pubKey" => validator["pub_key"],
+            "votingPower" => validator["voting_power"]
+          }
+        end)
+    }
 
     [
       {"pax_sequencerReceipt", [hash], vector["receiptJson"]},
-      {"px_getReceiptKeys", [], [vector["pinnedKey"]]},
+      {"px_getReceiptKeys", [], %{"keys" => [vector["pinnedKey"]]}},
       {"eth_getTransactionReceipt", [hash], vector["eth_receipt"]},
-      {"px_getCommit", [height], vector["commit"]},
-      {"px_getValidators", [height], vector["validators"]},
-      {"px_getSequenceBatch", [height], vector["batch"]}
+      {"px_getCommit", [decimal_height],
+       %{"height" => decimal_height, "signedHeader" => vector["commit"]["signed_header"]}},
+      {"px_getValidators", [decimal_height], validators},
+      {"px_getSequenceBatch", [decimal_height], gateway_batch(vector)}
     ]
+  end
+
+  defp gateway_batch(vector) do
+    "0x" <> receipt_hex = vector["receiptJson"]["receipt"]
+    {:ok, receipt} = receipt_hex |> Base.decode16!(case: :mixed) |> SequencerReceipt.decode()
+    domain = "PAXEER/v1/sequence-batch\0"
+
+    "0x" <> height = vector["eth_receipt"]["blockNumber"]
+    height = String.to_integer(height, 16)
+
+    fields =
+      <<height::64, vector["batch"]["from_seq"]::64, vector["batch"]["to_seq"]::64>> <>
+        receipt.previous_state_root <> receipt.resulting_state_root <> receipt.activity_root
+
+    seed = :binary.copy(<<0x5E>>, 32)
+    {public_key, private_key} = :crypto.generate_key(:eddsa, :ed25519, seed)
+    assert hex(public_key) == vector["pinnedKey"]["publicKey"]
+    digest = :crypto.hash(:sha256, domain <> vector["chain_id"] <> fields)
+    signature = :crypto.sign(:eddsa, :none, digest, [private_key, :ed25519])
+    tx = domain <> fields <> receipt.context_hash <> signature
+    assert byte_size(tx) == 241
+
+    %{
+      "height" => Integer.to_string(height),
+      "tx" => hex(tx),
+      "proof" => %{
+        "total" => 1,
+        "index" => 0,
+        "leafHash" => hex(:crypto.hash(:sha256, <<0>> <> :crypto.hash(:sha256, tx))),
+        "aunts" => []
+      }
+    }
   end
 
   defp assert_calls(calls) do

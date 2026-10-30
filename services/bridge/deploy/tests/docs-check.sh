@@ -100,7 +100,7 @@ BARE_URL = re.compile(r"\b(?:[A-Za-z][A-Za-z0-9+.-]*://|www\.)[^\s<>()`|\"']+")
 HTML_LINK = re.compile(r"\b(?:href|src)\s*=\s*[\"']([^\"']+)[\"']", re.I)
 
 PATH_TOKEN = re.compile(
-    r"(?<![\w./@:-])(?:\./)?((?:bridge|services/interop|modules|precompiles|node|sdk|spec|docs|contracts|tools|\.github)"
+    r"(?<![\w./@:-])(?:\./)?((?:bridge|services/(?:bridge|interop)|modules|precompiles|node|sdk|spec|docs|contracts|tools|\.github)"
     r"/[A-Za-z0-9_.<>*/-]*)"
 )
 GO_QUALIFIED = re.compile(r"^(.+)\.([A-Z][A-Za-z0-9_]*)$")
@@ -428,10 +428,22 @@ remove_line() {
     printf 'docs-check: refused a page without %s\n' "$label"
 }
 
+relocated_root="$WORK/relocated-paths"
+copy_pages "$relocated_root"
+cat >> "$relocated_root/contracts/bridge/README.md" << 'PATHS'
+
+Run `services/bridge/deploy/deploy-evm-chain.sh` and `./services/bridge/deploy/verify-evm-chain.sh`.
+Read `contracts/bridge/evm/chains/<chain>/config.json` and `./contracts/bridge/solana/chains/solana/config.json`.
+PATHS
+python3 "$CHECKER" "$relocated_root" "$REPO_ROOT" || fail "existing relocated bridge paths were refused"
+printf 'docs-check: accepted existing relocated bridge paths\n'
+
 mutate 'a link outside the allowlist' contracts/bridge/README.md 'See [the explorer](https://example.org/tx).'
 mutate 'a relative link' contracts/bridge/README.md 'See [the vault](evm/src/PaxeerXVault.sol).'
 mutate 'a lookalike of an allowed link' contracts/bridge/README.md 'See <https://github.com/Sidiora-Labs/Paxeer-X-Network-fork>.'
 mutate 'a repository path that does not exist' contracts/bridge/evm/chains/base/README.md "Run \`services/bridge/deploy/no-such-script.sh\`."
+mutate 'a dot-prefixed bridge path that does not exist' contracts/bridge/evm/chains/base/README.md "Run \`./services/bridge/deploy/no-such-script.sh\`."
+mutate 'a bridge contract path that does not exist' contracts/bridge/evm/chains/base/README.md "Read \`contracts/bridge/evm/no-such-contract.sol\`."
 mutate 'an ISO date' contracts/bridge/evm/chains/bnb/README.md 'Deployed on 2031-04-17.'
 mutate 'a written date' contracts/bridge/solana/chains/solana/README.md 'Opened on March 3.'
 mutate 'an IPv4 address' contracts/bridge/evm/chains/polygon/README.md 'The endpoint answers at 10.20.30.40.'

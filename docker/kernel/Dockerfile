@@ -18,7 +18,7 @@ RUN rustup show active-toolchain \
     && test -f programs/target/release/liblayerx_programs_sandbox.a
 RUN cargo build --locked --release --manifest-path services/platform/Cargo.toml \
         -p layerx-platform-core -p layerx-platform-authority -p layerx-runtime-clock -p layerx-platform-agent-boundary \
-        -p layerx-platform-paxeer-boundary -p layerx-oracle-feeder
+        -p layerx-platform-paxeer-boundary
 RUN CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path services/interop/Cargo.toml --release \
         --package layerx-mirror --bin layerx-mirror-publisher --bin layerx-mirror-verify \
     && CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path services/interop/Cargo.toml --release \
@@ -34,7 +34,7 @@ RUN cargo build --locked --release --manifest-path services/platform/hosted/node
 
 # The light credit of tools/bringup/value-loop.sh and the light profile of
 # tools/bringup/kernel-genesis.sh (task 1.6): the Go custody proof tool.
-FROM docker.io/golang:1.25.6-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS custody-proof
+FROM docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS custody-proof
 WORKDIR /src
 COPY . .
 RUN make custody-proof-build && test -x build/bin/layerx-custody-proof \
@@ -370,7 +370,6 @@ COPY services/platform/hosted/human/provision.py services/platform/hosted/human/
      services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py \
      services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py \
      services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/recipient_check.py /usr/local/lib/layerx-human/
-COPY --from=build --chmod=0555 /src/services/platform/target/release/layerx-oracle-feeder /usr/local/bin/layerx-oracle-feeder
 COPY --chmod=0555 tools/bringup/kernel-genesis.sh /opt/layerx/kernel-genesis.sh
 COPY --chmod=0555 docker/kernel/init.sh /usr/local/bin/kernel-init
 RUN chmod 0555 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh /opt/layerx/guarantor.sh
@@ -432,7 +431,6 @@ COPY --from=build --chmod=0555 /src/services/platform/relay_archive/install.sh /
 COPY --from=build /src/services/platform/hosted/node/tests/probe/target/release/layerx-node-probe \
      /src/build/tests/bridge/sign-credit /usr/local/bin/
 COPY --from=custody-proof /src/build/bin/layerx-custody-proof /usr/local/bin/layerx-custody-proof
-COPY --from=build /src/services/platform/target/release/layerx-oracle-feeder /usr/local/bin/layerx-oracle-feeder
 COPY --chmod=0555 tools/bringup/kernel-genesis.sh /opt/layerx/kernel-genesis.sh
 COPY --chmod=0555 docker/kernel/init.sh /usr/local/bin/kernel-init
 ENTRYPOINT ["/usr/local/bin/kernel-init"]

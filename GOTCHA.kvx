@@ -2236,10 +2236,10 @@ text = "Requirement references can identify numbered clauses under a parent sect
 text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
 
 [gotcha.376]
-text = "Requirement references can identify numbered clauses under a parent section; read-only scheduling helpers must not assume every reference names a standalone req section. Preserve unresolved references rather than dropping them."
+text = "modules/layerxgov NewLayerXProposal only checks that each message type is in the accepted table; the authority check happens in the proposal's ValidateBasic, so a test for a forged authority must assert at validation (or at the message service / handler), not at construction."
 
 [gotcha.377]
-text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
+text = "Reading keeper state from a freshly reopened node application before a block has begun dereferences a nil context and panics; open the app, begin a normal block, then read."
 
 [gotcha.378]
 text = "A Go test that re-executes its own binary as a child process (os/exec with an environment flag) needs a helper test that t.Skip()s when the flag is absent; keep that helper out of every gate's required-name list so the gate's skipped count stays a real zero while the parent still drives it."
@@ -2248,7 +2248,7 @@ text = "A Go test that re-executes its own binary as a child process (os/exec wi
 text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
 
 [gotcha.379]
-text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
+text = "Never chain a git push after a grep in one && chain: grep returns 1 when nothing matches and the push is silently skipped. Run the push as its own statement and confirm with git ls-remote."
 
 [gotcha.380]
 text = "Evidence build.command must be the literal executed invocation copied from the shell history, never a paraphrase with pseudo-redirections like '-> dir'; integrators reject paraphrased commands and require metadata recovery."
@@ -2260,7 +2260,9 @@ text = "Verify commit-message claims by reading the test body, not by grepping t
 text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
 
 [gotcha.382]
-text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
+symptom = "cargo build from the worktree root exits 101 'could not find Cargo.toml' for interop crates"
+cause = "the interop workspace manifest is interop/Cargo.toml and the human workspace is human/Cargo.toml; the repository root has no Cargo workspace"
+fix = "cd into the workspace directory (or pass --manifest-path interop/Cargo.toml) in every build invocation; the dispatch text must carry the cwd"
 
 [gotcha.383]
 symptom = "forge build exits 0 but <out>/BatchCallAndSponsor.sol/BatchCallAndSponsor.json is absent while sibling artifacts exist"
@@ -2324,7 +2326,7 @@ text = "layerx-agentd authority clients accept https only and need a CA DER plus
 summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
 
 [gotcha.401]
-summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
+text = "Bootstrap guarantor attestation files are named %020d-*.attestation (zero-padded id prefix, singular suffix), not <id>.attestations; fixtures must glob both forms when listing them."
 
 [gotcha.402]
 text = "git treats platform/Cargo.lock as binary in this repo (prints 'Binary files differ'); read lock hunks with git diff --text."
@@ -2788,7 +2790,7 @@ text = "A brief that forbids every default can forbid the crate's own encoded co
 text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
 
 [gotcha.546]
-text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
+text = "A worker whose context compacts mid-window loses its sense of elapsed time and runs far past a 30-minute cap. Put the cap check in the brief as a clock command to run after any compaction, and treat an overrun as implemented-not-qualified with staged partials, not as a failure to retry."
 
 [gotcha.547]
 text = "A pre-dispatch owner gate cannot use facts that only exist after the subject is bound. Before proposing where to fetch an owner witness, locate where binding runs relative to the gate; here bind_rpc_subject and subject::for_did run after authorized(), so upgrade and wind-down owner checks belong after bind, not before the guard."
@@ -5757,8 +5759,8 @@ fix = "ProcessProposal REJECTs any EVM tx unless the test stores block params be
 
 [gotcha.1237]
 area = "node/app.go"
-symptom = "NewTestWrapper/TestAppOpts cannot inject node config keys."
-fix = "tests read config through ReadActivationHeight(viper) and apply it with SetActivationHeight."
+symptom = "NewTestWrapper/TestAppOpts cannot inject a sequencing activation height through node config, and no such node config key exists."
+fix = "The sequencing height is chain state: the merge plan writes it with SequencerKeeper.SetActivationHeight(ctx, H+1) (node/upgrades.go:509) and App.Sequenced reads it (node/app.go:3359); tests apply the merge plan or call app.SequencerKeeper.SetActivationHeight on the test app context."
 
 [gotcha.1238]
 area = "node/app.go"
@@ -9662,3 +9664,1464 @@ area = "spec"
 symptom = "cg spec done refuses 'symbol Type::method -- not defined in the graph' for a method declared in a lifetime or generic impl."
 cause = "The symbol graph does not link methods of impl Type<'_> back to Type::method (finding.11.23.3.1, finding.8.29.1.1)."
 do = "List the test functions or free symbols in symbols instead of the impl methods."
+
+[gotcha.1990]
+area = "x-websearch tests"
+symptom = "cargo test -p x-websearch fails in tests/api.rs at under_the_single_level_only_the_named_attestor_signs_and_fulfil_carries_one_signature with Error: Evm(Malformed) while the lib and payment suites pass."
+cause = "decode_request_view (src/submit.rs:291-327) accepts only the eleven-word request view, but tests/fixtures/api/evm.json still records the nine-word getRequest answer from before the view grew."
+do = "Re-record the fixture's getRequest answer as the eleven-field view (task 18.1037.1, issue #1037); never widen the decoder to accept the short answer."
+
+[gotcha.1991]
+text = "Requirement references can identify numbered clauses under a parent section; read-only scheduling helpers must not assume every reference names a standalone req section. Preserve unresolved references rather than dropping them."
+
+[gotcha.1992]
+text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
+
+[gotcha.1993]
+text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
+
+[gotcha.1994]
+text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
+
+[gotcha.1995]
+summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
+
+[gotcha.1996]
+text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
+
+[gotcha.1997]
+area = "paxd native builds"
+symptom = "go build -o reuses an existing paxd binary after only its native archives change; make -n stops at the native archives missing error on a fresh checkout."
+cause = "Go's link action ID ignores the contents of -l native archives; chain.mk:90 refuses to compute their digest until both archives exist, including during make -n."
+do = "Build paxd-native-libs before a dry run and stamp NativeArchiveDigest into the link flags so native archive changes force relinking."
+
+[gotcha.1998]
+area = "spec task symbols"
+symptom = "cg spec done refuses with symbol ... not defined in the graph although verify_cmd passed."
+cause = "The graph check resolves only indexed code identifiers (functions, types, constants, Type::method). Test descriptions with spaces, Elixir Mod.fun/arity references, Make targets and document headings are never indexed."
+do = "List only code identifiers under symbols; name tests under tests."
+
+[gotcha.1999]
+area = "spec gate strings"
+symptom = "A verify_cmd that nests an escaped double quote fails in sh with colon not found and backticks executing."
+cause = "Escaped double quotes inside a kvx gate string reach the shell with their backslashes intact."
+do = "Use single quotes inside build_cmd and verify_cmd; never nest double quotes."
+
+[gotcha.2000]
+area = "layerx-agentd lib tests"
+symptom = "Two tls_boundary tests panic with build the real Paxeer TLS boundary first under cargo test -p layerx-agentd --lib."
+cause = "tls_boundary.rs:187 spawns the layerx-paxeer-boundary binary from LAYERX_PAXEER_BOUNDARY_BIN or services/platform/target/debug."
+do = "Gates that run the agentd lib suite build -p layerx-platform-paxeer-boundary first and export LAYERX_PAXEER_BOUNDARY_BIN, as task 9.1.7 does."
+
+[gotcha.2001]
+area = "main gates"
+symptom = "Tasks fail their build or verify on code they did not touch: apps/perps tsc (esbuild types), apps/wallet typecheck (Balances.account), publish-images.test.sh, explorer backend warnings-as-errors (ReceiptController routes), layerx-ai-evaluator (ReadProof.batch_id), the agentd custody fixture."
+cause = "Six cross-component changes landed on main without their dependents; tracked as issues #1052-#1057."
+do = "Tasks on those gates require 18.1052.1-18.1057.1; record a new instance as an issue plus a task instead of fixing it inside an unrelated task."
+
+[gotcha.2002]
+area = "explorer test gates"
+symptom = "mix-in-builder.sh test reports FATAL 3D000 database explorer_test does not exist and runs no test."
+cause = "The test path was given relative to the repository root (services/explorer/backend/apps/...) while the builder resolves paths from the backend directory and only sets up the database for paths it recognises (apps/*, test/*, *_test.exs)."
+do = "Write explorer test paths as apps/<app>/test/... in build_cmd and verify_cmd."
+
+[gotcha.2003]
+area = "explorer compile warnings"
+symptom = "Only tests under apps/ethereum_jsonrpc fail with Compilation failed due to warnings while block_scout_web and explorer tests run with the same warnings."
+cause = "apps/ethereum_jsonrpc/mix.exs:52 aliases compile to compile --warnings-as-errors in every environment, so a stale router reference in block_scout_web (issue #1055) fails that app's tests."
+do = "Tasks whose gate runs apps/ethereum_jsonrpc tests require 18.1055.1 until the router is clean."
+
+[gotcha.2004]
+area = "paxeer-x attestation"
+symptom = "program_market_attestation.py --begin-build exits because PAXEER_X_BUILDER_ID is unset."
+cause = "begin_build() (tools/qualification/paxeer-x/program_market_attestation.py:178) requires the variable and --build (:205) re-checks the manifest builder against it."
+do = "Export PAXEER_X_BUILDER_ID=$(hostname) for the whole gate; it is recorded as the builder identity only."
+
+[gotcha.2005]
+area = "launchpad stats-workers tests"
+symptom = "stats-workers tests cannot connect: STATS_TEST_POSTGRES_DSN names a server, not a database."
+cause = "internaltest.NewPostgres (services/launchpad/stats-workers/internal/internaltest/containers.go:44) creates a throwaway database on the server the DSN names, so the role needs CREATEDB."
+do = "Point *_TEST_POSTGRES_DSN at a server whose role may create databases."
+
+[gotcha.2006]
+area = "agent daemon dependents"
+symptom = "cargo build of layerx-human-service, layerx-human-test-support, layerx-explorer-index, layerx-mcp, layerx-platform-cli, layerx-agentd-host and the human providers fails at main with E0560 on ReadRequest and HistorySelector."
+cause = "71550012a reshaped layerx-agent-api; the callers in layerx-agentd (agent_rpc_adapters.rs, human_runtime.rs, export.rs, read/proof_bundle.rs) were not ported and these crates depend on layerx-agentd. layerx-intents, layerx-human-kms, layerx-platform-authority and layerx-platform-agent-boundary fail only under cargo test (dev-dependency)."
+do = "Tasks whose gate compiles one of those crates require 9.1.8; never patch the daemon callers inside a dependent task."
+
+[gotcha.2007]
+area = "code graph symbols"
+symptom = "cg spec done reports a Rust method as not defined in the graph although it exists, when its impl header elides a lifetime (impl Foo<'_>)."
+cause = "At f93cce7 the graph records such an impl under the name _ (ast_systems.c:510-516 takes the name leaf of the generic type), so Type::method cannot find its container."
+do = "Name the symbol bare, or write the impl header with a named lifetime, until the graph fix lands."
+
+[gotcha.2008]
+area = "code graph symbols"
+symptom = "cg spec done reports Type::method as not defined in the graph when a type and method with the same names exist in two crates."
+cause = "qualified_path_score (spec.c:3787-3862) refuses a tie at the best score instead of preferring the task's touched files."
+do = "Use a symbol that is unique in the repository, or the bare method name when it is unique, until the graph fix lands."
+
+[gotcha.2009]
+area = "code graph symbols"
+symptom = "Every Elixir symbol of an explorer task fails cg spec done with not defined in the graph even when verify passes."
+cause = "cg at f93cce7 has no Elixir extractor (lang.c:146-182 lists no .ex or .exs), so no Elixir module or function is in the graph."
+do = "Elixir tasks cannot carry graph-checked symbols until an extractor exists; keep the identifiers in the do steps and tests."
+
+[gotcha.2010]
+area = "programs module"
+symptom = "Programs registerAccount, setExitRoute, deprecate and transfer calls fail with LXP_ERR_MODULE_DISABLED (-103) on the hosted kernel while sandbox and storage-retirement activities pass."
+cause = "lxp_kernel.c:6757-6762 and :4985-4988 gate LX_PROGRAMS_ACCOUNT and LX_PROGRAMS_WIND_DOWN on kernel->observe_commit, whose only installer lost its caller when 1.15.1 made the state feed optional."
+do = "Tasks that exercise those activities require 18.1073.1; do not map -103 onto an expected error."
+
+[gotcha.2011]
+area = "custody fixture"
+symptom = "Four layerx-agentd lib tests fail with Decode(MalformedPayload) or Activity on tests/fixtures/custody/daemon-light-credit-receipt."
+cause = "modules/layerxledger/types/payload_transfer.go:84-85 appends network id and protocol version to every send payload since 0991c9602; the fixture from 5ff0d17cd predates that layout and decode_activity_send demands the suffix."
+do = "Re-capture the fixture from the current encoder; never relax the decoder's suffix check."
+
+[gotcha.2012]
+area = "cargo lock"
+symptom = "Every --locked cargo command in services/platform exits 101 'the lock file needs to be updated' although no manifest changed in the task."
+cause = "eb194b27c removed layerx-paxeer-client and layerx-intents from two ramp manifests without running cargo update, so Cargo.lock still lists them under those packages; removing a dependency changes the lock as much as adding one."
+do = "Run cargo update --workspace in the same change as any manifest dependency removal and commit the lock; 18.1083.1 repairs the platform lock."
+
+[gotcha.2013]
+area = "node --test"
+symptom = "A script-style test file reports every registered test ok and then fails with 'A resource generated asynchronous activity after the test ended' and no line number."
+cause = "Top-level assertions after an await run once the registered tests have finished; node --test attributes the throw to the file, not the line."
+do = "Run the compiled file directly with node and an uncaughtException handler that prints the stack to find the failing top-level line; keep the whole-file gate."
+
+[gotcha.2014]
+area = "system docs generator"
+symptom = "tools/docs/gen-system-docs.sh exits 'rpc: cannot resolve service sequencerReceiptAPI'."
+cause = "gen_system_docs.py:67 CTOR and :81 match only New\w+ constructors while rpc/server.go:199 builds the service with newSequencerReceiptAPI."
+do = "Widen both patterns to [Nn]ew\w+ (18.1071.1); do not hand-edit docs/system pages."
+
+[gotcha.2015]
+area = "search-front bring-up test"
+symptom = "search-front.test.sh fails config_exit with JSONDecodeError on empty output, config_matches_template and config_refuses_unset."
+cause = "Since 288a967c2 the x-websearch config example renders receipt_keys and payment.payer_address from X_WEBSEARCH_RECEIPT_KEY_ID, X_WEBSEARCH_RECEIPT_PUBLIC_KEY and X_WEBSEARCH_PAYER_ADDRESS and has no note key; fixture_env predates both."
+do = "Set the three variables in fixture_env and assert only that the rendered config has no note key (18.1070.1)."
+
+[gotcha.2016]
+area = "spec acceptance contracts"
+symptom = "An acceptance cites a contract anchor that does not exist (contracts/sequencer.md#receipt-key-pin-and-rotation) or a section unrelated to the task (contracts/agent-ts-sdk.md#history for a Rust receipt-vector proof)."
+cause = "Contract strings were copied from a sibling acceptance of the same owner instead of the section heading; sequencer.md anchors the section as <a id='receipt-key-pin'>."
+do = "Resolve the anchor against the contract file (<a id> or heading) before writing it and cite the section that defines the behaviour under test (18.997.1, 18.1088.1)."
+
+[gotcha.2017]
+area = "bring-up test harness"
+symptom = "tools/bringup/check-live.test.sh reports no stand-in case after check_live_kernel_app_volumeless and prints a kernel-readiness evidence line with exit_code 1."
+cause = "The real kernel-node stage at :1471 needs root, unshare and the PAXEER_X_RUNTIME_* artifact variables and exits the harness when they are absent, so the cases after :1520 never run (#1100)."
+do = "Run the harness where the kernel artifacts exist, or move the stage after the stand-in cases (18.776.1 do_5); never give the readiness script a fallback."
+
+[gotcha.2018]
+area = "explorer test wrapper"
+symptom = "mix-in-builder.sh test with paths from two umbrella apps fails 'Background migrations failed' (DBConnection.OwnershipError) in the second app's test helper."
+cause = "One sidecar database serves one mix test run; the second app's test helper re-runs the background migrations against the already-migrated database (#1098)."
+do = "Run the wrapper once per app until 18.1098.1 lands; never put paths of two apps in one invocation."
+
+[gotcha.2019]
+area = "paxeer-x attestation gate"
+symptom = "program_market_attestation.py --begin-build exits 'producer source closure is dirty or contains untracked inputs' although git status shows only the task's own edits."
+cause = "source_identity() (:147) runs git status over SOURCE_PATHS and treats any modified tracked file, including the implementation under qualification, as a dirty closure."
+do = "Commit the implementation so HEAD carries it before running the attestation build or verify; the gate accepts only a clean tree at HEAD."
+
+[gotcha.2020]
+area = "cg spec done symbol resolution"
+symptom = "cg spec done reports a declared symbol as 'not defined in the graph' although the identifier exists: a type reached through a use alias, a nested module path, or an Elixir module function."
+cause = "The resolver before hyperfide 4f3a3094b matched only bare top-level identifiers; aliases, nested paths and Elixir modules were never looked up."
+do = "Use cg built from hyperfide 4f3a3094b or later (branch cg/spec-symbol-resolver-2026-10-28); keep task symbols as code identifiers (GOTCHA 1998) and re-run the done gate on the unchanged candidate."
+
+[gotcha.2021]
+area = "docker build context"
+symptom = "make programs-release-build inside docker/paxeer/Dockerfile.paxd-node or docker/layerx/Dockerfile fails 'failed to calculate checksum of: /src/programs/vendor/ed25519-dalek-2.2.0/tests/examples/pubkey.der'."
+cause = "The programs/vendor/**/*.der rule (docker/layerx/Dockerfile.dockerignore:161, docker/paxeer/Dockerfile.paxd-node.dockerignore:72) drops the public .der files of every vendored crate, both the checksummed test fixtures and the files ring, rustls-pki-types and rustls-webpki compile in with include_bytes!."
+do = "Re-include every public .der file of vendored crates in the programs build graph, file by file, after the programs/vendor/**/*.der rule, as docker/layerx/Dockerfile.dockerignore:173-284 and docker/paxeer/Dockerfile.paxd-node.dockerignore:84-195 do (der, ed25519, ed25519-dalek, elliptic-curve, openssl, pkcs8, ring, rustls-pki-types, rustls-webpki, sec1, spki); never edit a vendored .cargo-checksum.json and never re-include .der files outside programs/vendor (18.849.1, 18.869.1)."
+
+[gotcha.2022]
+area = "wallet gateway e2e environment"
+symptom = "gateway.e2e.test.ts dies in startPostgres with '[env] Invalid environment configuration' naming WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE, WALLET_IDENTITY_BINDING_TENANT, WALLET_CUSTODY_INVENTORY_FILE and WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE."
+cause = "src/env.ts:258-261 requires the four wallet identity and custody inventory inputs whenever ATTESTOR_ENDPOINTS is set (since 281e812be); the e2e harness sets the attestor endpoints but not them."
+do = "Set the four variables from the attestor harness before any import of src/env.ts, with the tenant equal to the attestors' ATTESTOR_AUTHORITY_TENANT and the inventory JWT tenant (18.1065.1)."
+
+[gotcha.2023]
+area = "paxeer-x qualification drivers"
+symptom = "program_market_attestation.py --build reports BUILD_RESULT native 1 with 'layerx/programs.h: No such file or directory'."
+cause = "The driver defaults --cppflags to the empty string, so the native test compiles with a bare cc; every tests/programs file includes 'layerx/...' relative to include/."
+do = "Pass or default --cppflags -Iinclude (arbiter_prestate.py:355 does); do not rewrite the includes in the test (18.911.1, issue #1105)."
+
+[gotcha.2024]
+area = "shell test harness stand-in processes"
+symptom = "A harness that copies sleep under a daemon name reports process=none; stderr shows 'coreutils: unknown program <name>'."
+cause = "Where coreutils is a multicall binary (uutils, busybox) the copy dispatches on its own file name and refuses to run."
+do = "Copy a standalone interpreter (command -v bash) under the daemon name and start it with -c 'sleep N' and no exec; /proc/<pid>/exe and environ then still belong to the named copy (check-live.test.sh, 18.776.1)."
+
+[gotcha.2025]
+area = "explorer read-only archive schemas"
+symptom = "Explorer tests fail with 'function Explorer.Chain.PaxeerX.Anchor.changeset/2 is undefined or private' (same for Receipt)."
+cause = "b14589838 made Anchor and Receipt read-only archive records without changesets; archive_readonly_test.exs guards that."
+do = "Seed rows in tests with Ecto.Changeset.cast(%Anchor{}, attrs, Map.keys(attrs)) |> Repo.insert!() or through the import runner; never add the changeset back (18.1010.1, 18.1006.1, 18.1104.1)."
+
+[gotcha.2026]
+area = "explorer migrations"
+symptom = "Postgrex raises DBConnection.EncodeError when a migration binds a generated index name as a name parameter."
+cause = "Postgres identifiers hold 63 bytes; Ecto's default index name for several columns with directions exceeds that and the name type refuses it."
+do = "Select indexes by i.indexrelid::regclass::text (and NOT i.indisvalid) or name the index explicitly under 63 bytes (18.875.1)."
+
+[gotcha.2027]
+area = "programs precompile call fee"
+symptom = "A call with a fee limit below the fee reverts LXP_UNAUTHORIZED_DEBIT, not LXP_NON_CANONICAL."
+cause = "Under occupancy protocol versions call.c:2620-2622 runs lxp_programs_occupancy_bind_call, which refuses at occupancy.c:318-319 before the call runtime's check at ffi_call.rs:2909-2910."
+do = "Expect LXP_ERR_UNAUTHORIZED_DEBIT for the occupancy path; the NON_CANONICAL check is reached only with occupancy off (13.24.1)."
+
+[gotcha.2028]
+area = "programs account register"
+symptom = "A second identical registerAccount does not revert."
+cause = "lxp_programs_account_register answers LXP_OK with created=false for an identical binding (accounts.c:961-976); another asset under the same seed is LXP_ERR_ASSET_MISMATCH."
+do = "Test the idempotent read-back and the asset-mismatch refusal; accounts.c:530 is a lookup and refuses nothing (13.25.2)."
+
+[gotcha.2029]
+area = "paxeer-x qualification drivers"
+symptom = "program_market_attestation.py exits 1 with 'PAXEER_X_EVIDENCE_DIR is required' after both build stages pass."
+cause = "The attestation run writes under a caller-owned 0700 directory that must lie outside the checkout (evidence_directory at :276-285); the build modes do not need it."
+do = "Prefix the run with d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d (18.911.1)."
+
+[gotcha.2030]
+area = "wallet gateway custody inventory"
+symptom = "Provisioning answers 503 custody_inventory_pending although every WALLET_* variable is set."
+cause = "requireInventoryKey(keyId, 'generate', owner) needs an inventory entry for wallet:<userId>:standard:secp256k1:0 with public_key '', epoch 0 and operations ['generate']; review and sign later need the entry republished with the generated public key and 'sign', at a higher sequence."
+do = "Have the test write the generation admission before provisioning and republish the key after it (18.1065.1)."
+
+[gotcha.2031]
+area = "node merge gate tests"
+symptom = "A test cannot require the NewTestWrapper app's version map to lack layerxagent."
+cause = "node/app.go:313 registers layerxagent in every test app."
+do = "Rewrite the map with a.UpgradeKeeper.SetModuleVersionMap before the assertions, as node/upgrades_test.go:240 does (18.944.1)."
+
+[gotcha.2032]
+area = "layerx-crypto disclosure"
+symptom = "bind answers MalformedPayload for every real custody credit (Bridge activity 1), including the recorded fixture."
+cause = "disclosure.rs decoded Bridge/1 as a 0x4801 seven-field payload of at most 512 bytes that nothing produces; the kernel, custodyproof/light.go and the daemon reader define the credit as a 363-byte LXDC3 head plus an LXLB1 bundle."
+do = "LXDC3 is canonical (ruling 2026-10-28, issue #1111); task 18.1111.1 teaches the crate to disclose it. Never re-capture the custody fixture to fit a decoder."
+
+[gotcha.2033]
+area = "explorer paxeer_x controller tests"
+symptom = "Status and signature controller routes answer 404 for a receipt the app-level tests verify."
+cause = "Since 584ad3c41 receipt_keys/1 accepts only a map whose keys entry holds the list; a Bypass server answering px_getReceiptKeys with a bare list is malformed and both controllers turn that into 404."
+do = "Serve the keyed answer in controller tests and keep one bare-list case asserting 404 (issue #1112, 18.1089.1)."
+
+[gotcha.2034]
+area = "wallet gateway precompiles"
+symptom = "An address-book test expects orob, clearing, pofq, teeAttestor and eip712 to be unserved."
+cause = "9aef930a7 reduced UNSERVED_PRECOMPILES to oracle, scheduler and streams."
+do = "Compute expectations from the exported set, never from a hand-written list (18.801.1, 18.804.1)."
+
+[gotcha.2035]
+area = "paxeer-x market attestation driver"
+symptom = "The driver reports every native case missing and the gate record holds no reason."
+cause = "The driver counts only lines starting with {'case': in native.log under PAXEER_X_EVIDENCE_DIR; the C test prints through a fully buffered stdout, so an early return before native-deploy or a crash before exit leaves no line, and a temporary evidence directory is discarded with the run."
+do = "Print native.log on gate failure and make stdout line-buffered in main (18.911.1 do_7)."
+
+[gotcha.2036]
+area = "wallet gateway provisioning"
+symptom = "Provisioning answers 503 sponsor_unconfigured for a fresh account although a sponsor key file is configured."
+cause = "5f5f66995 retired SPONSOR_PRIVATE_KEY_FILE and provisionDepsFromEnv sets sponsor null; the top-up step at provision/state.ts:510-523 still needs one, and gateway.e2e.test.ts:161 asserts the top-up came from the sponsor."
+do = "Do not restore the key or drop the assertion inside a test task; issue #1113 holds the owner's decision (18.1065.1 waits)."
+
+[gotcha.2037]
+area = "node upgrade keeper tests"
+symptom = "GetModuleVersionMap still lists a module after it was deleted from the map and SetModuleVersionMap was called."
+cause = "SetModuleVersionMap stores the entries it receives and removes none; a Delete on ctx.KVStore(a.GetKey(upgradetypes.StoreKey)) does not reach the keeper's store service."
+do = "Remove the entry through the keeper's store service or test on an app built without the module (18.944.1)."
+
+[gotcha.2038]
+area = "spec gates"
+symptom = "A task whose build_cmd runs cargo build -p <crate> --tests fails on a test target it never touches (layerx-crypto tests/disclosure_call.rs, E0277 at main)."
+cause = "--tests compiles every test target of the crate, so one stale target outside the task's touches turns the task's build step red."
+do = "Name the targets the task owns (--lib --test <name>); give the stale target its own task and let crate-wide builds require it."
+
+[gotcha.2039]
+area = "image contexts"
+symptom = "docker build fails in the native stage with 'failed to calculate checksum of /src/programs/vendor/<crate>/<file>' for a file that is tracked and present on disk."
+cause = "A suffix-based secret exclusion (programs/vendor/**/*.der, *.pem, *.crt, *.p12, *.key) drops fixtures that the crate's .cargo-checksum.json lists, and cargo verifies vendored sources against that manifest."
+do = "Keep the exclusions; re-include the checksum-listed files by explicit path after the block (the last matching line decides) and test both directions against the manifests."
+
+
+[gotcha.2040]
+area = "spec tasks"
+symptom = "A migration task worded as 'change only import paths and call names' fails on every attempt with unresolved paths or invented modules."
+cause = "The source uses an API family with no counterpart in the target module (LNI FrameTransport, read::ReadContext, evidence verifiers, batch::lookup -> SignedBatchHeader versus layerx_client::rpc), so no rename satisfies the step."
+do = "Before writing a rename task, check that every called item has a same-shaped twin in the target; otherwise specify a real port, a deletion, or supersede the task by the one that deletes the file."
+
+[gotcha.2041]
+area = "agent evidence"
+symptom = "A custody evidence authenticator answers Activity for a well-formed record while the same activity decodes with an explicit registry in a test."
+cause = "The daemon derived the activity ordinal from receipt.operation(), the ledger operation byte of lxp_receipt (0 for module receipts), so ActivityType::new rejected it as ZeroOrdinal."
+do = "Take the activity kind from the activity encoding (field 3, module << 16 | ordinal) and check its module against receipt.module_id(); never treat receipt.operation as an ordinal."
+
+[gotcha.2042]
+area = "programs kernel"
+symptom = "A test of the programs transfer (0x00090005) expects a Kind-2 monetary transfer effect in the receipt and finds none."
+cause = "src/modules/programs/transfer.c:239-243 calls lxp_ctx_emit_transfer_set, which appends no effect (only lxp_ctx_emit_monetary_transfer_set does), then lxp_ctx_emit_event(LX_PROGRAMS_EVENT_TRANSFERRED, transfer_set_root, 32)."
+do = "Read the transfer set root from the Kind-3 event with code 5 (Receipt.Events) and assert that no Kind-2 effect is present."
+
+[gotcha.2043]
+area = "evm keeper"
+symptom = "A test expects a merge precompile to be withheld after the merge plan is done because one of its gate modules is missing from the version map, but the keeper serves it."
+cause = "customPrecompileActivationLookup (modules/evm/keeper/keeper.go) answers true for any address whose plan is active at the height before consulting the module list; the list gates only a store where the plan was never done."
+do = "Assert every gated address served at and above the done height and withheld below it; prove the module rule with no done height."
+
+[gotcha.2044]
+area = "qualification"
+symptom = "A crate that could not compile for one recorded reason starts compiling after the fix and immediately fails on different errors that several done tasks introduced."
+cause = "Tasks whose gates could not compile the crate were landed while it was broken (layerx-human-service after 71550012a: 10.2.1 removed rung_level, 10.2.5 added a caller, the agent API renamed the ReceiptReference::Verified field); their gates never met the merged code."
+do = "When an unblocking fix lands, build the family crates once at the merged revision before its tasks start again, and keep them waiting until that build is green."
+
+[gotcha.2045]
+area = "agent sdk"
+symptom = "A caller of Wallet::execute expects a VerifiedRpcReceipt and gets a 32-byte array."
+cause = "Since 0a296da5e Wallet::execute submits the prepared payment and returns the activity hash; the receipt comes from Wallet::wait_for(hash, commitment, wait_timeout), which the SDK high-level methods (send, create, open_account) call themselves."
+do = "After execute, call wait_for with the options commitment and wait_timeout to obtain the VerifiedRpcReceipt; do not change the caller contract to the hash."
+
+[gotcha.2046]
+area = "agent api"
+symptom = "A consumer of layerx_agent_api::subscription::Cursor fails to compile with no field 0 on type Cursor."
+cause = "051d11e3a (task 9.11.1) reshaped Cursor from a newtype over Sequence into { block_height: u64, tx_index: u32, log_index: u32 }; consumers outside the daemon, such as layerx-human-service src/activity/mod.rs:602 and :672, still read .0 .0."
+do = "Derive the scalar a consumer stores from block_height and commit all three fields in big-endian order to any digest; the daemon's human_runtime.rs shows the pattern."
+
+[gotcha.2047]
+area = "kernel programs"
+symptom = "A programs sandbox EXECUTE reverts with LXP_FATAL_INVARIANT although nothing in the kernel is broken."
+cause = "src/modules/programs/sandbox.c:427 rewrites any status to LXP_FATAL_INVARIANT while the guest savepoint is active, and the Rust runtime seals the savepoint only on the success and terminal-failure paths, so every refusal between admission and the seal (host_ffi.rs admit_host, ffi_call.rs:2905) is reported as fatal (issue #1122)."
+do = "Treat LXP_FATAL_INVARIANT from sandboxExecute as a masked pre-seal refusal; unmask it by instrumenting admit_host and the sandbox branch of ffi_call.rs until 18.1122.1 lands."
+
+[gotcha.2048]
+area = "programs precompile"
+symptom = "A 0x101D view that is in abi.json, gas.go and LayerXPrograms.sol reverts with LXP_PRECOMPILE_UNKNOWN_METHOD."
+cause = "Handlers only reach the method table through register() in an init block (submit.go:43); view_accounts.go defined getProgramAccountById, getAccountProfile and getValueAccount without one, and its tests called the handler functions directly instead of dispatching (issue #1123)."
+do = "Register every handler of a new view file in its init and test it through the precompile call path (ABI pack, Submit or evm call, unpack); compare `func ...Handler(` definitions against register() calls before claiming a view is served."
+
+[gotcha.2049]
+area = "programs host"
+symptom = "Every exitValue through the precompile refuses with LXP_CONTEXT_MISMATCH from lxp_ctx_ledger_execution_sequence while the same flow passes in the kernel suites."
+cause = "The ledger admission binds the caller's payment account by runtime->occupancy_asset_id (lxp_kernel.c:497); kernel fixtures and snapshot nodes set that field, the host node in modules/lxphost/host.go never does, so the WIND_DOWN admission can never bind through the host (issue #1124)."
+do = "When a kernel check passes in tests/ but fails through the precompile, diff the host node construction in host.go against the kernel fixture that passes; fields the fixture sets by hand are the suspects."
+
+[gotcha.2050]
+area = "kernel programs"
+symptom = "Sandbox EXECUTE host admission refuses with LXP_ERR_NON_CANONICAL (seen as LXP_FATAL_INVARIANT before 18.1122.1) although lease, escrow and fee schedule are all consistent."
+cause = "layerx_programs_sandbox_lifecycle_length/_byte (src/modules/programs/sandbox.c:509-530) compare the raw token with the outer sandbox pointer, while admit_host (host_ffi.rs:538) legitimately holds the inner CALL token that every other sandbox accessor resolves through sandbox_for_call (issue #1125)."
+do = "Any new kernel accessor that takes a sandbox token must resolve it with sandbox_for_call so both the outer and the call token identify the active sandbox; the FUND/ACTIVATE lifecycle tests never exercise the call-token path, so add an EXECUTE-side case when touching these accessors."
+
+[gotcha.2051]
+area = "node sequencer"
+symptom = "A standby refuses the group at the first replicated ledger activity that reads kernel state written by an earlier block ('replayed receipt differs from stored receipt'), while plain transfers replay fine."
+cause = "node/sequencer/standby_role.go:135 installs no sequencer source, so the standby commits every block through the consensus re-execution path (node/app.go:2375-2420) while the primary commits the sealed layer it executed (node/app.go:1784-1818); the two paths can leave different kernel rows behind (issue #1126)."
+do = "Treat the standby's commit path as part of the replication contract: a standby test must commit through the real path and replicate a kernel activity that depends on a prior block, as 18.1126.1 adds."
+
+[gotcha.2052]
+area = "agent api"
+symptom = "A qualification's dependency check fails with E0423 in layerx-agent-api/tests/stream.rs although the task touched nothing in that crate."
+cause = "The 051d11e3a Cursor reshape ported the library and its downstream callers but not the crate's own tests/stream.rs, so the crate's test target has been dead since (issue #1127)."
+do = "When a pub type of a crate is reshaped, the reshaping task's gate must compile that crate's own test targets (cargo build -p <crate> --tests), not only its library."
+
+[gotcha.2053]
+area = "human service"
+symptom = "record_agent_event refuses a simulated receipted delivery with UnverifiedReceipt, or a level assertion expects Level::SequencerSigned for receipted evidence."
+cause = "Decision 907 and Level::rung (agent-api error.rs:153-160) map SequencerSigned to Submitted and BatchIncluded to Receipted; the human-service tests still carry the pre-2f3a411de mapping Receipted = SequencerSigned (issue #1128)."
+do = "Receipted evidence is Level::BatchIncluded; a verified fixture carries VerificationLevel::BATCH_INCLUDED. Never reintroduce a Receipted-to-SequencerSigned mapping."
+
+[gotcha.2054]
+area = "agent daemon tests"
+symptom = "A layerx-agentd test using tests/support/real_authority.rs panics 'build/bin/layerxd is not built' (or layerx-genesis-build)."
+cause = "The real-node harness (real_authority.rs:1003-1008) needs the node binaries from build/bin (or LAYERX_TEST_NATIVE_BIN_DIR) and must run as root; a crate-only cargo build never produces them."
+do = "A task whose gate drives real_authority must put 'make -C . layerxd layerx-genesis-build' in its build_cmd before the crate build."
+
+[gotcha.2055]
+area = "interop x402"
+symptom = "layerx-mcp or x-websearch buyer tests fail every settlement with SettlementMismatch / EvidenceMismatch against a recorded exchange."
+cause = "LayerXEvidence (layerx-x402 buyer.rs:61-74) is deny_unknown_fields and requires logs; the recorded tests/fixtures/client-exchange.json predates that shape and carries no logs or sequencer id (issue #1129)."
+do = "When the buyer evidence shape changes, re-record client-exchange.json with X_WEBSEARCH_RECORD_EXCHANGE (payment.rs:3082, :3214) and publish the sequencer id, public key and batch window in gateway/buyer.json in the same change."
+
+[gotcha.2056]
+area = "programs host"
+symptom = "A programs deploy or call through the precompile harness or an lxphost test chain is refused LXP_ERR_VERSION_UNSUPPORTED before the activity runs."
+cause = "Since e1c81cc5a (#1124) modules/lxphost/host.go:545-558 resolves the fee schedule's occupancy asset for every programs activity and refuses when the store carries no progfee/active/v1 record; the kernel's own path (lxp_kernel.c:393) tolerates the absence, so fixtures written before never seeded one (issue #1130)."
+do = "Every fixture that executes a programs activity seeds a version-1 LXFR1 record at progfee/active/v1 and progfee/history/v1/1 (shape: method_call_test.go:103-114). A host-side rule change must run the precompile and lxphost program suites once at the merged revision."
+
+[gotcha.2057]
+area = "programs transfer"
+symptom = "A 0x101D transfer leg whose source is a program account reverts LXP_AUTH_SCOPE whoever calls it."
+cause = "transfer.c:41-54 principal_authorizes_from admits only the principal's own id or an agent account whose owner DID is the principal (lx_account_read.c:11-13); program accounts are neither."
+do = "Do not write tests that debit program accounts through the transfer method until req.13292 ac_2 is ruled; fund program accounts from the caller's accounts and move program value through program-executed paths."
+
+[gotcha.2058]
+area = "agent daemon tests"
+symptom = "Every layerx-agentd integration test target and every layerx-human-service test target fails to compile with E0432 unresolved import layerx_agentd::boot::handshake_gate."
+cause = "70ce262d3 (9.12.2) replaced the LNI handshake gate with Gate::readiness_gate(&NodeRpc) (eth_chainId + px_getReceiptKeys) and ported only its own tests; the shared test support of both workspaces and the pay2 harness still import the old function (issue #1131)."
+do = "Readiness in fixtures comes from a local JSON-RPC responder (tests/handshake_gate.rs:36-88 pattern) plus gate.readiness_gate; LNI status and capability assertions use layerx_client::lni::handshake::perform directly. A task that removes or renames a pub fn compiles every dependent test target (cargo test -p <crate> --no-run for each workspace that imports it) inside its gate."
+
+[gotcha.2059]
+area = "interop x402 fixtures"
+symptom = "After re-recording client-exchange.json most x-websearch payment tests fail with grant_payer_mismatch, receipt_mismatch or invalid_payment_payload."
+cause = "The recorder's sequencer metadata (sequencerId, firstBatchNumber, lastBatchNumber in gateway/buyer.json) was fed into configure_with as the server's accepted receipt-key window, narrowing it to one batch."
+do = "The server fixture keeps key_id hex(&receipt_key_id()), first_height 0, last_height u64::MAX; buyer.json metadata builds only the buyer-side SequencerAuthorization in tests."
+
+[gotcha.2060]
+area = "task graph"
+symptom = "Two tasks on one crate required each other and neither could build: the crate's lib fix needed the test-support crate to compile its tests, and the test-support port's gate built every test target of the crate (18.1119.1 and 18.1132.1)."
+cause = "cargo build -p <crate> --tests compiles every integration test target, so a gate on the whole crate cannot pass while any one test target is broken by another task."
+do = "Put a test-support port in the touches of the task that fixes the crate, and gate a follow-up test task on its single --test target; never let two pending tasks require each other."
+
+[gotcha.2061]
+area = "agent test support"
+symptom = "Every layerx-agentd test target fails to build with E0560 on StartupConfig fields expected_protocol_version and sequencer_authority_source."
+cause = "5609ec802 (9.12.3) replaced those fields with expected_chain_id and receipt_key_source and ported only src and its own tests; tests/support/mod.rs:431-446 still builds the old literal."
+do = "A task that changes a pub struct compiles cargo build -p <crate> --tests in its gate; until then, port tests/support/mod.rs in the task that first needs the test targets (18.1131.1)."
+
+[gotcha.2062]
+area = "agent native routes"
+symptom = "native_routes_rpc.rs panics with MissingVariable(LAYERX_AGENT_NODE_RPC_URL) in an isolated qualification run."
+cause = "The planned test reads a live node URL and a real receipt hash from the environment instead of serving a local responder."
+do = "Planned agent tests serve their own 127.0.0.1 JSON-RPC responder (tests/handshake_gate.rs:36-88) and sign their own fixtures; no gate reads a live node from the environment."
+
+[gotcha.2063]
+area = "x402 evidence"
+symptom = "The x-websearch payment suite fails 22 of 35 tests at main with EvidenceMismatch and SettlementMismatch whatever the recorded fixtures contain."
+cause = "layerx-x402 buyer.rs:403 unhex requires a 0x prefix while model.rs:322-335 validates bare 64-hex assets, and seller.rs:353-357 emits evidence without the logs LayerXEvidence requires (issue #1133)."
+do = "Fix the crate (18.1133.1) before re-recording any exchange; a fixture re-recording cannot pass while the buyer refuses the seller's own format."
+
+[gotcha.2064]
+area = "container images"
+symptom = "docker build of docker/layerx/Dockerfile fails in the builder stage with curl 502 on every retry, whatever the Dockerfile change under test."
+cause = "The stage downloads three libwasmvm libraries from an external host that is down (issue #1106) although the same libraries, with matching pinned digests, are in the tree and docker/paxeer/Dockerfile.paxd-node already copies them from the context."
+do = "Never fetch at image build time what the checkout carries; copy from the context and verify against the pinned digest file. A gate that reaches an external host is blocked by that host, so file the host as an issue and gate the image tasks on the context fix."
+
+[gotcha.2065]
+area = "gateway e2e"
+symptom = "Every test of test/e2e/gateway.e2e.test.ts fails in beforeAll with 503 sponsor_unconfigured at the provisioning call."
+cause = "5f5f66995 retired the gateway sponsor key (decision.1206) and the fixture still writes SPONSOR_PRIVATE_KEY_FILE, a variable nothing reads; the top-up branch stays until 12.6.3 replaces it with the station-sponsored bind."
+do = "When a task retires an input, grep the test fixtures for the variable in the same task; an e2e that provisions needs the replacement path on main, so gate it on that task instead of relaunching."
+
+[gotcha.2066]
+area = "kernel host"
+symptom = "With a programs fee record seeded, consecutive receipts stop linking (ResultingStateRoot != next PreviousStateRoot) although two identical runs give identical hashes."
+cause = "The host loaded two keys of a module it did not load in full; the kernel computes a module's subtree root from the entries loaded into it, so a partially loaded module has a different root than the fully loaded one the next activity sees."
+do = "A module is either fully loaded or not loaded for an activity; never load stray keys of another module into the kernel branch. When a fixture change makes a continuity assertion fail, suspect the loaded set before suspecting nondeterminism."
+
+[gotcha.2067]
+area = "task gates"
+symptom = "The build fails with ERR_PNPM_OTHER_PM_EXPECTED or a wall of type errors that the task never touched."
+cause = "The gate used a package manager the app does not pin (apps/explorer pins yarn, apps/bridge pins pnpm), or gated on a type-check that already fails at main."
+do = "Copy the gate prefix from a done task of the same app, and before gating a task on an app's type-check confirm that the check passes at main; if it does not, cut the repair task first and make the others require it."
+
+[gotcha.2068]
+area = "spec tasks"
+symptom = "cg spec done fails with 'symbol <name> not defined in the graph' after build and tests passed."
+cause = "The task's symbols list named a shell script, a file or a test title; the done check resolves every symbol against the code graph, which indexes functions and types only."
+do = "Put only graph identifiers (functions, types, methods) in symbols; use [] for shell-only or test-only tasks and name tests in the tests key."
+
+[gotcha.2069]
+area = "task gates"
+symptom = "A type-check that passes for every other task of the same app fails with hundreds of errors in files the task never touched, or with missing workspace modules."
+cause = "Each app resolves dependencies through its own manager (apps/explorer yarn, apps/bridge pnpm, apps/web npm, the wallet gateway pnpm) and apps/explorer generates its Chakra recipe types in a postinstall step that a reinstall without scripts loses."
+do = "Copy the gate prefix from a done task of the same app; never reinstall dependencies inside an attempt; for apps/explorer run yarn chakra:typegen before tsc when node_modules changed."
+
+[gotcha.2070]
+title = "x-websearch payment harness: the payer address and the grant issuer must derive the same ledger account"
+detail = "tests/payment.rs offers an EVM payer address and answers accountId for it from payer_account_rules, but the recorder issued grants and receipts from the ed25519 payer DID's account, so every metered step returned grant_payer_mismatch and re-recording was impossible. When the harness payer changes form, every issuer of recorded grants and receipts changes with it, and the recorder regenerates all gateway recordings together."
+
+[gotcha.2071]
+title = "go.sum can lack a go.mod hash that only read-only module mode notices"
+detail = "GOFLAGS=-mod=mod builds (the sandboxed gates) add missing go.sum lines silently; the chain image's builder stage runs read-only and fails on the missing golang.org/x/net go.mod hash the replaced keyring still pulls in. Gate a go.sum repair with GOFLAGS=-mod=readonly."
+
+[gotcha.2072]
+title = "A task that adds fields to one struct must not pre-empt the dependent task that adds them to the next"
+detail = "10.2.7 adds receipt fields to ReceiptMaterial; its consumers copy into ProtocolEvidence, which gains the fields only in 10.13.1 (requires 10.2.7). The first task keeps the existing fields and consumers and adds beside them; the dependent task moves the consumers. Do-lines that say 'switch the consumers to the new fields' in the earlier task cannot compile."
+
+[gotcha.2073]
+title = "Field renames and type reshapes leave sibling test files behind; build the crate's --tests before marking done"
+detail = "10.13.7 renamed ReclaimAgentContext.account_sequence to nonce and added tests/reclaim_nonces.rs while tests/reclaim.rs kept the old field (#1142); 9.11.1 reshaped the event Cursor and left four layerx-agentd test files on the tuple form (#1143). Each gate ran only its own new test target. A rename or reshape task's build must be cargo build -p <crate> --tests."
+
+[gotcha.2074]
+title = "A done task whose test passes can still leave its second step unimplemented"
+detail = "18.1126.1 added a replay mutex and a test but not the sealed-layer source it named; the in-process test could not reproduce the divergence that the committed-fixture recorder hits at the first prior-block kernel read (#1144). When a do-line names a structural change, the acceptance test must fail without it."
+
+[gotcha.2075]
+title = "A spec edit that leaves a key without a value stops every task start while the dependency validator still passes"
+detail = "Four task blocks carried bare max_builds, stop_condition, path_policy and evidence_policy lines; cg spec start refused every task with 'cannot parse spec.kvx' for twenty minutes while plan validation passed. Lint every line of spec.kvx for key = value form, and each task block for exactly one of every bounded-gate key, before committing a spec edit."
+
+[gotcha.2076]
+title = "A test module included by #[path] compiles inside the including crate, so its dependencies must be declared there too"
+detail = "layerx-human-kms tests/support/attestor_cluster.rs gained ureq calls (6a5587897); layerx-human-service's wallet_identity_e2e includes it by #[path] and declares no ureq dev-dependency, so that target no longer builds (#1147). When a shared test support module gains a crate, add it to every crate that includes the module and record the lock edge."
+
+[gotcha.2077]
+title = "symbols must name only what the task defines, uniquely within the indexed workspace"
+detail = "cg spec done resolves every symbols entry after the gate passes: Operation::retired matched two definitions (api-gen lib.rs:33 and the service) and Rung lives in another crate the index does not resolve from the task's crate; 10.0.2 attempt 5 and 10.2.2 attempt 7 lost a passed gate to it. Leave shared method names and foreign types out of symbols."
+
+[gotcha.2078]
+title = "Two repairs inside one crate's test targets must not both build --tests"
+detail = "18.1143.1 (four agentd test files' cursor fixtures) built -p layerx-agentd --tests, which also compiles the seventeen targets whose shared support module 18.1131.1 is porting, while 18.1131.1 requires 18.1143.1; neither could pass. A repair task builds only the test targets it touches; the task that owns the shared module is the one that builds --tests."
+
+[gotcha.2079]
+title = "A task gate must not name a test whose fixture a dependent task repairs"
+detail = "18.1135.1's verify_cmd ran TestResolutionExecuteEntry, which fails at main until 18.1130.1 seeds the fee record, and 18.1130.1 requires 18.1135.1: neither could pass and 641 pending tasks sat behind the pair. A task's gate names the tests it adds or whose fixtures it owns; a test another task repairs belongs to that task's gate."
+
+[gotcha.2080]
+title = "A core backfill restores only chain-positioned durable events"
+detail = "Since 646c4f96c apply_backfill matches each RecoveredEvent position against durable events decoded as Ethereum logs; local-only stream events (approval emissions) have no log, so position() is None and the backfill returns GapError::DurableEvent. Restore-after-gap fixtures must ingest a positioned chain log as tests/gaps.rs:349-392 does. 18.1143.1's gate kept running the stale approval_events fixture; narrowed, repaired by 18.1150.1."
+
+
+[gotcha.2081]
+title = "Attestor cluster fixtures pass only the asset send type"
+detail = "Since eec0db612 the attestor daemon admits ATTESTOR_ACTIVITY_TYPES equal to 0x10005 alone and 027b07111 refuses a wider list at startup. wallet_identity_e2e flattened its whole module registry (governance 0x70004, bridge 0x80001) into the cluster env and both nodes exited before signing. Pass the asset send alone; the registry stays the service's own. 18.1147.1's gate narrowed to the attestor-independent test; repaired by 18.1151.1."
+
+[gotcha.2082]
+title = "Mutually dependent deletions are one task"
+detail = "layerx-intents vocabulary.rs variants wrap crate::precompile types and precompile.rs constructs those variants; deleting either side alone (10.21.1 attempts 1-2) fails the crate build. When two files reference each other, their deletions belong to one task with both paths in touches."
+
+
+[gotcha.2083]
+title = "Raising the go directive outruns an installed older Go under GOTOOLCHAIN=local"
+detail = "09f9d9239 raised go.mod to go 1.25.8; every go command on an installed go1.25.6 with GOTOOLCHAIN=local refuses with 'go.mod requires go >= 1.25.8'. A gate that runs go must allow GOTOOLCHAIN=go<pin> (or install the pinned release) before any go command; the error is the toolchain, not the task."
+
+
+[gotcha.2084]
+title = "go mod download needs a go.mod hash for every version in the module graph"
+detail = "go mod download (and go list -m all) read the go.mod of every module version in the graph and refuse any whose /go.mod hash is missing from go.sum, even versions that provide no package to the build (golang.org/x/net for #1141, golang.org/x/term v0.15.0 for #1152). go build alone never notices; add the lines with go mod download <module>@<version>."
+
+[gotcha.2085]
+title = "go list -m all reports one missing go.sum hash at a time"
+detail = "Read-only module mode stops at the first module version whose /go.mod hash is absent from go.sum; after adding it the next gap appears (x/term v0.15.0, then x/net 20211112 in the chain repository). Iterate go mod download <module>@<version> until go list -m all exits 0 before declaring the graph complete."
+
+
+[gotcha.2086]
+title = "An all-targets daemon test build compiles every stale test file"
+detail = "cargo build -p layerx-agentd --tests and cargo test --no-run compile tests/checkpoint.rs, which still built the pre-9.5.5 ProofBundleRequest after 2666a01d5; a task whose gate needs the all-targets build (#1131) fails on a test file it does not own. Open the test port as its own task and gate on it."
+
+[gotcha.2087]
+title = "A single-target gate still compiles every stale builder in its own file"
+detail = "85c5b32c5 (10.2.7) added tx_hash, receipt_hash, block_height and rung to ReceiptMaterial and ported the crate's sources and intent_submit.rs, but wallet_identity_e2e.rs was not in its gate; the next task touching that file (#1151) failed its build on the builder it did not change. When a task's touched file has other initializers of a reshaped type, the port belongs in the same task."
+
+
+[gotcha.2088]
+title = "A restored gap delivers the recovered event"
+detail = "When a subscription test recovers a real chain event through backfill instead of a duplicate of an already-delivered local event, the delivery drain afterwards carries it as an extra event; assert the recovered bytes in the delivered sequence rather than filtering the event out of the subscription or keeping the old count."
+
+[gotcha.2089]
+title = "The dependents check compiles a library it declared broken at the base"
+detail = "cg spec done leaves out a dependent whose all-targets check already fails at the base, but another dependent pulls that library in as a normal dependency, so a deleted pub fn with one remaining caller still fails the check (10.11.5 attempt 1, sign_send). A deletion and its last caller must be one task even when the caller's file belongs to a later wave."
+
+[gotcha.2090]
+title = "A standby cannot seal before consensus hands it the primary's batch"
+detail = "The WAL Seal record carries height and sequence bounds only; the primary's signed sequence batch (tx 0) reaches the standby first as FinalizeBlock's Txs[0]. A standby sealed-layer source therefore needs a FinalizeBlock hook that receives the decided transactions before sealedBlockForFinalize reads Sealed(); installing a source alone leaves Sealed() nil and the standby on the re-execution path."
+
+[gotcha.2091]
+title = "A test may assert a refusal its module never produces"
+detail = "layerx-agentd tests/checkpoint.rs asserted CheckpointReadError::UnavailableCapability with the reason the RPC adapter renders; src/read has no producer for that variant, so porting the request shape could never make the assertion pass. Before porting a test to a new request shape, grep the module for the asserted variant and reason; if nothing produces it, the spec must name the refusals the module does produce (18.1154.1)."
+
+
+[gotcha.2092]
+title = "Buyer and seller verified different payment logs for the same scheme"
+detail = "layerx-x402's seller accepts PaymentExact or PaymentDrawn while the buyer accepted PaymentExact only, so every genuine metered settlement failed buyer capture and only a fabricated log could pass. When one side of a protocol gains a scheme, grep the counterpart for the same topic constant before writing a cross-side fixture test (#1157, 18.1129.1)."
+
+
+[gotcha.2093]
+title = "The layerx full image build needs more disk than its native stage"
+detail = "docker build of layerx-chain fails in the paxd Go compile with ENOSPC after the native target built; free the build host's warm caches and dangling images before the full build, or build on a larger disk (18.849.1)."
+
+[gotcha.2094]
+title = "Two tasks that build the same image must be sequenced, not run side by side"
+detail = "18.849.1 repairs the layerx image build context and 18.869.1 verifies by building the same image; every 18.869.1 attempt failed in a step 18.849.1 owns (the builder's Go step cannot find tests/testutil/sample, which modules/epoch/module_simulation.go:15 imports) and spent its limit there. When a verify_cmd builds an artefact another pending task is repairing, add that task to requires before relaunching."
+
+[gotcha.2095]
+title = "A task that touches a test file must compile that target in its gate"
+detail = "9.6.2 added tx_hash, nonce and rung as None to the fixture of layerx-agentd tests/audit_coverage.rs and verified only audit_record_v3; the file's reconstruction test still passed IdempotencyKey and asserted two removed fields, so every all-targets build of the daemon failed afterwards (#1158). A touched test file belongs in the task's build_cmd as --test <target>."
+
+[gotcha.2096]
+title = "A task gated on a whole test target inherits that target's pre-existing failures"
+detail = "18.1156.1 (--test provider) and 18.1157.1 (--test buyer --test seller) both failed their first attempt on failures older than the issue they fix: native_setup.rs E0004 (recorded since gotcha.906) and 19 buyer tests still offering layerx:beta networks. Before gating an issue task on a whole target, check the target's last recorded result at head (qualification.kvx, GOTCHA.kvx, the last attempt that built it) and either fold the repair into the task or narrow the gate to the task's tests while another task owns the rest (#1159, #1160)."
+
+[gotcha.2097]
+title = "A shared test support file that gains a mandatory precondition breaks every test that includes it"
+detail = "6a5587897 (10.11.2) made the attestor test cluster publish a wallet inventory and route every key generation through its own generate_key helper, verifying only attestor_evm_signer; wallet_identity_e2e, which includes the same support by #[path] and lets the service create the key, has been refused with key_invalid_share ever since (18.1151.1 a2/a7). When a support file under tests/support changes what a cluster or fixture requires, every test target that includes it belongs in the gate, and the service-driven path needs its own approval helper."
+
+
+[gotcha.2098]
+title = "symbols must be code symbols the graph indexes"
+detail = "18.849.1 listed the Dockerfile stage 'native' in symbols; after a full passing image build the done record was refused with 'symbol native — not defined in the graph' (a11). Docker stages, make targets and file names are not graph symbols; leave symbols empty for container, script and fixture tasks."
+
+[gotcha.2099]
+title = "A step must not assume a signature change another task did not deliver"
+detail = "10.4.3 told its tests to pass the frame Limits to AgentRuntime::connect because 10.13.3 'changes' that parameter; 10.13.3 changed the peer codec and left connect on the LNI Limits (agent_runtime.rs:1975-1988), so the migrated tests failed E0308 after a passing build (a3). When a step names a signature another task changes, read the signature at head when the prerequisite lands, and give the change an explicit owner (now 10.3.1 do_9)."
+
+
+[gotcha.2100]
+title = "A reshaped pub constructor must build every test target that calls it"
+detail = "9.6.1 (fbb5df6bb) changed ExportTrustSource::new to (receipt_keys, validator_set) and removed settlement(), verifying only --test export_v2; tests/export_offline_bounds.rs:192 still builds the old form, so every all-targets layerx-agentd test build fails (18.1131.1 a7). Repeat of the pattern of gotchas 2044/2046/2095: grep tests/ for the constructor before publishing and put each caller target in build_cmd."
+
+
+[gotcha.2101]
+title = "Test targets that read the runtime clock need the clock service in their gate"
+detail = "layerx-human-kms tests/provider.rs starts every test with RuntimeClock::from_environment, which needs LAYERX_RUNTIME_CLOCK_SOCKET; without the layerx-runtime-clock service all 14 tests return Unavailable (18.1156.1 a3/a4). The service images run their binaries under `layerx-runtime-clock --runtime-dir /tmp -- <command>` (services/platform/hosted/runtime-clock/src/main.rs:35-63); a verify of such a target must do the same."
+
+
+[gotcha.2102]
+title = "Renaming a network namespace can silently disable a validation branch"
+detail = "decision.822 moved every x402 network to eip155:<id>, but model.rs:19/:189-193 kept is_layerx_network on the 'layerx' namespace, so validate() skipped layerx_terms for every LayerX offer and the payee redirect refusal vanished; tests/seller.rs:494/:598 caught it only because 18.1157.1's gate ran the whole seller target (11.3.3 ran one test with --exact). When a decision renames identifiers, grep every constant and predicate that keyed on the old name, and run whole targets, not single tests, in the gate of the task that moves the fixtures."
+
+
+[gotcha.2103]
+title = "A kernel fallback added to one lookup must be mirrored in its sibling lookups"
+detail = "13.25.4 (0981a1dd3) taught transfer.c:188-209 to resolve an unbound principal to its owned main account; the same raw-principal lookup at call.c:2276-2280, reached by the sandbox escrow charge whose activity never binds ledger admission (lxp_kernel.c:485-486, :6880-6886), kept refusing with -208, which two Rust layers collapse to NON_CANONICAL (ffi_call.rs:2003, host_ffi.rs:774). 13.27.1 burned attempts 17-21 on it. When a fallback lands in one path, grep for the sibling account_by_id(…, principal) lookups and the activities that reach them unbound."
+
+[gotcha.2104]
+title = "A gate must not name a test that reads a live fixture from the environment"
+detail = "10.11.9's verify listed native_provider_and_sdk_real_cluster, which returns NotPresent without PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE (a running attestor cluster, its TLS material and an owner assertion); no qualification run has it, so the task could never pass. Tests that read a *_LIVE_FIXTURE or *_TEST_RPC variable (native_send_purpose.rs, attestor_native_profile.rs, the perps tests of the test_services_env holds) are release gates: build their targets in build_cmd, run them where the fixture exists, and keep them out of verify_cmd."
+
+
+[gotcha.2105]
+title = "A planned test must name its in-process harness, or the implementer invents an environment fixture"
+detail = "10.5.2 a4 and 10.14.1 a1 both created their planned test and, finding no harness named, read an environment variable (PAXEER_X_NATIVE_ONBOARDING_FIXTURE, a 'real component fixture') that nothing defines, then failed NotPresent. The human service already has the harnesses: tests/agent_runtime_nonces.rs:41-147 (in-process agent runtime peer answering opcodes) and tests/projection_rungs.rs:60-150 (SystemClock + PrivilegedHumanComponents + HumanComponentServer + UnixComponents + Router). A do item that says 'create tests/x.rs (planned)' must cite the harness file and lines."
+
+
+[gotcha.2106]
+title = "A decoder's accepted byte set moves with the task that changes the writer"
+detail = "10.14.1 asked the human service to write the balance rung byte (0, 1, 2) while AgentRuntime::balance (agent_runtime.rs:1913) still refuses every byte but the retired levels 4 and 5, and the daemon's BALANCE answer changes only in a later wave; the task was unqualifiable at its wave. When a do item reads a field from a peer answer, find the task that changes the writer, require it, and give the decoder port an explicit step."
+
+
+[gotcha.2107]
+title = "The identity provider admits a wallet DID only through a producer-signed binding token"
+detail = "open_or_create_by_assertion(token, binding, now) takes a producer-signed binding (three dot-separated parts), never DID text, and verify_binding refuses Unavailable when the verifier has no with_binding_producer_key or the state has no pinned binding tenant; wallet_identity_e2e.rs:982 passed Some(&did) and burned 18.1151.1 a8 on 'assertion principal unavailable'. Follow tests/principal_store.rs of layerx-human-identity-provider (:140-200, :470-500) for the producer key, the tenant and the binding mint."
+
+[gotcha.2108]
+title = "Conformance vectors are copied from the recorder's output, never assembled"
+detail = "11.14.3 a1 built its committed vector's receipt bytes and the verifier refused an effect of kind 0; the recorder's receipt in daemon/committed-fixture/vectors/vector-v4-committed.json decodes to kinds 1, 3, 3 (layout: 6-byte prefix, u32-length-prefixed 32-byte arrays, raw u64/u32 scalars, per effect a 6-byte header, kind, monetary, root, u32 length and body). A vector task names the recorded file and fields as its source; an InvalidReceipt on bytes nobody recorded means the bytes were invented."
+
+
+[gotcha.2109]
+title = "The SDK committed verifier needs two commits; a vector with one cannot pass it"
+detail = "sdk/platform/go VerifyCommittedReceipt takes the execution block (header H, its commit, the transaction and batch proofs against H.data_hash) and the following block (NextHeader H+1 with LastBlockID == hash(H), its commit and validators, the result proof against H+1.last_results_hash). The recorder wrote only the commit of H+1 and its own test (chain types, no SDK call) could not notice; 8.47.7 a1 paired the H+1 commit with header H and failed. Issue #1164 / 18.1164.1. A recorder's test must call the consumer's verifier, or the consumer's verifier inputs must be listed in the vector's contract."
+
+
+[gotcha.2110]
+title = "A refusal test that outlives the rule it refuses is a contradiction to rule on, not a failure to chase"
+detail = "After is_layerx_network admitted eip155 again, two layerx-x402 seller tests contradicted the model's own documented contract (per-asset payee accepted when its asset matches; any payTo not derived from extra.layerx.account refused); the implementer stopped as told. The orchestrator rules by the documented contract (model.rs doc comments plus the decision that renamed the network), lists each flipped assertion in a do item, and records the ruling as a finding for the owner. Never let the implementer pick which side of a contradiction to keep."
+
+[gotcha.2111]
+title = "A changed pub fn signature must compile every test target that calls it"
+detail = "compat::verify took the node client version as &str at 70ce262d3 while tests/migration.rs still passed an LNI Version; every all-targets daemon test build failed until #1166 (18.1166.1). Grep the crate's tests for the old call shape before relaunching dependents."
+
+
+[gotcha.2112]
+title = "The receipt operation byte has three values in the tree"
+detail = "Node-written module-12 receipts carry 0, the conformance fixtures carry 2, and layerx-committed-proof required 1..=3 with no documented source; the codec carries the byte and constrains only supply and withdrawal receipts. Ruled: carry it (#1167, 18.1167.1)."
+
+
+[gotcha.2113]
+title = "A handler field the public schema does not declare is unreachable"
+detail = "a5edae038 made execute_agent_create require body.activity_types while AgentCreateRequest declares three fields and the route refuses undeclared ones; the same change renamed the preset key to call_selectors and left tests/agent_create.rs on the old key. Reported as #1165; 18.1165.1 derives the types from the preset."
+
+
+[gotcha.2114]
+title = "A KMS refusal with no quorum code is local"
+detail = "CustodySigner returns Kms(Refused) from require_record_binding, seal_refusal and the secret-maximum guard without touching last_refusal; a test that prints last_refusal_code() None must name the branch, not retry the quorum."
+
+
+[gotcha.2115]
+title = "eip155 syntax is not LayerX identity"
+detail = "validate_network accepts every eip155:<decimal> network; is_layerx_network must match the LayerX network eip155:125 (decision.822) exactly, or external chains such as eip155:8453 are treated as LayerX offers (18.1162.1 attempt 3)."
+
+[gotcha.2116]
+title = "An EVM transaction's chain_id is a network word too"
+detail = "send::digest refuses a transaction whose chain_id is not the configured network; fixtures written for a local chain (31337) fail with status byte 1 exactly like a wrong native network word. And since 10.11.3 the KMS needs LAYERX_HUMAN_KMS_ATTESTOR_CONFIG_FILE and LAYERX_HUMAN_KMS_EVM_ASSERTION_FILE for any EVM operation, or it answers Unavailable (#1168)."
+
+
+[gotcha.2117]
+title = "A sandbox fixture that pre-seeds the settlement sequence trips a kernel invariant"
+detail = "The fee account is seeded at the identity sequence the host reads; the kernel reads expected_sequence from the payload (sandbox.c:236-241) and checks it at :686-690. Seeding the global sequence instead turned a -208 escrow refusal into LXP_FATAL_INVARIANT (13.27.1 attempt 22)."
+
+[gotcha.2118]
+title = "A shared fixture gaining a key breaks every exact-view verifier"
+detail = "18.997.1 added signingKey to the sequencer receipt conformance fixture under a Go-only gate; layerx-committed-proof compares the receipt view with ==, so its receipted test went red at head for twelve hours (#1170). A task that edits a fixture under sdk/platform/conformance must run every consumer's test, Go and Rust."
+
+
+[gotcha.2119]
+title = "Retiring a signer on the KMS side leaves its service callers refusing at parse"
+detail = "10.11.5 made both KMS providers parse operation 11 as an EIP-1559 send authorization; Keystore::authorize_send, authorize_kernel_send and the send route's attestor branch still send a SendPlanAuthorization, so every kernel send is Kms(Refused) with no quorum code (#1169, 10.0.3 do_6). A task that changes what a KMS operation accepts must port or delete the service callers of that operation in its gate."
+
+[gotcha.2120]
+title = "A test target that includes tests/support cannot be gated alone while support is broken"
+detail = "18.1166.1 gated --test migration, which pulls tests/support/mod.rs and real_authority.rs; those failed on ports 18.1131.1 owns, and 18.1131.1 required 18.1166.1. Fold the file into the task that owns the support module instead of adding a task per test file."
+
+
+[gotcha.2121]
+title = "Reshaping an evidence struct must port every test fixture that builds it"
+detail = "10.13.1 removed authorized_batch and verification_level from ProtocolEvidence and AgentEvidence and gated two targets; eleven human-service test files kept the old fields and every pending human-service task started failing its build (#1172). Grep tests/ for the removed field names before publishing."
+
+
+[gotcha.2122]
+title = "A Tendermint transaction leaf is the Cosmos wrapper, never the raw EVM transaction"
+detail = "sdk/platform/go/committed.go hashed one inclusion transaction both as the EVM activity id and as the sha256 block leaf; no recording can satisfy both on a node whose blocks wrap MsgEthereumTx (#1171). Bind through the wrapper."
+
+
+[gotcha.2123]
+title = "A LayerX profile on an external network is a mismatch, not a valid offer"
+detail = "After keying is_layerx_network on eip155:125, the non-LayerX branch of validate accepted an eip155:8453 offer carrying a bound extra.layerx profile; the seller test expects ProfileMismatch there (18.1162.1 attempt 5)."
+
+[gotcha.2124]
+title = "A sandbox execute is admitted against the stored Active lease, not against the payload alone"
+detail = "The kernel's sandboxExecute refuses LXP_ERR_NON_CANONICAL without a site when the host's admit_host cannot decode an Active lease and escrow from sandbox state kinds 0 and 1 or the payload's expected_lease_digest and fee_destination differ from that lease (13.27.1 attempt 23). Drive the real sandboxFund and sandboxActivate handlers first and derive the execute payload from the activated lease; a NON_CANONICAL from the kernel is a contract mismatch, not a sequence problem."
+
+[gotcha.2125]
+title = "A KMS test fixture must outlive host.stop()/host.start()"
+detail = "layerx-human-kms provider tests restart the KMS mid-test; a fixture that starts the attestor cluster or writes config files inside host.start() or drops them with the first host leaves the restarted KMS refusing (status 1) or exiting at startup (18.1156.1 attempt 7). Start the cluster once per test and hand the restarted KMS the same file paths."
+
+[gotcha.2126]
+title = "A fixture-port task must own every test target its build compiles"
+detail = "cargo build --tests (and cargo test --no-run) compiles every test file of the crate, so a task that ports test fixtures after a type reshape fails at build on any test file outside its touches that still uses the old shape (18.1172.1 attempt 1: render.rs, journey_faults.rs). Grep the whole tests/ directory for the retired fields when writing the touches list."
+
+[gotcha.2127]
+title = "verify_receipted only verifies receipted-rung views"
+detail = "layerx-committed-proof's verify_receipted hardcodes rung receipted and no block fields in its expected view (src/lib.rs:210-223) and compares exactly (:376); a pax_sequencerReceipt view recorded after commitment (rung committed, blockNumber, blockHash) is refused with ReceiptViewMismatch. Use verify_committed (task 18.1176.1) with the verified header hash for such views."
+
+[gotcha.2128]
+title = "schema-check names only the first missing compatibility minor"
+detail = "check_compatibility (services/human/tools/schema-check/src/lib.rs:2398) emits one compatibility-row-missing violation for the first missing minor and a separate unrecorded-schema-version violation for the schema's own minor (:2409-2414); a test expecting one violation per missing minor contradicts task 10.16.3 and fails (18.987.1 attempts 1-5)."
+
+[gotcha.2129]
+title = "A grant with a skewed expiry is InvalidEvidence, never StepUpMismatch"
+detail = "validate_native_local_grant (services/human/crates/layerx-human-kms/src/attestor.rs:1912) binds expires_at_ms to the capability not-after and refuses before any digest exists, so a step-up mismatch fixture must mutate a field the validator admits but the signing bytes cover (owner_public_key, attestor.rs:1824); moving the expiry yields InvalidEvidence at signer.rs:976 (18.1110.1 attempt 5; task 18.1177.1)."
+
+[gotcha.2130]
+title = "A guest terminal -3 is STATUS_BOUNDS, not NON_CANONICAL"
+detail = "When a programs guest ends in terminal failure the receipt result_code is the guest status band (programs/sdk/rust/src/error.rs:19-29): -3 is STATUS_BOUNDS, produced by the host for AbiError::Storage (layerx-programs-runtime host/mod.rs) or a context read over capacity (host/context.rs:42-43); market decode and register() refusals are -2 STATUS_INVALID, so a -3 on register-offer means the fixture's first storage or context host call failed before the guest logic ran (18.911.1 attempts 14-15)."
+
+[gotcha.2131]
+title = "Portable committed bundles carry two transaction encodings"
+detail = "In a committed portable receipt rawTransaction is the signed EVM transaction (keccak256 == activity id, sdk/platform/go/verify.go:1091) and receiptInclusion.transaction is the Cosmos block transaction wrapping it (sha256 leaf under data_hash, committed.go:131); a check that compares the two for byte equality (portable_receipt.go:137 before task 18.1178.1) can never pass, and a synthetic fixture must wrap its EVM bytes before using them as the block transaction."
+
+[gotcha.2132]
+title = "A sandboxed program call must carry guest ABI 2 or later"
+detail = "layerx_programs_call_begin (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2796-2803) refuses an inner call whose abi_version is outside ABI_V2..ABI_V5 with NON_CANONICAL when a sandbox context is active, before any admission runs; a Go test that reuses programsCallFixture's ABI-v1 program and payload (method_call_test.go:145,153) inside sandboxExecute fails there (13.27.1 attempt 24). Deploy an ABI-v2 program (bank_parity_test.go:23-39) and encode the call with abiVersion 2."
+
+[gotcha.2133]
+title = "Integration harnesses on chain 1337 fail the x402 network binding"
+detail = "layerx-x402 model.rs:19 binds LayerX offers to eip155:125 and refuses extra.layerx on any other eip155 network (:180-193, e556c8b04); a gateway harness whose evm.chain_id is 1337 (x-websearch tests/fixtures/config/valid.json:52) gets 503 payment_unavailable from Seller::new on every request, so the harness must override chain_id to 125 in its config helper and answer eth_chainId with 0x7d (18.1129.1 attempt 12)."
+
+[gotcha.2134]
+title = "The KMS no longer signs kernel activity envelopes"
+detail = "Since 843ee0252 (10.11.7) layerx-human-kms sign (src/server.rs:158-184) admits only an unsigned EIP-1559 type-2 call whose bind_call disclosure and Keccak256 digest match call.signing_hash(), and refuses the kernel envelope with its SHA-256 LXP/v1/signature-preimage digest (status 1); provider tests that still build unsigned_envelope_bytes must port to evm_signing_request (tests/provider.rs:716-730). Keystore::authorize_send in layerx-human-service still sends the retired operation-11 SendPlanAuthorization until 10.0.3 lands (#1169)."
+
+[gotcha.2135]
+title = "Shell variables cannot be task symbols"
+detail = "cg spec done runs a graph check over every entry of a task's symbols list and refuses a name the symbol graph has not indexed; shell variables such as FILE_VARIABLES in docker/platform-gateway/entrypoint.sh are never indexed (18.1174.1 attempt 1 passed its tests and was refused on that check alone). Name shell-script identifiers in do steps and touches only, and keep symbols to indexed functions and types."
+
+[gotcha.2136]
+area = "programs sandbox"
+symptom = "sandboxExecute is refused LXP_ERR_NON_CANONICAL although admission, the stored lease, the funded escrow and the ABI and fee-schedule gates all pass."
+cause = "The fee debit from the lease escrow is a program-source leg; transfer_source_validate (src/modules/programs/call.c:2203-2219) needs a registerAccount binding for the seed sandbox-lease-escrow/v1 NUL || lease_id, and settle_call (host_ffi.rs:762-764) reports the AUTH_SCOPE refusal as NON_CANONICAL."
+do = "Open the escrow through registerAccount before sandboxFund; a hand-seeded module value account is not a bound program account."
+
+[gotcha.2137]
+area = "x402 gateway"
+symptom = "x-websearch metered and exact draws answer payment_invalid for every request after a refused one that reused the idempotency key."
+cause = "The x402 seller keys the gateway translation by the payload idempotencyKey (layerx-x402/src/seller.rs:180-195) and GatewayCore refuses a repeated key with different content (layerx-interop-gateway/src/gateway.rs:462-469); x-websearch kept one GatewayCore for the gate lifetime."
+do = "Build a GatewayCore per settlement as layerx-interop-service does per request; durable idempotency belongs to PaymentStore."
+
+[gotcha.2138]
+area = "sdk portable receipt"
+symptom = "The JVM and .NET portable receipt verifiers refuse the published V5 vector that the Go verifier accepts."
+cause = "The vector's wire layout is the Go encoding (receiptJson present; PascalCase, base64, integer-array and RFC3339 committed evidence); contracts/clients.md no longer lists the portable v2 fields, so the other SDKs followed older field lists."
+do = "Treat sdk/platform/go/portable_receipt.go and sdk/platform/go/committed.go as the wire reference for portable v2 bundles until the contract states it."
+
+[gotcha.2139]
+area = "explorer openapi"
+symptom = "Explorer controller tests fail schema validation after a view starts emitting a new field."
+cause = "OpenApiSpex schemas declare additionalProperties: false and BlockScoutWeb.TestApiSchemaAssertions validates every json_response against them; services/explorer/swagger.yaml is a generated copy of the same schemas."
+do = "Add the field to the schema module and to swagger.yaml in the same change as the view."
+
+[gotcha.2140]
+area = "launchpad fixtures"
+symptom = "Go, Node and shell tests fail opening launchpad/spec/production-system/integration/contracts/v1/*.json."
+cause = "384f41641 removed the whole launchpad/ tree; the six frozen v1 fixtures live under sdk/launchpad/protocol/contracts/v1/ (decision.1803)."
+do = "Read the fixtures from sdk/launchpad/protocol/contracts/v1/; readers of files already absent before the removal stay under decision.421."
+
+[gotcha.2141]
+area = "programs call terminal"
+symptom = "A refused LX_PROGRAMS_CALL reports result_code -736 whatever the guest returned, and a test matching LXP/program-execution/v5 at the start of the terminal payload fails."
+cause = "-736 is LXP_ERR_PROGRAM_REFUSED (include/layerx/lxp_result.h:142) and under protocol v3 the terminal payload is wrapped as LXP/programs/terminal-applied-legs/v1 NUL + u32 detail length + detail + u32 legs (src/modules/programs/call.c:1531-1570)."
+do = "Unwrap the terminal-applied-legs prefix before matching the guest output, as tests/programs/test_call_activity.c:72-83 does."
+
+[gotcha.2142]
+area = "agentd prepare"
+symptom = "A directory listing of services/agent/crates/layerx-agentd/src/prepare/ shows no evm.rs, and layerx_agentd::prepare::evm::prepare_bound looks absent."
+cause = "prepare/mod.rs declares pub mod evm inline at :3 (EvmPreparationState :12, PrecompileTarget :20, prepare_bound :325) and re-exports it at :396."
+do = "Grep for the symbol before concluding a module path is wrong; an inline module has no file of its own."
+
+[gotcha.2143]
+area = "budget defund"
+symptom = "A compiled budget defund is refused at the agent boundary as an unsupported activity."
+cause = "layerx-intents compiles and discloses the defund as Budget ordinal 7 (compile.rs:532, disclosure.rs:745) while lx_budget.h:23 defines LX_BUDGET_DEFUND = 0x00030008 and layerx-crypto disclosure.rs:962 admits Budget 2, 8, 9 only."
+do = "Use ordinal 8 for the kernel defund (18.1188.1); under decision.1805 the reclaim leg is the Pay budgetDefund call, not a kernel envelope."
+
+[gotcha.2144]
+area = "human kms signing"
+symptom = "A journey leg signed through custody is refused by the live submit contract with Malformed('signature')."
+cause = "The production KMS sign (layerx-human-kms/src/server.rs:158-184) admits only an unsigned EIP-1559 call with its bind_call disclosure and the submit contract requires a 65-byte signature (layerx-agent-api/src/write.rs:78); the engine (engine.rs:964-990) and the local envelope signer still produce 64-byte kernel-envelope signatures."
+do = "Carry type-2 transactions end to end (decision.1805); do not widen or truncate the signature to make a kernel envelope pass."
+
+[gotcha.2145]
+area = "agentd tests"
+symptom = "An agentd test that verifies a receipt or state leaf panics at tests/support/real_authority.rs:46 'real isolated Paxeer chain id is required: NotPresent'."
+cause = "support::evidence_verifier() (tests/support/mod.rs:466) is chain-bound: evidence_authority -> try_evidence_authority_mode -> ReadinessNode::new (:1432) reads LAYERX_TEST_PAXEER_CHAIN_ID and binds a responder; only tools/qualification/paxeer-x/caps-codecs.py exports that environment."
+do = "Build the verifier with EvidenceAuthority::pinned_to_handshake(layerx_wire::limits::PROTOCOL_VERSION, 42, SigningKey::from_bytes(&[0x3a; 32]).verifying_key().to_bytes()) (src/protocol_evidence.rs:606), the key and network id support::raw_receipt and raw_state_leaf use; never export chain variables without a chain."
+
+[gotcha.2146]
+area = "agentd human peer"
+symptom = "A test that calls serve_one needs a HumanOperations and every implementation requires a connected layerx_client::Client over a live LNI socket."
+cause = "SharedAgentOwner, UnifiedAgentOwner and ProductionHumanOperations (src/human_runtime.rs:2338, :8525, :13223) all take the Client and dispatch_request (src/human.rs:2050) consults operations for every request; there is no node-free constructor."
+do = "Verify serve_one only through the PAXEER_X_NATIVE_PROGRAM_HUMAN_PEER_FIXTURE release gate (tools/qualification/paxeer-x/native-program-human-peer.py); task gates cover the codec; write no HumanOperations test double (decision.1806)."
+
+[gotcha.2147]
+area = "spec waves"
+symptom = "A spec edit that moves a task to a later wave, or adds a requires edge, parses cleanly yet no task is admitted afterwards."
+cause = "Parsing the plan does not validate it; the admission step also refuses any task whose requirement sits in a later wave and any requires cycle, and then runs without admitting anything."
+do = "Before committing a wave or requires change, check that no dependant sits in an earlier wave than its requirement and that the requires graph has no cycle; when a task must wait for another, move the dependants too or drop the edge."
+
+[gotcha.2148]
+area = "rust crates"
+symptom = "A task passes its own test and the wider build of the crate's dependents fails with E0063 missing field on a struct literal."
+cause = "A library struct gained a field (SequencerBlock.receipts_root, layerx-client src/sequencer.rs:200) and the sibling test binaries of the same crate still spell the old literal; cargo test -p crate --test name builds only the named binary."
+do = "When a struct gains a field, port every struct literal in the crate's tests in the same task; build the crate with --tests before qualifying."
+
+[gotcha.2149]
+area = "sdk verifiers"
+symptom = "A portable receipt vector verifies in Go and .NET and the JVM verifier refuses it."
+cause = "The JVM FIELDS rule carried a term the other verifiers do not (operation != 2, LocalVerifier.java:185-190), over-fitted to the asset transfer receipt it was written against."
+do = "Mirror the Go and .NET field rules term by term; a committed settlement receipt has moduleId 12 and operation 0 (decision.1807)."
+
+[gotcha.2150]
+area = "spec authoring"
+symptom = "A task step names a diagnostic facility or helper that is not in the tree and attempts stall looking for it."
+cause = "The step was written from a design, not from the code; readers then search for the facility instead of narrowing the fault."
+do = "Replace the step with an assertion ladder over the real reads and handlers (ReadAccount, ReadProgramAccount, the registered call handler) that stops at the first failing assertion and records it."
+
+[gotcha.2151]
+area = "budget payloads"
+symptom = "A budget fund vector or compiler emits a 0x4202 six-field 180-byte payload and the kernel or layerx-crypto refuses it."
+cause = "The tagged 0x42xx layout is stale; the kernel canonical fund payload is type 0x00030002 with v1 50 bytes or v2 58 bytes (lx_budget_codec.c:173-196), as layerx-crypto and modules/layerxpay/types/payload_budget.go encode; binding a budget mutation needs bind_budget_mutation with a BudgetStateContext."
+do = "Encode the kernel layout (decision.1811) and bind with the budget state context; the wallet policy, its vectors and the intent compiler must agree with the kernel codec."
+
+[gotcha.2152]
+area = "launchpad replay fixtures"
+symptom = "A recorded chain-125 market replay fails receipt qualification although the recording is byte-exact."
+cause = "deployment.Current() moved to a new contract generation (16ee6fd09, v6.12.0) and validateCode compares runtime hashes at the qualified block, so the current manifest can never qualify blocks recorded under the previous generation."
+do = "Qualify with the history entry whose activation height covers the anchor (deployment.Approved, decision.1814); never pin Current() in a replay test."
+
+[gotcha.2153]
+area = "flatkv config"
+symptom = "ParseFlatKVConfig returns 'data dir is required' for every call and a parse-time panic would stop every node."
+cause = "Validation ran at parse while DataDir is assigned later at store construction (composite/store.go:133, flatkv/store.go:230)."
+do = "Validate where the full config exists; parse functions return cast errors only (decision.1819)."
+
+[gotcha.2154]
+area = "release workflow"
+symptom = "committed_pipeline() panics on the platform workflow and release_pipeline_has_no_replay_gate cannot run."
+cause = "A verification step carried if: always(), which the release validator admits only as the sdk-v tag condition."
+do = "Delete the condition on the workflow step; never widen the validator (No Weakening)."
+
+[gotcha.2155]
+area = "launchpad tests"
+symptom = "A launchpad Postgres test reads handoffs/L35/schema.sql or integration/migrations and fails before any assertion."
+cause = "Those paths were never committed to any ref; the tracked schema is each service's embedded goose migration set."
+do = "Apply services/launchpad/<service>/migrations through the service's migrate package under <SERVICE>_TEST_DATABASE_URL (decision.1817); task gates stay network-free."
+
+[gotcha.2156]
+area = "x402 recordings"
+symptom = "Replaying a seller recording in a buyer crate fails on every paid exchange although the payload port is complete."
+cause = "The seller moved from LAYERX-PAYER-DID to LAYERX-PAYER-ADDRESS and recorded on eip155:125; the buyer still sent the DID header over the test chain id 1337."
+do = "Read the payer header name and the chain reference from the recording and configure the buyer with them; never edit the recording (decision.1820)."
+
+[gotcha.2157]
+area = "agent daemon tests"
+symptom = "A gate test panics 'owned real sequencer fixture required' and the task can never qualify."
+cause = "The test took its evidence from a PAXEER_X_*_FIXTURE environment variable that only a release environment provides."
+do = "Serve the sequencer answers from a loopback TcpListener and sign receipts in-process (tests/node_rpc.rs pattern); keep the real-fixture variant as a release gate not named in verify_cmd (decisions 1806, 1821)."
+
+[gotcha.2158]
+area = "programs precompile tests"
+symptom = "A program deploy or call returns LXP_ERR_CONTEXT_MISMATCH (-213) although the handler passes the payload through unchanged."
+cause = "The interface bytes' ABI u16 (right after the 32-byte code hash) differs from the deploy or call abiVersion; the runtime's interface check (ffi_interface.rs:469-474, :549-552) rejects it at deploy and at call."
+do = "Write the same ABI in the interface field and in EncodeDeployPayload/EncodeCallPayload; the capability-11 entry needs ABI 3 or 4. The kernel's sandbox code never returns -213."
+
+[gotcha.2159]
+area = "lxphost replay tests"
+symptom = "A replay test cannot make the precompile refuse a reused actor sequence."
+cause = "submit of precompiles/layerxprograms/submit.go reads ReadIdentitySequence and ReadLastSequence itself and always advances the sequence."
+do = "Drive both calls through lxphost.ExecuteActivity at an explicit account sequence under fresh WithSequence(ctx, last+1) contexts and assert LXP_ERR_SEQUENCE_REUSED (-301), as execute_test.go:73-100 does (decision.1822)."
+
+[gotcha.2160]
+area = "programs arbiter"
+symptom = "Changing the derive signatures of layerx-programs-arbiter breaks the crate build with 'missing epoch/batch' and 'old caller' errors."
+cause = "VerifiedAdmissionPrestate has no epoch, batch or fee-history accessor, and step.rs and market.rs call derive with header and receipt_proof."
+do = "Keep header: &VerifiedBatchHeader, replace only the receipt proof, and update step.rs and market.rs in the same task (decision.1823)."
+
+[gotcha.2161]
+area = "human-service tests"
+symptom = "The node-fixture tests of layerx-human-service cannot drop layerx_client::lni although the src files are off it."
+cause = "AgentRuntime::connect still takes lni::transport::Limits until 10.3.1; the rpc replacement has no frame transport or Acknowledged variant."
+do = "Scan the src files only in the J44.21 task and rewrite the fixtures against a loopback sequencer RPC in the task that follows the runtime change (decision.1824, 10.98.15)."
+
+[gotcha.2162]
+area = "J44.25 ports"
+symptom = "A 'rename-only' port from bind or sign_disclosed to bind_call or sign_disclosed_call stalls for attempts on 'cannot preserve behaviour'."
+cause = "The replacement is the EVM call API: Eip1559Call plus a 20-byte from, 65-byte signatures, SigningPreparation instead of Prepared; behaviour changes by design."
+do = "Write the task so the tests assert the new API's behaviour and drop the 'behaviour unchanged' clause (decision.1825)."
+
+[gotcha.2163]
+area = "program drivers"
+symptom = "A program call at the next height fails with -736 and a callback-failure terminal (stage 05, status -3) although the guest never ran."
+cause = "The driver incremented the fixture height without finalising the occupancy batch; prepare_positions requires batch == last_finalized_batch + 1."
+do = "Call lxp_programs_finalize_occupancy_batch_selected and refresh current_state_root before every height increment (decision.1826)."
+
+[gotcha.2164]
+area = "x402 buyers"
+symptom = "Every metered web test fails with OfferMismatch(payer) after the payer header moved to LAYERX-PAYER-ADDRESS."
+cause = "The buyer still derived its payer accounts from the DID naming while the seller's offers carry the ledger accountId of the address."
+do = "Derive the accounts through eth_call accountId(owner, asset) with the address left-padded to 32 bytes, plus the PAX naming special case (decision.1827)."
+
+[gotcha.2165]
+area = "spec touches"
+symptom = "A task changes a signature, an error type or struct field names and the crate build fails in files the task may not edit."
+cause = "The callers were left out of touches; attempts repeat the same compile errors (9.2.4, 9.5.9, 9.13.2, 10.3.1)."
+do = "Before changing a public signature, grep its callers and add them to the task's touches with one do line; record the finding once, not per attempt."
+
+[gotcha.2166]
+area = "agentd tests"
+symptom = "A test suite that includes layerx-agentd tests/support/mod.rs by path fails with E0308 on attach_external_signature and verify_before_submit."
+cause = "The shared support helpers still use the retired Prepared and 64-byte signature API."
+do = "Port the helper sites to SigningPreparation, 65-byte signatures and the 20-byte signer address; add the support file to the task's touches."
+
+[gotcha.2167]
+area = "completion gates"
+symptom = "A domain completion gate reports a retired pub item present although the replacing task is done."
+cause = "The replacing task added the new item and kept the old constant for its single test caller."
+do = "Add a small retiring task that deletes the item and ports the test caller, and make the gate task require it; never relax the gate (decision.1828)."
+
+[gotcha.2168]
+area = "lxphost tests"
+symptom = "A programs call (0x00090003) driven through lxphost.ExecuteActivity returns LXP_ERR_UNAUTHORIZED_DEBIT (-207) although the payer is funded."
+cause = "ExecuteActivity builds the Activity without FeeLimit; occupancy.c refuses a signed fee limit below the execution ceiling."
+do = "Build the Activity with FeeLimit (the call tests use 100000000) and call Host.Execute directly; use the same AccountSequence to prove the -301 replay refusal (decision.1829)."
+
+[gotcha.2169]
+area = "rebased candidates"
+symptom = "A rebased candidate fails compiling a file that no longer exists at main."
+cause = "The carried candidate restored a file a later task deleted."
+do = "After the rebase, diff the tree against main for files outside the task's touches and drop any that main deleted before running the gate."
+
+[gotcha.2170]
+area = "module deletions"
+symptom = "Deleting a Rust module file yields E0583 in a file the task may not edit."
+cause = "The `mod x;` declaration lives in main.rs or lib.rs outside the deleting task's touches."
+do = "Give the deleting task the declaring file (for those lines) and make the task owning the rest of that file require it."
+
+[gotcha.2171]
+area = "spec do lines"
+symptom = "Two do lines of one task disagree on where an input lives and the attempt edits a file outside touches."
+cause = "do_1 forbade a testdata copy while do_2 said 'that testdata file'."
+do = "Resolve the contradiction with a decision and a do line naming the exact path; check new tasks for do lines that name different paths for the same input."
+
+[gotcha.2172]
+area = "programs precompile tests"
+symptom = "registerAccount reverts LXP_VERSION_UNSUPPORTED for a program deployed at ABI 3 although the payload is well formed."
+cause = "ABI 3 account registration reads the program-account-profile record (and through it the program-owner record); production code never writes them and a missing record is reported as VERSION_UNSUPPORTED."
+do = "Seed program-owner NUL || id = {1} || principal and program-account-profile NUL || id = {2} || principal under module prefix {1, 0, 9} before registerAccount, as view_accounts_test.go does."
+
+[gotcha.2173]
+area = "layerx-mcp web tool"
+symptom = "Every metered offer is refused with 'the web offer does not bind the purpose'."
+cause = "The tool hashes the receiver DID key into the purpose while x-websearch has hashed the 20-byte receiver EVM address since 11.34.3."
+do = "Hash PURPOSE_DOMAIN || receiver_address; pin the receiver address in the web config because the offer does not carry it."
+
+[gotcha.2174]
+area = "layerx-mcp web tool"
+symptom = "Exact-scheme receipts are refused as PaymentArtifact(receipt) although the recording is genuine."
+cause = "The receipt is a 0x101A payExact program receipt; payer, payee, asset and amount live in its PaymentExact log, not in asset-module protocol facts."
+do = "Verify the logs with layerx_proof::sequencer_logs::verify_logs and read exactly one PaymentExact log, as the seller's verify_receipt does."
+
+[gotcha.2175]
+area = "agentd StartupConfig"
+symptom = "A test-support change to Rung::Committed fails E0308 against verification_defaults."
+cause = "StartupConfig.verification_defaults is keyed by VerificationLevel, not Rung; only its rung() maps onto the three rungs."
+do = "Pick the VerificationLevel whose rung() is the wanted rung (CHECKPOINT_FINALISED for Committed) and assert the mapping in the test."
+
+[gotcha.2176]
+area = "arbiter authority tests"
+symptom = "A gate test that must run from an in-tree vector demands native_admission and native_replay captures."
+cause = "Deriving a VerifiedReplayAuthority needs a Programs-module receipt and a v3 admission prestate that only the native corpus provides."
+do = "Keep corpus-bound derivations as release gates (decision.1806) and give the task gate a proof-level test the vector can satisfy."
+
+[gotcha.2177]
+area = "wallet gateway e2e"
+symptom = "After the station-sponsored bind landed, the e2e finds no bind transaction from the provisioned address."
+cause = "The bind is an executeSponsored transaction from the station relayer to the paymaster with the address inside the batch."
+do = "Assert the relayer transaction and its decoded batch, not a transaction from the address."
+
+[gotcha.2178]
+area = "agentd program reads"
+symptom = "Replacing a protocol-adapter read with eth_call breaks a caller that cross-checks state roots and bindings."
+cause = "The adapter wraps the kernel's C account-state decode and builds a proof-verified read; eth_call returns bare values."
+do = "Use eth_call only for plain operation reads; build proof-verified reads from the registry's VerifiedAccountSnapshot."
+
+[gotcha.2179]
+area = "spec symbols"
+symptom = "the gate passes and the task is still refused by the declared-symbol check"
+cause = "symbols named an enum variant path (Rung::Committed) or a deleted identifier"
+do = "symbols name plain identifiers that exist after the task: functions, types, test names"
+
+[gotcha.2180]
+area = "EIP-7702 sponsored transactions"
+symptom = "a filter on to === PAYMASTER finds no bind transaction while a from-or-to-account filter finds one"
+cause = "under EIP-7702 the sponsor sends executeSponsored to the delegated account; PAYMASTER appears only in the authorization list"
+do = "assert from === sponsor, to === account and the authorization address, never to === PAYMASTER"
+
+[gotcha.2181]
+area = "launchpad catalog selection"
+symptom = "a user-service catalog test answers 404 on follower routes"
+cause = "a /v2/profiles prefix also selects the follow operations the social service serves"
+do = "select the catalog operations by exact path per owning service and assert the selected count"
+
+[gotcha.2182]
+area = "protocol adapter codec"
+symptom = "a task assumes the account-state record decoder is C and stops for a missing Rust decoder"
+cause = "the LXPS1/LXPS2 codec is pure Rust in the adapter's ffi.rs; only read_* and read_program_state cross the FFI"
+do = "read the whole ffi.rs before ruling on what is C; move pure code rather than rewrite it"
+
+[gotcha.2183]
+area = "spec touches"
+symptom = "a type-retirement task fails to compile in a file it may not edit"
+cause = "the referencing file's only owner is already done or runs later and requires this task"
+do = "before dispatching a deletion task, grep every retired symbol across the module and add each referencing file to touches or a requires on its pending owner"
+
+[gotcha.2184]
+area = "dotnet and mvn gates"
+symptom = "verify_cmd with a test filter still fails on compile errors in tests the filter never selects"
+cause = "dotnet test and mvn test compile the whole test project before filtering"
+do = "treat every test file in the project as a compile dependency of a deletion task"
+
+[gotcha.2185]
+area = "sdkgen retired variants"
+symptom = "generated Go constants re-emit variants the schema retired"
+cause = "variants() ignores retired_variants of errors.kvx"
+do = "when a schema lists retired_variants, the generator must skip them and the generated file must carry every live variant"
+
+[gotcha.2186]
+area = "workspace --tests build_cmd"
+symptom = "a planned-test task fails its build in another crate's integration tests"
+cause = "cargo build --manifest-path <workspace> --tests compiles every member's test targets, including literals stale since a type change"
+do = "scope build_cmd to -p <crate> and the task's --test targets, and route stale literals to their file owner"
+
+[gotcha.2187]
+area = "layerxctl receipt vectors"
+symptom = "submit prints 'transaction must contain binary signed EIP-1559 (type 2) bytes' or receipt_error Malformed against a recorded vector while the test decodes correctly"
+cause = "vector_v1.go records a LegacyTx and layerx-client Fields::exact refuses the daemon's signingKey field"
+do = "check the first byte of rawTransaction and diff receiptJson keys against RECEIPTED_FIELDS before blaming the test"
+
+[gotcha.2188]
+area = "layerx-sdk streaming conformance"
+symptom = "positional-cursor tests fail while the chain checks pass"
+cause = "ResumableStream::accept has no position ordering, only chain linkage, and the task's touches held only the test file"
+do = "when a conformance task re-targets a test to new semantics, give it the implementation file and a do line mirroring the sibling SDK"
+
+[gotcha.2189]
+area = "sdk-gen schema validation"
+symptom = "major_two tests panic with 'missing type.<Request>.precompile'"
+cause = "the generator requirement was added ahead of the schema key, which a later-wave task owns"
+do = "confirm a required schema key exists at main or add requires on the schema-owning task"
+
+[gotcha.2190]
+area = "Rust module retirement"
+symptom = "removing mod x; and its re-exports per the do line leaves dozens of unresolved imports in files the task does not own"
+cause = "the do line enumerated the module's tests but not its crate::<mod>:: importers"
+do = "list every importer before writing a remove-module do line and put each in touches or a required task"
+
+[gotcha.2191]
+area = "kernel fee accounting in precompile tests"
+symptom = "a fee-balance assertion through the x/bank mirror never changes"
+cause = "the programs fee settles in kernel rows; the ledger mirror follows 0x0001xxxx legs only"
+do = "read fee balances through host.ReadBalance(ctx, payer, asset)"
+
+[gotcha.2192]
+area = "recorded x402 exchanges"
+symptom = "a routed tools/call web.fetch gets sidecar status 400 while direct fetch tests pass"
+cause = "since the re-recording the exact payload carries idempotencyKey, so the replaying seller's payload equality binds the test's key to the recorded one"
+do = "every paid call replayed against client-exchange.json takes its idempotency key from the recording; arbitrary keys only for calls refused before they are sent"
+
+[gotcha.2193]
+area = "layerxprograms call output"
+symptom = "a test expecting empty response bytes from a settled call fails with a 516-byte 'LXP/programs/terminal-applied-legs/v1' blob"
+cause = "callHandler packs outcome.Response, which for the market guest is the terminal receipt envelope"
+do = "assert status and kind; decode the response as the guest's answer, never as empty"
+
+[gotcha.2194]
+area = "precompile addresses"
+symptom = "a bootstrap test pins bindLayerX at 0x101C and the client prepares 0x1004"
+cause = "bindLayerX belongs to the addr precompile (0x1004); layerxauth (0x101C) serves grantSession"
+do = "check precompiles/<name>/*.go for the method before pinning an address in a spec line or test"
+
+[gotcha.2195]
+area = "agentd operation classes"
+symptom = "require_session_credential answers InvalidRequest for an operation that carries a credential"
+cause = "OperationClass::for_operation returns None for operations the bootstrap refusal list used to cover"
+do = "when a task lifts a bootstrap refusal, classify the operation in tenant.rs in the same task"
+
+[gotcha.2196]
+area = "arbiter ICS23 tests"
+symptom = "cargo test panics with NotPresent on LAYERX_*_INPUTS"
+cause = "the tests load a corpus the qualification tools generate from evidence outside the repository"
+do = "give the gate a keeper-generated vector under programs/tests/vectors/, as 13.30.3 did; never a fabricated corpus"
+
+[gotcha.2197]
+area = "98-family ports"
+symptom = "a worker stops on 'change only import paths' when the rpc twin has another shape"
+cause = "the import-only do line predates decision.1813's rewrite-or-delete rule"
+do = "decision.1843: rewrite over the twin or delete; port files a later task deletes no further than build and scan need"
+
+[gotcha.2198]
+area = "Swift gate environment"
+symptom = "swift-build exits 127: libicuuc.so.74 cannot open"
+cause = "the Swift 6.0.3 Ubuntu 24.04 toolchain needs ICU 74 while the gate image carries a newer ICU"
+do = "the runner's compat step installs libicu74 from the noble pool beside libxml2; rebuild the image after editing the runner"
+
+[gotcha.2199]
+area = "spec authoring"
+symptom = "A cargo test gate exits at once with 'Option exact given more than once' and no test runs."
+cause = "The verify_cmd listed --exact before each test name; libtest takes --exact once followed by every name."
+do = "Write `-- --exact name_a name_b`; lint gates for a repeated --exact before committing."
+
+[gotcha.2200]
+area = "task scoping"
+symptom = "A task that deletes or retypes a definition passes its own test and fails the dependents build on callers another, later task owns; the two tasks block each other."
+cause = "Ownership split a definition from its callers across crates (10.98.13/10.98.10, 10.98.7, 10.20.3 and the movement provider, 10.98.1 and its binary, 8.48.1/8.48.2 on wallet.rs)."
+do = "The deleting or retyping task carries every caller in dependent crates; the former owner requires it and keeps the new shape (decision.1849). Check dependents when writing touches."
+
+[gotcha.2201]
+area = "rust formatting"
+symptom = "The scope check flags a file the task never edited after rustfmt ran on a declared file."
+cause = "rustfmt follows #[path] child modules (production_components.rs -> production_owner.rs -> production_owner_tests.rs) and reformatted a child that is not rustfmt-clean at main."
+do = "Format only files whose child modules are declared too, or restore undeclared children before committing; name the child module in the do line when a declared file has one."
+
+[gotcha.2202]
+area = "conformance vectors"
+symptom = "A conformance command fails at main because a human golden's method and path disagree with generated metadata."
+cause = "An operation was re-routed to per-leg EVM calls (no HTTP path) while its HTTP golden still documents the request shape."
+do = "Compare EVM-routed operations against their generated EVM method and per-leg flag, not against the golden method and path (decision.1848)."
+
+[gotcha.2203]
+area = "wave planning"
+symptom = "A programme gate task that runs make workspace-build fails on compile breaks owned by much later tasks."
+cause = "The gate task sat at wave 6 while the binaries it builds are ported at waves 10 to 21."
+do = "Give workspace-build gate tasks requires on every compile-port task and a wave after them (decision.1847)."
+
+[gotcha.2204]
+area = "spec authoring"
+symptom = "An interface note that was wrong in one block was wrong in 61 opcode blocks of the same protocol family and in two contract tables."
+cause = "The opcode blocks of a protocol family copy the family note verbatim and the contract tables reproduce interfaces.kvx by hand, so a stale cite multiplies."
+do = "When an interface note changes, replace it in every block of the family and in both contract tables in one edit, asserting the copy count before writing."
+
+[gotcha.2205]
+area = "agent refusal vocabulary"
+symptom = "Deleting a refusal variant from one enum broke the build in a file the task did not own, although nothing ever constructed the matching error."
+cause = "A never-constructed error variant still anchors a match arm in the runtime, an entry in a test list in the dispatcher and reason and class assertions in an integration test."
+do = "Before retiring a variant, grep the whole crate and its tests for the identifier, list every arm, list entry and assertion as caller sites in the task, and delete the dead producer variant with them."
+
+[gotcha.2206]
+area = "spec authoring"
+symptom = "A task's do line asserted a wire layout (a rung byte in the BALANCE answer) that the landed writer never emits, and four attempts stopped on it without a gate run."
+cause = "The do line was written from another task's promise instead of the landed writer, and the interface block pins only the opcode, not the layout."
+do = "Before writing a do line that names a wire layout, read the landed writer and the requirement that governs it, and cite the writer's lines; where the interface pins no layout, say so and name the writer as the authority."
+
+[gotcha.2207]
+area = "spec authoring"
+symptom = "A verify_cmd written with escaped double quotes reached sh with the backslashes intact and failed with a syntax error before any check ran; a build_cmd of another task carried the same shape."
+cause = "The gate runner hands the kvx command string to sh verbatim; kvx escaping is not undone for build_cmd and verify_cmd."
+do = "Write build_cmd and verify_cmd with single quotes only, use grep -F for literal patterns, and pass file names to python3 -c through sys.argv instead of quoting them inside the program."
+
+[gotcha.2208]
+area = "qualification"
+symptom = "A task that touched only runtime and host crates was stopped three times before its verify ran because a dependent crate's test target did not compile; the errors were in a test file the task never touched."
+cause = "A retyping commit ported one test file of the dependent crate and left another behind, so the test target was already broken at the base revision; the dependents check attributed the break to the next task that touched anything upstream."
+do = "Before attributing a dependents failure to a task, check the same target at the base revision; a break present at the base is recorded once against the owning task in qualification.kvx and the target is left out of the dependents check until that owner lands."
+
+[gotcha.2209]
+title = "A crate left out of the dependents check lets a retype land with its test targets broken"
+symptom = "Three retypes landed on main in one day without compiling the test targets of crates excluded from the dependents check: 9.1.4 removed layerx_agent_api::verify::Level (15 errors in the layerx-human-service library, 12 test files), 9.21.8 added ExecutedReceipt.signing_key (agentd tests/budget_create.rs), 18.1027.1 added CreateOrder.payer_grant_purpose (ramp toolkit tests/engine_legs.rs). Every task that builds those crates then failed at cargo build on a break it did not cause (18.1172.2 a1, 18.1206.1 a4, 18.1230.1 a4, 18.1221.1 a3, 8.29.4 a1-a3)."
+fix = "Before landing a task that changes a public type or signature, grep the whole repository for the symbol (including tests/ directories and crates on the excluded list) and either carry every caller in the same task or open a wave-1 repair task that the callers' tasks require (decision.1871: 10.2.8, 8.29.5, 18.1206.1). When a build log shows an error in a file the task does not touch, check git log -S for the retyping commit before blaming the attempt."
+
+[gotcha.2210]
+title = "A doubled backslash in a kvx verify command reaches the test runner as a literal backslash"
+symptom = "A Swift verify filter written with a doubled backslash before the dot of LayerXSDKTests.SequencerReceiptTests in spec.kvx reached swift test unchanged, so the regex demanded a literal backslash, matched no test identifier and the run executed 0 tests (8.44.1 attempt 10, and the five sibling 8.44.x commands carried the same text)."
+fix = "Write regex filters in kvx commands without backslashes: a bare dot matches the dot in a test identifier, and the kvx reader does not unescape command strings."
+
+[gotcha.2211]
+title = "cg spec done accepts a run that executed zero tests"
+symptom = "8.44.1 attempt 10 ran swift test with a filter matching nothing; the log said Executed 0 tests, with 0 failures and cg spec done exited 0, so only the scope check stopped a false success."
+fix = "Treat Executed 0 tests, 0 passed or running 0 tests in a verify log as a failure of the gate: fix the filter or target and rerun once before any done record."
+
+[gotcha.2212]
+title = "The cg graph check counts a field and its same-named accessor as two symbol definitions"
+symptom = "10.2.8 attempt 4 passed build and verify, and cg spec done refused the record with symbol ReceiptEvidence::rung ambiguous: 2 definitions, because the struct has a field rung and a method fn rung(&self), the ordinary Rust accessor idiom."
+fix = "Name the struct, or a method whose name differs from every field, in a task's symbols list; never name a getter that shares its field's name."
+
+[gotcha.2213]
+title = "Dropping an out-of-scope Cargo.lock change from a candidate makes the --locked gates fail"
+symptom = "9.98.1 attempt 6 added a test target and four dependencies, left Cargo.lock untouched because it was not in the touches, and the gate failed with Cargo.lock needs to be updated but --locked was passed."
+fix = "A task that adds a dependency or a [[test]] target lists the workspace Cargo.lock in its touches and regenerates only the missing entries with one unlocked build before the locked gates."
+
+[gotcha.2214]
+title = "A closure gate with a roll-up requires list hides one failing task behind hundreds"
+symptom = "13.0.2 required all twenty-seven wave-16 programs tasks although its own steps touch only the registry crate; with twenty-six done, the thirty-three attempts of 13.27.1 kept 638 pending tasks ineligible."
+fix = "A requires edge needs a code basis (a symbol, a file or an interface the dependent consumes); gates roll up only what they read. Drop the edge and record the decision when the basis is absent."
+
+[gotcha.2215]
+title = "A build_cmd that compiles sibling test targets inherits their API drift"
+symptom = "18.1206.1 attempt 6 fixed its own call sites and failed because its build_cmd also compiled tests/unknown.rs and tests/budget_durable_limits.rs, which had drifted from ReceiptLookup and BudgetCreateIdentity for reasons outside the task."
+fix = "Build only the gate's own targets; give each drifting sibling target to the task that owns it and add that task to requires where the gate needs it."
+
+[gotcha.2216]
+title = "Two CI checks can constrain the same workflow line in opposite directions"
+symptom = "16.5.6 asserted runner-routing-check.sh exits 0, which demands the routed runner expression on publish-images.yml jobs, while publish-images.test.sh forbids CI_LINUX_RUNNER anywhere in that file; the workflow failed one check whatever it carried."
+fix = "Pick the check that encodes the product rule (the test that owns the workflow) and list the jobs as excluded in the other; record the decision."
+
+[gotcha.2217]
+title = "Deleting an enum variant or adding a struct field leaves test targets outside the task's build red at main"
+symptom = "10.98.13 deleted IntentKind::NativeOwnerRotation and the kms provider test still built it; 8.8.2 added Config.chain_receipts and the head attestation bin test still built the old initializer; four later attempts of two other tasks failed on those two lines."
+fix = "Before deleting a variant or adding a required field, grep the workspace tests for its users and put every user in the task's touches or in a sibling task the gate requires; a task's done record must name the targets its symbol change compiles."
+
+[gotcha.2218]
+title = "A test that reads an operator fixture through an environment variable cannot qualify"
+symptom = "18.1242.1 attempts 1 and 2 panicked at bootstrap_bind_layerx.rs:89 expecting PAXEER_X_AGENT_OWNER_FIXTURE, a document schema the attempt invented; nothing provisions such files where the gates run."
+fix = "Tests serve their peers in-process on loopback from real types (anvil, served SequencerEndpoint), generate their keys and read nothing from the environment; a fixture-file test is rewritten, not supplied."
+
+[gotcha.2219]
+title = "Changing a shared struct in one crate breaks the binaries of every consumer crate"
+symptom = "1e3b37aee (18.1243.1) removed current_height and prepare_budget from GrantTerms in layerx-mcp; layerx-agentd-host/src/payer.rs still used them, so the agentd binary stopped compiling and 9.94.1 failed two attempts on lines it never touched."
+fix = "When a task changes a public struct or trait, grep every crate that names it and either add those files to touches or open the consumer port as its own task before the change lands."
+
+[gotcha.2220]
+title = "Kernel C tests build with -Werror=conversion"
+symptom = "13.27.6 attempt 1 built the kernel but the test binary failed at lxp_test_sandbox_lifecycle.c:385 on an implicit unsigned int to uint8_t conversion, treated as an error."
+fix = "Cast narrowing conversions explicitly in kernel tests; a warning in a test file is a verify failure."
+
+[gotcha.2221]
+title = "A build_cmd with --tests inherits every drifted sibling test target"
+symptom = "18.1200.1, 18.1230.1 and 18.1159.1 implemented their steps and failed only because the crate's --tests build compiled revocation.rs, unknown.rs, migration.rs and owner_bootstrap.rs, which other tasks own."
+fix = "Name the gate's own targets (--lib --test a --test b); record the drifted sibling once and leave it to its owner, unless the task's single gate binary includes the drifted module, in which case the task ports it."
+
+[gotcha.2222]
+title = "symbols must be code identifiers the graph indexes, never test titles"
+symptom = "18.1113.1 attempt 7 passed its vitest gate and failed the completion check because symbols held the two flow test titles; the check resolves each entry in the code graph and the graph indexes functions and types, not test names in strings."
+fix = "Name the exported functions or types the task changes or drives (provisionAccount, provisionDepsFromEnv); list test titles only under tests."
+
+[gotcha.2223]
+title = "--lib in a verify_cmd runs every unit test of the crate"
+symptom = "18.1200.1 attempt 5 passed its five integration test targets and failed on six crate unit tests outside its files that fail on main (retired level names, activity submission index, TLS boundary binary, native terminal evidence)."
+fix = "Name only the test targets the task owns in verify_cmd; keep --lib in build_cmd when the library must compile; record the crate's pre-existing unit failures once for their owners."
+
+[gotcha.2224]
+title = "A kernel case that hand-sets state does not prove the path a host call takes"
+symptom = "13.27.6 drove terminal_begin and terminal_publish with a hand-set published usage result and passed, while the real sandboxed execute through lxp_programs_sandbox_execute still returned LXP_FATAL_INVARIANT for 13.27.1 attempt 34."
+fix = "When a Go or host test reverts on a kernel status, the kernel task's case must enter through the same kernel entry point the host uses and run to the same terminal; a hand-set state proves only the step it sets."
+
+[gotcha.2225]
+title = "A test that opens a repository directory fails before any assertion when the directory is absent"
+symptom = "4.24.3 attempts 6 to 8 failed on launchpad/spec/production-system/integration/migrations/150002.sql, a directory the launchpad tests read five levels up that was never imported; the readers in ranking-algo, security, social and indexer share it."
+fix = "When a test resolves a path from the repository root, confirm the directory exists on main before the task is attempted; import the reviewed source set as its own commit (01d2bf319) rather than per task."
+
+[gotcha.2226]
+title = "go test -run with a pattern no test matches passes with no tests to run"
+symptom = "4.24.3 attempt 9 declared TestFrozenV2OperationLooksUpCatalog in verify_cmd before writing it; go test printed no tests to run, exited 0, and only the completion check caught the missing symbol."
+fix = "A verify that names a test must report it as run; treat testing: warning: no tests to run as a failure of the task, and check the test exists before the verify."
+
+[gotcha.2227]
+title = "A test that includes a source file by #[path] passes while the library never compiles it"
+symptom = "13.3.1, 13.3.2, 13.3.4 and 13.3.5 landed modules under src/chain_evidence/ whose tests include the file by #[path]; chain_evidence.rs kept empty inline placeholders, the library shipped none of the types, and 13.3.7 and 13.6.4 failed to find them."
+fix = "A task that adds a module file owns the parent file's mod line too: put the parent in touches, declare the file module, and have the test import from the crate so the gate exercises the shipped code."
+
+[gotcha.2228]
+title = "Aggregate gate scripts that log to a mktemp directory lose the cause"
+symptom = "17.5.3 and 17.5.4 failed in make workspace-build and the record held only the evidence line, because run_gate.py wrote the step log under a temporary or .logs directory the qualification record does not keep."
+fix = "Write per-step logs under the evidence_dir the manifest names (logs/waves/<n>) and echo the failing step's tail into the wave log (task 17.5.9); an evidence line without its log is not actionable."
+
+[gotcha.2229]
+title = "cargo build --tests compiles every test target of the crate"
+symptom = "18.1172.2 owned two test files and its build failed in tests/agent_controls.rs, a target another task ports, because --tests builds all of them."
+fix = "Name the owned targets in build_cmd (--lib --test a --test b) and keep --tests for crate-wide gates run once per wave."
+
+[gotcha.2230]
+title = "An acceptance clause owned by another task's retirement cannot be met early"
+symptom = "16.0.3 ac_2 forbade lxp_daemon_lni in the make -n test dry run while the daemon still compiles cmd/layerxd/lxp_daemon_lni.c, retired by 5.50.1, which transitively requires 16.0.3; requiring it would have made a cycle."
+fix = "Place a dry-run absence clause on the task that deletes the source, and check the requires graph for a cycle before adding a dependency to satisfy an acceptance clause."
+
+[gotcha.2231]
+title = "A task that changes a public signature owns every in-crate caller"
+symptom = "13.6.3 rewrote verify_call to six arguments; cargo build --tests then failed in tests/lease.rs and tests/snapshot.rs, five callers outside the task's files, on attempts 3 and 4."
+fix = "Grep the crate for the symbol before writing the task and put every caller file in touches with a do that ports it."
+
+[gotcha.2232]
+title = "Landing one half of a two-task API change breaks every dependent build"
+symptom = "18.1243.1 changed GrantTerms and landed; the host payer port 18.1243.2 stayed held, and 9.12.4 (200 transitive dependents) failed twice in payer.rs before anything of its own compiled."
+fix = "When an API change is split across tasks, the dependents require the consumer-side port, and a held consumer task is a frontier emergency, not a parking lot."
+
+[gotcha.2233]
+title = "A chain scan on an exported-state node must respect its earliest block"
+symptom = "18.670.1 walked FundingSettled logs down to block 1 against a node whose genesis starts at an exported height, and eth_getLogs failed on ranges the node never held."
+fix = "Read the earliest served block once and clamp every historical scan and indexer start to it; a fresh node also has no hourly settlement yet, so wait for the first one."
+
+[gotcha.2234]
+title = "A gate test must not read a file a later-wave task creates"
+symptom = "16.0.3's chain-domain test read the golden file of 13.31.1, which requires 16.0.3; the gate could never pass before its own dependent landed."
+fix = "Derive the expected value inside the test from the recorded decision and let the later task assert equality from its side."
+
+[gotcha.2235]
+title = "Compiling the gateway local qualification crate needs the parent-built core binary"
+symptom = "8.94.6's build compiled services/platform/hosted/gateway/tests/local, whose build.rs panics without LAYERX_TEST_CORE_BIN, before any owned source compiled; another task had already hit the same panic."
+fix = "Build layerx-core-boundary in the same build command and pass its path in LAYERX_TEST_CORE_BIN, or keep that crate out of the task build."
+
+[gotcha.2236]
+title = "Raising an executable version constant moves the published row and the test literal"
+symptom = "9.12.2 set CONTRACT_VERSION to 2; the COMPATIBILITY.md row still said 1 and the drift test's unsupported-contract literal was 2, so 18.1200.1's migration target failed on a test it did not touch."
+fix = "A version-constant bump owns the publication row and every test literal that was chosen relative to the old value (write CONTRACT_VERSION + 1, not a number)."
+
+[gotcha.2237]
+title = "Tests that set process environment variables race across test threads"
+symptom = "10.20.3's startup tests each rewrote LAYERX_HUMAN_* through env::set_var and failed at startup in different components on different runs."
+fix = "Hold a static Mutex for the lifetime of each test's environment fixture, give every test its own canonical root, and keep one opener per store root."
+
+[gotcha.2238]
+title = "Attempts that stop at implemented-not-qualified four times relaunch only when seeded by hand"
+symptom = "A task with four or more such attempts never relaunched after its blocker landed on main; the automatic re-seed skips that class."
+fix = "Seed the task explicitly with the finished attempt number and continue or requalify once the blocker is on main."
+
+[gotcha.2239]
+title = "A task packet built before a spec batch lands runs the old build_cmd"
+symptom = "8.94.6 attempt 3 ran without LAYERX_TEST_CORE_BIN although the spec on main already exported it: the packet was assembled before the batch landed."
+fix = "After landing a spec batch that changes a command, re-seed the affected task so the next attempt is assembled from the new spec."
+
+[gotcha.2240]
+title = "attach_external_signature takes the EVM SigningPreparation, not the kernel Prepared"
+symptom = "services/human custody.rs:342 passes a kernel Prepared and a 65-byte custody grant; sign.rs:334 wants &SigningPreparation and the kernel pair wants 64 bytes, so neither compiles since 9.2.2."
+fix = "Wrap the Prepared in a SigningPreparation (evm_signing.rs:145-180) and sign its signing_hash through the custody EVM action path (decision.1897)."
+
+[gotcha.2241]
+title = "MinIO no longer serves server binaries from dl.min.io or GitHub releases"
+symptom = "curl of dl.min.io/server/minio/release/linux-amd64/minio answers 410 Gone and the GitHub release RELEASE.2025-10-15T17-29-55Z carries no assets, so a fixture that downloads minio fails."
+fix = "Build it from source: GOFLAGS= go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z (several minutes, cache the binary)."
+
+[gotcha.2242]
+title = "A second node home with its own consensus key panics the primary with validator not in committee"
+symptom = "Starting a standby node of the in-tree chain as a validator (the default mode) makes consensus/internal/consensus/state.go:2622 panic because its key is not in the genesis validator set."
+fix = "Run the extra node home with mode full (consensus/config/toml.go:104); only the primary's key is in the committee."
+
+[gotcha.2243]
+title = "The v6120 halt export carries no perps, pricefeed or spot state"
+symptom = "node/testdata/v6120-halt-export.json has null app_state.perps, pricefeed and spot, so the local node starts with the perps DefaultGenesis (no markets) and getMarkPriceDetails(11) reverts; the del(...) in v6120-node.sh:245 is a no-op."
+fix = "Seed the dev genesis with the market, pricefeed and collateral state a test reads (task 5.98.3) instead of expecting it from the export."
+
+[gotcha.2244]
+title = "The gateway local fixture adapter's path needles changed when platform moved under services/"
+symptom = "services/platform/hosted/gateway/tests/local/build.rs:57 panics with fixture path contract changed because boundary.rs:4 now climbs five levels to tests/support/lxgb_metadata.rs and build.rs still searches the four-level needle."
+fix = "Update the needle and the repository climb together whenever a crate moves; the adapter asserts each needle exactly once."
+
+[gotcha.2245]
+title = "The bridge workflow check reads spec/paxeer-x-bridge/spec.kvx, which no longer exists"
+symptom = "services/bridge/deploy/tests/workflow-check.sh fails at read(root, SPEC_PATH) before any check runs because 0209f71cc consolidated the bridge spec into spec/layerx-merge/spec.kvx."
+fix = "Point SPEC_PATH at the consolidated spec; a check that reads a spec file must follow the spec consolidation."
+
+[gotcha.2246]
+title = "A monetary transfer effect without a ledger receipt is refused silently by the kernel"
+symptom = "A sandbox execution ends LXP_FATAL_INVARIANT from the kernel receipt path with nothing on stderr although the module-context test of the same path passes."
+fix = "receipt_bind_ledger_projection (src/protocol/lxp_kernel.c:2372-2395) refuses any monetary TRANSFER effect while ledger_receipt_present is false, which only the asset module sets; the programs escrow charge needs the binding of decision.1898, and module-context tests (lxp_programs_sandbox_execute) never reach that projection, so test the kernel path with lxp_kernel_execute_activity."
+
+[gotcha.2247]
+title = "Cargo builds a package's binaries for every integration test target"
+symptom = "cargo test -p <crate> --test <name> fails with compile errors in src/main.rs or a module only the binary includes, although the test file touches neither."
+fix = "Integration tests get CARGO_BIN_EXE_<name>, so every binary of the package is compiled first; a break in the binary blocks every --test gate of the package, and two tasks that each fix one break of the same binary deadlock unless one of them ports both."
+
+[gotcha.2248]
+title = "The wallet DID of a provisioned agent is did:layerx:<public key>, not the agent's registry identifier"
+symptom = "A provisioning assertion expects the did:matrix:provisioning identifier of the test agent and the state returns did:layerx:<64 hex>."
+fix = "services/wallet/gateway/src/provision/bind.ts:29 DID_PREFIX and state.ts:582 admit only did:layerx:<64 hex>; assert did:layerx:${agent.publicKeyHex} for provisioning states and wallet rows."
+
+[gotcha.2249]
+title = "A test target that stopped compiling hides its runtime failures until someone ports it"
+symptom = "The first attempt that makes an old test target compile again fails tests that nobody changed."
+fix = "When a shared test helper changes shape (raw_receipt_evidence, 351e3da14), targets that call the old shape stay unbuilt; expect the first compiling attempt to surface runtime contract drift and budget the repair for it."
+
+[gotcha.2250]
+title = "A task that edits a file another task deletes must land first or be superseded"
+symptom = "A candidate passes its gate, and the merge onto the domain branch stops on a modify/delete conflict because a later-wave deletion landed first."
+fix = "When the deleting task is already done, supersede the editing task (status superseded, dependents require the deleting task instead) rather than resurrecting the file through a continue seed; the seed step takes a path absent from the tree from the seed outright."
+
+[gotcha.2251]
+title = "A pinned sequencer leader outside the validator set panics the proposer"
+symptom = "A local node with a primary and a sequencer standby stops at the first round above zero with validator ... not in committee (round_state.go:515/:537): the leader pin L[round mod len(L)] names the standby's consensus key, which is not a genesis validator."
+fix = "Every key in app_state.sequencer.leaders must be a bonded validator; give the standby a third of the primary's power so the primary alone still commits."
+
+[gotcha.2252]
+title = "ledger_payment_call and bind_call disclose ledger, budget and bank EVM calls only"
+symptom = "Wrapping a governance activity payload in ledger_payment_call returns MalformedPayload: decode_method decodes the 0x2bb1ae7c send(bytes) form with decode_send and knows no EVM form for other modules."
+fix = "Submit non-ledger activities through the kernel signing pair (sign_disclosed, attach_kernel_signature, verify_kernel_before_submit) on the Prepared envelope."
+
+[gotcha.2253]
+title = "The agent daemon's authority fixture needs layerx-genesis-build beside layerxd"
+symptom = "A real-authority test panics at tests/support/real_authority.rs:1011 with layerx-genesis-build is not built although layerxd is present in LAYERX_TEST_NATIVE_BIN_DIR."
+fix = "Build both Makefile targets (layerxd layerx-genesis-build) and stage both binaries in the directory."
+
+[gotcha.2254]
+title = "A coverage test must read the real admission surface, not the tables named for it"
+symptom = "A test counting frozen catalog operations in the four connected route tables reports seven missing although the gateway admits them: they live in a map local to allowedConnectedRoute."
+fix = "Hoist the map into a package-level function the product reads and the test counts; name documented beyond-catalog templates explicitly rather than widening the catalog."
+
+[gotcha.2255]
+title = "Changing a crate's dependency list leaves every other workspace's Cargo.lock stale"
+symptom = "After a path dependency is removed from one crate's Cargo.toml and only that workspace's Cargo.lock is refreshed, --locked builds in the eight other workspaces that pin the crate by path are refused with the lock file needs to be updated."
+fix = "List every Cargo.lock whose layerx-agentd (or changed crate) entry exists (grep -l 'name = <crate>' over git ls-files '*Cargo.lock') and regenerate each in the same task."
+
+[gotcha.2256]
+title = "A kernel refusal still advances the host sequence"
+symptom = "A keeper test asserting that a refused activity leaves the lxphost store byte-identical fails: NextSequence and the actor's identity sequence advance by one because HostExecute commits the branch after every kernel outcome, refusal included."
+fix = "Compare the store excluding the global-sequence and identity-sequence keys and assert both advanced by one; only a request refused before the kernel runs leaves the store unchanged (decision.1907)."
+
+[gotcha.2257]
+title = "The sequencer replication log refuses the seal of an empty layer"
+symptom = "With a standby configured the primary stalls at its first height: malformed wal entry: SEAL fromSeq 1 above toSeq 0, and the standby reports sequencer: no sealed layer."
+fix = "An empty layer is FromSeq = ToSeq + 1; wal.go must refuse only FromSeq > ToSeq + 1 (issue #1299, task 18.1299.1). Single-node runs never log the seal, which hides the defect."
+
+[gotcha.2258]
+title = "The real-authority test fixture resolves the repository root one level short"
+symptom = "migrations listing: NotFound at tests/support/real_authority.rs:46 although migrations/ exists; build/bin is searched under services/."
+fix = "repository_root() takes ancestors().nth(3) of CARGO_MANIFEST_DIR, correct before the agent moved to services/agent; nth(4) is the repository root (issue #1298, task 18.1298.1)."
+
+[gotcha.2259]
+title = "A package-wide --tests build is gated by every stale test file of the package"
+symptom = "A task whose build_cmd is cargo build -p <crate> --tests fails on a test file it does not touch (archive.rs: FundsDispositionEvidence has no field verification_level)."
+fix = "Find the pending task that owns the stale file and add it to requires; do not widen the failing task's touches."
+
+[gotcha.2260]
+title = "Deleting a kernel definition file passes the archive gate and breaks the binary link"
+symptom = "After src/guarantor/lxp_dissent.c was deleted, make paxd-native-libs and the Go module gate passed, yet make build/bin/layerx-guarantor fails with undefined reference to lxp_guarantor_withhold and every Rust build script that builds the core panics."
+fix = "A retirement task that deletes definitions must grep src, include and cmd for every deleted symbol (not only tests) and its build_cmd must link a binary that pulls the object, e.g. make build/bin/layerx-guarantor (issue #1300, task 18.1300.1)."
+
+[gotcha.2261]
+title = "lxp_receive_environment is a live kernel type, not a retired symbol"
+symptom = "A retired-uses scan over tests/ for lxp_receive_environment fails on tests/codec and tests/ledger suites that legitimately use the receive environment of include/layerx/lxp_ledger.h."
+fix = "Scan for the retired path (tests/test_gateway_receive.c) and the lxp_grant_store symbols only; exclude the codec, crypto, fuzz, chain, daemon, bridge and explorer suites as test_retired_guarantor_duties.py does."
+
+[gotcha.2262]
+title = "A second task for one issue reuses the issue's req block"
+symptom = "check-draft.py accepts only task.18.<issue>.1 ids, so a follow-on task for the same issue cannot pass it and an invented req id (req.1812912) does not match the spec convention."
+fix = "Follow the 18.1172.2 pattern: task.18.<issue>.k with reqs ['18<issue>.k'], ac_k appended to [req.18<issue>] and [acceptance.18.<issue>.k] with req = '18<issue>.k'; normalise at assembly time."

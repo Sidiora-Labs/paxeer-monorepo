@@ -39,6 +39,7 @@ type RPCCodeEpoch struct {
 }
 type RPCDiscovery struct {
 	Role        string
+	Kind        string `json:",omitempty"`
 	ABIRevision string
 	RuntimeHash string
 	// Immutables lists the immutable-variable spans zeroed before hashing a
@@ -529,12 +530,20 @@ func NewRPCQualificationWithAttestation(ctx context.Context, client *ethclient.C
 	if o.Manifest.Status != "active" && o.Manifest.Status != "eligible" {
 		return nil, ErrQualification
 	}
-	approved := deployment.Current()
-	if o.Manifest.DeploymentVersion != approved.DeploymentVersion || o.Manifest.SourceManifestSHA256 != approved.SourceManifestSHA256 || o.Manifest.ActivationHeight != approved.ActivationHeight || len(o.Manifest.Roles) != len(approved.Roles) {
+	approved, ok := deployment.Approved(o.Manifest.ActivationHeight)
+	if !ok || o.Manifest.SchemaVersion != approved.SchemaVersion || o.Manifest.DeploymentVersion != approved.DeploymentVersion || o.Manifest.SourceManifestSHA256 != approved.SourceManifestSHA256 || o.Manifest.ChainID != approved.ChainID || o.Manifest.ActivationHeight != approved.ActivationHeight || o.Manifest.Status != approved.Status || o.Manifest.Native != approved.Native || o.Manifest.Settlement != approved.Settlement || o.Manifest.CreationFeeRaw != approved.CreationFeeRaw || o.Manifest.Governance != approved.Governance || o.Manifest.MarketModel != approved.MarketModel || o.Manifest.Graduation != approved.Graduation || o.Manifest.CoreOracleRequired != approved.CoreOracleRequired || len(o.Manifest.Roles) != len(approved.Roles) {
 		return nil, ErrQualification
 	}
 	for role, id := range approved.Roles {
 		if o.Manifest.Roles[role] != id {
+			return nil, ErrQualification
+		}
+	}
+	if o.Anchor != nil {
+		if o.Anchor.Height < approved.ActivationHeight {
+			return nil, ErrQualification
+		}
+		if next, ok := deployment.NextActivationHeight(approved.ActivationHeight); ok && o.Anchor.Height >= next {
 			return nil, ErrQualification
 		}
 	}
@@ -656,6 +665,11 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 		if (template.Role != "SidioraPool" && template.Role != "SidioraERC20") || !rpcHash(template.RuntimeHash) || len(template.ABIRevision) != 64 || !validCodeRanges(template.Role, template.Immutables) {
 			return nil, ErrQualification
 		}
+		switch template.Kind {
+		case "", "beacon_proxy", "surface":
+		default:
+			return nil, ErrQualification
+		}
 	}
 	deployments := make([]decode.Deployment, len(owned.Epochs))
 	coverage := map[common.Address]bool{}
@@ -676,9 +690,21 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 		}
 		if !matched {
 			if e.Deployment.Role == "SidioraPool" {
-				beacon := owned.Manifest.Roles["PoolBeacon"]
-				if e.Identity.Kind != "beacon_proxy" || common.HexToAddress(e.Identity.BeaconAddress) != common.HexToAddress(beacon.Address) || common.HexToAddress(e.Identity.ImplementationAddress) != common.HexToAddress(beacon.ImplementationAddress) || common.HexToHash(e.Identity.ImplementationHash) != common.HexToHash(beacon.ImplementationHash) {
-					return nil, ErrQualification
+				if e.Identity.Kind == "surface" {
+					matchedTemplate := false
+					for _, template := range owned.Discovery {
+						if template.Role == "SidioraPool" && template.Kind == "surface" && common.HexToHash(e.Identity.RuntimeHash) == common.HexToHash(template.RuntimeHash) {
+							matchedTemplate = true
+						}
+					}
+					if !matchedTemplate {
+						return nil, ErrQualification
+					}
+				} else {
+					beacon := owned.Manifest.Roles["PoolBeacon"]
+					if e.Identity.Kind != "beacon_proxy" || common.HexToAddress(e.Identity.BeaconAddress) != common.HexToAddress(beacon.Address) || common.HexToAddress(e.Identity.ImplementationAddress) != common.HexToAddress(beacon.ImplementationAddress) || common.HexToHash(e.Identity.ImplementationHash) != common.HexToHash(beacon.ImplementationHash) {
+						return nil, ErrQualification
+					}
 				}
 			} else if e.Deployment.Role != "SidioraERC20" || e.Identity.Kind != "direct" {
 				return nil, ErrQualification

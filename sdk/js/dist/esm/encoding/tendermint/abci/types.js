@@ -2,7 +2,7 @@ import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import { PublicKey } from "../crypto/keys";
 import { ProofOps } from "../crypto/proof";
 import { ConsensusParams } from "../types/params";
-import { CheckTxType, MisbehaviorType } from "../../../types/tendermint/abci";
+import { MisbehaviorType } from "../../../types/tendermint/abci";
 export const ResponseInfo = {
     $type: "tendermint.abci.ResponseInfo",
     encode(message, writer = new BinaryWriter()) {
@@ -1142,31 +1142,6 @@ export const ValidatorUpdate = {
         return message;
     }
 };
-export function checkTxTypeFromJSON(object) {
-    switch (object) {
-        case 0:
-        case "NEW":
-            return CheckTxType.NEW;
-        case 1:
-        case "RECHECK":
-            return CheckTxType.RECHECK;
-        case -1:
-        case "UNRECOGNIZED":
-        default:
-            return CheckTxType.UNRECOGNIZED;
-    }
-}
-export function checkTxTypeToJSON(object) {
-    switch (object) {
-        case CheckTxType.NEW:
-            return "NEW";
-        case CheckTxType.RECHECK:
-            return "RECHECK";
-        case CheckTxType.UNRECOGNIZED:
-        default:
-            return "UNRECOGNIZED";
-    }
-}
 export function misbehaviorTypeFromJSON(object) {
     switch (object) {
         case 0:

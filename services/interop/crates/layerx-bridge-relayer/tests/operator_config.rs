@@ -280,6 +280,28 @@ fn documented_example_loads_through_production_config() {
     let config = RelayerConfig::load(Path::new(EXAMPLE_PATH))
         .expect("unmodified documented example passes production validation");
     assert_eq!(config, load(&example()));
+    let receipt_keys = config.receipt_keys().expect("typed example receipt keys");
+    assert_eq!(receipt_keys.len(), 1);
+    assert_eq!(
+        receipt_keys[0].sequencer_id(),
+        *b"EXAMPLE_ONLY_RECEIPT_SEQUENCER_1"
+    );
+    assert_eq!(
+        receipt_keys[0],
+        SequencerAuthorization::new(
+            *b"EXAMPLE_ONLY_RECEIPT_SEQUENCER_1",
+            [
+                0x81, 0x46, 0x64, 0x0f, 0x02, 0x49, 0x3a, 0xf4, 0xfb, 0xc5, 0x4f, 0xe3, 0x33, 0x88,
+                0xe7, 0x5d, 0xc2, 0xc9, 0x37, 0xae, 0x0b, 0x77, 0x27, 0xcc, 0x2b, 0x2a, 0xfb, 0x1b,
+                0x75, 0x19, 0x9a, 0x3e,
+            ],
+            config.paxeer.start_block,
+            u64::MAX,
+        )
+    );
+    let receipt_public = ed25519_dalek::VerifyingKey::from_bytes(&receipt_keys[0].public_key())
+        .expect("public example receipt verification key");
+    assert!(!receipt_public.is_weak());
     let solana = config.solana.as_ref().expect("Solana entry");
     let settings = solana.settings().expect("typed observer settings");
     assert_eq!(settings.chain_id, SOLANA_CHAIN_ID);

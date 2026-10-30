@@ -391001,12 +391001,12 @@ notes = "Stale task 11.5.8 re-targets budget_proof.rs off the LNI transport."
 [interface.9.fmt-human-peer-frame]
 kind = "file_format"
 path = "services/agent/crates/layerx-agentd/src/human.rs"
-line = 14
-signature = "human peer frame: magic LXHAGT01 (traced LXHAGT02 at human.rs:15) + opcode u8 + payload over the LNI FrameTransport"
+line = 17
+signature = "human peer frame: magic LXHAGT01 (traced LXHAGT02 at human.rs:18) + opcode u8 + payload over the agentd-local HumanFrameTransport (human_frame.rs:19)"
 callers = ["services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:143", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:143", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:285", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs:146", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:31", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:166", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:225", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:324", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:329", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:337", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:350", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:354", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:359", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:393", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:399", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs:415", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:175", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:182", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:231", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:236", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:283", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:288", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:313", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:361", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:413", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:435", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:442", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:457", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:491", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:493", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:513", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:518", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs:548", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs:169", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs:217", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs:563", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs:572", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs:624", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs:635"]
 status = "change"
 contract = "contracts/agent-formats.md#human-peer-frame"
-notes = "Served on LAYERX_AGENT_HUMAN_SOCKET; framing comes from layerx_client::lni::transport::FrameTransport (human.rs:3), which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Served on LAYERX_AGENT_HUMAN_SOCKET; framing comes from the agentd-local HumanFrameTransport with a 4-byte big-endian length prefix in services/agent/crates/layerx-agentd/src/human_frame.rs:19-49, declared as human::frame at human.rs:3-6; the frame no longer depends on layerx_client::lni."
 
 [interface.9.fmt-lni-v1-capabilities]
 kind = "file_format"
@@ -394221,7 +394221,7 @@ signature = "human peer opcode 13 ACCOUNT_SEQUENCE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2800", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:93"]
 status = "change"
 contract = "contracts/agent-human-peer.md#account-sequence"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-account-state]
 kind = "proto_message"
@@ -394231,7 +394231,7 @@ signature = "human peer opcode 42 ACCOUNT_STATE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2767", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:90"]
 status = "change"
 contract = "contracts/agent-human-peer.md#account-state"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-archive]
 kind = "proto_message"
@@ -394241,7 +394241,7 @@ signature = "human peer opcode 29 AGENT_ARCHIVE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2899", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:103"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-archive"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-budget-proof-v4]
 kind = "proto_message"
@@ -394251,7 +394251,7 @@ signature = "human peer opcode 57 AGENT_BUDGET_PROOF_V4"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2762", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:76"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-budget-proof-v4"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 57 AGENT_BUDGET_PROOF."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 57 AGENT_BUDGET_PROOF."
 
 [interface.9.proto-human-peer-agent-budget-state]
 kind = "proto_message"
@@ -394261,7 +394261,7 @@ signature = "human peer opcode 32 AGENT_BUDGET_STATE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:3000", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:106"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-budget-state"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-context]
 kind = "proto_message"
@@ -394271,7 +394271,7 @@ signature = "human peer opcode 31 AGENT_CONTEXT"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2988", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:105"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-context"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-control]
 kind = "proto_message"
@@ -394281,7 +394281,7 @@ signature = "human peer opcode 26 AGENT_CONTROL"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2815", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:100"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-control"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-get]
 kind = "proto_message"
@@ -394291,7 +394291,7 @@ signature = "human peer opcode 25 AGENT_GET"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2812", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:99"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-get"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-journey]
 kind = "proto_message"
@@ -394301,7 +394301,7 @@ signature = "human peer opcode 28 AGENT_JOURNEY"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2851", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:102"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-journey"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-key-policy]
 kind = "proto_message"
@@ -394311,7 +394311,7 @@ signature = "human peer opcode 33 AGENT_KEY_POLICY"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:3003", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:107"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-key-policy"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-lifecycle-publish]
 kind = "proto_message"
@@ -394321,7 +394321,7 @@ signature = "human peer opcode 37 AGENT_LIFECYCLE_PUBLISH"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2991", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:111"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-lifecycle-publish"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-limit]
 kind = "proto_message"
@@ -394331,7 +394331,7 @@ signature = "human peer opcode 27 AGENT_LIMIT"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2825", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:101"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-limit"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-list]
 kind = "proto_message"
@@ -394341,7 +394341,7 @@ signature = "human peer opcode 24 AGENT_LIST"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2804", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:98"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-list"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-owner-rotated]
 kind = "proto_message"
@@ -394351,7 +394351,7 @@ signature = "human peer opcode 43 AGENT_OWNER_ROTATED"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2841"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-owner-rotated"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 43."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 43."
 
 [interface.9.proto-human-peer-agent-session-bind]
 kind = "proto_message"
@@ -394361,7 +394361,7 @@ signature = "human peer opcode 36 AGENT_SESSION_BIND"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:3018", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:110"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-session-bind"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-session-restrict]
 kind = "proto_message"
@@ -394371,7 +394371,7 @@ signature = "human peer opcode 38 AGENT_SESSION_RESTRICT"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:3024", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:112"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-session-restrict"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-session-snapshot]
 kind = "proto_message"
@@ -394381,7 +394381,7 @@ signature = "human peer opcode 34 AGENT_SESSION_SNAPSHOT"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:3011", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:108"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-session-snapshot"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-agent-session-suspend]
 kind = "proto_message"
@@ -394391,7 +394391,7 @@ signature = "human peer opcode 35 AGENT_SESSION_SUSPEND"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:3014", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:109"]
 status = "change"
 contract = "contracts/agent-human-peer.md#agent-session-suspend"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-approval-approve]
 kind = "proto_message"
@@ -394401,7 +394401,7 @@ signature = "human peer opcode 11 APPROVAL_APPROVE"
 callers = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs:84"]
 status = "change"
 contract = "contracts/agent-human-peer.md#approval-approve"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-approval-budget-after-v2]
 kind = "proto_message"
@@ -394411,7 +394411,7 @@ signature = "human peer opcode 48 APPROVAL_BUDGET_AFTER_V2"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2723", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:67"]
 status = "change"
 contract = "contracts/agent-human-peer.md#approval-budget-after-v2"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 48 APPROVAL_BUDGET_AFTER."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 48 APPROVAL_BUDGET_AFTER."
 
 [interface.9.proto-human-peer-approval-get]
 kind = "proto_message"
@@ -394421,7 +394421,7 @@ signature = "human peer opcode 10 APPROVAL_GET"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2550", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:83"]
 status = "change"
 contract = "contracts/agent-human-peer.md#approval-get"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-approval-get-facts-v2]
 kind = "proto_message"
@@ -394431,7 +394431,7 @@ signature = "human peer opcode 47 APPROVAL_GET_FACTS_V2"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2563", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:66"]
 status = "change"
 contract = "contracts/agent-human-peer.md#approval-get-facts-v2"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 47 APPROVAL_GET_FACTS."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 47 APPROVAL_GET_FACTS."
 
 [interface.9.proto-human-peer-approval-list]
 kind = "proto_message"
@@ -394441,7 +394441,7 @@ signature = "human peer opcode 9 APPROVAL_LIST"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2541", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:82"]
 status = "change"
 contract = "contracts/agent-human-peer.md#approval-list"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-approval-list-facts-v2]
 kind = "proto_message"
@@ -394451,7 +394451,7 @@ signature = "human peer opcode 46 APPROVAL_LIST_FACTS_V2"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2554", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:65"]
 status = "change"
 contract = "contracts/agent-human-peer.md#approval-list-facts-v2"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 46 APPROVAL_LIST_FACTS."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 46 APPROVAL_LIST_FACTS."
 
 [interface.9.proto-human-peer-approval-reject]
 kind = "proto_message"
@@ -394461,7 +394461,7 @@ signature = "human peer opcode 12 APPROVAL_REJECT"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2732", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:85"]
 status = "change"
 contract = "contracts/agent-human-peer.md#approval-reject"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-balance]
 kind = "proto_message"
@@ -394471,7 +394471,7 @@ signature = "human peer opcode 6 BALANCE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2765", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:86"]
 status = "change"
 contract = "contracts/agent-human-peer.md#balance"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-capability-install]
 kind = "proto_message"
@@ -394481,7 +394481,7 @@ signature = "human peer opcode 30 CAPABILITY_INSTALL"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2916", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:104"]
 status = "change"
 contract = "contracts/agent-human-peer.md#capability-install"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-evidence]
 kind = "proto_message"
@@ -394491,7 +394491,7 @@ signature = "human peer opcode 8 EVIDENCE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2779", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:92"]
 status = "change"
 contract = "contracts/agent-human-peer.md#evidence"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-head]
 kind = "proto_message"
@@ -394501,7 +394501,7 @@ signature = "human peer opcode 7 HEAD"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2778", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:91"]
 status = "change"
 contract = "contracts/agent-human-peer.md#head"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-identity-resolve]
 kind = "proto_message"
@@ -394511,7 +394511,7 @@ signature = "human peer opcode 20 IDENTITY_RESOLVE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2783", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:94"]
 status = "change"
 contract = "contracts/agent-human-peer.md#identity-resolve"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-lease-map]
 kind = "proto_message"
@@ -394521,7 +394521,7 @@ signature = "human peer opcode 21 LEASE_MAP"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2786", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:95"]
 status = "change"
 contract = "contracts/agent-human-peer.md#lease-map"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-managed-evidence-by-digest-v2]
 kind = "proto_message"
@@ -394531,7 +394531,7 @@ signature = "human peer opcode 49 MANAGED_EVIDENCE_BY_DIGEST_V2"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2728", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:68"]
 status = "change"
 contract = "contracts/agent-human-peer.md#managed-evidence-by-digest-v2"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 49 MANAGED_EVIDENCE."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 49 MANAGED_EVIDENCE."
 
 [interface.9.proto-human-peer-native-approval-get-facts-v2]
 kind = "proto_message"
@@ -394541,7 +394541,7 @@ signature = "human peer opcode 51 NATIVE_APPROVAL_GET_FACTS_V2"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2579", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:70"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-approval-get-facts-v2"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 51 NATIVE_APPROVAL_GET_FACTS."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 51 NATIVE_APPROVAL_GET_FACTS."
 
 [interface.9.proto-human-peer-native-approval-list-facts-v2]
 kind = "proto_message"
@@ -394551,7 +394551,7 @@ signature = "human peer opcode 50 NATIVE_APPROVAL_LIST_FACTS_V2"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2567", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:69"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-approval-list-facts-v2"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 50 NATIVE_APPROVAL_LIST_FACTS."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 50 NATIVE_APPROVAL_LIST_FACTS."
 
 [interface.9.proto-human-peer-native-effect-approval-budget-v4]
 kind = "proto_message"
@@ -394561,7 +394561,7 @@ signature = "human peer opcode 56 NATIVE_EFFECT_APPROVAL_BUDGET_V4"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2700", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:75"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-effect-approval-budget-v4"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 56 NATIVE_EFFECT_APPROVAL_BUDGET."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 56 NATIVE_EFFECT_APPROVAL_BUDGET."
 
 [interface.9.proto-human-peer-native-effect-approval-decide-v3]
 kind = "proto_message"
@@ -394571,7 +394571,7 @@ signature = "human peer opcode 54 NATIVE_EFFECT_APPROVAL_DECIDE_V3"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2679", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:73"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-effect-approval-decide-v3"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 54 NATIVE_EFFECT_APPROVAL_DECIDE."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 54 NATIVE_EFFECT_APPROVAL_DECIDE."
 
 [interface.9.proto-human-peer-native-effect-approval-get-v3]
 kind = "proto_message"
@@ -394581,7 +394581,7 @@ signature = "human peer opcode 53 NATIVE_EFFECT_APPROVAL_GET_V3"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2672", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:72"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-effect-approval-get-v3"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 53 NATIVE_EFFECT_APPROVAL_GET."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 53 NATIVE_EFFECT_APPROVAL_GET."
 
 [interface.9.proto-human-peer-native-effect-approval-list-v3]
 kind = "proto_message"
@@ -394591,7 +394591,7 @@ signature = "human peer opcode 52 NATIVE_EFFECT_APPROVAL_LIST_V3"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2660", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:71"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-effect-approval-list-v3"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 52 NATIVE_EFFECT_APPROVAL_LIST."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 52 NATIVE_EFFECT_APPROVAL_LIST."
 
 [interface.9.proto-human-peer-native-effect-approval-material-v4]
 kind = "proto_message"
@@ -394601,7 +394601,7 @@ signature = "human peer opcode 55 NATIVE_EFFECT_APPROVAL_MATERIAL_V4"
 callers = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs:74"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-effect-approval-material-v4"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 55 NATIVE_EFFECT_APPROVAL_MATERIAL."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 55 NATIVE_EFFECT_APPROVAL_MATERIAL."
 
 [interface.9.proto-human-peer-native-fee-policy]
 kind = "proto_message"
@@ -394611,7 +394611,7 @@ signature = "human peer opcode 39 NATIVE_FEE_POLICY"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2766", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:87"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-fee-policy"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-native-journey-envelope-v1]
 kind = "proto_message"
@@ -394621,7 +394621,7 @@ signature = "human peer opcode 65 NATIVE_JOURNEY_ENVELOPE_V1"
 callers = []
 status = "change"
 contract = "contracts/agent-human-peer.md#native-journey-envelope-v1"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 65. No in-repo reference outside the defining line at this revision."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 65. No in-repo reference outside the defining line at this revision."
 
 [interface.9.proto-human-peer-native-owner-context-v1]
 kind = "proto_message"
@@ -394631,7 +394631,7 @@ signature = "human peer opcode 64 NATIVE_OWNER_CONTEXT_V1"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2371"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-owner-context-v1"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 64."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 64."
 
 [interface.9.proto-human-peer-native-program-approval-budget-v5]
 kind = "proto_message"
@@ -394641,7 +394641,7 @@ signature = "human peer opcode 61 NATIVE_PROGRAM_APPROVAL_BUDGET_V5"
 callers = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs:80"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-program-approval-budget-v5"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 61 NATIVE_PROGRAM_APPROVAL_BUDGET."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 61 NATIVE_PROGRAM_APPROVAL_BUDGET."
 
 [interface.9.proto-human-peer-native-program-approval-decide-v5]
 kind = "proto_message"
@@ -394651,7 +394651,7 @@ signature = "human peer opcode 62 NATIVE_PROGRAM_APPROVAL_DECIDE_V5"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2590", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:81"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-program-approval-decide-v5"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 62 NATIVE_PROGRAM_APPROVAL_DECIDE."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 62 NATIVE_PROGRAM_APPROVAL_DECIDE."
 
 [interface.9.proto-human-peer-native-program-approval-get-v5]
 kind = "proto_message"
@@ -394661,7 +394661,7 @@ signature = "human peer opcode 59 NATIVE_PROGRAM_APPROVAL_GET_V5"
 callers = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs:78"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-program-approval-get-v5"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 59 NATIVE_PROGRAM_APPROVAL_GET."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 59 NATIVE_PROGRAM_APPROVAL_GET."
 
 [interface.9.proto-human-peer-native-program-approval-list-v5]
 kind = "proto_message"
@@ -394671,7 +394671,7 @@ signature = "human peer opcode 58 NATIVE_PROGRAM_APPROVAL_LIST_V5"
 callers = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs:77"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-program-approval-list-v5"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 58 NATIVE_PROGRAM_APPROVAL_LIST."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 58 NATIVE_PROGRAM_APPROVAL_LIST."
 
 [interface.9.proto-human-peer-native-program-approval-material-v5]
 kind = "proto_message"
@@ -394681,7 +394681,7 @@ signature = "human peer opcode 60 NATIVE_PROGRAM_APPROVAL_MATERIAL_V5"
 callers = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs:79"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-program-approval-material-v5"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 60 NATIVE_PROGRAM_APPROVAL_MATERIAL."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 60 NATIVE_PROGRAM_APPROVAL_MATERIAL."
 
 [interface.9.proto-human-peer-native-send-envelope-v1]
 kind = "proto_message"
@@ -394691,7 +394691,7 @@ signature = "human peer opcode 67 NATIVE_SEND_ENVELOPE_V1"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2483"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-send-envelope-v1"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 67."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 67."
 
 [interface.9.proto-human-peer-native-send-owner-preview-v1]
 kind = "proto_message"
@@ -394701,7 +394701,7 @@ signature = "human peer opcode 66 NATIVE_SEND_OWNER_PREVIEW_V1"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2432"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-send-owner-preview-v1"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 66."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 66."
 
 [interface.9.proto-human-peer-native-send-preview-v1]
 kind = "proto_message"
@@ -394711,7 +394711,7 @@ signature = "human peer opcode 63 NATIVE_SEND_PREVIEW_V1"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2386"]
 status = "change"
 contract = "contracts/agent-human-peer.md#native-send-preview-v1"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 63."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 63."
 
 [interface.9.proto-human-peer-operator]
 kind = "proto_message"
@@ -394721,7 +394721,7 @@ signature = "human peer opcode 45 OPERATOR"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:3044"]
 status = "change"
 contract = "contracts/agent-human-peer.md#operator"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 45."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 45."
 
 [interface.9.proto-human-peer-owner-install]
 kind = "proto_message"
@@ -394731,7 +394731,7 @@ signature = "human peer opcode 23 OWNER_INSTALL"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2791", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:97"]
 status = "change"
 contract = "contracts/agent-human-peer.md#owner-install"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-owner-validate]
 kind = "proto_message"
@@ -394741,7 +394741,7 @@ signature = "human peer opcode 22 OWNER_VALIDATE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2790", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:96"]
 status = "change"
 contract = "contracts/agent-human-peer.md#owner-validate"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-prepare]
 kind = "proto_message"
@@ -394751,7 +394751,7 @@ signature = "human peer opcode 1 PREPARE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2494", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:60"]
 status = "change"
 contract = "contracts/agent-human-peer.md#prepare"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-receipt-lookup]
 kind = "proto_message"
@@ -394761,7 +394761,7 @@ signature = "human peer opcode 4 RECEIPT_LOOKUP"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2536", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:63"]
 status = "change"
 contract = "contracts/agent-human-peer.md#receipt-lookup"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-registry]
 kind = "proto_message"
@@ -394771,7 +394771,7 @@ signature = "human peer opcode 5 REGISTRY"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2540", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:64"]
 status = "change"
 contract = "contracts/agent-human-peer.md#registry"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-session-fee-state]
 kind = "proto_message"
@@ -394781,7 +394781,7 @@ signature = "human peer opcode 40 SESSION_FEE_STATE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2770", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:88"]
 status = "change"
 contract = "contracts/agent-human-peer.md#session-fee-state"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-session-seed-prepare]
 kind = "proto_message"
@@ -394791,7 +394791,7 @@ signature = "human peer opcode 41 SESSION_SEED_PREPARE"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2773", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:89"]
 status = "change"
 contract = "contracts/agent-human-peer.md#session-seed-prepare"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-subject]
 kind = "proto_message"
@@ -394801,7 +394801,7 @@ signature = "human peer opcode 44 SUBJECT"
 callers = []
 status = "change"
 contract = "contracts/agent-human-peer.md#subject"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 44. No in-repo reference outside the defining line at this revision."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 44. No in-repo reference outside the defining line at this revision."
 
 [interface.9.proto-human-peer-submit]
 kind = "proto_message"
@@ -394811,7 +394811,7 @@ signature = "human peer opcode 2 SUBMIT"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2515", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:61"]
 status = "change"
 contract = "contracts/agent-human-peer.md#submit"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-human-peer-track]
 kind = "proto_message"
@@ -394821,7 +394821,7 @@ signature = "human peer opcode 3 TRACK"
 callers = ["services/agent/crates/layerx-agentd/src/human.rs:2533", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:62"]
 status = "change"
 contract = "contracts/agent-human-peer.md#track"
-notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs."
+notes = "Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)."
 
 [interface.9.proto-lni-v1-1-nodeinforequest]
 kind = "proto_message"
@@ -520120,8 +520120,8 @@ contract = "contracts/clients.md#wallet-sdk"
 [interface.12.ts-sdk-balances-j50]
 kind = "ts_export"
 path = "sdk/wallet/src/types.ts"
-line = 0
-signature = "export interface Balances { account: string; height: string; balances: BankBalance[] }"
+line = 261
+signature = "export interface Balances { account: UnifiedAccountDocument; height: string; balances: BankBalance[] }"
 callers = []
 status = "new"
 contract = "contracts/clients.md#wallet-sdk"
@@ -520294,8 +520294,8 @@ contract = "contracts/clients.md#wallet-sdk"
 [interface.12.ts-sdk-chain-account-j50]
 kind = "ts_export"
 path = "sdk/wallet/src/types.ts"
-line = 0
-signature = "export interface ChainAccount { account: string; paxeer: { address: string; balance: string; nonce: string; height: string } }"
+line = 251
+signature = "export interface ChainAccount { account: UnifiedAccountDocument; paxeer: { address: string; balance: string; nonce: string; height: string } }"
 callers = []
 status = "new"
 contract = "contracts/clients.md#wallet-sdk"

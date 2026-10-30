@@ -23,11 +23,6 @@ export const UNIFIED_ACCOUNT_PLACEHOLDER: PaxeerXUnifiedAccount = {
       decimals: 18,
     },
     total: '0',
-    parts: {
-      chain: '0',
-      custody: '0',
-      kernel: '0',
-    },
   })),
   activity: Array.from({ length: 5 }, (_, index) => ({
     kind: 'custody_deposit',
@@ -35,7 +30,6 @@ export const UNIFIED_ACCOUNT_PLACEHOLDER: PaxeerXUnifiedAccount = {
     block_number: index,
     ordinal: index,
     status: 'instant' as const,
-    side: 'kernel' as const,
     timestamp: null,
     asset: null,
     amount: null,

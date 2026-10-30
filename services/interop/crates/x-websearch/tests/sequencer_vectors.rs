@@ -174,6 +174,19 @@ impl Replay {
                 "recorded receiver's four account lookups"
             );
             rules.extend(accounts);
+            let receiver_dids: Vec<_> = calls
+                .iter()
+                .filter(|call| {
+                    call["method"] == "eth_call"
+                        && call["params"][0]["to"] == "0x0000000000000000000000000000000000001004"
+                        && call["params"][0]["data"]
+                            .as_str()
+                            .is_some_and(|data| data.starts_with("0xd3600b24"))
+                })
+                .cloned()
+                .collect();
+            assert_eq!(receiver_dids.len(), 1, "recorded receiver's DID lookup");
+            rules.extend(receiver_dids);
         }
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
@@ -489,10 +502,19 @@ fn shared_refusal_cases_do_not_release_a_payment() -> Outcome {
         let gateway = configuration["gateway"]
             .as_object_mut()
             .ok_or("gateway configuration")?;
-        let key_id = gateway.remove("sequencer_id").ok_or("recorded key id")?;
-        let public_key = gateway
-            .remove("sequencer_public_key")
-            .ok_or("recorded public key")?;
+        let receipt_key = gateway
+            .get("receipt_keys")
+            .and_then(Value::as_array)
+            .and_then(|keys| keys.first())
+            .ok_or("fixture gateway.receipt_keys must contain a receipt key")?;
+        let key_id = receipt_key
+            .get("key_id")
+            .ok_or("recorded receipt key id")?
+            .clone();
+        let public_key = receipt_key
+            .get("public_key")
+            .ok_or("recorded receipt public key")?
+            .clone();
         gateway.insert(
             "receipt_keys".to_owned(),
             json!([{

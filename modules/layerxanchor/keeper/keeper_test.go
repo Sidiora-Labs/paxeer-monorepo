@@ -8,6 +8,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	cdctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/cachemulti"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/dbadapter"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -522,6 +525,54 @@ func TestChallengeWindowDelaysFinality(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrNotFinalizable)
 	_, err = s.k.Finalize(s.ctx, 2)
 	require.ErrorIs(t, err, types.ErrCheckpointUnknown)
+}
+
+func TestResubmittedCheckpointKeepsChallengeWindow(t *testing.T) {
+	testApp := app.Setup(t, false, false, false)
+	t.Cleanup(func() { require.NoError(t, testApp.Close()) })
+	ctx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(8).WithBlockTime(time.Unix(1_800_000_000, 0))
+	stores := make(map[storetypes.StoreKey]storetypes.CacheWrapper)
+	keys := make(map[string]storetypes.StoreKey)
+	for _, key := range ctx.MultiStore().StoreKeys() {
+		stores[key] = ctx.MultiStore().GetKVStore(key)
+		keys[key.Name()] = key
+	}
+	anchorKey := sdk.NewKVStoreKey(types.StoreKey)
+	anchorDB := dbm.NewMemDB()
+	t.Cleanup(func() { require.NoError(t, anchorDB.Close()) })
+	stores[anchorKey] = dbadapter.Store{DB: anchorDB}
+	keys[anchorKey.Name()] = anchorKey
+	cacheDB := dbm.NewMemDB()
+	t.Cleanup(func() { require.NoError(t, cacheDB.Close()) })
+	ctx = ctx.WithMultiStore(cachemulti.NewStore(cacheDB, stores, keys, nil, nil, nil, 0))
+	testApp.LayerXAnchorKeeper = keeper.NewKeeper(anchorKey, testApp.AccountKeeper, testApp.BankKeeper)
+	s := initializeSuite(t, testApp, ctx, func(p *types.Params) { p.ChallengeWindowSeconds = 50 })
+	s.bondAll()
+	checkpoint, err := s.submit("batch_1_quorum")
+	require.NoError(t, err)
+	require.Equal(t, types.CheckpointSubmitted, checkpoint.Status)
+
+	s.advance(30)
+	s.reporter = account(0xc1)
+	require.NotEqual(t, checkpoint.Submitter, s.reporter.String())
+	resubmitted, err := s.submit("batch_1_quorum")
+	require.NoError(t, err)
+	require.Equal(t, types.CheckpointSubmitted, resubmitted.Status)
+	require.Equal(t, checkpoint.CheckpointID, resubmitted.CheckpointID)
+	require.Equal(t, checkpoint.Submitter, resubmitted.Submitter)
+	require.Equal(t, checkpoint.SubmittedHeight, resubmitted.SubmittedHeight)
+	require.Equal(t, checkpoint.SubmittedTime, resubmitted.SubmittedTime)
+	stored, ok := s.k.GetCheckpoint(s.ctx, checkpoint.BatchNumber)
+	require.True(t, ok)
+	require.Equal(t, resubmitted, stored)
+	_, err = s.k.Finalize(s.ctx, checkpoint.BatchNumber)
+	require.ErrorIs(t, err, types.ErrNotFinalizable)
+
+	s.advance(20)
+	final, err := s.k.Finalize(s.ctx, checkpoint.BatchNumber)
+	require.NoError(t, err)
+	require.Equal(t, types.CheckpointFinal, final.Status)
+	require.Equal(t, checkpoint.CheckpointID, final.CheckpointID)
 }
 
 func TestGenesisRoundTrip(t *testing.T) {

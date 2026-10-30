@@ -4,12 +4,12 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use layerx_client::lni::transport::{
-    ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls, TransportError,
-};
-use layerx_crypto::disclosure::{bind, Disclosure};
+use crate::frame::{ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls, TransportError};
+use layerx_crypto::disclosure::call::bind_call;
+use layerx_crypto::disclosure::Disclosure;
+use layerx_crypto::evm_transaction::{recover_sender, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::signer::{sign_disclosed, Signer as _};
+use layerx_crypto::signer::{sign_disclosed_call, AgentSignature, Signer as _};
 use layerx_types::payload::ModuleRegistry;
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
@@ -19,14 +19,13 @@ use super::{seal_refusal, CustodyError, EnvelopeKms, KeyClass, KeyEntropy, KmsEr
 const PROVIDER_REFERENCE_LIMIT: usize = 4096;
 const PROVIDER_FRAME_LIMIT: usize = 2_097_152;
 const PROVIDER_MAGIC: &[u8; 4] = b"LXKP";
-const SIGNATURE_DOMAIN: &[u8] = b"LXP/v1/signature-preimage\0";
 const PROBE: Contract = Contract::new(1, 0);
 const CREATE: Contract = Contract::new(1, 1);
 const DESCRIBE: Contract = Contract::new(1, 2);
 const ROTATE: Contract = Contract::new(1, 3);
 const ROTATE_IF_CURRENT: Contract = Contract::new(2, 3);
 const DESTROY: Contract = Contract::new(1, 4);
-const SIGN: Contract = Contract::new(1, 5);
+const SIGN: Contract = Contract::new(7, 5);
 const EXPORT: Contract = Contract::new(5, 14);
 const EXECUTOR_PROBE: Contract = Contract::new(6, 15);
 const STATUS_OK: u8 = 0;
@@ -284,96 +283,91 @@ impl ProviderKeyDescription {
     }
 }
 
-/// Exact request admitted to a provider signer. It always carries both the
-/// canonical bytes and the structured disclosure used to approve them.
+/// Exact disclosure-bound EIP-1559 request admitted to a provider signer.
 #[derive(Clone, Copy)]
 pub struct ProviderSignRequest<'a> {
-    canonical_bytes: &'a [u8],
+    call: &'a Eip1559Call,
     disclosure: &'a Disclosure,
-    registry: &'a ModuleRegistry,
+    from: [u8; 20],
     expected_public_key: [u8; 32],
 }
 
 impl<'a> ProviderSignRequest<'a> {
     pub(super) const fn new(
-        canonical_bytes: &'a [u8],
+        call: &'a Eip1559Call,
         disclosure: &'a Disclosure,
-        registry: &'a ModuleRegistry,
+        from: [u8; 20],
         expected_public_key: [u8; 32],
     ) -> Self {
         Self {
-            canonical_bytes,
+            call,
             disclosure,
-            registry,
+            from,
             expected_public_key,
         }
     }
 
-    /// Borrows the exact canonical byte string approved by the caller.
     #[must_use]
-    pub const fn canonical_bytes(&self) -> &'a [u8] {
-        self.canonical_bytes
+    pub const fn call(&self) -> &'a Eip1559Call {
+        self.call
     }
 
-    /// Borrows the structured disclosure paired with the bytes.
     #[must_use]
     pub const fn disclosure(&self) -> &'a Disclosure {
         self.disclosure
     }
 
-    /// Borrows the negotiated module registry used for re-validation.
     #[must_use]
-    pub const fn registry(&self) -> &'a ModuleRegistry {
-        self.registry
+    pub const fn from(&self) -> [u8; 20] {
+        self.from
     }
 
-    /// Returns the public key against which every response is verified.
     #[must_use]
     pub const fn expected_public_key(&self) -> [u8; 32] {
         self.expected_public_key
     }
 
     fn validate(self) -> Result<ValidatedSignRequest, CustodyError> {
-        validate_disclosed(self.canonical_bytes, self.disclosure, self.registry)
+        validate_disclosed(self.call, self.disclosure, self.from)
     }
 }
 
-/// Re-binds canonical bytes to their disclosure under `registry` and returns
-/// the signature-preimage digest plus the LXKP disclosure encoding.
 pub(super) fn validate_disclosed(
-    canonical_bytes: &[u8],
+    call: &Eip1559Call,
     disclosure: &Disclosure,
-    registry: &ModuleRegistry,
+    from: [u8; 20],
 ) -> Result<ValidatedSignRequest, CustodyError> {
-    let rebound = bind(canonical_bytes, registry)
+    let rebound = bind_call(call, from)
         .map_err(|error| CustodyError::Sign(layerx_crypto::signer::SignError::from(error)))?;
     if rebound != *disclosure {
         return Err(CustodyError::Sign(
-            layerx_crypto::signer::SignError::DisclosureMismatch("canonical_bytes"),
+            layerx_crypto::signer::SignError::DisclosureMismatch("call"),
         ));
     }
-    let reencoded = disclosure
-        .reencode()
-        .map_err(|error| CustodyError::Sign(layerx_crypto::signer::SignError::from(error)))?;
-    if !layerx_crypto::ct::eq(&reencoded, canonical_bytes) {
-        return Err(CustodyError::Sign(
-            layerx_crypto::signer::SignError::DisclosureMismatch("canonical_bytes"),
-        ));
-    }
-    let mut hasher = Sha256::new();
-    hasher.update(SIGNATURE_DOMAIN);
-    hasher.update(canonical_bytes);
     Ok(ValidatedSignRequest {
-        canonical_digest: hasher.finalize().into(),
+        canonical_digest: call.signing_hash(),
         disclosure: encode_disclosure(disclosure)?,
     })
+}
+
+pub(super) fn verify_call_signature(
+    call: &Eip1559Call,
+    from: [u8; 20],
+    signature: &[u8; 65],
+) -> Result<(), CustodyError> {
+    let invalid = || CustodyError::Sign(layerx_crypto::signer::SignError::ReturnedSignatureInvalid);
+    let signature = AgentSignature::new(*signature).map_err(|_| invalid())?;
+    if recover_sender(call, &signature).map_err(|_| invalid())? != from {
+        return Err(invalid());
+    }
+    Ok(())
 }
 
 impl Debug for ProviderSignRequest<'_> {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ProviderSignRequest")
-            .field("canonical_bytes", &"[redacted]")
+            .field("call", &"[redacted]")
             .field("disclosure", &"[validated at provider boundary]")
             .field("expected_public_key", &self.expected_public_key)
             .finish()
@@ -490,7 +484,7 @@ impl<'a> ProviderNativeSignRequest<'a> {
 
 /// Future returned by object-safe KMS provider signing.
 pub type KmsSignFuture<'a> =
-    Pin<Box<dyn Future<Output = Result<[u8; 64], CustodyError>> + Send + 'a>>;
+    Pin<Box<dyn Future<Output = Result<[u8; 65], CustodyError>> + Send + 'a>>;
 
 /// Public production custody boundary. Implementations own key creation,
 /// description, rotation, destruction and signing; none can return private key
@@ -614,7 +608,7 @@ pub trait KmsProvider: Debug + Send + Sync {
         _binding: &'a PrincipalKeyBinding,
         _reference: &'a ProviderKeyReference,
         _request: ProviderNativeSignRequest<'a>,
-    ) -> KmsSignFuture<'a> {
+    ) -> Pin<Box<dyn Future<Output = Result<[u8; 64], CustodyError>> + Send + 'a>> {
         Box::pin(async { Err(CustodyError::Kms(KmsError::Refused)) })
     }
 
@@ -693,26 +687,27 @@ impl RemoteCustodySigner {
         Ok(signature)
     }
 
-    /// Sends the exact canonical bytes and matching disclosure to the provider
-    /// and returns only the signature.
-    ///
-    /// # Errors
-    ///
-    /// Refuses a changed disclosure, a provider failure or a signature that
-    /// does not verify against the recorded public key.
+    /// Sends the exact call and matching disclosure to the provider.
     pub async fn sign_disclosed(
         &self,
         canonical_bytes: &[u8],
         disclosure: &Disclosure,
-        registry: &ModuleRegistry,
-    ) -> Result<[u8; 64], CustodyError> {
-        self.provider
-            .sign(
-                &self.binding,
-                &self.reference,
-                ProviderSignRequest::new(canonical_bytes, disclosure, registry, self.public_key),
-            )
-            .await
+        _registry: &ModuleRegistry,
+    ) -> Result<[u8; 65], CustodyError> {
+        let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(canonical_bytes)
+            .map_err(|_| CustodyError::Sign(layerx_crypto::signer::SignError::InvalidDisclosure))?;
+        let from =
+            disclosure.actor.as_slice().try_into().map_err(|_| {
+                CustodyError::Sign(layerx_crypto::signer::SignError::InvalidDisclosure)
+            })?;
+        let request = ProviderSignRequest::new(&call, disclosure, from, self.public_key);
+        request.validate()?;
+        let signature = self
+            .provider
+            .sign(&self.binding, &self.reference, request)
+            .await?;
+        verify_call_signature(&call, from, &signature)?;
+        Ok(signature)
     }
 }
 
@@ -980,26 +975,26 @@ impl KmsProvider for RemoteKmsProvider {
     ) -> KmsSignFuture<'a> {
         Box::pin(async move {
             let validated = request.validate()?;
+            if request.call.chain_id != u64::from(binding.network_id) {
+                return Err(CustodyError::Kms(KmsError::Integrity));
+            }
+            let description = self.describe_key(binding, reference)?;
+            if description.public_key() != request.expected_public_key {
+                return Err(CustodyError::Kms(KmsError::Integrity));
+            }
             let frame = encode_sign_request(
                 &self.provider_reference,
                 binding,
                 reference,
-                request.canonical_bytes,
+                request,
                 &validated,
             )?;
             let response = self.call(SIGN, &frame)?;
-            let signature: [u8; 64] = response
+            let signature: [u8; 65] = response
                 .as_slice()
                 .try_into()
                 .map_err(|_| CustodyError::Kms(KmsError::InvalidResponse))?;
-            layerx_crypto::ed25519::verify_digest(
-                &request.expected_public_key,
-                &signature,
-                &validated.canonical_digest,
-            )
-            .map_err(|_| {
-                CustodyError::Sign(layerx_crypto::signer::SignError::ReturnedSignatureInvalid)
-            })?;
+            verify_call_signature(request.call, request.from, &signature)?;
             Ok(signature)
         })
     }
@@ -1114,22 +1109,77 @@ impl KmsProvider for EnvelopeKms {
             let root = self.root_secret()?;
             let envelope = layerx_crypto::keystore::Keystore::from_bytes(reference.as_bytes())
                 .map_err(seal_refusal)?;
-            let seed = envelope
-                .open(&root, binding.identity(), binding.network_id)
-                .map_err(seal_refusal)?;
-            let signer = LocalSigner::from_secret(seed);
-            if signer.public_key() != request.expected_public_key {
+            let signer = envelope
+                .open_with(&root, binding.identity(), binding.network_id, |seed| {
+                    let evm = k256::ecdsa::SigningKey::from_slice(seed).map_err(|_| {
+                        CustodyError::Sign(layerx_crypto::signer::SignError::KeyRejected)
+                    })?;
+                    Ok::<_, CustodyError>(EnvelopeTransactionSigner {
+                        identity: LocalSigner::new(*seed),
+                        evm,
+                    })
+                })
+                .map_err(seal_refusal)??;
+            if signer.public_key() != request.expected_public_key
+                || signer.evm_address() != Some(request.from)
+                || request.call.chain_id != u64::from(binding.network_id)
+            {
                 return Err(CustodyError::Kms(KmsError::Integrity));
             }
-            sign_disclosed(
-                &signer,
-                request.canonical_bytes,
-                request.disclosure,
-                request.registry,
-            )
-            .await
-            .map(|signature| *signature.as_bytes())
-            .map_err(CustodyError::Sign)
+            let signature =
+                sign_disclosed_call(&signer, request.call, request.disclosure, request.from)
+                    .await
+                    .map_err(CustodyError::Sign)?;
+            verify_call_signature(request.call, request.from, signature.as_bytes())?;
+            Ok(*signature.as_bytes())
+        })
+    }
+}
+
+struct EnvelopeTransactionSigner {
+    identity: LocalSigner,
+    evm: k256::ecdsa::SigningKey,
+}
+
+impl Debug for EnvelopeTransactionSigner {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("EnvelopeTransactionSigner([redacted])")
+    }
+}
+
+impl layerx_crypto::signer::Signer for EnvelopeTransactionSigner {
+    fn public_key(&self) -> [u8; 32] {
+        self.identity.public_key()
+    }
+
+    fn sign<'a>(
+        &'a self,
+        request: layerx_crypto::signer::SigningRequest<'a>,
+    ) -> layerx_crypto::signer::SignFuture<'a> {
+        self.identity.sign(request)
+    }
+
+    fn evm_address(&self) -> Option<[u8; 20]> {
+        let point = self.evm.verifying_key().to_encoded_point(false);
+        let mut address = [0; 20];
+        address.copy_from_slice(&sha3::Keccak256::digest(&point.as_bytes()[1..])[12..]);
+        Some(address)
+    }
+
+    fn sign_transaction<'a>(
+        &'a self,
+        call: &'a Eip1559Call,
+    ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
+        Box::pin(async move {
+            let (signature, recovery) = self
+                .evm
+                .sign_prehash_recoverable(&call.signing_hash())
+                .map_err(|_| layerx_crypto::signer::SignError::KeyRejected)?;
+            let mut bytes = [0; 65];
+            bytes[..64].copy_from_slice(&signature.to_bytes());
+            bytes[64] = 27 + recovery.to_byte();
+            AgentSignature::new(bytes)
+                .map_err(|_| layerx_crypto::signer::SignError::ReturnedSignatureInvalid)
         })
     }
 }
@@ -1164,7 +1214,7 @@ fn encode_sign_request(
     provider_reference: &str,
     binding: &PrincipalKeyBinding,
     reference: &ProviderKeyReference,
-    canonical: &[u8],
+    request: ProviderSignRequest<'_>,
     validated: &ValidatedSignRequest,
 ) -> Result<Vec<u8>, CustodyError> {
     let mut writer = WireWriter::from_bytes(encode_header(SIGN, provider_reference)?);
@@ -1173,7 +1223,11 @@ fn encode_sign_request(
     writer.u8(binding.class.code())?;
     writer.bytes(reference.as_bytes(), PROVIDER_REFERENCE_LIMIT)?;
     writer.fixed(&validated.canonical_digest)?;
-    writer.bytes(canonical, PROVIDER_FRAME_LIMIT)?;
+    writer.fixed(&request.from)?;
+    writer.bytes(
+        &layerx_human_kms::attestor::unsigned_evm_transaction(request.call),
+        PROVIDER_FRAME_LIMIT,
+    )?;
     writer.bytes(&validated.disclosure, PROVIDER_FRAME_LIMIT)?;
     let frame = writer.finish();
     if frame.len() > PROVIDER_FRAME_LIMIT {

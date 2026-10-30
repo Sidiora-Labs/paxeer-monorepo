@@ -23,8 +23,8 @@ func TestMergeServes0x101A(t *testing.T) {
 		}
 	}
 	require.Equal(t, precompiles.MergeAddress{Address: address, Name: "layerxledger"}, ledger)
-	MissingMergeConstructors(t, address)
-	RegisterMergeConstructor(t, address)
+	missingMergeConstructors0x101A(t, address)
+	registerMergeConstructor0x101A(t, address)
 
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
@@ -33,23 +33,23 @@ func TestMergeServes0x101A(t *testing.T) {
 	require.Contains(t, a.UpgradeKeeper.GetModuleVersionMap(ctx), ledgertypes.ModuleName)
 	a.UpgradeKeeper.SetDone(ctx, precompiles.MergeUpgrade)
 	require.Equal(t, ctx.BlockHeight(), a.UpgradeKeeper.GetDoneHeight(ctx, precompiles.MergeUpgrade))
-	CustomPrecompiles(t, &a.EvmKeeper, ctx, ledger)
+	customPrecompiles0x101A(t, &a.EvmKeeper, ctx, ledger)
 }
 
-func MissingMergeConstructors(t *testing.T, address common.Address) {
+func missingMergeConstructors0x101A(t *testing.T, address common.Address) {
 	t.Helper()
 	for _, entry := range precompiles.MissingMergeConstructors() {
 		require.NotEqual(t, address, entry.Address, "node must register the ledger merge constructor")
 	}
 }
 
-func RegisterMergeConstructor(t *testing.T, address common.Address) {
+func registerMergeConstructor0x101A(t *testing.T, address common.Address) {
 	t.Helper()
 	require.EqualError(t, precompiles.RegisterMergeConstructor(address, layerxledger.NewMergePrecompile),
 		"merge constructor for "+address.Hex()+" already registered")
 }
 
-func CustomPrecompiles(t *testing.T, k *evmkeeper.Keeper, ctx sdk.Context, ledger precompiles.MergeAddress) {
+func customPrecompiles0x101A(t *testing.T, k *evmkeeper.Keeper, ctx sdk.Context, ledger precompiles.MergeAddress) {
 	t.Helper()
 	planHeight := ctx.BlockHeight()
 	for _, tracing := range []bool{false, true} {

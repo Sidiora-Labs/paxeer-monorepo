@@ -18,8 +18,8 @@ func TestMergeServes0x101B(t *testing.T) {
 		Address: address,
 		Name:    "layerxpay",
 	})
-	MissingMergeConstructors(t, address)
-	RegisterMergeConstructor(t, address)
+	missingMergeConstructors0x101B(t, address)
+	registerMergeConstructor0x101B(t, address)
 
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
@@ -46,21 +46,21 @@ func TestMergeServes0x101B(t *testing.T) {
 			} {
 				t.Run(block.name, func(t *testing.T) {
 					at := ctx.WithBlockHeight(block.height).WithIsTracing(mode.tracing)
-					CustomPrecompiles(t, &a.EvmKeeper, at, address, block.served)
+					customPrecompiles0x101B(t, &a.EvmKeeper, at, address, block.served)
 				})
 			}
 		})
 	}
 }
 
-func MissingMergeConstructors(t *testing.T, address common.Address) {
+func missingMergeConstructors0x101B(t *testing.T, address common.Address) {
 	t.Helper()
 	for _, missing := range precompiles.MissingMergeConstructors() {
 		require.NotEqual(t, address, missing.Address, "the node must register the layerxpay constructor")
 	}
 }
 
-func RegisterMergeConstructor(t *testing.T, address common.Address) {
+func registerMergeConstructor0x101B(t *testing.T, address common.Address) {
 	t.Helper()
 	require.ErrorContains(t,
 		precompiles.RegisterMergeConstructor(address, layerxpay.NewMergePrecompile),
@@ -69,7 +69,7 @@ func RegisterMergeConstructor(t *testing.T, address common.Address) {
 	)
 }
 
-func CustomPrecompiles(t *testing.T, k *evmkeeper.Keeper, ctx sdk.Context, address common.Address, wantServed bool) {
+func customPrecompiles0x101B(t *testing.T, k *evmkeeper.Keeper, ctx sdk.Context, address common.Address, wantServed bool) {
 	t.Helper()
 	served := k.CustomPrecompiles(ctx)
 	if !wantServed {

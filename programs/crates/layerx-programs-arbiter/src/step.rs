@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use layerx_client::evidence::VerifiedAdmissionPrestate;
 use layerx_programs::{interface_state_key, ProgramInterface};
 use layerx_programs_runtime::execute::{replay_portable_step, PortableReplayInputs};
 use layerx_programs_runtime::portable_replay::PortableBoundary;
@@ -9,13 +8,11 @@ use layerx_programs_runtime::{
     AbiError, AbiRevision, ActivityBudgetBinding, CapabilitySet, CompositionRefusal, ProgramId,
     ProgramReplayProfile, ProgramResolver, ValidatedModule, WasmEngine,
 };
+use layerx_proof::inclusion::VerifiedBatchHeader;
 use layerx_proof::receipt::VerifiedReceipt;
-use layerx_proof::state_range::ModuleRangeWitness;
-use layerx_proof::state_witness::StateWitness;
-use layerx_proof::{inclusion::VerifiedBatchHeader, merkle::Proof};
 use sha2::{Digest, Sha256};
 
-use crate::activity_codec::signed_activity_bytes;
+use crate::{activity_codec::signed_activity_bytes, ics23, ChainCommitProof};
 
 pub(crate) const MAX_BYTES: usize = 1_048_576;
 const RECORD_DOMAIN: &[u8] = b"LXP/program-replay-native/v1\0";
@@ -72,6 +69,29 @@ pub struct ReplayMetadata {
     pub blob_digest: [u8; 32],
 }
 impl ReplayMetadata {
+    pub fn verify_under_app_hash(
+        app_hash: [u8; 32],
+        store_root: [u8; 32],
+        multistore_proof: &[u8],
+        activity_id: &[u8; 32],
+        proof: &ics23::ExistenceProof,
+    ) -> Result<ReplayMetadata, ReplayError> {
+        if multistore_proof.len() > MAX_BYTES {
+            return Err(ReplayError::Metadata);
+        }
+        crate::multistore::verify_store_root("lxphost", store_root, multistore_proof, app_hash)
+            .map_err(|_| ReplayError::Metadata)?;
+        let mut key = vec![1, 0, 9];
+        key.extend_from_slice(b"progreplay/v1/");
+        key.extend_from_slice(activity_id);
+        if proof.key != key {
+            return Err(ReplayError::Metadata);
+        }
+        ics23::verify_existence(proof, store_root, &key, &proof.value)
+            .map_err(|_| ReplayError::Metadata)?;
+        Self::decode_untrusted(&proof.value).map_err(|_| ReplayError::Metadata)
+    }
+
     pub fn decode_untrusted(bytes: &[u8]) -> Result<Self, ReplayError> {
         if bytes.len() != 394 {
             return Err(ReplayError::Metadata);
@@ -155,11 +175,12 @@ pub struct AuthenticatedCatalogue {
     previous_root: [u8; 32],
     receipt_digest: [u8; 32],
     activity_binding: Option<ActivityBudgetBinding>,
+    app_hash: Option<[u8; 32]>,
     modules: BTreeMap<ProgramId, CatalogueEntry>,
 }
 impl AuthenticatedCatalogue {
     pub fn verify(
-        admission: &VerifiedAdmissionPrestate,
+        admission: &layerx_client::evidence::VerifiedAdmissionPrestate,
         code_blobs: &BTreeMap<[u8; 32], Vec<u8>>,
     ) -> Result<Self, ReplayError> {
         let records: BTreeMap<&[u8], &[u8]> = admission
@@ -255,25 +276,59 @@ impl AuthenticatedCatalogue {
             previous_root: admission.state_root(),
             receipt_digest: admission.receipt_digest(),
             activity_binding: None,
+            app_hash: None,
             modules,
         })
     }
     pub fn verify_with_module(
-        admission: &VerifiedAdmissionPrestate,
-        full_module9: &ModuleRangeWitness,
+        admission: &layerx_client::evidence::VerifiedAdmissionPrestate,
+        commit: &ChainCommitProof,
+        host_store_root: [u8; 32],
+        host_multistore_proof: &[u8],
+        code_proofs: &BTreeMap<[u8; 32], ics23::ExistenceProof>,
         code_blobs: &BTreeMap<[u8; 32], Vec<u8>>,
     ) -> Result<Self, ReplayError> {
-        if full_module9.module_id != 9 || full_module9.composite_index != 9 {
+        if commit.height == 0 {
             return Err(ReplayError::Catalogue);
         }
-        let inventory = full_module9
-            .verify_full_module(admission.state_root())
+        Self::verify_module_blobs(
+            commit.app_hash,
+            host_store_root,
+            host_multistore_proof,
+            code_proofs,
+            code_blobs,
+        )?;
+        let mut catalogue = Self::verify(admission, code_blobs)?;
+        catalogue.app_hash = Some(commit.app_hash);
+        Ok(catalogue)
+    }
+
+    pub fn verify_module_blobs(
+        app_hash: [u8; 32],
+        store_root: [u8; 32],
+        multistore_proof: &[u8],
+        blob_proofs: &BTreeMap<[u8; 32], ics23::ExistenceProof>,
+        code_blobs: &BTreeMap<[u8; 32], Vec<u8>>,
+    ) -> Result<(), ReplayError> {
+        if multistore_proof.len() > MAX_BYTES || blob_proofs.len() != code_blobs.len() {
+            return Err(ReplayError::Catalogue);
+        }
+        crate::multistore::verify_store_root("lxphost", store_root, multistore_proof, app_hash)
             .map_err(|_| ReplayError::Catalogue)?;
-        let records: BTreeMap<Vec<u8>, Vec<u8>> = inventory.records().iter().cloned().collect();
-        if &records != admission.legacy().legacy().program_records() {
-            return Err(ReplayError::Catalogue);
+        for (code_hash, blob) in code_blobs {
+            if blob.is_empty() || blob.len() > MAX_BYTES || digest(blob) != *code_hash {
+                return Err(ReplayError::Catalogue);
+            }
+            let proof = blob_proofs.get(code_hash).ok_or(ReplayError::Catalogue)?;
+            let mut key = vec![5, 0, 9];
+            key.extend_from_slice(code_hash);
+            if proof.key != key || proof.value != *blob {
+                return Err(ReplayError::Catalogue);
+            }
+            ics23::verify_existence(proof, store_root, &key, blob)
+                .map_err(|_| ReplayError::Catalogue)?;
         }
-        Self::verify(admission, code_blobs)
+        Ok(())
     }
 }
 impl ProgramResolver for AuthenticatedCatalogue {
@@ -410,35 +465,44 @@ impl VerifiedStep {
 impl VerifiedReplay {
     pub fn verify_with_batch_context(
         receipt: &VerifiedReceipt,
-        admission: &VerifiedAdmissionPrestate,
+        admission: &layerx_client::evidence::VerifiedAdmissionPrestate,
         header: &VerifiedBatchHeader,
-        receipt_proof: &Proof,
-        metadata_proof: &StateWitness,
+        commit: &ChainCommitProof,
+        host_store_root: [u8; 32],
+        host_multistore_proof: &[u8],
+        metadata_proof: &ics23::ExistenceProof,
         authority_bytes: &[u8],
         hosts_bytes: &[u8],
         catalogue: AuthenticatedCatalogue,
     ) -> Result<Self, ReplayError> {
-        let authority =
-            crate::VerifiedReplayAuthority::derive(receipt, admission, header, receipt_proof)?;
-        authority.verify_native(authority_bytes)?;
-        Self::verify(
+        let authority = crate::VerifiedReplayAuthority::derive(receipt, admission, header, commit)?;
+        let replay = Self::verify(
             receipt,
             admission,
+            commit,
+            host_store_root,
+            host_multistore_proof,
             metadata_proof,
-            authority.canonical_bytes(),
+            authority_bytes,
             hosts_bytes,
             catalogue,
-        )
+        )?;
+        authority.verify_native(authority_bytes)?;
+        Ok(replay)
     }
 
     pub fn verify(
         receipt: &VerifiedReceipt,
-        admission: &VerifiedAdmissionPrestate,
-        metadata_proof: &StateWitness,
+        admission: &layerx_client::evidence::VerifiedAdmissionPrestate,
+        commit: &ChainCommitProof,
+        host_store_root: [u8; 32],
+        host_multistore_proof: &[u8],
+        metadata_proof: &ics23::ExistenceProof,
         authority_bytes: &[u8],
         hosts_bytes: &[u8],
         mut catalogue: AuthenticatedCatalogue,
     ) -> Result<Self, ReplayError> {
+        commit.verify_receipt(receipt)?;
         let unsigned = layerx_wire::receipt::encode_unsigned(receipt.receipt())
             .map_err(|_| ReplayError::Receipt)?;
         let expected_digest =
@@ -447,16 +511,15 @@ impl VerifiedReplay {
             return Err(ReplayError::Admission);
         }
         let receipt = receipt.receipt().protocol().ok_or(ReplayError::Receipt)?;
-        let metadata = ReplayMetadata::decode_untrusted(&metadata_proof.value)?;
-        let mut expected_key = b"progreplay/v1/".to_vec();
-        expected_key.extend_from_slice(&receipt.activity_id());
-        if metadata_proof.module_id != 9
-            || metadata_proof.key != expected_key
-            || metadata_proof
-                .verify(receipt.resulting_state_root())
-                .is_err()
-        {
-            return Err(ReplayError::Metadata);
+        let metadata = ReplayMetadata::verify_under_app_hash(
+            commit.app_hash,
+            host_store_root,
+            host_multistore_proof,
+            &receipt.activity_id(),
+            metadata_proof,
+        )?;
+        if catalogue.app_hash != Some(commit.app_hash) {
+            return Err(ReplayError::Catalogue);
         }
         if receipt.protocol_version() != 3
             || receipt.module_id() != 9

@@ -3616,6 +3616,11 @@ fn route_with_peer(
     request: &IncomingRequest,
     peer: Option<SocketAddr>,
 ) -> OutgoingResponse {
+    public_reads::bind_client(
+        &config.trusted_proxies,
+        peer,
+        request.headers.get("x-forwarded-for").map(String::as_str),
+    );
     let program_request = programs_request_path(&request.method, &request.path);
     let trace_id = trace(request);
     if request.headers.contains_key("x-layerx-principal")

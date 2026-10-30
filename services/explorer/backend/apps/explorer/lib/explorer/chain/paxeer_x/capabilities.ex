@@ -3,17 +3,18 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   Discovery of the Paxeer X Network surfaces the connected node answers today.
 
   The LayerX-side precompiles are not part of the chain that is live now: they
-  arrive with a later upgrade, and until then `eth_getCode` at their addresses
-  answers `0x`. Everything the explorer builds on top of them has to ask before
-  it renders, so this process probes the node the same way the platform gateway
-  does and publishes the answer to the rest of the application.
+  arrive with a later upgrade. Everything the explorer builds on top of them
+  has to ask before it renders, so this process probes the node the same way
+  the platform gateway does and publishes the answer to the rest of the application.
 
   One probe reads the node head with `eth_blockNumber` and then, at that one
   height, issues
 
-    * `eth_getCode` for the exchange (`0x…1015`), bridge (`0x…1016`) and
-      launchpad (`0x…1017`) precompiles — a
-      surface is live when the answer carries at least one byte of code;
+    * `eth_call` of `getMarginMode(address)` with the zero account for the
+      exchange (`0x…1015`) and `isPaused()` for the bridge (`0x…1016`) — a
+      surface is live when its view returns exactly one ABI word;
+    * `eth_getCode` for the launchpad (`0x…1017`) precompile — the surface is
+      live when the answer carries at least one byte of code;
     * one `eth_call` of `getUnifiedAccount(address)` (selector `0x357feed6`) at
       the addr precompile `0x…1004`, which exists before the upgrade but only
       answers that method after it — the capability is live when the call
@@ -64,16 +65,20 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   @launchpad_precompile "0x0000000000000000000000000000000000001017"
   @addr_precompile "0x0000000000000000000000000000000000001004"
 
-  @code_surfaces [
+  @view_surfaces [
     exchange: @exchange_precompile,
-    bridge: @bridge_precompile,
-    launchpad: @launchpad_precompile
+    bridge: @bridge_precompile
   ]
 
-  @code_surface_names Keyword.keys(@code_surfaces)
+  @code_surfaces [launchpad: @launchpad_precompile]
+  @surface_addresses @view_surfaces ++ @code_surfaces
+  @view_surface_names Keyword.keys(@view_surfaces)
+  @surface_names Keyword.keys(@surface_addresses)
 
-  @surfaces [:unified_account | @code_surface_names]
+  @surfaces [:unified_account | @surface_names]
 
+  @get_margin_mode_selector "0xb71d031c"
+  @is_paused_selector "0xb187bd26"
   @get_unified_account_selector "0x357feed6"
   @probed_account "0x0000000000000000000000000000000000000000"
 
@@ -82,7 +87,7 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   # shorter than that or refuses outright.
   @unified_account_head_bytes 128
 
-  @unified_account_request_id length(@code_surfaces)
+  @unified_account_request_id length(@surface_addresses)
   @head_request_id 0
 
   @default_refresh_interval_seconds 30
@@ -118,8 +123,8 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   @spec address(surface()) :: String.t()
   def address(:unified_account), do: @addr_precompile
 
-  def address(surface) when surface in @code_surface_names,
-    do: Keyword.fetch!(@code_surfaces, surface)
+  def address(surface) when surface in @surface_names,
+    do: Keyword.fetch!(@surface_addresses, surface)
 
   @doc """
   Whether `surface` was live at the last successful probe.
@@ -246,9 +251,22 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   defp probe_requests(block_number) do
     block_quantity = EthereumJSONRPC.integer_to_quantity(block_number)
 
+    view_requests =
+      @view_surfaces
+      |> Enum.with_index()
+      |> Enum.map(fn {{surface, address}, index} ->
+        data =
+          case surface do
+            :exchange -> @get_margin_mode_selector <> address_argument(@probed_account)
+            :bridge -> @is_paused_selector
+          end
+
+        Contract.eth_call_request(data, address, index, block_number, nil)
+      end)
+
     code_requests =
       @code_surfaces
-      |> Enum.with_index()
+      |> Enum.with_index(length(@view_surfaces))
       |> Enum.map(fn {{_surface, address}, index} ->
         request(%{id: index, method: "eth_getCode", params: [address, block_quantity]})
       end)
@@ -262,7 +280,7 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
         nil
       )
 
-    [unified_account_request | code_requests]
+    [unified_account_request | view_requests ++ code_requests]
   end
 
   defp address_argument("0x" <> digits),
@@ -271,21 +289,24 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   defp read(responses) do
     by_id = Map.new(responses, fn %{id: id} = response -> {id, response} end)
 
-    with {:ok, code_surfaces} <- read_code_surfaces(by_id),
+    with {:ok, surfaces} <- read_surfaces(by_id),
          {:ok, unified_account} <-
            read_unified_account(Map.get(by_id, @unified_account_request_id)) do
       {:ok,
-       code_surfaces
+       surfaces
        |> Map.put(:unified_account, unified_account)
        |> Map.put(:checked_at, DateTime.utc_now())}
     end
   end
 
-  defp read_code_surfaces(by_id) do
-    @code_surfaces
+  defp read_surfaces(by_id) do
+    @surface_addresses
     |> Enum.with_index()
     |> Enum.reduce_while({:ok, %{}}, fn {{surface, _address}, index}, {:ok, acc} ->
-      case read_code(Map.get(by_id, index)) do
+      response = Map.get(by_id, index)
+      result = if surface in @view_surface_names, do: read_view(response), else: read_code(response)
+
+      case result do
         {:ok, live?} -> {:cont, {:ok, Map.put(acc, surface, live?)}}
         {:error, reason} -> {:halt, {:error, {surface, reason}}}
       end
@@ -303,6 +324,18 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   defp read_code(%{error: error}), do: {:error, error}
 
   defp read_code(other), do: {:error, {:unexpected_response, other}}
+
+  defp read_view(%{result: "0x" <> digits} = response) do
+    if byte_size(digits) == 64 and hexadecimal?(digits) do
+      {:ok, true}
+    else
+      {:error, {:unexpected_response, response}}
+    end
+  end
+
+  defp read_view(%{error: _error}), do: {:ok, false}
+
+  defp read_view(other), do: {:error, {:unexpected_response, other}}
 
   # A node without the method answers the `eth_call` with an error or with
   # fewer bytes than the declared return layout; either way the capability is

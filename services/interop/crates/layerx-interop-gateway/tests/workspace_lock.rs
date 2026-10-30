@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::Path;
 
 const WORKSPACE: &str = include_str!("../../../Cargo.toml");
 const LOCK: &str = include_str!("../../../Cargo.lock");
@@ -16,7 +18,6 @@ const MEMBERS: &[(&str, &str)] = member_manifests!(
     "layerx-gas-station",
     "layerx-interop-gateway",
     "layerx-interop-service",
-    "layerx-intent-ingester",
     "layerx-fiat",
     "layerx-migrate",
     "layerx-mirror",
@@ -27,6 +28,66 @@ const MEMBERS: &[(&str, &str)] = member_manifests!(
     "layerx-x402",
     "x-websearch",
 );
+
+const GUARDED_MEMBERS: &[&str] = &[
+    "crates/layerx-ap2",
+    "crates/layerx-committed-proof",
+    "crates/layerx-interop-gateway",
+    "crates/layerx-interop-service",
+    "crates/layerx-fiat",
+    "crates/layerx-ucp",
+    "crates/layerx-visa-tap",
+    "crates/layerx-x402",
+];
+
+#[test]
+fn no_member_settles_on_authorized_batch() -> std::io::Result<()> {
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let mut violations = Vec::new();
+    for member in GUARDED_MEMBERS {
+        assert!(
+            MEMBERS.iter().any(|(path, _)| path == member),
+            "guarded crate is not a workspace member: {member}"
+        );
+        let mut pending = vec![workspace.join(member).join("src")];
+        let mut source_count = 0;
+        while let Some(directory) = pending.pop() {
+            for entry in fs::read_dir(directory)? {
+                let entry = entry?;
+                let path = entry.path();
+                let file_type = entry.file_type()?;
+                if file_type.is_dir() {
+                    pending.push(path);
+                } else if path.extension().is_some_and(|extension| extension == "rs") {
+                    let source = fs::read_to_string(&path)?;
+                    source_count += 1;
+                    for (index, line) in source.lines().enumerate() {
+                        for retired in ["AuthorizedBatch", "settle_with_receipt"] {
+                            if line.contains(retired) {
+                                violations.push(format!(
+                                    "{}:{}: {retired}",
+                                    path.display(),
+                                    index + 1
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            source_count > 0,
+            "{member}: no Rust source files were checked"
+        );
+    }
+    violations.sort();
+    assert!(
+        violations.is_empty(),
+        "retired batch settlement references in guarded sources:\n{}",
+        violations.join("\n")
+    );
+    Ok(())
+}
 
 fn table_lines(document: &str) -> impl Iterator<Item = (&str, &str)> {
     let mut table = "";

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -34,7 +35,11 @@ type opticalContractArtifact struct {
 func opticalContracts(t *testing.T) map[string]opticalContractArtifact {
 	t.Helper()
 	root := os.Getenv("LAUNCHPAD_CONTRACTS_DIR")
-	require.NotEmpty(t, root, "LAUNCHPAD_CONTRACTS_DIR must name the reference contracts directory")
+	if root == "" {
+		_, file, _, ok := goruntime.Caller(0)
+		require.True(t, ok, "resolve optical test source location")
+		root = filepath.Join(filepath.Dir(file), "../../contracts/launchpad/contracts")
+	}
 	solc := os.Getenv("SOLC")
 	if solc == "" {
 		solc = "solc"

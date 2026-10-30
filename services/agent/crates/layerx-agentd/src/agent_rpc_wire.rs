@@ -58,6 +58,44 @@ pub(crate) fn decode_wire<W: DeserializeOwned>(
     decode(request, id)
 }
 
+pub(crate) fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
+    use layerx_agent_api::{agent_api_schema_v1, ContractVersion, Sequence, VersionResponse};
+
+    let id = body
+        .get(4..12)
+        .and_then(|bytes| <[u8; 8]>::try_from(bytes).ok())
+        .map_or(RequestId(0), |bytes| RequestId(u64::from_be_bytes(bytes)));
+    let frame: &[u8; 19] = body.try_into().map_err(|_| malformed(id))?;
+    if frame[12..15] != [0; 3] {
+        return Err(malformed(id));
+    }
+    let header = ContractVersion {
+        major: u16::from_be_bytes([frame[0], frame[1]]),
+        minor: u16::from_be_bytes([frame[2], frame[3]]),
+    };
+    let supported = ContractVersion {
+        major: u16::from_be_bytes([frame[15], frame[16]]),
+        minor: u16::from_be_bytes([frame[17], frame[18]]),
+    };
+    let schema = agent_api_schema_v1();
+    if header.major != schema.version.major || supported.major != schema.version.major {
+        return Err(Rejection::new(
+            layerx_agent_api::error::ErrorClass::ProtocolIncompatibility,
+            id,
+            "envelope.version",
+        ));
+    }
+    if header != supported {
+        return Err(malformed(id));
+    }
+    Ok(VersionResponse {
+        request_id: Sequence(id.0),
+        contract: schema.version,
+        node_interface_major: schema.node_interface_major,
+    }
+    .encode())
+}
+
 /// Fixed-order JSON of a converted request, used as the canonical digest bytes.
 pub(crate) trait Canonical {
     fn canonical(&self) -> Value;
@@ -425,9 +463,9 @@ pub(crate) fn native_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,
@@ -444,9 +482,14 @@ pub(crate) struct NativeDisclosureV1Wire {
 }
 
 impl NativeDisclosureV1Wire {
-    pub(crate) fn into_request(self, id: RequestId) -> Result<layerx_agent_api::identity::NativeDisclosureRequestV1, Rejection> {
-        if self.variant != "native_disclosure_v1" || self.canonical_bytes.is_empty()
-            || self.canonical_bytes.len() > layerx_wire::limits::MAX_MESSAGE_BYTES * 2 {
+    pub(crate) fn into_request(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::NativeDisclosureRequestV1, Rejection> {
+        if self.variant != "native_disclosure_v1"
+            || self.canonical_bytes.is_empty()
+            || self.canonical_bytes.len() > layerx_wire::limits::MAX_MESSAGE_BYTES * 2
+        {
             return Err(malformed(id));
         }
         Ok(layerx_agent_api::identity::NativeDisclosureRequestV1 {
@@ -494,7 +537,10 @@ pub(crate) struct NativeEffectPrepareV1Wire {
 }
 
 impl NativeEffectPrepareV1Wire {
-    pub(crate) fn into_request(self, id: RequestId) -> Result<layerx_agent_api::identity::NativeEffectPrepareRequestV1, Rejection> {
+    pub(crate) fn into_request(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::NativeEffectPrepareRequestV1, Rejection> {
         self.typed("native_effect_v1", id)
     }
 
@@ -585,9 +631,9 @@ pub(crate) fn native_effect_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,
@@ -802,9 +848,9 @@ pub(crate) fn native_send_human_prepare(
             .value(),
         actor: request.actor.as_str().to_owned(),
         authority: request.authority,
-        account_sequence: request.account_sequence,
-        not_before: request.not_before,
-        not_after: request.not_after,
+        nonce: request.account_sequence,
+        not_before_height: request.not_before,
+        not_after_height: request.not_after,
         idempotency_key: lower_hex(&request.idempotency_key),
         fee_limit: request.fee_limit,
         payload: request.payload,
@@ -1573,7 +1619,7 @@ pub(crate) fn policy_dry_run_request(
 #[serde(deny_unknown_fields)]
 pub(crate) struct ProofBundleWire {
     target: String,
-    requested_verification_level: String,
+    requested_rung: String,
 }
 
 impl ProofBundleWire {
@@ -1589,7 +1635,7 @@ impl ProofBundleWire {
         Ok(ReadRequest {
             selector: layerx_agent_api::prepare::CanonicalBytes::new(bytes)
                 .map_err(|_| malformed(id))?,
-            requested_verification_level: export_level(&self.requested_verification_level, id)?,
+            requested_rung: export_level(&self.requested_rung, id)?,
         })
     }
 }
@@ -1604,7 +1650,7 @@ pub(crate) struct ExportOfflineWire {
     #[serde(default)]
     agent: Option<String>,
     fact_set: Vec<String>,
-    requested_verification_level: String,
+    requested_rung: String,
 }
 
 impl ExportOfflineWire {
@@ -1619,26 +1665,15 @@ impl ExportOfflineWire {
                 .into_iter()
                 .map(|fact| text(fact, id, FactRef::new))
                 .collect::<Result<_, _>>()?,
-            requested_verification_level: export_level(&self.requested_verification_level, id)?,
+            requested_rung: export_level(&self.requested_rung, id)?,
         })
         .map_err(|_| malformed(id))
     }
 }
 
 /// The export level spelling is the envelope's level name; any other text is malformed.
-fn export_level(text: &str, id: RequestId) -> Result<layerx_agent_api::verify::Level, Rejection> {
-    use layerx_agent_api::verify::Level;
-    [
-        Level::Unverified,
-        Level::SequencerSigned,
-        Level::BatchIncluded,
-        Level::StateProven,
-        Level::CheckpointFinalised,
-        Level::SettlementAnchored,
-    ]
-    .into_iter()
-    .find(|level| crate::agent_rpc_dispatch::level_name(*level) == text)
-    .ok_or_else(|| malformed(id))
+fn export_level(text: &str, id: RequestId) -> Result<layerx_agent_api::verify::Rung, Rejection> {
+    layerx_agent_api::verify::Rung::from_name(text).ok_or_else(|| malformed(id))
 }
 
 fn dimensions_value(dimensions: &CapabilityDimensions) -> Value {
@@ -1889,10 +1924,38 @@ impl SubscriptionFilterWire {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct SubscriptionCursorWire {
+    block_height: String,
+    tx_index: String,
+    log_index: String,
+}
+
+impl SubscriptionCursorWire {
+    fn into_cursor(self, id: RequestId) -> Result<Cursor, Rejection> {
+        Ok(Cursor {
+            block_height: decimal_u64(&self.block_height, id)?,
+            tx_index: u32::try_from(decimal_u64(&self.tx_index, id)?)
+                .map_err(|_| noncanonical(id))?,
+            log_index: u32::try_from(decimal_u64(&self.log_index, id)?)
+                .map_err(|_| noncanonical(id))?,
+        })
+    }
+}
+
+fn subscription_cursor_value(cursor: Cursor) -> Value {
+    json!({
+        "block_height": cursor.block_height.to_string(),
+        "tx_index": cursor.tx_index.to_string(),
+        "log_index": cursor.log_index.to_string(),
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct SubscriptionCreateWire {
     scope: SubscriptionScopeWire,
     filter: SubscriptionFilterWire,
-    start: String,
+    start: SubscriptionCursorWire,
     delivery_target: String,
 }
 
@@ -1901,7 +1964,7 @@ impl SubscriptionCreateWire {
         SubscriptionCreate {
             scope: self.scope.into_scope(id)?,
             filter: self.filter.into_filter(id)?,
-            start: Cursor(Sequence(decimal_u64(&self.start, id)?)),
+            start: self.start.into_cursor(id)?,
             delivery_target: text(self.delivery_target, id, DeliveryTarget::new)?,
         }
         .validate()
@@ -1948,7 +2011,7 @@ impl Canonical for SubscriptionCreate {
                 "counterparties": tenant_object_values(&filter.counterparties, Counterparty::as_str),
                 "result_classes": filter.result_classes.values().iter().map(|code| code.raw()).collect::<Vec<_>>(),
             },
-            "start": self.start.0 .0.to_string(),
+            "start": subscription_cursor_value(self.start),
             "delivery_target": self.delivery_target.as_str(),
         })
     }
@@ -1984,7 +2047,7 @@ impl Canonical for SubscriptionTarget {
 pub(crate) struct CursorAcknowledgementWire {
     scope: SubscriptionScopeWire,
     subscription_id: String,
-    cursor: String,
+    cursor: SubscriptionCursorWire,
 }
 
 impl CursorAcknowledgementWire {
@@ -1992,7 +2055,7 @@ impl CursorAcknowledgementWire {
         Ok(CursorAcknowledgement {
             scope: self.scope.into_scope(id)?,
             subscription_id: text(self.subscription_id, id, SubscriptionId::new)?,
-            cursor: Cursor(Sequence(decimal_u64(&self.cursor, id)?)),
+            cursor: self.cursor.into_cursor(id)?,
         })
     }
 }
@@ -2002,7 +2065,7 @@ impl Canonical for CursorAcknowledgement {
         json!({
             "scope": scope_value(&self.scope),
             "subscription_id": self.subscription_id.as_str(),
-            "cursor": self.cursor.0 .0.to_string(),
+            "cursor": subscription_cursor_value(self.cursor),
         })
     }
 }
@@ -2231,7 +2294,7 @@ pub(crate) type ProgramDeployWire = ProgramLifecycleWire;
 pub(crate) type ProgramUpgradeWire = ProgramLifecycleWire;
 pub(crate) type ProgramWindDownWire = ProgramLifecycleWire;
 
-const REQUESTED_VERIFICATION: &str = "sequencer-signed";
+const REQUESTED_VERIFICATION: &str = "submitted";
 
 fn requested_verification(value: &str, id: RequestId) -> Result<(), Rejection> {
     if value == REQUESTED_VERIFICATION {
@@ -2245,12 +2308,12 @@ fn requested_verification(value: &str, id: RequestId) -> Result<(), Rejection> {
 #[serde(deny_unknown_fields)]
 pub(crate) struct ProgramDiscoverWire {
     program_id: String,
-    requested_verification_level: String,
+    requested_rung: String,
 }
 
 impl ProgramDiscoverWire {
     pub(crate) fn into_request(self, id: RequestId) -> Result<[u8; 32], Rejection> {
-        requested_verification(&self.requested_verification_level, id)?;
+        requested_verification(&self.requested_rung, id)?;
         hex32(&self.program_id, id)
     }
 }
@@ -2259,12 +2322,12 @@ impl ProgramDiscoverWire {
 #[serde(deny_unknown_fields)]
 pub(crate) struct ProgramActivityWire {
     activity_id: String,
-    requested_verification_level: String,
+    requested_rung: String,
 }
 
 impl ProgramActivityWire {
     pub(crate) fn into_request(self, id: RequestId) -> Result<[u8; 32], Rejection> {
-        requested_verification(&self.requested_verification_level, id)?;
+        requested_verification(&self.requested_rung, id)?;
         hex32(&self.activity_id, id)
     }
 }
@@ -2674,8 +2737,8 @@ mod native_contract_tests {
         assert_eq!(human.activity_type, 0x0009_0001);
         assert_eq!(human.actor, "did:layerx:alice");
         assert_eq!(human.authority, "owner-primary");
-        assert_eq!(human.account_sequence, 4);
-        assert_eq!((human.not_before, human.not_after), (10, 20));
+        assert_eq!(human.nonce, 4);
+        assert_eq!((human.not_before_height, human.not_after_height), (10, 20));
         assert_eq!(human.idempotency_key, "88".repeat(32));
         assert_eq!(human.fee_limit, 123);
         assert_eq!(human.payload, [1, 2]);
@@ -3050,7 +3113,7 @@ fn proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases() {
         },
     ] {
         let bytes = target.encode().expect("canonical selector");
-        let value = json!({"target": lower_hex(bytes.as_bytes()), "requested_verification_level": "BatchIncluded"});
+        let value = json!({"target": lower_hex(bytes.as_bytes()), "requested_rung": "receipted"});
         let request = decode_wire::<ProofBundleWire>(value.as_object().expect("object"), id)
             .expect("wire")
             .into_request(id)
@@ -3062,15 +3125,14 @@ fn proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases() {
             lower_hex(bytes.as_bytes()) + "00",
             "000103".to_owned() + &"00".repeat(32),
         ] {
-            let malformed =
-                json!({"target": invalid, "requested_verification_level": "BatchIncluded"});
+            let malformed = json!({"target": invalid, "requested_rung": "receipted"});
             assert!(
                 decode_wire::<ProofBundleWire>(malformed.as_object().expect("object"), id)
                     .and_then(|wire| wire.into_request(id))
                     .is_err()
             );
         }
-        let unknown = json!({"target": lower_hex(bytes.as_bytes()), "requested_verification_level": "BatchIncluded", "authority": "caller"});
+        let unknown = json!({"target": lower_hex(bytes.as_bytes()), "requested_rung": "receipted", "authority": "caller"});
         assert!(decode_wire::<ProofBundleWire>(unknown.as_object().expect("object"), id).is_err());
     }
 }

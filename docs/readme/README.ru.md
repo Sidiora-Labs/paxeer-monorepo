@@ -36,7 +36,7 @@
 
 Paxeer X Network — одна сеть с двумя доменами исполнения: цепочкой Paxeer X (`paxd`, Go, EVM chain ID 125) и ядром LayerX (`layerxd`, C17) — детерминированным доменом исполнения и учёта для автономных агентов. Официальный сайт: [paxeer.network](https://paxeer.network/). Документация: [docs.paxeer.app](https://docs.paxeer.app/).
 
-Цепочка Paxeer X выполняет EVM на консенсусе Tendermint и содержит модули `layerxcustody`, `layerxexchange`, `layerxbridge` и `launchpad`, к которым контракты обращаются через прекомпиляты по адресам `0x1013`, `0x1015`, `0x1016` и `0x1017`. Ядро LayerX детерминированно исполняет и учитывает активность агентов и возвращает подписанную квитанцию для каждой активности; его контрольные точки проводятся в цепочке через прекомпилят `layerxAnchor` по адресу `0x1014`.
+Цепочка Paxeer X выполняет EVM на консенсусе Tendermint и содержит модули `layerxcustody`, `layerxexchange`, `layerxbridge` и `launchpad`. Контракты обращаются к нативным модулям через прекомпиляты `layerxCustody` (`0x1013`), `perps` (`0x1015`), `layerxBridge` (`0x1016`) и `launchpad` (`0x1017`). Набор v6.12.0, формируемый в `node/app.go` и доступный после активации этого обновления, обслуживает `perps` по адресу `0x1015` с приоритетом перед `layerxExchange`. Ядро LayerX детерминированно исполняет и учитывает активность агентов и возвращает подписанную квитанцию для каждой активности; его контрольные точки проводятся в цепочке через прекомпилят `layerxAnchor` по адресу `0x1014`.
 
 Этот репозиторий — монорепозиторий Sidiora Labs для Paxeer X Network: цепочка Paxeer X и ядро LayerX в одном репозитории. Совместное размещение позволяет проверять ядро, цепочку, контракты и инструменты для разработчиков в одном месте. Каждая подсистема сохраняет собственные границы сборки, выпуска, развёртывания и доверия. Определяющая спецификация — [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx), её отрисованная версия — [`spec/paxeer-x/design.md`](../../spec/paxeer-x/design.md); заметки о выпусках — в [`CHANGELOG.md`](../../CHANGELOG.md).
 
@@ -50,7 +50,7 @@ Paxeer X Network — одна сеть с двумя доменами испол
 
 ## Сборка из исходного кода
 
-Узел цепочки Paxeer X написан на Go 1.25.6 (`go.mod`). Ядро LayerX написано на C17 (`-std=c17` в корневом `Makefile`). Рабочие пространства agent, human и platform используют Rust 1.91.1 (`rust-toolchain.toml`). Расчётные контракты ядра в `contracts/` используют Solidity 0.8.27 (`foundry.toml`). Для квалификации воспроизведением нужны GCC 13, Clang 18, Docker, раннер amd64 с musl, а также кросс-компилятор AArch64 и QEMU; см. [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
+Узел цепочки Paxeer X написан на Go 1.25.8 (`go.mod`). Ядро LayerX написано на C17 (`-std=c17` в корневом `Makefile`). Рабочие пространства agent, human и platform используют Rust 1.91.1 (`rust-toolchain.toml`). Расчётные контракты ядра в `contracts/` используют Solidity 0.8.27 (`foundry.toml`). Для квалификации воспроизведением нужны GCC 13, Clang 18, Docker, раннер amd64 с musl, а также кросс-компилятор AArch64 и QEMU; см. [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
 
 Цели ядра LayerX:
 
@@ -167,7 +167,7 @@ flowchart TB
     occ("OCC parallel executor")
     pAnchor{{"layerxAnchor<br/>0x1014"}}
     pCustody{{"layerxCustody<br/>0x1013"}}
-    pExch{{"layerxExchange<br/>0x1015"}}
+    pExch{{"perps<br/>0x1015"}}
     pBridge{{"layerxBridge<br/>0x1016"}}
     pLaunch{{"launchpad<br/>0x1017"}}
     mCustody["layerxcustody module"]
