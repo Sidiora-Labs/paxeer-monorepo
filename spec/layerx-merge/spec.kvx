@@ -171710,7 +171710,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.95.2]
 title = "Run the bridge app checks in the bridge test workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["16.0.3", "11.0.3"]
