@@ -4941,6 +4941,18 @@ value = "Tasks 13.4.5 and 13.4.6 replaced the sequencer-signed head model of Pro
 basis = "A done task that deletes a public type or constructor leaves its callers red until an owner task ports them; the ports are ordered before the gates that build those crates, and an aggregate gate requires every port its workspace build needs."
 affects = ["8.12.3", "8.4.3", "8.5.2", "8.0.4", "10.99.1", "17.5.1"]
 
+[decision.1972]
+title = "The registry journal and producer TLS test targets are ported in task 8.12.4 before the gateway reader tasks; the all-targets check stays as written"
+value = "Task 8.12.3 made layerx-platform-registry compile as a library and binary and declared only the library build as its gate, so its two integration test targets stayed on the old fixture, envelope and record signatures; the gateway tasks 8.4.3 and 8.5.2 check every target of the dependent crates before their own gate and failed there five times after 8.12.3 landed."
+basis = "A port task's build gate covers every target of the crate it ports when a downstream gate builds those targets; the downstream check is never narrowed to make a port look complete."
+affects = ["8.12.4", "8.12.3", "8.4.3", "8.5.2"]
+
+[decision.1973]
+title = "SnapshotBinding keeps the u16 schema version word 1 in the v2 layout; consumers tell v2 from v1 by the encoded length"
+value = "programs/crates/layerx-programs-ai-market/src/queries.rs write_prefix writes SCHEMA_VERSION (lib.rs:322, value 1) first in every binding and task 13.29.2 changed the layout, not the version word; the pinned vector of task 13.29.3 begins 0001; the agent client test of task 9.96.2 expected 0002 and failed twice."
+basis = "The encoder that a shared vector is pinned from is the authority for its bytes; a consumer decoder and its test follow the vector, and a layout change without a version bump is told by length and section presence."
+affects = ["9.96.2", "13.29.3", "13.29.2", "8.96.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -16943,6 +16955,10 @@ ac_1 = "POST /__registry/deployments with a deployment transaction hash journals
 [req.8116]
 title = "The program registry starts and records heads without a kernel socket"
 ac_1 = "The program registry starts with no LAYERX_REGISTRY_LNI_SOCKET and records a head and a deployment from the chain."
+
+[req.8117]
+title = "The platform registry builds every target, test targets included"
+ac_1 = "cargo check --locked --manifest-path services/platform/Cargo.toml --all-targets -p layerx-platform-registry exits 0: the journal and producer_tls integration tests compile against the current journal, verified-evidence and fixture interfaces and pass with cargo test for those two targets."
 
 [req.8145]
 title = "Webhook events present a block-committed verification level"
@@ -37298,6 +37314,15 @@ verification_contract = "contracts/platform-hosted.md#registry-env-vars"
 do_1 = "Delete LAYERX_REGISTRY_LNI_SOCKET (services/platform/hosted/registry/src/main.rs:434), its notice (services/platform/hosted/registry/src/main.rs:927-931) and deployment_lni_socket (services/platform/hosted/registry/src/routes.rs:69, services/platform/hosted/registry/src/routes.rs:141, services/platform/hosted/registry/src/routes.rs:736)."
 symbols = ["deployment_lni_socket", "node_state", "registry_starts_without_an_lni_socket"]
 
+[capability.8.12.4]
+title = "Port the registry journal and producer TLS tests to the current journal and fixture interfaces"
+reqs = ["8117.1"]
+touches = ["services/platform/hosted/registry/tests/journal.rs", "services/platform/hosted/registry/tests/producer_tls.rs"]
+tests = ["services/platform/hosted/registry/tests/journal.rs::replaying_the_journal_reproduces_the_projection_of_its_evidence", "services/platform/hosted/registry/tests/producer_tls.rs::registry_publication_uses_identity_and_delivers_over_tls_with_durable_recovery"]
+verification_contract = "contracts/platform-hosted.md#registry-env-vars"
+do_1 = "cargo check --locked --manifest-path services/platform/Cargo.toml --all-targets -p layerx-platform-registry fails on main after task 8.12.3 (f7e693b7a) in two test targets only: services/platform/hosted/registry/tests/journal.rs (18 errors: E0061 at :42 and :184, E0608 at :355, :359 and :395, E0599 at :119, :363, :367, :371, :376 and :385, E0308 at :344, :378, :388, :397, :527 and :552) and services/platform/hosted/registry/tests/producer_tls.rs (E0061 at :139). The library and binary targets build. Port both tests to the interfaces the crate exposes today: the fixture helpers of tests/support/mod.rs (deploy_fixture at :74, upgrade_fixture at :127, verifier_for_fixture at :50) take their current argument lists, DeploymentEnvelope::canonical_encoding (src/journal.rs:108) returns Result<Vec<u8>, String>, FileDeploymentJournal::canonical_record takes its current four arguments, and the replay, projection and legacy-unit assertions follow the current journal contract of task 8.12.3."
+symbols = ["evidence", "replay", "publication"]
+
 [capability.8.13.1]
 title = "Add the block-committed verification word to webhook events"
 reqs = ["8145.1"]
@@ -46124,6 +46149,15 @@ do_1 = "Group the anchors and receipts entries at apps/explorer/lib/hooks/useNav
 do_2 = "Keep isActive at apps/explorer/lib/hooks/useNavItems.tsx:378 matching the two pathnames."
 do_3 = "Create apps/explorer/lib/hooks/useNavItemsArchive.spec.tsx (planned) with nav_groups_kernel_pages_under_archive."
 symbols = ["useNavItems", "nav_groups_kernel_pages_under_archive"]
+
+[capability.14.32.7]
+title = "Name the Kernel archive group in the navigation menu test"
+reqs = ["14286.1"]
+touches = ["apps/explorer/lib/hooks/useNavItems.spec.tsx"]
+tests = ["apps/explorer/lib/hooks/useNavItems.spec.tsx::opens the menu with home and carries the scan groups in order", "apps/explorer/lib/hooks/useNavItems.spec.tsx::collects the kernel pages in their own group"]
+verification_contract = "contracts/explorer-frontend.md#paxeer-x-pages"
+do_1 = "apps/explorer/lib/hooks/useNavItems.spec.tsx:56 expects the fourth top-level group text 'Kernel' and :101 looks the group up by 'Kernel', while task 14.32.5 (e271c47db) labels it 'Kernel archive' at apps/explorer/lib/hooks/useNavItems.tsx:444 with the children Anchor checkpoints and Kernel receipts; the tests 'opens the menu with home and carries the scan groups in order' and 'collects the kernel pages in their own group' fail on main with 'Kernel is not a menu group' (:31). Change the two expectations to 'Kernel archive' and the children expectation at :98-105 to the two archive children as 14.32.5 do_1 names them."
+symbols = ["useNavItems"]
 
 [capability.14.32.6]
 title = "Move the kernel list item specs to the archive item shapes"
@@ -124545,7 +124579,7 @@ capabilities = ["6.27.2"]
 interfaces = []
 do_1 = "Create modules/tokenfactory/keeper/issuer_pause_matrix_test.go (planned) with one table row per kernel branch of src/modules/asset/lx_asset_execution.h:240-243."
 do_2 = "Drive the issuer rows through SetDenomPausedByIssuer and the admin rows through msg_server SetDenomPaused (modules/tokenfactory/keeper/msg_server.go:220)."
-do_3 = "Assert error texts begin LXP_UNAUTHORIZED_DEBIT for code 28 and LXP_PAUSED_SCOPE for ErrPauseUnchanged (modules/tokenfactory/types/errors.go:35)."
+do_3 = "Assert error texts begin LXP_UNAUTHORIZED_DEBIT for code 28 on the SetDenomPausedByIssuer rows and LXP_PAUSED_SCOPE for ErrPauseUnchanged (modules/tokenfactory/types/errors.go:35) on every repeat row; on the two bech32-admin rows of an issuer-bound denom the handler returns types.ErrIssuerMismatch.Wrap('denom is issuer bound') (modules/tokenfactory/keeper/msg_server.go:236-237, task 6.22.6 do_2), whose text is 'denom is issuer bound: LXP_UNAUTHORIZED_DEBIT: caller is not the denom issuer' because the sdk wrappedError renders the description before the registered text (sdk/types/errors/errors.go:346-348), so those two rows assert that exact text together with code 28 instead of the bare prefix."
 symbols = ["TestIssuerPauseAuthorityMatrix"]
 touches = ["modules/tokenfactory/keeper/issuer_pause_matrix_test.go"]
 tests = ["modules/tokenfactory/keeper/issuer_pause_matrix_test.go::TestIssuerPauseAuthorityMatrix"]
@@ -124563,6 +124597,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempts 1 to 3 (6ee785018 on de9686155, 360e1039e on 042310e9e, 251376701 on 16f187251) carry the full twelve-row matrix and pass 20 of 24 subtests; the four bech32_admin_* subtests fail only at modules/tokenfactory/keeper/issuer_pause_matrix_test.go:103 because the former do_3 demanded the bare prefix on the admin path that 6.22.6 wraps; continue from 251376701, change only that assertion, change no production file, and keep modules/tokenfactory/keeper/set_denom_paused_refusal_test.go:76 (Contains 'denom is issuer bound') and modules/tokenfactory/types/errors_registry_test.go:21 as the sibling assertions this matrix agrees with."
 
 [task.6.28.1]
 title = "Prove the LayerX proposal amino JSON carries the six layerxbridge governance messages"
@@ -133276,7 +133311,7 @@ title = "Probe the ledger and authority surfaces in px_getCapabilities"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.4.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.12.3"]
+requires = ["8.4.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.12.3", "8.12.4"]
 reqs = ["8039.1"]
 capabilities = ["8.4.3"]
 interfaces = []
@@ -133304,6 +133339,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 1 (00e58c18b on de9686155) added Surface::Ledger probing totalUnits(bytes32) with a zero asset id, no Surface::Auth, and a test asserting a no-argument auth view; its build passed and the gate never ran because layerx-platform-registry does not compile at every base since tasks 13.4.5 and 13.4.6 (finding 8.4.3.1; task 8.12.3 ports it and is now required), and the do_2 views did not hold: totalUnits(bytes32) reverts LXP_ASSET_MISMATCH for an unknown asset (precompiles/layerxledger/views_test.go:243) and the frozen auth ABI (task 2.2.2, exactly its 9 methods) has no argument-free view (finding 8.4.3.2). Attempts 2 to 4 (81054ddd7, 1aef069ec, 55d82a8c2) stopped at the same registry build. Continue from 00e58c18b: keep the Surface::Ledger plumbing (enum, ALL, name, address, Capabilities.ledger, document, probe destructure, submission routing) and the shape of its assertions; change the ledger probe to accountId(bytes32,bytes32) with the selector from the ledger ABI, calldata selector plus 64 zero bytes, outputs [bytes32], words 1, decodes word(0); add Surface::Auth with evm::AUTH_PRECOMPILE (services/platform/hosted/gateway/src/evm.rs:55), name auth, abi precompiles/layerxauth/abi.json, probe isLive(bytes32,uint64,uint64), calldata selector plus 96 zero bytes, outputs [bool, string], words 4, decodes len == 128 and bool(0) and string(1, 0); replace the no-argument-view assertion with the existing capabilities_probe_views_exist_in_the_served_abi_of_each_surface check extended to the two-word and three-word zero calldata (capabilities.rs:1052); add auth to Capabilities, the document, live, the capabilities(...) fixture helper and the recorded_node arm; the call counts move from 7/14 to 8/16 and ALL.len from 6 to 7."
 do_6 = "Do not treat a revert as served (services/platform/hosted/gateway/src/capabilities.rs:266-273 stays), do not change any served ABI json, do not edit services/platform/hosted/registry. capabilities is private to the gateway binary (services/platform/hosted/gateway/src/main.rs:1; services/platform/hosted/gateway/src/lib.rs:6-11 exports ai_views, authority_evidence, evm, explorer_target, http and store), so the two probe calldata rows of services/platform/hosted/gateway/tests/router_surface.rs:453-457, its surface list at :726 and the px_getCapabilities sentence of services/platform/hosted/gateway/openrpc.json:3472 belong to task 8.0.4 (do_4), which runs after this task."
+do_7 = "Attempts 5 (ac2e91fba on a628abcf2) and 6 (d1e010855 on f038ebb3f) built layerx-platform-gateway and stopped again in the check of every target of the dependent crates: layerx-platform-registry now compiles as a library and binary (task 8.12.3, f7e693b7a) and fails in its journal and producer_tls test targets (finding 8.4.3.3); task 8.12.4 ports those two tests and precedes this task. The attempt 6 capabilities.rs content is re-qualified unchanged once 8.12.4 is on main."
 
 [task.8.4.4]
 title = "Remove the custody and anchor constructs from the EVM table"
@@ -133373,7 +133409,7 @@ title = "Answer px_listAssets from the indexer asset list and chain metadata"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.5.1", "8.2.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.12.3"]
+requires = ["8.5.1", "8.2.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.12.3", "8.12.4"]
 reqs = ["8041.1"]
 capabilities = ["8.5.2"]
 interfaces = []
@@ -133401,6 +133437,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempts 1 to 3 (f9d7a9c98 on de9686155, ad2cb2232 on 042310e9e, 9c314362a on 16f187251) built layerx-platform-gateway and never reached the gate: the build of the crates that depend on the gateway library fails in layerx-platform-registry, red since tasks 13.4.5 and 13.4.6 (finding 8.4.3.1), which task 8.12.3 ports and which this task now requires (decision.1971). The next attempt starts from the latest candidate 9c314362a after checking it against do_1 to do_5, edits only the four touched files, and spends no repair cycle on services/platform/hosted/registry."
+do_7 = "Attempts 4 (5723517e1 on 2fafc70a4) and 5 (1685bac94 on f038ebb3f) built layerx-platform-gateway and stopped in the check of every target of the dependent crates at the journal and producer_tls test targets of layerx-platform-registry (finding 8.5.2.3); task 8.12.4 ports them and precedes this task. The attempt 5 content is re-qualified unchanged once 8.12.4 is on main."
 
 [task.8.5.3]
 title = "Answer px_getNetwork with the consensus head instead of the anchor checkpoint"
@@ -134071,6 +134108,37 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "layerx-platform-registry does not compile on main (31 errors, finding 8.4.3.1): tasks 13.4.5 (42c1fea30) and 13.4.6 (0461a4f71) reshaped the chain-proof verifier of programs/crates/layerx-programs-registry/src/protocol_evidence.rs without porting this crate. services/platform/hosted/registry/src/node_state.rs:7 imports the deleted layerx_programs::ProtocolHeadMaintenanceProof; node_state.rs:304 and services/platform/hosted/registry/src/deployment.rs:90 read DeploymentProof.activity where DeploymentProof is { state: ProgramStateProof, deployment: ChainDeploymentProof }; node_state.rs:400, :415-417 and :426 read ProgramStateProof.receipt, .header, .header_signature and .receipt_proof where it is { commitment: CommitmentProof, state: ChainProgramStateProof, lifecycle: ProgramLifecycleProof, wind_down: ChainWindDownProof, transaction: Vec<u8>, transaction_proof: SimpleProof }; node_state.rs:512 and :526 read ProgramStateBundle.state and .head_kind where it is { commitment, program, program_record_ops, interface_ops, wind_down }; node_state.rs:356 calls verify_historical_deployment with one argument where it takes (proof, current: &VerifiedHeader, trust_chain: &[(ChainHeader, Commit, ValidatorSet)], now_ms) (protocol_evidence.rs:642); node_state.rs:525 passes six arguments to verify_current_chain_head(kind, proof: &CommitmentProof, transaction, transaction_proof, now_ms) (:852) and :544 five to verify_current_program_bundle(bundle, chain: &VerifiedChainHead, expected_program, now_ms) (:890); node_state.rs:537 and :894 read sequencer_public_key, which VerifiedChainHead and VerifiedProtocolHead no longer carry; node_state.rs:860 and :867 call the deleted verify_current_maintenance_head and verify_historical_maintenance_head, :877-881 build ProtocolHeadProof from receipt, receipt_proof, header, header_signature and maintenance where it is ProtocolHeadProof { commitment: &CommitmentProof, chain: ChainProtocolHeadProof, transaction: &[u8], transaction_proof: &SimpleProof } verified by verify_current_protocol_head(proof, now_ms) (:769) or verify_historical_protocol_head(proof, trusted_header, trusted_commit, history) (:803), and :885 passes the old arity; services/platform/hosted/registry/src/journal.rs:137-138, :615, :619 and :627 use canonical_encoding as Vec<u8> where it returns Result<Vec<u8>, ProtocolEvidenceError> (:946) and Result<Vec<u8>, ProgramBundleError> (:573); services/platform/hosted/registry/src/routes.rs:137 calls the deleted ProtocolDeploymentVerifier::from_protected_history(&config.sequencer_trust_history, config.staleness_ms) where the constructor is from_chain_trust(chain_id, validators, max_age_ms) (programs/crates/layerx-programs-registry/src/chain_evidence/trust_root.rs:10) fed by chain_proof::trust_store::TrustRoot::decode of the trust file exactly as journal.rs:985-997 and services/human/crates/layerx-explorer-index/src/main.rs:325-337 already do; routes.rs:1979 and :1995 serialize VerifiedDeploymentEvidence.batch_header_digest, which no longer exists. Port every site that do_1 to do_4 keep onto these types, delete the rest with the modules they belong to, and keep every served route and JSON field name except batch_header_digest, which becomes header_hash (the verified header hash) in the provenance struct and document, the replacement task 13.4.6 do_8 made for the agent."
 do_7 = "This task no longer waits for task 8.0.4: that gateway router proof covers px_* reads of the gateway, while every crate build of the platform workspace fails on this crate first (attempts 8.4.3 00e58c18b, 81054ddd7, 1aef069ec, 55d82a8c2 and 8.5.2 f9d7a9c98, ad2cb2232, 9c314362a all stopped there), so tasks 8.4.3 and 8.5.2 now require this task and this task requires 13.4.5 and 13.4.6 (decision.1971). The build_cmd is the first gate: the crate must compile before registry_starts_without_an_lni_socket runs. Edit no file outside the touches; services/platform/hosted/registry/tests/journal_chain_trust.rs already uses open_from_chain_trust and needs no change."
+
+[task.8.12.4]
+title = "Port the registry journal and producer TLS tests to the current journal and fixture interfaces"
+status = "pending"
+mode = "BUILD"
+wave = 28
+requires = ["8.12.3"]
+reqs = ["8117.1"]
+capabilities = ["8.12.4"]
+interfaces = []
+fulfils = []
+do_1 = "cargo check --locked --manifest-path services/platform/Cargo.toml --all-targets -p layerx-platform-registry fails on main after task 8.12.3 (f7e693b7a) in two test targets only: services/platform/hosted/registry/tests/journal.rs (18 errors: E0061 at :42 and :184, E0608 at :355, :359 and :395, E0599 at :119, :363, :367, :371, :376 and :385, E0308 at :344, :378, :388, :397, :527 and :552) and services/platform/hosted/registry/tests/producer_tls.rs (E0061 at :139). The library and binary targets build. Port both tests to the interfaces the crate exposes today: the fixture helpers of tests/support/mod.rs (deploy_fixture at :74, upgrade_fixture at :127, verifier_for_fixture at :50) take their current argument lists, DeploymentEnvelope::canonical_encoding (src/journal.rs:108) returns Result<Vec<u8>, String>, FileDeploymentJournal::canonical_record takes its current four arguments, and the replay, projection and legacy-unit assertions follow the current journal contract of task 8.12.3."
+do_2 = "Change only the two test files. Change no file under services/platform/hosted/registry/src and no file under services/platform/hosted/registry/tests/support; when a test asserts behaviour the crate no longer has, port the assertion to the current contract named in task 8.12.3 and record the old expectation in the qualification log rather than reintroducing the behaviour."
+do_3 = "The build gate is the check of every target of layerx-platform-registry, because tasks 8.4.3 and 8.5.2 build every target of the crates that depend on the gateway library before their own gate runs and stopped at these two test targets (findings 8.4.3.3 and 8.5.2.3); both now require this task."
+symbols = ["evidence", "replay", "publication"]
+touches = ["services/platform/hosted/registry/tests/journal.rs", "services/platform/hosted/registry/tests/producer_tls.rs"]
+tests = ["services/platform/hosted/registry/tests/journal.rs::replaying_the_journal_reproduces_the_projection_of_its_evidence", "services/platform/hosted/registry/tests/producer_tls.rs::registry_publication_uses_identity_and_delivers_over_tls_with_durable_recovery"]
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml --all-targets -p layerx-platform-registry"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --test journal --test producer_tls"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Restore the two test files; the registry test targets do not compile."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.8.13.1]
 title = "Add the block-committed verification word to webhook events"
@@ -144981,7 +145049,7 @@ capabilities = []
 interfaces = []
 fulfils = ["wiring.J52.9"]
 do_1 = "Decode SnapshotBinding v2 (block height, block hash, app hash, store proof digest) at services/agent/crates/layerx-client/src/ai_market.rs:303, replacing the native_state_root and checkpoint finality fields at services/agent/crates/layerx-client/src/ai_market.rs:300-301."
-do_2 = "Refuse a v1 binding by its version byte in the decoder at services/agent/crates/layerx-client/src/ai_market.rs:303 instead of reading checkpoint fields."
+do_2 = "Refuse a binding whose leading u16 schema version word is not 1 or whose encoded length is not BINDING_MAX_BYTES (programs/crates/layerx-programs-ai-market/src/queries.rs:37; the v1 layout without the block-commit section is shorter) in the decoder at services/agent/crates/layerx-client/src/ai_market.rs:303 instead of reading checkpoint fields."
 do_3 = "Write services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs (planned) with the test below against programs/tests/vectors/snapshot-binding-v2.hex (planned by the domain-13 task of requester 13.29.3)."
 symbols = ["snapshot_binding_v2_decodes_vector"]
 touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs"]
@@ -145001,6 +145069,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempts 1 to 3 (d25f05df6 on bf4e10a64, 45ff20d08 on ee47e6751, 4b6c6654a on de9686155) implement the decoder and the test and fail verify_cmd at tests/snapshot_binding_v2.rs:17 with 'cannot read shared vector ../../../../programs/tests/vectors/snapshot-binding-v2.hex: No such file or directory' because task 13.29.3 writes that vector and until now required this task. 13.29.3 now precedes this task (wave 24) and this task requires it; once 13.29.3 is on main, re-qualify the attempt 3 content unchanged (the decoder, the test and its include path stay as written) and never write the vector from this task."
+do_5 = "Attempts 4 (9c67c0c0c on 22b9ee184) and 5 (e49b04e18 on 12b2b2daa) re-qualify the attempt 3 content with the vector present: the build passes and snapshot_binding_v2_decodes_vector fails at services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs:36 asserting the leading bytes [0, 2] against the vector's [0, 1]. The authority is the layerx-programs-ai-market encoder (task 13.29.3 do_4): SnapshotBinding::write_prefix (programs/crates/layerx-programs-ai-market/src/queries.rs) writes the u16 SCHEMA_VERSION 1 (programs/crates/layerx-programs-ai-market/src/lib.rs:322) first in every layout, and the v2 layout is the block-commit section (block_height, block_hash, app_hash, store_proof_digest, rank, publication_time_ms, eight reserved bytes) after the prefix, BINDING_MAX_BYTES long (queries.rs:37). Continue from e49b04e18: the decoder accepts schema version 1 and refuses any other word, tells a v2 binding by the exact length BINDING_MAX_BYTES and refuses the shorter v1 layout by length (do_2 as now written), and the test asserts the version word [0, 1] and the decoded block-commit fields of the vector. Change nothing outside touches and never write the vector."
 
 [task.9.96.3]
 title = "Drop the custody-proof binary from the real-node test script"
@@ -147301,6 +147370,7 @@ do_21 = "Attempt 15 (e299ec5de, the attempt 14 candidate re-qualified unchanged 
 do_22 = "Attempt 17 (19d2b3b6d, the attempt 15 candidate e299ec5de re-qualified unchanged on e8519e92e with 5.7.3 merged) passes all three build_cmd members, and both startup tests fail when layerxd --serve exits 1 with 'layerxd: protocol owner module runtime binding failed with result -3' and 'bootstrap protocol owner failed with result -3'. The finality authority stage that 5.7.3 removed is passed. -3 is LXP_ERR_NON_CANONICAL (include/layerx/lxp_result.h:34). It comes from lxp_programs_state_feed_store_bind_maintenance (src/modules/programs/feed_store.c:1041-1052), which lxp_daemon_protocol_owner_attach calls at cmd/layerxd/lxp_daemon_protocol.c:1121-1122 under the stage set at :1116. That function requires the daemon's feed store to be the kernel's commit observer (:1048), and nothing installs it: 38c544316 (task 1.15.1 do_1) deleted the lxp_programs_bind_state_feed call from lxp_kernel_bind_module_runtime (src/protocol/lxp_kernel.c), and lxp_programs_bind_state_feed (src/modules/programs/feed.c:114-123) now has no caller under src/ or cmd/. Every layerxd --serve start fails there, whatever its input; 18.1200.1 attempt 13 meets the same exit on the same base. Per task 5.7.4 the daemon binds its own feed observer; this task now requires 5.7.4. Keep every file and assertion as written, change nothing under cmd/, src/ or include/, and re-qualify the attempt 17 candidate unchanged once 5.7.4 is on main."
 do_23 = "Attempt 18 (5f4c319c4, the attempt 17 candidate 19d2b3b6d re-qualified unchanged on 4f424c474 with 5.7.4 merged) passes all three build_cmd members; layerxd --serve now starts and creates its LNI socket, and both startup tests fail when layerx-agentd exits 2 with 'human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: missing LAYERX_AGENT_NODE_RPC_URL' (services/human/crates/layerx-human-service/tests/production_unhooked.rs:245-250). Since 8012f3c12 (task 9.12.5, decision.1920) and e5da82547 (task 9.0.3, decision.1942), serve_human_owner (services/agent/crates/layerx-agentd/src/human_owner_mode.rs:67-100) reads NodeRpcConfig::from_environment (src/node_rpc.rs:23-43) after human_peers and calls NodeRpc::connect (:83-84), which posts eth_chainId to LAYERX_AGENT_NODE_RPC_URL and refuses any value other than LAYERX_AGENT_NODE_CHAIN_ID (node_rpc.rs:140-146), before start_human_owner reads LAYERX_AGENT_HUMAN_NODE_LNI (src/main.rs:980); do_18 and decision.1913 predate that contract. In Environment::start_agent (tests/production_unhooked.rs:132-266) read LAYERX_TEST_PAXEER_RPC_PORT and LAYERX_TEST_PAXEER_CHAIN_ID as start_node does (:433-434), failing by name when either is missing, and give the layerx-agentd command LAYERX_AGENT_NODE_RPC_URL=http://127.0.0.1:<that port> and LAYERX_AGENT_NODE_CHAIN_ID=<that chain id>, as services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211-222 does for the in-tree node of decision.1896 (eth_chainId 0x7d); keep LAYERX_AGENT_HUMAN_NODE_LNI (:183-186), which the human runtime still reads. Change no other file and no assertion, and nothing under services/agent, cmd/, src/ or include/; a later layerx-agentd startup refusal is recorded as the finding of do_16."
 do_24 = "Attempt 19 (9b9d22da9, the attempt 18 candidate 5f4c319c4 continued on d4bf62f09 with the do_23 change applied: tests/production_unhooked.rs:144-149 read LAYERX_TEST_PAXEER_RPC_PORT and LAYERX_TEST_PAXEER_CHAIN_ID by name and :189-193 give layerx-agentd LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID, LNI kept at :195) passes the first two build_cmd members and fails the third, cargo build -p layerx-agentd-host --bin layerx-agentd, with E0277 twice at services/agent/crates/layerx-agentd/src/main.rs:1013: `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` carries NodeRpcError (src/node_rpc.rs:23, :90) through `?` inside start_shared_owner (:936), which returns Result<_, String> (:948-955), and no From<NodeRpcError> for String exists. 8c526e4f0 (task 9.12.7 do_3) added the line and qualified with -p layerx-agentd --test human_node, which never compiles main.rs (autobins = false, services/agent/crates/layerx-agentd/Cargo.toml:3; the binary belongs to layerx-agentd-host, Cargo.toml:8-10; decision.1964). The line is the same on main at the base and at 8a2c936b0, in a file this task does not touch; task 9.12.11 maps both errors as src/human_owner_mode.rs:41-47 and :83-84 do. This task now requires 9.12.11 and changes nothing under services/agent; re-qualify the attempt 19 candidate unchanged once 9.12.11 is on main, confirming first that main.rs:1013 shows .map_err around both calls, and record any later layerx-agentd or layerx-human-components startup refusal as the finding of do_16."
+do_25 = "Attempt 20 (6a89eaade, the attempt 19 candidate 9b9d22da9 re-qualified unchanged on 16f187251 with 9.12.11 merged) passes all three build_cmd members for the first time, production_configuration_validates_without_retired_operations passes, and both startup tests fail because layerx-agentd exits 2 with 'LAYERX_AGENT_HUMAN_LIMIT_ID has the wrong width': the daemon now passes the authority, the layerxd LNI connection, the store and the node RPC pair and reaches verified_limit (services/agent/crates/layerx-agentd/src/main.rs:330-348, evaluated at :1070), whose parse_hex (:312-316) demands exactly 32 hex characters for the 16-byte LimitId (services/agent/crates/layerx-agentd/src/budget/reserve.rs:11, unchanged since 7764645a0; docs/site/docs/agents/running.md:728), while tests/production_unhooked.rs:241 gives the fixture hex of a 32-byte array. Change that one value to the hex of a 16-byte array (as services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:9 builds LimitId([1; 16])); keep LAYERX_AGENT_HUMAN_LIMIT_SCOPE_ID at 32 bytes (:244), which LimitScope::Tenant([u8; 32]) at reserve.rs:18-24 takes and the daemon already accepted. Change no other line, no assertion, and nothing under services/agent; a later layerx-agentd or layerx-human-components startup refusal is recorded as the finding of do_16."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -163819,6 +163889,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "apps/explorer/lib/api/services/general/paxeerX.spec.ts:57 asserts capabilities.custody toBe(false); once do_1 drops custody and anchor from the capabilities type, yarn lint:tsc fails on that line (attempt 1, 223549068). Delete the custody expectation, and any anchor expectation, from that spec; the file is now in touches and every other assertion in it stays as written."
+
+[task.14.32.7]
+title = "Name the Kernel archive group in the navigation menu test"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["14.32.5", "14.21.3"]
+reqs = ["14286.1"]
+capabilities = ["14.32.7"]
+interfaces = []
+do_1 = "apps/explorer/lib/hooks/useNavItems.spec.tsx:56 expects the fourth top-level group text 'Kernel' and :101 looks the group up by 'Kernel', while task 14.32.5 (e271c47db) labels it 'Kernel archive' at apps/explorer/lib/hooks/useNavItems.tsx:444 with the children Anchor checkpoints and Kernel receipts; the tests 'opens the menu with home and carries the scan groups in order' and 'collects the kernel pages in their own group' fail on main with 'Kernel is not a menu group' (:31). Change the two expectations to 'Kernel archive' and the children expectation at :98-105 to the two archive children as 14.32.5 do_1 names them."
+do_2 = "Change only the spec file; change no file under apps/explorer/lib/hooks other than it and no other test in it. Test titles stay string literals and assertions stay inline in the test callback, because the production build (next build) lints the spec files with vitest/valid-title, vitest/expect-expect and @typescript-eslint/naming-convention."
+symbols = ["useNavItems"]
+touches = ["apps/explorer/lib/hooks/useNavItems.spec.tsx"]
+tests = ["apps/explorer/lib/hooks/useNavItems.spec.tsx::opens the menu with home and carries the scan groups in order", "apps/explorer/lib/hooks/useNavItems.spec.tsx::collects the kernel pages in their own group"]
+planned_paths = []
+build_cmd = "cd apps/explorer && yarn lint:tsc"
+verify_cmd = "cd apps/explorer && yarn vitest run lib/hooks/useNavItems.spec.tsx"
+gate_kind = "existing"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the spec file; the two menu tests fail on the Kernel label."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.14.22.1]
 title = "Freeze committed-rung vectors for sequencer receipt R7 and R8"
@@ -195242,6 +195341,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
