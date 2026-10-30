@@ -1838,6 +1838,53 @@ fn balance_json(read: &ProgramBalanceRead<CommittedProgramBalanceFreshness>) -> 
     )
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use layerx_agentd::read::ProgramValueBalance;
+
+    #[test]
+    fn balance_json_renders_committed_freshness() {
+        let read = ProgramBalanceRead::<CommittedProgramBalanceFreshness> {
+            program: [0x11; 32],
+            lifecycle: ProgramLifecycle::Active,
+            accounts: vec![ProgramValueBalance {
+                account: [0x22; 32],
+                asset: [0x33; 32],
+                amount: u128::MAX,
+                frozen: true,
+            }],
+            freshness: CommittedProgramBalanceFreshness {
+                height: 12_345,
+                block_hash: [0x44; 32],
+                timestamp: 1_700_000_000,
+            },
+        };
+
+        let rendered: serde_json::Value =
+            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
+
+        assert_eq!(
+            rendered,
+            serde_json::json!({
+                "program": "11".repeat(32),
+                "lifecycle": "active",
+                "accounts": [{
+                    "account": "22".repeat(32),
+                    "asset": "33".repeat(32),
+                    "amount": "340282366920938463463374607431768211455",
+                    "frozen": true,
+                }],
+                "freshness": {
+                    "height": 12_345,
+                    "block_hash": "44".repeat(32),
+                    "timestamp": 1_700_000_000,
+                },
+            })
+        );
+    }
+}
+
 fn response<S: Write>(stream: &mut S, status: u16, body: &str) -> Result<(), String> {
     let reason = if status < 300 { "OK" } else { "Refused" };
     let header = format!(
