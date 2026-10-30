@@ -3,16 +3,10 @@ import Foundation
 
 private let merkleLeafDomain = Data("LXP/v1/merkle-leaf\0".utf8)
 private let merkleInternalDomain = Data("LXP/v1/merkle-internal\0".utf8)
-private let batchHeaderDomain = Data("LXP/v1/batch-header\0".utf8)
 private let wireReceiptDomain = Data("LXP/v1/receipt\0".utf8)
-private let checkpointDomain = Data("LXP/v2/checkpoint-certificate\0".utf8)
-private let guarantorAttestationDomain = Data("LXP/v2/guarantor-attestation\0".utf8)
 private let maximumMessageBytes = 1_048_576
 private let maximumEffects: UInt32 = 512
 private let maximumEffectBody: UInt32 = 256
-private let batchHeaderBytes = 354
-private let allAvailabilityClasses: UInt8 = 0x1f
-private let currentProtocolVersion: UInt16 = 2
 public struct UInt128Value: Hashable, Sendable {
   public let high: UInt64
   public let low: UInt64
@@ -52,160 +46,9 @@ public struct MerkleProof: Sendable {
   }
 }
 
-public struct BatchHeader: Sendable {
-  public let protocolVersion: UInt16
-  public let networkID: UInt32
-  public let epoch: UInt64
-  public let batchNumber: UInt64
-  public let firstSequence: UInt64
-  public let lastSequence: UInt64
-  public let previousStateRoot: Data
-  public let resultingStateRoot: Data
-  public let activityMerkleRoot: Data
-  public let receiptMerkleRoot: Data
-  public let eventMerkleRoot: Data
-  public let dataAvailabilityRoot: Data
-  public let oracleRoot: Data
-  public let timestampMilliseconds: UInt64
-  public let sequencerID: Data
-}
-
-public struct SequencerAuthorization: Sendable {
-  public let sequencerID: Data
-  public let publicKey: Data
-  public let firstBatchNumber: UInt64
-  public let lastBatchNumber: UInt64
-
-  public init(sequencerID: Data, publicKey: Data, firstBatchNumber: UInt64, lastBatchNumber: UInt64)
-  {
-    self.sequencerID = sequencerID
-    self.publicKey = publicKey
-    self.firstBatchNumber = firstBatchNumber
-    self.lastBatchNumber = lastBatchNumber
-  }
-}
-
-public enum InclusionKind: Sendable, Equatable { case activity, receipt, event, state }
-
-public struct InclusionVerification: Sendable {
-  public let level: String
-  public let header: BatchHeader
-  public let headerDigest: Data
-  public let root: Data
-}
-
-public struct CheckpointAttestation: Sendable {
-  public let protocolVersion: UInt16
-  public let networkID: UInt32
-  public let paxeerChainID: UInt64
-  public let settlementContract: Data
-  public let epoch: UInt64
-  public let checkpointID: Data
-  public let checkpointHash: Data
-  public let guarantorID: Data
-  public let batchNumber: UInt64
-  public let dataAvailabilityRoot: Data
-  public let replayed: Bool
-  public let dataPossessed: Bool
-  public let availabilityClassMask: UInt8
-  public let attestedAtMilliseconds: UInt64
-  public let signer: Data
-  public let signature: Data
-  public let signatureV: UInt8
-
-  public init(
-    protocolVersion: UInt16, networkID: UInt32, paxeerChainID: UInt64, settlementContract: Data,
-    epoch: UInt64, checkpointID: Data, checkpointHash: Data, guarantorID: Data, batchNumber: UInt64,
-    dataAvailabilityRoot: Data, replayed: Bool, dataPossessed: Bool, availabilityClassMask: UInt8,
-    attestedAtMilliseconds: UInt64, signer: Data, signature: Data, signatureV: UInt8
-  ) {
-    self.protocolVersion = protocolVersion
-    self.networkID = networkID
-    self.paxeerChainID = paxeerChainID
-    self.settlementContract = settlementContract
-    self.epoch = epoch
-    self.checkpointID = checkpointID
-    self.checkpointHash = checkpointHash
-    self.guarantorID = guarantorID
-    self.batchNumber = batchNumber
-    self.dataAvailabilityRoot = dataAvailabilityRoot
-    self.replayed = replayed
-    self.dataPossessed = dataPossessed
-    self.availabilityClassMask = availabilityClassMask
-    self.attestedAtMilliseconds = attestedAtMilliseconds
-    self.signer = signer
-    self.signature = signature
-    self.signatureV = signatureV
-  }
-}
-
-public struct GuarantorKey: Sendable {
-  public let guarantorID: Data
-  public let publicKey: Data
-  public let bonded: Bool
-
-  public init(guarantorID: Data, publicKey: Data, bonded: Bool) {
-    self.guarantorID = guarantorID
-    self.publicKey = publicKey
-    self.bonded = bonded
-  }
-}
-
-public struct CheckpointCertificate: Sendable {
-  public let canonicalHeader: Data
-  public let validityProof: Data
-  public let attestations: [CheckpointAttestation]
-  public let threshold: UInt32
-  public let settlementReference: Data?
-
-  public init(
-    canonicalHeader: Data, validityProof: Data, attestations: [CheckpointAttestation],
-    threshold: UInt32, settlementReference: Data? = nil
-  ) {
-    self.canonicalHeader = canonicalHeader
-    self.validityProof = validityProof
-    self.attestations = attestations
-    self.threshold = threshold
-    self.settlementReference = settlementReference
-  }
-}
-
-public struct CheckpointVerificationInput: Sendable {
-  public let certificate: CheckpointCertificate
-  public let bondedSet: [GuarantorKey]
-  public let registeredCheckpointID: Data
-  public let expectedPaxeerChainID: UInt64
-  public let expectedSettlementContract: Data
-  public let registeredSettlementReference: Data?
-  public let availabilityObtained: Bool
-
-  public init(
-    certificate: CheckpointCertificate, bondedSet: [GuarantorKey], registeredCheckpointID: Data,
-    expectedPaxeerChainID: UInt64, expectedSettlementContract: Data,
-    registeredSettlementReference: Data? = nil, availabilityObtained: Bool
-  ) {
-    self.certificate = certificate
-    self.bondedSet = bondedSet
-    self.registeredCheckpointID = registeredCheckpointID
-    self.expectedPaxeerChainID = expectedPaxeerChainID
-    self.expectedSettlementContract = expectedSettlementContract
-    self.registeredSettlementReference = registeredSettlementReference
-    self.availabilityObtained = availabilityObtained
-  }
-}
-
-public protocol LocalSignatureVerifier: Sendable {
-  func verifyRecoverableSecp256k1(
-    publicKey: Data, signature: Data, signatureV: UInt8, signer: Data, digest: Data
-  ) async -> Bool
-}
-
-public struct CheckpointVerification: Sendable {
-  public let level: String
-  public let checkpointID: Data
-  public let achieved: UInt32
-  public let required: UInt32
-  public let header: BatchHeader
+public enum VerificationLevel: String, CaseIterable, Sendable {
+  case receipted
+  case committed
 }
 
 public struct ReceiptEffect: Sendable {
@@ -277,25 +120,6 @@ public struct ProtocolReceipt: Sendable {
   public let sequencerSignature: Data
 }
 
-public struct AuthorizedReceiptBatch: Sendable {
-  public let batchID: Data
-  public let asset: Data
-  public let previousStateRoot: Data
-  public let resultingStateRoot: Data
-  public let sequencerPublicKey: Data
-
-  public init(
-    batchID: Data, asset: Data, previousStateRoot: Data, resultingStateRoot: Data,
-    sequencerPublicKey: Data
-  ) {
-    self.batchID = batchID
-    self.asset = asset
-    self.previousStateRoot = previousStateRoot
-    self.resultingStateRoot = resultingStateRoot
-    self.sequencerPublicKey = sequencerPublicKey
-  }
-}
-
 public struct ReceiptVerification: Sendable {
   public let level: String
   public let receipt: ProtocolReceipt
@@ -308,7 +132,7 @@ public enum LocalVerifier {
     _ receiptBytes: Data, rawTransaction: Data, keys: [ReceiptKeys],
     receiptJSON: [String: JSONValue], prevSeqHash: Data
   ) throws -> SequencerReceiptVerification {
-    let decoded = try decodeProtocolReceipt(receiptBytes)
+    let decoded = try decodeProtocolReceipt(receiptBytes, sequencerOnly: true)
     let r = decoded.receipt
     guard r.protocolVersion == receiptVersionV2 || r.protocolVersion == receiptVersionV3 else {
       throw receiptFailure(.receiptVersion)
@@ -355,7 +179,7 @@ public enum LocalVerifier {
       throw receiptFailure(.sequenceHash)
     }
     return SequencerReceiptVerification(
-      level: "receipted", status: r.resultCode == 0 ? 1 : 0,
+      level: VerificationLevel.receipted.rawValue, status: r.resultCode == 0 ? 1 : 0,
       revert: r.resultCode == 0 ? nil : decodeSequencerRevert(returnData), receipt: r,
       canonicalBytes: receiptBytes, receiptDigest: receiptDigest)
   }
@@ -402,309 +226,10 @@ public enum LocalVerifier {
     guard current == expectedRoot else { throw verificationFailure() }
   }
 
-  public static func decodeBatchHeader(_ canonicalHeader: Data) throws -> BatchHeader {
-    guard canonicalHeader.count == batchHeaderBytes else { throw verificationFailure() }
-    var decoder = WireDecoder(canonicalHeader)
-    guard try decoder.u16() == 1, try decoder.u16() == 0x1701, try decoder.u8() == 15 else {
-      throw verificationFailure()
-    }
-    func field(_ expected: UInt8) throws {
-      guard try decoder.u8() == expected else { throw verificationFailure() }
-    }
-    try field(1)
-    let protocolVersion = try decoder.u16()
-    try field(2)
-    let networkID = try decoder.u32()
-    try field(3)
-    let epoch = try decoder.u64()
-    try field(4)
-    let batchNumber = try decoder.u64()
-    try field(5)
-    let firstSequence = try decoder.u64()
-    try field(6)
-    let lastSequence = try decoder.u64()
-    try field(7)
-    let previousStateRoot = try decoder.array32()
-    try field(8)
-    let resultingStateRoot = try decoder.array32()
-    try field(9)
-    let activityMerkleRoot = try decoder.array32()
-    try field(10)
-    let receiptMerkleRoot = try decoder.array32()
-    try field(11)
-    let eventMerkleRoot = try decoder.array32()
-    try field(12)
-    let dataAvailabilityRoot = try decoder.array32()
-    try field(13)
-    let oracleRoot = try decoder.array32()
-    try field(14)
-    let timestampMilliseconds = try decoder.u64()
-    try field(15)
-    let sequencerID = try decoder.array32()
-    try decoder.finish()
-    return BatchHeader(
-      protocolVersion: protocolVersion, networkID: networkID, epoch: epoch,
-      batchNumber: batchNumber, firstSequence: firstSequence, lastSequence: lastSequence,
-      previousStateRoot: previousStateRoot, resultingStateRoot: resultingStateRoot,
-      activityMerkleRoot: activityMerkleRoot, receiptMerkleRoot: receiptMerkleRoot,
-      eventMerkleRoot: eventMerkleRoot, dataAvailabilityRoot: dataAvailabilityRoot,
-      oracleRoot: oracleRoot, timestampMilliseconds: timestampMilliseconds, sequencerID: sequencerID
-    )
-  }
-
-  public static func verifyBatchInclusion(
-    kind: InclusionKind, canonicalLeaf: Data, proof: MerkleProof, canonicalHeader: Data,
-    headerSignature: Data, authorization: SequencerAuthorization, protocolVersion: UInt16 = 2
-  ) async throws -> InclusionVerification {
-    let header = try decodeBatchHeader(canonicalHeader)
-    guard
-      (protocolVersion == 2 || protocolVersion == 3) && header.protocolVersion == protocolVersion
-    else { throw verificationFailure() }
-    let authorizedSequencerID = try exact(authorization.sequencerID, 32)
-    guard header.batchNumber >= authorization.firstBatchNumber,
-      header.batchNumber <= authorization.lastBatchNumber,
-      header.sequencerID == authorizedSequencerID
-    else { throw verificationFailure() }
-    let headerDigest = digest(batchHeaderDomain, canonicalHeader)
-    guard
-      verifyEd25519(
-        publicKey: authorization.publicKey, signature: headerSignature, message: headerDigest)
-    else { throw verificationFailure() }
-    let root: Data
-    switch kind {
-    case .activity: root = header.activityMerkleRoot
-    case .receipt: root = header.receiptMerkleRoot
-    case .event: root = header.eventMerkleRoot
-    case .state: root = header.resultingStateRoot
-    }
-    try verifyMerkleInclusion(canonicalLeaf: canonicalLeaf, proof: proof, expectedRoot: root)
-    return InclusionVerification(
-      level: kind == .state ? "state-proven" : "batch-included", header: header,
-      headerDigest: headerDigest, root: root)
-  }
-
-  public static func verifyCheckpoint(
-    _ input: CheckpointVerificationInput, signatures: LocalSignatureVerifier,
-    protocolVersion: UInt16 = 2
-  ) async throws -> CheckpointVerification {
-    let certificate = input.certificate
-    guard input.availabilityObtained, certificate.threshold > 0,
-      UInt64(certificate.validityProof.count) <= UInt64(UInt32.max)
-    else { throw verificationFailure() }
-    let header = try decodeBatchHeader(certificate.canonicalHeader)
-    guard
-      (protocolVersion == 2 || protocolVersion == 3) && header.protocolVersion == protocolVersion
-    else { throw verificationFailure() }
-    let checkpointID = digest(
-      checkpointDomain, certificate.canonicalHeader,
-      encodeUInt32(UInt32(certificate.validityProof.count)), certificate.validityProof)
-    let registeredCheckpointID = try exact(input.registeredCheckpointID, 32)
-    let expectedSettlementContract = try exact(input.expectedSettlementContract, 20)
-    guard checkpointID == registeredCheckpointID, input.expectedPaxeerChainID > 0,
-      !allZero(expectedSettlementContract)
-    else { throw verificationFailure() }
-    var bonded: [Data: GuarantorKey] = [:]
-    for member in input.bondedSet where member.bonded {
-      bonded[try exact(member.guarantorID, 32)] = member
-    }
-    var seen: Set<Data> = []
-    var achieved: UInt32 = 0
-    for attestation in certificate.attestations {
-      let guarantorID = try exact(attestation.guarantorID, 32)
-      let attestationSettlementContract = try exact(attestation.settlementContract, 20)
-      guard seen.insert(guarantorID).inserted,
-        attestation.protocolVersion == header.protocolVersion,
-        attestation.networkID == header.networkID,
-        attestation.epoch == header.epoch,
-        attestation.paxeerChainID == input.expectedPaxeerChainID,
-        attestationSettlementContract == expectedSettlementContract,
-        try exact(attestation.checkpointID, 32) == checkpointID,
-        try exact(attestation.checkpointHash, 32) == checkpointID,
-        attestation.batchNumber == header.batchNumber,
-        try exact(attestation.dataAvailabilityRoot, 32) == header.dataAvailabilityRoot,
-        attestation.replayed, attestation.dataPossessed,
-        attestation.availabilityClassMask == allAvailabilityClasses,
-        attestation.attestedAtMilliseconds > 0,
-        !allZero(try exact(attestation.signer, 20)),
-        attestation.signatureV == 27 || attestation.signatureV == 28,
-        let member = bonded[guarantorID], achieved < UInt32.max
-      else { throw verificationFailure() }
-      let message = try concatenate(
-        encodeUInt16(attestation.protocolVersion), encodeUInt32(attestation.networkID),
-        encodeUInt64(attestation.paxeerChainID),
-        attestationSettlementContract, encodeUInt64(attestation.epoch),
-        exact(attestation.checkpointID, 32), exact(attestation.checkpointHash, 32), guarantorID,
-        encodeUInt64(attestation.batchNumber), exact(attestation.dataAvailabilityRoot, 32),
-        Data([1, 1, attestation.availabilityClassMask]),
-        encodeUInt64(attestation.attestedAtMilliseconds)
-      )
-      let attestationDigest = digest(guarantorAttestationDomain, message)
-      guard
-        await signatures.verifyRecoverableSecp256k1(
-          publicKey: try exact(member.publicKey, 33),
-          signature: try exact(attestation.signature, 64),
-          signatureV: attestation.signatureV,
-          signer: try exact(attestation.signer, 20),
-          digest: attestationDigest
-        )
-      else { throw verificationFailure() }
-      achieved += 1
-    }
-    guard achieved >= certificate.threshold else { throw verificationFailure() }
-    let level: String
-    if let settlement = certificate.settlementReference {
-      guard !settlement.isEmpty, let registered = input.registeredSettlementReference,
-        settlement == registered
-      else { throw verificationFailure() }
-      level = "settlement-anchored"
-    } else {
-      level = "checkpoint-finalised"
-    }
-    return CheckpointVerification(
-      level: level, checkpointID: checkpointID, achieved: achieved, required: certificate.threshold,
-      header: header)
-  }
-
-  public static func verifyReceiptOutcome(
-    _ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch, protocolVersion: UInt16 = 2
-  ) async throws -> ReceiptVerification {
-    try await verifyReceiptOutcomeCore(
-      canonicalReceipt, authorized: authorized, protocolVersion: protocolVersion, v5: nil)
-  }
-
-  static func verifyProgramReceiptV5(
-    _ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch,
-    protocolVersion: UInt16, expectedActivityID: Data, expectedProgramID: Data,
-    expectedGuestABI: UInt16,
-    terminalPayload: Data, callGraph: Data, documentOutcome: [String: JSONValue]
-  ) async throws -> ReceiptVerification {
-    let binding = ProgramReceiptV5Binding(
-      activity: expectedActivityID, program: expectedProgramID,
-      abi: expectedGuestABI, terminal: terminalPayload, graph: callGraph,
-      outcome: .document(documentOutcome))
-    return try await verifyReceiptOutcomeCore(
-      canonicalReceipt, authorized: authorized,
-      protocolVersion: protocolVersion, v5: binding)
-  }
-
-  static func verifyRawProgramReceiptV5(
-    _ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch,
-    protocolVersion: UInt16, expectedActivityID: Data, expectedProgramID: Data,
-    expectedGuestABI: UInt16,
-    terminalPayload: Data, callGraph: Data
-  ) async throws -> ReceiptVerification {
-    let binding = ProgramReceiptV5Binding(
-      activity: expectedActivityID, program: expectedProgramID,
-      abi: expectedGuestABI, terminal: terminalPayload, graph: callGraph, outcome: .raw)
-    return try await verifyReceiptOutcomeCore(
-      canonicalReceipt, authorized: authorized,
-      protocolVersion: protocolVersion, v5: binding)
-  }
-
-  private enum ProgramReceiptV5OutcomeSource {
-    case document([String: JSONValue])
-    case raw
-  }
-
-  private struct ProgramReceiptV5Binding {
-    let activity: Data
-    let program: Data
-    let abi: UInt16
-    let terminal: Data
-    let graph: Data
-    let outcome: ProgramReceiptV5OutcomeSource
-  }
-
-  private static func verifyReceiptOutcomeCore(
-    _ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch,
-    protocolVersion: UInt16, v5: ProgramReceiptV5Binding?
-  ) async throws -> ReceiptVerification {
-    let decoded = try decodeProtocolReceipt(canonicalReceipt)
-    let receipt = decoded.receipt
-    guard
-      (protocolVersion == 2 || protocolVersion == 3) && receipt.protocolVersion == protocolVersion
-    else { throw receiptFailure(.protocolVersion) }
-    let batchID = try exact(authorized.batchID, 32)
-    let asset = try exact(authorized.asset, 32)
-    let previousStateRoot = try exact(authorized.previousStateRoot, 32)
-    let resultingStateRoot = try exact(authorized.resultingStateRoot, 32)
-    let program = receipt.moduleID == 9 && (receipt.operation == 0 || receipt.operation == 3)
-    if program {
-      let module = receipt.moduleVersion
-      let validModule =
-        receipt.protocolVersion == 3
-        ? module == 4 || module == 5
-        : module == 2 || module == 3 || receipt.operation == 3 && module == 1
-      guard validModule else { throw receiptFailure(.moduleVersion) }
-      if receipt.operation == 0 && receipt.resultCode != 0 { throw receiptFailure(.resultCode) }
-      if receipt.operation == 3 {
-        guard let outcome = receipt.programOutcome else { throw receiptFailure(.receiptShape) }
-        if let binding = v5 {
-          guard protocolVersion == 3, (3...5).contains(binding.abi),
-            outcome.abiVersion == binding.abi,
-            outcome.runtimeVersion == 1, outcome.encodingVersion == 4,
-            binding.activity.count == 32, !allZero(binding.activity),
-            receipt.activityID == binding.activity,
-            binding.program.count == 32, !allZero(binding.program)
-          else { throw receiptFailure(.protocolVersion) }
-          guard UInt32(outcome.abiVersion) <= receipt.moduleVersion else {
-            throw receiptFailure(.moduleVersion)
-          }
-        } else {
-          guard (outcome.abiVersion == 1 || outcome.abiVersion == 2) && outcome.runtimeVersion == 1
-          else { throw receiptFailure(.protocolVersion) }
-        }
-      }
-    }
-    guard program || receipt.operation != 0 else { throw receiptFailure(.operation) }
-    guard !allZero(receipt.activityID) else { throw receiptFailure(.activityId) }
-    guard program || !allZero(receipt.asset) else { throw receiptFailure(.asset) }
-    guard receipt.batchID == batchID else { throw receiptFailure(.batchId) }
-    guard program || receipt.asset == asset else { throw receiptFailure(.asset) }
-    guard receipt.previousStateRoot == previousStateRoot else {
-      throw receiptFailure(.previousStateRoot)
-    }
-    guard receipt.resultingStateRoot == resultingStateRoot else {
-      throw receiptFailure(.resultingStateRoot)
-    }
-    if !program && receipt.resultCode == 0 {
-      guard receipt.fromBalanceBefore.subtracting(receipt.amount) == receipt.fromBalanceAfter else {
-        throw receiptFailure(.debitBalance)
-      }
-      guard receipt.toBalanceBefore.adding(receipt.amount) == receipt.toBalanceAfter else {
-        throw receiptFailure(.creditBalance)
-      }
-    }
-    let receiptDigest = digest(wireReceiptDomain, decoded.unsignedBytes)
-    guard
-      verifyEd25519(
-        publicKey: try exact(authorized.sequencerPublicKey, 32),
-        signature: receipt.sequencerSignature, message: receiptDigest)
-    else {
-      throw receiptFailure(.sequencerSignature)
-    }
-    if let binding = v5 {
-      guard program, receipt.operation == 3, let outcome = receipt.programOutcome,
-        isProgramTerminalV5(binding.terminal, receipt: outcome)
-      else { throw receiptFailure(.receiptShape) }
-      let document: [String: JSONValue]
-      switch binding.outcome {
-      case let .document(value): document = value
-      case .raw: document = try deriveProgramTerminalV5Outcome(binding.terminal, receipt: outcome)
-      }
-      _ = try verifyTerminal(
-        binding.terminal, availableGraph: binding.graph, expectedProgram: binding.program,
-        documentOutcome: document, protocolVersion: protocolVersion, receipt: outcome)
-    }
-    return ReceiptVerification(
-      level: "sequencer-signed", receipt: receipt, canonicalBytes: canonicalReceipt,
-      receiptDigest: receiptDigest)
-  }
-
   public static func verifyProgramLifecycleReceipt(
     _ canonical: Data, expectedActivity: Data, sequencer: Data
   ) throws -> ReceiptVerification {
-    let decoded = try decodeProtocolReceipt(canonical)
+    let decoded = try decodeProtocolReceipt(canonical, sequencerOnly: false)
     let receipt = decoded.receipt
     guard receipt.protocolVersion == 3, receipt.moduleID == 9, receipt.moduleVersion == 4,
       receipt.operation == 0,
@@ -722,14 +247,6 @@ public enum LocalVerifier {
       receiptDigest: receiptDigest)
   }
 
-  public static func verifyReceipt(
-    _ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch, protocolVersion: UInt16 = 2
-  ) async throws -> ReceiptVerification {
-    let verified = try await verifyReceiptOutcome(
-      canonicalReceipt, authorized: authorized, protocolVersion: protocolVersion)
-    guard verified.receipt.resultCode == 0 else { throw receiptFailure(.resultCode) }
-    return verified
-  }
 }
 
 private struct DecodedReceipt {
@@ -737,9 +254,11 @@ private struct DecodedReceipt {
   let unsignedBytes: Data
 }
 
-private func decodeProtocolReceipt(_ canonicalReceipt: Data) throws -> DecodedReceipt {
+private func decodeProtocolReceipt(_ canonicalReceipt: Data, sequencerOnly: Bool) throws
+  -> DecodedReceipt
+{
   do {
-    return try decodeProtocolReceiptInner(canonicalReceipt)
+    return try decodeProtocolReceiptInner(canonicalReceipt, sequencerOnly: sequencerOnly)
   } catch let error as PlatformSDKError where error.receiptCheck != nil {
     throw error
   } catch {
@@ -747,7 +266,9 @@ private func decodeProtocolReceipt(_ canonicalReceipt: Data) throws -> DecodedRe
   }
 }
 
-private func decodeProtocolReceiptInner(_ canonicalReceipt: Data) throws -> DecodedReceipt {
+private func decodeProtocolReceiptInner(_ canonicalReceipt: Data, sequencerOnly: Bool) throws
+  -> DecodedReceipt
+{
   guard !canonicalReceipt.isEmpty, canonicalReceipt.count <= maximumMessageBytes else {
     throw receiptFailure(.receiptShape)
   }
@@ -788,6 +309,7 @@ private func decodeProtocolReceiptInner(_ canonicalReceipt: Data) throws -> Deco
   let feeCharged = try decoder.u128()
   let batchID = try decoder.array32()
   let moduleID = try decoder.u16()
+  guard !sequencerOnly || moduleID > 11 else { throw receiptFailure(.decode) }
   let moduleVersion = try decoder.u32()
   let parameterVersion = try decoder.u32()
   let operation = try decoder.u8()
