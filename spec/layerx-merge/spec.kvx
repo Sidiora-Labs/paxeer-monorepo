@@ -139918,7 +139918,7 @@ do_11 = "Attempt 2 leaves services/platform/hosted/paxai-worker/src/main.rs:9 an
 
 [task.8.98.12]
 title = "Migrate the registry callers of wiring.J44.20 (wave 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.2", "8.12.3", "18.1083.1", "18.1297.1"]
@@ -139950,7 +139950,7 @@ do_4 = "Scan only: after the requires tasks land the files in touches carry no r
 
 [task.8.98.13]
 title = "Migrate the registry callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.2", "8.12.3", "18.1083.1", "18.1297.1"]
