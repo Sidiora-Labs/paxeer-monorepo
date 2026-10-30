@@ -3,8 +3,10 @@ use std::net::TcpListener;
 use std::time::Duration;
 
 use layerx_crypto::signer::{LocalSigner, Signer};
-use layerx_mcp::server::{tool_operation, ToolKind, FAUCET_REQUEST};
-use layerx_mcp::tools::faucet::{execute, FaucetSession};
+use layerx_mcp::server::{tool_operation, InvocationOutcome, ToolKind, FAUCET_REQUEST};
+use layerx_mcp::tools::faucet::{
+    execute, invocation_outcome, request_funds, FaucetError, FaucetSession,
+};
 use serde_json::json;
 
 #[path = "faucet.rs"]
@@ -78,8 +80,19 @@ fn faucet_request_calls_px_request_funds() {
                 "params": [expected_did, expected_key],
             })
         );
-        let body =
-            json!({"jsonrpc": "2.0", "id": request["id"], "result": funding_hash}).to_string();
+        let body = json!({
+            "jsonrpc": "2.0",
+            "id": request["id"],
+            "result": {
+                "funded": true,
+                "funding_id": "b2".repeat(32),
+                "transaction_id": funding_hash,
+                "amount": "1000",
+                "network": "layerx-testnet",
+                "starter_credit": {"grant_id": "starter-grant"},
+            },
+        })
+        .to_string();
         write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).expect("funding response");
     });
     let result = execute(&mut server, 50, &node, &session)
@@ -96,6 +109,102 @@ fn faucet_request_calls_px_request_funds() {
         2
     );
     std::fs::remove_dir_all(root).expect("remove test session state");
+}
+
+#[test]
+fn faucet_request_calls_px_request_funds_refuses_unfunded_claims() {
+    let hash = format!("0x{}", "a1".repeat(32));
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind faucet RPC");
+    let node = format!("http://{}", listener.local_addr().expect("RPC address"));
+    let responder = std::thread::spawn(move || {
+        let results = [
+            json!({
+                "funded": false,
+                "funding_id": "b2".repeat(32),
+                "transaction_id": hash,
+                "amount": "1000",
+                "network": "layerx-testnet",
+            }),
+            json!({
+                "funded": true,
+                "funding_id": "b2".repeat(32),
+                "amount": "1000",
+                "network": "layerx-testnet",
+            }),
+            json!(hash),
+        ];
+        for result in results {
+            let (mut stream, _) = listener.accept().expect("accept faucet request");
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .expect("request timeout");
+            stream
+                .set_write_timeout(Some(Duration::from_secs(5)))
+                .expect("response timeout");
+            let mut reader = BufReader::new(&stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).expect("request line");
+            assert_eq!(line, "POST / HTTP/1.1\r\n");
+            let mut length = None;
+            loop {
+                line.clear();
+                assert!(reader.read_line(&mut line).expect("request header") > 0);
+                if line == "\r\n" {
+                    break;
+                }
+                let (name, value) = line.trim_end().split_once(':').expect("HTTP header");
+                if name.eq_ignore_ascii_case("content-length") {
+                    assert!(length.is_none(), "one content length");
+                    length = Some(value.trim().parse::<usize>().expect("body length"));
+                }
+            }
+            let length = length.expect("content length");
+            assert!(length <= 4096);
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).expect("request body");
+            let request: serde_json::Value =
+                serde_json::from_slice(&body).expect("JSON-RPC request");
+            assert_eq!(request["method"], "px_requestFunds");
+            let body = json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string();
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).expect("funding response");
+        }
+    });
+    for _ in 0..3 {
+        let result = request_funds(&node, "did:layerx:model", &[0x42; 32]);
+        assert!(
+            matches!(result, Err(FaucetError::InvalidResponse)),
+            "{result:?}"
+        );
+        assert_eq!(invocation_outcome(&result), InvocationOutcome::Unknown);
+    }
+    responder.join().expect("faucet RPC assertions");
+    assert_eq!(
+        invocation_outcome(&Err(FaucetError::InvalidResponse)),
+        InvocationOutcome::Unknown
+    );
+    assert_eq!(
+        invocation_outcome(&Err(FaucetError::Transport(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "response timeout",
+        )))),
+        InvocationOutcome::Unknown
+    );
+    for error in [
+        FaucetError::Rpc {
+            code: -32602,
+            message: "Faucet claim refused".to_owned(),
+            data: None,
+        },
+        FaucetError::InvalidRequest,
+        FaucetError::Endpoint,
+        FaucetError::Http(403),
+    ] {
+        assert_eq!(invocation_outcome(&Err(error)), InvocationOutcome::Refused);
+    }
+    assert_eq!(
+        invocation_outcome(&Ok("funding-transaction".to_owned())),
+        InvocationOutcome::Completed
+    );
 }
 
 #[test]
