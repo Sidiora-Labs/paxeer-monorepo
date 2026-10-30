@@ -1549,7 +1549,6 @@ jobs:
       - name: Gate seller and buyer quickstarts against the actual public registry snapshot
         run: make platform-test-ten-line
       - name: Retain the actual published-package integration line counts
-        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ten-line-counts-${{ github.job }}-${{ github.run_attempt }}

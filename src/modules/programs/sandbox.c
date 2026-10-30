@@ -96,15 +96,20 @@ lxp_result layerx_programs_call_sandbox_admit(
 {
     programs_sandbox_activity *value = sandbox_for_call(call_token);
     size_t kind;
+    lxp_result status;
     if (value == NULL || value->operation != SANDBOX_EXECUTE ||
-        value->host_reserved || value->ctx->effects == NULL ||
+        value->host_reserved)
+        return LXP_ERR_NON_CANONICAL;
+    if (value->ctx->effects == NULL ||
         value->ctx->effects->count > LXP_MAX_EFFECTS ||
         SANDBOX_USAGE_EFFECT_RESERVE >
             LXP_MAX_EFFECTS - value->ctx->effects->count)
-        return LXP_ERR_NON_CANONICAL;
-    if (layerx_programs_sandbox_admit_host(call_token, observed_batch,
-            maximum_fee_hi, maximum_fee_lo) != LXP_OK)
-        return LXP_ERR_NON_CANONICAL;
+        return LXP_ERR_LENGTH_LIMIT;
+    status = layerx_programs_sandbox_admit_host(call_token, observed_batch,
+                                               maximum_fee_hi, maximum_fee_lo);
+    if (status != LXP_OK)
+        return lxp_result_is_registered(status) && !lxp_result_is_fatal(status)
+            ? status : LXP_ERR_NON_CANONICAL;
     /* Bind cleanup before any subsequent C allocation can refuse admission. */
     value->reservation_token = call_token;
     for (kind = 0U; kind < 3U; ++kind) {
