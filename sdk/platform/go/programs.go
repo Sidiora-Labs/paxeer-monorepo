@@ -1957,9 +1957,27 @@ func (programs *Programs) Discover(ctx context.Context, program [32]byte) (Progr
 	if e1 != nil || e2 != nil || e3 != nil || e4 != nil || policy > 1 || version == 0 || !SupportsProgramGuestAbi(uint16(abi)) {
 		return ProgramDiscovery{}, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
-	lifecycle := "deprecated"
-	if active == 1 {
-		lifecycle = "active"
+	lifecycle := "active"
+	if active == 0 {
+		windDown, err := programs.view(ctx, layerxProgramsAddress, programABI("98e4e41d", program[:]), [20]byte{})
+		if err != nil {
+			return ProgramDiscovery{}, err
+		}
+		if len(windDown) != 192 {
+			return ProgramDiscovery{}, newSDKError(ErrorDecodeFailure, RetryNever)
+		}
+		status, err := programABIUint(windDown, 0, 8)
+		if err != nil {
+			return ProgramDiscovery{}, err
+		}
+		switch status {
+		case 2:
+			lifecycle = "deprecated"
+		case 3:
+			lifecycle = "tombstoned"
+		default:
+			return ProgramDiscovery{}, newSDKError(ErrorDecodeFailure, RetryNever)
+		}
 	}
 	return ProgramDiscovery{ProgramID: hex.EncodeToString(program[:]), Lifecycle: lifecycle, CodeHash: hex.EncodeToString(data[64:96]), ABIVersion: uint16(abi), Version: uint32(version), Verification: "pending-state-read"}, nil
 }

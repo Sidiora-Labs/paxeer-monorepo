@@ -829,7 +829,6 @@ fn execute_write(
     write: &WriteOptions,
     request: WriteRequest<'_>,
 ) -> Result<CommandOutput, String> {
-    use layerx_crypto::evm_transaction::Eip1559Call;
     use layerx_crypto::send::CallOptions;
     use layerx_crypto::signer::{LocalSigner, Signer as _};
     use layerx_platform_cli::wallet_signing::{EvmSigningKey, PreparedTransaction, SigningFacts};
@@ -846,9 +845,10 @@ fn execute_write(
     let public_key = fixed_hex::<32>("wallet public key", &owner.public_key)?;
     let evm_key = EvmSigningKey::read(&write.evm_key_file, &owner.did, public_key)?;
     let from = evm_key.address();
+    let from_address = layerx_crypto::account_derivation::checksum_address(&from);
     let client = sdk_rpc(config, rpc, gateway)?;
     let nonce = client
-        .get_identity_sequence(&format!("0x{}", hex_encode(&from)))
+        .get_identity_sequence(&from_address)
         .map_err(rpc_error)?;
     let endpoint = rpc.unwrap_or(&config.active_environment()?.1.endpoint);
     let credential = gateway
@@ -857,7 +857,14 @@ fn execute_write(
                 .ok_or_else(|| format!("gateway credential {alias} does not exist"))
         })
         .transpose()?;
-    let quote_rpc = RpcClient::new(endpoint, credential)?;
+    let quote_rpc = RpcClient::new(endpoint, credential.clone())?;
+    let base = endpoint
+        .strip_suffix("/rpc")
+        .ok_or("RPC URL must end in /rpc")?;
+    let estimate_rpc = match credential {
+        Some(value) => Client::new_gateway(base, value)?,
+        None => Client::new(base, None)?,
+    };
     let gas_price = ethereum_amount(&quote_rpc.call("eth_gasPrice", &json!([]))?)?;
     if gas_price == 0 {
         return Err("invalid_fee_quote: gas price must be positive".into());
@@ -876,18 +883,8 @@ fn execute_write(
         max_fee_per_gas: gas_price,
         gas_limit,
     };
-    let payment_call = |payment: &Payment| -> Result<Eip1559Call, String> {
-        let mut to = [0; 20];
-        to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
-        Ok(Eip1559Call {
-            chain_id: options.chain_id,
-            nonce: options.nonce,
-            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
-            max_fee_per_gas: options.max_fee_per_gas,
-            gas_limit: options.gas_limit,
-            to,
-            data: layerx_platform_cli::wallet_encoding::payment_calldata(payment, &owner.did)?,
-        })
+    let payment_call = |payment: &Payment| {
+        layerx_platform_cli::wallet_encoding::payment_call(payment, &owner.did, &options)
     };
     let mut call = match request {
         WriteRequest::Payment(payment) => payment_call(payment)?,
@@ -937,7 +934,27 @@ fn execute_write(
             })?
         }
     };
-    let gas = client.estimate_fee_from(&call, from).map_err(rpc_error)?;
+    if call.data.len() > 524_288 {
+        return Err("invalid_transaction: calldata exceeds 524288 bytes".into());
+    }
+    let transaction = json!({
+        "from":from_address, "type":"0x2",
+        "chainId":format!("0x{:x}", call.chain_id),
+        "nonce":format!("0x{:x}", call.nonce),
+        "maxPriorityFeePerGas":format!("0x{:x}", call.max_priority_fee_per_gas),
+        "maxFeePerGas":format!("0x{:x}", call.max_fee_per_gas),
+        "gas":format!("0x{:x}", call.gas_limit),
+        "to":format!("0x{}", hex_encode(&call.to)), "value":"0x0",
+        "data":format!("0x{}", hex_encode(&call.data)), "accessList":[],
+    });
+    let estimate = estimate_rpc.post(
+        "/rpc",
+        &json!({"jsonrpc":"2.0", "id":1, "method":"eth_estimateGas", "params":[transaction,"pending"]}),
+        None,
+    )?;
+    let estimate = layerx_platform_cli::rpc::decode_response("eth_estimateGas", &estimate)?;
+    let gas = u64::try_from(ethereum_amount(&estimate)?)
+        .map_err(|_| "invalid_fee_quote: gas estimate exceeds u64")?;
     let fee = u128::from(gas)
         .checked_mul(gas_price)
         .ok_or("fee_quote_overflow: fee exceeds u128")?;
@@ -1177,8 +1194,10 @@ fn wait_transaction(
                 );
             }
             if !success {
+                let reason = layerx_platform_cli::wallet_encoding::revert_reason(&return_data)
+                    .unwrap_or(vm_error);
                 return Err(format!(
-                    "transaction_reverted: {hash_text}; rung {}; {vm_error}",
+                    "transaction_reverted: {hash_text}; rung {}; {reason}",
                     Rung::Receipted.name()
                 ));
             }

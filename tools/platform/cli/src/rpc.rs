@@ -49,7 +49,10 @@ impl RpcClient {
     /// # Errors
     /// Refuses unsupported methods, invalid parameters, transport failures and RPC errors.
     pub fn call(&self, method: &str, params: &Value) -> Result<Value, String> {
-        if matches!(method, "lx_subscribe" | "lx_unsubscribe") {
+        if matches!(
+            method,
+            "eth_subscribe" | "eth_unsubscribe" | "lx_subscribe" | "lx_unsubscribe"
+        ) {
             return Err(format!(
                 "rpc_transport_required: {method} requires authenticated WebSocket transport"
             ));
@@ -86,6 +89,18 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         .as_array()
         .ok_or("RPC parameters must be positional")?;
     match method {
+        "eth_sendRawTransaction" => raw_transaction_params(args)?,
+        "eth_getTransactionCount" => transaction_count_params(args)?,
+        "pax_sequencerReceipt" => {
+            let [hash] = args.as_slice() else {
+                return Err("pax_sequencerReceipt requires one transaction hash".into());
+            };
+            if !ethereum_data(hash, Some(32)) {
+                return Err(
+                    "pax_sequencerReceipt requires a 0x-prefixed 32-byte transaction hash".into(),
+                );
+            }
+        }
         "eth_estimateGas" => estimate_gas_params(args)?,
         "eth_gasPrice" if args.is_empty() => {}
         "eth_gasPrice" => return Err("eth_gasPrice takes no parameters".into()),
@@ -152,6 +167,15 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
             };
             canonical_hex(canonical)?;
         }
+        "eth_subscribe" => logs_subscription_params(args)?,
+        "eth_unsubscribe" => {
+            let [Value::String(subscription)] = args.as_slice() else {
+                return Err("eth_unsubscribe requires one subscription identifier".into());
+            };
+            if subscription.is_empty() || subscription.len() > 128 {
+                return Err("invalid subscription identifier".into());
+            }
+        }
         "lx_subscribe" => subscription_params(args)?,
         "lx_unsubscribe" => {
             let [Value::String(subscription)] = args.as_slice() else {
@@ -204,6 +228,35 @@ fn ethereum_data(value: &Value, bytes: Option<usize>) -> bool {
                     .bytes()
                     .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
         })
+}
+
+fn raw_transaction_params(args: &[Value]) -> Result<(), String> {
+    let [raw] = args else {
+        return Err("eth_sendRawTransaction requires one raw transaction".into());
+    };
+    if !ethereum_data(raw, None) || raw.as_str() == Some("0x") {
+        return Err(
+            "eth_sendRawTransaction requires non-empty 0x-prefixed transaction bytes".into(),
+        );
+    }
+    Ok(())
+}
+
+fn transaction_count_params(args: &[Value]) -> Result<(), String> {
+    let [address, Value::String(block)] = args else {
+        return Err("eth_getTransactionCount requires an address and block selector".into());
+    };
+    if !ethereum_data(address, Some(20))
+        || !(matches!(
+            block.as_str(),
+            "pending" | "latest" | "earliest" | "safe" | "finalized"
+        ) || ethereum_quantity(block))
+    {
+        return Err(
+            "eth_getTransactionCount requires a 20-byte address and valid block selector".into(),
+        );
+    }
+    Ok(())
 }
 
 fn estimate_gas_params(args: &[Value]) -> Result<(), String> {
@@ -437,14 +490,43 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
             .ok_or("malformed RPC error message")?;
         return Err(json!({"code":code,"message":message,"data":error.get("data")}).to_string());
     }
-    if matches!(method, "eth_estimateGas" | "eth_gasPrice") {
+    if matches!(
+        method,
+        "eth_estimateGas" | "eth_gasPrice" | "eth_getTransactionCount"
+    ) {
         return response
             .get("result")
             .filter(|value| value.as_str().is_some_and(ethereum_quantity))
             .cloned()
             .ok_or_else(|| format!("{method} returned an invalid Ethereum quantity"));
     }
-    if method == "lx_subscribe" {
+    if method == "eth_sendRawTransaction" {
+        return response
+            .get("result")
+            .filter(|value| ethereum_data(value, Some(32)))
+            .cloned()
+            .ok_or_else(|| {
+                "eth_sendRawTransaction returned an invalid transaction hash".to_owned()
+            });
+    }
+    if method == "pax_sequencerReceipt" {
+        return response
+            .get("result")
+            .filter(|value| {
+                value
+                    .get("txHash")
+                    .is_some_and(|hash| ethereum_data(hash, Some(32)))
+                    && value
+                        .get("rung")
+                        .and_then(Value::as_str)
+                        .is_some_and(|rung| matches!(rung, "submitted" | "receipted" | "committed"))
+            })
+            .cloned()
+            .ok_or_else(|| {
+                "pax_sequencerReceipt returned an invalid transaction status".to_owned()
+            });
+    }
+    if matches!(method, "eth_subscribe" | "lx_subscribe") {
         return response
             .get("result")
             .filter(|value| {
@@ -455,7 +537,7 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
             .cloned()
             .ok_or_else(|| "invalid subscription identifier".to_owned());
     }
-    if method == "lx_unsubscribe" {
+    if matches!(method, "eth_unsubscribe" | "lx_unsubscribe") {
         return response
             .get("result")
             .filter(|value| value.as_bool() == Some(true))
@@ -467,6 +549,48 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
         .filter(|value| value.is_object())
         .cloned()
         .ok_or_else(|| format!("{method} returned a non-object result"))
+}
+
+fn logs_subscription_params(args: &[Value]) -> Result<(), String> {
+    let [Value::String(kind), Value::Object(filter)] = args else {
+        return Err("eth_subscribe requires logs and an address/topics filter".into());
+    };
+    let hex = |value: &Value, bytes: usize| {
+        value.as_str().is_some_and(|value| {
+            value.strip_prefix("0x").is_some_and(|value| {
+                value.len() == bytes * 2 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+        })
+    };
+    let address = filter.get("address").is_some_and(|address| {
+        hex(address, 20)
+            || address.as_array().is_some_and(|addresses| {
+                !addresses.is_empty() && addresses.iter().all(|address| hex(address, 20))
+            })
+    });
+    let topics = filter.get("topics").is_none_or(|topics| {
+        topics.as_array().is_some_and(|topics| {
+            topics.len() <= 4
+                && topics.iter().all(|topic| {
+                    topic.is_null()
+                        || hex(topic, 32)
+                        || topic.as_array().is_some_and(|alternatives| {
+                            !alternatives.is_empty()
+                                && alternatives.iter().all(|topic| hex(topic, 32))
+                        })
+                })
+        })
+    });
+    if kind != "logs"
+        || filter
+            .keys()
+            .any(|key| !matches!(key.as_str(), "address" | "topics"))
+        || !address
+        || !topics
+    {
+        return Err("invalid eth_subscribe logs address/topics filter".into());
+    }
+    Ok(())
 }
 
 fn subscription_params(args: &[Value]) -> Result<(), String> {
@@ -580,7 +704,13 @@ mod tests {
                 .filter_map(|entry| entry["name"].as_str())
                 .collect::<Vec<_>>(),
             [
-                "lx_register",
+                "px_register",
+                "px_getCommit",
+                "px_getValidators",
+                "px_getReceiptKeys",
+                "px_getSequenceBatch",
+                "px_requestFunds",
+                "pax_sequencerReceipt",
                 "lx_requestFunds",
                 "lx_getAccount",
                 "lx_getBalance",
@@ -604,11 +734,12 @@ mod tests {
                 "px_getBalances",
                 "px_listAssets",
                 "px_getNetwork",
-                "lx_getHistory",
                 "px_getHistory",
                 "px_getUnifiedHistory",
+                "px_listHolderRecords",
                 "px_getCapabilities",
                 "px_getRouteCatalogue",
+                "lx_getWalletCaps",
             ]
         );
         let description = |method: &str| -> Result<&str, String> {
