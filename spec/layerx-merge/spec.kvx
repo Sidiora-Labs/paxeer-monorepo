@@ -194228,7 +194228,7 @@ planned_paths = []
 build_cmd = "(cd sdk/platform/go && go build ./...) && (cd services/wallet/attestor && go build ./...) && swift build --package-path sdk/platform/swift && dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj && mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
 verify_cmd = "python3 sdk/platform/generators/generate_portable.py --check . && (cd sdk/platform/go && go test -count=1 . -run '^(TestProgramOperationsHaveNoRestRoute|TestProgramOperationsNeverCallProgramsRestIngress|TestPortableCataloguesMatchOperationsJson)$') && (cd services/wallet/attestor && go test -count=1 ./internal/policy/evm/ -run '^TestABICopiesMatchRepository$') && swift test --package-path sdk/platform/swift --filter 'LayerXSDKTests.(ProgramsEvmTests/testProgramReceiptResolvesByTransaction|ProgramTransportRetiredTests/testProgramOperationsNeverCallProgramsRestIngress)' && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~ProgramTransportRetiredTests.ProgramOperationsNeverCallProgramsRestIngress' && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=ProgramTransportRetiredTest"
 gate_kind = "existing"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-platform"
 rollback = "Revert the fifteen touched files; the four SDKs call resultByIdempotency again and fail against a node that no longer serves it."
 max_builds = 1
@@ -194435,6 +194435,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
