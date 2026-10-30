@@ -86,15 +86,36 @@ pub struct NodeRpc {
 
 impl NodeRpc {
     pub fn connect(config: &NodeRpcConfig) -> Result<Self, NodeRpcError> {
+        Self::connect_with_roots(config, None)
+    }
+
+    pub fn connect_with_ca(config: &NodeRpcConfig, ca_der: &[u8]) -> Result<Self, NodeRpcError> {
+        Self::connect_with_roots(config, Some(ca_der.to_vec()))
+    }
+
+    fn connect_with_roots(
+        config: &NodeRpcConfig,
+        ca_der: Option<Vec<u8>>,
+    ) -> Result<Self, NodeRpcError> {
         let config = config.clone();
         within_deadline(config.deadline, move |expires| {
             let uri: ureq::http::Uri = config.url.parse().map_err(|_| SequencerError::Endpoint)?;
             let certificates = if uri.scheme_str() == Some("https") {
-                let loaded = rustls_native_certs::load_native_certs();
-                if loaded.certs.is_empty() || !loaded.errors.is_empty() {
-                    return Err(SequencerError::Tls.into());
+                match ca_der {
+                    Some(ca) => {
+                        if ca.is_empty() {
+                            return Err(SequencerError::Tls.into());
+                        }
+                        vec![rustls::pki_types::CertificateDer::from(ca)]
+                    }
+                    None => {
+                        let loaded = rustls_native_certs::load_native_certs();
+                        if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+                            return Err(SequencerError::Tls.into());
+                        }
+                        loaded.certs
+                    }
                 }
-                loaded.certs
             } else {
                 Vec::new()
             };

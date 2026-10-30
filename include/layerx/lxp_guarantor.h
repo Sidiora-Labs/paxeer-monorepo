@@ -372,22 +372,6 @@ lxp_result lxp_equivocation_verify(
 lxp_result lxp_slashing_submit(
     const lxp_equivocation_evidence *evidence, lxp_guarantor_set *set,
     lxp_arena *arena);
-lxp_result lxp_guarantor_first_divergence(
-    uint64_t batch_number, uint64_t first_sequence,
-    const lxp_replay_batch_result *published,
-    const lxp_replay_batch_result *recomputed,
-    lxp_guarantor_divergence *divergence);
-lxp_result lxp_guarantor_dissent(
-    const lxp_guarantor_ctx *ctx, uint64_t epoch,
-    const lxp_guarantor_divergence *divergence,
-    lxp_guarantor_dissent_record *dissent);
-lxp_result lxp_guarantor_dissent_verify(
-    const lxp_guarantor_dissent_record *dissent,
-    const uint8_t public_key[33]);
-lxp_result lxp_guarantor_withhold(
-    lxp_guarantor_ctx *ctx, uint64_t epoch,
-    const lxp_guarantor_divergence *divergence,
-    lxp_guarantor_dissent_record *dissent);
 lxp_result lxp_da_challenge_indices(
     const uint8_t checkpoint_hash[32], uint32_t chunk_count,
     size_t requested_count, uint32_t *indices);

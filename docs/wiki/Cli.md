@@ -117,7 +117,7 @@ describe the intended surface, not the shipped one:
 | `layerx wallet receipt <activity_id>` | Retrieve and verify a receipt; `--wait` selects commitment |
 | `layerx wallet send` | Sign native debit and envelope; requires `--to`, `--asset`, `--amount`, receipt policy, and fee limit |
 | `layerx wallet open-account` | Open the selected wallet's per-Asset account |
-| `layerx wallet estimate-fee <canonical_hex>` | Estimate from the committed native fee schedule |
+| `layerx wallet estimate-fee --from <address> <unsigned_tx_hex>` | Estimate fees for an unsigned EIP-1559 transaction using `eth_estimateGas` at `pending` and `eth_gasPrice` |
 | `layerx wallet watch` | Receive one live `receipts`, `checkpoints`, or `account` notification, then reconcile |
 | `layerx token create` | Register a native Asset from symbol, name, decimals, cap, and salt |
 | `layerx token mint` | Move issuance units to an existing per-Asset account |
@@ -293,8 +293,10 @@ Emulator account create posts `/__emulator/accounts/prefund`
 Receipts get `/v1/receipts/{id}` (`tools/platform/cli/src/main.rs:1008`). Program
 lifecycle posts octet-stream to `/v1/programs/deploy`, `/upgrade`,
 `/wind-down`, `/call`, `/simulate` (`tools/platform/cli/src/programs.rs:436-442,
-816, 906`). A2A `activity.submit` posts JSON to `/v1/activities`
-(`tools/platform/cli/src/toolset.rs:341-344`).
+816, 906`). A2A `activity.submit` takes one `raw_transaction`, a
+signed EIP-1559 transaction hex (`tools/platform/cli/src/toolset.rs:189-199`),
+and sends it with `eth_sendRawTransaction` to `/rpc`. It returns `txHash`
+with `rung: "submitted"` (`tools/platform/cli/src/toolset.rs:260-294`).
 
 ---
 

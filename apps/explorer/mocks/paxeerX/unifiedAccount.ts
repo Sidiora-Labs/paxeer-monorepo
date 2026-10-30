@@ -22,31 +22,18 @@ export const tokenAsset: PaxeerXAsset = {
   decimals: 6,
 };
 
-// A custody asset is known by its kernel asset id alone: no symbol and no scale.
-export const custodyAsset: PaxeerXAsset = {
-  id: '0x0000000000000000000000000000000000000000000000000000000000000001',
-  denom: '0x0000000000000000000000000000000000000000000000000000000000000001',
-  symbol: null,
-  decimals: null,
-};
-
 export const unifiedAccount: PaxeerXUnifiedAccount = {
   next_page_params: null,
   page_cursor: 'fixture-page',
   first_page_cursor: 'fixture-page',
   page_number: 1,
-  activity_total: 3,
+  activity_total: 2,
   identities: {
     evm: evmAddress,
     pax: paxAddress,
     did,
-    kernel_account: kernelAccount,
   },
   balances: [
-    {
-      asset: custodyAsset,
-      total: '1200',
-    },
     {
       asset: tokenAsset,
       total: '2500000',
@@ -57,17 +44,6 @@ export const unifiedAccount: PaxeerXUnifiedAccount = {
     },
   ],
   activity: [
-    {
-      kind: 'custody_deposit',
-      hash: '0x62d597ebcf3e8d60096dd0363bc2f0f5e2df27d1c9b95cc51f1d9fb69f23c1a5',
-      block_number: 1_285_004,
-      ordinal: 0,
-      status: 'instant',
-      timestamp: '2024-04-02T11:41:07.000000Z',
-      asset: custodyAsset,
-      amount: '1200',
-      counterparty: kernelAccountHash,
-    },
     {
       kind: 'token_transfer',
       hash: '0x1f0e9c7a3b5d2e4f6081a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7',
@@ -103,7 +79,6 @@ export const unifiedAccountEvmOnly: PaxeerXUnifiedAccount = {
     evm: evmAddress,
     pax: null,
     did: null,
-    kernel_account: null,
   },
   balances: [],
   activity: [],

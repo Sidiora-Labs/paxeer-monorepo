@@ -19,7 +19,7 @@ Source: `precompiles/<name>/*abi*.json` and `precompiles/<name>/abi/abi.json`, t
 | json | `precompiles/json/abi.json` | `0x0000000000000000000000000000000000001003` | 4 |
 | launchpad | `precompiles/launchpad/abi.json` | - | 113 |
 | layerxanchor | `precompiles/layerxanchor/abi.json` | `0x0000000000000000000000000000000000001014` | 21 |
-| layerxauth | `precompiles/layerxauth/abi.json` | `0x000000000000000000000000000000000000101C` | 10 |
+| layerxauth | `precompiles/layerxauth/abi.json` | `0x000000000000000000000000000000000000101C` | 9 |
 | layerxbridge | `precompiles/layerxbridge/abi.json` | - | 7 |
 | layerxcustody | `precompiles/layerxcustody/abi.json` | - | 20 |
 | layerxexchange | `precompiles/layerxexchange/abi.json` | - | 12 |
@@ -450,7 +450,6 @@ Address: `0x000000000000000000000000000000000000101C`
 - `grantSession(bytes grant, uint64 expirySequence, bytes32 actionKey) returns (bytes32 grantId)` `nonpayable`
 - `grantSessionSuccessor(bytes grant, uint64 expirySequence, bytes32 actionKey, bytes32 predecessorId, bytes32 expectedCommitment) returns (bytes32 grantId)` `nonpayable`
 - `isLive(bytes32 grantId, uint64 sequence, uint64 timestampMs) returns (bool live, string code)` `view`
-- `resultByIdempotency(bytes32 didId, bytes32 idempotencyKey) returns (bytes receipt)` `view`
 - `revokeGrant(bytes32 grantId, uint8 reason, uint64 sequence)` `nonpayable`
 - `sessionKey(bytes32 grantId) returns (bytes summary)` `view`
 

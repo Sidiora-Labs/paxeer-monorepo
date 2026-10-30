@@ -350,19 +350,21 @@ public struct ProgramSubmission: Sendable {
   public var activityID: Data { transactionHash }
   public let sequencerReceipt: SequencerReceiptVerification?
   public let idempotencyKey: String
+  public let idempotencyResult: Data?
   public let retainedSignedActivity: Data?
   public let execution: VerifiedProgramExecution?
   public var isUnknown: Bool { state == "unknown" }
   fileprivate init(
     _ value: JSONValue, state: String, activityID: Data, idempotencyKey: String,
     retainedSignedActivity: Data?, execution: VerifiedProgramExecution?,
-    sequencerReceipt: SequencerReceiptVerification? = nil
+    sequencerReceipt: SequencerReceiptVerification? = nil, idempotencyResult: Data? = nil
   ) {
     self.sequencerReceipt = sequencerReceipt
     self.value = value
     self.state = state
     self.transactionHash = activityID
     self.idempotencyKey = idempotencyKey
+    self.idempotencyResult = idempotencyResult
     self.retainedSignedActivity = retainedSignedActivity
     self.execution = execution
   }
@@ -379,20 +381,23 @@ public struct ProgramsClient: Sendable {
   private let maxFeePerGas: UInt64
   private let maxPriorityFeePerGas: UInt64
   private let receiptKeys: [ReceiptKeys]
+  private let prevSeqHash: Data
 
   public init(
     rpcURL: URL, sender: Data, actor: Data? = nil, receiptKeys: [ReceiptKeys],
     maxFeePerGas: UInt64, maxPriorityFeePerGas: UInt64,
+    prevSeqHash: Data = Data(repeating: 0, count: 32),
     session: URLSession = .shared
   ) throws {
     guard sender.count == 20, sender.contains(where: { $0 != 0 }),
       actor == nil || actor!.count == 32, maxFeePerGas > 0,
-      maxPriorityFeePerGas <= maxFeePerGas
+      maxPriorityFeePerGas <= maxFeePerGas, prevSeqHash.count == 32
     else { throw programInvalid() }
     self.rpc = try ProgramRPC(url: rpcURL, session: session)
     self.sender = sender
     self.actor = actor
     self.receiptKeys = receiptKeys
+    self.prevSeqHash = prevSeqHash
     self.maxFeePerGas = maxFeePerGas
     self.maxPriorityFeePerGas = maxPriorityFeePerGas
   }
@@ -412,6 +417,7 @@ public struct ProgramsClient: Sendable {
     sender = nil
     actor = nil
     receiptKeys = []
+    prevSeqHash = Data(repeating: 0, count: 32)
     maxFeePerGas = 0
     maxPriorityFeePerGas = 0
   }
@@ -564,8 +570,13 @@ public struct ProgramsClient: Sendable {
     verificationLevel: String
   ) async throws -> ProgramSubmission {
     guard let actor, verificationLevel == "pending" else { throw programInvalid() }
-    _ = try await receipt(actor: actor, idempotencyKey: idempotencyKey)
-    return try await activity(transactionHash: expectedActivityID)
+    let recorded = try await receipt(actor: actor, idempotencyKey: idempotencyKey)
+    let submission = try await activity(transactionHash: expectedActivityID)
+    return ProgramSubmission(
+      submission.value, state: submission.state, activityID: submission.activityID,
+      idempotencyKey: idempotencyKey.rawValue,
+      retainedSignedActivity: submission.retainedSignedActivity, execution: submission.execution,
+      sequencerReceipt: submission.sequencerReceipt, idempotencyResult: recorded)
   }
   public func lifecycleReceipt(_ request: NativeProgramLifecycleRequest) async throws -> Data {
     guard let actor else { throw programInvalid() }
@@ -580,16 +591,31 @@ public struct ProgramsClient: Sendable {
   }
   public func activity(transactionHash: Data) async throws -> ProgramSubmission {
     _ = try ProgramABI.id(transactionHash)
-    let value = try await transport().call(
-      "eth_getTransactionByHash", [.string("0x" + transactionHash.hex)])
-    if value != .null {
-      guard try ProgramABI.hex(value.objectValue?["hash"]?.stringValue) == transactionHash else {
-        throw programVerification()
-      }
+    let rpc = try transport()
+    let params: [JSONValue] = [.string("0x" + transactionHash.hex)]
+    let value = try await rpc.call("eth_getTransactionByHash", params)
+    if value == .null {
+      return ProgramSubmission(
+        value, state: "unknown", activityID: transactionHash, idempotencyKey: "",
+        retainedSignedActivity: nil, execution: nil)
     }
-    return ProgramSubmission(
-      value, state: value == .null ? "unknown" : "submitted",
-      activityID: transactionHash, idempotencyKey: "", retainedSignedActivity: nil, execution: nil)
+    guard try ProgramABI.hex(value.objectValue?["hash"]?.stringValue) == transactionHash else {
+      throw programVerification()
+    }
+    let receipt = try await rpc.call("pax_sequencerReceipt", params)
+    guard let receiptJSON = receipt.objectValue else { throw programDecode() }
+    if receiptJSON["rung"] == .string("submitted") {
+      return ProgramSubmission(
+        receipt, state: "pending", activityID: transactionHash, idempotencyKey: "",
+        retainedSignedActivity: nil, execution: nil)
+    }
+    let raw = try await rpc.call("eth_getRawTransactionByHash", params)
+    guard let rawTransaction = try? ProgramABI.hex(raw.stringValue),
+      CommittedWire.keccak256(rawTransaction) == transactionHash
+    else { throw programVerification() }
+    return try verifySubmission(
+      ProgramABI.hex(receiptJSON["receipt"]?.stringValue), transactionHash: transactionHash,
+      rawTransaction: rawTransaction, receiptJSON: receiptJSON, prevSeqHash: prevSeqHash)
   }
   public static func verifyReceipt(
     _ canonicalReceipt: Data, rawTransaction: Data, keys: [ReceiptKeys],

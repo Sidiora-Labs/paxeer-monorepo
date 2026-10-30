@@ -2,18 +2,32 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[path = "support/chain.rs"]
+mod chain;
+
+use chain::ChainFixture;
+use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_programs::chain_evidence::{
+    deployment::ChainDeploymentProof, lifecycle::ChainLifecycleProof,
+    program_state::ChainProgramStateProof, programs_state_key, wind_down::ChainWindDownProof,
+};
+use layerx_programs::chain_proof::{
+    decode::{decode_commitment_proof, ProofOp},
+    merkle::{hash_from_byte_slices, SimpleProof},
+    validators::TrustedValidator,
+    vote::vote_sign_bytes,
+};
 use layerx_programs::{
-    verify_interface_read, DeploymentProof, InterfaceCapability, InterfaceEntryPoint,
-    InterfaceRefusal, InterfaceStateWitness, ProgramInterface, ProgramLifecycleProof,
-    ProgramStateProof, ProtocolDeploymentVerifier, StateLeafWitness, StateProof, ValueSchema,
-    ValueType,
+    interface_state_key, interface_state_value, DeploymentProof, InterfaceCapability,
+    InterfaceEntryPoint, InterfaceRefusal, InterfaceStateWitness, ProgramInterface,
+    ProgramLifecycleProof, ProgramStateProof, ProtocolDeploymentVerifier, StateProof, ValueSchema,
+    ValueType, VerifiedInterfaceRead,
 };
 use layerx_programs_runtime::test_support::{
     code_section, func_body, function_section, import_section, module, raw_section, type_section,
     unsigned_leb, OP_CALL, OP_DROP, OP_END, OP_I32_CONST, TYPE_I32,
 };
 use layerx_programs_runtime::{ProgramId, WasmEngine};
-use layerx_proof::merkle::Proof;
 use sha2::{Digest, Sha256};
 
 const CASES: [(&str, u16, bool); 7] = [
@@ -186,8 +200,15 @@ fn canonical_abi_domains_and_legacy_vectors() {
         } else {
             1
         };
-        let domain = format!("LayerX/program-interface/v{version}\0");
-        let mut expected = domain.into_bytes();
+        let domain: &[u8] = match version {
+            1 => b"LayerX/program-interface/v1\0",
+            2 => b"LayerX/program-interface/v2\0",
+            3 => b"LayerX/program-interface/v3\0",
+            4 => b"LayerX/program-interface/v4\0",
+            _ => unreachable!(),
+        };
+        assert!(interface.canonical_encoding().starts_with(domain));
+        let mut expected = domain.to_vec();
         expected.extend_from_slice(&Sha256::digest(wasm(abi, dynamic)));
         expected.extend_from_slice(&abi.to_be_bytes());
         expected.extend(unhex("0001000463616c6c10203040012000000040012000000040"));
@@ -215,7 +236,42 @@ fn canonical_abi_domains_and_legacy_vectors() {
             interface.digest().as_bytes().as_slice(),
             Sha256::digest(&expected).as_slice()
         );
-        assert_eq!(ProgramInterface::decode(&expected), Ok(interface));
+        assert_eq!(ProgramInterface::decode(&expected), Ok(interface.clone()));
+        let program = ProgramId::new([0x31; 32]).expect("program ID");
+        let mut record = vec![0; 33];
+        record.extend_from_slice(&interface.code_hash());
+        record.extend_from_slice(&abi.to_be_bytes());
+        record.extend_from_slice(&1_u32.to_be_bytes());
+        let fixture = ChainEvidence::new(
+            program,
+            record,
+            interface_state_value(program, 1, &interface).expect("interface state"),
+            wasm(abi, dynamic),
+            &interface,
+            expected.clone(),
+        );
+        let head = fixture
+            .chain
+            .verifier
+            .verify_head(&fixture.chain.header, &fixture.chain.commit)
+            .expect("signed chain head");
+        let ops = fixture.interface_ops();
+        let read = VerifiedInterfaceRead::verify_at_head(&head, program, &fixture.witness, &ops)
+            .expect("chain-proven canonical interface");
+        assert_eq!(read.interface, interface);
+        assert_eq!(read.receipt_digest, head.app_hash());
+        assert_eq!(read.state_root, head.app_hash());
+        assert_eq!(read.freshness.observed_sequence, (head.height() - 1) as u64);
+        let mut bad = ops.clone();
+        bad[0].data[0] ^= 1;
+        assert!(
+            VerifiedInterfaceRead::verify_at_head(&head, program, &fixture.witness, &bad).is_err()
+        );
+        let mut bad = ops.clone();
+        bad[2].data[0] ^= 1;
+        assert!(
+            VerifiedInterfaceRead::verify_at_head(&head, program, &fixture.witness, &bad).is_err()
+        );
         for wrong in [0_u16, 5, u16::MAX] {
             let mut bad = expected.clone();
             bad[DOMAIN_LEN + 32..DOMAIN_LEN + 34].copy_from_slice(&wrong.to_be_bytes());
@@ -384,6 +440,148 @@ fn canonical_encoding_refuses_malformed_bounds() {
     }
 }
 
+const VALIDATOR_SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
+
+struct ChainEvidence {
+    chain: ChainFixture,
+    proof: DeploymentProof,
+    witness: InterfaceStateWitness,
+}
+
+impl ChainEvidence {
+    fn new(
+        program: ProgramId,
+        record: Vec<u8>,
+        interface_value: Vec<u8>,
+        code: Vec<u8>,
+        interface: &ProgramInterface,
+        transaction: Vec<u8>,
+    ) -> Self {
+        let mut record_key = b"program\0".to_vec();
+        record_key.extend_from_slice(&program.bytes());
+        let record_key = programs_state_key(&record_key);
+        let interface_key = interface_state_key(program);
+        let mut chain = ChainFixture::new(
+            "paxeer-interface-protocol",
+            &VALIDATOR_SEEDS,
+            vec![
+                (record_key.clone(), record.clone()),
+                (programs_state_key(&interface_key), interface_value.clone()),
+            ],
+        )
+        .expect("chain fixture");
+        let transaction_hash: [u8; 32] = Sha256::digest(&transaction).into();
+        let transaction_root = hash_from_byte_slices(&[&transaction_hash]);
+        chain.header.data_hash = transaction_root.to_vec();
+        chain.commit.block_id.hash = chain.header.hash().expect("chain header hash").to_vec();
+        for signature in &mut chain.commit.signatures {
+            let key = VALIDATOR_SEEDS
+                .iter()
+                .map(SigningKey::from_bytes)
+                .find(|key| {
+                    TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                        .address
+                        .as_slice()
+                        == signature.validator_address
+                })
+                .expect("validator signer");
+            let bytes = vote_sign_bytes(
+                &chain.header.chain_id,
+                chain.commit.height,
+                chain.commit.round,
+                Some(&chain.commit.block_id),
+                signature.timestamp,
+            )
+            .expect("vote sign bytes");
+            signature.signature = key.sign(&bytes).to_bytes().to_vec();
+        }
+        let commitment = decode_commitment_proof(
+            &chain
+                .encode_key(&record_key)
+                .expect("encode chain commitment"),
+        )
+        .expect("decode chain commitment");
+        let program_state = ChainProgramStateProof {
+            program,
+            ops: chain.prove(&record_key).expect("program ICS23 ops"),
+        };
+        let mut status_key = b"wind-down\0s".to_vec();
+        status_key.extend_from_slice(&program.bytes());
+        let status_ops = chain
+            .prove_absent(&programs_state_key(&status_key))
+            .expect("active lifecycle ICS23 ops");
+        let proof = DeploymentProof {
+            state: ProgramStateProof {
+                commitment,
+                state: program_state.clone(),
+                lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
+                    program,
+                    record: Some(record),
+                    record_ops: program_state.ops.clone(),
+                    status: None,
+                    status_ops: status_ops.clone(),
+                }),
+                wind_down: ChainWindDownProof {
+                    program,
+                    value: None,
+                    ops: status_ops,
+                },
+                transaction,
+                transaction_proof: SimpleProof {
+                    total: 1,
+                    index: 0,
+                    leaf_hash: transaction_root,
+                    aunts: Vec::new(),
+                },
+            },
+            deployment: ChainDeploymentProof {
+                program_state,
+                code,
+                interface: Some(interface.canonical_encoding().to_vec()),
+            },
+        };
+        Self {
+            chain,
+            proof,
+            witness: InterfaceStateWitness {
+                key: interface_key,
+                value: interface_value,
+                proof: StateProof {
+                    leaf_index: 0,
+                    leaf_count: 0,
+                    siblings: Vec::new(),
+                },
+            },
+        }
+    }
+
+    fn interface_ops(&self) -> Vec<ProofOp> {
+        let mut ops = self
+            .chain
+            .prove(&programs_state_key(&self.witness.key))
+            .expect("interface ICS23 ops");
+        ops.extend(self.proof.state.state.ops.clone());
+        ops
+    }
+
+    fn verifier(&self) -> ProtocolDeploymentVerifier {
+        ProtocolDeploymentVerifier::from_chain_trust(
+            &self.chain.verifier.chain_id,
+            self.chain.verifier.validators.validators().to_vec(),
+            1000,
+        )
+        .expect("chain validator trust")
+    }
+
+    fn now_ms(&self) -> u64 {
+        u64::try_from(
+            self.chain.header.time.seconds * 1000
+                + i64::from(self.chain.header.time.nanos / 1_000_000),
+        )
+        .expect("chain time")
+    }
+}
+
 struct NativeEvidence {
     fields: BTreeMap<String, String>,
 }
@@ -413,98 +611,33 @@ impl NativeEvidence {
             .try_into()
             .unwrap_or_else(|_| panic!("wrong length {key}"))
     }
-    fn number(&self, key: &str) -> u64 {
-        self.text(key).parse().expect("decimal evidence field")
-    }
-    fn state_proof(&self, prefix: &str) -> StateProof {
-        let siblings = self.text(&format!("{prefix}.siblings"));
-        StateProof {
-            leaf_index: u32::try_from(self.number(&format!("{prefix}.leaf_index")))
-                .expect("proof index"),
-            leaf_count: u32::try_from(self.number(&format!("{prefix}.leaf_count")))
-                .expect("proof count"),
-            siblings: if siblings.is_empty() {
-                Vec::new()
-            } else {
-                siblings
-                    .split(',')
-                    .map(|hex| unhex(hex).try_into().expect("sibling length"))
-                    .collect()
-            },
-        }
-    }
-    fn inclusion(&self, prefix: &str) -> Proof {
-        let proof = self.state_proof(prefix);
-        Proof::new(proof.leaf_index, proof.leaf_count, proof.siblings)
-            .expect("native inclusion proof")
-    }
-    fn witness(&self, prefix: &str) -> StateLeafWitness {
-        StateLeafWitness {
-            key: self.bytes(&format!("{prefix}.key")),
-            value: self.bytes(&format!("{prefix}.value")),
-            proof: self.state_proof(&format!("{prefix}.proof")),
-        }
-    }
-    fn optional(&self, prefix: &str) -> Option<StateLeafWitness> {
-        if self
-            .fields
-            .get(prefix)
-            .is_some_and(|value| value == "absent")
-        {
-            None
-        } else {
-            Some(self.witness(prefix))
-        }
-    }
-    fn deployment(&self) -> DeploymentProof {
-        DeploymentProof {
-            activity: self.bytes("activity"),
-            activity_proof: self.inclusion("activity_proof"),
-            maintenance: None,
-            state: ProgramStateProof {
-                receipt: self.bytes("receipt"),
-                receipt_proof: self.inclusion("receipt_proof"),
-                header: self.bytes("header"),
-                header_signature: self.fixed("header_signature"),
-                programs_root: self.fixed("programs_root"),
-                programs_root_proof: self.state_proof("programs_root_proof"),
-                program_record: self.witness("program_record"),
-                lifecycle: ProgramLifecycleProof::Active {
-                    lower: self.optional("lifecycle_lower"),
-                    upper: self.optional("lifecycle_upper"),
-                },
-            },
-        }
-    }
-    fn verifier(&self, path: &Path) -> ProtocolDeploymentVerifier {
-        let mut bytes = b"LayerX/sequencer-trust-history/v1\0".to_vec();
-        bytes.extend([0, 1, 0, 0]);
-        bytes.extend_from_slice(
-            &u16::try_from(self.number("protocol_version"))
-                .expect("protocol")
-                .to_be_bytes(),
+    fn fixture(&self, interface: &ProgramInterface) -> ChainEvidence {
+        let dynamic = interface
+            .entries()
+            .iter()
+            .flat_map(|entry| &entry.capabilities)
+            .any(|capability| {
+                matches!(
+                    capability,
+                    InterfaceCapability::CallerAuthorizedSpend { .. }
+                )
+            });
+        let program = ProgramId::new(self.fixed("program_id")).expect("native program ID");
+        assert_eq!(
+            self.bytes("interface_record.key"),
+            interface_state_key(program)
         );
-        bytes.extend_from_slice(
-            &u32::try_from(self.number("network_id"))
-                .expect("network")
-                .to_be_bytes(),
-        );
-        bytes.extend_from_slice(&self.number("epoch").to_be_bytes());
-        bytes.extend_from_slice(&self.fixed::<32>("sequencer_id"));
-        bytes.extend_from_slice(&self.fixed::<32>("sequencer_key"));
-        bytes.extend_from_slice(&self.number("first_batch").to_be_bytes());
-        bytes.extend_from_slice(&self.number("last_batch").to_be_bytes());
-        bytes.push(0);
-        bytes.extend_from_slice(&0_u64.to_be_bytes());
-        fs::write(path, bytes).expect("write real native signer trust policy");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(path, fs::Permissions::from_mode(0o600))
-                .expect("protect trust policy");
-        }
-        ProtocolDeploymentVerifier::from_protected_history(path, 1000)
-            .expect("protected native trust")
+        let mut record_key = b"program\0".to_vec();
+        record_key.extend_from_slice(&program.bytes());
+        assert_eq!(self.bytes("program_record.key"), record_key);
+        ChainEvidence::new(
+            program,
+            self.bytes("program_record.value"),
+            self.bytes("interface_record.value"),
+            wasm(interface.abi_version(), dynamic),
+            interface,
+            self.bytes("activity"),
+        )
     }
 }
 
@@ -519,7 +652,16 @@ fn native_receipt_authorized_interface_reads() {
     for name in ["upgrade-narrowing", "upgrade-downgrade"] {
         let path = root.join(name);
         let evidence = NativeEvidence::read(&path.join("evidence.kvx"));
-        let verifier = evidence.verifier(&path.join("trust.bin"));
+        let prior = if name == "upgrade-narrowing" {
+            bound(2, false, 128, 32)
+        } else {
+            bound(2, false, 32, 128)
+        };
+        let proposed = if name == "upgrade-narrowing" {
+            bound(2, false, 32, 128)
+        } else {
+            bound(1, false, 64, 64)
+        };
         assert_eq!(
             evidence.text("result_code"),
             if name == "upgrade-narrowing" {
@@ -528,9 +670,23 @@ fn native_receipt_authorized_interface_reads() {
                 "-101"
             }
         );
+        let fixture = evidence.fixture(&prior);
+        let head = fixture
+            .chain
+            .verifier
+            .verify_head(&fixture.chain.header, &fixture.chain.commit)
+            .expect("chain head");
+        let read = VerifiedInterfaceRead::verify_at_head(
+            &head,
+            fixture.proof.state.state.program,
+            &fixture.witness,
+            &fixture.interface_ops(),
+        )
+        .expect("unchanged interface after refused native upgrade");
+        assert_eq!(read.interface, prior);
         assert!(
-            verifier
-                .verify_deployment(&evidence.deployment(), evidence.number("now_ms"))
+            proposed
+                .authorize_upgrade(&read.interface, name == "upgrade-downgrade")
                 .is_err(),
             "{name} must refuse"
         );
@@ -540,16 +696,22 @@ fn native_receipt_authorized_interface_reads() {
 fn verify_native_case(root: &Path, name: &str, expected: ProgramInterface) {
     let path = root.join(name);
     let evidence = NativeEvidence::read(&path.join("evidence.kvx"));
-    let verifier = evidence.verifier(&path.join("trust.bin"));
-    let now = evidence.number("now_ms");
-    let proof = evidence.deployment();
+    let fixture = evidence.fixture(&expected);
+    let verifier = fixture.verifier();
+    let now = fixture.now_ms();
+    let proof = fixture.proof.clone();
     assert_eq!(
         evidence.text("result_code"),
         "0",
         "{name} successful native receipt required"
     );
     assert_eq!(
-        DeploymentProof::decode(&proof.canonical_encoding()).expect("native proof roundtrip"),
+        DeploymentProof::decode(
+            &proof
+                .canonical_encoding()
+                .expect("encode chain deployment proof")
+        )
+        .expect("native proof roundtrip"),
         proof
     );
     let deployment = verifier
@@ -563,41 +725,47 @@ fn verify_native_case(root: &Path, name: &str, expected: ProgramInterface) {
     let head = verifier
         .verify_current_program(&proof.state, program, now)
         .expect("real current program");
-    let record = evidence.witness("interface_record");
-    let witness = InterfaceStateWitness {
-        key: record.key,
-        value: record.value,
-        proof: record.proof,
-    };
-    let read = verify_interface_read(&head, &witness).expect("receipt-authorized native interface");
+    let chain_head = fixture
+        .chain
+        .verifier
+        .verify_head(&fixture.chain.header, &fixture.chain.commit)
+        .expect("chain head");
+    assert_eq!(head.state_root(), chain_head.app_hash());
+    let witness = fixture.witness.clone();
+    let ops = fixture.interface_ops();
+    let read = VerifiedInterfaceRead::verify_at_head(&chain_head, program, &witness, &ops)
+        .expect("chain-authorized native interface");
     assert_eq!(read.interface, expected);
-    assert_eq!(read.receipt_digest, head.receipt_digest());
+    assert_eq!(read.receipt_digest, chain_head.app_hash());
     assert_eq!(read.state_root, head.state_root());
     let mut bad = proof.clone();
-    bad.state.header_signature[0] ^= 1;
+    bad.state.commitment.commit[0] ^= 1;
     assert!(verifier.verify_deployment(&bad, now).is_err());
     let mut bad = proof.clone();
-    bad.state.receipt[0] ^= 1;
+    bad.state.transaction_proof.leaf_hash[0] ^= 1;
     assert!(verifier.verify_deployment(&bad, now).is_err());
     let mut bad = proof.clone();
-    bad.activity[0] ^= 1;
+    bad.state.transaction[0] ^= 1;
     assert!(verifier.verify_deployment(&bad, now).is_err());
     let mut bad = proof.clone();
-    bad.state.programs_root[0] ^= 1;
+    bad.state.commitment.signed_header[0] ^= 1;
     assert!(verifier.verify_deployment(&bad, now).is_err());
     let mut bad = proof.clone();
-    bad.state.program_record.value[0] ^= 1;
+    bad.deployment.program_state.ops[0].data[0] ^= 1;
     assert!(verifier.verify_deployment(&bad, now).is_err());
     assert!(verifier.verify_deployment(&proof, now + 1001).is_err());
     for index in [0, 32, 36, 68, witness.value.len() - 1] {
         let mut bad = witness.clone();
         bad.value[index] ^= 1;
-        assert!(verify_interface_read(&head, &bad).is_err());
+        assert!(VerifiedInterfaceRead::verify_at_head(&chain_head, program, &bad, &ops).is_err());
     }
     let mut bad = witness.clone();
     bad.key[0] ^= 1;
-    assert!(verify_interface_read(&head, &bad).is_err());
-    let mut bad = witness.clone();
-    bad.proof.leaf_count = 0;
-    assert!(verify_interface_read(&head, &bad).is_err());
+    assert!(VerifiedInterfaceRead::verify_at_head(&chain_head, program, &bad, &ops).is_err());
+    let mut bad = ops.clone();
+    bad[0].data[0] ^= 1;
+    assert!(VerifiedInterfaceRead::verify_at_head(&chain_head, program, &witness, &bad).is_err());
+    let mut bad = ops.clone();
+    bad[2].data[0] ^= 1;
+    assert!(VerifiedInterfaceRead::verify_at_head(&chain_head, program, &witness, &bad).is_err());
 }

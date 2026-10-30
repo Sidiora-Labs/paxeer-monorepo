@@ -43,16 +43,6 @@
   },
   {
     "type": "function",
-    "name": "resultByIdempotency",
-    "stateMutability": "view",
-    "inputs": [
-      {"name": "didId", "type": "bytes32", "internalType": "bytes32"},
-      {"name": "idempotencyKey", "type": "bytes32", "internalType": "bytes32"}
-    ],
-    "outputs": [{"name": "receipt", "type": "bytes", "internalType": "bytes"}]
-  },
-  {
-    "type": "function",
     "name": "getGrant",
     "stateMutability": "view",
     "inputs": [{"name": "grantId", "type": "bytes32", "internalType": "bytes32"}],

@@ -3,18 +3,18 @@
 use std::time::Duration;
 
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
+use layerx_programs::chain_proof::{
+    decode::{decode_commitment_proof, CommitmentProof},
+    merkle::SimpleProof,
+};
 use layerx_programs::state_record::{
     ProtocolAdapterError as StateRecordError, ProtocolProgramStateRead,
 };
 use layerx_programs::{
     hex, AccountStateHead, ProgramBundleError, ProgramHeadKind, ProgramId, ProgramLifecycle,
-    ProgramStateBundle, ProtocolDeploymentVerifier, ProtocolEvidenceError,
-    ProtocolHeadMaintenanceProof, ProtocolHeadProof, Registry, VerifiedChainHead,
-    VerifiedMaintenanceHead, VerifiedProgramBundle,
+    ProgramStateBundle, ProtocolDeploymentVerifier, ProtocolEvidenceError, Registry,
+    VerifiedChainHead, VerifiedProgramBundle,
 };
-use layerx_proof::merkle::Proof;
-use layerx_wire::hash::receipt_digest;
-use layerx_wire::receipt::{decode as decode_receipt, decode_merkle_proof, encode_unsigned};
 use serde_json::Value;
 
 use super::program_balances_impl::{
@@ -49,21 +49,10 @@ impl From<layerx_programs::RegistryError> for ProgramReadError {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct BatchEvidence {
-    header: Vec<u8>,
-    signature: [u8; 64],
-    receipt_proof: Proof,
-    batch_identity: Value,
-    maintenance: Option<ProtocolHeadMaintenanceProof>,
-}
-
-/// Head authority retained from the two-source head verification.
-enum HeadAuthority {
-    Ordinary {
-        receipt: Vec<u8>,
-        evidence: BatchEvidence,
-    },
-    Maintenance(VerifiedMaintenanceHead),
+struct ChainHeadEvidence {
+    commitment: CommitmentProof,
+    transaction: Vec<u8>,
+    transaction_proof: SimpleProof,
 }
 
 /// Refusal of the authenticated chain-head read.
@@ -275,7 +264,17 @@ impl LayerxdProgramBalanceReader {
             &self.authorization,
             "/v1/protocol/account-state/head",
         )?;
-        let (head, _, _) = self.verify_head(&head_document, now)?;
+        let chain = self
+            .verify_head(&head_document, now)
+            .map_err(|error| match error {
+                ChainHeadError::View(error) => error,
+                ChainHeadError::Evidence(_) => ProgramReadError::NonCanonicalView,
+            })?;
+        let head = AccountStateHead {
+            receipt_digest: chain.receipt_digest(),
+            state_root: chain.state_root(),
+            freshness: chain.freshness(),
+        };
         let profile2 = request_profile2
             || self
                 .registry
@@ -397,32 +396,7 @@ impl LayerxdProgramBalanceReader {
                 "/v1/protocol/account-state/head",
             )
             .map_err(ChainHeadError::View)?;
-        let (head, sequencer_key, authority) = self
-            .verify_head(&head_document, now)
-            .map_err(ChainHeadError::View)?;
-        let chain = match authority {
-            HeadAuthority::Maintenance(maintenance) => VerifiedChainHead::from(maintenance),
-            HeadAuthority::Ordinary { receipt, evidence } => self
-                .verifier
-                .verify_current_chain_head(
-                    ProgramHeadKind::Ordinary,
-                    &receipt,
-                    &evidence.receipt_proof,
-                    &evidence.header,
-                    &evidence.signature,
-                    now,
-                )
-                .map_err(ChainHeadError::Evidence)?,
-        };
-        if chain.receipt_digest() != head.receipt_digest
-            || chain.state_root() != head.state_root
-            || chain.freshness() != head.freshness
-            || chain.global_sequence() != head.freshness.observed_sequence
-            || chain.sequencer_public_key() != sequencer_key
-        {
-            return Err(ChainHeadError::View(ProgramReadError::NonCanonicalView));
-        }
-        Ok(chain)
+        self.verify_head(&head_document, now)
     }
 
     /// Decodes one kind-5 Programs state answer and binds it to the one
@@ -437,12 +411,11 @@ impl LayerxdProgramBalanceReader {
         payload: &[u8],
         chain: &VerifiedChainHead,
         program: ProgramId,
-        authorised_signer: &[u8; 32],
         now: u64,
     ) -> Result<VerifiedProgramBundle, ProgramBundleError> {
-        let bundle = ProgramStateBundle::decode(payload).map_err(ProgramBundleError::Evidence)?;
+        let bundle = ProgramStateBundle::decode(payload)?;
         self.verifier
-            .verify_current_program_bundle(&bundle, chain, program, authorised_signer, now)
+            .verify_current_program_bundle(&bundle, chain, program, now)
     }
 
     #[must_use]
@@ -450,114 +423,52 @@ impl LayerxdProgramBalanceReader {
         self.staleness_limit
     }
 
-    fn verify_head(
-        &self,
-        value: &Value,
-        now_ms: u64,
-    ) -> Result<(AccountStateHead, [u8; 32], HeadAuthority), ProgramReadError> {
+    fn verify_head(&self, value: &Value, now_ms: u64) -> Result<VerifiedChainHead, ChainHeadError> {
+        let view = ChainHeadError::View;
         if value["current"].as_bool() != Some(true) {
-            return Err(ProgramReadError::NonCanonicalView);
+            return Err(view(ProgramReadError::NonCanonicalView));
         }
-        let receipt_bytes = hex::decode(field(value, "receipt_hex")?)
-            .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        let node = batch_evidence(&value["batch_evidence"])?;
-        let (batch_id, receipt_digest) = head_identity(&receipt_bytes, &node)?;
-        let path = format!(
-            "/v1/batches/{}/receipt-authority?receipt_digest={}",
-            hex::encode(&batch_id),
-            hex::encode(&receipt_digest)
-        );
-        let authority_document = self.get(
-            &self.authority_endpoint,
-            &self.authority_authorization,
-            &path,
-        )?;
-        if hex::decode_digest(field(&authority_document, "authority_replica_id")?)
-            .map_err(|_| ProgramReadError::NonCanonicalView)?
+        let evidence = chain_head_evidence(value).map_err(view)?;
+        let observed_sequence = value["observed_sequence"]
+            .as_u64()
+            .ok_or(view(ProgramReadError::NonCanonicalView))?;
+        let path = format!("/v1/protocol/account-state/head?height={observed_sequence}");
+        let authority_document = self
+            .get(
+                &self.authority_endpoint,
+                &self.authority_authorization,
+                &path,
+            )
+            .map_err(view)?;
+        if hex::decode_digest(field(&authority_document, "authority_replica_id").map_err(view)?)
+            .map_err(|_| view(ProgramReadError::NonCanonicalView))?
             != self.authority_replica_id
+            || evidence != chain_head_evidence(&authority_document).map_err(view)?
         {
-            return Err(ProgramReadError::NonCanonicalView);
+            return Err(view(ProgramReadError::NonCanonicalView));
         }
-        let independent = batch_evidence(&authority_document["batch_evidence"])?;
-        if node != independent {
-            return Err(ProgramReadError::NonCanonicalView);
-        }
-        let (verified, sequencer_key, maintenance) =
-            self.verify_head_claims(&receipt_bytes, &independent, now_ms)?;
-        if hex::decode_digest(field(&authority_document, "sequencer_public_key")?)
-            .map_err(|_| ProgramReadError::NonCanonicalView)?
-            != sequencer_key
-        {
-            return Err(ProgramReadError::NonCanonicalView);
-        }
-        let state_root = hex::decode_digest(field(value, "state_root")?)
-            .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        if hex::decode_digest(field(value, "receipt_digest")?)
-            .map_err(|_| ProgramReadError::NonCanonicalView)?
-            != verified.receipt_digest
-            || receipt_digest != verified.receipt_digest
-            || state_root != verified.state_root
-            || value["observed_sequence"].as_u64() != Some(verified.freshness.observed_sequence)
-            || value["observed_at"].as_u64() != Some(verified.freshness.observed_at)
-        {
-            return Err(ProgramReadError::NonCanonicalView);
-        }
-        let authority = match maintenance {
-            Some(maintenance) => HeadAuthority::Maintenance(maintenance),
-            None => HeadAuthority::Ordinary {
-                receipt: receipt_bytes,
-                evidence: independent,
-            },
-        };
-        Ok((verified, sequencer_key, authority))
-    }
-
-    fn verify_head_claims(
-        &self,
-        receipt: &[u8],
-        evidence: &BatchEvidence,
-        now_ms: u64,
-    ) -> Result<(AccountStateHead, [u8; 32], Option<VerifiedMaintenanceHead>), ProgramReadError>
-    {
-        if layerx_wire::batch_maintenance::decode_maintenance(receipt).is_ok() {
-            let maintenance = self
-                .verifier
-                .verify_current_maintenance_head_typed(
-                    receipt,
-                    &evidence.receipt_proof,
-                    &evidence.header,
-                    &evidence.signature,
-                    now_ms,
-                )
-                .map_err(|_| ProgramReadError::NonCanonicalView)?;
-            return Ok((
-                maintenance.account_state_head(),
-                maintenance.sequencer_public_key(),
-                Some(maintenance),
-            ));
-        }
-        let verified = self
+        let chain = self
             .verifier
-            .verify_current_protocol_head_proof(
-                &ProtocolHeadProof {
-                    receipt,
-                    receipt_proof: &evidence.receipt_proof,
-                    header: &evidence.header,
-                    header_signature: &evidence.signature,
-                    maintenance: evidence.maintenance.as_ref(),
-                },
+            .verify_current_chain_head(
+                ProgramHeadKind::Ordinary,
+                &evidence.commitment,
+                &evidence.transaction,
+                &evidence.transaction_proof,
                 now_ms,
             )
-            .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        Ok((
-            AccountStateHead {
-                receipt_digest: verified.receipt_digest(),
-                state_root: verified.state_root(),
-                freshness: verified.freshness(),
-            },
-            verified.sequencer_public_key(),
-            None,
-        ))
+            .map_err(ChainHeadError::Evidence)?;
+        if hex::decode_digest(field(value, "receipt_digest").map_err(view)?)
+            .map_err(|_| view(ProgramReadError::NonCanonicalView))?
+            != chain.receipt_digest()
+            || hex::decode_digest(field(value, "state_root").map_err(view)?)
+                .map_err(|_| view(ProgramReadError::NonCanonicalView))?
+                != chain.state_root()
+            || observed_sequence != chain.freshness().observed_sequence
+            || value["observed_at"].as_u64() != Some(chain.freshness().observed_at)
+        {
+            return Err(view(ProgramReadError::NonCanonicalView));
+        }
+        Ok(chain)
     }
 
     fn get(
@@ -636,124 +547,56 @@ impl ProgramBalanceReadRoute {
     }
 }
 
-fn batch_evidence(value: &Value) -> Result<BatchEvidence, ProgramReadError> {
-    let header =
-        hex::decode(field(value, "header_hex")?).map_err(|_| ProgramReadError::NonCanonicalView)?;
-    let signature = hex::decode(field(value, "header_signature")?)
-        .map_err(|_| ProgramReadError::NonCanonicalView)?
+fn chain_head_evidence(value: &Value) -> Result<ChainHeadEvidence, ProgramReadError> {
+    let value = &value["chain_evidence"];
+    let commitment = decode_commitment_proof(&chain_hex(field(value, "commitment_hex")?)?)
+        .map_err(|_| ProgramReadError::NonCanonicalView)?;
+    let transaction = chain_hex(field(value, "transaction_hex")?)?;
+    let proof = &value["transaction_proof"];
+    let total = proof["total"]
+        .as_i64()
+        .filter(|total| *total >= 0)
+        .ok_or(ProgramReadError::NonCanonicalView)?;
+    let index = proof["index"]
+        .as_i64()
+        .filter(|index| *index >= 0)
+        .ok_or(ProgramReadError::NonCanonicalView)?;
+    let leaf_hash = chain_hex(field(proof, "leaf_hash")?)?
         .try_into()
         .map_err(|_| ProgramReadError::NonCanonicalView)?;
-    let proof = hex::decode(field(value, "receipt_proof_hex")?)
-        .map_err(|_| ProgramReadError::NonCanonicalView)?;
-    Ok(BatchEvidence {
-        header,
-        signature,
-        receipt_proof: native_proof(&proof)?,
-        batch_identity: value["batch_identity"].clone(),
-        maintenance: maintenance_proof(&value["batch_identity"])?,
+    let aunts = proof["aunts"]
+        .as_array()
+        .filter(|aunts| aunts.len() <= 64)
+        .ok_or(ProgramReadError::NonCanonicalView)?;
+    let aunts = aunts
+        .iter()
+        .map(|aunt| {
+            chain_hex(aunt.as_str().ok_or(ProgramReadError::NonCanonicalView)?)?
+                .try_into()
+                .map_err(|_| ProgramReadError::NonCanonicalView)
+        })
+        .collect::<Result<Vec<[u8; 32]>, _>>()?;
+    Ok(ChainHeadEvidence {
+        commitment,
+        transaction,
+        transaction_proof: SimpleProof {
+            total,
+            index,
+            leaf_hash,
+            aunts,
+        },
     })
 }
 
-fn head_identity(
-    receipt: &[u8],
-    evidence: &BatchEvidence,
-) -> Result<([u8; 32], [u8; 32]), ProgramReadError> {
-    if layerx_wire::batch_maintenance::decode_maintenance(receipt).is_ok() {
-        let maintenance = evidence
-            .maintenance
-            .as_ref()
-            .ok_or(ProgramReadError::NonCanonicalView)?;
-        if maintenance.receipt != receipt || maintenance.receipt_proof != evidence.receipt_proof {
-            return Err(ProgramReadError::NonCanonicalView);
-        }
-        let header = layerx_wire::receipt::decode_batch_header(&evidence.header)
-            .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        let last_activity = header
-            .last_sequence()
-            .checked_sub(1)
-            .ok_or(ProgramReadError::NonCanonicalView)?;
-        let batch = layerx_wire::hash::program_execution_batch_id(
-            header.previous_state_root(),
-            header.activity_merkle_root(),
-            header.first_sequence(),
-            last_activity,
-            header.batch_number(),
-        )
-        .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        return Ok((batch, digest(receipt)));
-    }
-    let decoded = decode_receipt(receipt).map_err(|_| ProgramReadError::NonCanonicalView)?;
-    let protocol = decoded
-        .protocol()
-        .ok_or(ProgramReadError::NonCanonicalView)?;
-    let unsigned = encode_unsigned(&decoded).map_err(|_| ProgramReadError::NonCanonicalView)?;
-    Ok((
-        protocol.batch_id(),
-        receipt_digest(&unsigned).map_err(|_| ProgramReadError::NonCanonicalView)?,
-    ))
-}
-
-fn maintenance_proof(
-    value: &Value,
-) -> Result<Option<ProtocolHeadMaintenanceProof>, ProgramReadError> {
-    if value.is_null() {
-        return Ok(None);
-    }
-    let kind = field(value, "kind")?;
-    if !matches!(kind, "occupancy_maintenance_v2" | "batch_maintenance_v1") {
-        return Err(ProgramReadError::NonCanonicalView);
-    }
-    let items = value["activity_receipts_hex"]
-        .as_array()
-        .ok_or(ProgramReadError::NonCanonicalView)?;
-    if items.is_empty() || items.len() > 64 {
-        return Err(ProgramReadError::NonCanonicalView);
-    }
-    let mut remaining = 16 * 1024 * 1024;
-    let mut decode = |encoded: &str| {
-        if !encoded.len().is_multiple_of(2) || encoded.len() / 2 > remaining {
-            return Err(ProgramReadError::NonCanonicalView);
-        }
-        remaining -= encoded.len() / 2;
-        hex::decode(encoded).map_err(|_| ProgramReadError::NonCanonicalView)
-    };
-    let receipt = decode(field(value, "receipt_hex")?)?;
-    let maintenance = layerx_wire::batch_maintenance::decode_maintenance(&receipt)
-        .map_err(|_| ProgramReadError::NonCanonicalView)?;
-    if matches!(
-        maintenance,
-        layerx_wire::batch_maintenance::MaintenanceReceipt::Batch(_)
-    ) != (kind == "batch_maintenance_v1")
+fn chain_hex(text: &str) -> Result<Vec<u8>, ProgramReadError> {
+    if !text.len().is_multiple_of(2)
+        || !text
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
     {
         return Err(ProgramReadError::NonCanonicalView);
     }
-    let mut activity_receipts = Vec::with_capacity(items.len());
-    for item in items {
-        activity_receipts.push(decode(
-            item.as_str().ok_or(ProgramReadError::NonCanonicalView)?,
-        )?);
-    }
-    let encoded = field(value, "receipt_proof_hex")?;
-    if encoded.len() > 2 * 1_034 {
-        return Err(ProgramReadError::NonCanonicalView);
-    }
-    let bytes = hex::decode(encoded).map_err(|_| ProgramReadError::NonCanonicalView)?;
-    let receipt_proof = native_proof(&bytes)?;
-    Ok(Some(ProtocolHeadMaintenanceProof {
-        receipt,
-        receipt_proof,
-        activity_receipts,
-    }))
-}
-
-fn native_proof(bytes: &[u8]) -> Result<Proof, ProgramReadError> {
-    let proof = decode_merkle_proof(bytes).map_err(|_| ProgramReadError::NonCanonicalView)?;
-    Proof::new(
-        proof.leaf_index(),
-        proof.leaf_count(),
-        proof.siblings().to_vec(),
-    )
-    .map_err(|_| ProgramReadError::NonCanonicalView)
+    hex::decode(text).map_err(|_| ProgramReadError::NonCanonicalView)
 }
 
 fn field<'a>(value: &'a Value, name: &str) -> Result<&'a str, ProgramReadError> {
@@ -878,16 +721,19 @@ pub fn read_committed_program_balances(
             return Err(malformed);
         }
         let amount = abi_integer(&result[..32], 16)?;
-        let frozen = match abi_integer(&result[32..], 1)? {
+        let exists = match abi_integer(&result[32..], 1)? {
             0 => false,
             1 => true,
             _ => return Err(malformed),
         };
+        if !exists && amount != 0 {
+            return Err(malformed);
+        }
         values.push(ProgramValueBalance {
             account: *account,
             asset,
             amount,
-            frozen,
+            frozen: None,
         });
     }
     let confirmed = endpoint

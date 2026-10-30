@@ -35,11 +35,41 @@ public final class AgentEnvelopeMajor2Test {
                 assertEquals("7", envelope.get("request_id").textValue());
                 assertEquals(request, envelope.get("request"));
                 assertEquals(mutating ? key.value() : null, envelope.get("idempotency_key").textValue());
-                if (operation.equals("agent.register") || operation.equals("session.open")) {
-                    assertTrue(envelope.get("credential").isNull(), operation);
-                } else {
-                    assertEquals("tenant", envelope.get("credential").get("tenant").textValue(), operation);
-                }
+                assertEquals("tenant", envelope.get("credential").get("tenant").textValue(), operation);
+            }
+        }
+    }
+
+    @Test
+    void agentEnvelopeCarriesOwnerCredentialForBootstrapOperations() throws Exception {
+        String tenant = "tenant";
+        String sessionId = "11".repeat(32);
+        String tokenId = "22".repeat(32);
+        String generation = "7";
+        try (var client = HttpClient.newHttpClient();
+             var session = new HttpProductionTransport.AgentSessionCredential(tenant, sessionId,
+                 new SecretBytes(tokenId.getBytes(StandardCharsets.US_ASCII)), generation)) {
+            var transport = new HttpProductionTransport(client, JSON, ENDPOINT, ENDPOINT,
+                Duration.ofSeconds(1), null, session);
+            var withoutSession = new HttpProductionTransport(client, JSON, ENDPOINT, ENDPOINT,
+                Duration.ofSeconds(1), null, null);
+            var key = new IdempotencyKey("33".repeat(32));
+            for (String operation : List.of("agent.register", "session.open")) {
+                var descriptor = OperationCatalog.agent(operation);
+                var call = new ProductionTransport.Call(descriptor, JSON.createObjectNode(), null, key);
+                JsonNode envelope = JSON.readTree(transport.agentEnvelope(call, "7", true));
+                JsonNode credential = envelope.get("credential");
+                assertTrue(credential.isObject(), operation);
+                assertEquals(tenant, credential.get("tenant").textValue(), operation);
+                assertEquals(sessionId, credential.get("session_id").textValue(), operation);
+                assertEquals(tokenId, credential.get("token_id").textValue(), operation);
+                assertEquals(generation, credential.get("generation").textValue(), operation);
+                assertEquals(key.value(), envelope.get("idempotency_key").textValue(), operation);
+
+                PlatformSdkException error = assertThrows(PlatformSdkException.class,
+                    () -> withoutSession.agentEnvelope(call, "7", true), operation);
+                assertEquals(PlatformSdkException.Code.CAPABILITY_REFUSAL, error.code(), operation);
+                assertEquals(PlatformSdkException.Retry.NEVER, error.retry(), operation);
             }
         }
     }
