@@ -109286,7 +109286,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.22.6]
 title = "Pin the gateway media route tables to the frozen media catalog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["4.22.5", "4.22.3"]
