@@ -34,7 +34,7 @@ in process:
 | CLI install / `layerx mcp serve` | `layerx` stdio MCP over one binding document (`tools/platform/cli/src/mcp.rs:11-22`; `tools/platform/cli/src/main.rs:452-460, 559-565`) | The daemon catalogue the binding's mode admits (`tools/platform/cli/src/toolset.rs:146-153`; `services/agent/crates/layerx-mcp/src/catalogue.rs:385-391`) | One daemon session and one capability, restored from the binding (`services/agent/crates/layerx-mcp/src/binding.rs:339`) |
 | `layerx-mcp` crate | `Server::bind` / `ReadOnly::bind` (`services/agent/crates/layerx-mcp/src/server.rs:421-436`; `services/agent/crates/layerx-mcp/src/readonly.rs:25-41`) | Twenty-one tools in `TOOL_CATALOGUE` (`services/agent/crates/layerx-mcp/src/server.rs:60-203`) | One daemon session and one capability (`services/agent/crates/layerx-mcp/README.md:3-6`) |
 
-The gateway-bound, locally signing surface is no longer an MCP
+The gateway-bound surface is no longer an MCP
 surface: `receipt.get`, `activity.submit` and `faucet.request` over
 `Authorization: LayerX-Key` are now reached only through
 `layerx a2a serve` (`tools/platform/cli/src/toolset.rs:24-40, 42-108`;
@@ -505,12 +505,12 @@ and `isError` `false`; a refusal is the same envelope with `isError`
 `state` `"refused"` or `"unknown"`
 (`services/agent/crates/layerx-mcp/src/stdio.rs:197-211, 257-263, 296-305`).
 
-The locally signing, gateway-posting `activity.submit` with
-`destination`, `amount`, `account_sequence`, `not_before_ms`,
-`expires_at_ms`, `fee_limit` and `idempotency_key` now belongs to
-`layerx a2a serve` alone
-(`tools/platform/cli/src/toolset.rs:183-199, 207-298`;
-`tools/platform/cli/src/a2a.rs:89-176`).
+The toolset's `activity.submit`, exposed by `layerx a2a serve`, takes only
+`raw_transaction`, a signed EIP-1559 transaction hex
+(`tools/platform/cli/src/toolset.rs:189-199`;
+`tools/platform/cli/src/a2a.rs:89-176`). It sends that transaction with
+`eth_sendRawTransaction` to `/rpc` and returns `txHash` with `rung: "submitted"`
+(`tools/platform/cli/src/toolset.rs:260-294`).
 
 Daemon writes follow `ORDINARY_WRITE_STAGES`: Prepare, Disclose,
 Policy, Sign, Submit, Track
