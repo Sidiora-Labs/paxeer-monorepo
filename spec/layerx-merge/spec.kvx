@@ -147455,7 +147455,7 @@ do_5 = "Attempt 2's gate reports src/evidence_node.rs still naming layerx_client
 
 [task.10.98.7]
 title = "Migrate the layerx-human-kms callers of wiring.J44.25 (wave 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.2", "9.1.7", "9.1.8", "18.1119.1", "10.98.13", "10.2.8"]
