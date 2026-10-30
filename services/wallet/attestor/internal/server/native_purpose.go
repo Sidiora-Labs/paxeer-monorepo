@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -27,6 +28,7 @@ const maxNativeRecordBytes = 1 << 20
 const maxNativeRequestBytes = (4 << 20) + 4096
 const NativePreparationPurpose = nativepolicy.PreparationPurpose
 const NativeLocalGrantConsent = nativepolicy.LocalGrantConsent
+const NativeLedgerIssueGrant = nativepolicy.LedgerIssueGrant
 const NativeSendPurpose = nativepolicy.SendPurposeKind
 const nativeRecordKind store.RecordKind = "native-consent-v2"
 
@@ -40,6 +42,7 @@ type NativeSignRequest struct {
 	Capability    string   `json:"capability,omitempty"`
 	NativeSession string   `json:"native_session,omitempty"`
 	ExpiryMS      string   `json:"expiry_ms,omitempty"`
+	Grant         string   `json:"grant,omitempty"`
 }
 type NativeSignResponse struct {
 	Profile       uint8  `json:"profile"`
@@ -98,12 +101,16 @@ func decodeNativeRequest(body []byte) (NativeSignRequest, *Error) {
 	}
 	switch req.Operation {
 	case NativePreparationPurpose, NativeSendPurpose:
-		if !seen["purpose"] || seen["capability"] || seen["native_session"] || seen["expiry_ms"] {
+		if !seen["purpose"] || seen["capability"] || seen["native_session"] || seen["expiry_ms"] || seen["grant"] {
 			return req, newError(CodeSessionBadRequest, "purpose operation carries only a canonical purpose")
 		}
 	case NativeLocalGrantConsent:
-		if seen["purpose"] || !seen["capability"] || !seen["native_session"] || !seen["expiry_ms"] {
+		if seen["purpose"] || !seen["capability"] || !seen["native_session"] || !seen["expiry_ms"] || seen["grant"] {
 			return req, newError(CodeSessionBadRequest, "grant consent requires canonical capability, native session and expiry")
+		}
+	case NativeLedgerIssueGrant:
+		if !seen["grant"] || seen["purpose"] || seen["capability"] || seen["native_session"] || seen["expiry_ms"] {
+			return req, newError(CodeSessionBadRequest, "ledger issue grant carries only a canonical grant")
 		}
 	default:
 		return req, newError(CodeSessionKind, "unsupported native operation")
@@ -193,6 +200,32 @@ func (s *Server) doNativeSign(r *http.Request, body []byte) (NativeSignResponse,
 	var coords nativepolicy.Coordinates
 	var err error
 	switch req.Operation {
+	case NativeLedgerIssueGrant:
+		raw, decodeErr := nativepolicy.Hex(req.Grant, 346)
+		if decodeErr != nil {
+			return refuse(newError(CodeSessionBadRequest, "grant must be canonical hex"))
+		}
+		zero := func(value []byte) bool { return bytes.Equal(value, make([]byte, len(value))) }
+		window := binary.BigEndian.Uint64(raw[161:169])
+		expiration := binary.BigEndian.Uint64(raw[169:177])
+		if raw[160] > 1 || raw[209] > 1 || (raw[160] == 1) != (window != 0) || expiration == 0 ||
+			zero(raw[64:96]) || zero(raw[96:128]) || zero(raw[128:144]) || zero(raw[144:160]) || zero(raw[177:209]) ||
+			!bytes.Equal(raw[250:282], rec.PublicKey) || !zero(raw[282:346]) {
+			return refuse(newError(CodeSessionBadRequest, "malformed canonical ledger grant"))
+		}
+		h := sha256.New()
+		h.Write([]byte("LXP/v1/authority-hash\x00"))
+		h.Write([]byte("LXP:GRANT:v1"))
+		h.Write(raw[32:282])
+		copy(digest[:], h.Sum(nil))
+		if !bytes.Equal(raw[:32], digest[:]) {
+			return refuse(newError(CodeSessionBadRequest, "ledger grant id differs from its signing digest"))
+		}
+		coords.Tenant = subject
+		coords.AgentDID = "did:layerx:" + hex.EncodeToString(rec.PublicKey)
+		coords.ExpiresAtMS = expiration
+		copy(coords.Capability[:], raw[177:209])
+		copy(coords.Session[:], raw[210:242])
 	case NativePreparationPurpose:
 		raw, decodeErr := nativepolicy.Hex(req.Purpose, 0)
 		if decodeErr != nil {

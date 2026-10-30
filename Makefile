@@ -270,7 +270,7 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
-test: test-state-diff test-result test-protocol test-state-commitment-transition test-program-artifacts test-daemon-maintenance-protocol test-daemon-allowance test-arena test-harness test-codec \
+test: test-state-diff test-result test-protocol test-state-commitment-transition test-program-artifacts test-daemon-maintenance-protocol test-arena test-harness test-codec \
 	test-codec-limits test-codec-version test-codec-vectors fuzz-codec-smoke \
 	test-crypto-suite test-arith-u128 test-arith-u256 test-arith-rounding \
 	test-arith-property test-arith-nofloat test-log test-log-durability \
@@ -520,20 +520,8 @@ $(BUILD_DIR)/tests/test_escrow_timeout: tests/modules/test_escrow_timeout.c \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-$(BUILD_DIR)/tests/lxp_test_epoch_escrow_timeout: \
-		tests/daemon/lxp_test_epoch_escrow_timeout.c \
-		tests/daemon/lxp_test_epoch_modules.h \
-		cmd/layerxd/lxp_daemon_modules.h $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-escrow-timeout: $(BUILD_DIR)/tests/test_escrow_timeout \
-		$(BUILD_DIR)/tests/lxp_test_epoch_escrow_timeout
+test-escrow-timeout: $(BUILD_DIR)/tests/test_escrow_timeout
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_escrow_timeout
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_epoch_escrow_timeout
 	tests/ledger/lxp_check_sole_writer.sh
 
 $(BUILD_DIR)/tests/test_escrow_dispute: tests/modules/test_escrow_dispute.c \
@@ -577,20 +565,8 @@ $(BUILD_DIR)/tests/test_budget_period: tests/modules/test_budget_period.c \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-$(BUILD_DIR)/tests/lxp_test_epoch_budget_rollback: \
-		tests/daemon/lxp_test_epoch_budget_rollback.c \
-		tests/daemon/lxp_test_epoch_modules.h \
-		cmd/layerxd/lxp_daemon_modules.h $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-budget-period: $(BUILD_DIR)/tests/test_budget_period \
-		$(BUILD_DIR)/tests/lxp_test_epoch_budget_rollback
+test-budget-period: $(BUILD_DIR)/tests/test_budget_period
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_budget_period
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_epoch_budget_rollback
 
 $(BUILD_DIR)/tests/test_budget_spend: tests/modules/test_budget_spend.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -735,20 +711,8 @@ $(BUILD_DIR)/tests/test_service_acceptance: \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-$(BUILD_DIR)/tests/lxp_test_epoch_service_acceptance: \
-		tests/daemon/lxp_test_epoch_service_acceptance.c \
-		tests/daemon/lxp_test_epoch_modules.h \
-		cmd/layerxd/lxp_daemon_modules.h $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-service-acceptance: $(BUILD_DIR)/tests/test_service_acceptance \
-		$(BUILD_DIR)/tests/lxp_test_epoch_service_acceptance
+test-service-acceptance: $(BUILD_DIR)/tests/test_service_acceptance
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_service_acceptance
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_epoch_service_acceptance
 	tests/ledger/lxp_check_sole_writer.sh
 
 $(BUILD_DIR)/tests/test_service_dispute: \
@@ -3601,19 +3565,6 @@ test-daemon-maintenance-crash: $(BUILD_DIR)/tests/lxp_test_maintenance_crash $(B
 .PHONY: test-bridge-maintenance-publication
 test-bridge-maintenance-publication: $(BUILD_DIR)/tests/lxp_test_maintenance_publication $(BUILD_DIR)/tests/bridge/sign-credit $(BUILD_DIR)/tests/bridge/test-credit build/bin/layerx-genesis-build
 	$(BRIDGE_PYTHON) tests/bridge/qualify_credit.py --build-dir $(BUILD_DIR) --maintenance
-
-.PHONY: test-daemon-allowance
-$(BUILD_DIR)/tests/lxp_test_daemon_allowance: tests/daemon/lxp_test_daemon_allowance.c \
-        cmd/layerxd/lxp_daemon_allowance.h cmd/layerxd/lxp_daemon_allowance.c \
-        $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) tests/daemon/lxp_test_daemon_allowance.c \
-		cmd/layerxd/lxp_daemon_allowance.c \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-test-daemon-allowance: $(BUILD_DIR)/tests/lxp_test_daemon_allowance
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_daemon_allowance
 
 .PHONY: beta-qualify-focused
 beta-qualify-focused:
