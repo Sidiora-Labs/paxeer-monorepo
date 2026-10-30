@@ -878,16 +878,19 @@ pub fn read_committed_program_balances(
             return Err(malformed);
         }
         let amount = abi_integer(&result[..32], 16)?;
-        let frozen = match abi_integer(&result[32..], 1)? {
+        let exists = match abi_integer(&result[32..], 1)? {
             0 => false,
             1 => true,
             _ => return Err(malformed),
         };
+        if !exists && amount != 0 {
+            return Err(malformed);
+        }
         values.push(ProgramValueBalance {
             account: *account,
             asset,
             amount,
-            frozen,
+            frozen: None,
         });
     }
     let confirmed = endpoint

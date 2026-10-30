@@ -197,7 +197,6 @@ _ENVELOPE_VERSION = 1
 _ENVELOPE_PATH = "/v1/agent/rpc"
 _DAEMON_PATH = "/rpc"
 _ENVELOPE_MAX_BODY_BYTES = 1_048_576
-_BOOTSTRAP_OPERATIONS = frozenset({"agent.register", "session.open"})
 _MAX_U64 = (1 << 64) - 1
 _LEVELS: Mapping[str, int] = {
     "Unverified": 0,
@@ -487,12 +486,9 @@ class AgentEnvelopeTransport(ProductionTransport):
         if proof_request is not None:
             request = proof_request
         mutating = operation in _AGENT_IDEMPOTENT
-        if operation in _BOOTSTRAP_OPERATIONS:
-            credential: dict[str, str] | None = None
-        elif self._session is None:
+        if self._session is None:
             raise _invalid_argument()
-        else:
-            credential = self._session.coordinates()
+        credential = self._session.coordinates()
         if mutating:
             if idempotency_key is None or not _nonzero_hex32(str(idempotency_key)):
                 raise _invalid_argument()

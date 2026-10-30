@@ -80,11 +80,6 @@ impl Runtime {
         let asset = asset
             .map(|value| fixed_hex::<32>("asset", value))
             .transpose()?;
-        if mode == DeploymentMode::Full && (source.is_none() || asset.is_none()) {
-            return Err(
-                "payment mode requires the installed source account and asset binding".into(),
-            );
-        }
         if mode == DeploymentMode::ReadOnly && (source.is_some() || asset.is_some()) {
             return Err("read-only mode cannot carry a payment source binding".into());
         }

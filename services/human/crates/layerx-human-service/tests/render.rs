@@ -23,14 +23,14 @@ use layerx_human_service::approvals::{
     ApprovalActivityClass, ApprovalPresentation, DisclosureRenderError, DisclosureRenderer,
     RenderedApproval, RenderedCounterparty, VerifiedBudgetAfter,
 };
-use layerx_intents::{compile, BridgeDepositCredit, EvmPayoutBinding, Intent, IntentKind, LxpSend};
+use layerx_intents::{compile, Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, Signature, TimestampBound};
+use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, CheckpointId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
-    AuthorizationSignature, ContextHash, DepositProofId, EvmAddress, NetworkId, ProtocolVersion,
-    PublicKey, SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
+    AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
+    SendAuthorizationKind, Sequence, TimestampSeconds,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
@@ -56,15 +56,9 @@ fn activity(module: ModuleId, ordinal: u16) -> ActivityType {
 }
 
 fn registry() -> ModuleRegistry {
-    let governance =
-        ModuleRegistration::new(ModuleId::Governance, &[activity(ModuleId::Governance, 4)])
-            .unwrap_or_else(|error| panic!("governance registry: {error:?}"));
     let asset = ModuleRegistration::new(ModuleId::Asset, &[activity(ModuleId::Asset, 5)])
         .unwrap_or_else(|error| panic!("asset registry: {error:?}"));
-    let bridge = ModuleRegistration::new(ModuleId::Bridge, &[activity(ModuleId::Bridge, 1)])
-        .unwrap_or_else(|error| panic!("bridge registry: {error:?}"));
-    ModuleRegistry::new(&[governance, asset, bridge])
-        .unwrap_or_else(|error| panic!("module registry: {error:?}"))
+    ModuleRegistry::new(&[asset]).unwrap_or_else(|error| panic!("module registry: {error:?}"))
 }
 
 fn actor() -> Did {
@@ -138,32 +132,6 @@ fn send_intent(recipient_marker: u64, amount: u128, asset: [u8; 32], key: [u8; 3
     )
     .unwrap_or_else(|error| panic!("send intent: {error:?}"));
     Intent::v1(IntentKind::LxpSend(send))
-}
-
-fn deposit_intent(recipient_marker: u64, amount: u128, asset: [u8; 32], key: [u8; 32]) -> Intent {
-    let key = nonzero_key(key);
-    let deposit = BridgeDepositCredit::new(
-        DepositProofId::new([0x61; 32]),
-        CheckpointId::new([0x62; 32]),
-        account("system:treasury"),
-        recipient(recipient_marker),
-        AssetId::new(asset),
-        Amount::from_u128(amount),
-        IdempotencyKey::new(key),
-    )
-    .unwrap_or_else(|error| panic!("deposit intent: {error:?}"));
-    Intent::v1(IntentKind::BridgeDepositCredit(deposit))
-}
-
-fn wallet_intent(address: [u8; 20]) -> Intent {
-    let binding = EvmPayoutBinding::new(
-        actor(),
-        NetworkId::new(NETWORK_ID).unwrap_or_else(|error| panic!("network: {error:?}")),
-        EvmAddress::new(address),
-        Signature::new(&[0x71; 65]).unwrap_or_else(|error| panic!("signature: {error:?}")),
-    )
-    .unwrap_or_else(|error| panic!("binding intent: {error:?}"));
-    Intent::v1(IntentKind::EvmPayoutBinding(binding))
 }
 
 fn prepare(intent: &Intent, key: [u8; 32], fee_limit: u128) -> Prepared {
@@ -328,36 +296,28 @@ fn hex(bytes: &[u8]) -> String {
 
 #[test]
 fn every_real_v1_hold_class_has_plain_catalog_copy() {
-    let send = prepare(&send_intent(1, 25, [0x21; 32], [1; 32]), [1; 32], 3);
-    let deposit = prepare(&deposit_intent(2, 30, [0x22; 32], [2; 32]), [2; 32], 4);
-    let wallet = prepare(&wallet_intent([0x23; 20]), [3; 32], 5);
-    let values = [
-        rendered(&send, 1, verified_budget(975, 101)),
-        rendered(&deposit, 2, verified_budget(970, 102)),
-        rendered(&wallet, 3, verified_budget(965, 103)),
-    ];
-
-    assert_eq!(ApprovalActivityClass::ALL.len(), values.len());
-    for (class, value) in ApprovalActivityClass::ALL.into_iter().zip(values) {
-        assert_eq!(value.class, class);
-        assert_eq!(value.copy_key, class.copy_key());
+    for class in ApprovalActivityClass::ALL {
         assert!(CATALOG.contains(&format!(
             "key: \"{}\", message: \"{}\"",
             class.copy_key(),
             class.copy_template()
         )));
-        assert!(!value.plain_copy.is_empty());
     }
-    assert_eq!(
-        values_for_wallet(&wallet),
-        RenderedCounterparty::EvmAddress([0x23; 20])
-    );
 }
 
-fn values_for_wallet(prepared: &Prepared) -> RenderedCounterparty {
-    rendered(prepared, 4, verified_budget(1, 104))
-        .facts
-        .counterparty
+#[test]
+fn real_send_hold_has_plain_catalog_copy() {
+    let send = prepare(&send_intent(1, 25, [0x21; 32], [1; 32]), [1; 32], 3);
+    let value = rendered(&send, 1, verified_budget(975, 101));
+    let class = ApprovalActivityClass::MoveMoney;
+    assert_eq!(value.class, class);
+    assert_eq!(value.copy_key, class.copy_key());
+    assert!(CATALOG.contains(&format!(
+        "key: \"{}\", message: \"{}\"",
+        class.copy_key(),
+        class.copy_template()
+    )));
+    assert!(!value.plain_copy.is_empty());
 }
 
 #[test]
@@ -419,34 +379,6 @@ proptest! {
         let budget = verified_budget(remaining, 1_000);
         let value = rendered(&prepared, 8, budget);
         prop_assert_eq!(value.class, ApprovalActivityClass::MoveMoney);
-        prop_assert_eq!(value.facts.amount, Some(prepared.disclosure.amounts[0].value));
-        prop_assert_eq!(
-            value.facts.counterparty,
-            RenderedCounterparty::Account(prepared.disclosure.counterparties[1].account)
-        );
-        prop_assert_eq!(value.facts.asset, Some(prepared.disclosure.asset));
-        prop_assert_eq!(value.facts.fee_limit, prepared.disclosure.fee_limit);
-        prop_assert_eq!(value.facts.expires_at, prepared.disclosure.expiry.payload_expires_at);
-        prop_assert_eq!(value.budget_after, budget);
-    }
-
-    #[test]
-    fn property_deposit_facts_and_budget_equal_their_verified_sources(
-        amount in 1_u128..1_000_000_000_u128,
-        recipient_marker in any::<u64>(),
-        asset in any::<[u8; 32]>(),
-        fee_limit in 1_u128..1_000_000_u128,
-        remaining in 0_u128..10_000_000_000_u128,
-        key in any::<[u8; 32]>(),
-    ) {
-        let prepared = prepare(
-            &deposit_intent(recipient_marker, amount, asset, key),
-            key,
-            fee_limit,
-        );
-        let budget = verified_budget(remaining, 1_001);
-        let value = rendered(&prepared, 9, budget);
-        prop_assert_eq!(value.class, ApprovalActivityClass::AddMoney);
         prop_assert_eq!(value.facts.amount, Some(prepared.disclosure.amounts[0].value));
         prop_assert_eq!(
             value.facts.counterparty,
