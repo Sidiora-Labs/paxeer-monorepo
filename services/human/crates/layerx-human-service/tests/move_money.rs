@@ -16,7 +16,6 @@ use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
     TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
@@ -50,6 +49,7 @@ use layerx_types::intent::{
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::result::KnownResult;
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use support::{directory, principal, retention_uniform, tenancy};
@@ -215,9 +215,9 @@ impl RealAgentLayer {
                 .unwrap_or_else(|error| panic!("submission ref: {error:?}")),
             state,
             rung: if evidence.is_empty() {
-                layerx_types::rung::Rung::Submitted
+                Rung::Submitted
             } else {
-                layerx_types::rung::Rung::Receipted
+                Rung::Receipted
             },
             evidence,
             transitions: Vec::new(),
@@ -592,7 +592,7 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
         canonical_bytes,
         tx_hash: activity_id,
         block_height: sequence,
-        rung: layerx_types::rung::Rung::Receipted,
+        rung: Rung::Receipted,
         authorised_batch: AuthorizedBatch::new(
             batch,
             ASSET,

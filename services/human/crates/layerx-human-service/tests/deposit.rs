@@ -22,7 +22,6 @@ use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
     TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
@@ -58,6 +57,7 @@ use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{EvmAddress, NetworkId};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
@@ -729,7 +729,7 @@ impl RealCreditAgent {
             canonical_bytes: canonical,
             tx_hash: activity_id,
             block_height: 9,
-            rung: layerx_types::rung::Rung::Receipted,
+            rung: Rung::Receipted,
         };
         let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
             .unwrap_or_else(|error| panic!("deposit receipt: {error:?}"));
@@ -740,7 +740,7 @@ impl RealCreditAgent {
             material.receipt_hash,
             <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
         );
-        assert_eq!(material.rung, layerx_types::rung::Rung::Receipted);
+        assert_eq!(material.rung, Rung::Receipted);
         Ok(material)
     }
 
@@ -757,7 +757,7 @@ impl RealCreditAgent {
                 kind: "sequencer-receipt".to_owned(),
                 digest: receipt_digest,
             }],
-            rung: layerx_types::rung::Rung::Receipted,
+            rung: Rung::Receipted,
             transitions: Vec::new(),
         }
     }

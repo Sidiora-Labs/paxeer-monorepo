@@ -11147,3 +11147,139 @@ symbol = "TestEndToEnd"
 observed = "The verify command needs PERPS_DATA_TEST_COMET, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_DATABASE_URL and a funded seed key in the environment that runs the gates; none is provided, so the end-to-end test cannot run."
 assumption = "Held under test_services_env until the environment provides the three endpoints and a funded key."
 severity = "blocker"
+
+[finding.10.2.8.2]
+task = "10.2.8"
+file = "services/human/crates/layerx-human-service/src/activity/mod.rs"
+symbol = "ReceiptEvidence::rung"
+observed = "Attempt 4 (1ada04c7b) passed its build and both verify targets, and the done record was refused because the graph check counts the field rung and the accessor fn rung of ReceiptEvidence (mod.rs:224, :236) and of EvidenceLink (detail.rs:191, :215) as two definitions of one symbol."
+assumption = "The candidate is correct Rust; the task's symbols now name the two structs, and attempt 4 is re-qualified on the same candidate."
+severity = "low"
+
+[finding.10.98.7.4]
+task = "10.98.7"
+file = "services/human/crates/layerx-human-service/src/activity/detail.rs"
+symbol = "layerx_agent_api::verify::Level"
+observed = "Attempt 9 built layerx-human-kms and its verify compiled layerx-human-service, which fails with E0432 on layerx_agent_api::verify::Level in activity/detail.rs, a path the retired kernel Level left behind."
+assumption = "That import is repaired by 10.2.8, which 10.98.7 now requires; attempt 9 is re-qualified once 10.2.8 is in the base."
+severity = "medium"
+
+[finding.9.98.1.1]
+task = "9.98.1"
+file = "services/agent/Cargo.lock"
+symbol = "payer_evm"
+observed = "Attempt 6 (c2145fcdf) failed its gate with Cargo.lock needs to be updated but --locked was passed, because the new payer_evm test target and its base64, p256, k256 and sha3 dependencies add lock entries and the lock file was not in the task's touches."
+assumption = "services/agent/Cargo.lock joins the touches and the next attempt continues from attempt 6, adding only the missing entries."
+severity = "medium"
+
+[finding.9.15.3.1]
+task = "9.15.3"
+file = "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs"
+symbol = "approval_get_tool_reports_tx_hash_and_rung"
+observed = "Attempts 2 and 3 (95fe4aba2, 39d447b2c) panicked at session_tools_major_two.rs:89 because the test reads an approval owner fixture from the environment variable PAXEER_X_MCP_APPROVAL_MAJOR_TWO_FIXTURE, which no environment that runs the gates sets."
+assumption = "The approval fixture is built in-test from ApprovalRegistry as tests/web.rs:665 does; do_5 rules it and the next attempt continues from attempt 3."
+severity = "medium"
+
+[finding.18.1206.1.1]
+task = "18.1206.1"
+file = "services/agent/crates/layerx-agentd/src/human_runtime/tenant_resolve.rs"
+symbol = "InvalidationReason::SessionKeyRevoked"
+observed = "Attempt 5 failed its build with E0599 on InvalidationReason::SessionKeyRevoked at tenant_resolve.rs:86 (the enum at session_revocation.rs:217 has GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered) while building the whole layerx-agentd test set, and carried a services/human file from attempt 4 outside its touches."
+assumption = "tenant_resolve.rs belongs to 18.1228.1, which requires this task; the build now covers only the library and the four touched test targets, and the next attempt continues from attempt 5 without the human file."
+severity = "medium"
+
+[finding.13.27.1.14]
+task = "13.27.1"
+file = "src/modules/programs/call.c"
+symbol = "layerx_programs_call_transfer_apply"
+observed = "Attempt 32 (28dfb4c7c) reverted the funded sandboxExecute with LXP_SEQUENCE_GAP at src/ledger/lxp_apply.c:319-322 because the sandbox fee leg uses the activity's global sequence (call.c:2325, no ledger admission bound for a sandbox activity at src/protocol/lxp_kernel.c:486-487) while the funding leg of sandboxFund uses the account sequence (src/modules/programs/transfer.c:233-235), so one activity type checks two different sequences against the main account."
+assumption = "The test seeds the fee account at ReadLastSequence+1 for the sandboxExecute step (do_15); binding sandbox ledger admission to the payer as CALL does is a kernel change outside this task and stays recorded here."
+severity = "medium"
+
+[finding.18.1113.1.1]
+task = "18.1113.1"
+file = "services/wallet/gateway/test/provisioning.test.ts"
+symbol = "readKernelAvailability"
+observed = "Attempts 3, 4 and 5 (2c225db68) failed the same two flow tests: the /v1/wallet/me assertion expects kernel state unavailable while bind.ts:133-140 answers available whenever the test chain serves layerXBindNonce, and the backfill test's legacy agent wallet (encrypted local key, no attestor key, no agent_policies row, no signed agent request) cannot reach awaiting_agent_signature under state.ts:383 and :389-390."
+assumption = "Both expectations are stale test fixtures, not production faults; do_3 and do_6 now state the current contract and the next attempt continues from attempt 5."
+severity = "low"
+
+[finding.16.5.6.1]
+task = "16.5.6"
+file = "scripts/ci/runner-routing-check.sh"
+symbol = "EXCLUDED"
+observed = "Attempts 2, 3 and 4 (17cb39a5e, 968a99846, e8e6d06a5) implemented the six steps and failed the gate on six pre-existing fixed-runner violations in publish-images.yml and wallet-go-test.yml."
+assumption = "do_7 (decision.1877) adds the exclusion rows and routes the two wallet jobs; attempt 5 continues from attempt 4."
+severity = "medium"
+
+[finding.18.1159.1.1]
+task = "18.1159.1"
+file = "services/human/crates/layerx-human-service"
+symbol = "layerx_agent_api::verify::Level"
+observed = "Attempts 1 and 2 (a2deb40e0 and the next) failed the build on unresolved layerx_agent_api::verify::Level inside layerx-human-service, which the kms provider test target compiles."
+assumption = "10.2.8 published the rung port of the human service at 01:16Z; the task now requires 10.2.8 and re-qualifies on a base that includes it."
+severity = "low"
+
+[finding.18.1206.1.2]
+task = "18.1206.1"
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+symbol = "ReceiptLookup"
+observed = "Attempt 6 (92cba1bfd) fixed the signing call sites and the build failed on the unknown target (retired ReceiptLookup members, missing sequencer_endpoint) and on budget_durable_limits (BudgetCreateIdentity has sender, not owner; Vec<u8> is not a BudgetIdentitySource)."
+assumption = "The unknown target leaves this task's build; 18.1200.1 do_5 ports it; do_7 ports the identity assertions; attempt 7 continues from attempt 6."
+severity = "medium"
+
+[finding.13.27.1.15]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+symbol = "TestProgramsSandboxExecuteEmitsUsage"
+observed = "Attempt 33 (ef3be2b2f) applied do_15 (fundFeeLimit seeds ReadLastSequence+1); the funded sandboxExecute then reverted LXP_FATAL_INVARIANT with the lease, escrow and ledger states dumped in the attempt log."
+assumption = "The fault is the kernel terminal contract (call.c:1419-1422 and :1632-1644 demand an applied ordinary occupancy bridge that the runtime never builds for a sandboxed call, ffi_call.rs:2919); kernel task 13.27.6 (decision.1880) closes it and 13.27.1 requires it, its two files unchanged."
+severity = "high"
+
+[finding.8.98.5.4]
+task = "8.98.5"
+file = "services/platform/hosted/core/src/lib.rs"
+symbol = "custody_read"
+observed = "Attempt 4 (d1f30e78b) rewrote the custody block onto rpc::evidence and rpc::transport paths that do not exist, against do_1 (decision.1875), and failed the build on three unresolved imports at lib.rs:457-462."
+assumption = "Attempt 5 continues from attempt 4 with lib.rs restored to the base revision and the main.rs port kept."
+severity = "low"
+
+[finding.8.94.3.2]
+task = "8.94.3"
+file = "services/platform/ramps/toolkit/tests/custody_rungs.rs"
+symbol = "executed_receipt"
+observed = "Attempt 5 (23109fc55) failed the platform test build on the ExecutedReceipt literal missing signing_key at custody_rungs.rs:47, a fixture 8.29.4 ported at f2e14e618."
+assumption = "Attempt 6 re-qualifies unchanged on a base that includes f2e14e618."
+severity = "low"
+
+[finding.18.1243.1.1]
+task = "18.1243.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+symbol = "address_word"
+observed = "web.rs:534-536 pads 20-byte EVM addresses into the 32-byte from, to and assetId words of payExact, while the ramp producer converts to ledger account ids with ledger_account (services/platform/ramps/toolkit/src/lib.rs:345-346)."
+assumption = "Recorded from the issue #1243 trace; the account-id shape of web payments is ruled separately and 18.1243.1 does not change it."
+severity = "medium"
+
+[finding.18.1159.1.2]
+task = "18.1159.1"
+file = "services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs"
+symbol = "rotation"
+observed = "Attempts 3 and 4 (9c869936d, 54c7252d8) fixed native_setup.rs and the provider target still failed E0599 on IntentKind::NativeOwnerRotation at owner_rotation.rs:129, a variant 10.98.13 deleted without porting this test."
+assumption = "do_4 signs value.payload() directly; attempt 5 continues from attempt 4."
+severity = "low"
+
+[finding.8.94.3.3]
+task = "8.94.3"
+file = "services/platform/hosted/agent-boundary/src/head_attestation_tests.rs"
+symbol = "config"
+observed = "Attempt 6 (32ec3e7a2) re-qualified unchanged on a base with f2e14e618 and the platform --tests build failed E0063 missing field chain_receipts in the Config initializer at head_attestation_tests.rs:115, left behind by 8.8.2."
+assumption = "The new do ports the test initializer; 8.8.4 (wave 29) later deletes the file; attempt 7 continues from attempt 6."
+severity = "low"
+
+[finding.13.0.2.1]
+task = "13.0.2"
+file = "programs/crates/layerx-programs-registry/tests/chain_trust.rs"
+symbol = "advance"
+observed = "Attempt 1 (79b9d1a5d) implemented do_1 to do_6 and the --tests build failed E0592 duplicate definitions with name advance, because tests/chain_trust.rs:7-8 includes src/chain_proof/trust.rs directly beside its whole-tree include and do_6 made chain_proof::trust real."
+assumption = "do_7 drops the direct include; attempt 2 continues from attempt 1."
+severity = "medium"

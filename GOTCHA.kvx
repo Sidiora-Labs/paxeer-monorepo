@@ -10870,3 +10870,33 @@ fix = "Write regex filters in kvx commands without backslashes: a bare dot match
 title = "cg spec done accepts a run that executed zero tests"
 symptom = "8.44.1 attempt 10 ran swift test with a filter matching nothing; the log said Executed 0 tests, with 0 failures and cg spec done exited 0, so only the scope check stopped a false success."
 fix = "Treat Executed 0 tests, 0 passed or running 0 tests in a verify log as a failure of the gate: fix the filter or target and rerun once before any done record."
+
+[gotcha.2212]
+title = "The cg graph check counts a field and its same-named accessor as two symbol definitions"
+symptom = "10.2.8 attempt 4 passed build and verify, and cg spec done refused the record with symbol ReceiptEvidence::rung ambiguous: 2 definitions, because the struct has a field rung and a method fn rung(&self), the ordinary Rust accessor idiom."
+fix = "Name the struct, or a method whose name differs from every field, in a task's symbols list; never name a getter that shares its field's name."
+
+[gotcha.2213]
+title = "Dropping an out-of-scope Cargo.lock change from a candidate makes the --locked gates fail"
+symptom = "9.98.1 attempt 6 added a test target and four dependencies, left Cargo.lock untouched because it was not in the touches, and the gate failed with Cargo.lock needs to be updated but --locked was passed."
+fix = "A task that adds a dependency or a [[test]] target lists the workspace Cargo.lock in its touches and regenerates only the missing entries with one unlocked build before the locked gates."
+
+[gotcha.2214]
+title = "A closure gate with a roll-up requires list hides one failing task behind hundreds"
+symptom = "13.0.2 required all twenty-seven wave-16 programs tasks although its own steps touch only the registry crate; with twenty-six done, the thirty-three attempts of 13.27.1 kept 638 pending tasks ineligible."
+fix = "A requires edge needs a code basis (a symbol, a file or an interface the dependent consumes); gates roll up only what they read. Drop the edge and record the decision when the basis is absent."
+
+[gotcha.2215]
+title = "A build_cmd that compiles sibling test targets inherits their API drift"
+symptom = "18.1206.1 attempt 6 fixed its own call sites and failed because its build_cmd also compiled tests/unknown.rs and tests/budget_durable_limits.rs, which had drifted from ReceiptLookup and BudgetCreateIdentity for reasons outside the task."
+fix = "Build only the gate's own targets; give each drifting sibling target to the task that owns it and add that task to requires where the gate needs it."
+
+[gotcha.2216]
+title = "Two CI checks can constrain the same workflow line in opposite directions"
+symptom = "16.5.6 asserted runner-routing-check.sh exits 0, which demands the routed runner expression on publish-images.yml jobs, while publish-images.test.sh forbids CI_LINUX_RUNNER anywhere in that file; the workflow failed one check whatever it carried."
+fix = "Pick the check that encodes the product rule (the test that owns the workflow) and list the jobs as excluded in the other; record the decision."
+
+[gotcha.2217]
+title = "Deleting an enum variant or adding a struct field leaves test targets outside the task's build red at main"
+symptom = "10.98.13 deleted IntentKind::NativeOwnerRotation and the kms provider test still built it; 8.8.2 added Config.chain_receipts and the head attestation bin test still built the old initializer; four later attempts of two other tasks failed on those two lines."
+fix = "Before deleting a variant or adding a required field, grep the workspace tests for its users and put every user in the task's touches or in a sibling task the gate requires; a task's done record must name the targets its symbol change compiles."

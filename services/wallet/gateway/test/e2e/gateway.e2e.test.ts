@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, verify } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { FastifyInstance } from 'fastify';
 import {
   decodeFunctionData,
+  getAddress,
   keccak256,
   parseTransaction,
   recoverAddress,
@@ -12,6 +13,7 @@ import {
   recoverTypedDataAddress,
   serializeSignature,
   serializeTransaction,
+  toHex,
   type Hex,
   type TypedDataDefinition,
 } from 'viem';
@@ -92,8 +94,8 @@ beforeAll(async () => {
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
     req.on('end', () => {
       void (async () => {
-        const body = Buffer.concat(chunks).toString('utf8');
-        const rpc = JSON.parse(body) as { id: number; method: string; params: unknown[] };
+        const body = Buffer.concat(chunks);
+        const rpc = JSON.parse(body.toString('utf8')) as { id: number; method: string; params: unknown[] };
         if (rpc.method === 'eth_getCode' || (rpc.method === 'eth_call' && (rpc.params[0] as { data?: Hex }).data === '0xaffed0e0')) {
           const result = rpc.method === 'eth_getCode'
             ? (rpc.params[0] === PAYMASTER ? '0x60005460005260206000f3' : '0x')
@@ -320,6 +322,11 @@ afterAll(async () => {
 }, 120_000);
 
 async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
+  const unknown = await fetch(chain.url, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'pax_sequencerReceipt', params: [`0x${'00'.repeat(32)}`] }),
+  });
+  expect(await unknown.json()).toEqual({ jsonrpc: '2.0', id: 1, result: null });
   const { sharedRpcPool } = await import('../../src/rpc/pool.js');
   const headers = auth(await identity.mint(userId));
   const transfer = {
@@ -339,7 +346,7 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
   expect(reviewed.statusCode, reviewed.body).toBe(200);
   const review = reviewed.json();
   expect(review).toMatchObject({
-    state: 'reviewed', chain_id: CHAIN_ID, to: RECIPIENT,
+    state: 'reviewed', chain_id: CHAIN_ID, to: getAddress(transfer.to),
     value: transfer.value.toString(), data: '0x', signing_hash: keccak256(unsigned),
     key_id: key.keyId, principal: userId,
   });
@@ -378,6 +385,15 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
   expect(answer.receipt).toMatchObject({ txHash: answer.tx_hash, rung: answer.rung, status: '0x1' });
   expect(answer.receipt.receipt).toMatch(/^0x(?:[0-9a-fA-F]{2})+$/);
   expect(sequencerReceipts).toEqual([{ hash: answer.tx_hash, result: answer.receipt }]);
+  expect(answer.receipt).toMatchObject({
+    rung: 'receipted', nonce: toHex(transfer.nonce), from: key.address.toLowerCase(), to: RECIPIENT,
+    keyId: keccak256(toHex(chain.sequencerPublicKey.export({ type: 'spki', format: 'der' }))),
+  });
+  const { receipt: signature, ...receiptPayload } = answer.receipt;
+  expect(verify(
+    null, Buffer.from(JSON.stringify(receiptPayload)), chain.sequencerPublicKey,
+    Buffer.from(signature.slice(2), 'hex'),
+  )).toBe(true);
 }
 
 describe('gateway against five real attestor daemons', () => {

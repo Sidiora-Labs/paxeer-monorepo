@@ -667,6 +667,31 @@ lxp_result layerx_programs_call_sandbox_usage_result_byte(
     return offset < length ? (lxp_result)bytes[offset] : LXP_ERR_NON_CANONICAL;
 }
 
+lxp_result layerx_programs_call_sandbox_usage_result_occupancy(
+    uint64_t token, lxp_program_outcome *outcome)
+{
+    const programs_sandbox_activity *value = sandbox_for_call(token);
+    lxp_result status;
+    if (value == NULL || value->operation != SANDBOX_EXECUTE ||
+        !value->usage_result.published)
+        return LXP_ERR_UNKNOWN_FIELD;
+    if (outcome == NULL) return LXP_OK;
+    status = lxp_hash_sha256(value->usage_result.receipt,
+                             value->usage_result.receipt_length,
+                             outcome->occupancy_evidence_digest);
+    if (status != LXP_OK) return status;
+    outcome->occupancy_byte_batches = (lxp_u128){
+        read_u64(value->usage_result.occupancy),
+        read_u64(value->usage_result.occupancy + 8U)};
+    outcome->occupancy_fee_units = (lxp_u128){
+        read_u64(value->usage_result.occupancy_fee),
+        read_u64(value->usage_result.occupancy_fee + 8U)};
+    (void)memcpy(outcome->occupancy_asset_id, value->asset, 32U);
+    (void)memcpy(outcome->occupancy_transfer_root,
+                 value->usage_result.transfer_root, 32U);
+    return LXP_OK;
+}
+
 lxp_result layerx_programs_call_sandbox_context(uint64_t call_token)
 {
     return sandbox_for_call(call_token) == NULL ? LXP_ERR_UNKNOWN_FIELD : LXP_OK;
