@@ -11125,3 +11125,8 @@ fix = "Scan for the retired path (tests/test_gateway_receive.c) and the lxp_gran
 title = "A second task for one issue reuses the issue's req block"
 symptom = "check-draft.py accepts only task.18.<issue>.1 ids, so a follow-on task for the same issue cannot pass it and an invented req id (req.1812912) does not match the spec convention."
 fix = "Follow the 18.1172.2 pattern: task.18.<issue>.k with reqs ['18<issue>.k'], ac_k appended to [req.18<issue>] and [acceptance.18.<issue>.k] with req = '18<issue>.k'; normalise at assembly time."
+
+[gotcha.2263]
+title = "An enum variant rename must be grepped across every crate's tests, not only the crate's own"
+symptom = "InvalidationReason::CapabilityGrantRevoked became GrantRevokedOnChain in layerx-agentd; the layerx-mcp scope test kept the old name and every layerx-mcp --tests build fails (issue #1301)."
+fix = "grep -rn the old variant across services/ before publishing a rename; a package-wide --tests build of a dependent crate is where the leftover surfaces."

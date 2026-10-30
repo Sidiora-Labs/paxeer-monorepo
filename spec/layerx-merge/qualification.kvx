@@ -11843,3 +11843,19 @@ symbol = "test_no_receive_or_grant_store_caller"
 observed = "Attempts 1 to 3 fail their own scan on live lxp_receive_environment uses in suites outside the task's touches."
 assumption = "The scan is scoped to the retired path and the grant store symbols; the receive environment stays."
 severity = "task"
+
+[finding.18.1279.1.1]
+task = "18.1279.1"
+file = "services/agent/crates/layerx-mcp/tests/scope.rs"
+symbol = "authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live"
+observed = "Attempt 1: cargo build -p layerx-mcp --tests fails with E0599 (no variant CapabilityGrantRevoked on InvalidationReason) in a test file this task does not touch."
+assumption = "Issue #1301 and task 18.1301.1 port scope.rs; this task's build now compiles only its web target."
+severity = "cross-task"
+
+[finding.9.7.2.1]
+task = "9.7.2"
+file = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+symbol = "InvalidationReason"
+observed = "The rename to GrantRevokedOnChain (0665915dc) left services/agent/crates/layerx-mcp/tests/scope.rs:525 on CapabilityGrantRevoked, so the layerx-mcp scope target does not compile on main and no task touched that file."
+assumption = "Task 18.1301.1 (wave 0) ports the caller."
+severity = "cross-task"

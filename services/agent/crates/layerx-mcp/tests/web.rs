@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::{Capability, CapabilityDimensions, CapabilityId, RateCeiling};
 use layerx_agentd::identity::{
@@ -24,6 +25,7 @@ use layerx_agentd::prepare::PreparationLifecycle;
 use layerx_agentd::session::{open, OpenRequest, SessionCredential, SessionId, SessionRegistry};
 use layerx_agentd::session_control::SessionControl;
 use layerx_agentd::store::{Store, TenantId};
+use layerx_crypto::payments::Grant;
 use layerx_mcp::approval::{approve, reject, ApprovalPolicy};
 use layerx_mcp::binding::{Binding, WebAuthority};
 use layerx_mcp::boundary::{AgentSurface, ProgramReads, ToolBoundary};
@@ -446,6 +448,7 @@ fn respond(stream: &mut TcpStream, status: u16, headers: &[(String, String)], bo
 /// The payer's recorded artifacts: the payer-signed grant and the
 /// sequencer-signed receipt the recorded requests carry.
 struct RecordedPayer {
+    signer: SigningKey,
     grant: Vec<u8>,
     payment: ExactPayment,
     grants: Vec<GrantTerms>,
@@ -456,6 +459,7 @@ impl RecordedPayer {
     fn new() -> Self {
         let buyer = fixture("gateway/buyer.json");
         Self {
+            signer: SigningKey::from_bytes(&[0x33; 32]),
             grant: unhex(text(&buyer, "/grants/SID")),
             payment: recorded_payment(&buyer["exact"]["USDC"]),
             grants: Vec::new(),
@@ -479,9 +483,37 @@ impl RecordedPayer {
 }
 
 impl WebPayer for RecordedPayer {
+    fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
+        let address_word = |address: [u8; 20]| {
+            let mut word = [0; 32];
+            word[12..].copy_from_slice(&address);
+            word
+        };
+        let mut grant = Grant {
+            id: [0; 32],
+            from: address_word(terms.payer_account),
+            recipient: address_word(terms.recipient),
+            asset: address_word(terms.asset),
+            per_draw_maximum: terms.amount,
+            allowance: terms.amount,
+            recurring: false,
+            window_length: 0,
+            expiration: terms.expires_at_ms,
+            purpose_hash: terms.purpose_hash,
+            has_reference: true,
+            reference_hash: terms.idempotency_key,
+            revocation_sequence: 0,
+            public_key: self.signer.verifying_key().to_bytes(),
+            signature: [0; 64],
+        };
+        grant.id = grant.signing_digest().map_err(|_| WebPayerError::Refused)?;
+        grant.signature = self.signer.sign(&grant.id).to_bytes();
+        Ok(grant)
+    }
+
     fn grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
         self.grants.push(terms.clone());
-        Ok(terms.prepare_budget())
+        terms.prepare_grant(&self.sign_grant(terms)?)
     }
 
     fn pay(&mut self, terms: &ExactTerms) -> Result<PrecompileCall, WebPayerError> {
