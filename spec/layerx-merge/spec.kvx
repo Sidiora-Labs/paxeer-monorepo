@@ -4851,6 +4851,36 @@ value = "A test that hands a precompile constructor its keepers builds a test-lo
 basis = "precompiles/layerxagent/scheduler/merge_test.go:76 (task 2.34.2, 239bb1cd2) and precompiles/layerxagent/streams/merge_test.go:71 (task 2.35.2, e767d6e1b) copy node.App by value; go build and go test do not run copylocks, so both reached main, and go vet of either package exits 1 before any 2.40.x test compiles: 2.40.7 attempts 1 to 3 (9f5d9b101, f9d6e590b, 2bed8e6a6) stopped at merge_test.go:76:19 'assignment copies lock value to application'."
 affects = ["2.40.7", "2.40.8", "2.40.4", "2.34.2", "2.35.2"]
 
+[decision.1957]
+title = "The generator's lifecycle response check follows the rung-era programs schema"
+value = "validate_lifecycle_schema in services/agent/tools/sdk-gen/src/main.rs requires type.ProgramLifecycleResponse.variants equal to ['ProgramSubmission'], type.ProgramSubmission.required equal to ['tx_hash','submission_ref','state','rung'] and type.ProgramSubmission.rung equal to ['submitted','receipted','committed'] in place of type.ProgramLifecycleResultEnvelope, ProgramLifecycleResult, ProgramLifecycleUnknown, ProgramLifecycleErrorEnvelope and ProgramLifecycleError; task 9.18.4 makes the change and nothing is re-added to programs.kvx."
+basis = "1d0cc3720 (task 9.10.2) deleted the five sequencer-era lifecycle types (programs.kvx old :94-129) and pinned the ProgramLifecycleResponse type to the single variant ProgramSubmission (services/agent/schema/agent-api/programs.kvx:89-91, :170-179) under its do_2, and its gate program_adapters_rungs.rs:111-133 forbids the sequencer and protocol3 text those types carried; the generator check at main.rs:384-388 predates both (8c3193d0e) and emits nothing from the five names, so attempt 5 of 9.18.4 (a3cd2e90b) fails at tests/major_two.rs:12:33 on a schema that is correct."
+affects = ["9.18.4", "9.10.2"]
+
+[decision.1958]
+title = "0x1015 is the one documented handoff address, shared by exactly the names layerxExchange, layerxexchange and perps"
+value = "PrecompileNamesToInfo records layerxExchange, layerxexchange and perps at 0x0000000000000000000000000000000000001015 (precompiles/setup.go:371-373; decision.613), and the address-uniqueness loops of TestFeeTokenRegistration (precompiles/setup_test.go:60-65) and TestXWebRegistration (precompiles/setup_test.go:136-141) accept a shared address only for that address and only between two of those three names; every other shared address remains a failure, and precompiles/names_markets_test.go:47-49 stays as written."
+basis = "decision.613 hands 0x1015 from layerxExchange to perps while keeping both names and the lower-case alias resolvable; 890d9200b (6.6.3) records the three names, precompiles/names_markets_test.go:47-49 requires them, and the uniqueness loops of precompiles/setup_test.go refuse any shared address, a test-versus-test contradiction that no attempt of 6.0.3 reached because precompiles/setup_test.go:57 panics first (attempt 4, 828825444)."
+affects = ["6.6.10", "6.0.3", "6.6.3", "6.8.4"]
+
+[decision.1959]
+title = "Task 18.1211.5 runs behind 18.1308.2, which restores the Go SDK package compile"
+value = "18.1211.5 requires 18.1308.2 and re-qualifies its attempt 4 candidate (305a918a1) unchanged once 18.1308.2 is done; it does not touch sdk/platform/go/http.go and its verify_cmd is unchanged."
+basis = "The second leg of the 18.1211.5 verify_cmd, go -C sdk/platform/go test -run '^TestVectorFilesV1ToV3MatchSequencerReceiptFixture$' ., compiles Go package layerx in sdk/platform/go, which has not compiled on main since 4ba621dc6 (8.45.3) deleted sdk/platform/go/program_lifecycle_generated.go while sdk/platform/go/http.go:178 and :181 (ac23f4e4a, 8.41.6) still read programLifecycleOrdinals; attempts 1 to 4 (3f40fea59, d292cef7d, 81e6e29e1, 305a918a1) all stopped at 'http.go:178:6: undefined: programLifecycleOrdinals' and never reached the Go SDK test or the six cargo legs; 18.1308.2 do_10 owns that file and removes the two reads (extends decision.1928)."
+affects = ["18.1211.5", "18.1308.2", "18.1211.1"]
+
+[decision.1960]
+title = "The 0x0906 and 0x101B StreamRateUpdated events keep distinct canonical signatures and topics"
+value = "StreamRateUpdated(uint256 indexed streamId, uint256 oldRate, uint256 newRate) at 0x0906 (precompiles/layerxagent/streams/streams.go:35; topic0 0xd3372d2a..., spec/layerx-merge/contracts/agent-functions.md:527) and StreamRateUpdated(bytes32 indexed streamId, uint128 oldRate, uint128 newRate, uint128 paid) at 0x101B (precompiles/layerxpay/abi.json:92, precompiles/layerxpay/LayerXPay.sol:197; topic0 0x6006a657..., spec/layerx-merge/contracts/pay.md:172) are two ABI events; a test asserts each topic0 against its own canonical signature and that the two differ, and 2.40.8 do_3 is superseded."
+basis = "Both pairs are frozen by done gates: precompiles/layerxagent/streams/streams_test.go:131 and :134 (task 2.35.1, 7ae0afc0e) and precompiles/layerxpay/stream_test.go:297 (task 2.28.6, 6dab05b58); attempt 4 of 2.40.8 (80a4cc012 on a9863352f) implemented do_3 literally at precompiles/layerxagent/streams/topics_test.go:43 and failed with expected 0xd3372d2a... actual 0x6006a657...; under decision.237 updateRate writes one log at each address (precompiles/layerxagent/streams/streams.go:203 and :206)."
+affects = ["2.40.8", "2.35.1", "2.28.6"]
+
+[decision.1961]
+title = "The creation path binds a signed EIP-1559 transaction to the custody EVM wallet, never to the Ed25519 descriptor key"
+value = "KeyDescriptor.public_key (services/human/crates/layerx-human-service/src/custody/mod.rs:435-440) is the Ed25519 verification key of the held 32-byte secret (services/human/crates/layerx-human-service/src/custody/provider.rs:1198 and :1223, services/agent/crates/layerx-crypto/src/local.rs:31-33); the EVM identity of the same key is the secp256k1 wallet CustodySigner::evm_wallet returns (services/human/crates/layerx-human-service/src/custody/signer.rs:911-917, provider.rs:1029-1040), which the provider binds beside the Ed25519 key on every transaction signature (provider.rs:1285-1286). The human service compares the left-padded recovered sender of a signed creation transaction with that wallet and carries the left-padded wallet as the owner public key of its creation evidence, the value ProtocolEvidence::bound_activity compares with the recovered sender (services/human/crates/layerx-human-service/src/agents/create.rs:541-547); it never compares the sender with descriptor.public_key."
+basis = "Attempt 5 of 18.1204.2 (ca9d97c1b on 8b483cd25) implements do_5 to do_8, builds, and fails finalization_evidence_reports_the_runtime_rung at tests/agent_creation_rungs.rs:42 with Refused('retained owner request differs') from src/server/agent_creation_native.rs:342 because :333 compares the left-padded secp256k1 sender with the Ed25519 descriptor key; the fixture derives the custody key and the transaction signature from the same 32-byte secret (tests/agent_creation_rungs.rs:225, tests/support/canonical_owner.rs:110), so the wallet equals the sender while the descriptor key is a point on another curve."
+affects = ["18.1204.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -15568,6 +15598,14 @@ ac_2 = "From the merge plan height sendNative through delegatecall reverts with 
 title = "Add GetPrecompileInfoE and keep merge precompiles out of the VM tables"
 ac_1 = "GetPrecompileInfoE returns an error naming an unknown precompile with a separating space instead of panicking (precompiles/setup.go:380)."
 ac_2 = "A live InitializePrecompiles leaves every MergeAddressTable address out of vm.PrecompiledContractsCancun (precompiles/setup.go:365-367, :387-399)."
+
+[req.6710]
+title = "Track the anchor module removal and the v7.0 latest upgrade in the two-entry activation test"
+ac_1 = "TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied gates 0x1012 and 0x1014 on layerxcustody, a module the manager registers (node/app.go:1103), and marks done app.AnchorStoreDeleteUpgrade (node/upgrades.go:126) in place of app.MergeUpgrade, which equals app.LatestUpgrade, so the fixture withholds no custom precompile registered at app.LatestUpgrade (modules/evm/keeper/keeper_activation_test.go:166-167, :182, :197, :212)."
+
+[req.6610]
+title = "Serve recorded precompile info before the keeper-free dry run"
+ac_1 = "GetPrecompileInfoE serves a name recorded by a completed dry run with real keepers without re-running InitializePrecompiles with utils.EmptyKeepers, still returns the dry-run error for an unrecorded name when nothing is recorded, and TestFeeTokenRegistration and TestXWebRegistration accept the 0x1015 handoff names layerxExchange, layerxexchange and perps as the only names sharing one address (precompiles/setup.go:371-373, :426-438; precompiles/setup_test.go:60-65, :136-141)."
 
 [req.6041]
 title = "Stream fee-denom preferences in the evm genesis export stream"
@@ -33291,6 +33329,15 @@ verification_contract = "contracts/address-inventory.md#activation"
 do_1 = "Delete PrecompileLastUpgrade at precompiles/setup.go:401-403, which no file in the repository reads"
 symbols = ["PrecompileLastUpgrade", "TestSetupDeclaresNoPrecompileLastUpgrade"]
 
+[capability.6.6.10]
+title = "Serve recorded precompile info before the keeper-free dry run"
+reqs = ["6610.1"]
+touches = ["precompiles/setup.go", "precompiles/setup_test.go"]
+tests = ["precompiles/precompile_info_e_test.go::TestGetPrecompileInfoEUnknownName", "precompiles/setup_test.go::TestFeeTokenRegistration", "precompiles/setup_test.go::TestXWebRegistration", "precompiles/names_markets_test.go::TestPrecompileNamesIncludeMarkets"]
+verification_contract = "contracts/address-inventory.md#precompile-go-api"
+do_1 = "In GetPrecompileInfoE (precompiles/setup.go:426-438) return the PrecompileNamesToInfo entry for name when one is recorded, and call InitializePrecompiles(true, &utils.EmptyKeepers{}) only when the name is not recorded and Initialized is false, so names recorded by a completed dry run with real keepers (precompiles/setup_test.go:56, :131) are served while TestGetPrecompileInfoEUnknownName (precompiles/precompile_info_e_test.go:21-80) still receives the dry-run error for an unrecorded name at :69 and the 'doesn't exist as a precompile' error at :38 and :48."
+symbols = ["GetPrecompileInfoE", "TestFeeTokenRegistration", "TestXWebRegistration"]
+
 [capability.6.7.3]
 title = "Activation list audit"
 reqs = ["6028.1"]
@@ -33326,6 +33373,15 @@ tests = ["modules/evm/genesis_stream_fee_denom_test.go::TestExportGenesisStreamA
 verification_contract = "contracts/evm.md#storage-keys"
 do_1 = "Add types.AccountFeeDenomKeyPrefix to the serialized prefix list of ExportGenesisStream at modules/evm/genesis.go:151-161"
 symbols = ["ExportGenesisStream", "AccountFeeDenomKeyPrefix", "TestExportGenesisStreamAccountFeeDenom"]
+
+[capability.6.7.10]
+title = "Track the anchor module removal and the v7.0 latest upgrade in the two-entry activation test"
+reqs = ["6042.2", "6710.1"]
+touches = ["modules/evm/keeper/keeper_activation_test.go"]
+tests = ["modules/evm/keeper/keeper_activation_test.go::TestSetCustomPrecompileActivationRejectsAnIncompleteRecord", "modules/evm/keeper/keeper_activation_test.go::TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied"]
+verification_contract = "contracts/evm.md#storage-keys"
+do_1 = "In TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied replace layerxanchortypes.ModuleName for 0x1012 and 0x1014 at modules/evm/keeper/keeper_activation_test.go:166-167 with layerxcustodytypes.ModuleName, which the module manager registers (node/app.go:1103) and forkModuleNames deletes (modules/evm/keeper/keeper_activation_test.go:47), because ae2beed63 (task 5.7.1) removed the layerxanchor module from the manager (node/app.go:1077-1116) and decision.1954 keeps it out."
+symbols = ["TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied"]
 
 [capability.6.8.2]
 title = "Pending-nonce metric"
@@ -46601,7 +46657,7 @@ reqs = ["15004.1", "15004.2"]
 touches = ["sdk/integrations/express/src/index.ts", "sdk/integrations/express/test/receipt-keys.test.mjs"]
 tests = ["sdk/integrations/express/test/receipt-keys.test.mjs::loadConfigReadsReceiptKeysJson", "sdk/integrations/express/test/receipt-keys.test.mjs::integrationSettlesSignedSequencerReceipt"]
 verification_contract = "node --test --test-name-pattern '^(loadConfigReadsReceiptKeysJson|integrationSettlesSignedSequencerReceipt)$' sdk/integrations/express/test/receipt-keys.test.mjs"
-do_1 = "Remove the AuthorizedReceiptBatch and AuthorizedBatchResolver imports at sdk/integrations/express/src/index.ts:10 and the AuthorizedReceiptBatch re-export; import ReceiptKeys from @sidiora/layerx-sdk after task 9.0.3."
+do_1 = "Replace the authorized-batch configuration with receiptKeys: a readonly SequencerReceiptKey[] parsed from LAYERX_RECEIPT_KEYS_JSON (do_7), passed unchanged to SellerMiddlewareConfig.receiptKeys (services/platform/middleware/seller/src/index.ts:160) and, once 8.23.2 lands, to BuyerMiddlewareConfig.receiptKeys. Do not import a ReceiptKeys type from @sidiora/layerx-sdk; none exists."
 symbols = ["ReceiptKeys", "LAYERX_RECEIPT_KEYS_JSON", "staticAuthorizedBatches", "parseAuthorizedBatch"]
 
 [capability.15.0.9]
@@ -46970,7 +47026,7 @@ reqs = ["15005.1", "15005.2"]
 touches = ["sdk/integrations/next/src/index.ts", "sdk/integrations/next/test/receipt-keys.test.mjs"]
 tests = ["sdk/integrations/next/test/receipt-keys.test.mjs::loadConfigReadsReceiptKeysJson", "sdk/integrations/next/test/receipt-keys.test.mjs::integrationSettlesSignedSequencerReceipt"]
 verification_contract = "node --test --test-name-pattern '^(loadConfigReadsReceiptKeysJson|integrationSettlesSignedSequencerReceipt)$' sdk/integrations/next/test/receipt-keys.test.mjs"
-do_1 = "Remove the AuthorizedReceiptBatch and AuthorizedBatchResolver imports at sdk/integrations/next/src/index.ts:10 and the AuthorizedReceiptBatch re-export; import ReceiptKeys from @sidiora/layerx-sdk after task 9.0.3."
+do_1 = "Replace the authorized-batch configuration with receiptKeys: a readonly SequencerReceiptKey[] parsed from LAYERX_RECEIPT_KEYS_JSON (do_7), passed unchanged to SellerMiddlewareConfig.receiptKeys (services/platform/middleware/seller/src/index.ts:160) and, once 8.23.2 lands, to BuyerMiddlewareConfig.receiptKeys. Do not import a ReceiptKeys type from @sidiora/layerx-sdk; none exists."
 symbols = ["ReceiptKeys", "LAYERX_RECEIPT_KEYS_JSON", "staticAuthorizedBatches", "parseAuthorizedBatch"]
 
 [capability.15.4.2]
@@ -102012,7 +102068,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.40.7]
 title = "Freeze the 0x0905 event topics against the contract table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.34.2", "2.38.1"]
@@ -102074,6 +102130,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "go vet copylocks rejects precompiles/layerxagent/streams/merge_test.go:71, where application := *testkeeper.EVMTestApp copies node.App (sync.RWMutex at node/app.go:567, sync.Mutex at :608), so go vet ./precompiles/layerxagent/streams/ exits 1 before this task's test compiles. Under decision.1956 replace :71-74 with a test-local type payKeepers struct { utils.Keepers; pay *paykeeper.Keeper } whose LayerXPayK returns pay (the layerxpay.LayerXPayKeepers interface of precompiles/layerxpay/keepers.go:5-7 that streams.NewMergePrecompile asserts at precompiles/layerxagent/streams/merge.go:24-25), and build with streams.NewMergePrecompile(payKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), h.keeper}, plan), importing paykeeper from modules/layerxpay/keeper. Keep every assertion of TestStreamsMergePrecompileHeightGated unchanged; the event rows of this task are spec/layerx-merge/contracts/agent-functions.md:525-528."
+do_6 = "do_3 is superseded (decision.1960): the two StreamRateUpdated events are distinct ABI events whose topic0 values differ by construction, and the test asserts each against its own canonical signature instead of asserting equality. The 0x0906 ABI declares StreamRateUpdated(uint256 indexed streamId, uint256 oldRate, uint256 newRate) (precompiles/layerxagent/streams/streams.go:35, task 2.35.1, 7ae0afc0e) with topic0 0xd3372d2ac6b969b6649a339fe08ef2b791ab59c8818e02c48568c85f6571dbbc (spec/layerx-merge/contracts/agent-functions.md:527); the 0x101B ABI declares StreamRateUpdated(bytes32 indexed streamId, uint128 oldRate, uint128 newRate, uint128 paid) (precompiles/layerxpay/abi.json:92, precompiles/layerxpay/LayerXPay.sol:197) with topic0 0x6006a657a93ec26224beb6993b55b31a96ca5b9e8719252665286ab2b7f58e60 (spec/layerx-merge/contracts/pay.md:172), and EmitStreamRateUpdated (precompiles/layerxpay/stream.go:125-136) logs that second topic through emitPayEvent. Both pairs are already frozen by done gates: precompiles/layerxagent/streams/streams_test.go:131 and :134 (task 2.35.1) and precompiles/layerxpay/stream_test.go:297 (task 2.28.6, 6dab05b58). Attempt 4 (candidate 80a4cc012 on a9863352f) implemented do_3 literally at precompiles/layerxagent/streams/topics_test.go:43 and the verify failed with expected 0xd3372d2a... actual 0x6006a657...; nothing outside this task's touches may change to make them equal. Replace the StreamRateUpdatedMatchesPay subtest (topics_test.go:35-45) with one that reads the 0x101B StreamRateUpdated event from the ABI served by payprecompile.NewPrecompile (precompiles/layerxpay/layerxpay.go:41) and asserts: the 0x101B event is not anonymous and its ID equals crypto.Keccak256Hash([]byte('StreamRateUpdated(bytes32,uint128,uint128,uint128)')) and begins with 0x6006a657; the 0x0906 event ID equals crypto.Keccak256Hash([]byte('StreamRateUpdated(uint256,uint256,uint256)')) and begins with 0xd3372d2a; and the two IDs are not equal, the decision.237 shape in which updateRate writes one log at each address (precompiles/layerxagent/streams/streams.go:203 and :206). Keep the four prefix subtests of topics_test.go:21-24 unchanged."
+do_7 = "go vet copylocks also rejects precompiles/layerxagent/streams/merge_test.go:27, where withoutPay := *application copies node.App for the 'nil pay keeper' case of TestStreamsMergeConstructorNeedsPayKeeper (merge_test.go:40); do_5 named only :71-74 but attempts 1 to 3 stopped on both diagnostics (:27:16 and :71:17). Under decision.1956 that case builds payKeepers{keepers, nil} with the same test-local type as do_5, so NewMergePrecompile still returns ErrNoContext from precompiles/layerxagent/streams/merge.go:24-27. Attempt 4 (80a4cc012) made both replacements and go vet ./precompiles/layerxagent/streams/ exited 0; keep every assertion of TestStreamsMergeConstructorNeedsPayKeeper and TestStreamsMergePrecompileHeightGated unchanged. node.App's mutexes are at node/app.go:568 (sync.RWMutex) and :609 (sync.Mutex)."
 
 [task.2.40.9]
 title = "Rehearse layerxpay genesis export and import with kernel state intact"
@@ -114614,7 +114672,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.6.9]
 title = "Rehearse the activation of the merge precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.6.5", "5.19.4", "5.94.4", "5.7.5"]
@@ -114643,6 +114701,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "At 666996bb3 the v7.0 handler panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584, validateMergePrecompiles): the node imports the oracle, scheduler and streams precompiles only in 5.94.4, which this task now requires. Do not register the missing constructors from the test and do not relax the check."
 do_5 = "Applying the v7.0 plan at the attempt 3 candidate (63f39679f) panics with a nil pointer dereference in Keeper.ModuleAddress (modules/layerxanchor/keeper/keeper.go:31) reached from RetireAtMerge at node/upgrades.go:490: node/app.go:522 declares LayerXAnchorKeeper but New no longer constructs it and kvStoreKeyNames (node/app.go:354-375) no longer mounts the layerxanchor store, both removed by task 5.7.1 do_4, while decision.631 keeps RetireAtMerge inside the v7.0 handler. This task now requires 5.7.5 (decision.1954), which restores the keeper over a mounted store in the binary that applies v7.0. Do not construct the anchor keeper from the test and do not bypass RetireAtMerge or apply only part of the plan; if a later assertion at node/upgrades_merge_activation_test.go:100-118 then fails, record its line and actual value and do not change the expectation."
+do_6 = "Attempt 4 (64e590a7e) continued the attempt 3 test unchanged on base d4dbbc000, which predates task 5.7.5 and decision.1954, and failed at node/upgrades_merge_activation_test.go:99 with the same nil pointer dereference from RetireAtMerge (node/upgrades.go:490); 5.7.5 is done at 136841868 and on main since 2668a83e2, where node/app.go:817 constructs LayerXAnchorKeeper and node/app.go:363 mounts the layerxanchor store. Re-qualify the attempt 4 candidate unchanged on a base at or after 2668a83e2; do not edit the test to work around the handler, and if an assertion at lines 100-118 fails, record its line and actual value without changing the expectation."
 
 [task.5.7.1]
 title = "Delete the anchor store and module at a second plan after the merge"
@@ -115486,7 +115545,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.3]
 title = "Rehearse the merge plan from a v6.12.0 chain to the first sequenced block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.6.5", "5.0.3", "5.94.4", "5.7.5"]
@@ -115515,6 +115574,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "At 8e69e3525 the v7.0 handler panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584, validateMergePrecompiles): the node imports the oracle, scheduler and streams precompiles only in 5.94.4, which this task now requires. Do not register the missing constructors from the test and do not relax the check; the test stays as written and runs once the wiring has landed."
 do_5 = "At the attempt 3 candidate (f44cda72d) the constructor gate passes and the v7.0 handler then panics with a nil pointer dereference in RetireAtMerge (node/upgrades.go:490, modules/layerxanchor/keeper/bond_return.go:9, modules/layerxanchor/keeper/genesis.go:29, modules/layerxanchor/keeper/keeper.go:31): node/app.go:522 declares LayerXAnchorKeeper but nothing constructs it, and neither kvStoreKeyNames (node/app.go:354) nor MemIAVLStoreKeys (storage/common/keys/store_keys.go:55) mounts the layerxanchor store, since tasks 5.7.1 and 5.41.3 removed them. Task 5.7.5 (decision.1954) restores the keeper over a mounted anchor store until the v7.0-anchor-store-delete step, and this task now requires it. Do not construct the anchor keeper, mount a store or skip RetireAtMerge from the test, and do not relax the check; the test stays as written, including RefreshPrecompiles and the empty ActivationAddressesWithoutPrecompile check at node/merge_rehearsal_test.go:73-74, and runs once that wiring is on the base."
+do_6 = "Attempt 4 (7962e2a7c) continued the attempt 3 test unchanged on base d4dbbc000, which predates task 5.7.5 and decision.1954, and failed at node/merge_rehearsal_test.go:116 with the same nil pointer dereference from RetireAtMerge (node/upgrades.go:490); 5.7.5 is done at 136841868 and on main since 2668a83e2, where node/app.go:817 constructs LayerXAnchorKeeper and node/app.go:363 mounts the layerxanchor store. Re-qualify the attempt 4 candidate unchanged on a base at or after 2668a83e2; do not edit the test to work around the handler, and if an assertion after line 116 fails, record its line and actual value without changing the expectation."
 
 [task.5.16.4]
 title = "Compare SealBatch with giga ProcessBlock on the same sequenced block"
@@ -120933,7 +120993,7 @@ title = "Gate the domain-6 integration wave on activation and registration"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["6.0.2", "6.6.5", "6.3.5", "6.12.1", "6.12.2", "6.12.3", "6.12.4", "6.12.5", "6.12.6", "6.12.7", "6.12.8", "6.12.9", "6.12.10", "6.12.11", "6.12.12", "6.2.2", "6.3.3", "6.6.4", "6.7.9", "6.21.5", "6.22.8", "6.25.1", "6.26.2", "6.28.3", "6.28.4", "6.28.5", "6.31.5", "6.32.2", "6.33.2", "6.47.1", "6.47.2", "6.47.3", "6.61.2", "6.61.3", "6.65.3", "6.74.1", "6.75.1", "6.94.1", "6.94.2", "6.94.3", "6.95.1"]
+requires = ["6.0.2", "6.6.5", "6.3.5", "6.12.1", "6.12.2", "6.12.3", "6.12.4", "6.12.5", "6.12.6", "6.12.7", "6.12.8", "6.12.9", "6.12.10", "6.12.11", "6.12.12", "6.2.2", "6.3.3", "6.6.4", "6.7.9", "6.21.5", "6.22.8", "6.25.1", "6.26.2", "6.28.3", "6.28.4", "6.28.5", "6.31.5", "6.32.2", "6.33.2", "6.47.1", "6.47.2", "6.47.3", "6.61.2", "6.61.3", "6.65.3", "6.74.1", "6.75.1", "6.94.1", "6.94.2", "6.94.3", "6.95.1", "6.6.10", "6.7.10"]
 reqs = ["6042.1", "6042.2", "6042.3", "6042.4"]
 capabilities = ["6.20.3"]
 interfaces = []
@@ -120957,6 +121017,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Run only after tasks 6.6.10 and 6.7.10 are done: attempts 1 to 4 (5a980b07d on 41098226f, e0ce58ddf on 514f31ae6, 9269a26e7 on d37cfb0ef, 828825444 on a9863352f, each the unchanged tree of its base) fail at modules/evm/keeper/keeper_activation_test.go:188 and precompiles/setup_test.go:57 because GetPrecompileInfoE (precompiles/setup.go:426-438) reruns InitializePrecompiles(true, &utils.EmptyKeepers{}) after the real-keeper dry run at precompiles/setup_test.go:56 and the 0x101B constructor (precompiles/layerxpay/layerxpay.go:53-57) refuses that keeper set; precompiles/setup.go:371-373 records three names at 0x1015, which precompiles/setup_test.go:60-65 and :136-141 refuse (decision.1958); modules/evm/keeper/keeper_activation_test.go:166-167 gate 0x1012 and 0x1014 on the layerxanchor module, which the module manager (node/app.go:1077-1116) no longer registers since ae2beed63; and keeper_activation_test.go:182, :197 and :212 use app.MergeUpgrade, which equals app.LatestUpgrade (v7.0, the last line of node/tags) since 873c58207 and is the version key of every custom precompile. A run on a base whose precompiles/setup.go, precompiles/setup_test.go and keeper_activation_test.go are unchanged repeats an unchanged test."
 
 [task.6.0.4]
 title = "Gate the domain-6 client wave on the evm CLI"
@@ -121545,6 +121606,66 @@ gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
 rollback = "Revert precompiles/setup.go; the HEAD lookup and VM registration return."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.6.7.10]
+title = "Track the anchor module removal and the v7.0 latest upgrade in the two-entry activation test"
+status = "pending"
+mode = "BUILD"
+wave = 17
+requires = ["5.7.1", "5.97.2"]
+reqs = ["6042.2", "6710.1"]
+capabilities = ["6.7.10"]
+interfaces = []
+do_1 = "In TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied replace layerxanchortypes.ModuleName for 0x1012 and 0x1014 at modules/evm/keeper/keeper_activation_test.go:166-167 with layerxcustodytypes.ModuleName, which the module manager registers (node/app.go:1103) and forkModuleNames deletes (modules/evm/keeper/keeper_activation_test.go:47), because ae2beed63 (task 5.7.1) removed the layerxanchor module from the manager (node/app.go:1077-1116) and decision.1954 keeps it out."
+do_2 = "Replace app.MergeUpgrade with app.AnchorStoreDeleteUpgrade (node/upgrades.go:126) at modules/evm/keeper/keeper_activation_test.go:182, :197 and :212, because app.MergeUpgrade equals app.LatestUpgrade (v7.0) since 873c58207 (task 5.97.2; node/upgrades.go:69, :124; node/tags) and every custom precompile carries a version at app.LatestUpgrade (precompiles/bank/setup.go:26, precompiles/layerxverify/setup.go:12), so SetDone at :212 makes customPrecompileReached (modules/evm/keeper/keeper.go:349-365) withhold every custom precompile below height 12; no custom precompile carries a version at app.AnchorStoreDeleteUpgrade."
+do_3 = "Change no assertion at modules/evm/keeper/keeper_activation_test.go:185-238 and no other test in the file."
+symbols = ["TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied"]
+touches = ["modules/evm/keeper/keeper_activation_test.go"]
+tests = ["modules/evm/keeper/keeper_activation_test.go::TestSetCustomPrecompileActivationRejectsAnIncompleteRecord", "modules/evm/keeper/keeper_activation_test.go::TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied"]
+planned_paths = []
+build_cmd = "go build ./modules/evm/keeper/"
+verify_cmd = "go test -count=1 ./modules/evm/keeper/ -run '^(TestSetCustomPrecompileActivationRejectsAnIncompleteRecord|TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Restore modules/evm/keeper/keeper_activation_test.go:166-167, :182, :197 and :212."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.6.6.10]
+title = "Serve recorded precompile info before the keeper-free dry run"
+status = "pending"
+mode = "BUILD"
+wave = 15
+requires = ["6.6.3", "6.6.4"]
+reqs = ["6610.1"]
+capabilities = ["6.6.10"]
+interfaces = []
+do_1 = "In GetPrecompileInfoE (precompiles/setup.go:426-438) return the PrecompileNamesToInfo entry for name when one is recorded, and call InitializePrecompiles(true, &utils.EmptyKeepers{}) only when the name is not recorded and Initialized is false, so names recorded by a completed dry run with real keepers (precompiles/setup_test.go:56, :131) are served while TestGetPrecompileInfoEUnknownName (precompiles/precompile_info_e_test.go:21-80) still receives the dry-run error for an unrecorded name at :69 and the 'doesn't exist as a precompile' error at :38 and :48."
+do_2 = "Under decision.1958 the address-uniqueness loops of TestFeeTokenRegistration (precompiles/setup_test.go:60-65) and TestXWebRegistration (precompiles/setup_test.go:136-141) accept a shared address only when entry.Address is 0x0000000000000000000000000000000000001015 and both name and previous are among layerxExchange, layerxexchange and perps: add one package-level test helper in precompiles/setup_test.go that answers that question and make each loop fail with the existing collision message for every other shared address; precompiles/setup.go:371-373 and precompiles/names_markets_test.go:47-49 stay as written."
+do_3 = "Keep GetPrecompileInfo (precompiles/setup.go:418-423) panicking with the GetPrecompileInfoE error, and keep InitializePrecompiles (precompiles/setup.go:231) and newMergePrecompiles (precompiles/setup.go:134-157) unchanged."
+symbols = ["GetPrecompileInfoE", "TestFeeTokenRegistration", "TestXWebRegistration"]
+touches = ["precompiles/setup.go", "precompiles/setup_test.go"]
+tests = ["precompiles/precompile_info_e_test.go::TestGetPrecompileInfoEUnknownName", "precompiles/setup_test.go::TestFeeTokenRegistration", "precompiles/setup_test.go::TestXWebRegistration", "precompiles/names_markets_test.go::TestPrecompileNamesIncludeMarkets"]
+planned_paths = []
+build_cmd = "go build ./precompiles/"
+verify_cmd = "go test -count=1 ./precompiles/ -run '^(TestGetPrecompileInfoEUnknownName|TestInitializePrecompilesKeepsMergeOutOfVM|TestPrecompileNamesIncludeMarkets|TestFeeTokenRegistration|TestXWebRegistration)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Restore precompiles/setup.go:426-438 and the two uniqueness loops of precompiles/setup_test.go."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -135113,6 +135234,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Type BuyerMiddlewareConfig.receiptKeys as readonly SequencerReceiptKey[] (the seller's SellerMiddlewareConfig.receiptKeys type at services/platform/middleware/seller/src/index.ts:160 and the receiptKeys parameter of verifyPaymentReceipt at :365-370), not as a PxReceiptKeyEntry list, so that sdk/integrations/express and sdk/integrations/next pass the one parsed list to both middlewares; where do_1 says PxReceiptKeyEntry read SequencerReceiptKey. Remove protocolVersion from BuyerMiddlewareConfig entirely; do not keep it as an optional field."
 
 [task.8.23.3]
 title = "Build buyer grant headers from signed 0x101A draw transactions"
@@ -141817,6 +141939,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempts 1 to 4 (latest 92290a56c) fail at tests/major_two.rs:12 with 'missing type.NativeProgramDeployRequest.precompile' because the schema gains precompile and selector only in task 9.10.2 do_5 (now required). Do not add the keys from this task (programs.kvx is not in touches) and do not keep the protocol_version, module_id and ordinal requirement at services/agent/tools/sdk-gen/src/main.rs:372-374 as a fallback; the attempt-4 validate_lifecycle_schema (precompile 0x...101d and an 8-hex-digit non-zero selector), templates and tests stand and re-qualify once 9.10.2 is done (decision.1840)."
 do_7 = "Decision 1953: for [type.NativeProgramWindDownRequest] the generator requires precompile and the four keys selector_route, selector_deprecate, selector_tombstone and selector_exit, each '0x' plus 8 lowercase hex digits, in place of the single selector key it requires of the deploy and upgrade requests."
+do_8 = "Attempt 5 (a3cd2e90b on base a9863352f, which carries the 9.10.2 schema) builds and fails both major_two tests at tests/major_two.rs:12:33 with 'missing type.ProgramLifecycleResultEnvelope.required': 1d0cc3720 (task 9.10.2) replaced the result, unknown and error envelopes of type.ProgramLifecycleResponse with the single variant ProgramSubmission (services/agent/schema/agent-api/programs.kvx:89-91, :170-179), while validate_lifecycle_schema at services/agent/tools/sdk-gen/src/main.rs:384-388 (a3cd2e90b :406-410, unchanged since 8c3193d0e) still requires type.ProgramLifecycleResultEnvelope, ProgramLifecycleResult, ProgramLifecycleUnknown, ProgramLifecycleErrorEnvelope and ProgramLifecycleError. Under decision.1957, in place of those five names the generator requires type.ProgramLifecycleResponse.variants equal to ['ProgramSubmission'], type.ProgramSubmission.required equal to ['tx_hash','submission_ref','state','rung'] and type.ProgramSubmission.rung equal to ['submitted','receipted','committed']; it keeps the type.NativeProgramDeploy, NativeProgramUpgrade and NativeProgramWindDown required checks, the operation checks at main.rs:353-370 (POST, /v1/programs/<op>, response ProgramLifecycleResponse, required idempotency_key, content_type application/octet-stream) and the precompile and selector checks of do_1, do_6 and do_7. programs.kvx and golden/programs.kvx stay as 9.10.2 wrote them; the attempt-5 templates and tests stand."
 
 [task.9.18.5]
 title = "Run the qualification boundary gate against a node JSON-RPC URL and delete the LNI test node"
@@ -141948,7 +142071,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.19.1]
 title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["9.18.3", "9.1.4", "9.12.6"]
@@ -148976,7 +149099,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.16.5]
 title = "Carry the reader's ProgramReadError in the explorer ingestion refusal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["10.16.4"]
@@ -149004,6 +149127,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 1 (1ee3780e9) carries out do_1 and the lib compiles; the package binary services/human/crates/layerx-explorer-index/src/main.rs, which 10.27.1 deletes at wave 29, fails with E0061 at :375 and E0599 at :618 and :676 because 42c1fea30 (13.4.5) widened ProtocolDeploymentVerifier::verify_historical_deployment to (proof, current, trust_chain, now_ms) (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:642) and 0461a4f71 (13.4.6) deleted from_protected_history, errors hidden since 9.94.1 because the lib failed first; port main.rs in this task (decision.1849) the way 18.1310.1 ported services/agent/crates/layerx-agentd/src/main.rs: add deployment_verifier(config), which reads config.sequencer_trust_history through layerx_agentd::config::read_protected_source bounded at 1 MiB, decodes it with layerx_programs::chain_proof::trust_store::TrustRoot::decode and returns ProtocolDeploymentVerifier::from_chain_trust(trust.chain_id, trust.validators.validators().to_vec(), config.staleness_ms), naming LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY in each refusal, and program_reader(config, verifier, registry) wrapping the LayerxdProgramBalanceReader::connect call of :643-653 with its existing error text."
 do_4 = "load_registry (:354) takes reader: &LayerxdProgramBalanceReader and now: u64 in place of the verifier and replaces :374-376 with reader.verify_journal_admission(&proof, now) mapped as {} is unverified: {error:?} (ChainHeadError has no Display); refresh_program (:612) and resolve_target (:675, which gains now: u64, passed by probe_name_reads at :724 as its now and by serve_resolve at :774 as now_ms(clock)?) build the verifier with deployment_verifier, connect program_reader(config, verifier.clone(), Registry::new()) for load_registry, and refresh_program connects its ingestion reader with program_reader(config, verifier, loaded.registry.clone()); keep the Config field, LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY and config() as written so tests/read_principal_config.rs is unchanged, keep the receipt file-name check, the .deployment record comparison, record_verified_deployment, the empty-journal refusal and every route and status code, add no environment variable, and change nothing outside lib.rs and main.rs; an admission whose head is older than the 14-day trust period of the current head is refused with HistoricalTrustAnchor, which is the correct refusal."
+do_5 = "Attempts 2 (1837b6aff, base 4f424c474), 3 (d16bb71be, base d4dbbc000) and 4 (002b6afbe, base a91018ef6) each re-qualified the attempt 1 lib.rs change unchanged (blob e298cd981, the two edits of do_1 at lib.rs:15 and :186) on a base that predates 4eb486713, where this task's touches still named only lib.rs and the environment that runs the gates admitted only lib.rs, so main.rs could not be ported; each build exited 101 at main.rs:375, :618 and :676 and the verify command never ran. The next attempt continues 002b6afbe on a base that carries 4eb486713 (41098226f or any later main revision), keeps lib.rs:15 and :186 as attempt 4 left them, carries out do_3 and do_4 in full before its single build, and is not re-qualified unchanged: main.rs, lib.rs, the explorer manifest and services/human/Cargo.lock are identical from ef74aa6aa to d4bf62f09, so an unchanged candidate fails at the same three lines."
 
 [task.11.0.1]
 title = "Add the gateway evidence module with settlement rungs and the canonical receipt digest"
@@ -167809,6 +167933,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Replace parse_authorized_batch with parse_receipt_keys in the .config import (sdk/integrations/fastapi/layerx_fastapi/__init__.py:11) and in __all__ (sdk/integrations/fastapi/layerx_fastapi/__init__.py:177), so that importing layerx_fastapi resolves after the parser is deleted."
 do_6 = "Give IntegrationError (sdk/integrations/fastapi/layerx_fastapi/config.py:57) an optional key attribute that _required (sdk/integrations/fastapi/layerx_fastapi/config.py:175) sets to the missing declared key, so the refusal of an environment without LAYERX_RECEIPT_KEYS_JSON names that key."
+do_7 = "The verify_cmd imports layerx_fastapi (sdk/integrations/fastapi/layerx_fastapi/__init__.py:15 imports .integration, which imports fastapi at integration.py:7). The environment that runs the gates must have the package's declared runtime dependency fastapi>=0.110 (sdk/integrations/fastapi/pyproject.toml:13) importable before the gate runs. Do not add import guards, lazy imports or a fastapi stand-in to make the test importable without it; a missing fastapi is an environment failure to record, not a code change."
 
 [task.15.4.3]
 title = "Verify signed sequencer receipts in the fastapi seller and protocol"
@@ -194102,7 +194227,7 @@ title = "Issue #1211: Re-record the sequencer receipt vectors with a derivable p
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1211.2", "18.1211.3", "18.1211.4"]
+requires = ["18.1211.2", "18.1211.3", "18.1211.4", "18.1308.2"]
 reqs = ["1812115.1"]
 capabilities = []
 interfaces = []
@@ -194130,6 +194255,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "In services/interop/specs/conformance/fiat/sequenced-journeys.json the digest replaced by do_5 includes sequencer.receipt_digest and expect.receipt_digest of card_receipted_credit, bank_receipted_credit and rtp_receipted_credit (which task 18.1211.3 do_6 set to native-order values over the current fixture): set each to the canonical digest of the receipt that services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs re-signs from the rewritten V1 case under the pinned test signing key, and set source_receipt_digest to the rewritten receiptDigest."
+do_8 = "Decision 1959 (extends decision.1928; 4ba621dc6, ac23f4e4a) orders this task behind 18.1308.2. The second leg of verify_cmd, go -C sdk/platform/go test -run '^TestVectorFilesV1ToV3MatchSequencerReceiptFixture$' ., compiles Go package layerx in sdk/platform/go, which has not compiled on main since 4ba621dc6 (8.45.3) deleted sdk/platform/go/program_lifecycle_generated.go (programLifecycleOrdinals at :3) while sdk/platform/go/http.go:178 and :181 (ac23f4e4a, 8.41.6) still read it; attempts 1 to 4 (3f40fea59, d292cef7d, 81e6e29e1, 305a918a1) all stopped there with 'http.go:178:6: undefined: programLifecycleOrdinals' and never reached the Go SDK test or the six cargo legs. 18.1308.2 do_10 owns that file and removes the two reads; this task does not touch sdk/platform/go/http.go, does not change verify_cmd, and is re-qualified from the attempt 4 candidate 305a918a1 unchanged once 18.1308.2 is done."
 
 [req.1812115]
 title = "The recorded payExact receipt carries a derivable payee in native PaymentExact order"
@@ -194411,6 +194537,8 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "sdk/platform/go/http.go:178-210: decodeProgramAgentEnvelope stops reading programLifecycleOrdinals, which 8.45.3 deleted with sdk/platform/go/program_lifecycle_generated.go (4ba621dc6), so base 32e3e8be8 fails go build in sdk/platform/go with 'http.go:178:6: undefined: programLifecycleOrdinals'; the success test at :178 becomes operation == 'program.receipt' && status >= 200 && status < 300 && exactFields(fields, 'result'), and the lifecycle refusal branch at :181-210 is deleted, because program.deploy, program.upgrade and program.wind-down no longer reach this decoder after 8.41.6 (ac23f4e4a) and its only callers are programs_http_test.go:50-76 with program.call, program.discover and program.simulate. Do not restore programLifecycleOrdinals or program_lifecycle_generated.go."
 do_11 = "sdk/platform/go/operation_catalog_test.go:30 and sdk/platform/go/portable_catalogue_test.go:53 decode operations as a map from the O1-O79 identifiers of 2c7b45fd3 (task 8.46.3) to arrays of operations (27 identifiers, 138 operations at the base) in place of a flat array, iterate the identifiers in sorted order and their entries in file order, and keep every assertion of TestProgramOperationsHaveNoRestRoute and TestPortableCataloguesMatchOperationsJson unchanged; generate_portable.py --check already accepts the keyed file."
+do_12 = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift:262: testProgramReceiptResolvesByTransaction formats the lifecycle activity ID as '0x' + lifecycle.activityID.map { String(format: '%02x', $0) }.joined() in place of lifecycle.activityID.hex, because Data.hex is fileprivate at sdk/platform/swift/Sources/LayerXSDK/Programs.swift:2357 and private at MirrorSource.swift:379-380, @testable import does not expose either, and the test target's hexString at ProgramsContractTests.swift:480 is fileprivate too; swift build compiles no test target, so swift test in verify_cmd is the first compile of the two Swift test files. Do not widen the access of either Data extension."
+do_13 = "sdk/platform/go/operation_catalog_test.go:22-47 and sdk/platform/go/portable_catalogue_test.go:51-58: the keyed decode of do_11 flattens the 27 arrays into one slice in sorted-identifier order before any assertion, so loadOperationCatalog still returns []catalogOperation to its callers at :73 and :119, the emptiness checks at operation_catalog_test.go:35 and portable_catalogue_test.go:58 see 138 entries, and the count comparison at portable_catalogue_test.go:86-88 compares the generated Swift and C# catalogues against 138 manifest operations rather than 27 identifiers."
 
 [req.1813082]
 title = "Platform SDKs resolve program.receipt by the retained transaction instead of the retired resultByIdempotency view"
@@ -194508,6 +194636,7 @@ do_5 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.r
 do_6 = "In fields (services/agent/crates/layerx-crypto/src/disclosure/call.rs:377-521) map PayBudgetCreate to ActivityType::new(ModuleId::Budget, 1), actor the sender, idempotency_key the budget id (argument word 0, the key modules/layerxpay/keeper/budget_create.go:33 submits with), asset argument word 2 and amounts the uint128 amount; leave every Ledger, PayBudgetDefund and BankSend mapping unchanged."
 do_7 = "In ProtocolEvidence::bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:558-596) project ConstructMethod::PayBudgetCreate from its carried payload with protocol version 3 (layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION), and in SignedCreationTransaction::payload (services/human/crates/layerx-human-service/src/server/agent_creation.rs:72-87) take the same carried payload, because Disclosure::canonical_payload returns the ABI calldata for a call source (services/agent/crates/layerx-crypto/src/disclosure.rs:1036-1041) and never equals action.compiled.payload()."
 do_8 = "Decision 1946: an EIP-1559 disclosure carries the 20-byte sender as its actor (services/agent/crates/layerx-crypto/src/disclosure/call.rs:401), never the creation DID; submit_prepared (services/human/crates/layerx-human-service/src/server/agent_creation.rs:467) and retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:332) compare signed.disclosure.actor with the sender bound by the owner_public_key check (owner_public_key[12..]), and ProtocolEvidence.actor is that sender, as create.rs:546 reads it. Keep every assertion of finalization_evidence_reports_the_runtime_rung as written; if the HumanPrimary descriptor public key differs from the left-padded sender, record the conflict and do not loosen the check."
+do_9 = "Decision 1961: KeyDescriptor.public_key (services/human/crates/layerx-human-service/src/custody/mod.rs:435-440) is the Ed25519 verification key of the held 32-byte secret (services/human/crates/layerx-human-service/src/custody/provider.rs:1198 and :1223, services/agent/crates/layerx-crypto/src/local.rs:31-33), while the key's EVM identity is the secp256k1 wallet of the same secret that CustodySigner::evm_wallet returns (services/human/crates/layerx-human-service/src/custody/signer.rs:911-917, provider.rs:1029-1040) and that the provider binds beside the public key on every transaction signature (provider.rs:1285-1286), so the left-padded sender of a signed EIP-1559 transaction never equals descriptor.public_key. In retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:327-343) and prepare_scoped (services/human/crates/layerx-human-service/src/server/agent_creation.rs:373-421) resolve the wallet with self.custody.evm_wallet(principal, &action.custody_key), refuse unless signed.owner_public_key[12..] == wallet, keep the class check of signing_descriptor (agent_creation.rs:329-350), and carry signed.owner_public_key (the left-padded wallet) as the owner public key of PreparedProtocolKind::Signed (agent_creation.rs:432), of protocol_evidence (agent_creation_native.rs:355, agent_creation.rs:583-591) and so of ProtocolEvidence (agent_creation.rs:601), which bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:541-547) compares with the recovered sender. Compare the sender with descriptor.public_key nowhere on the creation path; change neither KeyDescriptor, evm_wallet, the test nor any assertion of finalization_evidence_reports_the_runtime_rung."
 
 [req.1812042]
 title = "Issue #1204 follow-up: agent creation lifecycle evidence binds the signed EIP-1559 transaction"
@@ -194648,6 +194777,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
