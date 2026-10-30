@@ -4,8 +4,6 @@ use ed25519_dalek::{Signer, SigningKey};
 mod source {
     pub mod chain_proof;
 }
-#[path = "../src/chain_proof/trust.rs"]
-mod trust;
 
 use chain_proof::{
     ed25519, header, validators, vote, ChainProofError, ChainProofVerifier, Commit,
