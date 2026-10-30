@@ -121982,7 +121982,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.9]
 title = "Retire the unread PrecompileLastUpgrade variable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.6.5"]
@@ -122631,7 +122631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.1]
 title = "Pin the gas of every bank method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.1"]
@@ -122662,7 +122662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.2]
 title = "Pin the gas of every addr method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.2"]
@@ -122724,7 +122724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.4]
 title = "Pin the gas of every json method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.4"]
@@ -122755,7 +122755,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.5]
 title = "Pin the gas of every staking method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.5"]
@@ -122786,7 +122786,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.6]
 title = "Pin the gas of every gov method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.6"]
@@ -122879,7 +122879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.9]
 title = "Pin the gas of every pointerview method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.9"]
@@ -122910,7 +122910,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.10]
 title = "Pin the gas of every pointer method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.10"]
@@ -122941,7 +122941,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.11]
 title = "Pin the gas of every solo method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.11"]
@@ -123003,7 +123003,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.13]
 title = "Pin the gas of every feetoken method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.13"]
@@ -129029,7 +129029,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.97.1]
 title = "Drop the deleted C codec and web intake references from the xweb type tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4"]
@@ -129091,7 +129091,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.97.3]
 title = "Drop the kernel value of LXP_DA_MISSING from the Go registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "1.0.4"]
@@ -144255,7 +144255,7 @@ do_7 = "Attempt 5 (f389355d9 on bf4e10a64, the first main revision carrying 9.18
 
 [task.9.33.9]
 title = "Send contract major 2 on agent envelope requests and report proof rungs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.33.8"]
@@ -145035,7 +145035,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.1]
 title = "Regenerate the Python and TypeScript retryable code tables from the registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.0.4", "6.0.4"]
@@ -165194,7 +165194,7 @@ do_4 = "The build type-checks useNavItems.tsx, its spec and what they import. Th
 
 [task.14.32.6]
 title = "Move the kernel list item specs to the archive item shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["14.32.2", "14.32.3", "14.32.4"]

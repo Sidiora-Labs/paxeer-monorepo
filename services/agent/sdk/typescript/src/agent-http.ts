@@ -5,6 +5,7 @@ import { bindSignedProgramLifecycle } from "./program-wire.js";
 import { encodeNativeEffectPrepareRequest, type NativeEffectPrepareRequestV1 } from "./native-effect.js";
 
 import {
+  Rung, layerx_sdk_ts_package,
   encodeNativePrepareRequest, encodeNativeApprovalDecision, encodeNativeApprovalGet,
   decodeNativePrepareResult, decodeNativeApprovalResult, decodeNativeApprovalListResult,
   type NativePrepareRequestV1, type NativePrepareResultV1, type NativeApprovalDecisionV1,
@@ -396,6 +397,7 @@ function decodeFailure(requestId?: string): PlatformSdkError {
 }
 
 export const AGENT_ENVELOPE_VERSION = 1 as const;
+const AGENT_CONTRACT_MAJOR = layerx_sdk_ts_package().contractMajor;
 export const AGENT_ENVELOPE_PATH = "/v1/agent/rpc" as const;
 export const AGENT_DAEMON_RPC_PATH = "/rpc" as const;
 export type AgentEnvelopeSurface = "gateway" | "daemon";
@@ -403,9 +405,14 @@ const MAX_TENANT_BYTES = 255;
 const MAX_U64 = (1n << 64n) - 1n;
 const CANONICAL_DECIMAL = /^(?:0|[1-9][0-9]{0,19})$/u;
 const MAX_ENVELOPE_BYTES = 1_048_576;
-const VERIFICATION_LEVELS: ReadonlySet<string> = new Set([
-  "Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored",
+const RUNG_NAMES = new Map<Rung, string>([
+  [Rung.Submitted, "submitted"], [Rung.Receipted, "receipted"], [Rung.Committed, "committed"],
 ]);
+
+function decodeRung(value: unknown): Rung {
+  for (const [rung, name] of RUNG_NAMES) if (value === name) return rung;
+  throw decodeFailure();
+}
 /** The 50 catalogue names (Operation::name()), sorted ascending. */
 export const AGENT_ENVELOPE_OPERATION_NAMES: readonly AgentOperation[] = Object.freeze<AgentOperation[]>([
   "agent.register", "approval.approve", "approval.get", "approval.list", "approval.reject", "availability.fetch",
@@ -523,13 +530,13 @@ export function decodeTenantReadiness(value: unknown): TenantReadinessV1 {
 export function checkTenantReadinessResponse(response: AgentEnvelopeSuccess): TenantReadinessV1 {
   try {
     const status = record(response.verification_status);
-    exactKeys(status, ["state", "level"]);
-    if (status.state !== "achieved" || status.level !== "Unverified") throw decodeFailure();
+    exactKeys(status, ["state", "rung"]);
+    if (status.state !== "achieved" || status.rung !== Rung.Submitted) throw decodeFailure();
     return decodeTenantReadiness(response.value);
   } catch { throw decodeFailure(response.request_id); }
 }
 
-export type ProofBundleVerificationLevel = "Unverified" | "SequencerSigned" | "BatchIncluded" | "StateProven" | "CheckpointFinalised" | "SettlementAnchored";
+export type ProofBundleVerificationLevel = Rung;
 
 export interface ProofBundleRequest {
   readonly target: string;
@@ -538,7 +545,7 @@ export interface ProofBundleRequest {
 
 export interface ProofBundleRead {
   readonly value: { readonly target: string; readonly proofs: readonly [string] };
-  readonly achieved_verification_level: "BatchIncluded" | "StateProven";
+  readonly achieved_verification_level: Rung.Receipted | Rung.Committed;
   readonly freshness: {
     readonly chain_head: string;
     readonly latest_sealed_batch: string;
@@ -566,7 +573,7 @@ export function encodeProofBundleRequest(value: unknown): ProofBundleRequest {
     exactKeys(request, ["target", "requested_verification_level"]);
     const target = request.target, level = request.requested_verification_level;
     if (typeof target !== "string" || (target.length !== 70 && target.length !== 134)
-      || !/^[0-9a-f]+$/u.test(target) || typeof level !== "string" || !VERIFICATION_LEVELS.has(level)) throw invalidArgument();
+      || !/^[0-9a-f]+$/u.test(target) || typeof level !== "number" || !RUNG_NAMES.has(level)) throw invalidArgument();
     const bytes = Buffer.from(target, "hex"), kind = bytes[2];
     if (bytes.readUInt16BE(0) !== 1 || (kind !== 1 && kind !== 2 && kind !== 3)
       || bytes.length !== (kind === 2 ? 67 : 35) || bytes.subarray(3, 35).every((byte) => byte === 0)
@@ -613,12 +620,11 @@ export function checkProofBundleResponse(request: ProofBundleRequest, response: 
     const kind = Buffer.from(expected.target, "hex")[2];
     if (kind === 1 && proof.variant !== 1 || kind === 3 && proof.variant !== 3
       || kind === 2 && proof.variant !== 2 && proof.variant !== 4) throw decodeFailure();
-    const achieved = kind === 2 ? "StateProven" : "BatchIncluded";
-    const levels = [...VERIFICATION_LEVELS];
+    const achieved = kind === 2 ? Rung.Committed : Rung.Receipted;
     const status = record(response.verification_status);
-    exactKeys(status, ["state", "level"]);
-    if (read.achieved_verification_level !== achieved || levels.indexOf(achieved) < levels.indexOf(expected.requested_verification_level)
-      || status.state !== "achieved" || status.level !== achieved) throw decodeFailure();
+    exactKeys(status, ["state", "rung"]);
+    if (read.achieved_verification_level !== achieved || achieved < expected.requested_verification_level
+      || status.state !== "achieved" || status.rung !== achieved) throw decodeFailure();
     const freshness = record(read.freshness);
     exactKeys(freshness, ["chain_head", "latest_sealed_batch", "latest_finalised_checkpoint", "value_sequence", "relative_to"]);
     const relative = record(freshness.relative_to);
@@ -828,7 +834,7 @@ export class AgentEnvelopeTransport implements ProductionTransport {
             this.#onResponse?.(status, Buffer.concat(chunks));
             if (status >= 300 && status < 400) throw ambiguous();
             if (response.headers["content-type"] !== "application/json") throw ambiguous();
-            finish(resolve, decodeAgentEnvelopeResponse(status, Buffer.concat(chunks), mutation, requestId) as TResponse);
+            finish(resolve, decodeAgentEnvelopeResponse(status, Buffer.concat(chunks), mutation, requestId, proofBundle) as TResponse);
           } catch (error) {
             finish(reject, error);
           }
@@ -857,13 +863,17 @@ export function encodeAgentEnvelope(
   if (mutation ? idempotency === undefined || !HEX32.test(idempotency) : idempotency !== undefined) throw invalidArgument();
   if (session === undefined) throw invalidArgument();
   const credential = session.encode();
+  const proofRequest = operation === "read.proof_bundle" ? encodeProofBundleRequest(request) : undefined;
+  const payload = proofRequest === undefined ? record(request)
+    : { ...proofRequest, requested_verification_level: RUNG_NAMES.get(proofRequest.requested_verification_level) };
   let text: string;
   try {
     text = JSON.stringify({
       version: AGENT_ENVELOPE_VERSION,
+      contract_major: AGENT_CONTRACT_MAJOR,
       request_id: requestId,
       operation,
-      request: canonicalRequest(record(request), 0),
+      request: canonicalRequest(payload, 0),
       credential,
       idempotency_key: mutation ? idempotency : null,
     });
@@ -912,7 +922,7 @@ function canonicalRequest(value: unknown, depth: number): unknown {
  * Reads: a non-JSON body or a gateway edge reply is transport-failure (safe); well-formed JSON that violates the
  * exact ApiSuccess / ApiError schema (missing or extra field, wrong type, request_id mismatch) is decode-failure (never).
  */
-export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mutation: boolean, sentRequestId: string): AgentEnvelopeSuccess {
+export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mutation: boolean, sentRequestId: string, proofBundle = false): AgentEnvelopeSuccess {
   const ambiguous = (requestId?: string): PlatformSdkError => mutation
     ? new PlatformSdkError({ code: "unknown-outcome", retry: "unknown-outcome", ...(requestId === undefined ? {} : { requestId }) })
     : decodeFailure(requestId);
@@ -934,8 +944,11 @@ export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mut
   if (!mutation && envelope.ok === false && "error" in envelope && Object.keys(envelope).length === 2) {
     throw new PlatformSdkError({ code: "transport-failure", retry: "safe" });
   }
+  if (envelope.contract_major !== AGENT_CONTRACT_MAJOR) {
+    throw new PlatformSdkError({ code: "protocol-incompatibility", retry: mutation ? "unknown-outcome" : "never" });
+  }
   if ("class" in envelope) {
-    try { exactKeys(envelope, ["class", "protocol_result_code", "retriability", "reason", "request_id"]); }
+    try { exactKeys(envelope, ["contract_major", "class", "protocol_result_code", "retriability", "reason", "request_id"]); }
     catch { throw ambiguous(); }
     if (envelope.request_id !== sentRequestId && envelope.request_id !== "0") throw ambiguous();
     let refusal: PlatformSdkError;
@@ -949,26 +962,35 @@ export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mut
     throw refusal;
   }
   const requestId = typeof envelope.request_id === "string" ? envelope.request_id : undefined;
-  try { exactKeys(envelope, ["request_id", "value", "verification_status"]); }
+  try { exactKeys(envelope, ["contract_major", "request_id", "value", "verification_status"]); }
   catch { throw ambiguous(requestId); }
   if (status !== 200 || envelope.request_id !== sentRequestId) throw ambiguous(requestId);
-  const verification = envelope.verification_status;
-  if (!validVerificationStatus(verification)) {
+  let verification: Readonly<Record<string, unknown>>;
+  try { verification = decodeVerificationStatus(envelope.verification_status); }
+  catch {
     throw new PlatformSdkError({ code: "verification-failure", retry: mutation ? "unknown-outcome" : "never", requestId: sentRequestId });
   }
-  return Object.freeze({ request_id: sentRequestId, value: envelope.value, verification_status: verification });
+  let value = envelope.value;
+  if (proofBundle) {
+    try {
+      const read = record(value);
+      value = Object.freeze({ ...read, achieved_verification_level: decodeRung(read.achieved_verification_level) });
+    } catch { throw decodeFailure(sentRequestId); }
+  }
+  return Object.freeze({ request_id: sentRequestId, value, verification_status: verification });
 }
 
-function validVerificationStatus(value: unknown): boolean {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
-  const status = value as Readonly<Record<string, unknown>>;
+function decodeVerificationStatus(value: unknown): Readonly<Record<string, unknown>> {
+  const status = record(value);
   if (status.state === "achieved") {
-    return Object.keys(status).length === 2 && typeof status.level === "string" && VERIFICATION_LEVELS.has(status.level);
+    exactKeys(status, ["state", "rung"]);
+    return Object.freeze({ state: "achieved", rung: decodeRung(status.rung) });
   }
-  return status.state === "unverified" && Object.keys(status).length === 4
-    && typeof status.requested === "string" && VERIFICATION_LEVELS.has(status.requested)
-    && typeof status.achieved === "string" && VERIFICATION_LEVELS.has(status.achieved)
-    && typeof status.reason === "string" && /^[a-z0-9_.]{1,128}$/u.test(status.reason);
+  exactKeys(status, ["state", "requested", "achieved", "reason"]);
+  const requested = decodeRung(status.requested), achieved = decodeRung(status.achieved);
+  if (status.state !== "unverified" || achieved >= requested || typeof status.reason !== "string"
+    || !/^[a-z0-9_.]{1,128}$/u.test(status.reason)) throw decodeFailure();
+  return Object.freeze({ state: "unverified", requested, achieved, reason: status.reason });
 }
 
 function exactU64(value: bigint | string): bigint {
