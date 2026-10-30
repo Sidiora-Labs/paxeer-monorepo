@@ -11130,3 +11130,13 @@ fix = "Follow the 18.1172.2 pattern: task.18.<issue>.k with reqs ['18<issue>.k']
 title = "An enum variant rename must be grepped across every crate's tests, not only the crate's own"
 symptom = "InvalidationReason::CapabilityGrantRevoked became GrantRevokedOnChain in layerx-agentd; the layerx-mcp scope test kept the old name and every layerx-mcp --tests build fails (issue #1301)."
 fix = "grep -rn the old variant across services/ before publishing a rename; a package-wide --tests build of a dependent crate is where the leftover surfaces."
+
+[gotcha.2264]
+title = "Check src/ before scoping a retired-symbol scan to a symbol"
+symptom = "16.97.1 do_6 scoped the kernel scan to lxp_grant_store on the assumption it was retired; it is live (src/ledger/lxp_grant_store.c) until 1.12.1, so attempt 4 failed on seven live uses."
+fix = "grep include/ and src/ for the symbol's definition first; if it is live, the scan may only cover the files the task edits (decision.1911)."
+
+[gotcha.2265]
+title = "A task that changes a struct's fields must own, or hand off, the shared test support that fills them"
+symptom = "13.4.5 removed the kernel-batch fields from DeploymentProof and ProgramStateProof; tests/support/mod.rs, shared by seven test targets, stopped compiling and the package-wide --tests build failed every attempt."
+fix = "Build only the task's own --test target (decision.1910) and make the task that rebuilds the shared support require the type change; record the interval in which the other targets do not compile."

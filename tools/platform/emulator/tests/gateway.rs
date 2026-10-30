@@ -130,17 +130,20 @@ fn boot_protocol(protocol_version: u16) -> Result<String, String> {
     ));
     std::fs::write(&seed_path, EMULATOR_SEED).map_err(|error| error.to_string())?;
     let seed_argument = seed_path.to_string_lossy().into_owned();
-    thread::spawn(move || {
-        let _ = layerx_platform_emulator::run(vec![
-            "up".to_string(),
-            "--listen".to_string(),
-            listen,
-            "--sequencer-seed-file".to_string(),
-            seed_argument,
-            "--protocol-version".to_string(),
-            protocol_version.to_string(),
-        ]);
-    });
+    thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(move || {
+            let _ = layerx_platform_emulator::run(vec![
+                "up".to_string(),
+                "--listen".to_string(),
+                listen,
+                "--sequencer-seed-file".to_string(),
+                seed_argument,
+                "--protocol-version".to_string(),
+                protocol_version.to_string(),
+            ]);
+        })
+        .map_err(|error| error.to_string())?;
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
         if let Ok(reply) = request(&address, "GET", "/healthz", "", &[]) {
@@ -905,6 +908,87 @@ mod lifecycle_checks {
         }
         Ok(())
     }
+}
+
+#[test]
+fn lifecycle_executes_without_the_native_state_feed() -> Result<(), String> {
+    let address = boot_protocol(3)?;
+    let public = ed25519_dalek::SigningKey::from_bytes(&EMULATOR_SEED)
+        .verifying_key()
+        .to_bytes();
+    let public_hex = hex_encode(&public)?;
+    let prefund = format!("{{\"did\":\"did:layerx:lifecycle\",\"public_key\":\"{public_hex}\",\"amount_lo\":100000000}}");
+    let funded = post_json(&address, "/__emulator/accounts/prefund", &prefund)?;
+    assert_eq!(funded.status, 200, "{}", funded.text());
+    let (program, operations) = lifecycle_operations()?;
+    for (sequence, (ordinal, path, payload)) in operations.into_iter().take(2).enumerate() {
+        let (bytes, key, expected_id) = lifecycle_signed_activity(
+            ordinal,
+            &payload,
+            u64::try_from(sequence).map_err(|error| error.to_string())?,
+        )?;
+        let input = LifecycleRequest {
+            address: &address,
+            ordinal,
+            path,
+            payload: &payload,
+            bytes: &bytes,
+            key: &key,
+            expected_id,
+            public,
+            program,
+            sequence,
+        };
+        let document = lifecycle_checks::lifecycle_submit(&input)?;
+        let result = &document["result"];
+        lifecycle_checks::lifecycle_receipt(&input, result)?;
+        let receipt = hex_decode(result["receipt"].as_str().ok_or("receipt missing")?)?;
+        let verified = layerx_proof::receipt::verify_sequencer_signature(&receipt, public)
+            .map_err(|error| format!("{error:?}"))?;
+        let protocol = verified.protocol().ok_or("protocol receipt missing")?;
+        assert_eq!(protocol.protocol_version(), 3);
+        if ordinal == 3 {
+            let terminal = hex_decode(
+                result["terminal_payload"]
+                    .as_str()
+                    .ok_or("terminal missing")?,
+            )?;
+            let graph = hex_decode(result["call_graph"].as_str().ok_or("graph missing")?)?;
+            let execution = layerx_proof::program::verify_program_execution(
+                &receipt,
+                &terminal,
+                &graph,
+                layerx_proof::program::ProgramExecutionExpectation {
+                    sequencer_public_key: public,
+                    previous_state_root: protocol.previous_state_root(),
+                    activity_id: expected_id,
+                    payload_hash: input.payload_hash()?,
+                    program_id: program.bytes(),
+                    guest_abi_version: 2,
+                },
+            )
+            .map_err(|error| format!("{error:?}"))?;
+            let response = execution
+                .outcome()
+                .response()
+                .ok_or("echo call did not complete")?;
+            assert_eq!(response.code(), 7);
+            assert_eq!(response.body(), b"echo");
+        }
+        let activity_id = hex_encode(&expected_id)?;
+        let read = request(
+            &address,
+            "GET",
+            &format!("/v1/receipts/{activity_id}"),
+            "",
+            &[],
+        )?;
+        assert_eq!(read.status, 200, "{}", read.text());
+        let retained = response_result(&read)?;
+        assert_eq!(retained["activity_id"], activity_id);
+        assert_eq!(retained["receipt"], result["receipt"]);
+    }
+    Ok(())
 }
 
 #[test]
