@@ -11000,3 +11000,93 @@ fix = "A version-constant bump owns the publication row and every test literal t
 title = "Tests that set process environment variables race across test threads"
 symptom = "10.20.3's startup tests each rewrote LAYERX_HUMAN_* through env::set_var and failed at startup in different components on different runs."
 fix = "Hold a static Mutex for the lifetime of each test's environment fixture, give every test its own canonical root, and keep one opener per store root."
+
+[gotcha.2238]
+title = "Attempts that stop at implemented-not-qualified four times relaunch only when seeded by hand"
+symptom = "A task with four or more such attempts never relaunched after its blocker landed on main; the automatic re-seed skips that class."
+fix = "Seed the task explicitly with the finished attempt number and continue or requalify once the blocker is on main."
+
+[gotcha.2239]
+title = "A task packet built before a spec batch lands runs the old build_cmd"
+symptom = "8.94.6 attempt 3 ran without LAYERX_TEST_CORE_BIN although the spec on main already exported it: the packet was assembled before the batch landed."
+fix = "After landing a spec batch that changes a command, re-seed the affected task so the next attempt is assembled from the new spec."
+
+[gotcha.2240]
+title = "attach_external_signature takes the EVM SigningPreparation, not the kernel Prepared"
+symptom = "services/human custody.rs:342 passes a kernel Prepared and a 65-byte custody grant; sign.rs:334 wants &SigningPreparation and the kernel pair wants 64 bytes, so neither compiles since 9.2.2."
+fix = "Wrap the Prepared in a SigningPreparation (evm_signing.rs:145-180) and sign its signing_hash through the custody EVM action path (decision.1897)."
+
+[gotcha.2241]
+title = "MinIO no longer serves server binaries from dl.min.io or GitHub releases"
+symptom = "curl of dl.min.io/server/minio/release/linux-amd64/minio answers 410 Gone and the GitHub release RELEASE.2025-10-15T17-29-55Z carries no assets, so a fixture that downloads minio fails."
+fix = "Build it from source: GOFLAGS= go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z (several minutes, cache the binary)."
+
+[gotcha.2242]
+title = "A second node home with its own consensus key panics the primary with validator not in committee"
+symptom = "Starting a standby node of the in-tree chain as a validator (the default mode) makes consensus/internal/consensus/state.go:2622 panic because its key is not in the genesis validator set."
+fix = "Run the extra node home with mode full (consensus/config/toml.go:104); only the primary's key is in the committee."
+
+[gotcha.2243]
+title = "The v6120 halt export carries no perps, pricefeed or spot state"
+symptom = "node/testdata/v6120-halt-export.json has null app_state.perps, pricefeed and spot, so the local node starts with the perps DefaultGenesis (no markets) and getMarkPriceDetails(11) reverts; the del(...) in v6120-node.sh:245 is a no-op."
+fix = "Seed the dev genesis with the market, pricefeed and collateral state a test reads (task 5.98.3) instead of expecting it from the export."
+
+[gotcha.2244]
+title = "The gateway local fixture adapter's path needles changed when platform moved under services/"
+symptom = "services/platform/hosted/gateway/tests/local/build.rs:57 panics with fixture path contract changed because boundary.rs:4 now climbs five levels to tests/support/lxgb_metadata.rs and build.rs still searches the four-level needle."
+fix = "Update the needle and the repository climb together whenever a crate moves; the adapter asserts each needle exactly once."
+
+[gotcha.2245]
+title = "The bridge workflow check reads spec/paxeer-x-bridge/spec.kvx, which no longer exists"
+symptom = "services/bridge/deploy/tests/workflow-check.sh fails at read(root, SPEC_PATH) before any check runs because 0209f71cc consolidated the bridge spec into spec/layerx-merge/spec.kvx."
+fix = "Point SPEC_PATH at the consolidated spec; a check that reads a spec file must follow the spec consolidation."
+
+[gotcha.2246]
+title = "A monetary transfer effect without a ledger receipt is refused silently by the kernel"
+symptom = "A sandbox execution ends LXP_FATAL_INVARIANT from the kernel receipt path with nothing on stderr although the module-context test of the same path passes."
+fix = "receipt_bind_ledger_projection (src/protocol/lxp_kernel.c:2372-2395) refuses any monetary TRANSFER effect while ledger_receipt_present is false, which only the asset module sets; the programs escrow charge needs the binding of decision.1898, and module-context tests (lxp_programs_sandbox_execute) never reach that projection, so test the kernel path with lxp_kernel_execute_activity."
+
+[gotcha.2247]
+title = "Cargo builds a package's binaries for every integration test target"
+symptom = "cargo test -p <crate> --test <name> fails with compile errors in src/main.rs or a module only the binary includes, although the test file touches neither."
+fix = "Integration tests get CARGO_BIN_EXE_<name>, so every binary of the package is compiled first; a break in the binary blocks every --test gate of the package, and two tasks that each fix one break of the same binary deadlock unless one of them ports both."
+
+[gotcha.2248]
+title = "The wallet DID of a provisioned agent is did:layerx:<public key>, not the agent's registry identifier"
+symptom = "A provisioning assertion expects the did:matrix:provisioning identifier of the test agent and the state returns did:layerx:<64 hex>."
+fix = "services/wallet/gateway/src/provision/bind.ts:29 DID_PREFIX and state.ts:582 admit only did:layerx:<64 hex>; assert did:layerx:${agent.publicKeyHex} for provisioning states and wallet rows."
+
+[gotcha.2249]
+title = "A test target that stopped compiling hides its runtime failures until someone ports it"
+symptom = "The first attempt that makes an old test target compile again fails tests that nobody changed."
+fix = "When a shared test helper changes shape (raw_receipt_evidence, 351e3da14), targets that call the old shape stay unbuilt; expect the first compiling attempt to surface runtime contract drift and budget the repair for it."
+
+[gotcha.2250]
+title = "A task that edits a file another task deletes must land first or be superseded"
+symptom = "A candidate passes its gate, and the merge onto the domain branch stops on a modify/delete conflict because a later-wave deletion landed first."
+fix = "When the deleting task is already done, supersede the editing task (status superseded, dependents require the deleting task instead) rather than resurrecting the file through a continue seed; the seed step takes a path absent from the tree from the seed outright."
+
+[gotcha.2251]
+title = "A pinned sequencer leader outside the validator set panics the proposer"
+symptom = "A local node with a primary and a sequencer standby stops at the first round above zero with validator ... not in committee (round_state.go:515/:537): the leader pin L[round mod len(L)] names the standby's consensus key, which is not a genesis validator."
+fix = "Every key in app_state.sequencer.leaders must be a bonded validator; give the standby a third of the primary's power so the primary alone still commits."
+
+[gotcha.2252]
+title = "ledger_payment_call and bind_call disclose ledger, budget and bank EVM calls only"
+symptom = "Wrapping a governance activity payload in ledger_payment_call returns MalformedPayload: decode_method decodes the 0x2bb1ae7c send(bytes) form with decode_send and knows no EVM form for other modules."
+fix = "Submit non-ledger activities through the kernel signing pair (sign_disclosed, attach_kernel_signature, verify_kernel_before_submit) on the Prepared envelope."
+
+[gotcha.2253]
+title = "The agent daemon's authority fixture needs layerx-genesis-build beside layerxd"
+symptom = "A real-authority test panics at tests/support/real_authority.rs:1011 with layerx-genesis-build is not built although layerxd is present in LAYERX_TEST_NATIVE_BIN_DIR."
+fix = "Build both Makefile targets (layerxd layerx-genesis-build) and stage both binaries in the directory."
+
+[gotcha.2254]
+title = "A coverage test must read the real admission surface, not the tables named for it"
+symptom = "A test counting frozen catalog operations in the four connected route tables reports seven missing although the gateway admits them: they live in a map local to allowedConnectedRoute."
+fix = "Hoist the map into a package-level function the product reads and the test counts; name documented beyond-catalog templates explicitly rather than widening the catalog."
+
+[gotcha.2255]
+title = "Changing a crate's dependency list leaves every other workspace's Cargo.lock stale"
+symptom = "After a path dependency is removed from one crate's Cargo.toml and only that workspace's Cargo.lock is refreshed, --locked builds in the eight other workspaces that pin the crate by path are refused with the lock file needs to be updated."
+fix = "List every Cargo.lock whose layerx-agentd (or changed crate) entry exists (grep -l 'name = <crate>' over git ls-files '*Cargo.lock') and regenerate each in the same task."

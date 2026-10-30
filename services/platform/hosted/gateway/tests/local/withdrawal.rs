@@ -8,9 +8,10 @@ use layerx_types::intent::EvmAddress;
 pub(super) fn configure_genesis(request: &[u8]) -> Vec<u8> {
     assert_eq!(&request[..7], b"LXGB\x02\0\x03");
     assert_eq!(&request[19..21], &1_u16.to_be_bytes());
-    let modules =
-        fs::read_to_string(repository_root().join("services/platform/hosted/node/genesis-modules.conf"))
-            .required("public testnet module configuration");
+    let modules = fs::read_to_string(
+        repository_root().join("services/platform/hosted/node/genesis-modules.conf"),
+    )
+    .required("public testnet module configuration");
     assert_eq!(
         modules.lines().collect::<Vec<_>>(),
         ["budget", "escrow", "perps", "service", "stream"]
@@ -125,43 +126,31 @@ fn signed(cluster: &Cluster, sequence: u64) -> (Vec<u8>, [u8; 32]) {
         layerx_intents::compile(&intent, &registry).required("canonical withdrawal payload");
     DisclosureCheck::verify(&intent, &compiled).required("withdrawal disclosure roundtrip");
     let now = now_ms();
-    let envelope = layerx_crypto::send::encode_payment_envelope(
-        ModuleId::Asset,
-        9,
-        compiled.payload().as_bytes(),
-        &layerx_crypto::send::EnvelopeOptions {
-            actor: &cluster.treasury_did,
-            public_key: key.verifying_key().to_bytes(),
-            protocol_version: PROTOCOL_VERSION,
-            network_id: NETWORK_ID,
-            identity_sequence: sequence,
-            idempotency_key: idempotency,
-            fee_limit: 17,
-            not_before: now - 1000,
-            not_after: now + 120_000,
-        },
-    )
-    .required("withdrawal envelope");
-    let disclosure = layerx_crypto::disclosure::bind(&envelope.canonical, &envelope.registry)
-        .required("canonical signed withdrawal disclosure");
-    let local = layerx_crypto::signer::LocalSigner::new(cluster.treasury_seed);
-    let mut future = layerx_crypto::signer::sign_disclosed(
-        &local,
-        &envelope.canonical,
-        &disclosure,
-        &envelope.registry,
-    );
-    let mut context = std::task::Context::from_waker(std::task::Waker::noop());
-    let std::task::Poll::Ready(signature) =
-        std::future::Future::poll(future.as_mut(), &mut context)
-    else {
-        panic!("local signer unexpectedly pending")
-    };
-    let signature = signature.required("withdrawal owner signature");
-    drop(future);
-    let signed = envelope
-        .envelope
-        .attach_signature(Signature::new(signature.as_bytes()).required("canonical signature"));
+    let actor = Did::new(cluster.treasury_did.as_bytes()).required("withdrawal actor");
+    let authority =
+        Authority::owner(&key.verifying_key().to_bytes()).required("withdrawal owner authority");
+    let timestamp =
+        TimestampBound::new(now - 1000, now + 120_000).required("withdrawal timestamp bound");
+    let mut builder = EnvelopeBuilder::new();
+    builder
+        .protocol_version(PROTOCOL_VERSION)
+        .and_then(|value| value.network_id(NETWORK_ID))
+        .and_then(|value| value.activity_type(activity_type))
+        .and_then(|value| value.actor_did(actor))
+        .and_then(|value| value.authority(authority))
+        .and_then(|value| value.account_sequence(sequence))
+        .and_then(|value| value.timestamp_bound(timestamp))
+        .and_then(|value| value.idempotency_key(IdempotencyKey::new(idempotency)))
+        .and_then(|value| value.fee_limit(Amount::from_u128(17)))
+        .and_then(|value| value.payload_hash(compiled.payload_hash()))
+        .and_then(|value| value.payload(compiled.payload().clone()))
+        .required("withdrawal envelope");
+    let unsigned = builder.build().required("complete withdrawal envelope");
+    let digest =
+        layerx_wire::sign::preimage_unsigned(&unsigned).required("withdrawal signing digest");
+    let signature = key.sign(digest.as_bytes()).to_bytes();
+    let signed =
+        unsigned.attach_signature(Signature::new(&signature).required("canonical signature"));
     let bytes =
         layerx_wire::activity::encode_signed_envelope(&signed).required("signed withdrawal");
     let decoded =
