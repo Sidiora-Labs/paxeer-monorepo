@@ -18113,6 +18113,10 @@ title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
 ac_1 = "services/agent contains no include/layerx_lni_abi.h, no schema/lni directory and no stable-abi-allowlist.toml."
 ac_2 = "services/agent/unsafe-allowlist.toml holds version 1 and no exceptions entry."
 
+[req.9192]
+title = "layerx-client compiles without the deleted LNI schema file"
+ac_1 = "services/agent/crates/layerx-client/src/lni/schema.rs declares no LNI_V1_SOURCE constant and no include_str! of schema/lni/v1.kvx, and cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer exits 0 on a tree without services/agent/schema/lni."
+
 [req.9066]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
 ac_1 = "The limits suite still converges restarts and duplicates on one economic effect, one receipt, final state Executed and two attempts when submissions are EIP-1559 raw transactions."
@@ -142216,6 +142220,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.19.2]
+title = "Drop the LNI_V1_SOURCE include that 9.19.1 left in layerx-client"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["9192.1"]
+capabilities = []
+interfaces = ["interface.9.rs-client-lni-schema-lni-v1-source-j44"]
+do_1 = "019a38eed (task 9.19.1, do_1) deleted services/agent/schema/lni/v1.kvx while services/agent/crates/layerx-client/src/lni/schema.rs:4 still reads `pub const LNI_V1_SOURCE: &str = include_str!('../../../../schema/lni/v1.kvx');`, so since that commit every build of layerx-client fails at schema.rs:4 with `couldn't read ../../../../schema/lni/v1.kvx`, and with it every crate that depends on layerx-client: the services/agent workspace, services/human (services/human/Cargo.toml:31) and services/platform (services/platform/Cargo.toml:46). Delete the constant and its doc comment at schema.rs:3-4. Nothing reads LNI_V1_SOURCE in services/ (grep over *.rs finds only the declaration); interfaces.kvx already marks the interface retired; lni_schema_v1 (schema.rs:566) builds the schema from Rust constants and does not use the file. Do not restore v1.kvx: agent_tree_has_no_lni_artifacts (services/agent/tools/boundary-check/tests/workspace.rs:13-33) asserts the directory is absent, and task 9.24.7 deletes the whole lni module per decision.923. Change no other line of schema.rs and no other file."
+do_2 = "scripts/ci/lni-version-parity.sh:96-101 (Makefile:3424) reads the deleted schema file and fails since 019a38eed independently of this task; record it, do not edit the script or the Makefile. The verify runs an existing layerx-client integration test, refusal_keeps_code_message_and_data in tests/sequencer.rs, whose only purpose here is to compile the crate and its test target on a tree without services/agent/schema/lni."
+symbols = ["LNI_V1_SOURCE"]
+touches = ["services/agent/crates/layerx-client/src/lni/schema.rs"]
+tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::refusal_keeps_code_message_and_data"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact refusal_keeps_code_message_and_data"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore schema.rs:3-4 from HEAD; layerx-client fails to compile again at schema.rs:4."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.20.1]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
 status = "done"
@@ -194763,7 +194796,7 @@ title = "Bind agent creation lifecycle evidence to the signed EIP-1559 transacti
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["9.19.2"]
 reqs = ["1812042.1"]
 capabilities = []
 interfaces = []
@@ -194793,6 +194826,7 @@ do_6 = "In fields (services/agent/crates/layerx-crypto/src/disclosure/call.rs:37
 do_7 = "In ProtocolEvidence::bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:558-596) project ConstructMethod::PayBudgetCreate from its carried payload with protocol version 3 (layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION), and in SignedCreationTransaction::payload (services/human/crates/layerx-human-service/src/server/agent_creation.rs:72-87) take the same carried payload, because Disclosure::canonical_payload returns the ABI calldata for a call source (services/agent/crates/layerx-crypto/src/disclosure.rs:1036-1041) and never equals action.compiled.payload()."
 do_8 = "Decision 1946: an EIP-1559 disclosure carries the 20-byte sender as its actor (services/agent/crates/layerx-crypto/src/disclosure/call.rs:401), never the creation DID; submit_prepared (services/human/crates/layerx-human-service/src/server/agent_creation.rs:467) and retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:332) compare signed.disclosure.actor with the sender bound by the owner_public_key check (owner_public_key[12..]), and ProtocolEvidence.actor is that sender, as create.rs:546 reads it. Keep every assertion of finalization_evidence_reports_the_runtime_rung as written; if the HumanPrimary descriptor public key differs from the left-padded sender, record the conflict and do not loosen the check."
 do_9 = "Decision 1961: KeyDescriptor.public_key (services/human/crates/layerx-human-service/src/custody/mod.rs:435-440) is the Ed25519 verification key of the held 32-byte secret (services/human/crates/layerx-human-service/src/custody/provider.rs:1198 and :1223, services/agent/crates/layerx-crypto/src/local.rs:31-33), while the key's EVM identity is the secp256k1 wallet of the same secret that CustodySigner::evm_wallet returns (services/human/crates/layerx-human-service/src/custody/signer.rs:911-917, provider.rs:1029-1040) and that the provider binds beside the public key on every transaction signature (provider.rs:1285-1286), so the left-padded sender of a signed EIP-1559 transaction never equals descriptor.public_key. In retained_protocol_evidence (services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:327-343) and prepare_scoped (services/human/crates/layerx-human-service/src/server/agent_creation.rs:373-421) resolve the wallet with self.custody.evm_wallet(principal, &action.custody_key), refuse unless signed.owner_public_key[12..] == wallet, keep the class check of signing_descriptor (agent_creation.rs:329-350), and carry signed.owner_public_key (the left-padded wallet) as the owner public key of PreparedProtocolKind::Signed (agent_creation.rs:432), of protocol_evidence (agent_creation_native.rs:355, agent_creation.rs:583-591) and so of ProtocolEvidence (agent_creation.rs:601), which bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:541-547) compares with the recovered sender. Compare the sender with descriptor.public_key nowhere on the creation path; change neither KeyDescriptor, evm_wallet, the test nor any assertion of finalization_evidence_reports_the_runtime_rung."
+do_10 = "Attempt 6 (b3481553d on 019a38eed) applied do_9 in the two files and failed in the build_cmd before any test ran: layerx-human-service depends on layerx-client (services/human/Cargo.toml:31), and since 019a38eed (task 9.19.1 do_1 deleted services/agent/schema/lni/v1.kvx) services/agent/crates/layerx-client/src/lni/schema.rs:4 fails with `couldn't read ../../../../schema/lni/v1.kvx` on every build of that crate, in a file this task does not touch. Task 9.19.2 removes the orphaned include; this task now requires it. Keep the do_1 to do_9 implementation of attempt 6 unchanged and re-qualify it once on a base that carries 9.19.2, repairing only type errors the compiler reports inside the do_9 lines of the two touched files, without changing any compared value or loosening an assertion."
 
 [req.1812042]
 title = "Issue #1204 follow-up: agent creation lifecycle evidence binds the signed EIP-1559 transaction"
@@ -194933,6 +194967,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 

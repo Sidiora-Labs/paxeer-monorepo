@@ -11406,3 +11406,8 @@ fix = "A task that changes an abi.json runs the registration test that counts it
 title = "A pending-tag read on the sequencer errors between every proposal and its commit by design"
 symptom = "A local-node receipt test read the sender's pending nonce once and failed with 'pending block unavailable: sequencer: no block is open'; the primary had sealed the open block for the next proposal and had not yet committed it, a window that exists for every block."
 fix = "Pending-tag reads and raw sends against the sequencer repeat on exactly that error text until a block is open, as the committed fixture does; any other error fails at once and no asserted value changes."
+
+[gotcha.2319]
+title = "Deleting a file another crate include_str!s passes a gate that builds only a tool crate"
+symptom = "A cleanup task deleted a schema file and qualified with the build of a small boundary-check tool crate; a library crate in the same tree still include_str!'d the file at its first lines, so every crate depending on that library failed to compile from the merge on, and the next attempts of unrelated tasks in three workspaces died in their build step."
+fix = "Before deleting any non-source file, grep the tree for include_str!, include_bytes!, include! and path-literal references to it, and let the deleting task build the crate that holds the reference, not only the crate that asserts the absence."
