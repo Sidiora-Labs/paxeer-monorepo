@@ -11395,3 +11395,147 @@ symbol = "RETIRED_OPERATIONS"
 observed = "Attempt 4 (4e0db9602) completed do_1 to do_5 and the build failed at agent_rpc.rs:25 and :130 (E0599: no variant FaucetClaim), a file the touches did not name; tests/rpc_surface_major_two.rs:66 and :258, layerx-sdk/tests/agent_operation_envelope.rs:1237 and layerx-mcp/tests/faucet.rs:270 name the variant as well and have no pending owner other than 18.1230.1 for the first."
 assumption = "do_6 to do_9 port the four files; the task requires 18.1230.1 and continues from the attempt 4 candidate."
 severity = "high"
+
+[finding.18.1113.1.3]
+task = "18.1113.1"
+file = "services/wallet/gateway/test/provisioning.test.ts"
+symbol = "provisionAccount"
+observed = "Attempt 7 passed the declared vitest gate (4 passed, 3 skipped) and failed only the completion check, which resolves every entry of symbols in the code graph: the two entries were the flow test titles, which the graph does not index."
+assumption = "symbols now name provisionAccount and provisionDepsFromEnv, the exported functions the flow drives; the attempt 7 candidate re-qualifies unchanged."
+severity = "low"
+
+[finding.18.1200.1.2]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "wait_request_refuses_retired_level_names_and_field"
+observed = "Attempt 5 passed every test of the five declared targets and failed because --lib also ran the 259 crate unit tests, six of which fail on main outside the task's files: wait_request_refuses_retired_level_names_and_field (agent_rpc_adapters.rs:2855, both inputs answer envelope.malformed), two activity_submission_index_tests cases (human_runtime.rs:19412, :19636, Refused), two TLS boundary tests that need the built layerx-paxeer-boundary binary (tests/support/tls_boundary.rs:187) and the native terminal evidence check (protocol_evidence_native_tests.rs:6, ReceiptMismatch)."
+assumption = "Pre-existing failures outside recovery, migration, unknown, operator and operator_route; the verify names only those five targets and the attempt 5 candidate re-qualifies unchanged; the six failures stay recorded here for their owners."
+severity = "medium"
+
+[finding.13.27.1.16]
+task = "13.27.1"
+file = "precompiles/layerxprograms/method_sandbox_execute_test.go"
+symbol = "TestProgramsSandboxExecuteEmitsUsage"
+observed = "Attempt 34 (base 4a75f973f, including 13.27.6) re-ran the attempt 33 files unchanged and reverted at method_sandbox_execute_test.go:313 with the bare reason LXP_FATAL_INVARIANT, which only host Execute returns (submit.go:87-89); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, the ledger initial; the 13.27.6 kernel case never runs lxp_programs_sandbox_execute to SUCCESS."
+assumption = "The breach is on the kernel or runtime SUCCESS path, not in the handler or test; task 13.27.7 proves and fixes it end to end and 13.27.1 requires it (decision.1890)."
+severity = "high"
+
+[finding.4.24.3.2]
+task = "4.24.3"
+file = "services/launchpad/api/internal/rest/frozen_response_schema_test.go"
+symbol = "TestFrozenV2ResponseSchemasMatchHandlerBytes"
+observed = "Attempts 6 to 8 failed opening launchpad/spec/production-system/integration/migrations/150002.sql five directories above services/launchpad/api/internal/rest; the directory the ranking-algo runtime database fixture, the security control workflow test, the social tests and the indexer canonical store tests read was absent from the repository."
+assumption = "Commit 01d2bf319 imports the reviewed migration set (registry, grants, readiness, legacy history aliases and the numbered SQL sources); 4.24.3 and 4.24.7 re-qualify unchanged on a base that includes it."
+severity = "medium"
+
+[finding.18.1172.2.2]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/tests/agent_controls.rs"
+symbol = "change_limit"
+observed = "Attempt 4 ported binding.rs and custody.rs as specified and the build failed only in tests/agent_controls.rs, outside the task's files: :315 names InvalidationReason::SessionKeyRevoked, which no longer exists, and :634, :652 and :666 call change_limit with three arguments while src/agents/controls.rs:532 has taken authority_rung: Rung first since ea572906f."
+assumption = "Those four errors belong to task 18.1228.1, which owns agent_controls.rs; the build is narrowed to --lib --test binding --test custody and the attempt 4 candidate (5e219d90a) re-qualifies unchanged."
+severity = "medium"
+
+[finding.17.5.3.1]
+task = "17.5.3"
+file = "scripts/gates/wave-2.sh"
+symbol = "test_wave_2_gate_passes"
+observed = "Attempt 4 ran the real wave 2 script on the merged revision e9affcc7b and it exited 2 in its first step, make workspace-build; the wave log logs/waves/2/wave-2.log holds only the evidence line because run_gate.py writes the step's own log under .logs/wave-2, which the qualification record does not keep, so the failing target is not identifiable from the record."
+assumption = "Task 17.5.9 moves the per-step logs under logs/waves/<n> and echoes the failing step's tail into the wave log; 17.5.1 to 17.5.4 now require it and are re-attempted once it is done."
+severity = "blocker"
+
+[finding.13.3.7.1]
+task = "13.3.7"
+file = "programs/crates/layerx-programs-registry/src/chain_evidence.rs"
+symbol = "ProtocolDeploymentVerifier::from_chain_trust"
+observed = "Attempt 4 wrote src/chain_evidence/trust_root.rs and the test, and the build failed at tests/chain_evidence_trust_root.rs:28 and :44 because from_chain_trust was not found: chain_evidence.rs:9 still declares pub mod trust_root {} as an empty inline module, so the new file was never compiled."
+assumption = "chain_evidence.rs, protocol_evidence.rs and head_verify.rs are now in the task's files with the declaration, the chain_trust field and accessor spelled out; the attempt 4 candidate (5012ba72b) continues."
+severity = "medium"
+
+[finding.13.1.15.1]
+task = "13.1.15"
+file = "programs/crates/layerx-programs-registry/src/chain_proof.rs"
+symbol = "TrustRoot"
+observed = "Attempt 4 wrote src/chain_proof/trust_store.rs and tests/chain_trust_store.rs, and the build failed at tests/chain_trust_store.rs:4 with unresolved import layerx_programs::chain_proof::trust_store::TrustRoot: chain_proof.rs:16 still declares pub mod trust_store {} as an empty inline module and the task's files did not include chain_proof.rs."
+assumption = "chain_proof.rs and head_verify.rs are now in the task's files with the declaration and the header_hash field spelled out; the attempt 4 candidate (4ce321018) continues."
+severity = "medium"
+
+[finding.13.6.4.1]
+task = "13.6.4"
+file = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+symbol = "AuthenticatedTerminalRecord::verify"
+observed = "Attempts 2, 3 and 4 rewrote expiry.rs as specified and the build failed at src/expiry.rs:61 with no method named chain_trust on &ProtocolDeploymentVerifier: the accessor is task 13.3.7's, which had not landed because its own module was never compiled (finding.13.3.7)."
+assumption = "13.6.4 now requires 13.3.7 and names the accessor; the attempt 4 candidate (60a7f93a2) continues on a base that includes it."
+severity = "medium"
+
+[finding.16.0.3.1]
+task = "16.0.3"
+file = "tools/ci/tests/test_makefile_wave4.py"
+symbol = "test_aggregates_dry_run_clean"
+observed = "Attempt 4 made every Makefile deletion of do_1 to do_6 and do_8, and test_aggregates_dry_run_clean failed only because the dry run still prints the compile of cmd/layerxd/lxp_daemon_lni.c, a LAYERXD_SOURCES member (Makefile:1175) of the daemon that test-layerxd builds; no deleted rule reappeared."
+assumption = "The lxp_daemon_lni clause belongs to the LNI retirement (req.5520 ac_1, task 5.50.1, decision.1892) and leaves req.16014 ac_2; the attempt 4 candidate continues with that one assertion removed."
+severity = "medium"
+
+[finding.9.12.4.1]
+task = "9.12.4"
+file = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+symbol = "prepare_grant"
+observed = "Attempts 2 and 3 fail in the build with E0609 current_height, E0599 prepare_budget and E0061 prepare_draw at services/agent/crates/layerx-agentd-host/src/payer.rs:333-353, because 1e3b37aee (task 18.1243.1) changed GrantTerms while the host payer port of task 18.1243.2 had not landed."
+assumption = "Task 18.1243.2 ports payer.rs under decision.1893; 9.12.4 requires it and is re-qualified on a revision that includes it."
+severity = "high"
+
+[finding.13.6.3.1]
+task = "13.6.3"
+file = "programs/crates/layerx-programs-sandbox/tests/lease.rs"
+symbol = "TransitionEvidence::verify_call"
+observed = "Attempt 4 built the library and tests/lease_chain.rs, and cargo build --tests failed with E0061 in tests/lease.rs and tests/snapshot.rs, five callers of the old seven-argument verify_call outside the task's files."
+assumption = "The task owns the public signature and therefore every in-crate caller; the two test files are now in touches and the attempt 4 candidate continues with the callers ported."
+severity = "medium"
+
+[finding.18.670.1.3]
+task = "18.670.1"
+file = "services/platform/perps-data/e2e_test.go"
+symbol = "latestFunding"
+observed = "Attempt 4 ran against the in-tree node and latestFunding scanned FundingSettled logs in ranges below the earliest block the node serves, so eth_getLogs failed for a range the node never held."
+assumption = "The scan and the indexer start are clamped to the node's earliest block and the test waits for the first settlement on a fresh node (do added); the attempt 4 candidate continues."
+severity = "medium"
+
+[finding.10.20.3.4]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs"
+symbol = "production_components_open_without_paxeer_or_exit_environment"
+observed = "Attempt 7 built the retirement and both startup tests failed at startup, once in the identity binding provider configuration and once in the principal store, while the configuration validation test passed."
+assumption = "The fixture misses the canonical-path, directory-ownership and single-opener preconditions of the binding client and the principal store and races on the process environment (two dos added); the attempt 7 candidate continues."
+severity = "medium"
+
+[finding.18.1200.1.3]
+task = "18.1200.1"
+file = "services/agent/COMPATIBILITY.md"
+symbol = "verify_published"
+observed = "Attempt 6 ported the five outbox callers and the migration target failed only in published_compatibility_matrix_accepts_only_the_supported_complete_tuple with PublishedMatrixDrift, because 70ce262d3 raised CONTRACT_VERSION to 2 without moving the published row or the test's unsupported-contract literal."
+assumption = "The publication row and the test literal follow the executable constant (do added, COMPATIBILITY.md in touches); the attempt 6 candidate continues."
+severity = "medium"
+
+[finding.16.0.3.2]
+task = "16.0.3"
+file = "tests/ci/test_paxai_chain_domain.py"
+symbol = "test_makefile_chain_domain_is_merged_chain_golden"
+observed = "Attempt 5 passed test_retired_targets_have_no_rule and test_aggregates_dry_run_clean and failed the chain-domain test with FileNotFoundError for programs/crates/layerx-programs-ai-market/tests/chain_domain.rs, which no task has created yet."
+assumption = "The golden file is 13.31.1's deliverable and 13.31.1 requires 16.0.3 (decision.1894); the attempt 5 candidate continues with the file read removed."
+severity = "medium"
+
+[finding.18.1172.2.3]
+task = "18.1172.2"
+file = "services/human/crates/layerx-human-service/tests/custody.rs"
+symbol = "attach_external_signature"
+observed = "Attempt 5 changed custody.rs:342 to attach_kernel_signature and the custody target failed with E0308 (expected 64 bytes, found 65) because the custody signer returns a secp256k1 signature since c03f97f8e."
+assumption = "The main call site is correct; the attempt 5 candidate continues with that one line restored."
+severity = "low"
+
+[finding.8.94.6.1]
+task = "8.94.6"
+file = "services/platform/hosted/gateway/tests/local/build.rs"
+symbol = "LAYERX_TEST_CORE_BIN"
+observed = "Attempt 1 built the gateway and the second build step panicked in the local qualification build script with parent-built core binary required, because the build command compiled tests/local without LAYERX_TEST_CORE_BIN."
+assumption = "The build command builds layerx-core-boundary first and passes its path; the task is re-qualified under the corrected build."
+severity = "low"

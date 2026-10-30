@@ -7,7 +7,6 @@ mod custody;
 pub use custody::{did_for_public_key, SeedSigner, SendError, SocketSigner, TreasurySigner};
 
 use ed25519_dalek::SigningKey;
-use layerx_crypto::signer::SigningRequest;
 use layerx_crypto::SignatureMessage;
 use layerx_intents::{compile, Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
@@ -91,7 +90,7 @@ pub fn send_context_hash(
     amount: u128,
     idempotency: &[u8; 32],
 ) -> [u8; 32] {
-    layerx_crypto::send::send_context_hash(source, destination, asset, amount, idempotency)
+    layerx_crypto::payments::send_context_hash(source, destination, asset, amount, idempotency)
 }
 
 /// Hashes bytes under one canonical wire domain tag.
@@ -144,8 +143,10 @@ pub fn build_send_with_signer(
     validate_send_request(request)?;
     let from = AccountId::parse(&format!("agent:{}:main", request.source_did))
         .map_err(|error| SendError::Invalid(format!("source account is invalid: {error:?}")))?;
-    let to = AccountId::parse(&format!("agent:{}:main", request.destination_did))
-        .map_err(|error| SendError::Invalid(format!("destination account is invalid: {error:?}")))?;
+    let to =
+        AccountId::parse(&format!("agent:{}:main", request.destination_did)).map_err(|error| {
+            SendError::Invalid(format!("destination account is invalid: {error:?}"))
+        })?;
     build_send_for_accounts(signer, identity_sequence, request, from, to)
 }
 
@@ -158,10 +159,16 @@ fn build_send_for_accounts(
 ) -> Result<SignedSend, SendError> {
     validate_send_request(request)?;
     let public_key = signer.public_key();
-    let source = layerx_wire::hash::account_id_for_protocol(&from, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION)
-        .map_err(|error| SendError::Invalid(format!("source account is invalid: {error:?}")))?;
-    let destination = layerx_wire::hash::account_id_for_protocol(&to, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION)
-        .map_err(|error| SendError::Invalid(format!("destination account is invalid: {error:?}")))?;
+    let source = layerx_wire::hash::account_id_for_protocol(
+        &from,
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    )
+    .map_err(|error| SendError::Invalid(format!("source account is invalid: {error:?}")))?;
+    let destination = layerx_wire::hash::account_id_for_protocol(
+        &to,
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    )
+    .map_err(|error| SendError::Invalid(format!("destination account is invalid: {error:?}")))?;
     let context = send_context_hash(
         &source,
         &destination,
@@ -227,7 +234,7 @@ fn build_send_for_accounts(
             SendError::Invalid(format!("send signing bytes are invalid: {error:?}"))
         })?;
     let digest = domain_hash(Domain::SignaturePreimage, &unsigned_bytes);
-    let signature = disclosed_signature(signer, &unsigned_bytes, &registry, request.network_id)?;
+    let signature = disclosed_signature(signer, &unsigned_bytes, request.network_id)?;
     layerx_crypto::ed25519::verify_digest(&public_key, &signature, &digest).map_err(|error| {
         SendError::Invalid(format!("send signature does not verify: {error:?}"))
     })?;
@@ -268,11 +275,8 @@ fn validate_send_request(request: &SendRequest) -> Result<(), SendError> {
 fn disclosed_signature(
     signer: &dyn TreasurySigner,
     canonical: &[u8],
-    registry: &ModuleRegistry,
     network_id: u32,
 ) -> Result<[u8; 64], SendError> {
-    let disclosure = layerx_crypto::disclosure::bind(canonical, registry)
-        .map_err(|error| SendError::Invalid(format!("send disclosure is invalid: {error:?}")))?;
     let message = SignatureMessage::new(
         Domain::SignaturePreimage,
         layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
@@ -280,14 +284,12 @@ fn disclosed_signature(
         canonical,
     )
     .map_err(|error| SendError::Invalid(format!("send signing scope is invalid: {error:?}")))?;
-    let request = SigningRequest::new(message, &disclosure)
-        .map_err(|error| SendError::Invalid(format!("send disclosure does not bind: {error:?}")))?;
     let signature = signer
-        .sign_digest(&request.message().digest())
+        .sign_digest(&message.digest())
         .map_err(SendError::Signer)?;
-    layerx_crypto::ed25519::verify(&signer.public_key(), &signature, request.message()).map_err(
-        |error| SendError::Signer(format!("treasury signature does not verify: {error:?}")),
-    )?;
+    layerx_crypto::ed25519::verify(&signer.public_key(), &signature, message).map_err(|error| {
+        SendError::Signer(format!("treasury signature does not verify: {error:?}"))
+    })?;
     Ok(signature)
 }
 
@@ -388,13 +390,21 @@ pub struct RegisteredCustodyAsset {
 
 impl RegisteredCustodyAsset {
     #[must_use]
-    pub const fn asset(&self) -> [u8; 32] { self.asset }
+    pub const fn asset(&self) -> [u8; 32] {
+        self.asset
+    }
     #[must_use]
-    pub const fn profile(&self) -> &[u8; 223] { &self.profile }
+    pub const fn profile(&self) -> &[u8; 223] {
+        &self.profile
+    }
     #[must_use]
-    pub fn profile_hash(&self) -> [u8; 32] { Sha256::digest(self.profile).into() }
+    pub fn profile_hash(&self) -> [u8; 32] {
+        Sha256::digest(self.profile).into()
+    }
     #[must_use]
-    pub fn trusted_height(&self) -> u64 { custody_u64(&self.profile[161..169]) }
+    pub fn trusted_height(&self) -> u64 {
+        custody_u64(&self.profile[161..169])
+    }
     pub fn account_name(&self, did: &str) -> Result<String, String> {
         let name = format!("agent:{did}:asset:{}", hex_encode(&self.asset));
         AccountId::parse(&name).map_err(|error| format!("asset account is invalid: {error:?}"))?;
@@ -413,16 +423,28 @@ pub struct AuthenticatedCustodyAsset {
 
 impl AuthenticatedCustodyAsset {
     #[must_use]
-    pub const fn asset(&self) -> [u8; 32] { self.registered.asset() }
+    pub const fn asset(&self) -> [u8; 32] {
+        self.registered.asset()
+    }
     #[must_use]
-    pub const fn profile(&self) -> &[u8; 223] { self.registered.profile() }
+    pub const fn profile(&self) -> &[u8; 223] {
+        self.registered.profile()
+    }
     #[must_use]
-    pub const fn trusted_height(&self) -> u64 { self.trusted_height }
+    pub const fn trusted_height(&self) -> u64 {
+        self.trusted_height
+    }
     #[must_use]
-    pub const fn account_sequence(&self) -> u64 { self.account_sequence }
+    pub const fn account_sequence(&self) -> u64 {
+        self.account_sequence
+    }
     #[must_use]
-    pub const fn state_root(&self) -> [u8; 32] { self.registered.state_root }
-    pub fn account_name(&self, did: &str) -> Result<String, String> { self.registered.account_name(did) }
+    pub const fn state_root(&self) -> [u8; 32] {
+        self.registered.state_root
+    }
+    pub fn account_name(&self, did: &str) -> Result<String, String> {
+        self.registered.account_name(did)
+    }
 }
 
 pub fn read_custody_profile(
@@ -433,36 +455,70 @@ pub fn read_custody_profile(
 ) -> Result<RegisteredCustodyAsset, String> {
     use layerx_client::evidence::RootSelector;
     use layerx_types::verify::VerificationLevel;
-    if context.expected_protocol_version != 3 || context.root_selector != RootSelector::Latest
-        || context.requested.level() < VerificationLevel::STATE_PROVEN {
+    if context.expected_protocol_version != 3
+        || context.root_selector != RootSelector::Latest
+        || context.requested.level() < VerificationLevel::STATE_PROVEN
+    {
         return Err("custody registry requires current state-proven protocol3 reads".into());
     }
     let mut state_root = None;
-    let marker = custody_read(transport, context, &mut state_root, 8, &custody_key(b"LX:CUSTODY:REGISTRY:v1", None))?;
-    if marker != b"LXBR1" { return Err("custody registry marker is invalid".into()); }
+    let marker = custody_read(
+        transport,
+        context,
+        &mut state_root,
+        8,
+        &custody_key(b"LX:CUSTODY:REGISTRY:v1", None),
+    )?;
+    if marker != b"LXBR1" {
+        return Err("custody registry marker is invalid".into());
+    }
     let mut selected = None;
     let mut first: Option<[u8; 223]> = None;
     for symbol in ["PAX", "SID", "USDC", "USDL"] {
         let id: [u8; 32] = Sha256::digest(format!("layerx-asset:125:{symbol}").as_bytes()).into();
-        let bytes = custody_read(transport, context, &mut state_root, 8, &custody_key(b"LX:CUSTODY:PROFILE:v2", Some(&id)))?;
-        let profile: [u8; 223] = bytes.try_into().map_err(|_| "custody profile length is invalid")?;
+        let bytes = custody_read(
+            transport,
+            context,
+            &mut state_root,
+            8,
+            &custody_key(b"LX:CUSTODY:PROFILE:v2", Some(&id)),
+        )?;
+        let profile: [u8; 223] = bytes
+            .try_into()
+            .map_err(|_| "custody profile length is invalid")?;
         validate_custody_profile(&profile, &id, symbol, context.expected_network_id)?;
-        if first.as_ref().is_some_and(|base| base[5..97] != profile[5..97] || base[161..223] != profile[161..223]) {
+        if first.as_ref().is_some_and(|base| {
+            base[5..97] != profile[5..97] || base[161..223] != profile[161..223]
+        }) {
             return Err("custody registry contains incompatible domain or trust".into());
         }
-        if first.is_none() { first = Some(profile); }
-        if id == asset { selected = Some((profile, symbol)); }
+        if first.is_none() {
+            first = Some(profile);
+        }
+        if id == asset {
+            selected = Some((profile, symbol));
+        }
     }
     let (profile, symbol) = selected.ok_or("asset is not in the custody registry")?;
-    if effective.asset_id() != asset || effective.level() < VerificationLevel::STATE_PROVEN
-        || !effective.registered() || effective.paused()
+    if effective.asset_id() != asset
+        || effective.level() < VerificationLevel::STATE_PROVEN
+        || !effective.registered()
+        || effective.paused()
         || Some(effective.state_root()) != state_root
         || effective.freshness().global_sequence != context.head.chain_sequence
-        || effective.freshness().batch_number != context.head.sealed_batch {
-        return Err("effective custody metadata differs from the authenticated current registry".into());
+        || effective.freshness().batch_number != context.head.sealed_batch
+    {
+        return Err(
+            "effective custody metadata differs from the authenticated current registry".into(),
+        );
     }
     validate_custody_metadata(effective.canonical_bytes(), &asset, symbol)?;
-    Ok(RegisteredCustodyAsset { asset, profile, network_id: context.expected_network_id, state_root: state_root.ok_or("custody state root missing")? })
+    Ok(RegisteredCustodyAsset {
+        asset,
+        profile,
+        network_id: context.expected_network_id,
+        state_root: state_root.ok_or("custody state root missing")?,
+    })
 }
 
 pub fn read_custody_asset(
@@ -474,34 +530,60 @@ pub fn read_custody_asset(
 ) -> Result<AuthenticatedCustodyAsset, String> {
     let registered = read_custody_profile(transport, context, asset, effective)?;
     let mut state_root = Some(registered.state_root);
-    let trust = custody_read(transport, context, &mut state_root, 8, &custody_key(b"LX:CUSTODY:TRUST:v2", Some(&asset)))?;
+    let trust = custody_read(
+        transport,
+        context,
+        &mut state_root,
+        8,
+        &custody_key(b"LX:CUSTODY:TRUST:v2", Some(&asset)),
+    )?;
     if trust.len() != 89 || &trust[..5] != b"LXLT1" {
         return Err("custody progression trust is unavailable or malformed".into());
     }
     let height = custody_u64(&trust[5..13]);
     let seconds = custody_u64(&trust[77..85]);
     let nanos = u32::from_be_bytes(trust[85..89].try_into().map_err(|_| "trust nanos")?);
-    if height <= registered.trusted_height() || height >= i64::MAX as u64
-        || seconds == 0 || seconds > i64::MAX as u64 || nanos >= 1_000_000_000
-        || trust[13..45].iter().all(|byte| *byte == 0) || trust[45..77].iter().all(|byte| *byte == 0) {
+    if height <= registered.trusted_height()
+        || height >= i64::MAX as u64
+        || seconds == 0
+        || seconds > i64::MAX as u64
+        || nanos >= 1_000_000_000
+        || trust[13..45].iter().all(|byte| *byte == 0)
+        || trust[45..77].iter().all(|byte| *byte == 0)
+    {
         return Err("custody progression trust is invalid".into());
     }
     let name = registered.account_name(source_did)?;
-    let account = AccountId::parse(&name).map_err(|error| format!("source asset account: {error:?}"))?;
+    let account =
+        AccountId::parse(&name).map_err(|error| format!("source asset account: {error:?}"))?;
     let source_account = layerx_wire::hash::account_id_for_protocol(&account, 3)
         .map_err(|error| format!("source asset account id: {error:?}"))?;
     let value = layerx_client::read::account(transport, source_account, context)
         .map_err(|error| format!("source asset account evidence: {error:?}"))?;
-    let evidence = layerx_client::evidence::verify_account_evidence(value.canonical_bytes(), value.proof_material(), source_account, None, custody_policy(context))
-        .map_err(|error| format!("source account proof binding: {error:?}"))?;
-    if evidence.state_root() != registered.state_root { return Err("source account and custody registry roots differ".into()); }
-    let committed = layerx_proof::state::decode_account_value(source_account, value.canonical_bytes())
-        .map_err(|error| format!("source asset account state: {error:?}"))?;
+    let evidence = layerx_client::evidence::verify_account_evidence(
+        value.canonical_bytes(),
+        value.proof_material(),
+        source_account,
+        None,
+        custody_policy(context),
+    )
+    .map_err(|error| format!("source account proof binding: {error:?}"))?;
+    if evidence.state_root() != registered.state_root {
+        return Err("source account and custody registry roots differ".into());
+    }
+    let committed =
+        layerx_proof::state::decode_account_value(source_account, value.canonical_bytes())
+            .map_err(|error| format!("source asset account state: {error:?}"))?;
     if committed.name != name.as_bytes() || committed.asset_id() != asset || committed.frozen {
         return Err("source asset account is unavailable for Send".into());
     }
-    Ok(AuthenticatedCustodyAsset { registered, source_did: source_did.into(), source_account,
-        account_sequence: committed.next_sequence, trusted_height: height })
+    Ok(AuthenticatedCustodyAsset {
+        registered,
+        source_did: source_did.into(),
+        source_account,
+        account_sequence: committed.next_sequence,
+        trusted_height: height,
+    })
 }
 
 fn custody_read(
@@ -513,91 +595,179 @@ fn custody_read(
 ) -> Result<Vec<u8>, String> {
     let value = layerx_client::read::module_state(transport, module, key, context)
         .map_err(|error| format!("custody state evidence is unavailable: {error:?}"))?;
-    let evidence = layerx_client::evidence::verify_module_evidence(value.canonical_bytes(), value.proof_material(), module, key, custody_policy(context))
-        .map_err(|error| format!("custody root binding: {error:?}"))?;
-    if state_root.is_some_and(|root| root != evidence.state_root()) { return Err("custody registry roots differ".into()); }
+    let evidence = layerx_client::evidence::verify_module_evidence(
+        value.canonical_bytes(),
+        value.proof_material(),
+        module,
+        key,
+        custody_policy(context),
+    )
+    .map_err(|error| format!("custody root binding: {error:?}"))?;
+    if state_root.is_some_and(|root| root != evidence.state_root()) {
+        return Err("custody registry roots differ".into());
+    }
     *state_root = Some(evidence.state_root());
     Ok(value.canonical_bytes().to_vec())
 }
 
 fn custody_key(domain: &[u8], asset: Option<&[u8; 32]>) -> [u8; 32] {
-    let mut digest = Sha256::new(); digest.update(domain);
-    if let Some(asset) = asset { digest.update(asset); }
+    let mut digest = Sha256::new();
+    digest.update(domain);
+    if let Some(asset) = asset {
+        digest.update(asset);
+    }
     digest.finalize().into()
 }
 
 fn custody_u64(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(0, |value, byte| (value << 8) | u64::from(*byte))
+    bytes
+        .iter()
+        .fold(0, |value, byte| (value << 8) | u64::from(*byte))
 }
 
-fn validate_custody_profile(profile: &[u8; 223], asset: &[u8; 32], symbol: &str, network: u32) -> Result<(), String> {
-    let mut module = Sha256::new(); module.update(b"LX:CUSTODY:MODULE:v1layerxcustody"); module.update(&profile[13..33]);
+fn validate_custody_profile(
+    profile: &[u8; 223],
+    asset: &[u8; 32],
+    symbol: &str,
+    network: u32,
+) -> Result<(), String> {
+    let mut module = Sha256::new();
+    module.update(b"LX:CUSTODY:MODULE:v1layerxcustody");
+    module.update(&profile[13..33]);
     let module_id: [u8; 32] = module.finalize().into();
     let reserve = AccountId::parse(&format!("system:paxeer-reserve:{}", symbol.to_lowercase()))
         .map_err(|error| format!("custody reserve account: {error:?}"))?;
     let reserve_id = layerx_wire::hash::account_id_for_protocol(&reserve, 3)
         .map_err(|error| format!("custody reserve id: {error:?}"))?;
     let chain = &profile[169..201];
-    let chain_length = chain.iter().position(|byte| *byte == 0).unwrap_or(chain.len());
-    if &profile[..5] != b"LXBC4" || custody_u64(&profile[5..13]) != 125
-        || profile[13..33].iter().all(|byte| *byte == 0) || profile[33..65] != module_id
-        || profile[65..97].iter().all(|byte| *byte == 0) || profile[97..129] != *asset
-        || profile[129..161] != reserve_id || custody_u64(&profile[161..169]) == 0
-        || custody_u64(&profile[161..169]) >= i64::MAX as u64 || chain_length == 0
-        || !chain[..chain_length].iter().all(|byte| (0x21..=0x7e).contains(byte))
+    let chain_length = chain
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(chain.len());
+    if &profile[..5] != b"LXBC4"
+        || custody_u64(&profile[5..13]) != 125
+        || profile[13..33].iter().all(|byte| *byte == 0)
+        || profile[33..65] != module_id
+        || profile[65..97].iter().all(|byte| *byte == 0)
+        || profile[97..129] != *asset
+        || profile[129..161] != reserve_id
+        || custody_u64(&profile[161..169]) == 0
+        || custody_u64(&profile[161..169]) >= i64::MAX as u64
+        || chain_length == 0
+        || !chain[..chain_length]
+            .iter()
+            .all(|byte| (0x21..=0x7e).contains(byte))
         || chain[chain_length..].iter().any(|byte| *byte != 0)
-        || profile[201..205] != network.to_be_bytes() || profile[205..207] != [0,3]
-        || custody_u64(&profile[207..215]) == 0 || custody_u64(&profile[207..215]) > u64::from(u32::MAX)
-        || custody_u64(&profile[215..223]) == 0 || custody_u64(&profile[215..223]) > 253_402_300_799 {
+        || profile[201..205] != network.to_be_bytes()
+        || profile[205..207] != [0, 3]
+        || custody_u64(&profile[207..215]) == 0
+        || custody_u64(&profile[207..215]) > u64::from(u32::MAX)
+        || custody_u64(&profile[215..223]) == 0
+        || custody_u64(&profile[215..223]) > 253_402_300_799
+    {
         return Err("custody profile asset, domain, reserve or trust metadata is invalid".into());
     }
     Ok(())
 }
 
 fn validate_custody_metadata(bytes: &[u8], asset: &[u8; 32], symbol: &str) -> Result<(), String> {
-    if bytes.len() < 140 || bytes[..2] != [0,3] || bytes[2..34] != *asset { return Err("registered asset metadata is malformed".into()); }
+    if bytes.len() < 140 || bytes[..2] != [0, 3] || bytes[2..34] != *asset {
+        return Err("registered asset metadata is malformed".into());
+    }
     let size = usize::from(bytes[34]);
-    if size != symbol.len() || bytes.get(35..35+size) != Some(symbol.as_bytes()) { return Err("registered asset symbol mismatch".into()); }
+    if size != symbol.len() || bytes.get(35..35 + size) != Some(symbol.as_bytes()) {
+        return Err("registered asset symbol mismatch".into());
+    }
     let at = 35 + size;
-    let prefix = bytes.get(at..at+4).ok_or("registered asset metadata is truncated")?;
-    let reference_length = usize::from(u16::from_be_bytes([prefix[2],prefix[3]]));
-    let reference = bytes.get(at+4..at+4+reference_length).ok_or("custody metadata is truncated")?;
-    let at = at+4+reference_length;
-    let flags = bytes.get(at..at+2).ok_or("registered asset flags are missing")?;
+    let prefix = bytes
+        .get(at..at + 4)
+        .ok_or("registered asset metadata is truncated")?;
+    let reference_length = usize::from(u16::from_be_bytes([prefix[2], prefix[3]]));
+    let reference = bytes
+        .get(at + 4..at + 4 + reference_length)
+        .ok_or("custody metadata is truncated")?;
+    let at = at + 4 + reference_length;
+    let flags = bytes
+        .get(at..at + 2)
+        .ok_or("registered asset flags are missing")?;
     let name_length = usize::from(flags[1]);
-    let tail = bytes.get(at+2+name_length..).ok_or("registered asset name is truncated")?;
-    if prefix[0] > 38 || prefix[1] != 2 || reference_length == 0 || reference_length > 128
-        || reference.iter().all(|byte| *byte == 0) || flags[0] != 0 || name_length == 0 || name_length > 32
-        || tail.len() != 97 || tail[48] != 2 || tail[16..48].iter().all(|byte| *byte == 0)
-        || tail[65..97].iter().all(|byte| *byte == 0) {
-        return Err("registered asset is paused or approved custody metadata is unavailable".into());
+    let tail = bytes
+        .get(at + 2 + name_length..)
+        .ok_or("registered asset name is truncated")?;
+    if prefix[0] > 38
+        || prefix[1] != 2
+        || reference_length == 0
+        || reference_length > 128
+        || reference.iter().all(|byte| *byte == 0)
+        || flags[0] != 0
+        || name_length == 0
+        || name_length > 32
+        || tail.len() != 97
+        || tail[48] != 2
+        || tail[16..48].iter().all(|byte| *byte == 0)
+        || tail[65..97].iter().all(|byte| *byte == 0)
+    {
+        return Err(
+            "registered asset is paused or approved custody metadata is unavailable".into(),
+        );
     }
     Ok(())
 }
 
 pub fn build_asset_send_with_identity_sequence(
-    seed: &[u8; 32], identity_sequence: u64, request: &SendRequest, asset: &AuthenticatedCustodyAsset,
+    seed: &[u8; 32],
+    identity_sequence: u64,
+    request: &SendRequest,
+    asset: &AuthenticatedCustodyAsset,
 ) -> Result<SignedSend, String> {
-    build_asset_send_with_signer(&SeedSigner::new(seed), identity_sequence, request, asset).map_err(|error| error.to_string())
+    build_asset_send_with_signer(&SeedSigner::new(seed), identity_sequence, request, asset)
+        .map_err(|error| error.to_string())
 }
 
 pub fn build_asset_send_with_signer(
-    signer: &dyn TreasurySigner, identity_sequence: u64, request: &SendRequest, asset: &AuthenticatedCustodyAsset,
+    signer: &dyn TreasurySigner,
+    identity_sequence: u64,
+    request: &SendRequest,
+    asset: &AuthenticatedCustodyAsset,
 ) -> Result<SignedSend, SendError> {
-    if request.asset != asset.asset() || request.network_id != asset.registered.network_id
-        || request.source_did != asset.source_did || request.account_sequence != asset.account_sequence
-        || did_for_public_key(&signer.public_key()) != request.source_did {
-        return Err(SendError::Invalid("asset Send differs from authenticated registry, source or owner".into()));
+    if request.asset != asset.asset()
+        || request.network_id != asset.registered.network_id
+        || request.source_did != asset.source_did
+        || request.account_sequence != asset.account_sequence
+        || did_for_public_key(&signer.public_key()) != request.source_did
+    {
+        return Err(SendError::Invalid(
+            "asset Send differs from authenticated registry, source or owner".into(),
+        ));
     }
-    let from = AccountId::parse(&asset.account_name(&request.source_did).map_err(SendError::Invalid)?)
-        .map_err(|error| SendError::Invalid(format!("source asset account: {error:?}")))?;
-    let to = AccountId::parse(&asset.account_name(&request.destination_did).map_err(SendError::Invalid)?)
-        .map_err(|error| SendError::Invalid(format!("destination asset account: {error:?}")))?;
+    let from = AccountId::parse(
+        &asset
+            .account_name(&request.source_did)
+            .map_err(SendError::Invalid)?,
+    )
+    .map_err(|error| SendError::Invalid(format!("source asset account: {error:?}")))?;
+    let to = AccountId::parse(
+        &asset
+            .account_name(&request.destination_did)
+            .map_err(SendError::Invalid)?,
+    )
+    .map_err(|error| SendError::Invalid(format!("destination asset account: {error:?}")))?;
     let signed = build_send_for_accounts(signer, identity_sequence, request, from, to)?;
-    if signed.source_account != asset.source_account { return Err(SendError::Invalid("source asset account substitution".into())); }
+    if signed.source_account != asset.source_account {
+        return Err(SendError::Invalid(
+            "source asset account substitution".into(),
+        ));
+    }
     Ok(signed)
 }
 
-fn custody_policy(context: layerx_client::read::ReadContext) -> layerx_client::evidence::AccountEvidencePolicy {
-    layerx_client::evidence::AccountEvidencePolicy { expected_protocol_version: context.expected_protocol_version, expected_network_id: context.expected_network_id, handshake_sequencer_key: context.handshake_sequencer_key, root_selector: context.root_selector }
+fn custody_policy(
+    context: layerx_client::read::ReadContext,
+) -> layerx_client::evidence::AccountEvidencePolicy {
+    layerx_client::evidence::AccountEvidencePolicy {
+        expected_protocol_version: context.expected_protocol_version,
+        expected_network_id: context.expected_network_id,
+        handshake_sequencer_key: context.handshake_sequencer_key,
+        root_selector: context.root_selector,
+    }
 }

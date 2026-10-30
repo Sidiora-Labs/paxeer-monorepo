@@ -17,13 +17,13 @@ use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
     TrackedSubmission,
 };
-use layerx_agentd::outbox::{Outbox, SubmissionState as OutboxState};
+use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
     PreparationDefaults, PrepareRequest, Prepared,
 };
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit};
+use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_human_service::binding::{
     AgentBindingContract, AgentBindingError, AgentBindingReceipt, AgentSubmission,
@@ -309,9 +309,24 @@ impl CorePreparationBoundary for RecordedCore {
     }
 }
 
+fn raw_transaction(nonce: usize, data: u8) -> Vec<u8> {
+    layerx_crypto::evm_transaction::Eip1559Call {
+        chain_id: 125,
+        nonce: u64::try_from(nonce).unwrap_or_else(|error| panic!("nonce: {error:?}")),
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to: [0x22; 20],
+        data: vec![data],
+    }
+    .sign(&[0xa5; 32])
+    .unwrap_or_else(|error| panic!("sign transaction: {error:?}"))
+}
+
 struct RealAgentLayer {
     store: AgentStore,
     outbox: Outbox,
+    outbox_submissions: BTreeMap<[u8; 32], [u8; 32]>,
     tenant: TenantId,
     registry: ModuleRegistry,
     specifications: BTreeMap<[u8; 32], ReceiptSpec>,
@@ -331,6 +346,7 @@ impl RealAgentLayer {
             owner_public_key,
             store: AgentStore::open(root).unwrap_or_else(|error| panic!("agent store: {error}")),
             outbox: Outbox::default(),
+            outbox_submissions: BTreeMap::new(),
             tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
             registry: registry(),
             specifications,
@@ -462,18 +478,33 @@ impl AgentBoundary for RealAgentLayer {
             .as_bytes()
             .try_into()
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let signed = attach_external_signature(&prepared, signature)
+        let signed = attach_kernel_signature(&prepared, signature)
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let verified = verify_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
+        verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let activity_id = verified.activity_id();
-        self.outbox
-            .enqueue(&mut self.store, self.tenant.clone(), key, verified)
-            .map_err(|_| AgentBoundaryError::Refused)?;
+
+        let raw = if let Some(id) = self.outbox_submissions.get(&key) {
+            self.outbox
+                .exact_signed_bytes(*id)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                .to_vec()
+        } else {
+            raw_transaction(self.outbox_submissions.len(), key[0])
+        };
+        let submission_id = match self
+            .outbox
+            .enqueue(&mut self.store, self.tenant.clone(), raw)
+        {
+            Ok(id) => id,
+            Err(OutboxError::Duplicate) => return Err(AgentBoundaryError::CorruptResponse),
+            Err(_) => return Err(AgentBoundaryError::Refused),
+        };
+        self.outbox_submissions.insert(key, submission_id);
+        let activity_id = submission_id;
         self.outbox
             .transition(
                 &mut self.store,
-                key,
+                submission_id,
                 OutboxState::Submitted,
                 "real transport accepted exact bytes",
                 None,
@@ -497,8 +528,8 @@ impl AgentBoundary for RealAgentLayer {
         self.outbox
             .transition(
                 &mut self.store,
-                key,
-                OutboxState::Acknowledged,
+                submission_id,
+                OutboxState::Submitted,
                 "core acknowledged",
                 None,
             )
@@ -520,9 +551,13 @@ impl AgentBoundary for RealAgentLayer {
             .submissions
             .get(call.request().submission_ref.as_str())
             .ok_or(AgentBoundaryError::CorruptResponse)?;
+        let submission_id = *self
+            .outbox_submissions
+            .get(&key)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
         let activity_id = self
             .outbox
-            .status(key)
+            .status(submission_id)
             .map(|status| status.activity_id)
             .ok_or(AgentBoundaryError::CorruptResponse)?;
         let material = self
@@ -682,6 +717,7 @@ struct BindingAgent {
     signer: layerx_crypto::local::LocalSigner,
     store: AgentStore,
     outbox: Outbox,
+    outbox_submissions: BTreeMap<[u8; 32], [u8; 32]>,
     tenant: TenantId,
 }
 
@@ -723,21 +759,26 @@ impl AgentBindingContract for BindingAgent {
             &registry,
         ))
         .map_err(|_| AgentBindingError::Refused)?;
-        let signed = attach_external_signature(&prepared, *signature.as_bytes())
+        let signed = attach_kernel_signature(&prepared, *signature.as_bytes())
             .map_err(|_| AgentBindingError::ContractViolation)?;
         let verified =
-            verify_before_submit(&signed, &prepared, &self.signer.public_key(), &registry)
+            verify_kernel_before_submit(&signed, &prepared, &self.signer.public_key(), &registry)
                 .map_err(|_| AgentBindingError::ContractViolation)?;
-        let submission_id = request.idempotency_key.bytes();
+        let key = request.idempotency_key.bytes();
         let activity_id = verified.activity_id();
-        self.outbox
-            .enqueue(
-                &mut self.store,
-                self.tenant.clone(),
-                submission_id,
-                verified,
-            )
+        let raw = if let Some(id) = self.outbox_submissions.get(&key) {
+            self.outbox
+                .exact_signed_bytes(*id)
+                .map_err(|_| AgentBindingError::ContractViolation)?
+                .to_vec()
+        } else {
+            raw_transaction(self.outbox_submissions.len(), key[0])
+        };
+        let submission_id = self
+            .outbox
+            .enqueue(&mut self.store, self.tenant.clone(), raw)
             .map_err(|_| AgentBindingError::Unavailable)?;
+        self.outbox_submissions.insert(key, submission_id);
         Ok(AgentSubmission {
             submission_id,
             activity_id,
@@ -962,6 +1003,7 @@ impl Fixture {
             store: AgentStore::open(&self.root.join("binding-agent"))
                 .unwrap_or_else(|error| panic!("binding agent store: {error}")),
             outbox: Outbox::default(),
+            outbox_submissions: BTreeMap::new(),
             tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
         };
         let submission = binding

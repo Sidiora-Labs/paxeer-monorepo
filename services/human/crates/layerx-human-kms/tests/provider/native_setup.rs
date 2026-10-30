@@ -74,7 +74,16 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
         Some(DisclosedNativeOperation::IdentityRegistration(_)) => 2,
         Some(DisclosedNativeOperation::BudgetCreate(_)) => mutations.len(),
         Some(DisclosedNativeOperation::RecoveryPolicy(_)) => 4,
-        Some(DisclosedNativeOperation::OwnerRotation(_)) | None => 0,
+        Some(DisclosedNativeOperation::OwnerRotation(_))
+        | Some(DisclosedNativeOperation::ProgramDeploy(_))
+        | Some(DisclosedNativeOperation::ProgramUpgrade(_))
+        | Some(DisclosedNativeOperation::ProgramCall(_))
+        | Some(DisclosedNativeOperation::ProgramWindDown(_))
+        | Some(DisclosedNativeOperation::LegacyProgramCall(_))
+        | Some(DisclosedNativeOperation::BudgetFund(_))
+        | Some(DisclosedNativeOperation::BudgetDefund(_))
+        | Some(DisclosedNativeOperation::BudgetRevoke(_))
+        | None => 0,
     };
     (0..count)
         .map(|field| {
@@ -93,6 +102,16 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
                 },
                 Some(DisclosedNativeOperation::OwnerRotation(_)) => {
                     panic!("unexpected rotation disclosure")
+                }
+                Some(DisclosedNativeOperation::ProgramDeploy(_))
+                | Some(DisclosedNativeOperation::ProgramUpgrade(_))
+                | Some(DisclosedNativeOperation::ProgramCall(_))
+                | Some(DisclosedNativeOperation::ProgramWindDown(_))
+                | Some(DisclosedNativeOperation::LegacyProgramCall(_))
+                | Some(DisclosedNativeOperation::BudgetFund(_))
+                | Some(DisclosedNativeOperation::BudgetDefund(_))
+                | Some(DisclosedNativeOperation::BudgetRevoke(_)) => {
+                    panic!("unexpected native disclosure with zero mutations")
                 }
                 None => panic!("missing native disclosure"),
             }

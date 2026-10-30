@@ -1,5 +1,7 @@
-#[path = "../../layerx-programs-registry/tests/support/mod.rs"]
-pub mod protocol_support;
+#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
+mod chain;
+
+use sha2::{Digest, Sha256};
 
 use layerx_programs_runtime::{
     AuthorizationContext, CapabilitySet, FeeSchedule, Meter, PrincipalId, ProgramId,
@@ -75,63 +77,85 @@ fn call_payload(host: ProgramId, transition: LeaseTransition) -> Vec<u8> {
     payload
 }
 
-fn verified(
+fn proven_transition(
     lease: &Lease,
     mut transition: LeaseTransition,
     batch: u64,
+) -> (LeaseTransition, Vec<u8>, chain::ChainFixture) {
+    transition.activity_id = Sha256::digest(call_payload(lease.host_program(), transition)).into();
+    let mut canonical = lease
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("lease state: {error}"));
+    // The fixed fields precede the state tag and the length-prefixed receipt history.
+    let state_offset =
+        b"LayerX/programs/sandbox/lease-state/v3\0".len() + 8 * 32 + 16 + 18 * 8 + 4 + 7 * 8 + 16;
+    canonical[state_offset] = transition.to as u8;
+    canonical[state_offset + 1] = u8::try_from(lease.history().len() + 1)
+        .unwrap_or_else(|error| panic!("history length: {error}"));
+    let history_end = state_offset + 2 + lease.history().len() * (3 + 3 * 32 + 8);
+    let mut receipt = vec![
+        transition.activity as u8,
+        transition.from as u8,
+        transition.to as u8,
+    ];
+    receipt.extend_from_slice(&transition.activity_id);
+    receipt.extend_from_slice(&transition.usage_observation_digest);
+    let mut digest = Sha256::new();
+    digest.update(lease.id().bytes());
+    digest.update(&receipt);
+    digest.update(batch.to_be_bytes());
+    receipt.extend_from_slice(&digest.finalize());
+    receipt.extend_from_slice(&batch.to_be_bytes());
+    canonical.splice(history_end..history_end, receipt);
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let fixture = chain::ChainFixture::new(
+        "paxeer-lease-chain",
+        &[[1; 32], [2; 32], [3; 32]],
+        vec![(key, canonical.clone())],
+    )
+    .unwrap_or_else(|error| panic!("chain: {error:?}"));
+    (transition, canonical, fixture)
+}
+
+fn verified(
+    lease: &Lease,
+    transition: LeaseTransition,
+    batch: u64,
 ) -> (LeaseTransition, TransitionEvidence) {
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        batch,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, batch, batch, None, 1_000);
-    let state = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &state.receipt,
-            &state.receipt_proof,
-            &state.header,
-            &state.header_signature,
-            protocol_support::NOW,
-        )
-        .unwrap_or_else(|error| panic!("verified head: {error}"));
-    transition.activity_id = head.activity_id();
+    let (transition, canonical, fixture) = proven_transition(lease, transition, batch);
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let ops = fixture
+        .prove(&key)
+        .unwrap_or_else(|error| panic!("lease proof: {error:?}"));
     let evidence = TransitionEvidence::verify_call(
         &head,
         lease,
         transition,
         &AuthorizationContext::new(lease.tenant(), CapabilitySet::empty()),
-        &fixture.proof.activity,
-        &fixture.proof.activity_proof,
-        &state.header,
+        &canonical,
+        &ops,
     )
     .unwrap_or_else(|error| panic!("transition evidence: {error}"));
     (transition, evidence)
 }
 
-fn wrong_principal_refusal(
-    lease: &Lease,
-    mut transition: LeaseTransition,
-    batch: u64,
-) -> LeaseRefusal {
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        batch,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, batch, batch, None, 1_000);
-    let state = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &state.receipt,
-            &state.receipt_proof,
-            &state.header,
-            &state.header_signature,
-            protocol_support::NOW,
-        )
-        .unwrap_or_else(|error| panic!("verified head: {error}"));
-    transition.activity_id = head.activity_id();
+fn wrong_principal_refusal(lease: &Lease, transition: LeaseTransition, batch: u64) -> LeaseRefusal {
+    let (transition, canonical, fixture) = proven_transition(lease, transition, batch);
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let ops = fixture
+        .prove(&key)
+        .unwrap_or_else(|error| panic!("lease proof: {error:?}"));
     TransitionEvidence::verify_call(
         &head,
         lease,
@@ -140,9 +164,8 @@ fn wrong_principal_refusal(
             PrincipalId::new([0x77; 32]).unwrap_or_else(|error| panic!("wrong principal: {error}")),
             CapabilitySet::empty(),
         ),
-        &fixture.proof.activity,
-        &fixture.proof.activity_proof,
-        &state.header,
+        &canonical,
+        &ops,
     )
     .err()
     .unwrap_or_else(|| panic!("wrong principal was accepted"))
@@ -503,56 +526,41 @@ fn altered_real_activity_and_header_evidence_are_refused() {
         activity_id: [0; 32],
         usage_observation_digest: digest,
     };
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        10,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, 10, 10, None, 1_000);
-    let state = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &state.receipt,
-            &state.receipt_proof,
-            &state.header,
-            &state.header_signature,
-            protocol_support::NOW,
-        )
-        .unwrap_or_else(|error| panic!("head: {error}"));
-    transition.activity_id = head.activity_id();
+    let (transition, canonical, fixture) = proven_transition(&lease, transition, 10);
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let ops = fixture
+        .prove(&key)
+        .unwrap_or_else(|error| panic!("lease proof: {error:?}"));
     let authorization = AuthorizationContext::new(lease.tenant(), CapabilitySet::empty());
-    let mut activity = fixture.proof.activity.clone();
+    let mut activity = canonical.clone();
     let last = activity
         .len()
         .checked_sub(1)
         .unwrap_or_else(|| panic!("activity bytes"));
     activity[last] ^= 1;
     assert_eq!(
-        TransitionEvidence::verify_call(
-            &head,
-            &lease,
-            transition,
-            &authorization,
-            &activity,
-            &fixture.proof.activity_proof,
-            &state.header
-        ),
+        TransitionEvidence::verify_call(&head, &lease, transition, &authorization, &activity, &ops),
         Err(LeaseRefusal::InvalidCanonicalEvidence)
     );
-    let mut header = state.header.clone();
-    let last = header
+    let mut header = ops.clone();
+    let last = header[1]
+        .data
         .len()
         .checked_sub(1)
         .unwrap_or_else(|| panic!("header bytes"));
-    header[last] ^= 1;
+    header[1].data[last] ^= 1;
     assert_eq!(
         TransitionEvidence::verify_call(
             &head,
             &lease,
             transition,
             &authorization,
-            &fixture.proof.activity,
-            &fixture.proof.activity_proof,
+            &canonical,
             &header
         ),
         Err(LeaseRefusal::InvalidCanonicalEvidence)

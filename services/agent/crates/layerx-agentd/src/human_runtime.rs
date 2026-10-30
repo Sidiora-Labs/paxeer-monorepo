@@ -4904,9 +4904,10 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             | Operation::CapabilityCreate
             | Operation::SubscriptionCreate
             | Operation::Prepare
+            | Operation::AgentRegister
+            | Operation::SessionOpen
             | Operation::ProgramCall
-            | Operation::ProgramDeploy
-            | Operation::FaucetClaim => Ok(None),
+            | Operation::ProgramDeploy => Ok(None),
             Operation::SessionClose | Operation::SessionRefresh => {
                 let text = request
                     .get("session_id")
@@ -4915,9 +4916,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 let id = session_id_hex(text).ok_or(HumanOperationError::Refused)?;
                 self.session_owner(tenant, SessionId(id)).map(Some)
             }
-            Operation::AgentRegister
-            | Operation::SessionOpen
-            | Operation::ApprovalApprove
+            Operation::ApprovalApprove
             | Operation::ApprovalGet
             | Operation::ApprovalReject
             | Operation::ExportOffline

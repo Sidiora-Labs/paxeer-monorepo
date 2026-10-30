@@ -10,6 +10,7 @@
 #include "layerx/lxp_module_ctx.h"
 
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1791,8 +1792,17 @@ lxp_result lxp_ctx_bind_program_outcome(
         outcome->fee_schedule_version !=
             ctx->call_admission.fee_schedule_version ||
         outcome->metering_schedule_version !=
-            ctx->call_admission.metering_schedule_version)
+            ctx->call_admission.metering_schedule_version) {
+        (void)fprintf(stderr,
+            "lxp_module_ctx.c:%d: %s: invariant: admission=%u "
+            "fee_schedule=%u/%u metering_schedule=%u/%u\n",
+            __LINE__, __func__, ctx->call_admission.present,
+            outcome->fee_schedule_version,
+            ctx->call_admission.fee_schedule_version,
+            outcome->metering_schedule_version,
+            ctx->call_admission.metering_schedule_version);
         return LXP_FATAL_INVARIANT;
+    }
     return outcome_copy_artifacts(&ctx->program_outcome, outcome, ctx->arena);
 }
 
