@@ -11301,3 +11301,23 @@ fix = "Removing a keeper, a store key or a mount is complete only when every upg
 title = "A Maven profile that adds sample sources compiles files owned by a later task"
 symptom = "15.4.7's build and verify run with -Psample, which test-compiles src/sample/java; RelayReceiptResolver.java there still used the retired AuthorizedReceiptBatch and belonged to 15.4.8, which required 15.4.7, so the gate could not pass in either order (attempts 3 and 4)."
 fix = "Every source a gate compiles belongs to the task that runs the gate or to a task it requires; the resolver port moved into 15.4.7 as do_6 and 15.4.8 kept only its test."
+
+[gotcha.2298]
+title = "go test does not run the copylocks analyzer, so a by-value copy of the application struct passes go test and fails a sibling's go vet"
+symptom = "A done task's test copied *testkeeper.EVMTestApp by value to swap one keeper; its go build and go test gates passed. A later task whose build_cmd is go vet over the same package exits 1 with 'assignment copies lock value to application: node.App contains sync.RWMutex' before its own test compiles, in a file outside its touches."
+fix = "Build the precompile's keepers from a test-local type that embeds utils.Keepers from EVMTestApp.GetPrecompileKeepers() and adds the module keeper method; put the fix in the touches of the first vet-gated task of the package and make its siblings require it (decision.1956)."
+
+[gotcha.2299]
+title = "A source file compiled into a test binary that no task owns breaks every task whose gate builds that binary"
+symptom = "Three retyping tasks ported their named callers but not services/agent/tests/qualify/fabrication.rs, which is mod fabrication of the agent-qualification-gates bin; every qualify gate test builds that bin through CARGO_BIN_EXE or --bin, so three sibling tasks failed the same cargo build four times each with E0432 on an import none of them touches."
+fix = "Give the orphan file its own small port task that requires the retyping tasks, make the gate-sharing siblings require it, and re-qualify their candidates unchanged; narrowing build_cmd does not help when the verify builds the same binary (decision.1955)."
+
+[gotcha.2300]
+title = "paxd init --mode validator writes grpc.enable false, so the node never registers local services and its EVM HTTP server is never built"
+symptom = "A standby node created with paxd init --mode validator committed blocks but refused every EVM RPC connection; its halt log lacked 'Stopping EVM HTTP Server'. app.toml from that init has api.enable, grpc.enable and state-store.enable false, and sdk/server/start.go:369-376 calls RegisterLocalServices, the only place that builds the EVM server, only when grpc or api is enabled."
+fix = "Set grpc enable true in the node's app.toml beside the grpc address; evm http_enabled alone is not enough."
+
+[gotcha.2301]
+title = "A whole-application tsc as a task build gate fails on sibling-owned consumers of the types the task deletes"
+symptom = "An explorer task deleted five exported type names and repointed stubs; yarn lint:tsc then reported 20 errors in 17 files, none in the task's touches, because the pages, tables and specs that import those names belong to later sibling tasks."
+fix = "Narrow the task's build to tsc over its touched files and their imports with the tsconfig flags written out, give each sibling the same narrowed build, and keep the whole-application check on the last task of the family, which requires every consumer task."
