@@ -144235,7 +144235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.9]
 title = "Port the human service agent-boundary test doubles to the raw-transaction outbox and the kernel signing pair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["10.2.8"]
@@ -152812,7 +152812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.6.5]
 title = "Admit the sponsored agent bind envelopes in the attestor agent authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -155751,7 +155751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.0.2]
 title = "Freeze the chain evidence surface: module, store key builder and crate exports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.1.9", "13.1.10", "13.1.11", "13.1.12", "13.1.13", "13.23.1", "13.23.2", "13.23.3", "13.24.1", "13.24.2", "13.24.3", "13.25.1", "13.25.2", "13.26.1", "13.26.2", "13.26.3", "13.27.2", "13.27.3", "13.27.4", "13.28.1", "13.28.2", "13.28.3", "13.28.4", "13.28.5", "13.28.6", "13.28.7"]
@@ -189524,7 +189524,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1159.1]
 title = "Issue #1159: Make the KMS provider test disclosure matches exhaustive so the provider target compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["10.2.8"]
