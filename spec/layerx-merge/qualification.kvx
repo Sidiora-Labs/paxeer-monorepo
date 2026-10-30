@@ -11771,3 +11771,35 @@ symbol = "layerx-agentd"
 observed = "Attempt 9 (91a9ca2c4): cargo build --locked is refused because services/human/Cargo.lock still lists layerx-programs-protocol-adapter under layerx-agentd after a02e09aec removed it from the manifest; seven other lock files share the drift (issue #1297)."
 assumption = "Task 18.1297.1 refreshes the eight lock files; the 114 pending tasks gated in those workspaces require it."
 severity = "cross-task"
+
+[finding.2.95.1.1]
+task = "2.95.1"
+file = "modules/lxphost/host.go"
+symbol = "HostExecute"
+observed = "Attempt 1 (candidate on 600dd2e86): a kernel refusal (-402) advanced NextSequence 2 to 3 and the actor's identity sequence 1 to 2 while the refused asset stayed unregistered; the test's expectation that the host store is byte-identical contradicts its own GlobalSequence == next assertion."
+assumption = "Refusals are receipted by design; decision.1907 fixes the reading of req.2961 ac_2 and do_4 restates the test."
+severity = "task"
+
+[finding.18.1200.1.5]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs"
+symbol = "repository_root"
+observed = "Attempt 10 (candidate on bd45f5f64): five of six tests pass; the operator test fails on migrations listing NotFound because repository_root() takes three ancestors of the manifest directory, one short since the agent moved to services/agent (3422bafe2)."
+assumption = "Task 18.1298.1 fixes the fixture; 18.1200.1 continues its attempt 10 candidate after it."
+severity = "cross-task"
+
+[finding.12.35.4.4]
+task = "12.35.4"
+file = "node/sequencer/wal/wal.go"
+symbol = "Seal"
+observed = "Attempt 7 (0ef3564c5): with the standby bonded, the primary's proposals fail on malformed wal entry: SEAL fromSeq 1 above toSeq 0 (the empty first layer) and the standby reports no sealed layer; consensus stalls at height 34742403."
+assumption = "Task 18.1299.1 lets the replication log carry an empty seal; 12.35.4 re-qualifies its attempt 7 candidate after it."
+severity = "cross-task"
+
+[finding.9.12.5.1]
+task = "9.12.5"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "ProductionHumanOperations"
+observed = "Attempts 1 to 4 fail to compile layerx-agentd-host: ProductionHumanOperations::new (human_runtime.rs:13218) takes layerx_client::Client and the human runtime reads head(), handshake(), proof_bundle, submit_signed, module_state, lookup_receipt and checkpoint_evidence from it (85 layerx_client uses); NodeRpc offers none of these, and the human runtime is outside the task's touches."
+assumption = "The task is held until the owner rules between porting the human runtime's node access to node JSON-RPC and keeping its LNI client; no further attempt runs on the current do_ list."
+severity = "owner"
