@@ -4905,6 +4905,18 @@ value = "precompiles/setup_test.go TestXWebRegistration asserts the method and e
 basis = "The counts 9 and 3 at setup_test.go:144-145 date from 00f692026, the first xweb commit; ccf8fa472 added the api request kind, 144f13d49 (task 5.1.2) extended ABI parity and 383bbbbd8 (task 6.94.3) declared XWebProgramRequested, each qualified by gates that never ran TestXWebRegistration, so the test has failed on main since and 6.6.10 attempt 1 (6f2320d86 on b38a9f679) was the first gate to run it."
 affects = ["6.6.10", "5.1.2", "6.94.3"]
 
+[decision.1966]
+title = "The x402 buyer test literal TRANSACTION tracks the re-recorded sequencer receipt fixture"
+value = "services/interop/crates/layerx-x402/src/buyer.rs joins the touches of 18.1211.5 as a fourteenth file, for its tests module only: const TRANSACTION (:709-713) is set to the re-recorded V1-layerxledger-pay-exact txHash 0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1 that sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:117 carries after do_3; the literal stays a literal and is not read from the fixture, and the assertions at :849-856 and :873, capture_settlement (:434) and every other line of src/buyer.rs are unchanged."
+basis = "Attempt 5 of 18.1211.5 (06a27a325 on 1768567797, the attempt 4 content 305a918a1) passed both Go legs and failed only buyer::tests::buyer_accepts_receipted_transaction_hash at src/buyer.rs:853: left the fixture txHash accepted by capture_settlement, right the literal pinned by 4e013c19c (11.5.1) to the pre-re-record txHash. No pending task owns src/buyer.rs and no other copy of the superseded V1 values exists under services/ or sdk/ outside the self-verified fixtures of finding.18.1211.5.1; decision.1928 keeps literals as literals and updates them."
+affects = ["18.1211.5", "18.1211.1", "11.5.1"]
+
+[decision.1967]
+title = "The generated client SubmissionState is the four rung states"
+value = "The TypeScript and Python clients the agent SDK generator emits declare SubmissionState as Submitted with txHash, Receipted, Committed and Reverted with revertReason (req.9358 ac_1), written as literal text in services/agent/tools/sdk-gen/templates/typescript.tpl, python.tpl and python.pyi.tpl. The nine variants of services/agent/schema/agent-api/write.kvx:44-53 (Prepared, Signed, Queued, Submitted, Unknown, Executed, Committed, Failed, Expired) remain the daemon outbox lifecycle of decision.903 and task 9.3.1 and are not what the client union is generated from."
+basis = "Attempts 1 to 3 of 9.33.8 (5f0c552d0 latest) failed build_cmd with twelve type errors because the templates still emit Unknown, Executed, Failed and Pending and services/agent/tools/sdk-gen/src/main.rs reads no type.SubmissionState (finding.9.33.8.1, finding.9.33.8.2); req.9358 fixes the client set, and the outbox set is a different state machine."
+affects = ["9.18.9", "9.33.8", "9.33.9", "9.3.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -18399,6 +18411,10 @@ ac_2 = "bindTransaction signs the bind call with the derived EVM key."
 [req.9358]
 title = "Regenerate the TypeScript and Python client types with rung submission states"
 ac_1 = "The generated SubmissionState variants are Submitted, Receipted, Committed and Reverted."
+
+[req.9189]
+title = "The agent SDK generator templates emit the four rung submission states"
+ac_1 = "The TypeScript, Python and Python stub templates of the agent SDK generator declare SubmissionState as Submitted with txHash, Receipted, Committed and Reverted with revertReason, and their generated client files contain no other submission variant."
 
 [req.9359]
 title = "Send contract major 2 on agent envelope requests and report proof rungs"
@@ -39298,6 +39314,15 @@ tests = ["services/agent/tools/sdk-gen/tests/major_two.rs::generated_typescript_
 verification_contract = "contracts/agent-cli.md#agent-sdk-gen"
 do_1 = "services/agent/tools/sdk-gen/src/main.rs:372-374 requires every lifecycle request to declare signed_activity, protocol_version 3 and module_id 9; it requires instead the layerxprograms precompile address and the call selector declared by the schema."
 symbols = ["agent_sdk_generator", "contract_major", "agent_sdk_drift_gate"]
+
+[capability.9.18.9]
+title = "Agent SDK generator templates emit the four rung submission states"
+reqs = ["9189.1"]
+touches = ["services/agent/tools/sdk-gen/templates/typescript.tpl", "services/agent/tools/sdk-gen/templates/python.tpl", "services/agent/tools/sdk-gen/templates/python.pyi.tpl", "services/agent/tools/sdk-gen/tests/rung_states.rs"]
+tests = ["services/agent/tools/sdk-gen/tests/rung_states.rs::generated_submission_state_names_the_rungs"]
+verification_contract = "contracts/agent-cli.md#agent-sdk-gen"
+do_1 = "The three generator templates declare Submitted, Receipted, Committed and Reverted as the only submission states and tests/rung_states.rs proves the generated clients name exactly them."
+symbols = ["agent_sdk_generator", "agent_sdk_drift_gate"]
 
 [capability.9.18.5]
 title = "Run the qualification boundary gate against a node JSON-RPC URL and delete the LNI test node"
@@ -102027,7 +102052,7 @@ do_5 = "The planned test file is package layerxpay_test and reaches unexported n
 
 [task.2.40.4]
 title = "Match 0x0906 stream records against the 0x101B stream path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.35.2", "2.38.2", "2.40.8"]
@@ -102122,6 +102147,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Attempt 1 (133568fbf on 101b73f3d) built, passed TestPayServedChargeTracksStoreGas and 56 of the 57 TestPayPrecompileChargesGasTable subtests, and failed budgetRemaining at layerxpay_test.go:91 because a staticcall of budgetRemaining with a zero id answers uint128 zero with no error on the served path and on the base path alike: keeper.BudgetRemaining (modules/layerxpay/keeper/budget_views.go:30-34, 1d8ccad98) answers zero for a missing budget, budget.go:32-37 (2e4d43598) packs it, and budget_test.go:221, modules/layerxpay/keeper/budget_views_test.go:159-170 and req.8038 ac_1 (the capability probe sends budgetRemaining of a zero id and expects one word) freeze it. The revert expectation dates from f5d5add73, when layerxpay.go:331-333 answered LXP_UNKNOWN_FIELD for a missing budget, and no verify_cmd has run the test since 2e4d43598, so it fails the same way on 101b73f3d. In TestPayPrecompileChargesGasTable treat budgetRemaining as progressHighWater is treated at :84-89: require.NoError, supplied-left greater than want (GetBudget performs one gaskv Get on the host store under the installed meter), and method.Outputs.Unpack to one *big.Int whose Sign is zero (compare with Sign, as budget_test.go:221 does, not with require.Equal against big.NewInt(0)); keep the other 15 views reverting with an LXP_ reason, the 40 writes refused under staticcall with supplied-want equal to left, and the out-of-gas check exactly as written. layerxpay.go, budget.go, gas.go and the keeper do not change."
 
 [task.2.40.6]
 title = "Bound the worst-case scheduler end block by MaxBlockGas"
@@ -121764,7 +121790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.10]
 title = "Serve recorded precompile info before the keeper-free dry run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.6.3", "6.6.4"]
@@ -142060,6 +142086,40 @@ do_6 = "Attempts 1 to 4 (latest 92290a56c) fail at tests/major_two.rs:12 with 'm
 do_7 = "Decision 1953: for [type.NativeProgramWindDownRequest] the generator requires precompile and the four keys selector_route, selector_deprecate, selector_tombstone and selector_exit, each '0x' plus 8 lowercase hex digits, in place of the single selector key it requires of the deploy and upgrade requests."
 do_8 = "Attempt 5 (a3cd2e90b on base a9863352f, which carries the 9.10.2 schema) builds and fails both major_two tests at tests/major_two.rs:12:33 with 'missing type.ProgramLifecycleResultEnvelope.required': 1d0cc3720 (task 9.10.2) replaced the result, unknown and error envelopes of type.ProgramLifecycleResponse with the single variant ProgramSubmission (services/agent/schema/agent-api/programs.kvx:89-91, :170-179), while validate_lifecycle_schema at services/agent/tools/sdk-gen/src/main.rs:384-388 (a3cd2e90b :406-410, unchanged since 8c3193d0e) still requires type.ProgramLifecycleResultEnvelope, ProgramLifecycleResult, ProgramLifecycleUnknown, ProgramLifecycleErrorEnvelope and ProgramLifecycleError. Under decision.1957, in place of those five names the generator requires type.ProgramLifecycleResponse.variants equal to ['ProgramSubmission'], type.ProgramSubmission.required equal to ['tx_hash','submission_ref','state','rung'] and type.ProgramSubmission.rung equal to ['submitted','receipted','committed']; it keeps the type.NativeProgramDeploy, NativeProgramUpgrade and NativeProgramWindDown required checks, the operation checks at main.rs:353-370 (POST, /v1/programs/<op>, response ProgramLifecycleResponse, required idempotency_key, content_type application/octet-stream) and the precompile and selector checks of do_1, do_6 and do_7. programs.kvx and golden/programs.kvx stay as 9.10.2 wrote them; the attempt-5 templates and tests stand."
 
+[task.9.18.9]
+title = "Emit the four rung submission states from the agent SDK generator templates"
+status = "pending"
+mode = "BUILD"
+wave = 24
+requires = ["9.18.4"]
+reqs = ["9189.1"]
+capabilities = ["9.18.9"]
+interfaces = ["interface.9.cli-agent-sdk-gen-write", "interface.9.cli-agent-sdk-gen-check", "interface.9.ts-sdk-generated-client-submissionstate"]
+do_1 = "services/agent/tools/sdk-gen/templates/typescript.tpl:42-46 declares SubmissionState as Unknown, Executed with receiptRef, Failed with protocolResultCode and Pending with stage; it declares instead the union of { kind: 'Submitted'; txHash: string }, { kind: 'Receipted' }, { kind: 'Committed' } and { kind: 'Reverted'; revertReason: string } (req.9358 ac_1, decision.1967)."
+do_2 = "services/agent/tools/sdk-gen/templates/python.tpl:265-286 declares the frozen dataclasses SubmissionUnknown, SubmissionExecuted(receipt_ref), SubmissionFailed(protocol_result_code) and SubmissionPending(stage); it declares instead SubmissionSubmitted(tx_hash: str), SubmissionReceipted, SubmissionCommitted and SubmissionReverted(revert_reason: str), each with its kind Literal, and SubmissionState: TypeAlias as their union."
+do_3 = "services/agent/tools/sdk-gen/templates/python.pyi.tpl:143-162 carries the matching stubs: the same four classes with __init__ signatures and the same SubmissionState alias."
+do_4 = "services/agent/tools/sdk-gen/src/main.rs:177 keeps reading type.Rung.variants for {{RUNGS}}; agent_sdk_generator (main.rs:889) and agent_sdk_drift_gate (main.rs:925) keep their output set and the --write and --check modes (main.rs:989-1010); the union is template text, not read from write.kvx (decision.1967)."
+do_5 = "Create services/agent/tools/sdk-gen/tests/rung_states.rs (planned) in the manner of tests/major_two.rs: generate from services/agent/schema/agent-api into a temporary directory and assert that the typescript client.ts, python client.py and client.pyi outputs name exactly Submitted, Receipted, Committed and Reverted, carry txHash/tx_hash and revertReason/revert_reason, and contain none of Unknown, Executed, Pending, receiptRef, protocolResultCode; the committed services/agent/sdk files are not rewritten by this task."
+do_6 = "Register every test named in tests as a Rust #[test] with exactly that name, so verify_cmd --exact selects it."
+do_7 = "After this task lands, agent-sdk-gen --check (make agent-sdk-generate, Makefile:2648) reports drift on the committed client files until 9.33.8 regenerates them; that ordering is intended and is recorded on the wave revision, not repaired here."
+symbols = ["agent_sdk_generator", "agent_sdk_drift_gate"]
+touches = ["services/agent/tools/sdk-gen/templates/typescript.tpl", "services/agent/tools/sdk-gen/templates/python.tpl", "services/agent/tools/sdk-gen/templates/python.pyi.tpl", "services/agent/tools/sdk-gen/tests/rung_states.rs"]
+tests = ["services/agent/tools/sdk-gen/tests/rung_states.rs::generated_submission_state_names_the_rungs"]
+planned_paths = ["services/agent/tools/sdk-gen/tests/rung_states.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml"
+verify_cmd = "cargo test --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml --test rung_states -- --exact generated_submission_state_names_the_rungs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the three templates and delete tests/rung_states.rs."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.18.5]
 title = "Run the qualification boundary gate against a node JSON-RPC URL and delete the LNI test node"
 status = "done"
@@ -142222,7 +142282,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.19.2]
 title = "Drop the LNI_V1_SOURCE include that 9.19.1 left in layerx-client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -142231,7 +142291,7 @@ capabilities = []
 interfaces = ["interface.9.rs-client-lni-schema-lni-v1-source-j44"]
 do_1 = "019a38eed (task 9.19.1, do_1) deleted services/agent/schema/lni/v1.kvx while services/agent/crates/layerx-client/src/lni/schema.rs:4 still reads `pub const LNI_V1_SOURCE: &str = include_str!('../../../../schema/lni/v1.kvx');`, so since that commit every build of layerx-client fails at schema.rs:4 with `couldn't read ../../../../schema/lni/v1.kvx`, and with it every crate that depends on layerx-client: the services/agent workspace, services/human (services/human/Cargo.toml:31) and services/platform (services/platform/Cargo.toml:46). Delete the constant and its doc comment at schema.rs:3-4. Nothing reads LNI_V1_SOURCE in services/ (grep over *.rs finds only the declaration); interfaces.kvx already marks the interface retired; lni_schema_v1 (schema.rs:566) builds the schema from Rust constants and does not use the file. Do not restore v1.kvx: agent_tree_has_no_lni_artifacts (services/agent/tools/boundary-check/tests/workspace.rs:13-33) asserts the directory is absent, and task 9.24.7 deletes the whole lni module per decision.923. Change no other line of schema.rs and no other file."
 do_2 = "scripts/ci/lni-version-parity.sh:96-101 (Makefile:3424) reads the deleted schema file and fails since 019a38eed independently of this task; record it, do not edit the script or the Makefile. The verify runs an existing layerx-client integration test, refusal_keeps_code_message_and_data in tests/sequencer.rs, whose only purpose here is to compile the crate and its test target on a tree without services/agent/schema/lni."
-symbols = ["LNI_V1_SOURCE"]
+symbols = []
 touches = ["services/agent/crates/layerx-client/src/lni/schema.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::refusal_keeps_code_message_and_data"]
 planned_paths = []
@@ -142248,6 +142308,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "symbols is empty, as in 9.19.1: the done gate checks that every listed symbol is defined in the code graph after the change, and this task's only change deletes LNI_V1_SOURCE (attempt at 32bb224a7 on c9e2ebd94 built layerx-client and passed refusal_keeps_code_message_and_data, then the done gate refused on `symbol LNI_V1_SOURCE — not defined in the graph`). The interfaces entry stays: it names the retired item for the contract index and is not a graph check."
 
 [task.9.20.1]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
@@ -144026,16 +144087,16 @@ title = "Regenerate the TypeScript and Python client types with rung submission 
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["9.18.4"]
+requires = ["9.18.4", "9.18.9"]
 reqs = ["9358.1"]
 capabilities = ["9.33.8"]
 interfaces = ["interface.9.ts-sdk-generated-client-rung", "interface.9.ts-sdk-generated-client-submissionstate"]
-do_1 = "SubmissionState (services/agent/sdk/typescript/src/generated/client.ts:48) has Executed, Failed and Pending kernel stages beside Rung (services/agent/sdk/typescript/src/generated/client.ts:42); task 9.18.4 changes the generator templates."
-do_2 = "Regenerate services/agent/sdk/typescript/src/generated/client.ts, services/agent/sdk/python/layerx_sdk/generated/client.py and services/agent/sdk/python/layerx_sdk/generated/client.pyi with layerx-platform-sdkgen so SubmissionState is Submitted with txHash, Receipted, Committed and Reverted with revertReason, and commit the outputs unchanged by hand (generated headers at services/agent/sdk/typescript/src/generated/client.ts:1, services/agent/sdk/python/layerx_sdk/generated/client.py:1)."
+do_1 = "SubmissionState (services/agent/sdk/typescript/src/generated/client.ts:48) has Executed, Failed and Pending kernel stages beside Rung (services/agent/sdk/typescript/src/generated/client.ts:42); task 9.18.9 changes the generator templates."
+do_2 = "Regenerate services/agent/sdk/typescript/src/generated/client.ts, services/agent/sdk/python/layerx_sdk/generated/client.py and services/agent/sdk/python/layerx_sdk/generated/client.pyi with agent-sdk-gen --write (make agent-sdk-generate, Makefile:2643) so SubmissionState is Submitted with txHash, Receipted, Committed and Reverted with revertReason, and commit the outputs unchanged by hand (generated headers at services/agent/sdk/typescript/src/generated/client.ts:1, services/agent/sdk/python/layerx_sdk/generated/client.py:1)."
 do_3 = "Create services/agent/sdk/typescript/test/generated-rung.test.ts (planned) checking the exported union and enum."
 do_4 = "Register each gate test in services/agent/sdk/typescript/test/generated-rung.test.ts (planned) as a node:test case named exactly generated_submission_state_names_the_rungs (`import { test } from \"node:test\"`), so the anchored --test-name-pattern of verify_cmd selects every one of them and cannot pass on a file with no matching case."
 symbols = ["SubmissionState", "Rung"]
-touches = ["services/agent/sdk/typescript/src/generated/client.ts", "services/agent/sdk/python/layerx_sdk/generated/client.py", "services/agent/sdk/python/layerx_sdk/generated/client.pyi", "services/agent/sdk/typescript/test/generated-rung.test.ts"]
+touches = ["services/agent/sdk/typescript/src/generated/client.ts", "services/agent/sdk/python/layerx_sdk/generated/client.py", "services/agent/sdk/python/layerx_sdk/generated/client.pyi", "services/agent/sdk/typescript/test/generated-rung.test.ts", "services/agent/sdk/typescript/examples/http-402-settlement.ts", "services/agent/sdk/typescript/examples/payment-with-verification.ts", "services/agent/sdk/typescript/test/integration.test.ts", "services/agent/sdk/python/layerx_sdk/__init__.py", "services/agent/sdk/python/layerx_sdk/__init__.pyi", "services/agent/sdk/python/examples/http_402_settlement.py", "services/agent/sdk/python/examples/payment_with_verification.py"]
 tests = ["services/agent/sdk/typescript/test/generated-rung.test.ts::generated_submission_state_names_the_rungs"]
 planned_paths = ["services/agent/sdk/typescript/test/generated-rung.test.ts"]
 build_cmd = "npm --prefix services/agent/sdk/typescript run build"
@@ -144052,6 +144113,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempts 1 to 3 (6418af87d, eef8c0c40, 5f0c552d0 on bases 061689853, 101b73f3d, 7095cd3de) fail build_cmd with twelve TS2322/TS2678/TS2339/TS2353 errors in test/generated-rung.test.ts because the generated SubmissionState is still Unknown, Executed, Failed and Pending: the generator templates services/agent/tools/sdk-gen/templates/typescript.tpl:42-46, python.tpl:265-286 and python.pyi.tpl:143-162 carry that union as literal text, 9.18.4 (0246e6ea4) never changed them, and services/agent/tools/sdk-gen/src/main.rs reads no type.SubmissionState. The generator of the three files is agent-sdk-gen (make agent-sdk-generate, Makefile:2643: cargo run --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml -- --write), not layerx-platform-sdkgen, which digests sdk/platform outputs and writes only generated/receipt.* under services/agent/sdk (sdk/platform/generators/src/main.rs:22-26). Task 9.18.9 (now required) changes the templates; regenerate with agent-sdk-gen --write after it is done, commit client.ts, client.py and client.pyi unchanged by hand, and update the callers that tsconfig.json compiles: examples/http-402-settlement.ts:11-12, examples/payment-with-verification.ts:18 and test/integration.test.ts:80-83, plus the Python callers now in touches. The attempt-3 test services/agent/sdk/typescript/test/generated-rung.test.ts stands."
 
 [task.9.33.9]
 title = "Send contract major 2 on agent envelope requests and report proof rungs"
@@ -164796,7 +164858,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.32.1]
 title = "Point the anchors and receipts resources at the archive routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["14.0.4", "14.23.2", "14.31.1", "14.34.1"]
@@ -168319,7 +168381,7 @@ do_5 = "Add the declared key layerx.receipt_keys, read from the environment vari
 
 [task.15.4.10]
 title = "Decode signed receipts in the iOS sample environment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.9"]
@@ -168388,7 +168450,7 @@ do_12 = "do_9 is superseded (decision.1963). AgentSigner.sign(prepared) must ans
 
 [task.15.4.12]
 title = "Verify signed sequencer receipts in the agents tools and service client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.11"]
@@ -194427,7 +194489,7 @@ do_4 = "Copy the rewritten V1, V2 and V3 cases byte for byte into sdk/platform/c
 do_5 = "Replace the recorded V1-layerxledger-pay-exact receipt, digest, transaction hash, log and payee word in services/interop/specs/conformance/x402/sequenced-settlement.json, services/interop/specs/conformance/ucp/sequenced-order.json, services/interop/specs/conformance/fiat/sequenced-journeys.json (also the V2 transaction hash and digest) and services/interop/PORTABILITY.md:136-146 with the rewritten values, and the payee literal 0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985 with 0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4 in services/interop/crates/layerx-visa-tap/tests/middleware.rs:273, tests/sequencer_result.rs:146, services/interop/crates/layerx-fiat/tests/adapter.rs:693 and services/interop/crates/layerx-interop-service/src/server.rs:4761 (recorded_x402_request); the paymentReference literal at server.rs:4756 is an input of the recording and does not change."
 do_6 = "Leave daemon/committed-fixture/vectors/vector-v2-receipted-revert.json (provenance revision 9e6b79d65), services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json, the layerx-bridge-relayer and layerx-gas-station test fixtures and services/interop/specs/conformance/x402/settlement-response.json unchanged; they are verified on their own and are recorded once in the qualification log. This task touches thirteen files because the fixture, its byte-equal copies and the payee literals must change in one revision (decision.1928)."
 symbols = ["seqVecLedgerPay", "seqVecLedgerPayment", "seqVecAssertFields", "TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture"]
-touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json", "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "services/interop/specs/conformance/x402/sequenced-settlement.json", "services/interop/specs/conformance/ucp/sequenced-order.json", "services/interop/specs/conformance/fiat/sequenced-journeys.json", "services/interop/PORTABILITY.md", "services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-interop-service/src/server.rs"]
+touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json", "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "services/interop/specs/conformance/x402/sequenced-settlement.json", "services/interop/specs/conformance/ucp/sequenced-order.json", "services/interop/specs/conformance/fiat/sequenced-journeys.json", "services/interop/PORTABILITY.md", "services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-interop-service/src/server.rs", "services/interop/crates/layerx-x402/src/buyer.rs"]
 tests = ["rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors"]
 planned_paths = []
 build_cmd = "go build ./rpc/..."
@@ -194445,6 +194507,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "In services/interop/specs/conformance/fiat/sequenced-journeys.json the digest replaced by do_5 includes sequencer.receipt_digest and expect.receipt_digest of card_receipted_credit, bank_receipted_credit and rtp_receipted_credit (which task 18.1211.3 do_6 set to native-order values over the current fixture): set each to the canonical digest of the receipt that services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs re-signs from the rewritten V1 case under the pinned test signing key, and set source_receipt_digest to the rewritten receiptDigest."
 do_8 = "Decision 1959 (extends decision.1928; 4ba621dc6, ac23f4e4a) orders this task behind 18.1308.2. The second leg of verify_cmd, go -C sdk/platform/go test -run '^TestVectorFilesV1ToV3MatchSequencerReceiptFixture$' ., compiles Go package layerx in sdk/platform/go, which has not compiled on main since 4ba621dc6 (8.45.3) deleted sdk/platform/go/program_lifecycle_generated.go (programLifecycleOrdinals at :3) while sdk/platform/go/http.go:178 and :181 (ac23f4e4a, 8.41.6) still read it; attempts 1 to 4 (3f40fea59, d292cef7d, 81e6e29e1, 305a918a1) all stopped there with 'http.go:178:6: undefined: programLifecycleOrdinals' and never reached the Go SDK test or the six cargo legs. 18.1308.2 do_10 owns that file and removes the two reads; this task does not touch sdk/platform/go/http.go, does not change verify_cmd, and is re-qualified from the attempt 4 candidate 305a918a1 unchanged once 18.1308.2 is done."
+do_9 = "Decision 1966 (extends decision.1928; 4e013c19c, 11.5.1) adds services/interop/crates/layerx-x402/src/buyer.rs to touches as a fourteenth file, for its tests module only. const TRANSACTION (src/buyer.rs:709-713) is a literal copy of the V1-layerxledger-pay-exact txHash that settlement() (:715-734) reads from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and that buyer_accepts_receipted_transaction_hash (:849-856) asserts against; set its 32 bytes to the re-recorded txHash 0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1 (do_3). The literal stays a literal and is not read from the fixture (decision.1928); the assertions, capture_settlement (:434) and every other line of src/buyer.rs stay unchanged. Attempt 5 (06a27a325, the attempt 4 content 305a918a1 on base 1768567797) passed both Go legs and failed only this assertion (left 0xa0d985..., right 0x9f6be3b6...); the x402 sequenced_vectors and buyer_sequencer binaries and the five other cargo legs have not yet run and give the next real result."
 
 [req.1812115]
 title = "The recorded payExact receipt carries a derivable payee in native PaymentExact order"
@@ -194967,6 +195030,8 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
+
 
 
 

@@ -1,7 +1,8 @@
 import { Flex, Text } from '@chakra-ui/react';
 import React from 'react';
 
-import type { PaxeerXAnchorsItem, PaxeerXStatusRung } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
+import type { PaxeerXStatusRung } from 'types/api/paxeerXLists';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
@@ -16,7 +17,7 @@ import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 export const ANCHOR_SETTLEMENT_RUNG: PaxeerXStatusRung = 'receipted';
 
 interface Props {
-  item: PaxeerXAnchorsItem;
+  item: PaxeerXArchiveAnchor;
   isLoading?: boolean;
 }
 

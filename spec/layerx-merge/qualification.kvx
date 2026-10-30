@@ -13163,3 +13163,43 @@ symbol = "LNI_V1_SOURCE"
 observed = "Attempt 6 (b3481553d on 019a38eed) exited in the build_cmd before any test ran: layerx-human-service pulls layerx-client (services/human/Cargo.toml:31) and schema.rs:4 include_str!s services/agent/schema/lni/v1.kvx, which 019a38eed (task 9.19.1 do_1) deleted while its gate built only the boundary-check tool crate; the constant has no reader in services/ and the same error stops every crate of services/agent, services/human and services/platform that depends on layerx-client."
 assumption = "Task 9.19.2 (wave 1) deletes schema.rs:3-4; 18.1204.2 requires it and re-qualifies the attempt 6 implementation unchanged on a base carrying it."
 severity = "owner"
+
+[finding.9.19.2.1]
+task = "9.19.2"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "task.9.19.2.symbols"
+observed = "At 32bb224a7 (on c9e2ebd94) the build_cmd exited 0 and the verify test passed, and cg spec done refused with one failed graph check, `symbol LNI_V1_SOURCE — not defined in the graph`, because the task block listed the symbol it deletes under symbols."
+assumption = "With symbols = [] (the form 9.19.1 used for its deletions) the done gate passes on the same candidate unchanged."
+severity = "spec"
+
+[finding.18.1211.5.2]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-x402/src/buyer.rs:709"
+symbol = "TRANSACTION"
+observed = "Attempt 5 (06a27a325, base 1768567797, content identical to 305a918a1) passed go build ./rpc/..., TestSequencerReceiptVectors and TestVectorFilesV1ToV3MatchSequencerReceiptFixture, then buyer::tests::buyer_accepts_receipted_transaction_hash failed at src/buyer.rs:853 with left 0xa0d985d9...ccd1 (the re-recorded V1-layerxledger-pay-exact txHash read from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:117 and accepted by capture_settlement) and right 0x9f6be3b6...d2bb (const TRANSACTION, pinned by 4e013c19c to the pre-re-record txHash); cargo stopped there, so the sequenced_vectors and buyer_sequencer binaries and legs 4 to 8 did not run; no other copy of the superseded V1 values exists under services/ or sdk/ outside the self-verified fixtures of finding.18.1211.5.1."
+assumption = "Decision 1966 adds src/buyer.rs to touches and do_9 sets the TRANSACTION bytes to the re-recorded txHash in the same revision as the fixture; the assertion and capture_settlement stay unchanged."
+severity = "task"
+
+[finding.9.33.8.1]
+task = "9.33.8"
+file = "services/agent/tools/sdk-gen/templates/typescript.tpl:42-46"
+symbol = "SubmissionState"
+observed = "Attempts 1 to 3 (5f0c552d0 latest) fail build_cmd with twelve type errors in test/generated-rung.test.ts because typescript.tpl:42-46, python.tpl:265-286 and python.pyi.tpl:143-162 still emit Unknown, Executed, Failed and Pending as literal text and 9.18.4 (0246e6ea4) never touched those lines; do_2 also named layerx-platform-sdkgen, which does not generate client.ts (sdk/platform/generators/src/main.rs:22-26)."
+assumption = "The new template task 9.18.9 owns the change; 9.33.8 requires it and regenerates with agent-sdk-gen --write; the attempt-3 test stands."
+severity = "cross-task"
+
+[finding.9.33.8.2]
+task = "9.33.8"
+file = "services/agent/schema/agent-api/write.kvx:44-53"
+symbol = "type.SubmissionState"
+observed = "write.kvx declares nine submission variants (Prepared, Signed, Queued, Submitted, Unknown, Executed, Committed, Failed, Expired; decision.903, task 9.3.1) and programs.kvx:174 five, none named Receipted or Reverted, while req.9358 ac_1 requires the generated SubmissionState to be exactly Submitted, Receipted, Committed and Reverted and the generator reads no type.SubmissionState."
+assumption = "Decision 1967 names the client union as the four rung states written as template text and keeps the write.kvx variants as the daemon outbox lifecycle; task 9.18.9 is written against it."
+severity = "owner"
+
+[finding.2.40.10.1]
+task = "2.40.10"
+file = "precompiles/layerxpay/layerxpay_test.go:91"
+symbol = "TestPayPrecompileChargesGasTable"
+observed = "At 133568fbf (on 101b73f3d) the budgetRemaining subtest fails because a staticcall of budgetRemaining with a zero id answers uint128 zero with no error through RunAndCalculateGas (layerxpay.go:85-130) and through the base Run path alike: keeper.BudgetRemaining (modules/layerxpay/keeper/budget_views.go:30-34, 1d8ccad98) answers zero for a missing budget and budget.go:32-37 (2e4d43598) packs it, which budget_test.go:221, budget_views_test.go:159-170 and req.8038 ac_1 freeze; the revert expectation dates from f5d5add73, when layerxpay.go:331-333 answered LXP_UNKNOWN_FIELD, and no verify_cmd has run the test since 2e4d43598."
+assumption = "do_7 makes the view branch treat budgetRemaining as a second succeeding view beside progressHighWater with stronger assertions; the served path, budget.go, gas.go and the keeper are unchanged, and 2.40.5 is unaffected because it meters only the 40 writes."
+severity = "cross-task"
