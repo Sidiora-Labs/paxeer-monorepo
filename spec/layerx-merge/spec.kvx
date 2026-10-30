@@ -128945,7 +128945,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.96.1]
 title = "Retire the guarantor checkpoint path of the layerxanchor keeper and precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.3", "6.31.5"]
@@ -132632,7 +132632,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.29.1]
 title = "Check every HTTP rule in api and sdk/proto is mounted on the node gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["7.21.1", "7.26.2", "7.26.3", "7.26.4", "3.0.3", "5.0.3", "6.0.3"]
