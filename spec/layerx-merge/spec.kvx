@@ -148976,7 +148976,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.16.5]
 title = "Carry the reader's ProgramReadError in the explorer ingestion refusal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["10.16.4"]
