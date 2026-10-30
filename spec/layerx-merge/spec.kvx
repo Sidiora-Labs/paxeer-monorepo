@@ -191604,7 +191604,7 @@ qualification = "UNRUN"
 
 [task.18.1279.1]
 title = "Issue #1279: Drive the paid metered web.search test through the 0x101A grant and draw path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1304.1", "18.1279.2", "18.1279.3"]
@@ -193997,7 +193997,7 @@ qualification = "UNRUN"
 
 [task.18.1308.3]
 title = "Agent daemon and agent API errors stop naming the retired resultByIdempotency view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1308.1"]
