@@ -32,7 +32,7 @@ const REQUEST_TIMEOUT = 15_000;
 const MAX_RETRY_INTERVAL = 30_000;
 
 const terminal = (data: PaxeerXReceipt | undefined) =>
-  data?.status === 'final' && data.verification_status === 'settlement_anchored';
+  data?.status === 'committed' && data.verification_status === 'settlement_anchored';
 
 const admissible = (next: PaxeerXReceipt, id: string, previous?: PaxeerXReceipt) => {
   if (!next || typeof next.id !== 'string' || next.id.toLowerCase() !== id.toLowerCase() ||

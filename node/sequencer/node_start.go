@@ -129,7 +129,7 @@ func (n *Node) Start(ctx context.Context) (err error) {
 			n.Accepter.halted = true
 			n.Accepter.mu.Unlock()
 			_ = n.Executor.Fence()
-			return err
+			return fmt.Errorf("sequencer: commit listener at height %d: %w", height, err)
 		}
 		n.ReceiptSource.Committed(height)
 		return n.LogFeedPublisher.Committed(height)

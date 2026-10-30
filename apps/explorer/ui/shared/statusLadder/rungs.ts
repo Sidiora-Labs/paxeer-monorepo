@@ -13,31 +13,24 @@ export interface RungDescriptor {
 }
 
 export const RUNGS: Record<PaxeerXStatusRung, RungDescriptor> = {
-  pending: {
-    rung: 'pending',
-    label: 'Pending',
-    description: 'The transaction has not been included in a block yet.',
+  submitted: {
+    rung: 'submitted',
+    label: 'Submitted',
+    description: 'The transaction has been submitted and is awaiting a verified sequencer receipt or a committed block.',
     icon: 'status/pending',
     colorPalette: 'gray',
   },
-  instant: {
-    rung: 'instant',
-    label: 'Instant',
-    description: 'The transaction is in a block that no anchor checkpoint covers yet.',
+  receipted: {
+    rung: 'receipted',
+    label: 'Receipted',
+    description: 'The sequencer receipt verifies against the pinned receipt keys.',
     icon: 'clock',
     colorPalette: 'blue',
   },
-  sealed: {
-    rung: 'sealed',
-    label: 'Sealed',
-    description: 'An anchor checkpoint covering the block has been submitted but is not finalized.',
-    icon: 'lock',
-    colorPalette: 'purple',
-  },
-  'final': {
-    rung: 'final',
-    label: 'Final',
-    description: 'A finalized anchor checkpoint covers the block, which is past the finality height.',
+  committed: {
+    rung: 'committed',
+    label: 'Committed',
+    description: 'The transaction is in a committed block covered by the committed head or its sequencer receipt verifies commitment.',
     icon: 'status/success',
     colorPalette: 'green',
   },

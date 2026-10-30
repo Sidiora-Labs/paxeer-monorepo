@@ -1355,6 +1355,14 @@ func (app *App) sendEVMServerStartSignals() {
 	}
 }
 
+func (app *App) SendEVMServerStartSignals() {
+	app.sendEVMServerStartSignals()
+}
+
+func (app *App) ServeEVMServers(httpServer, wsServer evmrpc.EVMServer) {
+	app.serveEVMServers(httpServer, wsServer)
+}
+
 func (app *App) serveEVMServers(httpServer, wsServer evmrpc.EVMServer) {
 	app.evmServersMu.Lock()
 	app.evmHTTPServer = httpServer
@@ -1816,6 +1824,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			if err := app.SetSealedStateToCommit(sealedCtx, ms); err != nil {
 				return nil, err
 			}
+			defer app.sendEVMServerStartSignals()
 			if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
 				return &abci.ResponseFinalizeBlock{}, nil
 			}

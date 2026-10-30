@@ -11246,3 +11246,58 @@ fix = "Before reading an attempt's failure, compare its base_revision with the f
 title = "A first-time compile of a target exposes the older breaks beneath the blocker"
 symptom = "After a narrowed build or a cleared blocker lets a test target compile for the first time in several attempts, the attempt fails on an older, unrelated break in the same target (session_keys.rs:248 once the layerx-agentd half of 18.1228.1 passed; migration.rs and revocation.rs once --tests reached them in 18.1308.3; expiry.rs:68 once the registry dependents were checked in 13.4.6)."
 fix = "Before writing a re-qualify-unchanged note, run git log -S on every symbol the target calls that changed since its fixture was written, expect one new break per cleared blocker, and narrow build_cmd to the targets the verify runs."
+
+[gotcha.2287]
+title = "A candidate whose only extra file is its declared planned test is held as out of scope"
+symptom = "12.35.5 attempt 2 (6805e8616) passed its build and verify, yet the merge step held it because node/sequencer/commit_release_test.go, the task's planned_paths entry, is not in touches; the gate had admitted the file because its allowed set is touches plus planned_paths."
+fix = "The merge-scope check compares the candidate's changed files with touches plus planned_paths, the same set the gate admits; a held candidate whose only extra files are planned paths is re-collected, not re-run."
+
+[gotcha.2288]
+title = "A task reopened in the same minute as the batch that added its prerequisite was admitted against the previous plan"
+symptom = "10.20.3, 17.5.1-4 and 18.1200.1 were reopened right after 9f8c07033 added 5.7.3 and 10.16.4 to their requires; the scheduler re-reads the plan every four minutes and admitted them against the plan it held, and each attempt stopped at cg spec start because the prerequisite was not done"
+fix = "After a spec batch that adds requires, reopen the affected tasks only once the plan digest on the board matches the new spec digest; a task admitted against a stale plan costs one attempt and returns to pending by itself"
+
+[gotcha.2289]
+title = "Calling the gate build helper with --help runs the whole build"
+symptom = "18.1211.2 attempt 6 and 18.1308.2 attempt 5 each spent one of their builds on hf-build --help, which ignores its arguments and runs the build of the untouched tree, leaving one build for the real tree"
+fix = "The build helper answers --help and -h with its usage and exits 0 without building; read the task section for the build and verify commands instead of probing the helper"
+
+[gotcha.2290]
+title = "The scheduler loads the task plan once per process, so a spec batch took effect only after a restart"
+symptom = "The plan digest on the board stayed at the value of the last restart while three batches landed; gotcha.2288 assumed a four-minute re-read that does not exist, and a task whose touches grew in a batch would have been held for changing files outside its scope until the next restart"
+fix = "The scheduler now re-parses the plan when the spec file has changed and been still for five seconds, re-syncs the board and logs plan_reloaded; after a batch, wait for that line (or for the board digest to equal the plan digest) before reopening the affected tasks"
+
+[gotcha.2291]
+title = "The in-tree node starts only when a file under the task's paths already names LAYERX_TEST_PAXEER_CHAIN_ID before implementation"
+symptom = "9.0.3 attempt 5 wrote the first reader of LAYERX_TEST_PAXEER_CHAIN_ID inside its own paths, so the environment, which scans those paths once before implementation, started no node and the chain-id test failed by name"
+fix = "A task whose own test is the first reader of the variable gets the node on a re-qualify of the unchanged candidate, where the paths are applied before the scan; record the attempt and re-qualify instead of changing the test"
+
+[gotcha.2292]
+title = "A touches entry naming a directory did not cover the files inside it"
+symptom = "13.8.1 attempt 6 (efa450e95) passed its build and verify and was then refused because the 28 re-recorded fixture files under programs/fixtures/pay5/native-token and native-merchant were compared against the touches entries as exact file names."
+fix = "The scope check covers a changed path when it equals a touches or planned_paths entry or lies under an entry that names a directory; the attempt 6 candidate is re-qualified unchanged."
+
+[gotcha.2293]
+title = "A pom under sdk/integrations resolves com.sidiora.layerx:layerx-sdk only after sdk/platform/jvm/pom.xml is installed"
+symptom = "mvn -f sdk/integrations/android/pom.xml (or spring) fails with 'Could not resolve dependencies ... com.sidiora.layerx:layerx-sdk:jar:0.1.0' before compiling anything, because the integration poms declare the SDK as a plain dependency and no reactor builds it."
+fix = "Run mvn -q -f sdk/platform/jvm/pom.xml -DskipTests install first; the environment that runs the gates does this once for every com.sidiora.layerx dependency whose pom is in the tree, and the task's build and verify commands stay as declared."
+
+[gotcha.2294]
+title = "yarn install in apps/explorer exits 1 from the husky prepare hook where the tree is not a repository root"
+symptom = "yarn install under apps/explorer ends after 700 to 1100 s with rc=1 and 'husky - .git can't be found' although every package was installed."
+fix = "Set HUSKY=0 for dependency installs; the gates never need git hooks, and the duration is the install itself, not the hook."
+
+[gotcha.2295]
+title = "A touches entry that names a directory covers every file under it, and a cargo target directory beside a Cargo.toml is build output"
+symptom = "A task whose touches list a directory (a receipts folder) or whose verify compiles a test crate in place was refused with 'files changed outside scope' naming files under that directory or under <crate>/target/ although its verify passed."
+fix = "Declare a directory deliberately when a task owns a whole folder; never list a target directory in touches; a verify that compiles a crate in place leaves <crate>/target, which is generated output, not a change."
+
+[gotcha.2296]
+title = "A keeper removed from the application left its upgrade handler calling a zero value"
+symptom = "5.7.1 removed the LayerXAnchorKeeper construction and 5.41.3 its store key while 5.6.5's v7.0 handler kept RetireAtMerge (node/upgrades.go:490); 5.16.3, 5.6.9 and 6.47.1 then panicked with a nil pointer dereference at modules/layerxanchor/keeper/keeper.go:31 on every v7.0 application, five attempts spent on one wiring gap."
+fix = "Removing a keeper, a store key or a mount is complete only when every upgrade handler and test that calls the keeper is changed in the same task or ruled by a decision; decision.1954 and task 5.7.5 keep the anchor keeper and store until the store-delete step."
+
+[gotcha.2297]
+title = "A Maven profile that adds sample sources compiles files owned by a later task"
+symptom = "15.4.7's build and verify run with -Psample, which test-compiles src/sample/java; RelayReceiptResolver.java there still used the retired AuthorizedReceiptBatch and belonged to 15.4.8, which required 15.4.7, so the gate could not pass in either order (attempts 3 and 4)."
+fix = "Every source a gate compiles belongs to the task that runs the gate or to a task it requires; the resolver port moved into 15.4.7 as do_6 and 15.4.8 kept only its test."
