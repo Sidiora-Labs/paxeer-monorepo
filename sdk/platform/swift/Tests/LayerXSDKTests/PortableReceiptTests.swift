@@ -55,9 +55,40 @@ final class PortableReceiptTests: XCTestCase {
   }
 
   private func key(_ v: Vector) throws -> ReceiptKeys {
+    try key(v.pinnedKey)
+  }
+
+  private func key(_ pin: Key) throws -> ReceiptKeys {
     ReceiptKeys(
-      keyId: try hex(v.pinnedKey.keyId), publicKey: try hex(v.pinnedKey.publicKey),
-      firstHeight: v.pinnedKey.firstHeight, lastHeight: v.pinnedKey.lastHeight)
+      keyId: try hex(pin.keyId), publicKey: try hex(pin.publicKey),
+      firstHeight: pin.firstHeight, lastHeight: pin.lastHeight)
+  }
+
+  private func portableVectorV5Sources(_ directory: URL) throws
+    -> [String: (pin: ReceiptKeys, prevSeqHash: Data)]
+  {
+    struct CommittedFixture: Decodable {
+      struct Source: Decodable {
+        let pinnedKey: Key
+        let prevSeqHash: String
+      }
+      let positive: Source
+    }
+    let receipted = try XCTUnwrap(
+      JSONDecoder().decode(
+        Fixture.self,
+        from: Data(
+          contentsOf: directory.appendingPathComponent("vector-v1-receipted-positive.json"))
+      ).cases.first)
+    XCTAssertEqual(receipted.id, "V1-pax-transfer")
+    let committed = try JSONDecoder().decode(
+      CommittedFixture.self,
+      from: Data(contentsOf: directory.appendingPathComponent("vector-v4-committed.json"))
+    ).positive
+    return [
+      "receipted": (try key(receipted), try hex(receipted.prevSeqHash)),
+      "committed": (try key(committed.pinnedKey), try hex(committed.prevSeqHash)),
+    ]
   }
 
   private func export(_ v: Vector, evidence: Evidence? = nil) throws -> PortableReceipt {
@@ -154,9 +185,12 @@ final class PortableReceiptTests: XCTestCase {
     XCTAssertEqual(bundles.count, 2)
     let levels = try bundles.map { try XCTUnwrap($0["verificationLevel"]?.stringValue) }
     XCTAssertEqual(Set(levels), ["receipted", "committed"])
+    let sources = try portableVectorV5Sources(url.deletingLastPathComponent())
 
     for bundle in bundles {
       let level = try XCTUnwrap(bundle["verificationLevel"]?.stringValue)
+      let source = try XCTUnwrap(sources[level])
+      let pinned = source.pin
       let carriedKey = try XCTUnwrap(bundle["receiptKey"]?.objectValue)
       func height(_ field: String) throws -> UInt64 {
         let text = try XCTUnwrap(carriedKey[field]?.stringValue)
@@ -165,12 +199,14 @@ final class PortableReceiptTests: XCTestCase {
         XCTAssertEqual(text, "0x" + String(value, radix: 16), field)
         return value
       }
-      let pinned = try ReceiptKeys(
-        keyId: hex(XCTUnwrap(carriedKey["keyId"]?.stringValue)),
-        publicKey: hex(XCTUnwrap(carriedKey["publicKey"]?.stringValue)),
-        firstHeight: height("firstHeight"), lastHeight: height("lastHeight"))
+      XCTAssertEqual(try hex(XCTUnwrap(carriedKey["keyId"]?.stringValue)), pinned.keyId, level)
+      XCTAssertEqual(
+        try hex(XCTUnwrap(carriedKey["publicKey"]?.stringValue)), pinned.publicKey, level)
+      XCTAssertEqual(try height("firstHeight"), pinned.firstHeight, level)
+      XCTAssertEqual(try height("lastHeight"), pinned.lastHeight, level)
       let bytes = try encode(bundle)
-      let verified = try PortableReceipt.verify(bytes, keys: [pinned])
+      let verified = try PortableReceipt.verify(
+        bytes, keys: [pinned], prevSeqHash: source.prevSeqHash)
       XCTAssertEqual(verified.verificationLevel, level, level)
       XCTAssertEqual(verified.status, 1, level)
       XCTAssertEqual(
@@ -180,6 +216,33 @@ final class PortableReceiptTests: XCTestCase {
         try hex(XCTUnwrap(bundle["signedReceipt"]?.stringValue)), level)
       XCTAssertEqual(verified.committed?.level, level == "committed" ? level : nil, level)
       XCTAssertEqual(verified.export(), bytes, level)
+    }
+  }
+
+  func testPortableVectorV5RefusesForeignPin() throws {
+    let url = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent().deletingLastPathComponent()
+      .deletingLastPathComponent().deletingLastPathComponent()
+      .appendingPathComponent("conformance/fixtures/vector-v5-portable.json")
+    let bundles = try JSONDecoder().decode(
+      PublishedFixture.self, from: Data(contentsOf: url)
+    ).bundles
+    XCTAssertEqual(bundles.count, 2)
+    let levels = try bundles.map { try XCTUnwrap($0["verificationLevel"]?.stringValue) }
+    XCTAssertEqual(Set(levels), ["receipted", "committed"])
+    let sources = try portableVectorV5Sources(url.deletingLastPathComponent())
+
+    for bundle in bundles {
+      let level = try XCTUnwrap(bundle["verificationLevel"]?.stringValue)
+      let source = try XCTUnwrap(sources[level])
+      let foreign = try XCTUnwrap(sources[level == "receipted" ? "committed" : "receipted"])
+      let bytes = try encode(bundle)
+      XCTAssertThrowsError(
+        try PortableReceipt.verify(
+          bytes, keys: [foreign.pin], prevSeqHash: source.prevSeqHash), level
+      ) {
+        XCTAssertEqual(($0 as? PlatformSDKError)?.code, .verificationFailure, level)
+      }
     }
   }
 
