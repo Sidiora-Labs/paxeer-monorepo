@@ -163542,7 +163542,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.4]
 title = "Check call_tracer traces decode into internal transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.28.2", "18.1055.1"]
@@ -192550,7 +192550,7 @@ qualification = "UNRUN"
 
 [task.18.1293.2]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the JVM SDK envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1293.1"]
@@ -192590,7 +192590,7 @@ qualification = "UNRUN"
 
 [task.18.1293.3]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the Python SDK envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1293.1"]
@@ -192630,7 +192630,7 @@ qualification = "UNRUN"
 
 [task.18.1293.4]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the TypeScript SDK envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1293.1"]
