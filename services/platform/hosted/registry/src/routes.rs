@@ -10,6 +10,10 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::time::Instant;
 
+#[path = "programs_chain.rs"]
+mod programs_chain;
+use programs_chain::{ProgramHead, ProgramsChain};
+
 use layerx_client::lni::head_attestation::ProgramDiscoveryHead;
 use layerx_programs::{
     hex, programs_source_verification, AccountStateHead, BuildPlan, BuildRefusal,
@@ -302,7 +306,25 @@ impl Registrar {
                 body: json!({"status": "ready", "service": "program-registry"}).to_string(),
             },
             ("POST", "/__registry/deployments") => self.ingest_deployment(&request.body, deadline),
-            ("POST", "/__registry/head") => self.ingest_head(now),
+            ("POST", "/__registry/head") => {
+                let endpoint = match std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL") {
+                    Ok(endpoint) => endpoint,
+                    Err(_) => {
+                        return refusal(
+                            503,
+                            "protocol_state_unavailable",
+                            "LAYERX_REGISTRY_CHAIN_RPC_URL is required",
+                        )
+                    }
+                };
+                Self::route_chain_head(
+                    request,
+                    &self.request_authority,
+                    &self.journal,
+                    &endpoint,
+                    deadline,
+                )
+            }
             ("POST", "/__registry/sources") => {
                 if let Err(response) = self.publication_principal(request) {
                     return response;
@@ -1453,29 +1475,62 @@ impl Registrar {
         })
     }
 
-    fn ingest_head(&mut self, now: u64) -> Response {
-        let verified = match self.node_state.current_head(now) {
-            Ok(head) => head,
-            Err(error) => return refusal(503, "protocol_state_unavailable", &error),
-        };
-        let head = ObservedHead {
-            sequence: verified.freshness.observed_sequence,
-            observed_at: verified.freshness.observed_at,
-        };
-        match self.journal.refresh_head(head) {
-            Ok(()) => Response {
-                status: 200,
-                body: json!({
-                    "observed": true,
-                    "sequence": head.sequence,
-                    "observed_at": head.observed_at,
-                    "receipt_digest": hex::encode(&verified.receipt_digest),
-                    "state_root": hex::encode(&verified.state_root),
-                })
-                .to_string(),
-            },
-            Err(error) => refusal(400, "invalid_argument", &error),
+    /// Answers the chain head route without opening the legacy node-state boundary.
+    pub fn route_chain_head(
+        request: &Request,
+        authority: &crate::RegistryAuthority,
+        journal: &FileDeploymentJournal,
+        endpoint: &str,
+        deadline: Instant,
+    ) -> Response {
+        if request.method != "POST" || request.path != "/__registry/head" {
+            return refusal(405, "method_not_allowed", "expected POST /__registry/head");
         }
+        if !authority.verifies(request.headers.get("authorization").map(String::as_str)) {
+            return refusal(
+                401,
+                "authentication_required",
+                "a valid registry bearer credential is required",
+            );
+        }
+        Self::ingest_head(journal, endpoint, &request.body, deadline)
+    }
+
+    fn ingest_head(
+        journal: &FileDeploymentJournal,
+        endpoint: &str,
+        body: &[u8],
+        deadline: Instant,
+    ) -> Response {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct HeadRequest {
+            program_id: String,
+        }
+        let program = serde_json::from_slice::<HeadRequest>(body)
+            .ok()
+            .and_then(|request| {
+                hex::decode_digest(
+                    request
+                        .program_id
+                        .strip_prefix("0x")
+                        .unwrap_or(&request.program_id),
+                )
+                .ok()
+            });
+        let Some(program) = program else {
+            return refusal(
+                400,
+                "invalid_argument",
+                "request must carry a bytes32 program_id",
+            );
+        };
+        let verified =
+            match ProgramsChain::new(endpoint).and_then(|chain| chain.head(program, deadline)) {
+                Ok(head) => head,
+                Err(error) => return refusal(503, "protocol_state_unavailable", &error),
+            };
+        refresh_head(journal, verified)
     }
 
     fn ingest_source(&mut self, body: &[u8], deadline: Instant) -> Response {
@@ -1958,5 +2013,22 @@ mod tests {
     fn deployment_ingress_does_not_accept_caller_proof_bytes() {
         let untrusted = br#"{"proof_hex":"00"}"#;
         assert_eq!(deployment_ingress_unavailable(untrusted).status, 503);
+    }
+}
+
+fn refresh_head(journal: &FileDeploymentJournal, verified: ProgramHead) -> Response {
+    let head = ObservedHead {
+        sequence: verified.sequence,
+        observed_at: verified.observed_at,
+    };
+    match journal.refresh_head(head) {
+        Ok(()) => Response {
+            status: 200,
+            body:
+                json!({"observed": true, "sequence": head.sequence, "observed_at": head.observed_at,
+                "state_root": hex::encode(&verified.state_root)})
+                .to_string(),
+        },
+        Err(error) => refusal(400, "invalid_argument", &error),
     }
 }
