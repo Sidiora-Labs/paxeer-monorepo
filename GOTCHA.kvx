@@ -11386,3 +11386,18 @@ fix = "Keep the daemon's stderr next to the verify log and read its 'execution f
 title = "Comparing RequiredGas with metered KV gas measures the row, not the charge"
 symptom = "A gas-bound test compared a precompile's static RequiredGas with the KV gas the call metered and failed for every method, because RequiredGas is only the fixed row of a dynamic charge."
 fix = "Measure the charge as supplied gas minus the gas the EVM call leaves, convert through GetCosmosGasLimitFromEVMGas, and compare that with the metered store gas."
+
+[gotcha.2315]
+title = "A -p lib or test build never compiles a binary declared in another crate with autobins = false"
+symptom = "A one-line change to an agent daemon's main.rs passed its task gate on -p <crate> --test <name>, because the crate sets autobins = false and the binary is declared in a sibling host crate pointing at that main.rs; two later tasks whose gates build the binary failed with E0277 at that line."
+fix = "A task whose touches include a file that only a binary target compiles names that binary in its build_cmd; check Cargo.toml for autobins = false and [[bin]] path declarations in sibling crates before trusting a lib gate."
+
+[gotcha.2316]
+title = "tsc with files on the command line ignores tsconfig.json, so generated declaration files must be listed as roots"
+symptom = "A narrowed type check listing the touched files plus the global declaration roots failed with TS2724 on a type that only a generated declaration file declares; the whole-application check picked that file up through tsconfig include, the narrowed one did not."
+fix = "When narrowing a tsc build to explicit files, copy every declaration root the sibling tasks list, including generated ones, and follow the import closure from the first root for module augmentations."
+
+[gotcha.2317]
+title = "A registration test's hard-coded ABI counts go stale when later tasks grow the ABI without running it"
+symptom = "A precompile registration test asserted 9 methods and 3 events; three later commits grew the ABI to 12 and 4 with gates that never ran the test, so the first task to add it to a verify found a failure on main unrelated to its own change."
+fix = "A task that changes an abi.json runs the registration test that counts it; when a count assertion disagrees with a declared ABI grown by completed tasks, rule which is the authority in a decision and set the test to it rather than leaving a known-red test on main."
