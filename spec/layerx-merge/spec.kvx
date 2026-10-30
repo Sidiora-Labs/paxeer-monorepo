@@ -4575,6 +4575,12 @@ value = "Where a task's verify_cmd names cargo --test targets of one package, it
 basis = "10.96.2 attempts 1 and 2 (archive.rs, agent_controls.rs) and 18.1279.1 attempt 1 (layerx-mcp tests/scope.rs, issue #1301) failed to compile test suites owned by other pending tasks or by no task, although their own targets were unaffected; the principle of one build of the task's declared targets names the task's targets."
 affects = ["8.96.1", "9.24.3", "9.24.7", "9.25.1", "9.25.2", "9.26.3", "9.27.3", "9.27.4", "9.27.5", "9.28.2", "9.29.1", "9.35.1", "10.21.3", "10.21.4", "10.21.5", "10.21.6", "10.24.1", "10.24.2", "10.24.3", "10.25.4", "10.26.1", "10.26.2", "10.26.3", "10.26.4", "10.26.5", "10.26.6", "10.26.7", "10.26.8", "10.26.9", "10.26.10", "10.26.11", "10.26.12", "10.26.13", "10.26.14", "10.26.15", "10.26.16", "10.27.1", "10.27.2", "10.27.3", "10.27.4", "10.27.5", "10.27.6", "10.27.7", "10.27.8", "10.27.9", "10.27.10", "10.27.11", "13.0.4", "13.0.9", "13.4.5", "13.4.6", "13.6.5", "13.6.6", "13.6.7", "13.9.1", "13.9.2", "13.9.3", "13.9.4", "13.9.5", "13.9.6", "13.9.7", "18.1195.1", "18.1196.1", "18.1204.1", "18.1205.1", "18.1233.1", "18.1289.1", "18.1279.1", "18.1275.1", "18.1270.1", "18.1257.1", "18.1211.1"]
 
+[decision.1911]
+title = "A removal task's scan asserts the removals that task makes; a crate- or kernel-wide absence belongs to the task that retires the definition"
+value = "req.16965 ac_1 and req.10964 ac_1 are scoped to the files their tasks touch. The kernel-wide absence of lxp_receive_environment and lxp_grant_store is the acceptance of task 1.12.1 (wave 30), which deletes src/ledger/lxp_receive.c and src/ledger/lxp_grant_store.c; the crate-wide absence of BridgeDepositCredit, EvmPayoutBinding and NativeCustodyCredit is the acceptance of task 10.21.3 (wave 33), which deletes them from the layerx-intents vocabulary and itself requires 10.96.2."
+basis = "16.97.1 attempt 4 failed on live uses of lxp_grant_store in tests/ledger/test_receive.c, tests/ledger/test_send_allowance.c and tests/protocol/lxp_test_terminal_rejection.c (the grant store is live: include/layerx/lxp_ledger.h, src/ledger/lxp_grant_store.c, src/ledger/lxp_receive.c); 10.96.2 attempt 4 failed on 21 live uses of BridgeDepositCredit and EvmPayoutBinding across ten layerx-human-service source files that no do_ entry of the task removes and that layerx-intents still compiles (services/human/crates/layerx-intents/src/compile.rs). Both criteria named a state that is reachable only after a later task."
+affects = ["16.97.1", "10.96.2", "1.12.1", "10.21.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -18743,7 +18749,7 @@ ac_1 = "The observed journey reports balances by denom and amount at the Account
 
 [req.10964]
 title = "Remove the retired bridge and custody intent kinds from the human render fixtures and onboarding sponsor"
-ac_1 = "No human service source or test names BridgeDepositCredit, EvmPayoutBinding or NativeCustodyCredit."
+ac_1 = "services/human/crates/layerx-human-service/tests/render.rs names no BridgeDepositCredit, EvmPayoutBinding or NativeCustodyCredit fixture and src/server/onboarding_sponsor.rs names no NativeCustodyCredit; the crate-wide absence of the three kinds is the acceptance of task 10.21.3 (decision.1911)."
 
 [req.10965]
 title = "Remove the layerx-intents activity and owner envelope uses from the human KMS and service"
@@ -22280,7 +22286,7 @@ ac_2 = "The budget delegate suite names no lx_budget_pull_request and builds."
 
 [req.16965]
 title = "Remove the grant, handover, bridge credit and qualification replay uses from the remaining kernel suites"
-ac_1 = "tests/test_gateway_receive.c is absent and no kernel test names lxp_receive_environment or lxp_grant_store."
+ac_1 = "tests/test_gateway_receive.c is absent, and tests/modules/test_asset_registry.c names no lxp_grant_store symbol and no payer grant read case; the kernel-wide absence of lxp_receive_environment and lxp_grant_store is the acceptance of task 1.12.1 (decision.1911)."
 ac_2 = "The replay table of lxp_qual_replay.c has exactly the 49 entries of lxp_qualification.h."
 ac_3 = "tests/protocol/lxp_test_kernel.c names no lxp_handover symbol and builds."
 ac_4 = "No kernel test names lxp_ledger_apply_bridge_credit."
@@ -101761,7 +101767,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.95.1]
 title = "Prove the layerxledger keeper routes kernel-backed messages through its shared host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["2.3.1", "1.0.3"]
@@ -147833,6 +147839,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempts 1 and 2 built every test target of the package and failed on suites this task does not touch: tests/archive.rs:101 and :189 still set verification_level on FundsDispositionEvidence (ported by 18.1195.1) and tests/agent_controls.rs:315, :634, :652 and :666 use InvalidationReason::SessionKeyRevoked and the three-argument change_limit (ported by 18.1228.1). The build_cmd now builds the library and the two test targets of this task; the stale suites stay with their owners."
+do_5 = "Attempts 3 and 4 wrote no_retired_intent_kinds.rs as a scan of every layerx-human-service source for BridgeDepositCredit and EvmPayoutBinding and failed on 21 live uses (src/approvals/render.rs:6, :214, src/audit/event.rs:96-151, src/binding/mod.rs:6, :430-432, :660-662, src/custody/settlement_recipient.rs:47, src/custody/signer.rs:866, src/journeys/intent_submit.rs:587, src/journeys/move_money.rs:1102, :1191, src/journeys/observed.rs:414, src/journeys/resolver.rs:6, :534) that layerx-intents still compiles and that task 10.21.3 (wave 33, which requires this task) retires. Per decision.1911, human_service_names_no_retired_intent_kind asserts only that tests/render.rs names none of the three kinds and that src/server/onboarding_sponsor.rs names no NativeCustodyCredit."
 
 [task.10.97.1]
 title = "Remove the layerx-intents activity and owner envelope uses from the human KMS and service"
@@ -157662,6 +157669,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Attempts 1 and 2 (199e7fbc3, 19a532a63) switched StateLeafWitness.proof to the chain proof ops and the library stopped compiling at programs/crates/layerx-programs-registry/src/chain_evidence/lifecycle.rs:36-43 and programs/crates/layerx-programs-registry/src/chain_evidence/program_state.rs:78-85, which build a StateLeafWitness with a placeholder StateProof { leaf_index: 0, leaf_count: 1, siblings: Vec::new() } only to call decode_program_record; both files are now in touches: port those two constructions to the switched witness (the record's own ops, record_ops at lifecycle.rs:16 and ops at program_state.rs:18, or whatever the switched decode_program_record takes) and change nothing else in them."
+do_8 = "Attempt 4 (30228d5f1) built the package test tree and failed in programs/crates/layerx-programs-registry/tests/support/mod.rs:348-519, whose builders fill DeploymentProof and ProgramStateProof with the kernel-batch fields (activity, maintenance, activity_proof, receipt, receipt_proof, header, header_signature, programs_root, programs_root_proof) that do_2 removes; the four candidate files stand. The build_cmd now compiles only the chain_verifier_switch target (decision.1910), which does not include tests/support; task 13.9.1 rebuilds that support module and the kernel-batch suites on the chain fixture and now requires this task."
 
 [task.13.4.6]
 title = "Delete the kernel batch, maintenance and trust-history evidence from the registry"
@@ -158145,7 +158153,7 @@ title = "Rebuild the shared registry test support on the chain fixture"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["13.0.4", "13.2.1"]
+requires = ["13.0.4", "13.2.1", "13.4.5"]
 reqs = ["13059.1"]
 capabilities = ["13.9.1"]
 interfaces = []
@@ -163504,7 +163512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.3]
 title = "Check block transaction counts against eth_getBlockTransactionCountByNumber"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.28.2", "18.1055.1"]
@@ -163564,7 +163572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.5]
 title = "Check eth_syncing answers decode after the method rename"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.28.2", "18.1055.1"]
@@ -171990,6 +171998,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Superseded (decision.1900): task 16.32.3 deleted tests/test_receipt_offline.c at 2fec9b48c before this edit landed; attempt 1 (daafe83a2) passed its gate on base c5c2fead1 and is not merged because the suite it edits no longer exists. Nothing remains to do."
+superseded_by = "16.32.3"
 
 [task.16.95.2]
 title = "Run the bridge app checks in the bridge test workflow"
@@ -172310,6 +172319,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempts 1 to 3 scanned every kernel suite for lxp_receive_environment and failed on tests/codec/lxp_test_binding_authority_receive.c:342, tests/ledger/test_receive.c:145, tests/ledger/test_send_allowance.c and tests/protocol/lxp_test_terminal_rejection.c: lxp_receive_environment is a live kernel type (include/layerx/lxp_ledger.h, src/ledger/lxp_receive.c) and is out of scope. test_no_receive_or_grant_store_caller asserts that tests/test_gateway_receive.c is absent (assert_paths_absent) and that no source under tests, excluding tests/arith, tests/codec, tests/crypto, tests/fuzz, tests/chain, tests/daemon, tests/bridge and tests/explorer as in tests/ci/test_retired_guarantor_duties.py, references the lxp_grant_store symbols."
+do_7 = "Attempt 4 scanned every kernel suite for lxp_grant_store and failed on live uses in tests/ledger/test_receive.c:78, :149, :233, tests/ledger/test_send_allowance.c:265, :317 and tests/protocol/lxp_test_terminal_rejection.c:780, :803: the grant store is a live kernel type until task 1.12.1 (wave 30) deletes src/ledger/lxp_grant_store.c and src/ledger/lxp_receive.c. Per decision.1911, test_no_receive_or_grant_store_caller asserts that tests/test_gateway_receive.c is absent and scans only tests/modules/test_asset_registry.c (the file do_1 edits) for lxp_grant_store and the symbols of the deleted payer grant read case; do_6 is superseded by this entry."
 
 [task.16.97.2]
 title = "Gate the deletion of the arbiter authority, web intake, layerxd and bridge credit suites"
@@ -174477,7 +174487,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.97.2]
 title = "Replace the explorer anchors and receipts route rows with the archive routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["17.0.1", "14.0.4"]
@@ -174939,7 +174949,7 @@ symbols = ["reclaim_request", "every_reclaim_mechanism_uses_real_agent_receipts_
 touches = ["services/human/crates/layerx-human-service/tests/reclaim.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/reclaim.rs::every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity"]
 planned_paths = []
-build_cmd = "cd services/human && cargo build --locked -p layerx-human-service"
+build_cmd = "cd services/human && cargo build --locked -p layerx-human-service --test reclaim"
 verify_cmd = "cd services/human && cargo test --locked -p layerx-human-service --test reclaim"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -174952,6 +174962,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The build_cmd compiles the reclaim test target (decision.1910); attempt 5 (769a2f8f9) built and merges onto main without conflict, and its remaining failures at tests/reclaim.rs:136 and tests/journey_faults.rs:913 are the 64-byte kernel-envelope fixtures and the defund leg that task 18.1149.1 do_2 and do_3 port."
 
 [req.18983]
 title = "Keep the reclaim integration test compiling against the nonce contract"
@@ -190591,7 +190602,7 @@ qualification = "UNRUN"
 
 [task.18.1273.1]
 title = "Issue #1273: Port the recording web payer of the MCP web tests to the ledger grant builder so the web test target compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190859,7 +190870,7 @@ qualification = "UNRUN"
 
 [task.18.1293.1]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the Rust and Go SDK envelopes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191984,7 +191995,7 @@ qualification = "UNRUN"
 
 [task.18.1300.1]
 title = "Issue #1300: Drop the deleted withholding call from lxp_guarantor_process_batch so the core binaries link again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -192027,7 +192038,7 @@ qualification = "UNRUN"
 
 [task.18.1268.1]
 title = "Issue #1268: Pin the Swift V5 portable vector to the V1 and V4 source keys instead of the key each bundle carries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192079,7 +192090,7 @@ qualification = "UNRUN"
 
 [task.18.1269.1]
 title = "Issue #1269: Verify the published V5 compact bundle bytes in Swift and compare export() with them byte for byte"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1268.1"]
@@ -192122,7 +192133,7 @@ qualification = "UNRUN"
 
 [task.18.1263.1]
 title = "Issue #1263: Make Swift ProgramsClient.activity fetch and verify the sequencer receipt and report pending, executed or refused"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192175,7 +192186,7 @@ qualification = "UNRUN"
 
 [task.18.1264.1]
 title = "Issue #1264: Return the idempotency key and recorded result from Swift ProgramsClient.receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1263.1"]
@@ -192217,7 +192228,7 @@ qualification = "UNRUN"
 
 [task.18.1255.1]
 title = "Issue #1255: Send agent envelope version 1 from the Swift SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192259,7 +192270,7 @@ qualification = "UNRUN"
 
 [task.18.1256.1]
 title = "Issue #1256: Decode the daemon's agent success and refusal bodies in the Swift SDK without a response version field"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1255.1"]
@@ -192415,7 +192426,7 @@ qualification = "UNRUN"
 
 [task.18.1252.1]
 title = "Issue #1252: Restore the generated Swift ReceiptContract.swift to the exact generator output and gate it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192499,7 +192510,7 @@ qualification = "UNRUN"
 
 [task.18.1291.2]
 title = "Issue #1291: Verify sandbox submission receipts against the mounted lxphost store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1291.1", "18.1288.1"]
