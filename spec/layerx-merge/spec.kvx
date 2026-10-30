@@ -121932,7 +121932,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.8]
 title = "Check the wallet gateway unserved list against the registered constructors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.3", "6.6.5", "12.0.3", "12.13.1"]
