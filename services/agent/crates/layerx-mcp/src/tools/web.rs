@@ -511,6 +511,10 @@ pub trait WebPayer {
         Err(WebPayerError::Refused)
     }
 
+    fn standing_grant(&mut self, _terms: &GrantTerms) -> Result<Option<[u8; 32]>, WebPayerError> {
+        Ok(None)
+    }
+
     fn grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
         let grant = self.sign_grant(terms)?;
         terms.prepare_grant(&grant)
@@ -644,6 +648,62 @@ fn sequence_result(result: &[u8]) -> Result<u64, WebPayerError> {
             .try_into()
             .map_err(|_| WebPayerError::Refused)?,
     ))
+}
+
+#[allow(non_snake_case)]
+fn getPayerGrant(payer: &mut dyn WebPayer, id: [u8; 32]) -> Result<Grant, WebPayerError> {
+    let bytes = payer.view(&payment_call(
+        PrecompileTarget::Ledger,
+        "getPayerGrant(bytes32)",
+        vec![id],
+    ))?;
+    let decode = || -> Option<Grant> {
+        const HEAD_BYTES: usize = 7 * 32;
+        const GRANT_BYTES: usize = 346;
+        let head = bytes.get(..HEAD_BYTES)?;
+        let word = |index: usize, width: usize| -> Option<u128> {
+            let bytes = head.get(index * 32..(index + 1) * 32)?;
+            if bytes[..32 - width].iter().any(|byte| *byte != 0) {
+                return None;
+            }
+            Some(u128::from_be_bytes(bytes[16..].try_into().ok()?))
+        };
+        if word(0, 8)? != HEAD_BYTES as u128 || word(5, 1)? > 1 || word(6, 1)? > 1 {
+            return None;
+        }
+        word(1, 16)?;
+        word(2, 16)?;
+        word(3, 8)?;
+        word(4, 8)?;
+        let length_word = bytes.get(HEAD_BYTES..HEAD_BYTES + 32)?;
+        if length_word[..24].iter().any(|byte| *byte != 0) {
+            return None;
+        }
+        let length =
+            usize::try_from(u64::from_be_bytes(length_word[24..].try_into().ok()?)).ok()?;
+        if length > GRANT_BYTES {
+            return None;
+        }
+        let start = HEAD_BYTES + 32;
+        let end = start + length;
+        if bytes.len() != start + length.div_ceil(32) * 32
+            || bytes[end..].iter().any(|byte| *byte != 0)
+        {
+            return None;
+        }
+        match Payment::decode(
+            ModuleId::Asset,
+            GRANT_OPERATION,
+            bytes.get(start..end)?,
+            b"",
+        )
+        .ok()?
+        {
+            Payment::IssueGrant(grant) => Some(grant),
+            _ => None,
+        }
+    };
+    decode().ok_or(WebPayerError::Refused)
 }
 
 fn unix_seconds() -> Result<u64, WebToolError> {
@@ -1189,6 +1249,23 @@ impl WebPlane<'_, '_> {
                         .and_then(unhex32)
                         .filter(|id| *id != [0; 32])
                         .ok_or(WebToolError::OfferMismatch("grant_id"))?
+                } else if let Some(id) = self
+                    .payer
+                    .standing_grant(&terms)
+                    .map_err(WebToolError::Payer)?
+                {
+                    let grant = getPayerGrant(self.payer, id).map_err(WebToolError::Payer)?;
+                    if grant.id != id
+                        || !facts.payer_accounts.contains(&grant.from)
+                        || grant.recipient != facts.pay_to
+                        || grant.asset != facts.asset
+                        || grant.purpose_hash != terms.purpose_hash
+                        || grant.per_draw_maximum < facts.amount
+                        || grant.allowance < facts.amount
+                    {
+                        return Err(WebToolError::PaymentArtifact("standing_grant"));
+                    }
+                    return Ok(json!({ "grantId": hex(&id), "idempotencyKey": hex(&key) }));
                 } else {
                     let prepared = self.payer.grant(&terms).map_err(WebToolError::Payer)?;
                     let [AbiArgument::Bytes(payload)] = prepared.arguments.as_slice() else {
@@ -1964,4 +2041,440 @@ fn unhex32(text: &str) -> Option<[u8; 32]> {
         output[index] = u8::from_str_radix(pair, 16).ok()?;
     }
     Some(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_agentd::capability::CapabilityId;
+    use layerx_agentd::session::SessionId;
+    use layerx_agentd::store::TenantId;
+    use layerx_types::ids::Did;
+    use std::io::{BufRead as _, BufReader};
+    use std::net::TcpListener;
+    use std::thread::{self, JoinHandle};
+
+    fn fixture(name: &str) -> Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../services/interop/crates/x-websearch/tests/fixtures")
+            .join(name);
+        serde_json::from_slice(
+            &std::fs::read(path).unwrap_or_else(|error| panic!("fixture: {error}")),
+        )
+        .unwrap_or_else(|error| panic!("fixture JSON: {error}"))
+    }
+
+    fn text(value: &Value) -> &str {
+        value.as_str().unwrap_or_else(|| panic!("fixture string"))
+    }
+
+    fn word(value: &Value) -> [u8; 32] {
+        parse_hex32(text(value)).unwrap_or_else(|error| panic!("fixture word: {error:?}"))
+    }
+
+    fn recorded_grant(name: &str) -> Value {
+        fixture("gateway/metered.json")["ledger"]["grants"]
+            .as_array()
+            .and_then(|grants| grants.iter().find(|grant| grant["name"] == name))
+            .cloned()
+            .unwrap_or_else(|| panic!("recorded grant {name}"))
+    }
+
+    fn replay_search(requests: usize) -> (String, JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("replay listener: {error}"));
+        let endpoint = format!(
+            "http://{}",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("replay address: {error}"))
+        );
+        let authority = endpoint[7..].to_owned();
+        let handle = thread::spawn(move || {
+            let exchange = fixture("client-exchange.json");
+            for stream in listener.incoming().take(requests) {
+                let mut stream = stream.unwrap_or_else(|error| panic!("replay accept: {error}"));
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap_or_else(|error| panic!("replay timeout: {error}"));
+                let mut reader = BufReader::new(&stream);
+                let mut line = String::new();
+                reader
+                    .read_line(&mut line)
+                    .unwrap_or_else(|error| panic!("request: {error}"));
+                let rpc = line.starts_with("POST /rpc ");
+                if !rpc {
+                    assert_eq!(line, "GET /search?q=paxeer HTTP/1.1\r\n");
+                }
+                let mut length = 0;
+                let mut signature = None;
+                loop {
+                    let mut line = String::new();
+                    reader
+                        .read_line(&mut line)
+                        .unwrap_or_else(|error| panic!("header: {error}"));
+                    if line == "\r\n" {
+                        break;
+                    }
+                    let (name, value) = line
+                        .trim_end()
+                        .split_once(':')
+                        .unwrap_or_else(|| panic!("request header"));
+                    if name.eq_ignore_ascii_case("Content-Length") {
+                        length = value
+                            .trim()
+                            .parse::<usize>()
+                            .unwrap_or_else(|error| panic!("request length: {error}"));
+                    }
+                    if name.eq_ignore_ascii_case(PAYMENT_SIGNATURE) {
+                        signature = decode_header::<Value>(value.trim());
+                    }
+                }
+                let mut body = vec![0; length];
+                reader
+                    .read_exact(&mut body)
+                    .unwrap_or_else(|error| panic!("request body: {error}"));
+                let (status, headers, body) = if rpc {
+                    let request: Value = serde_json::from_slice(&body)
+                        .unwrap_or_else(|error| panic!("account request: {error}"));
+                    let accepted = &exchange["exchange"][1]["request"]["headers"]
+                        [PAYMENT_SIGNATURE]["accepted"];
+                    let owner = address_word([0xab; 20]);
+                    assert_eq!(
+                        request,
+                        json!({
+                            "jsonrpc": "2.0", "id": 1, "method": "eth_call",
+                            "params": [{"to": "0x000000000000000000000000000000000000101a",
+                                "data": format!("0x3f050cbc{}{}", hex(&owner), text(&accepted["asset"]))}, "pending"],
+                        })
+                    );
+                    (
+                        200,
+                        Vec::new(),
+                        json!({"jsonrpc": "2.0", "id": 1,
+                        "result": format!("0x{}", text(&accepted["extra"]["layerx"]["payer"]))}),
+                    )
+                } else if let Some(signature) = signature {
+                    let expected =
+                        &exchange["exchange"][1]["request"]["headers"][PAYMENT_SIGNATURE];
+                    assert_eq!(signature["x402Version"], expected["x402Version"]);
+                    assert_eq!(signature["accepted"], expected["accepted"]);
+                    assert_eq!(signature["payload"], expected["payload"]);
+                    let response = &exchange["exchange"][1]["response"];
+                    (
+                        200,
+                        vec![(
+                            PAYMENT_RESPONSE,
+                            STANDARD.encode(response["headers"][PAYMENT_RESPONSE].to_string()),
+                        )],
+                        response["body"].clone(),
+                    )
+                } else {
+                    let response = &exchange["exchange"][0]["response"];
+                    let mut required = response["headers"][PAYMENT_REQUIRED].clone();
+                    required["resource"]["url"] =
+                        json!(format!("http://{authority}/search?q=paxeer"));
+                    (
+                        402,
+                        vec![(PAYMENT_REQUIRED, STANDARD.encode(required.to_string()))],
+                        response["body"].clone(),
+                    )
+                };
+                let body = body.to_string();
+                write!(
+                    stream,
+                    "HTTP/1.1 {status} Replay\r\nConnection: close\r\nContent-Length: {}\r\n",
+                    body.len()
+                )
+                .unwrap_or_else(|error| panic!("response: {error}"));
+                for (name, value) in headers {
+                    write!(stream, "{name}: {value}\r\n")
+                        .unwrap_or_else(|error| panic!("response header: {error}"));
+                }
+                write!(stream, "\r\n{body}")
+                    .unwrap_or_else(|error| panic!("response body: {error}"));
+            }
+        });
+        (endpoint, handle)
+    }
+
+    struct StandingPayer {
+        id: [u8; 32],
+        record: Vec<u8>,
+        views: usize,
+        issues: usize,
+        draws: usize,
+        submissions: usize,
+    }
+
+    impl StandingPayer {
+        fn recorded(name: &str) -> Self {
+            let grant = recorded_grant(name);
+            Self {
+                id: word(&grant["grantId"]),
+                record: unhex_bytes(text(&grant["result"]))
+                    .unwrap_or_else(|| panic!("grant record")),
+                views: 0,
+                issues: 0,
+                draws: 0,
+                submissions: 0,
+            }
+        }
+    }
+
+    impl WebPayer for StandingPayer {
+        fn standing_grant(
+            &mut self,
+            _terms: &GrantTerms,
+        ) -> Result<Option<[u8; 32]>, WebPayerError> {
+            Ok(Some(self.id))
+        }
+
+        fn view(&mut self, call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
+            self.views += 1;
+            assert_eq!(
+                call.target.address(),
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a]
+            );
+            assert_eq!(call.selector, [0x42, 0x3f, 0xe4, 0xb2]);
+            assert_eq!(call.arguments, vec![AbiArgument::Word(self.id)]);
+            Ok(self.record.clone())
+        }
+
+        fn grant(&mut self, _terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
+            self.issues += 1;
+            Err(WebPayerError::Refused)
+        }
+
+        fn draw(
+            &mut self,
+            _terms: &GrantTerms,
+            _id: [u8; 32],
+        ) -> Result<PrecompileCall, WebPayerError> {
+            self.draws += 1;
+            Err(WebPayerError::Refused)
+        }
+
+        fn submit(&mut self, _call: &PrecompileCall) -> Result<ExactPayment, WebPayerError> {
+            self.submissions += 1;
+            Err(WebPayerError::Unavailable)
+        }
+    }
+
+    #[derive(Default)]
+    struct IssuingPayer {
+        terms: Option<GrantTerms>,
+        submissions: Vec<PrecompileCall>,
+    }
+
+    impl WebPayer for IssuingPayer {
+        fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
+            self.terms = Some(terms.clone());
+            let signer = SigningKey::from_bytes(&[31; 32]);
+            let mut grant = Grant {
+                id: [0; 32],
+                from: terms.payer_account,
+                recipient: terms.recipient,
+                asset: terms.asset,
+                per_draw_maximum: terms.amount,
+                allowance: terms.amount,
+                recurring: false,
+                window_length: 0,
+                expiration: terms.expires_at_ms,
+                purpose_hash: terms.purpose_hash,
+                has_reference: true,
+                reference_hash: terms.idempotency_key,
+                revocation_sequence: 0,
+                public_key: signer.verifying_key().to_bytes(),
+                signature: [0; 64],
+            };
+            grant.id = grant.signing_digest().map_err(|_| WebPayerError::Refused)?;
+            grant.signature = signer.sign(&grant.id).to_bytes();
+            Ok(grant)
+        }
+
+        fn submit(&mut self, call: &PrecompileCall) -> Result<ExactPayment, WebPayerError> {
+            self.submissions.push(call.clone());
+            Err(WebPayerError::Unavailable)
+        }
+    }
+
+    #[test]
+    fn standing_grant_settles_metered_offer_without_issue() {
+        let buyer = fixture("gateway/buyer.json");
+        let exchange = fixture("client-exchange.json");
+        let signature = &exchange["exchange"][1]["request"]["headers"][PAYMENT_SIGNATURE];
+        let key = word(&signature["payload"]["idempotencyKey"]);
+        let call = WebCall {
+            operation: WebOperation::Search(WebSearch {
+                query: "paxeer".to_owned(),
+            }),
+            currency: Currency::Sid,
+            scheme: Scheme::Metered,
+            idempotency_key: key,
+        };
+        let registry = ApprovalRegistry::default();
+        let approval = WebApproval {
+            registry: &registry,
+            policy: ApprovalPolicy {
+                amount_threshold: u128::MAX,
+            },
+            context: ApprovalContext {
+                tenant: TenantId::new("standing-grant-test")
+                    .unwrap_or_else(|error| panic!("tenant: {error}")),
+                agent: Did::new(text(&buyer["payerDid"]).as_bytes())
+                    .unwrap_or_else(|error| panic!("payer DID: {error:?}")),
+                session: SessionId([7; 32]),
+                capability: CapabilityId([9; 32]),
+                policy_version: "policy-v1".to_owned(),
+                request_id: key,
+            },
+            current_sequence: 10,
+        };
+        let config = |endpoint: &str| {
+            WebConfig::new(
+                endpoint,
+                text(&buyer["payerDid"]),
+                text(&exchange["exchange"][0]["request"]["headers"][PAYER_ADDRESS]),
+                unhex20(text(
+                    &fixture("gateway/metered.json")["ledger"]["receiverAddress"],
+                ))
+                .unwrap_or_else(|| panic!("receiver address")),
+                "eip155:125",
+                word(&buyer["sequencerPublicKey"]),
+                word(&buyer["sequencerId"]),
+                buyer["firstBatchNumber"]
+                    .as_u64()
+                    .unwrap_or_else(|| panic!("first batch")),
+                buyer["lastBatchNumber"]
+                    .as_u64()
+                    .unwrap_or_else(|| panic!("last batch")),
+                Duration::from_secs(5),
+                1,
+            )
+            .unwrap_or_else(|error| panic!("web config: {error:?}"))
+        };
+
+        let (endpoint, replay) = replay_search(4);
+        let mut payer = StandingPayer::recorded("SID");
+        assert_eq!(payer.id, word(&signature["payload"]["grantId"]));
+        let outcome = web_tool(&config(&endpoint), &call, &approval, &mut payer)
+            .unwrap_or_else(|error| panic!("standing settlement: {error:?}"));
+        replay
+            .join()
+            .unwrap_or_else(|error| panic!("replay: {error:?}"));
+        assert_eq!(
+            (payer.views, payer.issues, payer.draws, payer.submissions),
+            (1, 0, 0, 0)
+        );
+        let settlement = outcome.settlement.unwrap_or_else(|| panic!("settlement"));
+        let response = &exchange["exchange"][1]["response"]["headers"][PAYMENT_RESPONSE];
+        assert_eq!(settlement.transaction, text(&response["transaction"]));
+        assert_eq!(settlement.amount, 3114);
+        assert_eq!(
+            settlement.receipt_digest,
+            word(&response["extensions"]["layerx"]["receiptDigest"])
+        );
+        assert!(
+            matches!(outcome.result, WebResult::Search { opaque_results } if !opaque_results.is_empty())
+        );
+
+        for name in ["lowLimit", "otherPurpose", "otherRecipient"] {
+            let (endpoint, replay) = replay_search(3);
+            let mut payer = StandingPayer::recorded(name);
+            assert!(
+                matches!(
+                    web_tool(&config(&endpoint), &call, &approval, &mut payer),
+                    Err(WebToolError::PaymentArtifact("standing_grant"))
+                ),
+                "{name}"
+            );
+            replay
+                .join()
+                .unwrap_or_else(|error| panic!("replay: {error:?}"));
+            assert_eq!(
+                (payer.views, payer.issues, payer.draws, payer.submissions),
+                (1, 0, 0, 0)
+            );
+        }
+
+        for field in ["id", "from", "asset", "allowance"] {
+            let mut payer = StandingPayer::recorded("SID");
+            let id = payer.id;
+            let mut grant = getPayerGrant(&mut payer, id)
+                .unwrap_or_else(|error| panic!("recorded grant: {error:?}"));
+            match field {
+                "from" => grant.from = [0x11; 32],
+                "asset" => grant.asset = [0x22; 32],
+                "allowance" => grant.allowance = 3113,
+                "id" => (),
+                _ => unreachable!(),
+            }
+            let signer = SigningKey::from_bytes(&[31; 32]);
+            grant.public_key = signer.verifying_key().to_bytes();
+            grant.id = grant
+                .signing_digest()
+                .unwrap_or_else(|error| panic!("grant digest: {error:?}"));
+            grant.signature = signer.sign(&grant.id).to_bytes();
+            if field != "id" {
+                payer.id = grant.id;
+            }
+            let payload = Payment::IssueGrant(grant)
+                .encode(b"")
+                .unwrap_or_else(|error| panic!("grant encoding: {error:?}"));
+            payer.record[256..256 + payload.len()].copy_from_slice(&payload);
+            payer.views = 0;
+            let (endpoint, replay) = replay_search(3);
+            assert!(
+                matches!(
+                    web_tool(&config(&endpoint), &call, &approval, &mut payer),
+                    Err(WebToolError::PaymentArtifact("standing_grant"))
+                ),
+                "{field}"
+            );
+            replay
+                .join()
+                .unwrap_or_else(|error| panic!("replay: {error:?}"));
+            assert_eq!(
+                (payer.views, payer.issues, payer.draws, payer.submissions),
+                (1, 0, 0, 0)
+            );
+        }
+
+        let (endpoint, replay) = replay_search(3);
+        let mut payer = IssuingPayer::default();
+        assert!(matches!(
+            web_tool(&config(&endpoint), &call, &approval, &mut payer),
+            Err(WebToolError::Payer(WebPayerError::Unavailable))
+        ));
+        replay
+            .join()
+            .unwrap_or_else(|error| panic!("replay: {error:?}"));
+        let terms = payer.terms.clone().unwrap_or_else(|| panic!("issue terms"));
+        assert_eq!(payer.standing_grant(&terms), Ok(None));
+        assert_eq!(payer.submissions.len(), 1);
+        let submitted = &payer.submissions[0];
+        let [AbiArgument::Bytes(payload)] = submitted.arguments.as_slice() else {
+            panic!("issue payload")
+        };
+        let Payment::IssueGrant(grant) = Payment::decode(
+            ModuleId::Asset,
+            GRANT_OPERATION,
+            payload,
+            terms.payer_did.as_bytes(),
+        )
+        .unwrap_or_else(|error| panic!("signed issue: {error:?}")) else {
+            panic!("issue grant")
+        };
+        assert_eq!(
+            *submitted,
+            terms
+                .prepare_grant(&grant)
+                .unwrap_or_else(|error| panic!("prepare issue: {error:?}"))
+        );
+        assert_eq!(grant.allowance, 3114);
+        assert_eq!(grant.reference_hash, key);
+        assert_ne!(grant.id, word(&signature["payload"]["grantId"]));
+    }
 }
