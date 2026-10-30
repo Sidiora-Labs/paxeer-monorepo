@@ -118127,7 +118127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.54.4]
 title = "Retire the LNI and allowance daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["5.0.3", "16.0.3"]
@@ -169944,7 +169944,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.24.5]
 title = "Declare performance bounds in every paxload profile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["16.24.4", "16.24.3"]
