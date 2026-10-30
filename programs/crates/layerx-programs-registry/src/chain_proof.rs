@@ -1,18 +1,18 @@
-pub mod proto;
-pub mod merkle {}
-pub mod ics23 {}
-pub mod ics23_absent {}
-pub mod multistore {}
+pub mod decode;
 pub mod ed25519;
+pub mod head_verify;
 pub mod header;
+pub mod ics23;
+pub mod ics23_absent;
+pub mod merkle;
+pub mod multistore;
+pub mod proto;
+pub mod results;
+pub mod state;
+pub mod trust;
+pub mod tx;
 pub mod validators;
 pub mod vote;
-pub mod decode {}
-pub mod head_verify;
-pub mod state {}
-pub mod tx {}
-pub mod results {}
-pub mod trust {}
 pub mod trust_store {}
 
 pub use head_verify::ChainProofVerifier;
