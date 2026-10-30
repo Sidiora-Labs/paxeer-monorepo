@@ -12547,3 +12547,171 @@ symbol = "startup_refuses_a_chain_id_mismatch"
 observed = "Attempts 1 (227f0d0fe) and 2 (a568af4c5) both fail with `set LAYERX_AGENT_NODE_RPC_URL to the integrated devnet JSON-RPC endpoint`, because the test reads a variable no environment exports instead of LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT (decision.1896)."
 assumption = "Reading the decision.1896 variables makes the environment that runs the gates provide the in-tree node; no attempt has exercised that yet."
 severity = "task"
+
+[finding.18.1228.1.4]
+task = "18.1228.1"
+file = "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:369"
+symbol = "OperationClass::for_operation, resolve"
+observed = "Attempt 6 (0be1b800c) is the first attempt to reach the verify, after attempts 2-5 (ecd1749e6, 22bfbbffd, 99dc4f3fc, beb1eb527) stopped in the build. It passes revocation but fails five tenant_resolve tests at unchanged lines :215, :369, :456, :540 and :586, because resolve refuses supplied tenants since ae4fbabcf and d796727bb (9.7.3) classified AgentRegister and SessionOpen as Prepare."
+assumption = "The source contract is authoritative (the stable require_caller_coordinates interface and 9.7.3 do_1), so do_9 and do_10 port the stale tenant_resolve expectations and lift do_3 for those lines only."
+severity = "owner"
+
+[finding.18.1200.1.6]
+task = "18.1200.1"
+file = "cmd/layerxd/lxp_daemon_finality_authority.c:540"
+symbol = "lxp_finality_authority_bind"
+observed = "Attempt 11 (593fa04a4, the attempt 10 candidate bab94e872 unchanged on 265e0cc8d) passes the 18.1298.1 root fix (migration 9/9, operator 6/7), but the real-authority operator test panics at tests/support/real_authority.rs:493 because layerxd --serve exits -213 at the finality authority stage, whose threshold() and latestFinalized() reads of 0x1014 revert 'anchor module is not wired' on the in-tree node since fc5bb55cf (5.7.2) made AnchorK return nil (node/precompiles.go:127), as 10.20.3 attempt 15 (e299ec5de, same base) captured."
+assumption = "No layerx-agentd test that starts layerxd --serve can pass on the merged chain until an owner-ruled task removes the finality authority stage from layerxd startup (today only 5.50.4, pending wave 30) or retargets the real-authority fixture; the seven task files need no change."
+severity = "owner"
+
+[finding.10.20.3.9]
+task = "10.20.3"
+file = "cmd/layerxd/lxp_daemon_finality_authority.c:540"
+symbol = "lxp_finality_authority_bind"
+observed = "Attempt 15 (e299ec5de, the attempt 14 candidate 0548c127f unchanged on 265e0cc8d) builds all three build_cmd members and both startup tests fail because layerxd --serve exits 1 with 'bootstrap finality authority failed with result -213': threshold() and latestFinalized() on 0x1014 revert 'anchor module is not wired' because fc5bb55cf (5.7.2) made AnchorK return nil (node/precompiles.go:127), the same exit 18.1200.1 attempt 11 (593fa04a4) met on the same base."
+assumption = "finding.10.20.3.8 read the refusal as an environment answer; it is the product's own retired anchor module, so no layerxd --serve start passes until task 5.7.3 (decision.1944) removes the finality authority stage, and the task files need no change."
+severity = "owner"
+
+[finding.17.5.1.8]
+task = "17.5.1"
+file = "services/human/tools/api-gen/tests/generation.rs:183"
+symbol = "generated_client_covers_every_schema_declaration"
+observed = "Attempt 9 (14a682e57, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_0_gate.py::test_wave_0_gate_passes exit 1, logs/waves/0/wave-0-2.log) exited 2 in make workspace-build at human-build (Makefile:1958), where generation.rs:183 compares 84 planned operations with 95 declared sections because c51f67b3b (10.15.2) retires eleven that b7a323711 (10.16.1) skips; attempt 8 (8b976bd00) ran on c64af01ce, the first base past the agent-build break that hid it."
+assumption = "17.5.1 requires the fm-human task that aligns generation.rs and retired_operations.rs with the minor-10 retirement and re-qualifies the attempt 9 test unchanged; make workspace-lint has not yet run on any attempt."
+severity = "owner"
+
+[finding.17.5.2.8]
+task = "17.5.2"
+file = "services/human/tools/api-gen/tests/generation.rs:183"
+symbol = "generated_client_covers_every_schema_declaration"
+observed = "Attempts 8 (0cf367b66, base c64af01ce) and 9 (c62f113af, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_1_gate.py::test_wave_1_gate_passes exit 1, logs/waves/1/wave-1-1.log) exited 2 in make workspace-build at human-build (Makefile:1958) with left 84 right 95 at generation.rs:183, the operation count c51f67b3b (10.15.2) and b7a323711 (10.16.1) left stale."
+assumption = "17.5.2 requires the fm-human repair task and re-qualifies the attempt 9 test unchanged; steps 2 to 4 have not yet run on any attempt."
+severity = "owner"
+
+[finding.17.5.3.4]
+task = "17.5.3"
+file = "services/human/tools/api-gen/tests/generation.rs:183"
+symbol = "generated_client_covers_every_schema_declaration"
+observed = "Attempt 7 (e97a1e588, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_2_gate.py::test_wave_2_gate_passes exit 1, logs/waves/2/wave-2-1.log) exited 2 in make workspace-build at human-build (Makefile:1958) with left 84 right 95 at generation.rs:183, the same stale operation count as 17.5.2 attempt 9 (c62f113af) on the same base; attempt 6 (e7b9f1825) ran on c64af01ce."
+assumption = "17.5.3 requires the fm-human repair task and re-qualifies the attempt 7 test unchanged; steps 2 to 4 have not yet run on any attempt."
+severity = "owner"
+
+[finding.17.5.4.3]
+task = "17.5.4"
+file = "services/human/tools/api-gen/tests/generation.rs:183"
+symbol = "generated_client_covers_every_schema_declaration"
+observed = "Attempts 6 (6e73533de, base c64af01ce) and 7 (3e5283efb, base f352b312c; python3 -m pytest spec/layerx-merge/programme/tests/test_wave_3_gate.py::test_wave_3_gate_passes exit 1, logs/waves/3/wave-3-1.log) exited 2 in make workspace-build at human-build (Makefile:1958) with left 84 right 95 at generation.rs:183, the operation count c51f67b3b (10.15.2) and b7a323711 (10.16.1) left stale."
+assumption = "17.5.4 requires the fm-human repair task and re-qualifies the attempt 7 test unchanged; the later wave 3 steps have not yet run on any attempt."
+severity = "owner"
+
+[finding.18.1204.2.1]
+task = "18.1204.2"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:346"
+symbol = "decode_method"
+observed = "Attempts 1-4 (3a3c2e5a8, c1051615b, ac141c94c, e82aacfbb; attempts 2-4 identical under services/) build and fail finalization_evidence_reports_the_runtime_rung at tests/agent_creation_rungs.rs:42 with Refused('invalid creation transaction disclosure') from agent_creation.rs:52, because bind_call admits only budgetDefund on 0x101B and no call discloses ActivityType Budget 1, which bound_activity (create.rs:545) requires."
+assumption = "Per decision.1946 the budgetCreate disclosure in bind_call (do_5, do_6), its projection in create.rs and agent_creation.rs (do_7) and the sender actor binding (do_8) belong to this task, whose touches gain call.rs and create.rs; the attempt 4 candidate continues."
+severity = "owner"
+
+[finding.13.8.1.3]
+task = "13.8.1"
+file = "programs/fixtures/pay5/native_roundtrip.h:479"
+symbol = "pay5_merchant_roundtrip first layerx_call expectation"
+observed = "Attempt 5 (b4711d7c9, the attempt 4 change f833e146c on base 265e0cc8d) ran the do_8 --write-fixtures step once: the token case exited 0 but rewrote the native-token 08 .terminal and .callgraph and 09 .terminal, and the merchant case exited 1 at native_roundtrip.h:479 with 'PAY5 layerx_call expected=-3 actual=-736', so the do_8 stop rule fired and no build or verify ran."
+assumption = "867cb1560 (13.27.5 do_5) changed the settlement-failure tag of kernel-refused transfers from 9 to 7 and the kernel at the base refuses the funding-only merchant call with LXP_ERR_PROGRAM_REFUSED (introducing commit not established; 5bf62ad89 suspected); decision.1947 sets the header expectation and narrows the byte-identity rule (do_9, do_10)."
+severity = "cross-task"
+
+[finding.18.1211.2.3]
+task = "18.1211.2"
+file = "services/interop/crates/layerx-x402/tests/layerx_evidence.rs:203-216"
+symbol = "committed_evidence_without_block_fields_is_refused"
+observed = "Attempt 6 (f8608e045, continuing bda733b9a with do_6) passed lib, buyer, buyer_sequencer, evidence_format and facilitator_evidence and failed layerx_evidence with Error: EvidenceMismatch from the ? capture of a committed response that carries blockNumber and blockHash but no proof (candidate :249, main :204), because d0e763338 (11.5.2) made capture_settlement require a verifying proof for the committed rung (src/buyer.rs:466-493); tests/seller.rs a_committed_exact_settlement_round_trips_to_the_buyer (:1104-1151) builds a proof-less committed rung that 0bfaed5da (18.1180.1) refuses at src/seller.rs:329-337, and that binary was not reached."
+assumption = "Decision 1948 adds do_7 and do_8 setting the proof-less committed cases to EvidenceMismatch; the attempt 6 candidate continues."
+severity = "cross-task"
+
+[finding.18.1308.2.2]
+task = "18.1308.2"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "sandbox_profile"
+observed = "Attempt 5 (e172d4190 on base 265e0cc8d) passed both Go legs of build_cmd for the first time after do_10, then exited 127 at swift build with '/bin/sh: 1: swift: not found' (build-2.log:41); attempts 1-4 (ea5d6ad4e, 0e474f40e, 850259b73, 9b339fe5a) never got past http.go:178."
+assumption = "The mixed environment that runs the gates provides only the base toolchains (go, rust, python, node) and no environment provides go, swift, dotnet and mvn together; e172d4190 is re-qualified unchanged once one does."
+severity = "environment"
+
+[finding.9.0.3.3]
+task = "9.0.3"
+file = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211-216"
+symbol = "startup_refuses_a_chain_id_mismatch"
+observed = "At c1598b8a1 the build exits 0 and verify_cmd exits 101 with 2 passed and 1 failed: startup_refuses_a_chain_id_mismatch fails by name with `LAYERX_TEST_PAXEER_CHAIN_ID is required for the in-tree local node`, because the environment that ran the gates started no in-tree node, no file under the task's paths having named the variable before this candidate wrote it."
+assumption = "Re-qualifying c1598b8a1 unchanged lets the environment detect the variable in node_integration.rs, start the decision.1896 node and export LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT; the test is not weakened or skipped."
+severity = "environment"
+
+[finding.18.1309.1.3]
+task = "18.1309.1"
+file = "tools/qualification/localnode/v6120-node.sh:132"
+symbol = "cleanup"
+observed = "Attempt 5 of 18.1309.1 (84dcacf1c, base c64af01ce, candidate unchanged from 8a7140771) passed the build and the five pytest cases, then the history-readiness case failed at tests/explorer/paxeer-x-data-boundary.py:277 with 'history-node-stop exited 1': the --stop helper sent TERM to the feeder, whose EXIT cleanup ran tail -n 40 on feeder.log, its own stderr (v6120-node.sh:407), and was still running 12 s later; the feeder never exited, stop_node failed before it signalled the node, and no earlier gate had run --stop with a live feeder."
+assumption = "On Ubuntu 26.04 tail copies to end of file, so a feeder that tails its own stderr file never exits; with the feed_loop TERM trap setting SUCCESS=1 and cleanup skipping log tails when FEEDER_PROCESS=1 (do_8, v6120-node.sh added to touches), --stop completes and the unchanged candidate proceeds past :277."
+severity = "owner"
+
+[finding.5.94.4.1]
+task = "5.94.4"
+file = "node/precompiles_agent_imports_test.go:11"
+symbol = "TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams"
+observed = "At f6b2cda8e (attempt 2) the build passed and the verify failed with the test redeclared: c833bda08 (5.94.2) already declares it at node/precompiles_agent_imports_test.go:11 with GetCustomPrecompilesE assertions for 0x0903, 0x0905 and 0x0906 that are red on main without the imports, and 5.94.4's touches excluded that file."
+assumption = "5.94.4's touches gain node/precompiles_agent_imports_test.go and do_4 moves the existing test, all assertions kept, into node/precompiles_agent_merge_imports_test.go with the MissingMergeConstructors check added; verify_cmd is unchanged."
+severity = "owner"
+
+[finding.2.38.1.1]
+task = "2.38.1"
+file = "node/precompiles.go"
+symbol = "TestAgentMergeAddressesServedAfterUpgrade"
+observed = "At 5fa86a953 (attempt 2) the verify exited 1 at precompiles/layerxagent/served/served_test.go:72: CustomPrecompiles after MergeUpgrade lacks 0x0903 and 0x0905 because node/precompiles.go:3-38 does not import precompiles/layerxagent/oracle or scheduler; task 5.94.4 owns those imports and 2.38.1 did not require it."
+assumption = "2.38.1 requires 5.94.4 and do_6 records the cause; the candidate test is re-qualified unchanged once 5.94.4 is on the base."
+severity = "cross-task"
+
+[finding.18.1228.1.5]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:70"
+symbol = "ProtocolEvidence::bound_activity"
+observed = "Attempt 8 (fa18da842) builds all seven targets and passes revocation (6) and tenant_resolve (8), then fails agent_controls protocol_and_app_limit_changes_keep_their_real_enforcement_labels at canonical_owner.rs:20 with Refused('invalid signed lifecycle transaction'): since c4739fc6c (10.97.1) bound_activity decodes an EIP-1559 transaction while the fixture signs a kernel owner envelope and bind_call cannot disclose Budget 1."
+assumption = "Task 18.1204.2 supplies the budgetCreate disclosure and sign_transaction, so 18.1228.1 requires it; 18.1228.1 then ports agent_controls.rs, agent_controls_rungs.rs and assert_outcome (do_11 to do_13) with verify_native_owner_outcome replaced per decision.929."
+severity = "cross-task"
+
+[finding.17.5.1.9]
+task = "17.5.1"
+file = "services/human/crates/layerx-explorer-index/src/lib.rs:225"
+symbol = "ProtocolProgramIngestor::ingest"
+observed = "Attempt 11 (778c340aa, base 9f8c07033 with 10.16.4) exited 2 in make workspace-build at human-build (Makefile:1960) with E0631 at lib.rs:225, because IndexError::ProgramProtocolUnavailable (:186) still carries ProtocolAdapterError while a02e09aec (9.94.1) made read_protocol_state return ProgramReadError; 17.5.2 attempt 11, 17.5.3 attempt 9 and 17.5.4 attempt 9 fail identically on the same base, and the api-gen tests that 10.16.4 repaired now pass."
+assumption = "New fm-human task 10.16.5 ports the variant payload; 17.5.1 to 17.5.4 require it, 17.5.2 to 17.5.4 also require 17.5.1 (decision.1949), and the attempt 9 test is re-qualified unchanged; make workspace-lint has not run on any attempt."
+severity = "cross-task"
+
+[finding.2.28.7.1]
+task = "2.28.7"
+file = "precompiles/layerxpay/service_test.go:308"
+symbol = "outcome_agreement"
+observed = "At 8d523de5a (attempt 4) the verify exited 1: all four TestPrecompileServiceWithdrawAbandonAttest/default_* subtests revert with LXP_AGREEMENT_STATE because outcome_agreement (src/modules/service/lx_service_acceptance.c:24-25) refuses an outcome past acceptance_window_end and the hosted lxphost path never runs the epoch or maintenance default sweep; the three task files are byte-identical from attempt 1 to attempt 4."
+assumption = "req.2282 ac_3 needs a hosted default-outcome keeper method (task 2.28.9, decision.1950); 2.28.7 requires it and do_6 routes a late accept or reject to it with every assertion unchanged."
+severity = "cross-task"
+
+[finding.18.1200.1.7]
+task = "18.1200.1"
+file = "cmd/layerxd/lxp_daemon_protocol.c:1122"
+symbol = "lxp_daemon_protocol_owner_attach"
+observed = "Attempt 13 (6ef704375, the attempt 11 candidate unchanged on e8519e92e with 5.7.3 merged) passes migration 9/9 and operator 6/7; the real-authority operator test panics at tests/support/real_authority.rs:493 because layerxd --serve now passes the retired finality-authority stage and exits -3 at the protocol owner binding: lxp_programs_state_feed_store_bind_maintenance (src/modules/programs/feed_store.c:1041-1051) requires a commit observer nothing binds since 38c544316 (1.15.1) deleted lxp_programs_bind_state_feed from lxp_kernel_bind_module_runtime; 10.20.3 attempt 17 fails identically."
+assumption = "Task 5.7.4 (decision.1951) binds the feed observer in the daemon attach; 18.1200.1 and 10.20.3 require it and their candidates need no change; later startup stages and the three unrun targets are unverified."
+severity = "cross-task"
+
+[finding.13.8.1.4]
+task = "13.8.1"
+file = "programs/fixtures/pay5/native-token"
+symbol = "test_native_roundtrip_replays_without_history_feed"
+observed = "Attempt 6 (efa450e95) passed the build and the verify and re-recorded the 28 receipt, callgraph and terminal files under programs/fixtures/pay5/native-token and native-merchant, which touches names as directories; the scope check compared the two entries as file names and refused the candidate."
+assumption = "A touches entry that names a directory covers the files inside it; the attempt 6 candidate is re-qualified unchanged."
+severity = "environment"
+
+[finding.10.20.3.10]
+task = "10.20.3"
+file = "cmd/layerxd/lxp_daemon_protocol.c:1121"
+symbol = "lxp_daemon_protocol_owner_attach"
+observed = "Attempt 17 (19d2b3b6d, the attempt 15 candidate e299ec5de unchanged on e8519e92e with 5.7.3) builds all three build_cmd members, and both startup tests fail because layerxd --serve exits 1 with 'protocol owner module runtime binding failed with result -3': lxp_programs_state_feed_store_bind_maintenance (feed_store.c:1048-1049) finds no commit observer because 38c544316 (1.15.1) removed the only caller of lxp_programs_bind_state_feed; 18.1200.1 attempt 13 meets the same exit."
+assumption = "Task 5.7.4 (decision.1951) binds the daemon's feed store as the commit observer after lxp_kernel_bind_module_runtime without relaxing any feed-store check; this task requires it and re-qualifies the attempt 17 candidate unchanged."
+severity = "cross-task"
