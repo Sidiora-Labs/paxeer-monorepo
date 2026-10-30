@@ -127689,7 +127689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.94.2]
 title = "Check getStateHead and getProgram answer eth_call at an explicit block height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["6.0.2", "13.0.2", "18.1073.1", "18.1130.1"]
@@ -136750,7 +136750,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.44.5]
 title = "Swift SDK retires kernel batch, checkpoint and settlement verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.44.2", "8.44.3", "8.47.7", "8.44.6"]
@@ -136940,7 +136940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.45.3]
 title = "Generators stop rendering /v1/programs lifecycle routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.41.6", "8.42.6", "8.43.6", "8.44.6"]
@@ -138990,7 +138990,7 @@ do_7 = "Deleting Level retypes VerificationStatus, which becomes a type alias of
 
 [task.9.1.5]
 title = "Retire the faucet.claim operation from the agent-api schema and catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["9.15.1", "9.0.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1230.1"]
@@ -156346,7 +156346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.1]
 title = "Build a test chain fixture that signs headers and proves store keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]
@@ -156685,7 +156685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.3]
 title = "Prove the programs protocol head from module state at a chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
@@ -156747,7 +156747,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.5]
 title = "Prove the program wind-down status at a chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
@@ -156778,7 +156778,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.6]
 title = "Derive read freshness from verified header time"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
@@ -156840,7 +156840,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.8]
 title = "Verify a value account snapshot against a verified chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
@@ -156871,7 +156871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.9]
 title = "Verify an interface read directly at a verified chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
