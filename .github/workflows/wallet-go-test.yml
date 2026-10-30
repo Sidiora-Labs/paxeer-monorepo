@@ -39,7 +39,7 @@ permissions:
 jobs:
   attestor:
     name: Attestor
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: services/wallet/attestor
@@ -56,7 +56,7 @@ jobs:
 
   ceremony:
     name: Ceremony
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: services/wallet/ceremony
