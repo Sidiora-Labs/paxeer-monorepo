@@ -11,13 +11,15 @@ use std::task::{Context, Poll, Wake, Waker};
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::boot::{Gate, GateError};
-use layerx_agentd::config::StartupConfig;
+use layerx_agentd::config::{ReceiptKeySource, StartupConfig};
 use layerx_agentd::prepare::{
     prepare_activity, prepare_activity_for_protocol, CorePreparationBoundary, CorePreparationState,
     CoreStateError, PreparationDefaults, PrepareRequest,
 };
 use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, RawStateEvidence};
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit, VerifiedSubmission};
+use layerx_agentd::sign::{
+    attach_kernel_signature, verify_kernel_before_submit, VerifiedSubmission,
+};
 use layerx_agentd::store::TenantId;
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::{sign_disclosed, Signer};
@@ -175,9 +177,9 @@ pub fn verified_submission(id: u8) -> VerifiedSubmission {
         &registry(),
     ))
     .unwrap_or_else(|error| panic!("sign: {error:?}"));
-    let signed_bytes = attach_external_signature(&prepared, *signature.as_bytes())
+    let signed_bytes = attach_kernel_signature(&prepared, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach: {error:?}"));
-    verify_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry())
+    verify_kernel_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry())
         .unwrap_or_else(|error| panic!("verify: {error:?}"))
 }
 
@@ -299,9 +301,9 @@ pub fn budget_create_submission(
         &registry,
     ))
     .unwrap_or_else(|error| panic!("sign: {error:?}"));
-    let signed_bytes = attach_external_signature(&prepared, *signature.as_bytes())
+    let signed_bytes = attach_kernel_signature(&prepared, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach: {error:?}"));
-    verify_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry)
+    verify_kernel_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry)
         .unwrap_or_else(|error| panic!("verify: {error:?}"))
 }
 
@@ -428,10 +430,11 @@ fn try_evidence_authority_mode(
     std::fs::set_permissions(&authority_path, std::fs::Permissions::from_mode(0o600))
         .unwrap_or_else(|error| panic!("authority source permissions: {error}"));
     let tenant = tenant();
+    let readiness_node = real_authority::ReadinessNode::new();
     let config = StartupConfig {
         network_id: policy.network_id,
-        node_endpoint: PathBuf::from("/run/layerx/layerxd.sock"),
-        expected_protocol_version: policy.protocol_version,
+        node_endpoint: readiness_node.config.url.clone(),
+        expected_chain_id: readiness_node.config.chain_id,
         tenants: BTreeSet::from([tenant.clone()]),
         policy_sources: BTreeMap::from([(
             tenant.clone(),
@@ -442,7 +445,7 @@ fn try_evidence_authority_mode(
             PathBuf::from("/etc/layerx/signer-a.kvx"),
         )]),
         verification_defaults: BTreeMap::from([(tenant, VerificationLevel::STATE_PROVEN)]),
-        sequencer_authority_source: authority_path,
+        receipt_key_source: ReceiptKeySource::PinnedFile(authority_path),
     };
     let mut gate = Gate::new(&config)?;
     real_authority::authorize(
@@ -454,6 +457,7 @@ fn try_evidence_authority_mode(
         policy,
         sequencer_id,
         restart.then_some(&config),
+        &readiness_node,
     )?;
     Ok(gate
         .evidence_authority()

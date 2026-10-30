@@ -4,22 +4,27 @@ use std::pin::pin;
 use std::task::{Context, Poll, Waker};
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_crypto::disclosure::bind;
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::payments::{Grant, Payment, TransferLeg};
-use layerx_crypto::send::{
-    encode_payment_envelope, encode_send_envelope, send_context_hash, EnvelopeOptions,
-    SendCondition, SendDebit,
+use layerx_crypto::payments::{
+    bind_call, ledger_payment_call, send_context_hash, CallOptions, Disclosure, Grant, Payment,
+    SendCondition, SendDebit, TransferLeg,
 };
 use layerx_crypto::SignatureMessage;
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
+use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound, UnsignedEnvelope};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
+use layerx_types::limits::{
+    IDENTIFIER_BYTES, MAX_AUTHORITY_BYTES, MAX_DID_BYTES, MAX_PAYLOAD_BYTES,
+};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_wire::activity::encode_unsigned_envelope;
+use layerx_wire::activity::{decode_unsigned, encode_unsigned};
+use layerx_wire::decode::Decoder;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{account_id_for_protocol, Domain};
+use layerx_wire::limits::MAX_MESSAGE_BYTES;
+use layerx_wire::WireError;
 use sha2::{Digest as _, Sha256};
 
 const OWNER_SEED: [u8; 32] = [0x07; 32];
@@ -96,23 +101,157 @@ struct Case {
     amount: u128,
 }
 
-fn options(
-    actor: &str,
-    key: [u8; 32],
-    sequence: u64,
-    idempotency_key: [u8; 32],
-) -> EnvelopeOptions<'_> {
-    EnvelopeOptions {
-        actor,
-        public_key: key,
-        protocol_version: PROTOCOL_VERSION,
-        network_id: NETWORK_ID,
-        identity_sequence: sequence,
-        idempotency_key,
-        fee_limit: 1_000,
-        not_before: NOT_BEFORE,
-        not_after: NOT_AFTER,
+fn options(sequence: u64) -> CallOptions {
+    CallOptions {
+        from: [0x11; 20],
+        chain_id: u64::from(NETWORK_ID),
+        nonce: sequence,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
     }
+}
+
+fn checked<T, E: Debug>(value: Result<T, E>) -> Result<T, String> {
+    value.map_err(|error| format!("{error:?}"))
+}
+
+struct VectorFields {
+    from: [u8; 32],
+    to: [u8; 32],
+    asset: [u8; 32],
+    amount: u128,
+    payload: Vec<u8>,
+}
+
+fn call_fields(disclosure: &Disclosure, amount_index: usize, payload: Vec<u8>) -> VectorFields {
+    VectorFields {
+        from: disclosure.counterparties[0].account,
+        to: disclosure.counterparties[1].account,
+        asset: disclosure.asset,
+        amount: disclosure.amounts[amount_index].value,
+        payload,
+    }
+}
+
+fn vector_fields(case: &Case, actor: &str) -> Result<VectorFields, String> {
+    if case.module == ModuleId::Asset && case.ordinal == 5 {
+        let options = options(case.sequence);
+        let built = checked(ledger_payment_call(&case.payload, &options))?;
+        let disclosure = checked(bind_call(&built.call, options.from))?;
+        assert_eq!(
+            disclosure, built.disclosure,
+            "{}: call disclosure",
+            case.name
+        );
+        assert_eq!(disclosure.signing_digest(), Ok(built.call.signing_hash()));
+        assert_eq!(disclosure.idempotency_key, case.idempotency_key);
+        assert_eq!(disclosure.expiry.payload_expires_at, NOT_AFTER);
+        let payload = built.call.data[68..68 + case.payload.len()].to_vec();
+        return Ok(call_fields(&disclosure, 0, payload));
+    }
+    if case.module == ModuleId::Budget && case.ordinal == 2 {
+        let mut decoder = Decoder::new(&case.payload, 0);
+        let version = checked(decoder.u16())?;
+        let budget_id = checked(decoder.fixed(32))?;
+        let amount = checked(decoder.u128())?;
+        checked(decoder.finish())?;
+        if version != 1 || budget_id != [0x42; 32] || amount == 0 {
+            return Err("invalid budget funding payload".into());
+        }
+        let mut encoder = Encoder::new(50);
+        checked(encoder.u16(version))?;
+        checked(encoder.fixed(budget_id))?;
+        checked(encoder.u128(amount))?;
+        return Ok(VectorFields {
+            from: account(&format!("agent:{actor}:main")),
+            to: account(&format!("agent:{actor}:budget:{}", hex(budget_id))),
+            asset: TOKEN_ASSET,
+            amount,
+            payload: encoder.finish(),
+        });
+    }
+    let payment = checked(Payment::decode(
+        case.module,
+        case.ordinal,
+        &case.payload,
+        actor.as_bytes(),
+    ))?;
+    let payload = checked(payment.encode(actor.as_bytes()))?;
+    match payment {
+        Payment::IssueGrant(_) => {
+            let options = options(case.sequence);
+            let mut data = vec![0xd0, 0xd5, 0x34, 0x80];
+            let mut offset = [0; 32];
+            offset[31] = 32;
+            data.extend_from_slice(&offset);
+            let mut length = [0; 32];
+            length[16..].copy_from_slice(&(payload.len() as u128).to_be_bytes());
+            data.extend_from_slice(&length);
+            data.extend_from_slice(&payload);
+            data.resize(68 + payload.len().div_ceil(32) * 32, 0);
+            let mut to = [0; 20];
+            to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+            let call = Eip1559Call {
+                chain_id: options.chain_id,
+                nonce: options.nonce,
+                max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+                max_fee_per_gas: options.max_fee_per_gas,
+                gas_limit: options.gas_limit,
+                to,
+                data,
+            };
+            let disclosure = checked(bind_call(&call, options.from))?;
+            assert_eq!(disclosure.signing_digest(), Ok(call.signing_hash()));
+            Ok(call_fields(&disclosure, 1, payload))
+        }
+        Payment::ProgramTransfer { program, legs } => {
+            if program != PROGRAM || legs.len() != 1 {
+                return Err("invalid program transfer".into());
+            }
+            let leg = &legs[0];
+            Ok(VectorFields {
+                from: leg.from,
+                to: leg.to,
+                asset: leg.asset,
+                amount: leg.amount,
+                payload,
+            })
+        }
+        _ => Err("unsupported vector payment".into()),
+    }
+}
+
+fn encode_unsigned_envelope(envelope: &UnsignedEnvelope) -> Result<Vec<u8>, WireError> {
+    const FIELD_COUNT: u8 = 11;
+
+    let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
+    encoder.structure_header_version(0x1001, envelope.protocol_version())?;
+    encoder.u8(FIELD_COUNT)?;
+    encoder.tag(1, FIELD_COUNT)?;
+    encoder.u16(envelope.protocol_version())?;
+    encoder.tag(2, FIELD_COUNT)?;
+    encoder.u32(envelope.network_id())?;
+    encoder.tag(3, FIELD_COUNT)?;
+    encoder.u32(envelope.activity_type().value())?;
+    encoder.tag(4, FIELD_COUNT)?;
+    encoder.bytes(envelope.actor_did().as_bytes(), MAX_DID_BYTES)?;
+    encoder.tag(5, FIELD_COUNT)?;
+    encoder.bytes(envelope.authority().as_bytes(), MAX_AUTHORITY_BYTES)?;
+    encoder.tag(6, FIELD_COUNT)?;
+    encoder.u64(envelope.account_sequence())?;
+    encoder.tag(7, FIELD_COUNT)?;
+    encoder.u64(envelope.timestamp_bound().not_before())?;
+    encoder.u64(envelope.timestamp_bound().not_after())?;
+    encoder.tag(8, FIELD_COUNT)?;
+    encoder.bytes(&envelope.idempotency_key().bytes(), IDENTIFIER_BYTES)?;
+    encoder.tag(9, FIELD_COUNT)?;
+    encoder.u128(envelope.fee_limit().value())?;
+    encoder.tag(10, FIELD_COUNT)?;
+    encoder.bytes(&envelope.payload_hash(), IDENTIFIER_BYTES)?;
+    encoder.tag(11, FIELD_COUNT)?;
+    encoder.bytes(envelope.payload().as_bytes(), MAX_PAYLOAD_BYTES)?;
+    Ok(encoder.finish())
 }
 
 fn envelope(case: &Case, actor: &str, key: [u8; 32]) -> (Vec<u8>, ModuleRegistry) {
@@ -341,14 +480,9 @@ fn cases(owner: &[u8; 32], peer: &[u8; 32], actor: &str) -> Vec<Case> {
     let key = idempotency("kernel vector budget fund");
     let budget = account(&format!("agent:{actor}:budget:{}", hex(&[0x42; 32])));
     let mut fund = Encoder::new(512);
-    ok(fund.u16(0x4202), "fund tag");
-    ok(fund.u16(6), "fund fields");
+    ok(fund.u16(1), "fund version");
     ok(fund.fixed(&[0x42; 32]), "fund budget id");
-    ok(fund.fixed(&owner_main), "fund from");
-    ok(fund.fixed(&budget), "fund to");
-    ok(fund.fixed(&[0; 32]), "fund asset");
     ok(fund.u128(250_000), "fund amount");
-    ok(fund.fixed(&key), "fund idempotency");
     out.push(Case {
         name: "budget-fund",
         module: ModuleId::Budget,
@@ -359,7 +493,7 @@ fn cases(owner: &[u8; 32], peer: &[u8; 32], actor: &str) -> Vec<Case> {
         accepted: true,
         from: owner_main,
         to: budget,
-        asset: [0; 32],
+        asset: TOKEN_ASSET,
         amount: 250_000,
     });
 
@@ -428,7 +562,7 @@ fn cases(owner: &[u8; 32], peer: &[u8; 32], actor: &str) -> Vec<Case> {
     out
 }
 
-fn main() {
+fn generated_vectors() -> String {
     let owner = public_key(&OWNER_SEED);
     let peer = public_key(&PEER_SEED);
     let actor = did(&owner);
@@ -445,28 +579,28 @@ fn main() {
     let all = cases(&owner, &peer, &actor);
     for (index, case) in all.iter().enumerate() {
         let (canonical, registry) = envelope(case, &actor, owner);
-        let accepted = bind(&canonical, &registry).is_ok();
-        assert_eq!(accepted, case.accepted, "{}: binder acceptance", case.name);
+        let disclosure = vector_fields(case, &actor);
+        assert_eq!(
+            disclosure.is_ok(),
+            case.accepted,
+            "{}: binder acceptance",
+            case.name
+        );
         if case.accepted {
-            let encoded = if case.module == ModuleId::Asset && case.ordinal == 5 {
-                encode_send_envelope(
-                    &case.payload,
-                    &options(&actor, owner, case.sequence, case.idempotency_key),
-                )
-            } else {
-                encode_payment_envelope(
-                    case.module,
-                    case.ordinal,
-                    &case.payload,
-                    &options(&actor, owner, case.sequence, case.idempotency_key),
-                )
-            };
-            let encoded = ok(encoded, case.name);
+            let disclosure = ok(disclosure, case.name);
+            assert_eq!(disclosure.asset, case.asset, "{}: asset", case.name);
+            assert_eq!(disclosure.from, case.from, "{}: from", case.name);
+            assert_eq!(disclosure.to, case.to, "{}: to", case.name);
+            assert_eq!(disclosure.amount, case.amount, "{}: amount", case.name);
             assert_eq!(
-                encoded.canonical, canonical,
-                "{}: envelope encoder",
+                disclosure.payload, case.payload,
+                "{}: payload encoder",
                 case.name
             );
+            let decoded = ok(decode_unsigned(&canonical, &registry), case.name);
+            assert_eq!(decoded.payload(), disclosure.payload);
+            let encoded = ok(encode_unsigned(&decoded), case.name);
+            assert_eq!(encoded, canonical, "{}: envelope encoder", case.name);
         }
         let preimage = ok(
             SignatureMessage::new(
@@ -502,5 +636,20 @@ fn main() {
     }
     let _ = writeln!(rendered, "  ]");
     let _ = writeln!(rendered, "}}");
-    print!("{rendered}");
+    rendered
+}
+
+fn main() {
+    print!("{}", generated_vectors());
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn generated_vectors_match_pinned_file() {
+        assert_eq!(
+            super::generated_vectors().as_bytes(),
+            include_bytes!("../../kernel_activities.json")
+        );
+    }
 }

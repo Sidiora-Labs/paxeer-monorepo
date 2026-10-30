@@ -5,6 +5,7 @@ import argparse
 import shlex
 import subprocess
 import sys
+from collections import deque
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -61,6 +62,9 @@ def run_gate(
             flush=True,
         )
         if completed.returncode != 0:
+            print(f"=== last 200 lines of {log_path} ===", flush=True)
+            with log_path.open(encoding="utf-8", errors="replace") as log:
+                print("".join(deque(log, maxlen=200)), end="", flush=True)
             return completed.returncode
     return 0
 

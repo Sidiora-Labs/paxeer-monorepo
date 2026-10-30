@@ -4,6 +4,9 @@ use layerx_interop_gateway::adapter::{
 };
 use layerx_interop_gateway::audit::{verify_export, AuditEventKind};
 use layerx_interop_gateway::error::{error_emission, GatewayError, Retriability};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::{
     SequencerSettlementError, TranslationKind, TranslationRequest, TranslationStatus,
 };
@@ -11,10 +14,8 @@ use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::{interop_gateway_core, GatewayCore};
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::merkle::leaf_hash;
-use layerx_proof::receipt::{AuthorizedBatch, ReceiptCheck, VerificationFailure};
+use layerx_proof::receipt::{ReceiptCheck, VerificationFailure};
 use layerx_proof::sequencer_logs::{LogField, SequencerLog, SequencerLogRefusal};
-use layerx_types::payload::ModuleId;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest as wire_receipt_digest;
 use layerx_wire::limits::{MAX_MESSAGE_BYTES, MAX_SEQUENCER_EFFECTS, PROTOCOL_VERSION};
@@ -22,122 +23,145 @@ use layerx_wire::WireError;
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
-const AGENT_ACCOUNT: [u8; 32] = [0xa1; 32];
 const ASSET: [u8; 32] = [0xc1; 32];
-const COUNTERPARTY: [u8; 32] = [0xd1; 32];
-const PERIOD_START: u64 = 1_700_000_000;
-const WINDOW_START: u64 = 100;
 
-struct ReceiptFields {
-    activity_id: [u8; 32],
-    sequence: u64,
-    previous_state_root: [u8; 32],
-    resulting_state_root: [u8; 32],
-    batch_id: [u8; 32],
-    asset: [u8; 32],
-    amount: u128,
-    counterparty: [u8; 32],
+const FIXTURE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+));
+
+fn fixture_case() -> &'static str {
+    FIXTURE
+        .split_once("\"id\": \"V1-layerxledger-pay-exact\"")
+        .and_then(|(_, rest)| rest.split("\"id\":").next())
+        .unwrap_or_else(|| panic!("missing recorded pay-exact case"))
 }
 
-struct ReceiptMaterial {
-    canonical_receipt: Vec<u8>,
-    authorised_batch: AuthorizedBatch,
-    sequencer_seed: [u8; 32],
+fn field<'a>(case: &'a str, name: &str) -> &'a str {
+    case.split_once(&format!("\"{name}\": \""))
+        .and_then(|(_, rest)| rest.split_once('"'))
+        .map(|(value, _)| value)
+        .unwrap_or_else(|| panic!("missing fixture field {name}"))
 }
 
-fn signed_receipt(sequence: u64, idempotency_key: [u8; 32], amount: u128) -> ReceiptMaterial {
-    let activity_id: [u8; 32] = Sha256::digest(
-        [
-            b"layerx-interop-activity/v1".as_slice(),
-            &sequence.to_be_bytes(),
-            &idempotency_key,
-        ]
-        .concat(),
-    )
-    .into();
-    let fields = ReceiptFields {
-        activity_id,
-        sequence,
-        previous_state_root: Sha256::digest([b"before".as_slice(), &activity_id].concat()).into(),
-        resulting_state_root: Sha256::digest([b"after".as_slice(), &activity_id].concat()).into(),
-        batch_id: Sha256::digest([b"batch".as_slice(), &activity_id].concat()).into(),
-        asset: ASSET,
-        amount,
-        counterparty: COUNTERPARTY,
-    };
-    let sequencer_seed: [u8; 32] =
-        Sha256::digest([b"interop-sequencer".as_slice(), &activity_id].concat()).into();
-    let signer = SigningKey::from_bytes(&sequencer_seed);
-    let unsigned = encode_receipt(&fields, None);
+fn hex(value: &str) -> Vec<u8> {
+    let value = value
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("fixture value is not hex"));
+    assert_eq!(value.len() % 2, 0);
+    (0..value.len())
+        .step_by(2)
+        .map(|index| {
+            u8::from_str_radix(&value[index..index + 2], 16)
+                .unwrap_or_else(|error| panic!("invalid fixture hex: {error}"))
+        })
+        .collect()
+}
+
+fn array<const N: usize>(value: &str) -> [u8; N] {
+    hex(value)
+        .try_into()
+        .unwrap_or_else(|_| panic!("fixture value must have {N} bytes"))
+}
+
+fn payment_exact_words(case: &str) -> [[u8; 32]; 3] {
+    let transaction = hex(field(case, "rawTransaction"));
+    let offsets: Vec<usize> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact selector");
+    let calldata = &transaction[offsets[0] + 4..];
+    [5, 0, 1].map(|word| {
+        calldata[word * 32..(word + 1) * 32]
+            .try_into()
+            .unwrap_or_else(|_| panic!("recorded payExact word {word}"))
+    })
+}
+
+fn signed_recorded_payment(
+    case: &str,
+    recorded_topics: &[[u8; 32]],
+    topics: &[[u8; 32]],
+) -> Vec<u8> {
+    let signed = hex(field(case, "signedReceipt"));
+    assert_eq!(
+        canonical_receipt_digest(&signed),
+        Ok(array(field(case, "receiptDigest")))
+    );
+    let mut unsigned = signed[..signed.len() - 69].to_vec();
+    let before = recorded_topics.concat();
+    let offsets: Vec<usize> = unsigned
+        .windows(before.len())
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == before).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one signed payment log");
+    unsigned[offsets[0]..offsets[0] + before.len()].copy_from_slice(&topics.concat());
     let mut digest = Sha256::new();
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
-    let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
-    ReceiptMaterial {
-        canonical_receipt: encode_receipt(&fields, Some(signature.to_bytes())),
-        authorised_batch: AuthorizedBatch::new(
-            fields.batch_id,
-            fields.asset,
-            fields.previous_state_root,
-            fields.resulting_state_root,
-            signer.verifying_key().to_bytes(),
-        ),
-        sequencer_seed,
+    digest.update([0]);
+    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    assert_eq!(
+        signer.verifying_key().to_bytes(),
+        array(field(case, "publicKey"))
+    );
+    let signature = signer.sign(&digest.finalize()).to_bytes();
+    unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
+    unsigned.extend_from_slice(&signature);
+    unsigned
+}
+
+fn recorded_evidence() -> SequencerEvidence {
+    let case = fixture_case();
+    let recorded_topics: Vec<[u8; 32]> = case
+        .split_once("\"topics\": [")
+        .and_then(|(_, rest)| rest.split_once(']'))
+        .map(|(topics, _)| topics)
+        .unwrap_or_else(|| panic!("missing fixture topics"))
+        .split('"')
+        .filter(|value| value.starts_with("0x"))
+        .map(array)
+        .collect();
+    let [reference, from, to] = payment_exact_words(case);
+    let topics = vec![recorded_topics[0], reference, from, to];
+    let signed_receipt = signed_recorded_payment(case, &recorded_topics, &topics);
+    let log_index = u64::from_str_radix(
+        field(case, "logIndex")
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("invalid log index")),
+        16,
+    )
+    .unwrap_or_else(|error| panic!("invalid log index: {error}"));
+    SequencerEvidence {
+        transaction_hash: array(field(case, "txHash")),
+        signed_receipt,
+        logs: vec![SequencerLog::new(
+            array(field(case, "address")),
+            topics,
+            hex(field(case, "data")),
+            log_index,
+        )],
+        rung: SettlementRung::Receipted,
     }
 }
 
-fn encode_receipt(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8> {
-    let debit_before = 10_000_u128;
-    let credit_before = 20_000_u128;
-    let mut bytes = Vec::new();
-    push_u16(&mut bytes, 2);
-    push_u16(&mut bytes, 0x5201);
-    push_u16(&mut bytes, 2);
-    push_bytes(&mut bytes, &fields.activity_id);
-    push_u64(&mut bytes, fields.sequence);
-    push_bytes(&mut bytes, &fields.previous_state_root);
-    push_bytes(&mut bytes, &fields.resulting_state_root);
-    push_bytes(&mut bytes, &[0x81; 32]);
-    bytes.extend_from_slice(&0_i32.to_be_bytes());
-    bytes.extend_from_slice(&0_u32.to_be_bytes());
-    bytes.extend_from_slice(&1_u128.to_be_bytes());
-    push_bytes(&mut bytes, &fields.batch_id);
-    push_u16(&mut bytes, ModuleId::Asset as u16);
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
-    bytes.push(1);
-    push_bytes(&mut bytes, &fields.asset);
-    bytes.extend_from_slice(&fields.amount.to_be_bytes());
-    push_bytes(&mut bytes, &AGENT_ACCOUNT);
-    bytes.extend_from_slice(&debit_before.to_be_bytes());
-    bytes.extend_from_slice(&(debit_before - fields.amount).to_be_bytes());
-    push_u64(&mut bytes, fields.sequence - WINDOW_START + 1);
-    push_bytes(&mut bytes, &fields.counterparty);
-    bytes.extend_from_slice(&credit_before.to_be_bytes());
-    bytes.extend_from_slice(&(credit_before + fields.amount).to_be_bytes());
-    push_bytes(&mut bytes, &[0x91; 32]);
-    push_bytes(&mut bytes, &[0x92; 32]);
-    push_bytes(&mut bytes, &[0x93; 32]);
-    push_u64(&mut bytes, PERIOD_START + fields.sequence);
-    bytes.push(u8::from(signature.is_some()));
-    if let Some(signature) = signature {
-        push_bytes(&mut bytes, &signature);
-    }
-    bytes
-}
-
-fn push_u16(bytes: &mut Vec<u8>, value: u16) {
-    bytes.extend_from_slice(&value.to_be_bytes());
-}
-
-fn push_u64(bytes: &mut Vec<u8>, value: u64) {
-    bytes.extend_from_slice(&value.to_be_bytes());
-}
-
-fn push_bytes(output: &mut Vec<u8>, value: &[u8]) {
-    let length = u32::try_from(value.len()).unwrap_or_else(|_| panic!("receipt field overflow"));
-    output.extend_from_slice(&length.to_be_bytes());
-    output.extend_from_slice(value);
+fn recorded_keys() -> [SequencerAuthorization; 1] {
+    let case = fixture_case();
+    let bound = |name: &str| {
+        case.split_once(&format!("\"{name}\": "))
+            .and_then(|(_, rest)| rest.split(|c: char| !c.is_ascii_digit()).next())
+            .and_then(|value| value.parse().ok())
+            .unwrap_or_else(|| panic!("missing fixture bound {name}"))
+    };
+    [SequencerAuthorization::new(
+        array(field(case, "keyId")),
+        array(field(case, "publicKey")),
+        bound("firstHeight"),
+        bound("lastHeight"),
+    )]
 }
 
 fn principal(name: &str) -> PrincipalId {
@@ -165,7 +189,11 @@ fn registered_core() -> GatewayCore {
 }
 
 fn request(kind: TranslationKind, key_byte: u8) -> TranslationRequest {
-    TranslationRequest::new(adapter_id("x402"), kind, [key_byte; 32], [0x42; 32])
+    request_for_key(kind, [key_byte; 32])
+}
+
+fn request_for_key(kind: TranslationKind, key: [u8; 32]) -> TranslationRequest {
+    TranslationRequest::new(adapter_id("x402"), kind, key, [0x42; 32])
         .unwrap_or_else(|error| panic!("request: {error}"))
 }
 
@@ -209,15 +237,17 @@ fn translations_against_unregistered_adapters_are_refused() {
 }
 
 #[test]
-fn a_state_changing_translation_refuses_every_unverified_termination() {
+fn a_state_changing_translation_refuses_every_unproved_sequencer_termination() {
     let mut core = registered_core();
     let alice = principal("alice");
     let trace = TraceId::mint([2; 16]);
-    let key = [0x21; 32];
+    let evidence = recorded_evidence();
+    let keys = recorded_keys();
+    let key = evidence.logs[0].topics()[1];
     let opened = core
         .begin_translation(
             &alice,
-            &request(TranslationKind::StateChanging, 0x21),
+            &request_for_key(TranslationKind::StateChanging, key),
             &trace,
             10,
         )
@@ -228,61 +258,144 @@ fn a_state_changing_translation_refuses_every_unverified_termination() {
         .complete_read_only(&alice, key, &trace, 11)
         .map_err(|error| *error.error());
     assert_eq!(no_receipt, Err(GatewayError::ReceiptRequired));
-    assert_eq!(
-        core.translation(&alice, key),
-        Some(TranslationStatus::Pending),
-        "a refused completion must not advance the translation"
-    );
+    assert_nothing_recorded(&core, &alice, key);
 
-    let material = signed_receipt(150, key, 250);
-    let mut tampered = material.canonical_receipt.clone();
-    let last = tampered.len() - 1;
-    tampered[last] ^= 0x01;
-    let rejected = core
-        .settle_with_receipt(
-            &alice,
-            key,
-            &tampered,
-            &material.authorised_batch,
-            &trace,
-            12,
-        )
-        .map_err(|error| *error.error());
-    assert!(
-        matches!(rejected, Err(GatewayError::ReceiptRejected(_))),
-        "tampered receipt bytes must be rejected, got {rejected:?}"
-    );
-    assert_eq!(
-        core.translation(&alice, key),
-        Some(TranslationStatus::Pending)
-    );
+    let signature_rejected =
+        SequencerSettlementError::Gateway(GatewayError::ReceiptRejected(VerificationFailure {
+            check: ReceiptCheck::SequencerSignature,
+        }));
+    let mut tampered = evidence.clone();
+    let last = tampered.signed_receipt.len() - 1;
+    tampered.signed_receipt[last] ^= 0x01;
 
     let foreign_signer = SigningKey::from_bytes(&[0x99; 32]);
-    let foreign_authority = AuthorizedBatch::new(
-        material.authorised_batch.batch_id(),
-        material.authorised_batch.asset(),
-        material.authorised_batch.previous_state_root(),
-        material.authorised_batch.resulting_state_root(),
-        foreign_signer.verifying_key().to_bytes(),
+    let foreign_public_key = foreign_signer.verifying_key().to_bytes();
+    let case = fixture_case();
+    assert_ne!(foreign_public_key, array::<32>(field(case, "publicKey")));
+    let foreign_authority = vec![SequencerAuthorization::new(
+        array(field(case, "keyId")),
+        foreign_public_key,
+        1000,
+        1999,
+    )];
+    let unknown_authority = vec![SequencerAuthorization::new(
+        [0x99; 32],
+        array(field(case, "publicKey")),
+        1000,
+        1999,
+    )];
+    let expired_authority = vec![SequencerAuthorization::new(
+        array(field(case, "keyId")),
+        array(field(case, "publicKey")),
+        1000,
+        1000,
+    )];
+    let future_authority = vec![SequencerAuthorization::new(
+        array(field(case, "keyId")),
+        array(field(case, "publicKey")),
+        1002,
+        1999,
+    )];
+    let mut unsigned = evidence.clone();
+    unsigned
+        .signed_receipt
+        .truncate(unsigned.signed_receipt.len() - 69);
+    unsigned.signed_receipt.push(0);
+
+    let mut altered_log = evidence.clone();
+    let log = &evidence.logs[0];
+    let mut altered_data = log.data().to_vec();
+    let last = altered_data.len() - 1;
+    altered_data[last] ^= 0x01;
+    altered_log.logs[0] = SequencerLog::new(
+        log.address(),
+        log.topics().to_vec(),
+        altered_data,
+        log.log_index(),
     );
-    assert_ne!(foreign_signer.to_bytes(), material.sequencer_seed);
-    let unauthorised = core
-        .settle_with_receipt(
-            &alice,
-            key,
-            &material.canonical_receipt,
-            &foreign_authority,
-            &trace,
-            13,
-        )
-        .map_err(|error| *error.error());
-    assert!(
-        matches!(unauthorised, Err(GatewayError::ReceiptRejected(_))),
-        "a receipt outside the authorised batch must be rejected, got {unauthorised:?}"
-    );
+    let mut submitted = evidence.clone();
+    submitted.rung = SettlementRung::Submitted;
+
+    for (label, unproved, authorities, expected) in [
+        (
+            "tampered signature",
+            tampered,
+            keys.to_vec(),
+            signature_rejected,
+        ),
+        (
+            "foreign key",
+            evidence.clone(),
+            foreign_authority,
+            signature_rejected,
+        ),
+        (
+            "unknown key id",
+            evidence.clone(),
+            unknown_authority,
+            signature_rejected,
+        ),
+        (
+            "expired key",
+            evidence.clone(),
+            expired_authority,
+            signature_rejected,
+        ),
+        (
+            "future key",
+            evidence.clone(),
+            future_authority,
+            signature_rejected,
+        ),
+        (
+            "no pinned keys",
+            evidence.clone(),
+            vec![],
+            signature_rejected,
+        ),
+        (
+            "missing signature",
+            unsigned,
+            keys.to_vec(),
+            SequencerSettlementError::Gateway(GatewayError::ReceiptRejected(VerificationFailure {
+                check: ReceiptCheck::MissingSignature,
+            })),
+        ),
+        (
+            "altered log",
+            altered_log,
+            keys.to_vec(),
+            SequencerSettlementError::Logs(SequencerLogRefusal::Log {
+                index: 0,
+                field: LogField::Data,
+            }),
+        ),
+        (
+            "submitted rung",
+            submitted,
+            keys.to_vec(),
+            SequencerSettlementError::Gateway(GatewayError::ReceiptPending),
+        ),
+    ] {
+        let before = format!("{core:?}");
+        let rejected = core
+            .settle_with_sequencer_evidence(&alice, key, &unproved, &authorities, &trace, 12)
+            .unwrap_err();
+        assert_eq!(*rejected.error(), expected, "{label}");
+        assert_eq!(rejected.trace(), &trace, "{label}");
+        assert_nothing_recorded(&core, &alice, key);
+        assert_eq!(format!("{core:?}"), before, "{label} must write nothing");
+    }
+
+    let settled = core
+        .settle_with_sequencer_evidence(&alice, key, &evidence, &keys, &trace, 13)
+        .unwrap_or_else(|error| panic!("recorded receipt with pinned keys: {error}"));
     assert_eq!(
-        core.translation(&alice, key),
-        Some(TranslationStatus::Pending)
+        settled,
+        TranslationStatus::ReceiptVerified {
+            receipt_digest: canonical_receipt_digest(&evidence.signed_receipt)
+                .unwrap_or_else(|error| panic!("native receipt digest: {error:?}")),
+        }
     );
 }
 
@@ -291,60 +404,50 @@ fn a_verified_receipt_terminates_the_translation_and_binds_the_audit_chain() {
     let mut core = registered_core();
     let alice = principal("alice");
     let trace = TraceId::mint([2; 16]);
-    let key = [0x21; 32];
+    let material = recorded_evidence();
+    let key = material.logs[0].topics()[1];
     core.begin_translation(
         &alice,
-        &request(TranslationKind::StateChanging, 0x21),
+        &request_for_key(TranslationKind::StateChanging, key),
         &trace,
         10,
     )
     .unwrap_or_else(|error| panic!("begin: {error}"));
 
-    let material = signed_receipt(150, key, 250);
     let settled = core
-        .settle_with_receipt(
-            &alice,
-            key,
-            &material.canonical_receipt,
-            &material.authorised_batch,
-            &trace,
-            14,
-        )
+        .settle_with_sequencer_evidence(&alice, key, &material, &recorded_keys(), &trace, 14)
         .unwrap_or_else(|error| panic!("settle: {error}"));
-    let receipt_digest =
-        leaf_hash(&material.canonical_receipt).unwrap_or_else(|error| panic!("digest: {error:?}"));
+    let receipt_digest = canonical_receipt_digest(&material.signed_receipt)
+        .unwrap_or_else(|error| panic!("native receipt digest: {error:?}"));
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified { receipt_digest }
     );
 
     let replay = core
-        .settle_with_receipt(
-            &alice,
-            key,
-            &material.canonical_receipt,
-            &material.authorised_batch,
-            &trace,
-            15,
-        )
+        .settle_with_sequencer_evidence(&alice, key, &material, &recorded_keys(), &trace, 15)
         .unwrap_or_else(|error| panic!("replayed settle: {error}"));
     assert_eq!(
         replay,
         TranslationStatus::ReceiptVerified { receipt_digest }
     );
 
-    let other = signed_receipt(151, key, 251);
+    let logs = vec![transfer_log(0), payment_exact_log(1, key)];
+    let other = SequencerEvidence {
+        transaction_hash: SEQUENCER_ACTIVITY_ID,
+        signed_receipt: signed_sequencer_receipt(&logs),
+        logs,
+        rung: SettlementRung::Receipted,
+    };
     let conflict = core
-        .settle_with_receipt(
-            &alice,
-            key,
-            &other.canonical_receipt,
-            &other.authorised_batch,
-            &trace,
-            16,
-        )
+        .settle_with_sequencer_evidence(&alice, key, &other, &in_range_keys(), &trace, 16)
         .map_err(|error| *error.error());
-    assert_eq!(conflict, Err(GatewayError::IdempotencyConflict));
+    assert_eq!(
+        conflict,
+        Err(SequencerSettlementError::Gateway(
+            GatewayError::IdempotencyConflict
+        ))
+    );
 
     let chain = core
         .principal_audit(&alice)
@@ -416,30 +519,25 @@ fn principals_are_isolated_across_every_gateway_surface() {
     let alice = principal("alice");
     let mallory = principal("mallory");
     let trace = TraceId::mint([4; 16]);
-    let key = [0x41; 32];
+    let material = recorded_evidence();
+    let key = material.logs[0].topics()[1];
     core.begin_translation(
         &alice,
-        &request(TranslationKind::StateChanging, 0x41),
+        &request_for_key(TranslationKind::StateChanging, key),
         &trace,
         10,
     )
     .unwrap_or_else(|error| panic!("begin: {error}"));
 
     assert_eq!(core.translation(&mallory, key), None);
-    let material = signed_receipt(160, key, 77);
     let stolen = core
-        .settle_with_receipt(
-            &mallory,
-            key,
-            &material.canonical_receipt,
-            &material.authorised_batch,
-            &trace,
-            11,
-        )
+        .settle_with_sequencer_evidence(&mallory, key, &material, &recorded_keys(), &trace, 11)
         .map_err(|error| *error.error());
     assert_eq!(
         stolen,
-        Err(GatewayError::UnknownTranslation),
+        Err(SequencerSettlementError::Gateway(
+            GatewayError::UnknownTranslation
+        )),
         "a principal must not reach another principal's translation"
     );
     assert_eq!(
@@ -450,7 +548,7 @@ fn principals_are_isolated_across_every_gateway_surface() {
     let same_key = core
         .begin_translation(
             &mallory,
-            &request(TranslationKind::StateChanging, 0x41),
+            &request_for_key(TranslationKind::StateChanging, key),
             &trace,
             12,
         )
@@ -483,26 +581,24 @@ fn read_only_translations_complete_without_receipts_but_cannot_claim_settlement(
     let mut core = registered_core();
     let alice = principal("alice");
     let trace = TraceId::mint([5; 16]);
-    let key = [0x51; 32];
+    let material = recorded_evidence();
+    let key = material.logs[0].topics()[1];
     core.begin_translation(
         &alice,
-        &request(TranslationKind::ReadOnly, 0x51),
+        &request_for_key(TranslationKind::ReadOnly, key),
         &trace,
         10,
     )
     .unwrap_or_else(|error| panic!("begin: {error}"));
-    let material = signed_receipt(170, key, 5);
     let misclaimed = core
-        .settle_with_receipt(
-            &alice,
-            key,
-            &material.canonical_receipt,
-            &material.authorised_batch,
-            &trace,
-            11,
-        )
+        .settle_with_sequencer_evidence(&alice, key, &material, &recorded_keys(), &trace, 11)
         .map_err(|error| *error.error());
-    assert_eq!(misclaimed, Err(GatewayError::NotStateChanging));
+    assert_eq!(
+        misclaimed,
+        Err(SequencerSettlementError::Gateway(
+            GatewayError::NotStateChanging
+        ))
+    );
 
     let completed = core
         .complete_read_only(&alice, key, &trace, 12)
@@ -519,10 +615,11 @@ fn refusals_are_honest_terminal_states() {
     let mut core = registered_core();
     let alice = principal("alice");
     let trace = TraceId::mint([6; 16]);
-    let key = [0x61; 32];
+    let material = recorded_evidence();
+    let key = material.logs[0].topics()[1];
     core.begin_translation(
         &alice,
-        &request(TranslationKind::StateChanging, 0x61),
+        &request_for_key(TranslationKind::StateChanging, key),
         &trace,
         10,
     )
@@ -532,18 +629,15 @@ fn refusals_are_honest_terminal_states() {
         .unwrap_or_else(|error| panic!("refuse: {error}"));
     assert_eq!(refused, TranslationStatus::Refused);
 
-    let material = signed_receipt(180, key, 9);
     let closed = core
-        .settle_with_receipt(
-            &alice,
-            key,
-            &material.canonical_receipt,
-            &material.authorised_batch,
-            &trace,
-            12,
-        )
+        .settle_with_sequencer_evidence(&alice, key, &material, &recorded_keys(), &trace, 12)
         .map_err(|error| *error.error());
-    assert_eq!(closed, Err(GatewayError::TranslationClosed));
+    assert_eq!(
+        closed,
+        Err(SequencerSettlementError::Gateway(
+            GatewayError::TranslationClosed
+        ))
+    );
     assert_eq!(
         core.translation(&alice, key),
         Some(TranslationStatus::Refused)
@@ -560,22 +654,22 @@ fn traces_propagate_onto_audits_errors_and_boundary_headers() {
         "trc_00112233445566778899aabbccddeeff",
         "a well-formed inbound trace must cross the boundary unchanged"
     );
-    let key = [0x71; 32];
+    let material = recorded_evidence();
+    let key = material.logs[0].topics()[1];
     core.begin_translation(
         &alice,
-        &request(TranslationKind::StateChanging, 0x71),
+        &request_for_key(TranslationKind::StateChanging, key),
         &begin_trace,
         10,
     )
     .unwrap_or_else(|error| panic!("begin: {error}"));
 
     let settle_trace = TraceId::mint([8; 16]);
-    let material = signed_receipt(190, key, 12);
-    core.settle_with_receipt(
+    core.settle_with_sequencer_evidence(
         &alice,
         key,
-        &material.canonical_receipt,
-        &material.authorised_batch,
+        &material,
+        &recorded_keys(),
         &settle_trace,
         11,
     )
@@ -588,21 +682,24 @@ fn traces_propagate_onto_audits_errors_and_boundary_headers() {
     assert_eq!(chain.entries()[1].trace(), &settle_trace);
 
     let error_trace = TraceId::mint([9; 16]);
-    let Err(failure) = core.settle_with_receipt(
+    let Err(failure) = core.settle_with_sequencer_evidence(
         &alice,
         [0x72; 32],
-        &material.canonical_receipt,
-        &material.authorised_batch,
+        &material,
+        &recorded_keys(),
         &error_trace,
         12,
     ) else {
         panic!("an unknown translation must not settle");
     };
     assert_eq!(failure.trace(), &error_trace);
-    assert_eq!(failure.error(), &GatewayError::UnknownTranslation);
-    assert_eq!(failure.error().retriability(), Retriability::Terminal);
-    let rendered =
-        error_emission(&failure).unwrap_or_else(|error| panic!("error emission: {error}"));
+    let SequencerSettlementError::Gateway(error) = failure.error() else {
+        panic!("unknown translation must return a gateway error");
+    };
+    assert_eq!(error, &GatewayError::UnknownTranslation);
+    assert_eq!(error.retriability(), Retriability::Terminal);
+    let rendered = error_emission(&failure.trace().wrap(*error))
+        .unwrap_or_else(|error| panic!("error emission: {error}"));
     assert!(!rendered.is_empty());
 }
 
@@ -850,7 +947,8 @@ fn assert_nothing_recorded(core: &GatewayCore, alice: &PrincipalId, key: [u8; 32
 }
 
 fn assert_settled(core: &GatewayCore, alice: &PrincipalId, key: [u8; 32], receipt: &[u8]) {
-    let receipt_digest = sha256(receipt);
+    let receipt_digest = canonical_receipt_digest(receipt)
+        .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
     assert_eq!(
         core.translation(alice, key),
         Some(TranslationStatus::ReceiptVerified { receipt_digest })
@@ -893,7 +991,8 @@ fn a_payment_exact_receipt_matched_by_payment_reference_settles_the_translation(
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified {
-            receipt_digest: sha256(&receipt)
+            receipt_digest: canonical_receipt_digest(&receipt)
+                .unwrap_or_else(|error| panic!("receipt digest: {error:?}"))
         }
     );
     assert_settled(&core, &alice, key, &receipt);
@@ -908,15 +1007,24 @@ fn a_payment_exact_receipt_matched_by_payment_reference_settles_the_translation(
 fn a_payment_exact_receipt_with_legacy_topic_order_is_refused() {
     let mut core = registered_core();
     let alice = principal("alice");
-    let key = [0x81; 32];
-    assert_ne!(key, PAYER);
-    assert_ne!(key, PAYEE);
-    assert_ne!(PAYER, PAYEE);
-    pending_state_changing(&mut core, &alice, 0x81);
-    let native = payment_exact_log(0, key);
+    let [key, from, to] = payment_exact_words(fixture_case());
+    assert_ne!(key, from);
+    assert_ne!(key, to);
+    assert_ne!(from, to);
+    let opened = core
+        .begin_translation(
+            &alice,
+            &request_for_key(TranslationKind::StateChanging, key),
+            &TraceId::mint([0x81; 16]),
+            10,
+        )
+        .unwrap_or_else(|error| panic!("begin: {error}"));
+    assert_eq!(opened, TranslationStatus::Pending);
+    let evidence = recorded_evidence();
+    let native = &evidence.logs[0];
     let mut topics = native.topics().to_vec();
-    assert_eq!(&topics[1..], &[key, PAYER, PAYEE]);
-    topics[1..].rotate_left(1);
+    assert_eq!(&topics[1..], &[key, from, to]);
+    topics[1..].copy_from_slice(&[from, to, key]);
     let logs = vec![SequencerLog::new(
         native.address(),
         topics,
@@ -962,7 +1070,8 @@ fn a_payment_drawn_receipt_matched_by_its_idempotency_key_settles_the_translatio
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified {
-            receipt_digest: sha256(&receipt)
+            receipt_digest: canonical_receipt_digest(&receipt)
+                .unwrap_or_else(|error| panic!("receipt digest: {error:?}"))
         }
     );
     assert_settled(&core, &alice, key, &receipt);

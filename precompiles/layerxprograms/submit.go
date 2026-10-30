@@ -18,6 +18,7 @@ import (
 type PrecompileExecutor struct {
 	host      *lxphost.Host
 	evmKeeper *evmkeeper.Keeper
+	assets    assetDenoms
 	handlers  handlerTable
 }
 

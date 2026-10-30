@@ -3,6 +3,7 @@
 mod account_state;
 mod archive;
 mod authority;
+pub mod chain_evidence;
 pub mod chain_proof;
 mod deprecate;
 mod hash;
@@ -14,6 +15,7 @@ pub mod naming;
 mod pipeline;
 mod protocol_evidence;
 mod resolver;
+pub mod state_record;
 pub mod swap;
 
 pub use account_state::{
@@ -30,6 +32,12 @@ pub use authority::{
     DeploymentJournal, DeploymentRecord, JournalReadAuthority, MigrationExecutionEvidence,
     ObservedHead,
 };
+pub use chain_proof::{
+    results::verify_tx_result,
+    state::{verify_absent, verify_state},
+    tx::verify_tx,
+    ChainProofVerifier,
+};
 pub use deprecate::{
     AuthorizedExit, Deprecation, DeprecationRefusal, DeprecationRequest, ExitRoute,
     LegacyDeprecationRequest, WindDownExitActivity, WindDownView,
@@ -41,11 +49,10 @@ pub use interface::{
 };
 pub use pipeline::{BuildAttempt, BuildPlan, BuildRefusal, BuildRunner, SourceVerifier};
 pub use protocol_evidence::{
-    DeploymentMaintenanceProof, DeploymentProof, ProgramBundleError, ProgramHeadKind,
-    ProgramLifecycleProof, ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier,
-    ProtocolEvidenceError, ProtocolHeadMaintenanceProof, ProtocolHeadProof, ReceiptEvidenceDigest,
-    StateLeafWitness, VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedMaintenanceHead,
-    VerifiedProgramBundle, VerifiedProgramHead, VerifiedProtocolHead,
+    DeploymentProof, ProgramBundleError, ProgramHeadKind, ProgramLifecycleProof,
+    ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier, ProtocolEvidenceError,
+    ProtocolHeadProof, ReceiptEvidenceDigest, StateLeafWitness, VerifiedChainHead,
+    VerifiedDeploymentEvidence, VerifiedProgramBundle, VerifiedProgramHead, VerifiedProtocolHead,
 };
 pub use resolver::{ExecutableAdmissionError, VerifiedProgramCatalog};
 

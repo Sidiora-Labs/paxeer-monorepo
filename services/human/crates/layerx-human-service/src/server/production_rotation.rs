@@ -1,8 +1,6 @@
 use super::*;
 use crate::agents::{AgentFailure, ProtocolEvidence};
-use layerx_crypto::rotation::{
-    OwnerRotation, OwnerRotationCommit, OwnerRotationConsent, OwnerRotationState,
-};
+use layerx_crypto::rotation::OwnerRotationState;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -183,7 +181,7 @@ impl ProductionComponents {
         &self,
         request: &ScopedRequest<'_>,
         scope: &mut crate::store::PrincipalScope<'_>,
-        principal: &crate::store::PrincipalId,
+        _principal: &crate::store::PrincipalId,
     ) -> Result<BackendResponse, ApiFailure> {
         if request.operation.name == "agent.recover" {
             return Err(ApiFailure::upstream_degraded());
@@ -192,71 +190,7 @@ impl ProductionComponents {
         let id = rotation_id(action)?;
         let agent_id = path(request, "agent_id")?;
         if scope.get(Table::Journeys, &rotation_key(&id)?).is_none() {
-            let mut agent = self.principal_agent(scope)?;
-            let context = agent.agent_context(agent_id).map_err(agent_failure)?;
-            let identity = checked_identity(&mut agent, &context.agent_did)?;
-            if identity.primary_public_key != context.seed.custody_public_key
-                || identity.pending_public_key.is_some()
-            {
-                return Err(ApiFailure::upstream_degraded());
-            }
-            let (delay, window) = requested_timing(request, &mut agent, &context.agent_did)?;
-            let current = self.now()?;
-            let begin = milliseconds(
-                current
-                    .checked_add(delay)
-                    .ok_or_else(ApiFailure::upstream_degraded)?,
-            )?;
-            let end = begin
-                .checked_add(milliseconds(window)?)
-                .ok_or_else(ApiFailure::upstream_degraded)?;
-            let pending = KeyId::new(format!("agent-rotation-{}", hex_bytes(&action)))
-                .map_err(|_| ApiFailure::upstream_degraded())?;
-            let new_key = match self
-                .custody
-                .creation_keystore()
-                .describe(principal, &pending)
-            {
-                Ok(value) if value.class == KeyClass::AgentPrimary => value.public_key,
-                Err(CustodyError::KeyNotFound) => self
-                    .custody
-                    .creation_keystore()
-                    .create(principal, &pending, KeyClass::AgentPrimary)
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                Ok(_) | Err(_) => return Err(ApiFailure::upstream_degraded()),
-            };
-            let record = Rotation {
-                version: 1,
-                agent_id: agent_id.to_owned(),
-                did: context.agent_did,
-                network: context.seed.network_id,
-                action,
-                old_key: identity.primary_public_key,
-                new_key,
-                old_custody: context.seed.custody_key,
-                new_custody: pending.as_str().to_owned(),
-                delay,
-                window,
-                begin,
-                end,
-                effective_sequence: agent
-                    .head()
-                    .map_err(agent_failure)?
-                    .chain_sequence
-                    .checked_add(2)
-                    .ok_or_else(ApiFailure::upstream_degraded)?,
-                started_at: current,
-                stage_at: current,
-                phase: Phase::Announce,
-                announcement: [0; 32],
-                predecessor: context.protocol_grant_id,
-                revoke_sequence: 0,
-                announced: None,
-                committed: None,
-                terminal_evidence: None,
-                result_code: None,
-            };
-            record.save(scope, current)?;
+            return Err(ApiFailure::operation_retired());
         }
         let record = Rotation::load(scope, &id)?;
         if record.agent_id != agent_id
@@ -288,8 +222,8 @@ impl ProductionComponents {
         }
         let mut agent = self.principal_agent(scope)?;
         match record.phase {
-            Phase::Announce => {
-                self.announce_rotation(scope, &mut agent, trace, &mut record, observed_at)?;
+            Phase::Announce | Phase::Commit | Phase::Cancel => {
+                return Err(ApiFailure::operation_retired());
             }
             Phase::Wait => {
                 if milliseconds(observed_at)? < record.begin {
@@ -311,9 +245,6 @@ impl ProductionComponents {
                 } else {
                     Phase::Commit
                 };
-            }
-            Phase::Commit => {
-                self.commit_rotation(scope, &mut agent, trace, &mut record, observed_at)?;
             }
             Phase::Project => {
                 let committed = record
@@ -344,27 +275,6 @@ impl ProductionComponents {
                 self.restore_rotation_session(scope, &mut agent, trace, &record)?;
                 record.phase = Phase::Done;
             }
-            Phase::Cancel => {
-                let intent = Intent::v3(IntentKind::NativeOwnerRotation(OwnerRotation::Cancel {
-                    owner: rotation_did(&record)?,
-                    announcement: record.announcement,
-                }));
-                let outcome = self.submit_rotation(
-                    scope,
-                    &mut agent,
-                    trace,
-                    &record,
-                    RotationSubmission {
-                        intent,
-                        stage: 5,
-                        new_owner: false,
-                    },
-                )?;
-                accept_outcome(&mut record, &outcome, 2, observed_at)?;
-                if !record.terminal() {
-                    record.phase = Phase::Cancelled;
-                }
-            }
             Phase::Done | Phase::Cancelled | Phase::Refused => return Ok(true),
         }
         record.save(scope, observed_at)?;
@@ -372,58 +282,7 @@ impl ProductionComponents {
     }
 }
 
-fn requested_timing(
-    request: &ScopedRequest<'_>,
-    agent: &mut AgentRuntime,
-    did: &str,
-) -> Result<(u64, u64), ApiFailure> {
-    if request.operation.name == "agent.rotation.start" {
-        return rotation_bounds(&request.body);
-    }
-    let policy = agent.agent_key_policy(did, false).map_err(agent_failure)?;
-    Ok((
-        policy.required_delay_seconds,
-        policy
-            .maximum_delay_seconds
-            .checked_sub(policy.required_delay_seconds)
-            .filter(|value| *value > 0)
-            .ok_or_else(ApiFailure::upstream_degraded)?,
-    ))
-}
-
 impl ProductionComponents {
-    fn announce_rotation(
-        &self,
-        scope: &mut crate::store::PrincipalScope<'_>,
-        agent: &mut AgentRuntime,
-        trace: &TraceId,
-        record: &mut Rotation,
-        observed_at: u64,
-    ) -> Result<(), ApiFailure> {
-        let intent = OwnerRotation::Announce {
-            owner: rotation_did(record)?,
-            pending_public_key: record.new_key,
-            begin: record.begin,
-            end: record.end,
-            effective_sequence: record.effective_sequence,
-        };
-        let outcome = self.submit_rotation(
-            scope,
-            agent,
-            trace,
-            record,
-            RotationSubmission {
-                intent: Intent::v3(IntentKind::NativeOwnerRotation(intent)),
-                stage: 0,
-                new_owner: false,
-            },
-        )?;
-        record.announced = accept_outcome(record, &outcome, 2, observed_at)?;
-        if !record.terminal() {
-            record.phase = Phase::Wait;
-        }
-        Ok(())
-    }
     fn revoke_rotation(
         &self,
         scope: &mut crate::store::PrincipalScope<'_>,
@@ -487,10 +346,9 @@ fn accept_outcome(
         .map_err(|_| ApiFailure::upstream_degraded())?;
     let verified = outcome.verify_outcome(kind).map_err(creation_failure)?;
     let protocol = verified
-        .receipt()
         .protocol()
         .ok_or_else(ApiFailure::upstream_degraded)?;
-    if outcome.verification_level.wire_rank() < 4
+    if outcome.rung != layerx_types::rung::Rung::Committed
         || outcome.network_id != record.network
         || outcome.actor != record.did.as_bytes()
     {
@@ -503,7 +361,7 @@ fn accept_outcome(
         activity_id: outcome.activity_id,
         receipt_digest: Sha256::digest(&outcome.receipt_bytes).into(),
         observed_sequence: protocol.global_sequence(),
-        verification: outcome.verification_level.wire_rank(),
+        verification: outcome.rung.wire_rank(),
         finalized_at: now,
     };
     if protocol.result_code() != 0 {
@@ -568,62 +426,6 @@ impl ProductionComponents {
                 record.stage_at,
             )
             .map_err(creation_failure)
-    }
-
-    fn commit_rotation(
-        &self,
-        scope: &mut crate::store::PrincipalScope<'_>,
-        agent: &mut AgentRuntime,
-        trace: &TraceId,
-        record: &mut Rotation,
-        observed_at: u64,
-    ) -> Result<(), ApiFailure> {
-        let expires_at = record
-            .stage_at
-            .checked_add(self.agent_timestamp_span_seconds)
-            .ok_or_else(ApiFailure::upstream_degraded)
-            .and_then(milliseconds)?;
-        let consent = OwnerRotationConsent {
-            owner: rotation_did(record)?,
-            current_public_key: record.old_key,
-            pending_public_key: record.new_key,
-            announcement: record.announcement,
-            action_key: record.stage_key(1),
-            expires_at,
-        };
-        let signed = {
-            let mut adapter = self.rotation_adapter(agent, trace, record, false)?;
-            adapter
-                .sign_rotation_consent(
-                    scope,
-                    &consent,
-                    record.network,
-                    record.stage_at,
-                    &KeyId::new(record.new_custody.clone())
-                        .map_err(|_| ApiFailure::upstream_degraded())?,
-                )
-                .map_err(creation_failure)?
-        };
-        let commit = OwnerRotationCommit::from_signed_consent(&signed)
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        let outcome = self.submit_rotation(
-            scope,
-            agent,
-            trace,
-            record,
-            RotationSubmission {
-                intent: Intent::v3(IntentKind::NativeOwnerRotation(OwnerRotation::Commit(
-                    commit,
-                ))),
-                stage: 1,
-                new_owner: false,
-            },
-        )?;
-        record.committed = accept_outcome(record, &outcome, 2, observed_at)?;
-        if !record.terminal() {
-            record.phase = Phase::Project;
-        }
-        Ok(())
     }
 
     fn restore_rotation_session(
@@ -692,7 +494,7 @@ impl ProductionComponents {
         if finalization.action_key != action_key
             || finalization.receipt_digest != evidence.receipt_digest
             || finalization.observed_sequence != evidence.observed_sequence
-            || finalization.verification != evidence.verification_level.wire_rank()
+            || finalization.verification != evidence.rung.wire_rank()
         {
             return Err(ApiFailure::upstream_degraded());
         }

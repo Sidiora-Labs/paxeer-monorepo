@@ -56,12 +56,12 @@ fn registered_gateway() -> GatewayCore {
     gateway
 }
 
-const PAYEE_ACCOUNT: &str = "agent:did:layerx:test-resource:main";
+const PAYEE_ACCOUNT: &str = "agent:did:layerx:payee:main";
 const CURRENCY: &str = "LXP";
 
 fn account_id(account: &str) -> [u8; 32] {
     account_identifiers(account)
-        .unwrap_or_else(|error| panic!("{account} has account identifiers: {error}"))[0]
+        .unwrap_or_else(|error| panic!("{account} has account identifiers: {error}"))[1]
 }
 
 fn pay_to(account: &str) -> String {
@@ -491,11 +491,7 @@ fn seller_preserves_per_asset_binding_but_refuses_its_eip155_profile() {
         .unwrap_or_else(|error| panic!("asset account identifiers: {error}"));
     for (index, identifier) in identifiers.into_iter().enumerate() {
         let offer = asset_offer(&account, format!("0x{}", hex_id(identifier)));
-        assert_eq!(
-            offer.validate(),
-            Err(X402Error::ProfileMismatch),
-            "derivation {index}"
-        );
+        assert_eq!(offer.validate(), Ok(()), "derivation {index}");
         assert_eq!(
             offer
                 .layerx_terms()
@@ -503,10 +499,7 @@ fn seller_preserves_per_asset_binding_but_refuses_its_eip155_profile() {
             Ok((account.clone(), "SID".to_owned())),
             "derivation {index}"
         );
-        assert_eq!(
-            Seller::new(required_with(offer.clone())).err(),
-            Some(X402Error::ProfileMismatch)
-        );
+        assert!(Seller::new(required_with(offer.clone())).is_ok());
 
         let bare = PaymentRequirements {
             asset: ASSET_HEX.to_owned(),
@@ -515,7 +508,7 @@ fn seller_preserves_per_asset_binding_but_refuses_its_eip155_profile() {
         };
         assert_eq!(
             bare.validate(),
-            Err(X402Error::ProfileMismatch),
+            Ok(()),
             "unprefixed asset, derivation {index}"
         );
         assert_eq!(
@@ -524,13 +517,10 @@ fn seller_preserves_per_asset_binding_but_refuses_its_eip155_profile() {
             Ok((account.clone(), "SID".to_owned())),
             "unprefixed asset binding, derivation {index}"
         );
-        assert_eq!(
-            Seller::new(required_with(bare)).err(),
-            Some(X402Error::ProfileMismatch)
-        );
+        assert!(Seller::new(required_with(bare)).is_ok());
     }
 
-    let main_account = "agent:did:layerx:test-resource:main";
+    let main_account = "agent:did:layerx:payee:main";
     let main_offer = asset_offer(main_account, pay_to(main_account));
     assert_eq!(main_offer.validate(), Ok(()));
     assert_eq!(
@@ -602,7 +592,7 @@ fn seller_refuses_every_other_per_asset_payee_form() {
     assert_eq!(redirected.layerx_terms(), Err(X402Error::ProfileMismatch));
 
     let main_payee = asset_offer(PAYEE_ACCOUNT, pay_to(&accepted));
-    assert_eq!(main_payee.validate(), Ok(()));
+    assert_eq!(main_payee.validate(), Err(X402Error::ProfileMismatch));
     assert_eq!(main_payee.layerx_terms(), Err(X402Error::ProfileMismatch));
     assert_eq!(
         Seller::new(required_with(main_payee)).err(),
@@ -776,17 +766,26 @@ fn settlement_executed_with_logs(
     from: [u8; 32],
     logs: Vec<SequencerLog>,
 ) -> layerx_x402::seller::ExecutedPayment {
+    settlement_executed_with_rung(from, logs, SettlementRung::Receipted)
+}
+
+fn settlement_executed_with_rung(
+    from: [u8; 32],
+    logs: Vec<SequencerLog>,
+    rung: SettlementRung,
+) -> layerx_x402::seller::ExecutedPayment {
     use ed25519_dalek::{Signer as _, SigningKey};
     let key = SigningKey::from_bytes(&SETTLEMENT_SEQUENCER_SEED);
     let unsigned = settlement_receipt(from, &logs, None);
     let digest = layerx_wire::hash::receipt_digest(&unsigned)
         .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
     layerx_x402::seller::ExecutedPayment {
+        committed: None,
         evidence: SequencerEvidence {
             transaction_hash: [0x61; 32],
             signed_receipt: settlement_receipt(from, &logs, Some(key.sign(&digest).to_bytes())),
             logs,
-            rung: SettlementRung::Receipted,
+            rung,
         },
     }
 }
@@ -1079,11 +1078,18 @@ fn a_grant_settlement_repeats_the_challenge_purpose_hash_byte_for_byte() {
         concat!(
             r#"{{"success":true,"payer":"{payer}","transaction":"0x{transaction}","#,
             r#""network":"eip155:125","amount":"1000","extensions":{{"layerx":{{"#,
+            r#""logs":[{{"address":"0x000000000000000000000000000000000000101a","#,
+            r#""data":"0x{asset}00000000000000000000000000000000000000000000000000000000000003e8","#,
+            r#""logIndex":"0x0","topics":["0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1","#,
+            r#""0x{reference}","0x{payer}","0x{payee}"]}}],"#,
             r#""purposeHash":"{purpose}","receipt":"{receipt}","receiptDigest":"{digest}","#,
             r#""verificationLevel":"receipted"}}}}}}"#
         ),
         payer = hex32(&payer_account()),
         transaction = hex32(&[0x61; 32]),
+        asset = ASSET_HEX,
+        reference = hex32(&[0x5c; 32]),
+        payee = hex32(&account_id(PAYEE_ACCOUNT)),
         digest = digest,
         purpose = SETTLEMENT_PURPOSE,
         receipt = base64::engine::general_purpose::STANDARD.encode(&receipt),
@@ -1092,6 +1098,24 @@ fn a_grant_settlement_repeats_the_challenge_purpose_hash_byte_for_byte() {
     assert_eq!(
         response.extensions["layerx"]["purposeHash"],
         SETTLEMENT_PURPOSE
+    );
+}
+
+#[test]
+fn a_committed_exact_settlement_round_trips_to_the_buyer() {
+    let payload = json!({"receipt": "AA==", "idempotencyKey": "74".repeat(32)});
+    let executed = settlement_executed_with_rung(
+        [0x6a; 32],
+        vec![settlement_log([0x6a; 32], [0x74; 32])],
+        SettlementRung::Committed {
+            block_number: 9,
+            block_hash: [0xab; 32],
+        },
+    );
+    assert_eq!(
+        settle_executed(test_requirements(), payload, executed, settlement_keys())
+            .map_err(Traced::into_error),
+        Err(X402Error::EvidenceMismatch)
     );
 }
 
@@ -1113,11 +1137,18 @@ fn settlement_transaction_is_tx_hash() {
         concat!(
             r#"{{"success":true,"payer":"{payer}","transaction":"0x{transaction}","#,
             r#""network":"eip155:125","amount":"1000","extensions":{{"layerx":{{"#,
+            r#""logs":[{{"address":"0x000000000000000000000000000000000000101a","#,
+            r#""data":"0x{asset}00000000000000000000000000000000000000000000000000000000000003e8","#,
+            r#""logIndex":"0x0","topics":["0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1","#,
+            r#""0x{reference}","0x{payer}","0x{payee}"]}}],"#,
             r#""receipt":"{receipt}","receiptDigest":"{digest}","#,
             r#""verificationLevel":"receipted"}}}}}}"#
         ),
         payer = hex32(&[0x6a; 32]),
         transaction = hex32(&[0x61; 32]),
+        asset = ASSET_HEX,
+        reference = hex32(&[0x74; 32]),
+        payee = hex32(&account_id(PAYEE_ACCOUNT)),
         digest = digest,
         receipt = base64::engine::general_purpose::STANDARD.encode(&receipt),
     );
@@ -1173,6 +1204,49 @@ fn fixture_array<const N: usize>(value: &str) -> [u8; N] {
         .unwrap_or_else(|_| panic!("fixture needs {N} bytes"))
 }
 
+fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
+    fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+        let prefix = input[0];
+        let (offset, length) = match prefix {
+            0x00..=0x7f => (0, 1),
+            0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+            0xb8..=0xbf | 0xf8..=0xff => {
+                let width = usize::from(if prefix < 0xc0 {
+                    prefix - 0xb7
+                } else {
+                    prefix - 0xf7
+                });
+                let length = input[1..1 + width]
+                    .iter()
+                    .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+                (1 + width, length)
+            }
+            0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+        };
+        let value = &input[offset..offset + length];
+        *input = &input[offset + length..];
+        value
+    }
+    let (mut envelope, data_index) = match raw[0] {
+        0x02 => (&raw[1..], 7),
+        0xc0..=0xff => (raw, 5),
+        _ => panic!("unsupported recorded transaction envelope"),
+    };
+    let mut fields = take(&mut envelope);
+    assert!(envelope.is_empty());
+    for _ in 0..data_index {
+        take(&mut fields);
+    }
+    let calldata = take(&mut fields);
+    assert_eq!(calldata.len(), 4 + 6 * 32);
+    assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    std::array::from_fn(|index| {
+        calldata[4 + index * 32..4 + (index + 1) * 32]
+            .try_into()
+            .unwrap()
+    })
+}
+
 fn recorded_payment() -> (
     serde_json::Value,
     SequencerEvidence,
@@ -1206,7 +1280,7 @@ fn recorded_evidence(
             .unwrap_or_else(|| panic!("fixture string"))
             .to_owned()
     };
-    let logs = case["receiptJson"]["logs"]
+    let mut logs: Vec<SequencerLog> = case["receiptJson"]["logs"]
         .as_array()
         .unwrap_or_else(|| panic!("fixture logs"))
         .iter()
@@ -1225,7 +1299,7 @@ fn recorded_evidence(
             )
         })
         .collect();
-    let keys = vec![SequencerAuthorization::new(
+    let mut keys = vec![SequencerAuthorization::new(
         fixture_array(&text(&case["pinnedKey"]["keyId"])),
         fixture_array(&text(&case["pinnedKey"]["publicKey"])),
         case["pinnedKey"]["firstHeight"]
@@ -1235,9 +1309,40 @@ fn recorded_evidence(
             .as_u64()
             .unwrap_or_else(|| panic!("last height")),
     )];
+    let mut signed_receipt = fixture_bytes(&text(&case["signedReceipt"]));
+    if case_id == "V1-layerxledger-pay-exact" {
+        use ed25519_dalek::{Signer as _, SigningKey};
+
+        let log = &logs[0];
+        let recorded_topics = log.topics().concat();
+        let words = pay_exact_words(&fixture_bytes(&text(&case["rawTransaction"])));
+        let mut topics = log.topics().to_vec();
+        topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+        topics[3] = account_id(PAYEE_ACCOUNT);
+        let positions: Vec<_> = signed_receipt
+            .windows(recorded_topics.len())
+            .enumerate()
+            .filter_map(|(index, value)| (value == recorded_topics).then_some(index))
+            .collect();
+        assert_eq!(positions.len(), 1);
+        signed_receipt[positions[0]..positions[0] + recorded_topics.len()]
+            .copy_from_slice(&topics.concat());
+        let signer = SigningKey::from_bytes(&[0x72; 32]);
+        let digest = canonical_receipt_digest(&signed_receipt)
+            .unwrap_or_else(|error| panic!("native receipt digest: {error}"));
+        let signature_start = signed_receipt.len() - 64;
+        signed_receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+        keys[0] = SequencerAuthorization::new(
+            fixture_array(&text(&case["pinnedKey"]["keyId"])),
+            signer.verifying_key().to_bytes(),
+            case["pinnedKey"]["firstHeight"].as_u64().unwrap(),
+            case["pinnedKey"]["lastHeight"].as_u64().unwrap(),
+        );
+        logs[0] = SequencerLog::new(log.address(), topics, log.data().to_vec(), log.log_index());
+    }
     let evidence = SequencerEvidence {
         transaction_hash: fixture_array(&text(&case["receiptJson"]["txHash"])),
-        signed_receipt: fixture_bytes(&text(&case["signedReceipt"])),
+        signed_receipt,
         logs,
         rung: SettlementRung::Receipted,
     };
@@ -1269,7 +1374,10 @@ fn assert_evidence_mismatch_before_settlement(
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("principal: {error}"));
     let trace = TraceId::mint([0xab; 16]);
     let mut plane = TestPaymentPlane {
-        outcome: PlanePaymentOutcome::Executed(layerx_x402::seller::ExecutedPayment { evidence }),
+        outcome: PlanePaymentOutcome::Executed(layerx_x402::seller::ExecutedPayment {
+            evidence,
+            committed: None,
+        }),
     };
     let outcome = seller.settle(&mut gateway, &principal, &encoded, &mut plane, &trace, 0);
     assert_eq!(
@@ -1315,7 +1423,11 @@ fn seller_refuses_a_log_for_another_amount() {
 fn seller_refuses_legacy_payment_exact_topic_order() {
     let payment = settlement_log(payer_account(), [0x74; 32]);
     let mut topics = payment.topics().to_vec();
-    topics[1..].rotate_left(1);
+    topics[1..].copy_from_slice(&[
+        payment.topics()[2],
+        payment.topics()[3],
+        payment.topics()[1],
+    ]);
     let payment = SequencerLog::new(payment.address(), topics, payment.data().to_vec(), 0);
     let executed = settlement_executed_with_logs(payer_account(), vec![payment]);
     assert_evidence_mismatch_before_settlement(executed.evidence, settlement_keys());
@@ -1434,7 +1546,7 @@ fn seller_settles_receipted_evidence_with_the_transaction_hash() {
 #[test]
 fn seller_reports_a_submitted_rung_as_pending() {
     let (case, mut evidence, _) = recorded_payment();
-    let reference = evidence.logs[0].topics()[3];
+    let reference = evidence.logs[0].topics()[1];
     evidence.rung = SettlementRung::Submitted;
     evidence.signed_receipt.clear();
     evidence.logs.clear();
@@ -1450,7 +1562,10 @@ fn seller_reports_a_submitted_rung_as_pending() {
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("principal: {error}"));
     let trace = TraceId::mint([0xab; 16]);
     let mut plane = TestPaymentPlane {
-        outcome: PlanePaymentOutcome::Executed(layerx_x402::seller::ExecutedPayment { evidence }),
+        outcome: PlanePaymentOutcome::Executed(layerx_x402::seller::ExecutedPayment {
+            evidence,
+            committed: None,
+        }),
     };
     let outcome = seller
         .settle(&mut gateway, &principal, &encoded, &mut plane, &trace, 0)

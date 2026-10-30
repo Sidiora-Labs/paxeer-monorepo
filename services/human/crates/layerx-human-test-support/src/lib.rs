@@ -1,17 +1,20 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::{BufRead as _, BufReader, Read as _, Write as _};
+use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::thread::JoinHandle;
-use std::time::Duration;
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_agentd::boot::{handshake_gate, Gate};
-use layerx_agentd::config::StartupConfig;
-use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, RawStateEvidence};
+use layerx_agentd::boot::Gate;
+use layerx_agentd::config::{ReceiptKeySource, StartupConfig};
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
+use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
 use layerx_agentd::store::TenantId;
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
+use layerx_client::lni::transport::{self, ConnectionGate, Limits};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::send::SendDebit;
 use layerx_crypto::signer::Signer as _;
@@ -22,7 +25,6 @@ use layerx_human_service::store::{
 use layerx_intents::canonical::execution_batch_id as wire_execution_batch_id;
 use layerx_intents::canonical::PROTOCOL_VERSION;
 use layerx_proof::merkle::build_proof;
-use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::intent::{AuthorizationSignature, PublicKey, SendAuthorization};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
@@ -34,6 +36,9 @@ pub mod receive;
 use evidence_node::{EvidenceNode, FRAME_BYTES};
 
 pub const EVIDENCE_NETWORK_ID: u32 = 42;
+const EVIDENCE_CHAIN_ID: u64 = 125;
+
+pub type RawReceiptEvidence = layerx_agentd::protocol_evidence::RawReceiptEvidence;
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -115,6 +120,14 @@ pub fn evidence_registry() -> ModuleRegistry {
 /// Panics if authority-file creation or authority-gate validation fails.
 #[must_use]
 pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
+    let config = evidence_startup_config(receipt_signer);
+    Gate::new(&config).unwrap_or_else(|error| panic!("authority gate: {error:?}"))
+}
+
+/// # Panics
+/// Panics if authority-file creation or tenant construction fails.
+#[must_use]
+pub fn evidence_startup_config(receipt_signer: &SigningKey) -> StartupConfig {
     let receipt_key = receipt_signer.verifying_key().to_bytes();
     let authority_path = directory("evidence-authority").with_extension("csv");
     let authority_source = format!(
@@ -127,10 +140,10 @@ pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
     std::fs::set_permissions(&authority_path, std::fs::Permissions::from_mode(0o600))
         .unwrap_or_else(|error| panic!("authority source permissions: {error}"));
     let tenant = TenantId::new("human-evidence").unwrap_or_else(|error| panic!("tenant: {error}"));
-    let config = StartupConfig {
+    StartupConfig {
         network_id: EVIDENCE_NETWORK_ID,
-        node_endpoint: PathBuf::from("/run/layerx/layerxd.sock"),
-        expected_protocol_version: layerx_intents::canonical::PROTOCOL_VERSION,
+        node_endpoint: String::from("http://127.0.0.1:1/"),
+        expected_chain_id: EVIDENCE_CHAIN_ID,
         tenants: BTreeSet::from([tenant.clone()]),
         policy_sources: BTreeMap::from([(
             tenant.clone(),
@@ -140,10 +153,121 @@ pub fn evidence_gate(receipt_signer: &SigningKey) -> Gate {
             tenant.clone(),
             PathBuf::from("/etc/layerx/human-signer.kvx"),
         )]),
-        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::STATE_PROVEN)]),
-        sequencer_authority_source: authority_path,
+        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::CHECKPOINT_FINALISED)]),
+        receipt_key_source: ReceiptKeySource::PinnedFile(authority_path),
+    }
+}
+
+/// # Panics
+/// Panics on listener failure. The worker panics on missing or invalid RPC requests.
+#[must_use]
+pub fn serve_readiness_node(receipt_signer: &SigningKey) -> (NodeRpcConfig, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("bind readiness node: {error}"));
+    let config = NodeRpcConfig {
+        url: format!(
+            "http://{}/",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("readiness address: {error}"))
+        ),
+        chain_id: EVIDENCE_CHAIN_ID,
+        deadline: Duration::from_secs(2),
     };
-    Gate::new(&config).unwrap_or_else(|error| panic!("authority gate: {error:?}"))
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("nonblocking readiness listener: {error}"));
+    let key = encode_hex(&receipt_signer.verifying_key().to_bytes());
+    let exchanges = [
+        ("eth_chainId", format!("\"0x{:x}\"", config.chain_id)),
+        (
+            "px_getReceiptKeys",
+            format!(
+                "[{{\"keyId\":\"0x{key}\",\"publicKey\":\"0x{key}\",\"firstHeight\":\"0x7\",\"lastHeight\":\"0x7\"}}]"
+            ),
+        ),
+    ];
+    let server = thread::spawn(move || {
+        for (method, result) in exchanges {
+            let expires = Instant::now() + Duration::from_secs(5);
+            let stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < expires, "missing {method} request");
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("accept readiness request: {error}"),
+                }
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap_or_else(|error| panic!("readiness read timeout: {error}"));
+            stream
+                .set_write_timeout(Some(Duration::from_secs(2)))
+                .unwrap_or_else(|error| panic!("readiness write timeout: {error}"));
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(
+                    reader
+                        .read_line(&mut line)
+                        .unwrap_or_else(|error| panic!("read readiness header: {error}")),
+                    0
+                );
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .unwrap_or_else(|error| panic!("readiness content length: {error}")),
+                    );
+                }
+            }
+            let length = length.unwrap_or_else(|| panic!("content length required"));
+            assert!(length <= 64 * 1024);
+            let mut body = vec![0; length];
+            reader
+                .read_exact(&mut body)
+                .unwrap_or_else(|error| panic!("read readiness body: {error}"));
+            let request = String::from_utf8(body)
+                .unwrap_or_else(|error| panic!("readiness request encoding: {error}"));
+            let request: String = request
+                .chars()
+                .filter(|c| !c.is_ascii_whitespace())
+                .collect();
+            assert!(request.contains("\"jsonrpc\":\"2.0\""));
+            assert!(request.contains(&format!("\"method\":\"{method}\"")));
+            assert!(request.contains("\"params\":[]"));
+            let id = request
+                .split_once("\"id\":")
+                .and_then(|(_, value)| value.split([',', '}']).next())
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or_else(|| panic!("numeric readiness request id required"));
+            let answer = format!("{{\"jsonrpc\":\"2.0\",\"id\":{id},\"result\":{result}}}");
+            let mut stream = reader.into_inner();
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len())
+                .unwrap_or_else(|error| panic!("write readiness response: {error}"));
+            stream
+                .flush()
+                .unwrap_or_else(|error| panic!("flush readiness response: {error}"));
+        }
+    });
+    (config, server)
+}
+
+/// # Panics
+/// Panics if starting or connecting to the local readiness node fails.
+#[must_use]
+pub fn connect_readiness_node(receipt_signer: &SigningKey) -> (NodeRpc, JoinHandle<()>) {
+    let (config, server) = serve_readiness_node(receipt_signer);
+    let node = NodeRpc::connect(&config)
+        .unwrap_or_else(|error| panic!("connect readiness node: {error:?}"));
+    (node, server)
 }
 
 /// # Panics
@@ -176,8 +300,8 @@ pub fn serve_evidence_node(node: EvidenceNode, label: &str) -> (PathBuf, JoinHan
 /// # Panics
 /// Panics if connecting to the evidence socket fails.
 #[must_use]
-pub fn connect_evidence_node(socket_path: &Path) -> Uds {
-    Uds::connect(
+pub fn connect_evidence_node(socket_path: &Path) -> transport::Uds {
+    transport::Uds::connect(
         socket_path,
         &ConnectionGate::new(1),
         Limits {
@@ -192,21 +316,16 @@ pub fn connect_evidence_node(socket_path: &Path) -> Uds {
 }
 
 /// # Panics
-/// Panics if the node handshake, evidence authority, or worker completion fails.
+/// Panics if node readiness, evidence authority, or worker completion fails.
 #[must_use]
 pub fn evidence_verifier(receipt_signer: &SigningKey) -> EvidenceAuthority {
     let mut gate = evidence_gate(receipt_signer);
-    let node = evidence_node(receipt_signer, "evidence-admission", 1);
-    let (socket_path, server) = serve_evidence_node(node, "evidence-handshake");
-    let mut transport = connect_evidence_node(&socket_path);
-    handshake_gate(&mut gate, &mut transport)
-        .unwrap_or_else(|error| panic!("accepted handshake: {error:?}"));
-    drop(transport);
-    let node = server
+    let (node, readiness_server) = connect_readiness_node(receipt_signer);
+    gate.readiness_gate(&node)
+        .unwrap_or_else(|error| panic!("readiness gate: {error:?}"));
+    readiness_server
         .join()
-        .unwrap_or_else(|_| panic!("evidence node panicked"));
-    assert!(!node.fail_stopped());
-    let _ = std::fs::remove_file(socket_path);
+        .unwrap_or_else(|_| panic!("readiness node panicked"));
     gate.evidence_authority()
         .unwrap_or_else(|error| panic!("evidence authority: {error:?}"))
         .clone()
@@ -299,22 +418,24 @@ pub fn sign_send(
 }
 
 /// # Panics
-/// Panics if the signer differs from the authorized batch key or proof construction fails.
+/// Panics if the signer differs from the pinned receipt key or proof construction fails.
 #[must_use]
 pub fn raw_receipt_evidence(
     canonical_receipt: Vec<u8>,
-    authorised_batch: AuthorizedBatch,
+    pinned_sequencer_receipt_key: [u8; 32],
+    previous_state_root: [u8; 32],
+    resulting_state_root: [u8; 32],
     global_sequence: u64,
     signer: &SigningKey,
 ) -> RawReceiptEvidence {
     assert_eq!(
-        authorised_batch.sequencer_public_key(),
+        pinned_sequencer_receipt_key,
         signer.verifying_key().to_bytes()
     );
     let leaves = [canonical_receipt.as_slice()];
     let (proof, receipt_root) =
         build_proof(&leaves, 0).unwrap_or_else(|error| panic!("receipt proof: {error:?}"));
-    let sequencer_id = signer.verifying_key().to_bytes();
+    let sequencer_id = pinned_sequencer_receipt_key;
     let decoded = layerx_intents::canonical::decode_receipt(&canonical_receipt)
         .unwrap_or_else(|error| panic!("canonical receipt: {error:?}"));
     let protocol = decoded
@@ -322,8 +443,8 @@ pub fn raw_receipt_evidence(
         .unwrap_or_else(|| panic!("protocol receipt required"));
     assert_eq!(protocol.global_sequence(), global_sequence);
     let header = canonical_header(
-        authorised_batch.previous_state_root(),
-        authorised_batch.resulting_state_root(),
+        previous_state_root,
+        resulting_state_root,
         protocol.activity_root(),
         receipt_root,
         global_sequence,
@@ -420,4 +541,108 @@ pub fn version_file_bytes(version: u32) -> Vec<u8> {
     bytes.extend_from_slice(b"LXHV");
     bytes.extend_from_slice(&version.to_be_bytes());
     bytes
+}
+
+fn human_workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap_or_else(|error| panic!("resolve human workspace root: {error}"))
+}
+
+#[must_use]
+pub fn human_workspace_metadata() -> serde_json::Value {
+    let workspace_root = human_workspace_root();
+    let manifest_path = workspace_root.join("Cargo.toml");
+    let output = std::process::Command::new("cargo")
+        .current_dir(&workspace_root)
+        .args([
+            "metadata",
+            "--format-version",
+            "1",
+            "--locked",
+            "--manifest-path",
+        ])
+        .arg(&manifest_path)
+        .output()
+        .unwrap_or_else(|error| {
+            panic!(
+                "run cargo metadata for {}: {error}",
+                manifest_path.display()
+            )
+        });
+    assert!(
+        output.status.success(),
+        "cargo metadata for {} failed with {}: {}",
+        manifest_path.display(),
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout)
+        .unwrap_or_else(|error| panic!("parse human workspace metadata: {error}"))
+}
+
+#[must_use]
+pub fn workspace_package_names(metadata: &serde_json::Value) -> Vec<String> {
+    let members: BTreeSet<&str> = metadata["workspace_members"]
+        .as_array()
+        .unwrap_or_else(|| panic!("cargo metadata workspace_members must be an array"))
+        .iter()
+        .map(|member| {
+            member
+                .as_str()
+                .unwrap_or_else(|| panic!("cargo metadata workspace member ID must be a string"))
+        })
+        .collect();
+    let mut names: Vec<String> = metadata["packages"]
+        .as_array()
+        .unwrap_or_else(|| panic!("cargo metadata packages must be an array"))
+        .iter()
+        .filter(|package| {
+            let id = package["id"]
+                .as_str()
+                .unwrap_or_else(|| panic!("cargo metadata package ID must be a string"));
+            members.contains(id)
+        })
+        .map(|package| {
+            package["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("cargo metadata package name must be a string"))
+                .to_owned()
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+#[must_use]
+pub fn human_sources_containing(needle: &str) -> Vec<PathBuf> {
+    let mut directories = vec![human_workspace_root().join("crates")];
+    let mut sources = Vec::new();
+    while let Some(directory) = directories.pop() {
+        let entries = std::fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("read directory {}: {error}", directory.display()));
+        for entry in entries {
+            let entry = entry.unwrap_or_else(|error| {
+                panic!("read directory entry in {}: {error}", directory.display())
+            });
+            let path = entry.path();
+            let file_type = entry
+                .file_type()
+                .unwrap_or_else(|error| panic!("read file type for {}: {error}", path.display()));
+            if file_type.is_dir() {
+                directories.push(path);
+            } else if file_type.is_file()
+                && path.extension().is_some_and(|extension| extension == "rs")
+            {
+                let source = std::fs::read_to_string(&path)
+                    .unwrap_or_else(|error| panic!("read Rust source {}: {error}", path.display()));
+                if source.contains(needle) {
+                    sources.push(path);
+                }
+            }
+        }
+    }
+    sources.sort();
+    sources
 }

@@ -48,7 +48,14 @@ beforeAll(async () => {
     switch (body.method) {
       case 'eth_blockNumber': result = '0x64'; break;
       case 'eth_getTransactionCount': result = `0x${(latestTransactionCounts.get(body.params[0]!.toLowerCase()) ?? 0).toString(16)}`; break;
-      case 'eth_getTransactionByHash': result = null; break;
+      case 'eth_getTransactionByHash':
+        if (unknownOutcomeSend) {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32000, message: 'transaction lookup unavailable' } }));
+          return;
+        }
+        result = null;
+        break;
       case 'eth_estimateGas': result = '0x186a0'; break;
       case 'eth_getBlockByNumber': result = { number: '0x64', baseFeePerGas: '0x3b9aca00' }; break;
       case 'eth_maxPriorityFeePerGas': result = '0x3b9aca00'; break;

@@ -6,8 +6,11 @@ use std::collections::BTreeMap;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use layerx_committed_proof::{committed::verify_committed, header::Validator, CommittedProof};
 use layerx_interop_gateway::adapter::AdapterId;
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
@@ -184,12 +187,23 @@ pub enum FacilitatorSettlementOutcome {
     Executed(SequencerEvidence),
 }
 
+#[derive(Clone, Debug)]
+pub struct FacilitatorCommitment {
+    pub proof: CommittedProof,
+    pub validators: Vec<Validator>,
+    pub chain_id: String,
+}
+
 /// The only authority boundary used by the facilitator. Verification and
 /// settlement are deliberately separate methods, making a state-changing
 /// implementation impossible to call through the read-only route by mistake.
 pub trait FacilitatorPlane {
     /// Independently configured sequencer authority pins for settlement.
     fn receipt_keys(&self) -> &[SequencerAuthorization];
+
+    fn committed_proof(&self) -> Option<&FacilitatorCommitment> {
+        None
+    }
 
     /// Validates without committing payment state.
     ///
@@ -219,6 +233,7 @@ pub trait FacilitatorPlane {
 pub struct SequencerFacilitatorPlane {
     evidence: SequencerEvidence,
     receipt_keys: Vec<SequencerAuthorization>,
+    commitment: Option<FacilitatorCommitment>,
 }
 
 impl SequencerFacilitatorPlane {
@@ -230,13 +245,24 @@ impl SequencerFacilitatorPlane {
         Self {
             evidence,
             receipt_keys,
+            commitment: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_committed_proof(mut self, commitment: FacilitatorCommitment) -> Self {
+        self.commitment = Some(commitment);
+        self
     }
 }
 
 impl FacilitatorPlane for SequencerFacilitatorPlane {
     fn receipt_keys(&self) -> &[SequencerAuthorization] {
         &self.receipt_keys
+    }
+
+    fn committed_proof(&self) -> Option<&FacilitatorCommitment> {
+        self.commitment.as_ref()
     }
 
     fn verify(
@@ -439,6 +465,7 @@ impl Facilitator {
                 &request.payment_requirements,
                 &executed,
                 plane.receipt_keys(),
+                plane.committed_proof(),
                 trace,
                 now,
             )
@@ -539,6 +566,7 @@ fn settle_executed(
     requirements: &PaymentRequirements,
     evidence: &SequencerEvidence,
     receipt_keys: &[SequencerAuthorization],
+    commitment: Option<&FacilitatorCommitment>,
     trace: &TraceId,
     now: u64,
 ) -> Result<SettlementResponse, X402Error> {
@@ -577,6 +605,28 @@ fn settle_executed(
             .map_err(|_| X402Error::EvidenceMismatch)?,
     );
     payment_matches(requirements, asset, payment.topics()[3], amount)?;
+    let committed = if let Some(commitment) = commitment {
+        let digest = canonical_receipt_digest(&evidence.signed_receipt)
+            .map_err(|_| X402Error::EvidenceMismatch)?;
+        let block = verify_committed(
+            digest,
+            &commitment.proof,
+            &commitment.validators,
+            &commitment.chain_id,
+        )
+        .map_err(|_| X402Error::EvidenceMismatch)?;
+        if evidence.rung
+            != (SettlementRung::Committed {
+                block_number: block.number,
+                block_hash: block.hash,
+            })
+        {
+            return Err(X402Error::EvidenceMismatch);
+        }
+        Some(block)
+    } else {
+        None
+    };
     let status = gateway
         .settle_with_sequencer_evidence(
             principal,
@@ -597,14 +647,17 @@ fn settle_executed(
     };
     let digest_text = hex(&receipt_digest);
     let mut extensions = BTreeMap::new();
-    extensions.insert(
-        "layerx".to_owned(),
-        json!({
-            "receipt": STANDARD.encode(&evidence.signed_receipt),
-            "receiptDigest": digest_text,
-            "verificationLevel": "receipted"
-        }),
-    );
+    let mut layerx = json!({
+        "receipt": STANDARD.encode(&evidence.signed_receipt),
+        "receiptDigest": digest_text,
+        "verificationLevel": "receipted"
+    });
+    if let Some(block) = committed {
+        layerx["verificationLevel"] = json!("committed");
+        layerx["blockNumber"] = json!(format!("0x{:x}", block.number));
+        layerx["blockHash"] = json!(format!("0x{}", hex(&block.hash)));
+    }
+    extensions.insert("layerx".to_owned(), layerx);
     let response = SettlementResponse {
         success: true,
         error_reason: None,
@@ -788,7 +841,10 @@ mod tests {
             .try_into()
             .unwrap_or_else(|_| panic!("payee"));
         let recorded_topics = topics.concat();
-        topics = vec![topics[0], [0x74; 32], topics[1], recipient];
+        let words = crate::seller::tests::pay_exact_words(&bytes(&text(&case["rawTransaction"])));
+        topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+        topics[1] = [0x74; 32];
+        topics[3] = recipient;
         replace(&mut receipt, &recorded_topics, &topics.concat());
         let old_data = bytes(&text(&log["data"]));
         let mut data = bytes(&accepted.asset);
@@ -848,6 +904,7 @@ mod tests {
             accepted,
             &executed,
             &receipt_keys,
+            None,
             &trace,
             1,
         )

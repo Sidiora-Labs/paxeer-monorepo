@@ -25,14 +25,14 @@
       "case": "V1-layerxledger-pay-exact",
       "rung": "receipted",
       "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
-      "receipt_digest": "0xb274211c7c8e504a54c6a5e741e70d1d4a935dcb2f01f98933200af274486e66",
+      "receipt_digest": "0xe7c6a13ed062d534ce0387c8d00735e390ba1097c019e4c3da3d06e126401f6c",
       "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
       "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
       "payment_reference": "0x0b5827ae8eac02b6eba77b8b130d6a64e9fe1a8e875256b87bce0d79393227a4"
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0xb274211c7c8e504a54c6a5e741e70d1d4a935dcb2f01f98933200af274486e66",
+      "receipt_digest": "0xe7c6a13ed062d534ce0387c8d00735e390ba1097c019e4c3da3d06e126401f6c",
       "translation": "receipt-verified"
     }
   },
@@ -62,14 +62,14 @@
       "case": "V1-layerxledger-pay-exact",
       "rung": "receipted",
       "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
-      "receipt_digest": "0x64609bfecfa241181ff89d39ef64e966b080ef371a0cd0085e193f791b88ee7d",
+      "receipt_digest": "0xae073c877f5615aec23c61e051b69c703e7680e7f603be886d2163efdc15d5bb",
       "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
       "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
       "payment_reference": "0xd37ec5ad3fec2fc46907d83e2acbacb9adaffa7372f75ba7df9146d18427bd62"
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0x64609bfecfa241181ff89d39ef64e966b080ef371a0cd0085e193f791b88ee7d",
+      "receipt_digest": "0xae073c877f5615aec23c61e051b69c703e7680e7f603be886d2163efdc15d5bb",
       "translation": "receipt-verified"
     }
   },
@@ -99,14 +99,14 @@
       "case": "V1-layerxledger-pay-exact",
       "rung": "receipted",
       "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
-      "receipt_digest": "0x0eaf980dc7e0b5f9b7b2355c5073bc786675face49f8527885b1e896e07512a4",
+      "receipt_digest": "0x797340ee02757c9b4478537f26674ac8804b6b74a39658eacd3633498eb9e933",
       "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
       "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
       "payment_reference": "0x682606fee5a23df2e15cabd4baacf2f8342bc7bbe9e381988742f6722a11f103"
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0x0eaf980dc7e0b5f9b7b2355c5073bc786675face49f8527885b1e896e07512a4",
+      "receipt_digest": "0x797340ee02757c9b4478537f26674ac8804b6b74a39658eacd3633498eb9e933",
       "translation": "receipt-verified"
     }
   },

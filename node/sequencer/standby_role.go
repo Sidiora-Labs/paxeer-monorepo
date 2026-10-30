@@ -5,13 +5,16 @@ import (
 	"context"
 	"crypto/ed25519"
 	"fmt"
+	"math"
 	"net"
 	"path/filepath"
+	"sync"
 
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	tmed25519 "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
@@ -117,8 +120,9 @@ func StartStandby(ctx context.Context, cfg Config, a *app.App) (*Standby, error)
 	if err != nil {
 		return nil, err
 	}
+	source := &standbyRoleSource{app: a}
 	s, err := NewStandby(ctx, StandbyConfig{
-		WAL: w, Executor: &standbyRoleReplay{AppReplayer: NewAppReplayer(exec, r), pins: pins, local: key.public},
+		WAL: w, Executor: &standbyRoleReplay{AppReplayer: NewAppReplayer(exec, r), pins: pins, local: key.public, source: source},
 		ConsensusKey: pv, ReceiptKey: key.private,
 		PrimaryConsensusKey: primaryConsensus, PrimaryReceiptKey: primaryReceipt,
 		CommittedHeight: uint64(height), LastSeq: lastSeq, ReplicationTimeout: cfg.ReplicationTimeout,
@@ -133,6 +137,7 @@ func StartStandby(ctx context.Context, cfg Config, a *app.App) (*Standby, error)
 		return nil, fmt.Errorf("sequencer: standby listen: %w", err)
 	}
 	a.SetOpenBlock(exec)
+	a.SetSequencerSource(source)
 	stop := context.AfterFunc(ctx, func() { _ = l.Close() })
 	go func() {
 		err := s.Serve(standbyRoleListener{Listener: l, ctx: ctx})
@@ -178,8 +183,9 @@ func (c *standbyRoleConn) Close() error {
 // the standby's own signing key never signs on behalf of the primary.
 type standbyRoleReplay struct {
 	*AppReplayer
-	pins  []verify.SequencerAuthorization
-	local [32]byte
+	pins   []verify.SequencerAuthorization
+	local  [32]byte
+	source *standbyRoleSource
 }
 
 func (r *standbyRoleReplay) Execute(a *wal.Accept) ([]byte, error) {
@@ -241,4 +247,102 @@ func (r *standbyRoleReplay) Execute(a *wal.Accept) ([]byte, error) {
 		return nil, fmt.Errorf("%w: seq %d", wal.ErrReceiptMismatch, a.Seq)
 	}
 	return bytes.Clone(a.Receipt), nil
+}
+
+type standbyRoleSource struct {
+	app     *app.App
+	mu      sync.Mutex
+	pending *Batch
+	sealed  *SealedLayer
+}
+
+var _ tmtypes.SequencerSource = (*standbyRoleSource)(nil)
+
+func (s *standbyRoleSource) Sequenced(height int64) bool {
+	return s.app.Sequenced(s.app.GetCheckCtx(), height)
+}
+
+func (s *standbyRoleSource) Seal(ctx context.Context, height int64) (tmtypes.SealedBlock, error) {
+	if err := ctx.Err(); err != nil {
+		return tmtypes.SealedBlock{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sealed == nil || s.sealed.Height != height {
+		return tmtypes.SealedBlock{}, ErrNoSealedLayer
+	}
+	txs := make(tmtypes.Txs, len(s.sealed.Txs)-1)
+	for i := range txs {
+		txs[i] = bytes.Clone(s.sealed.Txs[i+1])
+	}
+	return tmtypes.SealedBlock{Batch: bytes.Clone(s.sealed.Txs[0]), Txs: txs,
+		OpenTime: s.sealed.Context().BlockTime()}, nil
+}
+
+func (s *standbyRoleSource) Sealed() *SealedLayer {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.sealed
+}
+
+func (s *standbyRoleSource) SealForFinalize(height int64, txs [][]byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sealed != nil && s.sealed.Height == height {
+		if len(txs) != len(s.sealed.Txs) {
+			return ErrBatchFieldsMismatch
+		}
+		for i := range txs {
+			if !bytes.Equal(txs[i], s.sealed.Txs[i]) {
+				return ErrBatchFieldsMismatch
+			}
+		}
+		return nil
+	}
+	batch := s.pending
+	if batch == nil {
+		return ErrNoSealedLayer
+	}
+	if batch.Height != height || len(txs) != len(batch.Txs)+1 {
+		return ErrBatchFieldsMismatch
+	}
+	for i, tx := range batch.Txs {
+		if !bytes.Equal(tx, txs[i+1]) {
+			return ErrBatchFieldsMismatch
+		}
+	}
+	msg, err := app.DecodeSequenceBatch(txs[0])
+	if err != nil {
+		return err
+	}
+	sealed, _, err := SealBatch(s.app, batch, msg)
+	if err != nil {
+		return err
+	}
+	s.sealed = sealed
+	s.pending = nil
+	return nil
+}
+
+func (r *standbyRoleReplay) Apply(entry wal.Entry) error {
+	seal, ok := entry.(*wal.Seal)
+	if !ok {
+		return r.AppReplayer.Apply(entry)
+	}
+	if seal.Height > math.MaxInt64 {
+		return fmt.Errorf("%w: SEAL height exceeds int64", wal.ErrMalformed)
+	}
+	s := r.source
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	batch, err := r.exec.Seal(int64(seal.Height))
+	if err != nil {
+		return err
+	}
+	fields := BatchFields(batch)
+	if fields.Height != seal.Height || fields.FromSeq != seal.FromSeq || fields.ToSeq != seal.ToSeq || fields.LastSeqHash != seal.LastSeqHash {
+		return ErrBatchFieldsMismatch
+	}
+	s.pending = batch
+	return nil
 }

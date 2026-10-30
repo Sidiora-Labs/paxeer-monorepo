@@ -1,0 +1,16 @@
+SET LOCAL search_path = "security", pg_catalog;
+CREATE SCHEMA IF NOT EXISTS "security";
+CREATE TABLE IF NOT EXISTS "security".operator_sessions(session_id text PRIMARY KEY,wallet text NOT NULL,actor text NOT NULL,audience text NOT NULL,issued_at timestamptz NOT NULL,expires_at timestamptz NOT NULL,mfa_expires_at timestamptz NOT NULL,scopes text[] NOT NULL,revoked boolean NOT NULL DEFAULT false,CHECK(expires_at>issued_at AND expires_at-issued_at<=interval '15 minutes'));
+CREATE TABLE IF NOT EXISTS "security".deadletter_redrives(job_id text PRIMARY KEY,consumer_id text NOT NULL,projection_generation text NOT NULL,envelope_hash text NOT NULL,reason text NOT NULL,actor text NOT NULL,state text NOT NULL DEFAULT 'pending',created_at timestamptz NOT NULL DEFAULT clock_timestamp());
+CREATE TABLE IF NOT EXISTS "security".authorization_decisions(seq bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,at timestamptz NOT NULL DEFAULT clock_timestamp(),actor text NOT NULL,scope text NOT NULL,request_id text NOT NULL,policy_version text NOT NULL,allowed boolean NOT NULL);
+CREATE TABLE IF NOT EXISTS "security".audit_outbox(seq bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,at timestamptz NOT NULL DEFAULT clock_timestamp(),record jsonb NOT NULL);
+CREATE FUNCTION "security".reject_audit_change() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'append-only security journal'; END $$;
+CREATE TRIGGER immutable_authorization BEFORE UPDATE OR DELETE OR TRUNCATE ON "security".authorization_decisions FOR EACH STATEMENT EXECUTE FUNCTION "security".reject_audit_change();
+CREATE TRIGGER immutable_audit BEFORE UPDATE OR DELETE OR TRUNCATE ON "security".audit_outbox FOR EACH STATEMENT EXECUTE FUNCTION "security".reject_audit_change();
+REVOKE ALL ON "security"."operator_sessions" FROM PUBLIC;
+REVOKE ALL ON "security"."deadletter_redrives" FROM PUBLIC;
+REVOKE ALL ON "security"."authorization_decisions" FROM PUBLIC;
+REVOKE ALL ON "security"."audit_outbox" FROM PUBLIC;
+REVOKE ALL ON FUNCTION "security"."reject_audit_change"() FROM PUBLIC;
+CREATE VIEW security.operator_sessions_v2 AS SELECT session_id,actor,audience,issued_at,expires_at,mfa_expires_at,revoked FROM security.operator_sessions;
+REVOKE ALL ON security.operator_sessions_v2 FROM PUBLIC;

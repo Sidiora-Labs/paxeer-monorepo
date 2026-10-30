@@ -15,7 +15,11 @@ layerx-crypto.workspace = true
 layerx-human-service = { path = "../layerx-human-service" }
 layerx-proof.workspace = true
 layerx-types.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true

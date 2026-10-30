@@ -36,7 +36,6 @@ pub fn router_method(name: &str) -> bool {
         && (ROUTER_METHODS.binary_search(&name).is_ok() || evm::is_evm_namespace(name))
 }
 
-use layerx_crypto::disclosure::{bind as bind_disclosure, AmountRole, CounterpartyRole};
 use layerx_crypto::{ed25519, SignatureMessage};
 use layerx_proof::program::{
     verify_authorized_program_execution_with_payers, verify_program_execution_with_payers,
@@ -378,56 +377,6 @@ pub struct VerifiedSubmission {
     activity_id: [u8; 32],
     idempotency_key: [u8; 32],
     activity_type: ActivityType,
-    transfer: Option<VerifiedTransfer>,
-}
-
-/// Exact 402LXP transfer facts decoded from a canonically signed submission.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct VerifiedTransfer {
-    payer: [u8; 32],
-    recipient: [u8; 32],
-    asset: [u8; 32],
-    amount: u128,
-    not_before: u64,
-    not_after: u64,
-    expires_at: u64,
-}
-
-impl VerifiedTransfer {
-    #[must_use]
-    pub const fn payer(self) -> [u8; 32] {
-        self.payer
-    }
-
-    #[must_use]
-    pub const fn recipient(self) -> [u8; 32] {
-        self.recipient
-    }
-
-    #[must_use]
-    pub const fn asset(self) -> [u8; 32] {
-        self.asset
-    }
-
-    #[must_use]
-    pub const fn amount(self) -> u128 {
-        self.amount
-    }
-
-    #[must_use]
-    pub const fn not_before(self) -> u64 {
-        self.not_before
-    }
-
-    #[must_use]
-    pub const fn not_after(self) -> u64 {
-        self.not_after
-    }
-
-    #[must_use]
-    pub const fn expires_at(self) -> u64 {
-        self.expires_at
-    }
 }
 
 impl VerifiedSubmission {
@@ -445,49 +394,6 @@ impl VerifiedSubmission {
     pub const fn activity_type(self) -> ActivityType {
         self.activity_type
     }
-
-    #[must_use]
-    pub const fn transfer(self) -> Option<VerifiedTransfer> {
-        self.transfer
-    }
-}
-
-fn verified_transfer(
-    unsigned: &[u8],
-    registry: &ModuleRegistry,
-    activity_type: ActivityType,
-) -> Result<Option<VerifiedTransfer>, GatewayError> {
-    if activity_type.module() != ModuleId::Asset || !matches!(activity_type.ordinal(), 5 | 6) {
-        return Ok(None);
-    }
-    let disclosure =
-        bind_disclosure(unsigned, registry).map_err(|_| GatewayError::InvalidRequest)?;
-    let mut payer = None;
-    let mut recipient = None;
-    for counterparty in disclosure.counterparties {
-        let target = match counterparty.role {
-            CounterpartyRole::Payer => &mut payer,
-            CounterpartyRole::Recipient => &mut recipient,
-        };
-        if target.replace(counterparty.account).is_some() {
-            return Err(GatewayError::InvalidRequest);
-        }
-    }
-    let mut amount = None;
-    for disclosed in disclosure.amounts {
-        if disclosed.role == AmountRole::Transfer && amount.replace(disclosed.value).is_some() {
-            return Err(GatewayError::InvalidRequest);
-        }
-    }
-    Ok(Some(VerifiedTransfer {
-        payer: payer.ok_or(GatewayError::InvalidRequest)?,
-        recipient: recipient.ok_or(GatewayError::InvalidRequest)?,
-        asset: disclosure.asset,
-        amount: amount.ok_or(GatewayError::InvalidRequest)?,
-        not_before: disclosure.expiry.not_before,
-        not_after: disclosure.expiry.not_after,
-        expires_at: disclosure.expiry.payload_expires_at,
-    }))
 }
 
 /// Refuses a submitted activity unless its bytes are canonical, its module was
@@ -523,12 +429,10 @@ pub fn verify_submission(
     )
     .map_err(|_| GatewayError::InvalidRequest)?;
     ed25519::verify(signer_public_key, &signature, message).map_err(|_| GatewayError::Forbidden)?;
-    let transfer = verified_transfer(&unsigned, registry, activity.activity_type())?;
     Ok(VerifiedSubmission {
         activity_id: activity_id(&activity).map_err(|_| GatewayError::InvalidRequest)?,
         idempotency_key: activity.idempotency_key(),
         activity_type: activity.activity_type(),
-        transfer,
     })
 }
 

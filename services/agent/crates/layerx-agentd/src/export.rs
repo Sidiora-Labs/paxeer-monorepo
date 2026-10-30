@@ -11,7 +11,6 @@ use layerx_agent_api::read::{Freshness, RelativeTo, VerifiedRead};
 use layerx_client::availability::FetchError;
 use layerx_client::evidence::EvidenceError;
 use layerx_client::sequencer::ReceiptKeyEntry;
-use layerx_client::Client;
 use layerx_crypto::evm_transaction::transaction_hash;
 use layerx_proof::export::{CompleteExportError, OfflineTrustError};
 use layerx_proof::export_codec::{
@@ -123,7 +122,6 @@ pub struct ProducedExport {
 pub enum ExportProduceError {
     UnavailableCapability(layerx_agent_api::error::ApiError),
     Facts(FactRefError),
-    SettlementAnchoringUnavailable,
     NotOwned {
         fact: usize,
     },
@@ -338,7 +336,6 @@ fn required(value: &Option<CanonicalBytes>) -> Result<&[u8], ExportProduceError>
 }
 
 pub fn produce(
-    _node: &mut Client,
     context: &ExportOwnerContext<'_>,
     facts: &[FactRef],
     requested: VerificationLevel,

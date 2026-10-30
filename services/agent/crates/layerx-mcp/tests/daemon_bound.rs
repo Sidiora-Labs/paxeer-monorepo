@@ -177,7 +177,7 @@ fn document_for(
         "session_token_file": token_file.display().to_string(),
         "session_generation": 1,
         "capability_id": CAPABILITY_ID,
-        "core_sequence": 50,
+        "core_height": 50,
         "deadline_ms": 5_000,
         "agent": {
             "endpoint": endpoint,
@@ -421,6 +421,7 @@ fn a_binding_document_is_closed_complete_and_narrowable() {
     let mut binding = Binding::open(&path).unwrap_or_else(|error| panic!("open: {error:?}"));
     assert_eq!(binding.mode(), DeploymentMode::Full);
     assert_eq!(binding.deadline(), Duration::from_millis(5_000));
+    assert_eq!(binding.core_height(), 50);
     let declared = binding
         .listener()
         .unwrap_or_else(|| panic!("listener absent"))
@@ -462,16 +463,25 @@ fn a_binding_document_is_closed_complete_and_narrowable() {
             fields.insert("session_id".to_owned(), json!("07"));
         },
         &|fields: &mut serde_json::Map<String, Value>| {
-            fields.get_mut("listener").unwrap_or_else(|| panic!("listener"))["socket"] = json!("/tmp/mcp.sock/");
+            fields
+                .get_mut("listener")
+                .unwrap_or_else(|| panic!("listener"))["socket"] = json!("/tmp/mcp.sock/");
         },
         &|fields: &mut serde_json::Map<String, Value>| {
-            fields.get_mut("listener").unwrap_or_else(|| panic!("listener"))["socket"] = json!(format!("/tmp/{}", "s".repeat(108)));
+            fields
+                .get_mut("listener")
+                .unwrap_or_else(|| panic!("listener"))["socket"] =
+                json!(format!("/tmp/{}", "s".repeat(108)));
         },
         &|fields: &mut serde_json::Map<String, Value>| {
-            fields.get_mut("listener").unwrap_or_else(|| panic!("listener"))["socket"] = json!("/tmp/mcp\0.sock");
+            fields
+                .get_mut("listener")
+                .unwrap_or_else(|| panic!("listener"))["socket"] = json!("/tmp/mcp\0.sock");
         },
         &|fields: &mut serde_json::Map<String, Value>| {
-            fields.get_mut("listener").unwrap_or_else(|| panic!("listener"))["admitted_uids"] = json!([42, 42]);
+            fields
+                .get_mut("listener")
+                .unwrap_or_else(|| panic!("listener"))["admitted_uids"] = json!([42, 42]);
         },
     ];
     for change in changes {
@@ -975,10 +985,37 @@ fn web_scoped_document(root: &Path, endpoint: &str, web: Option<Value>) -> Strin
 }
 
 fn web_section() -> Value {
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../../services/interop/crates/x-websearch/tests/fixtures");
+    let read = |name| {
+        let bytes =
+            fs::read(fixtures.join(name)).unwrap_or_else(|error| panic!("fixture {name}: {error}"));
+        serde_json::from_slice::<Value>(&bytes)
+            .unwrap_or_else(|error| panic!("fixture {name}: {error}"))
+    };
+    let metered = read("gateway/metered.json");
+    let exchange = read("client-exchange.json");
+    let receiver_address = metered
+        .pointer("/ledger/receiverAddress")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("recorded receiver address"));
+    let payer_address = exchange
+        .pointer("/exchange/0/request/headers/LAYERX-PAYER-ADDRESS")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("recorded payer address"));
+    let network = exchange
+        .pointer("/exchange/0/response/headers/PAYMENT-REQUIRED/accepts/0/network")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("recorded network"));
     json!({
         "endpoint": "http://127.0.0.1:9450",
-        "network": "eip155:1337",
+        "payer_address": payer_address,
+        "receiver_address": receiver_address,
+        "network": network,
         "sequencer_public_key": "5e".repeat(32),
+        "sequencer_id": "2a".repeat(32),
+        "first_batch_number": 0,
+        "last_batch_number": 9,
         "timeout_ms": 5_000,
         "pending_attempts": 3,
         "approval_threshold": "0",
@@ -1053,11 +1090,7 @@ fn the_web_section_is_closed_and_typed() {
     let parsed: Value =
         serde_json::from_str(&body).unwrap_or_else(|error| panic!("reparse: {error}"));
     let cases: [(&str, Value, &str); 6] = [
-        (
-            "unexpected",
-            json!("1"),
-            "web has an unaccepted field",
-        ),
+        ("unexpected", json!("1"), "web has an unaccepted field"),
         ("approval_threshold", json!(10), "field approval_threshold"),
         (
             "approval_threshold",
@@ -1103,14 +1136,23 @@ fn the_web_section_is_closed_and_typed() {
 fn listener_applies_the_declared_group_and_keeps_replacement_files() {
     let root = directory("declared-group");
     let metadata = fs::metadata(&root).unwrap_or_else(|error| panic!("metadata: {error}"));
-    let group = if metadata.uid() == 0 { metadata.gid().saturating_add(1) } else { metadata.gid() };
+    let group = if metadata.uid() == 0 {
+        metadata.gid().saturating_add(1)
+    } else {
+        metadata.gid()
+    };
     std::os::unix::fs::chown(&root, None, Some(group))
         .unwrap_or_else(|error| panic!("directory group: {error}"));
     let socket = root.join("mcp.sock");
     let listener = Listener::bind(ListenerConfig {
-        endpoint: socket.clone(), owner_uid: metadata.uid(), owner_gid: group,
-        mode: 0o660, admitted_uids: vec![metadata.uid()], deadline: Duration::from_secs(1),
-    }).unwrap_or_else(|error| panic!("listener: {error:?}"));
+        endpoint: socket.clone(),
+        owner_uid: metadata.uid(),
+        owner_gid: group,
+        mode: 0o660,
+        admitted_uids: vec![metadata.uid()],
+        deadline: Duration::from_secs(1),
+    })
+    .unwrap_or_else(|error| panic!("listener: {error:?}"));
     let bound = fs::symlink_metadata(&socket).unwrap_or_else(|error| panic!("socket: {error}"));
     assert_eq!(bound.uid(), metadata.uid());
     assert_eq!(bound.gid(), group);
@@ -1118,6 +1160,9 @@ fn listener_applies_the_declared_group_and_keeps_replacement_files() {
     fs::remove_file(&socket).unwrap_or_else(|error| panic!("unlink: {error}"));
     fs::write(&socket, b"replacement").unwrap_or_else(|error| panic!("replacement: {error}"));
     drop(listener);
-    assert_eq!(fs::read(&socket).unwrap_or_else(|error| panic!("preserved: {error}")), b"replacement");
+    assert_eq!(
+        fs::read(&socket).unwrap_or_else(|error| panic!("preserved: {error}")),
+        b"replacement"
+    );
     fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error}"));
 }

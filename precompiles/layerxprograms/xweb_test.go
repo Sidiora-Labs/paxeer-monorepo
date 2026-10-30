@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
@@ -15,6 +16,8 @@ import (
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
+	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	xwebkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper"
 	xwebtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
@@ -45,6 +48,7 @@ type webCallHarness struct {
 	host      *lxphost.Host
 	executor  *PrecompileExecutor
 	web       xwebkeeper.Keeper
+	custody   *layerxcustodykeeper.Keeper
 	caller    common.Address
 	publicKey [32]byte
 	evm       *vm.EVM
@@ -52,7 +56,7 @@ type webCallHarness struct {
 
 func newWebCallHarness(t *testing.T) *webCallHarness {
 	t.Helper()
-	keys := sdk.NewKVStoreKeys("host", "web", "bank", "auth", "evm", "params", "upgrade")
+	keys := sdk.NewKVStoreKeys("host", "web", "bank", "auth", "evm", "params", "upgrade", "custody")
 	transient := sdk.NewTransientStoreKey(evmtypes.TransientStoreKey)
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -87,6 +91,8 @@ func newWebCallHarness(t *testing.T) *webCallHarness {
 	require.NoError(t, err)
 	t.Cleanup(host.Close)
 	h := &webCallHarness{ctx: ctx, key: keys["host"], webKey: keys["web"], bankKey: keys["bank"], authKey: keys["auth"], host: host, executor: &PrecompileExecutor{host: host, evmKeeper: evm}, web: web, caller: common.HexToAddress("0xa111")}
+	h.custody = layerxcustodykeeper.NewKeeper(cdc, keys["custody"], &accounts, bank, evm, nil)
+	h.executor.assets = h.custody
 	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x41}, ed25519.SeedSize))
 	copy(h.publicKey[:], private.Public().(ed25519.PublicKey))
 	message, err := evmtypes.LayerXBindMessage(evm.ChainID(ctx), h.caller, 0)
@@ -112,8 +118,13 @@ func webStoreDump(ctx sdk.Context, key sdk.StoreKey) map[string][]byte {
 	return values
 }
 
-func webProgramsCallFixture(t *testing.T) (*webCallHarness, []interface{}, []byte) {
+func webProgramsCallFixture(t *testing.T, webFee ...uint64) (*webCallHarness, []interface{}, []byte) {
 	t.Helper()
+	require.LessOrEqual(t, len(webFee), 1)
+	var feeAmount uint64
+	if len(webFee) != 0 {
+		feeAmount = webFee[0]
+	}
 	h := newWebCallHarness(t)
 	ctx := h.ctx
 	authority, did, err := PrincipalOf(ctx, h.executor.evmKeeper, h.caller)
@@ -164,8 +175,14 @@ func webProgramsCallFixture(t *testing.T) (*webCallHarness, []interface{}, []byt
 	main = field(main, []byte(mainName))
 	main = append(main, 1)
 	main = binary.BigEndian.AppendUint64(main, 0)
-	main = binary.BigEndian.AppendUint64(main, 100000000)
+	mainBalance := uint64(100000000)
 	mainAsset := [32]byte{0x91}
+	if feeAmount != 0 {
+		mainBalance = 500000000
+		mainAsset = asset
+		store.Delete(append([]byte{6}, payer[:]...))
+	}
+	main = binary.BigEndian.AppendUint64(main, mainBalance)
 	main = field(main, mainAsset[:])
 	main = append(main, 1)
 	main = binary.BigEndian.AppendUint64(main, 0)
@@ -175,7 +192,7 @@ func webProgramsCallFixture(t *testing.T) (*webCallHarness, []interface{}, []byt
 	store.Set(append([]byte{6}, mainID[:]...), append(main, 1))
 	mainAccount, err := h.host.ReadAccount(ctx, mainName, mainID)
 	require.NoError(t, err)
-	require.Equal(t, int64(100000000), mainAccount.Balance.Int64())
+	require.Equal(t, mainBalance, mainAccount.Balance.Uint64())
 
 	treasuryID, err := codec.DeriveAccountID([]byte("system:fees"))
 	require.NoError(t, err)
@@ -208,21 +225,41 @@ func webProgramsCallFixture(t *testing.T) (*webCallHarness, []interface{}, []byt
 	store.Set(moduleKey([]byte("progfee/active/v1")), fee)
 	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
 
+	uleb := func(out []byte, value uint32) []byte {
+		for value >= 128 {
+			out = append(out, byte(value)|0x80)
+			value >>= 7
+		}
+		return append(out, byte(value))
+	}
 	section := func(id byte, body []byte) []byte {
-		return append([]byte{id, byte(len(body))}, body...)
+		return append(uleb([]byte{id}, uint32(len(body))), body...)
 	}
 	label := func(s string) []byte { return append([]byte{byte(len(s))}, s...) }
 	wasm := []byte{0, 97, 115, 109, 1, 0, 0, 0}
-	wasm = append(wasm, section(1, []byte{3, 0x60, 4, 0x7f, 0x7f, 0x7f, 0x7f, 1, 0x7f, 0x60, 1, 0x7f, 1, 0x7f, 0x60, 2, 0x7f, 0x7f, 1, 0x7f})...)
+	types := []byte{3, 0x60, 4, 0x7f, 0x7f, 0x7f, 0x7f, 1, 0x7f, 0x60, 1, 0x7f, 1, 0x7f, 0x60, 2, 0x7f, 0x7f, 1, 0x7f}
 	imports := append([]byte{1}, label("layerx_v1")...)
 	imports = append(imports, label("event_emit")...)
-	wasm = append(wasm, section(2, append(imports, 0, 0))...)
+	imports = append(imports, 0, 0)
+	reserveIndex, callIndex := byte(1), byte(2)
+	if feeAmount != 0 {
+		types[0]++
+		types = append(types, 0x60, 6, 0x7e, 0x7e, 0x7f, 0x7f, 0x7f, 0x7f, 1, 0x7f)
+		imports[0]++
+		imports = append(imports, label("layerx_v1")...)
+		imports = append(imports, label("transfer_402")...)
+		imports = append(imports, 0, 3)
+		reserveIndex++
+		callIndex++
+	}
+	wasm = append(wasm, section(1, types)...)
+	wasm = append(wasm, section(2, imports)...)
 	wasm = append(wasm, section(3, []byte{2, 1, 2})...)
 	wasm = append(wasm, section(5, []byte{1, 1, 1, 1})...)
 	exports := append([]byte{3}, label("layerx_reserve")...)
-	exports = append(exports, 0, 1)
+	exports = append(exports, 0, reserveIndex)
 	exports = append(exports, label("layerx_call")...)
-	exports = append(exports, 0, 2)
+	exports = append(exports, 0, callIndex)
 	exports = append(exports, label("memory")...)
 	wasm = append(wasm, section(7, append(exports, 2, 0))...)
 	request := binary.BigEndian.AppendUint64(nil, 257)
@@ -231,29 +268,196 @@ func webProgramsCallFixture(t *testing.T) (*webCallHarness, []interface{}, []byt
 	request = append(request, []byte("pax\x00")...)
 	topic := []byte(xwebkeeper.ProgramRequestTopic)
 	body := []byte{0, 0x41, 0, 0x41, byte(len(topic)), 0x41, byte(len(topic)), 0x41, byte(len(request)), 0x10, 0, 0x1a, 0x41, 0, 0x0b}
-	code := []byte{2, 4, 0, 0x41, 48, 0x0b, byte(len(body))}
-	wasm = append(wasm, section(10, append(code, body...))...)
 	data := append(topic, request...)
-	wasm = append(wasm, section(11, append([]byte{1, 0, 0x41, 0, 0x0b, byte(len(data))}, data...))...)
+	destination := xwebkeeper.ProgramFeeAccountID(xwebtypes.Hash32(asset))
+	if feeAmount != 0 {
+		constant := func(out []byte, opcode byte, value uint64) []byte {
+			out = append(out, opcode)
+			for value >= 64 {
+				out = append(out, byte(value)|0x80)
+				value >>= 7
+			}
+			return append(out, byte(value))
+		}
+		transfer := constant([]byte{0}, 0x42, 0)
+		transfer = constant(transfer, 0x42, feeAmount)
+		transfer = constant(transfer, 0x41, uint64(len(data)))
+		transfer = constant(transfer, 0x41, 32)
+		transfer = constant(transfer, 0x41, uint64(len(data)+32))
+		transfer = constant(transfer, 0x41, 32)
+		transfer = append(transfer, 0x10, 1, 0x04, 0x40, 0x00, 0x0b)
+		body = append(transfer, body[1:]...)
+		data = append(data, asset[:]...)
+		data = append(data, destination[:]...)
+		ctx.KVStore(h.webKey).Set(xwebkeeper.ProgramFeeDenomKey(xwebtypes.Hash32(asset)), []byte(xwebtypes.ProgramFeeDenomPAX))
+	}
+	reserveBody := []byte{0, 0x41, 48, 0x0b}
+	if feeAmount != 0 {
+		reserveBody = []byte{0, 0x41, 0x80, 2, 0x0b}
+	}
+	code := append(uleb([]byte{2}, uint32(len(reserveBody))), reserveBody...)
+	code = uleb(code, uint32(len(body)))
+	wasm = append(wasm, section(10, append(code, body...))...)
+	wasm = append(wasm, section(11, append(uleb([]byte{1, 0, 0x41, 0, 0x0b}, uint32(len(data))), data...))...)
 	program := [32]byte{0x71}
 	codeHash := sha256.Sum256(wasm)
 	iface := append([]byte("LayerX/program-interface/v1\x00"), codeHash[:]...)
 	iface = append(iface, 0, 1, 0, 1, 0, 11)
 	iface = append(iface, "layerx_call"...)
 	iface = append(iface, 0, 0, 0, 0, 1, 0x20, 0, 0, 0, 64, 1, 0x20, 0, 0, 0, 64)
-	iface = binary.BigEndian.AppendUint16(iface, 1)
-	iface = append(iface, 4, 0, 0, 0, 0)
+	capabilityCount := uint16(1)
+	if feeAmount != 0 {
+		capabilityCount++
+	}
+	iface = binary.BigEndian.AppendUint16(iface, capabilityCount)
+	iface = append(iface, 4)
+	if feeAmount != 0 {
+		iface = append(iface, 6)
+		iface = append(iface, asset[:]...)
+		iface = append(iface, destination[:]...)
+		iface = binary.BigEndian.AppendUint64(binary.BigEndian.AppendUint64(iface, 0), feeAmount)
+	}
+	iface = append(iface, 0, 0, 0, 0)
 	deploy, err := EncodeDeployPayload(program, 1, 1, authority.Principal, codeHash, iface, wasm)
 	require.NoError(t, err)
 	execute(0x00090001, deploy)
 
 	budget := [7]uint64{1000000, 16777216, 1048576, 1048576, 64, 1048576, 4096}
 	capabilities := []byte{0, 1, 3}
+	if feeAmount != 0 {
+		capabilities[1]++
+		capabilities = append(capabilities, 5)
+		capabilities = append(capabilities, asset[:]...)
+		capabilities = append(capabilities, destination[:]...)
+		capabilities = binary.BigEndian.AppendUint64(binary.BigEndian.AppendUint64(capabilities, 0), feeAmount)
+	}
 	access := []byte("LayerX/programs/access-declaration/v1\x00\x00")
 	args := []interface{}{program, uint16(1), "layerx_call", []byte{0, 0xff}, capabilities, access, uint32(64), budget, big.NewInt(100000000)}
 	payload, err := EncodeCallPayload(program, 1, "layerx_call", args[3].([]byte), capabilities, access, 64, budget)
 	require.NoError(t, err)
 	return h, args, payload
+}
+
+func TestProgramsCallRecordsFirstWebRequestFeeDenomFromAssetMapping(t *testing.T) {
+	h, args, _ := webProgramsCallFixture(t, 75)
+	ctx := h.ctx
+	name, main, err := lxphost.MainAccountID(h.publicKey)
+	require.NoError(t, err)
+	account, err := h.host.ReadAccount(ctx, name, main)
+	require.NoError(t, err)
+	asset := xwebtypes.Hash32(account.AssetID)
+	ctx.KVStore(h.webKey).Delete(xwebkeeper.ProgramFeeDenomKey(asset))
+	_, found := h.web.ProgramFeeDenom(ctx, asset)
+	require.False(t, found)
+	require.NoError(t, h.custody.SetAsset(ctx, custodytypes.AssetMapping{AssetId: custodytypes.Hash32(account.AssetID), Denom: xwebtypes.ProgramFeeDenomPAX}))
+	bank := h.executor.evmKeeper.BankKeeper()
+	principal := lxphost.BankAddress(main)
+	feeAccount := xwebkeeper.ProgramFeeAccount(asset)
+	require.NoError(t, bank.AddCoins(ctx, principal, sdk.NewCoins(sdk.NewInt64Coin(xwebtypes.ProgramFeeDenomPAX, 100)), true))
+	require.True(t, bank.GetBalance(ctx, feeAccount, xwebtypes.ProgramFeeDenomPAX).Amount.IsZero())
+
+	method := programsABI.Methods["call"]
+	output, err := h.executor.Execute(ctx, &method, h.caller, Address, args, big.NewInt(0), false, h.evm, nil)
+	require.NoError(t, err)
+	values, err := method.Outputs.Unpack(output)
+	require.NoError(t, err)
+	require.Zero(t, values[0])
+	require.Equal(t, uint8(1), values[1])
+	denom, found := h.web.ProgramFeeDenom(ctx, asset)
+	require.True(t, found)
+	require.Equal(t, "uhpx", denom)
+	record, found, err := h.web.GetProgramPendingRecord(ctx, xwebtypes.Hash32(args[0].([32]byte)), 257)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, asset, record.FeeAsset)
+	require.Equal(t, xwebkeeper.ProgramFeeAccountID(asset), record.FeeAccount)
+	require.True(t, sdk.NewInt(75).Equal(record.Amount))
+	require.Equal(t, uint64(1), h.web.ProgramPendingCount(ctx))
+	require.True(t, sdk.NewInt(25).Equal(bank.GetBalance(ctx, principal, denom).Amount))
+	require.True(t, sdk.NewInt(75).Equal(bank.GetBalance(ctx, feeAccount, denom).Amount))
+}
+
+func TestProgramsCallRefusesFirstWebRequestWithoutAssetMapping(t *testing.T) {
+	h, args, _ := webProgramsCallFixture(t, 75)
+	ctx := h.ctx
+	name, main, err := lxphost.MainAccountID(h.publicKey)
+	require.NoError(t, err)
+	account, err := h.host.ReadAccount(ctx, name, main)
+	require.NoError(t, err)
+	asset := xwebtypes.Hash32(account.AssetID)
+	ctx.KVStore(h.webKey).Delete(xwebkeeper.ProgramFeeDenomKey(asset))
+	_, mapped := h.custody.GetAsset(ctx, account.AssetID)
+	require.False(t, mapped)
+	bank := h.executor.evmKeeper.BankKeeper()
+	principal := lxphost.BankAddress(main)
+	require.NoError(t, bank.AddCoins(ctx, principal, sdk.NewCoins(sdk.NewInt64Coin(xwebtypes.ProgramFeeDenomPAX, 100)), true))
+	before := bank.GetBalance(ctx, principal, xwebtypes.ProgramFeeDenomPAX)
+	feeAccount := xwebkeeper.ProgramFeeAccount(asset)
+	feeBefore := bank.GetBalance(ctx, feeAccount, xwebtypes.ProgramFeeDenomPAX)
+
+	method := programsABI.Methods["call"]
+	output, err := h.executor.Execute(ctx, &method, h.caller, Address, args, big.NewInt(0), false, h.evm, nil)
+	require.Nil(t, output)
+	require.ErrorContains(t, err, "LXP_ASSET_MISMATCH")
+	_, found, err := h.web.GetProgramPendingRecord(ctx, xwebtypes.Hash32(args[0].([32]byte)), 257)
+	require.NoError(t, err)
+	require.False(t, found)
+	require.Zero(t, h.web.ProgramPendingCount(ctx))
+	denom, found := h.web.ProgramFeeDenom(ctx, asset)
+	require.False(t, found)
+	require.Empty(t, denom)
+	require.Equal(t, before, bank.GetBalance(ctx, principal, xwebtypes.ProgramFeeDenomPAX))
+	require.Equal(t, feeBefore, bank.GetBalance(ctx, feeAccount, xwebtypes.ProgramFeeDenomPAX))
+}
+
+func TestProgramsCallHandlerRecordsWebRequestWithAppliedFeeLegs(t *testing.T) {
+	h, args, payload := webProgramsCallFixture(t, 75)
+	ctx := h.ctx
+	method := programsABI.Methods["call"]
+	reference, _ := ctx.CacheContext()
+	var limit [16]byte
+	args[8].(*big.Int).FillBytes(limit[:])
+	receipt, err := submit(reference, h.executor, callContext{caller: h.caller, method: &method, evm: h.evm}, 0x00090003, payload, limit)
+	require.NoError(t, err, "program outcome: %+v", receipt.ProgramOutcome)
+	require.Zero(t, receipt.ResultCode)
+	require.NotNil(t, receipt.ProgramOutcome)
+	require.Equal(t, uint8(1), receipt.ProgramOutcome.Kind)
+	require.Len(t, receipt.Transfers, 1)
+	leg := receipt.Transfers[0]
+	_, main, err := lxphost.MainAccountID(h.publicKey)
+	require.NoError(t, err)
+	require.Equal(t, main, leg.From)
+	require.Equal(t, [32]byte(xwebkeeper.ProgramFeeAccountID(xwebtypes.Hash32(leg.Asset))), leg.To)
+	require.True(t, sdk.NewInt(75).Equal(leg.Amount))
+	feeAccount, err := h.host.ReadAccount(reference, "module:programs:value:"+hex.EncodeToString(leg.To[:]), leg.To)
+	require.NoError(t, err)
+	require.Equal(t, leg.Asset, feeAccount.AssetID)
+	require.True(t, leg.Amount.Equal(feeAccount.Balance))
+	bank := h.executor.evmKeeper.BankKeeper()
+	principal := lxphost.BankAddress(main)
+	require.NoError(t, bank.AddCoins(ctx, principal, sdk.NewCoins(sdk.NewInt64Coin(xwebtypes.ProgramFeeDenomPAX, 100)), true))
+	_, did, err := principalOf(ctx, h.executor.evmKeeper, h.caller)
+	require.NoError(t, err)
+	sequence, err := h.host.ReadIdentitySequence(ctx, did)
+	require.NoError(t, err)
+	output, err := h.executor.Execute(ctx, &method, h.caller, Address, args, big.NewInt(0), false, h.evm, nil)
+	require.NoError(t, err)
+	values, err := method.Outputs.Unpack(output)
+	require.NoError(t, err)
+	require.Zero(t, values[0])
+	require.Equal(t, uint8(1), values[1])
+	record, found, err := h.web.GetProgramPendingRecord(ctx, xwebtypes.Hash32(args[0].([32]byte)), 257)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, xwebtypes.Hash32(leg.Asset), record.FeeAsset)
+	require.Equal(t, xwebtypes.Hash32(leg.To), record.FeeAccount)
+	require.True(t, leg.Amount.Equal(record.Amount))
+	require.Equal(t, xwebtypes.KindSearch, record.Kind)
+	require.Equal(t, xwebtypes.Keccak([]byte("pax\x00")), record.PayloadHash)
+	require.Equal(t, sequence, record.Sequence)
+	require.Equal(t, uint64(1), h.web.ProgramPendingCount(ctx))
+	require.True(t, sdk.NewInt(25).Equal(bank.GetBalance(ctx, principal, xwebtypes.ProgramFeeDenomPAX).Amount))
+	require.True(t, leg.Amount.Equal(bank.GetBalance(ctx, lxphost.BankAddress(leg.To), xwebtypes.ProgramFeeDenomPAX).Amount))
 }
 
 func TestProgramsCallForwardsGuestWebRequest(t *testing.T) {

@@ -2,13 +2,31 @@
 
 package com.sidiora.layerx.sdk;
 
+import java.util.AbstractSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 final class GeneratedContract {
     private GeneratedContract() {}
-    static final Set<String> AGENT_OPERATIONS = Set.of(
+    static final class AgentOperationCatalog extends AbstractSet<String> {
+        private final Set<String> names;
+        private final Map<String, GeneratedSchema.ProgramTransport> transports;
+        AgentOperationCatalog(Set<String> names, Map<String, GeneratedSchema.ProgramTransport> transports) {
+            this.names = Set.copyOf(names);
+            this.transports = Map.copyOf(transports);
+        }
+        @Override public Iterator<String> iterator() { return names.iterator(); }
+        @Override public int size() { return names.size(); }
+        @Override public boolean contains(Object name) { return names.contains(name); }
+        GeneratedSchema.ProgramTransport transport(String name) {
+            GeneratedSchema.ProgramTransport transport = transports.get(name);
+            if (transport == null) throw PlatformSdkException.invalidArgument();
+            return transport;
+        }
+    }
+    static final AgentOperationCatalog AGENT_OPERATIONS = new AgentOperationCatalog(Set.of(
         "agent.register",
         "approval.approve",
         "approval.get",
@@ -62,7 +80,16 @@ final class GeneratedContract {
         "subscription.resume",
         "tenant.readiness",
         "track",
-        "wait");
+        "wait"), Map.ofEntries(
+        Map.entry("program.activity", new GeneratedSchema.ProgramTransport("eth_getLogs", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)"))),
+        Map.entry("program.call", new GeneratedSchema.ProgramTransport("eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"))),
+        Map.entry("program.deploy", new GeneratedSchema.ProgramTransport("eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"))),
+        Map.entry("program.discover", new GeneratedSchema.ProgramTransport("eth_call", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.getProgram(bytes32)"))),
+        Map.entry("program.interface", new GeneratedSchema.ProgramTransport("eth_call", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.getInterface(bytes32)"))),
+        Map.entry("program.receipt", new GeneratedSchema.ProgramTransport("eth_getLogs", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)"))),
+        Map.entry("program.simulate", new GeneratedSchema.ProgramTransport("eth_call", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"))),
+        Map.entry("program.upgrade", new GeneratedSchema.ProgramTransport("eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"))),
+        Map.entry("program.wind-down", new GeneratedSchema.ProgramTransport("eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.setExitRoute(bytes32,bytes32,bytes32,bytes32,bytes)", "layerxprograms.deprecate(bytes32,bytes32,uint64)", "layerxprograms.tombstone(bytes32)", "layerxprograms.exitValue(bytes32,bytes32)")))));
     static final Set<String> AGENT_IDEMPOTENT = Set.of(
         "agent.register",
         "approval.approve",
@@ -134,7 +161,8 @@ final class GeneratedContract {
         "not-suppressible",
         "support-unavailable",
         "support-conversation-unknown",
-        "support-message-unknown");
+        "support-message-unknown",
+        "operation-retired");
     static final Set<String> HUMAN_RETRIABILITY = Set.of(
         "retriable",
         "retriable-after",
@@ -175,16 +203,7 @@ final class GeneratedContract {
         Map.entry("authenticator.setup.begin", new OperationCatalog.Route("POST", "/v1/security/authenticators/setups", List.of(), false, false)),
         Map.entry("authenticator.setup.finish", new OperationCatalog.Route("POST", "/v1/security/authenticators/setups/{setup_id}", List.of("setup_id"), false, false)),
         Map.entry("authenticator.status", new OperationCatalog.Route("GET", "/v1/security/authenticators", List.of(), false, true)),
-        Map.entry("binding.rebind", new OperationCatalog.Route("POST", "/v1/wallet-binding/rebind", List.of(), true, false)),
-        Map.entry("binding.rebind.action", new OperationCatalog.Route("POST", "/v1/wallet-binding/rebind/action", List.of(), false, false)),
-        Map.entry("binding.statement", new OperationCatalog.Route("POST", "/v1/wallet-binding/statement", List.of(), false, false)),
-        Map.entry("binding.status", new OperationCatalog.Route("GET", "/v1/wallet-binding", List.of(), false, true)),
-        Map.entry("binding.submit", new OperationCatalog.Route("POST", "/v1/wallet-binding", List.of(), true, false)),
-        Map.entry("deposit.confirm", new OperationCatalog.Route("POST", "/v1/deposits/{journey_id}/confirm", List.of("journey_id"), false, false)),
-        Map.entry("deposit.start", new OperationCatalog.Route("POST", "/v1/deposits", List.of(), true, false)),
         Map.entry("evidence.get", new OperationCatalog.Route("GET", "/v1/evidence/{evidence_id}", List.of("evidence_id"), false, true)),
-        Map.entry("exit.eligibility", new OperationCatalog.Route("GET", "/v1/exit/eligibility", List.of(), false, true)),
-        Map.entry("exit.start", new OperationCatalog.Route("POST", "/v1/exit", List.of(), true, false)),
         Map.entry("home.summary", new OperationCatalog.Route("GET", "/v1/home", List.of(), false, true)),
         Map.entry("intent.plan", new OperationCatalog.Route("POST", "/v1/intents/plan", List.of(), false, false)),
         Map.entry("intent.submit", new OperationCatalog.Route("POST", "/v1/intents/submit", List.of(), true, false)),
@@ -233,7 +252,5 @@ final class GeneratedContract {
         Map.entry("support.read", new OperationCatalog.Route("POST", "/v1/support/conversations/{conversation_id}/read", List.of("conversation_id"), false, false)),
         Map.entry("support.reply", new OperationCatalog.Route("POST", "/v1/support/conversations/{conversation_id}/replies", List.of("conversation_id"), true, false)),
         Map.entry("support.status", new OperationCatalog.Route("GET", "/v1/support/conversations/{conversation_id}/status", List.of("conversation_id"), false, true)),
-        Map.entry("version", new OperationCatalog.Route("GET", "/v1/version", List.of(), false, true)),
-        Map.entry("withdraw.claim", new OperationCatalog.Route("POST", "/v1/withdrawals/{journey_id}/claim", List.of("journey_id"), false, false)),
-        Map.entry("withdraw.start", new OperationCatalog.Route("POST", "/v1/withdrawals", List.of(), true, false)));
+        Map.entry("version", new OperationCatalog.Route("GET", "/v1/version", List.of(), false, true)));
 }

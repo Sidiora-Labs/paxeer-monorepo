@@ -5,11 +5,13 @@ import React from 'react';
 import { PAXEER_X_NATIVE_RUNGS, PAXEER_X_STATUS_RUNGS } from 'types/api/paxeerXLists';
 
 import { Provider } from 'toolkit/chakra/provider';
-import { beforeAll, describe, it, expect } from 'vitest';
-import { render, screen } from 'vitest/lib';
+import { afterEach, beforeAll, describe, it, expect, test } from 'vitest';
+import { cleanup, render, screen } from 'vitest/lib';
 
 import { NATIVE_RUNG_ORDER, RUNGS, RUNG_ORDER } from './rungs';
-import StatusLadderBadge, { NativeSettlementBadge } from './StatusLadderBadge';
+import StatusLadderBadgeComponent, { NativeSettlementBadge } from './StatusLadderBadge';
+
+const StatusLadderBadge = StatusLadderBadgeComponent;
 
 // jsdom does not implement matchMedia, which Chakra's responsive hooks read on mount
 const createMediaQueryList = (query: string): MediaQueryList => ({
@@ -27,23 +29,45 @@ beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', { writable: true, value: createMediaQueryList });
 });
 
+afterEach(cleanup);
+
 describe('StatusLadderBadge', () => {
-  it.each(PAXEER_X_STATUS_RUNGS)('renders the %s rung with its label', (rung) => {
+  it.each([
+    [ 'submitted', 'Submitted' ],
+    [ 'receipted', 'Receipted' ],
+    [ 'committed', 'Committed' ],
+  ] as const)('renders the %s rung with its label', (rung, label) => {
     render(
       <Provider>
         <StatusLadderBadge rung={ rung }/>
       </Provider>,
     );
 
-    const badge = screen.getByText(RUNGS[rung].label);
+    const badge = screen.getByText(label);
     expect(badge).toBeDefined();
     expect(badge.closest('[data-rung]')?.getAttribute('data-rung')).toBe(rung);
   });
+
+  function badge_labels_committed_rung() {
+    render(
+      <Provider>
+        <StatusLadderBadge rung="committed"/>
+      </Provider>,
+    );
+
+    const badge = screen.getByText('Committed');
+    expect(badge.textContent).toBe('Committed');
+    expect(badge.closest('[data-rung]')?.getAttribute('data-rung')).toBe('committed');
+    expect(PAXEER_X_STATUS_RUNGS).toEqual([ 'submitted', 'receipted', 'committed' ]);
+    expect(RUNGS.committed.label).toBe('Committed');
+  }
+
+  test(badge_labels_committed_rung.name, badge_labels_committed_rung);
 });
 
 describe('status ladder rungs', () => {
-  it('covers the four rungs in ladder order', () => {
-    expect(RUNG_ORDER.map((item) => item.rung)).toEqual([ 'pending', 'instant', 'sealed', 'final' ]);
+  it('covers the three rungs in ladder order', () => {
+    expect(RUNG_ORDER.map((item) => item.rung)).toEqual([ 'submitted', 'receipted', 'committed' ]);
   });
 
   it('explains every rung in exactly one sentence', () => {

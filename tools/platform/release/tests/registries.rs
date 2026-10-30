@@ -31,6 +31,51 @@ fn committed_pipeline() -> release::ReleasePipeline {
 }
 
 #[test]
+fn release_pipeline_has_no_replay_gate() {
+    let mut source = committed_workflow();
+    if let Some(start) = source.find("  replay-matrix:\n") {
+        let end = start
+            + source[start..]
+                .find("  release-pipeline:\n")
+                .expect("release-pipeline must follow replay-matrix");
+        source.replace_range(start..end, "");
+    }
+    source = source.replace(", replay-matrix]", "]");
+    let document = workflow::parse(&source).expect("parse release workflow without replay");
+    assert!(document.path(&["jobs", "replay-matrix"]).is_none());
+    let dependencies = document
+        .path(&["jobs", "release-pipeline", "needs"])
+        .expect("release-pipeline needs")
+        .strings();
+    assert_eq!(
+        dependencies,
+        vec![
+            "programs-acceptance",
+            "agent-sanitizers",
+            "agent-fuzz-corpus"
+        ]
+    );
+    let pipeline = release_pipeline(&committed_manifest(), &source)
+        .expect("release pipeline must accept a workflow without replay");
+    assert_eq!(
+        pipeline
+            .gates
+            .iter()
+            .map(|gate| gate.job.as_str())
+            .collect::<Vec<_>>(),
+        dependencies
+    );
+    assert!(pipeline
+        .gates
+        .iter()
+        .all(|gate| { gate.job != "replay-matrix" && gate.command != "make test-replay-golden" }));
+    assert_eq!(committed_pipeline().gates, pipeline.gates);
+    let rendered = plan(&pipeline).expect("release plan without replay");
+    assert!(!rendered.contains("replay-matrix"));
+    assert!(!rendered.contains("make test-replay-golden"));
+}
+
+#[test]
 fn committed_manifest_declares_all_seven_registries() {
     let declarations = registries_declarations(&committed_manifest())
         .unwrap_or_else(|error| panic!("manifest refused: {error}"));
@@ -194,15 +239,8 @@ fn committed_workflow_requires_every_release_gate() {
             ("programs-acceptance", "make programs-test"),
             ("agent-sanitizers", "make agent-test-sanitize"),
             ("agent-fuzz-corpus", "make agent-fuzz-long"),
-            ("replay-matrix", "make test-replay-golden"),
         ]
     );
-    let replay = pipeline
-        .gates
-        .iter()
-        .find(|gate| gate.job == "replay-matrix")
-        .unwrap_or_else(|| panic!("replay gate missing"));
-    assert_eq!(replay.machines, vec!["aarch64", "x86_64"]);
 }
 
 #[test]
@@ -211,7 +249,7 @@ fn plan_is_deterministic_and_machine_readable() {
     let first = plan(&pipeline).unwrap_or_else(|error| panic!("plan: {error}"));
     let second = plan(&pipeline).unwrap_or_else(|error| panic!("plan: {error}"));
     assert_eq!(first, second);
-    assert_eq!(first.lines().count(), 3 + 7 + 1 + 4 + 1);
+    assert_eq!(first.lines().count(), 3 + 7 + 1 + 3 + 1);
     assert!(first.starts_with("tag_format=sdk-v{version}\n"));
     assert!(first
         .lines()
@@ -248,14 +286,12 @@ fn plan_is_deterministic_and_machine_readable() {
             && image_line.contains(" images=layerx-agent-boundary,"),
         "plan line lost its container binding: {image_line}"
     );
-    for line in first.lines().skip(11).take(4) {
+    for line in first.lines().skip(11).take(3) {
         assert!(
             line.starts_with("gate=") && line.contains(" command=make "),
             "unexpected gate line: {line}"
         );
     }
-    assert!(first
-        .contains("gate=replay-matrix command=make test-replay-golden machines=aarch64,x86_64"));
     assert!(first
         .lines()
         .last()
@@ -749,25 +785,12 @@ fn release_gate_run_outside_the_gate_runner_is_refused() {
 fn release_without_every_gate_is_refused() {
     let source = replaced(
         &committed_workflow(),
-        "needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus, replay-matrix]",
-        "needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus]",
+        "needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus",
+        "needs: [programs-acceptance, agent-sanitizers",
     );
     expect_workflow_refusal(
         &source,
-        "job release-pipeline must need the release gate replay-matrix",
-    );
-}
-
-#[test]
-fn replay_on_a_single_architecture_is_refused() {
-    let source = replaced(
-        &committed_workflow(),
-        "          - machine: aarch64\n            runner: ubuntu-24.04-arm\n            ordinal: 5\n",
-        "",
-    );
-    expect_workflow_refusal(
-        &source,
-        "release gate replay-matrix must replay on every supported architecture",
+        "job release-pipeline must need the release gate agent-fuzz-corpus",
     );
 }
 

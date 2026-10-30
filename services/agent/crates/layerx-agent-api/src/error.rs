@@ -1,8 +1,7 @@
-//! Total API error, idempotency, and verification-level contract.
+//! Total API error, idempotency, and verification-rung contract.
 
 use layerx_types::error::ErrorClass as LayerErrorClass;
 use layerx_types::result::ResultCode;
-use layerx_types::verify::VerificationLevel;
 
 use crate::identity::ContractError;
 
@@ -136,52 +135,7 @@ impl ApiError {
     }
 }
 
-/// Ordered contract-level verification lattice shared by every SDK.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(u8)]
-pub enum Level {
-    Unverified = 0,
-    SequencerSigned = 1,
-    BatchIncluded = 2,
-    StateProven = 3,
-    CheckpointFinalised = 4,
-    SettlementAnchored = 5,
-}
-
-impl Level {
-    #[must_use]
-    pub const fn rung(self) -> Option<Rung> {
-        match self {
-            Self::Unverified | Self::SequencerSigned => Some(Rung::Submitted),
-            Self::BatchIncluded | Self::StateProven => Some(Rung::Receipted),
-            Self::CheckpointFinalised => Some(Rung::Committed),
-            Self::SettlementAnchored => None,
-        }
-    }
-}
-
-impl From<VerificationLevel> for Level {
-    fn from(value: VerificationLevel) -> Self {
-        match value.wire_rank() {
-            0 => Self::Unverified,
-            1 => Self::SequencerSigned,
-            2 => Self::BatchIncluded,
-            3 => Self::StateProven,
-            4 => Self::CheckpointFinalised,
-            _ => Self::SettlementAnchored,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum VerificationStatus {
-    Achieved(Level),
-    Unverified {
-        requested: Level,
-        achieved: Level,
-        reason: ReasonCode,
-    },
-}
+pub type VerificationStatus = RungStatus;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RungStatus {

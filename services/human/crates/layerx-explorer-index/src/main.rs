@@ -13,11 +13,8 @@ use std::thread;
 use std::time::Duration;
 
 use layerx_agentd::read::{LayerxdProgramBalanceReader, ProgramAuthority};
-use layerx_client::availability::{
-    AvailabilitySelector, FetchContext, FetchOutcome, RetrievalLimits,
-};
+use layerx_client::availability::RetrievalLimits;
 use layerx_client::client::{Client, ClientConfig, ReconnectPolicy};
-use layerx_client::evidence::{CheckpointSelector, EvidenceError};
 use layerx_client::handover::SequencerHistory;
 use layerx_client::lni::handshake::HandshakeConfig;
 use layerx_client::lni::schema::Version;
@@ -32,13 +29,12 @@ use layerx_explorer_index::unified::{
     AccountIdentifier, ActivityWindow, GatewayEndpoint, UnifiedAccountProfile, UnifiedAccountQuery,
     UnifiedAccountReader, UnifiedAvailabilityFailure, UnifiedQueryError,
 };
-use layerx_explorer_index::{Indexer, ProtocolProgramIngestor, QueryError, RecordId};
+use layerx_explorer_index::{IndexHead, Indexer, ProtocolProgramIngestor, QueryError, RecordId};
 use layerx_programs::{
     hex, BuildPlan, DeploymentJournal, DeploymentProof, DeploymentRecord, JournalReadAuthority,
     ObservedHead, ProgramId, ProgramLifecycle, ProtocolDeploymentVerifier, Registry, RegistryError,
     ReproducibleBuild, SourceStatus, UpgradePolicy,
 };
-use layerx_proof::availability::RootCommitments;
 use serde_json::Value;
 
 const HEADER_LIMIT: usize = 16 * 1024;
@@ -50,8 +46,6 @@ const GENESIS_TRUST_LIMIT: u64 = 1024 * 1024;
 const CURSOR_DOMAIN: &str = "layerx-explorer-cursor/v1";
 const RETRY_BASE: Duration = Duration::from_millis(500);
 const RETRY_MAX: Duration = Duration::from_secs(30);
-const AVAILABILITY_BYTES: usize = 64 * 1024 * 1024;
-const AVAILABILITY_CHUNKS: usize = 256;
 const HISTORY_BYTES: usize = 64 * 1024 * 1024;
 const BOUNDARY_DEADLINE: Duration = Duration::from_secs(10);
 
@@ -327,6 +321,41 @@ fn network_gateway() -> Result<GatewayEndpoint, String> {
     GatewayEndpoint::parse(&required(name)?).map_err(|error| format!("{name} is invalid: {error}"))
 }
 
+fn deployment_verifier(config: &Config) -> Result<ProtocolDeploymentVerifier, String> {
+    let name = "LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY";
+    let bytes =
+        layerx_agentd::config::read_protected_source(&config.sequencer_trust_history, 1_048_576)
+            .map_err(|error| format!("{name} is unavailable: {error:?}"))?;
+    let trust = layerx_programs::chain_proof::trust_store::TrustRoot::decode(&bytes)
+        .map_err(|error| format!("{name} is invalid: {error:?}"))?;
+    ProtocolDeploymentVerifier::from_chain_trust(
+        trust.chain_id,
+        trust.validators.validators().to_vec(),
+        config.staleness_ms,
+    )
+    .map_err(|error| format!("{name} deployment verifier is invalid: {error}"))
+}
+
+fn program_reader(
+    config: &Config,
+    verifier: ProtocolDeploymentVerifier,
+    registry: Registry,
+) -> Result<LayerxdProgramBalanceReader, String> {
+    LayerxdProgramBalanceReader::connect(
+        &config.node_endpoint,
+        config.node_bearer.clone(),
+        ProgramAuthority {
+            endpoint: &config.authority_endpoint,
+            authorization: config.authority_bearer.clone(),
+            replica_id: config.authority_replica_id,
+            ca_der: &config.authority_ca_der,
+        },
+        verifier,
+        registry,
+    )
+    .map_err(|error| format!("explorer protocol reader configuration failed: {error:?}"))
+}
+
 struct LoadedRegistry {
     registry: Registry,
     interfaces: Vec<VerifiedProgramInterfaceMetadata>,
@@ -360,7 +389,8 @@ impl fmt::Display for ProgramRefreshError {
 fn load_registry(
     root: &Path,
     verified_source_store: &Path,
-    verifier: &ProtocolDeploymentVerifier,
+    reader: &LayerxdProgramBalanceReader,
+    now: u64,
 ) -> Result<LoadedRegistry, String> {
     let mut paths = fs::read_dir(root)
         .map_err(|error| format!("deployment journal is unavailable: {error}"))?
@@ -377,9 +407,9 @@ fn load_registry(
             .map_err(|error| format!("{} is unreadable: {error}", path.display()))?;
         let proof = DeploymentProof::decode(&bytes)
             .map_err(|error| format!("{} is corrupt: {error}", path.display()))?;
-        let evidence = verifier
-            .verify_historical_deployment(&proof)
-            .map_err(|error| format!("{} is unverified: {error}", path.display()))?;
+        let evidence = reader
+            .verify_journal_admission(&proof, now)
+            .map_err(|error| format!("{} is unverified: {error:?}", path.display()))?;
         let expected = hex::encode(&evidence.receipt_digest());
         if path.file_stem().and_then(|value| value.to_str()) != Some(expected.as_str()) {
             return Err(format!(
@@ -621,19 +651,14 @@ fn refresh_program(
     program: ProgramId,
     now: u64,
 ) -> Result<(), ProgramRefreshError> {
-    let verifier = ProtocolDeploymentVerifier::from_protected_history(
-        &config.sequencer_trust_history,
-        config.staleness_ms,
-    )
-    .map_err(|error| {
-        ProgramRefreshError::Unavailable(format!(
-            "explorer deployment verifier is invalid: {error}"
-        ))
-    })?;
+    let verifier = deployment_verifier(config).map_err(ProgramRefreshError::Unavailable)?;
+    let journal = program_reader(config, verifier.clone(), Registry::new())
+        .map_err(ProgramRefreshError::Unavailable)?;
     let loaded = load_registry(
         &config.journal.root,
         &config.verified_source_store,
-        &verifier,
+        &journal,
+        now,
     )
     .map_err(ProgramRefreshError::Unavailable)?;
     if !loaded.registry.program_ids().contains(&program) {
@@ -646,23 +671,8 @@ fn refresh_program(
     let read = loaded.registry.read(program, &authority).map_err(|error| {
         ProgramRefreshError::Unavailable(format!("registry read is unavailable: {error}"))
     })?;
-    let reader = LayerxdProgramBalanceReader::connect(
-        &config.node_endpoint,
-        config.node_bearer.clone(),
-        ProgramAuthority {
-            endpoint: &config.authority_endpoint,
-            authorization: config.authority_bearer.clone(),
-            replica_id: config.authority_replica_id,
-            ca_der: &config.authority_ca_der,
-        },
-        verifier,
-        loaded.registry.clone(),
-    )
-    .map_err(|error| {
-        ProgramRefreshError::Unavailable(format!(
-            "explorer protocol reader configuration failed: {error:?}"
-        ))
-    })?;
+    let reader = program_reader(config, verifier, loaded.registry.clone())
+        .map_err(ProgramRefreshError::Unavailable)?;
     let mut ingestor = ProtocolProgramIngestor::new(reader);
     ingestor
         .ingest(index, read, &loaded.interfaces, now)
@@ -678,18 +688,19 @@ enum ResolveRefusal {
     Unavailable(String),
 }
 
-fn resolve_target(config: &Config, program: ProgramId) -> Result<ResolveTarget, ResolveRefusal> {
-    let verifier = ProtocolDeploymentVerifier::from_protected_history(
-        &config.sequencer_trust_history,
-        config.staleness_ms,
-    )
-    .map_err(|error| {
-        ResolveRefusal::Unavailable(format!("explorer deployment verifier is invalid: {error}"))
-    })?;
+fn resolve_target(
+    config: &Config,
+    program: ProgramId,
+    now: u64,
+) -> Result<ResolveTarget, ResolveRefusal> {
+    let verifier = deployment_verifier(config).map_err(ResolveRefusal::Unavailable)?;
+    let journal = program_reader(config, verifier.clone(), Registry::new())
+        .map_err(ResolveRefusal::Unavailable)?;
     let loaded = load_registry(
         &config.journal.root,
         &config.verified_source_store,
-        &verifier,
+        &journal,
+        now,
     )
     .map_err(ResolveRefusal::Unavailable)?;
     let target = loaded
@@ -727,8 +738,8 @@ fn resolve_name(
 fn probe_name_reads(config: &Config, now: u64) -> Result<(), String> {
     let naming_name = "LAYERX_EXPLORER_NAMING_PROGRAM";
     let target =
-        resolve_target(config, config.name_reads.naming_program).map_err(
-            |refusal| match refusal {
+        resolve_target(config, config.name_reads.naming_program, now).map_err(|refusal| {
+            match refusal {
                 ResolveRefusal::UnknownProgram => {
                     format!("{naming_name} is not a registered program")
                 }
@@ -736,8 +747,8 @@ fn probe_name_reads(config: &Config, now: u64) -> Result<(), String> {
                     format!("{naming_name} does not publish the naming reference interface")
                 }
                 ResolveRefusal::Unavailable(error) => error,
-            },
-        )?;
+            }
+        })?;
     match resolve_name(config, target, reads::READINESS_PROBE_NAME, now) {
         Ok(_) => Ok(()),
         Err(ResolveFailure::Transport(error)) => Err(error),
@@ -777,7 +788,7 @@ fn serve_resolve(
     else {
         return response(stream, 400, "{\"error\":\"invalid_name\"}");
     };
-    let target = match resolve_target(config, program) {
+    let target = match resolve_target(config, program, now_ms(clock)?) {
         Ok(target) => target,
         Err(ResolveRefusal::UnknownProgram) => {
             return response(stream, 404, "{\"error\":\"not_found\"}");
@@ -1100,67 +1111,6 @@ fn ingest_batch(
             return Err("sequencer history did not advance".to_owned());
         }
     }
-    if !lock(index).has_checkpoint(batch) {
-        let id = next()?;
-        match boundary
-            .client
-            .checkpoint_evidence(CheckpointSelector::Batch(batch), id)
-        {
-            Ok(checkpoint) => {
-                let certificate = checkpoint
-                    .certificate()
-                    .map_err(|error| format!("checkpoint certificate refused: {error:?}"))?;
-                ingestion
-                    .finality
-                    .verify(&certificate, checkpoint.set_version())
-                    .map_err(|_| "checkpoint publication verification refused".to_owned())?;
-                lock(index)
-                    .ingest_verified_checkpoint(&checkpoint)
-                    .map_err(|error| format!("checkpoint refused: {error:?}"))?;
-            }
-            Err(EvidenceError::Unavailable) => {}
-            Err(error) => return Err(format!("checkpoint refused: {error:?}")),
-        }
-    }
-    if !lock(index).has_batch(batch) {
-        let id = next()?;
-        let signed = boundary
-            .client
-            .batch_header_with_history(batch, id, &boundary.history)
-            .map_err(|error| format!("batch header unavailable: {error:?}"))?;
-        let header = &signed.header;
-        let id = next()?;
-        let outcome = boundary
-            .client
-            .fetch_availability(
-                AvailabilitySelector::Batch(batch),
-                FetchContext {
-                    interface_version: boundary.client.handshake().node().interface_version,
-                    correlation_id: id,
-                    expected_batch_number: batch,
-                    data_availability_root: header.data_availability_root(),
-                    record_roots: RootCommitments {
-                        activity: header.activity_merkle_root(),
-                        receipt: header.receipt_merkle_root(),
-                        event: header.event_merkle_root(),
-                        oracle: header.oracle_root(),
-                    },
-                    limits: RetrievalLimits {
-                        maximum_bytes: AVAILABILITY_BYTES,
-                        maximum_chunks: AVAILABILITY_CHUNKS,
-                        deadline: BOUNDARY_DEADLINE,
-                    },
-                },
-                |_| {},
-            )
-            .map_err(|error| format!("availability unavailable: {error:?}"))?;
-        let FetchOutcome::Complete(result) = outcome else {
-            return Ok(BatchOutcome::Incomplete("availability_partial".to_owned()));
-        };
-        lock(index)
-            .ingest_availability(&result)
-            .map_err(|error| format!("availability refused: {error:?}"))?;
-    }
     if lock(index).is_receipt_verified(batch) {
         return Ok(BatchOutcome::Verified);
     }
@@ -1218,7 +1168,11 @@ fn ingest_cycle(
         .ok_or_else(|| "node boundary unavailable".to_owned())?;
     let head = active.client.head();
     lock(index)
-        .refresh_head(head)
+        .refresh_head(IndexHead {
+            chain_sequence: head.chain_sequence,
+            sealed_batch: head.sealed_batch,
+            finalised_checkpoint: head.finalised_checkpoint,
+        })
         .map_err(|error| format!("node head refused: {error:?}"))?;
     let mut batch = 1;
     while batch <= head.sealed_batch {
@@ -1395,7 +1349,11 @@ fn serve(config: &Config, ingestion: IngestionConfig, clock: &dyn Clock) -> Resu
     if restored_through > head.sealed_batch {
         return Err("explorer cursor is ahead of the authoritative source head".to_owned());
     }
-    let index = Indexer::new(head);
+    let index = Indexer::new(IndexHead {
+        chain_sequence: head.chain_sequence,
+        sealed_batch: head.sealed_batch,
+        finalised_checkpoint: head.finalised_checkpoint,
+    });
     let listener = TcpListener::bind(&config.listen)
         .map_err(|error| format!("explorer program listener failed: {error}"))?;
     eprintln!("explorer-ingest restored_cursor={restored_through} rebuilding_from=1");

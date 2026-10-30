@@ -406,6 +406,7 @@ impl Gateway {
     }
 
     fn rpc(&self, method: &str, params: Value) -> Value {
+        thread::sleep(Duration::from_secs(1));
         let call =
             json!({"jsonrpc": "2.0", "id": "router-surface", "method": method, "params": params});
         let (status, body) = self
@@ -489,24 +490,17 @@ fn chain_answer(answers: &[(String, String)], request: &IncomingRequest) -> http
     )
 }
 
-fn protobuf_field(number: u8, bytes: &[u8]) -> Vec<u8> {
-    let mut field = vec![(number << 3) | 2];
-    let mut length = bytes.len();
-    while length >= 128 {
-        field.push((length as u8 & 0x7f) | 0x80);
-        length >>= 7;
-    }
-    field.push(length as u8);
-    field.extend_from_slice(bytes);
-    field
-}
-
 fn sequence_transaction(height: u64) -> Vec<u8> {
-    let mut message = protobuf_field(1, b"/paxeer.sequencer.v1.MsgSequenceBatch");
-    message.extend(protobuf_field(2, &protobuf_field(1, &height.to_be_bytes())));
-    let body = protobuf_field(1, &message);
-    let mut transaction = protobuf_field(1, &body);
-    transaction.extend(protobuf_field(2, &[]));
+    let mut transaction = b"PAXEER/v1/sequence-batch\0".to_vec();
+    transaction.extend_from_slice(&height.to_be_bytes());
+    transaction.extend_from_slice(&1_u64.to_be_bytes());
+    transaction.extend_from_slice(&1_u64.to_be_bytes());
+    transaction.extend_from_slice(&[0x11; 32]);
+    transaction.extend_from_slice(&[0x22; 32]);
+    transaction.extend_from_slice(&[0x33; 32]);
+    transaction.extend_from_slice(&[0x44; 32]);
+    transaction.extend_from_slice(&[0x55; 64]);
+    assert_eq!(transaction.len(), 241);
     transaction
 }
 

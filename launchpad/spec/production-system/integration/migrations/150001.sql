@@ -1,0 +1,1 @@
+CREATE TABLE "stats"."analytics_snapshots"(pool text NOT NULL,model text NOT NULL,height numeric(78,0) NOT NULL,revision numeric(78,0) NOT NULL,payload jsonb NOT NULL,PRIMARY KEY(pool,model));

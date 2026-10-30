@@ -176,6 +176,7 @@ class HistoryRow:
     asset: str
     amount: int
     tx_id: str
+    tx_hash: str
     ordinal: int
     final: bool
     decoded: object
@@ -679,6 +680,9 @@ def decode_unified_history_page(
 
 def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
     row = _document(value)
+    tx_hash = row.get("tx_hash")
+    if not isinstance(tx_hash, str) or re.fullmatch(r"0x[0-9a-fA-F]{64}", tx_hash) is None:
+        raise ValueError("invalid-history-transaction-hash")
     _present(
         row,
         (
@@ -692,6 +696,7 @@ def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
             "asset",
             "amount",
             "tx_id",
+            "tx_hash",
             "ordinal",
             "final",
             "decoded",
@@ -732,6 +737,7 @@ def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
         asset,
         _history_decimal(row["amount"], _MAX_U256),
         _text(row["tx_id"], 256),
+        tx_hash,
         _history_decimal(row["ordinal"], _MAX_U64),
         final,
         row["decoded"],

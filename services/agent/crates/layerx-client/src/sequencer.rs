@@ -145,6 +145,8 @@ pub struct ExecutedReceipt {
     pub key_id: [u8; 32],
     /// Canonical signed receipt bytes.
     pub receipt: Vec<u8>,
+    /// Signing public key served with the receipt.
+    pub signing_key: [u8; 32],
 }
 
 /// The answer of `pax_sequencerReceipt` for a known transaction.
@@ -386,6 +388,22 @@ impl SequencerEndpoint {
     /// failures as [`SequencerError`].
     pub fn call_pending(&self, to: &[u8; 20], data: &[u8]) -> Result<Vec<u8>, SequencerError> {
         self.eth_call(to, data, "pending")
+    }
+
+    pub fn call_pending_from(
+        &self,
+        from: &[u8; 20],
+        to: &[u8; 20],
+        data: &[u8],
+    ) -> Result<Vec<u8>, SequencerError> {
+        let result = self.call(
+            "eth_call",
+            &json!([{"from": hex(from), "to": hex(to), "data": hex(data)}, "pending"]),
+        )?;
+        result
+            .as_str()
+            .and_then(bytes)
+            .ok_or(SequencerError::Malformed)
     }
 
     /// Return data of a read-only call of `to` with `data` against the
@@ -772,7 +790,7 @@ fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
 }
 
 const SUBMITTED_FIELDS: [&str; 3] = ["rung", "txHash", "nonce"];
-const RECEIPTED_FIELDS: [&str; 22] = [
+const RECEIPTED_FIELDS: [&str; 23] = [
     "rung",
     "txHash",
     "nonce",
@@ -795,6 +813,7 @@ const RECEIPTED_FIELDS: [&str; 22] = [
     "vmError",
     "keyId",
     "receipt",
+    "signingKey",
 ];
 
 fn decode_receipt(value: &Value) -> Option<SequencerReceipt> {
@@ -869,6 +888,7 @@ fn executed(fields: &Fields<'_>) -> Option<ExecutedReceipt> {
         vm_error: fields.string("vmError")?,
         key_id: fields.fixed("keyId")?,
         receipt,
+        signing_key: fields.fixed("signingKey")?,
     })
 }
 

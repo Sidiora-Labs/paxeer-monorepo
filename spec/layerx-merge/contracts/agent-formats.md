@@ -264,11 +264,11 @@ Contract context <code>contract_context.9.agent-rpc</code>:
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.9.fmt-human-peer-frame</code> | <code>file_format</code> | <code>change</code> | <code>services/agent/crates/layerx-agentd/src/human.rs:14</code> | <code>human peer frame: magic LXHAGT01 (traced LXHAGT02 at services/agent/crates/layerx-agentd/src/human.rs:15) + opcode u8 + payload over the LNI FrameTransport</code> |
+| <code>interface.9.fmt-human-peer-frame</code> | <code>file_format</code> | <code>change</code> | <code>services/agent/crates/layerx-agentd/src/human.rs:17</code> | <code>human peer frame: magic LXHAGT01 (traced LXHAGT02 at services/agent/crates/layerx-agentd/src/human.rs:18) + opcode u8 + payload over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19)</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.fmt-human-peer-frame</code> | notes | Served on LAYERX_AGENT_HUMAN_SOCKET; framing comes from layerx_client::lni::transport::FrameTransport (services/agent/crates/layerx-agentd/src/human.rs:3), which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.fmt-human-peer-frame</code> | notes | Served on LAYERX_AGENT_HUMAN_SOCKET; framing comes from the agentd-local HumanFrameTransport with a 4-byte big-endian length prefix in services/agent/crates/layerx-agentd/src/human_frame.rs:19-49, declared as human::frame at services/agent/crates/layerx-agentd/src/human.rs:3-6; the frame no longer depends on layerx_client::lni. |
 
 | Citing block | Field | Frozen criterion or rule |
 |---|---|---|

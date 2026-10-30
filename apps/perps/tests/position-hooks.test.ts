@@ -1,8 +1,14 @@
-import { afterEach, beforeEach, describe, it, mock } from "node:test";
+import { afterEach, beforeEach, describe, it, mock, test } from "node:test";
 import { strict as assert } from "node:assert";
 import type { Address } from "viem";
 
-import {
+import type { AllowanceSource, PositionTuple } from "../src/core/perps/positionWrites";
+import type { AddSizeInput, LimitOrderInput, OpenPositionInput } from "../src/core/perps/calls";
+import { OrderType, TimeInForce } from "../src/core/network/abi/PerpsPrecompile";
+
+process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL ??= "https://gateway.test";
+
+const {
   planAddSize,
   planClose,
   planCollateral,
@@ -10,10 +16,8 @@ import {
   planOrder,
   planPartialClose,
   positionFromTuple,
-  type AllowanceSource,
-  type PositionTuple,
-} from "../src/core/perps/positionWrites";
-import {
+} = require("../src/core/perps/positionWrites") as typeof import("../src/core/perps/positionWrites");
+const {
   buildAddCollateral,
   buildAddSize,
   buildClosePosition,
@@ -22,11 +26,7 @@ import {
   buildPlaceLimitOrder,
   buildRemoveCollateral,
   ladderCloid,
-  type AddSizeInput,
-  type LimitOrderInput,
-  type OpenPositionInput,
-} from "../src/core/perps/calls";
-import { OrderType, TimeInForce } from "../src/core/network/abi/PerpsPrecompile";
+} = require("../src/core/perps/calls") as typeof import("../src/core/perps/calls");
 
 const PERPS: Address = "0x0000000000000000000000000000000000001015";
 const USDL: Address = "0x85FcD13735F4309833A503EE804ea32395851479";
@@ -92,46 +92,92 @@ afterEach(() => {
   mock.restoreAll();
 });
 
-describe("position write planners", () => {
-  it("planOpenApprovesExactCollateralThenPlacesMarketOrder", async () => {
-    const { src, reads } = source(99_999_999n);
-    const plan = await planOpen(OPEN, src);
-    assert.equal(reads.count, 1);
-    assert.equal(plan.length, 2);
-    assert.deepEqual(plan[0], approve(100_000_000n));
-    assert.deepEqual(plan[1], buildOpenPosition(OPEN));
-    const step = plan[1];
+async function planOpenIsThePlaceOrderAlone() {
+  const plan = await planOpen(OPEN);
+  assert.equal(plan.some((step) => step.functionName === "approve"), false);
+  assert.deepEqual(plan, [buildOpenPosition(OPEN)]);
+  const step = plan[0];
+  assert.ok(step.functionName === "placeOrder");
+  assert.equal(step.address, PERPS);
+  const p = step.args[0];
+  assert.equal(p.orderType, OrderType.MARKET);
+  assert.equal(p.timeInForce, TimeInForce.IOC);
+  assert.equal(p.collateralAmount, 100_000_000n);
+  assert.equal(p.acceptablePrice, 60_300n * E18);
+  assert.equal(p.deadline, BigInt(REFERENCE_SECONDS + 60));
+  assert.equal(p.takeProfitPrice, 66_000n * E18);
+  assert.equal(p.stopLossPrice, 57_000n * E18);
+  assert.equal(p.marketId, OPEN.marketId);
+  assert.equal(p.isLong, OPEN.isLong);
+  assert.equal(p.sizeUsd, OPEN.quote.sizeUsd);
+  assert.equal(p.leverage, OPEN.leverage);
+  assert.equal(p.limitPrice, 0n);
+  assert.equal(p.triggerPrice, 0n);
+  assert.equal(p.reduceOnly, false);
+  assert.equal(p.cloid, "0x00000000000000000000000000000000");
+}
+test(planOpenIsThePlaceOrderAlone);
+
+async function planAddSizeIsThePlaceOrderAlone() {
+  const plan = await planAddSize(ADD_SIZE);
+  assert.equal(plan.some((step) => step.functionName === "approve"), false);
+  assert.deepEqual(plan, [buildAddSize(ADD_SIZE)]);
+  const step = plan[0];
+  assert.ok(step.functionName === "placeOrder");
+  assert.equal(step.address, PERPS);
+  const p = step.args[0];
+  assert.equal(p.marketId, 1n);
+  assert.equal(p.isLong, false);
+  assert.equal(p.orderType, OrderType.MARKET);
+  assert.equal(p.timeInForce, TimeInForce.IOC);
+  assert.equal(p.acceptablePrice, 2_985n * E18);
+  assert.equal(p.collateralAmount, 25_000_000n);
+  assert.equal(p.sizeUsd, ADD_SIZE.quote.sizeUsd);
+  assert.equal(p.leverage, ADD_SIZE.leverage);
+  assert.equal(p.limitPrice, 0n);
+  assert.equal(p.triggerPrice, 0n);
+  assert.equal(p.reduceOnly, false);
+  assert.equal(p.takeProfitPrice, 0n);
+  assert.equal(p.stopLossPrice, 0n);
+  assert.equal(p.deadline, BigInt(REFERENCE_SECONDS + 60));
+  assert.equal(p.cloid, "0x00000000000000000000000000000000");
+}
+test(planAddSizeIsThePlaceOrderAlone);
+
+async function planOrderIsTheLadderAlone() {
+  const rungs = [
+    buildPlaceLimitOrder(limit({ collateralAmount: 100_000_000n, cloid: ladderCloid(7n, 0) })),
+    buildPlaceLimitOrder(limit({ collateralAmount: 150_000_000n, cloid: ladderCloid(7n, 1) })),
+    buildPlaceLimitOrder(limit({ collateralAmount: 50_000_001n, cloid: ladderCloid(7n, 2) })),
+  ];
+  const plan = await planOrder(rungs);
+  assert.equal(plan.some((step) => step.functionName === "approve"), false);
+  assert.deepEqual(plan, rungs);
+  for (const [index, step] of plan.entries()) {
     assert.ok(step.functionName === "placeOrder");
     assert.equal(step.address, PERPS);
+    assert.deepEqual(step.args[0], rungs[index].args[0]);
     const p = step.args[0];
-    assert.equal(p.orderType, OrderType.MARKET);
-    assert.equal(p.timeInForce, TimeInForce.IOC);
-    assert.equal(p.collateralAmount, 100_000_000n);
-    assert.equal(p.acceptablePrice, 60_300n * E18);
-    assert.equal(p.deadline, BigInt(REFERENCE_SECONDS + 60));
-    assert.equal(p.takeProfitPrice, 66_000n * E18);
-    assert.equal(p.stopLossPrice, 57_000n * E18);
-  });
+    assert.equal(p.marketId, 0n);
+    assert.equal(p.isLong, true);
+    assert.equal(p.orderType, OrderType.LIMIT);
+    assert.equal(p.timeInForce, TimeInForce.GTC);
+    assert.equal(p.sizeUsd, 6_000n * E18);
+    assert.equal(p.leverage, 20n * E18);
+    assert.equal(p.limitPrice, 59_000n * E18);
+    assert.equal(p.triggerPrice, 0n);
+    assert.equal(p.acceptablePrice, 0n);
+    assert.equal(p.collateralAmount, [100_000_000n, 150_000_000n, 50_000_001n][index]);
+    assert.equal(p.reduceOnly, false);
+    assert.equal(p.takeProfitPrice, 0n);
+    assert.equal(p.stopLossPrice, 0n);
+    assert.equal(p.deadline, 0n);
+    assert.equal(p.cloid, ladderCloid(7n, index));
+  }
+}
+test(planOrderIsTheLadderAlone);
 
-  it("planOpenWithSufficientAllowanceIsTheCallAlone", async () => {
-    const { src } = source(100_000_000n);
-    const plan = await planOpen(OPEN, src);
-    assert.deepEqual(plan, [buildOpenPosition(OPEN)]);
-  });
-
-  it("planAddSizeApprovesTheAddedCollateral", async () => {
-    const short = await planAddSize(ADD_SIZE, source(0n).src);
-    assert.deepEqual(short, [approve(25_000_000n), buildAddSize(ADD_SIZE)]);
-    const p = buildAddSize(ADD_SIZE).args[0];
-    assert.equal(p.marketId, 1n);
-    assert.equal(p.isLong, false);
-    assert.equal(p.orderType, OrderType.MARKET);
-    assert.equal(p.timeInForce, TimeInForce.IOC);
-    assert.equal(p.acceptablePrice, 2_985n * E18);
-    const enough = await planAddSize(ADD_SIZE, source(25_000_000n).src);
-    assert.deepEqual(enough, [buildAddSize(ADD_SIZE)]);
-  });
-
+describe("position write planners", () => {
   it("planCloseSendsClosePositionWithParamsAndNeverApproves", () => {
     const input = { positionId: 7n, isLong: true, exitPrice: 61_000n * E18 };
     const plan = planClose(input);
@@ -159,44 +205,39 @@ describe("position write planners", () => {
     assert.equal(reads.count, 0);
   });
 
-  it("planOrderApprovesTheSummedLadderCollateralOnce", async () => {
-    const rungs = [
-      buildPlaceLimitOrder(limit({ collateralAmount: 100_000_000n, cloid: ladderCloid(7n, 0) })),
-      buildPlaceLimitOrder(limit({ collateralAmount: 150_000_000n, cloid: ladderCloid(7n, 1) })),
-      buildPlaceLimitOrder(limit({ collateralAmount: 50_000_001n, cloid: ladderCloid(7n, 2) })),
-    ];
-    const { src, reads } = source(300_000_000n);
-    const plan = await planOrder(rungs, src);
-    assert.equal(reads.count, 1);
-    assert.deepEqual(plan, [approve(300_000_001n), ...rungs]);
-    const enough = await planOrder(rungs, source(300_000_001n).src);
-    assert.deepEqual(enough, rungs);
-  });
-
   it("noApprovalExceedsTheCallAmount", async () => {
     for (const plan of [
-      await planOpen(OPEN, source(0n).src),
-      await planAddSize(ADD_SIZE, source(0n).src),
+      await planOpen(OPEN),
+      await planAddSize(ADD_SIZE),
       await planCollateral({ action: "add", positionId: 1n, amount: 1n }, source(0n).src),
     ]) {
-      const [first, second] = plan;
-      assert.ok(first.functionName === "approve");
-      assert.equal(first.args[0], PERPS);
-      assert.ok(second.functionName !== "approve");
-      const pulled = second.functionName === "placeOrder" ? second.args[0].collateralAmount : second.args[1];
-      assert.equal(first.args[1], pulled);
+      const approvals = plan.filter((step) => step.functionName === "approve");
+      const call = plan[plan.length - 1];
+      assert.ok(call.functionName !== "approve");
+      if (call.functionName === "addCollateral") {
+        assert.deepEqual(approvals, [approve(call.args[1])]);
+        assert.equal(plan.length, 2);
+      } else {
+        assert.equal(call.functionName, "placeOrder");
+        assert.deepEqual(approvals, []);
+        assert.equal(plan.length, 1);
+      }
     }
   });
 
   it("refusesBeforeReadingTheAllowance", async () => {
     const { src, reads } = source(0n);
     await assert.rejects(
-      () => planOpen({ ...OPEN, collateralAmount: 0n }, src),
+      () => planOpen({ ...OPEN, collateralAmount: 0n }),
       (err: { code?: string }) => err.code === "VALIDATION_AMOUNT_INVALID",
     );
     await assert.rejects(
-      () => planOpen({ ...OPEN, takeProfitPrice: 59_000n * E18 }, src),
+      () => planOpen({ ...OPEN, takeProfitPrice: 59_000n * E18 }),
       (err: { code?: string }) => err.code === "TRADE_TP_SL_INVALID",
+    );
+    await assert.rejects(
+      () => planCollateral({ action: "add", positionId: 1n, amount: 0n }, src),
+      (err: { code?: string }) => err.code === "VALIDATION_AMOUNT_INVALID",
     );
     assert.equal(reads.count, 0);
   });

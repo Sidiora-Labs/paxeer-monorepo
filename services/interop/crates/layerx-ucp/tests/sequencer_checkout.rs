@@ -56,6 +56,22 @@ fn array<const N: usize>(value: &Value) -> [u8; N] {
         .unwrap_or_else(|_| panic!("expected {N} fixture bytes"))
 }
 
+fn payment_exact_words(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = hex(&case["rawTransaction"]);
+    let offsets: Vec<usize> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact selector");
+    let calldata = &transaction[offsets[0] + 4..];
+    [5, 0, 1].map(|word| {
+        calldata[word * 32..(word + 1) * 32]
+            .try_into()
+            .unwrap_or_else(|_| panic!("recorded payExact word {word}"))
+    })
+}
+
 fn receipt_keys(case: &Value) -> [SequencerAuthorization; 1] {
     let key = &case["pinnedKey"];
     [SequencerAuthorization::new(
@@ -97,7 +113,7 @@ fn submission(case: &Value) -> CheckoutSubmission {
         layerx_asset: data[..32]
             .try_into()
             .unwrap_or_else(|_| panic!("fixture payment asset")),
-        layerx_recipient: array(&case["receiptJson"]["logs"][0]["topics"][2]),
+        layerx_recipient: payment_exact_words(case)[2],
         idempotency_key: UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174000")
             .unwrap_or_else(|error| panic!("idempotency key: {error}")),
         negotiated: NegotiatedCapabilities::negotiate(&platform, &handler)
@@ -125,12 +141,9 @@ fn checkout_payment(case: &Value, submission: &CheckoutSubmission) -> ExecutedUc
         .map(array)
         .collect();
     let recorded_topics = topics.concat();
-    topics = vec![
-        topics[0],
-        submission.idempotency_key.gateway_key(),
-        topics[1],
-        topics[2],
-    ];
+    let [reference, from, to] = payment_exact_words(case);
+    topics = vec![topics[0], reference, from, to];
+    topics[1] = submission.idempotency_key.gateway_key();
     let mut unsigned = signed[..signed.len() - 69].to_vec();
     let offsets: Vec<usize> = unsigned
         .windows(recorded_topics.len())

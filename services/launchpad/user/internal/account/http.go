@@ -31,6 +31,15 @@ type HTTP struct {
 	Runtime    *Runtime
 }
 
+type accountHTTPHandler struct {
+	*http.ServeMux
+	serveHTTP http.HandlerFunc
+}
+
+func (h accountHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.serveHTTP(w, r)
+}
+
 var errAuthExpired = errors.New("AUTH_EXPIRED")
 var errResnapshot = errors.New("RESNAPSHOT_REQUIRED")
 
@@ -43,6 +52,10 @@ func (h HTTP) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/me/watchlist", h.watchGet)
 	mux.HandleFunc("PUT /v1/me/watchlist/{poolAddress}", h.watchPut)
 	mux.HandleFunc("DELETE /v1/me/watchlist/{poolAddress}", h.watchDelete)
+	mux.HandleFunc("GET /v2/me/watchlist", h.watchV2Get)
+	mux.HandleFunc("PUT /v2/me/watchlist/{poolAddress}", h.watchV2Put)
+	mux.HandleFunc("DELETE /v2/me/watchlist/{poolAddress}", h.watchV2Delete)
+	mux.HandleFunc("PATCH /v2/profiles/{wallet}", h.profileV2Patch)
 	h.registerOwnerRoutes(mux)
 	if h.Runtime != nil && h.Runtime.ExtendedV3 {
 		mux.Handle("PATCH /v3/profiles/{wallet}", h.ExtendedProfileHandler())
@@ -50,7 +63,7 @@ func (h HTTP) Handler() http.Handler {
 		mux.Handle("PATCH /v3/me/preferences", h.ExtendedPreferencesHandler())
 		mux.HandleFunc("GET /v3/me/preferences", h.extendedPreferencesGet)
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return accountHTTPHandler{ServeMux: mux, serveHTTP: func(w http.ResponseWriter, r *http.Request) {
 		if h.Runtime != nil && h.Runtime.Metrics != nil {
 			measured := &measuredWriter{ResponseWriter: w}
 			w = measured
@@ -70,7 +83,7 @@ func (h HTTP) Handler() http.Handler {
 			ctx = context.WithValue(ctx, runtimeKey{}, h.Runtime)
 		}
 		mux.ServeHTTP(w, r.WithContext(ctx))
-	})
+	}}
 }
 
 func requestID(r *http.Request) uuid.UUID {
@@ -158,55 +171,55 @@ func (h HTTP) ownedWallet(ctx context.Context, p Principal) (string, error) {
 
 func (h HTTP) profilePatch(w http.ResponseWriter, r *http.Request) {
 	id := requestID(r)
-	p, err := authenticated(r)
+	profile, err := h.patchProfile(r)
 	if err != nil {
 		WriteError(w, err, id)
 		return
+	}
+	h.respond(w, id, map[string]PublicProfile{"profile": profile}, profile.Revision, nil)
+}
+
+func (h HTTP) patchProfile(r *http.Request) (PublicProfile, error) {
+	p, err := authenticated(r)
+	if err != nil {
+		return PublicProfile{}, err
 	}
 	wallet, err := Wallet(r.PathValue("wallet"))
 	if err != nil {
-		WriteError(w, err, id)
-		return
+		return PublicProfile{}, err
 	}
 	owned, err := h.ownedWallet(r.Context(), p)
 	if err != nil {
-		WriteError(w, err, id)
-		return
+		return PublicProfile{}, err
 	}
 	if wallet != owned {
-		WriteError(w, ErrDenied, id)
-		return
+		return PublicProfile{}, ErrDenied
 	}
 	var patch ProfilePatch
 	if err = Decode(r.Body, &patch); err != nil {
-		WriteError(w, err, id)
-		return
+		return PublicProfile{}, err
 	}
 	if match := r.Header.Get("If-Match"); match != "" {
 		valid := match == `"`+patch.ExpectedRevision+`"` || match == `"`+wallet+":"+patch.ExpectedRevision+`"`
 		if h.Runtime != nil && h.Runtime.UseReadSwitch {
 			projection, e := h.Store.PublicFromReadSwitch(r.Context(), wallet)
 			if e != nil {
-				WriteError(w, e, id)
-				return
+				return PublicProfile{}, e
 			}
 			valid = match == `"`+wallet+":"+patch.ExpectedRevision+":"+strconv.FormatInt(projection.Generation, 10)+`"`
 		}
 		if !valid {
-			WriteError(w, ErrConflict, id)
-			return
+			return PublicProfile{}, ErrConflict
 		}
 	}
 	if err = h.Store.PatchProfile(r.Context(), p, p.AccountID, patch); err != nil {
-		WriteError(w, err, id)
-		return
+		return PublicProfile{}, err
 	}
 	profile, err := h.Store.Public(r.Context(), wallet)
 	if err != nil {
-		WriteError(w, err, id)
-		return
+		return PublicProfile{}, err
 	}
-	h.respond(w, id, map[string]PublicProfile{"profile": profile}, profile.Revision, nil)
+	return profile, nil
 }
 
 func (h HTTP) encodeCursor(p Principal, revision int64, last WatchEntry) string {
@@ -281,45 +294,47 @@ func (h HTTP) watchSnapshot(ctx context.Context, p Principal) (state, []WatchEnt
 
 func (h HTTP) watchGet(w http.ResponseWriter, r *http.Request) {
 	id := requestID(r)
-	p, err := authenticated(r)
+	items, revision, next, err := h.watchPage(r)
 	if err != nil {
 		WriteError(w, err, id)
 		return
 	}
+	h.respond(w, id, map[string]any{"items": items}, revision, next)
+}
+
+func (h HTTP) watchPage(r *http.Request) ([]WireWatchEntry, string, *string, error) {
+	p, err := authenticated(r)
+	if err != nil {
+		return nil, "", nil, err
+	}
 	if len(h.CursorKey) != 32 {
-		WriteError(w, errors.New("DEPENDENCY_UNAVAILABLE"), id)
-		return
+		return nil, "", nil, errors.New("DEPENDENCY_UNAVAILABLE")
 	}
 	query := r.URL.Query()
 	for key, values := range query {
 		if (key != "cursor" && key != "limit") || len(values) != 1 {
-			WriteError(w, ErrUnknown, id)
-			return
+			return nil, "", nil, ErrUnknown
 		}
 	}
 	limit := 50
 	if raw, ok := query["limit"]; ok {
 		limit, err = strconv.Atoi(raw[0])
 		if err != nil || limit < 1 || limit > 100 {
-			WriteError(w, ValidationError{"/limit", ErrInvalid}, id)
-			return
+			return nil, "", nil, ValidationError{"/limit", ErrInvalid}
 		}
 	}
 	a, entries, err := h.watchSnapshot(r.Context(), p)
 	if err != nil {
-		WriteError(w, err, id)
-		return
+		return nil, "", nil, err
 	}
 	start := 0
 	if raw, ok := query["cursor"]; ok {
 		if len(raw[0]) < 1 || len(raw[0]) > 256 {
-			WriteError(w, ErrCursor, id)
-			return
+			return nil, "", nil, ErrCursor
 		}
 		cursor, err := h.decodeCursor(p, a.Revision, raw[0])
 		if err != nil {
-			WriteError(w, err, id)
-			return
+			return nil, "", nil, err
 		}
 		found := false
 		for i, entry := range entries {
@@ -330,8 +345,7 @@ func (h HTTP) watchGet(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !found {
-			WriteError(w, ErrCursor, id)
-			return
+			return nil, "", nil, ErrCursor
 		}
 	}
 	end := min(start+limit, len(entries))
@@ -339,8 +353,7 @@ func (h HTTP) watchGet(w http.ResponseWriter, r *http.Request) {
 	for index := start; index < end; index++ {
 		projected, err := WatchProjection(a.Wallet, entries[index], index, entries[index].AlertEnabled)
 		if err != nil {
-			WriteError(w, err, id)
-			return
+			return nil, "", nil, err
 		}
 		items = append(items, projected)
 	}
@@ -349,51 +362,52 @@ func (h HTTP) watchGet(w http.ResponseWriter, r *http.Request) {
 		value := h.encodeCursor(p, a.Revision, entries[end-1])
 		next = &value
 	}
-	h.respond(w, id, map[string]any{"items": items}, strconv.FormatInt(a.Revision, 10), next)
+	return items, strconv.FormatInt(a.Revision, 10), next, nil
 }
 
 func (h HTTP) watchPut(w http.ResponseWriter, r *http.Request) {
 	id := requestID(r)
-	p, err := authenticated(r)
+	entry, revision, err := h.putWatch(r)
 	if err != nil {
 		WriteError(w, err, id)
 		return
+	}
+	h.respond(w, id, map[string]WireWatchEntry{"entry": entry}, revision, nil)
+}
+
+func (h HTTP) putWatch(r *http.Request) (WireWatchEntry, string, error) {
+	p, err := authenticated(r)
+	if err != nil {
+		return WireWatchEntry{}, "", err
 	}
 	var body WatchPutBody
 	if err = Decode(r.Body, &body); err != nil {
-		WriteError(w, err, id)
-		return
+		return WireWatchEntry{}, "", err
 	}
 	if err = body.Validate(); err != nil {
-		WriteError(w, err, id)
-		return
+		return WireWatchEntry{}, "", err
 	}
 	pool, err := Wallet(r.PathValue("poolAddress"))
 	if err != nil {
-		WriteError(w, err, id)
-		return
+		return WireWatchEntry{}, "", err
 	}
 	if err = h.Store.PutWatch(r.Context(), p, p.AccountID, pool, *body.AlertEnabled, h.PoolLookup); err != nil {
-		WriteError(w, err, id)
-		return
+		return WireWatchEntry{}, "", err
 	}
 	a, entries, err := h.watchSnapshot(r.Context(), p)
 	if err != nil {
-		WriteError(w, err, id)
-		return
+		return WireWatchEntry{}, "", err
 	}
 	for index, entry := range entries {
 		if entry.Pool == pool {
 			projected, err := WatchProjection(a.Wallet, entry, index, entry.AlertEnabled)
 			if err != nil {
-				WriteError(w, err, id)
-				return
+				return WireWatchEntry{}, "", err
 			}
-			h.respond(w, id, map[string]WireWatchEntry{"entry": projected}, strconv.FormatInt(a.Revision, 10), nil)
-			return
+			return projected, strconv.FormatInt(a.Revision, 10), nil
 		}
 	}
-	WriteError(w, ErrMissing, id)
+	return WireWatchEntry{}, "", ErrMissing
 }
 
 func (h HTTP) watchDelete(w http.ResponseWriter, r *http.Request) {

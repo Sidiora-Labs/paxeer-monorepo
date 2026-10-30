@@ -2,7 +2,26 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use layerx_programs_runtime::{programs_fuzz_observation, FuzzTarget};
+use layerx_programs::chain_proof::{
+    decode::decode_commitment_proof,
+    header::ChainHeader,
+    proto::{ProtoReader, ProtoValue},
+    state::{verify_absent, verify_state},
+    trust_store::TrustRoot,
+    validators::{TrustedValidator, ValidatorSet},
+    vote::{BlockId, CommitSig, PartSetHeader},
+    ChainProofError, ChainProofVerifier, Commit,
+};
+use layerx_programs::ProgramStateBundle;
+use layerx_programs_runtime::{programs_fuzz_observation, FuzzTarget as RuntimeFuzzTarget};
+
+#[derive(Clone, Copy, Debug)]
+enum FuzzTarget {
+    Runtime(RuntimeFuzzTarget),
+    ChainProof,
+    TrustRoot,
+    ProgramBundle,
+}
 
 /// A heap ceiling far above the runtime's metered module memory bound. A lawful
 /// validation, instantiation or execution of a committed corpus seed (and its
@@ -88,10 +107,132 @@ fn decode_hex(text: &str) -> Result<Vec<u8>, String> {
 
 fn target(name: &str) -> Result<FuzzTarget, String> {
     match name {
-        "validation" => Ok(FuzzTarget::Validation),
-        "instantiation" => Ok(FuzzTarget::Instantiation),
-        "execution" => Ok(FuzzTarget::Execution),
+        "validation" => Ok(FuzzTarget::Runtime(RuntimeFuzzTarget::Validation)),
+        "instantiation" => Ok(FuzzTarget::Runtime(RuntimeFuzzTarget::Instantiation)),
+        "execution" => Ok(FuzzTarget::Runtime(RuntimeFuzzTarget::Execution)),
+        "chain-proof" => Ok(FuzzTarget::ChainProof),
+        "trust-root" => Ok(FuzzTarget::TrustRoot),
+        "program-bundle" => Ok(FuzzTarget::ProgramBundle),
         _ => Err(format!("unknown fuzz target {name}")),
+    }
+}
+
+fn decode_part_set(bytes: &[u8]) -> Result<PartSetHeader, ChainProofError> {
+    let mut parts = PartSetHeader::default();
+    let mut reader = ProtoReader::new(bytes);
+    let mut previous = 0;
+    while let Some(field) = reader.next_field()? {
+        if field.number == previous {
+            return Err(ChainProofError::NonCanonical);
+        }
+        previous = field.number;
+        match (field.number, field.value) {
+            (1, ProtoValue::Varint(total)) => {
+                parts.total = u32::try_from(total).map_err(|_| ChainProofError::NonCanonical)?;
+            }
+            (2, ProtoValue::Bytes(hash)) => parts.hash = hash.to_vec(),
+            (1 | 2, _) => return Err(ChainProofError::NonCanonical),
+            _ => return Err(ChainProofError::UnknownField),
+        }
+    }
+    reader.finish()?;
+    Ok(parts)
+}
+
+fn decode_block_id(bytes: &[u8]) -> Result<BlockId, ChainProofError> {
+    let mut block = BlockId::default();
+    let mut reader = ProtoReader::new(bytes);
+    let mut previous = 0;
+    while let Some(field) = reader.next_field()? {
+        if field.number == previous {
+            return Err(ChainProofError::NonCanonical);
+        }
+        previous = field.number;
+        match (field.number, field.value) {
+            (1, ProtoValue::Bytes(hash)) => block.hash = hash.to_vec(),
+            (2, ProtoValue::Bytes(parts)) => block.part_set_header = decode_part_set(parts)?,
+            (1 | 2, _) => return Err(ChainProofError::NonCanonical),
+            _ => return Err(ChainProofError::UnknownField),
+        }
+    }
+    reader.finish()?;
+    Ok(block)
+}
+
+fn decode_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
+    let mut commit = Commit {
+        height: 0,
+        round: 0,
+        block_id: BlockId::default(),
+        signatures: Vec::new(),
+    };
+    let mut reader = ProtoReader::new(bytes);
+    let mut previous = 0;
+    while let Some(field) = reader.next_field()? {
+        if field.number == previous && field.number != 4 {
+            return Err(ChainProofError::NonCanonical);
+        }
+        previous = field.number;
+        match (field.number, field.value) {
+            (1, ProtoValue::Varint(height)) => {
+                commit.height = i64::from_le_bytes(height.to_le_bytes());
+            }
+            (2, ProtoValue::Varint(round)) => {
+                commit.round = i32::try_from(round).map_err(|_| ChainProofError::NonCanonical)?;
+            }
+            (3, ProtoValue::Bytes(block)) => commit.block_id = decode_block_id(block)?,
+            (4, ProtoValue::Bytes(signature)) => {
+                commit.signatures.push(CommitSig::decode(signature)?);
+            }
+            (1..=4, _) => return Err(ChainProofError::NonCanonical),
+            _ => return Err(ChainProofError::UnknownField),
+        }
+    }
+    reader.finish()?;
+    Ok(commit)
+}
+
+fn decode_signed_header(bytes: &[u8], commit: &[u8]) -> Result<ChainHeader, ChainProofError> {
+    let mut reader = ProtoReader::new(bytes);
+    let mut header = None;
+    let mut previous = 0;
+    while let Some(field) = reader.next_field()? {
+        if field.number == previous {
+            return Err(ChainProofError::NonCanonical);
+        }
+        previous = field.number;
+        match (field.number, field.value) {
+            (1, ProtoValue::Bytes(bytes)) => header = Some(ChainHeader::decode(bytes)?),
+            (2, ProtoValue::Bytes(bytes)) if bytes == commit => {}
+            (2, ProtoValue::Bytes(_)) => return Err(ChainProofError::Mismatch),
+            (1 | 2, _) => return Err(ChainProofError::NonCanonical),
+            _ => return Err(ChainProofError::UnknownField),
+        }
+    }
+    reader.finish()?;
+    header.ok_or(ChainProofError::NonCanonical)
+}
+
+fn chain_proof_observation(input: &[u8]) -> Result<i64, ChainProofError> {
+    let proof = decode_commitment_proof(input)?;
+    let header = decode_signed_header(&proof.signed_header, &proof.commit)?;
+    let commit = decode_commit(&proof.commit)?;
+    let mut public_key = [0x66; 32];
+    public_key[0] = 0x58;
+    let verifier = ChainProofVerifier {
+        chain_id: "paxeer-chain-proof-fuzz".to_owned(),
+        validators: ValidatorSet::new(vec![TrustedValidator::new(public_key, 1)])?,
+    };
+    let head = verifier.verify_head(&header, &commit)?;
+    match &proof.value {
+        Some(value) => verify_state(
+            &head,
+            &proof.store_name,
+            &proof.key,
+            value,
+            &proof.proof_ops,
+        ),
+        None => verify_absent(&head, &proof.store_name, &proof.key, &proof.proof_ops),
     }
 }
 
@@ -128,9 +269,35 @@ fn mutate(seed: &[u8]) -> Vec<Vec<u8>> {
 /// divergence between the two observations is reported here as a build-breaking
 /// non-determinism defect.
 fn check(selected: FuzzTarget, input: &[u8], path: &Path) -> Result<(), String> {
-    let first = programs_fuzz_observation(selected, input);
-    let second = programs_fuzz_observation(selected, input);
-    if first == second {
+    let deterministic = match selected {
+        FuzzTarget::Runtime(target) => {
+            programs_fuzz_observation(target, input) == programs_fuzz_observation(target, input)
+        }
+        FuzzTarget::ChainProof => chain_proof_observation(input) == chain_proof_observation(input),
+        FuzzTarget::ProgramBundle => {
+            ProgramStateBundle::decode(input) == ProgramStateBundle::decode(input)
+        }
+        FuzzTarget::TrustRoot => {
+            let first = TrustRoot::decode(input);
+            let second = TrustRoot::decode(input);
+            for root in [&first, &second].into_iter().flatten() {
+                let canonical = root.canonical_bytes().map_err(|error| {
+                    format!(
+                        "accepted trust-root failed to re-encode for {}: {error:?}",
+                        path.display()
+                    )
+                })?;
+                if canonical != input {
+                    return Err(format!(
+                        "non-canonical trust-root acceptance for input derived from {}",
+                        path.display()
+                    ));
+                }
+            }
+            first == second
+        }
+    };
+    if deterministic {
         Ok(())
     } else {
         Err(format!(
@@ -166,5 +333,98 @@ fn main() {
     if let Err(error) = run() {
         eprintln!("programs fuzz failed: {error}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn program_bundle_target_never_panics_on_seed_corpus() -> Result<(), String> {
+        let selected = target("program-bundle")?;
+        assert!(matches!(selected, FuzzTarget::ProgramBundle));
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("corpus/program-bundle");
+        let source =
+            fs::read_to_string(root.join("empty-ops.hex")).map_err(|error| error.to_string())?;
+        let seed = decode_hex(&source)?;
+        assert!(seed.starts_with(b"LXPB\x02"));
+        assert_eq!(
+            ProgramStateBundle::decode(&seed),
+            Err(layerx_programs::ProgramBundleError::Evidence(
+                layerx_programs::ProtocolEvidenceError::Encoding
+            ))
+        );
+        for path in corpus_files(&root)? {
+            let source = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+            let seed = decode_hex(&source)?;
+            for input in mutate(&seed) {
+                let outcome = std::panic::catch_unwind(|| check(selected, &input, &path));
+                assert!(
+                    outcome.is_ok(),
+                    "program-bundle panicked for {}",
+                    path.display()
+                );
+                outcome.map_err(|_| format!("panic for {}", path.display()))??;
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn trust_root_target_never_panics_on_seed_corpus() -> Result<(), String> {
+        let selected = target("trust-root")?;
+        assert!(matches!(selected, FuzzTarget::TrustRoot));
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("corpus/trust-root");
+        let source = fs::read_to_string(root.join("one-validator.hex"))
+            .map_err(|error| error.to_string())?;
+        let seed = decode_hex(&source)?;
+        let decoded = TrustRoot::decode(&seed).map_err(|error| format!("{error:?}"))?;
+        assert_eq!(decoded.validators.validators().len(), 1);
+        assert_eq!(
+            decoded
+                .canonical_bytes()
+                .map_err(|error| format!("{error:?}"))?,
+            seed
+        );
+        for path in corpus_files(&root)? {
+            let source = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+            let seed = decode_hex(&source)?;
+            for input in mutate(&seed) {
+                let outcome = std::panic::catch_unwind(|| check(selected, &input, &path));
+                assert!(
+                    outcome.is_ok(),
+                    "trust-root panicked for {}",
+                    path.display()
+                );
+                outcome.map_err(|_| format!("panic for {}", path.display()))??;
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn chain_proof_target_never_panics_on_seed_corpus() -> Result<(), String> {
+        let selected = target("chain-proof")?;
+        assert!(matches!(selected, FuzzTarget::ChainProof));
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("corpus/chain-proof");
+        let mut count = 0;
+        for entry in fs::read_dir(&root).map_err(|error| error.to_string())? {
+            let path = entry.map_err(|error| error.to_string())?.path();
+            let source = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+            let seed = decode_hex(&source)?;
+            for input in mutate(&seed) {
+                let outcome = std::panic::catch_unwind(|| check(selected, &input, &path));
+                assert!(
+                    outcome.is_ok(),
+                    "chain-proof panicked for {}",
+                    path.display()
+                );
+                outcome.map_err(|_| format!("panic for {}", path.display()))??;
+            }
+            count += 1;
+        }
+        assert!(count > 0, "chain-proof corpus must not be empty");
+        Ok(())
     }
 }

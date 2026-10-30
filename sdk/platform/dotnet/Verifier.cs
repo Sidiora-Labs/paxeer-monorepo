@@ -4,12 +4,9 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Signers;
-using Org.BouncyCastle.Math;
-using Org.BouncyCastle.Math.EC;
 
 namespace LayerX.Sdk;
 
@@ -36,103 +33,7 @@ public readonly record struct UInt128Value(ulong High, ulong Low)
 
 public sealed record MerkleProof(uint LeafIndex, uint LeafCount, IReadOnlyList<byte[]> Siblings);
 
-public sealed record BatchHeader(
-    ushort ProtocolVersion,
-    uint NetworkId,
-    ulong Epoch,
-    ulong BatchNumber,
-    ulong FirstSequence,
-    ulong LastSequence,
-    byte[] PreviousStateRoot,
-    byte[] ResultingStateRoot,
-    byte[] ActivityMerkleRoot,
-    byte[] ReceiptMerkleRoot,
-    byte[] EventMerkleRoot,
-    byte[] DataAvailabilityRoot,
-    byte[] OracleRoot,
-    ulong TimestampMilliseconds,
-    byte[] SequencerId);
-
-public sealed record SequencerAuthorization(byte[] SequencerId, byte[] PublicKey, ulong FirstBatchNumber, ulong LastBatchNumber);
-public enum InclusionKind { Activity, Receipt, Event, State }
-public sealed record InclusionVerification(string Level, BatchHeader Header, byte[] HeaderDigest, byte[] Root);
-
-public sealed record CheckpointAttestation(
-    ushort ProtocolVersion,
-    uint NetworkId,
-    ulong PaxeerChainId,
-    byte[] SettlementContract,
-    ulong Epoch,
-    byte[] CheckpointId,
-    byte[] CheckpointHash,
-    byte[] GuarantorId,
-    ulong BatchNumber,
-    byte[] DataAvailabilityRoot,
-    bool Replayed,
-    bool DataPossessed,
-    byte AvailabilityClassMask,
-    ulong AttestedAtMilliseconds,
-    byte[] Signer,
-    byte[] Signature,
-    byte SignatureV);
-
-public sealed record GuarantorKey(byte[] GuarantorId, byte[] PublicKey, bool Bonded);
-public sealed record CheckpointCertificate(byte[] CanonicalHeader, byte[] ValidityProof, IReadOnlyList<CheckpointAttestation> Attestations, uint Threshold, byte[]? SettlementReference = null);
-public sealed record CheckpointVerificationInput(CheckpointCertificate Certificate, IReadOnlyList<GuarantorKey> BondedSet, byte[] RegisteredCheckpointId, ulong ExpectedPaxeerChainId, byte[] ExpectedSettlementContract, byte[]? RegisteredSettlementReference, bool AvailabilityObtained);
-public sealed record CheckpointVerification(string Level, byte[] CheckpointId, uint Achieved, uint Required, BatchHeader Header);
-
-public interface ILocalSignatureVerifier
-{
-    ValueTask<bool> VerifyRecoverableSecp256k1Async(ReadOnlyMemory<byte> publicKey, ReadOnlyMemory<byte> signature, byte signatureV, ReadOnlyMemory<byte> signer, ReadOnlyMemory<byte> digest, CancellationToken cancellationToken = default, ushort protocolVersion = 2);
-}
-
-public sealed class BouncyCastleSignatureVerifier : ILocalSignatureVerifier
-{
-    public ValueTask<bool> VerifyRecoverableSecp256k1Async(ReadOnlyMemory<byte> publicKey, ReadOnlyMemory<byte> signature, byte signatureV, ReadOnlyMemory<byte> signer, ReadOnlyMemory<byte> digest, CancellationToken cancellationToken = default, ushort protocolVersion = 2)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (publicKey.Length != 33 || signature.Length != 64 || signer.Length != 20 || digest.Length != 32 || (signatureV != 27 && signatureV != 28)) return ValueTask.FromResult(false);
-        try
-        {
-            var curve = SecNamedCurves.GetByName("secp256k1");
-            var point = curve.Curve.DecodePoint(publicKey.ToArray());
-            var domain = new ECDomainParameters(curve.Curve, curve.G, curve.N, curve.H, curve.GetSeed());
-            var key = new ECPublicKeyParameters(point, domain);
-            var encodedSignature = signature.Span;
-            var r = new BigInteger(1, encodedSignature[..32].ToArray());
-            var s = new BigInteger(1, encodedSignature[32..].ToArray());
-            if (r.SignValue <= 0 || r.CompareTo(curve.N) >= 0 || s.SignValue <= 0 || s.CompareTo(curve.N.ShiftRight(1)) > 0)
-                return ValueTask.FromResult(false);
-            var verifier = new ECDsaSigner();
-            verifier.Init(false, key);
-            if (!verifier.VerifySignature(digest.ToArray(), r, s)) return ValueTask.FromResult(false);
-            var compressed = new byte[33];
-            compressed[0] = (byte)(2 + signatureV - 27);
-            var x = r.ToByteArrayUnsigned();
-            if (x.Length > 32) return ValueTask.FromResult(false);
-            x.CopyTo(compressed, compressed.Length - x.Length);
-            var recoveredR = curve.Curve.DecodePoint(compressed);
-            if (!recoveredR.Multiply(curve.N).IsInfinity) return ValueTask.FromResult(false);
-            var inverseR = r.ModInverse(curve.N);
-            var e = new BigInteger(1, digest.ToArray());
-            var recovered = ECAlgorithms.SumOfTwoMultiplies(
-                curve.G, e.Negate().Mod(curve.N).Multiply(inverseR).Mod(curve.N),
-                recoveredR, s.Multiply(inverseR).Mod(curve.N)).Normalize();
-            if (!CryptographicOperations.FixedTimeEquals(recovered.GetEncoded(true), publicKey.Span))
-                return ValueTask.FromResult(false);
-            var uncompressed = recovered.GetEncoded(false);
-            var keccak = new KeccakDigest(256);
-            keccak.BlockUpdate(uncompressed, 1, uncompressed.Length - 1);
-            var addressHash = new byte[32];
-            keccak.DoFinal(addressHash, 0);
-            return ValueTask.FromResult(CryptographicOperations.FixedTimeEquals(addressHash.AsSpan(12, 20), signer.Span));
-        }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or ArithmeticException)
-        {
-            return ValueTask.FromResult(false);
-        }
-    }
-}
+public enum VerificationLevel { Receipted, Committed }
 
 public sealed record ReceiptEffect(ushort ModuleId, ushort Ordinal, ushort EventType, byte Kind, bool Monetary, byte[] TransferSetRoot, byte[] Body);
 
@@ -193,14 +94,21 @@ public sealed record ProtocolReceipt(
     ProgramReceiptOutcome? ProgramOutcome,
     byte[] SequencerSignature);
 
-public sealed record AuthorizedReceiptBatch(byte[] BatchId, byte[] Asset, byte[] PreviousStateRoot, byte[] ResultingStateRoot, byte[] SequencerPublicKey);
 public sealed record ReceiptVerification(string Level, ProtocolReceipt Receipt, byte[] CanonicalBytes, byte[] ReceiptDigest);
 
 public sealed record ReceiptKey(byte[] KeyId, byte[] PublicKey, ulong FirstHeight, ulong LastHeight);
 public sealed record ReceiptKeys(IReadOnlyList<ReceiptKey> Pinned, byte[] PreviousSequenceHash);
 public sealed record SequencerRevert(string? Code, string? Reason, byte[] ReturnData, string VmError);
 public sealed record SequencerReceiptVerification(string Rung, uint Status, ProtocolReceipt Receipt, byte[] CanonicalBytes,
-    byte[] ReceiptDigest, byte[] ReturnData, SequencerRevert? Revert);
+    byte[] ReceiptDigest, byte[] ReturnData, SequencerRevert? Revert)
+{
+    public VerificationLevel Level => Rung switch
+    {
+        "receipted" => VerificationLevel.Receipted,
+        "committed" => VerificationLevel.Committed,
+        _ => throw new PlatformSdkException(SdkErrorCode.VerificationFailure, RetryClass.Never)
+    };
+}
 
 public static class LocalVerifier
 {
@@ -209,17 +117,11 @@ public static class LocalVerifier
 
     private static readonly byte[] MerkleLeafDomain = Encoding.UTF8.GetBytes("LXP/v1/merkle-leaf\0");
     private static readonly byte[] MerkleInternalDomain = Encoding.UTF8.GetBytes("LXP/v1/merkle-internal\0");
-    private static readonly byte[] BatchHeaderDomain = Encoding.UTF8.GetBytes("LXP/v1/batch-header\0");
     private static readonly byte[] ReceiptDomain = Encoding.UTF8.GetBytes(GeneratedReceiptContract.ReceiptDomain + "\0");
     private static readonly byte[] SequenceDomain = Encoding.UTF8.GetBytes(GeneratedReceiptContract.SequenceDomain + "\0");
-    private static readonly byte[] CheckpointDomain = Encoding.UTF8.GetBytes("LXP/v2/checkpoint-certificate\0");
-    private static readonly byte[] GuarantorAttestationDomain = Encoding.UTF8.GetBytes("LXP/v2/guarantor-attestation\0");
     private const int MaximumMessageBytes = 1_048_576;
     private const uint MaximumEffects = 512;
     private const uint MaximumEffectBody = 256;
-    private const int BatchHeaderBytes = 354;
-    private const byte AllAvailabilityClasses = 0x1f;
-    private const ushort CurrentProtocolVersion = 2;
     private const uint ProgramOutcomeV1 = 0x50524731;
     private const uint ProgramOutcomeV2 = 0x50524732;
     private const uint ProgramOutcomeV3 = 0x50524733;
@@ -502,154 +404,6 @@ public static class LocalVerifier
         if (!Equal(current, expectedRoot)) throw VerificationFailure();
     }
 
-    public static BatchHeader DecodeBatchHeader(ReadOnlySpan<byte> canonicalHeader)
-    {
-        if (canonicalHeader.Length != BatchHeaderBytes) throw VerificationFailure();
-        var decoder = new WireDecoder(canonicalHeader.ToArray());
-        if (decoder.U16() != 1 || decoder.U16() != 0x1701 || decoder.U8() != 15) throw VerificationFailure();
-        void Field(byte expected) { if (decoder.U8() != expected) throw VerificationFailure(); }
-        Field(1); var protocolVersion = decoder.U16();
-        Field(2); var networkId = decoder.U32();
-        Field(3); var epoch = decoder.U64();
-        Field(4); var batchNumber = decoder.U64();
-        Field(5); var firstSequence = decoder.U64();
-        Field(6); var lastSequence = decoder.U64();
-        Field(7); var previousStateRoot = decoder.Array32();
-        Field(8); var resultingStateRoot = decoder.Array32();
-        Field(9); var activityMerkleRoot = decoder.Array32();
-        Field(10); var receiptMerkleRoot = decoder.Array32();
-        Field(11); var eventMerkleRoot = decoder.Array32();
-        Field(12); var dataAvailabilityRoot = decoder.Array32();
-        Field(13); var oracleRoot = decoder.Array32();
-        Field(14); var timestampMilliseconds = decoder.U64();
-        Field(15); var sequencerId = decoder.Array32();
-        decoder.Finish();
-        return new(protocolVersion, networkId, epoch, batchNumber, firstSequence, lastSequence, previousStateRoot, resultingStateRoot, activityMerkleRoot, receiptMerkleRoot, eventMerkleRoot, dataAvailabilityRoot, oracleRoot, timestampMilliseconds, sequencerId);
-    }
-
-    public static ValueTask<InclusionVerification> VerifyBatchInclusionAsync(InclusionKind kind, ReadOnlyMemory<byte> canonicalLeaf, MerkleProof proof, ReadOnlyMemory<byte> canonicalHeader, ReadOnlyMemory<byte> headerSignature, SequencerAuthorization authorization, CancellationToken cancellationToken = default, ushort protocolVersion = 2)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var header = DecodeBatchHeader(canonicalHeader.Span);
-        if ((protocolVersion != 2 && protocolVersion != 3) || header.ProtocolVersion != protocolVersion) throw VerificationFailure();
-        if (header.BatchNumber < authorization.FirstBatchNumber || header.BatchNumber > authorization.LastBatchNumber || !Equal(header.SequencerId, Exact(authorization.SequencerId, 32)))
-            throw VerificationFailure();
-        var headerDigest = Digest(BatchHeaderDomain, canonicalHeader.ToArray());
-        if (!VerifyEd25519(authorization.PublicKey, headerSignature.Span, headerDigest)) throw VerificationFailure();
-        var root = kind switch
-        {
-            InclusionKind.Activity => header.ActivityMerkleRoot,
-            InclusionKind.Receipt => header.ReceiptMerkleRoot,
-            InclusionKind.Event => header.EventMerkleRoot,
-            InclusionKind.State => header.ResultingStateRoot,
-            _ => throw VerificationFailure(),
-        };
-        VerifyMerkleInclusion(canonicalLeaf.Span, proof, root);
-        return ValueTask.FromResult(new InclusionVerification(kind == InclusionKind.State ? "state-proven" : "batch-included", header, headerDigest, root.ToArray()));
-    }
-
-    public static async ValueTask<CheckpointVerification> VerifyCheckpointAsync(CheckpointVerificationInput input, ILocalSignatureVerifier signatures, CancellationToken cancellationToken = default, ushort protocolVersion = 2)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-        ArgumentNullException.ThrowIfNull(signatures);
-        var certificate = input.Certificate ?? throw VerificationFailure();
-        if (!input.AvailabilityObtained || certificate.Threshold == 0 || certificate.ValidityProof is null || certificate.Attestations is null || certificate.ValidityProof.LongLength > uint.MaxValue)
-            throw VerificationFailure();
-        var header = DecodeBatchHeader(certificate.CanonicalHeader);
-        if ((protocolVersion != 2 && protocolVersion != 3) || header.ProtocolVersion != protocolVersion) throw VerificationFailure();
-        var checkpointId = Digest(CheckpointDomain, certificate.CanonicalHeader, EncodeUInt32((uint)certificate.ValidityProof.Length), certificate.ValidityProof);
-        var expectedSettlementContract = Exact(input.ExpectedSettlementContract, 20);
-        if (!Equal(checkpointId, Exact(input.RegisteredCheckpointId, 32)) || input.ExpectedPaxeerChainId == 0 || AllZero(expectedSettlementContract)) throw VerificationFailure();
-        var bonded = new Dictionary<string, GuarantorKey>(StringComparer.Ordinal);
-        foreach (var member in input.BondedSet ?? throw VerificationFailure())
-            if (member.Bonded) bonded[Convert.ToHexString(Exact(member.GuarantorId, 32))] = member;
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        uint achieved = 0;
-        foreach (var attestation in certificate.Attestations)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var guarantorId = Exact(attestation.GuarantorId, 32);
-            var attestationSettlementContract = Exact(attestation.SettlementContract, 20);
-            var identity = Convert.ToHexString(guarantorId);
-            if (!seen.Add(identity) || attestation.ProtocolVersion != header.ProtocolVersion || attestation.NetworkId != header.NetworkId || attestation.Epoch != header.Epoch ||
-                attestation.PaxeerChainId != input.ExpectedPaxeerChainId || !Equal(attestationSettlementContract, expectedSettlementContract) ||
-                !Equal(Exact(attestation.CheckpointId, 32), checkpointId) || !Equal(Exact(attestation.CheckpointHash, 32), checkpointId) ||
-                attestation.BatchNumber != header.BatchNumber || !Equal(Exact(attestation.DataAvailabilityRoot, 32), header.DataAvailabilityRoot) ||
-                !attestation.Replayed || !attestation.DataPossessed || attestation.AvailabilityClassMask != AllAvailabilityClasses || attestation.AttestedAtMilliseconds == 0 ||
-                AllZero(Exact(attestation.Signer, 20)) || (attestation.SignatureV != 27 && attestation.SignatureV != 28) ||
-                !bonded.TryGetValue(identity, out var member) || achieved == uint.MaxValue)
-                throw VerificationFailure();
-            var message = Concatenate(
-                EncodeUInt16(attestation.ProtocolVersion), EncodeUInt32(attestation.NetworkId), EncodeUInt64(attestation.PaxeerChainId),
-                attestationSettlementContract, EncodeUInt64(attestation.Epoch),
-                Exact(attestation.CheckpointId, 32), Exact(attestation.CheckpointHash, 32), guarantorId,
-                EncodeUInt64(attestation.BatchNumber), Exact(attestation.DataAvailabilityRoot, 32),
-                new byte[] { 1, 1, attestation.AvailabilityClassMask }, EncodeUInt64(attestation.AttestedAtMilliseconds));
-            var attestationDigest = Digest(GuarantorAttestationDomain, message);
-            if (!await signatures.VerifyRecoverableSecp256k1Async(Exact(member.PublicKey, 33), Exact(attestation.Signature, 64), attestation.SignatureV, Exact(attestation.Signer, 20), attestationDigest, cancellationToken).ConfigureAwait(false))
-                throw VerificationFailure();
-            achieved++;
-        }
-        if (achieved < certificate.Threshold) throw VerificationFailure();
-        var level = "checkpoint-finalised";
-        if (certificate.SettlementReference is not null)
-        {
-            if (certificate.SettlementReference.Length == 0 || input.RegisteredSettlementReference is null || !Equal(certificate.SettlementReference, input.RegisteredSettlementReference))
-                throw VerificationFailure();
-            level = "settlement-anchored";
-        }
-        return new(level, checkpointId, achieved, certificate.Threshold, header);
-    }
-
-    public static ValueTask<ReceiptVerification> VerifyReceiptOutcomeAsync(ReadOnlyMemory<byte> canonicalReceipt, AuthorizedReceiptBatch authorized, CancellationToken cancellationToken = default, ushort protocolVersion = 2)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var decoded = DecodeProtocolReceipt(canonicalReceipt.Span);
-        var receipt = decoded.Receipt;
-        if ((protocolVersion != 2 && protocolVersion != 3) || receipt.ProtocolVersion != protocolVersion) throw VerificationFailure(ReceiptCheck.ReceiptVersion);
-        _ = Exact(authorized.Asset, 32);
-        var program = receipt.ModuleId == 9 && (receipt.Operation == 0 || receipt.Operation == 3);
-        if (program)
-        {
-            var module = receipt.ModuleVersion;
-            var validModule = receipt.ProtocolVersion == 3 ? module is 4 or 5 : module == 2 || module == 3 || receipt.Operation == 3 && module == 1;
-            if (!validModule) throw VerificationFailure(ReceiptCheck.Fields);
-            if (receipt.Operation == 0 && receipt.ResultCode != 0) throw VerificationFailure(ReceiptCheck.Fields);
-            if (receipt.Operation == 3)
-            {
-                var outcome = receipt.ProgramOutcome;
-                if (outcome is null) throw VerificationFailure(ReceiptCheck.Fields);
-                var supportedAbi = receipt.ProtocolVersion == 3
-                    ? GeneratedReceiptContract.SupportsProgramGuestAbi(outcome.AbiVersion)
-                    : outcome.AbiVersion is GeneratedReceiptContract.ProgramAbiV1 or GeneratedReceiptContract.ProgramAbiV2;
-                if (!supportedAbi || outcome.RuntimeVersion != 1) throw VerificationFailure(ReceiptCheck.ReceiptVersion);
-                if (receipt.ProtocolVersion == 3 && outcome.AbiVersion > module) throw VerificationFailure(ReceiptCheck.Fields);
-                if (receipt.ProtocolVersion == 3 && outcome.AbiVersion is GeneratedReceiptContract.ProgramAbiV3 or GeneratedReceiptContract.ProgramAbiV4 or GeneratedReceiptContract.ProgramAbiV5 &&
-                    !Equal(receipt.Asset, Exact(authorized.Asset, 32))) throw VerificationFailure(ReceiptCheck.Fields);
-            }
-        }
-        if (!program && receipt.Operation == 0) throw VerificationFailure(ReceiptCheck.Fields);
-        if (AllZero(receipt.ActivityId)) throw VerificationFailure(ReceiptCheck.ActivityId);
-        if (!program && AllZero(receipt.Asset)) throw VerificationFailure(ReceiptCheck.Fields);
-        if (!Equal(receipt.BatchId, Exact(authorized.BatchId, 32))) throw VerificationFailure(ReceiptCheck.Fields);
-        if (!program && !Equal(receipt.Asset, Exact(authorized.Asset, 32))) throw VerificationFailure(ReceiptCheck.Fields);
-        if (!Equal(receipt.PreviousStateRoot, Exact(authorized.PreviousStateRoot, 32)))
-            throw VerificationFailure(ReceiptCheck.Fields);
-        if (!Equal(receipt.ResultingStateRoot, Exact(authorized.ResultingStateRoot, 32)))
-            throw VerificationFailure(ReceiptCheck.Fields);
-        if (!program && receipt.ResultCode == 0)
-        {
-            if (!receipt.FromBalanceBefore.TrySubtract(receipt.Amount, out var debitAfter) || debitAfter != receipt.FromBalanceAfter)
-                throw VerificationFailure(ReceiptCheck.Fields);
-            if (!receipt.ToBalanceBefore.TryAdd(receipt.Amount, out var creditAfter) || creditAfter != receipt.ToBalanceAfter)
-                throw VerificationFailure(ReceiptCheck.Fields);
-        }
-        var receiptDigest = Digest(ReceiptDomain, decoded.UnsignedBytes);
-        if (!VerifyEd25519(Exact(authorized.SequencerPublicKey, 32), receipt.SequencerSignature, receiptDigest))
-            throw VerificationFailure(ReceiptCheck.Signature);
-        return ValueTask.FromResult(new ReceiptVerification("sequencer-signed", receipt, canonicalReceipt.ToArray(), receiptDigest));
-    }
-
     public static ReceiptVerification VerifyProgramLifecycleReceipt(byte[] canonical, byte[] expectedActivity, byte[] sequencer)
     {
         var decoded = DecodeProtocolReceipt(canonical); var receipt = decoded.Receipt;
@@ -659,13 +413,6 @@ public static class LocalVerifier
         var digest = Digest(ReceiptDomain, decoded.UnsignedBytes);
         if (!VerifyEd25519(sequencer, receipt.SequencerSignature, digest)) throw VerificationFailure(ReceiptCheck.Signature);
         return new ReceiptVerification("sequencer-signed", receipt, canonical.ToArray(), digest);
-    }
-
-    public static async ValueTask<ReceiptVerification> VerifyReceiptAsync(ReadOnlyMemory<byte> canonicalReceipt, AuthorizedReceiptBatch authorized, CancellationToken cancellationToken = default, ushort protocolVersion = 2)
-    {
-        var verified = await VerifyReceiptOutcomeAsync(canonicalReceipt, authorized, cancellationToken, protocolVersion).ConfigureAwait(false);
-        if (verified.Receipt.ResultCode != 0) throw VerificationFailure(ReceiptCheck.Fields);
-        return verified;
     }
 
     private static DecodedReceipt DecodeProtocolReceipt(ReadOnlySpan<byte> canonicalReceipt, bool sequencer = false)
@@ -709,6 +456,7 @@ public static class LocalVerifier
         var feeCharged = decoder.U128();
         var batchId = decoder.Array32();
         var module = decoder.U16();
+        if (sequencer && module <= 11) throw VerificationFailure(ReceiptCheck.Decode);
         var moduleVersion = decoder.U32();
         var parameterVersion = decoder.U32();
         var operation = decoder.U8();
@@ -868,15 +616,6 @@ public static class LocalVerifier
         var depth = 0;
         while (count > 1) { count = count / 2 + count % 2; depth++; }
         return depth;
-    }
-
-    private static byte[] Concatenate(params byte[][] values)
-    {
-        var length = values.Aggregate(0, (sum, value) => checked(sum + value.Length));
-        var result = new byte[length];
-        var offset = 0;
-        foreach (var value in values) { value.CopyTo(result, offset); offset += value.Length; }
-        return result;
     }
 
     private static byte[] EncodeUInt32(uint value)

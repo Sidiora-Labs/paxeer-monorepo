@@ -381,7 +381,6 @@ const MAX_TENANT_BYTES = 255;
 const MAX_U64 = (1n << 64n) - 1n;
 const CANONICAL_DECIMAL = /^(?:0|[1-9][0-9]{0,19})$/u;
 const MAX_ENVELOPE_BYTES = 1_048_576;
-const BOOTSTRAP_OPERATIONS: ReadonlySet<string> = new Set<AgentOperation>(["agent.register", "session.open"]);
 const VERIFICATION_LEVELS: ReadonlySet<string> = new Set([
   "Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored",
 ]);
@@ -450,7 +449,7 @@ export interface AgentEnvelopeTransportOptions {
   readonly clientCertificate?: SecretBytes;
   /** Daemon surface only (required there): client private key PEM presented for mutual TLS. */
   readonly clientKey?: SecretBytes;
-  /** Required for every operation except the bootstrap set agent.register and session.open, which carry a null credential. */
+  /** Required for every agent operation. */
   readonly session?: AgentSessionCredential;
   /** Gateway API-key admission; a separate authority from the daemon session credential. */
   readonly gatewayCredential?: LayerXKeyCredential;
@@ -828,10 +827,8 @@ export function encodeAgentEnvelope(
   if (!CANONICAL_DECIMAL.test(requestId) || BigInt(requestId) > MAX_U64) throw invalidArgument();
   const mutation = ENVELOPE_MUTATIONS.has(operation);
   if (mutation ? idempotency === undefined || !HEX32.test(idempotency) : idempotency !== undefined) throw invalidArgument();
-  let credential: Readonly<Record<string, string>> | null;
-  if (BOOTSTRAP_OPERATIONS.has(operation)) credential = null;
-  else if (session === undefined) throw invalidArgument();
-  else credential = session.encode();
+  if (session === undefined) throw invalidArgument();
+  const credential = session.encode();
   let text: string;
   try {
     text = JSON.stringify({

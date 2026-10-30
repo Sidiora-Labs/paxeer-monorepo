@@ -16,7 +16,16 @@ pub(crate) fn next(
     params: &Value,
     timeout: Duration,
 ) -> Result<Value, String> {
-    let command = request("lx_subscribe", params)?;
+    let logs = match params.as_array().map(Vec::as_slice) {
+        Some([Value::String(topic), Value::String(address)]) if topic == "account" => {
+            json!(["logs", {"address":address,"topics":[]}])
+        }
+        Some([Value::String(kind), Value::Object(_)]) if kind == "logs" => params.clone(),
+        _ => {
+            return Err("wallet watch requires account and --account-id with an EVM address".into())
+        }
+    };
+    let command = request("eth_subscribe", &logs)?;
     if timeout.is_zero() || timeout > Duration::from_secs(300) {
         return Err("subscription timeout must be 1–300 seconds".into());
     }
@@ -26,7 +35,7 @@ pub(crate) fn next(
         .send(Message::Text(command.to_string().into()))
         .map_err(|_| "subscription request failed".to_owned())?;
     let response = read_json(&mut socket, deadline)?;
-    let subscription = decode_response("lx_subscribe", &response)?;
+    let subscription = decode_response("eth_subscribe", &response)?;
     let event = read_json(&mut socket, deadline)?;
     let result = notification(&event, &subscription)?;
     Ok(
@@ -124,8 +133,10 @@ fn read_json(socket: &mut Socket, deadline: Instant) -> Result<Value, String> {
 }
 
 fn notification(event: &Value, subscription: &Value) -> Result<Value, String> {
+    if event["method"] != "eth_subscription" {
+        return Err("unexpected subscription notification method".into());
+    }
     if event["jsonrpc"] != "2.0"
-        || event["method"] != "lx_subscription"
         || event.get("id").is_some()
         || event.pointer("/params/subscription") != Some(subscription)
         || event.get("error").is_some()
@@ -145,7 +156,7 @@ mod tests {
 
     #[test]
     fn notifications_are_bound_and_never_commitment_evidence() -> Result<(), String> {
-        let event = json!({"jsonrpc":"2.0","method":"lx_subscription","params":{"subscription":"1","result":{"state":"pending"}}});
+        let event = json!({"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"1","result":{"state":"pending"}}});
         assert_eq!(notification(&event, &json!("1"))?["state"], "pending");
         assert!(notification(&event, &json!("2")).is_err());
         for field in ["jsonrpc", "method", "params"] {

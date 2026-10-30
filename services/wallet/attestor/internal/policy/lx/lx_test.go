@@ -592,6 +592,10 @@ func TestActivityDisallowedModuleRefused(t *testing.T) {
 	wallet := common.HexToAddress(walletAddr)
 
 	budget := h.kernelActivity(t, "budget-fund")
+	budgetActivity := h.kernel.vector(t, "budget-fund").activity(t)
+	if len(budgetActivity.Payload) != 50 || !bytes.Equal(budgetActivity.Payload[:2], []byte{0, 1}) {
+		t.Fatal("budget fixture is not the canonical v1 fund payload")
+	}
 	expect(t, h.evaluator.EvaluateSendAuthorization(wallet, budget, h.request()), policy.CodeDecodeError)
 	original := h.evaluator.doc
 	withoutAsset, err := Parse([]byte(strings.Replace(kernelDocument, `"asset": [5, 7], `, "", 1)))
@@ -945,6 +949,17 @@ func TestKernelVectorsDecodeInTheKernelLayout(t *testing.T) {
 		}
 		decoded[activity.Type]++
 		want := v.disclosure(t)
+		if activity.Type == OpBudgetFund {
+			fund := effect.BudgetFund
+			if fund == nil || fund.EncodingVersion != 1 || fund.BudgetID != id(t, strings.Repeat("42", 32)) ||
+				fund.Amount.Cmp(want.Amounts[0].Amount) != 0 || fund.SourceSequence != 0 {
+				t.Fatalf("%s: budget fund %+v", v.Name, fund)
+			}
+			if effect.Account != (ID{}) || len(effect.Amounts) != 0 || len(effect.Destinations) != 0 || len(effect.Legs) != 0 {
+				t.Fatalf("%s: budget payload invented transfer fields: %+v", v.Name, effect)
+			}
+			continue
+		}
 		if effect.Account != want.Account || len(effect.Amounts) != 1 || effect.Amounts[0].Asset != want.Amounts[0].Asset ||
 			effect.Amounts[0].Amount.Cmp(want.Amounts[0].Amount) != 0 || len(effect.Destinations) != 1 || effect.Destinations[0] != want.Destinations[0] {
 			t.Fatalf("%s: effect %+v, want %+v", v.Name, effect, want)
@@ -1056,26 +1071,106 @@ func TestKernelSendEnvelopeChecks(t *testing.T) {
 func TestKernelBudgetFundChecks(t *testing.T) {
 	k := loadKernelVectors(t)
 	v := k.vector(t, "budget-fund")
-	if _, err := DecodeEffect(v.activity(t)); err != nil {
-		t.Fatal(err)
+	v1 := "0001" + strings.Repeat("42", 32) + "0000000000000000000000000003d090"
+	v2 := "0002" + v1[4:] + "0102030405060708"
+	if v.Payload != v1 || hex.EncodeToString(v.activity(t).Payload) != v1 {
+		t.Fatal("budget fixture does not carry the canonical v1 bytes")
 	}
-	for name, change := range map[string]func(a *lxwire.Activity){
-		"defund tag":      func(a *lxwire.Activity) { a.Payload[1] = 0x07 },
-		"field count":     func(a *lxwire.Activity) { a.Payload[3] = 7 },
-		"no budget":       func(a *lxwire.Activity) { copy(a.Payload[4:36], make([]byte, 32)) },
-		"same accounts":   func(a *lxwire.Activity) { copy(a.Payload[68:100], a.Payload[36:68]) },
-		"zero amount":     func(a *lxwire.Activity) { copy(a.Payload[132:148], make([]byte, 16)) },
-		"idempotency key": func(a *lxwire.Activity) { a.IdempotencyKey[0] ^= 1 },
-		"trailing byte":   func(a *lxwire.Activity) { a.Payload = append(a.Payload, 0) },
-		"truncated":       func(a *lxwire.Activity) { a.Payload = a.Payload[:len(a.Payload)-1] },
-		"oversized":       func(a *lxwire.Activity) { a.Payload = append(a.Payload, make([]byte, lxwire.MaxSendPayloadBytes)...) },
+	for _, tc := range []struct {
+		name     string
+		payload  string
+		version  uint16
+		amount   string
+		sequence uint64
+	}{
+		{"v1", v1, 1, "250000", 0},
+		{"v2", v2, 2, "250000", 0x0102030405060708},
+		{"v2 zero sequence", "0002" + v1[4:] + strings.Repeat("00", 8), 2, "250000", 0},
+		{"v1 max amount", v1[:68] + strings.Repeat("ff", 16), 1, "340282366920938463463374607431768211455", 0},
+		{"v2 last sequence", "0002" + v1[4:] + "fffffffffffffffe", 2, "250000", ^uint64(0) - 1},
 	} {
-		activity := v.activity(t)
-		change(activity)
-		if effect, err := DecodeEffect(activity); err == nil {
-			t.Fatalf("%s: decoded to %+v", name, effect)
+		t.Run(tc.name, func(t *testing.T) {
+			activity := v.activity(t)
+			if uint32(activity.Type) != 0x00030002 {
+				t.Fatalf("budget fund activity type %#x", activity.Type)
+			}
+			var err error
+			activity.Payload, err = hex.DecodeString(tc.payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			activity.PayloadHash = lxwire.PayloadHash(activity.Payload)
+			effect, err := DecodeEffect(activity)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fund := effect.BudgetFund
+			if fund == nil || fund.EncodingVersion != tc.version || fund.BudgetID != id(t, strings.Repeat("42", 32)) ||
+				fund.Amount == nil || fund.Amount.String() != tc.amount || fund.SourceSequence != tc.sequence {
+				t.Fatalf("budget fund %+v, want version %d, amount %s, sequence %d", fund, tc.version, tc.amount, tc.sequence)
+			}
+			if effect.Account != (ID{}) || len(effect.Amounts) != 0 || len(effect.Destinations) != 0 || len(effect.Legs) != 0 {
+				t.Fatalf("budget payload invented transfer fields: %+v", effect)
+			}
+		})
+	}
+	for _, payload := range []string{v1, v2} {
+		for name, change := range map[string]func(a *lxwire.Activity){
+			"zero version":            func(a *lxwire.Activity) { a.Payload[1] = 0 },
+			"unknown version":         func(a *lxwire.Activity) { a.Payload[1] = 3 },
+			"high version byte":       func(a *lxwire.Activity) { a.Payload[0] = 1 },
+			"version length mismatch": func(a *lxwire.Activity) { a.Payload[1] = 3 - a.Payload[1] },
+			"no budget":               func(a *lxwire.Activity) { clear(a.Payload[2:34]) },
+			"zero amount":             func(a *lxwire.Activity) { clear(a.Payload[34:50]) },
+			"trailing byte":           func(a *lxwire.Activity) { a.Payload = append(a.Payload, 0) },
+			"truncated":               func(a *lxwire.Activity) { a.Payload = a.Payload[:len(a.Payload)-1] },
+			"missing payload":         func(a *lxwire.Activity) { a.Payload = nil },
+			"only version":            func(a *lxwire.Activity) { a.Payload = a.Payload[:2] },
+			"oversized":               func(a *lxwire.Activity) { a.Payload = append(a.Payload, make([]byte, lxwire.MaxSendPayloadBytes)...) },
+			"retired activity type":   func(a *lxwire.Activity) { a.Type = 0x4202 },
+		} {
+			t.Run(fmt.Sprintf("v%s/%s", payload[3:4], name), func(t *testing.T) {
+				activity := v.activity(t)
+				var err error
+				activity.Payload, err = hex.DecodeString(payload)
+				if err != nil {
+					t.Fatal(err)
+				}
+				change(activity)
+				activity.PayloadHash = lxwire.PayloadHash(activity.Payload)
+				if effect, err := DecodeEffect(activity); err == nil || effect != nil {
+					t.Fatalf("decoded malformed payload to %+v, error %v", effect, err)
+				}
+			})
 		}
 	}
+	t.Run("exhausted source sequence", func(t *testing.T) {
+		activity := v.activity(t)
+		var err error
+		activity.Payload, err = hex.DecodeString("0002" + v1[4:] + strings.Repeat("ff", 8))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if effect, err := DecodeEffect(activity); err == nil || effect != nil {
+			t.Fatalf("decoded exhausted source sequence to %+v, error %v", effect, err)
+		}
+	})
+	t.Run("retired six field payload", func(t *testing.T) {
+		activity := v.activity(t)
+		retired := "42020006" + strings.Repeat("42", 32) + v.From + v.To + v.Asset + v1[68:] + hex.EncodeToString(activity.IdempotencyKey[:])
+		var err error
+		activity.Payload, err = hex.DecodeString(retired)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(activity.Payload) != 180 {
+			t.Fatalf("retired payload length %d, want 180", len(activity.Payload))
+		}
+		activity.PayloadHash = lxwire.PayloadHash(activity.Payload)
+		if effect, err := DecodeEffect(activity); err == nil || effect != nil {
+			t.Fatalf("decoded retired 0x4202 payload to %+v, error %v", effect, err)
+		}
+	})
 }
 
 func TestSendAuthorizationEvaluatedUnderItsOwnKind(t *testing.T) {
@@ -1260,6 +1355,9 @@ func TestReviewRefusesNonSendActivity(t *testing.T) {
 		}
 		if _, err := DecodeEffect(activity); err != nil {
 			t.Fatalf("%s has an invalid payload: %v", name, err)
+		}
+		if activity.Type == OpBudgetFund && (len(activity.Payload) != 50 || !bytes.Equal(activity.Payload[:2], []byte{0, 1})) {
+			t.Fatalf("%s does not carry the canonical v1 fund payload", name)
 		}
 		envelope, err := hex.DecodeString(v.Unsigned)
 		if err != nil {

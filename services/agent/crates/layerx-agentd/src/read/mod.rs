@@ -25,10 +25,13 @@ pub use checkpoint_impl::{
     ServedCheckpoint, ServedProofBundle,
 };
 pub use program_balances_impl::{
-    program_balances_from_protocol, ProgramBalanceFreshness, ProgramBalanceRead,
-    ProgramValueBalance, ProtocolProgramBalanceReader,
+    program_balances_from_protocol, CommittedProgramBalanceFreshness, ProgramBalanceFreshness,
+    ProgramBalanceRead, ProgramValueBalance, ProtocolProgramBalanceReader,
 };
-pub use program_node::{LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute};
+pub use program_node::{
+    ChainHeadError, LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute,
+    ProgramReadError,
+};
 
 /// Verifies the block header and its Comet precommit quorum at the requested height.
 /// The caller supplies the trusted validator set for this chain and height in consensus order.

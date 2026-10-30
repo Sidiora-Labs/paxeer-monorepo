@@ -2,7 +2,6 @@
 
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::track::{ReceiptRef, SubmissionRef, SubmissionState, TrackedSubmission};
-use layerx_agent_api::verify::Level;
 use layerx_types::result::ResultCode;
 use layerx_types::rung::Rung;
 
@@ -49,7 +48,7 @@ pub struct StageFailure {
 pub struct VerifiedReceipt {
     pub receipt_ref: ReceiptRef,
     pub canonical_receipt: CanonicalBytes,
-    pub verification_level: Level,
+    pub rung: Rung,
     pub evidence_ids: Vec<[u8; 32]>,
 }
 
@@ -66,14 +65,17 @@ pub struct WriteTranscript {
 pub enum WriteOutcome {
     Executed {
         submission_ref: SubmissionRef,
+        rung: Rung,
         receipt: VerifiedReceipt,
     },
     Unknown {
         submission_ref: SubmissionRef,
+        rung: Rung,
         age_ms: u64,
     },
     Pending {
         submission_ref: SubmissionRef,
+        rung: Rung,
         state: SubmissionState,
     },
 }
@@ -296,34 +298,32 @@ fn invocation_outcome(result: &Result<WriteOutcome, WriteToolError>) -> Invocati
     }
 }
 
-fn receipt_rung(level: Level) -> Option<Rung> {
-    match level {
-        Level::Unverified => Some(Rung::Submitted),
-        Level::SequencerSigned | Level::BatchIncluded | Level::StateProven => Some(Rung::Receipted),
-        Level::CheckpointFinalised | Level::SettlementAnchored => None,
-    }
-}
-
 fn classify_submission(
     submission: TrackedSubmission,
     receipt: Option<VerifiedReceipt>,
     unknown_age_ms: u64,
 ) -> Result<WriteOutcome, WriteToolError> {
     let submission_ref = submission.submission_ref.clone();
+    let minimum_rung = if matches!(&submission.state, SubmissionState::Committed { .. }) {
+        Rung::Committed
+    } else {
+        Rung::Receipted
+    };
     match submission.state {
-        SubmissionState::Executed { receipt_ref } => {
+        SubmissionState::Executed { receipt_ref } | SubmissionState::Committed { receipt_ref } => {
             let receipt = receipt.ok_or(WriteToolError::SuccessWithoutVerifiedReceipt)?;
             if receipt.receipt_ref != receipt_ref {
                 return Err(WriteToolError::ReceiptMismatch);
             }
-            if submission.rung < Rung::Receipted
-                || receipt_rung(receipt.verification_level) != Some(submission.rung)
+            if submission.rung < minimum_rung
+                || receipt.rung != submission.rung
                 || receipt.evidence_ids.is_empty()
             {
                 return Err(WriteToolError::SuccessWithoutVerifiedReceipt);
             }
             Ok(WriteOutcome::Executed {
                 submission_ref,
+                rung: submission.rung,
                 receipt,
             })
         }
@@ -334,6 +334,7 @@ fn classify_submission(
         })),
         SubmissionState::Unknown => Ok(WriteOutcome::Unknown {
             submission_ref,
+            rung: submission.rung,
             age_ms: unknown_age_ms,
         }),
         state => {
@@ -342,6 +343,7 @@ fn classify_submission(
             }
             Ok(WriteOutcome::Pending {
                 submission_ref,
+                rung: submission.rung,
                 state,
             })
         }
@@ -481,7 +483,6 @@ where
             .and_then(serde_json::Value::as_str)
             != Some(lower_hex(preview.canonical_payload()).as_str())
         || preview.idempotency_key != key
-        || arguments.get("signer_public_key") != signed.get("owner_public_key")
     {
         return Err(refuse());
     }
@@ -526,13 +527,13 @@ where
     }
     let reference = lower_hex(&prepared.preparation_id);
     let signature = arguments.get("signature").ok_or_else(refuse)?;
-    let signer = arguments.get("signer_public_key").ok_or_else(refuse)?;
+    let signer = arguments.get("signer_address").ok_or_else(refuse)?;
     owner(
         Operation::Sign,
         &json!({"preparation_ref":reference,"signature":signature}),
     )?;
     let mut submit =
-        json!({"preparation_ref":reference,"signature":signature,"signer_public_key":signer});
+        json!({"preparation_ref":reference,"signature":signature,"signer_address":signer});
     if matches!(name, "wallet.send" | "token.transfer") {
         submit["variant"] = json!("native_send_submit_v1");
     }

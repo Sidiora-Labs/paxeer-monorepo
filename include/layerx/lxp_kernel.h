@@ -63,6 +63,18 @@ typedef struct lxp_module_account_snapshot {
     lxp_u128 maximum_balance;
 } lxp_module_account_snapshot;
 
+typedef struct lxp_applied_transfer_leg {
+    uint8_t from[32];
+    uint8_t to[32];
+    uint8_t asset_id[32];
+    lxp_u128 amount;
+} lxp_applied_transfer_leg;
+
+typedef struct lxp_applied_transfers {
+    lxp_applied_transfer_leg legs[LXP_MAX_TRANSFER_SET_LEGS];
+    size_t count;
+} lxp_applied_transfers;
+
 typedef struct lxp_ledger_admission_facts {
     uint8_t actor[32];
     uint8_t verified_key[32];
@@ -194,6 +206,7 @@ struct lxp_module_ctx {
         LXP_MAX_TRANSFER_SET_LEGS * 2U + 1U];
     size_t transfer_snapshot_count;
     bool transfer_applied;
+    lxp_applied_transfers applied_transfers;
     /* The live allowance the executing authority draws against. Every
      * principal-sourced transfer set the module emits presents it to the
      * ledger; the pre-charge scope is kept so an unwind restores it. A
@@ -277,6 +290,7 @@ typedef struct lxp_kernel {
     uint64_t pending_batch_last_sequence;
     uint32_t pending_batch_publication_index;
     void *module_runtime[LXP_MODULE_RESERVED_COUNT + 1U];
+    lxp_applied_transfers *applied_transfers_out;
     uint8_t current_state_root[32];
     struct lxp_capacity_ledger *capacity;
 } lxp_kernel;
@@ -422,6 +436,7 @@ typedef struct lxp_kernel_execution {
     lxp_byte_span *replay_witness_out;
     lxp_byte_span *replay_metadata_proof_out;
     bool binding_authority;
+    lxp_applied_transfers applied_transfers;
 } lxp_kernel_execution;
 #define lxp_kernel_execution lxp_kernel_execution
 
@@ -654,30 +669,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
                                        lxp_receipt *receipt);
 uint8_t lxp_kernel_step_order(size_t index);
 
-typedef struct lxp_replay_record {
-    uint16_t module_id;
-    uint16_t key_length;
-    uint32_t value_length;
-    uint8_t key[LXP_MODULE_MAX_KEY_BYTES];
-    uint8_t value[LXP_MODULE_MAX_VALUE_BYTES];
-} lxp_replay_record;
-#define lxp_replay_record lxp_replay_record
-
-lxp_result lxp_determinism_guard_check(void);
-lxp_result lxp_determinism_guard_trip(const char *symbol);
-void lxp_determinism_guard_reset(void);
-lxp_result lxp_kernel_replay(lxp_kernel *kernel,
-                             const lxp_replay_record *records,
-                             const uint8_t (*expected_roots)[32],
-                             size_t record_count, size_t worker_threads,
-                             uint8_t terminal_root[32]);
-lxp_result lxp_replay_compare_roots(const uint8_t expected[32],
-                                    const uint8_t produced[32]);
-lxp_result lxp_replay_golden_run(const lxp_replay_record *records,
-                                 size_t record_count,
-                                 const uint8_t (*roots)[32],
-                                 size_t worker_threads,
-                                 uint8_t digest[32]);
 lxp_result lxp_kernel_module_by_id(
     const lxp_kernel *kernel, uint16_t module_id, uint64_t epoch,
     const lxp_module_registration **registration);

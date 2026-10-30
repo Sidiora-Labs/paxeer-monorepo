@@ -2,9 +2,11 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::time::Duration;
 
-use layerx_client::rpc::batch::{self, BatchHeaderError, SequencerBlock};
+use layerx_client::rpc::batch::{self, BatchHeaderError};
 use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint};
 use serde_json::{json, Value};
+
+type SequencerBlock = batch::SequencerBlock;
 
 trait Must<T> {
     fn must(self) -> T;
@@ -26,6 +28,7 @@ fn block() -> Value {
         "parentHash": format!("0x{}", "22".repeat(32)),
         "timestamp": "0x67a1b2c3",
         "transactionsRoot": format!("0x{}", "33".repeat(32)),
+        "receiptsRoot": format!("0x{}", "44".repeat(32)),
         "transactions": [{
             "blockHash": hash,
             "blockNumber": "0x3e8",
@@ -132,6 +135,7 @@ fn batch_lookup_reads_the_block_by_number_and_refuses_a_null_block() {
         parent_hash: [0x22; 32],
         timestamp: 0x67a1_b2c3,
         transactions_root: [0x33; 32],
+        receipts_root: [0x44; 32],
         transactions: vec![raw],
     };
     for lookup in lookups {
