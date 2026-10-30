@@ -3,6 +3,7 @@ import argparse
 import importlib.util
 import json
 import os
+import shlex
 from pathlib import Path
 import shutil
 import subprocess
@@ -55,23 +56,42 @@ def prerequisites():
         raise MissingPrerequisite(", ".join(missing))
 
 
-def history_readiness_environment(env, database, port, evm_url):
+def history_readiness_environment(env, database, port, evm_url, *, start_block, abi_dir):
     clean_env = {key: value for key, value in env.items() if not key.startswith("LAYERX_INDEXER_")}
     return dict(clean_env, LAYERX_INDEXER_DB=str(database),
                 LAYERX_INDEXER_LISTEN=f"127.0.0.1:{port}",
                 LAYERX_INDEXER_EVM_URL=evm_url,
+                LAYERX_INDEXER_START_BLOCK=str(start_block),
+                LAYERX_INDEXER_EVM_CHAIN_ID="125", LAYERX_INDEXER_ABI_DIR=str(abi_dir),
                 LAYERX_INDEXER_POLL_MS="100", LAYERX_INDEXER_TIMEOUT_MS="400",
                 LAYERX_INDEXER_STALL_SECS="5", LAYERX_INDEXER_MAX_UNITS_PER_STEP="1")
+
+
+def history_local_node_rpc(env_file):
+    import urllib.parse
+
+    for line in Path(env_file).read_text().splitlines():
+        if line.startswith("LOCAL_NODE_RPC="):
+            values = shlex.split(line.partition("=")[2])
+            if len(values) != 1:
+                raise ValueError("LOCAL_NODE_RPC must contain one URL")
+            url = values[0]
+            parsed = urllib.parse.urlsplit(url)
+            if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1"
+                    or parsed.username is not None or parsed.password is not None):
+                raise ValueError("LOCAL_NODE_RPC must be http on 127.0.0.1")
+            return url
+    raise ValueError("local node env file is missing LOCAL_NODE_RPC")
 
 
 def history_readiness():
     import re
     import sqlite3
     import socket
-    import urllib.parse
+    import tempfile
+    import time
 
     repo = Path(__file__).resolve().parents[2]
-    build = Path(os.environ.get("LAYERX_BUILD_DIR", repo / "build")).resolve()
     binaries = {}
     for key, name in (("LAYERX_INDEXER_BIN", "layerx-indexer"),
                       ("LAYERX_GATEWAY_BIN", "layerx-gateway")):
@@ -84,60 +104,87 @@ def history_readiness():
             raise MissingPrerequisite(tool)
     if importlib.util.find_spec("cryptography") is None:
         raise MissingPrerequisite("Python cryptography required")
-    fixture_path = os.environ.get("LAYERX_HISTORY_RELAY_FIXTURE_CONFIG")
-    if not fixture_path or not Path(fixture_path).is_file():
-        raise MissingPrerequisite("LAYERX_HISTORY_RELAY_FIXTURE_CONFIG: dedicated real relay trust pins and idle loopback upstreams required")
-    fixture = json.loads(Path(fixture_path).read_text())
-    for field in ("network_id", "genesis_sha256", "sequencer_id", "sequencer_public_key", "sequencer_first_batch"):
-        require(field in fixture, "real relay fixture is missing " + field)
-    upstreams = fixture.get("upstreams")
-    require(isinstance(upstreams, list) and upstreams, "real relay fixture has no upstreams")
-    for origin in upstreams:
-        parsed = urllib.parse.urlparse(origin)
-        require(parsed.scheme in ("http", "https") and parsed.hostname in ("localhost", "127.0.0.1", "::1")
-                and parsed.username is None and parsed.password is None,
-                "history-readiness requires isolated loopback relay upstreams")
-    saved = sys.argv
-    sys.argv = [str(repo / "tests/relay-archive/e2e.py"), str(build)]
-    try:
-        spec = importlib.util.spec_from_file_location("history_relay_e2e", repo / "tests/relay-archive/e2e.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-    finally:
-        sys.argv = saved
-    relay = module.Scenario()
-    checks = 0
+    work = Path(tempfile.mkdtemp(prefix="history-readiness-"))
+    work.chmod(0o700)
+    children = []
     reservations = []
+    node_home = None
+    node_script = repo / "tools/qualification/localnode/v6120-node.sh"
+    env_file = Path(os.environ.get("TMPDIR") or "/tmp") / "lx-localnode/history-readiness.env"
+    checks = 0
+
+    def start(name, command, env=None):
+        log = work / (name + ".log")
+        with log.open("wb") as output:
+            log.chmod(0o600)
+            process = subprocess.Popen([str(arg) for arg in command], cwd=repo, env=env,
+                                       stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT)
+        children.append(process)
+        return process
+
+    def stop(process):
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=10)
+
+    def until(predicate, description, timeout=90):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                result = predicate()
+                if result:
+                    return result
+            except (OSError, urllib.error.URLError):
+                pass
+            time.sleep(0.1)
+        raise AssertionError(f"timed out: {description}; evidence: {work}")
+
+    def execute(name, command, timeout=30):
+        process = start(name, command)
+        until(lambda: process.poll() is not None, name, timeout)
+        require(process.returncode == 0, f"{name} exited {process.returncode}; evidence: {work}")
+
+    def stop_node():
+        execute("history-node-stop", ["bash", node_script, "--stop", node_home])
+
+    def close():
+        try:
+            if node_home is not None:
+                stop_node()
+        finally:
+            for process in reversed(children):
+                stop(process)
+
     try:
-        relay.work.chmod(0o700)
-        relay.bin = build / "bin"
-        relay.runtime = repo / "services/platform/relay_archive"
-        relay_port = module.unused_port()
-        allowed = ("network_id", "genesis_sha256", "sequencer_id", "sequencer_public_key",
-                   "sequencer_first_batch", "sequencer_last_batch", "upstreams", "ca_file")
-        settings = {key: value for key, value in fixture.items() if key in allowed}
-        if settings.get("ca_file"):
-            settings["ca_file"] = str((Path(fixture_path).resolve().parent / settings["ca_file"]).resolve())
-        settings.update(data_dir=str(relay.work / "history-relay-data"),
-                        listen=f"127.0.0.1:{relay_port}", public_url=f"http://127.0.0.1:{relay_port}",
-                        codec=str(relay.bin / "layerx-archive-codec"), allow_loopback_dev=True,
-                        poll_interval_seconds=0.1)
-        config_path = relay.work / "history-relay.json"
-        module.write_json(config_path, settings)
+        execute("history-node-setup", ["bash", node_script, "--env-out", env_file], timeout=240)
+        setup = (work / "history-node-setup.log").read_text()
+        ready_line = re.search(r"^v6120-node: ready; home=(.+) env=", setup, re.MULTILINE)
+        require(ready_line is not None, f"local node omitted ready home; evidence: {work}")
+        node_home = Path(ready_line.group(1))
+        evm_url = history_local_node_rpc(env_file)
 
-        def start_relay(name):
-            process = relay.start(name, [relay.bin / "layerxd", "--relay-archive", config_path],
-                                  env=dict(os.environ, LAYERX_RELAY_ARCHIVE_RUNTIME=str(relay.runtime / "runtime.py")))
-            relay.until(lambda: relay.request(settings["public_url"], "/v1/sync/head").get("head_batch"),
-                        "real relay source head", 90)
-            return process
+        def rpc(method, params=None):
+            request = urllib.request.Request(evm_url, data=json.dumps({
+                "jsonrpc": "2.0", "id": 1, "method": method, "params": params or []
+            }).encode(), headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(request, timeout=5) as response:
+                document = json.loads(response.read())
+            require("error" not in document, f"local node RPC {method}: {document}")
+            return document["result"]
 
-        source = start_relay("history-relay")
-        module.execute(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-                        "-keyout", relay.work / "tls.key", "-out", relay.work / "tls.crt",
+        until(lambda: rpc("eth_chainId") == "0x7d", "local node chain id 125")
+        earliest = rpc("eth_getBlockByNumber", ["earliest", False])
+        require(isinstance(earliest, dict) and "number" in earliest, "local node earliest block is missing")
+        start_block = int(earliest["number"], 16)
+        execute("history-tls", ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+                        "-keyout", work / "tls.key", "-out", work / "tls.crt",
                         "-days", "1", "-subj", "/CN=localhost",
                         "-addext", "subjectAltName=IP:127.0.0.1,DNS:localhost"])
-        (relay.work / "tls.key").chmod(0o600)
+        (work / "tls.key").chmod(0o600)
         for _ in range(3):
             sock = socket.socket()
             sock.bind(("127.0.0.1", 0))
@@ -147,28 +194,29 @@ def history_readiness():
         gateway_url = f"http://127.0.0.1:{gateway_port}"
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("LAYERX_INDEXER_", "LAYERX_GATEWAY_", "LAYERX_EVENTS_"))}
-        database = relay.work / "history.sqlite"
-        indexer_env = history_readiness_environment(env, database, indexer_port, settings["public_url"])
+        database = work / "history.sqlite"
+        indexer_env = history_readiness_environment(env, database, indexer_port, evm_url,
+                                                    start_block=start_block, abi_dir=repo / "precompiles")
         reservations[0].close()
-        indexer = relay.start("history-indexer", [binaries["layerx-indexer"]], env=indexer_env)
-        ca = relay.work / "gateway-ca.der"
-        module.execute(["openssl", "x509", "-in", relay.work / "tls.crt", "-outform", "DER", "-out", ca])
-        username = relay.work / "redis-username"
-        password = relay.work / "redis-password"
+        indexer = start("history-indexer", [binaries["layerx-indexer"]], env=indexer_env)
+        ca = work / "gateway-ca.der"
+        execute("history-ca", ["openssl", "x509", "-in", work / "tls.crt", "-outform", "DER", "-out", ca])
+        username = work / "redis-username"
+        password = work / "redis-password"
         username.write_text("default")
         password.write_text(os.urandom(24).hex())
         username.chmod(0o600)
         password.chmod(0o600)
-        redis_config = relay.work / "redis.conf"
+        redis_config = work / "redis.conf"
         redis_config.write_text(f"bind 127.0.0.1\nport 0\ntls-port {redis_port}\n"
-                               f"tls-cert-file {relay.work / 'tls.crt'}\n"
-                               f"tls-key-file {relay.work / 'tls.key'}\n"
-                               f"tls-ca-cert-file {relay.work / 'tls.crt'}\n"
+                               f"tls-cert-file {work / 'tls.crt'}\n"
+                               f"tls-key-file {work / 'tls.key'}\n"
+                               f"tls-ca-cert-file {work / 'tls.crt'}\n"
                                "tls-auth-clients no\nsave \"\"\nappendonly no\n"
                                f"requirepass {password.read_text()}\n")
         redis_config.chmod(0o600)
         reservations[2].close()
-        redis = relay.start("history-redis", ["redis-server", redis_config])
+        redis = start("history-redis", ["redis-server", redis_config])
         protocol_source = (repo / "services/agent/crates/layerx-wire/src/limits.rs").read_text()
         protocol = re.search(r"STATE_COMMITMENT_PROTOCOL_VERSION: u16 = (\d+);", protocol_source)
         require(protocol is not None, "current wire protocol is missing")
@@ -178,15 +226,15 @@ def history_readiness():
                            LAYERX_GATEWAY_REDIS_USERNAME_FILE=str(username),
                            LAYERX_GATEWAY_REDIS_PASSWORD_FILE=str(password),
                            LAYERX_GATEWAY_NETWORK_ID="history-readiness",
-                           LAYERX_GATEWAY_PROTOCOL_NETWORK_ID=str(fixture["network_id"]),
+                           LAYERX_GATEWAY_PROTOCOL_NETWORK_ID="7",
                            LAYERX_GATEWAY_LXP_WIRE_VERSION=protocol.group(1),
                            LAYERX_GATEWAY_INDEXER_URL=indexer_url)
         reservations[1].close()
-        gateway = relay.start("history-gateway", [binaries["layerx-gateway"]], env=gateway_env)
+        gateway = start("history-gateway", [binaries["layerx-gateway"]], env=gateway_env)
 
         def get(base, path):
             for child in (indexer, gateway, redis):
-                require(child.poll() is None, f"required child exited: {child.returncode}; {relay.work}")
+                require(child.poll() is None, f"required child exited: {child.returncode}; {work}")
             try:
                 response = urllib.request.urlopen(base + path, timeout=5)
             except urllib.error.HTTPError as error:
@@ -198,8 +246,8 @@ def history_readiness():
             status, doc = get(indexer_url, "/readyz")
             require(doc.get("version") == 1 and doc.get("database") == "ok", "readiness lacks database liveness")
             sources = doc.get("sources")
-            require(isinstance(sources, list) and len(sources) == 1 and sources[0]["source"] == "layerx",
-                    "readiness omitted required LayerX source")
+            require(isinstance(sources, list) and len(sources) == 1 and sources[0]["source"] == "paxeer",
+                    "readiness omitted required Paxeer source")
             if doc["status"] != state:
                 return None
             require(status == (200 if state == "ready" else 503), "readiness HTTP status contradicts document")
@@ -209,48 +257,49 @@ def history_readiness():
             status, doc = get(gateway_url, "/v1/status")
             return status == 200 and doc.get("services", {}).get("indexer") == state
 
-        first = relay.until(lambda: ready("ready"), "fresh source ready")
-        head = module.Scenario.request(relay, settings["public_url"], "/v1/sync/head")["head_batch"]
-        require(first["reconciled"] and first["source_head"] == int(head)
-                and first["indexed_cursor"] == int(head), "source head and persisted cursor differ")
-        relay.until(lambda: gateway_state("available"), "gateway preserves available readiness")
+        first = until(lambda: ready("ready"), "fresh source ready")
+        head = int(rpc("eth_blockNumber"), 16)
+        require(first["reconciled"] and first["source_head"] <= head
+                and first["indexed_cursor"] == first["source_head"], "source head and persisted cursor differ")
+        until(lambda: gateway_state("available"), "gateway preserves available readiness")
         checks += 1
-        idle = relay.until(lambda: (s if (s := ready("ready")) and
-                                    s["last_success_at"] > first["last_success_at"] else None), "idle head observed")
-        require(idle["indexed_cursor"] == first["indexed_cursor"] and idle["source_head"] == first["source_head"],
-                "idle proof unexpectedly advanced the source")
+        idle = until(lambda: (s if (s := ready("ready")) and
+                              s["last_success_at"] > first["last_success_at"] else None), "idle head observed")
+        require(idle["indexed_cursor"] == idle["source_head"]
+                and idle["indexed_cursor"] >= first["indexed_cursor"],
+                "later source observation did not reconcile its advancing head")
+        checks += 1
+        with sqlite3.connect(database) as connection:
+            rows_before = connection.execute("SELECT count(*) FROM transfers").fetchone()[0]
+            require(rows_before > 0, "local node mint requires at least one transfer receipt")
+            events_before = connection.execute("SELECT count(*) FROM events").fetchone()[0]
+            require(events_before > 0, "local node produced no decoded receipt rows")
+        stop_node()
+        failed = until(lambda: (s if (s := ready("degraded")) and s["consecutive_failures"] >= 3 else None),
+                       "repeated source failure")
+        require(failed["last_error"] == "source_unavailable", "missing typed source failure")
+        until(lambda: gateway_state("degraded"), "gateway preserves degraded readiness")
+        require(get(indexer_url, "/healthz")[0] == 200, "database liveness fell with disconnected source")
+        checks += 1
+        stalled = until(lambda: ready("unavailable"), "stalled source unavailable")
+        require(stalled["state"] == "stalled" and stalled["freshness_secs"] > 5,
+                "stalled source lacks stale freshness")
+        until(lambda: gateway_state("unavailable"), "gateway preserves stalled readiness")
         checks += 1
         with sqlite3.connect(database) as connection:
             before = connection.execute("SELECT chain, position, hash FROM cursors ORDER BY chain").fetchall()
-            rows_before = connection.execute("SELECT count(*) FROM transfers").fetchone()[0]
-            require(rows_before > 0, "real relay fixture requires at least one transfer receipt")
-            events_before = connection.execute("SELECT count(*) FROM events").fetchone()[0]
-            require(events_before > 0, "real relay produced no indexed receipt rows")
-        relay.stop(source)
-        failed = relay.until(lambda: (s if (s := ready("degraded")) and s["consecutive_failures"] >= 3 else None),
-                             "repeated source failure")
-        require(failed["last_error"] == "source_unavailable", "missing typed source failure")
-        relay.until(lambda: gateway_state("degraded"), "gateway preserves degraded readiness")
-        require(get(indexer_url, "/healthz")[0] == 200, "database liveness fell with disconnected source")
-        checks += 1
-        stalled = relay.until(lambda: ready("unavailable"), "stalled source unavailable")
-        require(stalled["state"] == "stalled" and stalled["freshness_secs"] > 5,
-                "stalled source lacks stale freshness")
-        relay.until(lambda: gateway_state("unavailable"), "gateway preserves stalled readiness")
-        checks += 1
-        with sqlite3.connect(database) as connection:
             account = connection.execute("SELECT account FROM transfers ORDER BY id LIMIT 1").fetchone()
-        require(account is not None, "real relay fixture has no history account")
+        require(account is not None, "local node has no history account")
         account = account[0]
         status, page = get(indexer_url, "/v1/history/" + account)
         require(status == 200 and page["items"] and page["freshness"]["status"] == "unavailable",
                 "stale rows lack source freshness")
         checks += 1
-        relay.stop(indexer)
-        indexer = relay.start("history-indexer-restarted", [binaries["layerx-indexer"]], env=indexer_env)
-        starting = relay.until(lambda: ready("unavailable"), "restart refuses persisted-only readiness")
+        stop(indexer)
+        indexer = start("history-indexer-restarted", [binaries["layerx-indexer"]], env=indexer_env)
+        starting = until(lambda: ready("unavailable"), "restart refuses persisted-only readiness")
         require(starting["state"] == "starting" and not starting["reconciled"]
-                and starting["indexed_cursor"] == first["indexed_cursor"]
+                and starting["indexed_cursor"] == stalled["indexed_cursor"]
                 and starting["last_success_at"] == stalled["last_success_at"],
                 "restart reused persisted observation as fresh authority")
         require(get(indexer_url, "/healthz")[0] == 200, "restarted database is not live")
@@ -262,30 +311,35 @@ def history_readiness():
             require(connection.execute("SELECT count(*) FROM events").fetchone()[0] == events_before,
                     "disconnected restart changed indexed receipt rows")
         checks += 1
-        source = start_relay("history-relay-restarted")
-        recovered = relay.until(lambda: ready("ready"), "fresh source reconciles restart")
+        process_env = dict(token.split("=", 1) for token in shlex.split((node_home / "process.env").read_text()))
+        source = start("history-node-restarted", [process_env["PAXD"], "start", "--home", node_home])
+        (node_home / "node.pid").write_text(str(source.pid) + "\n")
+        until(lambda: rpc("eth_chainId") == "0x7d", "restarted local node chain id 125")
+        recovered = until(lambda: ready("ready"), "fresh source reconciles restart")
         require(recovered["reconciled"] and recovered["consecutive_failures"] == 0
-                and recovered["source_head"] == first["source_head"]
+                and recovered["source_head"] >= stalled["source_head"]
                 and recovered["last_success_at"] > starting["last_success_at"], "reconnect was not freshly observed")
-        relay.until(lambda: gateway_state("available"), "gateway recovers after fresh observation")
+        until(lambda: gateway_state("available"), "gateway recovers after fresh observation")
         checks += 1
-        relay.stop(indexer)
+        stop(indexer)
         empty_env = {key: value for key, value in indexer_env.items() if key != "LAYERX_INDEXER_EVM_URL"}
-        indexer = relay.start("history-indexer-unconfigured", [binaries["layerx-indexer"]], env=empty_env)
-        relay.until(lambda: indexer.poll() is not None, "missing ingestion source refused at startup")
+        indexer = start("history-indexer-unconfigured", [binaries["layerx-indexer"]], env=empty_env)
+        until(lambda: indexer.poll() is not None, "missing ingestion source refused at startup")
         require(indexer.returncode != 0, "missing ingestion source was accepted")
-        refusal = (relay.work / "history-indexer-unconfigured.log").read_text()
+        refusal = (work / "history-indexer-unconfigured.log").read_text()
         require("layerx-indexer: configuration invalid: set LAYERX_INDEXER_RELAY_URL, "
                 "LAYERX_INDEXER_EVM_URL or both" in refusal,
                 "missing EVM source did not produce the expected configuration refusal")
-        doc = relay.request(gateway_url, "/v1/status")
+        with urllib.request.urlopen(gateway_url + "/v1/status", timeout=5) as response:
+            require(response.status == 200, "gateway status endpoint is not live")
+            doc = json.loads(response.read())
         require(doc["services"]["indexer"] == "unavailable", "gateway accepted missing indexer source")
         checks += 1
         return checks
     finally:
         for reservation in reservations:
             reservation.close()
-        relay.close()
+        close()
 
 
 def unified_pagination_required(name):
