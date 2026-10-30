@@ -484,16 +484,11 @@ impl RecordedPayer {
 
 impl WebPayer for RecordedPayer {
     fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
-        let address_word = |address: [u8; 20]| {
-            let mut word = [0; 32];
-            word[12..].copy_from_slice(&address);
-            word
-        };
         let mut grant = Grant {
             id: [0; 32],
-            from: address_word(terms.payer_account),
-            recipient: address_word(terms.recipient),
-            asset: address_word(terms.asset),
+            from: terms.payer_account,
+            recipient: terms.recipient,
+            asset: terms.asset,
             per_draw_maximum: terms.amount,
             allowance: terms.amount,
             recurring: false,
