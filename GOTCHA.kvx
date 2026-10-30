@@ -11211,3 +11211,28 @@ fix = "Put adapters in codec.go and binding order in the .proto; a generated fil
 title = "A renamed constant in a shared crate breaks test files of other crates that pin the old name"
 symptom = "18.1211.3 attempt 1 failed to compile layerx-ap2/tests/sequencer_settlement.rs:21 on PORTABLE_RECEIPT_FORMAT_V2, renamed to PORTABLE_RECEIPT_FORMAT by 2c4ecdb63 (11.29.4)."
 fix = "When a task's touches include a test file of another crate, build the test target first and fix pinned imports from the current crate exports before any behaviour change."
+
+[gotcha.2280]
+title = "A layerxauth replay through the keeper never reaches the identity-sequence refusal"
+symptom = "A replay test expected LXP_ERR_SEQUENCE_REUSED (-301) for every second submission and received LXP_ERR_AUTH_SCOPE (-204) for a refused flow and for a second revoke."
+fix = "Keeper.execute reads the actor's sequence anew per call (execute.go:22) and the kernel consumes it only on LXP_OK; -301 comes from the duplicate grant_id in lxp_grant_store_put, so assert the code the kernel answers for the flow (decision.1933)."
+
+[gotcha.2281]
+title = "An attempt that fails on a defect in the task text is relaunched with the same text"
+symptom = "Four attempts of one task failed identically within an hour because each continuation reproduced the payload the task text prescribed."
+fix = "When the failure needs a spec change, set the task aside before the next attempt starts, land the do line, then continue the latest candidate with a note that names the do line."
+
+[gotcha.2282]
+title = "A candidate bundle is thin and cannot be cloned on its own"
+symptom = "git clone of a task bundle fails with 'remote transport reported error' because the bundle assumes the base commit."
+fix = "Clone the repository once with --shared --no-checkout and fetch the bundle into refs/bundles/<task>-<attempt>/*, then read files with git show <ref>:<path>."
+
+[gotcha.2283]
+title = "tests/protocol/lxp_test_kernel reports only through its exit code"
+symptom = "The suite exited 1 with an empty stderr tail and the failing case could not be read from the log."
+fix = "Every check is a bare return 1 (tests/protocol/lxp_test_kernel.c:422-426); read the cases in main's order against the header constants they hard-code, as decision.1934 did for capacity_checks."
+
+[gotcha.2284]
+title = "A build with --tests compiles every stale test target of the package"
+symptom = "A task whose files were complete failed its build in a test file owned by another task because cargo build --tests compiled it."
+fix = "Build only the test targets the verify runs (--test <name> per target); record the stale file against its owner."
