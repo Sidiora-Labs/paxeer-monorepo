@@ -8,15 +8,20 @@ use std::task::{Context, Poll, Wake, Waker};
 
 use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareRequest, Prepared,
+    DisclosureDigest, EvmPrepared, PreparationDefaults, PrepareRequest, Prepared,
 };
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit};
+use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
+use layerx_crypto::disclosure::{call::bind_call, Disclosure};
+use layerx_crypto::evm_transaction::{decode_signed, Eip1559Call};
+use layerx_crypto::send::{ledger_payment_call, CallOptions};
+use layerx_human_kms::attestor::unsigned_evm_transaction;
 use layerx_human_service::audit::{
     AuditChain, AuditEvent, Decision, SigningOperation, StepUpEvidence as AuditStepUpEvidence,
 };
 use layerx_human_service::custody::{
-    CustodyError, CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, KmsError,
-    Operation, SignAuthorization, SignRequest, SigningLimits, StepUpEvidence,
+    CustodyError, CustodySigner, EnvelopeKms, EvmPlanAuthorization, EvmTransaction, KeyClass,
+    KeyEntropy, KeyId, Keystore, KmsError, Operation, SignAuthorization, SignRequest,
+    SigningLimits, StepUpEvidence,
 };
 use layerx_human_service::store::{PrincipalId, PrincipalStore, TenancyDigest};
 use layerx_human_service::trace::TraceId;
@@ -136,7 +141,12 @@ impl CorePreparationBoundary for PreparedCore {
     }
 }
 
-fn prepared(public_key: [u8; 32], seed: [u8; 32], amount: u128, idempotency: u8) -> Prepared {
+fn kernel_prepared(
+    public_key: [u8; 32],
+    seed: [u8; 32],
+    amount: u128,
+    idempotency: u8,
+) -> Prepared {
     let registry = registry();
     let compiled = compile(
         &send_intent(public_key, seed, amount, idempotency),
@@ -177,6 +187,55 @@ fn prepared(public_key: [u8; 32], seed: [u8; 32], amount: u128, idempotency: u8)
         },
     )
     .unwrap_or_else(|error| panic!("prepare: {error:?}"))
+}
+
+struct EvmSigningSubject {
+    canonical_bytes: Vec<u8>,
+    disclosure: Disclosure,
+    disclosure_digest: DisclosureDigest,
+}
+
+fn prepared(
+    public_key: [u8; 32],
+    seed: [u8; 32],
+    amount: u128,
+    idempotency: u8,
+) -> EvmSigningSubject {
+    let key = k256::ecdsa::SigningKey::from_slice(&seed)
+        .unwrap_or_else(|error| panic!("EVM key: {error}"));
+    let actor = layerx_crypto::secp256k1::evm_address(
+        key.verifying_key().to_encoded_point(false).as_bytes(),
+    )
+    .unwrap_or_else(|error| panic!("EVM address: {error:?}"));
+    let compiled = compile(
+        &send_intent(public_key, seed, amount, idempotency),
+        &registry(),
+    )
+    .unwrap_or_else(|error| panic!("compile EVM send: {error:?}"));
+    let disclosed = ledger_payment_call(
+        compiled.payload().as_bytes(),
+        &CallOptions {
+            from: actor,
+            chain_id: u64::from(NETWORK_ID),
+            nonce: 5,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
+            gas_limit: 100_000,
+        },
+    )
+    .unwrap_or_else(|error| panic!("EVM send call: {error:?}"));
+    let disclosure = bind_call(&disclosed.call, actor)
+        .unwrap_or_else(|error| panic!("EVM disclosure: {error:?}"));
+    assert_eq!(disclosure, disclosed.disclosure);
+    EvmSigningSubject {
+        canonical_bytes: unsigned_evm_transaction(&disclosed.call),
+        disclosure_digest: DisclosureDigest(
+            disclosure
+                .audit_digest()
+                .unwrap_or_else(|error| panic!("EVM disclosure digest: {error:?}")),
+        ),
+        disclosure,
+    }
 }
 
 struct Fixture {
@@ -321,6 +380,7 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     );
 
     let prepared = prepared(public_key, seed, 25, 4);
+    let authorization = kernel_prepared(public_key, seed, 25, 4);
     let signer = CustodySigner::new(
         keystore,
         fixture.store(),
@@ -339,9 +399,79 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     .unwrap_or_else(|error| panic!("custody sign: {error}"));
     assert_eq!(grant.signer_public_key(), public_key);
     assert_eq!(grant.disclosure_digest(), prepared.disclosure_digest.0);
-    let signed_activity = attach_external_signature(&prepared, *grant.signature())
+    let call = Eip1559Call {
+        chain_id: u64::from(NETWORK_ID),
+        nonce: 5,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 7,
+        gas_limit: 100_000,
+        to: [0x1a; 20],
+        data: authorization.canonical_bytes.clone(),
+    };
+    let preparation = SigningPreparation {
+        transaction: EvmPrepared {
+            signing_hash: call.signing_hash(),
+            call,
+            observed_head_height: 88,
+        },
+        actor_address: signer
+            .evm_wallet(&fixture.alice, &key)
+            .unwrap_or_else(|error| panic!("EVM wallet: {error}")),
+        authorization,
+    };
+    let call = &preparation.transaction.call;
+    let plan_time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_else(|error| panic!("plan time: {error}"))
+        .as_secs();
+    let authorization = EvmPlanAuthorization {
+        plan_id: prepared.disclosure_digest.0,
+        action_key: preparation.transaction.signing_hash,
+        tenant: "tenant-a".into(),
+        principal: fixture.alice.as_str().into(),
+        binding_digest: signer
+            .evm_binding(&fixture.alice, &key)
+            .unwrap_or_else(|error| panic!("EVM binding: {error}"))
+            .digest(),
+        wallet: preparation.actor_address,
+        not_before: plan_time,
+        not_after: plan_time + 60,
+        transaction: EvmTransaction {
+            chain_id: call.chain_id,
+            nonce: call.nonce,
+            max_priority_fee_per_gas: call
+                .max_priority_fee_per_gas
+                .try_into()
+                .unwrap_or_else(|error| panic!("priority fee: {error}")),
+            max_fee_per_gas: call
+                .max_fee_per_gas
+                .try_into()
+                .unwrap_or_else(|error| panic!("maximum fee: {error}")),
+            gas_limit: call.gas_limit,
+            to: call.to,
+            value: [0; 32],
+            calldata: call.data.clone(),
+        },
+    };
+    signer
+        .authorize_evm_plan(&fixture.alice, &key, &authorization)
+        .unwrap_or_else(|error| panic!("authorize EVM plan: {error}"));
+    let action = fixture
+        .keystore()
+        .sign_evm_action(&fixture.alice, &key, &preparation.transaction.signing_hash)
+        .unwrap_or_else(|error| panic!("sign EVM action: {error}"));
+    let (signed_call, signature) = decode_signed(&action.raw_transaction)
+        .unwrap_or_else(|error| panic!("decode EVM action: {error:?}"));
+    assert_eq!(signed_call, preparation.transaction.call);
+    let signed_activity = attach_external_signature(&preparation, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach signature: {error:?}"));
-    assert!(verify_before_submit(&signed_activity, &prepared, &public_key, &registry()).is_ok());
+    assert!(verify_before_submit(
+        &signed_activity,
+        &preparation,
+        &preparation.actor_address,
+        &registry()
+    )
+    .is_ok());
     drop(signer);
 
     let audits = fixture.audits(&fixture.alice);
