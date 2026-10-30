@@ -42,8 +42,8 @@ describe('StatusLadderBadge', () => {
 });
 
 describe('status ladder rungs', () => {
-  it('covers the four rungs in ladder order', () => {
-    expect(RUNG_ORDER.map((item) => item.rung)).toEqual([ 'pending', 'instant', 'sealed', 'final' ]);
+  it('covers the three rungs in ladder order', () => {
+    expect(RUNG_ORDER.map((item) => item.rung)).toEqual([ 'submitted', 'receipted', 'committed' ]);
   });
 
   it('explains every rung in exactly one sentence', () => {
