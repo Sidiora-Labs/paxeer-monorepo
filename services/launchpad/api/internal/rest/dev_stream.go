@@ -57,6 +57,8 @@ import (
 // lives in. It is distinct from the production api_stream schema.
 const DevelopmentStreamSchema = "api_stream_dev"
 
+const erc20DecimalsSelector = "0x313ce567"
+
 const (
 	developmentStreamBatch        = 100
 	developmentStreamRetention    = 24 * time.Hour
@@ -535,7 +537,7 @@ func (d *DevelopmentStream) tokenDecimals(ctx context.Context, token string, blo
 		return decimals, nil
 	}
 	var raw hexutil.Bytes
-	call := map[string]any{"to": token, "data": "0x313ce567"}
+	call := map[string]any{"to": token, "data": erc20DecimalsSelector}
 	if err := d.market.chain.client.CallContext(ctx, &raw, "eth_call", call, hexutil.EncodeUint64(uint64(block))); err != nil {
 		return 0, err
 	}

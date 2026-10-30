@@ -97,6 +97,114 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     assert Repo.get(PriceFeedScannedBlock, 13) == nil
   end
 
+  test "counts a definitive node error toward the cap in either node order", context do
+    apply(__MODULE__, :"counts a definitive node error toward the cap in either node order", [context])
+  end
+
+  def unquote(:"counts a definitive node error toward the cap in either node order")(%{rest: rest, state: state}) do
+    insert(:block, number: 13)
+    Process.register(self(), PriceUpdates)
+    unreachable_urls = down(state).cosmos_rest_urls
+    definitive_urls = state.cosmos_rest_urls
+
+    Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
+      Plug.Conn.resp(conn, 400, ~s({"code":13,"message":"internal"}))
+    end)
+
+    for urls <- [unreachable_urls ++ definitive_urls, definitive_urls ++ unreachable_urls] do
+      assert :ok = PriceUpdates.run([13], %{state | cosmos_rest_urls: urls})
+      assert_receive {:buffer, [{13, 1, _, 1}], false}, 2_000
+      assert Repo.get(PriceFeedScannedBlock, 13) == nil
+    end
+  end
+
+  test "warns once a held height reaches the backoff ceiling", context do
+    apply(__MODULE__, :"warns once a held height reaches the backoff ceiling", [context])
+  end
+
+  def unquote(:"warns once a held height reaches the backoff ceiling")(%{state: state}) do
+    Enum.each([13, 14], &insert(:block, number: &1))
+    Process.register(self(), PriceUpdates)
+    state = down(state)
+
+    assert PriceUpdates.backoff_ms(9) < 300_000
+    assert PriceUpdates.backoff_ms(10) == 300_000
+
+    before_ceiling =
+      ExUnit.CaptureLog.capture_log([level: :warning], fn ->
+        for number <- [13, 14] do
+          assert :ok = PriceUpdates.run([{number, 8, nil, 0}], state)
+        end
+      end)
+
+    assert before_ceiling == ""
+
+    at_ceiling =
+      ExUnit.CaptureLog.capture_log([level: :warning], fn ->
+        for number <- [13, 14] do
+          assert :ok = PriceUpdates.run([{number, 9, nil, 0}], state)
+        end
+      end)
+
+    for number <- [13, 14] do
+      assert length(Regex.scan(~r/price feed scan of block #{number} remains held/, at_ceiling)) == 1
+    end
+
+    assert at_ceiling =~ "retry backoff reached 300000ms"
+
+    after_ceiling =
+      ExUnit.CaptureLog.capture_log([level: :warning], fn ->
+        for number <- [13, 14], attempts <- [10, 11] do
+          assert :ok = PriceUpdates.run([{number, attempts, nil, 0}], state)
+        end
+      end)
+
+    assert after_ceiling == ""
+    assert Enum.all?([13, 14], &(Repo.get(PriceFeedScannedBlock, &1) == nil))
+  end
+
+  test "schedules no retry for a batch that raises before it completes", context do
+    apply(__MODULE__, :"schedules no retry for a batch that raises before it completes", [context])
+  end
+
+  def unquote(:"schedules no retry for a batch that raises before it completes")(%{rest: rest, state: state}) do
+    insert(:block, number: 13)
+    Process.register(self(), PriceUpdates)
+
+    Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
+      Plug.Conn.resp(conn, 400, ~s({"code":13,"message":"internal"}))
+    end)
+
+    waiting = {14, 1, System.monotonic_time(:millisecond) + 1_000, 0}
+
+    assert_raise FunctionClauseError, fn ->
+      PriceUpdates.run([13, waiting, :invalid], state)
+    end
+
+    refute_receive {:buffer, _, _}, 1_500
+    assert Repo.get(PriceFeedScannedBlock, 13) == nil
+  end
+
+  test "a rescanned height publishes nothing new", %{rest: rest, rpc: rpc, state: state} do
+    insert(:block, number: 10)
+    serve(rest, "/cosmos/tx/v1beta1/txs/block/10", 200, "block_txs.json")
+    serve(rpc, "/block_results", 200, "block_results.json")
+
+    PriceFeed.upsert_markets(Enum.map(0..17, &%{market_id: &1, symbol: to_string(&1), chainflow_symbol: to_string(&1)}))
+
+    Subscriber.to(:paxeer_x_price_updates, :realtime)
+
+    assert :ok = PriceUpdates.run([10], state)
+    assert [%PriceUpdate{} = update] = PriceFeed.block_updates(10)
+    assert PriceFeed.block_update_hashes(10) == [to_string(update.hash)]
+    assert :ok = PriceUpdates.run([10], state)
+    assert [%PriceUpdate{hash: hash}] = PriceFeed.block_updates(10)
+    assert hash == update.hash
+
+    assert_receive {:chain_event, :paxeer_x_price_updates, :realtime, [10]}
+    refute_receive {:chain_event, :paxeer_x_price_updates, :realtime, _}
+  end
+
   describe "run/2" do
     test "stores the recorded submission and reads the market list", %{rest: rest, rpc: rpc, state: state} do
       block = insert(:block, number: 10)
@@ -311,24 +419,27 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     end
   end
 
-  describe "under BufferedTask" do
-    test "failing batches stay dormant until their retries are due", %{rest: rest, state: state} do
-      numbers = Enum.to_list(20..31)
-      # every scan reads the one node twice before it gives up
-      reads = 2 * length(numbers)
-      Enum.each(numbers, &insert(:block, number: &1))
-      scans = :counters.new(1, [])
+  test "failing batches stay dormant until their retries are due", context do
+    apply(__MODULE__, :"failing batches stay dormant until their retries are due", [context])
+  end
 
-      Bypass.stub(rest, "GET", "/cosmos/tx/v1beta1/txs/block/:height", fn conn ->
-        :counters.add(scans, 1, 1)
-        Plug.Conn.resp(conn, 503, ~s({"code":13,"message":"internal"}))
-      end)
+  def unquote(:"failing batches stay dormant until their retries are due")(%{rest: rest, state: state}) do
+    numbers = Enum.to_list(20..31)
+    # every scan reads the one node twice before it gives up
+    reads = 2 * length(numbers)
+    scans = :counters.new(1, [])
 
-      :erlang.trace_pattern({PriceUpdates, :run, 2}, true, [:call_count])
-      on_exit(fn -> :erlang.trace_pattern({PriceUpdates, :run, 2}, false, [:call_count]) end)
+    Bypass.stub(rest, "GET", "/cosmos/tx/v1beta1/txs/block/:height", fn conn ->
+      :counters.add(scans, 1, 1)
+      Plug.Conn.resp(conn, 503, ~s({"code":13,"message":"internal"}))
+    end)
 
-      start_supervised!({Task.Supervisor, name: PriceUpdatesTestTaskSupervisor})
+    :erlang.trace_pattern({PriceUpdates, :run, 2}, true, [:call_count])
+    on_exit(fn -> :erlang.trace_pattern({PriceUpdates, :run, 2}, false, [:call_count]) end)
 
+    start_supervised!({Task.Supervisor, name: PriceUpdatesTestTaskSupervisor})
+
+    fetcher =
       start_supervised!(
         {BufferedTask,
          [
@@ -343,18 +454,26 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
          ]}
       )
 
-      wait_until(fn -> :counters.get(scans, 1) == reads end, 900)
-      Process.sleep(300)
+    wait_until(fn -> GenServer.call(fetcher, :state).init_task == :complete end, 900)
+    Enum.each(numbers, &insert(:block, number: &1))
+    :erlang.trace(fetcher, true, [:receive])
+    Enum.each(numbers, &GenServer.call(fetcher, {:push_back, [&1]}))
 
-      assert :counters.get(scans, 1) == reads
-      assert {:call_count, 12} = :erlang.trace_info({PriceUpdates, :run, 2}, :call_count)
-      assert Enum.all?(numbers, &(Repo.get(PriceFeedScannedBlock, &1) == nil))
+    wait_until(fn -> :counters.get(scans, 1) == reads end, 900)
+    Process.sleep(300)
 
-      wait_until(fn -> :counters.get(scans, 1) == 2 * reads end, 2_000)
-      assert {:call_count, 24} = :erlang.trace_info({PriceUpdates, :run, 2}, :call_count)
-      Process.sleep(200)
-      assert :counters.get(scans, 1) == 2 * reads
+    assert :counters.get(scans, 1) == reads
+    assert {:call_count, 12} = :erlang.trace_info({PriceUpdates, :run, 2}, :call_count)
+    assert Enum.all?(numbers, &(Repo.get(PriceFeedScannedBlock, &1) == nil))
+
+    for number <- numbers do
+      assert_receive {:trace, ^fetcher, :receive, {:buffer, [{^number, 1, _, _}], false}}, 2_000
     end
+
+    wait_until(fn -> :counters.get(scans, 1) == 2 * reads end, 2_000)
+    assert {:call_count, 24} = :erlang.trace_info({PriceUpdates, :run, 2}, :call_count)
+    Process.sleep(200)
+    assert :counters.get(scans, 1) == 2 * reads
   end
 
   defp wait_until(done?, timeout) do

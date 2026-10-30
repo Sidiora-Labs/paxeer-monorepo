@@ -62,7 +62,7 @@ export function provisionDepsFromEnv(): ProvisionDeps | null {
     rpc: sharedRpcPool(),
     attestors,
     nonces: sharedNonceStore(),
-    sponsor: null,
+    station: env.WALLET_GAS_STATION_URL ? new GasStationClient(env.WALLET_GAS_STATION_URL) : null,
     chainId: env.HYPERPAXEER_CHAIN_ID,
     gasCapWei: env.ACCOUNT_SETUP_GAS_CAP_WEI,
     receiptTimeoutMs: 60_000,
@@ -107,8 +107,8 @@ export async function walletRoutes(
 
   app.post('/v1/wallet/provision', { preHandler: requireAuth }, async (req, reply) => {
     const userId = req.user!.id;
-    const provision = deps();
     try {
+      const provision = deps();
       if (!provision) {
         if (env.WALLET_IDENTITY_BINDING_TENANT) {
           throw new ProvisionError(
@@ -286,6 +286,28 @@ export const SponsoredStatusBody = z
     relayerSignature: SponsorSignature,
   })
   .strict();
+export const SponsoredQuoteBody = SponsoredConstruction.pick({
+  chainId: true,
+  account: true,
+  nonce: true,
+  calls: true,
+})
+  .extend({
+    maxTokenAmount: SponsorUint,
+    gasCost: SponsorUint,
+    token: SponsorAddress,
+    decimals: z.literal(6),
+  })
+  .strict();
+const SponsoredBudget = z
+  .object({
+    key: z.string().min(1),
+    gasLimit: SponsorUint,
+    usedGas: SponsorUint,
+    remainingGas: SponsorUint,
+    dayEnds: SponsorUint,
+  })
+  .strict();
 const executeSponsoredAbi = parseAbi([
   'function executeSponsored((address to,uint256 value,bytes data)[] calls,(address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost) quote,bytes accountSignature,bytes relayerSignature)',
 ]);
@@ -301,6 +323,14 @@ export async function walletSponsorRoutes(
   opts: WalletSponsorRoutesOptions = {}
 ): Promise<void> {
   const station = new GasStationClient(opts.stationUrl);
+  async function sequencerReceipt(hash: string | null) {
+    try {
+      const receipt = hash === null ? null : await sharedRpcPool().sequencerReceipt(hash as Hex);
+      return { receipt, rung: receipt === null ? ('submitted' as const) : receipt.rung };
+    } catch {
+      throw new StationAdapterError(503, 'sequencer_receipt_unavailable');
+    }
+  }
   async function callerIdentity(account: Hex): Promise<string> {
     station.requireConfiguredUrl();
     const rpc = opts.rpc ?? sharedRpcPool();
@@ -448,6 +478,28 @@ export async function walletSponsorRoutes(
           : 'pending';
     return { tx_hash: hash, status, station: report };
   }
+  app.post('/v1/wallet/sponsored/quote', { preHandler: requireAuth }, async (req, reply) => {
+    const parsed = SponsoredQuoteBody.safeParse(req.body);
+    if (!parsed.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+    try {
+      const wallet = await owned(req, parsed.data.account);
+      if (BigInt(parsed.data.chainId) !== BigInt(wallet.chain_id))
+        throw new StationAdapterError(403, 'sponsored_construction_mismatch');
+      await callerIdentity(parsed.data.account as Hex);
+      return reply.header('Cache-Control', 'no-store').send(await station.quote(parsed.data));
+    } catch (error) {
+      if (error instanceof StationAdapterError) {
+        if (error.code === 'budget_exhausted')
+          return reply
+            .header('Cache-Control', 'no-store')
+            .code(429)
+            .send({ error: 'budget_exhausted', detail: error.code });
+        return reply.code(error.status).send({ error: error.code });
+      }
+      throw error;
+    }
+  });
   app.post('/v1/wallet/sponsored/status', { preHandler: requireAuth }, async (req, reply) => {
     const parsed = SponsoredStatusBody.safeParse(req.body);
     if (!parsed.success)
@@ -455,9 +507,18 @@ export async function walletSponsorRoutes(
     try {
       await owned(req, parsed.data.account, true);
       const did = await callerIdentity(parsed.data.account as Hex);
+      const report = await station.status(parsed.data);
+      const budget = SponsoredBudget.safeParse(report.budget);
+      if (
+        !budget.success ||
+        budget.data.key !== did ||
+        BigInt(budget.data.usedGas) + BigInt(budget.data.remainingGas) !==
+          BigInt(budget.data.gasLimit)
+      )
+        throw new StationAdapterError(502, 'gas_station_invalid_response');
       return reply
         .header('Cache-Control', 'no-store')
-        .send({ ...statusBody(await station.status(parsed.data)), did });
+        .send({ ...statusBody(report), did, budget: budget.data });
     } catch (error) {
       if (error instanceof StationAdapterError)
         return reply.code(error.status).send({ error: error.code, status: 'pending' });
@@ -564,6 +625,7 @@ export async function walletSponsorRoutes(
         relayerSignature: body.relayer_signature,
       };
       let hash: Hex | null = null;
+      let answer: ReturnType<typeof statusBody>;
       try {
         const submitted = await station.submit(stationBody);
         if (
@@ -575,24 +637,29 @@ export async function walletSponsorRoutes(
       } catch (error) {
         if (!(error instanceof StationAdapterError) || error.status < 500) throw error;
         try {
-          return reply
-            .header('Cache-Control', 'no-store')
-            .send({ ...statusBody(await station.status(identity)), did });
+          answer = statusBody(await station.status(identity));
         } catch {
           throw error;
         }
-      }
-      try {
         return reply
           .header('Cache-Control', 'no-store')
-          .send({ ...statusBody(await station.status(identity), hash), did });
-      } catch (error) {
-        if (error instanceof StationAdapterError)
-          return reply
-            .header('Cache-Control', 'no-store')
-            .send({ tx_hash: hash, status: 'pending', station: null, did });
-        throw error;
+          .send({ ...answer, did, ...(await sequencerReceipt(answer.tx_hash)) });
       }
+      try {
+        answer = statusBody(await station.status(identity), hash);
+      } catch (error) {
+        if (!(error instanceof StationAdapterError)) throw error;
+        return reply.header('Cache-Control', 'no-store').send({
+          tx_hash: hash,
+          status: 'pending',
+          station: null,
+          did,
+          ...(await sequencerReceipt(hash)),
+        });
+      }
+      return reply
+        .header('Cache-Control', 'no-store')
+        .send({ ...answer, did, ...(await sequencerReceipt(answer.tx_hash)) });
     } catch (error) {
       if (error instanceof StationAdapterError)
         return reply.code(error.status).send({ error: error.code, status: 'pending' });

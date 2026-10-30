@@ -149,10 +149,15 @@ fn validate_sign(request: &Request<'_>, config: &Config, now: u64) -> Result<Opt
         let value = serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
         return crate::send::digest(&value, request.binding, network, 3, now).map(Some);
     }
-    if request.operation != 5 {
+    if request.kind != Operation::Sign {
         return Ok(None);
     }
-    let call = decode_unsigned_call(request.canonical)?;
+    sign(request, config, network)
+}
+
+fn sign(request: &Request<'_>, config: &Config, network: u32) -> Result<Option<[u8; 32]>> {
+    let call = crate::attestor::decode_unsigned_evm_transaction(request.canonical)
+        .map_err(|_| Error::Refused)?;
     if call.chain_id != config.chain.chain_id || request.network != network {
         return Err(Error::Refused);
     }
@@ -171,97 +176,12 @@ fn validate_sign(request: &Request<'_>, config: &Config, now: u64) -> Result<Opt
     if wire::disclosure(&disclosure)? != request.disclosure {
         return Err(Error::Refused);
     }
-    let digest = call.signing_hash();
+    let digest: [u8; 32] = sha3::Keccak256::digest(request.canonical).into();
+    if !layerx_crypto::ct::eq_fixed(&digest, &call.signing_hash()) {
+        return Err(Error::Refused);
+    }
     if !layerx_crypto::ct::eq_fixed(&digest, &request.digest) {
         return Err(Error::Integrity);
     }
     Ok(Some(digest))
-}
-
-fn rlp_item<'a>(input: &mut &'a [u8], list: bool) -> Result<&'a [u8]> {
-    let prefix = *input.first().ok_or(Error::Refused)?;
-    if prefix < 0x80 {
-        if list {
-            return Err(Error::Refused);
-        }
-        let (payload, rest) = input.split_at(1);
-        *input = rest;
-        return Ok(payload);
-    }
-    if (prefix >= 0xc0) != list {
-        return Err(Error::Refused);
-    }
-    let short = if list { 0xc0 } else { 0x80 };
-    let length_prefix = prefix - short;
-    let (offset, length) = if length_prefix < 56 {
-        (1, usize::from(length_prefix))
-    } else {
-        let width = usize::from(length_prefix - 55);
-        let encoded = input.get(1..1 + width).ok_or(Error::Refused)?;
-        if encoded.first() == Some(&0) {
-            return Err(Error::Refused);
-        }
-        let length = encoded
-            .iter()
-            .try_fold(0_usize, |value, byte| {
-                value.checked_mul(256)?.checked_add(usize::from(*byte))
-            })
-            .ok_or(Error::Refused)?;
-        if length < 56 {
-            return Err(Error::Refused);
-        }
-        (1 + width, length)
-    };
-    let end = offset.checked_add(length).ok_or(Error::Refused)?;
-    let payload = input.get(offset..end).ok_or(Error::Refused)?;
-    if !list && length == 1 && payload[0] < 0x80 {
-        return Err(Error::Refused);
-    }
-    *input = &input[end..];
-    Ok(payload)
-}
-
-fn rlp_uint<const N: usize>(input: &mut &[u8]) -> Result<[u8; N]> {
-    let bytes = rlp_item(input, false)?;
-    if bytes.first() == Some(&0) {
-        return Err(Error::Refused);
-    }
-    let offset = N.checked_sub(bytes.len()).ok_or(Error::Refused)?;
-    let mut value = [0; N];
-    value[offset..].copy_from_slice(bytes);
-    Ok(value)
-}
-
-fn decode_unsigned_call(raw: &[u8]) -> Result<layerx_crypto::evm_transaction::Eip1559Call> {
-    let Some((&2, mut envelope)) = raw.split_first() else {
-        return Err(Error::Refused);
-    };
-    let mut fields = rlp_item(&mut envelope, true)?;
-    if !envelope.is_empty() {
-        return Err(Error::Refused);
-    }
-    let chain_id = u64::from_be_bytes(rlp_uint(&mut fields)?);
-    let nonce = u64::from_be_bytes(rlp_uint(&mut fields)?);
-    let max_priority_fee_per_gas = u128::from_be_bytes(rlp_uint(&mut fields)?);
-    let max_fee_per_gas = u128::from_be_bytes(rlp_uint(&mut fields)?);
-    let gas_limit = u64::from_be_bytes(rlp_uint(&mut fields)?);
-    let to = rlp_item(&mut fields, false)?
-        .try_into()
-        .map_err(|_| Error::Refused)?;
-    if rlp_uint::<32>(&mut fields)? != [0; 32] {
-        return Err(Error::Refused);
-    }
-    let data = rlp_item(&mut fields, false)?.to_vec();
-    if !rlp_item(&mut fields, true)?.is_empty() || !fields.is_empty() {
-        return Err(Error::Refused);
-    }
-    Ok(layerx_crypto::evm_transaction::Eip1559Call {
-        chain_id,
-        nonce,
-        max_priority_fee_per_gas,
-        max_fee_per_gas,
-        gas_limit,
-        to,
-        data,
-    })
 }

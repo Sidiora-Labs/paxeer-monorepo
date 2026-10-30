@@ -4,8 +4,10 @@ use layerx_program_sdk::arbiter::{
     MARKET_SANDBOX_PROFILE_CAPACITY,
 };
 use layerx_programs_arbiter::{
-    BoundaryProof, MarketReplayEvidence, MarketStepVerdict, NativeNamespaceProof,
-    VerifiedMarketSandbox,
+    ics23::{decode_existence, ExistenceProof},
+    market::{MarketAdmissionEvidence, MarketCommittedNamespaces},
+    BoundaryProof, ChainCommitProof, MarketEvidenceError, MarketReplayEvidence, MarketStepVerdict,
+    NativeNamespaceProof, VerifiedMarketSandbox,
 };
 use layerx_programs_runtime::execute::{
     market_sandbox_input_digest, observe_market_sandbox_step, MarketSandboxRequest,
@@ -18,12 +20,11 @@ use layerx_programs_runtime::{
 };
 use layerx_proof::{
     inclusion::{verify_header, verify_receipt, SequencerAuthorization, VerifiedBatchHeader},
-    merkle::{decode_proof, Proof},
+    merkle::decode_proof,
     receipt::{
         verify_outcome_maintained_chain, verify_program_preexecution_rejection_maintained_chain,
         AuthorizedBatch, MaintainedOutcomeEvidence, VerifiedReceipt,
     },
-    state_witness::StateWitness,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -48,10 +49,36 @@ fn hash(v: &Value, key: &str) -> [u8; 32] {
         u8::from_str_radix(&s[2 * i..2 * i + 2], 16).expect("native pinned hash")
     })
 }
+fn hex(v: &Value, key: &str) -> Vec<u8> {
+    let text = field(v, key);
+    assert_eq!(text.len() % 2, 0);
+    (0..text.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).expect("proof hex byte"))
+        .collect()
+}
+fn chain_commit(v: &Value) -> ChainCommitProof {
+    ChainCommitProof {
+        height: v["height"].as_u64().expect("committed block height"),
+        app_hash: hash(v, "app_hash"),
+        store_root: hash(v, "store_root"),
+        multistore_proof: hex(v, "multistore_proof"),
+        receipt_key: hex(v, "key"),
+        receipt_proof: decode_existence(&hex(v, "proof")).expect("ICS23 receipt key proof"),
+    }
+}
 fn verified(
     v: &Value,
     authorization: &SequencerAuthorization,
-) -> (VerifiedReceipt, VerifiedBatchHeader, Proof) {
+) -> (VerifiedReceipt, VerifiedBatchHeader, ChainCommitProof) {
+    let commit = chain_commit(&v["chain_commit"]);
+    assert!(
+        commit
+            .receipt_keys()
+            .expect("ICS23-authenticated sequencer authority")
+            .contains(authorization),
+        "capture sequencer authority must be authenticated by the commit app hash"
+    );
     let bytes = read(v, "receipt_path");
     let header = read(v, "header_path");
     let signature: [u8; 64] = read(v, "header_signature_path")
@@ -125,19 +152,33 @@ fn verified(
     let mut bad_signature = signature;
     bad_signature[0] ^= 1;
     assert!(verify_header(&header, &bad_signature, authorization).is_err());
-    (verified, signed, proof)
+    commit
+        .verify_receipt(&verified)
+        .expect("receipt signed by app-hash authenticated keys");
+    (verified, signed, commit)
 }
 
 struct Capture {
     path: String,
     receipt: VerifiedReceipt,
     header: VerifiedBatchHeader,
-    receipt_proof: Proof,
+    commit: ChainCommitProof,
     admission: VerifiedAdmissionPrestate,
 }
 
+impl Capture {
+    fn admission(&self) -> MarketAdmissionEvidence<'_> {
+        MarketAdmissionEvidence {
+            prestate: &self.admission,
+            header: &self.header,
+        }
+    }
+}
+
 struct Namespace {
-    head: StateWitness,
+    head: ExistenceProof,
+    store_root: [u8; 32],
+    multistore_proof: Vec<u8>,
     manifest: Vec<u8>,
     values: BTreeMap<[u8; 32], Vec<u8>>,
 }
@@ -146,6 +187,8 @@ impl Namespace {
     fn proof(&self) -> NativeNamespaceProof<'_> {
         NativeNamespaceProof {
             head: &self.head,
+            store_root: self.store_root,
+            multistore_proof: &self.multistore_proof,
             manifest: &self.manifest,
             value_blobs: &self.values,
         }
@@ -192,7 +235,7 @@ impl Fixture {
             .expect("real signed captures")
             .iter()
             .map(|capture| {
-                let (receipt, header, receipt_proof) = verified(capture, &authorization);
+                let (receipt, header, commit) = verified(capture, &authorization);
                 let prestate =
                     verify_arbiter_admission_v3(&read(capture, "v3_path"), &receipt, network)
                         .expect("genuine sealed V3 admission");
@@ -221,7 +264,7 @@ impl Fixture {
                     path: field(capture, "receipt_path").to_owned(),
                     receipt,
                     header,
-                    receipt_proof,
+                    commit,
                     admission: prestate,
                 }
             })
@@ -253,9 +296,9 @@ impl Fixture {
     }
 
     fn namespace(&self, object: &Value) -> Namespace {
-        let head = StateWitness::decode(&self.file(object, "head"))
-            .expect("actual module9 namespace state witness");
-        assert_eq!(head.module_id, 9);
+        let head = decode_existence(&self.file(object, "head"))
+            .expect("actual module9 namespace ICS23 existence proof");
+        assert_eq!(head.key.get(..3), Some([1, 0, 9].as_slice()));
         let manifest = self.file(object, "manifest");
         let values = object["value_blobs"]
             .as_array()
@@ -270,6 +313,8 @@ impl Fixture {
             .collect();
         Namespace {
             head,
+            store_root: hash(object, "store_root"),
+            multistore_proof: hex(object, "multistore_proof"),
             manifest,
             values,
         }
@@ -288,6 +333,262 @@ impl Fixture {
                 .collect(),
         }
     }
+}
+
+fn committed_market_vector() -> Value {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/vectors/ics23-market-namespaces-app-hash.json");
+    serde_json::from_slice(&fs::read(path).expect("keeper-generated market vector"))
+        .expect("market namespace vector JSON")
+}
+
+fn committed_namespace(entry: &Value) -> Namespace {
+    let cells = entry["cells"].as_array().expect("canonical market cells");
+    Namespace {
+        head: decode_existence(&hex(entry, "proof")).expect("keeper namespace proof"),
+        store_root: hash(entry, "store_root"),
+        multistore_proof: hex(entry, "multistore_proof"),
+        manifest: hex(entry, "manifest"),
+        values: cells
+            .iter()
+            .map(|cell| (hash(cell, "hash"), hex(cell, "value")))
+            .collect(),
+    }
+}
+
+#[test]
+fn market_namespace_verifies_against_ics23_app_hash() {
+    let vector = committed_market_vector();
+    let program = hash(&vector, "market_program");
+    let entries = vector["entries"].as_array().expect("two block snapshots");
+    assert_eq!(entries.len(), 2);
+    for entry in entries {
+        let namespace = committed_namespace(&entry["namespace"]);
+        let app_hash = hash(&entry["chain_commit"], "app_hash");
+        let expected: BTreeMap<Vec<u8>, Vec<u8>> = entry["namespace"]["cells"]
+            .as_array()
+            .expect("market records")
+            .iter()
+            .map(|cell| (hex(cell, "key"), hex(cell, "value")))
+            .collect();
+        let offer = expected
+            .iter()
+            .find(|(key, _)| key.starts_with(layerx_programs_market::OFFER_PREFIX))
+            .expect("committed offer");
+        let lease = expected
+            .iter()
+            .find(|(key, _)| key.starts_with(layerx_programs_market::LEASE_PREFIX))
+            .expect("committed lease");
+        let decoded_offer =
+            layerx_programs_market::decode_offer(offer.1).expect("canonical market offer");
+        let decoded_lease =
+            layerx_programs_market::decode_lease(lease.1).expect("canonical funded market lease");
+        assert_eq!(
+            decoded_offer.id.as_slice(),
+            &offer.0[layerx_programs_market::OFFER_PREFIX.len()..]
+        );
+        assert_eq!(decoded_lease.offer_id, decoded_offer.id);
+        assert_eq!(decoded_lease.provider, decoded_offer.provider);
+        assert_eq!(namespace.proof().verify(app_hash, program), Ok(expected));
+        let mut wrong_hash = app_hash;
+        wrong_hash[0] ^= 1;
+        assert_eq!(
+            namespace.proof().verify(wrong_hash, program),
+            Err(MarketEvidenceError::Storage)
+        );
+        assert_eq!(
+            namespace.proof().verify(namespace.store_root, program),
+            Err(MarketEvidenceError::Storage)
+        );
+        let mut wrong_head = namespace.head.clone();
+        wrong_head.value[6] ^= 1;
+        assert_eq!(
+            NativeNamespaceProof {
+                head: &wrong_head,
+                store_root: namespace.store_root,
+                multistore_proof: &namespace.multistore_proof,
+                manifest: &namespace.manifest,
+                value_blobs: &namespace.values,
+            }
+            .verify(app_hash, program),
+            Err(MarketEvidenceError::Storage)
+        );
+        let mut wrong_root = namespace.store_root;
+        wrong_root[0] ^= 1;
+        assert_eq!(
+            NativeNamespaceProof {
+                head: &namespace.head,
+                store_root: wrong_root,
+                multistore_proof: &namespace.multistore_proof,
+                manifest: &namespace.manifest,
+                value_blobs: &namespace.values,
+            }
+            .verify(app_hash, program),
+            Err(MarketEvidenceError::Storage)
+        );
+        let mut multistore_proof = namespace.multistore_proof.clone();
+        multistore_proof[4] ^= 1;
+        assert_eq!(
+            NativeNamespaceProof {
+                head: &namespace.head,
+                store_root: namespace.store_root,
+                multistore_proof: &multistore_proof,
+                manifest: &namespace.manifest,
+                value_blobs: &namespace.values,
+            }
+            .verify(app_hash, program),
+            Err(MarketEvidenceError::Storage)
+        );
+        let mut wrong_program = program;
+        wrong_program[0] ^= 1;
+        assert_eq!(
+            namespace.proof().verify(app_hash, wrong_program),
+            Err(MarketEvidenceError::Storage)
+        );
+        let mut wrong_module = namespace.head.clone();
+        wrong_module.key[2] = 8;
+        assert_eq!(
+            NativeNamespaceProof {
+                head: &wrong_module,
+                store_root: namespace.store_root,
+                multistore_proof: &namespace.multistore_proof,
+                manifest: &namespace.manifest,
+                value_blobs: &namespace.values,
+            }
+            .verify(app_hash, program),
+            Err(MarketEvidenceError::Storage)
+        );
+        let mut manifest = namespace.manifest.clone();
+        manifest[0] ^= 1;
+        assert_eq!(
+            NativeNamespaceProof {
+                head: &namespace.head,
+                store_root: namespace.store_root,
+                multistore_proof: &namespace.multistore_proof,
+                manifest: &manifest,
+                value_blobs: &namespace.values,
+            }
+            .verify(app_hash, program),
+            Err(MarketEvidenceError::Storage)
+        );
+        let mut values = namespace.values.clone();
+        values.values_mut().next().expect("nonempty cell")[0] ^= 1;
+        assert_eq!(
+            NativeNamespaceProof {
+                head: &namespace.head,
+                store_root: namespace.store_root,
+                multistore_proof: &namespace.multistore_proof,
+                manifest: &namespace.manifest,
+                value_blobs: &values,
+            }
+            .verify(app_hash, program),
+            Err(MarketEvidenceError::Storage)
+        );
+    }
+}
+
+#[test]
+fn market_evidence_refuses_mixed_app_hashes() {
+    let vector = committed_market_vector();
+    let program = hash(&vector, "market_program");
+    let entries = vector["entries"]
+        .as_array()
+        .expect("two committed snapshots");
+    assert_eq!(entries.len(), 2);
+    let tenant_commit = chain_commit(&entries[0]["chain_commit"]);
+    let provider_commit = chain_commit(&entries[1]["chain_commit"]);
+    let tenant_state = committed_namespace(&entries[0]["namespace"]);
+    let provider_state = committed_namespace(&entries[1]["namespace"]);
+    let tenant_receipt = hex(&entries[0]["receipt"], "value");
+    let provider_receipt = hex(&entries[1]["receipt"], "value");
+    assert_ne!(tenant_receipt, provider_receipt);
+    assert_ne!(tenant_commit.app_hash, provider_commit.app_hash);
+    assert_eq!(provider_commit.height, tenant_commit.height + 1);
+    for (entry, commit) in entries.iter().zip([&tenant_commit, &provider_commit]) {
+        let receipt = &entry["receipt"];
+        let proof = decode_existence(&hex(receipt, "proof")).expect("committed receipt existence");
+        let root = hash(receipt, "store_root");
+        let value = hex(receipt, "value");
+        assert_eq!(root, hash(&entry["namespace"], "store_root"));
+        assert_eq!(hash(receipt, "app_hash"), commit.app_hash);
+        assert_eq!(
+            hex(receipt, "multistore_proof"),
+            hex(&entry["namespace"], "multistore_proof")
+        );
+        layerx_programs_arbiter::ics23::verify_existence(
+            &proof,
+            root,
+            &hex(receipt, "key"),
+            &value,
+        )
+        .expect("actual signed receipt committed in the keeper store");
+        commit
+            .verify_receipt_bytes(&value)
+            .expect("signature under app-hash authenticated key table");
+        let mut altered = value;
+        let last = altered.len() - 1;
+        altered[last] ^= 1;
+        assert!(commit.verify_receipt_bytes(&altered).is_err());
+    }
+    let evaluate =
+        |tenant: &Namespace, provider: &Namespace, tc: &ChainCommitProof, pc: &ChainCommitProof| {
+            MarketCommittedNamespaces {
+                program,
+                tenant_receipt: &tenant_receipt,
+                provider_receipt: &provider_receipt,
+                tenant_commit: tc,
+                provider_commit: pc,
+                tenant_state: tenant.proof(),
+                provider_state: provider.proof(),
+            }
+            .verify()
+        };
+    let authenticated = evaluate(
+        &tenant_state,
+        &provider_state,
+        &tenant_commit,
+        &provider_commit,
+    )
+    .expect("both receipts and namespaces authenticated together");
+    assert_ne!(authenticated.tenant, authenticated.provider);
+    for (tenant, provider) in [
+        (&provider_state, &provider_state),
+        (&tenant_state, &tenant_state),
+        (&provider_state, &tenant_state),
+    ] {
+        assert!(matches!(
+            evaluate(tenant, provider, &tenant_commit, &provider_commit),
+            Err(MarketStepVerdict::InvalidEvidence(
+                MarketEvidenceError::Storage
+            ))
+        ));
+    }
+    let mut wrong_tenant_commit = tenant_commit.clone();
+    wrong_tenant_commit.app_hash[0] ^= 1;
+    assert!(matches!(
+        evaluate(
+            &tenant_state,
+            &provider_state,
+            &wrong_tenant_commit,
+            &provider_commit
+        ),
+        Err(MarketStepVerdict::InvalidEvidence(
+            MarketEvidenceError::Admission
+        ))
+    ));
+    let mut wrong_provider_commit = provider_commit.clone();
+    wrong_provider_commit.app_hash[0] ^= 1;
+    assert!(matches!(
+        evaluate(
+            &tenant_state,
+            &provider_state,
+            &tenant_commit,
+            &wrong_provider_commit
+        ),
+        Err(MarketStepVerdict::InvalidEvidence(
+            MarketEvidenceError::Admission
+        ))
+    ));
 }
 
 #[test]
@@ -325,13 +626,11 @@ fn genuine_signed_market_profile_claim_steps_and_cryptographic_refusals() {
             VerifiedMarketSandbox::verify(MarketReplayEvidence {
                 expected_market_program: hash(&fixture.market, "market_program"),
                 tenant_receipt: &tenant.receipt,
-                tenant_admission: &tenant.admission,
-                tenant_header: &tenant.header,
-                tenant_receipt_proof: &tenant.receipt_proof,
+                tenant_admission: tenant.admission(),
+                tenant_commit: &tenant.commit,
                 provider_receipt: &provider.receipt,
-                provider_admission: &provider.admission,
-                provider_header: &provider.header,
-                provider_receipt_proof: &provider.receipt_proof,
+                provider_admission: provider.admission(),
+                provider_commit: &provider.commit,
                 initial_boundary: &initial,
                 final_boundary: &final_boundary,
                 tenant_state: tenant_namespace.proof(),
@@ -369,6 +668,8 @@ fn genuine_signed_market_profile_claim_steps_and_cryptographic_refusals() {
         ));
         let mut bad_tenant = Namespace {
             head: tenant_state.head.clone(),
+            store_root: tenant_state.store_root,
+            multistore_proof: tenant_state.multistore_proof.clone(),
             manifest: tenant_state.manifest.clone(),
             values: tenant_state.values.clone(),
         };
@@ -376,6 +677,8 @@ fn genuine_signed_market_profile_claim_steps_and_cryptographic_refusals() {
         assert!(evidence(&bad_tenant, &provider_state, &fixture.code, &input).is_err());
         let mut bad_provider = Namespace {
             head: provider_state.head.clone(),
+            store_root: provider_state.store_root,
+            multistore_proof: provider_state.multistore_proof.clone(),
             manifest: provider_state.manifest.clone(),
             values: provider_state.values.clone(),
         };
@@ -392,13 +695,11 @@ fn genuine_signed_market_profile_claim_steps_and_cryptographic_refusals() {
         let swapped = VerifiedMarketSandbox::verify(MarketReplayEvidence {
             expected_market_program: hash(&fixture.market, "market_program"),
             tenant_receipt: &provider.receipt,
-            tenant_admission: &provider.admission,
-            tenant_header: &provider.header,
-            tenant_receipt_proof: &provider.receipt_proof,
+            tenant_admission: provider.admission(),
+            tenant_commit: &provider.commit,
             provider_receipt: &tenant.receipt,
-            provider_admission: &tenant.admission,
-            provider_header: &tenant.header,
-            provider_receipt_proof: &tenant.receipt_proof,
+            provider_admission: tenant.admission(),
+            provider_commit: &tenant.commit,
             initial_boundary: &initial,
             final_boundary: &final_boundary,
             tenant_state: tenant_state.proof(),

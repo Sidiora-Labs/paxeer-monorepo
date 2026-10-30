@@ -16,8 +16,11 @@ use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
     PreparationDefaults, PrepareRequest,
 };
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit};
+use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
+use layerx_crypto::account_derivation::derive_from_seed;
+use layerx_crypto::disclosure::bind;
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::{sign_disclosed, Signer};
 use layerx_human_service::audit::{
@@ -126,10 +129,11 @@ struct InProcessAgentContract {
 
 impl InProcessAgentContract {
     fn new(root: &std::path::Path) -> Self {
+        let account = required(derive_from_seed(&[0xa5; 32], 0), "derive agent account");
         Self {
             accepted: 0,
             registry: registry(),
-            signer: LocalSigner::new([0xa5; 32]),
+            signer: LocalSigner::from_derived_account(&account),
             store: AgentStore::open(root)
                 .unwrap_or_else(|error| panic!("open agent store: {error}")),
             outbox: Outbox::default(),
@@ -139,21 +143,21 @@ impl InProcessAgentContract {
     }
 
     fn mark_executed(&mut self, submission: AgentSubmission, receipt: AgentBindingReceipt) {
-        for state in [SubmissionState::Submitted, SubmissionState::Acknowledged] {
-            self.outbox
-                .transition(
-                    &mut self.store,
-                    submission.submission_id,
-                    state,
-                    format!("binding {state:?}"),
-                    None,
-                )
-                .unwrap_or_else(|error| panic!("agent transition: {error:?}"));
-        }
+        self.outbox
+            .transition(
+                &mut self.store,
+                submission.submission_id,
+                SubmissionState::Submitted,
+                "binding submitted",
+                None,
+            )
+            .unwrap_or_else(|error| panic!("agent transition: {error:?}"));
         let signer = Ed25519SigningKey::from_bytes(&[0x35; 32]);
         let raw = support::raw_receipt_evidence(
             receipt.canonical_receipt,
-            receipt.authorized_batch,
+            signer.verifying_key().to_bytes(),
+            receipt.authorized_batch.previous_state_root(),
+            receipt.authorized_batch.resulting_state_root(),
             9,
             &signer,
         );
@@ -161,13 +165,7 @@ impl InProcessAgentContract {
             .verify_receipt(&raw)
             .unwrap_or_else(|error| panic!("binding receipt verification: {error:?}"));
         self.outbox
-            .transition(
-                &mut self.store,
-                submission.submission_id,
-                SubmissionState::Executed,
-                "cryptographically verified binding receipt",
-                Some(verified),
-            )
+            .record_execution(&mut self.store, submission.submission_id, verified, 9, 0)
             .unwrap_or_else(|error| panic!("agent execution transition: {error:?}"));
     }
 }
@@ -225,6 +223,9 @@ impl AgentBindingContract for InProcessAgentContract {
         {
             return Err(AgentBindingError::ContractViolation);
         }
+        let disclosure = bind(&prepared.canonical_bytes, &self.registry)
+            .map_err(|_| AgentBindingError::ContractViolation)?;
+        assert_eq!(disclosure, prepared.disclosure);
         let signature = ready(sign_disclosed(
             &self.signer,
             &prepared.canonical_bytes,
@@ -232,9 +233,15 @@ impl AgentBindingContract for InProcessAgentContract {
             &self.registry,
         ))
         .map_err(|_| AgentBindingError::Refused)?;
-        let signed = attach_external_signature(&prepared, *signature.as_bytes())
+        assert_eq!(signature.as_bytes().len(), 64);
+        assert_eq!(
+            prepared.envelope.authority(),
+            &Authority::owner(&self.signer.public_key())
+                .map_err(|_| AgentBindingError::ContractViolation)?,
+        );
+        let signed = attach_kernel_signature(&prepared, *signature.as_bytes())
             .map_err(|_| AgentBindingError::ContractViolation)?;
-        let verified = verify_before_submit(
+        verify_kernel_before_submit(
             &signed,
             &prepared,
             &self.signer.public_key(),
@@ -242,22 +249,28 @@ impl AgentBindingContract for InProcessAgentContract {
         )
         .map_err(|_| AgentBindingError::ContractViolation)?;
         self.accepted = self.accepted.saturating_add(1);
-        let submission_id = request.idempotency_key.bytes();
-        let activity_id = verified.activity_id();
-        self.outbox
-            .enqueue(
-                &mut self.store,
-                self.tenant.clone(),
-                submission_id,
-                verified,
-            )
+        let raw = Eip1559Call {
+            chain_id: 125,
+            nonce: u64::try_from(self.accepted)
+                .map_err(|_| AgentBindingError::ContractViolation)?,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 10,
+            gas_limit: 100_000,
+            to: [0x22; 20],
+            data: vec![request.idempotency_key.bytes()[0]],
+        }
+        .sign(&[0xa5; 32])
+        .map_err(|_| AgentBindingError::ContractViolation)?;
+        let submission_id = self
+            .outbox
+            .enqueue(&mut self.store, self.tenant.clone(), raw)
             .map_err(|_| AgentBindingError::Unavailable)?;
         self.outbox
             .bytes_for_transmission(submission_id)
             .map_err(|_| AgentBindingError::Unavailable)?;
         Ok(AgentSubmission {
             submission_id,
-            activity_id,
+            activity_id: submission_id,
         })
     }
 }
@@ -376,13 +389,9 @@ fn scalar_identifier_cannot_replace_a_committed_receipt_batch() {
         let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
         let raw = support::raw_receipt_evidence(
             encode_receipt(&fields, Some(signature.to_bytes())),
-            AuthorizedBatch::new(
-                batch_id,
-                fields.asset,
-                fields.previous_state_root,
-                fields.resulting_state_root,
-                signer.verifying_key().to_bytes(),
-            ),
+            signer.verifying_key().to_bytes(),
+            fields.previous_state_root,
+            fields.resulting_state_root,
             9,
             &signer,
         );
@@ -658,11 +667,18 @@ fn initial_binding_requires_real_signature_and_verified_matching_receipt() {
     ));
 
     let accepted_receipt = binding_receipt(submission, address, 4);
+    let decoded_receipt = layerx_wire::receipt::decode(&accepted_receipt.canonical_receipt)
+        .unwrap_or_else(|error| panic!("decode binding receipt: {error:?}"));
+    let unsigned_receipt = layerx_wire::receipt::encode_unsigned(&decoded_receipt)
+        .unwrap_or_else(|error| panic!("unsigned binding receipt: {error:?}"));
+    let receipt_hash = layerx_wire::hash::receipt_digest(&unsigned_receipt)
+        .unwrap_or_else(|error| panic!("binding receipt digest: {error:?}"));
     let active = required(
         journey.finalize(&mut scope, &accepted_receipt, 104, &TraceId::mint([2; 16])),
         "finalize binding",
     );
     assert_eq!(active.address(), address.bytes());
+    assert_eq!(active.receipt_digest(), receipt_hash);
     agent.mark_executed(submission, accepted_receipt);
     assert!(agent
         .outbox

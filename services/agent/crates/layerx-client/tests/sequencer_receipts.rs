@@ -4,7 +4,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use layerx_client::sequencer::{
-    SequencerEndpoint, SequencerError, SequencerLog, TransactionReceipt,
+    SequencerEndpoint, SequencerError, SequencerLog, SequencerReceipt, TransactionReceipt,
 };
 use serde_json::{json, Value};
 
@@ -32,7 +32,7 @@ fn hex(data: &[u8]) -> String {
     })
 }
 
-fn serve(results: Vec<Value>) -> (String, JoinHandle<Vec<Value>>) {
+fn serve(method: &'static str, results: Vec<Value>) -> (String, JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").must();
     let url = format!("http://{}/", listener.local_addr().must());
     let handle = std::thread::spawn(move || {
@@ -56,7 +56,7 @@ fn serve(results: Vec<Value>) -> (String, JoinHandle<Vec<Value>>) {
             reader.read_exact(&mut body).must();
             let request: Value = serde_json::from_slice(&body).must();
             assert_eq!(request["jsonrpc"], "2.0");
-            assert_eq!(request["method"], "eth_getTransactionReceipt");
+            assert_eq!(request["method"], method);
             let answer =
                 json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string();
             seen.push(request["params"].clone());
@@ -114,7 +114,7 @@ fn transaction_receipt_decodes_status_block_gas_and_logs() {
     reverted["transactionIndex"] = json!("0x0");
     reverted["gasUsed"] = json!("0xffffffffffffffff");
     reverted["logs"] = json!([]);
-    let (url, server) = serve(vec![receipt(), reverted]);
+    let (url, server) = serve("eth_getTransactionReceipt", vec![receipt(), reverted]);
     let endpoint = SequencerEndpoint::new(&url, &[]).must();
     assert_eq!(
         endpoint.transaction_receipt(&hash),
@@ -216,7 +216,7 @@ fn unknown_transaction_receipt_is_none_and_a_bad_status_is_malformed() {
     results.push(invalid);
     results.push(json!([]));
     let count = results.len();
-    let (url, server) = serve(results);
+    let (url, server) = serve("eth_getTransactionReceipt", results);
     let endpoint = SequencerEndpoint::new(&url, &[]).must();
     assert_eq!(endpoint.transaction_receipt(&hash), Ok(None));
     for index in 1..count {
@@ -227,4 +227,96 @@ fn unknown_transaction_receipt_is_none_and_a_bad_status_is_malformed() {
         );
     }
     assert_eq!(server.join().must(), vec![json!([hex(&hash)]); count]);
+}
+
+#[test]
+fn decode_receipt_reads_the_served_signing_key() {
+    let hash = [0xab; 32];
+    let signing_key = ed25519_dalek::SigningKey::from_bytes(&[8; 32])
+        .verifying_key()
+        .to_bytes();
+    let receipted = json!({
+        "rung": "receipted",
+        "txHash": hex(&hash),
+        "nonce": "0x7",
+        "seq": "0x2a",
+        "height": "0x3e8",
+        "index": "0x3",
+        "timestamp": "0x67a1b2c3",
+        "status": "0x1",
+        "returnData": "0x",
+        "logs": [],
+        "gasUsed": "0x5208",
+        "cumulativeGasUsed": "0xa410",
+        "effectiveGasPrice": "0x3b9aca00",
+        "feeDenom": "upax",
+        "feeAmount": "0x1312d00000000",
+        "sponsor": hex(&[0; 20]),
+        "from": hex(&[0x12; 20]),
+        "to": hex(&[0x34; 20]),
+        "contractAddress": hex(&[0; 20]),
+        "vmError": "",
+        "keyId": hex(&[1; 32]),
+        "receipt": "0x00025201000200aabbccdd",
+        "signingKey": hex(&signing_key)
+    });
+    assert_eq!(receipted.as_object().must().len(), 23);
+    let mut missing_key = receipted.clone();
+    assert_eq!(
+        missing_key.as_object_mut().must().remove("signingKey"),
+        Some(json!(hex(&signing_key)))
+    );
+    assert_eq!(missing_key.as_object().must().len(), 22);
+    let mut committed = receipted.clone();
+    committed["rung"] = json!("committed");
+    committed["blockNumber"] = json!("0x3e8");
+    committed["blockHash"] = json!(hex(&[0xcd; 32]));
+    assert_eq!(committed.as_object().must().len(), 25);
+    let mut committed_missing_key = committed.clone();
+    assert!(committed_missing_key
+        .as_object_mut()
+        .must()
+        .remove("signingKey")
+        .is_some());
+    let mut short_key = receipted.clone();
+    short_key["signingKey"] = json!(hex(&signing_key[..31]));
+    let mut long_key = receipted.clone();
+    long_key["signingKey"] = json!(hex(&[8; 33]));
+    let (url, server) = serve(
+        "pax_sequencerReceipt",
+        vec![
+            receipted,
+            missing_key,
+            committed,
+            committed_missing_key,
+            short_key,
+            long_key,
+        ],
+    );
+    let endpoint = SequencerEndpoint::new(&url, &[]).must();
+    let Some(SequencerReceipt::Receipted(execution)) = endpoint.sequencer_receipt(&hash).must()
+    else {
+        panic!("expected a receipted answer");
+    };
+    assert_eq!(execution.tx_hash, hash);
+    assert_eq!(execution.signing_key, signing_key);
+    assert_eq!(
+        endpoint.sequencer_receipt(&hash),
+        Err(SequencerError::Malformed)
+    );
+    assert_eq!(
+        endpoint.sequencer_receipt(&hash),
+        Ok(Some(SequencerReceipt::Committed {
+            receipt: execution,
+            block_number: 1000,
+            block_hash: [0xcd; 32],
+        }))
+    );
+    for _ in 0..3 {
+        assert_eq!(
+            endpoint.sequencer_receipt(&hash),
+            Err(SequencerError::Malformed)
+        );
+    }
+    assert_eq!(server.join().must(), vec![json!([hex(&hash)]); 6]);
 }

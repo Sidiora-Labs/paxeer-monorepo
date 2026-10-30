@@ -39,6 +39,27 @@ function asset_row_renders_native_balance_without_parts() {
   expect(container.querySelectorAll('tr')).toHaveLength(1);
 }
 
+function asset_item_renders_total_without_parts() {
+  const cases: Array<{ balance: PaxeerXBalance; expectedTotal: string }> = [
+    { balance: { asset: paxeerXMock.tokenAsset, total: '1200' }, expectedTotal: '0.0012' },
+    { balance: { asset: paxeerXMock.tokenAsset, total: '1234567890000' }, expectedTotal: '1,234,567.89' },
+    { balance: { asset: paxeerXMock.nativeAsset, total: '1000000000000000000' }, expectedTotal: '1' },
+  ];
+
+  for (const { balance, expectedTotal } of cases) {
+    const { container, unmount } = renderItem(balance);
+
+    expect(container.querySelectorAll('[data-label="total"]')).toHaveLength(1);
+    expect(container.querySelector('[data-label="total"]')?.textContent).toBe(expectedTotal);
+    expect(container.querySelector('[data-parts-of]')).toBeNull();
+    expect(container.querySelectorAll('tr')).toHaveLength(1);
+    expect(container.querySelectorAll('td')).toHaveLength(3);
+    expect(screen.queryByRole('button')).toBeNull();
+
+    unmount();
+  }
+}
+
 describe('AssetListItem', () => {
   it('names the asset by its symbol and repeats the kernel asset id under it', () => {
     const { container } = renderItem(tokenBalance);
@@ -64,4 +85,5 @@ describe('AssetListItem', () => {
   });
 
   test(asset_row_renders_native_balance_without_parts);
+  test(asset_item_renders_total_without_parts);
 });

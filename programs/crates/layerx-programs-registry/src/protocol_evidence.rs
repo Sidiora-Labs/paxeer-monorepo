@@ -22,18 +22,19 @@ use layerx_wire::hash::{activity_id, execution_batch_id, payload_hash, receipt_d
 use layerx_wire::receipt::{decode as decode_receipt, decode_batch_header, encode_unsigned};
 
 use crate::account_state::verify_state_membership;
+use crate::chain_proof::ChainProofVerifier;
 use crate::{
     verify_interface_read, DeploymentRecord, InterfaceRefusal, InterfaceStateWitness,
     ProgramLifecycle, ReadFreshness, StateProof, VerifiedInterfaceRead,
 };
 use layerx_programs_runtime::abi_policy::admit_abi_version;
 
-const PROGRAMS_MODULE_ID: u16 = 9;
+pub(crate) const PROGRAMS_MODULE_ID: u16 = 9;
 const DEPLOY_ORDINAL: u16 = 1;
 const UPGRADE_ORDINAL: u16 = 2;
 const PROGRAM_RECORD_BYTES: usize = 71;
-const PROGRAM_KEY_PREFIX: &[u8] = b"program\0";
-const STATUS_KEY_PREFIX: &[u8] = b"wind-down\0s";
+pub(crate) const PROGRAM_KEY_PREFIX: &[u8] = b"program\0";
+pub(crate) const STATUS_KEY_PREFIX: &[u8] = b"wind-down\0s";
 const STATUS_RECORD_BYTES: usize = 54;
 const WASM_HEADER: &[u8; 8] = b"\0asm\x01\0\0\0";
 const MAX_MODULE_BYTES: usize = 32 * 1024 * 1024;
@@ -50,7 +51,7 @@ const MAX_TRUST_HISTORY_BYTES: usize =
 
 /// One exact state-tree leaf and its index-aware membership proof.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct StateLeafWitness {
+struct KernelStateLeafWitness {
     pub key: Vec<u8>,
     pub value: Vec<u8>,
     pub proof: StateProof,
@@ -58,35 +59,35 @@ pub struct StateLeafWitness {
 
 /// Canonical proof of the program lifecycle at one Programs root.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ProgramLifecycleProof {
+enum KernelProgramLifecycleProof {
     /// The wind-down status key is absent between the supplied adjacent leaves.
     Active {
-        lower: Option<StateLeafWitness>,
-        upper: Option<StateLeafWitness>,
+        lower: Option<KernelStateLeafWitness>,
+        upper: Option<KernelStateLeafWitness>,
     },
     /// The wind-down status key is present with its exact protocol record.
-    Status(StateLeafWitness),
+    Status(KernelStateLeafWitness),
 }
 
 /// Receipt, signed-batch and state-tree material for one Programs state head.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ProgramStateProof {
+struct KernelProgramStateProof {
     pub receipt: Vec<u8>,
     pub receipt_proof: Proof,
     pub header: Vec<u8>,
     pub header_signature: [u8; 64],
     pub programs_root: [u8; 32],
     pub programs_root_proof: StateProof,
-    pub program_record: StateLeafWitness,
-    pub lifecycle: ProgramLifecycleProof,
+    pub program_record: KernelStateLeafWitness,
+    pub lifecycle: KernelProgramLifecycleProof,
 }
 
 /// Canonical deployment/upgrade activity plus its receipt and resulting state.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DeploymentProof {
+struct KernelDeploymentProof {
     pub activity: Vec<u8>,
     pub activity_proof: Proof,
-    pub state: ProgramStateProof,
+    pub state: KernelProgramStateProof,
     pub maintenance: Option<DeploymentMaintenanceProof>,
 }
 
@@ -103,7 +104,7 @@ pub struct ProtocolHeadMaintenanceProof {
     pub activity_receipts: Vec<Vec<u8>>,
 }
 
-pub struct ProtocolHeadProof<'a> {
+struct KernelProtocolHeadProof<'a> {
     pub receipt: &'a [u8],
     pub receipt_proof: &'a Proof,
     pub header: &'a [u8],
@@ -114,6 +115,8 @@ pub struct ProtocolHeadProof<'a> {
 /// Exact cryptographic refusal returned before deployment state is trusted.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProtocolEvidenceError {
+    ChainProof,
+    Expired,
     InvalidTrustAnchor,
     TrustHistoryUnavailable,
     TrustAnchorUnavailable,
@@ -142,6 +145,8 @@ pub enum ProtocolEvidenceError {
 impl Display for ProtocolEvidenceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
+            Self::ChainProof => "chain commitment proof is invalid",
+            Self::Expired => "chain trust has expired",
             Self::InvalidTrustAnchor => "deployment verifier trust anchor is invalid",
             Self::TrustHistoryUnavailable => {
                 "canonical protected sequencer trust history is unavailable"
@@ -182,7 +187,7 @@ impl std::error::Error for ProtocolEvidenceError {}
 /// Opaque deployment material admitted only after activity, receipt, batch,
 /// state-root, registry-record and lifecycle verification all succeeded.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VerifiedDeploymentEvidence {
+struct KernelVerifiedDeploymentEvidence {
     lifecycle: ProgramLifecycle,
     record: DeploymentRecord,
     interface: Option<crate::ProgramInterface>,
@@ -192,10 +197,10 @@ pub struct VerifiedDeploymentEvidence {
     state_root: [u8; 32],
     programs_root: [u8; 32],
     freshness: ReadFreshness,
-    proof: DeploymentProof,
+    proof: KernelDeploymentProof,
 }
 
-impl VerifiedDeploymentEvidence {
+impl KernelVerifiedDeploymentEvidence {
     pub(crate) fn into_record(self) -> DeploymentRecord {
         self.record
     }
@@ -278,7 +283,7 @@ impl VerifiedDeploymentEvidence {
     }
 
     #[must_use]
-    pub const fn proof(&self) -> &DeploymentProof {
+    pub const fn proof(&self) -> &KernelDeploymentProof {
         &self.proof
     }
 }
@@ -286,7 +291,7 @@ impl VerifiedDeploymentEvidence {
 /// Opaque current state for one program. A catalog must consume one of these
 /// for every admitted module before it can authorize an activity.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VerifiedProgramHead {
+struct KernelVerifiedProgramHead {
     program: ProgramId,
     version: u32,
     code_hash: [u8; 32],
@@ -300,7 +305,7 @@ pub struct VerifiedProgramHead {
     valid_until_ms: u64,
 }
 
-impl VerifiedProgramHead {
+impl KernelVerifiedProgramHead {
     #[must_use]
     pub const fn program(&self) -> ProgramId {
         self.program
@@ -360,7 +365,7 @@ impl VerifiedProgramHead {
 /// Opaque current receipt head established under the one configured active
 /// sequencer trust anchor.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct VerifiedProtocolHead {
+struct KernelVerifiedProtocolHead {
     activity_id: [u8; 32],
     receipt_digest: [u8; 32],
     batch_header_digest: [u8; 32],
@@ -369,7 +374,7 @@ pub struct VerifiedProtocolHead {
     sequencer_public_key: [u8; 32],
 }
 
-impl VerifiedProtocolHead {
+impl KernelVerifiedProtocolHead {
     #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
         self.activity_id
@@ -507,7 +512,7 @@ impl VerifiedMaintenanceHead {
 /// state proof. An ordinary head is never a protocol-v3 head and is always the
 /// final receipt of its signed batch.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct VerifiedChainHead {
+struct KernelVerifiedChainHead {
     evidence_digest: ReceiptEvidenceDigest,
     batch_header_digest: [u8; 32],
     state_root: [u8; 32],
@@ -515,7 +520,7 @@ pub struct VerifiedChainHead {
     sequencer_public_key: [u8; 32],
 }
 
-impl VerifiedChainHead {
+impl KernelVerifiedChainHead {
     #[must_use]
     pub const fn head_kind(&self) -> ProgramHeadKind {
         self.evidence_digest.head_kind()
@@ -557,7 +562,7 @@ impl VerifiedChainHead {
     }
 }
 
-impl From<VerifiedMaintenanceHead> for VerifiedChainHead {
+impl From<VerifiedMaintenanceHead> for KernelVerifiedChainHead {
     fn from(head: VerifiedMaintenanceHead) -> Self {
         Self {
             evidence_digest: ReceiptEvidenceDigest::MaintenanceReceiptSha256(
@@ -573,29 +578,29 @@ impl From<VerifiedMaintenanceHead> for VerifiedChainHead {
 
 /// Untrusted Programs state proof for one program at one pinned chain head.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ProgramStateBundle {
+struct KernelProgramStateBundle {
     pub head_kind: ProgramHeadKind,
-    pub state: ProgramStateProof,
+    pub state: KernelProgramStateProof,
     pub interface: InterfaceStateWitness,
 }
 
 /// Program, chain head and interface established together by one verifier
 /// call; callers cannot associate them any other way.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VerifiedProgramBundle {
-    program: VerifiedProgramHead,
-    chain: VerifiedChainHead,
+struct KernelVerifiedProgramBundle {
+    program: KernelVerifiedProgramHead,
+    chain: KernelVerifiedChainHead,
     interface: VerifiedInterfaceRead,
 }
 
-impl VerifiedProgramBundle {
+impl KernelVerifiedProgramBundle {
     #[must_use]
-    pub const fn program_head(&self) -> &VerifiedProgramHead {
+    pub const fn program_head(&self) -> &KernelVerifiedProgramHead {
         &self.program
     }
 
     #[must_use]
-    pub const fn chain_head(&self) -> &VerifiedChainHead {
+    pub const fn chain_head(&self) -> &KernelVerifiedChainHead {
         &self.chain
     }
 
@@ -639,7 +644,7 @@ impl Display for ProgramBundleError {
 impl std::error::Error for ProgramBundleError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct SequencerTrustAnchor {
+pub(crate) struct SequencerTrustAnchor {
     protocol_version: u16,
     network_id: u32,
     epoch: u64,
@@ -679,10 +684,11 @@ impl SequencerTrustAnchor {
 /// sequencer authorizations and one explicit current anchor.
 #[derive(Clone, Debug)]
 pub struct ProtocolDeploymentVerifier {
-    anchors: Vec<SequencerTrustAnchor>,
-    current_anchor: usize,
-    staleness_limit_ms: u64,
-    signed_history: Option<layerx_proof::signed_authority::SignedAuthorityHistory>,
+    pub(crate) anchors: Vec<SequencerTrustAnchor>,
+    pub(crate) current_anchor: usize,
+    pub(crate) staleness_limit_ms: u64,
+    pub(crate) signed_history: Option<layerx_proof::signed_authority::SignedAuthorityHistory>,
+    pub(crate) chain_verifier: Option<ChainProofVerifier>,
 }
 
 impl ProtocolDeploymentVerifier {
@@ -730,6 +736,7 @@ impl ProtocolDeploymentVerifier {
             current_anchor,
             staleness_limit_ms,
             signed_history: None,
+            chain_verifier: None,
         })
     }
 
@@ -820,6 +827,7 @@ impl ProtocolDeploymentVerifier {
             current_anchor,
             staleness_limit_ms: self.staleness_limit_ms,
             signed_history: Some(history.clone()),
+            chain_verifier: None,
         })
     }
 
@@ -828,16 +836,20 @@ impl ProtocolDeploymentVerifier {
         self.staleness_limit_ms
     }
 
+    pub fn chain_trust(&self) -> Option<&ChainProofVerifier> {
+        self.chain_verifier.as_ref()
+    }
+
     /// Verifies a canonical deploy or upgrade through its exact successful
     /// receipt and resulting Programs state before returning opaque evidence.
     /// # Errors
     ///
     /// Refuses invalid, stale or mismatched activity, receipt, signed batch and registry evidence.
-    pub fn verify_deployment(
+    fn kernel_verify_deployment(
         &self,
-        proof: &DeploymentProof,
+        proof: &KernelDeploymentProof,
         now_ms: u64,
-    ) -> Result<VerifiedDeploymentEvidence, ProtocolEvidenceError> {
+    ) -> Result<KernelVerifiedDeploymentEvidence, ProtocolEvidenceError> {
         let activity = canonical_programs_activity(&proof.activity)?;
         let parsed =
             parse_lifecycle_activity(activity.activity_type().ordinal(), activity.payload())?;
@@ -869,7 +881,7 @@ impl ProtocolDeploymentVerifier {
             });
         }
         let (record, interface) = bind_deployment(parsed, &head)?;
-        Ok(VerifiedDeploymentEvidence {
+        Ok(KernelVerifiedDeploymentEvidence {
             lifecycle: head.lifecycle,
             record,
             interface,
@@ -890,10 +902,10 @@ impl ProtocolDeploymentVerifier {
     /// # Errors
     ///
     /// Refuses invalid or mismatched historical activity, receipt, signed batch and registry evidence.
-    pub fn verify_historical_deployment(
+    fn kernel_verify_historical_deployment(
         &self,
-        proof: &DeploymentProof,
-    ) -> Result<VerifiedDeploymentEvidence, ProtocolEvidenceError> {
+        proof: &KernelDeploymentProof,
+    ) -> Result<KernelVerifiedDeploymentEvidence, ProtocolEvidenceError> {
         let activity = canonical_programs_activity(&proof.activity)?;
         let parsed =
             parse_lifecycle_activity(activity.activity_type().ordinal(), activity.payload())?;
@@ -925,7 +937,7 @@ impl ProtocolDeploymentVerifier {
             });
         }
         let (record, interface) = bind_deployment(parsed, &head)?;
-        Ok(VerifiedDeploymentEvidence {
+        Ok(KernelVerifiedDeploymentEvidence {
             lifecycle: head.lifecycle,
             record,
             interface,
@@ -944,12 +956,12 @@ impl ProtocolDeploymentVerifier {
     /// # Errors
     ///
     /// Refuses stale or invalid program proofs and unexpected program identities.
-    pub fn verify_current_program(
+    fn kernel_verify_current_program(
         &self,
-        proof: &ProgramStateProof,
+        proof: &KernelProgramStateProof,
         expected_program: ProgramId,
         now_ms: u64,
-    ) -> Result<VerifiedProgramHead, ProtocolEvidenceError> {
+    ) -> Result<KernelVerifiedProgramHead, ProtocolEvidenceError> {
         let head = self.verify_program_head(proof, EvidenceMoment::Current(now_ms))?;
         if head.record.program != expected_program {
             return Err(ProtocolEvidenceError::ProgramRecord);
@@ -959,7 +971,7 @@ impl ProtocolDeploymentVerifier {
             .observed_at
             .checked_add(self.staleness_limit_ms)
             .ok_or(ProtocolEvidenceError::Stale)?;
-        Ok(VerifiedProgramHead {
+        Ok(KernelVerifiedProgramHead {
             program: head.record.program,
             version: head.record.version,
             code_hash: head.record.code_hash,
@@ -979,14 +991,14 @@ impl ProtocolDeploymentVerifier {
     /// # Errors
     ///
     /// Refuses stale or invalid receipts, inclusion proofs and signed batch headers.
-    pub fn verify_current_protocol_head(
+    fn kernel_verify_current_protocol_head(
         &self,
         receipt: &[u8],
         receipt_proof: &Proof,
         header: &[u8],
         header_signature: &[u8; 64],
         now_ms: u64,
-    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+    ) -> Result<KernelVerifiedProtocolHead, ProtocolEvidenceError> {
         self.verify_protocol_head(
             receipt,
             receipt_proof,
@@ -1001,13 +1013,13 @@ impl ProtocolDeploymentVerifier {
     /// # Errors
     ///
     /// Refuses invalid historical receipts, inclusion proofs and signed batch headers.
-    pub fn verify_historical_protocol_head(
+    fn kernel_verify_historical_protocol_head(
         &self,
         receipt: &[u8],
         receipt_proof: &Proof,
         header: &[u8],
         header_signature: &[u8; 64],
-    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+    ) -> Result<KernelVerifiedProtocolHead, ProtocolEvidenceError> {
         self.verify_protocol_head(
             receipt,
             receipt_proof,
@@ -1019,28 +1031,28 @@ impl ProtocolDeploymentVerifier {
 
     /// # Errors
     /// Refuses incomplete or invalid receipt chains and stale current authority.
-    pub fn verify_current_protocol_head_proof(
+    fn kernel_verify_current_protocol_head_proof(
         &self,
-        proof: &ProtocolHeadProof<'_>,
+        proof: &KernelProtocolHeadProof<'_>,
         now_ms: u64,
-    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+    ) -> Result<KernelVerifiedProtocolHead, ProtocolEvidenceError> {
         self.verify_protocol_head_proof(proof, EvidenceMoment::Current(now_ms))
     }
 
     /// # Errors
     /// Refuses incomplete or invalid historical receipt-chain authority.
-    pub fn verify_historical_protocol_head_proof(
+    fn kernel_verify_historical_protocol_head_proof(
         &self,
-        proof: &ProtocolHeadProof<'_>,
-    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+        proof: &KernelProtocolHeadProof<'_>,
+    ) -> Result<KernelVerifiedProtocolHead, ProtocolEvidenceError> {
         self.verify_protocol_head_proof(proof, EvidenceMoment::Historical)
     }
 
     fn verify_protocol_head_proof(
         &self,
-        proof: &ProtocolHeadProof<'_>,
+        proof: &KernelProtocolHeadProof<'_>,
         moment: EvidenceMoment,
-    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+    ) -> Result<KernelVerifiedProtocolHead, ProtocolEvidenceError> {
         let Some(maintenance) = proof.maintenance else {
             return self.verify_protocol_head(
                 proof.receipt,
@@ -1113,7 +1125,7 @@ impl ProtocolDeploymentVerifier {
             }
         }
         let unsigned = encode_unsigned(&decoded).map_err(|_| ProtocolEvidenceError::Receipt)?;
-        Ok(VerifiedProtocolHead {
+        Ok(KernelVerifiedProtocolHead {
             activity_id: protocol.activity_id(),
             receipt_digest: receipt_digest(&unsigned)
                 .map_err(|_| ProtocolEvidenceError::Receipt)?,
@@ -1194,7 +1206,7 @@ impl ProtocolDeploymentVerifier {
     /// the final receipt of its batch, is refused as stale.
     /// # Errors
     /// Refuses invalid, stale or non-final heads.
-    pub fn verify_current_chain_head(
+    fn kernel_verify_current_chain_head(
         &self,
         kind: ProgramHeadKind,
         receipt: &[u8],
@@ -1202,7 +1214,7 @@ impl ProtocolDeploymentVerifier {
         header: &[u8],
         header_signature: &[u8; 64],
         now_ms: u64,
-    ) -> Result<VerifiedChainHead, ProtocolEvidenceError> {
+    ) -> Result<KernelVerifiedChainHead, ProtocolEvidenceError> {
         match kind {
             ProgramHeadKind::Maintenance => self
                 .verify_maintenance_head(
@@ -1212,7 +1224,7 @@ impl ProtocolDeploymentVerifier {
                     header_signature,
                     EvidenceMoment::Current(now_ms),
                 )
-                .map(VerifiedChainHead::from),
+                .map(KernelVerifiedChainHead::from),
             ProgramHeadKind::Ordinary => {
                 let decoded = decode_batch_header(header)
                     .map_err(|_| ProtocolEvidenceError::ReceiptInclusion)?;
@@ -1229,7 +1241,7 @@ impl ProtocolDeploymentVerifier {
                 if claims.freshness.observed_sequence != decoded.last_sequence() {
                     return Err(ProtocolEvidenceError::Stale);
                 }
-                Ok(VerifiedChainHead {
+                Ok(KernelVerifiedChainHead {
                     evidence_digest: ReceiptEvidenceDigest::OrdinaryUnsignedReceipt(
                         claims.receipt_digest,
                     ),
@@ -1248,66 +1260,6 @@ impl ProtocolDeploymentVerifier {
     /// # Errors
     /// Refuses head-kind, coordinate, signer, program, state, lifecycle,
     /// freshness and interface mismatches.
-    pub fn verify_current_program_bundle(
-        &self,
-        bundle: &ProgramStateBundle,
-        chain: &VerifiedChainHead,
-        expected_program: ProgramId,
-        authorised_signer: &[u8; 32],
-        now_ms: u64,
-    ) -> Result<VerifiedProgramBundle, ProgramBundleError> {
-        if bundle.head_kind != chain.head_kind() {
-            return Err(ProgramBundleError::HeadKind);
-        }
-        let state = &bundle.state;
-        let head = self
-            .verify_current_chain_head(
-                bundle.head_kind,
-                &state.receipt,
-                &state.receipt_proof,
-                &state.header,
-                &state.header_signature,
-                now_ms,
-            )
-            .map_err(ProgramBundleError::Evidence)?;
-        if head != *chain {
-            return Err(ProgramBundleError::ChainHeadMismatch);
-        }
-        if head.sequencer_public_key != *authorised_signer {
-            return Err(ProgramBundleError::SignerMismatch);
-        }
-        let (record, lifecycle) = verify_program_state_at(state, head.state_root)
-            .map_err(ProgramBundleError::Evidence)?;
-        if record.program != expected_program {
-            return Err(ProgramBundleError::ProgramMismatch);
-        }
-        let valid_until_ms = head
-            .freshness
-            .observed_at
-            .checked_add(self.staleness_limit_ms)
-            .ok_or(ProgramBundleError::Evidence(ProtocolEvidenceError::Stale))?;
-        let program = VerifiedProgramHead {
-            program: record.program,
-            version: record.version,
-            code_hash: record.code_hash,
-            abi_version: record.abi_version,
-            policy: record.policy,
-            lifecycle,
-            receipt_digest: head.receipt_digest(),
-            state_root: head.state_root,
-            programs_root: state.programs_root,
-            freshness: head.freshness,
-            valid_until_ms,
-        };
-        let interface = verify_interface_read(&program, &bundle.interface)
-            .map_err(ProgramBundleError::Interface)?;
-        Ok(VerifiedProgramBundle {
-            program,
-            chain: head,
-            interface,
-        })
-    }
-
     /// Verifies a maintenance head under its historical signed-header trust anchor.
     /// # Errors
     /// Refuses invalid inclusion, maintenance identity or settlement.
@@ -1394,10 +1346,10 @@ impl ProtocolDeploymentVerifier {
         header: &[u8],
         header_signature: &[u8; 64],
         moment: EvidenceMoment,
-    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+    ) -> Result<KernelVerifiedProtocolHead, ProtocolEvidenceError> {
         let claims =
             self.verify_receipt(receipt, receipt_proof, header, header_signature, moment)?;
-        Ok(VerifiedProtocolHead {
+        Ok(KernelVerifiedProtocolHead {
             activity_id: claims.activity_id,
             receipt_digest: claims.receipt_digest,
             batch_header_digest: claims.batch_header_digest,
@@ -1409,7 +1361,7 @@ impl ProtocolDeploymentVerifier {
 
     fn verify_program_head(
         &self,
-        proof: &ProgramStateProof,
+        proof: &KernelProgramStateProof,
         moment: EvidenceMoment,
     ) -> Result<VerifiedHeadClaims, ProtocolEvidenceError> {
         let receipt = self.verify_receipt(
@@ -1424,7 +1376,7 @@ impl ProtocolDeploymentVerifier {
 
     fn verify_deployment_head(
         &self,
-        proof: &DeploymentProof,
+        proof: &KernelDeploymentProof,
         moment: EvidenceMoment,
     ) -> Result<VerifiedHeadClaims, ProtocolEvidenceError> {
         let Some(maintenance) = &proof.maintenance else {
@@ -1504,7 +1456,7 @@ impl ProtocolDeploymentVerifier {
     }
 
     fn bind_program_head(
-        proof: &ProgramStateProof,
+        proof: &KernelProgramStateProof,
         receipt: &VerifiedReceiptClaims,
     ) -> Result<VerifiedHeadClaims, ProtocolEvidenceError> {
         let (record, lifecycle) = verify_program_state_at(proof, receipt.state_root)?;
@@ -1653,7 +1605,7 @@ impl ProtocolDeploymentVerifier {
 
 /// Module-9 membership, program record and lifecycle shared by every head kind.
 fn verify_program_state_at(
-    proof: &ProgramStateProof,
+    proof: &KernelProgramStateProof,
     state_root: [u8; 32],
 ) -> Result<(ProgramRecord, ProgramLifecycle), ProtocolEvidenceError> {
     if proof.programs_root == [0; 32] {
@@ -1667,7 +1619,7 @@ fn verify_program_state_at(
     )
     .map_err(|_| ProtocolEvidenceError::StateRoot)?;
     verify_witness(&proof.program_record, proof.programs_root)?;
-    let record = decode_program_record(&proof.program_record)?;
+    let record = decode_kernel_program_record(&proof.program_record)?;
     let lifecycle = verify_lifecycle(record.program, &proof.lifecycle, proof.programs_root)?;
     Ok((record, lifecycle))
 }
@@ -1720,12 +1672,12 @@ fn verify_maintenance_settlement(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct ProgramRecord {
-    program: ProgramId,
-    version: u32,
-    code_hash: [u8; 32],
-    abi_version: u16,
-    policy: UpgradePolicy,
+pub(crate) struct ProgramRecord {
+    pub(crate) program: ProgramId,
+    pub(crate) version: u32,
+    pub(crate) code_hash: [u8; 32],
+    pub(crate) abi_version: u16,
+    pub(crate) policy: UpgradePolicy,
 }
 
 struct VerifiedHeadClaims {
@@ -2215,39 +2167,46 @@ fn bind_deployment(
     ))
 }
 
-fn decode_program_record(
-    witness: &StateLeafWitness,
+fn decode_kernel_program_record(
+    witness: &KernelStateLeafWitness,
 ) -> Result<ProgramRecord, ProtocolEvidenceError> {
-    if witness.key.len() != PROGRAM_KEY_PREFIX.len() + 32
-        || witness.key.get(..PROGRAM_KEY_PREFIX.len()) != Some(PROGRAM_KEY_PREFIX)
-        || witness.value.len() != PROGRAM_RECORD_BYTES
+    decode_program_record_value(&witness.key, &witness.value)
+}
+
+fn decode_program_record_value(
+    key: &[u8],
+    value: &[u8],
+) -> Result<ProgramRecord, ProtocolEvidenceError> {
+    if key.len() != PROGRAM_KEY_PREFIX.len() + 32
+        || key.get(..PROGRAM_KEY_PREFIX.len()) != Some(PROGRAM_KEY_PREFIX)
+        || value.len() != PROGRAM_RECORD_BYTES
     {
         return Err(ProtocolEvidenceError::ProgramRecord);
     }
     let program = ProgramId::new(
-        witness.key[PROGRAM_KEY_PREFIX.len()..]
+        key[PROGRAM_KEY_PREFIX.len()..]
             .try_into()
             .map_err(|_| ProtocolEvidenceError::ProgramRecord)?,
     )
     .map_err(|_| ProtocolEvidenceError::ProgramRecord)?;
-    let authority: [u8; 32] = witness.value[1..33]
+    let authority: [u8; 32] = value[1..33]
         .try_into()
         .map_err(|_| ProtocolEvidenceError::ProgramRecord)?;
-    let policy = match witness.value[0] {
+    let policy = match value[0] {
         0 if authority == [0; 32] => UpgradePolicy::Immutable,
         1 if authority != [0; 32] => UpgradePolicy::Authority(authority),
         _ => return Err(ProtocolEvidenceError::ProgramRecord),
     };
-    let code_hash = witness.value[33..65]
+    let code_hash = value[33..65]
         .try_into()
         .map_err(|_| ProtocolEvidenceError::ProgramRecord)?;
     let abi_version = u16::from_be_bytes(
-        witness.value[65..67]
+        value[65..67]
             .try_into()
             .map_err(|_| ProtocolEvidenceError::ProgramRecord)?,
     );
     let version = u32::from_be_bytes(
-        witness.value[67..71]
+        value[67..71]
             .try_into()
             .map_err(|_| ProtocolEvidenceError::ProgramRecord)?,
     );
@@ -2265,18 +2224,18 @@ fn decode_program_record(
 
 fn verify_lifecycle(
     program: ProgramId,
-    proof: &ProgramLifecycleProof,
+    proof: &KernelProgramLifecycleProof,
     programs_root: [u8; 32],
 ) -> Result<ProgramLifecycle, ProtocolEvidenceError> {
     let mut target = Vec::with_capacity(STATUS_KEY_PREFIX.len() + 32);
     target.extend_from_slice(STATUS_KEY_PREFIX);
     target.extend_from_slice(&program.bytes());
     match proof {
-        ProgramLifecycleProof::Active { lower, upper } => {
+        KernelProgramLifecycleProof::Active { lower, upper } => {
             verify_absence(&target, lower.as_ref(), upper.as_ref(), programs_root)?;
             Ok(ProgramLifecycle::Active)
         }
-        ProgramLifecycleProof::Status(witness) => {
+        KernelProgramLifecycleProof::Status(witness) => {
             if witness.key != target || witness.value.len() != STATUS_RECORD_BYTES {
                 return Err(ProtocolEvidenceError::LifecycleProof);
             }
@@ -2307,8 +2266,8 @@ fn verify_lifecycle(
 
 fn verify_absence(
     target: &[u8],
-    lower: Option<&StateLeafWitness>,
-    upper: Option<&StateLeafWitness>,
+    lower: Option<&KernelStateLeafWitness>,
+    upper: Option<&KernelStateLeafWitness>,
     root: [u8; 32],
 ) -> Result<(), ProtocolEvidenceError> {
     if lower.is_none() && upper.is_none() {
@@ -2349,7 +2308,10 @@ fn verify_absence(
     Ok(())
 }
 
-fn verify_witness(witness: &StateLeafWitness, root: [u8; 32]) -> Result<(), ProtocolEvidenceError> {
+fn verify_witness(
+    witness: &KernelStateLeafWitness,
+    root: [u8; 32],
+) -> Result<(), ProtocolEvidenceError> {
     if witness.key.is_empty()
         || u32::try_from(witness.key.len()).is_err()
         || u32::try_from(witness.value.len()).is_err()
@@ -2367,7 +2329,7 @@ fn array<const N: usize>(bytes: &[u8], offset: usize) -> Result<[u8; N], Protoco
         .ok_or(ProtocolEvidenceError::CanonicalActivity)
 }
 
-impl DeploymentProof {
+impl KernelDeploymentProof {
     /// Encodes the untrusted proof material for durable replay. The encoding
     /// does not itself confer verification authority.
     #[must_use]
@@ -2443,7 +2405,7 @@ impl DeploymentProof {
     }
 }
 
-impl ProgramStateBundle {
+impl KernelProgramStateBundle {
     /// Encodes the untrusted Programs state proof canonically. The encoding
     /// does not itself confer verification authority.
     #[must_use]
@@ -2459,7 +2421,7 @@ impl ProgramStateBundle {
     }
 
     /// Decodes an untrusted Programs state proof. Callers must pass the result
-    /// through [`ProtocolDeploymentVerifier::verify_current_program_bundle`]
+    /// through [`ProtocolDeploymentVerifier::kernel_verify_current_program_bundle`]
     /// before using any claim it contains.
     /// # Errors
     ///
@@ -2494,7 +2456,7 @@ impl ProgramStateBundle {
     }
 }
 
-fn encode_program_state(bytes: &mut Vec<u8>, state: &ProgramStateProof) {
+fn encode_program_state(bytes: &mut Vec<u8>, state: &KernelProgramStateProof) {
     put_bytes(bytes, &state.receipt);
     put_bytes(bytes, &encode_proof(&state.receipt_proof));
     put_bytes(bytes, &state.header);
@@ -2503,12 +2465,12 @@ fn encode_program_state(bytes: &mut Vec<u8>, state: &ProgramStateProof) {
     put_state_proof(bytes, &state.programs_root_proof);
     put_witness(bytes, &state.program_record);
     match &state.lifecycle {
-        ProgramLifecycleProof::Active { lower, upper } => {
+        KernelProgramLifecycleProof::Active { lower, upper } => {
             bytes.push(0);
             put_optional_witness(bytes, lower.as_ref());
             put_optional_witness(bytes, upper.as_ref());
         }
-        ProgramLifecycleProof::Status(witness) => {
+        KernelProgramLifecycleProof::Status(witness) => {
             bytes.push(1);
             put_witness(bytes, witness);
         }
@@ -2518,7 +2480,7 @@ fn encode_program_state(bytes: &mut Vec<u8>, state: &ProgramStateProof) {
 fn decode_program_state(
     bytes: &[u8],
     cursor: &mut usize,
-) -> Result<ProgramStateProof, ProtocolEvidenceError> {
+) -> Result<KernelProgramStateProof, ProtocolEvidenceError> {
     let receipt = take_bytes(bytes, cursor, MAX_EVIDENCE_BYTES)?;
     let receipt_proof = decode_proof(&take_bytes(bytes, cursor, 1_034)?)
         .map_err(|_| ProtocolEvidenceError::Encoding)?;
@@ -2528,14 +2490,14 @@ fn decode_program_state(
     let programs_root_proof = take_state_proof(bytes, cursor)?;
     let program_record = take_witness(bytes, cursor)?;
     let lifecycle = match take_array::<1>(bytes, cursor)?[0] {
-        0 => ProgramLifecycleProof::Active {
+        0 => KernelProgramLifecycleProof::Active {
             lower: take_optional_witness(bytes, cursor)?,
             upper: take_optional_witness(bytes, cursor)?,
         },
-        1 => ProgramLifecycleProof::Status(take_witness(bytes, cursor)?),
+        1 => KernelProgramLifecycleProof::Status(take_witness(bytes, cursor)?),
         _ => return Err(ProtocolEvidenceError::Encoding),
     };
-    Ok(ProgramStateProof {
+    Ok(KernelProgramStateProof {
         receipt,
         receipt_proof,
         header,
@@ -2547,7 +2509,7 @@ fn decode_program_state(
     })
 }
 
-fn put_optional_witness(bytes: &mut Vec<u8>, witness: Option<&StateLeafWitness>) {
+fn put_optional_witness(bytes: &mut Vec<u8>, witness: Option<&KernelStateLeafWitness>) {
     bytes.push(u8::from(witness.is_some()));
     if let Some(value) = witness {
         put_witness(bytes, value);
@@ -2557,7 +2519,7 @@ fn put_optional_witness(bytes: &mut Vec<u8>, witness: Option<&StateLeafWitness>)
 fn take_optional_witness(
     bytes: &[u8],
     cursor: &mut usize,
-) -> Result<Option<StateLeafWitness>, ProtocolEvidenceError> {
+) -> Result<Option<KernelStateLeafWitness>, ProtocolEvidenceError> {
     match take_array::<1>(bytes, cursor)?[0] {
         0 => Ok(None),
         1 => take_witness(bytes, cursor).map(Some),
@@ -2565,7 +2527,7 @@ fn take_optional_witness(
     }
 }
 
-fn put_witness(bytes: &mut Vec<u8>, witness: &StateLeafWitness) {
+fn put_witness(bytes: &mut Vec<u8>, witness: &KernelStateLeafWitness) {
     put_bytes(bytes, &witness.key);
     put_bytes(bytes, &witness.value);
     put_state_proof(bytes, &witness.proof);
@@ -2574,8 +2536,8 @@ fn put_witness(bytes: &mut Vec<u8>, witness: &StateLeafWitness) {
 fn take_witness(
     bytes: &[u8],
     cursor: &mut usize,
-) -> Result<StateLeafWitness, ProtocolEvidenceError> {
-    Ok(StateLeafWitness {
+) -> Result<KernelStateLeafWitness, ProtocolEvidenceError> {
+    Ok(KernelStateLeafWitness {
         key: take_bytes(bytes, cursor, 4_096)?,
         value: take_bytes(bytes, cursor, MAX_MODULE_BYTES)?,
         proof: take_state_proof(bytes, cursor)?,
@@ -2692,6 +2654,7 @@ mod maintained_protocol_heads {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         };
         let leaves = [RECEIPT, MAINTENANCE];
         let (receipt_proof, root) = build_proof(&leaves, 0)
@@ -2704,7 +2667,7 @@ mod maintained_protocol_heads {
             receipt_proof: maintenance_proof,
             activity_receipts: vec![RECEIPT.to_vec()],
         };
-        let mut proof = ProtocolHeadProof {
+        let mut proof = KernelProtocolHeadProof {
             receipt: RECEIPT,
             receipt_proof: &receipt_proof,
             header: HEADER,
@@ -2712,7 +2675,7 @@ mod maintained_protocol_heads {
             maintenance: Some(&maintenance),
         };
         let historical = verifier
-            .verify_historical_protocol_head_proof(&proof)
+            .kernel_verify_historical_protocol_head_proof(&proof)
             .unwrap_or_else(|error| panic!("actual historical head: {error:?}"));
         assert_eq!(historical.state_root(), protocol.resulting_state_root());
         assert_eq!(
@@ -2720,46 +2683,47 @@ mod maintained_protocol_heads {
             protocol.global_sequence()
         );
         assert_eq!(
-            verifier.verify_current_protocol_head_proof(&proof, header.timestamp_ms()),
+            verifier.kernel_verify_current_protocol_head_proof(&proof, header.timestamp_ms()),
             Ok(historical)
         );
         assert_eq!(
-            verifier.verify_current_protocol_head_proof(&proof, header.timestamp_ms() + 1_001),
+            verifier
+                .kernel_verify_current_protocol_head_proof(&proof, header.timestamp_ms() + 1_001),
             Err(ProtocolEvidenceError::Stale)
         );
         let mut revoked = verifier.clone();
         revoked.anchors[0].revoked_from_batch = Some(header.batch_number());
         assert_eq!(
-            revoked.verify_historical_protocol_head_proof(&proof),
+            revoked.kernel_verify_historical_protocol_head_proof(&proof),
             Err(ProtocolEvidenceError::SequencerRevoked)
         );
         proof.maintenance = None;
         assert!(verifier
-            .verify_historical_protocol_head_proof(&proof)
+            .kernel_verify_historical_protocol_head_proof(&proof)
             .is_err());
         let mut changed = maintenance.clone();
         changed.activity_receipts.clear();
         proof.maintenance = Some(&changed);
         assert!(verifier
-            .verify_historical_protocol_head_proof(&proof)
+            .kernel_verify_historical_protocol_head_proof(&proof)
             .is_err());
         let mut changed = maintenance.clone();
         changed.activity_receipts[0][20] ^= 1;
         proof.maintenance = Some(&changed);
         assert!(verifier
-            .verify_historical_protocol_head_proof(&proof)
+            .kernel_verify_historical_protocol_head_proof(&proof)
             .is_err());
         let mut changed = maintenance.clone();
         changed.receipt[20] ^= 1;
         proof.maintenance = Some(&changed);
         assert!(verifier
-            .verify_historical_protocol_head_proof(&proof)
+            .kernel_verify_historical_protocol_head_proof(&proof)
             .is_err());
         let mut changed = maintenance.clone();
         changed.activity_receipts = vec![RECEIPT.to_vec(); 65];
         proof.maintenance = Some(&changed);
         assert_eq!(
-            verifier.verify_historical_protocol_head_proof(&proof),
+            verifier.kernel_verify_historical_protocol_head_proof(&proof),
             Err(ProtocolEvidenceError::Encoding)
         );
     }
@@ -2889,6 +2853,7 @@ mod native_batch_maintenance_heads {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         }
     }
 
@@ -3000,6 +2965,7 @@ mod signed_authority_policy_tests {
             current_anchor: 0,
             staleness_limit_ms: 1_000,
             signed_history: None,
+            chain_verifier: None,
         };
         assert!(policy.with_signed_history(&history).is_err());
         let mut before = None;
@@ -3050,4 +3016,833 @@ mod signed_authority_policy_tests {
         unrelated.anchors[0].network_id += 1;
         assert!(unrelated.with_signed_history(&history).is_err());
     }
+}
+
+use crate::chain_evidence::{
+    deployment::ChainDeploymentProof, freshness::chain_freshness, lifecycle::ChainLifecycleProof,
+    program_state, program_state::ChainProgramStateProof, protocol_head::ChainProtocolHeadProof,
+    wind_down, wind_down::ChainWindDownProof,
+};
+use crate::chain_proof::{
+    decode::{CommitmentProof, ProofOp},
+    header::ChainHeader,
+    merkle::SimpleProof,
+    validators::ValidatorSet,
+    ChainProofError, Commit, VerifiedChainHead as VerifiedHeader,
+};
+
+#[path = "chain_evidence/verify_deployment.rs"]
+mod deployment_helpers;
+#[path = "chain_evidence/verify_head.rs"]
+mod head_helpers;
+#[path = "chain_evidence/verify_program.rs"]
+mod program_helpers;
+mod bundle_helpers {
+    include!("chain_evidence/verify_bundle.rs");
+
+    pub(super) fn commitment_head(
+        verifier: &ChainProofVerifier,
+        proof: &CommitmentProof,
+    ) -> Result<(ChainHeader, Commit, VerifiedChainHead), ProtocolEvidenceError> {
+        let header = ChainHeader::decode(&proof.signed_header)
+            .map_err(|_| ProtocolEvidenceError::Encoding)?;
+        let commit = decode_commit(&proof.commit).map_err(|_| ProtocolEvidenceError::Encoding)?;
+        let validators =
+            decode_validators(&proof.validator_set).map_err(|_| ProtocolEvidenceError::Encoding)?;
+        if validators != verifier.validators {
+            return Err(ProtocolEvidenceError::InvalidTrustAnchor);
+        }
+        let head = verifier
+            .verify_head(&header, &commit)
+            .map_err(super::chain_error)?;
+        if proof.store_name != "layerx" {
+            return Err(ProtocolEvidenceError::StateProof);
+        }
+        match &proof.value {
+            Some(value) => verify_state(
+                &head,
+                &proof.store_name,
+                &proof.key,
+                value,
+                &proof.proof_ops,
+            ),
+            None => verify_absent(&head, &proof.store_name, &proof.key, &proof.proof_ops),
+        }
+        .map_err(super::chain_error)?;
+        Ok((header, commit, head))
+    }
+}
+
+/// An ICS23 leaf and the proof operations that authenticate it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StateLeafWitness {
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
+    pub proof: Vec<ProofOp>,
+}
+
+pub(crate) fn decode_program_record(
+    witness: &StateLeafWitness,
+) -> Result<ProgramRecord, ProtocolEvidenceError> {
+    decode_program_record_value(&witness.key, &witness.value)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramLifecycleProof(pub ChainLifecycleProof);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramStateProof {
+    pub commitment: CommitmentProof,
+    pub state: ChainProgramStateProof,
+    pub lifecycle: ProgramLifecycleProof,
+    pub wind_down: ChainWindDownProof,
+    pub transaction: Vec<u8>,
+    pub transaction_proof: SimpleProof,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DeploymentProof {
+    pub state: ProgramStateProof,
+    pub deployment: ChainDeploymentProof,
+}
+
+pub struct ProtocolHeadProof<'a> {
+    pub commitment: &'a CommitmentProof,
+    pub chain: ChainProtocolHeadProof<'a>,
+    pub transaction: &'a [u8],
+    pub transaction_proof: &'a SimpleProof,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedDeploymentEvidence {
+    record: DeploymentRecord,
+    interface: Option<crate::ProgramInterface>,
+    lifecycle: ProgramLifecycle,
+    header: VerifiedHeader,
+    transaction_hash: [u8; 32],
+    freshness: ReadFreshness,
+    proof: DeploymentProof,
+}
+
+impl VerifiedDeploymentEvidence {
+    pub(crate) fn into_record(self) -> DeploymentRecord {
+        self.record
+    }
+    pub const fn program(&self) -> ProgramId {
+        self.record.program
+    }
+    pub const fn version(&self) -> u32 {
+        self.record.version
+    }
+    pub const fn code_hash(&self) -> [u8; 32] {
+        self.record.new_code_hash
+    }
+    pub const fn abi_version(&self) -> u16 {
+        self.record.abi_version
+    }
+    pub const fn interface_present(&self) -> bool {
+        self.interface.is_some()
+    }
+    pub const fn interface(&self) -> Option<&crate::ProgramInterface> {
+        self.interface.as_ref()
+    }
+    pub const fn receipt_digest(&self) -> [u8; 32] {
+        self.transaction_hash
+    }
+    pub const fn activity_id(&self) -> [u8; 32] {
+        self.transaction_hash
+    }
+    pub const fn batch_header_digest(&self) -> [u8; 32] {
+        self.header.header_hash()
+    }
+    pub const fn state_root(&self) -> [u8; 32] {
+        self.header.app_hash()
+    }
+    pub const fn programs_root(&self) -> [u8; 32] {
+        self.header.app_hash()
+    }
+    pub const fn freshness(&self) -> ReadFreshness {
+        self.freshness
+    }
+    pub const fn lifecycle(&self) -> ProgramLifecycle {
+        self.lifecycle
+    }
+    pub fn module(&self) -> &[u8] {
+        &self.record.module
+    }
+    pub const fn record(&self) -> &DeploymentRecord {
+        &self.record
+    }
+    pub const fn proof(&self) -> &DeploymentProof {
+        &self.proof
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedProgramHead {
+    program: ProgramId,
+    version: u32,
+    code_hash: [u8; 32],
+    abi_version: u16,
+    policy: UpgradePolicy,
+    lifecycle: ProgramLifecycle,
+    header: VerifiedHeader,
+    transaction_hash: [u8; 32],
+    freshness: ReadFreshness,
+    valid_until_ms: u64,
+}
+impl VerifiedProgramHead {
+    pub const fn program(&self) -> ProgramId {
+        self.program
+    }
+    pub const fn version(&self) -> u32 {
+        self.version
+    }
+    pub const fn code_hash(&self) -> [u8; 32] {
+        self.code_hash
+    }
+    pub const fn abi_version(&self) -> u16 {
+        self.abi_version
+    }
+    pub const fn policy(&self) -> UpgradePolicy {
+        self.policy
+    }
+    pub const fn lifecycle(&self) -> ProgramLifecycle {
+        self.lifecycle
+    }
+    pub const fn receipt_digest(&self) -> [u8; 32] {
+        self.transaction_hash
+    }
+    pub const fn state_root(&self) -> [u8; 32] {
+        self.header.app_hash()
+    }
+    pub const fn programs_root(&self) -> [u8; 32] {
+        self.header.app_hash()
+    }
+    pub const fn freshness(&self) -> ReadFreshness {
+        self.freshness
+    }
+    pub const fn valid_until_ms(&self) -> u64 {
+        self.valid_until_ms
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedProtocolHead {
+    header: VerifiedHeader,
+    transaction_hash: [u8; 32],
+    freshness: ReadFreshness,
+}
+impl VerifiedProtocolHead {
+    pub const fn activity_id(&self) -> [u8; 32] {
+        self.transaction_hash
+    }
+    pub const fn receipt_digest(&self) -> [u8; 32] {
+        self.transaction_hash
+    }
+    pub const fn batch_header_digest(&self) -> [u8; 32] {
+        self.header.header_hash()
+    }
+    pub const fn state_root(&self) -> [u8; 32] {
+        self.header.app_hash()
+    }
+    pub const fn programs_root(&self) -> [u8; 32] {
+        self.header.app_hash()
+    }
+    pub const fn freshness(&self) -> ReadFreshness {
+        self.freshness
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedChainHead {
+    protocol: VerifiedProtocolHead,
+    evidence_digest: ReceiptEvidenceDigest,
+}
+impl VerifiedChainHead {
+    pub const fn head_kind(&self) -> ProgramHeadKind {
+        self.evidence_digest.head_kind()
+    }
+    pub const fn receipt_evidence_digest(&self) -> ReceiptEvidenceDigest {
+        self.evidence_digest
+    }
+    pub const fn receipt_digest(&self) -> [u8; 32] {
+        self.protocol.receipt_digest()
+    }
+    pub const fn batch_header_digest(&self) -> [u8; 32] {
+        self.protocol.batch_header_digest()
+    }
+    pub const fn state_root(&self) -> [u8; 32] {
+        self.protocol.state_root()
+    }
+    pub const fn programs_root(&self) -> [u8; 32] {
+        self.protocol.programs_root()
+    }
+    pub const fn global_sequence(&self) -> u64 {
+        self.protocol.freshness.observed_sequence
+    }
+    pub const fn freshness(&self) -> ReadFreshness {
+        self.protocol.freshness()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramStateBundle {
+    pub commitment: CommitmentProof,
+    pub program: ProgramId,
+    pub program_record_ops: Vec<ProofOp>,
+    pub interface_ops: Vec<ProofOp>,
+    pub wind_down: Option<ChainWindDownProof>,
+}
+impl ProgramStateBundle {
+    fn chain_bundle(&self) -> bundle_helpers::ProgramStateBundle {
+        bundle_helpers::ProgramStateBundle {
+            commitment: self.commitment.clone(),
+            program: self.program,
+            program_record_ops: self.program_record_ops.clone(),
+            interface_ops: self.interface_ops.clone(),
+            wind_down: self.wind_down.clone(),
+        }
+    }
+    pub fn canonical_encoding(&self) -> Result<Vec<u8>, ProgramBundleError> {
+        self.chain_bundle().canonical_encoding()
+    }
+    pub fn decode(bytes: &[u8]) -> Result<Self, ProgramBundleError> {
+        let bundle = bundle_helpers::ProgramStateBundle::decode(bytes)?;
+        Ok(Self {
+            commitment: bundle.commitment,
+            program: bundle.program,
+            program_record_ops: bundle.program_record_ops,
+            interface_ops: bundle.interface_ops,
+            wind_down: bundle.wind_down,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedProgramBundle {
+    program: VerifiedProgramHead,
+    chain: VerifiedChainHead,
+    interface: VerifiedInterfaceRead,
+}
+impl VerifiedProgramBundle {
+    pub const fn program_head(&self) -> &VerifiedProgramHead {
+        &self.program
+    }
+    pub const fn chain_head(&self) -> &VerifiedChainHead {
+        &self.chain
+    }
+    pub const fn interface(&self) -> &VerifiedInterfaceRead {
+        &self.interface
+    }
+}
+
+fn chain_error(error: ChainProofError) -> ProtocolEvidenceError {
+    match error {
+        ChainProofError::Expired => ProtocolEvidenceError::Expired,
+        _ => ProtocolEvidenceError::ChainProof,
+    }
+}
+
+impl ProtocolDeploymentVerifier {
+    fn require_chain_trust(&self) -> Result<&ChainProofVerifier, ProtocolEvidenceError> {
+        self.chain_trust()
+            .ok_or(ProtocolEvidenceError::InvalidTrustAnchor)
+    }
+
+    fn state_head(
+        &self,
+        proof: &ProgramStateProof,
+    ) -> Result<VerifiedHeader, ProtocolEvidenceError> {
+        let (_, _, head) =
+            bundle_helpers::commitment_head(self.require_chain_trust()?, &proof.commitment)?;
+        Ok(head)
+    }
+
+    pub fn verify_deployment(
+        &self,
+        proof: &DeploymentProof,
+        now_ms: u64,
+    ) -> Result<VerifiedDeploymentEvidence, ProtocolEvidenceError> {
+        let head = self.state_head(&proof.state)?;
+        let deployment = deployment_helpers::deployment_at(self, &proof.deployment, &head, now_ms)?;
+        self.bind_chain_deployment(proof, head, deployment, now_ms)
+    }
+
+    pub fn verify_historical_deployment(
+        &self,
+        proof: &DeploymentProof,
+        current: &VerifiedHeader,
+        trust_chain: &[(ChainHeader, Commit, ValidatorSet)],
+        now_ms: u64,
+    ) -> Result<VerifiedDeploymentEvidence, ProtocolEvidenceError> {
+        let head = self.state_head(&proof.state)?;
+        let deployment = deployment_helpers::historical_deployment_at(
+            self,
+            &proof.deployment,
+            &head,
+            current,
+            trust_chain,
+            now_ms,
+        )?;
+        let historical_time =
+            u64::try_from(head.time_ms()).map_err(|_| ProtocolEvidenceError::Stale)?;
+        self.bind_chain_deployment(proof, head, deployment, historical_time)
+    }
+
+    fn bind_chain_deployment(
+        &self,
+        proof: &DeploymentProof,
+        header: VerifiedHeader,
+        deployment: crate::chain_evidence::deployment::VerifiedDeploymentEvidence,
+        now_ms: u64,
+    ) -> Result<VerifiedDeploymentEvidence, ProtocolEvidenceError> {
+        if proof.state.state != proof.deployment.program_state {
+            return Err(ProtocolEvidenceError::DeploymentMismatch);
+        }
+        let program = program_helpers::current_program_at(
+            &header,
+            &proof.state.state,
+            &proof.state.lifecycle.0,
+            &proof.state.wind_down,
+            deployment.program(),
+            now_ms,
+            self.staleness_limit_ms,
+        )?;
+        if program.lifecycle() != ProgramLifecycle::Active {
+            return Err(ProtocolEvidenceError::LifecycleProof);
+        }
+        let transaction_hash = crate::verify_tx(
+            &header,
+            &proof.state.transaction,
+            &proof.state.transaction_proof,
+        )
+        .map_err(chain_error)?;
+        let freshness = chain_freshness(&header, now_ms, self.staleness_limit_ms)?;
+        let record = DeploymentRecord {
+            program: deployment.program(),
+            version: deployment.version(),
+            abi_version: deployment.abi_version(),
+            upgrade_policy: deployment.upgrade_policy(),
+            old_code_hash: None,
+            new_code_hash: deployment.code_hash(),
+            sequence: freshness.observed_sequence,
+            observed_at: freshness.observed_at,
+            module: deployment.module().to_vec(),
+            migration: None,
+        };
+        Ok(VerifiedDeploymentEvidence {
+            record,
+            interface: deployment.interface().cloned(),
+            lifecycle: program.lifecycle(),
+            header,
+            transaction_hash,
+            freshness,
+            proof: proof.clone(),
+        })
+    }
+
+    pub fn verify_current_program(
+        &self,
+        proof: &ProgramStateProof,
+        expected_program: ProgramId,
+        now_ms: u64,
+    ) -> Result<VerifiedProgramHead, ProtocolEvidenceError> {
+        let header = self.state_head(proof)?;
+        let verified = program_helpers::current_program_at(
+            &header,
+            &proof.state,
+            &proof.lifecycle.0,
+            &proof.wind_down,
+            expected_program,
+            now_ms,
+            self.staleness_limit_ms,
+        )?;
+        let transaction_hash =
+            crate::verify_tx(&header, &proof.transaction, &proof.transaction_proof)
+                .map_err(chain_error)?;
+        Ok(VerifiedProgramHead {
+            program: verified.program(),
+            version: verified.version(),
+            code_hash: verified.code_hash(),
+            abi_version: verified.abi_version(),
+            policy: verified.policy(),
+            lifecycle: verified.lifecycle(),
+            header,
+            transaction_hash,
+            freshness: verified.freshness(),
+            valid_until_ms: verified.valid_until_ms(),
+        })
+    }
+
+    pub fn verify_current_protocol_head(
+        &self,
+        proof: &ProtocolHeadProof<'_>,
+        now_ms: u64,
+    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+        let (_, _, header) =
+            bundle_helpers::commitment_head(self.require_chain_trust()?, proof.commitment)?;
+        let verified = head_helpers::protocol_head_at(
+            self.require_chain_trust()?,
+            &proof.chain,
+            now_ms,
+            self.staleness_limit_ms,
+        )?;
+        if verified.header_hash() != header.header_hash() {
+            return Err(ProtocolEvidenceError::StateRoot);
+        }
+        let transaction_hash =
+            crate::verify_tx(&header, proof.transaction, proof.transaction_proof)
+                .map_err(chain_error)?;
+        Ok(VerifiedProtocolHead {
+            header,
+            transaction_hash,
+            freshness: verified.freshness(),
+        })
+    }
+
+    pub fn verify_current_protocol_head_proof(
+        &self,
+        proof: &ProtocolHeadProof<'_>,
+        now_ms: u64,
+    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+        self.verify_current_protocol_head(proof, now_ms)
+    }
+
+    pub fn verify_historical_protocol_head(
+        &self,
+        proof: &ProtocolHeadProof<'_>,
+        trusted_header: &ChainHeader,
+        trusted_commit: &Commit,
+        history: &[(ChainHeader, Commit, ValidatorSet)],
+    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+        let steps: Vec<_> = history
+            .iter()
+            .map(
+                |(header, commit, validators)| head_helpers::ChainTrustStep {
+                    header,
+                    commit,
+                    validators,
+                },
+            )
+            .collect();
+        let verified = head_helpers::historical_protocol_head_at(
+            self.require_chain_trust()?,
+            trusted_header,
+            trusted_commit,
+            &steps,
+            &proof.chain,
+        )?;
+        let (_, _, header) =
+            bundle_helpers::commitment_head(proof.chain.verifier, proof.commitment)?;
+        if verified.header_hash() != header.header_hash() {
+            return Err(ProtocolEvidenceError::StateRoot);
+        }
+        let transaction_hash =
+            crate::verify_tx(&header, proof.transaction, proof.transaction_proof)
+                .map_err(chain_error)?;
+        Ok(VerifiedProtocolHead {
+            header,
+            transaction_hash,
+            freshness: verified.freshness(),
+        })
+    }
+
+    pub fn verify_historical_protocol_head_proof(
+        &self,
+        proof: &ProtocolHeadProof<'_>,
+        trusted_header: &ChainHeader,
+        trusted_commit: &Commit,
+        history: &[(ChainHeader, Commit, ValidatorSet)],
+    ) -> Result<VerifiedProtocolHead, ProtocolEvidenceError> {
+        self.verify_historical_protocol_head(proof, trusted_header, trusted_commit, history)
+    }
+
+    pub fn verify_current_chain_head(
+        &self,
+        kind: ProgramHeadKind,
+        proof: &CommitmentProof,
+        transaction: &[u8],
+        transaction_proof: &SimpleProof,
+        now_ms: u64,
+    ) -> Result<VerifiedChainHead, ProtocolEvidenceError> {
+        let (raw_header, commit, header) =
+            bundle_helpers::commitment_head(self.require_chain_trust()?, proof)?;
+        let verified = head_helpers::chain_head_at(
+            self.require_chain_trust()?,
+            kind,
+            &raw_header,
+            &commit,
+            now_ms,
+            self.staleness_limit_ms,
+        )?;
+        let transaction_hash =
+            crate::verify_tx(&header, transaction, transaction_proof).map_err(chain_error)?;
+        let evidence_digest = match kind {
+            ProgramHeadKind::Ordinary => {
+                ReceiptEvidenceDigest::OrdinaryUnsignedReceipt(transaction_hash)
+            }
+            ProgramHeadKind::Maintenance => {
+                ReceiptEvidenceDigest::MaintenanceReceiptSha256(transaction_hash)
+            }
+        };
+        Ok(VerifiedChainHead {
+            protocol: VerifiedProtocolHead {
+                header,
+                transaction_hash,
+                freshness: verified.freshness(),
+            },
+            evidence_digest,
+        })
+    }
+
+    pub fn verify_current_program_bundle(
+        &self,
+        bundle: &ProgramStateBundle,
+        chain: &VerifiedChainHead,
+        expected_program: ProgramId,
+        now_ms: u64,
+    ) -> Result<VerifiedProgramBundle, ProgramBundleError> {
+        let verified = bundle_helpers::program_bundle_at(
+            self.require_chain_trust()
+                .map_err(ProgramBundleError::Evidence)?,
+            &bundle.chain_bundle(),
+            expected_program,
+        )?;
+        if verified.chain_head() != &chain.protocol.header {
+            return Err(ProgramBundleError::ChainHeadMismatch);
+        }
+        let freshness = chain_freshness(verified.chain_head(), now_ms, self.staleness_limit_ms)
+            .map_err(ProgramBundleError::Evidence)?;
+        let valid_until_ms = freshness
+            .observed_at
+            .checked_add(self.staleness_limit_ms)
+            .ok_or(ProgramBundleError::Evidence(ProtocolEvidenceError::Stale))?;
+        let status = verified.wind_down().ok_or(ProgramBundleError::Evidence(
+            ProtocolEvidenceError::LifecycleProof,
+        ))?;
+        let lifecycle = match status {
+            None => ProgramLifecycle::Active,
+            Some(value) if value[1] == 2 => ProgramLifecycle::Deprecated,
+            _ => {
+                return Err(ProgramBundleError::Evidence(
+                    ProtocolEvidenceError::LifecycleProof,
+                ))
+            }
+        };
+        let record = verified.program_head();
+        let program = VerifiedProgramHead {
+            program: record.program(),
+            version: record.version(),
+            code_hash: record.code_hash(),
+            abi_version: record.abi_version(),
+            policy: record.upgrade_policy(),
+            lifecycle,
+            header: verified.chain_head().clone(),
+            transaction_hash: chain.receipt_digest(),
+            freshness,
+            valid_until_ms,
+        };
+        Ok(VerifiedProgramBundle {
+            program,
+            chain: chain.clone(),
+            interface: verified.interface().clone(),
+        })
+    }
+}
+
+impl DeploymentProof {
+    pub fn canonical_encoding(&self) -> Result<Vec<u8>, ProtocolEvidenceError> {
+        let mut bytes = b"LXDP\x02".to_vec();
+        put_chain_field(
+            &mut bytes,
+            &self.state.commitment.encode().map_err(chain_error)?,
+        )?;
+        bytes.extend_from_slice(&self.state.state.program.bytes());
+        put_chain_ops(&mut bytes, &self.state.state.ops)?;
+        let lifecycle = &self.state.lifecycle.0;
+        bytes.extend_from_slice(&lifecycle.program.bytes());
+        put_chain_option(&mut bytes, lifecycle.record.as_deref())?;
+        put_chain_ops(&mut bytes, &lifecycle.record_ops)?;
+        put_chain_option(&mut bytes, lifecycle.status.as_deref())?;
+        put_chain_ops(&mut bytes, &lifecycle.status_ops)?;
+        bytes.extend_from_slice(&self.state.wind_down.program.bytes());
+        put_chain_option(&mut bytes, self.state.wind_down.value.as_deref())?;
+        put_chain_ops(&mut bytes, &self.state.wind_down.ops)?;
+        put_chain_field(&mut bytes, &self.state.transaction)?;
+        let proof = &self.state.transaction_proof;
+        if proof.aunts.len() > 64 {
+            return Err(ProtocolEvidenceError::Encoding);
+        }
+        bytes.extend_from_slice(&proof.total.to_be_bytes());
+        bytes.extend_from_slice(&proof.index.to_be_bytes());
+        bytes.extend_from_slice(&proof.leaf_hash);
+        bytes.push(proof.aunts.len() as u8);
+        for aunt in &proof.aunts {
+            bytes.extend_from_slice(aunt);
+        }
+        bytes.extend_from_slice(&self.deployment.program_state.program.bytes());
+        put_chain_ops(&mut bytes, &self.deployment.program_state.ops)?;
+        if self.deployment.code.len() > MAX_MODULE_BYTES {
+            return Err(ProtocolEvidenceError::Encoding);
+        }
+        put_chain_field(&mut bytes, &self.deployment.code)?;
+        put_chain_option(&mut bytes, self.deployment.interface.as_deref())?;
+        if bytes.len() > MAX_EVIDENCE_BYTES {
+            return Err(ProtocolEvidenceError::Encoding);
+        }
+        Ok(bytes)
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, ProtocolEvidenceError> {
+        if bytes.len() > MAX_EVIDENCE_BYTES || bytes.get(..5) != Some(b"LXDP\x02") {
+            return Err(ProtocolEvidenceError::Encoding);
+        }
+        let mut cursor = 5;
+        let commitment = crate::chain_proof::decode::decode_commitment_proof(&take_bytes(
+            bytes,
+            &mut cursor,
+            MAX_EVIDENCE_BYTES,
+        )?)
+        .map_err(chain_error)?;
+        let state = ChainProgramStateProof {
+            program: take_chain_program(bytes, &mut cursor)?,
+            ops: take_chain_ops(bytes, &mut cursor)?,
+        };
+        let lifecycle = ProgramLifecycleProof(ChainLifecycleProof {
+            program: take_chain_program(bytes, &mut cursor)?,
+            record: take_chain_option(bytes, &mut cursor)?,
+            record_ops: take_chain_ops(bytes, &mut cursor)?,
+            status: take_chain_option(bytes, &mut cursor)?,
+            status_ops: take_chain_ops(bytes, &mut cursor)?,
+        });
+        let wind_down = ChainWindDownProof {
+            program: take_chain_program(bytes, &mut cursor)?,
+            value: take_chain_option(bytes, &mut cursor)?,
+            ops: take_chain_ops(bytes, &mut cursor)?,
+        };
+        let transaction = take_bytes(bytes, &mut cursor, MAX_EVIDENCE_BYTES)?;
+        let total = i64::from_be_bytes(take_array(bytes, &mut cursor)?);
+        let index = i64::from_be_bytes(take_array(bytes, &mut cursor)?);
+        let leaf_hash = take_array(bytes, &mut cursor)?;
+        let count = take_array::<1>(bytes, &mut cursor)?[0];
+        if count > 64 {
+            return Err(ProtocolEvidenceError::Encoding);
+        }
+        let mut aunts = Vec::with_capacity(usize::from(count));
+        for _ in 0..count {
+            aunts.push(take_array(bytes, &mut cursor)?);
+        }
+        let transaction_proof = SimpleProof {
+            total,
+            index,
+            leaf_hash,
+            aunts,
+        };
+        let program_state = ChainProgramStateProof {
+            program: take_chain_program(bytes, &mut cursor)?,
+            ops: take_chain_ops(bytes, &mut cursor)?,
+        };
+        let code = take_bytes(bytes, &mut cursor, MAX_MODULE_BYTES)?;
+        let interface = take_chain_option(bytes, &mut cursor)?;
+        let proof = Self {
+            state: ProgramStateProof {
+                commitment,
+                state,
+                lifecycle,
+                wind_down,
+                transaction,
+                transaction_proof,
+            },
+            deployment: ChainDeploymentProof {
+                program_state,
+                code,
+                interface,
+            },
+        };
+        if cursor != bytes.len() || proof.canonical_encoding()? != bytes {
+            return Err(ProtocolEvidenceError::Encoding);
+        }
+        Ok(proof)
+    }
+
+    pub fn claimed_receipt_digest(&self) -> Result<[u8; 32], ProtocolEvidenceError> {
+        if self.state.transaction.is_empty() || self.state.transaction.len() > MAX_EVIDENCE_BYTES {
+            return Err(ProtocolEvidenceError::Encoding);
+        }
+        Ok(crate::hash::sha256(&self.state.transaction))
+    }
+}
+
+fn put_chain_field(bytes: &mut Vec<u8>, field: &[u8]) -> Result<(), ProtocolEvidenceError> {
+    if field.len() > MAX_EVIDENCE_BYTES {
+        return Err(ProtocolEvidenceError::Encoding);
+    }
+    put_bytes(bytes, field);
+    Ok(())
+}
+fn put_chain_option(
+    bytes: &mut Vec<u8>,
+    field: Option<&[u8]>,
+) -> Result<(), ProtocolEvidenceError> {
+    match field {
+        None => bytes.push(0),
+        Some(value) => {
+            bytes.push(1);
+            put_chain_field(bytes, value)?;
+        }
+    }
+    Ok(())
+}
+fn take_chain_option(
+    bytes: &[u8],
+    cursor: &mut usize,
+) -> Result<Option<Vec<u8>>, ProtocolEvidenceError> {
+    match take_array::<1>(bytes, cursor)?[0] {
+        0 => Ok(None),
+        1 => Ok(Some(take_bytes(bytes, cursor, MAX_EVIDENCE_BYTES)?)),
+        _ => Err(ProtocolEvidenceError::Encoding),
+    }
+}
+fn put_chain_ops(bytes: &mut Vec<u8>, ops: &[ProofOp]) -> Result<(), ProtocolEvidenceError> {
+    if ops.len() > crate::chain_proof::decode::MAX_PROOF_OPS {
+        return Err(ProtocolEvidenceError::Encoding);
+    }
+    bytes.push(ops.len() as u8);
+    for op in ops {
+        for value in [op.op_type.as_bytes(), &op.key, &op.data] {
+            if value.len() > crate::chain_proof::decode::MAX_FIELD_BYTES {
+                return Err(ProtocolEvidenceError::Encoding);
+            }
+            put_chain_field(bytes, value)?;
+        }
+    }
+    Ok(())
+}
+fn take_chain_ops(bytes: &[u8], cursor: &mut usize) -> Result<Vec<ProofOp>, ProtocolEvidenceError> {
+    let count = take_array::<1>(bytes, cursor)?[0];
+    if usize::from(count) > crate::chain_proof::decode::MAX_PROOF_OPS {
+        return Err(ProtocolEvidenceError::Encoding);
+    }
+    let mut ops = Vec::with_capacity(usize::from(count));
+    for _ in 0..count {
+        let op_type = String::from_utf8(take_bytes(
+            bytes,
+            cursor,
+            crate::chain_proof::decode::MAX_FIELD_BYTES,
+        )?)
+        .map_err(|_| ProtocolEvidenceError::Encoding)?;
+        ops.push(ProofOp {
+            op_type,
+            key: take_bytes(bytes, cursor, crate::chain_proof::decode::MAX_FIELD_BYTES)?,
+            data: take_bytes(bytes, cursor, crate::chain_proof::decode::MAX_FIELD_BYTES)?,
+        });
+    }
+    Ok(ops)
+}
+fn take_chain_program(
+    bytes: &[u8],
+    cursor: &mut usize,
+) -> Result<ProgramId, ProtocolEvidenceError> {
+    ProgramId::new(take_array(bytes, cursor)?).map_err(|_| ProtocolEvidenceError::Encoding)
 }

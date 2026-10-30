@@ -8,6 +8,21 @@ use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _, PermissionsExt 
 use std::path::{Path, PathBuf};
 
 use layerx_programs::{
+    chain_evidence::{
+        deployment::ChainDeploymentProof, freshness::chain_freshness,
+        program_state::ChainProgramStateProof,
+    },
+    chain_proof::{
+        decode::decode_commitment_proof,
+        header::ChainHeader,
+        proto::{ProtoReader, ProtoValue},
+        trust_store::TrustRoot,
+        vote::{BlockId, CommitSig, PartSetHeader},
+        ChainProofError, Commit,
+    },
+    ProtocolDeploymentVerifier,
+};
+use layerx_programs::{
     hex, DeploymentJournal, DeploymentProof, DeploymentRecord, ObservedHead, RegistryError,
     VerifiedDeploymentEvidence,
 };
@@ -351,6 +366,7 @@ impl UnitFiles {
 pub struct FileDeploymentJournal {
     root: PathBuf,
     interrupt_before: Option<WriteStep>,
+    chain_trust: Option<(PathBuf, u64)>,
 }
 
 impl FileDeploymentJournal {
@@ -365,7 +381,45 @@ impl FileDeploymentJournal {
         Ok(Self {
             root,
             interrupt_before: None,
+            chain_trust: None,
         })
+    }
+
+    pub fn open_from_chain_trust(
+        root: PathBuf,
+        trust_root: &Path,
+        max_age_ms: u64,
+    ) -> Result<Self, String> {
+        persisted_chain_trust(trust_root, max_age_ms)?;
+        let mut journal = Self::open(root)?;
+        journal.chain_trust = Some((trust_root.to_path_buf(), max_age_ms));
+        Ok(journal)
+    }
+
+    pub fn append_chain_deployment(
+        &self,
+        proof: &[u8],
+        now_ms: u64,
+    ) -> Result<layerx_programs::chain_evidence::deployment::VerifiedDeploymentEvidence, String>
+    {
+        let (trust_root, max_age_ms) = self
+            .chain_trust
+            .as_ref()
+            .ok_or("deployment journal requires a persisted chain trust root")?;
+        let (evidence, _) =
+            verify_chain_deployment_package(trust_root, proof, *max_age_ms, Some(now_ms))?;
+        let digest: [u8; 32] = Sha256::digest(proof).into();
+        let directory = self.root.join("chain-proofs");
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&directory)
+            .map_err(|error| format!("could not create the chain deployment journal: {error}"))?;
+        protected_replace(
+            &directory.join(format!("{}.chain-deployment", hex::encode(&digest))),
+            proof,
+        )?;
+        Ok(evidence)
     }
 
     /// Makes every publication stop immediately before the named step,
@@ -888,4 +942,221 @@ fn protected_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
     File::open(parent)
         .and_then(|directory| directory.sync_all())
         .map_err(|error| error.to_string())
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChainDeploymentPackage {
+    commitment: Vec<u8>,
+    code: Vec<u8>,
+    interface: Option<Vec<u8>>,
+}
+
+fn persisted_chain_trust(
+    path: &Path,
+    max_age_ms: u64,
+) -> Result<(TrustRoot, ProtocolDeploymentVerifier), String> {
+    use std::io::Read as _;
+    use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _};
+
+    let before = fs::symlink_metadata(path)
+        .map_err(|error| format!("chain trust root is unavailable: {error}"))?;
+    if !before.is_file() || before.permissions().mode() & 0o077 != 0 {
+        return Err("chain trust root must be a private regular file".into());
+    }
+    let flags = rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(i32::try_from(flags.bits()).map_err(|_| "invalid trust root open flags")?)
+        .open(path)
+        .map_err(|error| format!("chain trust root is unavailable: {error}"))?;
+    let after = file.metadata().map_err(|error| error.to_string())?;
+    if !after.is_file()
+        || after.permissions().mode() & 0o077 != 0
+        || before.dev() != after.dev()
+        || before.ino() != after.ino()
+        || after.len() == 0
+        || after.len() > 524_288
+    {
+        return Err("chain trust root changed or exceeds its bounds".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(524_289)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if bytes.len() as u64 != after.len() {
+        return Err("chain trust root changed while reading".into());
+    }
+    let root = TrustRoot::decode(&bytes)
+        .map_err(|error| format!("chain trust root is invalid: {error:?}"))?;
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        root.chain_id.clone(),
+        root.validators.validators().to_vec(),
+        max_age_ms,
+    )
+    .map_err(|error| format!("chain trust root is invalid: {error}"))?;
+    Ok((root, verifier))
+}
+
+fn verify_chain_deployment_package(
+    path: &Path,
+    bytes: &[u8],
+    max_age_ms: u64,
+    now_ms: Option<u64>,
+) -> Result<
+    (
+        layerx_programs::chain_evidence::deployment::VerifiedDeploymentEvidence,
+        [u8; 32],
+    ),
+    String,
+> {
+    if bytes.len() > 40 * 1024 * 1024 {
+        return Err("chain deployment proof exceeds its bounds".into());
+    }
+    let (root, verifier) = persisted_chain_trust(path, max_age_ms)?;
+    let package: ChainDeploymentPackage = serde_json::from_slice(bytes)
+        .map_err(|error| format!("chain deployment package is invalid: {error}"))?;
+    if package.code.len() > 32 * 1024 * 1024 {
+        return Err("deployed module exceeds its bounds".into());
+    }
+    let commitment = decode_commitment_proof(&package.commitment)
+        .map_err(|error| format!("chain deployment commitment is invalid: {error:?}"))?;
+    let header = ChainHeader::decode(&commitment.signed_header)
+        .map_err(|error| format!("chain deployment header is invalid: {error:?}"))?;
+    let commit = decode_chain_commit(&commitment.commit)
+        .map_err(|error| format!("chain deployment commit is invalid: {error:?}"))?;
+    let head = verifier
+        .chain_trust()
+        .ok_or("chain trust is unavailable")?
+        .verify_head(&header, &commit)
+        .map_err(|error| format!("chain deployment head verification refused: {error:?}"))?;
+    let height = u64::try_from(head.height()).map_err(|_| "invalid chain deployment height")?;
+    let time_ms = u64::try_from(head.time_ms()).map_err(|_| "invalid chain deployment time")?;
+    if height < root.height
+        || time_ms < root.time_ms
+        || (height == root.height
+            && (head.header_hash() != root.header_hash || time_ms != root.time_ms))
+        || (height > root.height
+            && (time_ms == root.time_ms || time_ms - root.time_ms > 1_209_600_000))
+        || (root.height.checked_add(1) == Some(height)
+            && header.last_block_id.hash != root.header_hash)
+    {
+        return Err("chain deployment head does not extend the persisted trust root".into());
+    }
+    if let Some(now_ms) = now_ms {
+        chain_freshness(&head, now_ms, verifier.staleness_limit_ms())
+            .map_err(|error| format!("chain deployment freshness refused: {error}"))?;
+    }
+    if commitment.store_name != "layerx" {
+        return Err("deployment proof must use the layerx store".into());
+    }
+    let prefix = layerx_programs::chain_evidence::programs_state_key(b"program\0");
+    let program_bytes = commitment
+        .key
+        .strip_prefix(prefix.as_slice())
+        .and_then(|bytes| <[u8; 32]>::try_from(bytes).ok())
+        .ok_or("deployment proof must address a Programs record")?;
+    let program =
+        layerx_programs::ProgramId::new(program_bytes).map_err(|error| error.to_string())?;
+    let value = commitment
+        .value
+        .as_deref()
+        .ok_or("deployment proof has no program record")?;
+    layerx_programs::chain_proof::state::verify_state(
+        &head,
+        &commitment.store_name,
+        &commitment.key,
+        value,
+        &commitment.proof_ops,
+    )
+    .map_err(|error| format!("chain deployment state verification refused: {error:?}"))?;
+    let proof = ChainDeploymentProof {
+        program_state: ChainProgramStateProof {
+            program,
+            ops: commitment.proof_ops,
+        },
+        code: package.code,
+        interface: package.interface,
+    };
+    let evidence = proof
+        .verify(&head)
+        .map_err(|error| format!("chain deployment proof verification refused: {error}"))?;
+    Ok((evidence, head.header_hash()))
+}
+
+fn decode_chain_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
+    let mut reader = ProtoReader::new(bytes);
+    let mut height = None;
+    let mut round = None;
+    let mut block_id = None;
+    let mut signatures = Vec::new();
+    while let Some(field) = reader.next_field()? {
+        match (field.number, field.value) {
+            (1, ProtoValue::Varint(value)) if height.is_none() => {
+                height = Some(i64::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
+            }
+            (2, ProtoValue::Varint(value)) if round.is_none() => {
+                round = Some(i32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
+            }
+            (3, ProtoValue::Bytes(value)) if block_id.is_none() => {
+                block_id = Some(decode_chain_block_id(value)?)
+            }
+            (4, ProtoValue::Bytes(value)) => signatures.push(CommitSig::decode(value)?),
+            _ => return Err(ChainProofError::NonCanonical),
+        }
+    }
+    reader.finish()?;
+    Ok(Commit {
+        height: height.ok_or(ChainProofError::NonCanonical)?,
+        round: round.unwrap_or(0),
+        block_id: block_id.ok_or(ChainProofError::NonCanonical)?,
+        signatures,
+    })
+}
+
+fn decode_chain_block_id(bytes: &[u8]) -> Result<BlockId, ChainProofError> {
+    let mut reader = ProtoReader::new(bytes);
+    let mut hash = None;
+    let mut parts = None;
+    while let Some(field) = reader.next_field()? {
+        match (field.number, field.value) {
+            (1, ProtoValue::Bytes(value)) if hash.is_none() => hash = Some(value.to_vec()),
+            (2, ProtoValue::Bytes(value)) if parts.is_none() => {
+                let mut part_reader = ProtoReader::new(value);
+                let mut total = None;
+                let mut part_hash = None;
+                while let Some(part) = part_reader.next_field()? {
+                    match (part.number, part.value) {
+                        (1, ProtoValue::Varint(value)) if total.is_none() => {
+                            total = Some(
+                                u32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?,
+                            );
+                        }
+                        (2, ProtoValue::Bytes(value)) if part_hash.is_none() => {
+                            part_hash = Some(value.to_vec())
+                        }
+                        _ => return Err(ChainProofError::NonCanonical),
+                    }
+                }
+                part_reader.finish()?;
+                parts = Some(PartSetHeader {
+                    total: total.ok_or(ChainProofError::NonCanonical)?,
+                    hash: part_hash.ok_or(ChainProofError::NonCanonical)?,
+                });
+            }
+            _ => return Err(ChainProofError::NonCanonical),
+        }
+    }
+    reader.finish()?;
+    let block = BlockId {
+        hash: hash.ok_or(ChainProofError::NonCanonical)?,
+        part_set_header: parts.ok_or(ChainProofError::NonCanonical)?,
+    };
+    if block.hash.len() != 32
+        || block.part_set_header.hash.len() != 32
+        || !(1..=101).contains(&block.part_set_header.total)
+    {
+        return Err(ChainProofError::NonCanonical);
+    }
+    Ok(block)
 }

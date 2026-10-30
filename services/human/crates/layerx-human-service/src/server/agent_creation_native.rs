@@ -1,7 +1,7 @@
 use super::*;
 use crate::agents::{
     NativeAgentCreationContract, NativeFundingEvidence, NativeFundingRequest,
-    NativeIdentityRevisionRequest, NativeOnboardingRequest,
+    NativeIdentityRevisionRequest,
 };
 use crate::custody::{KeyClass, KeyId, SendPlanAuthorization};
 use crate::store::{RowKey, Table};
@@ -137,38 +137,6 @@ impl NativeAgentCreationContract for ProductionAgentCreation<'_> {
             return Err(AgentFailure::Refused("native source sequence changed"));
         }
         Ok(retained.sequence)
-    }
-
-    fn onboard_scoped(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        request: NativeOnboardingRequest,
-    ) -> Result<ProtocolEvidence, AgentFailure> {
-        let consent = self.sign_onboarding_consent(scope, &request)?;
-        let registration =
-            layerx_crypto::onboarding::SponsoredRegistration::from_signed_consent(&consent)
-                .map_err(|_| AgentFailure::Refused("invalid signed target consent"))?;
-        if registration.consent != request.consent || registration.network_id != request.network_id
-        {
-            return Err(AgentFailure::Refused("retained target consent differs"));
-        }
-        let sponsor = layerx_types::ids::Did::new(self.actor.as_str().as_bytes())
-            .map_err(|_| AgentFailure::Refused("invalid registration sponsor"))?;
-        if layerx_intents::canonical::did_id_for_protocol(&sponsor, 3)
-            .map_err(|_| AgentFailure::Refused("invalid sponsor identity"))?
-            != request.consent.sponsor
-        {
-            return Err(AgentFailure::Refused("registration sponsor differs"));
-        }
-        let action = self.native_action(
-            Intent::v3(IntentKind::NativeOnboarding(registration)),
-            CreationStage::DidRegistration,
-            request.consent.action_key,
-            request.started_at,
-            KeyId::new("human-primary")
-                .map_err(|_| AgentFailure::Refused("invalid sponsor key"))?,
-        )?;
-        self.submit_scoped(scope, &action)
     }
 
     fn fund_scoped(
@@ -376,17 +344,13 @@ impl ProductionAgentCreation<'_> {
             ReceiptLookup::Absent => return Ok(None),
             ReceiptLookup::Found(value) => value,
         };
-        Ok(Some(ProtocolEvidence {
-            actor: activity.actor_did().to_vec(),
-            owner_public_key: descriptor.public_key,
-            network_id: activity.network_id(),
-            signed_activity: bytes,
-            action_key: action.action_key,
-            activity_id,
-            receipt_bytes: material.canonical_bytes,
-            authorized_batch: material.authorised_batch,
-            verification_level: material.verification_level,
-        }))
+        ProductionAgentCreation::protocol_evidence(
+            bytes,
+            descriptor.public_key,
+            self.runtime.registry(),
+            material,
+        )
+        .map(Some)
     }
 
     fn native_action(
@@ -412,232 +376,135 @@ impl ProductionAgentCreation<'_> {
             started_at,
         })
     }
-
-    fn sign_onboarding_consent(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        request: &NativeOnboardingRequest,
-    ) -> Result<Vec<u8>, AgentFailure> {
-        let key = RowKey::new(format!(
-            "native-target-consent-{}",
-            hex(&request.consent.action_key)
-        ))
-        .map_err(|_| AgentFailure::Refused("invalid target consent key"))?;
-        if let Some(row) = scope.get(Table::Journeys, &key) {
-            return Ok(row.bytes().to_vec());
-        }
-        let descriptor = self
-            .custody
-            .describe_key(scope.principal(), &request.custody_key)
-            .map_err(|_| AgentFailure::Refused("target custody is unavailable"))?;
-        if descriptor.class != KeyClass::AgentPrimary
-            || descriptor.public_key != request.consent.target_public_key
-        {
-            return Err(AgentFailure::Refused("target custody differs"));
-        }
-        let compiled = compile(
-            &Intent::v3(IntentKind::NativeOnboardingConsent(request.consent.clone())),
-            self.runtime.registry(),
-        )
-        .map_err(|_| AgentFailure::Refused("invalid target consent intent"))?;
-        let context = layerx_intents::owner_activity::OwnerEnvelopeContext {
-            actor: request.consent.target.clone(),
-            owner_public_key: descriptor.public_key,
-            network_id: request.network_id,
-            account_sequence: 0,
-            not_before_ms: request
-                .started_at
-                .checked_mul(1_000)
-                .ok_or(AgentFailure::Refused("target consent expiry overflow"))?,
-            not_after_ms: request.consent.expires_at,
-            action_key: request.consent.action_key,
-            fee_limit: 0,
-        };
-        let (unsigned, disclosure) = layerx_intents::owner_activity::unsigned_native(
-            &compiled,
-            &context,
-            self.runtime.registry(),
-        )
-        .map_err(|_| AgentFailure::Refused("target consent disclosure failed"))?;
-        let principal = scope.principal().clone();
-        let grant = poll_once_ready(self.custody.sign_in_scope(
-            scope,
-            SignRequest::new(
-                &principal,
-                &request.custody_key,
-                self.trace,
-                SignAuthorization::new(Operation::ProtocolMutation, None),
-                &unsigned,
-                &disclosure,
-                request.started_at,
-            ),
-        ))
-        .map_err(|_| AgentFailure::Unavailable)?
-        .map_err(|_| AgentFailure::Refused("custody refused target consent"))?;
-        let signed = layerx_intents::owner_activity::attach_signature(
-            &unsigned,
-            *grant.signature(),
-            grant.signer_public_key(),
-            self.runtime.registry(),
-        )
-        .map_err(|_| AgentFailure::Refused("target consent signature differs"))?;
-        scope
-            .put(Table::Journeys, key, request.started_at, signed.clone())
-            .map_err(|_| AgentFailure::Unavailable)?;
-        Ok(signed)
-    }
-}
-
-impl ProductionAgentCreation<'_> {
-    /// # Errors
-    /// Refuses changed consent, noncanonical key authority, or a failed custody signature.
-    pub fn sign_rotation_consent(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        consent: &layerx_crypto::rotation::OwnerRotationConsent,
-        network_id: u32,
-        started_at: u64,
-        custody_key: &KeyId,
-    ) -> Result<Vec<u8>, AgentFailure> {
-        let key = RowKey::new(format!(
-            "owner-rotation-consent-{}",
-            hex(&consent.action_key)
-        ))
-        .map_err(|_| AgentFailure::Refused("invalid rotation consent key"))?;
-        let descriptor = self
-            .custody
-            .describe_key(scope.principal(), custody_key)
-            .map_err(|_| AgentFailure::Refused("rotation custody is unavailable"))?;
-        if descriptor.class != KeyClass::AgentPrimary
-            || descriptor.public_key != consent.pending_public_key
-        {
-            return Err(AgentFailure::Refused("rotation custody differs"));
-        }
-        let signed = if let Some(row) = scope.get(Table::Journeys, &key) {
-            row.bytes().to_vec()
-        } else {
-            let intent = Intent::v3(IntentKind::NativeOwnerRotation(
-                layerx_crypto::rotation::OwnerRotation::Consent(consent.clone()),
-            ));
-            let compiled = compile(&intent, self.runtime.registry())
-                .map_err(|_| AgentFailure::Refused("invalid rotation consent intent"))?;
-            let context = layerx_intents::owner_activity::OwnerEnvelopeContext {
-                actor: consent.owner.clone(),
-                owner_public_key: descriptor.public_key,
-                network_id,
-                account_sequence: 0,
-                not_before_ms: started_at
-                    .checked_mul(1_000)
-                    .ok_or(AgentFailure::Refused("rotation consent time overflow"))?,
-                not_after_ms: consent.expires_at,
-                action_key: consent.action_key,
-                fee_limit: 0,
-            };
-            let (unsigned, disclosure) = layerx_intents::owner_activity::unsigned_native(
-                &compiled,
-                &context,
-                self.runtime.registry(),
-            )
-            .map_err(|_| AgentFailure::Refused("rotation consent disclosure failed"))?;
-            let principal = scope.principal().clone();
-            let grant = poll_once_ready(self.custody.sign_in_scope(
-                scope,
-                SignRequest::new(
-                    &principal,
-                    custody_key,
-                    self.trace,
-                    SignAuthorization::new(Operation::ProtocolMutation, None),
-                    &unsigned,
-                    &disclosure,
-                    started_at,
-                ),
-            ))
-            .map_err(|_| AgentFailure::Unavailable)?
-            .map_err(|_| AgentFailure::Refused("custody refused rotation consent"))?;
-            let signed = layerx_intents::owner_activity::attach_signature(
-                &unsigned,
-                *grant.signature(),
-                grant.signer_public_key(),
-                self.runtime.registry(),
-            )
-            .map_err(|_| AgentFailure::Refused("rotation consent signature differs"))?;
-            scope
-                .put(Table::Journeys, key, started_at, signed.clone())
-                .map_err(|_| AgentFailure::Unavailable)?;
-            signed
-        };
-        let commit = layerx_crypto::rotation::OwnerRotationCommit::from_signed_consent(&signed)
-            .map_err(|_| AgentFailure::Refused("invalid retained rotation consent"))?;
-        if commit.consent != *consent
-            || commit.network_id != network_id
-            || commit.not_before
-                != started_at
-                    .checked_mul(1_000)
-                    .ok_or(AgentFailure::Refused("rotation consent time overflow"))?
-        {
-            return Err(AgentFailure::Refused("retained rotation consent differs"));
-        }
-        Ok(signed)
-    }
 }
 
 impl ProductionAgentCreation<'_> {
     pub fn provision_human_send_session(
-        &mut self, scope: &mut PrincipalScope<'_>, registry: &ModuleRegistry,
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        registry: &ModuleRegistry,
         request: &super::super::native_send::NativeSendAccessRequest,
     ) -> Result<super::super::native_send::HumanOwnerNativeSessionV1, AgentFailure> {
         request.validate()?;
         let owner = std::str::from_utf8(request.owner.as_bytes())
             .map_err(|_| AgentFailure::Refused("invalid Human owner DID"))?;
-        let key = KeyId::new("human-primary").map_err(|_| AgentFailure::Refused("invalid Human key"))?;
-        let descriptor = self.custody.describe_key(scope.principal(), &key)
+        let key =
+            KeyId::new("human-primary").map_err(|_| AgentFailure::Refused("invalid Human key"))?;
+        let descriptor = self
+            .custody
+            .describe_key(scope.principal(), &key)
             .map_err(|_| AgentFailure::Refused("Human custody unavailable"))?;
-        let binding = self.custody.evm_binding(scope.principal(), &key)
+        let binding = self
+            .custody
+            .evm_binding(scope.principal(), &key)
             .map_err(|_| AgentFailure::Refused("Human custody binding unavailable"))?;
-        if self.actor.as_str() != owner || descriptor.class != KeyClass::HumanPrimary
-            || binding.class() != KeyClass::HumanPrimary || descriptor.public_key != request.owner_public_key
-            || request.action_key == [0; 32] || request.not_before >= request.expires_at {
+        if self.actor.as_str() != owner
+            || descriptor.class != KeyClass::HumanPrimary
+            || binding.class() != KeyClass::HumanPrimary
+            || descriptor.public_key != request.owner_public_key
+            || request.action_key == [0; 32]
+            || request.not_before >= request.expires_at
+        {
             return Err(AgentFailure::Refused("Human owner session binding differs"));
         }
         let identity = self.runtime.identity_resolve(owner).map_err(map_boundary)?;
-        if !matches!(identity.verification, 4 | 5) || identity.frozen
-            || identity.revocation_sequence == 0 || identity.revocation_sequence > identity.head_sequence
-            || !identity.authorities.contains(&(1, request.owner_public_key)) {
-            return Err(AgentFailure::Refused("Human owner identity is not checkpoint verified"));
+        if !matches!(identity.verification, 4 | 5)
+            || identity.frozen
+            || identity.revocation_sequence == 0
+            || identity.revocation_sequence > identity.head_sequence
+            || !identity
+                .authorities
+                .contains(&(1, request.owner_public_key))
+        {
+            return Err(AgentFailure::Refused(
+                "Human owner identity is not checkpoint verified",
+            ));
         }
-        let session_key = RowKey::new(format!("human-native-owner-session-{}", hex(&request.action_key)))
-            .map_err(|_| AgentFailure::Refused("invalid Human session key"))?;
-        let request_binding: [u8; 32] = Sha256::digest(serde_json::to_vec(&(
-            request.owner.as_bytes(), request.owner_public_key, request.not_before, request.expires_at,
-            request.native_fee_budget.map(|fee| (fee.asset, fee.maximum_per_activity, fee.maximum_total,
-                fee.period_length, fee.maximum_per_period, fee.period_start)),
-        )).map_err(|_| AgentFailure::Refused("invalid Human session request"))?).into();
+        let session_key = RowKey::new(format!(
+            "human-native-owner-session-{}",
+            hex(&request.action_key)
+        ))
+        .map_err(|_| AgentFailure::Refused("invalid Human session key"))?;
+        let request_binding: [u8; 32] = Sha256::digest(
+            serde_json::to_vec(&(
+                request.owner.as_bytes(),
+                request.owner_public_key,
+                request.not_before,
+                request.expires_at,
+                request.native_fee_budget.map(|fee| {
+                    (
+                        fee.asset,
+                        fee.maximum_per_activity,
+                        fee.maximum_total,
+                        fee.period_length,
+                        fee.maximum_per_period,
+                        fee.period_start,
+                    )
+                }),
+            ))
+            .map_err(|_| AgentFailure::Refused("invalid Human session request"))?,
+        )
+        .into();
         if let Some(row) = scope.get(Table::Journeys, &session_key) {
-            let (binding, session): ([u8; 32], super::super::native_send::HumanOwnerNativeSessionV1) =
-                serde_json::from_slice(row.bytes()).map_err(|_| AgentFailure::Refused("invalid retained Human session"))?;
+            let (binding, session): (
+                [u8; 32],
+                super::super::native_send::HumanOwnerNativeSessionV1,
+            ) = serde_json::from_slice(row.bytes())
+                .map_err(|_| AgentFailure::Refused("invalid retained Human session"))?;
             session.validate(scope, request.not_before)?;
-            if binding != request_binding || session.session_id != request.action_key
-                || session.owner_public_key != request.owner_public_key || session.owner != owner {
+            if binding != request_binding
+                || session.session_id != request.action_key
+                || session.owner_public_key != request.owner_public_key
+                || session.owner != owner
+            {
                 return Err(AgentFailure::Refused("Human session changed on retry"));
             }
             return Ok(session);
         }
-        let activity = layerx_types::payload::ActivityType::new(layerx_types::payload::ModuleId::Asset, 5)
-            .map_err(|_| AgentFailure::Refused("invalid native Send activity"))?;
+        let activity =
+            layerx_types::payload::ActivityType::new(layerx_types::payload::ModuleId::Asset, 5)
+                .map_err(|_| AgentFailure::Refused("invalid native Send activity"))?;
         let grantor = layerx_intents::canonical::did_id_for_protocol(&request.owner, 3)
             .map_err(|_| AgentFailure::Refused("invalid Human owner"))?;
-        let evidence = self.provision_session_scoped(scope, registry, SessionProvision {
-            replacement: None, native_fee_budget: request.native_fee_budget, not_before: request.not_before,
-            action_key: request.action_key, did: request.owner.clone(), activity_types: vec![activity],
-            daemon_scopes: vec!["prepare".to_owned(), "submit".to_owned(), "track".to_owned()],
-            expires_at: request.expires_at, primary_authority: request.owner_public_key,
-            grantor, custody_key: key, revocation_sequence: identity.revocation_sequence,
-        })?;
+        let evidence = self.provision_session_scoped(
+            scope,
+            registry,
+            SessionProvision {
+                replacement: None,
+                native_fee_budget: request.native_fee_budget,
+                not_before: request.not_before,
+                action_key: request.action_key,
+                did: request.owner.clone(),
+                activity_types: vec![activity],
+                daemon_scopes: vec![
+                    "prepare".to_owned(),
+                    "submit".to_owned(),
+                    "track".to_owned(),
+                ],
+                expires_at: request.expires_at,
+                primary_authority: request.owner_public_key,
+                grantor,
+                custody_key: key,
+                revocation_sequence: identity.revocation_sequence,
+            },
+        )?;
         let (token, generation, finalization) = self.take_latest_session_credential()?;
         let session = super::super::native_send::HumanOwnerNativeSessionV1::from_installed(
-            scope, request, token, generation, evidence.object_id, finalization)?;
-        scope.put(Table::Journeys, session_key, request.not_before,
-            serde_json::to_vec(&(request_binding, &session)).map_err(|_| AgentFailure::Refused("Human session cannot persist"))?)
+            scope,
+            request,
+            token,
+            generation,
+            evidence.object_id,
+            finalization,
+        )?;
+        scope
+            .put(
+                Table::Journeys,
+                session_key,
+                request.not_before,
+                serde_json::to_vec(&(request_binding, &session))
+                    .map_err(|_| AgentFailure::Refused("Human session cannot persist"))?,
+            )
             .map_err(|_| AgentFailure::Unavailable)?;
         Ok(session)
     }

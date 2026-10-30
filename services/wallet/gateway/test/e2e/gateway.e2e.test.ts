@@ -1,17 +1,19 @@
 import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import {
+  decodeFunctionData,
+  getAddress,
   keccak256,
   parseTransaction,
+  recoverAddress,
   recoverMessageAddress,
   recoverTransactionAddress,
   recoverTypedDataAddress,
+  serializeSignature,
   serializeTransaction,
+  toHex,
   type Hex,
   type TypedDataDefinition,
 } from 'viem';
@@ -19,9 +21,12 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { startPostgres, type EphemeralPostgres } from '../support/postgres.js';
 import { ADDR, TestChain, chainMainAccountId } from '../support/chain.js';
 import type { SequencerReceiptResult } from '../../src/rpc/pool.js';
+import type { WalletInventoryKey } from '../../src/agent/authority.js';
+import type { SponsoredBindRequest } from '../../src/provision/bind.js';
 import {
   CHAIN_ID,
   NATIVE_PER_TX_CAP_WEI,
+  PAYMASTER,
   startAttestorNetwork,
   startIdentity,
   type AttestorNetwork,
@@ -57,9 +62,9 @@ let pg: EphemeralPostgres;
 let app: FastifyInstance;
 let chain: TestChain;
 let sequencerProxy: Server;
+let station: Server;
 const broadcasts: Hex[] = [];
 const sequencerReceipts: Array<{ hash: Hex; result: SequencerReceiptResult | null }> = [];
-let workDir: string;
 let sponsorAddress: string;
 const userId = randomUUID();
 let token: string;
@@ -82,23 +87,31 @@ beforeAll(async () => {
   identity = await startIdentity();
   chain = new TestChain(CHAIN_ID);
   await chain.start();
-  network = await startAttestorNetwork({ identity, rpcUrl: chain.url });
+  const chainUpstream = chain.url;
 
   sequencerProxy = createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
     req.on('end', () => {
       void (async () => {
-        const body = Buffer.concat(chunks).toString('utf8');
-        const rpc = JSON.parse(body) as { method: string; params: Hex[] };
-        if (rpc.method === 'eth_sendRawTransaction') broadcasts.push(rpc.params[0]!);
-        const upstream = await fetch(chain.url, {
+        const body = Buffer.concat(chunks);
+        const rpc = JSON.parse(body.toString('utf8')) as { id: number; method: string; params: unknown[] };
+        if (rpc.method === 'eth_getCode' || (rpc.method === 'eth_call' && (rpc.params[0] as { data?: Hex }).data === '0xaffed0e0')) {
+          const result = rpc.method === 'eth_getCode'
+            ? (rpc.params[0] === PAYMASTER ? '0x60005460005260206000f3' : '0x')
+            : `0x${'00'.repeat(32)}`;
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result }));
+          return;
+        }
+        if (rpc.method === 'eth_sendRawTransaction') broadcasts.push(rpc.params[0] as Hex);
+        const upstream = await fetch(chainUpstream, {
           method: 'POST', headers: { 'content-type': 'application/json' }, body,
         });
         const answer = await upstream.text();
         if (rpc.method === 'pax_sequencerReceipt') {
           const envelope = JSON.parse(answer) as { result?: SequencerReceiptResult | null };
-          if ('result' in envelope) sequencerReceipts.push({ hash: rpc.params[0]!, result: envelope.result! });
+          if ('result' in envelope) sequencerReceipts.push({ hash: rpc.params[0] as Hex, result: envelope.result! });
         }
         res.writeHead(upstream.status, { 'content-type': 'application/json' });
         res.end(answer);
@@ -114,20 +127,97 @@ beforeAll(async () => {
   });
   const sequencerAddress = sequencerProxy.address();
   if (!sequencerAddress || typeof sequencerAddress === 'string') throw new Error('sequencer proxy did not bind');
+  chain.url = `http://127.0.0.1:${sequencerAddress.port}`;
+  network = await startAttestorNetwork({ identity, rpcUrl: chain.url });
 
-  workDir = mkdtempSync(join(tmpdir(), 'gateway-e2e-sponsor-'));
-  const sponsorKey = generatePrivateKey();
-  sponsorAddress = privateKeyToAccount(sponsorKey).address.toLowerCase();
+  const sponsor = privateKeyToAccount(generatePrivateKey());
+  sponsorAddress = sponsor.address.toLowerCase();
   chain.balances.set(sponsorAddress, 10n ** 21n);
-  const sponsorFile = join(workDir, 'sponsor.key');
-  writeFileSync(sponsorFile, sponsorKey.slice(2), { mode: 0o600 });
+  type QuoteRequest = Omit<SponsoredBindRequest['batch'], 'quote'> & {
+    token: Hex; maxTokenAmount: string; gasCost: string; decimals: 6;
+  };
+  let issued: SponsoredBindRequest['batch'] | undefined;
+  station = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => {
+      void (async () => {
+        const { constructionDigest, sponsorQuoteDigest } = await import('../../src/attestor/client.js');
+        const { sponsoredBindAbi, SIDIORA_TOKEN } = await import('../../src/provision/bind.js');
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        expect(req.method).toBe('POST');
+        expect(req.headers['content-type']).toBe('application/json');
+        if (req.url === '/quote') {
+          const request: QuoteRequest = body;
+          expect(request).toMatchObject({ chainId: String(CHAIN_ID), nonce: '0', token: SIDIORA_TOKEN, decimals: 6, maxTokenAmount: '1000000' });
+          expect(request.calls).toHaveLength(1);
+          expect(request.calls[0]!.to).toBe(ADDR);
+          expect(request.calls[0]!.value).toBe('0');
+          const quote: SponsoredBindRequest['batch']['quote'] = {
+            sponsor: sponsor.address, token: request.token, maxTokenAmount: request.maxTokenAmount,
+            tokenAmount: '100', deadline: String(Math.floor(Date.now() / 1000) + 300),
+            quoteNonce: '1', gasCost: request.gasCost, decimals: 6,
+          };
+          issued = { chainId: request.chainId, account: request.account, nonce: request.nonce, calls: request.calls, quote };
+          const relayerSignature = await sponsor.sign({ hash: sponsorQuoteDigest({ kind: 'sponsored_batch', ...issued }) });
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ quote, relayerSignature }));
+          return;
+        }
+        expect(req.url).toBe('/submit');
+        const request: SponsoredBindRequest = body;
+        expect(issued).toBeDefined();
+        expect(request.batch).toEqual(issued);
+        expect(await recoverAddress({ hash: constructionDigest({ kind: 'sponsored_batch', ...request.batch }), signature: request.accountSignature })).toBe(request.batch.account);
+        expect(await recoverAddress({ hash: sponsorQuoteDigest({ kind: 'sponsored_batch', ...request.batch }), signature: request.relayerSignature as Hex })).toBe(sponsor.address);
+        const authorization = request.authorization;
+        expect(authorization).toMatchObject({ chainId: String(CHAIN_ID), address: PAYMASTER, nonce: '0' });
+        expect(await recoverAddress({ hash: constructionDigest({ kind: 'eip7702_authorization', chainId: authorization.chainId, address: authorization.address, nonce: authorization.nonce }), signature: serializeSignature(authorization) })).toBe(request.batch.account);
+        const decoded = decodeFunctionData({ abi: sponsoredBindAbi, data: request.call.data });
+        expect(decoded.functionName).toBe('executeSponsored');
+        expect(decoded.args![0]).toEqual(request.batch.calls.map(call => ({ ...call, value: BigInt(call.value) })));
+        expect(decoded.args![2]).toBe(request.accountSignature);
+        expect(decoded.args![3]).toBe(request.relayerSignature);
+        expect(request.call.to).toBe(request.batch.account);
+        expect(request.call.value).toBe('0');
+        const { sharedRpcPool } = await import('../../src/rpc/pool.js');
+        const rpc = sharedRpcPool();
+        const raw = await sponsor.signTransaction({
+          type: 'eip7702', chainId: CHAIN_ID, nonce: await rpc.getTransactionCount(sponsor.address, 'pending'),
+          to: request.call.to, value: 0n, data: request.call.data, gas: 200_000n,
+          maxFeePerGas: BigInt(request.batch.quote.gasCost) / 200_000n, maxPriorityFeePerGas: chain.tip,
+          authorizationList: [{ ...authorization, chainId: Number(authorization.chainId), nonce: Number(authorization.nonce) }],
+        });
+        const transactionHash = await rpc.sendRawTransaction(raw);
+        expect(chain['applyBind'](request.batch.account.toLowerCase(), request.batch.calls[0]!.data)).toBe(true);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ transactionHash }));
+      })().catch((error: Error) => {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'station_contract_violation', message: error.message }));
+      });
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    station.once('error', reject);
+    station.listen(0, '127.0.0.1', resolve);
+  });
+  const stationAddress = station.address();
+  if (!stationAddress || typeof stationAddress === 'string') throw new Error('station did not bind');
 
   process.env.SUPABASE_URL = identity.url;
   process.env.HYPERPAXEER_RPC_URL = chain.url;
   process.env.HYPERPAXEER_CHAIN_ID = String(CHAIN_ID);
   process.env.RPC_URLS = chain.url;
   process.env.SEQUENCER_RPC_URL = `http://127.0.0.1:${sequencerAddress.port}`;
-  process.env.SPONSOR_PRIVATE_KEY_FILE = sponsorFile;
+  process.env.WALLET_GAS_STATION_URL = `http://127.0.0.1:${stationAddress.port}`;
+  process.env.PAXEER_GAS_STATION_PAYMASTER = PAYMASTER;
+  process.env.PAXEER_GAS_STATION_GAS_LIMIT = '200000';
+  process.env.PAXEER_GAS_STATION_MAX_TOKEN_AMOUNT = '1000000';
+  process.env.WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE = network.authority.producerKeyFile;
+  process.env.WALLET_IDENTITY_BINDING_TENANT = network.authority.tenant;
+  process.env.WALLET_CUSTODY_INVENTORY_FILE = network.authority.inventoryFile;
+  process.env.WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE = network.authority.inventoryPublicKeyFile;
   process.env.ATTESTOR_ENDPOINTS = network.nodes.map((n) => n.apiUrl).join(',');
   process.env.ATTESTOR_CLIENT_CERT_FILE = network.pki.clientCert;
   process.env.ATTESTOR_CLIENT_KEY_FILE = network.pki.clientKey;
@@ -146,6 +236,22 @@ beforeAll(async () => {
   await app.ready();
 
   token = await identity.mint(userId);
+  const inventoryKeys: WalletInventoryKey[] = [
+    { key_id: `wallet:${userId}:standard:secp256k1:0`, owner: userId, epoch: 0, curve: 'secp256k1', public_key: '', operations: ['generate'] },
+    { key_id: `account:${userId}:standard:ed25519:0`, owner: userId, epoch: 0, curve: 'ed25519', public_key: '', operations: ['generate'] },
+  ];
+  network.authority.approveInventory(inventoryKeys);
+  const { provisionAccount } = await import('../../src/provision/state.js');
+  const { provisionDepsFromEnv } = await import('../../src/routes/wallet.js');
+  const deps = provisionDepsFromEnv();
+  if (!deps) throw new Error('provisioning dependencies are unavailable');
+  const generated = await provisionAccount(deps, { kind: 'standard', userId, token: null });
+  expect(generated.awaiting).toBe('owner');
+  network.authority.approveInventory(await Promise.all(inventoryKeys.map(async (entry): Promise<WalletInventoryKey> => ({
+    ...entry,
+    public_key: await network.publicKey(entry.key_id),
+    operations: ['generate', 'sign'],
+  }))));
   const provisioned = await app.inject({ method: 'POST', url: '/v1/wallet/provision', headers: auth(token) });
   expect(provisioned.statusCode, provisioned.body).toBe(200);
   const body = provisioned.json() as { wallet: { address: `0x${string}`; did: string; main_account_id: string; binding_state: string }; provisioning: { state: string } };
@@ -158,10 +264,31 @@ beforeAll(async () => {
   expect(body.wallet.did).toBe(`did:layerx:${pub}`);
   expect(body.wallet.main_account_id).toBe(chainMainAccountId(pub));
   expect(chain.bindNonces.get(address)).toBe(1n);
-  expect(chain.sent.filter((t) => t.to === address).map((t) => t.from)).toEqual([sponsorAddress]);
-  const binds = chain.sent.filter((t) => t.from === address);
-  expect(binds.map((t) => t.to)).toEqual([ADDR]);
+  expect(chain.sent.filter((t) => t.from === address)).toEqual([]);
+  const binds = chain.sent.filter((t) => t.from === sponsorAddress && t.to === address);
+  expect(binds).toHaveLength(1);
+  const { sponsoredBindAbi } = await import('../../src/provision/bind.js');
+  const decodedBind = decodeFunctionData({ abi: sponsoredBindAbi, data: binds[0]!.data! });
+  expect(decodedBind.functionName).toBe('executeSponsored');
+  expect(decodedBind.args![0]).toHaveLength(1);
+  expect(decodedBind.args![0][0]!.to).toBe(ADDR);
+  const provisioning = await deps.pool.query<{ bind_tx_hash: Hex; station_request: SponsoredBindRequest }>(
+    `select bind_tx_hash, station_request from account_provisioning where user_id = $1 and kind = 'standard'`,
+    [userId],
+  );
+  expect(provisioning.rows).toHaveLength(1);
+  const binding = provisioning.rows[0]!;
+  expect(binding.station_request.batch.account.toLowerCase()).toBe(address);
+  expect(binding.station_request.batch.calls[0]!.to).toBe(ADDR);
+  expect(decodedBind.args![0]).toEqual(binding.station_request.batch.calls.map((call) => ({ ...call, value: BigInt(call.value) })));
+  const rawBind = broadcasts.find((raw) => keccak256(raw) === binds[0]!.hash);
+  expect(rawBind).toBeDefined();
+  expect(parseTransaction(rawBind!)).toMatchObject({
+    type: 'eip7702',
+    authorizationList: [{ ...binding.station_request.authorization, chainId: CHAIN_ID, address: PAYMASTER, nonce: 0 }],
+  });
   expect(chain.receipts.get(binds[0]!.hash)!.status).toBe('0x1');
+  expect(binds[0]!.hash).toBe(binding.bind_tx_hash);
 
   const { getPool } = await import('../../src/db/pool.js');
   const { rows } = await getPool().query<{ attestor_key_id: string; migrated_at: Date | null; encrypted_private_key: string | null }>(
@@ -185,14 +312,21 @@ afterAll(async () => {
   await pg?.stop();
   await network?.stop();
   await identity?.close();
+  if (station) await new Promise<void>((resolve, reject) => {
+    station.close((error) => error ? reject(error) : resolve());
+  });
   if (sequencerProxy) await new Promise<void>((resolve, reject) => {
     sequencerProxy.close((error) => error ? reject(error) : resolve());
   });
   await chain?.stop();
-  if (workDir) rmSync(workDir, { recursive: true, force: true });
 }, 120_000);
 
 async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
+  const unknown = await fetch(chain.url, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'pax_sequencerReceipt', params: [`0x${'00'.repeat(32)}`] }),
+  });
+  expect(await unknown.json()).toEqual({ jsonrpc: '2.0', id: 1, result: null });
   const { sharedRpcPool } = await import('../../src/rpc/pool.js');
   const headers = auth(await identity.mint(userId));
   const transfer = {
@@ -212,7 +346,7 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
   expect(reviewed.statusCode, reviewed.body).toBe(200);
   const review = reviewed.json();
   expect(review).toMatchObject({
-    state: 'reviewed', chain_id: CHAIN_ID, to: RECIPIENT,
+    state: 'reviewed', chain_id: CHAIN_ID, to: getAddress(transfer.to),
     value: transfer.value.toString(), data: '0x', signing_hash: keccak256(unsigned),
     key_id: key.keyId, principal: userId,
   });
@@ -251,6 +385,10 @@ async function evmReviewApproveSignReturnsReceipt(): Promise<void> {
   expect(answer.receipt).toMatchObject({ txHash: answer.tx_hash, rung: answer.rung, status: '0x1' });
   expect(answer.receipt.receipt).toMatch(/^0x(?:[0-9a-fA-F]{2})+$/);
   expect(sequencerReceipts).toEqual([{ hash: answer.tx_hash, result: answer.receipt }]);
+  expect(answer.receipt).toMatchObject({
+    rung: 'receipted', nonce: toHex(transfer.nonce), from: key.address.toLowerCase(), to: RECIPIENT,
+    keyId: expect.stringMatching(/^0x[0-9a-f]{64}$/),
+  });
 }
 
 describe('gateway against five real attestor daemons', () => {

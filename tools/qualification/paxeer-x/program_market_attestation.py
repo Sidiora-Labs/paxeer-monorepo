@@ -43,38 +43,6 @@ UNIT_CASES = {
     "attest::tests::input_decoder_refuses_verified_execution_relabelling",
 }
 NATIVE_CASES = {
-    "empty-bonded-no-policy-usage-refused",
-    "empty-bonded-configure-accepted",
-    "empty-bonded-unsealed-usage-refused",
-    "empty-bonded-wrong-tenant-seal-refused",
-    "empty-bonded-seal-accepted",
-    "empty-bonded-frozen-state-valid",
-    "empty-bonded-reseal-refused",
-    "empty-bonded-late-input-refused",
-    "empty-bonded-external-admission-refused",
-    "empty-bonded-zero-root-usage-refused",
-    "empty-bonded-mutated-root-usage-refused",
-    "empty-bonded-swapped-root-usage-refused",
-    "empty-bonded-restored-state-root-equal",
-    "empty-bonded-restored-usage-exact-root-accepted",
-    "empty-bonded-usage-exact-root-accepted",
-    "empty-bonded-input-state-unchanged-after-refusals",
-    "empty-attested-no-policy-usage-refused",
-    "empty-attested-configure-accepted",
-    "empty-attested-unsealed-usage-refused",
-    "empty-attested-wrong-tenant-seal-refused",
-    "empty-attested-seal-accepted",
-    "empty-attested-frozen-state-valid",
-    "empty-attested-reseal-refused",
-    "empty-attested-late-input-refused",
-    "empty-attested-external-admission-refused",
-    "empty-attested-zero-root-usage-refused",
-    "empty-attested-mutated-root-usage-refused",
-    "empty-attested-swapped-root-usage-refused",
-    "empty-attested-restored-state-root-equal",
-    "empty-attested-restored-usage-exact-root-accepted",
-    "empty-attested-usage-exact-root-accepted",
-    "empty-attested-input-state-unchanged-after-refusals",
     "empty-fraudprovable-no-policy-usage-refused",
     "empty-fraudprovable-configure-accepted",
     "empty-fraudprovable-unsealed-usage-refused",
@@ -88,12 +56,16 @@ NATIVE_CASES = {
     "empty-fraudprovable-mutated-root-usage-refused",
     "empty-fraudprovable-swapped-root-usage-refused",
     "empty-fraudprovable-restored-state-root-equal",
-    "empty-fraudprovable-restored-usage-exact-root-accepted",
-    "empty-fraudprovable-usage-exact-root-accepted",
+    "empty-fraudprovable-restored-usage-direct-refused",
+    "empty-fraudprovable-usage-direct-refused",
+    "empty-fraudprovable-restored-profile-accepted",
+    "empty-fraudprovable-profile-accepted",
+    "empty-fraudprovable-restored-billing-accepted",
+    "empty-fraudprovable-billing-accepted",
     "empty-fraudprovable-input-state-unchanged-after-refusals",
-    "native-deploy", "register-offer", "open-lease", "configure-named-attester",
+    "native-deploy", "register-offer", "configure-named-attester",
     "register-offer-model-1", "register-offer-model-3",
-    "open-lease-model-1", "open-lease-model-3",
+    "open-lease-model-3",
     "commit-input", "commit-second-input", "second-attester-accepted",
     "seal-inputs", "bound-domain-refused", "wrong-caller-refused",
     "usage-before-admission-refused", "restored-state-root",
@@ -111,13 +83,14 @@ NATIVE_CASES = {
     "same-activity-replay-refused", "new-activity-replay-refused", "restored-replay-refused",
     "wrong-tenant-refused", "wrong-provider-refused", "unfunded-lease-refused",
     "expire-funded-lease",
-    "partial-admission-settlement-refused", "usage-exact-root-accepted",
+    "partial-admission-settlement-refused", "usage-direct-refused",
     "usage-zero-root-refused", "omitted-root-settlement-refused",
     "usage-swapped-root-refused", "usage-mutated-root-refused",
     "signed-native-receipts-verified", "committed-state-root-verified",
     "refusal-preserves-business-state", "deterministic-admission",
-    "bonded-external-input-accepted", "fraudprovable-external-input-accepted",
-    "bonded-uncommitted-settlement-refused", "fraud-provable-uncommitted-settlement-refused",
+    "fraudprovable-external-input-accepted",
+    "fraudprovable-direct-usage-refused", "fraudprovable-profile-accepted",
+    "fraud-provable-uncommitted-settlement-refused",
 }
 
 
@@ -197,6 +170,14 @@ def begin_build():
     print("Artifact build: " + str(directory), flush=True)
 
 
+def native_command(arguments, native_library, runtime_library, native_output):
+    return (shlex.split(arguments.cc) + shlex.split(arguments.cppflags) +
+            shlex.split(arguments.cflags) +
+            ["tests/programs/test_market_attestation.c", str(native_library), str(runtime_library),
+             str(native_library)] + shlex.split(arguments.ldflags) +
+            ["-lcrypto", "-pthread", "-ldl", "-lm", "-o", str(native_output)])
+
+
 def build(arguments):
     directory = active_build()
     manifest = json.loads((directory / "start.json").read_text())
@@ -213,18 +194,18 @@ def build(arguments):
     native_library = Path(arguments.native_library).resolve()
     runtime_library = target / "debug/liblayerx_programs_sandbox.a"
     commands = [
-        ("guest", cargo + ["build", "--locked", "--manifest-path", "programs/Cargo.toml",
+        ("guest", cargo + ["--config", "programs/.cargo/config.toml",
+         "build", "--locked", "--manifest-path", "programs/Cargo.toml",
          "--target", "wasm32-unknown-unknown", "--release", "-p", "layerx-programs-market"]),
         ("sandbox", cargo + ["build", "--locked", "--manifest-path", "programs/Cargo.toml",
          "-p", "layerx-programs-sandbox", "--features", "host-ffi"]),
-        ("native", cc + shlex.split(arguments.cppflags) + shlex.split(arguments.cflags) +
-         ["tests/programs/test_market_attestation.c", str(native_library), str(runtime_library),
-          str(native_library)] + shlex.split(arguments.ldflags) +
-         ["-lcrypto", "-pthread", "-ldl", "-lm", "-o", str(native_output)]),
+        ("native", native_command(arguments, native_library, runtime_library, native_output)),
         ("unit", cargo + ["test", "--locked", "--manifest-path", "programs/Cargo.toml",
          "-p", "layerx-programs-market", "--lib", "--no-run", "--message-format=json"]),
     ]
     manifest["commands"] = {name: command for name, command in commands}
+    manifest["native_flags"] = {"cppflags": arguments.cppflags, "cflags": arguments.cflags,
+                                "ldflags": arguments.ldflags}
     manifest["features"] = {"sandbox": ["host-ffi"], "market": []}
     manifest["compiler_environment"] = {name: environment.get(name, "") for name in
                                         ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC", "RUSTC_WRAPPER",
@@ -379,7 +360,7 @@ def qualify():
     return result["exit_code"]
 
 
-def main():
+def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--begin-build", action="store_true")
@@ -387,12 +368,16 @@ def main():
     parser.add_argument("--cargo", default="cargo")
     parser.add_argument("--target-dir", default=str(ROOT / "programs/target"))
     parser.add_argument("--cc", default="cc")
-    parser.add_argument("--cppflags", default="")
+    parser.add_argument("--cppflags", default="-Iinclude")
     parser.add_argument("--cflags", default="")
     parser.add_argument("--ldflags", default="")
     parser.add_argument("--native-library", default="build/liblayerx.a")
     parser.add_argument("--native-output", default="build/tests/programs_market_attestation")
-    arguments = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main():
+    arguments = parse_arguments(sys.argv[1:])
     os.umask(0o077)
     if arguments.begin_build:
         begin_build()

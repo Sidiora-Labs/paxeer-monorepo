@@ -98,7 +98,8 @@ fn endpoint(url: &str) -> SequencerEndpoint {
 
 fn receipted_members() -> String {
     format!(
-        r#""rung":"receipted","txHash":"{TX_HASH}","nonce":"0x7","seq":"0x2a","height":"0x3e8","index":"0x3","timestamp":"0x67a1b2c3","status":"0x1","returnData":"0x0000000000000000000000000000000000000000000000000000000000000001","logs":[{{"address":"0x000000000000000000000000000000000000101a","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x00000000000000000000000011223344556677889900aabbccddeeff00112233"],"data":"0x0de0b6b3a7640000","logIndex":"0x0"}},{{"address":"0x000000000000000000000000000000000000101A","topics":[],"data":"0x","logIndex":"0x1"}}],"gasUsed":"0x5208","cumulativeGasUsed":"0xa410","effectiveGasPrice":"0x3b9aca00","feeDenom":"upax","feeAmount":"0x1312d00000000","sponsor":"0x0000000000000000000000000000000000000000","from":"0x11223344556677889900aabbccddeeff00112233","to":"0x000000000000000000000000000000000000101a","contractAddress":"0x0000000000000000000000000000000000000000","vmError":"","keyId":"0x0101010101010101010101010101010101010101010101010101010101010101","receipt":"0x00025201000200aabbccdd""#
+        r#""rung":"receipted","txHash":"{TX_HASH}","nonce":"0x7","seq":"0x2a","height":"0x3e8","index":"0x3","timestamp":"0x67a1b2c3","status":"0x1","returnData":"0x0000000000000000000000000000000000000000000000000000000000000001","logs":[{{"address":"0x000000000000000000000000000000000000101a","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x00000000000000000000000011223344556677889900aabbccddeeff00112233"],"data":"0x0de0b6b3a7640000","logIndex":"0x0"}},{{"address":"0x000000000000000000000000000000000000101A","topics":[],"data":"0x","logIndex":"0x1"}}],"gasUsed":"0x5208","cumulativeGasUsed":"0xa410","effectiveGasPrice":"0x3b9aca00","feeDenom":"upax","feeAmount":"0x1312d00000000","sponsor":"0x0000000000000000000000000000000000000000","from":"0x11223344556677889900aabbccddeeff00112233","to":"0x000000000000000000000000000000000000101a","contractAddress":"0x0000000000000000000000000000000000000000","vmError":"","keyId":"0x0101010101010101010101010101010101010101010101010101010101010101","receipt":"0x00025201000200aabbccdd","signingKey":"0x{}""#,
+        hex(&public_key(8))
     )
 }
 
@@ -154,6 +155,7 @@ fn expected_receipt() -> ExecutedReceipt {
         receipt: vec![
             0x00, 0x02, 0x52, 0x01, 0x00, 0x02, 0x00, 0xaa, 0xbb, 0xcc, 0xdd,
         ],
+        signing_key: public_key(8),
     }
 }
 
@@ -720,6 +722,7 @@ const BLOCK_HASH: &str = "0x4b1f2c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c
 const PARENT_HASH: &str = "0x9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b";
 const TRANSACTIONS_ROOT: &str =
     "0x1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d";
+const RECEIPTS_ROOT: &str = "0x4444444444444444444444444444444444444444444444444444444444444444";
 
 /// The EIP-155 example: nonce 9, 20 gwei, 21000 gas, 1 ether to 0x3535..35
 /// on chain 1, signed with the key 0x4646..46.
@@ -787,7 +790,7 @@ fn dynamic_fee_transaction(index: u64) -> (Vec<u8>, String) {
 
 fn block(transactions: &str) -> String {
     format!(
-        r#""result":{{"number":"0x3e8","hash":"{BLOCK_HASH}","parentHash":"{PARENT_HASH}","timestamp":"0x67a1b2c3","transactionsRoot":"{TRANSACTIONS_ROOT}","gasLimit":"0x1c9c380","gasUsed":"0x1a9f8","miner":"0x0000000000000000000000000000000000000000","transactions":[{transactions}]}}"#
+        r#""result":{{"number":"0x3e8","hash":"{BLOCK_HASH}","parentHash":"{PARENT_HASH}","timestamp":"0x67a1b2c3","transactionsRoot":"{TRANSACTIONS_ROOT}","receiptsRoot":"{RECEIPTS_ROOT}","gasLimit":"0x1c9c380","gasUsed":"0x1a9f8","miner":"0x0000000000000000000000000000000000000000","transactions":[{transactions}]}}"#
     )
 }
 
@@ -806,6 +809,7 @@ fn full_block_decodes_raw_transactions_in_index_order() {
             parent_hash: decode32(PARENT_HASH),
             timestamp: 0x67a1_b2c3,
             transactions_root: decode32(TRANSACTIONS_ROOT),
+            receipts_root: decode32(RECEIPTS_ROOT),
             transactions: vec![unhex(LEGACY_RAW), dynamic_raw],
         }))
     );

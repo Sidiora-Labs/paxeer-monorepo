@@ -13,7 +13,6 @@ use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did};
 use layerx_types::intent::{BudgetId, PeriodLength, PurposeHash, RolloverPolicy, TimestampSeconds};
 use layerx_types::payload::{ModuleId, ModuleRegistry};
-use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
 use crate::custody::{
@@ -23,6 +22,8 @@ use crate::custody::{
 use crate::store::PrincipalId;
 
 use super::{AgentCreationContract, AgentFailure, CreationStage, ProtocolAction, ProtocolEvidence};
+
+pub type Rung = layerx_types::rung::Rung;
 
 const ACTION_DOMAIN: &[u8] = b"layerx-human/agent-control-action/v1";
 const BUDGET_DOMAIN: &[u8] = b"layerx-human/agent-limit-budget/v1";
@@ -331,7 +332,7 @@ pub struct PresentedLimit {
     pub enforcement_copy_key: &'static str,
     pub explanation: &'static str,
     pub evidence_digest: [u8; 32],
-    pub verification_level: VerificationLevel,
+    pub verification_level: Rung,
 }
 
 /// Fresh public state returned by every control operation.
@@ -356,7 +357,7 @@ struct CompletedLimitChange {
 
 struct LimitChangeEvidence {
     digest: [u8; 32],
-    level: VerificationLevel,
+    level: Rung,
     replacement_budget: Option<[u8; 32]>,
 }
 
@@ -413,11 +414,8 @@ impl<B: AgentControlContract> AgentControls<B> {
             LimitEnforcement::App => APP_LIMIT_EXPLANATION,
         };
         let (limit_evidence, limit_level) = match enforcement {
-            LimitEnforcement::Protocol => (
-                profile.initial_limit_evidence_digest,
-                VerificationLevel::BATCH_INCLUDED,
-            ),
-            LimitEnforcement::App => ([0; 32], VerificationLevel::UNVERIFIED),
+            LimitEnforcement::Protocol => (profile.initial_limit_evidence_digest, Rung::Receipted),
+            LimitEnforcement::App => ([0; 32], Rung::Submitted),
         };
         Ok(Self {
             boundary,
@@ -533,10 +531,14 @@ impl<B: AgentControlContract> AgentControls<B> {
     /// disclosure failures, unverified receipts, and malformed app evidence.
     pub fn change_limit(
         &mut self,
+        authority_rung: Rung,
         registry: &ModuleRegistry,
         request: LimitChangeRequest,
         observed_at: u64,
     ) -> Result<AgentControlView, AgentControlError> {
+        if authority_rung != Rung::Committed {
+            return Err(AgentControlError::EvidenceConflict);
+        }
         if let Some(completed) = self.completed_limit_changes.get(&request.idempotency_key) {
             return if completed.request == request {
                 Ok(completed.view.clone())
@@ -619,24 +621,21 @@ impl<B: AgentControlContract> AgentControls<B> {
         }
         let verified = evidence.verify_outcome(kind)?;
         let protocol = verified
-            .receipt()
             .protocol()
             .ok_or(AgentControlError::EvidenceConflict)?;
-        if protocol.activity_id() != evidence.activity_id
+        if protocol.activity_id() != evidence.tx_hash
             || protocol.module_id() != ModuleId::Budget as u16
             || protocol.operation() != 0
             || protocol.result_code() != 0
         {
             return Err(AgentControlError::EvidenceConflict);
         }
-        if evidence.verification_level < VerificationLevel::CHECKPOINT_FINALISED
-            || evidence.verification_level < verified.level()
-        {
+        if evidence.rung != Rung::Committed {
             return Err(AgentControlError::EvidenceConflict);
         }
         Ok(LimitChangeEvidence {
-            digest: Sha256::digest(verified.canonical_bytes()).into(),
-            level: evidence.verification_level,
+            digest: Sha256::digest(&evidence.receipt_bytes).into(),
+            level: evidence.rung,
             replacement_budget: Some(replacement),
         })
     }
@@ -663,7 +662,7 @@ impl<B: AgentControlContract> AgentControls<B> {
         }
         Ok(LimitChangeEvidence {
             digest: evidence.configuration_digest,
-            level: VerificationLevel::UNVERIFIED,
+            level: Rung::Submitted,
             replacement_budget: None,
         })
     }

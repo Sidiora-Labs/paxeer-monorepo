@@ -12,7 +12,7 @@ import {
   type LaunchpadSpend,
   type PrecompileCall,
 } from "../../api/sdk";
-import { sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
+import { sendWalletPrecompileCall, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
 import { windowWalletProvider } from "../../api/provider";
 import { KitButton } from "../../kit/control";
 import { ExplorerPanel } from "../../kit/explorer";
@@ -43,8 +43,8 @@ export const SPONSORED_APPROVE_UNSUPPORTED = "the allowance approve cannot be sp
 
 // The 0x1017 Router pulls its input by transferFrom, so a short allowance
 // gets one approve for the exact amount, mined before the write is sent.
-// A sponsored quote covers exactly one call, so the approve is refused up
-// front under the sponsored SID fee instead of being sent.
+// Under the sponsored SID fee, the approve and the write are quoted and
+// consented as two separate sponsored calls.
 export async function sendWithApproval(
   from: string,
   spend: LaunchpadSpend,
@@ -58,9 +58,6 @@ export async function sendWithApproval(
   try {
     const approve = await launchpadApproval(wallet, from, spend);
     if (approve !== undefined) {
-      if (walletFeePreference().currency === "sidiora") {
-        return { outcome: "failed", detail: SPONSORED_APPROVE_UNSUPPORTED };
-      }
       onApproving(true);
       const approved = await sendWalletPrecompileCall(from, () => approve);
       if (approved.outcome !== "sent") {
@@ -78,13 +75,13 @@ export async function sendWithApproval(
 
 export function LaunchpadActions({
   account,
-  quoteDenom,
+  quoteSymbol,
   markets,
   feeStrategies,
 }: Readonly<{
   account: string | undefined;
-  quoteDenom: string;
-  markets: readonly Readonly<{ token: string; pool: string; label: string; paused: boolean }>[];
+  quoteSymbol: string;
+  markets: readonly Readonly<{ token: string; pool: string; label: string; paused: boolean; currentFeeBps: bigint }>[];
   feeStrategies: readonly string[];
 }>) {
   const router = useRouter();
@@ -114,8 +111,9 @@ export function LaunchpadActions({
       : undefined;
   const quote = currentPreview?.answer.ok === true ? currentPreview.answer : undefined;
   const minOut = quote === undefined || slippage === undefined ? undefined : (BigInt(quote.amountOut) * (BASIS_POINTS - slippage)) / BASIS_POINTS;
-  const payDenom = side === "buy" ? quoteDenom : "token";
-  const receiveDenom = side === "buy" ? "token" : quoteDenom;
+  const payDenom = side === "buy" ? quoteSymbol : "token";
+  const receiveDenom = side === "buy" ? "token" : quoteSymbol;
+  const selectedMarket = markets.find((market) => market.token === token);
 
   const previewQuote = () => {
     if (!validTrade) {
@@ -129,7 +127,7 @@ export function LaunchpadActions({
   };
 
   const trade = () => {
-    const pool = markets.find((market) => market.token === token)?.pool;
+    const pool = selectedMarket?.pool;
     if (account === undefined || pool === undefined || quote === undefined || minOut === undefined || amountIn === undefined) {
       return;
     }
@@ -235,10 +233,10 @@ export function LaunchpadActions({
             {currentPreview?.answer.ok === false ? (
               <InlineNotice tone="warning">{currentPreview.answer.detail}</InlineNotice>
             ) : null}
-            {quote === undefined || minOut === undefined ? null : (
+            {quote === undefined || minOut === undefined || selectedMarket === undefined ? null : (
               <div className="flex flex-wrap gap-6">
                 <LabelValue label={`You receive (${receiveDenom})`} value={formatUnits(BigInt(quote.amountOut), LAUNCHPAD_DECIMALS)} />
-                <LabelValue label="Fee" value={formatUnits(BigInt(quote.feeAmount), LAUNCHPAD_DECIMALS)} />
+                <LabelValue label="Fee" value={`${formatUnits(BigInt(quote.feeAmount), LAUNCHPAD_DECIMALS)} (${selectedMarket.currentFeeBps.toString()} bps)`} />
                 <LabelValue label="Price impact" value={`${quote.priceImpactBps} bps`} />
                 <LabelValue label="Minimum received" value={formatUnits(minOut, LAUNCHPAD_DECIMALS)} />
               </div>
@@ -289,7 +287,7 @@ export function LaunchpadActions({
             Create market
           </KitButton>
           {approving === "create" ? (
-            <InlineNotice>{`Approving exactly the creation fee in ${quoteDenom} for the launchpad router; the market is created once it confirms.`}</InlineNotice>
+            <InlineNotice>{`Approving exactly the creation fee in ${quoteSymbol} for the launchpad router; the market is created once it confirms.`}</InlineNotice>
           ) : null}
           <SendOutcome outcome={createOutcome} />
         </div>

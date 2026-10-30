@@ -5,8 +5,9 @@ mod export;
 
 pub use detail::EntryDetail;
 pub use export::{
-    verification_status, BundleReport, EvidenceBundle, EvidenceEntry, EvidenceExport, ExportError,
-    ReceiptAuthority, StatementExport, UnverifiedReason, VerificationStatus, VerifyError,
+    verification_status, verify_receipt_export, BundleReport, EvidenceBundle, EvidenceEntry,
+    EvidenceExport, ExportError, ReceiptExport, ReceiptFact, StatementExport, UnverifiedReason,
+    VerificationStatus, VerifyError,
 };
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -237,18 +238,22 @@ impl ReceiptEvidence {
     }
 
     #[must_use]
-    pub const fn level(&self) -> layerx_agent_api::verify::Level {
-        match self.rung {
-            Rung::Submitted => layerx_agent_api::verify::Level::Unverified,
-            Rung::Receipted => layerx_agent_api::verify::Level::BatchIncluded,
-            Rung::Committed => layerx_agent_api::verify::Level::CheckpointFinalised,
-        }
-    }
-
-    #[must_use]
     pub fn canonical(&self) -> Option<&[u8]> {
         self.canonical.as_deref()
     }
+    pub fn export_fact(&self, entry_id: &ActivityEntryId) -> Result<ReceiptFact, VerifyError> {
+        let canonical = self.canonical().ok_or_else(|| {
+            VerifyError::Unavailable(ExportError::EvidenceUnavailable {
+                reference: self.reference.clone(),
+            })
+        })?;
+        let fact = EvidenceBundle::receipt_fact(entry_id, canonical.to_vec(), self.rung)?;
+        if hex(fact.receipt_hash) != self.reference {
+            return Err(VerifyError::Unverified(UnverifiedReason::DigestMismatch));
+        }
+        Ok(fact)
+    }
+
     #[must_use]
     pub const fn authority(&self) -> Option<&layerx_proof::receipt::AuthorizedBatch> {
         self.authority.as_ref()
@@ -1359,15 +1364,6 @@ fn decode_cursor(bytes: &[u8]) -> Result<CursorFields, FeedError> {
         upper,
         after,
     })
-}
-
-const fn rung_level(rung: Rung) -> layerx_agent_api::verify::Level {
-    use layerx_agent_api::verify::Level;
-    match rung {
-        Rung::Submitted => Level::Unverified,
-        Rung::Receipted => Level::BatchIncluded,
-        Rung::Committed => Level::CheckpointFinalised,
-    }
 }
 
 const fn rung_code(rung: Rung) -> u8 {

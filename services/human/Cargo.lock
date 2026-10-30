@@ -904,7 +904,6 @@ dependencies = [
  "layerx-identity-binding",
  "layerx-intents",
  "layerx-paxeer-verifier",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -1120,6 +1119,7 @@ dependencies = [
  "sha2",
  "sha3",
  "subtle",
+ "ureq",
  "zeroize",
 ]
 
@@ -1135,6 +1135,7 @@ dependencies = [
  "layerx-intents",
  "layerx-proof",
  "layerx-types",
+ "serde_json",
  "sha2",
 ]
 

@@ -407,7 +407,11 @@ impl Reclaim {
                     let material = agent
                         .reclaim_receipt(evidence.action_key, evidence.activity_id)
                         .map_err(ReclaimError::Agent)?;
-                    if material.canonical_bytes != evidence.canonical_receipt {
+                    if material.canonical_bytes != evidence.canonical_receipt
+                        || material.tx_hash != evidence.activity_id
+                        || material.receipt_hash != evidence.receipt_digest
+                        || material.rung < layerx_types::rung::Rung::Receipted
+                    {
                         return Err(ReclaimError::ReceiptMismatch);
                     }
                     let verified = verify(&material.canonical_bytes, &material.authorised_batch)?;

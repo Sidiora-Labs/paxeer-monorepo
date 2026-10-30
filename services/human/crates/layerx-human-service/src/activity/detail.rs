@@ -3,7 +3,6 @@
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter, Write as _};
 
-use layerx_agent_api::verify::Level;
 use layerx_proof::receipt::{canonical_protocol_facts, VerifiedReceipt};
 use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
@@ -131,13 +130,13 @@ impl ActivityEntry {
         if self
             .receipts()
             .iter()
-            .any(|receipt| receipt.level() >= Level::CheckpointFinalised)
+            .any(|receipt| receipt.rung() >= Rung::Committed)
         {
             Rung::Committed
         } else if self
             .receipts()
             .iter()
-            .any(|receipt| receipt.level() > Level::Unverified)
+            .any(|receipt| receipt.rung() > Rung::Submitted)
         {
             Rung::Receipted
         } else {
@@ -189,7 +188,7 @@ pub struct EvidenceLink {
     kind: EvidenceKind,
     reference: String,
     path: String,
-    level: Level,
+    rung: Rung,
 }
 
 impl EvidenceLink {
@@ -211,10 +210,10 @@ impl EvidenceLink {
         &self.path
     }
 
-    /// Returns only the verification level carried by the source entry.
+    /// Returns only the verification rung carried by the source entry.
     #[must_use]
-    pub const fn level(&self) -> Level {
-        self.level
+    pub const fn rung(&self) -> Rung {
+        self.rung
     }
 }
 
@@ -281,7 +280,7 @@ impl EntryDetail {
                 kind: EvidenceKind::Receipt,
                 reference: receipt.reference().to_owned(),
                 path: format!("/explorer/receipts/{}", receipt.reference()),
-                level: receipt.level(),
+                rung: receipt.rung(),
             });
         }
         if let Some(finality) = finality {
@@ -290,7 +289,7 @@ impl EntryDetail {
                 kind: EvidenceKind::Checkpoint,
                 path: format!("/explorer/checkpoints/{reference}"),
                 reference,
-                level: super::rung_level(finality.rung()),
+                rung: finality.rung(),
             });
         }
         let refusal_money_left = match status {

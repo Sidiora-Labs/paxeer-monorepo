@@ -133,9 +133,10 @@ func (i *InfoAPI) gasPriceHelper(ctx context.Context, baseFee *big.Int, totalGas
 		return nil, err
 	}
 	if !isChainCongested {
-		// chain is not congested, increase base fee by 10% to get the gas price to get a tx included in a timely manner
+		// chain is not congested, increase base fee by 10% and include the default priority fee
 		gasPrice := new(big.Int).Mul(baseFee, big.NewInt(110))
 		gasPrice.Div(gasPrice, big.NewInt(100))
+		gasPrice.Add(gasPrice, big.NewInt(defaultPriorityFeePerGas))
 		return (*hexutil.Big)(gasPrice), nil
 	}
 	// chain is congested, return the 50%-tile reward as the priority fee per gas

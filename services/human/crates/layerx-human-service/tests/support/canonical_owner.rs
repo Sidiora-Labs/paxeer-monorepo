@@ -7,6 +7,7 @@ use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBou
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ModuleRegistration, ModuleRegistry, Payload};
+use sha2::{Digest as _, Sha256};
 
 pub struct SignedOwner {
     pub bytes: Vec<u8>,
@@ -64,11 +65,12 @@ pub fn sign(payload: &Payload, action_key: [u8; 32], version: u16, network: u32)
 pub fn assert_outcome(
     evidence: &layerx_human_service::agents::ProtocolEvidence,
     kind: layerx_types::payload::ActivityType,
+    authorized_batch: &layerx_proof::receipt::AuthorizedBatch,
 ) {
     checked(evidence.bound_activity(kind));
     checked(layerx_proof::receipt::verify_native_owner_outcome(
         &evidence.receipt_bytes,
-        &evidence.authorized_batch,
+        authorized_batch,
         &layerx_proof::receipt::NativeOwnerOutcomeContext {
             canonical_activity: &evidence.signed_activity,
             actor: &evidence.actor,
@@ -78,4 +80,17 @@ pub fn assert_outcome(
             network_id: evidence.network_id,
         },
     ));
+    let receipt = checked(evidence.verify_outcome(kind));
+    let protocol = receipt.protocol().expect("protocol receipt");
+    assert_eq!(evidence.tx_hash, protocol.activity_id());
+    assert_eq!(evidence.tx_hash, evidence.activity_id);
+    assert_eq!(evidence.rung, layerx_types::rung::Rung::Committed);
+    assert_eq!(
+        &protocol.batch_id()[24..],
+        &evidence.block_height.to_be_bytes()
+    );
+    assert_eq!(
+        evidence.receipt_hash,
+        <[u8; 32]>::from(Sha256::digest(&evidence.receipt_bytes))
+    );
 }

@@ -1,7 +1,6 @@
-use layerx_client::lni::framing::{read_frame, write_frame};
-use layerx_client::lni::transport::{Limits, MutualTlsConfig};
 use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_service::custody::{KeyClass, KeyId, Keystore, KmsProvider, RemoteKmsProvider};
+use layerx_human_service::frame::{read_frame, write_frame, Limits, MutualTlsConfig};
 use layerx_human_service::store::PrincipalId;
 use layerx_types::clock::{Clock, Deadline};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
@@ -22,8 +21,6 @@ mod native_setup;
 mod owner_bootstrap;
 #[path = "provider/owner_rotation.rs"]
 mod owner_rotation;
-#[path = "provider/settlement_recipient.rs"]
-mod settlement_recipient;
 const MAX: usize = 2_097_152;
 struct Host {
     root: PathBuf,

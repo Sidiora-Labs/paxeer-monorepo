@@ -13,7 +13,16 @@ path = "../layerx-agentd/src/main.rs"
 name = "runtime_mode"
 path = "../layerx-agentd/host-tests/runtime_mode.rs"
 
+[[test]]
+name = "serve_routes"
+path = "../layerx-agentd/host-tests/serve_routes.rs"
+
+[[test]]
+name = "payer_evm"
+path = "tests/payer_evm.rs"
+
 [dependencies]
+base64 = "=0.22.1"
 layerx-agentd = { path = "../layerx-agentd" }
 layerx-mcp = { path = "../layerx-mcp" }
 layerx-sdk = { path = "../layerx-sdk" }
@@ -29,7 +38,6 @@ layerx-wire = { path = "../layerx-wire" }
 layerx-intents = { path = "../../../human/crates/layerx-intents" }
 layerx-programs = { package = "layerx-programs-registry", path = "../../../../programs/crates/layerx-programs-registry" }
 layerx-programs-runtime = { path = "../../../../programs/crates/layerx-programs-runtime" }
-layerx-programs-protocol-adapter = { path = "../../../../programs/crates/layerx-programs-protocol-adapter" }
 sha2 = "=0.10.9"
 serde_json = "=1.0.151"
 serde = { version = "=1.0.229", features = ["derive"] }
@@ -40,6 +48,11 @@ rustls-webpki = { version = "=0.103.15", default-features = false, features = ["
 rustix = { version = "=1.1.4", features = ["net"] }
 zeroize = "=1.9.0"
 getrandom = "=0.3.4"
+
+[dev-dependencies]
+p256 = { version = "=0.13.2", default-features = false, features = ["ecdsa", "std"] }
+k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa"] }
+sha3 = "=0.10.8"
 
 [lints]
 workspace = true

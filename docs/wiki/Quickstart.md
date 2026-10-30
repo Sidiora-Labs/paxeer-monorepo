@@ -492,9 +492,10 @@ path, not a hosted production-gateway payment command. Use the
 `lx_sendActivity` public RPC path for hosted canonical payment activities.
 
 There is no `layerx activity` command (`tools/platform/cli/src/main.rs:53-99`).
-MCP/A2A `activity.submit` POSTs JSON `{"activity": <hex>}` to
-`/v1/activities` (`tools/platform/cli/src/toolset.rs:341-344`). That route
-requires scope `activity:write` (`services/platform/hosted/gateway/src/main.rs:1072-1087`).
+The A2A toolset's `activity.submit` takes one `raw_transaction` argument,
+a signed EIP-1559 transaction hex (`tools/platform/cli/src/toolset.rs:189-199`).
+It sends that transaction with `eth_sendRawTransaction` to `/rpc` and returns
+`txHash` with `rung: "submitted"` (`tools/platform/cli/src/toolset.rs:260-294`).
 
 The CLI command that issues a gateway key is `layerx install a2a`,
 which POSTs `/v1/keys` with the stored session
@@ -512,10 +513,11 @@ JSON includes `ok`, `key.id`, `key.secret`, `key.authorization_scheme`
 Bring-up puts `$LAYERX_TEST_SOURCE_PUBLIC_KEY` on the smoke principal
 (`services/platform/hosted/tests/beta-cluster.sh:2684-2686`).
 
-Hosted activity POST body used by the CLI toolset is `{"activity": <hex>}`
-with `Idempotency-Key` (`tools/platform/cli/src/toolset.rs:341-344`). Gateway
-success for a completed non-program activity is `{ok: true, result, trace}`
-(`services/platform/hosted/gateway/src/main.rs:3576-3578`).
+For hosted submission, pass `{"raw_transaction": "<signed EIP-1559 transaction hex>"}`
+to the CLI toolset's `activity.submit` (`tools/platform/cli/src/toolset.rs:189-199`).
+The toolset POSTs a JSON-RPC `eth_sendRawTransaction` request to `/rpc` with the
+transaction as its sole parameter and returns `{"txHash": "<hash>", "rung": "submitted"}`
+(`tools/platform/cli/src/toolset.rs:260-294`).
 
 ---
 

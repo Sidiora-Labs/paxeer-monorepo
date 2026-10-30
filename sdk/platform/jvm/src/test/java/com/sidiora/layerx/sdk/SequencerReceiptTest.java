@@ -6,9 +6,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sidiora.layerx.sdk.verify.GeneratedReceiptContract.ReceiptCheck;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
+import java.security.Signature;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -18,14 +23,14 @@ import static org.junit.jupiter.api.Assertions.*;
 public final class SequencerReceiptTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private static JsonNode fixture() throws Exception {
+    private static JsonNode fixture(String name) throws Exception {
         Path directory = Path.of("").toAbsolutePath();
         while (directory != null) {
-            Path fixture = directory.resolve("sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");
+            Path fixture = directory.resolve("sdk/platform/conformance/fixtures/" + name);
             if (Files.isRegularFile(fixture)) return JSON.readTree(Files.readString(fixture));
             directory = directory.getParent();
         }
-        throw new IllegalStateException("sequencer-receipt-v1.json not found");
+        throw new IllegalStateException(name + " not found");
     }
 
     private static byte[] bytes(JsonNode node, String field) {
@@ -41,7 +46,7 @@ public final class SequencerReceiptTest {
             pin.required("firstHeight").bigIntegerValue(), pin.required("lastHeight").bigIntegerValue());
     }
 
-    private static LocalVerifier.SequencerReceiptVerification verify(JsonNode vector) {
+    private static LocalVerifier.SequencerReceiptVerification verifySequencerReceipt(JsonNode vector) {
         return LocalVerifier.verifySequencerReceipt(bytes(vector, "signedReceipt"),
             bytes(vector, "rawTransaction"), new LocalVerifier.ReceiptKeys(List.of(key(vector))),
             vector.required("receiptJson"), bytes(vector, "prevSeqHash"));
@@ -55,13 +60,24 @@ public final class SequencerReceiptTest {
     }
 
     @Test
+    void publishedVectorFilesMatchRecordedCases() {
+        assertAll("published V1-V3 cases",
+            this::sequencerReceiptV1CasesVerifyReceipted,
+            this::sequencerReceiptV2RevertDecodesReason,
+            this::sequencerReceiptV3RefusalsNameTheirCheck);
+    }
+
+    @Test
     void sequencerReceiptV1CasesVerifyReceipted() throws Exception {
         int count = 0;
-        for (JsonNode vector : fixture().required("cases")) {
-            if (!vector.required("vector").asText().equals("V1")) continue;
+        var seen = new HashSet<String>();
+        for (JsonNode vector : fixture("vector-v1-receipted-positive.json").required("cases")) {
+            assertEquals("V1", vector.required("vector").asText());
             count++;
             String id = vector.required("id").asText();
-            var verified = verify(vector);
+            assertTrue(seen.add(id), "duplicate V1 case: " + id);
+            assertEquals("accepts", vector.required("expected").required("verifier").asText(), id);
+            var verified = verifySequencerReceipt(vector);
             assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verified.level(), id);
             assertEquals(vector.required("expected").required("rung").asText(), verified.level().wire(), id);
             assertEquals(1, verified.status(), id);
@@ -115,14 +131,53 @@ public final class SequencerReceiptTest {
     }
 
     @Test
+    void sequencerReceiptWithTopLevelTransferSetRootIsNotAFieldsRefusal() throws Exception {
+        JsonNode vector = fixture("vector-v1-receipted-positive.json").required("cases").required(0);
+        assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verifySequencerReceipt(vector).level());
+        byte[] receipt = bytes(vector, "signedReceipt");
+        int signatureOffset = receipt.length - 64;
+        int signatureFlagOffset = signatureOffset - 4 - 1;
+        int transferSetRootOffset = signatureFlagOffset - 8 - 3 * (4 + 32) + 4;
+        int authorizationHashOffset = transferSetRootOffset + 32 + 4;
+        Arrays.fill(receipt, transferSetRootOffset, transferSetRootOffset + 32, (byte) 0x11);
+        Arrays.fill(receipt, authorizationHashOffset, authorizationHashOffset + 32, (byte) 0x22);
+
+        byte[] unsigned = Arrays.copyOf(receipt, signatureFlagOffset + 1);
+        unsigned[signatureFlagOffset] = 0;
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update("LXP/v1/receipt\0".getBytes(StandardCharsets.US_ASCII));
+        var signingKey = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
+        Signature signer = Signature.getInstance("Ed25519");
+        signer.initSign(signingKey.getPrivate());
+        signer.update(digest.digest(unsigned));
+        System.arraycopy(signer.sign(), 0, receipt, signatureOffset, 64);
+        byte[] publicKey = signingKey.getPublic().getEncoded();
+        var pin = key(vector);
+        var keys = new LocalVerifier.ReceiptKeys(List.of(new LocalVerifier.ReceiptKey(pin.keyId(),
+            Arrays.copyOfRange(publicKey, publicKey.length - 32, publicKey.length),
+            pin.firstHeight(), pin.lastHeight())));
+
+        var verified = assertDoesNotThrow(() -> LocalVerifier.verifySequencerReceipt(
+            receipt, bytes(vector, "rawTransaction"), keys),
+            "non-zero top-level transferSetRoot and authorizationHash must verify without a FIELDS refusal");
+        assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verified.level());
+        assertArrayEquals(Arrays.copyOfRange(receipt, transferSetRootOffset, transferSetRootOffset + 32),
+            verified.receipt().transferSetRoot());
+        assertArrayEquals(Arrays.copyOfRange(receipt, authorizationHashOffset, authorizationHashOffset + 32),
+            verified.receipt().authorizationHash());
+    }
+
+    @Test
     void sequencerReceiptV2RevertDecodesReason() throws Exception {
         int count = 0;
-        for (JsonNode vector : fixture().required("cases")) {
-            if (!vector.required("vector").asText().equals("V2")) continue;
+        for (JsonNode vector : fixture("vector-v2-receipted-revert.json").required("cases")) {
+            assertEquals("V2", vector.required("vector").asText());
             count++;
-            var verified = assertDoesNotThrow(() -> verify(vector));
+            assertEquals("accepts", vector.required("expected").required("verifier").asText());
+            var verified = assertDoesNotThrow(() -> verifySequencerReceipt(vector));
             assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verified.level());
             assertEquals("receipted", verified.level().wire());
+            assertEquals(vector.required("expected").required("rung").asText(), verified.level().wire());
             assertEquals(0, verified.status());
             assertEquals(1, verified.receipt().resultCode());
             assertArrayEquals(bytes(vector, "receiptDigest"), verified.receiptDigest());
@@ -151,14 +206,16 @@ public final class SequencerReceiptTest {
             ReceiptCheck.RAW_TRANSACTION, "R4", ReceiptCheck.SEQUENCE_HASH, "R6",
             ReceiptCheck.LOGS, "R5", ReceiptCheck.CANONICAL_ENCODING, "R2");
         int count = 0;
-        for (JsonNode vector : fixture().required("cases")) {
-            if (!vector.required("vector").asText().equals("V3")) continue;
+        var seen = new HashSet<String>();
+        for (JsonNode vector : fixture("vector-v3-receipt-refusals.json").required("cases")) {
+            assertEquals("V3", vector.required("vector").asText());
             count++;
             String id = vector.required("id").asText();
+            assertTrue(seen.add(id), "duplicate V3 case: " + id);
             ReceiptCheck expected = checks.get(id);
             assertNotNull(expected, id);
             assertEquals(rungs.get(expected), vector.required("expected").required("refusedAt").asText(), id);
-            assertRefusal(expected, () -> verify(vector));
+            assertRefusal(expected, () -> verifySequencerReceipt(vector));
         }
         assertEquals(checks.size(), count, "every V3 refusal must execute");
     }

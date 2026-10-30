@@ -459,3 +459,82 @@ fn an_unregistered_activity_names_its_type() {
         Err(DisclosureError::UnsupportedActivity(0x0002_0001))
     );
 }
+
+#[test]
+fn payments_reexports_the_ledger_call_builders() -> Result<(), Box<dyn std::error::Error>> {
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_crypto::payments::{
+        bind_call, ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, Disclosure,
+        SendCondition, SendDebit,
+    };
+    use layerx_crypto::SignatureMessage;
+
+    let mut debit = SendDebit {
+        from: [1; 32],
+        to: [2; 32],
+        asset: [3; 32],
+        amount: 123,
+        source_sequence: 7,
+        idempotency_key: [4; 32],
+        expires_at: 100,
+        context_hash: [0; 32],
+        conditions: vec![SendCondition {
+            kind: 1,
+            timestamp: 10,
+        }],
+        authorization_kind: 1,
+        network_id: 17,
+        protocol_version: layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    };
+    debit.context_hash = send_context_hash(
+        &debit.from,
+        &debit.to,
+        &debit.asset,
+        debit.amount,
+        &debit.idempotency_key,
+    );
+    assert_eq!(
+        debit.context_hash,
+        layerx_crypto::send::send_context_hash(
+            &debit.from,
+            &debit.to,
+            &debit.asset,
+            debit.amount,
+            &debit.idempotency_key,
+        )
+    );
+    let authorization = debit.authorization_message()?;
+    let message = SignatureMessage::new(
+        Domain::SignaturePreimage,
+        debit.protocol_version,
+        debit.network_id,
+        &authorization,
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    let key = SigningKey::from_bytes(&[5; 32]);
+    let payload = debit.encode_signed(
+        key.verifying_key().to_bytes(),
+        key.sign(&message.digest()).to_bytes(),
+    )?;
+    let options = CallOptions {
+        from: [0xa1; 20],
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 30,
+        gas_limit: 100_000,
+    };
+    let exported: DisclosedCall = ledger_payment_call(&payload, &options)?;
+    let original = layerx_crypto::send::ledger_payment_call(&payload, &options)?;
+    assert_eq!(exported.call.data, original.call.data);
+    assert_eq!(exported.call, original.call);
+    assert_eq!(exported.call.sign(&[6; 32])?, original.call.sign(&[6; 32])?);
+
+    let exported_disclosure: Disclosure = bind_call(&exported.call, options.from)?;
+    let original_disclosure =
+        layerx_crypto::disclosure::call::bind_call(&original.call, options.from)?;
+    assert_eq!(exported_disclosure, original_disclosure);
+    assert_eq!(exported.disclosure, exported_disclosure);
+    assert_eq!(original.disclosure, original_disclosure);
+    Ok(())
+}

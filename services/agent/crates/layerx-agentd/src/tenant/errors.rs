@@ -138,6 +138,46 @@ pub enum MetricLabel {
     RateExceeded,
 }
 
+impl MetricLabel {
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Executed => "executed",
+            Self::Failed => "failed",
+            Self::Unknown => "unknown",
+            Self::AgeUnderSecond => "age_under_second",
+            Self::AgeUnderMinute => "age_under_minute",
+            Self::AgeAtLeastMinute => "age_at_least_minute",
+            Self::SequencerSigned => "sequencer_signed",
+            Self::BatchIncluded => "batch_included",
+            Self::StateProven => "state_proven",
+            Self::CheckpointFinalised => "checkpoint_finalised",
+            Self::SettlementAnchored => "settlement_anchored",
+            Self::BoundaryReady => "boundary_ready",
+            Self::BoundaryBackpressured => "boundary_backpressured",
+            Self::BoundaryUnavailable => "boundary_unavailable",
+            Self::AccessDenied => "access_denied",
+            Self::InvalidRequest => "invalid_request",
+            Self::StorageFailure => "storage_failure",
+            Self::BoundaryFailure => "node_failure",
+            Self::InternalFailure => "internal_failure",
+            Self::Allowed => "allowed",
+            Self::Denied => "denied",
+            Self::UtilizationLow => "utilization_low",
+            Self::UtilizationHigh => "utilization_high",
+            Self::LagHealthy => "lag_healthy",
+            Self::Lagging => "lagging",
+            Self::RateExceeded => "rate_exceeded",
+        }
+    }
+}
+
+impl std::fmt::Display for MetricLabel {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.name())
+    }
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct BoundedMetricKey {
     pub tenant: TenantId,

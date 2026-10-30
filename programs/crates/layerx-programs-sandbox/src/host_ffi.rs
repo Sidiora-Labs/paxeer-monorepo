@@ -15,6 +15,18 @@ use crate::{
 
 const OK: i32 = 0;
 const NON_CANONICAL: i32 = -3;
+const CONTEXT_MISMATCH: i32 = -213;
+const TERMS_MISMATCH: i32 = -724;
+const NOT_YET_VALID: i32 = -304;
+const EXPIRED: i32 = -303;
+const SEQUENCE_MISMATCH: i32 = -305;
+const FEE_LIMIT: i32 = -600;
+const FEE_UNPAYABLE: i32 = -602;
+const CONSERVATION: i32 = -405;
+const OVERFLOW: i32 = -500;
+const AUTH_SCOPE: i32 = -204;
+const ESCROW_STATE: i32 = -700;
+const DUPLICATE_ENTRY: i32 = -8;
 
 fn guarded<T>(f: impl FnOnce() -> Result<T, i32> + std::panic::UnwindSafe) -> Result<T, i32> {
     std::panic::catch_unwind(f).unwrap_or(Err(NON_CANONICAL))
@@ -493,7 +505,7 @@ fn admit_host(
         || context_field(token, 3)? != lease.fee_destination()
         || context_field(token, 4)? != lease.state_digest().map_err(|_| NON_CANONICAL)?
     {
-        return Err(NON_CANONICAL);
+        return Err(CONTEXT_MISMATCH);
     }
     let schedule = lease.fee_schedule();
     if unsafe {
@@ -510,20 +522,23 @@ fn admit_host(
         )
     } != OK
     {
-        return Err(NON_CANONICAL);
+        return Err(TERMS_MISMATCH);
     }
     let prior_batch = ledger
         .latest()
         .map_or(lease.opened_at(), crate::UsageReceipt::observed_batch);
-    if observed_batch < prior_batch || observed_batch >= lease.expiry() {
-        return Err(NON_CANONICAL);
+    if observed_batch < prior_batch {
+        return Err(NOT_YET_VALID);
+    }
+    if observed_batch >= lease.expiry() {
+        return Err(EXPIRED);
     }
     let maximum_execution = (u128::from(maximum_fee_hi) << 64) | u128::from(maximum_fee_lo);
     let remaining = escrow
         .funded()
         .checked_sub(escrow.spent())
         .and_then(|value| value.checked_sub(escrow.refunded()))
-        .ok_or(NON_CANONICAL)?;
+        .ok_or(CONSERVATION)?;
     let maximum_charge = admitted_charge(
         lease.usage().namespace_bytes,
         prior_batch,
@@ -531,9 +546,9 @@ fn admit_host(
         schedule.occupancy_byte_batch_price(),
         maximum_execution,
     )
-    .ok_or(NON_CANONICAL)?;
+    .ok_or(FEE_LIMIT)?;
     if maximum_charge > remaining {
-        return Err(NON_CANONICAL);
+        return Err(FEE_UNPAYABLE);
     }
     let activity_id: [u8; 32] = lifecycle_field(token, 8)?
         .try_into()
@@ -557,11 +572,11 @@ fn admit_host(
             amount: maximum_charge,
         },
     )
-    .map_err(|_| NON_CANONICAL)?;
+    .map_err(|_| AUTH_SCOPE)?;
     HOST_SETTLEMENT_RESERVATION.with(|slot| {
         let mut slot = slot.borrow_mut();
         if slot.is_some() {
-            return Err(NON_CANONICAL);
+            return Err(DUPLICATE_ENTRY);
         }
         *slot = Some(HostSettlementReservation {
             token,
@@ -612,9 +627,9 @@ pub extern "C" fn layerx_programs_sandbox_final_reserve_host(
     guarded(|| {
         HOST_SETTLEMENT_RESERVATION.with(|slot| {
             let slot = slot.borrow();
-            let reservation = slot.as_ref().ok_or(NON_CANONICAL)?;
+            let reservation = slot.as_ref().ok_or(CONTEXT_MISMATCH)?;
             if reservation.token != token {
-                return Err(NON_CANONICAL);
+                return Err(CONTEXT_MISMATCH);
             }
             let lease = &reservation.state.lease;
             let schedule = lease.fee_schedule();
@@ -630,7 +645,7 @@ pub extern "C" fn layerx_programs_sandbox_final_reserve_host(
             .try_fold(0u128, |total, (units, price)| {
                 total.checked_add(u128::from(units).checked_mul(u128::from(price))?)
             })
-            .ok_or(NON_CANONICAL)?;
+            .ok_or(OVERFLOW)?;
             let prior_batch = reservation
                 .state
                 .ledger
@@ -640,7 +655,7 @@ pub extern "C" fn layerx_programs_sandbox_final_reserve_host(
                 .state
                 .escrow
                 .remaining()
-                .map_err(|_| NON_CANONICAL)?;
+                .map_err(|_| CONSERVATION)?;
             if !postexecution_reserve_fits(
                 remaining,
                 lease.usage().namespace_bytes,
@@ -651,12 +666,12 @@ pub extern "C" fn layerx_programs_sandbox_final_reserve_host(
                 schedule.occupancy_byte_batch_price(),
                 exact_execution,
             ) {
-                return Err(NON_CANONICAL);
+                return Err(FEE_UNPAYABLE);
             }
             Ok(())
         })
     })
-    .map_or(NON_CANONICAL, |()| OK)
+    .map_or_else(|error| error, |()| OK)
 }
 
 fn validate_settlement_context(
@@ -673,11 +688,14 @@ fn validate_settlement_context(
         || context_field(token, 3)? != lease.fee_destination()
         || context_field(token, 4)? != reservation.expected_lease_digest
     {
-        return Err(NON_CANONICAL);
+        return Err(CONTEXT_MISMATCH);
     }
-    let expected_sequence = ledger.receipt_count().checked_add(1).ok_or(NON_CANONICAL)?;
+    let expected_sequence = ledger
+        .receipt_count()
+        .checked_add(1)
+        .ok_or(SEQUENCE_MISMATCH)?;
     if unsafe { layerx_programs_call_sandbox_expected_sequence(token, expected_sequence) } != OK {
-        return Err(NON_CANONICAL);
+        return Err(SEQUENCE_MISMATCH);
     }
     let schedule = lease.fee_schedule();
     if unsafe {
@@ -694,7 +712,7 @@ fn validate_settlement_context(
         )
     } != OK
     {
-        return Err(NON_CANONICAL);
+        return Err(TERMS_MISMATCH);
     }
     Ok(())
 }
@@ -719,9 +737,9 @@ fn settle_call(
         ActivityBudgetBinding::new(words_to_bytes(binding_words)).map_err(|_| NON_CANONICAL)?;
     let mut reservation = HOST_SETTLEMENT_RESERVATION
         .with(|slot| slot.borrow_mut().take())
-        .ok_or(NON_CANONICAL)?;
+        .ok_or(CONTEXT_MISMATCH)?;
     if reservation.token != token {
-        return Err(NON_CANONICAL);
+        return Err(CONTEXT_MISMATCH);
     }
     validate_settlement_context(token, &reservation, host)?;
     let lease = &reservation.state.lease;
@@ -733,13 +751,13 @@ fn settle_call(
         .map_or(lease.opened_at(), crate::UsageReceipt::observed_batch);
     let elapsed = observed_batch
         .checked_sub(prior_batch)
-        .ok_or(NON_CANONICAL)?;
+        .ok_or(NOT_YET_VALID)?;
     let occupancy_byte_batches = u128::from(lease.usage().namespace_bytes)
         .checked_mul(u128::from(elapsed))
-        .ok_or(NON_CANONICAL)?;
+        .ok_or(OVERFLOW)?;
     let occupancy_fee_units = occupancy_byte_batches
         .checked_mul(u128::from(schedule.occupancy_byte_batch_price()))
-        .ok_or(NON_CANONICAL)?;
+        .ok_or(OVERFLOW)?;
     let execution_fee = execution_fee(
         schedule,
         [
@@ -765,13 +783,16 @@ fn settle_call(
     let cumulative = cumulative_usage(lease, usage, outcome, final_namespace_bytes)?;
     let exact_fee = execution_fee
         .checked_add(occupancy_fee_units)
-        .ok_or(NON_CANONICAL)?;
+        .ok_or(OVERFLOW)?;
     escrow
         .permits_execution(lease, exact_fee)
-        .map_err(|_| NON_CANONICAL)?;
+        .map_err(|_| ESCROW_STATE)?;
     let settlement =
         settle_reserved_host_sandbox_escrow_charge(token, &mut reservation.transfer, exact_fee)
-            .map_err(|_| NON_CANONICAL)?;
+            .map_err(|error| match error {
+                layerx_programs_runtime::TransferLawError::Kernel(code) => code,
+                _ => AUTH_SCOPE,
+            })?;
     let observation = UsageObservation::host_sealed(
         match outcome {
             1 => ActivityOutcome::Success,
@@ -806,7 +827,7 @@ fn settle_call(
             receipt_bytes,
         },
     )
-    .map_err(|_| NON_CANONICAL)?;
+    .map_err(|_| ESCROW_STATE)?;
     publish_settlement(
         token,
         &mut reservation,
@@ -834,9 +855,9 @@ fn execution_fee(
             .checked_add(
                 u128::from(units)
                     .checked_mul(u128::from(price))
-                    .ok_or(NON_CANONICAL)?,
+                    .ok_or(OVERFLOW)?,
             )
-            .ok_or(NON_CANONICAL)
+            .ok_or(OVERFLOW)
     })
 }
 
@@ -851,28 +872,28 @@ pub(crate) fn cumulative_usage(
             .usage()
             .cpu_fuel
             .checked_add(usage.cpu_fuel)
-            .ok_or(NON_CANONICAL)?,
+            .ok_or(OVERFLOW)?,
         memory_bytes: lease.usage().memory_bytes.max(usage.memory_bytes),
         storage_read_bytes: lease
             .usage()
             .storage_read_bytes
             .checked_add(usage.storage_read_bytes)
-            .ok_or(NON_CANONICAL)?,
+            .ok_or(OVERFLOW)?,
         storage_write_bytes: lease
             .usage()
             .storage_write_bytes
             .checked_add(usage.storage_write_bytes)
-            .ok_or(NON_CANONICAL)?,
+            .ok_or(OVERFLOW)?,
         output_values: lease
             .usage()
             .output_values
             .checked_add(u64::from(usage.output_values))
-            .ok_or(NON_CANONICAL)?,
+            .ok_or(OVERFLOW)?,
         output_bytes: lease
             .usage()
             .output_bytes
             .checked_add(usage.output_bytes)
-            .ok_or(NON_CANONICAL)?,
+            .ok_or(OVERFLOW)?,
         table_elements: lease.usage().table_elements,
         namespace_bytes: if outcome == 1 {
             final_namespace_bytes
@@ -1021,7 +1042,7 @@ pub extern "C" fn layerx_programs_sandbox_settle_call_rust(
             final_namespace_bytes,
         )
     })
-    .map_or(NON_CANONICAL, |()| OK)
+    .map_or_else(|error| error, |()| OK)
 }
 
 fn validate_lifecycle(token: u64, operation: u8) -> Result<(), i32> {

@@ -6,7 +6,11 @@ use std::collections::BTreeMap;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_committed_proof::commit::BlockIdFlag;
+use layerx_committed_proof::header::{BlockId, Header, Timestamp};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
@@ -58,6 +62,14 @@ pub struct LayerXPaymentRequest {
 #[derive(Debug)]
 pub struct ExecutedPayment {
     pub evidence: SequencerEvidence,
+    pub committed: Option<CommittedSettlementProof>,
+}
+
+#[derive(Debug)]
+pub struct CommittedSettlementProof {
+    pub proof: layerx_committed_proof::CommittedProof,
+    pub validators: Vec<layerx_committed_proof::header::Validator>,
+    pub chain_id: String,
 }
 
 /// Honest outcome of the plane call. Pending and refused are first-class;
@@ -314,6 +326,34 @@ impl Seller {
         if protocol.activity_id() != evidence.transaction_hash || protocol.result_code() != 0 {
             return Err(X402Error::EvidenceMismatch);
         }
+        let committed_proof = if let SettlementRung::Committed {
+            block_number,
+            block_hash,
+        } = evidence.rung
+        {
+            let committed = executed
+                .committed
+                .as_ref()
+                .ok_or(X402Error::EvidenceMismatch)?;
+            if committed.proof.signed_receipt != evidence.signed_receipt {
+                return Err(X402Error::EvidenceMismatch);
+            }
+            let receipt_digest = canonical_receipt_digest(&evidence.signed_receipt)
+                .map_err(|_| X402Error::EvidenceMismatch)?;
+            let block = layerx_committed_proof::committed::verify_committed(
+                receipt_digest,
+                &committed.proof,
+                &committed.validators,
+                &committed.chain_id,
+            )
+            .map_err(|_| X402Error::EvidenceMismatch)?;
+            if block.number != block_number || block.hash != block_hash {
+                return Err(X402Error::EvidenceMismatch);
+            }
+            Some(committed_proof_json(committed))
+        } else {
+            None
+        };
         let verified = verify_logs(&receipt, evidence.logs.clone())
             .map_err(|_| X402Error::EvidenceMismatch)?;
         let mut payments = verified.logs().iter().filter(|log| {
@@ -370,6 +410,26 @@ impl Seller {
         if let (Some(purpose), Some(terms)) = (purpose, layerx.as_object_mut()) {
             terms.insert("purposeHash".to_owned(), Value::String(purpose));
         }
+        if let (
+            SettlementRung::Committed {
+                block_number,
+                block_hash,
+            },
+            Some(terms),
+        ) = (evidence.rung, layerx.as_object_mut())
+        {
+            terms.insert(
+                "blockNumber".to_owned(),
+                Value::String(format!("0x{block_number:x}")),
+            );
+            terms.insert(
+                "blockHash".to_owned(),
+                Value::String(prefixed_hex(&block_hash)),
+            );
+            if let Some(proof) = committed_proof {
+                terms.insert("proof".to_owned(), proof);
+            }
+        }
         let mut extensions = BTreeMap::new();
         extensions.insert("layerx".to_owned(), layerx);
         let response = SettlementResponse {
@@ -389,6 +449,76 @@ impl Seller {
             receipt_digest,
         })
     }
+}
+
+fn committed_proof_json(proof: &CommittedSettlementProof) -> Value {
+    fn timestamp_json(timestamp: Timestamp) -> Value {
+        json!({"seconds": timestamp.seconds, "nanos": timestamp.nanos})
+    }
+
+    fn block_id_json(block_id: &BlockId) -> Value {
+        json!({
+            "hash": prefixed_hex(&block_id.hash),
+            "parts": {
+                "total": block_id.part_set_header.total,
+                "hash": prefixed_hex(&block_id.part_set_header.hash),
+            },
+        })
+    }
+
+    fn header_json(header: &Header) -> Value {
+        json!({
+            "version": {"block": header.version.block, "app": header.version.app},
+            "chain_id": header.chain_id,
+            "height": header.height,
+            "time": timestamp_json(header.time),
+            "last_block_id": block_id_json(&header.last_block_id),
+            "last_commit_hash": prefixed_hex(&header.last_commit_hash),
+            "data_hash": prefixed_hex(&header.data_hash),
+            "validators_hash": prefixed_hex(&header.validators_hash),
+            "next_validators_hash": prefixed_hex(&header.next_validators_hash),
+            "consensus_hash": prefixed_hex(&header.consensus_hash),
+            "app_hash": prefixed_hex(&header.app_hash),
+            "last_results_hash": prefixed_hex(&header.last_results_hash),
+            "evidence_hash": prefixed_hex(&header.evidence_hash),
+            "proposer_address": prefixed_hex(&header.proposer_address),
+        })
+    }
+
+    let committed = &proof.proof;
+    json!({
+        "chainId": proof.chain_id,
+        "header": header_json(&committed.header),
+        "executionHeader": header_json(&committed.execution_header),
+        "validators": proof.validators.iter().map(|validator| json!({
+            "pub_key": prefixed_hex(&validator.pub_key),
+            "voting_power": validator.voting_power,
+        })).collect::<Vec<_>>(),
+        "commit": {
+            "height": committed.commit.height,
+            "round": committed.commit.round,
+            "block_id": block_id_json(&committed.commit.block_id),
+            "signatures": committed.commit.signatures.iter().map(|vote| json!({
+                "block_id_flag": match vote.block_id_flag {
+                    BlockIdFlag::Absent => 1,
+                    BlockIdFlag::Commit => 2,
+                    BlockIdFlag::Nil => 3,
+                },
+                "validator_address": prefixed_hex(&vote.validator_address),
+                "timestamp": timestamp_json(vote.timestamp),
+                "signature": vote.signature.as_ref().map(|signature| prefixed_hex(signature)),
+            })).collect::<Vec<_>>(),
+        },
+        "batchProof": {
+            "leafEncoding": "sha256-tx",
+            "rootHash": prefixed_hex(&committed.execution_header.data_hash),
+            "data": prefixed_hex(&committed.batch_transaction),
+            "total": committed.batch_total,
+            "index": committed.batch_index,
+            "aunts": committed.batch_aunts.iter().map(|aunt| prefixed_hex(aunt)).collect::<Vec<_>>(),
+        },
+        "activityIds": committed.activity_ids.iter().map(|id| prefixed_hex(id)).collect::<Vec<_>>(),
+    })
 }
 
 fn payment_reference(value: &Value) -> Result<[u8; 32], X402Error> {
@@ -748,6 +878,7 @@ pub(crate) mod tests {
         let digest = layerx_wire::hash::receipt_digest(&unsigned)
             .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
         ExecutedPayment {
+            committed: None,
             evidence: SequencerEvidence {
                 transaction_hash: [0x61; 32],
                 signed_receipt: encoded_receipt(recipient, Some(key.sign(&digest).to_bytes())),

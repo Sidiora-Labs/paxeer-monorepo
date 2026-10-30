@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net"
@@ -17,41 +16,13 @@ import (
 )
 
 const maximumHTTPResponseBytes = 8 * 1024 * 1024
-const maximumHTTPProgramsRequestBytes = 8 * 1024 * 1024
-
-type programHTTPRoute struct {
-	method          string
-	path            string
-	pathParameters  []string
-	idempotencyOnly bool
-}
-
-var programHTTPRoutes = map[string]programHTTPRoute{
-	"program.discover":  {method: http.MethodGet, path: "/v1/programs/registry/{program_id}", pathParameters: []string{"program_id"}},
-	"program.interface": {method: http.MethodGet, path: "/v1/programs/registry/{program_id}/interface", pathParameters: []string{"program_id"}},
-	"program.simulate":  {method: http.MethodPost, path: "/v1/programs/simulate"},
-	"program.call":      {method: http.MethodPost, path: "/v1/programs/call", idempotencyOnly: true},
-	"program.receipt":   {method: http.MethodGet, path: "/v1/programs/receipts/by-idempotency/{idempotency_key}", pathParameters: []string{"idempotency_key"}},
-	"program.activity":  {method: http.MethodGet, path: "/v1/programs/activities/{activity_id}", pathParameters: []string{"activity_id"}},
-}
-
-func init() {
-	for operation, path := range programLifecyclePaths {
-		programHTTPRoutes[operation] = programHTTPRoute{method: http.MethodPost, path: path, idempotencyOnly: true}
-	}
-}
-
-func programMutation(operation string) bool {
-	return operation == "program.call" || programLifecycleOrdinals[operation] != 0
-}
 
 type RequestAuthorizer func(*http.Request) error
 
 type HumanHTTPTransport struct {
-	baseURL       *url.URL
-	client        *http.Client
-	authorizer    RequestAuthorizer
-	programBearer bool
+	baseURL    *url.URL
+	client     *http.Client
+	authorizer RequestAuthorizer
 }
 
 func NewHumanHTTPTransport(baseURL string, client *http.Client, authorizer RequestAuthorizer) (*HumanHTTPTransport, error) {
@@ -70,31 +41,6 @@ func NewHumanHTTPTransport(baseURL string, client *http.Client, authorizer Reque
 		return http.ErrUseLastResponse
 	}
 	return &HumanHTTPTransport{baseURL: parsed, client: &boundedClient, authorizer: authorizer}, nil
-}
-
-func NewProgramBearerHTTPTransport(baseURL string, client *http.Client, token *SecretBytes) (*HumanHTTPTransport, error) {
-	if token == nil {
-		return nil, lifecycleInvalid()
-	}
-	transport, err := NewHumanHTTPTransport(baseURL, client, func(request *http.Request) error {
-		return token.Expose(func(value []byte) error {
-			if len(value) == 0 {
-				return lifecycleInvalid()
-			}
-			for _, current := range value {
-				if current < 0x21 || current > 0x7e {
-					return lifecycleInvalid()
-				}
-			}
-			request.Header.Set("Authorization", "Bearer "+string(value))
-			return nil
-		})
-	})
-	if err != nil {
-		return nil, err
-	}
-	transport.programBearer = true
-	return transport, nil
 }
 
 func loopbackHost(host string) bool {
@@ -145,46 +91,14 @@ func (transport *HumanHTTPTransport) request(ctx context.Context, call Transport
 	if transport == nil {
 		return nil, newSDKError(ErrorUnavailableCapability, RetryNever)
 	}
-	var method string
-	var path string
-	var bodyRequired bool
-	var expectedParameters []string
-	programRoute, isProgram := programHTTPRoutes[call.Operation]
-	if call.Plane == PlaneHuman {
-		operation := HumanOperation(call.Operation)
-		metadata, ok := operation.Metadata()
-		if !ok {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
-		method = metadata.Method
-		path = metadata.Path
-		bodyRequired = metadata.Request != "Empty"
-	} else if call.Plane == PlaneAgent && isProgram {
-		method = programRoute.method
-		path = programRoute.path
-		bodyRequired = true
-		expectedParameters = programRoute.pathParameters
-		if len(call.Request) == 0 || len(call.Request) > maximumHTTPProgramsRequestBytes {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
-		if programRoute.idempotencyOnly {
-			if !canonicalProgramKey(call.IdempotencyKey) {
-				return nil, newSDKError(ErrorIdempotencyRequired, RetryNever)
-			}
-		} else if call.IdempotencyKey.valid() {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
-	} else {
+	if call.Plane != PlaneHuman {
 		return nil, newSDKError(ErrorUnavailableCapability, RetryNever)
 	}
-	if isProgram && len(call.PathParameters) != len(expectedParameters) {
+	metadata, ok := HumanOperation(call.Operation).Metadata()
+	if !ok {
 		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
-	for _, name := range expectedParameters {
-		if call.PathParameters[name] == "" {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
-	}
+	path := metadata.Path
 	for name, value := range call.PathParameters {
 		if name == "" || value == "" {
 			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
@@ -199,39 +113,10 @@ func (transport *HumanHTTPTransport) request(ctx context.Context, call Transport
 	target.RawQuery = cloneValues(call.Query).Encode()
 
 	var body io.Reader
-	if bodyRequired {
+	if metadata.Request != "Empty" {
 		body = bytes.NewReader(call.Request)
 	}
-	if isProgram && method == http.MethodPost {
-		var fields map[string]json.RawMessage
-		if decodeStrict(call.Request, &fields) != nil {
-			return nil, lifecycleInvalid()
-		}
-		var encoded string
-		if json.Unmarshal(fields["signed_activity"], &encoded) != nil || !canonicalLowerHex(encoded, len(encoded)/2) || len(encoded) == 0 || len(encoded) > 2097152 {
-			return nil, lifecycleInvalid()
-		}
-		signed, err := hex.DecodeString(encoded)
-		if err != nil {
-			return nil, lifecycleInvalid()
-		}
-		if ordinal := programLifecycleOrdinals[call.Operation]; ordinal != 0 {
-			var payloadHex string
-			if !exactFields(fields, "payload", "signed_activity") || json.Unmarshal(fields["payload"], &payloadHex) != nil || !canonicalLowerHex(payloadHex, len(payloadHex)/2) {
-				return nil, lifecycleInvalid()
-			}
-			payload, err := hex.DecodeString(payloadHex)
-			if err != nil {
-				return nil, lifecycleInvalid()
-			}
-			request, err := NewNativeProgramLifecycleRequest(ordinal, payload, signed)
-			if err != nil || call.IdempotencyKey.String() != hex.EncodeToString(request.binding.IdempotencyKey[:]) {
-				return nil, lifecycleInvalid()
-			}
-		}
-		body = bytes.NewReader(signed)
-	}
-	request, err := http.NewRequestWithContext(ctx, method, target.String(), body)
+	request, err := http.NewRequestWithContext(ctx, metadata.Method, target.String(), body)
 	if err != nil {
 		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
@@ -239,22 +124,14 @@ func (transport *HumanHTTPTransport) request(ctx context.Context, call Transport
 	request.Header.Set("User-Agent", "layerx-go/0.1.0")
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
-		if isProgram && method == http.MethodPost {
-			request.Header.Set("Content-Type", "application/octet-stream")
-		}
 	}
-	if isProgram && programRoute.idempotencyOnly {
-		request.Header.Set("Idempotency-Key", call.IdempotencyKey.String())
-	} else if !isProgram && call.IdempotencyKey.valid() {
+	if call.IdempotencyKey.valid() {
 		request.Header.Set("Idempotency-Key", call.IdempotencyKey.String())
 	}
 	if transport.authorizer != nil {
 		if err := transport.authorizer(request); err != nil {
 			return nil, transportError(ctx, err)
 		}
-	}
-	if isProgram && transport.authorizer != nil && !transport.programBearer && !validLayerXAuthorization(request.Header.Get("Authorization")) {
-		return nil, newSDKError(ErrorCapabilityRefusal, RetryNever)
 	}
 	return request, nil
 }
@@ -264,38 +141,18 @@ func (transport *HumanHTTPTransport) Call(ctx context.Context, call TransportCal
 	if err != nil {
 		return nil, err
 	}
-	_, isProgram := programHTTPRoutes[call.Operation]
 	response, err := transport.client.Do(request)
 	if err != nil {
-		if isProgram && programMutation(call.Operation) {
-			return nil, newSDKError(ErrorUnknownOutcome, RetryUnknownOutcome)
-		}
 		return nil, transportError(ctx, err)
 	}
 	defer response.Body.Close()
 	limited := io.LimitReader(response.Body, maximumHTTPResponseBytes+1)
 	encoded, err := io.ReadAll(limited)
 	if err != nil {
-		if isProgram && programMutation(call.Operation) {
-			return nil, newSDKError(ErrorUnknownOutcome, RetryUnknownOutcome)
-		}
 		return nil, transportError(ctx, err)
 	}
 	if len(encoded) > maximumHTTPResponseBytes {
-		if isProgram && programMutation(call.Operation) {
-			return nil, newSDKError(ErrorUnknownOutcome, RetryUnknownOutcome)
-		}
 		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
-	}
-	if isProgram {
-		value, decodeError := decodeProgramAgentEnvelope(response.StatusCode, encoded, call.Operation)
-		if decodeError != nil && programMutation(call.Operation) && (decodeError.Code == ErrorDecodeFailure || decodeError.Code == ErrorVerificationFailure) {
-			return nil, newSDKError(ErrorUnknownOutcome, RetryUnknownOutcome)
-		}
-		if decodeError != nil {
-			return nil, decodeError
-		}
-		return value, nil
 	}
 	var envelope humanEnvelope
 	if err := json.Unmarshal(encoded, &envelope); err != nil || envelope.Trace == "" {
@@ -529,6 +386,8 @@ const agentEnvelopePath = "/v1/agent/rpc"
 const agentEnvelopeVersion = 1
 const maximumAgentEnvelopeRequestBytes = 1048576
 
+type version int
+
 type AgentSessionCredential struct {
 	tenant     string
 	sessionID  string
@@ -549,10 +408,6 @@ func NewAgentSessionCredential(tenant string, sessionID string, tokenID *SecretB
 		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	return &AgentSessionCredential{tenant: tenant, sessionID: sessionID, tokenID: tokenID, generation: generation}, nil
-}
-
-func agentEnvelopeBootstrap(operation AgentOperation) bool {
-	return operation == AgentOperationAgentRegister || operation == AgentOperationSessionOpen
 }
 
 type AgentEnvelopeHTTPTransport struct {
@@ -593,7 +448,7 @@ type agentEnvelopeCredential struct {
 }
 
 type agentEnvelope struct {
-	Version        int                      `json:"version"`
+	Version        version                  `json:"version"`
 	RequestID      string                   `json:"request_id"`
 	Operation      string                   `json:"operation"`
 	Request        json.RawMessage          `json:"request"`
@@ -634,21 +489,15 @@ func (transport *AgentEnvelopeHTTPTransport) encode(call TransportCall, requestI
 		encoded, err = json.Marshal(envelope)
 		return err
 	}
-	if agentEnvelopeBootstrap(operation) {
-		if err := encode(); err != nil {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
-	} else {
-		if transport.credential == nil {
-			return nil, newSDKError(ErrorCapabilityRefusal, RetryNever)
-		}
-		credential := transport.credential
-		if err := credential.tokenID.Expose(func(token []byte) error {
-			envelope.Credential = &agentEnvelopeCredential{Tenant: credential.tenant, SessionID: credential.sessionID, TokenID: string(token), Generation: strconv.FormatUint(credential.generation, 10)}
-			return encode()
-		}); err != nil {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
+	if transport.credential == nil {
+		return nil, newSDKError(ErrorCapabilityRefusal, RetryNever)
+	}
+	credential := transport.credential
+	if err := credential.tokenID.Expose(func(token []byte) error {
+		envelope.Credential = &agentEnvelopeCredential{Tenant: credential.tenant, SessionID: credential.sessionID, TokenID: string(token), Generation: strconv.FormatUint(credential.generation, 10)}
+		return encode()
+	}); err != nil {
+		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	if len(encoded) > maximumAgentEnvelopeRequestBytes {
 		clear(encoded)
@@ -732,9 +581,8 @@ func (transport *AgentEnvelopeHTTPTransport) Call(ctx context.Context, call Tran
 	return value, nil
 }
 
-var agentEnvelopeLevels = map[string]int{
-	"Unverified": 1, "SequencerSigned": 2, "BatchIncluded": 3,
-	"StateProven": 4, "CheckpointFinalised": 5, "SettlementAnchored": 6,
+var agentEnvelopeRungs = map[string]int{
+	"submitted": 1, "receipted": 2, "committed": 3,
 }
 
 func decodeAgentEnvelopeResponse(status int, encoded []byte, requestID string) (json.RawMessage, *SDKError) {
@@ -789,14 +637,14 @@ func acceptedAgentEnvelopeVerification(encoded json.RawMessage) bool {
 	}
 	switch state {
 	case "achieved":
-		var level string
-		return exactFields(verification, "state", "level") && json.Unmarshal(verification["level"], &level) == nil && agentEnvelopeLevels[level] != 0
+		var rung string
+		return exactFields(verification, "state", "rung") && json.Unmarshal(verification["rung"], &rung) == nil && agentEnvelopeRungs[rung] != 0
 	case "unverified":
 		var requested, achieved, reason string
 		return exactFields(verification, "state", "requested", "achieved", "reason") &&
-			json.Unmarshal(verification["requested"], &requested) == nil && agentEnvelopeLevels[requested] != 0 &&
-			json.Unmarshal(verification["achieved"], &achieved) == nil && agentEnvelopeLevels[achieved] != 0 &&
-			agentEnvelopeLevels[achieved] < agentEnvelopeLevels[requested] &&
+			json.Unmarshal(verification["requested"], &requested) == nil && agentEnvelopeRungs[requested] != 0 &&
+			json.Unmarshal(verification["achieved"], &achieved) == nil && agentEnvelopeRungs[achieved] != 0 &&
+			agentEnvelopeRungs[achieved] < agentEnvelopeRungs[requested] &&
 			json.Unmarshal(verification["reason"], &reason) == nil && reason != "" && len(reason) <= 256
 	default:
 		return false

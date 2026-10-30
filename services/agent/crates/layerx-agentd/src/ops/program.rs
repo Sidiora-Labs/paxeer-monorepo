@@ -25,13 +25,13 @@ const SIMULATION_EVIDENCE_DOMAIN: &[u8] = b"LayerX/agent/program-simulation-evid
 use crate::read::LayerxdProgramBalanceReader;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ProgramOperationError {
+pub enum ProgramOperationError<E = SubmitError> {
     InvalidRequest,
     UnknownProgram,
     InactiveProgram,
     Stale,
     UnverifiedReceipt,
-    Submit(SubmitError),
+    Submit(E),
     /// The pinned authenticated chain head advanced before the read completed.
     HeadAdvanced,
     /// The kind-5 answer refused the program: record or interface not present.
@@ -43,6 +43,13 @@ pub enum ProgramOperationError {
         class: u8,
         result: ResultCode,
     },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramAccountBalance {
+    pub account: [u8; 32],
+    pub balance: u128,
+    pub exists: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -414,7 +421,7 @@ impl<'a> NodeProgramSimulationTransport<'a> {
         self.client
             .simulate(&self.registry, signed_activity, self.correlation_id)
             .map(raw_program_simulation)
-            .map_err(simulation_error)
+            .map_err(legacy_simulation_error)
     }
 }
 
@@ -461,7 +468,9 @@ fn raw_program_simulation(simulation: layerx_client::lni::Simulation) -> RawProg
     }
 }
 
-const fn simulation_error(error: layerx_client::lni::SimulateError) -> ProgramOperationError {
+const fn legacy_simulation_error(
+    error: layerx_client::lni::SimulateError,
+) -> ProgramOperationError {
     use layerx_client::lni::SimulateError;
     match error {
         SimulateError::UnavailableCapability | SimulateError::InterfaceVersion(_) => {
@@ -579,6 +588,7 @@ impl<T: ProgramSimulationTransport> ReceiptVerifiedProgramSimulator<T> {
         transport: T,
         registry: ModuleRegistry,
         bound: &VerifiedProgramBundle,
+        simulation_public_key: [u8; 32],
     ) -> Result<Self, ProgramOperationError> {
         let program_head = bound.program_head();
         let chain = bound.chain_head();
@@ -588,7 +598,6 @@ impl<T: ProgramSimulationTransport> ReceiptVerifiedProgramSimulator<T> {
         {
             return Err(ProgramOperationError::UnverifiedReceipt);
         }
-        let simulation_public_key = chain.sequencer_public_key();
         let mut boundary = b"LayerX/emulator/simulation-boundary/v1\0".to_vec();
         boundary.extend_from_slice(&simulation_public_key);
         Ok(Self {
@@ -754,7 +763,7 @@ mod simulation_rejection_vectors {
 #[cfg(test)]
 mod node_simulation_transport_contract {
     use super::{
-        decode_fixed_json, decode_hex_json, raw_program_simulation, simulation_error,
+        decode_fixed_json, decode_hex_json, legacy_simulation_error, raw_program_simulation,
         ProgramOperationError,
     };
     use layerx_client::lni::simulate::{
@@ -833,16 +842,16 @@ mod node_simulation_transport_contract {
     #[test]
     fn node_simulation_refusals_keep_their_existing_paths() {
         assert_eq!(
-            simulation_error(SimulateError::UnavailableCapability),
+            legacy_simulation_error(SimulateError::UnavailableCapability),
             ProgramOperationError::Unavailable
         );
         let result = ResultCode::from_raw(7);
         assert_eq!(
-            simulation_error(SimulateError::CoreRefusal { class: 2, result }),
+            legacy_simulation_error(SimulateError::CoreRefusal { class: 2, result }),
             ProgramOperationError::CoreRefusal { class: 2, result }
         );
         assert_eq!(
-            simulation_error(SimulateError::InvalidCorrelation),
+            legacy_simulation_error(SimulateError::InvalidCorrelation),
             ProgramOperationError::InvalidRequest
         );
         for error in [
@@ -855,15 +864,15 @@ mod node_simulation_transport_contract {
             SimulateError::EvidenceSignature,
         ] {
             assert_eq!(
-                simulation_error(error),
+                legacy_simulation_error(error),
                 ProgramOperationError::UnverifiedReceipt
             );
         }
     }
 }
 
-pub struct ProgramOperations {
-    reader: LayerxdProgramBalanceReader,
+pub struct ProgramOperations<R = LayerxdProgramBalanceReader> {
+    reader: R,
 }
 
 pub(crate) struct ProgramActivityExecution {
@@ -874,6 +883,75 @@ pub(crate) struct ProgramActivityExecution {
 }
 
 impl ProgramOperations {
+    pub fn current_balances(
+        config: &crate::node_rpc::NodeRpcConfig,
+        program: ProgramId,
+        accounts: &[[u8; 32]],
+    ) -> Result<(u64, Vec<ProgramAccountBalance>), ProgramOperationError> {
+        let node = crate::node_rpc::NodeRpc::connect(config)
+            .map_err(|_| ProgramOperationError::Unavailable)?;
+        let certificates = if config.url.starts_with("https://") {
+            let loaded = rustls_native_certs::load_native_certs();
+            if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+                return Err(ProgramOperationError::Unavailable);
+            }
+            loaded.certs
+        } else {
+            Vec::new()
+        };
+        let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
+        let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
+            .map_err(|_| ProgramOperationError::Unavailable)?;
+        let height = endpoint
+            .block_number()
+            .map_err(|_| ProgramOperationError::Unavailable)?;
+        let balances = Self::value_accounts_at(&node, height, program, accounts)?;
+        Ok((height, balances))
+    }
+
+    pub fn value_accounts_at(
+        node: &crate::node_rpc::NodeRpc,
+        height: u64,
+        program: ProgramId,
+        accounts: &[[u8; 32]],
+    ) -> Result<Vec<ProgramAccountBalance>, ProgramOperationError> {
+        let selector =
+            layerx_crypto::evm_transaction::transaction_hash(b"getValueAccount(bytes32,bytes32)");
+        let mut address = [0; 20];
+        address[18..].copy_from_slice(&[0x10, 0x1d]);
+        let mut balances = Vec::with_capacity(accounts.len());
+        for account in accounts {
+            let mut data = selector[..4].to_vec();
+            data.extend_from_slice(&program.bytes());
+            data.extend_from_slice(account);
+            let result = node
+                .call_at(height, &address, &data)
+                .map_err(|_| ProgramOperationError::Unavailable)?;
+            if result.len() != 64
+                || result[..16] != [0; 16]
+                || result[32..63] != [0; 31]
+                || result[63] > 1
+            {
+                return Err(ProgramOperationError::UnverifiedReceipt);
+            }
+            let balance = u128::from_be_bytes(
+                result[16..32]
+                    .try_into()
+                    .map_err(|_| ProgramOperationError::UnverifiedReceipt)?,
+            );
+            let exists = result[63] == 1;
+            if !exists && balance != 0 {
+                return Err(ProgramOperationError::UnverifiedReceipt);
+            }
+            balances.push(ProgramAccountBalance {
+                account: *account,
+                balance,
+                exists,
+            });
+        }
+        Ok(balances)
+    }
+
     pub(crate) fn activity_execution(
         &self,
         registry: &ModuleRegistry,
@@ -991,13 +1069,12 @@ impl ProgramOperations {
         now: u64,
     ) -> Result<layerx_programs::VerifiedProgramBalanceRead, ProgramOperationError> {
         self.reader
-            .read_protocol_state(program, now)
-            .map(|state| state.into_balances())
+            .read_verified_balances(program, now)
             .map_err(|error| match error {
-                layerx_programs_protocol_adapter::ProtocolAdapterError::AccountState(
+                crate::read::ProgramReadError::AccountState(
                     layerx_programs::AccountStateError::StaleRead,
                 )
-                | layerx_programs_protocol_adapter::ProtocolAdapterError::Registry(
+                | crate::read::ProgramReadError::Registry(
                     layerx_programs::RegistryError::StaleRead,
                 ) => ProgramOperationError::Stale,
                 _ => ProgramOperationError::UnverifiedReceipt,
@@ -1029,7 +1106,7 @@ impl ProgramOperations {
         })?;
         let selector = ProgramStateSelector::new(
             program.bytes(),
-            chain.global_sequence(),
+            chain.freshness().observed_sequence,
             chain.receipt_digest(),
             chain.state_root(),
         )
@@ -1048,9 +1125,8 @@ impl ProgramOperations {
         if response.selector() != selector {
             return Err(ProgramOperationError::UnverifiedReceipt);
         }
-        let signer = client.handshake().node().authorised_sequencer_key;
         self.reader
-            .verify_program_bundle(response.canonical_payload(), &chain, program, &signer, now)
+            .verify_program_bundle(response.canonical_payload(), &chain, program, now)
             .map_err(|error| match error {
                 ProgramBundleError::Evidence(ProtocolEvidenceError::Stale) => {
                     ProgramOperationError::Stale
@@ -1072,45 +1148,44 @@ impl ProgramOperations {
     ) -> Result<ProgramDiscovery, ProgramOperationError> {
         let head = bound.program_head();
         let chain = bound.chain_head();
-        let state = self
-            .reader
-            .read_protocol_state(program, now)
-            .map_err(|_| ProgramOperationError::UnknownProgram)?;
-        let balances = state.balances();
-        let freshness = balances.freshness();
-        if freshness.observed_sequence > chain.global_sequence() {
-            return Err(ProgramOperationError::HeadAdvanced);
-        }
+        let freshness = chain.freshness();
         let valid_through = freshness
             .observed_at
             .checked_add(self.reader.staleness_limit())
             .ok_or(ProgramOperationError::Stale)?;
-        if now > valid_through {
+        if now < freshness.observed_at || now > valid_through || now > head.valid_until_ms() {
             return Err(ProgramOperationError::Stale);
         }
-        if balances.lifecycle() != ProgramLifecycle::Active {
+        if head.program() != program {
+            return Err(ProgramOperationError::UnknownProgram);
+        }
+        if head.lifecycle() != ProgramLifecycle::Active {
             return Err(ProgramOperationError::InactiveProgram);
         }
-        if head.program() != program
-            || head.lifecycle() != ProgramLifecycle::Active
-            || head.receipt_digest() != balances.receipt_digest()
-            || head.state_root() != balances.state_root()
+        if head.receipt_digest() != chain.receipt_digest()
+            || head.state_root() != chain.state_root()
             || head.freshness() != freshness
-            || chain.receipt_digest() != balances.receipt_digest()
-            || chain.state_root() != balances.state_root()
-            || chain.freshness() != freshness
-            || now > head.valid_until_ms()
         {
             return Err(ProgramOperationError::UnverifiedReceipt);
         }
+        let accounts = self
+            .reader
+            .value_account_ids(program)
+            .map_err(|_| ProgramOperationError::UnknownProgram)?;
+        let config = crate::node_rpc::NodeRpcConfig::from_environment()
+            .map_err(|_| ProgramOperationError::Unavailable)?;
+        let (_, balances) = Self::current_balances(&config, program, &accounts)?;
+        if balances.iter().any(|balance| !balance.exists) {
+            return Err(ProgramOperationError::ProgramStateAbsent);
+        }
         Ok(ProgramDiscovery {
             program,
-            lifecycle: balances.lifecycle(),
+            lifecycle: head.lifecycle(),
             observed_sequence: freshness.observed_sequence,
             observed_at: freshness.observed_at,
             valid_through,
-            receipt_digest: balances.receipt_digest(),
-            state_root: balances.state_root(),
+            receipt_digest: chain.receipt_digest(),
+            state_root: chain.state_root(),
             version: head.version(),
             abi_version: head.abi_version(),
             code_hash: head.code_hash(),
@@ -1522,5 +1597,312 @@ mod native_call_tests {
         )
         .is_err());
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ProgramRpcFailure {
+    ExecutionReverted(layerx_client::sequencer::RpcRefusal),
+    Sequencer(layerx_client::sequencer::SequencerError),
+    Submission(layerx_client::rpc::submit::SubmitError),
+    Signing(crate::sign::SigningError),
+}
+
+pub type ProgramRpcOperationError = ProgramOperationError<ProgramRpcFailure>;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramCallResult {
+    pub terminal_result: i32,
+    pub terminal_kind: u8,
+    pub response: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramRegistryRecord {
+    pub policy: u8,
+    pub authority: [u8; 32],
+    pub code_hash: [u8; 32],
+    pub abi_version: u16,
+    pub version: u32,
+    pub active: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramRegistryInterface {
+    pub version: u32,
+    pub digest: [u8; 32],
+    pub interface: ProgramInterface,
+}
+
+fn simulation_error(error: layerx_client::sequencer::SequencerError) -> ProgramRpcOperationError {
+    use layerx_client::sequencer::{SequencerError, REVERT_CODE};
+    ProgramOperationError::Submit(match error {
+        SequencerError::Rpc(refusal) if refusal.code == REVERT_CODE => {
+            ProgramRpcFailure::ExecutionReverted(refusal)
+        }
+        other => ProgramRpcFailure::Sequencer(other),
+    })
+}
+
+fn program_selector(signature: &str) -> [u8; 4] {
+    let hash = layerx_crypto::evm_transaction::transaction_hash(signature.as_bytes());
+    [hash[0], hash[1], hash[2], hash[3]]
+}
+
+fn program_word(value: u128) -> [u8; 32] {
+    let mut word = [0; 32];
+    word[16..].copy_from_slice(&value.to_be_bytes());
+    word
+}
+
+fn program_uint(word: &[u8]) -> Result<u128, ProgramRpcOperationError> {
+    if word.len() != 32 || word[..16].iter().any(|byte| *byte != 0) {
+        return Err(ProgramOperationError::UnverifiedReceipt);
+    }
+    let bytes = word[16..]
+        .try_into()
+        .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
+    Ok(u128::from_be_bytes(bytes))
+}
+
+fn program_dynamic(bytes: &[u8], head_length: usize) -> Result<Vec<u8>, ProgramRpcOperationError> {
+    let length_end = head_length
+        .checked_add(32)
+        .ok_or(ProgramOperationError::UnverifiedReceipt)?;
+    let length = usize::try_from(program_uint(
+        bytes
+            .get(head_length..length_end)
+            .ok_or(ProgramOperationError::UnverifiedReceipt)?,
+    )?)
+    .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
+    let padded = length
+        .checked_add(31)
+        .map(|n| n & !31)
+        .and_then(|n| length_end.checked_add(n))
+        .ok_or(ProgramOperationError::UnverifiedReceipt)?;
+    let end = length_end
+        .checked_add(length)
+        .ok_or(ProgramOperationError::UnverifiedReceipt)?;
+    if bytes.len() != padded
+        || bytes
+            .get(end..)
+            .ok_or(ProgramOperationError::UnverifiedReceipt)?
+            .iter()
+            .any(|b| *b != 0)
+    {
+        return Err(ProgramOperationError::UnverifiedReceipt);
+    }
+    Ok(bytes
+        .get(length_end..end)
+        .ok_or(ProgramOperationError::UnverifiedReceipt)?
+        .to_vec())
+}
+
+impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
+    pub fn from_endpoint(endpoint: layerx_client::sequencer::SequencerEndpoint) -> Self {
+        Self { reader: endpoint }
+    }
+
+    pub fn connect(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, ProgramRpcOperationError> {
+        layerx_client::sequencer::SequencerEndpoint::new(url, trust_anchors)
+            .map(Self::from_endpoint)
+            .map_err(simulation_error)
+    }
+
+    pub fn call_precompile(
+        call: NativeProgramCall<'_>,
+        fee_limit: u128,
+    ) -> Result<crate::prepare::evm::PrecompileCall, ProgramRpcOperationError> {
+        use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+        call.encode()
+            .map_err(|_| ProgramOperationError::InvalidRequest)?;
+        let mut arguments = vec![
+            AbiArgument::Word(call.program_id.bytes()),
+            AbiArgument::Word(program_word(u128::from(call.guest_abi))),
+            AbiArgument::Bytes(call.entrypoint.to_vec()),
+            AbiArgument::Bytes(call.calldata.to_vec()),
+            AbiArgument::Bytes(call.capabilities.to_vec()),
+            AbiArgument::Bytes(call.access_declaration.to_vec()),
+            AbiArgument::Word(program_word(u128::from(call.response_capacity))),
+        ];
+        arguments.extend(
+            call.resources
+                .0
+                .into_iter()
+                .map(|n| AbiArgument::Word(program_word(u128::from(n)))),
+        );
+        arguments.push(AbiArgument::Word(program_word(fee_limit)));
+        Ok(PrecompileCall {
+            target: PrecompileTarget::Programs,
+            selector: program_selector(
+                "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
+            ),
+            arguments,
+        })
+    }
+
+    pub fn simulate(
+        &self,
+        actor: [u8; 20],
+        call: NativeProgramCall<'_>,
+        fee_limit: u128,
+    ) -> Result<ProgramCallResult, ProgramRpcOperationError> {
+        if actor == [0; 20] {
+            return Err(ProgramOperationError::InvalidRequest);
+        }
+        let precompile = Self::call_precompile(call, fee_limit)?;
+        let data = precompile
+            .encode()
+            .map_err(|_| ProgramOperationError::InvalidRequest)?;
+        let bytes = self
+            .reader
+            .call_pending_from(&actor, &precompile.target.address(), &data)
+            .map_err(simulation_error)?;
+        if bytes.len() < 128 {
+            return Err(ProgramOperationError::UnverifiedReceipt);
+        }
+        let result_bytes: [u8; 4] = bytes[28..32]
+            .try_into()
+            .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
+        let terminal_result = i32::from_be_bytes(result_bytes);
+        let sign = if terminal_result < 0 { 0xff } else { 0 };
+        if bytes[..28].iter().any(|b| *b != sign) || program_uint(&bytes[64..96])? != 96 {
+            return Err(ProgramOperationError::UnverifiedReceipt);
+        }
+        let terminal_kind = u8::try_from(program_uint(&bytes[32..64])?)
+            .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
+        let response = program_dynamic(&bytes, 96)?;
+        if response.len() > call.response_capacity as usize {
+            return Err(ProgramOperationError::UnverifiedReceipt);
+        }
+        Ok(ProgramCallResult {
+            terminal_result,
+            terminal_kind,
+            response,
+        })
+    }
+
+    pub fn simulate_native(
+        &self,
+        actor: [u8; 20],
+        call: NativeProgramCall<'_>,
+        fee_limit: u128,
+    ) -> Result<ProgramCallResult, ProgramRpcOperationError> {
+        self.simulate(actor, call, fee_limit)
+    }
+
+    fn registry_call(
+        &self,
+        signature: &str,
+        program: ProgramId,
+    ) -> Result<Vec<u8>, ProgramRpcOperationError> {
+        let mut data = program_selector(signature).to_vec();
+        data.extend_from_slice(&program.bytes());
+        self.reader
+            .call_pending(
+                &crate::prepare::evm::PrecompileTarget::Programs.address(),
+                &data,
+            )
+            .map_err(simulation_error)
+    }
+
+    pub fn discover(
+        &self,
+        program: ProgramId,
+    ) -> Result<ProgramRegistryRecord, ProgramRpcOperationError> {
+        let bytes = self.registry_call("getProgram(bytes32)", program)?;
+        if bytes.len() != 192 {
+            return Err(ProgramOperationError::UnverifiedReceipt);
+        }
+        let narrow = || -> Result<_, ProgramRpcOperationError> {
+            Ok((
+                u8::try_from(program_uint(&bytes[..32])?)
+                    .map_err(|_| ProgramOperationError::UnverifiedReceipt)?,
+                u16::try_from(program_uint(&bytes[96..128])?)
+                    .map_err(|_| ProgramOperationError::UnverifiedReceipt)?,
+                u32::try_from(program_uint(&bytes[128..160])?)
+                    .map_err(|_| ProgramOperationError::UnverifiedReceipt)?,
+            ))
+        };
+        let (policy, abi_version, version) = narrow()?;
+        let active = match program_uint(&bytes[160..192])? {
+            0 => false,
+            1 => true,
+            _ => return Err(ProgramOperationError::UnverifiedReceipt),
+        };
+        Ok(ProgramRegistryRecord {
+            policy,
+            authority: bytes[32..64]
+                .try_into()
+                .map_err(|_| ProgramOperationError::UnverifiedReceipt)?,
+            code_hash: bytes[64..96]
+                .try_into()
+                .map_err(|_| ProgramOperationError::UnverifiedReceipt)?,
+            abi_version,
+            version,
+            active,
+        })
+    }
+
+    pub fn interface(
+        &self,
+        program: ProgramId,
+    ) -> Result<ProgramRegistryInterface, ProgramRpcOperationError> {
+        let bytes = self.registry_call("getInterface(bytes32)", program)?;
+        if bytes.len() < 128 || program_uint(&bytes[64..96])? != 96 {
+            return Err(ProgramOperationError::UnverifiedReceipt);
+        }
+        let version = u32::try_from(program_uint(&bytes[..32])?)
+            .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
+        let digest: [u8; 32] = bytes[32..64]
+            .try_into()
+            .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
+        let encoding = program_dynamic(&bytes, 96)?;
+        let actual: [u8; 32] = Sha256::digest(&encoding).into();
+        if actual != digest {
+            return Err(ProgramOperationError::UnverifiedReceipt);
+        }
+        let interface = ProgramInterface::decode(&encoding)
+            .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
+        Ok(ProgramRegistryInterface {
+            version,
+            digest,
+            interface,
+        })
+    }
+
+    pub fn submit(
+        &self,
+        call: NativeProgramCall<'_>,
+        fee_limit: u128,
+        prepared: &crate::sign::SigningPreparation,
+        signed: &[u8],
+        registry: &ModuleRegistry,
+    ) -> Result<layerx_client::rpc::submit::Submission, ProgramRpcOperationError> {
+        let expected = Self::call_precompile(call, fee_limit)?;
+        let data = expected
+            .encode()
+            .map_err(|_| ProgramOperationError::InvalidRequest)?;
+        if prepared.transaction.call.to != expected.target.address()
+            || prepared.transaction.call.data != data
+        {
+            return Err(ProgramOperationError::InvalidRequest);
+        }
+        let verified =
+            crate::sign::verify_before_submit(signed, prepared, &prepared.actor_address, registry)
+                .map_err(|e| ProgramOperationError::Submit(ProgramRpcFailure::Signing(e)))?;
+        layerx_client::rpc::submit::submit_signed(&self.reader, verified.exact_bytes())
+            .map_err(|e| ProgramOperationError::Submit(ProgramRpcFailure::Submission(e)))
+    }
+
+    pub fn submit_native(
+        &self,
+        call: NativeProgramCall<'_>,
+        fee_limit: u128,
+        prepared: &crate::sign::SigningPreparation,
+        signed: &[u8],
+        registry: &ModuleRegistry,
+    ) -> Result<layerx_client::rpc::submit::Submission, ProgramRpcOperationError> {
+        self.submit(call, fee_limit, prepared, signed, registry)
     }
 }
