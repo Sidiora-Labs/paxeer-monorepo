@@ -158257,7 +158257,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.3]
 title = "Rewrite the program bundle verification tests on version 2 bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -158317,7 +158317,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.5]
 title = "Rewrite the interface binding test on a single chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -158347,7 +158347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.6]
 title = "Rewrite the sandbox lease lifecycle tests on proven lease records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1", "13.6.6"]
@@ -158377,7 +158377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.7]
 title = "Rewrite the sandbox snapshot tests on chain-proven call receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
