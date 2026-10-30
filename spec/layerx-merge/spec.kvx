@@ -101815,7 +101815,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.40.9]
 title = "Rehearse layerxpay genesis export and import with kernel state intact"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["2.22.5", "2.38.6", "1.24.1"]
