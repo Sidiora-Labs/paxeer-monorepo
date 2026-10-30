@@ -277,9 +277,10 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 		&Open{Height: 42, OpenTimeMs: 1_760_000_000_123, BaseFee: fee},
 		accept,
 		&Seal{Height: 42, FromSeq: 901, ToSeq: 901, LastSeqHash: hash},
+		&Seal{Height: 43, FromSeq: 902, ToSeq: 901, LastSeqHash: hash},
 		&Lease{Epoch: 3, KeyID: key, ExpiryMs: 1_760_000_000_500},
 	}
-	wantKinds := []EntryKind{KindOpen, KindAccept, KindSeal, KindLease}
+	wantKinds := []EntryKind{KindOpen, KindAccept, KindSeal, KindSeal, KindLease}
 	for i, e := range append([]Entry{committed}, entries...) {
 		b, err := EncodeEntry(e)
 		if err != nil {
@@ -311,7 +312,7 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 	for _, e := range entries {
 		mustAppend(t, w, e)
 	}
-	mustSync(t, w, 5)
+	mustSync(t, w, 6)
 	w.Close()
 	w = mustOpen(t, dir, DefaultConfig())
 	exec := &chainExecutor{}
@@ -325,7 +326,7 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(res.LastAccept, entries[1]) || res.Accepts != 1 {
 		t.Fatalf("ACCEPT read back as %+v (%d), want %+v", res.LastAccept, res.Accepts, entries[1])
 	}
-	if want := []Entry{entries[0], entries[2], entries[3]}; !reflect.DeepEqual(exec.applied, want) {
+	if want := []Entry{entries[0], entries[2], entries[3], entries[4]}; !reflect.DeepEqual(exec.applied, want) {
 		t.Fatalf("applied %+v, want %+v", exec.applied, want)
 	}
 	if res.Tail != nil {
@@ -350,7 +351,7 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 		{"trailing byte", append(append([]byte(nil), good...), 0), ErrMalformed},
 		{"header only", good[:1], ErrMalformed},
 		{"accept length past end", []byte{Version, byte(KindAccept), 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0xff, 0xff, 0xff, 0xff}, ErrMalformed},
-		{"seal from above to", mustEncode(t, &Seal{Height: 1, FromSeq: 2, ToSeq: 2}, func(b []byte) { b[len(b)-1] = 3 }), ErrMalformed},
+		{"seal from above to", mustEncode(t, &Seal{Height: 1, FromSeq: 2, ToSeq: 2}, func(b []byte) { b[len(b)-1] = 4 }), ErrMalformed},
 	}
 	for _, r := range refusals {
 		if _, err := DecodeEntry(r.b); !errors.Is(err, r.want) {
@@ -360,7 +361,7 @@ func TestWALEntryKindsRoundTrip(t *testing.T) {
 	if _, err := EncodeEntry(&Open{Height: 1}); !errors.Is(err, ErrMalformed) {
 		t.Fatalf("EncodeEntry(OPEN without base fee) = %v, want ErrMalformed", err)
 	}
-	if _, err := EncodeEntry(&Seal{FromSeq: 5, ToSeq: 4}); !errors.Is(err, ErrMalformed) {
+	if _, err := EncodeEntry(&Seal{FromSeq: 903, ToSeq: 901}); !errors.Is(err, ErrMalformed) {
 		t.Fatalf("EncodeEntry(SEAL from above to) = %v, want ErrMalformed", err)
 	}
 	if _, err := EncodeEntry(&Accept{Tx: make([]byte, MaxEntrySize)}); !errors.Is(err, ErrEntryTooLarge) {
