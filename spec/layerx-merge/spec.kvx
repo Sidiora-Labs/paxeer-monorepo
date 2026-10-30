@@ -141303,7 +141303,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.16.2]
 title = "Settle agentd-host web payments through layerxledger receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["9.16.1", "9.4.1", "9.12.4", "9.12.5", "9.1.8", "18.1131.1", "9.98.1", "18.1243.2", "18.1304.1", "18.1279.2"]
@@ -191637,7 +191637,7 @@ qualification = "UNRUN"
 
 [task.18.1270.1]
 title = "Issue #1270: Report the tracked tx_hash and rung on approval.get for an approved write"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1304.1"]
