@@ -15,12 +15,12 @@ export const PAXEER_X_ANCHORS_ITEM: PaxeerXAnchorsItem = {
 export const PAXEER_X_RECEIPTS_ITEM: PaxeerXReceiptsItem = {
   id: TX_HASH,
   account: '0x0000000000000000000000000000000000000000000000000000000000000000',
-  status: 'sealed',
+  status: 'receipted',
   block_number: 8341004,
 };
 
 export const PAXEER_X_TX_STATUS: PaxeerXTxStatus = {
-  rung: 'submitted',
+  rung: 'receipted',
   block_number: 8341004,
   committed_height: null,
 };
