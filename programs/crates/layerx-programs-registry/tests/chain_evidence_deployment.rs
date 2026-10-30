@@ -1,30 +1,15 @@
 #[path = "support/chain.rs"]
 mod chain;
-#[path = "../src/chain_evidence/deployment.rs"]
-mod deployment;
-#[path = "../src/hash.rs"]
-mod hash;
-#[path = "../src/interface.rs"]
-mod interface;
-#[path = "../src/chain_evidence/program_state.rs"]
-mod program_state;
-#[path = "../src/protocol_evidence.rs"]
-mod protocol_evidence;
 mod support;
 
 use chain::{ChainFixture, STATE_HEIGHT};
-use deployment::ChainDeploymentProof;
-use interface::{
-    verify_interface_read, InterfaceEntryPoint, InterfaceRefusal, InterfaceStateWitness,
-    ProgramInterface, ValueSchema, ValueType, VerifiedInterfaceRead,
+use layerx_programs::chain_evidence::{
+    deployment::ChainDeploymentProof, program_state::ChainProgramStateProof,
 };
-use layerx_programs as account_state;
 use layerx_programs::{
-    chain_evidence, chain_proof, AccountStateHead, DeploymentRecord, ProgramId, ProgramLifecycle,
-    ReadFreshness, StateProof, UpgradePolicy,
+    chain_evidence, InterfaceEntryPoint, ProgramId, ProgramInterface, ProtocolEvidenceError,
+    ReadFreshness, UpgradePolicy, ValueSchema, ValueType,
 };
-use program_state::ChainProgramStateProof;
-use protocol_evidence::{ProtocolEvidenceError, VerifiedDeploymentEvidence, VerifiedProgramHead};
 use sha2::{Digest, Sha256};
 
 fn interface(code: &[u8], abi_version: u16) -> ProgramInterface {

@@ -28,8 +28,8 @@ use layerx_agentd::human_runtime::{
 use layerx_agentd::identity::{self, CoreIdentity, IdentityError, IdentityResolver};
 use layerx_agentd::ops::program::ProgramOperations;
 use layerx_agentd::read::{
-    LayerxdProgramBalanceReader, NativeReadRoute, ProgramAuthority, ProgramBalanceRead,
-    ProgramBalanceReadRoute,
+    CommittedProgramBalanceFreshness, LayerxdProgramBalanceReader, NativeReadRoute,
+    ProgramAuthority, ProgramBalanceRead, ProgramBalanceReadRoute,
 };
 use layerx_agentd::session::{SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
@@ -1812,7 +1812,7 @@ fn lifecycle(value: ProgramLifecycle) -> &'static str {
     }
 }
 
-fn balance_json(read: &ProgramBalanceRead) -> String {
+fn balance_json(read: &ProgramBalanceRead<CommittedProgramBalanceFreshness>) -> String {
     let accounts = read
         .accounts
         .iter()
@@ -1828,15 +1828,13 @@ fn balance_json(read: &ProgramBalanceRead) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"program\":\"{}\",\"lifecycle\":\"{}\",\"accounts\":[{}],\"freshness\":{{\"observed_sequence\":{},\"observed_at\":{},\"receipt_digest\":\"{}\",\"state_root\":\"{}\",\"valid_through\":{}}}}}",
+        "{{\"program\":\"{}\",\"lifecycle\":\"{}\",\"accounts\":[{}],\"freshness\":{{\"height\":{},\"block_hash\":\"{}\",\"timestamp\":{}}}}}",
         hex::encode(&read.program),
         lifecycle(read.lifecycle),
         accounts,
-        read.freshness.observed_sequence,
-        read.freshness.observed_at,
-        hex::encode(&read.freshness.receipt_digest),
-        hex::encode(&read.freshness.state_root),
-        read.freshness.valid_through
+        read.freshness.height,
+        hex::encode(&read.freshness.block_hash),
+        read.freshness.timestamp
     )
 }
 
