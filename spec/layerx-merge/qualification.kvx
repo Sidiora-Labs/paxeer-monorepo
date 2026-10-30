@@ -11987,3 +11987,75 @@ symbol = "recorded"
 observed = "Since e556c8b04 (18.1162.1) keyed is_layerx_network on eip155:125, recorded() (:116-174) hands pay_to 0x84dd... under account agent:did:layerx:payee:main whose identifiers are b9a4... and 112b..., so buyer_captures_the_recorded_receipted_settlement and the in-crate src/buyer.rs test at :791 are expected to fail with ProfileMismatch (not run; 18.1180.1's gate covered only the seller_ tests)."
 assumption = "A separate task re-derives those tests' payee as recorded_for_seller (:536-557) does; 18.1211.1 does not touch them."
 severity = "cross-task"
+
+[finding.13.4.5.3]
+task = "13.4.5"
+file = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+symbol = "HeadAuthority"
+observed = "42c1fea30 changed verify_current_chain_head (protocol_evidence.rs:3561-3568) and verify_current_program_bundle (:3599) and removed sequencer_public_key from VerifiedChainHead and VerifiedProtocolHead, while layerx-agentd still calls the kernel-batch shapes at read/program_node.rs:404-421, :443-445, :535, :543-558, ops/program.rs:600 and human_runtime.rs:3917, so cargo build -p layerx-agentd fails on main and every target building layerx-agentd or layerx-mcp is red."
+assumption = "Task 18.1304.1 ports those callers to the chain head proof; the node head producers (tools/platform/emulator/src/main.rs:2290, services/platform/hosted/agent-boundary/src/main.rs:2013) still serve kernel batch_evidence and are ported by a separate task."
+severity = "cross-task"
+
+[finding.13.4.6.1]
+task = "13.4.6"
+file = "programs/crates/layerx-programs-registry/src/protocol_evidence.rs"
+symbol = "with_signed_history"
+observed = "13.4.6 do_2 deletes from_protected_history (:696) and with_signed_history (:740), which services/agent/crates/layerx-agentd/src/read/program_node.rs:237 (refresh_authority), examples/native_handover_programs.rs:459-495 and host-tests/serve_routes.rs:95 still call; only the main.rs:2118 call has an owner (9.12.6 do_6)."
+assumption = "18.1304.1 removes the program_node.rs call with the kernel-batch authority refresh; 13.4.6 now touches the example and the host test and ports them before deleting the constructors."
+severity = "cross-task"
+
+[finding.18.1279.1.2]
+task = "18.1279.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:1002"
+symbol = "validate_web_challenge"
+observed = "Attempts 2 (7a5cb041c) and 3 (0d24aa170): the verify fails at tests/web.rs:939 and :964 with Protocol('payment_required_malformed') because validate_web_challenge (:998-1011, since 230a1bded) requires 20-byte asset and payTo while the recorded challenge (client-exchange.json, 33be5948f) carries the 32-byte ledger ids the seller emits (x-websearch/src/payment.rs:1322-1324); the payer is never called."
+assumption = "Cross-task: 9.16.1's 20-byte offer contract contradicts 18.1129.1's recordings and decision.1827; decision.1921 rules 32-byte ids and 18.1279.2 lands them before this test can reach the grant and draw path."
+severity = "cross-task"
+
+[finding.2.28.6.2]
+task = "2.28.6"
+file = "precompiles/layerxpay/harness_test.go"
+symbol = "newPayPrecompileHarness"
+observed = "Attempt 1 (2471b7cfc, base 38acc1833) built (exit 0) and its verify exited 1 at setup with 'import cycle not allowed in test': harness_test.go:14 and :20, escrow_test.go:18 and events_test.go:12 are package layerxpay and reach node, which imports precompiles/layerxpay at node/precompiles.go:27 (1542220c2, 5.19.4) and node/upgrades.go:41 (7caaeb3aa, 5.6.5); 2.28.1 to 2.28.5 and 2.28.8 qualified on revisions without that import, so every go test of the package fails at setup on main b16ef93c7."
+assumption = "Moving the seven harness-reaching test files to package layerxpay_test behind export_test.go (do_7, precedent 13.22.1 do_9 and gotcha.1948) breaks the cycle with no production change; 2.28.7 inherits the fix and the planned 2.40.1, 2.40.2, 2.40.3 and 2.40.5 test files must be package layerxpay_test."
+severity = "cross-task"
+
+[finding.3.93.1.3]
+task = "3.93.1"
+file = "modules/lxphost/host.go:176"
+symbol = "lxphost_reset"
+observed = "Attempts 2 and 3 (c535b8852 on 5069e5067, 665276991 on 38acc1833, identical oracle.go and oracle_test.go) built and failed TestSubmitThenCommittedOraclePrice at oracle_test.go:128 with LXP_ERR_NON_CANONICAL, because 1.24.1 (1ab8d6645) registers lx_perps_module_iface() at host.go:176-177, whose oracle decoder accepts only the 72-byte observation (src/modules/perps/lx_perps_command.c:87-89), while the keeper requires and the test builds the signed 137-byte transport (include/layerx/lx_oracle.h:15) that only lx_perps_oracle_transport_module_iface() (include/layerx/lx_perps.h:346) decodes; no kernel or codec file changed between 1b20d42f3 and b16ef93c7."
+assumption = "Task 18.1305.1 switches lxphost_reset to lx_perps_oracle_transport_module_iface() (decision.1923), 3.93.1 requires it, and 665276991 is then qualified again unchanged."
+severity = "cross-task"
+
+[finding.2.26.4.2]
+task = "2.26.4"
+file = "modules/lxphost/host.go:224"
+symbol = "lxphost_bind_assets"
+observed = "Attempts 1-3 (bases 5876b0c4e, 5f57ee16d, 38acc1833) built, and their verify exited 1 because serviceDisputeOpen and serviceDisputeResolve return LXP_ERR_MODULE_DISABLED (-103) from src/modules/service/lx_service_module.c:324-325 and :358-359; the hosted kernel binds asset, escrow and Programs runtimes but no lx_service_runtime, so open/nonparty never reaches LXP_ERR_UNAUTHORIZED_DISPUTANT (-728) at src/modules/service/lx_service_dispute.c:52-55."
+assumption = "Task 18.1306.1 (decision.1923) binds a service runtime whose read_escrow_link calls lx_escrow_lookup through a read-only escrow context (as tests/codec/lxp_test_service_runtime.c:27-49 does) and adds LXP_MODULE_ESCROW to activityModules for service activities; 2.26.4 requires it and re-qualifies its attempt 3 candidate unchanged."
+severity = "cross-task"
+
+[finding.12.35.4.5]
+task = "12.35.4"
+file = "node/sequencer/node_start.go:126"
+symbol = "Node.Start"
+observed = "Attempt 8 (ba7c4c0f4): the primary kept validating at 34742404 while every Seal answered ErrLeaseFenced; with no lease ever released in the product this is the commit-listener fence after Driver.OnCommit(34742403) failed, whose panic node/abci.go:331-338 swallows, leaving a validator that proposes nothing and a standby that by design seals nothing (standby_role.go:271-272, :322)."
+assumption = "OnCommit failed in one of its five steps at the first sequenced commit, most likely a Replicator.Release that timed out or was refused by the standby (three consecutive 3 s /status timeouts match the 10 s replication timeout); task 18.1307.1 (decision.1924) surfaces the cause and 12.35.4 re-qualifies after it."
+severity = "cross-task"
+
+[finding.2.40.9.2]
+task = "2.40.9"
+file = "modules/layerxpay/keeper/genesis_rehearsal_test.go"
+symbol = "TestPayGenesisRehearsalKeepsKernelState"
+observed = "Attempts 3 and 4 (candidate 2dbedf1cc, same test) pass the byte-equal re-export at :133 but fail :150, :192, :239, :247 and :253. ExportGenesis (modules/layerxpay/keeper/genesis.go:26-29) carries only modules 2-5 and 7, so the ledger asset record 0x01 0x0001, seven 0x06 account records, the 0x03 identity sequences and the 0x02 last global sequence (modules/lxphost/ctx.go:62-66) never reach the restored host (sequence 12 vs 2)."
+assumption = "The former req.2319 ac_1 asked pay genesis to keep the last global sequence, which req.2253 ac_1, TestPayGenesisRoundTrip (genesis_test.go:56-58, :73) and GenesisState.Validate (types/params.go:39) exclude; decision.1925 narrows ac_1 and the scenario, and a host-store genesis task carries the host state."
+severity = "owner"
+
+[finding.18.1211.5.1]
+task = "18.1211.5"
+file = "daemon/committed-fixture/vectors/vector-v2-receipted-revert.json"
+symbol = "vector-v2-receipted-revert"
+observed = "daemon/committed-fixture/vectors/vector-v2-receipted-revert.json (provenance 9e6b79d65), services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json, the layerx-bridge-relayer and layerx-gas-station test fixtures and services/interop/specs/conformance/x402/settlement-response.json are self-verified copies of the sequencer receipt vectors that no test compares to sdk/platform/conformance/fixtures/sequencer-receipt-v1.json; they stay green and go stale once 18.1211.5 re-records the source."
+assumption = "Each owning domain re-records its copy when it next changes that fixture; 18.1211.5 leaves them untouched (decision.1928)."
+severity = "owner"

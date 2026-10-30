@@ -11167,3 +11167,27 @@ symptom = "The qualification log on main at d028bd92b and 5b9b60520 held one cha
 cause = "The batch wrote the log with '\\n'.join(qual) although qual is one string, so every character was followed by a newline; the next batch read the interleaved text as its base and doubled it."
 do = "Write the log with open(QUAL, 'w').write(qual) exactly as spec-batch-105 does, and have spec-lint refuse a qualification.kvx whose line count exceeds three times its finding count. Restore an interleaved file with text[0::2] after checking set(text[1::2]) == {'\\n'}."
 
+[gotcha.2271]
+title = "Two merged tasks can contradict each other and surface as an unrelated failure in a third task's gate"
+symptom = "18.1279.1's recorded challenge (18.1129.1) is refused by the 20-byte offer contract 9.16.1 wrote; 3.93.1's 137-byte oracle transport is refused by the abi-1 perps interface 1.24.1 registered; 2.26.4's dispute path answers LXP_ERR_MODULE_DISABLED because no task bound the service runtime."
+fix = "Record one cross-task finding naming producer and consumer with their commits, open an issue task that owns the producer file, add it to the blocked task's requires, and re-qualify the blocked candidate unchanged once it lands; never patch the consumer's test around it."
+
+[gotcha.2272]
+title = "A recovered panic inside a commit listener leaves a validator that keeps proposing with a fenced sequencer"
+symptom = "12.35.4 attempt 8: Driver.OnCommit failed at the first sequenced commit, the listener fenced the executor and panicked, node/abci.go recovered it into a log line, and every Seal afterwards answered 'executor fenced by a later lease' with no lease involved."
+fix = "A commit listener returns an error that Commit propagates so consensus halts the node with the cause (task 18.1307.1); a diagnosis keeps whole node logs and greps for 'panic recovered in commit listener' and 'fenced' before suspecting the topology."
+
+[gotcha.2273]
+title = "A library compile break in a shared crate fails every dependent task's build until the port task lands"
+symptom = "After 42c1fea30 (13.4.5) changed the registry verifier API, layerx-agentd stopped compiling and 18.1302.1, 18.1286.1, 18.1275.1, 10.20.3 and 18.1172.2 each failed their build on the same 13 errors across repeated attempts."
+fix = "Open the port task first (18.1304.1), add it to requires of every open task whose build or verify names the broken crate, and hold their attempts until it is on main; an attempt against a broken crate is wasted."
+
+[gotcha.2274]
+title = "Re-recording a shared fixture with many consumers: land the consumers first in a form that is invariant to the change"
+symptom = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json has about 35 consumers in eight crates that rotate or permute the recorded PaymentExact topics; re-recording it first would leave about 25 test targets red until every consumer task lands."
+fix = "Make each consumer derive its expected values from the recorded inputs (here the payExact calldata words) so it passes on the old and the new recording, land those in wave 0, then re-record the fixture together with its byte-equal copies and pinned literals in one revision."
+
+[gotcha.2275]
+title = "A requirement on a done task that sits in a later wave is a bad_ref for the plan validator"
+symptom = "18.1304.1 (wave 0) requiring 13.4.5 (wave 23, done) and 18.1305.1 requiring 1.24.1 (wave 23, done) raised bad_refs 2 although both requirements were satisfied."
+fix = "Do not list a done task from a later wave in requires; cite its commit in a do line and give the new task an empty requires or requires in its own or earlier waves."
