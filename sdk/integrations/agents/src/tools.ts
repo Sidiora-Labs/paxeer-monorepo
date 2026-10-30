@@ -8,8 +8,10 @@ import {
 } from "@sidiora/layerx-agent-middleware";
 import {
   PlatformSdkError,
-  verifySequencerReceipt,
+  verifySequencerReceipt as verifyPinnedSequencerReceipt,
   type ProductionClient,
+  type SequencerReceiptKey,
+  type SequencerReceiptVerification,
 } from "@sidiora/layerx-sdk";
 import { AgentIntegrationError, toHex, type AgentDeclaredConfig } from "./config.js";
 
@@ -438,6 +440,20 @@ export class AgentToolExecutor {
       asset,
       recipient,
     };
+  }
+}
+
+async function verifySequencerReceipt(
+  signedReceipt: Uint8Array,
+  rawTransaction: Uint8Array,
+  receiptKeys: readonly SequencerReceiptKey[],
+): Promise<SequencerReceiptVerification> {
+  try {
+    const verification = await verifyPinnedSequencerReceipt(signedReceipt, rawTransaction, receiptKeys);
+    if (verification.receipt.resultCode !== 0) throw new AgentMiddlewareError("verification-failure");
+    return verification;
+  } catch {
+    throw new AgentMiddlewareError("verification-failure");
   }
 }
 

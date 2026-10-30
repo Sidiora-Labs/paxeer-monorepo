@@ -145,7 +145,7 @@ public struct RelayReceiptResolver: MobileReceiptResolver, @unchecked Sendable {
   }
 }
 
-private struct RelayReceiptPayload: Decodable {
+struct RelayReceiptPayload: Decodable {
   struct Key: Decodable {
     let keyID: String
     let publicKey: String
