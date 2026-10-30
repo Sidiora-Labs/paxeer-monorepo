@@ -3,6 +3,7 @@
 mod account_state;
 mod archive;
 mod authority;
+pub mod chain_evidence;
 pub mod chain_proof;
 mod deprecate;
 mod hash;
@@ -14,6 +15,7 @@ pub mod naming;
 mod pipeline;
 mod protocol_evidence;
 mod resolver;
+pub mod state_record;
 pub mod swap;
 
 pub use account_state::{
@@ -29,6 +31,12 @@ pub use archive::{ArchiveError, SourceArchive, SourceFile};
 pub use authority::{
     DeploymentJournal, DeploymentRecord, JournalReadAuthority, MigrationExecutionEvidence,
     ObservedHead,
+};
+pub use chain_proof::{
+    results::verify_tx_result,
+    state::{verify_absent, verify_state},
+    tx::verify_tx,
+    ChainProofVerifier,
 };
 pub use deprecate::{
     AuthorizedExit, Deprecation, DeprecationRefusal, DeprecationRequest, ExitRoute,

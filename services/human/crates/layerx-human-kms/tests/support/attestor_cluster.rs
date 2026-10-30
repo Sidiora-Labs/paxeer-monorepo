@@ -403,6 +403,7 @@ pub struct Cluster {
     pub pki: Pki,
     pub nodes: Vec<(String, SocketAddr)>,
     children: Vec<(String, Child)>,
+    commands: Vec<(String, Command)>,
     pub tokens: TokenSigner,
     keys: KeySetServer,
     inventory_members: Vec<Value>,
@@ -432,6 +433,26 @@ impl Cluster {
         activity_types: &[String],
         kernel_policy: &Value,
     ) -> Result<Self> {
+        Self::start_with_policies(
+            activity_types,
+            &json!({
+                "version": 1,
+                "defaults": {
+                    "chain_id": 125,
+                    "kinds": ["lx_activity", "evm_tx"],
+                    "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
+                    "rate_per_minute": 1000
+                }
+            }),
+            kernel_policy,
+        )
+    }
+
+    pub fn start_with_policies(
+        activity_types: &[String],
+        policy: &Value,
+        kernel_policy: &Value,
+    ) -> Result<Self> {
         let root = scratch("attestor-cluster")?;
         let daemon = build_daemon(&root)?;
         let mut pki = Pki::new(&root);
@@ -457,18 +478,7 @@ impl Cluster {
         let tokens = TokenSigner::generate("attestor-test-key")?;
         fs::write(root.join("authority.pem"), tokens.public_pem())?;
         let keys = KeySetServer::serve(json!({ "keys": [tokens.jwk()?] }).to_string())?;
-        fs::write(
-            root.join("policy.json"),
-            serde_json::to_vec(&json!({
-                "version": 1,
-                "defaults": {
-                    "chain_id": 125,
-                    "kinds": ["lx_activity", "evm_tx"],
-                    "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
-                    "rate_per_minute": 1000
-                }
-            }))?,
-        )?;
+        fs::write(root.join("policy.json"), serde_json::to_vec(policy)?)?;
         fs::write(
             root.join("kernel-policy.json"),
             serde_json::to_vec(kernel_policy)?,
@@ -486,6 +496,7 @@ impl Cluster {
             pki,
             nodes,
             children: Vec::new(),
+            commands: Vec::new(),
             tokens,
             keys,
             inventory_members: ids
@@ -515,7 +526,8 @@ impl Cluster {
             fs::write(&key_file, hex(&node_key))?;
             fs::set_permissions(&key_file, fs::Permissions::from_mode(0o600))?;
             let log = fs::File::create(root.join(format!("{id}.log")))?;
-            let child = Command::new(&daemon)
+            let mut command = Command::new(&daemon);
+            command
                 .env_clear()
                 .env("ATTESTOR_NODE_ID", id)
                 .env("ATTESTOR_REGION", "test")
@@ -562,9 +574,10 @@ impl Cluster {
                 .env("ATTESTOR_RPC_URL", &chain_rpc)
                 .stdin(Stdio::null())
                 .stdout(log.try_clone()?)
-                .stderr(log)
-                .spawn()?;
+                .stderr(log);
+            let child = command.spawn()?;
             cluster.children.push((id.clone(), child));
+            cluster.commands.push((id.clone(), command));
         }
         cluster.wait_ready()?;
         Ok(cluster)
@@ -572,6 +585,42 @@ impl Cluster {
 
     pub fn client(&self) -> Result<AttestorClient> {
         operator_client(&self.pki, &self.nodes)
+    }
+
+    pub fn set_ledger_grant_policy(
+        &mut self,
+        key_id: &str,
+        owner: &str,
+        public_key: &[u8],
+        capability: [u8; 32],
+        maximum_validity_ms: u64,
+    ) -> Result<()> {
+        let policy = json!({
+            "version": 2,
+            "rules": [{
+                "key_id": key_id,
+                "owner": owner,
+                "tenant": owner,
+                "agent_did": format!("did:layerx:{}", hex(public_key)),
+                "owner_public_key": hex(public_key),
+                "operations": ["ledger-issue-grant"],
+                "capabilities": [hex(&capability)],
+                "maximum_validity_ms": maximum_validity_ms,
+                "rate_per_minute": 1000,
+            }],
+        });
+        let path = self.root.join("native-policy.json");
+        fs::write(&path, serde_json::to_vec(&policy)?)?;
+        for (_, child) in &mut self.children {
+            child.kill()?;
+            child.wait()?;
+        }
+        self.children.clear();
+        for (id, command) in &mut self.commands {
+            let child = command.env("ATTESTOR_NATIVE_POLICY_FILE", &path).spawn()?;
+            self.children.push((id.clone(), child));
+        }
+        self.wait_ready()
     }
 
     fn publish_inventory(&mut self) -> Result<()> {

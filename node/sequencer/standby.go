@@ -17,6 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
+	"golang.org/x/sync/errgroup"
 )
 
 // Replication wire format. The primary sends a group as u32be count ‖ count WAL frames, each
@@ -223,8 +224,8 @@ func NewReplicator(cfg ReplicatorConfig) (*Replicator, error) {
 	return &Replicator{wal: cfg.WAL, dial: cfg.Dial, timeout: cfg.ReplicationTimeout, onWALSync: cfg.OnWALSync}, nil
 }
 
-// Release appends entries to the local WAL, waits for the group fsync that covers them, streams
-// them to the standby and waits for its ack. The receipts of the ACCEPT entries may be returned
+// Release appends entries to the local WAL, then overlaps the group fsync that covers them with
+// streaming them to the standby and waiting for its ack. The receipts of the ACCEPT entries may be returned
 // only when Release returns nil; on ErrNoAck, ErrStandbyRefused or ErrFenced the send fails and no receipt
 // is issued. Records the standby has not acknowledged are resent on every fresh link and when it
 // requests a gap.
@@ -268,20 +269,29 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 		r.retained = append(r.retained, rf)
 		pending = append(pending, p)
 	}
-	syncStart := time.Now()
-	if _, err := r.wal.GroupSync(); err != nil {
-		return Ack{}, err
-	}
-	if r.onWALSync != nil {
-		r.onWALSync(time.Since(syncStart))
-	}
-	for _, p := range pending {
-		if err := p.Wait(ctx); err != nil {
-			return Ack{}, err
+	var group errgroup.Group
+	group.Go(func() error {
+		syncStart := time.Now()
+		if _, err := r.wal.GroupSync(); err != nil {
+			return err
 		}
-	}
-	ack, err := r.replicate(ctx, frames, maxSeq)
-	if err != nil {
+		if r.onWALSync != nil {
+			r.onWALSync(time.Since(syncStart))
+		}
+		for _, p := range pending {
+			if err := p.Wait(ctx); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	var ack Ack
+	group.Go(func() error {
+		var err error
+		ack, err = r.replicate(ctx, frames, maxSeq)
+		return err
+	})
+	if err := group.Wait(); err != nil {
 		return Ack{}, err
 	}
 	r.pruneRetained()
@@ -761,7 +771,7 @@ func (s *Standby) serveConn(conn net.Conn) {
 
 // receive takes one group: records already held are skipped, a gap before the group is answered
 // with AckGap and nothing taken; otherwise the new records are appended and synced to the
-// standby WAL, re-executed in order, and acknowledged. A WAL or execution failure stops the
+// standby WAL concurrently with their ordered re-execution, then acknowledged. A WAL or execution failure stops the
 // standby: it refuses every later group.
 func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	s.recvMu.Lock()
@@ -822,17 +832,26 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	if !committed {
 		return Ack{Status: AckGap, LastSeq: s.cur.lastSeq, GapFrom: s.cur.lastSeq + 1, GapTo: s.cur.lastSeq}
 	}
-	if err := s.persist(fresh); err != nil {
+	executed := make(chan error, 1)
+	go func() {
+		for _, e := range fresh {
+			if err := s.execute(e); err != nil {
+				executed <- err
+				return
+			}
+		}
+		executed <- nil
+	}()
+	err := s.persist(fresh)
+	if executeErr := <-executed; err == nil {
+		err = executeErr
+	}
+	if err != nil {
 		s.failed = err
 		s.refusal = err
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 	}
 	for _, e := range fresh {
-		if err := s.execute(e); err != nil {
-			s.failed = err
-			s.refusal = err
-			return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
-		}
 		s.cur.advance(e)
 	}
 	return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}

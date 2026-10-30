@@ -1,5 +1,9 @@
 {
   "chainId": 713714,
+  "bounds": {
+    "minAverageTps": 5,
+    "maxP99LatencyMs": 5000
+  },
   "paxChainId": "loadtest-local",
   "endpoints": [
     "http://127.0.0.1:8545"

@@ -27,6 +27,7 @@ import {
   sponsoredBindRequest,
   provisioningStationConfig,
   type SponsoredBindRequest,
+  type SponsoredBindConstruction,
   type SignBody,
 } from './bind.js';
 
@@ -117,7 +118,7 @@ interface ProvisionRow {
   bind_tx_hash: Hex | null;
   station_quote_nonce: string | null;
   station_batch_nonce: string | null;
-  station_request: SponsoredBindRequest | null;
+  station_request: SponsoredBindConstruction | SponsoredBindRequest | null;
   refusal_reason: string | null;
 }
 
@@ -446,7 +447,7 @@ export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSu
 
     if (row.state === 'evm_key') {
       if (principal) {
-        await storeIdentity(deps, row, wallet, normalisePublicKey(principal.public_key), null);
+        await storeIdentity(deps, row, wallet, normalisePublicKey(principal.public_key), principal.did);
       } else {
         const attestors = requireAttestors(deps);
         const keyId = `account:${userId}:${kind}:ed25519:${row.ed_key_generation}`;
@@ -490,30 +491,66 @@ export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSu
 
     if (row.state === 'bind_signed' || row.state === 'funded') {
       if (subject.kind === 'standard' && !subject.token) return result(row, wallet, 'owner');
-      if (!row.station_request) {
-        const config = provisioningStationConfig();
-        const f = await fees(deps.rpc);
-        const gasCost = config.gasLimit * f.maxFeePerGas;
-        if (gasCost > deps.gasCapWei)
-          throw new ProvisionError('setup_gas_over_cap', 503, `binding needs ${gasCost} wei, above the setup gas cap ${deps.gasCapWei}`);
-        const signerWallet = wallet;
-        const request = await sponsoredBindRequest({
-          station: deps.station, rpc: deps.rpc, chainId: deps.chainId, address,
-          publicKey: row.ed_public_key!, signature: row.bind_signature!, gasCost,
-          paymaster: config.paymaster, maxTokenAmount: config.maxTokenAmount,
-          sign: payload => signStationPayload(deps, subject, signerWallet, payload),
-        });
-        const fields = { station_request: request, station_quote_nonce: request.batch.quote.quoteNonce,
-          station_batch_nonce: request.batch.nonce, bind_gas: config.gasLimit.toString(), bind_max_fee_wei: f.maxFeePerGas.toString() };
+      let requoted = false;
+      for (;;) {
+        if (!row.station_request || !('call' in row.station_request)) {
+          const config = provisioningStationConfig();
+          const f = row.station_request
+            ? { maxFeePerGas: BigInt(row.bind_max_fee_wei!) }
+            : await fees(deps.rpc);
+          const gasLimit = row.station_request ? BigInt(row.bind_gas!) : config.gasLimit;
+          const gasCost = gasLimit * f.maxFeePerGas;
+          if (gasCost > deps.gasCapWei)
+            throw new ProvisionError('setup_gas_over_cap', 503, `binding needs ${gasCost} wei, above the setup gas cap ${deps.gasCapWei}`);
+          const signerWallet = wallet;
+          const request = await sponsoredBindRequest({
+            station: deps.station, rpc: deps.rpc, chainId: deps.chainId, address,
+            publicKey: row.ed_public_key!, signature: row.bind_signature!, gasCost,
+            paymaster: config.paymaster, maxTokenAmount: config.maxTokenAmount,
+            sign: payload => signStationPayload(deps, subject, signerWallet, payload),
+            retained: row.station_request ?? undefined,
+            persist: async construction => {
+              const fields = { station_request: construction, station_quote_nonce: construction.batch.quote.quoteNonce,
+                station_batch_nonce: construction.batch.nonce, bind_gas: gasLimit.toString(), bind_max_fee_wei: f.maxFeePerGas.toString() };
+              await updateRow(deps.pool, row.id, fields);
+              Object.assign(row, fields);
+            },
+          });
+          const fields = { station_request: request, station_quote_nonce: request.batch.quote.quoteNonce,
+            station_batch_nonce: request.batch.nonce, bind_gas: gasLimit.toString(), bind_max_fee_wei: f.maxFeePerGas.toString() };
+          await updateRow(deps.pool, row.id, fields);
+          Object.assign(row, fields);
+        }
+        if (!row.station_request || !('call' in row.station_request))
+          throw new ProvisionError('station_request_unsigned', 503, 'binding construction has not been signed');
+        let submitted: Record<string, unknown>;
+        try {
+          submitted = await deps.station.submit(row.station_request);
+        } catch (err) {
+          if (!(err instanceof StationAdapterError) || err.code !== 'expired_quote') throw err;
+          const bound = await readUnifiedAccount(deps.rpc, address);
+          if (bound.didPublicKey === row.ed_public_key) {
+            await activate(deps, row, wallet);
+            return result(row, wallet);
+          }
+          if (bound.didPublicKey) {
+            return await refuse(deps, row, wallet, 'address is already bound to a different DID', didFromPublicKey(bound.didPublicKey));
+          }
+          if (requoted) throw err;
+          const fields = { station_request: null, station_quote_nonce: null, station_batch_nonce: null,
+            bind_gas: null, bind_max_fee_wei: null };
+          await updateRow(deps.pool, row.id, fields);
+          Object.assign(row, fields);
+          requoted = true;
+          continue;
+        }
+        if (typeof submitted.transactionHash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(submitted.transactionHash))
+          throw new StationAdapterError(502, 'gas_station_invalid_response');
+        const fields = { state: 'bind_sent' as const, bind_tx_hash: submitted.transactionHash as Hex };
         await updateRow(deps.pool, row.id, fields);
         Object.assign(row, fields);
+        break;
       }
-      const submitted = await deps.station.submit(row.station_request);
-      if (typeof submitted.transactionHash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(submitted.transactionHash))
-        throw new StationAdapterError(502, 'gas_station_invalid_response');
-      const fields = { state: 'bind_sent' as const, bind_tx_hash: submitted.transactionHash as Hex };
-      await updateRow(deps.pool, row.id, fields);
-      Object.assign(row, fields);
     }
 
     if (row.state === 'bind_sent') {

@@ -45,6 +45,9 @@ fn receipt(signed: &[u8]) -> SequencerReceipt {
             vm_error: String::new(),
             key_id: [1; 32],
             receipt: Vec::new(),
+            signing_key: ed25519_dalek::SigningKey::from_bytes(&[8; 32])
+                .verifying_key()
+                .to_bytes(),
         },
         block_number: 42,
         block_hash: [0x42; 32],

@@ -1,11 +1,11 @@
-//! Search and fetch through the configured web sidecar, using layerxpay
+//! Search and fetch through the configured web sidecar, using layerxledger
 //! call preparation and authenticated sequencer receipt logs. Content by
 //! digest is unpaid, digest checked, and always treated as untrusted.
 
 use std::fmt::Write as _;
 use std::io::{Read as _, Write as _};
 use std::net::{TcpStream, ToSocketAddrs as _};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
@@ -19,10 +19,13 @@ use layerx_agentd::policy::approval::{
     ApprovalContext, ApprovalRegistry, ApprovalState, ApprovalTicket,
 };
 use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+use layerx_crypto::disclosure::call::encode_payment_call;
+use layerx_crypto::payments::{Grant, Payment};
 use layerx_interop_gateway::evidence::canonical_receipt_digest;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
+use layerx_types::payload::ModuleId;
 use layerx_x402::buyer::BuiltPayment;
 use layerx_x402::model::{
     PaymentPayload, PaymentRequired, PaymentRequirements, SettlementResponse, X402Error,
@@ -31,7 +34,7 @@ use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
-use crate::approval::{self, ApprovalError, ApprovalPolicy, Requirement};
+use crate::approval::{ApprovalError, ApprovalPolicy};
 use crate::catalogue::{self, ArgumentError};
 
 pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
@@ -41,7 +44,7 @@ pub const PAYER_ADDRESS: &str = "LAYERX-PAYER-ADDRESS";
 
 /// The ASCII domain every canonical content encoding starts with.
 pub const CONTENT_DOMAIN: &[u8] = b"PAXEERX_WEB_CONTENT_V1";
-/// Block heights an approval hold for one web spend stays open.
+/// Maximum approval window in seconds, and in heights for the approval hold.
 pub const APPROVAL_WINDOW: u64 = 600;
 /// The most results one search returns.
 pub const MAX_SEARCH_RESULTS: usize = 10;
@@ -55,9 +58,6 @@ const MAX_RETRY_DELAY: Duration = Duration::from_secs(5);
 const MAX_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_PENDING_ATTEMPTS: u8 = 10;
 const MAX_DID_BYTES: usize = 255;
-const PAY_PRECOMPILE: [u8; 20] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1b,
-];
 const GRANT_OPERATION: u16 = 7;
 
 /// The four assets a sidecar accepts.
@@ -229,7 +229,26 @@ impl WebCall {
         &self,
         config: &WebConfig,
         offer: &PaymentRequirements,
-        current_height: u64,
+        _current_height: u64,
+    ) -> Result<ExactTerms, WebToolError> {
+        let facts = offer_facts(config, self, offer)?;
+        let prepared = spend_preparation(
+            config,
+            self,
+            &self.operation.target(),
+            offer,
+            &facts,
+            self.idempotency_key,
+            None,
+        )?;
+        self.exact_terms_for_disclosure(config, offer, prepared.disclosure)
+    }
+
+    fn exact_terms_for_disclosure(
+        &self,
+        config: &WebConfig,
+        offer: &PaymentRequirements,
+        disclosure: Disclosure,
     ) -> Result<ExactTerms, WebToolError> {
         if self.scheme != Scheme::Exact || matches!(self.operation, WebOperation::Content(_)) {
             return Err(WebToolError::OfferMismatch("scheme"));
@@ -259,7 +278,8 @@ impl WebCall {
             recipient,
             recipient_account: offer.pay_to.clone(),
             asset,
-            current_height,
+            expires_at_ms: expiry_milliseconds(disclosure.expiry.0)?,
+            disclosure,
             amount: offer.amount.value(),
             idempotency_key: self.idempotency_key,
         })
@@ -443,7 +463,7 @@ pub struct GrantTerms {
     pub payer_account: [u8; 20],
     pub recipient: [u8; 20],
     pub asset: [u8; 20],
-    pub current_height: u64,
+    pub expires_at_ms: u64,
     pub amount: u128,
     pub purpose_hash: [u8; 32],
     pub idempotency_key: [u8; 32],
@@ -457,7 +477,8 @@ pub struct ExactTerms {
     pub recipient: [u8; 20],
     pub recipient_account: String,
     pub asset: [u8; 20],
-    pub current_height: u64,
+    pub expires_at_ms: u64,
+    pub disclosure: Disclosure,
     pub amount: u128,
     pub idempotency_key: [u8; 32],
 }
@@ -485,8 +506,17 @@ pub trait WebPayer {
         Err(WebPayerError::Refused)
     }
 
+    fn sign_grant(&mut self, _terms: &GrantTerms) -> Result<Grant, WebPayerError> {
+        Err(WebPayerError::Refused)
+    }
+
     fn grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
-        Ok(terms.prepare_budget())
+        let grant = self.sign_grant(terms)?;
+        terms.prepare_grant(&grant)
+    }
+
+    fn view(&mut self, _call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
+        Err(WebPayerError::Unavailable)
     }
 
     fn pay(&mut self, terms: &ExactTerms) -> Result<PrecompileCall, WebPayerError> {
@@ -498,7 +528,9 @@ pub trait WebPayer {
         terms: &GrantTerms,
         grant_id: [u8; 32],
     ) -> Result<PrecompileCall, WebPayerError> {
-        Ok(terms.prepare_draw(grant_id))
+        let result = self.view(&terms.next_sequence_call())?;
+        let sequence = sequence_result(&result)?;
+        Ok(terms.prepare_draw(grant_id, sequence))
     }
 
     fn submit(&mut self, call: &PrecompileCall) -> Result<ExactPayment, WebPayerError>;
@@ -516,10 +548,10 @@ fn amount_word(amount: u128) -> [u8; 32] {
     word
 }
 
-fn payment_call(signature: &str, words: Vec<[u8; 32]>) -> PrecompileCall {
+fn payment_call(target: PrecompileTarget, signature: &str, words: Vec<[u8; 32]>) -> PrecompileCall {
     let digest = Keccak256::digest(signature.as_bytes());
     PrecompileCall {
-        target: PrecompileTarget::Pay,
+        target,
         selector: [digest[0], digest[1], digest[2], digest[3]],
         arguments: words.into_iter().map(AbiArgument::Word).collect(),
     }
@@ -529,13 +561,14 @@ impl ExactTerms {
     #[must_use]
     pub fn prepare_pay_exact(&self) -> PrecompileCall {
         payment_call(
+            PrecompileTarget::Ledger,
             "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)",
             vec![
                 address_word(self.payer_account),
                 address_word(self.recipient),
                 address_word(self.asset),
                 amount_word(self.amount),
-                amount_word(u128::from(self.current_height)),
+                amount_word(u128::from(self.expires_at_ms)),
                 self.idempotency_key,
             ],
         )
@@ -543,31 +576,86 @@ impl ExactTerms {
 }
 
 impl GrantTerms {
-    #[must_use]
-    pub fn prepare_budget(&self) -> PrecompileCall {
-        payment_call("budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)", vec![
-            self.idempotency_key, address_word(self.payer_account), address_word(self.asset), self.purpose_hash,
-            amount_word(self.amount), amount_word(0), amount_word(self.amount), amount_word(1),
-            amount_word(u128::from(self.current_height)), amount_word(u128::from(self.current_height) + 1),
-            amount_word(0), amount_word(1),
-        ])
+    pub fn prepare_grant(&self, grant: &Grant) -> Result<PrecompileCall, WebPayerError> {
+        if grant.from != address_word(self.payer_account)
+            || grant.recipient != address_word(self.recipient)
+            || grant.asset != address_word(self.asset)
+            || grant.per_draw_maximum != self.amount
+            || grant.allowance != self.amount
+            || grant.recurring
+            || grant.window_length != 0
+            || grant.expiration != self.expires_at_ms
+            || grant.purpose_hash != self.purpose_hash
+            || !grant.has_reference
+            || grant.reference_hash != self.idempotency_key
+            || grant.revocation_sequence != 0
+        {
+            return Err(WebPayerError::Refused);
+        }
+        let data = encode_payment_call(
+            &Payment::IssueGrant(grant.clone()),
+            self.payer_did.as_bytes(),
+        )
+        .map_err(|_| WebPayerError::Refused)?;
+        let payload = Payment::IssueGrant(grant.clone())
+            .encode(self.payer_did.as_bytes())
+            .map_err(|_| WebPayerError::Refused)?;
+        Ok(PrecompileCall {
+            target: PrecompileTarget::Ledger,
+            selector: data[..4].try_into().map_err(|_| WebPayerError::Refused)?,
+            arguments: vec![AbiArgument::Bytes(payload)],
+        })
     }
 
     #[must_use]
-    pub fn prepare_draw(&self, grant_id: [u8; 32]) -> PrecompileCall {
+    pub fn next_sequence_call(&self) -> PrecompileCall {
         payment_call(
+            PrecompileTarget::Ledger,
+            "nextSequence(bytes32,bytes32)",
+            vec![address_word(self.recipient), address_word(self.asset)],
+        )
+    }
+
+    #[must_use]
+    pub fn prepare_draw(&self, grant_id: [u8; 32], receiver_sequence: u64) -> PrecompileCall {
+        payment_call(
+            PrecompileTarget::Ledger,
             "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)",
             vec![
                 grant_id,
                 address_word(self.recipient),
                 amount_word(self.amount),
                 self.idempotency_key,
-                amount_word(u128::from(self.current_height)),
+                amount_word(u128::from(receiver_sequence)),
                 self.purpose_hash,
                 [0; 32],
             ],
         )
     }
+}
+
+fn sequence_result(result: &[u8]) -> Result<u64, WebPayerError> {
+    if result.len() != 32 || result[..24] != [0; 24] {
+        return Err(WebPayerError::Refused);
+    }
+    Ok(u64::from_be_bytes(
+        result[24..]
+            .try_into()
+            .map_err(|_| WebPayerError::Refused)?,
+    ))
+}
+
+fn unix_seconds() -> Result<u64, WebToolError> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .map_err(|_| WebToolError::Configuration("clock"))
+}
+
+fn expiry_milliseconds(expiry: u64) -> Result<u64, WebToolError> {
+    expiry
+        .checked_mul(1_000)
+        .ok_or(WebToolError::Configuration("approval_window"))
 }
 
 #[derive(Debug)]
@@ -1013,7 +1101,7 @@ impl WebPlane<'_, '_> {
                 .validate_search_quote(facts.asset, facts.amount)
                 .map_err(WebToolError::Payer)?;
         }
-        self.approve(offer, &facts, key)?;
+        let disclosure = self.approve(offer, &facts, key)?;
         if matches!(self.call.operation, WebOperation::Search(_))
             && self.call.currency == Currency::Pax
         {
@@ -1029,7 +1117,7 @@ impl WebPlane<'_, '_> {
                         .ok_or(WebToolError::Configuration("payer_address"))?,
                     recipient: self.config.receiver_address,
                     asset: unhex20(&offer.asset).ok_or(WebToolError::OfferMismatch("asset"))?,
-                    current_height: self.approval.current_height(),
+                    expires_at_ms: expiry_milliseconds(disclosure.expiry.0)?,
                     amount: facts.amount,
                     purpose_hash: facts
                         .purpose_hash
@@ -1048,18 +1136,35 @@ impl WebPlane<'_, '_> {
                         .ok_or(WebToolError::OfferMismatch("grant_id"))?
                 } else {
                     let prepared = self.payer.grant(&terms).map_err(WebToolError::Payer)?;
-                    if prepared != terms.prepare_budget() {
-                        return Err(WebToolError::PaymentArtifact("budget_call"));
+                    let [AbiArgument::Bytes(payload)] = prepared.arguments.as_slice() else {
+                        return Err(WebToolError::PaymentArtifact("grant_call"));
+                    };
+                    let Payment::IssueGrant(grant) = Payment::decode(
+                        ModuleId::Asset,
+                        GRANT_OPERATION,
+                        payload,
+                        terms.payer_did.as_bytes(),
+                    )
+                    .map_err(|_| WebToolError::PaymentArtifact("grant_call"))?
+                    else {
+                        return Err(WebToolError::PaymentArtifact("grant_call"));
+                    };
+                    if prepared != terms.prepare_grant(&grant).map_err(WebToolError::Payer)? {
+                        return Err(WebToolError::PaymentArtifact("grant_call"));
                     }
                     let payment = self.payer.submit(&prepared).map_err(WebToolError::Payer)?;
-                    check_budget(self.config, &payment, &terms)?;
-                    terms.idempotency_key
+                    check_grant(self.config, &payment, grant.id)?;
+                    grant.id
                 };
                 let prepared = self
                     .payer
                     .draw(&terms, grant_id)
                     .map_err(WebToolError::Payer)?;
-                if prepared != terms.prepare_draw(grant_id) {
+                let Some(AbiArgument::Word(sequence_word)) = prepared.arguments.get(4) else {
+                    return Err(WebToolError::PaymentArtifact("draw_call"));
+                };
+                let sequence = sequence_result(sequence_word).map_err(WebToolError::Payer)?;
+                if prepared != terms.prepare_draw(grant_id, sequence) {
                     return Err(WebToolError::PaymentArtifact("draw_call"));
                 }
                 let payment = self.payer.submit(&prepared).map_err(WebToolError::Payer)?;
@@ -1067,9 +1172,9 @@ impl WebPlane<'_, '_> {
                 Ok(json!({ "grantId": hex(&grant_id), "idempotencyKey": hex(&key) }))
             }
             Scheme::Exact => {
-                let terms =
-                    self.call
-                        .exact_terms(self.config, offer, self.approval.current_height())?;
+                let terms = self
+                    .call
+                    .exact_terms_for_disclosure(self.config, offer, disclosure)?;
                 let prepared = self.payer.pay(&terms).map_err(WebToolError::Payer)?;
                 if prepared != terms.prepare_pay_exact() {
                     return Err(WebToolError::PaymentArtifact("pay_exact_call"));
@@ -1089,13 +1194,17 @@ impl WebPlane<'_, '_> {
         offer: &PaymentRequirements,
         facts: &OfferFacts,
         key: [u8; 32],
-    ) -> Result<(), WebToolError> {
+    ) -> Result<Disclosure, WebToolError> {
         let boundary = self.approval;
         let mut context = boundary.context.clone();
         context.request_id = key;
         if context.agent.as_bytes() != self.config.payer_did.as_bytes() {
             return Err(WebToolError::Configuration("approval_agent"));
         }
+        let ticket = boundary
+            .registry
+            .ticket(key)
+            .map_err(|error| WebToolError::Approval(ApprovalError::Daemon(error)))?;
         let prepared = spend_preparation(
             self.config,
             self.call,
@@ -1103,21 +1212,18 @@ impl WebPlane<'_, '_> {
             offer,
             facts,
             key,
-            boundary.current_height(),
+            ticket.as_ref().map(|ticket| ticket.disclosure.expiry.0),
         )?;
-        let ticket = boundary
-            .registry
-            .ticket(key)
-            .map_err(|error| WebToolError::Approval(ApprovalError::Daemon(error)))?;
         if let Some(ticket) = ticket {
             if ticket.disclosure.canonical_digest != prepared.disclosure.canonical_digest {
                 return Err(WebToolError::ApprovalChanged);
             }
             return match ticket.state {
                 ApprovalState::Approved
-                    if ticket.expires_at_sequence > boundary.current_height() =>
+                    if ticket.expires_at_sequence > boundary.current_height()
+                        && ticket.disclosure.expiry.0 > unix_seconds()? =>
                 {
-                    Ok(())
+                    Ok(ticket.disclosure)
                 }
                 ApprovalState::Approved => {
                     Err(WebToolError::ApprovalRefused(ApprovalState::Expired))
@@ -1128,18 +1234,22 @@ impl WebPlane<'_, '_> {
                 state => Err(WebToolError::ApprovalRefused(state)),
             };
         }
-        match approval::require(
+        if facts.amount <= boundary.policy.amount_threshold {
+            return Ok(prepared.disclosure);
+        }
+        let expires_at_sequence = boundary
+            .current_height()
+            .checked_add(APPROVAL_WINDOW)
+            .ok_or(WebToolError::Configuration("approval_window"))?;
+        let ticket = layerx_agentd::policy::approval::hold(
             boundary.registry,
-            boundary.policy,
             context,
             prepared,
             boundary.current_height(),
+            expires_at_sequence,
         )
-        .map_err(WebToolError::Approval)?
-        {
-            Requirement::NotRequired { .. } => Ok(()),
-            Requirement::Required(ticket) => Err(WebToolError::ApprovalRequired(ticket)),
-        }
+        .map_err(|error| WebToolError::Approval(ApprovalError::Daemon(error)))?;
+        Err(WebToolError::ApprovalRequired(Box::new(ticket)))
     }
 }
 
@@ -1152,8 +1262,15 @@ fn spend_preparation(
     offer: &PaymentRequirements,
     facts: &OfferFacts,
     key: [u8; 32],
-    current_height: u64,
+    approved_expiry: Option<u64>,
 ) -> Result<Prepared, WebToolError> {
+    let expiry = match approved_expiry {
+        Some(expiry) => expiry,
+        None => unix_seconds()?
+            .checked_add(u64::from(offer.max_timeout_seconds).min(APPROVAL_WINDOW))
+            .ok_or(WebToolError::Configuration("approval_window"))?,
+    };
+    expiry_milliseconds(expiry)?;
     let invalid = |_| WebToolError::Configuration("approval_disclosure");
     let canonical = serde_json::to_vec(&json!({
         "domain": SPEND_DOMAIN,
@@ -1161,12 +1278,10 @@ fn spend_preparation(
         "target": target,
         "offer": offer,
         "idempotencyKey": hex(&key),
+        "expiry": expiry,
     }))
     .map_err(|_| WebToolError::Configuration("approval_disclosure"))?;
     let digest: [u8; 32] = Sha256::digest(&canonical).into();
-    let expiry = current_height
-        .checked_add(APPROVAL_WINDOW)
-        .ok_or(WebToolError::Configuration("approval_window"))?;
     let receiver = AgentDid::new(facts.receiver_did.clone()).map_err(invalid)?;
     Ok(Prepared {
         preparation_ref: PreparationRef::new(format!("web-{}", hex(&digest[..8])))
@@ -1193,12 +1308,12 @@ fn spend_preparation(
     })
 }
 
-fn check_budget(
+fn check_grant(
     config: &WebConfig,
     payment: &ExactPayment,
-    terms: &GrantTerms,
+    grant_id: [u8; 32],
 ) -> Result<(), WebToolError> {
-    let refuse = || WebToolError::PaymentArtifact("budget_receipt");
+    let refuse = || WebToolError::PaymentArtifact("grant_receipt");
     let receipt_keys = [config.sequencer_authorization];
     let decoded =
         verify_sequencer_signature(&payment.receipt, &receipt_keys).map_err(|_| refuse())?;
@@ -1207,14 +1322,14 @@ fn check_budget(
         return Err(refuse());
     }
     let verified = verify_logs(&decoded, payment.logs.clone()).map_err(|_| refuse())?;
-    let event: [u8; 32] = Keccak256::digest(b"BudgetCreated(bytes32,bytes32,uint128)").into();
+    let event: [u8; 32] = Keccak256::digest(b"PayerGrantIssued(bytes32)").into();
     if verified
         .logs()
         .iter()
         .filter(|log| {
-            log.address() == PAY_PRECOMPILE
-                && log.topics() == [event, terms.idempotency_key]
-                && log.data() == [address_word(terms.asset), amount_word(terms.amount)].concat()
+            log.address() == PrecompileTarget::Ledger.address()
+                && log.topics() == [event, grant_id]
+                && log.data().is_empty()
         })
         .count()
         != 1
@@ -1255,7 +1370,7 @@ fn check_receipt(
         .filter(|log| {
             let topics = log.topics();
             let data = log.data();
-            log.address() == PAY_PRECOMPILE
+            log.address() == PrecompileTarget::Ledger.address()
                 && topics.len() == 4
                 && topics[0] == event
                 && (draw.is_some() || topics[1] == reference)

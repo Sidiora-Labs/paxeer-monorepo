@@ -5,6 +5,7 @@
 
 #include <limits.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -78,6 +79,22 @@ typedef struct programs_sandbox_activity {
     uint64_t reservation_token;
 } programs_sandbox_activity;
 
+static lxp_result sandbox_invariant(const programs_sandbox_activity *value,
+                                     const char *site, int line)
+{
+    (void)fprintf(stderr,
+        "sandbox.c:%d: %s: invariant: operation=%u sealed=%u published=%u "
+        "savepoint=%u effects=%zu seal_frontier=%zu\n",
+        line, site, value == NULL ? 0U : value->operation,
+        value == NULL ? 0U : value->guest_sealed,
+        value == NULL ? 0U : value->usage_result.published,
+        value != NULL && value->guest_savepoint.active,
+        value == NULL || value->ctx == NULL || value->ctx->effects == NULL ?
+            0U : value->ctx->effects->count,
+        value == NULL ? 0U : value->sealed_guest_effect_frontier);
+    return LXP_FATAL_INVARIANT;
+}
+
 extern int32_t layerx_programs_sandbox_admit_host(
     uint64_t token, uint64_t observed_batch,
     uint64_t maximum_fee_hi, uint64_t maximum_fee_lo);
@@ -96,15 +113,20 @@ lxp_result layerx_programs_call_sandbox_admit(
 {
     programs_sandbox_activity *value = sandbox_for_call(call_token);
     size_t kind;
+    lxp_result status;
     if (value == NULL || value->operation != SANDBOX_EXECUTE ||
-        value->host_reserved || value->ctx->effects == NULL ||
+        value->host_reserved)
+        return LXP_ERR_NON_CANONICAL;
+    if (value->ctx->effects == NULL ||
         value->ctx->effects->count > LXP_MAX_EFFECTS ||
         SANDBOX_USAGE_EFFECT_RESERVE >
             LXP_MAX_EFFECTS - value->ctx->effects->count)
-        return LXP_ERR_NON_CANONICAL;
-    if (layerx_programs_sandbox_admit_host(call_token, observed_batch,
-            maximum_fee_hi, maximum_fee_lo) != LXP_OK)
-        return LXP_ERR_NON_CANONICAL;
+        return LXP_ERR_LENGTH_LIMIT;
+    status = layerx_programs_sandbox_admit_host(call_token, observed_batch,
+                                               maximum_fee_hi, maximum_fee_lo);
+    if (status != LXP_OK)
+        return lxp_result_is_registered(status) && !lxp_result_is_fatal(status)
+            ? status : LXP_ERR_NON_CANONICAL;
     /* Bind cleanup before any subsequent C allocation can refuse admission. */
     value->reservation_token = call_token;
     for (kind = 0U; kind < 3U; ++kind) {
@@ -370,7 +392,7 @@ lxp_result lxp_programs_sandbox_execute(
         if (status == LXP_OK && value->operation == SANDBOX_FUND)
             for (kind = 0U; kind < 3U; ++kind)
                 if (value->staged[kind].begun || value->staged[kind].applied)
-                    status = LXP_FATAL_INVARIANT;
+                    status = sandbox_invariant(value, __func__, __LINE__);
         if (status == LXP_OK && value->operation == SANDBOX_FUND) {
             inner_activity(activity, &inner);
             inner.activity_type = LX_PROGRAMS_TRANSFER;
@@ -386,7 +408,7 @@ lxp_result lxp_programs_sandbox_execute(
         if (status == LXP_OK)
             for (kind = 0U; kind < count; ++kind)
                 if (!value->staged[kind].applied)
-                    status = LXP_FATAL_INVARIANT;
+                    status = sandbox_invariant(value, __func__, __LINE__);
         if (value->lifecycle_reserve != 0U) {
             lxp_result release = lxp_module_staged_release(
                 ctx, value->lifecycle_reserve);
@@ -414,7 +436,8 @@ lxp_result lxp_programs_sandbox_execute(
     if (!lxp_result_is_fatal(status) && value->usage_result.published) {
         size_t kind;
         for (kind = 0U; kind < 3U; ++kind)
-            if (!value->staged[kind].applied) status = LXP_FATAL_INVARIANT;
+            if (!value->staged[kind].applied)
+                status = sandbox_invariant(value, __func__, __LINE__);
     }
     if (status != LXP_OK && !lxp_result_is_fatal(status) &&
         value->usage_result.published) {
@@ -425,21 +448,22 @@ lxp_result lxp_programs_sandbox_execute(
             status = LXP_OK;
     }
     if (status == LXP_OK && !value->usage_result.published)
-        status = LXP_FATAL_INVARIANT;
-    if (status == LXP_OK) status = emit_usage_receipt(value);
+        status = sandbox_invariant(value, __func__, __LINE__);
     if (status == LXP_OK && value->guest_savepoint.active)
-        status = LXP_FATAL_INVARIANT;
+        status = sandbox_invariant(value, __func__, __LINE__);
     {
         size_t kind;
         for (kind = 0U; kind < 3U; ++kind) {
             free(value->staged[kind].bytes);
-            value->staged[kind].bytes = NULL;
+            (void)memset(&value->staged[kind], 0, sizeof(value->staged[kind]));
         }
     }
     free(value->usage_result.receipt);
     value->usage_result.receipt = NULL;
     if (value->reservation_token != 0U)
         layerx_programs_sandbox_cancel_host(value->reservation_token);
+    value->reservation_token = 0U;
+    value->host_reserved = 0U;
     active_sandbox = NULL;
     return status;
 }
@@ -453,14 +477,14 @@ static lxp_result emit_usage_receipt(programs_sandbox_activity *value)
     lxp_result status = LXP_OK;
     if (value == NULL || !value->guest_sealed ||
         !value->usage_result.published || value->usage_result.receipt == NULL)
-        return LXP_FATAL_INVARIANT;
+        return sandbox_invariant(value, __func__, __LINE__);
     chunks = (value->usage_result.receipt_length +
               SANDBOX_USAGE_CHUNK_BYTES - 1U) / SANDBOX_USAGE_CHUNK_BYTES;
     if (chunks == 0U || chunks > UINT16_MAX || value->ctx->effects == NULL ||
         chunks + SANDBOX_MAX_GUEST_EFFECTS + 1U > SANDBOX_USAGE_EFFECT_RESERVE ||
         value->ctx->effects->count != value->sealed_guest_effect_frontier + 1U ||
         chunks > LXP_MAX_EFFECTS - value->ctx->effects->count)
-        return LXP_FATAL_INVARIANT;
+        return sandbox_invariant(value, __func__, __LINE__);
     for (index = 0U; status == LXP_OK && index < chunks; ++index) {
         uint32_t remaining = value->usage_result.receipt_length - offset;
         uint16_t length = (uint16_t)(remaining < SANDBOX_USAGE_CHUNK_BYTES ?
@@ -631,7 +655,7 @@ lxp_result layerx_programs_call_sandbox_usage_result_publish(uint64_t token)
                (const uint8_t[8]){1U,1U,1U,1U,1U,1U,1U,1U}, 8U) != 0)
         return LXP_ERR_NON_CANONICAL;
     value->usage_result.published = 1U;
-    return LXP_OK;
+    return emit_usage_receipt(value);
 }
 
 lxp_result layerx_programs_call_sandbox_usage_result_length(
@@ -660,6 +684,31 @@ lxp_result layerx_programs_call_sandbox_usage_result_byte(
     length = section < 2U ? 16U : section == 2U ? 32U : section == 4U ? 64U :
              value->usage_result.receipt_length;
     return offset < length ? (lxp_result)bytes[offset] : LXP_ERR_NON_CANONICAL;
+}
+
+lxp_result layerx_programs_call_sandbox_usage_result_occupancy(
+    uint64_t token, lxp_program_outcome *outcome)
+{
+    const programs_sandbox_activity *value = sandbox_for_call(token);
+    lxp_result status;
+    if (value == NULL || value->operation != SANDBOX_EXECUTE ||
+        !value->usage_result.published)
+        return LXP_ERR_UNKNOWN_FIELD;
+    if (outcome == NULL) return LXP_OK;
+    status = lxp_hash_sha256(value->usage_result.receipt,
+                             value->usage_result.receipt_length,
+                             outcome->occupancy_evidence_digest);
+    if (status != LXP_OK) return status;
+    outcome->occupancy_byte_batches = (lxp_u128){
+        read_u64(value->usage_result.occupancy),
+        read_u64(value->usage_result.occupancy + 8U)};
+    outcome->occupancy_fee_units = (lxp_u128){
+        read_u64(value->usage_result.occupancy_fee),
+        read_u64(value->usage_result.occupancy_fee + 8U)};
+    (void)memcpy(outcome->occupancy_asset_id, value->asset, 32U);
+    (void)memcpy(outcome->occupancy_transfer_root,
+                 value->usage_result.transfer_root, 32U);
+    return LXP_OK;
 }
 
 lxp_result layerx_programs_call_sandbox_context(uint64_t call_token)

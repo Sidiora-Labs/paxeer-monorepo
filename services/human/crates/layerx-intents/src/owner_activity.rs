@@ -106,7 +106,7 @@ pub fn verify(bytes: &[u8], registry: &ModuleRegistry) -> Result<Activity, Owner
 
 /// # Errors
 /// Refuses a changed unsigned envelope, owner key mismatch or invalid returned signature.
-pub fn attach_signature(
+pub fn attach_native_signature(
     unsigned: &[u8],
     signature: [u8; 64],
     owner: [u8; 32],
@@ -170,4 +170,23 @@ pub fn attach_signature(
         canonical::signed_envelope_bytes(&signed).map_err(|_| OwnerActivityError::Encoding)?;
     verify(&bytes, registry)?;
     Ok(bytes)
+}
+
+/// # Errors
+/// Refuses an undisclosable call, sender mismatch or invalid returned signature.
+pub fn attach_signature(
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    signature: [u8; 65],
+    from: [u8; 20],
+) -> Result<Vec<u8>, OwnerActivityError> {
+    layerx_crypto::disclosure::call::bind_call(call, from)
+        .map_err(|_| OwnerActivityError::Binding)?;
+    let signature = layerx_crypto::signer::AgentSignature::new(signature)
+        .map_err(|_| OwnerActivityError::Signature)?;
+    let recovered = layerx_crypto::evm_transaction::recover_sender(call, &signature)
+        .map_err(|_| OwnerActivityError::Signature)?;
+    if recovered != from {
+        return Err(OwnerActivityError::Binding);
+    }
+    Ok(layerx_crypto::evm_transaction::assemble(call, &signature))
 }

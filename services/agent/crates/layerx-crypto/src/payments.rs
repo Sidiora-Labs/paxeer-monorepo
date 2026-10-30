@@ -14,6 +14,13 @@ use sha2::{Digest as _, Sha256};
 
 use crate::disclosure::DisclosureError;
 
+pub use crate::disclosure::call::bind_call;
+pub use crate::disclosure::Disclosure;
+pub use crate::onboarding::{OnboardingConsent, OnboardingError, SponsoredRegistration};
+pub use crate::send::{
+    ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition, SendDebit,
+};
+
 type Id = [u8; 32];
 
 /// Asset registration fields for Asset ordinal 1.

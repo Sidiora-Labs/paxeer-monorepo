@@ -77,13 +77,17 @@ func NewConnected(d ConnectedDeps) (*Connected, error) {
 	transport := &http.Transport{TLSClientConfig: tlsConfig, Proxy: nil, MaxIdleConns: 128, MaxIdleConnsPerHost: 32, IdleConnTimeout: 90 * time.Second, ResponseHeaderTimeout: 10 * time.Second, DisableCompression: true}
 	return &Connected{u, routes, d.Identity, append(ed25519.PrivateKey(nil), d.SigningKey...), d.Name, &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
-func allowedConnectedRoute(name string, r ConnectedRoute) bool {
-	routes := map[string]map[string]string{
+func FrozenConnectedSurface() map[string]map[string]string {
+	return map[string]map[string]string{
 		"metadata":   {"/v2/tokens/{tokenAddress}/metadata": "GET PATCH", "/v2/tokens/{tokenAddress}/media": "GET", "/v2/tokens/{tokenAddress}/assets/{assetId}": "GET PUT", "/v2/accounts/{wallet}/assets/{assetId}": "GET PUT"},
 		"user":       {"/v2/profiles/{wallet}": "GET PATCH", "/v2/profiles:batch": "GET", "/v2/me/watchlist": "GET", "/v2/me/watchlist/{poolAddress}": "PUT DELETE"},
 		"livestream": {"/v2/streams": "GET POST", "/v2/streams/operations/{operationId}": "GET", "/v2/streams/{streamId}:start": "POST", "/v2/streams/{streamId}:end": "POST", "/v2/streams/{streamId}/viewers:heartbeat": "POST", "/v2/streams/{streamId}/ingest-credential": "POST"},
 		"social":     {"/v2/me/following/{wallet}": "PUT DELETE", "/v2/profiles/{wallet}/followers": "GET", "/v2/profiles/{wallet}/follow-stats": "GET", "/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE", "/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET", "/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST"},
 	}
+}
+
+func allowedConnectedRoute(name string, r ConnectedRoute) bool {
+	routes := FrozenConnectedSurface()
 	if r.Optional && (r.Authenticate || r.Method != "GET") {
 		return false
 	}
@@ -253,6 +257,14 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if p.audience == "livestream" && selected.Template == "/v2/provider-webhooks/livepeer" {
+		if values := r.Header.Values("Livepeer-Signature"); len(values) == 1 {
+			req.Header.Set("Livepeer-Signature", values[0])
+		} else if len(values) > 1 {
+			connectedError(w, 400, "ambiguous_header")
+			return
+		}
+	}
 	if principal.Wallet != "" {
 		if authorization := r.Header.Get("Authorization"); authorization != "" {
 			req.Header.Set("Authorization", authorization)
@@ -270,11 +282,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			requestID = uuid.NewString()
 			req.Header.Set("X-Request-ID", requestID)
 		}
-		audience := p.audience
-		if p.audience == "user" && (strings.HasPrefix(selected.Template, "/v1/") || strings.HasPrefix(selected.Template, "/v3/") || selected.Template == "/v2/me/preferences" || selected.Template == "/v2/me/exports/{jobId}/download") {
-			audience = "account"
-		}
-		signer := sharedauth.ServiceAssertionIssuer{Issuer: "gateway", Audience: audience, Key: p.key, Transport: actorAssertionTransport(p.audience)}
+		signer := sharedauth.ServiceAssertionIssuer{Issuer: "gateway", Audience: connectedAssertionAudience(p.audience, selected.Template), Key: p.key, Transport: actorAssertionTransport(p.audience)}
 		if e = signer.SignRequest(req, principal, []string{"owner"}, body); e != nil {
 			connectedError(w, 403, "actor_assertion_denied")
 			return
@@ -649,6 +657,13 @@ func (p *Connected) slowRoute(route *ConnectedRoute) bool {
 // (internal/app metadataPrivateChannel) reads the gateway's actor assertion
 // from. Every other upstream reads the shared actor headers.
 var MetadataActorTransport = sharedauth.AssertionTransport{AssertionHeader: "X-Internal-Assertion", SignatureHeader: "X-Internal-Signature"}
+
+func connectedAssertionAudience(upstream, template string) string {
+	if upstream == "user" {
+		return "account"
+	}
+	return upstream
+}
 
 func actorAssertionTransport(upstream string) sharedauth.AssertionTransport {
 	if upstream == "metadata" {

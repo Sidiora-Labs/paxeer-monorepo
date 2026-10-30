@@ -12,13 +12,13 @@ use zeroize::Zeroizing;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
-use layerx_crypto::disclosure::{bind, Disclosure};
+use layerx_crypto::disclosure::call::bind_call;
+use layerx_crypto::disclosure::Disclosure;
 use layerx_crypto::signer::SignError;
 use layerx_human_kms::attestor::{
-    new_session_id, preimage, Approval, AttestorClient, AttestorError, AttestorSignature,
-    AttestorSigner, APPROVAL_VERSION,
+    new_session_id, preimage, Approval, AttestorCallSignature, AttestorClient, AttestorError,
+    AttestorSigner,
 };
-use layerx_intents::canonical::Domain;
 use p256::ecdsa::signature::Signer as _;
 use p256::ecdsa::{Signature, SigningKey};
 use serde_json::{json, Value};
@@ -526,7 +526,7 @@ impl Cluster {
                 "version": 1,
                 "defaults": {
                     "chain_id": 125,
-                    "kinds": ["lx_activity"],
+                    "kinds": ["lx_activity", "evm_tx"],
                     "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
                     "rate_per_minute": 1000
                 }
@@ -680,6 +680,15 @@ impl Cluster {
     }
 
     fn sign_raw(&self, body: &[u8], token: &str) -> Result<Vec<(String, u16, Value)>> {
+        self.post_raw("/v1/sign", body, Some(token))
+    }
+
+    fn post_raw(
+        &self,
+        path: &str,
+        body: &[u8],
+        token: Option<&str>,
+    ) -> Result<Vec<(String, u16, Value)>> {
         let root_der = self.pki.certificate_der("gateway-ca")?;
         let chain_der = self.pki.certificate_der("gateway")?;
         let key_pem = fs::read(self.pki.path("gateway.key"))?;
@@ -701,7 +710,7 @@ impl Cluster {
         let targets: Vec<(String, SocketAddr)> = self
             .nodes
             .iter()
-            .filter(|(id, _)| SIGNERS.contains(&id.as_str()))
+            .filter(|(id, _)| path != "/v1/sign" || SIGNERS.contains(&id.as_str()))
             .cloned()
             .collect();
         thread::scope(|scope| {
@@ -711,10 +720,15 @@ impl Cluster {
                     let agent = agent.clone();
                     scope.spawn(
                         move || -> std::result::Result<(String, u16, Value), String> {
-                            let mut response = agent
-                                .post(format!("https://{address}/v1/sign"))
-                                .header("content-type", "application/json")
-                                .header("authorization", format!("Bearer {token}"))
+                            let request = agent
+                                .post(format!("https://{address}{path}"))
+                                .header("content-type", "application/json");
+                            let request = if let Some(token) = token {
+                                request.header("authorization", format!("Bearer {token}"))
+                            } else {
+                                request
+                            };
+                            let mut response = request
                                 .send(body)
                                 .map_err(|error| format!("{id}: {error}"))?;
                             let status = response.status().as_u16();
@@ -835,95 +849,106 @@ fn transfer(public: [u8; 32]) -> Result<layerx_types::payload::Payload> {
     ))
 }
 
-fn activity(public: [u8; 32], fee: u128) -> Result<(Vec<u8>, Disclosure)> {
-    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    let payload = transfer(public)?;
+fn activity(
+    seed: [u8; 32],
+    from: [u8; 20],
+    fee: u128,
+) -> Result<(layerx_crypto::evm_transaction::Eip1559Call, Disclosure)> {
+    use layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit};
+    use ring::signature::KeyPair as _;
+    let key = ring::signature::Ed25519KeyPair::from_seed_unchecked(&seed)
+        .map_err(|_| "invalid test signing seed")?;
+    let public: [u8; 32] = key.public_key().as_ref().try_into()?;
     let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-    let mut builder = EnvelopeBuilder::new();
-    checked(builder.protocol_version(3))?;
-    checked(builder.network_id(NETWORK))?;
-    checked(builder.activity_type(payload.activity_type()))?;
-    checked(builder.actor_did(checked(Did::new(actor(public).as_bytes()))?))?;
-    checked(builder.authority(checked(Authority::owner(&public))?))?;
-    checked(builder.account_sequence(PENDING_NONCE))?;
-    checked(builder.timestamp_bound(checked(TimestampBound::new(now - 60, now + 600))?))?;
-    checked(builder.idempotency_key(IdempotencyKey::new([4; 32])))?;
-    checked(builder.fee_limit(Amount::from_u128(fee)))?;
-    checked(
-        builder.payload_hash(checked(layerx_intents::canonical::payload_hash_for(
-            &payload,
-        ))?),
-    )?;
-    checked(builder.payload(payload))?;
-    let canonical = checked(layerx_intents::canonical::unsigned_envelope_bytes(
-        &checked(builder.build())?,
+    let debit = SendDebit {
+        from: main_account(&actor(public))?,
+        to: main_account(&actor([0x52; 32]))?,
+        asset: [0; 32],
+        amount: TRANSFER,
+        source_sequence: PENDING_NONCE,
+        idempotency_key: [4; 32],
+        expires_at: now + 600,
+        context_hash: [5; 32],
+        conditions: Vec::new(),
+        authorization_kind: 1,
+        network_id: NETWORK,
+        protocol_version: 3,
+    };
+    let message = checked(debit.authorization_message())?;
+    let signature: [u8; 64] = key.sign(&preimage(&message)).as_ref().try_into()?;
+    let payload = checked(debit.encode_signed(public, signature))?;
+    let disclosed = checked(ledger_payment_call(
+        &payload,
+        &CallOptions {
+            from,
+            chain_id: u64::from(NETWORK),
+            nonce: PENDING_NONCE,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: fee,
+            gas_limit: 100_000,
+        },
     ))?;
-    let disclosure = checked(bind(&canonical, &activity_registry()?))?;
-    Ok((canonical, disclosure))
-}
-
-fn expected_digest(canonical: &[u8]) -> Result<[u8; 32]> {
-    Ok(checked(layerx_crypto::SignatureMessage::new(
-        Domain::SignaturePreimage,
-        3,
-        NETWORK,
-        canonical,
-    ))?
-    .digest())
+    let call = disclosed.call;
+    let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
+    assert_eq!(Keccak256::digest(&unsigned).as_slice(), call.signing_hash());
+    assert_eq!(
+        checked(layerx_human_kms::attestor::decode_unsigned_evm_transaction(
+            &unsigned
+        ))?,
+        call
+    );
+    let disclosure = checked(bind_call(&call, from))?;
+    assert_eq!(disclosure, disclosed.disclosure);
+    Ok((call, disclosure))
 }
 
 fn assert_verified(
     signer: &AttestorSigner,
-    canonical: &[u8],
-    signature: &layerx_human_kms::attestor::AttestorSignature,
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    signature: &AttestorCallSignature,
 ) -> Result<()> {
-    let message = checked(layerx_crypto::SignatureMessage::new(
-        Domain::SignaturePreimage,
-        3,
-        NETWORK,
-        canonical,
+    let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(call);
+    let expected: [u8; 32] = Keccak256::digest(&unsigned).into();
+    assert_eq!(signature.digest(), &expected);
+    assert_eq!(signature.digest(), &call.signing_hash());
+    assert_eq!(signature.signature().len(), 65);
+    let recovered = checked(layerx_crypto::signer::AgentSignature::new(
+        *signature.signature(),
     ))?;
-    assert_eq!(signature.digest(), &expected_digest(canonical)?);
-    checked(layerx_crypto::ed25519::verify(
-        &signer.public_key(),
-        signature.signature(),
-        message,
-    ))?;
-    checked(layerx_crypto::ed25519::verify_digest(
-        &signer.public_key(),
-        signature.signature(),
-        signature.digest(),
-    ))?;
+    assert_eq!(recover_sender(call, &recovered)?, signer.evm_address());
     let mut tampered = *signature.signature();
     tampered[0] ^= 1;
-    assert!(layerx_crypto::ed25519::verify(&signer.public_key(), &tampered, message).is_err());
+    let invalid = layerx_crypto::signer::AgentSignature::new(tampered).and_then(|signature| {
+        recover_sender(call, &signature).map_err(|_| layerx_crypto::VerifyError::BadSignature)
+    });
+    assert!(invalid.is_err() || invalid? != signer.evm_address());
     Ok(())
 }
 
 /// Plays the approval boundary the way the Human service `sign_now` does: the stored key
-/// owner, a fresh request session and the approved envelope `not_after` as the expiry.
+/// owner, a fresh request session and the approved call's payload expiry.
 fn sign_approved(
     signer: &AttestorSigner,
-    canonical: &[u8],
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
     disclosure: &Disclosure,
-    registry: &layerx_types::payload::ModuleRegistry,
+    from: [u8; 20],
     assertion: &str,
-) -> Result<std::result::Result<AttestorSignature, AttestorError>> {
+) -> Result<std::result::Result<AttestorCallSignature, AttestorError>> {
     let session = checked(new_session_id("activity"))?;
     let approval = Approval {
         principal: OWNER,
         session_id: &session,
-        expires_at: disclosure.expiry.not_after,
+        expires_at: disclosure
+            .expiry
+            .not_after
+            .min(disclosure.expiry.payload_expires_at),
     };
-    Ok(signer.sign_activity(canonical, disclosure, registry, &approval, assertion))
+    Ok(signer.sign_activity(call, disclosure, from, &approval, assertion))
 }
 
 #[test]
 fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Result<()> {
     let cluster = Cluster::start()?;
-    let registry = activity_registry()?;
     let denied = cluster
         .operator()?
         .generate_ed25519("lx-operator-key", OWNER, ACCOUNT);
@@ -941,22 +966,51 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     )?;
     assert_eq!(generated.audit.len(), NODES);
     assert!(generated.audit.values().all(|sequence| *sequence > 0));
-    let signer = checked(AttestorSigner::new(
-        cluster.client()?,
-        "lx-user-key",
-        generated.public_key,
-        &SIGNERS,
-        NETWORK,
-    ))?;
+    let generated_evm = serde_json::to_vec(&json!({
+        "session_id": "generate-evm-owner", "key_id": EVM_KEY,
+        "curve": "secp256k1", "owner": OWNER, "account": "",
+    }))?;
+    let mut wallet_public = None;
+    for (node, status, body) in cluster.post_raw("/v1/keys/generate", &generated_evm, None)? {
+        assert_eq!(status, 200, "{node}: {body}");
+        let encoded = body["public_key"]
+            .as_str()
+            .ok_or("missing EVM public key")?;
+        let public = (0..encoded.len())
+            .step_by(2)
+            .map(|offset| u8::from_str_radix(&encoded[offset..offset + 2], 16))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        if let Some(agreed) = &wallet_public {
+            assert_eq!(agreed, &public);
+        } else {
+            wallet_public = Some(public);
+        }
+    }
+    let public = wallet_public.ok_or("missing EVM key generation responses")?;
+    let point = k256::ecdsa::VerifyingKey::from_sec1_bytes(&public)?.to_encoded_point(false);
+    let wallet: [u8; 20] = Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
+    cluster.pki.certificate_der("gateway-ca")?;
+    cluster.pki.certificate_der("gateway")?;
+    cluster.pki.key_der("gateway")?;
+    let config = serde_json::from_value(json!({
+        "nodes": cluster.nodes.iter().map(|(id, address)| json!({"id":id,"address":address})).collect::<Vec<_>>(),
+        "trust_anchors": [cluster.pki.path("gateway-ca.der")],
+        "client_certificate_chain": [cluster.pki.path("gateway.der")],
+        "client_private_key_pkcs8": cluster.pki.path("gateway.pk8"),
+        "key_id": "lx-user-key", "public_key": generated.public_key,
+        "evm_key_id": EVM_KEY, "evm_address": wallet,
+        "signers": SIGNERS, "network_id": NETWORK, "timeout_seconds": 60,
+    }))?;
+    let signer = checked(AttestorSigner::from_config(&config))?;
     let observer = cluster.client()?;
     let assertion = cluster.tokens.mint(OWNER)?;
 
-    let (canonical, disclosure) = activity(generated.public_key, 1)?;
+    let (canonical, disclosure) = activity(generated.public_key, wallet, 1)?;
     let first = checked(sign_approved(
         &signer,
         &canonical,
         &disclosure,
-        &registry,
+        wallet,
         &assertion,
     )?)?;
     assert_verified(&signer, &canonical, &first)?;
@@ -970,15 +1024,9 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     }
 
     let before = cluster.audit(&observer)?;
-    let (other_canonical, other_disclosure) = activity(generated.public_key, 2)?;
+    let (other_canonical, other_disclosure) = activity(generated.public_key, wallet, 2)?;
     assert_eq!(
-        sign_approved(
-            &signer,
-            &canonical,
-            &other_disclosure,
-            &registry,
-            &assertion
-        )?,
+        sign_approved(&signer, &canonical, &other_disclosure, wallet, &assertion)?,
         Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
             "fee_limit"
         )))
@@ -989,9 +1037,27 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
         .checked_add(1)
         .ok_or("amount overflow")?;
     assert_eq!(
-        sign_approved(&signer, &canonical, &altered, &registry, &assertion)?,
+        sign_approved(&signer, &canonical, &altered, wallet, &assertion)?,
         Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
             "amounts"
+        )))
+    );
+    let mut foreign = canonical.clone();
+    foreign.chain_id += 1;
+    let foreign_disclosure = checked(bind_call(&foreign, wallet))?;
+    assert_eq!(
+        sign_approved(&signer, &foreign, &foreign_disclosure, wallet, &assertion)?,
+        Err(AttestorError::WrongNetwork {
+            expected: NETWORK,
+            actual: NETWORK + 1
+        })
+    );
+    let other_wallet = [0x55; 20];
+    let other_sender = checked(bind_call(&canonical, other_wallet))?;
+    assert_eq!(
+        sign_approved(&signer, &canonical, &other_sender, other_wallet, &assertion)?,
+        Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
+            "from"
         )))
     );
     assert_eq!(cluster.audit(&observer)?, before);
@@ -1001,7 +1067,7 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
         &signer,
         &other_canonical,
         &other_disclosure,
-        &registry,
+        wallet,
         &cluster.tokens.mint(STRANGER)?,
     )?;
     assert!(
@@ -1017,7 +1083,7 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
         &signer,
         &other_canonical,
         &other_disclosure,
-        &registry,
+        wallet,
         &assertion,
     )?)?;
     assert_verified(&signer, &other_canonical, &shared)?;
@@ -1026,44 +1092,19 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     }
     assert_eq!(&signer.audit_sequences(), shared.audit());
 
-    let (repeat_canonical, repeat_disclosure) = activity(generated.public_key, 3)?;
-    let Some(layerx_crypto::payments::Payment::ProgramTransfer { legs, .. }) =
-        &repeat_disclosure.payment
-    else {
-        return Err("the repeated activity is not a program transfer".into());
-    };
-    let first_leg = legs.first().ok_or("the program transfer has no leg")?;
+    let (repeat_canonical, repeat_disclosure) = activity(generated.public_key, wallet, 3)?;
     let repeat_session = "activity-repeated-under-one-token";
     let repeat = serde_json::to_vec(&json!({
         "session_id": repeat_session,
-        "key_id": "lx-user-key",
-        "kind": "lx_activity",
+        "key_id": EVM_KEY,
+        "kind": "evm_tx",
         "signers": SIGNERS,
-        "activity": hex(&repeat_canonical),
-        "disclosure": {
-            "account": hex(&first_leg.from),
-            "module": "programs",
-            "operation": repeat_disclosure.activity_type.ordinal(),
-            "amounts": legs
-                .iter()
-                .map(|leg| json!({ "asset": hex(&leg.asset), "amount": leg.amount.to_string() }))
-                .collect::<Vec<_>>(),
-            "destinations": legs.iter().map(|leg| hex(&leg.to)).collect::<Vec<_>>(),
-            "sequence": repeat_disclosure.envelope_sequence().to_string(),
-            "not_before": repeat_disclosure.expiry.not_before.to_string(),
-            "not_after": repeat_disclosure.expiry.not_after.to_string(),
-        },
-        "approval": {
-            "version": APPROVAL_VERSION,
-            "principal": OWNER,
-            "key_id": "lx-user-key",
-            "network_id": NETWORK,
-            "protocol_version": 3,
-            "session_id": repeat_session,
-            "activity_digest": hex(&preimage(&repeat_canonical)),
-            "expires_at": repeat_disclosure.expiry.not_after.to_string(),
-        },
+        "transaction": hex(&layerx_human_kms::attestor::unsigned_evm_transaction(&repeat_canonical)),
     }))?;
+    assert_eq!(
+        repeat_disclosure.signing_digest()?,
+        repeat_canonical.signing_hash()
+    );
     for (node, status, body) in cluster.sign_raw(&repeat, &assertion)? {
         assert_eq!(status, 200, "{node}: {body}");
     }
@@ -1080,7 +1121,7 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
         &signer,
         &other_canonical,
         &other_disclosure,
-        &registry,
+        wallet,
         &cluster.tokens.mint(OWNER)?,
     )?)?;
     assert_verified(&signer, &other_canonical, &second)?;
@@ -1445,10 +1486,7 @@ fn attestor_signs_a_send_authorization_then_the_completed_send() -> Result<()> {
         request["authorization"]["transaction"]["calldata"]
     );
     assert_eq!(recover_sender(&call, &signature)?, fixture.wallet);
-    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(
-        &call,
-        fixture.wallet,
-    ))?;
+    let disclosure = checked(bind_call(&call, fixture.wallet))?;
     let method = checked(disclosure.construct_method())?;
     let Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
         from,
@@ -1677,19 +1715,27 @@ fn refuses_mismatched_activity_disclosure_offline() -> Result<()> {
             .enumerate()
             .map(|(index, address)| (format!("node-{}", index + 1), address))
             .collect();
-        let registry = activity_registry()?;
+        let wallet = [0x42; 20];
         let public = [9; 32];
-        let signer = checked(AttestorSigner::new(
-            gateway_client(&pki, &nodes)?,
-            "lx-user-key",
-            public,
-            &SIGNERS,
-            NETWORK,
-        ))?;
-        let (canonical, disclosure) = activity(public, 1)?;
-        let (_, other) = activity(public, 2)?;
+        pki.certificate_der("gateway-ca")?;
+        pki.certificate_der("gateway")?;
+        pki.key_der("gateway")?;
+        let mut config: layerx_human_kms::attestor::AttestorSignerConfig = serde_json::from_value(
+            json!({
+                "nodes": nodes.iter().map(|(id, address)| json!({"id": id, "address": address})).collect::<Vec<_>>(),
+                "trust_anchors": [pki.path("gateway-ca.der")],
+                "client_certificate_chain": [pki.path("gateway.der")],
+                "client_private_key_pkcs8": pki.path("gateway.pk8"),
+                "key_id": "lx-user-key", "public_key": public,
+                "evm_key_id": EVM_KEY, "evm_address": wallet,
+                "signers": SIGNERS, "network_id": NETWORK, "timeout_seconds": 1,
+            }),
+        )?;
+        let signer = checked(AttestorSigner::from_config(&config))?;
+        let (canonical, disclosure) = activity(public, wallet, 1)?;
+        let (_, other) = activity(public, wallet, 2)?;
         assert_eq!(
-            sign_approved(&signer, &canonical, &other, &registry, "assertion")?,
+            sign_approved(&signer, &canonical, &other, wallet, "assertion")?,
             Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
                 "fee_limit"
             )))
@@ -1697,25 +1743,20 @@ fn refuses_mismatched_activity_disclosure_offline() -> Result<()> {
         let mut altered = disclosure.clone();
         altered.actor = b"did:layerx:mallory".to_vec();
         assert_eq!(
-            sign_approved(&signer, &canonical, &altered, &registry, "assertion")?,
+            sign_approved(&signer, &canonical, &altered, wallet, "assertion")?,
             Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
                 "actor"
             )))
         );
         assert!(matches!(
-            sign_approved(&signer, &canonical, &disclosure, &registry, "assertion")?,
+            sign_approved(&signer, &canonical, &disclosure, wallet, "assertion")?,
             Err(AttestorError::Unavailable { .. })
         ));
         assert!(signer.audit_sequences().is_empty());
-        let foreign = checked(AttestorSigner::new(
-            gateway_client(&pki, &nodes)?,
-            "lx-user-key",
-            public,
-            &SIGNERS,
-            NETWORK + 1,
-        ))?;
+        config.network_id = NETWORK + 1;
+        let foreign = checked(AttestorSigner::from_config(&config))?;
         assert_eq!(
-            sign_approved(&foreign, &canonical, &disclosure, &registry, "assertion")?,
+            sign_approved(&foreign, &canonical, &disclosure, wallet, "assertion")?,
             Err(AttestorError::WrongNetwork {
                 expected: NETWORK + 1,
                 actual: NETWORK

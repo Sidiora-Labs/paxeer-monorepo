@@ -1,4 +1,5 @@
 use layerx_crypto::disclosure::call::{bind_call, ledger_selector, ConstructMethod};
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::payments::Payment;
 use layerx_crypto::send::CallOptions;
 use layerx_mcp::catalogue::native_alias_target;
@@ -60,7 +61,7 @@ fn wallet_send_targets_the_ledger_precompile() {
 }
 
 #[test]
-fn grant_draw_targets_the_pay_precompile() {
+fn grant_draw_targets_the_ledger_precompile() {
     let payload = payload(include_str!(
         "../../layerx-crypto/tests/fixtures/payments/native-1-6.hex"
     ));
@@ -79,16 +80,19 @@ fn grant_draw_targets_the_pay_precompile() {
     else {
         panic!("receive fixture");
     };
-    let call = prepare_alias_call(
+    let call: Eip1559Call = prepare_alias_call(
         PaymentTool::DrawGrant,
         &payload,
         b"did:layerx:alice",
         &options(),
     )
-    .expect("prepare pay draw");
+    .expect("prepare ledger draw");
     let mut address = [0; 20];
-    address[18..].copy_from_slice(&[0x10, 0x1b]);
+    address[18..].copy_from_slice(&[0x10, 0x1a]);
     assert_eq!(call.to, address);
+    assert_eq!(call.chain_id, 125);
+    assert_eq!(call.nonce, 7);
+    assert_eq!(native_alias_target("grant.draw").expect("alias").ordinal, 6);
     assert_eq!(
         native_alias_target("grant.draw").expect("alias").address,
         address
@@ -114,7 +118,71 @@ fn grant_draw_targets_the_pay_precompile() {
         ]
         .concat()
     );
+    let disclosure = bind_call(&call, options().from).expect("ledger draw disclosure");
+    assert_eq!(
+        disclosure.construct_method().expect("method"),
+        Some(ConstructMethod::LedgerDraw {
+            recipient: to,
+            purpose_hash: payer_grant.purpose_hash,
+            amount,
+            grant,
+            receiver_sequence: sequence,
+            idempotency_key,
+            context_hash,
+        })
+    );
+    assert_eq!(disclosure.actor, options().from);
+    assert_eq!(disclosure.activity_type.module(), ModuleId::Asset);
+    assert_eq!(disclosure.activity_type.value(), (1 << 16) | 6);
     assert!(
         prepare_alias_call(PaymentTool::DrawGrant, &[], b"did:layerx:alice", &options()).is_err()
     );
+}
+
+#[test]
+fn grant_issue_targets_the_ledger_precompile() {
+    let payload = payload(include_str!(
+        "../../layerx-crypto/tests/fixtures/payments/native-1-7.hex"
+    ));
+    let payment = Payment::decode(ModuleId::Asset, 7, &payload, b"did:layerx:alice")
+        .expect("authenticated grant");
+    let Payment::IssueGrant(grant) = payment else {
+        panic!("grant fixture");
+    };
+    let call: Eip1559Call = prepare_alias_call(
+        PaymentTool::IssueGrant,
+        &payload,
+        b"did:layerx:alice",
+        &options(),
+    )
+    .expect("prepare ledger grant");
+    let mut address = [0; 20];
+    address[18..].copy_from_slice(&[0x10, 0x1a]);
+    assert_eq!(call.to, address);
+    assert_eq!(call.chain_id, 125);
+    assert_eq!(call.nonce, 7);
+    assert_eq!(
+        native_alias_target("grant.issue").expect("alias").ordinal,
+        7
+    );
+    assert_eq!(
+        native_alias_target("grant.issue").expect("alias").address,
+        address
+    );
+    assert_eq!(&call.data[..4], &ledger_selector("issueGrant(bytes)"));
+    let disclosure = bind_call(&call, options().from).expect("ledger grant disclosure");
+    assert_eq!(
+        disclosure.construct_method().expect("method"),
+        Some(ConstructMethod::LedgerIssueGrant { grant })
+    );
+    assert_eq!(disclosure.actor, options().from);
+    assert_eq!(disclosure.activity_type.module(), ModuleId::Asset);
+    assert_eq!(disclosure.activity_type.value(), (1 << 16) | 7);
+    assert!(prepare_alias_call(
+        PaymentTool::IssueGrant,
+        &[],
+        b"did:layerx:alice",
+        &options()
+    )
+    .is_err());
 }

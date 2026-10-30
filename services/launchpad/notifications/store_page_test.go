@@ -14,6 +14,78 @@ import (
 	"time"
 )
 
+func expectedV2ID(id string, createdAt time.Time) string {
+	digest := md5.Sum([]byte(id))
+	h := hex.EncodeToString(digest[:])
+	uuid := fmt.Sprintf("%012x7%s%c%s", createdAt.UTC().UnixMilli(), h[13:16], "89ab"[(digest[8]>>4)&3], h[17:])
+	return uuid[:8] + "-" + uuid[8:12] + "-" + uuid[12:16] + "-" + uuid[16:20] + "-" + uuid[20:]
+}
+
+func TestPostgresListPageUnreadOnlyIncludesItemMarkedUnread(t *testing.T) {
+	s, account := notificationDatabase(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	t.Cleanup(func() {
+		if err := s.DeleteAccount(context.Background(), account); err != nil {
+			t.Error("clean up account:", err)
+		}
+	})
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	items := make([]InboxItem, 2)
+	for i := range items {
+		n := InboxItem{Identity: Identity{account, fmt.Sprintf("marked-unread-%d", i), "v2"}, Category: "chat", Summary: "Unread notification", CreatedAt: now.Add(-time.Duration(i) * time.Second)}
+		item, created, err := s.CommitTrigger(ctx, n, nil)
+		if err != nil || !created {
+			t.Fatalf("insert %d: created=%v err=%v", i, created, err)
+		}
+		items[i] = item
+	}
+	if err := s.SetRead(ctx, account, items[0].ID, true); err != nil {
+		t.Fatal("mark first item read:", err)
+	}
+	readPage, err := s.ListPage(ctx, account, false, "", 100)
+	if err != nil || len(readPage.Items) != 2 {
+		t.Fatalf("list after read: page=%+v err=%v", readPage, err)
+	}
+	if readPage.Items[0].ID != items[0].ID || !readPage.Items[0].Read || readPage.Items[0].ReadAt == nil {
+		t.Fatalf("first item read state: %+v", readPage.Items[0])
+	}
+	firstReadAt := *readPage.Items[0].ReadAt
+	if err := s.SetRead(ctx, account, items[0].ID, false); err != nil {
+		t.Fatal("mark first item unread:", err)
+	}
+	var retainedReadAt time.Time
+	if err := s.DB.QueryRowContext(ctx, `SELECT read_at FROM discovery_notifications.inbox WHERE account_id=$1 AND id=$2`, account, items[0].ID).Scan(&retainedReadAt); err != nil || !retainedReadAt.Equal(firstReadAt) {
+		t.Fatalf("first-read timestamp: got=%v want=%v err=%v", retainedReadAt, firstReadAt, err)
+	}
+	unread, err := s.ListPage(ctx, account, true, "", 100)
+	if err != nil || len(unread.Items) != 2 || unread.NextCursor != "" {
+		t.Fatalf("unread list after marking unread: page=%+v err=%v", unread, err)
+	}
+	for i, item := range unread.Items {
+		if item.InboxItem != items[i] || item.Read || item.ReadAt != nil {
+			t.Fatalf("unread item %d: got=%+v want=%+v with no readAt", i, item, items[i])
+		}
+	}
+	if err := s.SetRead(ctx, account, items[1].ID, true); err != nil {
+		t.Fatal("leave second item read:", err)
+	}
+	unread, err = s.ListPage(ctx, account, true, "", 100)
+	if err != nil || len(unread.Items) != 1 || unread.NextCursor != "" {
+		t.Fatalf("unread list excluding read item: page=%+v err=%v", unread, err)
+	}
+	if item := unread.Items[0]; item.InboxItem != items[0] || item.Read || item.ReadAt != nil {
+		t.Fatalf("item marked unread: got=%+v want=%+v with no readAt", item, items[0])
+	}
+	all, err := s.ListPage(ctx, account, false, "", 100)
+	if err != nil || len(all.Items) != 2 || all.NextCursor != "" {
+		t.Fatalf("all items after read changes: page=%+v err=%v", all, err)
+	}
+	if all.Items[0].ID != items[0].ID || all.Items[0].Read || all.Items[0].ReadAt != nil || all.Items[1].ID != items[1].ID || !all.Items[1].Read || all.Items[1].ReadAt == nil {
+		t.Fatalf("list read states: %+v", all.Items)
+	}
+}
+
 func TestPostgresListPageUnreadOnlyCursorAndLimit(t *testing.T) {
 	s, account := notificationDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -61,9 +133,7 @@ func TestPostgresListPageUnreadOnlyCursorAndLimit(t *testing.T) {
 			if item.InboxItem != expected {
 				t.Fatalf("page %d item %d: got=%+v want=%+v", pageIndex, i, item, expected)
 			}
-			digest := md5.Sum([]byte(expected.ID))
-			h := hex.EncodeToString(digest[:])
-			uuid := h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
+			uuid := expectedV2ID(expected.ID, expected.CreatedAt)
 			if item.V2ID != uuid {
 				t.Fatalf("v2 UUID: got=%q want=%q", item.V2ID, uuid)
 			}
