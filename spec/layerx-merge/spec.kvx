@@ -156840,7 +156840,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.8]
 title = "Verify a value account snapshot against a verified chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
@@ -156871,7 +156871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.9]
 title = "Verify an interface read directly at a verified chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["13.0.2", "13.2.1"]
