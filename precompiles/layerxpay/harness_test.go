@@ -1,4 +1,4 @@
-package layerxpay
+package layerxpay_test
 
 import (
 	"crypto/ed25519"
@@ -13,6 +13,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/cachemulti"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/dbadapter"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
@@ -77,7 +78,7 @@ func newPayPrecompileHarness(t *testing.T) *payPrecompileHarness {
 		enabled[31] = 1
 		ctx.KVStore(hostKey).Set(key, enabled[:])
 	}
-	p, err := NewPrecompile(&keeper)
+	p, err := lp.NewPrecompile(&keeper)
 	require.NoError(t, err)
 	h := &payPrecompileHarness{keeper: &keeper, precompile: p, caller: common.HexToAddress("0xa2281")}
 	h.keepers = payPrecompileKeepers{application.GetPrecompileKeepers().(*app.PrecompileKeepers), &keeper}

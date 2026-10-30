@@ -107,7 +107,7 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	if _, err = d.cfg.Replicator.Release(context.Background(), &wal.Open{
 		Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
 	}); err != nil {
-		return fmt.Errorf("sequencer: driver release open: %w", err)
+		return fmt.Errorf("sequencer: driver release open at height %d: %w", height+1, err)
 	}
 	d.cfg.NonceQueue.Sealed()
 	d.cfg.Metrics.SetOpenSeq(lastSeq)
