@@ -191549,7 +191549,7 @@ qualification = "UNRUN"
 
 [task.18.1265.1]
 title = "Issue #1265: Document wallet estimate-fee with --from and an unsigned transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191933,7 +191933,7 @@ qualification = "UNRUN"
 
 [task.18.1232.1]
 title = "Issue #1232: State the advertised bug bounty programme in SECURITY.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
