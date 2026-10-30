@@ -10,6 +10,10 @@ package lxphost
 #include "layerx/lx_asset.h"
 #include "layerx/lx_budget.h"
 #include "layerx/lx_escrow.h"
+#include "layerx/lx_perps.h"
+#include "layerx/lx_service.h"
+#include "layerx/lx_spot.h"
+#include "layerx/lx_stream.h"
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_module_ctx.h"
@@ -169,6 +173,18 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_escrow_module_iface());
+    if (status == LXP_OK)
+        status = lxp_kernel_register_module(&node->kernel,
+                                            lx_perps_module_iface());
+    if (status == LXP_OK)
+        status = lxp_kernel_register_module(&node->kernel,
+                                            lx_spot_module_iface());
+    if (status == LXP_OK)
+        status = lxp_kernel_register_module(&node->kernel,
+                                            lx_stream_module_iface());
+    if (status == LXP_OK)
+        status = lxp_kernel_register_module(&node->kernel,
+                                            lx_service_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_set_capabilities(&node->kernel, NULL,
                                              lxp_kernel_canonical_ledger_apply);
