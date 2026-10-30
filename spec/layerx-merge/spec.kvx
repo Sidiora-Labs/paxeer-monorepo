@@ -134941,7 +134941,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.29.4]
 title = "Port the custody_rungs receipt fixture to the signing_key field of ExecutedReceipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["8.29.5"]
