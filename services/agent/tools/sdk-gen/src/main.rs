@@ -464,7 +464,7 @@ fn typescript(model: &Model) -> Result<String, String> {
         .rungs
         .iter()
         .enumerate()
-        .map(|(rank, rung)| format!("  {} = {rank},", rung.to_ascii_lowercase()))
+        .map(|(rank, rung)| format!("  {rung} = {rank},"))
         .collect::<Vec<_>>()
         .join("\n");
     let errors = model
