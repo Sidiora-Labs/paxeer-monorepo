@@ -10849,3 +10849,14 @@ area = "spec authoring"
 symptom = "A verify_cmd written with escaped double quotes reached sh with the backslashes intact and failed with a syntax error before any check ran; a build_cmd of another task carried the same shape."
 cause = "The gate runner hands the kvx command string to sh verbatim; kvx escaping is not undone for build_cmd and verify_cmd."
 do = "Write build_cmd and verify_cmd with single quotes only, use grep -F for literal patterns, and pass file names to python3 -c through sys.argv instead of quoting them inside the program."
+
+[gotcha.2208]
+area = "qualification"
+symptom = "A task that touched only runtime and host crates was stopped three times before its verify ran because a dependent crate's test target did not compile; the errors were in a test file the task never touched."
+cause = "A retyping commit ported one test file of the dependent crate and left another behind, so the test target was already broken at the base revision; the dependents check attributed the break to the next task that touched anything upstream."
+do = "Before attributing a dependents failure to a task, check the same target at the base revision; a break present at the base is recorded once against the owning task in qualification.kvx and the target is left out of the dependents check until that owner lands."
+
+[gotcha.2209]
+title = "A crate left out of the dependents check lets a retype land with its test targets broken"
+symptom = "Three retypes landed on main in one day without compiling the test targets of crates excluded from the dependents check: 9.1.4 removed layerx_agent_api::verify::Level (15 errors in the layerx-human-service library, 12 test files), 9.21.8 added ExecutedReceipt.signing_key (agentd tests/budget_create.rs), 18.1027.1 added CreateOrder.payer_grant_purpose (ramp toolkit tests/engine_legs.rs). Every task that builds those crates then failed at cargo build on a break it did not cause (18.1172.2 a1, 18.1206.1 a4, 18.1230.1 a4, 18.1221.1 a3, 8.29.4 a1-a3)."
+fix = "Before landing a task that changes a public type or signature, grep the whole repository for the symbol (including tests/ directories and crates on the excluded list) and either carry every caller in the same task or open a wave-1 repair task that the callers' tasks require (decision.1871: 10.2.8, 8.29.5, 18.1206.1). When a build log shows an error in a file the task does not touch, check git log -S for the retyping commit before blaming the attempt."

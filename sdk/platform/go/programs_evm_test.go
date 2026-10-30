@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -230,6 +231,127 @@ func TestProgramSimulateUsesPendingEthCall(t *testing.T) {
 	expected := "0x3044bd56" + vector.EVM.Calldata[10:]
 	if call["to"] != layerxProgramsAddress || call["data"] != expected || call["from"] != "0x1200000000000000000000000000000000000000" {
 		t.Fatalf("simulation call differs from vector: %+v", call)
+	}
+}
+
+func TestProgramDiscoverReadsWindDownLifecycle(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		active    bool
+		status    uint64
+		length    int
+		lifecycle string
+	}{
+		{"active", true, 1, 192, "active"},
+		{"deprecated", false, 2, 192, "deprecated"},
+		{"tombstoned", false, 3, 192, "tombstoned"},
+		{"inactive-status-one", false, 1, 192, ""},
+		{"status-zero", false, 0, 192, ""},
+		{"unknown-status", false, 4, 192, ""},
+		{"status-overflow", false, 258, 192, ""},
+		{"empty", false, 2, 0, ""},
+		{"short-status", false, 2, 31, ""},
+		{"status-only", false, 2, 32, ""},
+		{"short-record", false, 3, 191, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			program := [32]byte{0x42}
+			head := make([]byte, 192)
+			head[63], head[95], head[127], head[159] = 0x11, 0x22, 1, 7
+			if tc.active {
+				head[191] = 1
+			}
+			windDown := programABI("", programABIWord(tc.status), bytes.Repeat([]byte{0x33}, 32),
+				programABIWord(999), programABIWord(888), programABIWord(7), programABIWord(5))[:tc.length]
+			var mu sync.Mutex
+			var requests []programRPCRecord
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request programRPCRecord
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Error(err)
+					http.Error(w, "bad request", 400)
+					return
+				}
+				mu.Lock()
+				requests = append(requests, request)
+				mu.Unlock()
+				var tx map[string]string
+				if len(request.Params) != 2 || json.Unmarshal(request.Params[0], &tx) != nil {
+					t.Error("invalid eth_call parameters")
+					http.Error(w, "bad parameters", 400)
+					return
+				}
+				var result []byte
+				switch tx["data"] {
+				case "0xb1ffb3d4" + hex.EncodeToString(program[:]):
+					result = head
+				case "0x98e4e41d" + hex.EncodeToString(program[:]):
+					result = windDown
+				default:
+					t.Errorf("unexpected calldata: %s", tx["data"])
+					http.Error(w, "bad calldata", 400)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": request.ID, "result": "0x" + hex.EncodeToString(result)}); err != nil {
+					t.Error(err)
+				}
+			}))
+			defer server.Close()
+			transport, err := NewProgramRPCTransport(server.URL, server.Client())
+			if err != nil {
+				t.Fatal(err)
+			}
+			client, err := NewClient(transport, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			programs, err := NewProgramsWithTrustOptions(client, [32]byte{1}, ProgramTrustOptions{
+				ClockMilliseconds: func() uint64 { return 1000 }, MaximumSimulationAgeMilliseconds: 300000,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := programs.Discover(context.Background(), program)
+			if tc.lifecycle == "" {
+				var sdkError *SDKError
+				if !errors.As(err, &sdkError) || sdkError.Code != ErrorDecodeFailure {
+					t.Fatalf("expected decode failure, got %+v, %v", result, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if result.Lifecycle != tc.lifecycle || result.ProgramID != hex.EncodeToString(program[:]) || result.Version != 7 || result.ABIVersion != 1 || result.CodeHash != hex.EncodeToString(head[64:96]) {
+					t.Fatalf("unexpected discovery: %+v", result)
+				}
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			expectedCalls := 2
+			if tc.active {
+				expectedCalls = 1
+			}
+			if len(requests) != expectedCalls {
+				t.Fatalf("got %d calls, want %d", len(requests), expectedCalls)
+			}
+			for i, request := range requests {
+				if request.Method != "eth_call" || request.JSONRPC != "2.0" || string(request.Params[1]) != `"pending"` {
+					t.Fatalf("unexpected RPC: %+v", request)
+				}
+				var tx map[string]string
+				if err := json.Unmarshal(request.Params[0], &tx); err != nil {
+					t.Fatal(err)
+				}
+				selector := "b1ffb3d4"
+				if i == 1 {
+					selector = "98e4e41d"
+				}
+				if tx["to"] != layerxProgramsAddress || tx["data"] != "0x"+selector+hex.EncodeToString(program[:]) {
+					t.Fatalf("unexpected call: %+v", tx)
+				}
+			}
+		})
 	}
 }
 

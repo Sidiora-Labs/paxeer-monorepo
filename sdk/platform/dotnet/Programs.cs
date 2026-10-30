@@ -235,7 +235,16 @@ public sealed class ProgramsClient
         var abi = checked((ushort)ProgramsAbi.ReadWord(data, 3, 16));
         var version = checked((uint)ProgramsAbi.ReadWord(data, 4, 32));
         var active = ProgramsAbi.ReadWord(data, 5, 1) == 1;
-        return new(programId.ToArray(), active ? ProgramLifecycle.Active : ProgramLifecycle.Tombstoned, version,
+        var lifecycle = ProgramLifecycle.Active;
+        if (!active)
+        {
+            var windDown = await Rpc.CallAsync(Programs.AddressValue, ProgramsAbi.Encode("98e4e41d", ProgramsAbi.Fixed(programId)), cancellationToken).ConfigureAwait(false);
+            if (windDown.Length != 192) throw Decode();
+            var status = ProgramsAbi.ReadWord(windDown, 0);
+            lifecycle = status == 2 ? ProgramLifecycle.Deprecated
+                : status == 3 ? ProgramLifecycle.Tombstoned : throw Decode();
+        }
+        return new(programId.ToArray(), lifecycle, version,
             data[64..96], abi, [], [], 0, 0, 0, "pending-eth-call");
     }
 
