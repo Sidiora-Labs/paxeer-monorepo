@@ -29,7 +29,7 @@ use layerx_agentd::identity::{self, CoreIdentity, IdentityError, IdentityResolve
 use layerx_agentd::ops::program::ProgramOperations;
 use layerx_agentd::read::{
     CommittedProgramBalanceFreshness, LayerxdProgramBalanceReader, NativeReadRoute,
-    ProgramAuthority, ProgramBalanceRead, ProgramBalanceReadRoute,
+    ProgramAuthority, ProgramBalanceRead, ProgramBalanceReadRoute, ProgramReadError,
 };
 use layerx_agentd::session::{SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
@@ -2078,7 +2078,9 @@ fn program_reader(
         verifier,
         registry,
     )
-    .map_err(|error| format!("agent protocol reader configuration failed: {error:?}"))?;
+    .map_err(|error: ProgramReadError| {
+        format!("agent program reader configuration failed: {error:?}")
+    })?;
     Ok(reader)
 }
 
