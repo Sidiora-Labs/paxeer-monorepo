@@ -120341,7 +120341,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.94.4]
 title = "Import the agent oracle, scheduler and streams precompiles into the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.94.2", "2.34.2", "2.36.2", "2.35.2"]
@@ -194107,7 +194107,7 @@ qualification = "UNRUN"
 
 [task.18.1309.1]
 title = "Issue #1309: The history-readiness scenario indexes the in-tree node's EVM JSON-RPC instead of the archive relay origin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1308.1"]
