@@ -142222,7 +142222,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.19.2]
 title = "Drop the LNI_V1_SOURCE include that 9.19.1 left in layerx-client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
