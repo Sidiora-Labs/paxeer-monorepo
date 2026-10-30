@@ -5,8 +5,12 @@ use std::sync::{
     Arc, Mutex,
 };
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
+use layerx_agentd::ops::program::{
+    ProgramAccountBalance, ProgramOperationError, ProgramOperations,
+};
 use layerx_agentd::read::{LayerxdProgramBalanceReader, ProtocolProgramBalanceReader};
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_programs::{
@@ -491,4 +495,177 @@ fn program_balance_is_read_by_eth_call_at_a_committed_height() {
         requests.last().unwrap()["params"],
         json!([format!("{:#x}", fixture.height + 1), true])
     );
+}
+
+fn serve(replies: Vec<Value>) -> (String, JoinHandle<Vec<Value>>) {
+    let listener = must(TcpListener::bind("127.0.0.1:0"));
+    let url = format!("http://{}/", must(listener.local_addr()));
+    must(listener.set_nonblocking(true));
+    let server = thread::spawn(move || {
+        let mut requests = Vec::new();
+        for mut reply in replies {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline, "expected RPC request");
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("accept: {error}"),
+                }
+            };
+            must(stream.set_read_timeout(Some(Duration::from_secs(2))));
+            must(stream.set_write_timeout(Some(Duration::from_secs(2))));
+            let mut reader = BufReader::new(stream);
+            let mut content_length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(must(reader.read_line(&mut line)), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    content_length = Some(must(value.trim().parse::<usize>()));
+                }
+            }
+            let length = content_length.unwrap_or_else(|| panic!("missing content length"));
+            assert!(length <= 64 * 1024);
+            let mut body = vec![0; length];
+            must(reader.read_exact(&mut body));
+            let request: Value = must(serde_json::from_slice(&body));
+            assert_eq!(request["jsonrpc"], "2.0");
+            reply["jsonrpc"] = json!("2.0");
+            reply["id"] = request["id"].clone();
+            let answer = reply.to_string();
+            let mut stream = reader.into_inner();
+            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
+            must(stream.flush());
+            requests.push(request);
+        }
+        requests
+    });
+    (url, server)
+}
+
+fn encoded_balance(amount: u128, exists: bool) -> Vec<u8> {
+    let mut result = vec![0; 64];
+    result[16..32].copy_from_slice(&amount.to_be_bytes());
+    result[63] = u8::from(exists);
+    result
+}
+
+fn config(url: String) -> NodeRpcConfig {
+    NodeRpcConfig {
+        url,
+        chain_id: 125,
+        deadline: Duration::from_secs(2),
+    }
+}
+
+fn assert_call(request: &Value, program: [u8; 32], account: [u8; 32], height: u64) {
+    assert_eq!(request["method"], "eth_call");
+    let selector =
+        layerx_crypto::evm_transaction::transaction_hash(b"getValueAccount(bytes32,bytes32)");
+    let mut calldata = selector[..4].to_vec();
+    calldata.extend_from_slice(&program);
+    calldata.extend_from_slice(&account);
+    assert_eq!(
+        request["params"],
+        json!([
+            {"to": "0x000000000000000000000000000000000000101d", "data": format!("0x{}", hex::encode(calldata))},
+            format!("{height:#x}")
+        ])
+    );
+}
+
+#[test]
+fn agentd_reads_program_balances_through_eth_call() {
+    let program_bytes = [0x31; 32];
+    let program = must(ProgramId::new(program_bytes));
+    let accounts = [[0x41; 32], [0x42; 32], [0x43; 32], [0x44; 32]];
+    let height = 0x1234;
+    let expected = [(347_u128, true), (0, true), (0, false), (u128::MAX, true)];
+    let mut replies = vec![json!({"result": "0x7d"}), json!({"result": "0x1234"})];
+    replies.extend(expected.iter().map(|(amount, exists)| {
+        json!({"result": format!("0x{}", hex::encode(encoded_balance(*amount, *exists)))})
+    }));
+    let (url, server) = serve(replies);
+    let (observed_height, balances) = must(ProgramOperations::current_balances(
+        &config(url),
+        program,
+        &accounts,
+    ));
+    assert_eq!(observed_height, height);
+    let expected_balances: Vec<_> = accounts
+        .iter()
+        .zip(expected)
+        .map(|(account, (balance, exists))| ProgramAccountBalance {
+            account: *account,
+            balance,
+            exists,
+        })
+        .collect();
+    assert_eq!(balances, expected_balances);
+    let requests = must(server.join());
+    assert_eq!(requests.len(), 6);
+    assert_eq!(requests[0]["method"], "eth_chainId");
+    assert_eq!(requests[1]["method"], "eth_blockNumber");
+    assert_eq!(requests[1]["params"], json!([]));
+    for (request, account) in requests[2..].iter().zip(accounts) {
+        assert_call(request, program_bytes, account, height);
+    }
+
+    let mut overflow = encoded_balance(1, true);
+    overflow[15] = 1;
+    let mut invalid_bool = encoded_balance(1, true);
+    invalid_bool[63] = 2;
+    let mut bool_padding = encoded_balance(1, true);
+    bool_padding[32] = 1;
+    let mut trailing = encoded_balance(1, true);
+    trailing.push(0);
+    for invalid in [
+        vec![],
+        vec![0; 32],
+        vec![0; 63],
+        overflow,
+        invalid_bool,
+        bool_padding,
+        trailing,
+        encoded_balance(1, false),
+    ] {
+        let (url, server) = serve(vec![
+            json!({"result": "0x7d"}),
+            json!({"result": format!("0x{}", hex::encode(invalid))}),
+        ]);
+        let node = must(NodeRpc::connect(&config(url)));
+        assert_eq!(
+            ProgramOperations::value_accounts_at(&node, height, program, &accounts[..1]),
+            Err(ProgramOperationError::UnverifiedReceipt)
+        );
+        let requests = must(server.join());
+        assert_eq!(requests.len(), 2);
+        assert_call(&requests[1], program_bytes, accounts[0], height);
+    }
+
+    let (url, server) = serve(vec![
+        json!({"result": "0x7d"}),
+        json!({"error": {"code": -32000, "message": "state unavailable"}}),
+    ]);
+    let node = must(NodeRpc::connect(&config(url)));
+    assert_eq!(
+        ProgramOperations::value_accounts_at(&node, height, program, &accounts[..1]),
+        Err(ProgramOperationError::Unavailable)
+    );
+    let requests = must(server.join());
+    assert_eq!(requests.len(), 2);
+    assert_call(&requests[1], program_bytes, accounts[0], height);
+
+    for dependency_file in [
+        include_str!("../Cargo.toml"),
+        include_str!("../../layerx-agentd-host/Cargo.toml"),
+        include_str!("../../../Cargo.lock"),
+    ] {
+        assert!(!dependency_file.contains("layerx-programs-protocol-adapter"));
+    }
 }

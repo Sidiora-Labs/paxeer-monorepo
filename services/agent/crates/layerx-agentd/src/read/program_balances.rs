@@ -1,8 +1,8 @@
 //! Program custody reads from layerxprograms at a committed block height.
 
+use super::program_node::ProgramReadError;
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_programs::{ProgramId, ProgramLifecycle, VerifiedProgramBalanceRead};
-use layerx_programs_protocol_adapter::ProtocolAdapterError;
 
 pub use super::program_node::read_committed_program_balances as program_balances_from_protocol;
 
@@ -79,12 +79,12 @@ pub struct ProgramBalanceRead<F = ProgramBalanceFreshness> {
 pub(super) fn program_balances(
     read: &VerifiedProgramBalanceRead,
     staleness_limit: u64,
-) -> Result<ProgramBalanceRead, ProtocolAdapterError> {
+) -> Result<ProgramBalanceRead, ProgramReadError> {
     let valid_through = read
         .freshness()
         .observed_at
         .checked_add(staleness_limit)
-        .ok_or(ProtocolAdapterError::NonCanonicalView)?;
+        .ok_or(ProgramReadError::NonCanonicalView)?;
     Ok(ProgramBalanceRead {
         program: read.program().bytes(),
         lifecycle: read.lifecycle(),
