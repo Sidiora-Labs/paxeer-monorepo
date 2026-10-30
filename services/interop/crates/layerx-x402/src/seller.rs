@@ -760,6 +760,49 @@ pub(crate) mod tests {
         );
     }
 
+    pub(crate) fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
+        fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+            let prefix = input[0];
+            let (offset, length) = match prefix {
+                0x00..=0x7f => (0, 1),
+                0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+                0xb8..=0xbf | 0xf8..=0xff => {
+                    let width = usize::from(if prefix < 0xc0 {
+                        prefix - 0xb7
+                    } else {
+                        prefix - 0xf7
+                    });
+                    let length = input[1..1 + width]
+                        .iter()
+                        .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+                    (1 + width, length)
+                }
+                0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+            };
+            let value = &input[offset..offset + length];
+            *input = &input[offset + length..];
+            value
+        }
+        let (mut envelope, data_index) = match raw[0] {
+            0x02 => (&raw[1..], 7),
+            0xc0..=0xff => (raw, 5),
+            _ => panic!("unsupported recorded transaction envelope"),
+        };
+        let mut fields = take(&mut envelope);
+        assert!(envelope.is_empty());
+        for _ in 0..data_index {
+            take(&mut fields);
+        }
+        let calldata = take(&mut fields);
+        assert_eq!(calldata.len(), 4 + 6 * 32);
+        assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
+        std::array::from_fn(|index| {
+            calldata[4 + index * 32..4 + (index + 1) * 32]
+                .try_into()
+                .unwrap()
+        })
+    }
+
     pub(crate) fn required() -> PaymentRequired {
         let vectors: Value = serde_json::from_str(include_str!(
             "../../../specs/conformance/x402/payment-required.json"
@@ -769,6 +812,10 @@ pub(crate) mod tests {
             .unwrap_or_else(|error| panic!("payment required: {error}"));
         required.accepts[0].network = "eip155:125".to_owned();
         required.accepts[0].asset = format!("0x{}", hex(&[0xab; 32]));
+        required.accepts[0].extra.as_mut().unwrap()["layerx"]["account"] =
+            json!("agent:did:layerx:payee:main");
+        required.accepts[0].pay_to =
+            hex(&crate::model::account_identifiers("agent:did:layerx:payee:main").unwrap()[1]);
         required
     }
 
@@ -872,7 +919,7 @@ pub(crate) mod tests {
             .layerx_terms()
             .unwrap_or_else(|error| panic!("payment terms: {error}"));
         let recipient = crate::model::account_identifiers(&terms.account)
-            .unwrap_or_else(|error| panic!("account identifiers: {error}"))[0];
+            .unwrap_or_else(|error| panic!("account identifiers: {error}"))[1];
         let key = SigningKey::from_bytes(&[0x72; 32]);
         let unsigned = encoded_receipt(recipient, None);
         let digest = layerx_wire::hash::receipt_digest(&unsigned)
@@ -978,11 +1025,11 @@ pub(crate) mod tests {
             Ok(signal.body)
         );
         for (network, error) in [
-            ("layerx:beta", X402Error::UnsupportedOffer),
+            ("layerx:beta", X402Error::ProfileMismatch),
             ("eip155:", X402Error::InvalidRequirements),
-            ("eip155:0125", X402Error::UnsupportedOffer),
-            ("eip155:0", X402Error::UnsupportedOffer),
-            ("eip155:abc", X402Error::UnsupportedOffer),
+            ("eip155:0125", X402Error::ProfileMismatch),
+            ("eip155:0", X402Error::ProfileMismatch),
+            ("eip155:abc", X402Error::ProfileMismatch),
         ] {
             let mut required = required();
             required.accepts[0].network = network.to_owned();
@@ -998,7 +1045,7 @@ pub(crate) mod tests {
             .layerx_terms()
             .unwrap_or_else(|error| panic!("payment terms: {error}"));
         let recipient = crate::model::account_identifiers(&terms.account)
-            .unwrap_or_else(|error| panic!("account identifiers: {error}"))[0];
+            .unwrap_or_else(|error| panic!("account identifiers: {error}"))[1];
         assert_eq!(
             payment_matches(accepted, [0xab; 32], recipient, 1000),
             Ok(())

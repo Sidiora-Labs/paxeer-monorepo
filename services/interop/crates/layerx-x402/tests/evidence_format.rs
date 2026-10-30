@@ -24,7 +24,7 @@ use layerx_x402::x402_adapter_descriptor;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
-const ACCOUNT: &str = "agent:did:layerx:evidence-payee:main";
+const ACCOUNT: &str = "agent:did:layerx:payee:main";
 const ASSET: [u8; 32] = [0xab; 32];
 const PAYER: [u8; 32] = [0x71; 32];
 const REFERENCE: [u8; 32] = [0x74; 32];
@@ -45,7 +45,7 @@ fn offer(scheme: &str) -> PaymentRequirements {
         network: "eip155:125".to_owned(),
         amount: AtomicAmount::from_u128(1000),
         asset: hex(&ASSET),
-        pay_to: hex(&account_identifiers(ACCOUNT).unwrap()[0]),
+        pay_to: hex(&account_identifiers(ACCOUNT).unwrap()[1]),
         max_timeout_seconds: 90,
         extra: Some(json!({"layerx": terms})),
     }
@@ -75,7 +75,7 @@ fn payment_log(scheme: &str) -> SequencerLog {
             topic,
             if scheme == "exact" { REFERENCE } else { GRANT },
             PAYER,
-            account_identifiers(ACCOUNT).unwrap()[0],
+            account_identifiers(ACCOUNT).unwrap()[1],
         ],
         data,
         0,
@@ -136,7 +136,7 @@ fn receipt(logs: &[SequencerLog], signature: Option<[u8; 64]>) -> Vec<u8> {
     assert_eq!(encoder.u128(4000), Ok(()));
     assert_eq!(encoder.u64(1), Ok(()));
     assert_eq!(
-        encoder.bytes(&account_identifiers(ACCOUNT).unwrap()[0], 32),
+        encoder.bytes(&account_identifiers(ACCOUNT).unwrap()[1], 32),
         Ok(())
     );
     assert_eq!(encoder.u128(0), Ok(()));
@@ -267,7 +267,11 @@ fn buyer_accepts_the_model_asset_format() {
                 assert_eq!(
                     Buyer::capture_settlement(&header, &changed, &keys(), &trace)
                         .map_err(Traced::into_error),
-                    Err(X402Error::EvidenceMismatch)
+                    Err(if field == "asset" {
+                        X402Error::EvidenceMismatch
+                    } else {
+                        X402Error::ProfileMismatch
+                    })
                 );
             }
         }
