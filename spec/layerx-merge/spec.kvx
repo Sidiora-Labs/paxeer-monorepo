@@ -101234,7 +101234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.36.2]
 title = "Register the 0x0903 merge constructor with the provisional feed caps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.36.1"]
