@@ -144687,7 +144687,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.5]
 title = "Drop the daemon header check from the boundary cases and gate the deleted LNI test node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["9.18.5", "9.18.1", "1.0.4", "5.0.4"]
