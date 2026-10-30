@@ -31,11 +31,30 @@ final class ProgramsEvmTests: XCTestCase {
           root.appendingPathComponent("conformance/fixtures/\(name).json")))
   }
 
-  private func client(_ server: RPCFixtureServer) throws -> ProgramsClient {
+  private struct SequencerFixture: Decodable {
+    let cases: [Vector]
+    struct Vector: Decodable {
+      let rawTransaction: String
+      let receiptJson: [String: JSONValue]
+      let prevSeqHash: String
+      let pinnedKey: Key
+    }
+    struct Key: Decodable {
+      let keyId: String
+      let publicKey: String
+      let firstHeight: UInt64
+      let lastHeight: UInt64
+    }
+  }
+
+  private func client(
+    _ server: RPCFixtureServer, receiptKeys: [ReceiptKeys] = [],
+    prevSeqHash: Data = Data(repeating: 0, count: 32)
+  ) throws -> ProgramsClient {
     try ProgramsClient(
       rpcURL: server.url, sender: Data(repeating: 0x55, count: 20),
-      actor: Data(repeating: 0x66, count: 32), receiptKeys: [],
-      maxFeePerGas: 100, maxPriorityFeePerGas: 2)
+      actor: Data(repeating: 0x66, count: 32), receiptKeys: receiptKeys,
+      maxFeePerGas: 100, maxPriorityFeePerGas: 2, prevSeqHash: prevSeqHash)
   }
 
   private func nativeCall(_ fixture: Fixture) throws -> ProgramCall {
@@ -161,6 +180,150 @@ final class ProgramsEvmTests: XCTestCase {
     XCTAssertThrowsError(try NativeProgramDeploy.decode(invalid))
   }
 
+  func testProgramReceiptCarriesIdempotencyResult() async throws {
+    let recorded = Data([0xaa, 0xbb, 0xcc])
+    let encodedResult =
+      "0x" + String(repeating: "0", count: 62) + "20"
+      + String(repeating: "0", count: 63) + "3"
+      + "aabbcc" + String(repeating: "0", count: 58)
+    let server = try RPCFixtureServer(results: [
+      "eth_call": .string(encodedResult),
+      "eth_getTransactionByHash": .null,
+    ])
+    defer { server.stop() }
+    let key = try IdempotencyKey(String(repeating: "77", count: 32))
+    let hash = Data(repeating: 0x88, count: 32)
+    let submission = try await client(server).receipt(
+      idempotencyKey: key, expectedActivityID: hash, verificationLevel: "pending")
+    XCTAssertEqual(submission.state, "unknown")
+    XCTAssertEqual(submission.transactionHash, hash)
+    XCTAssertEqual(submission.idempotencyKey, key.rawValue)
+    XCTAssertEqual(submission.idempotencyResult, recorded)
+    let requests = try server.requests()
+    XCTAssertEqual(
+      requests.compactMap { $0["method"]?.stringValue },
+      ["eth_call", "eth_getTransactionByHash"])
+    let call = try XCTUnwrap(requests.first)
+    XCTAssertEqual(
+      call["params"],
+      .array([
+        .object([
+          "from": .string("0x" + String(repeating: "55", count: 20)),
+          "to": .string(Programs.authAddress),
+          "data": .string("0x2eda9f2b" + String(repeating: "66", count: 32) + key.rawValue),
+        ]), .string("pending"),
+      ]))
+    XCTAssertEqual(
+      requests.last?["params"], .array([.string("0x" + String(repeating: "88", count: 32))]))
+  }
+
+  func testProgramActivityVerifiesSequencerReceipt() async throws {
+    let root = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent().deletingLastPathComponent()
+      .deletingLastPathComponent().deletingLastPathComponent()
+    func vector(_ name: String) throws -> SequencerFixture.Vector {
+      let fixture = try JSONDecoder().decode(
+        SequencerFixture.self,
+        from: Data(contentsOf: root.appendingPathComponent("conformance/fixtures/\(name).json")))
+      return try XCTUnwrap(fixture.cases.first)
+    }
+    let positive = try vector("vector-v1-receipted-positive")
+    let refused = try vector("vector-v2-receipted-revert")
+    for (vector, state) in [(positive, "executed"), (refused, "refused")] {
+      let hashText = try XCTUnwrap(vector.receiptJson["txHash"]?.stringValue)
+      let hash = try ProgramABI.hex(hashText)
+      let key = ReceiptKeys(
+        keyId: try ProgramABI.hex(vector.pinnedKey.keyId),
+        publicKey: try ProgramABI.hex(vector.pinnedKey.publicKey),
+        firstHeight: vector.pinnedKey.firstHeight, lastHeight: vector.pinnedKey.lastHeight)
+      let server = try RPCFixtureServer(results: [
+        "eth_getTransactionByHash": .object(["hash": .string(hashText)]),
+        "pax_sequencerReceipt": .object(vector.receiptJson),
+        "eth_getRawTransactionByHash": .string(vector.rawTransaction),
+      ])
+      defer { server.stop() }
+      let submission = try await client(
+        server, receiptKeys: [key], prevSeqHash: ProgramABI.hex(vector.prevSeqHash)
+      ).activity(transactionHash: hash)
+      XCTAssertEqual(submission.state, state)
+      XCTAssertEqual(submission.transactionHash, hash)
+      let verified = try XCTUnwrap(submission.sequencerReceipt)
+      XCTAssertEqual(verified.receipt.activityID, hash)
+      XCTAssertEqual(
+        verified.canonicalBytes, try ProgramABI.hex(vector.receiptJson["receipt"]?.stringValue))
+      XCTAssertEqual(verified.status, state == "executed" ? 1 : 0)
+      let requests = try server.requests()
+      XCTAssertEqual(
+        requests.compactMap { $0["method"]?.stringValue },
+        [
+          "eth_getTransactionByHash", "pax_sequencerReceipt", "eth_getRawTransactionByHash",
+        ])
+      for request in requests {
+        XCTAssertEqual(request["params"], .array([.string(hashText)]))
+      }
+    }
+
+    let hashText = try XCTUnwrap(positive.receiptJson["txHash"]?.stringValue)
+    let hash = try ProgramABI.hex(hashText)
+    let key = ReceiptKeys(
+      keyId: try ProgramABI.hex(positive.pinnedKey.keyId),
+      publicKey: try ProgramABI.hex(positive.pinnedKey.publicKey),
+      firstHeight: positive.pinnedKey.firstHeight, lastHeight: positive.pinnedKey.lastHeight)
+    let prevSeqHash = try ProgramABI.hex(positive.prevSeqHash)
+    let pendingServer = try RPCFixtureServer(results: [
+      "eth_getTransactionByHash": .object(["hash": .string(hashText)]),
+      "pax_sequencerReceipt": .object([
+        "rung": .string("submitted"), "txHash": .string(hashText), "nonce": .string("0x0"),
+      ]),
+    ])
+    defer { pendingServer.stop() }
+    let pending = try await client(pendingServer).activity(transactionHash: hash)
+    XCTAssertEqual(pending.state, "pending")
+    XCTAssertEqual(pending.transactionHash, hash)
+    XCTAssertNil(pending.sequencerReceipt)
+    XCTAssertEqual(
+      try pendingServer.requests().compactMap { $0["method"]?.stringValue },
+      [
+        "eth_getTransactionByHash", "pax_sequencerReceipt",
+      ])
+
+    let unknownServer = try RPCFixtureServer(results: ["eth_getTransactionByHash": .null])
+    defer { unknownServer.stop() }
+    let unknown = try await client(unknownServer).activity(transactionHash: hash)
+    XCTAssertEqual(unknown.state, "unknown")
+    XCTAssertEqual(unknown.transactionHash, hash)
+    XCTAssertNil(unknown.sequencerReceipt)
+    XCTAssertEqual(try unknownServer.requests().count, 1)
+
+    let failures: [(String, [ReceiptKeys], String, Data)] = [
+      ("unpinned key", [], positive.rawTransaction, prevSeqHash),
+      ("wrong raw transaction", [key], refused.rawTransaction, prevSeqHash),
+      ("wrong predecessor hash", [key], positive.rawTransaction, Data(repeating: 1, count: 32)),
+    ]
+    for (name, keys, rawTransaction, predecessor) in failures {
+      let server = try RPCFixtureServer(results: [
+        "eth_getTransactionByHash": .object(["hash": .string(hashText)]),
+        "pax_sequencerReceipt": .object(positive.receiptJson),
+        "eth_getRawTransactionByHash": .string(rawTransaction),
+      ])
+      defer { server.stop() }
+      do {
+        _ = try await client(server, receiptKeys: keys, prevSeqHash: predecessor)
+          .activity(transactionHash: hash)
+        XCTFail("Accepted \(name)")
+      } catch {
+        XCTAssertEqual((error as? PlatformSDKError)?.code, .verificationFailure, name)
+      }
+    }
+    for count in [31, 33] {
+      XCTAssertThrowsError(
+        try client(pendingServer, receiptKeys: [key], prevSeqHash: Data(repeating: 0, count: count))
+      ) { error in
+        XCTAssertEqual((error as? PlatformSDKError)?.code, .invalidArgument)
+      }
+    }
+  }
+
   private func decodeRLPList(_ bytes: Data) throws -> [Data] {
     let bytes = [UInt8](bytes)
     var index = 0
@@ -224,10 +387,12 @@ private final class RPCFixtureServer {
   private let directory: URL
   private let transcript: URL
 
-  init() throws {
+  init(results: [String: JSONValue] = [:]) throws {
     directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     transcript = directory.appendingPathComponent("rpc.jsonl")
+    let configuredResults = directory.appendingPathComponent("results.json")
+    try JSONEncoder().encode(results).write(to: configuredResults)
     process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
     process.arguments = [
@@ -242,7 +407,10 @@ private final class RPCFixtureServer {
               with open(sys.argv[1], 'a') as output:
                   output.write(json.dumps(dict(request, http_path=self.path)) + '\n')
               method = request['method']
-              if method == 'eth_getTransactionCount': result = '0x7'
+              with open(sys.argv[2]) as configured:
+                  results = json.load(configured)
+              if method in results: result = results[method]
+              elif method == 'eth_getTransactionCount': result = '0x7'
               elif method == 'eth_estimateGas': result = '0x186a0'
               elif method == 'eth_call':
                   result = '0x' + ''.join(format(v, '064x') for v in [0, 1, 96, 4]) + '0061ff10' + '00' * 28
@@ -258,7 +426,7 @@ private final class RPCFixtureServer {
       server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
       print(server.server_port, flush=True)
       server.serve_forever()
-      """#, transcript.path,
+      """#, transcript.path, configuredResults.path,
     ]
     let stdout = Pipe()
     process.standardOutput = stdout

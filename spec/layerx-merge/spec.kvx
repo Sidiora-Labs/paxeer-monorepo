@@ -4569,6 +4569,18 @@ value = "The clause 'change no source file' of 18.1159.1 do_3 reads as limited t
 basis = "The KMS provider test is one binary that compiles owner_bootstrap.rs, which still called the four-argument native attach that 10.98.7 replaced, so 18.1159.1 could not compile its gate without restoring that form (finding.18.1159.1.3, decision.1885); do_5 was added before the qualified commit and authorised attach_native_signature in services/human/crates/layerx-intents/src/owner_activity.rs:109 and its two callers in services/human/crates/layerx-human-kms/tests/provider/owner_bootstrap.rs."
 affects = ["18.1159.1", "10.21.4"]
 
+[decision.1910]
+title = "A task's build compiles the task's own test targets, not the whole package test tree"
+value = "Where a task's verify_cmd names cargo --test targets of one package, its build_cmd builds exactly those targets (cargo build -p <package> --test <a> --test <b>) instead of --tests; a package-wide test build belongs to the wave and release gates. 72 pending tasks are rewritten accordingly."
+basis = "10.96.2 attempts 1 and 2 (archive.rs, agent_controls.rs) and 18.1279.1 attempt 1 (layerx-mcp tests/scope.rs, issue #1301) failed to compile test suites owned by other pending tasks or by no task, although their own targets were unaffected; the principle of one build of the task's declared targets names the task's targets."
+affects = ["8.96.1", "9.24.3", "9.24.7", "9.25.1", "9.25.2", "9.26.3", "9.27.3", "9.27.4", "9.27.5", "9.28.2", "9.29.1", "9.35.1", "10.21.3", "10.21.4", "10.21.5", "10.21.6", "10.24.1", "10.24.2", "10.24.3", "10.25.4", "10.26.1", "10.26.2", "10.26.3", "10.26.4", "10.26.5", "10.26.6", "10.26.7", "10.26.8", "10.26.9", "10.26.10", "10.26.11", "10.26.12", "10.26.13", "10.26.14", "10.26.15", "10.26.16", "10.27.1", "10.27.2", "10.27.3", "10.27.4", "10.27.5", "10.27.6", "10.27.7", "10.27.8", "10.27.9", "10.27.10", "10.27.11", "13.0.4", "13.0.9", "13.4.5", "13.4.6", "13.6.5", "13.6.6", "13.6.7", "13.9.1", "13.9.2", "13.9.3", "13.9.4", "13.9.5", "13.9.6", "13.9.7", "18.1195.1", "18.1196.1", "18.1204.1", "18.1205.1", "18.1233.1", "18.1289.1", "18.1279.1", "18.1275.1", "18.1270.1", "18.1257.1", "18.1211.1"]
+
+[decision.1911]
+title = "A removal task's scan asserts the removals that task makes; a crate- or kernel-wide absence belongs to the task that retires the definition"
+value = "req.16965 ac_1 and req.10964 ac_1 are scoped to the files their tasks touch. The kernel-wide absence of lxp_receive_environment and lxp_grant_store is the acceptance of task 1.12.1 (wave 30), which deletes src/ledger/lxp_receive.c and src/ledger/lxp_grant_store.c; the crate-wide absence of BridgeDepositCredit, EvmPayoutBinding and NativeCustodyCredit is the acceptance of task 10.21.3 (wave 33), which deletes them from the layerx-intents vocabulary and itself requires 10.96.2."
+basis = "16.97.1 attempt 4 failed on live uses of lxp_grant_store in tests/ledger/test_receive.c, tests/ledger/test_send_allowance.c and tests/protocol/lxp_test_terminal_rejection.c (the grant store is live: include/layerx/lxp_ledger.h, src/ledger/lxp_grant_store.c, src/ledger/lxp_receive.c); 10.96.2 attempt 4 failed on 21 live uses of BridgeDepositCredit and EvmPayoutBinding across ten layerx-human-service source files that no do_ entry of the task removes and that layerx-intents still compiles (services/human/crates/layerx-intents/src/compile.rs). Both criteria named a state that is reachable only after a later task."
+affects = ["16.97.1", "10.96.2", "1.12.1", "10.21.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -18737,7 +18749,7 @@ ac_1 = "The observed journey reports balances by denom and amount at the Account
 
 [req.10964]
 title = "Remove the retired bridge and custody intent kinds from the human render fixtures and onboarding sponsor"
-ac_1 = "No human service source or test names BridgeDepositCredit, EvmPayoutBinding or NativeCustodyCredit."
+ac_1 = "services/human/crates/layerx-human-service/tests/render.rs names no BridgeDepositCredit, EvmPayoutBinding or NativeCustodyCredit fixture and src/server/onboarding_sponsor.rs names no NativeCustodyCredit; the crate-wide absence of the three kinds is the acceptance of task 10.21.3 (decision.1911)."
 
 [req.10965]
 title = "Remove the layerx-intents activity and owner envelope uses from the human KMS and service"
@@ -22274,7 +22286,7 @@ ac_2 = "The budget delegate suite names no lx_budget_pull_request and builds."
 
 [req.16965]
 title = "Remove the grant, handover, bridge credit and qualification replay uses from the remaining kernel suites"
-ac_1 = "tests/test_gateway_receive.c is absent and no kernel test names lxp_receive_environment or lxp_grant_store."
+ac_1 = "tests/test_gateway_receive.c is absent, and tests/modules/test_asset_registry.c names no lxp_grant_store symbol and no payer grant read case; the kernel-wide absence of lxp_receive_environment and lxp_grant_store is the acceptance of task 1.12.1 (decision.1911)."
 ac_2 = "The replay table of lxp_qual_replay.c has exactly the 49 entries of lxp_qualification.h."
 ac_3 = "tests/protocol/lxp_test_kernel.c names no lxp_handover symbol and builds."
 ac_4 = "No kernel test names lxp_ledger_apply_bridge_credit."
@@ -101755,7 +101767,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.95.1]
 title = "Prove the layerxledger keeper routes kernel-backed messages through its shared host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["2.3.1", "1.0.3"]
@@ -131768,7 +131780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.28.3]
 title = "Check the layerxprograms proto sources against their generated descriptors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["7.21.1", "13.0.3", "13.95.1", "7.26.4"]
@@ -138353,7 +138365,7 @@ do_4 = "Attempt 1 ended with no change inside the task's files. The work is the 
 
 [task.8.94.3]
 title = "Move the platform authority, core, gateway and CLI uses of the kernel disclosure and send codecs to the ledger call builders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.0.2", "9.0.2", "8.1.5", "9.1.8", "18.1083.1", "8.98.11", "8.48.1", "8.29.4", "8.94.4", "8.94.5", "8.94.6", "8.94.7", "8.94.8", "18.1297.1"]
@@ -138527,7 +138539,7 @@ symbols = ["gateway_tests_name_no_bridge_withdraw_request"]
 touches = ["services/platform/hosted/gateway/tests/local/withdrawal.rs", "services/platform/hosted/gateway/tests/no_bridge_withdraw_kind.rs"]
 tests = ["services/platform/hosted/gateway/tests/no_bridge_withdraw_kind.rs::gateway_tests_name_no_bridge_withdraw_request"]
 planned_paths = ["services/platform/hosted/gateway/tests/no_bridge_withdraw_kind.rs"]
-build_cmd = "cargo build --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+build_cmd = "cargo build --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test no_bridge_withdraw_kind"
 verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test no_bridge_withdraw_kind -- --exact gateway_tests_name_no_bridge_withdraw_request"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -138640,7 +138652,7 @@ title = "Drop the native state feed, its history store and the daemon header fro
 status = "pending"
 mode = "BUILD"
 wave = 22
-requires = ["8.0.3", "1.0.3", "18.1121.1", "18.1297.1"]
+requires = ["8.0.3", "1.0.3", "18.1121.1", "18.1297.1", "18.1300.1"]
 reqs = ["8969.1"]
 capabilities = []
 interfaces = []
@@ -138668,6 +138680,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Attempt 2 (ecf49ad3c) and attempt 3 failed before the verify: the core build behind emulator/build.rs fails to link build/bin/layerx-guarantor (undefined reference to lxp_guarantor_withhold, issue #1300, task 18.1300.1, now required). Attempt 1 (f83478b2a) reached the verify: the first run overflowed the stack and the second failed lifecycle_executes_without_the_native_state_feed at gateway.rs:709 with lxp_err_root_mismatch; continue from the attempt 1 candidate once the link is fixed."
 
 [task.8.98.1]
 title = "Migrate the agent-boundary callers of wiring.J44.20 (wave 2)"
@@ -142172,7 +142185,7 @@ symbols = ["call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height"
 touches = ["services/agent/crates/layerx-client/src/execution_prestate.rs", "services/agent/crates/layerx-client/src/arbiter_admission.rs", "services/agent/crates/layerx-client/src/arbiter_prestate.rs", "services/agent/crates/layerx-client/src/evidence/execution_prestate.rs", "services/agent/crates/layerx-client/src/evidence/arbiter_admission.rs", "services/agent/crates/layerx-client/src/evidence/arbiter_prestate.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/evidence.rs", "services/agent/crates/layerx-client/tests/sequencer.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -142263,7 +142276,7 @@ symbols = ["refusal_keeps_code_message_and_data"]
 touches = ["services/agent/crates/layerx-client/src/lni/mod.rs", "services/agent/crates/layerx-client/src/lni/abi.rs", "services/agent/crates/layerx-client/src/lni/capabilities.rs", "services/agent/crates/layerx-client/src/lni/framing.rs", "services/agent/crates/layerx-client/src/lni/handshake.rs", "services/agent/crates/layerx-client/src/lni/refusal.rs", "services/agent/crates/layerx-client/src/lni/report.rs", "services/agent/crates/layerx-client/src/lni/schema.rs", "services/agent/crates/layerx-client/src/lni/transport.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/tests/sequencer.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::refusal_keeps_code_message_and_data"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact refusal_keeps_code_message_and_data"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -142295,7 +142308,7 @@ symbols = ["full_block_decodes_raw_transactions_in_index_order"]
 touches = ["services/agent/crates/layerx-client/src/read.rs", "services/agent/crates/layerx-client/src/read/module.rs", "services/agent/crates/layerx-client/src/receipt.rs", "services/agent/crates/layerx-client/src/submit.rs", "services/agent/crates/layerx-client/src/stream.rs", "services/agent/crates/layerx-client/src/batch.rs", "services/agent/crates/layerx-client/src/payments.rs", "services/agent/crates/layerx-client/src/withdrawal.rs", "services/agent/crates/layerx-client/src/head.rs", "services/agent/crates/layerx-client/src/evidence.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/tests/sequencer.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::full_block_decodes_raw_transactions_in_index_order"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact full_block_decodes_raw_transactions_in_index_order"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -142329,7 +142342,7 @@ symbols = ["endpoint_refuses_plain_remote_urls_and_unpinned_https"]
 touches = ["services/agent/crates/layerx-client/src/handover.rs", "services/agent/crates/layerx-client/src/handover_policy.rs", "services/agent/crates/layerx-client/src/caps.rs", "services/agent/crates/layerx-client/src/evidence/caps.rs", "services/agent/crates/layerx-client/src/client.rs", "services/agent/crates/layerx-client/src/resolver.rs", "services/agent/crates/layerx-client/src/availability.rs", "services/agent/crates/layerx-client/examples/native_handover_history.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/evidence.rs", "services/agent/crates/layerx-client/tests/sequencer.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::endpoint_refuses_plain_remote_urls_and_unpinned_https"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact endpoint_refuses_plain_remote_urls_and_unpinned_https"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -142424,7 +142437,7 @@ symbols = ["checkpoint_vectors_load_without_the_settlement_document"]
 touches = ["services/agent/crates/layerx-types/src/settlement.rs", "services/agent/crates/layerx-types/src/lib.rs", "services/agent/crates/layerx-types/tests/vectors.rs"]
 tests = ["services/agent/crates/layerx-types/tests/vectors.rs::checkpoint_vectors_load_without_the_settlement_document"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-types --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-types --test vectors"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-types --test vectors -- --exact checkpoint_vectors_load_without_the_settlement_document"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -142519,7 +142532,7 @@ symbols = ["verify", "OfflineExport", "VerificationReport", "IndependentOfflineT
 touches = ["services/agent/crates/layerx-proof/src/export.rs", "services/agent/crates/layerx-proof/src/export_codec.rs", "services/agent/crates/layerx-proof/examples/offline_export.rs", "services/agent/crates/layerx-proof/tests/export_complete.rs", "services/agent/crates/layerx-proof/tests/offline_export.rs"]
 tests = ["services/agent/crates/layerx-proof/tests/export_complete.rs::complete_export_decoder_refuses_checkpoint_and_activity_records", "services/agent/crates/layerx-proof/tests/offline_export.rs::offline_export_verifies_receipts_and_inclusions_without_a_settlement_domain"]
 planned_paths = ["services/agent/crates/layerx-proof/tests/offline_export.rs"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test export_complete --test offline_export"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test export_complete --test offline_export -- --exact complete_export_decoder_refuses_checkpoint_and_activity_records offline_export_verifies_receipts_and_inclusions_without_a_settlement_domain"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -142553,7 +142566,7 @@ symbols = ["Evidence", "Achieved", "proof_evidence_never_reaches_the_committed_r
 touches = ["services/agent/crates/layerx-proof/src/settlement.rs", "services/agent/crates/layerx-proof/src/checkpoint.rs", "services/agent/crates/layerx-proof/src/lib.rs", "services/agent/crates/layerx-proof/src/evidence.rs", "services/agent/crates/layerx-proof/src/level.rs", "services/agent/crates/layerx-proof/tests/checkpoint.rs", "services/agent/crates/layerx-proof/tests/inclusion.rs"]
 tests = ["services/agent/crates/layerx-proof/tests/inclusion.rs::proof_evidence_never_reaches_the_committed_rung"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test inclusion"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test inclusion -- --exact proof_evidence_never_reaches_the_committed_rung"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -142586,7 +142599,7 @@ symbols = ["registry", "paid_withdrawal_receipt_verifies_without_the_signed_acti
 touches = ["services/agent/crates/layerx-proof/src/receipt.rs", "services/agent/crates/layerx-proof/src/receipt/withdrawal.rs", "services/agent/crates/layerx-proof/src/receipt/owner_module.rs", "services/agent/crates/layerx-proof/tests/withdrawal.rs", "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs"]
 tests = ["services/agent/crates/layerx-proof/tests/withdrawal.rs::paid_withdrawal_receipt_verifies_without_the_signed_activity", "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs::native_owner_receipt_verifies_through_verify_outcome"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test withdrawal --test native_owner_outcome"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test withdrawal --test native_owner_outcome -- --exact paid_withdrawal_receipt_verifies_without_the_signed_activity native_owner_receipt_verifies_through_verify_outcome"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -142742,7 +142755,7 @@ symbols = ["transported_registration_never_invents_paxeer_chain_finality"]
 touches = ["services/agent/crates/layerx-paxeer-verifier/Cargo.toml", "services/agent/crates/layerx-paxeer-verifier/src/abi.rs", "services/agent/crates/layerx-paxeer-verifier/src/checkpoint.rs", "services/agent/crates/layerx-paxeer-verifier/src/contract.rs", "services/agent/crates/layerx-paxeer-verifier/src/encoding.rs", "services/agent/crates/layerx-paxeer-verifier/src/json.rs", "services/agent/crates/layerx-paxeer-verifier/src/lib.rs", "services/agent/crates/layerx-paxeer-verifier/src/publication.rs", "services/agent/crates/layerx-paxeer-verifier/src/rpc.rs", "services/agent/crates/layerx-proof/tests/checkpoint.rs"]
 tests = ["services/agent/crates/layerx-proof/tests/checkpoint.rs::transported_registration_never_invents_paxeer_chain_finality"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test checkpoint"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test checkpoint -- --exact transported_registration_never_invents_paxeer_chain_finality"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -142776,7 +142789,7 @@ symbols = ["every_published_receipt_round_trips_exactly", "checkpoint_vectors_pi
 touches = ["services/agent/crates/layerx-wire/src/lib.rs", "services/agent/crates/layerx-wire/src/activity.rs", "services/agent/crates/layerx-wire/src/sign.rs", "services/agent/crates/layerx-wire/src/hash.rs", "services/agent/crates/layerx-wire/tests/hashing.rs", "services/agent/crates/layerx-wire/tests/rejection.rs", "services/agent/crates/layerx-wire/tests/structures.rs", "services/agent/crates/layerx-wire/tests/wallet_vectors.rs"]
 tests = ["services/agent/crates/layerx-wire/tests/structures.rs::every_published_receipt_round_trips_exactly", "services/agent/crates/layerx-wire/tests/hashing.rs::checkpoint_vectors_pin_header_encoding_and_identities", "services/agent/crates/layerx-wire/tests/hashing.rs::checkpoint_domain_tags_are_the_declared_version_two_tags"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --test structures --test hashing"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --test structures --test hashing -- --exact every_published_receipt_round_trips_exactly checkpoint_vectors_pin_header_encoding_and_identities checkpoint_domain_tags_are_the_declared_version_two_tags"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -143569,7 +143582,7 @@ symbols = ["KeystoreSigner", "keystore_signer_refuses_activity_preimages_and_sig
 touches = ["services/agent/crates/layerx-crypto/src/onboarding.rs", "services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs"]
 tests = ["services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146437,7 +146450,7 @@ symbols = ["IntentKindTag", "RejectReason::RetiredShape", "retired_bridge_tags_a
 touches = ["services/human/crates/layerx-intents/src/vocabulary.rs", "services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/disclosure.rs", "services/human/crates/layerx-intents/src/reject.rs", "services/human/crates/layerx-intents/src/lib.rs", "services/human/crates/layerx-intents/src/native_custody.rs", "services/human/crates/layerx-intents/tests/native_custody.rs", "services/human/crates/layerx-intents/tests/compile.rs", "services/human/crates/layerx-intents/tests/differential.rs", "services/human/crates/layerx-intents/vectors/v1.kvx", "services/human/crates/layerx-intents/vectors/v2.kvx", "services/human/crates/layerx-intents/tests/retired_kinds.rs"]
 tests = ["services/human/crates/layerx-intents/tests/retired_kinds.rs::retired_bridge_tags_answer_retired_shape", "services/human/crates/layerx-intents/tests/retired_kinds.rs::retired_custody_credit_tag_answers_retired_shape", "services/human/crates/layerx-intents/tests/retired_kinds.rs::golden_vectors_hold_no_bridge_entries"]
 planned_paths = ["services/human/crates/layerx-intents/tests/retired_kinds.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test retired_kinds"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test retired_kinds -- --exact retired_bridge_tags_answer_retired_shape retired_custody_credit_tag_answers_retired_shape golden_vectors_hold_no_bridge_entries"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146471,7 +146484,7 @@ symbols = ["canonical", "receipt_reexports_round_trip_after_activity_retirement"
 touches = ["services/human/crates/layerx-intents/src/canonical.rs", "services/human/crates/layerx-intents/src/owner_activity.rs", "services/human/crates/layerx-intents/src/lib.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs", "services/human/crates/layerx-intents/tests/canonical_surface.rs", "services/human/crates/layerx-human-kms/tests/provider.rs", "services/human/crates/layerx-human-kms/tests/provider/owner_bootstrap.rs"]
 tests = ["services/human/crates/layerx-intents/tests/canonical_surface.rs::receipt_reexports_round_trip_after_activity_retirement"]
 planned_paths = ["services/human/crates/layerx-intents/tests/canonical_surface.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test canonical_surface"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test canonical_surface -- --exact receipt_reexports_round_trip_after_activity_retirement"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146501,7 +146514,7 @@ symbols = ["remaining_receipt_vectors_decode"]
 touches = ["services/human/crates/layerx-intents/src/vectors/credit.rs", "services/human/crates/layerx-intents/src/vectors.rs", "services/human/crates/layerx-intents/tests/vectors_surface.rs"]
 tests = ["services/human/crates/layerx-intents/tests/vectors_surface.rs::remaining_receipt_vectors_decode"]
 planned_paths = ["services/human/crates/layerx-intents/tests/vectors_surface.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests --features test-vectors"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test vectors_surface --features test-vectors"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --features test-vectors --test vectors_surface -- --exact remaining_receipt_vectors_decode"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146532,7 +146545,7 @@ symbols = ["SessionGrant", "SessionGrant::replacing", "compile", "DisclosureChec
 touches = ["services/human/crates/layerx-intents/tests/native_session.rs", "services/human/crates/layerx-intents/tests/session_grant.rs"]
 tests = ["services/human/crates/layerx-intents/tests/session_grant.rs::session_grant_compiles_and_discloses_under_v3", "services/human/crates/layerx-intents/tests/session_grant.rs::replacing_session_grant_is_refused_before_v3"]
 planned_paths = ["services/human/crates/layerx-intents/tests/session_grant.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test session_grant"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test session_grant -- --exact session_grant_compiles_and_discloses_under_v3 replacing_session_grant_is_refused_before_v3"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146593,7 +146606,7 @@ symbols = ["decode_account_balances", "decode_account", "AssetBalance", "Account
 touches = ["services/human/crates/layerx-network-gateway/src/lib.rs", "services/human/crates/layerx-network-gateway/tests/chain_balances.rs"]
 tests = ["services/human/crates/layerx-network-gateway/tests/chain_balances.rs::balances_decode_bank_coins_at_one_height", "services/human/crates/layerx-network-gateway/tests/chain_balances.rs::balances_refuse_row_without_denom", "services/human/crates/layerx-network-gateway/tests/chain_balances.rs::account_decodes_paxeer_account_with_height"]
 planned_paths = ["services/human/crates/layerx-network-gateway/tests/chain_balances.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --test chain_balances"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --test chain_balances -- --exact balances_decode_bank_coins_at_one_height balances_refuse_row_without_denom account_decodes_paxeer_account_with_height"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146624,7 +146637,7 @@ symbols = ["decode_assets", "AssetEntry", "AssetTable", "CustodyAsset", "assets_
 touches = ["services/human/crates/layerx-network-gateway/src/lib.rs", "services/human/crates/layerx-network-gateway/tests/chain_assets.rs"]
 tests = ["services/human/crates/layerx-network-gateway/tests/chain_assets.rs::assets_decode_chain_metadata", "services/human/crates/layerx-network-gateway/tests/chain_assets.rs::assets_keep_null_metadata_rows"]
 planned_paths = ["services/human/crates/layerx-network-gateway/tests/chain_assets.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --test chain_assets"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --test chain_assets -- --exact assets_decode_chain_metadata assets_keep_null_metadata_rows"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146655,7 +146668,7 @@ symbols = ["decode_network", "NetworkHead", "AnchorHead", "ConsensusHead", "netw
 touches = ["services/human/crates/layerx-network-gateway/src/lib.rs", "services/human/crates/layerx-network-gateway/tests/consensus_head.rs"]
 tests = ["services/human/crates/layerx-network-gateway/tests/consensus_head.rs::network_decodes_consensus_head", "services/human/crates/layerx-network-gateway/tests/consensus_head.rs::network_answers_without_consensus"]
 planned_paths = ["services/human/crates/layerx-network-gateway/tests/consensus_head.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --test consensus_head"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --test consensus_head -- --exact network_decodes_consensus_head network_answers_without_consensus"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146780,7 +146793,7 @@ symbols = ["AdmissionRecord", "AdmissionJournal::contains", "decode_signed", "tr
 touches = ["services/human/crates/layerx-human-test-support/src/evidence_node.rs", "services/human/crates/layerx-human-test-support/README.md", "services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs::evidence_node_admits_signed_type2_transaction", "services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs::evidence_node_refuses_unsigned_transaction"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test evidence_node_transactions"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test evidence_node_transactions -- --exact evidence_node_admits_signed_type2_transaction evidence_node_refuses_unsigned_transaction"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146846,7 +146859,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "workspace_me
 touches = ["services/human/crates/layerx-paxeer-client/Cargo.toml", "services/human/crates/layerx-paxeer-client/README.md", "services/human/crates/layerx-paxeer-client/src/lib.rs", "services/human/crates/layerx-paxeer-client/examples/native_publication_fetch.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_package.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_package.rs::workspace_metadata_lists_no_layerx_paxeer_client_package"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_package.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_package"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_package -- --exact workspace_metadata_lists_no_layerx_paxeer_client_package"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146877,7 +146890,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/client.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_transport.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_transport.rs::retired_paxeer_client_transport_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_transport.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_transport"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_transport -- --exact retired_paxeer_client_transport_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146910,7 +146923,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/json.rs", "services/human/crates/layerx-paxeer-client/src/rpc.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_verifier_reexports.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_verifier_reexports.rs::retired_paxeer_client_verifier_reexports_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_verifier_reexports.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_verifier_reexports"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_verifier_reexports -- --exact retired_paxeer_client_verifier_reexports_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146943,7 +146956,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/evidence.rs", "services/human/crates/layerx-paxeer-client/tests/custody_evidence.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_evidence.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_evidence.rs::retired_paxeer_client_evidence_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_evidence.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_evidence"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_evidence -- --exact retired_paxeer_client_evidence_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -146975,7 +146988,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/status.rs", "services/human/crates/layerx-paxeer-client/tests/status.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_status.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_status.rs::retired_paxeer_client_status_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_status.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_status"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_status -- --exact retired_paxeer_client_status_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147008,7 +147021,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/state_proof.rs", "services/human/crates/layerx-paxeer-client/tests/state_proof.rs", "services/human/crates/layerx-paxeer-client/tests/vectors/native-state-proofs.json", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_state_proof.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_state_proof.rs::retired_paxeer_client_state_proof_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_state_proof.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_state_proof"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_state_proof -- --exact retired_paxeer_client_state_proof_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147040,7 +147053,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/deposit.rs", "services/human/crates/layerx-paxeer-client/src/deposit_native_tests.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_deposit.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_deposit.rs::retired_paxeer_client_deposit_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_deposit.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_deposit"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_deposit -- --exact retired_paxeer_client_deposit_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147072,7 +147085,7 @@ symbols = ["layerx_paxeer_client::deposit::account_address", "human_workspace_me
 touches = ["services/human/crates/layerx-paxeer-client/tests/deposit.rs", "services/human/crates/layerx-paxeer-client/tests/account_vectors.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_deposit_tests.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_deposit_tests.rs::retired_paxeer_client_deposit_tests_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_deposit_tests.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_deposit_tests"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_deposit_tests -- --exact retired_paxeer_client_deposit_tests_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147103,7 +147116,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/custody.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_custody.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_custody.rs::retired_paxeer_client_custody_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_custody.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_custody"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_custody -- --exact retired_paxeer_client_custody_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147137,7 +147150,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/tests/custody_abi.rs", "services/human/crates/layerx-paxeer-client/tests/vectors/custody_abi.json", "services/human/crates/layerx-paxeer-client/tests/vectors/generate_custody_abi.sh", "services/human/crates/layerx-paxeer-client/tests/contracts/AssetRegistry.hex", "services/human/crates/layerx-paxeer-client/tests/contracts/IntegrationToken.hex", "services/human/crates/layerx-paxeer-client/tests/contracts/LayerXVault.hex", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_custody_fixtures.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_custody_fixtures.rs::retired_paxeer_client_custody_fixtures_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_custody_fixtures.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_custody_fixtures"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_custody_fixtures -- --exact retired_paxeer_client_custody_fixtures_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147170,7 +147183,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/withdraw.rs", "services/human/crates/layerx-paxeer-client/tests/withdraw.rs", "services/human/crates/layerx-paxeer-client/tests/vectors/native-withdrawal-proof.json", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_withdraw.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_withdraw.rs::retired_paxeer_client_withdraw_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_withdraw.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_withdraw"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_withdraw -- --exact retired_paxeer_client_withdraw_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147201,7 +147214,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/wire.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_wire.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_wire.rs::retired_paxeer_client_wire_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_wire.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_wire"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_wire -- --exact retired_paxeer_client_wire_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147234,7 +147247,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/finality.rs", "services/human/crates/layerx-paxeer-client/src/finality/finality_wire.rs", "services/human/crates/layerx-paxeer-client/tests/finality.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_finality.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_finality.rs::retired_paxeer_client_finality_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_finality.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_finality"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_finality -- --exact retired_paxeer_client_finality_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147266,7 +147279,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/exit.rs", "services/human/crates/layerx-paxeer-client/tests/exit.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_exit.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_exit.rs::retired_paxeer_client_exit_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_exit.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_exit"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_exit -- --exact retired_paxeer_client_exit_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147297,7 +147310,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/src/native_custody.rs", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_native_custody.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_native_custody.rs::retired_paxeer_client_native_custody_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_native_custody.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_native_custody"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_native_custody -- --exact retired_paxeer_client_native_custody_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147330,7 +147343,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_paxe
 touches = ["services/human/crates/layerx-paxeer-client/tests/disposable_custody.rs", "services/human/crates/layerx-paxeer-client/tests/disposable_custody.py", "services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_harness.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_harness.rs::retired_paxeer_client_harness_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_paxeer_client_harness.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_harness"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_paxeer_client_harness -- --exact retired_paxeer_client_harness_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147365,7 +147378,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "workspace_me
 touches = ["services/human/crates/layerx-explorer-index/Cargo.toml", "services/human/crates/layerx-explorer-index/README.md", "services/human/crates/layerx-explorer-index/src/main.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_binary.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_binary.rs::workspace_metadata_lists_no_layerx_explorer_index_package"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_binary.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_binary"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_binary -- --exact workspace_metadata_lists_no_layerx_explorer_index_package"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147397,7 +147410,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/tests/authority_config.rs", "services/human/crates/layerx-explorer-index/tests/read_principal_config.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_config_tests.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_config_tests.rs::retired_explorer_index_config_tests_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_config_tests.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_config_tests"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_config_tests -- --exact retired_explorer_index_config_tests_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147428,7 +147441,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/src/unified.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_unified.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_unified.rs::retired_explorer_index_unified_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_unified.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_unified"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_unified -- --exact retired_explorer_index_unified_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147460,7 +147473,7 @@ symbols = ["layerx_explorer_index::unified::JoinedBalance", "human_workspace_met
 touches = ["services/human/crates/layerx-explorer-index/tests/unified_availability.rs", "services/human/crates/layerx-explorer-index/tests/unified_http.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_unified_tests.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_unified_tests.rs::retired_explorer_index_unified_tests_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_unified_tests.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_unified_tests"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_unified_tests -- --exact retired_explorer_index_unified_tests_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147492,7 +147505,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/src/lib.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_library.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_library.rs::retired_explorer_index_library_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_library.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_library"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_library -- --exact retired_explorer_index_library_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147525,7 +147538,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/src/freshness.rs", "services/human/crates/layerx-explorer-index/tests/rebuild.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs::retired_explorer_index_mirror_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_mirror"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_mirror -- --exact retired_explorer_index_mirror_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147558,7 +147571,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/src/reads.rs", "services/human/crates/layerx-explorer-index/tests/reads.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_reads.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_reads.rs::retired_explorer_index_reads_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_reads.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_reads"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_reads -- --exact retired_explorer_index_reads_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147589,7 +147602,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/src/query.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_query.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_query.rs::retired_explorer_index_query_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_query.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_query"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_query -- --exact retired_explorer_index_query_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147620,7 +147633,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/src/programs.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_programs.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_programs.rs::retired_explorer_index_programs_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_programs.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_programs"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_programs -- --exact retired_explorer_index_programs_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147652,7 +147665,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/src/verify.rs", "services/human/crates/layerx-explorer-index/tests/verify.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_verify.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_verify.rs::retired_explorer_index_verify_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_verify.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_verify"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_verify -- --exact retired_explorer_index_verify_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147684,7 +147697,7 @@ symbols = ["human_workspace_metadata", "human_sources_containing", "retired_expl
 touches = ["services/human/crates/layerx-explorer-index/src/receipt_authority.rs", "services/human/crates/layerx-explorer-index/tests/receipt_authority_reader.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_receipt_authority.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_receipt_authority.rs::retired_explorer_index_receipt_authority_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_receipt_authority.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_receipt_authority"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_receipt_authority -- --exact retired_explorer_index_receipt_authority_files_and_references_are_gone"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147812,7 +147825,7 @@ symbols = ["human_service_names_no_retired_intent_kind"]
 touches = ["services/human/crates/layerx-human-service/tests/render.rs", "services/human/crates/layerx-human-service/src/server/onboarding_sponsor.rs", "services/human/crates/layerx-human-service/tests/no_retired_intent_kinds.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/no_retired_intent_kinds.rs::human_service_names_no_retired_intent_kind"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/no_retired_intent_kinds.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test render --test no_retired_intent_kinds"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml --offline -p layerx-human-service --test no_retired_intent_kinds -- --exact human_service_names_no_retired_intent_kind"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -147825,6 +147838,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempts 1 and 2 built every test target of the package and failed on suites this task does not touch: tests/archive.rs:101 and :189 still set verification_level on FundsDispositionEvidence (ported by 18.1195.1) and tests/agent_controls.rs:315, :634, :652 and :666 use InvalidationReason::SessionKeyRevoked and the three-argument change_limit (ported by 18.1228.1). The build_cmd now builds the library and the two test targets of this task; the stale suites stay with their owners."
+do_5 = "Attempts 3 and 4 wrote no_retired_intent_kinds.rs as a scan of every layerx-human-service source for BridgeDepositCredit and EvmPayoutBinding and failed on 21 live uses (src/approvals/render.rs:6, :214, src/audit/event.rs:96-151, src/binding/mod.rs:6, :430-432, :660-662, src/custody/settlement_recipient.rs:47, src/custody/signer.rs:866, src/journeys/intent_submit.rs:587, src/journeys/move_money.rs:1102, :1191, src/journeys/observed.rs:414, src/journeys/resolver.rs:6, :534) that layerx-intents still compiles and that task 10.21.3 (wave 33, which requires this task) retires. Per decision.1911, human_service_names_no_retired_intent_kind asserts only that tests/render.rs names none of the three kinds and that src/server/onboarding_sponsor.rs names no NativeCustodyCredit."
 
 [task.10.97.1]
 title = "Remove the layerx-intents activity and owner envelope uses from the human KMS and service"
@@ -156363,7 +156378,7 @@ symbols = ["chain_bundle_records_deployment_and_survives_rotation"]
 touches = ["programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs::chain_bundle_records_deployment_and_survives_rotation"]
 planned_paths = ["programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test chain_end_to_end"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test chain_end_to_end -- --exact chain_bundle_records_deployment_and_survives_rotation"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -156393,7 +156408,7 @@ symbols = ["programs_completion_retired_surfaces_absent"]
 touches = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs::programs_completion_retired_surfaces_absent"]
 planned_paths = ["programs/crates/layerx-programs-registry/tests/completion_gate.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test completion_gate"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test completion_gate -- --exact programs_completion_retired_surfaces_absent"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -157637,10 +157652,10 @@ do_4 = "Switch ProgramStateBundle::canonical_encoding (:2450) and decode (:2467)
 do_5 = "Add the ProtocolEvidenceError variants ChainProof and Expired to the enum at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:116."
 do_6 = "Write programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs (planned) with verifier_public_methods_accept_chain_evidence and verifier_public_methods_refuse_kernel_batch_evidence."
 symbols = ["ProtocolDeploymentVerifier", "VerifiedDeploymentEvidence", "VerifiedProgramHead", "VerifiedProtocolHead", "VerifiedChainHead", "ProgramStateBundle", "DeploymentProof", "verifier_public_methods_accept_chain_evidence", "verifier_public_methods_refuse_kernel_batch_evidence"]
-touches = ["programs/crates/layerx-programs-registry/src/protocol_evidence.rs", "programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs"]
+touches = ["programs/crates/layerx-programs-registry/src/protocol_evidence.rs", "programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs", "programs/crates/layerx-programs-registry/src/chain_evidence/lifecycle.rs", "programs/crates/layerx-programs-registry/src/chain_evidence/program_state.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs::verifier_public_methods_accept_chain_evidence", "programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs::verifier_public_methods_refuse_kernel_batch_evidence"]
 planned_paths = ["programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test chain_verifier_switch"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test chain_verifier_switch -- --exact verifier_public_methods_accept_chain_evidence verifier_public_methods_refuse_kernel_batch_evidence"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -157653,6 +157668,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Attempts 1 and 2 (199e7fbc3, 19a532a63) switched StateLeafWitness.proof to the chain proof ops and the library stopped compiling at programs/crates/layerx-programs-registry/src/chain_evidence/lifecycle.rs:36-43 and programs/crates/layerx-programs-registry/src/chain_evidence/program_state.rs:78-85, which build a StateLeafWitness with a placeholder StateProof { leaf_index: 0, leaf_count: 1, siblings: Vec::new() } only to call decode_program_record; both files are now in touches: port those two constructions to the switched witness (the record's own ops, record_ops at lifecycle.rs:16 and ops at program_state.rs:18, or whatever the switched decode_program_record takes) and change nothing else in them."
+do_8 = "Attempt 4 (30228d5f1) built the package test tree and failed in programs/crates/layerx-programs-registry/tests/support/mod.rs:348-519, whose builders fill DeploymentProof and ProgramStateProof with the kernel-batch fields (activity, maintenance, activity_proof, receipt, receipt_proof, header, header_signature, programs_root, programs_root_proof) that do_2 removes; the four candidate files stand. The build_cmd now compiles only the chain_verifier_switch target (decision.1910), which does not include tests/support; task 13.9.1 rebuilds that support module and the kernel-batch suites on the chain fixture and now requires this task."
 
 [task.13.4.6]
 title = "Delete the kernel batch, maintenance and trust-history evidence from the registry"
@@ -157674,7 +157691,7 @@ symbols = ["ProtocolDeploymentVerifier", "verifier_needs_no_trust_history_file"]
 touches = ["programs/crates/layerx-programs-registry/src/protocol_evidence.rs", "programs/crates/layerx-programs-registry/src/lib.rs", "programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs::verifier_needs_no_trust_history_file"]
 planned_paths = ["programs/crates/layerx-programs-registry/tests/chain_verifier_switch.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test chain_verifier_switch"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test chain_verifier_switch -- --exact verifier_needs_no_trust_history_file"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -157832,7 +157849,7 @@ symbols = ["sandbox_receipt_refuses_kernel_signed_activity_bytes"]
 touches = ["programs/crates/layerx-programs-sandbox/src/activity.rs", "programs/crates/layerx-programs-sandbox/tests/activity_chain.rs"]
 tests = ["programs/crates/layerx-programs-sandbox/tests/activity_chain.rs::sandbox_receipt_refuses_kernel_signed_activity_bytes"]
 planned_paths = ["programs/crates/layerx-programs-sandbox/tests/activity_chain.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test activity_chain"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test activity_chain -- --exact sandbox_receipt_refuses_kernel_signed_activity_bytes"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -157862,7 +157879,7 @@ symbols = ["lease_transition_refuses_kernel_batch_header_evidence"]
 touches = ["programs/crates/layerx-programs-sandbox/src/lease.rs", "programs/crates/layerx-programs-sandbox/tests/lease_chain.rs"]
 tests = ["programs/crates/layerx-programs-sandbox/tests/lease_chain.rs::lease_transition_refuses_kernel_batch_header_evidence"]
 planned_paths = ["programs/crates/layerx-programs-sandbox/tests/lease_chain.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test lease_chain"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test lease_chain -- --exact lease_transition_refuses_kernel_batch_header_evidence"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -157892,7 +157909,7 @@ symbols = ["terminal_record_refuses_kernel_receipt_bytes"]
 touches = ["programs/crates/layerx-programs-sandbox/src/expiry.rs", "programs/crates/layerx-programs-sandbox/tests/expiry_chain.rs"]
 tests = ["programs/crates/layerx-programs-sandbox/tests/expiry_chain.rs::terminal_record_refuses_kernel_receipt_bytes"]
 planned_paths = ["programs/crates/layerx-programs-sandbox/tests/expiry_chain.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test expiry_chain"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test expiry_chain -- --exact terminal_record_refuses_kernel_receipt_bytes"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -158136,7 +158153,7 @@ title = "Rebuild the shared registry test support on the chain fixture"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["13.0.4", "13.2.1"]
+requires = ["13.0.4", "13.2.1", "13.4.5"]
 reqs = ["13059.1"]
 capabilities = ["13.9.1"]
 interfaces = []
@@ -158148,7 +158165,7 @@ symbols = ["ProtocolFixture", "verifier_for_fixture", "deploy_fixture", "support
 touches = ["programs/crates/layerx-programs-registry/tests/support/mod.rs", "programs/crates/layerx-programs-registry/tests/chain_fixture.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/chain_fixture.rs::support_fixture_verifies_through_public_verifier"]
 planned_paths = ["programs/crates/layerx-programs-registry/tests/chain_fixture.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test chain_fixture"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test chain_fixture -- --exact support_fixture_verifies_through_public_verifier"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -158178,7 +158195,7 @@ symbols = ["historical_deployments_replay_across_an_explicit_sequencer_rotation"
 touches = ["programs/crates/layerx-programs-registry/tests/registry.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/registry.rs::historical_deployments_replay_across_an_explicit_sequencer_rotation"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test registry"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test registry -- --exact historical_deployments_replay_across_an_explicit_sequencer_rotation"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -158208,7 +158225,7 @@ symbols = ["ordinary_bundle_verifies_only_against_its_independent_chain_head"]
 touches = ["programs/crates/layerx-programs-registry/tests/program_bundle_verification.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/program_bundle_verification.rs::ordinary_bundle_verifies_only_against_its_independent_chain_head"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test program_bundle_verification"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test program_bundle_verification -- --exact ordinary_bundle_verifies_only_against_its_independent_chain_head"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -158238,7 +158255,7 @@ symbols = ["canonical_abi_domains_and_legacy_vectors"]
 touches = ["programs/crates/layerx-programs-registry/tests/interface_protocol.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/interface_protocol.rs::canonical_abi_domains_and_legacy_vectors"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test interface_protocol"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test interface_protocol -- --exact canonical_abi_domains_and_legacy_vectors"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -158268,7 +158285,7 @@ symbols = ["verified_deployment_binding_and_current_head_use_the_same_receipt_st
 touches = ["programs/crates/layerx-programs-registry/tests/interface.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/interface.rs::verified_deployment_binding_and_current_head_use_the_same_receipt_state"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test interface"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test interface -- --exact verified_deployment_binding_and_current_head_use_the_same_receipt_state"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -158298,7 +158315,7 @@ symbols = ["real_receipts_drive_every_lifecycle_edge_and_destroyed_never_revives
 touches = ["programs/crates/layerx-programs-sandbox/tests/lease.rs"]
 tests = ["programs/crates/layerx-programs-sandbox/tests/lease.rs::real_receipts_drive_every_lifecycle_edge_and_destroyed_never_revives"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test lease"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test lease -- --exact real_receipts_drive_every_lifecycle_edge_and_destroyed_never_revives"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -158328,7 +158345,7 @@ symbols = ["snapshot_destroy_restore_and_continue_preserves_exact_execution_stat
 touches = ["programs/crates/layerx-programs-sandbox/tests/snapshot.rs"]
 tests = ["programs/crates/layerx-programs-sandbox/tests/snapshot.rs::snapshot_destroy_restore_and_continue_preserves_exact_execution_state"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --tests"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test snapshot"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test snapshot -- --exact snapshot_destroy_restore_and_continue_preserves_exact_execution_state"
 gate_kind = "existing"
 sandbox_profile = "rust"
@@ -160672,7 +160689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.0.4]
 title = "Render the send receipt and reverted outcome on the market pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.4.3", "14.0.3", "14.6.1", "14.7.4", "14.28.2", "14.54.3", "14.58.1", "14.59.1", "11.38.4"]
@@ -163464,7 +163481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.2]
 title = "Compare receiptsRoot and parentHash when matching a newHeads header to its block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["14.28.1", "18.1055.1"]
@@ -163495,7 +163512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.3]
 title = "Check block transaction counts against eth_getBlockTransactionCountByNumber"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.28.2", "18.1055.1"]
@@ -163555,7 +163572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.5]
 title = "Check eth_syncing answers decode after the method rename"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.28.2", "18.1055.1"]
@@ -171981,6 +171998,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Superseded (decision.1900): task 16.32.3 deleted tests/test_receipt_offline.c at 2fec9b48c before this edit landed; attempt 1 (daafe83a2) passed its gate on base c5c2fead1 and is not merged because the suite it edits no longer exists. Nothing remains to do."
+superseded_by = "16.32.3"
 
 [task.16.95.2]
 title = "Run the bridge app checks in the bridge test workflow"
@@ -172300,6 +172318,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempts 1 to 3 scanned every kernel suite for lxp_receive_environment and failed on tests/codec/lxp_test_binding_authority_receive.c:342, tests/ledger/test_receive.c:145, tests/ledger/test_send_allowance.c and tests/protocol/lxp_test_terminal_rejection.c: lxp_receive_environment is a live kernel type (include/layerx/lxp_ledger.h, src/ledger/lxp_receive.c) and is out of scope. test_no_receive_or_grant_store_caller asserts that tests/test_gateway_receive.c is absent (assert_paths_absent) and that no source under tests, excluding tests/arith, tests/codec, tests/crypto, tests/fuzz, tests/chain, tests/daemon, tests/bridge and tests/explorer as in tests/ci/test_retired_guarantor_duties.py, references the lxp_grant_store symbols."
+do_7 = "Attempt 4 scanned every kernel suite for lxp_grant_store and failed on live uses in tests/ledger/test_receive.c:78, :149, :233, tests/ledger/test_send_allowance.c:265, :317 and tests/protocol/lxp_test_terminal_rejection.c:780, :803: the grant store is a live kernel type until task 1.12.1 (wave 30) deletes src/ledger/lxp_grant_store.c and src/ledger/lxp_receive.c. Per decision.1911, test_no_receive_or_grant_store_caller asserts that tests/test_gateway_receive.c is absent and scans only tests/modules/test_asset_registry.c (the file do_1 edits) for lxp_grant_store and the symbols of the deleted payer grant read case; do_6 is superseded by this entry."
 
 [task.16.97.2]
 title = "Gate the deletion of the arbiter authority, web intake, layerxd and bridge credit suites"
@@ -174467,7 +174487,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.97.2]
 title = "Replace the explorer anchors and receipts route rows with the archive routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["17.0.1", "14.0.4"]
@@ -174929,7 +174949,7 @@ symbols = ["reclaim_request", "every_reclaim_mechanism_uses_real_agent_receipts_
 touches = ["services/human/crates/layerx-human-service/tests/reclaim.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/reclaim.rs::every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity"]
 planned_paths = []
-build_cmd = "cd services/human && cargo build --locked -p layerx-human-service"
+build_cmd = "cd services/human && cargo build --locked -p layerx-human-service --test reclaim"
 verify_cmd = "cd services/human && cargo test --locked -p layerx-human-service --test reclaim"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -174942,6 +174962,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The build_cmd compiles the reclaim test target (decision.1910); attempt 5 (769a2f8f9) built and merges onto main without conflict, and its remaining failures at tests/reclaim.rs:136 and tests/journey_faults.rs:913 are the 64-byte kernel-envelope fixtures and the defund leg that task 18.1149.1 do_2 and do_3 port."
 
 [req.18983]
 title = "Keep the reclaim integration test compiling against the nonce contract"
@@ -189229,7 +189250,7 @@ symbols = ["FundsDispositionEvidence"]
 touches = ["services/human/crates/layerx-human-service/tests/archive.rs", "spec/layerx-merge/interfaces.kvx"]
 tests = ["services/human/crates/layerx-human-service/tests/archive.rs::archive_requires_real_reclaim_and_step_up_then_retires_authority_once"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test archive"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test archive"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -189259,7 +189280,7 @@ symbols = ["AgentControls::change_limit"]
 touches = ["services/human/crates/layerx-human-service/tests/agent_controls.rs", "spec/layerx-merge/interfaces.kvx"]
 tests = ["services/human/crates/layerx-human-service/tests/agent_controls.rs::protocol_and_app_limit_changes_keep_their_real_enforcement_labels"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_controls"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_controls"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -189421,7 +189442,7 @@ symbols = ["AgentRuntime::capability_install", "capability_install_reports_submi
 touches = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs::capability_install_reports_submitted_and_receipted_rungs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs::finalization_evidence_refuses_rung_byte_three"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_creation_rungs"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_creation_rungs"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -189452,7 +189473,7 @@ symbols = []
 touches = ["services/agent/crates/layerx-agentd/tests/degraded.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/degraded.rs::halted_emergency_and_data_unavailable_modes_propagate_and_cap_reads", "services/agent/crates/layerx-agentd/tests/degraded.rs::lower_finality_on_return_is_visible_and_caps_previously_stronger_evidence"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test degraded"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test degraded"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -189887,7 +189908,7 @@ symbols = ["ledger_balance", "LedgerBalanceRead", "ledger_balance_reads_the_requ
 touches = ["services/agent/crates/layerx-agentd/src/read/balance.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/balance_pending.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/balance_pending.rs::ledger_balance_reads_the_requested_asset_through_the_ledger_precompile"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test balance_pending"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test balance_pending ledger_balance_reads_the_requested_asset_through_the_ledger_precompile"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -190581,7 +190602,7 @@ qualification = "UNRUN"
 
 [task.18.1273.1]
 title = "Issue #1273: Port the recording web payer of the MCP web tests to the ledger grant builder so the web test target compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190624,7 +190645,7 @@ qualification = "UNRUN"
 
 [task.18.1298.1]
 title = "Issue #1298: Resolve the real-authority test fixture to the repository root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190666,7 +190687,7 @@ qualification = "UNRUN"
 
 [task.18.1299.1]
 title = "Issue #1299: Let the sequencer replication log carry the seal of an empty layer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190708,7 +190729,7 @@ qualification = "UNRUN"
 
 [task.18.1296.1]
 title = "Issue #1296: Trust the configured Programs CA in the daemon readiness and chain-id checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190806,7 +190827,7 @@ qualification = "UNRUN"
 
 [task.18.1294.1]
 title = "Issue #1294: Remove the interop consumer of the retired gateway VerifiedTransfer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190849,7 +190870,7 @@ qualification = "UNRUN"
 
 [task.18.1293.1]
 title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the Rust and Go SDK envelopes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190883,6 +190904,9 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "The Rust and Go SDK envelopes carry the owner session credential for agent.register and session.open"
 ac_1 = "encode_envelope (services/agent/crates/layerx-sdk/src/agent_envelope.rs:196) encodes the supplied EnvelopeCredential for agent.register and session.open, the body decodes through layerx_agentd::agent_rpc::decode (services/agent/crates/layerx-agentd/src/agent_rpc.rs:200) with a Some credential carrying the same tenant and session id, and a None credential is refused locally with EnvelopeError::CredentialPresence."
 ac_2 = "AgentEnvelopeHTTPTransport.encode (sdk/platform/go/http.go:471) serializes the configured AgentSessionCredential for agent.register and session.open exactly as for read.account and refuses both with ErrorCapabilityRefusal when no credential is configured."
+ac_3 = "HttpProductionTransport.agentEnvelope (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java:267) encodes the configured AgentSessionCredential (tenant, session_id, token_id, generation) as the envelope credential for agent.register and session.open exactly as for every other agent operation, and refuses both with PlatformSdkException code CAPABILITY_REFUSAL when no session is configured; no operation is encoded with a null credential."
+ac_4 = "AgentEnvelopeTransport.call (services/agent/sdk/python/layerx_sdk/agent_http.py:473) sends AgentSessionCredential.coordinates() as the envelope credential for agent.register and session.open exactly as for every other agent operation, and raises PlatformSdkError INVALID_ARGUMENT before any request when no session is configured; no envelope is sent with a null credential."
+ac_5 = "encodeAgentEnvelope (services/agent/sdk/typescript/src/agent-http.ts:819) encodes AgentSessionCredential.encode() as the envelope credential for agent.register and session.open exactly as for every other agent operation and throws PlatformSdkError invalid-argument when no session is supplied; no envelope is encoded with a null credential."
 
 [acceptance.18.1293.1]
 feature = "18"
@@ -190902,7 +190926,7 @@ qualification = "UNRUN"
 
 [task.18.1292.1]
 title = "Issue #1292: Restore consensus validator order when decoding an address-sorted trust root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190945,7 +190969,7 @@ qualification = "UNRUN"
 
 [task.18.1291.1]
 title = "Issue #1291: Verify lease transition proofs against the mounted lxphost store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190978,6 +191002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [req.181291]
 title = "Lease transition evidence authenticates against the mounted lxphost store"
 ac_1 = "TransitionEvidence::verify_call (programs/crates/layerx-programs-sandbox/src/lease.rs:402) accepts a lease record proven under the 'lxphost' multistore leaf (storage/common/keys/store_keys.go:48) and refuses the same record proven under any other store name, including 'layerx', with LeaseRefusal::InvalidCanonicalEvidence."
+ac_2 = "SandboxSubmissionReceipt::verify (programs/crates/layerx-programs-sandbox/src/activity.rs:358) accepts usage state proven under the 'lxphost' multistore leaf (storage/common/keys/store_keys.go:48), both at the commitment store-name check (activity.rs:395) and in verify_state (activity.rs:402), and refuses the same receipt proven under any other store name, including 'layerx', with SandboxActivityRefusal::InvalidReceipt."
 
 [acceptance.18.1291.1]
 feature = "18"
@@ -191005,7 +191030,7 @@ symbols = ["read_committed_program_balances", "ProgramValueBalance", "program_ba
 touches = ["services/agent/crates/layerx-agentd/src/read/program_node.rs", "services/agent/crates/layerx-agentd/src/read/program_balances.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/tests/program_balances_eth_call.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/program_balances_eth_call.rs::committed_balance_read_reports_existence_not_frozen"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host --test program_balances_eth_call"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test program_balances_eth_call -- --exact committed_balance_read_reports_existence_not_frozen"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -191033,7 +191058,7 @@ qualification = "UNRUN"
 
 [task.18.1288.1]
 title = "Issue #1288: Authenticate a funding receipt against the funded lease record so fund_lease can return success"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191077,7 +191102,7 @@ qualification = "UNRUN"
 
 [task.18.1287.1]
 title = "Issue #1287: Remove the retired REST envelope branches that still reference ProgramLifecycleRoutes from the JVM production transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191217,7 +191242,7 @@ qualification = "UNRUN"
 
 [task.18.1202.1]
 title = "Issue #1202: Record human-runtime receipt settlement through the location-bearing outbox API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191270,7 +191295,7 @@ qualification = "UNRUN"
 
 [task.18.1148.1]
 title = "Issue #1148: Resolve the fee denomination of a program web request from the asset mapping when no fee denomination is recorded yet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191340,7 +191365,7 @@ symbols = ["RecordedPayer", "WebPayer::sign_grant", "WebPayer::view", "WebPayer:
 touches = ["services/agent/crates/layerx-mcp/tests/web.rs"]
 tests = ["services/agent/crates/layerx-mcp/tests/web.rs::paid_metered_search_settles_and_releases_untrusted_results"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test web"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test web -- --exact paid_metered_search_settles_and_releases_untrusted_results"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -191353,6 +191378,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 1 (47f819a0b) built every layerx-mcp test target and failed on tests/scope.rs:525 (retired InvalidationReason::CapabilityGrantRevoked, issue #1301, task 18.1301.1); the build_cmd now builds the web target only (decision.1910)."
 
 [req.181279]
 title = "The paid metered web.search test exercises the 0x101A grant and draw path"
@@ -191384,7 +191410,7 @@ symbols = ["signed_evm_create", "core_create", "budget_create_identity", "Eip155
 touches = ["services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs::core_create_identity_is_read_from_the_signed_v1_and_v2_bytes"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test budget_durable_limits"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test budget_durable_limits -- --exact core_create_identity_is_read_from_the_signed_v1_and_v2_bytes"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -191427,7 +191453,7 @@ symbols = ["merge_tracked_approval", "decode_approval", "decode_tracked", "track
 touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/write_path_evm.rs::approval_get_reports_the_tracked_tx_hash_and_rung"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test write_path_evm"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test write_path_evm -- --exact approval_get_reports_the_tracked_tx_hash_and_rung"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -191470,7 +191496,7 @@ symbols = ["SubmitRequest", "submit_raw_write", "accept_raw_write", "write_submi
 touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/write_path_evm.rs::raw_transaction_submit_sends_eth_send_raw_transaction"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test write_path_evm"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test write_path_evm -- --exact raw_transaction_submit_sends_eth_send_raw_transaction"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -191513,7 +191539,7 @@ symbols = ["receipt_fixture", "pinned_receipt_keys", "capture_settlement", "buye
 touches = ["services/interop/crates/layerx-x402/tests/buyer.rs"]
 tests = ["services/interop/crates/layerx-x402/tests/buyer.rs::buyer_tests_capture_on_the_recorded_receipt"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests"
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test buyer"
 verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test buyer -- --exact buyer_tests_capture_on_the_recorded_receipt"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -191541,7 +191567,7 @@ qualification = "UNRUN"
 
 [task.18.1265.1]
 title = "Issue #1265: Document wallet estimate-fee with --from and an unsigned transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191629,7 +191655,7 @@ qualification = "UNRUN"
 
 [task.18.835.1]
 title = "Issue #835: Pin the starter credit at one million base units of native PAX"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191672,7 +191698,7 @@ qualification = "UNRUN"
 
 [task.18.893.1]
 title = "Issue #893: Pin the custody forced-exit freeze that a liveness lapse triggers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191725,7 +191751,7 @@ qualification = "UNRUN"
 
 [task.18.918.1]
 title = "Issue #918: Pin the trusted-spender approval rule and the USDL attestor caps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191777,7 +191803,7 @@ qualification = "UNRUN"
 
 [task.18.927.1]
 title = "Issue #927: Pin that embedded-wallet bridge-out moves only capped assets, USDL in the shipped policy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191820,7 +191846,7 @@ qualification = "UNRUN"
 
 [task.18.960.1]
 title = "Issue #960: Pin the SID sponsored-fee cap and the perps spends of the attestor policy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191872,7 +191898,7 @@ qualification = "UNRUN"
 
 [task.18.905.1]
 title = "Issue #905: Track consensus-changing commits and refuse an untracked one"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191925,7 +191951,7 @@ qualification = "UNRUN"
 
 [task.18.1232.1]
 title = "Issue #1232: State the advertised bug bounty programme in SECURITY.md"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191964,4 +191990,722 @@ req = "181232.1"
 scenario = "Given SECURITY.md after the change, when it is searched, then it contains the four reward tier lines and security@paxeer.app and no sentence saying there is no bug bounty"
 contract = "contracts/programme.md#programme"
 test = "SECURITY.md::bug_bounty_section"
+qualification = "UNRUN"
+
+
+[task.18.1300.1]
+title = "Issue #1300: Drop the deleted withholding call from lxp_guarantor_process_batch so the core binaries link again"
+status = "done"
+mode = "BUILD"
+wave = 0
+requires = []
+reqs = ["181300.1"]
+capabilities = []
+interfaces = []
+do_1 = "Delete the divergence branch at src/guarantor/lxp_guarantor.c:167-192 (the if (status != LXP_OK && ctx->publish_dissent != NULL && ...) block that fills an lxp_guarantor_divergence and returns lxp_guarantor_withhold(ctx, body.header.epoch, &divergence, &dissent)); lxp_guarantor_process_batch keeps the arena reset at :166 and returns status. The definition left with src/guarantor/lxp_dissent.c (5f2b11fa7, task 1.31.4) and the disagreement suite that exercised it is already deleted (16.32.1)."
+do_2 = "Delete the four declarations without a definition from include/layerx/lxp_guarantor.h: lxp_guarantor_first_divergence (:375), lxp_guarantor_dissent (:380), lxp_guarantor_dissent_verify (:384) and lxp_guarantor_withhold (:387). Keep the lxp_guarantor_dissent_publish_fn typedef, the publish_dissent field (:106) and the lxp_guarantor_divergence and lxp_guarantor_dissent_record types; task 1.38.1 deletes the header."
+do_3 = "Add test_guarantor_dissent_symbols_unreferenced_in_kernel to tests/ci/test_retired_guarantor_duties.py: assert_symbols_unreferenced over the four symbols of do_2 against _included_sources(['src', 'include', 'cmd'], exclude=[]), so a caller left behind by a retirement fails the scan rather than the link of build/bin/layerx-guarantor."
+do_4 = "Change nothing else; Makefile:44 collects LIB_SOURCES with find over src, so no Makefile edit follows and the build_cmd is the link that failed."
+symbols = ["lxp_guarantor_process_batch", "test_guarantor_dissent_symbols_unreferenced_in_kernel"]
+touches = ["src/guarantor/lxp_guarantor.c", "include/layerx/lxp_guarantor.h", "tests/ci/test_retired_guarantor_duties.py"]
+tests = ["tests/ci/test_retired_guarantor_duties.py::test_guarantor_dissent_symbols_unreferenced_in_kernel"]
+planned_paths = []
+build_cmd = "make build/bin/layerx-guarantor"
+verify_cmd = "python3 -m pytest tests/ci/test_retired_guarantor_duties.py -q"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert lxp_guarantor.c, lxp_guarantor.h and the CI test; build/bin/layerx-guarantor fails to link again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181300]
+title = "Issue #1300: Drop the deleted withholding call from lxp_guarantor_process_batch so the core binaries link again"
+ac_1 = "make build/bin/layerx-guarantor links with no reference to lxp_guarantor_withhold, lxp_guarantor_dissent, lxp_guarantor_dissent_verify or lxp_guarantor_first_divergence anywhere under src, include or cmd, and the retired-duties CI scan covers those trees."
+
+[acceptance.18.1300.1]
+feature = "18"
+req = "181300.1"
+scenario = "Given the dissent and withholding definitions are deleted, when the core binaries and the retired-duties scan run, then layerx-guarantor links and the scan finds no reference to the four retired functions under src, include or cmd."
+contract = "contracts/protocol.md#guarantor"
+test = "tests/ci/test_retired_guarantor_duties.py::test_guarantor_dissent_symbols_unreferenced_in_kernel"
+qualification = "UNRUN"
+
+[task.18.1268.1]
+title = "Issue #1268: Pin the Swift V5 portable vector to the V1 and V4 source keys instead of the key each bundle carries"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181268.1", "181268.2"]
+capabilities = []
+interfaces = []
+do_1 = "In testPortableVectorV5Verifies (sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift:146-184) stop building the pin from the bundle's own receiptKey (:160, :168-171) and instead load the pin and prevSeqHash of vector-v1-receipted-positive.json cases[0] (V1-pax-transfer) for the receipted bundle and of vector-v4-committed.json positive for the committed bundle with the existing Vector and Key helpers (:14-29) and key(_:) (:57)."
+do_2 = "Verify each bundle with PortableReceipt.verify(_:keys:prevSeqHash:) (sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:46) passing only that source pin and source prevSeqHash, as TestVectorV5PortableRoundTrips (sdk/platform/go/conformance_vectors_test.go:316-355) and PortableVectorV5Verifies (sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:17-60) do and as sdk/platform/conformance/README.md:24-25 requires."
+do_3 = "Assert in testPortableVectorV5Verifies that the carried receiptKey (keyId, publicKey, firstHeight, lastHeight) equals the source pin field for field, so a bundle that declares any other key fails the test."
+do_4 = "Add testPortableVectorV5RefusesForeignPin to PortableReceiptTests.swift asserting that PortableReceipt.verify throws PlatformSDKError with code verificationFailure for the receipted bundle verified with the V4 pin and for the committed bundle verified with the V1 pin."
+symbols = ["testPortableVectorV5Verifies", "testPortableVectorV5RefusesForeignPin"]
+touches = ["sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift::testPortableVectorV5Verifies", "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift::testPortableVectorV5RefusesForeignPin"]
+planned_paths = []
+build_cmd = "swift build --package-path sdk/platform/swift"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter 'PortableReceiptTests/(testPortableVectorV5Verifies|testPortableVectorV5RefusesForeignPin)'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-platform"
+rollback = "Revert PortableReceiptTests.swift; only test code changes and the SDK verifier is untouched."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181268]
+title = "Pin the Swift V5 portable vector to the V1 and V4 source keys"
+ac_1 = "testPortableVectorV5Verifies (sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift:146) verifies the receipted and committed bundles of vector-v5-portable.json only against the pinned key and prevSeqHash of vector-v1-receipted-positive.json V1-pax-transfer and vector-v4-committed.json positive, never against the receiptKey the bundle carries, and asserts the carried key equals that pin."
+ac_2 = "PortableReceipt.verify (sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:46) refuses each V5 bundle with verificationFailure when it is given the other verification level's source pin."
+
+[acceptance.18.1268.1]
+feature = "18"
+req = "181268.1"
+scenario = "Given vector-v5-portable.json and the source pins of V1-pax-transfer and the V4 positive case, when testPortableVectorV5Verifies runs, then each bundle verifies against its source pin and source prevSeqHash and its carried receiptKey equals that pin"
+contract = "contracts/platform-sdk.md#conformance-vectors"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift::testPortableVectorV5Verifies"
+qualification = "UNRUN"
+
+[acceptance.18.1268.2]
+feature = "18"
+req = "181268.2"
+scenario = "Given the receipted V5 bundle and the V4 pin, and the committed V5 bundle and the V1 pin, when PortableReceipt.verify runs on each pair, then each call throws PlatformSDKError with code verificationFailure"
+contract = "contracts/platform-sdk.md#conformance-vectors"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift::testPortableVectorV5RefusesForeignPin"
+qualification = "UNRUN"
+
+[task.18.1269.1]
+title = "Issue #1269: Verify the published V5 compact bundle bytes in Swift and compare export() with them byte for byte"
+status = "done"
+mode = "BUILD"
+wave = 2
+requires = ["18.1268.1"]
+reqs = ["181269.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add a private helper publishedBundles(_ data: Data) throws -> [Data] to sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift that returns the exact bytes of each element of the bundles array of sdk/platform/conformance/fixtures/vector-v5-portable.json (one compact bundle per line at :5-6) by tracking bracket depth outside JSON strings, never by decoding and re-encoding."
+do_2 = "In testPortableVectorV5Verifies replace the re-encoded input (PortableReceiptTests.swift:172 let bytes = try encode(bundle), where encode at :75-79 sorts keys) with the published bytes from publishedBundles, so PortableReceipt.verify (sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:46) reads the wire document exactly as published (sdk/platform/conformance/README.md:12)."
+do_3 = "Compare verified.export() (PortableReceipt.swift:13) with those published bytes at PortableReceiptTests.swift:182, matching the bytes.Equal(data, reexported) check of TestVectorV5PortableRoundTrips (sdk/platform/go/conformance_vectors_test.go:355)."
+do_4 = "Add testPortableVectorV5ReexportsPublishedBytes asserting for each published bundle that export() equals the published bytes byte for byte and that the published bytes differ from the sorted-key re-encoding produced by encode (:75-79), so the comparison never uses bytes the test produced itself."
+symbols = ["publishedBundles", "testPortableVectorV5Verifies", "testPortableVectorV5ReexportsPublishedBytes"]
+touches = ["sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift::testPortableVectorV5ReexportsPublishedBytes", "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift::testPortableVectorV5Verifies"]
+planned_paths = []
+build_cmd = "swift build --package-path sdk/platform/swift"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter 'PortableReceiptTests/(testPortableVectorV5Verifies|testPortableVectorV5ReexportsPublishedBytes)'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-platform"
+rollback = "Revert PortableReceiptTests.swift; only test code changes and the published fixture is untouched."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181269]
+title = "Verify the published V5 compact bundle bytes in Swift"
+ac_1 = "testPortableVectorV5Verifies and testPortableVectorV5ReexportsPublishedBytes (sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift) pass the bytes of each bundle exactly as published in sdk/platform/conformance/fixtures/vector-v5-portable.json to PortableReceipt.verify and assert that export() (sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:13) returns those published bytes byte for byte."
+
+[acceptance.18.1269.1]
+feature = "18"
+req = "181269.1"
+scenario = "Given the compact receipted and committed bundles as published on lines 5 and 6 of vector-v5-portable.json, when each published byte string is verified with its source pin and exported, then export() equals the published bytes and the published bytes differ from their sorted-key re-encoding"
+contract = "contracts/platform-sdk.md#conformance-vectors"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift::testPortableVectorV5ReexportsPublishedBytes"
+qualification = "UNRUN"
+
+[task.18.1263.1]
+title = "Issue #1263: Make Swift ProgramsClient.activity fetch and verify the sequencer receipt and report pending, executed or refused"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181263.1", "181263.2"]
+capabilities = []
+interfaces = []
+do_1 = "Add a stored prevSeqHash: Data and a defaulted parameter prevSeqHash: Data = Data(repeating: 0, count: 32) to ProgramsClient.init (sdk/platform/swift/Sources/LayerXSDK/Programs.swift:383-397) that refuses a value other than 32 bytes with programInvalid(), carrying the predecessor hash the Go SDK holds in ReceiptKeys (sdk/platform/go/verify.go:581)."
+do_2 = "In ProgramsClient.activity(transactionHash:) (Programs.swift:581-593), after a non-null eth_getTransactionByHash whose hash matches, call pax_sequencerReceipt for the hash and return state 'pending' when its rung is 'submitted', as Programs.Activity does (sdk/platform/go/programs.go:2091-2103)."
+do_3 = "Otherwise call eth_getRawTransactionByHash, throw programVerification() unless keccak256 of the raw bytes (CommittedWire.keccak256, sdk/platform/swift/Sources/LayerXSDK/Committed.swift:542) equals the hash, and return verifySubmission(_:transactionHash:rawTransaction:receiptJSON:prevSeqHash:) (Programs.swift:610-622) on the hex bytes of the receipt field of the pax_sequencerReceipt object (rpc/sequencer_receipt.go:127-158) with the stored prevSeqHash, so the state is 'executed' or 'refused' and sequencerReceipt is set (sdk/platform/go/programs.go:2104-2121)."
+do_4 = "Give RPCFixtureServer (sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift:221-300) an init parameter of per-method JSON results written to a file the Python handler reads, answering configured methods before its fixed eth_getTransactionCount, eth_estimateGas and eth_call answers."
+do_5 = "Add testProgramActivityVerifiesSequencerReceipt to ProgramsEvmTests.swift serving vector-v1-receipted-positive.json cases[0] (rawTransaction, receiptJson, pinnedKey, prevSeqHash) and asserting state 'executed' with sequencerReceipt activityID equal to the hash, state 'pending' when pax_sequencerReceipt answers rung 'submitted', and PlatformSDKError verificationFailure when the client pins no key or the raw transaction hashes to another value."
+symbols = ["ProgramsClient", "RPCFixtureServer", "testProgramActivityVerifiesSequencerReceipt"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramActivityVerifiesSequencerReceipt"]
+planned_paths = []
+build_cmd = "swift build --package-path sdk/platform/swift"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter 'ProgramsEvmTests/testProgramActivityVerifiesSequencerReceipt'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-platform"
+rollback = "Revert Programs.swift and ProgramsEvmTests.swift; activity(transactionHash:) returns to reporting submitted for any known transaction and no other caller changes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181263]
+title = "Swift ProgramsClient.activity verifies the sequencer receipt"
+ac_1 = "ProgramsClient.activity(transactionHash:) (sdk/platform/swift/Sources/LayerXSDK/Programs.swift:581) returns 'unknown' for an unknown transaction, 'pending' when pax_sequencerReceipt reports rung 'submitted', and otherwise 'executed' or 'refused' only after verifying the signed receipt against the configured receiptKeys, the raw transaction from eth_getRawTransactionByHash and the client's prevSeqHash, with sequencerReceipt set."
+ac_2 = "ProgramsClient.activity(transactionHash:) throws PlatformSDKError verificationFailure when the receipt is signed by an unpinned key or the raw transaction does not hash to the requested transaction hash."
+
+[acceptance.18.1263.1]
+feature = "18"
+req = "181263.1"
+scenario = "Given an RPC node answering eth_getTransactionByHash, pax_sequencerReceipt and eth_getRawTransactionByHash with the V1-pax-transfer case and a client pinning its key, when activity(transactionHash:) runs, then the state is 'executed' and sequencerReceipt carries the transaction hash, and when the node reports rung 'submitted' the state is 'pending'"
+contract = "contracts/platform-sdk.md#program-operations"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramActivityVerifiesSequencerReceipt"
+qualification = "UNRUN"
+
+[acceptance.18.1263.2]
+feature = "18"
+req = "181263.2"
+scenario = "Given the V1-pax-transfer answers and a client with no pinned key, or a raw transaction that hashes to another value, when activity(transactionHash:) runs, then it throws PlatformSDKError with code verificationFailure"
+contract = "contracts/platform-sdk.md#program-operations"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramActivityVerifiesSequencerReceipt"
+qualification = "UNRUN"
+
+[task.18.1264.1]
+title = "Issue #1264: Return the idempotency key and recorded result from Swift ProgramsClient.receipt"
+status = "done"
+mode = "BUILD"
+wave = 2
+requires = ["18.1263.1"]
+reqs = ["181264.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add public let idempotencyResult: Data? to ProgramSubmission (sdk/platform/swift/Sources/LayerXSDK/Programs.swift:346-370) with a fileprivate init parameter idempotencyResult: Data? = nil, matching ProgramSubmission.IdempotencyResult in the Go SDK (sdk/platform/go/programs.go:2069)."
+do_2 = "In ProgramsClient.receipt(idempotencyKey:expectedActivityID:verificationLevel:) (Programs.swift:562-569) keep the bytes returned by receipt(actor:idempotencyKey:) (:552-561) instead of discarding them at :567, and return the submission from activity(transactionHash:) rebuilt with idempotencyKey set to idempotencyKey.rawValue and idempotencyResult set to those bytes, as Programs.Receipt does (sdk/platform/go/programs.go:2052-2071)."
+do_3 = "Add testProgramReceiptCarriesIdempotencyResult to sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift, using the per-method RPCFixtureServer results to answer eth_call with ABI bytes 0xaabbcc and eth_getTransactionByHash with null, asserting state 'unknown', idempotencyKey equal to the key's rawValue, idempotencyResult equal to 0xaabbcc, and one eth_call to Programs.authAddress with selector 2eda9f2b."
+symbols = ["ProgramSubmission", "testProgramReceiptCarriesIdempotencyResult"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"]
+planned_paths = []
+build_cmd = "swift build --package-path sdk/platform/swift"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter 'ProgramsEvmTests/testProgramReceiptCarriesIdempotencyResult'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-platform"
+rollback = "Revert Programs.swift and ProgramsEvmTests.swift; the added field is optional and no caller depends on it."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181264]
+title = "Swift ProgramsClient.receipt carries the idempotency key and recorded result"
+ac_1 = "ProgramsClient.receipt(idempotencyKey:expectedActivityID:verificationLevel:) (sdk/platform/swift/Sources/LayerXSDK/Programs.swift:562) returns a ProgramSubmission whose idempotencyKey equals the requested key and whose idempotencyResult equals the bytes resultByIdempotency recorded for it (selector 2eda9f2b on Programs.authAddress), with the state that activity(transactionHash:) reports."
+
+[acceptance.18.1264.1]
+feature = "18"
+req = "181264.1"
+scenario = "Given an RPC node whose resultByIdempotency call answers bytes 0xaabbcc and that does not know the expected transaction, when receipt(idempotencyKey:expectedActivityID:verificationLevel:) runs with level 'pending', then the submission has state 'unknown', idempotencyKey equal to the key and idempotencyResult equal to 0xaabbcc"
+contract = "contracts/platform-sdk.md#program-operations"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"
+qualification = "UNRUN"
+
+[task.18.1255.1]
+title = "Issue #1255: Send agent envelope version 1 from the Swift SDK"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181255.1"]
+capabilities = []
+interfaces = []
+do_1 = "Set AgentEnvelopeTransport.version (sdk/platform/swift/Sources/LayerXSDK/Transport.swift:435) to 1 so envelopeRequest (:584-621) writes version 1 at :591, the only envelope version the daemon accepts (services/agent/crates/layerx-agentd/src/agent_rpc.rs:22, :224; services/agent/schema/agent-api/v1.kvx:104; decision.901)."
+do_2 = "Keep contract major 2 only in the version exchange and leave every other envelope field unchanged."
+do_3 = "Replace testAgentEnvelopeEncodesVersionTwo (sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift:7-39) with testAgentEnvelopeEncodesVersionOne asserting that the envelope of every agent-plane operation carries version .integer(1) with the same operation, request_id, request, method and route assertions."
+symbols = ["AgentEnvelopeTransport", "testAgentEnvelopeEncodesVersionOne"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Transport.swift", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionOne"]
+planned_paths = []
+build_cmd = "swift build --package-path sdk/platform/swift"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter 'AgentEnvelopeMajor2Tests/testAgentEnvelopeEncodesVersionOne'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-platform"
+rollback = "Revert Transport.swift and AgentEnvelopeMajor2Tests.swift; the envelope returns to version 2."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181255]
+title = "The Swift SDK sends agent envelope version 1"
+ac_1 = "AgentEnvelopeTransport.envelopeRequest (sdk/platform/swift/Sources/LayerXSDK/Transport.swift:584) writes version 1 for every agent-plane operation, matching ENVELOPE_VERSION (services/agent/crates/layerx-agentd/src/agent_rpc.rs:22) and decision.901."
+
+[acceptance.18.1255.1]
+feature = "18"
+req = "181255.1"
+scenario = "Given an AgentEnvelopeTransport with a session credential, when envelopeRequest builds the request of each agent-plane operation, then the JSON envelope carries version 1 and the operation name, request_id and request it was given"
+contract = "contracts/platform-sdk.md#agent-envelope"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionOne"
+qualification = "UNRUN"
+
+[task.18.1256.1]
+title = "Issue #1256: Decode the daemon's agent success and refusal bodies in the Swift SDK without a response version field"
+status = "done"
+mode = "BUILD"
+wave = 2
+requires = ["18.1255.1"]
+reqs = ["181256.1", "181256.2"]
+capabilities = []
+interfaces = []
+do_1 = "In AgentEnvelopeTransport.decodeResponse (sdk/platform/swift/Sources/LayerXSDK/Transport.swift:625-669) remove the version guard at :631 and drop version from the exact refusal field set at :636-638 and the exact success field set at :660, so the accepted fields are class, protocol_result_code, retriability, request_id and reason (services/agent/crates/layerx-agentd/src/agent_rpc.rs:476-489) and request_id, value and verification_status (agent_rpc.rs:589-607)."
+do_2 = "Rewrite validVerification (Transport.swift:671-689) to accept exactly {state:'achieved', rung} or {state:'unverified', requested, achieved, reason} with rungs submitted, receipted and committed in that order and achieved strictly below requested (services/agent/schema/agent-api/v1.kvx:119; agent_rpc.rs:510-514, :527-576), replacing verificationLevels (:436-439)."
+do_3 = "Replace testAgentEnvelopeRefusesVersionOneResponse and its helper agentEnvelope (sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift:41-92) with testAgentEnvelopeDecodesDaemonResponseShapes asserting that a daemon success body with {state:'achieved', rung:'submitted'} decodes, that an unverified status with achieved not below requested and a body carrying an extra version field are refused as decodeFailure (unknownOutcome when mutating), and that a daemon refusal body with class InvalidRequest throws its mapped error with requestID '42'."
+symbols = ["AgentEnvelopeTransport", "testAgentEnvelopeDecodesDaemonResponseShapes"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Transport.swift", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeDecodesDaemonResponseShapes"]
+planned_paths = []
+build_cmd = "swift build --package-path sdk/platform/swift"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter 'AgentEnvelopeMajor2Tests/testAgentEnvelopeDecodesDaemonResponseShapes'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-platform"
+rollback = "Revert Transport.swift and AgentEnvelopeMajor2Tests.swift; the decoder returns to requiring a response version field."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181256]
+title = "The Swift SDK decodes the daemon's agent response bodies"
+ac_1 = "AgentEnvelopeTransport.decodeResponse (sdk/platform/swift/Sources/LayerXSDK/Transport.swift:625) accepts exactly request_id, value and verification_status on a 200 success and exactly class, protocol_result_code, retriability, request_id and reason on a refusal, with no response version field, and refuses any other field set as decodeFailure."
+ac_2 = "AgentEnvelopeTransport.validVerification (Transport.swift:671) accepts exactly {state:'achieved', rung} or {state:'unverified', requested, achieved, reason} over the rungs submitted, receipted and committed with achieved strictly below requested (services/agent/schema/agent-api/v1.kvx:119)."
+
+[acceptance.18.1256.1]
+feature = "18"
+req = "181256.1"
+scenario = "Given a daemon success body of request_id '42', a value and verification_status {state:'achieved', rung:'submitted'}, and a daemon refusal body of class InvalidRequest, when classifyResponse decodes each, then the success decodes to request_id '42' and the refusal throws its mapped error, and the same success body with an added version field is refused as decodeFailure"
+contract = "contracts/platform-sdk.md#agent-envelope"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeDecodesDaemonResponseShapes"
+qualification = "UNRUN"
+
+[acceptance.18.1256.2]
+feature = "18"
+req = "181256.2"
+scenario = "Given a success body whose verification_status is unverified with requested 'receipted' and achieved 'committed', when classifyResponse decodes it, then it is refused as decodeFailure, and as unknownOutcome when the call is mutating"
+contract = "contracts/platform-sdk.md#agent-envelope"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeDecodesDaemonResponseShapes"
+qualification = "UNRUN"
+
+[task.18.1258.1]
+title = "Issue #1258: Stop requiring source-account and asset bindings for full-mode A2A start and install"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181258.1", "181258.2"]
+capabilities = []
+interfaces = []
+do_1 = "In Runtime::new (tools/platform/cli/src/toolset.rs:41-92) remove the Full-mode refusal at :73-77 so a full-mode runtime starts with only the gateway credential and the active environment, since submit (:260-282) sends the raw transaction with network_id and reads neither binding; keep the 64-hex validation of a given source or asset (:67-72) and the read-only refusal (:78-80)."
+do_2 = "In payment_binding (tools/platform/cli/src/install/a2a.rs:357-377) stop requiring --source-account and --asset for a payment-capable install (:364-369): return Ok(None) when neither is given, validate both as 64-hex when both are given, refuse exactly one of them, and keep the read-only refusal (:359-363)."
+do_3 = "Leave launch_arguments (install/a2a.rs:379-411) appending the flags only when a binding is present, and keep the stable --source-account and --asset flags of InstallA2aArgs and A2aCommand::Serve (tools/platform/cli/src/main.rs:505-556) as optional."
+do_4 = "Replace payment_installation_requires_a_fixed_real_source_and_asset (tools/platform/cli/tests/install.rs:93-99) with a2a_installation_needs_no_payment_binding, asserting that layerx --json install a2a --environment beta without the flags fails with an error that mentions neither --source-account nor --asset, and that the same install with --read-only and --source-account is still refused as not accepted in read-only mode."
+symbols = ["Runtime::new", "payment_binding", "launch_arguments", "a2a_installation_needs_no_payment_binding"]
+touches = ["tools/platform/cli/src/toolset.rs", "tools/platform/cli/src/install/a2a.rs", "tools/platform/cli/tests/install.rs"]
+tests = ["tools/platform/cli/tests/install.rs::a2a_installation_needs_no_payment_binding"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli"
+verify_cmd = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --test install -- --exact a2a_installation_needs_no_payment_binding"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert toolset.rs, install/a2a.rs and tests/install.rs; full-mode start and install again require both bindings."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181258]
+title = "Full-mode A2A start and install need no payment bindings"
+ac_1 = "Runtime::new (tools/platform/cli/src/toolset.rs:41) in DeploymentMode::Full succeeds without a source account or asset, needing only the gateway credential and the active environment's network id that submit (toolset.rs:260) uses."
+ac_2 = "payment_binding (tools/platform/cli/src/install/a2a.rs:357) admits a payment-capable install without --source-account and --asset, still validates them as 64-hex when given, and still refuses them in read-only mode."
+
+[acceptance.18.1258.1]
+feature = "18"
+req = "181258.1"
+scenario = "Given a configured environment with a gateway credential and no source-account or asset binding, when the full-mode A2A runtime starts through Runtime::new, then it starts and its submit path uses only the raw transaction and the environment network id"
+contract = "contracts/platform-cli.md#cli-cli-commands"
+test = "tools/platform/cli/tests/install.rs::a2a_installation_needs_no_payment_binding"
+qualification = "UNRUN"
+
+[acceptance.18.1258.2]
+feature = "18"
+req = "181258.2"
+scenario = "Given layerx install a2a without --source-account and --asset, when the install runs, then it never fails for a missing binding, and given --read-only with --source-account, then it is refused as not accepted in read-only mode"
+contract = "contracts/platform-cli.md#cli-cli-commands"
+test = "tools/platform/cli/tests/install.rs::a2a_installation_needs_no_payment_binding"
+qualification = "UNRUN"
+
+[task.18.1254.1]
+title = "Issue #1254: Report a called program outcome in the walkthrough only from a sequencer receipt verified against pinned keys"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181254.1", "181254.2"]
+capabilities = []
+interfaces = []
+do_1 = "Create services/platform/examples/agent-program-call/verify-receipt.mjs (planned) exporting verifyCalledReceipt(rpcUrl, txHash, receiptKeys), which reads the raw transaction with eth_getRawTransactionByHash and resolves it with SequencerReceiptClient.resolve (services/platform/examples/support/runtime.mjs:109-160), whose verifySequencerReceipt call (services/agent/sdk/typescript/src/verifier.ts:1026) checks the pinned key id, key height range, signature and activity id against the raw transaction."
+do_2 = "Run as a script, verify-receipt.mjs takes the transaction hash as its only argument, reads LAYERX_RPC_URL and receiptKeysFromEnvironment('LAYERX_RECEIPT_KEYS_JSON') (runtime.mjs:76), prints the proof's verificationLevel on success and exits non-zero printing the LayerXApplicationStateError state (runtime.mjs:8) otherwise."
+do_3 = "In services/platform/examples/agent-program-call/walkthrough.sh:53-65 run verify-receipt.mjs after the shape check of layerx receipt get and report rung 'receipted' and status 'called' only when it succeeds; when it fails report status 'unknown-fate' with rung 'submitted' and the existing do-not-resubmit action, never 'called' (spec/layerx-merge/contracts/clients.md:32)."
+do_4 = "In services/platform/examples/test/agent-program-call.test.mjs make signedReceipt (:78-96) return its generated public key, answer eth_getRawTransactionByHash with the broadcast raw transaction in runWalkthrough (:98-216), pass LAYERX_RPC_URL and LAYERX_RECEIPT_KEYS_JSON pinning keyId 0x55..55 with that public key over a range containing height 7, and update the request list and pax_sequencerReceipt count of walkthroughReportsTransactionHashAndRung (:230-251) for the verification reads."
+do_5 = "Add walkthroughRefusesUnpinnedReceipt to agent-program-call.test.mjs asserting that when LAYERX_RECEIPT_KEYS_JSON pins a public key other than the receipt signer the walkthrough reports status 'unknown-fate', rung 'submitted', the transaction hash and no outcome."
+symbols = ["verifyCalledReceipt", "walkthroughReportsTransactionHashAndRung", "walkthroughRefusesUnpinnedReceipt"]
+touches = ["services/platform/examples/agent-program-call/verify-receipt.mjs", "services/platform/examples/agent-program-call/walkthrough.sh", "services/platform/examples/test/agent-program-call.test.mjs"]
+tests = ["services/platform/examples/test/agent-program-call.test.mjs::walkthroughReportsTransactionHashAndRung", "services/platform/examples/test/agent-program-call.test.mjs::walkthroughRefusesUnpinnedReceipt"]
+planned_paths = ["services/platform/examples/agent-program-call/verify-receipt.mjs"]
+build_cmd = "node --check services/platform/examples/agent-program-call/verify-receipt.mjs && bash -n services/platform/examples/agent-program-call/walkthrough.sh"
+verify_cmd = "node --test --test-name-pattern='^(walkthroughReportsTransactionHashAndRung|walkthroughRefusesUnpinnedReceipt)$' services/platform/examples/test/agent-program-call.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert walkthrough.sh and agent-program-call.test.mjs and delete verify-receipt.mjs; the walkthrough returns to reporting the unverified node answer."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181254]
+title = "The program-call walkthrough reports a called outcome only from a verified receipt"
+ac_1 = "services/platform/examples/agent-program-call/walkthrough.sh reports rung 'receipted' and status 'called' only after verifyCalledReceipt (services/platform/examples/agent-program-call/verify-receipt.mjs) verifies the sequencer receipt of the transaction against the keys in LAYERX_RECEIPT_KEYS_JSON and the raw transaction (spec/layerx-merge/contracts/clients.md:32)."
+ac_2 = "walkthrough.sh reports status 'unknown-fate' with rung 'submitted' and no outcome when the sequencer receipt is signed by a key that is not pinned."
+
+[acceptance.18.1254.1]
+feature = "18"
+req = "181254.1"
+scenario = "Given a node whose receipt is signed by the key pinned in LAYERX_RECEIPT_KEYS_JSON for the broadcast transaction, when walkthrough.sh runs, then it reports the transaction hash, rung 'receipted', status 'called' and the outcome"
+contract = "contracts/clients.md#c-receipt-verification"
+test = "services/platform/examples/test/agent-program-call.test.mjs::walkthroughReportsTransactionHashAndRung"
+qualification = "UNRUN"
+
+[acceptance.18.1254.2]
+feature = "18"
+req = "181254.2"
+scenario = "Given a node whose receipt is signed by a key other than the one pinned in LAYERX_RECEIPT_KEYS_JSON, when walkthrough.sh runs, then it reports status 'unknown-fate', rung 'submitted' and no outcome"
+contract = "contracts/clients.md#c-receipt-verification"
+test = "services/platform/examples/test/agent-program-call.test.mjs::walkthroughRefusesUnpinnedReceipt"
+qualification = "UNRUN"
+
+[task.18.1252.1]
+title = "Issue #1252: Restore the generated Swift ReceiptContract.swift to the exact generator output and gate it"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181252.1"]
+capabilities = []
+interfaces = []
+do_1 = "Rewrite sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift byte for byte to the output of render_swift_receipt_contract (sdk/platform/generators/src/main.rs:931-956): four-space enum cases (:939), the swift ABI policy template of render_program_abi_policy (:731-745) with its leading blank line before let programAbiV1 and four-space function body, replacing the two-space layout at ReceiptContract.swift:9-31."
+do_2 = "Write the file only through the generator's --write-program-contracts mode (main.rs:2405-2424) and never pass it through swift-format, so check_receipt_contracts (main.rs:1036-1052) no longer reports it as stale or hand-edited."
+do_3 = "Add committed_swift_receipt_contract_matches_generator to sdk/platform/generators/tests/receipt_contract.rs asserting that the Swift receipt contract written by repository() (:97-153) into its fixture equals byte for byte the committed sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift read from the repository root (CARGO_MANIFEST_DIR/../../..)."
+symbols = ["render_swift_receipt_contract", "check_receipt_contracts", "committed_swift_receipt_contract_matches_generator"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift", "sdk/platform/generators/tests/receipt_contract.rs"]
+tests = ["sdk/platform/generators/tests/receipt_contract.rs::committed_swift_receipt_contract_matches_generator"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen"
+verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test receipt_contract -- --exact committed_swift_receipt_contract_matches_generator"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert ReceiptContract.swift and receipt_contract.rs; the generated Swift file is whitespace-only different and no symbol changes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181252]
+title = "The committed Swift receipt contract equals the generator output"
+ac_1 = "sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift is byte-identical to render_swift_receipt_contract (sdk/platform/generators/src/main.rs:931) output for sdk/platform/generators/receipt.kvx, so check_receipt_contracts (main.rs:1036) accepts it."
+
+[acceptance.18.1252.1]
+feature = "18"
+req = "181252.1"
+scenario = "Given the repository receipt contract source, when the generator writes the program contracts into a fixture copy, then the Swift ReceiptContract.swift it writes equals the committed file byte for byte"
+contract = "contracts/platform-sdk.md#generators"
+test = "sdk/platform/generators/tests/receipt_contract.rs::committed_swift_receipt_contract_matches_generator"
+qualification = "UNRUN"
+
+[task.18.1250.1]
+title = "Issue #1250: Make the gateway end-to-end receipt gate assert the pass-through receipt instead of the test chain's private signing scheme"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181250.1"]
+capabilities = []
+interfaces = []
+do_1 = "In evmReviewApproveSignReturnsReceipt (services/wallet/gateway/test/e2e/gateway.e2e.test.ts:324-398) remove the keyId assertion derived from the SPKI DER of chain.sequencerPublicKey (:390) and the detached ed25519 check over JSON.stringify of the other receipt fields (:392-396), which certify only the TestChain convention (services/wallet/gateway/test/support/chain.ts:260-283) and not the node encoding, where keyId is the receipt context hash and receipt is the canonical signed receipt bytes (rpc/sequencer_receipt.go:470-482)."
+do_2 = "Keep the pass-through assertions: rung 'receipted', txHash equal to the broadcast hash, nonce, from, to and status '0x1' (:384-389), receipt as non-empty hex bytes (:386), and the gateway answer equal to the exact pax_sequencerReceipt result the chain returned (:387), and add that keyId is a 32-byte lowercase hex value as the node emits."
+do_3 = "Leave services/wallet/gateway/test/support/chain.ts and the gateway routes unchanged; the gate is evmReviewApproveSignReturnsReceipt itself."
+symbols = ["evmReviewApproveSignReturnsReceipt"]
+touches = ["services/wallet/gateway/test/e2e/gateway.e2e.test.ts"]
+tests = ["services/wallet/gateway/test/e2e/gateway.e2e.test.ts::evmReviewApproveSignReturnsReceipt"]
+planned_paths = []
+build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts -t 'evmReviewApproveSignReturnsReceipt'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert gateway.e2e.test.ts; only test assertions change."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181250]
+title = "The gateway end-to-end receipt gate asserts only what the gateway passes through"
+ac_1 = "evmReviewApproveSignReturnsReceipt (services/wallet/gateway/test/e2e/gateway.e2e.test.ts:324) asserts the receipt the gateway returns equals the pax_sequencerReceipt result of the chain and carries rung 'receipted', the broadcast txHash, nonce, from, to, status '0x1', a 32-byte hex keyId and hex receipt bytes, and asserts no SPKI-derived keyId or JSON-payload signature that rpc/sequencer_receipt.go:481 never produces."
+
+[acceptance.18.1250.1]
+feature = "18"
+req = "181250.1"
+scenario = "Given the gateway against five attestor daemons and the test chain, when an EVM transfer is reviewed, approved and signed, then the answer carries the receipted pax_sequencerReceipt result unchanged with the broadcast txHash, nonce, status '0x1', a 32-byte hex keyId and hex receipt bytes"
+contract = "contracts/services.md#s32-wallet-app-backends"
+test = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts::evmReviewApproveSignReturnsReceipt"
+qualification = "UNRUN"
+
+[task.18.1291.2]
+title = "Issue #1291: Verify sandbox submission receipts against the mounted lxphost store"
+status = "done"
+mode = "BUILD"
+wave = 2
+requires = ["18.1291.1", "18.1288.1"]
+reqs = ["181291.2"]
+capabilities = []
+interfaces = []
+do_1 = "In SandboxSubmissionReceipt::verify (programs/crates/layerx-programs-sandbox/src/activity.rs:358-412) add a private const SANDBOX_STATE_STORE: &str = 'lxphost', the mounted LayerXHostStoreKey (storage/common/keys/store_keys.go:48), and use it for the commitment store-name check at activity.rs:395 and the verify_state call at activity.rs:402 in place of 'layerx', matching the expiry verifier at programs/crates/layerx-programs-sandbox/src/expiry.rs:78-81 and the lease verifier after 18.1291.1."
+do_2 = "Keep every other check of SandboxSubmissionReceipt::verify (activity.rs:364-401), authenticated_usage_receipt (activity.rs:439-466) and the InvalidReceipt refusal exactly as written; a funding branch added to verify by 18.1288.1 uses the same SANDBOX_STATE_STORE const."
+do_3 = "In programs/crates/layerx-programs-sandbox/tests/activity_chain.rs turn evidence (activity_chain.rs:153-197) into evidence_in_store(submission, code, store_name) that builds its fixture with ChainFixture::new_in_store(store_name, 'sandbox-chain-test', &[SEED], pairs) (added to programs/crates/layerx-programs-registry/tests/support/chain.rs by 18.1291.1) in place of ChainFixture::new at activity_chain.rs:162, and keep evidence(submission, code) delegating with 'lxphost'."
+do_4 = "In sandbox_receipt_refuses_failed_tx_and_foreign_lease (activity_chain.rs:258-285) pass 'lxphost' instead of 'layerx' to the direct layerx_programs::verify_state call at activity_chain.rs:274 and keep both of its InvalidReceipt assertions as written."
+do_5 = "Write sandbox_receipt_verifies_only_against_mounted_lxphost_store in programs/crates/layerx-programs-sandbox/tests/activity_chain.rs asserting that SandboxSubmissionReceipt::verify accepts the receipt built by evidence_in_store(&submission, 0, 'lxphost') and returns an activity_id equal to SHA-256 of the submission payload, and that the same submission with evidence_in_store(&submission, 0, 'layerx') is refused with SandboxActivityRefusal::InvalidReceipt."
+symbols = ["SandboxSubmissionReceipt::verify", "SANDBOX_STATE_STORE", "verify_state", "ChainFixture::new_in_store", "evidence_in_store", "sandbox_receipt_verifies_only_against_mounted_lxphost_store", "sandbox_receipt_verifies_tx_result_and_usage_state", "sandbox_receipt_refuses_failed_tx_and_foreign_lease"]
+touches = ["programs/crates/layerx-programs-sandbox/src/activity.rs", "programs/crates/layerx-programs-sandbox/tests/activity_chain.rs"]
+tests = ["programs/crates/layerx-programs-sandbox/tests/activity_chain.rs::sandbox_receipt_verifies_only_against_mounted_lxphost_store"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-sandbox --test activity_chain -- --exact sandbox_receipt_verifies_only_against_mounted_lxphost_store"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the two touched files; SandboxSubmissionReceipt::verify returns to requesting the 'layerx' store and the activity fixtures to ChainFixture::new."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[acceptance.18.1291.2]
+feature = "18"
+req = "181291.2"
+scenario = "Given an execute submission whose usage record is committed under module 9 keys in an 'lxphost' store with signed heads over the transaction and result blocks, when SandboxSubmissionReceipt::verify checks the receipt, then it returns the receipt with the transaction's activity id, and the same receipt proven under a 'layerx' store is refused with InvalidReceipt"
+contract = "contracts/programs.md#sandbox-evidence"
+test = "programs/crates/layerx-programs-sandbox/tests/activity_chain.rs::sandbox_receipt_verifies_only_against_mounted_lxphost_store"
+qualification = "UNRUN"
+
+[task.18.1293.2]
+title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the JVM SDK envelope"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["18.1293.1"]
+reqs = ["181293.3"]
+capabilities = []
+interfaces = []
+do_1 = "In HttpProductionTransport (sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java) delete AGENT_BOOTSTRAP_OPERATIONS (HttpProductionTransport.java:27), matching the empty daemon list at services/agent/crates/layerx-agentd/src/agent_rpc.rs:24."
+do_2 = "In agentEnvelope (HttpProductionTransport.java:267-297) delete the bootstrap flag at :278 so the missing-session refusal at :279-280 (PlatformSdkException Code.CAPABILITY_REFUSAL, Retry.NEVER) applies to every operation, and replace the null branch at :286-287 with body.set of session.encode(mapper) for every operation, including agent.register and session.open."
+do_3 = "In agentEnvelopeEncodesVersionTwo (sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/AgentEnvelopeMajor2Test.java:18-45) replace the retired null-credential branch at AgentEnvelopeMajor2Test.java:38-42 with the tenant assertion it already makes for every other operation; the version, operation, request id, request and idempotency assertions stay as written."
+do_4 = "Leave AgentOperationEnvelopeProbe (sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/AgentOperationEnvelopeProbe.java and src/test/kotlin/com/sidiora/layerx/sdk/AgentOperationEnvelopeProbe.kt) unchanged; both build the transport with a configured AgentSessionCredential and carry no bootstrap branch of their own."
+do_5 = "Write agentEnvelopeCarriesOwnerCredentialForBootstrapOperations in AgentEnvelopeMajor2Test.java asserting that for agent.register and session.open, with an IdempotencyKey, the envelope credential is an object whose tenant, session_id, token_id and generation equal the AgentSessionCredential's, and that a transport built with a null session refuses both operations with PlatformSdkException code CAPABILITY_REFUSAL."
+symbols = ["HttpProductionTransport::agentEnvelope", "HttpProductionTransport.AgentSessionCredential", "AgentEnvelopeMajor2Test::agentEnvelopeEncodesVersionTwo", "AgentEnvelopeMajor2Test::agentEnvelopeCarriesOwnerCredentialForBootstrapOperations"]
+touches = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/AgentEnvelopeMajor2Test.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/AgentEnvelopeMajor2Test.java::agentEnvelopeCarriesOwnerCredentialForBootstrapOperations", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/AgentEnvelopeMajor2Test.java::agentEnvelopeEncodesVersionTwo"]
+planned_paths = []
+build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests compile"
+verify_cmd = "mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='AgentEnvelopeMajor2Test#agentEnvelopeCarriesOwnerCredentialForBootstrapOperations+agentEnvelopeEncodesVersionTwo' -Dsurefire.failIfNoSpecifiedTests=true"
+gate_kind = "planned"
+sandbox_profile = "jvm"
+owner_role = "fm-platform"
+rollback = "Revert the two touched files; the JVM SDK returns to sending a null credential for agent.register and session.open, which the daemon refuses."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[acceptance.18.1293.3]
+feature = "18"
+req = "181293.3"
+scenario = "Given an HttpProductionTransport with an AgentSessionCredential for tenant 'tenant' and an idempotency key, when agentEnvelope encodes agent.register and session.open, then each envelope credential carries that tenant, session id, token id and generation, and a transport without a session refuses both with CAPABILITY_REFUSAL"
+contract = "contracts/agent-errors.md#envelope-credential"
+test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/AgentEnvelopeMajor2Test.java::agentEnvelopeCarriesOwnerCredentialForBootstrapOperations"
+qualification = "UNRUN"
+
+[task.18.1293.3]
+title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the Python SDK envelope"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["18.1293.1"]
+reqs = ["181293.4"]
+capabilities = []
+interfaces = []
+do_1 = "Delete _BOOTSTRAP_OPERATIONS (services/agent/sdk/python/layerx_sdk/agent_http.py:200), matching the empty daemon list at services/agent/crates/layerx-agentd/src/agent_rpc.rs:24."
+do_2 = "In AgentEnvelopeTransport.call (agent_http.py:473-547), which AgentDaemonEnvelopeTransport (agent_http.py:654) inherits, delete the bootstrap branch at agent_http.py:490-491 so every operation, including agent.register and session.open, raises _invalid_argument before any I/O when self._session is None and otherwise sends self._session.coordinates() (agent_http.py:233-239) as the envelope credential at agent_http.py:507."
+do_3 = "Leave the idempotency checks at agent_http.py:494-498, the body bound, the response decoding in _decode_agent_envelope_response (agent_http.py:718) and the stub file services/agent/sdk/python/layerx_sdk/agent_http.pyi unchanged; the .pyi carries no bootstrap declaration."
+do_4 = "Write AgentEnvelopeBootstrapCredentialTest in tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py (planned), adding services/agent/sdk/python to sys.path as tests/agent/sdk/python/test_px.py:11 does, with a ThreadingHTTPServer loopback on 127.0.0.1 that records each POST body to /v1/agent/rpc and answers 200 with the echoed request_id, an empty value and verification_status {state: achieved, level: SequencerSigned}."
+do_5 = "In that class, test_bootstrap_operations_carry_the_owner_session_credential calls AgentEnvelopeTransport.call for agent.register and session.open with an AgentSessionCredential and an IdempotencyKey and asserts each recorded credential equals the credential's coordinates(); test_bootstrap_operations_refuse_a_missing_session_before_io builds the transport with session=None against http://127.0.0.1:1 and asserts both operations raise PlatformSdkError with SdkErrorCode.INVALID_ARGUMENT."
+symbols = ["AgentEnvelopeTransport::call", "AgentSessionCredential::coordinates", "AgentEnvelopeBootstrapCredentialTest", "test_bootstrap_operations_carry_the_owner_session_credential", "test_bootstrap_operations_refuse_a_missing_session_before_io"]
+touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py", "tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py"]
+tests = ["tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py::AgentEnvelopeBootstrapCredentialTest::test_bootstrap_operations_carry_the_owner_session_credential", "tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py::AgentEnvelopeBootstrapCredentialTest::test_bootstrap_operations_refuse_a_missing_session_before_io"]
+planned_paths = ["tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py"]
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/agent_http.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py"
+verify_cmd = "python3 -m pytest tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py::AgentEnvelopeBootstrapCredentialTest::test_bootstrap_operations_carry_the_owner_session_credential tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py::AgentEnvelopeBootstrapCredentialTest::test_bootstrap_operations_refuse_a_missing_session_before_io -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert agent_http.py and delete the new test file; the Python SDK returns to sending a null credential for agent.register and session.open, which the daemon refuses."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[acceptance.18.1293.4]
+feature = "18"
+req = "181293.4"
+scenario = "Given an AgentEnvelopeTransport on a loopback endpoint with an AgentSessionCredential and an idempotency key, when it calls agent.register and session.open, then each posted envelope carries the credential's tenant, session_id, token_id and generation, and a transport without a session raises INVALID_ARGUMENT for both before any request"
+contract = "contracts/agent-errors.md#envelope-credential"
+test = "tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py::AgentEnvelopeBootstrapCredentialTest::test_bootstrap_operations_carry_the_owner_session_credential (planned)"
+qualification = "UNRUN"
+
+[task.18.1293.4]
+title = "Issue #1293: Carry the owner session credential for agent.register and session.open in the TypeScript SDK envelope"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["18.1293.1"]
+reqs = ["181293.5"]
+capabilities = []
+interfaces = []
+do_1 = "Delete BOOTSTRAP_OPERATIONS (services/agent/sdk/typescript/src/agent-http.ts:384), matching the empty daemon list at services/agent/crates/layerx-agentd/src/agent_rpc.rs:24."
+do_2 = "In encodeAgentEnvelope (agent-http.ts:819-850), which AgentEnvelopeTransport uses for both the gateway and daemon surfaces, delete the null branch at agent-http.ts:832 so every operation, including agent.register and session.open, throws invalidArgument when session is undefined and otherwise encodes session.encode() (agent-http.ts:432) as the envelope credential."
+do_3 = "Change the AgentEnvelopeTransportOptions.session doc comment at agent-http.ts:453 to say the session is required for every agent operation; leave the idempotency and size checks of encodeAgentEnvelope unchanged."
+do_4 = "Write services/agent/sdk/typescript/test/agent-envelope-bootstrap-credential.test.ts (planned) with two named functions registered through node:test as test(fn.name, fn): bootstrapOperationsCarryOwnerSessionCredential asserts that encodeAgentEnvelope for agent.register and session.open with an AgentSessionCredential and an idempotencyKey yields a credential equal to session.encode(), and bootstrapOperationsRefuseMissingSession asserts both throw PlatformSdkError with code invalid-argument when session is undefined."
+do_5 = "Append node dist/test/agent-envelope-bootstrap-credential.test.js to the test script of services/agent/sdk/typescript/package.json:29 so the package suite runs the new file."
+symbols = ["encodeAgentEnvelope", "AgentEnvelopeTransportOptions", "AgentSessionCredential::encode", "bootstrapOperationsCarryOwnerSessionCredential", "bootstrapOperationsRefuseMissingSession"]
+touches = ["services/agent/sdk/typescript/src/agent-http.ts", "services/agent/sdk/typescript/test/agent-envelope-bootstrap-credential.test.ts", "services/agent/sdk/typescript/package.json"]
+tests = ["services/agent/sdk/typescript/test/agent-envelope-bootstrap-credential.test.ts::bootstrapOperationsCarryOwnerSessionCredential", "services/agent/sdk/typescript/test/agent-envelope-bootstrap-credential.test.ts::bootstrapOperationsRefuseMissingSession"]
+planned_paths = ["services/agent/sdk/typescript/test/agent-envelope-bootstrap-credential.test.ts"]
+build_cmd = "npm --prefix services/agent/sdk/typescript run build"
+verify_cmd = "cd services/agent/sdk/typescript && npm run build && node --test --test-name-pattern '^(bootstrapOperationsCarryOwnerSessionCredential|bootstrapOperationsRefuseMissingSession)$' dist/test/agent-envelope-bootstrap-credential.test.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert agent-http.ts and package.json and delete the new test file; the TypeScript SDK returns to sending a null credential for agent.register and session.open, which the daemon refuses."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[acceptance.18.1293.5]
+feature = "18"
+req = "181293.5"
+scenario = "Given an AgentSessionCredential and an idempotency key, when encodeAgentEnvelope encodes agent.register and session.open, then each envelope credential equals session.encode(), and encoding either operation without a session throws invalid-argument"
+contract = "contracts/agent-errors.md#envelope-credential"
+test = "services/agent/sdk/typescript/test/agent-envelope-bootstrap-credential.test.ts::bootstrapOperationsCarryOwnerSessionCredential (planned)"
+qualification = "UNRUN"
+
+
+[task.18.1301.1]
+title = "Issue #1301: Port the MCP scope test to InvalidationReason::GrantRevokedOnChain"
+status = "pending"
+mode = "BUILD"
+wave = 0
+requires = []
+reqs = ["181301.1"]
+capabilities = []
+interfaces = []
+do_1 = "In authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live (services/agent/crates/layerx-mcp/tests/scope.rs:475) the RevocationEvent at scope.rs:525 names InvalidationReason::CapabilityGrantRevoked, which 0665915dc (task 9.7.2) replaced: services/agent/crates/layerx-agentd/src/session_revocation.rs:217-221 carries GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered. Use InvalidationReason::GrantRevokedOnChain there and keep every assertion of the test (the bound server is refused, the sibling session stays live) as written."
+do_2 = "Change nothing else in scope.rs and nothing outside it; the scope target is the only layerx-mcp test target that fails to compile."
+symbols = ["authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live"]
+touches = ["services/agent/crates/layerx-mcp/tests/scope.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/scope.rs::authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test scope"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test scope -- --exact authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert scope.rs; the layerx-mcp scope target fails to compile again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181301]
+title = "Issue #1301: Port the MCP scope test to InvalidationReason::GrantRevokedOnChain"
+ac_1 = "The layerx-mcp scope test target compiles against the current InvalidationReason, and authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live passes with the on-chain grant revocation reason."
+
+[acceptance.18.1301.1]
+feature = "18"
+req = "181301.1"
+scenario = "Given a bound MCP server session and a sibling session, when a GrantRevokedOnChain revocation event for the bound authority is applied, then the bound server is refused and the sibling session stays live."
+contract = "contracts/agent.md#session-revocation"
+test = "services/agent/crates/layerx-mcp/tests/scope.rs::authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_live"
 qualification = "UNRUN"
