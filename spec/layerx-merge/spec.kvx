@@ -101160,7 +101160,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.36.1]
 title = "Serve the 0x0903 oracle aggregator with aggregate, submitPrice and getValidatorPrice"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.39.1", "2.0.1", "3.93.1"]
