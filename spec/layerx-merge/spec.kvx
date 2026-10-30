@@ -163504,7 +163504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.3]
 title = "Check block transaction counts against eth_getBlockTransactionCountByNumber"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.28.2", "18.1055.1"]
@@ -163564,7 +163564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.28.5]
 title = "Check eth_syncing answers decode after the method rename"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["14.28.2", "18.1055.1"]
@@ -174477,7 +174477,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.97.2]
 title = "Replace the explorer anchors and receipts route rows with the archive routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["17.0.1", "14.0.4"]
