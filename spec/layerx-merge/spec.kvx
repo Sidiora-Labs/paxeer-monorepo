@@ -189490,7 +189490,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1240.1]
 title = "Issue #1240: Map grant.issue and grant.draw onto layerxledger 0x101A and bind the prepared calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
