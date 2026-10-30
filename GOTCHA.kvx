@@ -11246,3 +11246,18 @@ fix = "Before reading an attempt's failure, compare its base_revision with the f
 title = "A first-time compile of a target exposes the older breaks beneath the blocker"
 symptom = "After a narrowed build or a cleared blocker lets a test target compile for the first time in several attempts, the attempt fails on an older, unrelated break in the same target (session_keys.rs:248 once the layerx-agentd half of 18.1228.1 passed; migration.rs and revocation.rs once --tests reached them in 18.1308.3; expiry.rs:68 once the registry dependents were checked in 13.4.6)."
 fix = "Before writing a re-qualify-unchanged note, run git log -S on every symbol the target calls that changed since its fixture was written, expect one new break per cleared blocker, and narrow build_cmd to the targets the verify runs."
+
+[gotcha.2287]
+title = "A candidate whose only extra file is its declared planned test is held as out of scope"
+symptom = "12.35.5 attempt 2 (6805e8616) passed its build and verify, yet the merge step held it because node/sequencer/commit_release_test.go, the task's planned_paths entry, is not in touches; the gate had admitted the file because its allowed set is touches plus planned_paths."
+fix = "The merge-scope check compares the candidate's changed files with touches plus planned_paths, the same set the gate admits; a held candidate whose only extra files are planned paths is re-collected, not re-run."
+
+[gotcha.2288]
+title = "A task reopened in the same minute as the batch that added its prerequisite was admitted against the previous plan"
+symptom = "10.20.3, 17.5.1-4 and 18.1200.1 were reopened right after 9f8c07033 added 5.7.3 and 10.16.4 to their requires; the scheduler re-reads the plan every four minutes and admitted them against the plan it held, and each attempt stopped at cg spec start because the prerequisite was not done"
+fix = "After a spec batch that adds requires, reopen the affected tasks only once the plan digest on the board matches the new spec digest; a task admitted against a stale plan costs one attempt and returns to pending by itself"
+
+[gotcha.2289]
+title = "Calling the gate build helper with --help runs the whole build"
+symptom = "18.1211.2 attempt 6 and 18.1308.2 attempt 5 each spent one of their builds on hf-build --help, which ignores its arguments and runs the build of the untouched tree, leaving one build for the real tree"
+fix = "The build helper answers --help and -h with its usage and exits 0 without building; read the task section for the build and verify commands instead of probing the helper"
