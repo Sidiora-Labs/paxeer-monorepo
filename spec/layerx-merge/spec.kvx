@@ -194657,7 +194657,7 @@ qualification = "UNRUN"
 
 [task.18.1308.2]
 title = "Platform SDKs resolve program.receipt by the retained transaction instead of the retired resultByIdempotency view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1308.1"]
