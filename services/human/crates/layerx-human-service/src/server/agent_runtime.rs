@@ -489,7 +489,7 @@ pub struct NativeProgramApprovalBudget {
     pub observed_at_sequence: u64,
     pub remaining: u128,
     pub terminal: bool,
-    pub verification: layerx_agent_api::verify::Level,
+    pub verification: Rung,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -553,7 +553,7 @@ pub struct NativeEffectBudgetRow {
     pub budget_id: [u8; 32],
     pub source_account: [u8; 32],
     pub remaining: u128,
-    pub verification: layerx_agent_api::verify::Level,
+    pub verification: Rung,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -847,7 +847,7 @@ pub struct AgentBudgetProof {
     pub source_account: [u8; 32],
     pub observed_head_sequence: u64,
     pub remaining: u128,
-    pub verification: layerx_agent_api::verify::Level,
+    pub verification: Rung,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -1284,7 +1284,7 @@ impl AgentRuntime {
             observed_head_sequence: reader.u64()?,
             remaining: reader.u128()?,
             verification: match decode_rung(reader.u8()?)? {
-                Rung::Committed => layerx_agent_api::verify::Level::CheckpointFinalised,
+                Rung::Committed => Rung::Committed,
                 _ => return Err(AgentBoundaryError::CorruptResponse),
             },
             evidence_digest: reader.fixed()?,
@@ -1305,10 +1305,7 @@ impl AgentRuntime {
             || value.asset == [0; 32]
             || value.source_account == [0; 32]
             || value.observed_head_sequence == 0
-            || !matches!(
-                value.verification,
-                layerx_agent_api::verify::Level::CheckpointFinalised
-            )
+            || value.verification != Rung::Committed
             || value.evidence_digest == [0; 32]
             || value.receipt_digest == [0; 32]
             || value.checkpoint_digest == [0; 32]
@@ -2634,7 +2631,7 @@ impl AgentRuntime {
             _ => return Err(AgentBoundaryError::CorruptResponse),
         };
         let verification = match reader.u8()? {
-            2 => layerx_agent_api::verify::Level::CheckpointFinalised,
+            2 => Rung::Committed,
             _ => return Err(AgentBoundaryError::CorruptResponse),
         };
         let evidence_digest = reader.fixed()?;
@@ -2984,7 +2981,7 @@ impl AgentRuntime {
             let source_account = reader.fixed()?;
             let remaining = reader.u128()?;
             let verification = match reader.u8()? {
-                2 => layerx_agent_api::verify::Level::CheckpointFinalised,
+                2 => Rung::Committed,
                 _ => return Err(AgentBoundaryError::CorruptResponse),
             };
             let evidence_digest = reader.fixed()?;

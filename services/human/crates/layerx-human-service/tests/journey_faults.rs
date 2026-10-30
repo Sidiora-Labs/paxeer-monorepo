@@ -16,7 +16,6 @@ use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
     TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
@@ -48,6 +47,7 @@ use layerx_types::intent::{
     SendAuthorizationKind, Sequence, TimestampSeconds,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use support::{directory, principal, retention_uniform, tenancy};
@@ -269,9 +269,9 @@ impl RealAgentLayer {
             }]
         });
         let rung = if evidence.is_empty() {
-            layerx_types::rung::Rung::Submitted
+            Rung::Submitted
         } else {
-            layerx_types::rung::Rung::Receipted
+            Rung::Receipted
         };
         TrackedSubmission {
             submission_ref: SubmissionRef::new(format!("sub-{}", hex(&key)))
@@ -632,7 +632,7 @@ fn receipt(activity_id: [u8; 32], marker: u8, activity: ActivityType) -> Receipt
         canonical_bytes,
         tx_hash: fields.activity_id,
         block_height: fields.sequence,
-        rung: layerx_types::rung::Rung::Receipted,
+        rung: Rung::Receipted,
         authorised_batch: AuthorizedBatch::new(
             fields.batch_id,
             fields.asset,

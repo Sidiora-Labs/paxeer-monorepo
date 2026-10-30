@@ -7,7 +7,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, EventDelivery, EventIdentity, ReceiptReference,
 };
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::verify::Level;
 use layerx_human_service::activity::detail::{
     DetailError, EvidenceKind, FinalityReference, ReceiptActual, StageState,
 };
@@ -161,10 +160,10 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
         .flat_map(|kind| [(kind, false), (kind, true)])
         .enumerate()
     {
-        let level = if finalised {
-            Level::CheckpointFinalised
+        let rung = if finalised {
+            Rung::Committed
         } else {
-            Level::BatchIncluded
+            Rung::Receipted
         };
         let sequence = u64::try_from(index).unwrap_or(0).saturating_add(1);
         let delivery = EventDelivery::new(
@@ -177,7 +176,7 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
             },
             ReceiptReference::Verified {
                 receipt_ref: receipt_ref.clone(),
-                rung: level.rung().expect("source rung"),
+                rung,
             },
         )
         .unwrap_or_else(|error| panic!("delivery: {error:?}"));
@@ -261,7 +260,7 @@ fn refuses_unbacked_actuals_and_states_refusal_funds_disposition() {
         ReceiptReference::Verified {
             receipt_ref: ReceiptRef::new(actual.reference())
                 .unwrap_or_else(|error| panic!("receipt reference: {error:?}")),
-            rung: Level::BatchIncluded.rung().expect("source rung"),
+            rung: Rung::Receipted,
         },
     )
     .unwrap_or_else(|error| panic!("delivery: {error:?}"));
