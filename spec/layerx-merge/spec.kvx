@@ -141755,7 +141755,7 @@ do_5 = "services/agent/tests/qualify/fabrication.rs, compiled into the agent-qua
 
 [task.9.18.3]
 title = "Refuse any LNI transport import in the boundary purity check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["9.18.2", "9.12.5"]
@@ -141884,7 +141884,7 @@ do_5 = "services/agent/tests/qualify/fabrication.rs, compiled into the agent-qua
 
 [task.9.18.7]
 title = "Drop the LNI frame target from the qualification fuzz gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["9.18.2"]
