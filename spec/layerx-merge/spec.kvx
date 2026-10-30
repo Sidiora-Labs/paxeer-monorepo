@@ -193939,7 +193939,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.12.8]
 title = "Look up human receipts and receipt evidence through pax_sequencerReceipt and px_getReceiptKeys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["9.12.7"]
