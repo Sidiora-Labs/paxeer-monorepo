@@ -80,6 +80,7 @@ impl ChainProofVerifier {
             |bytes: &[u8]| <[u8; 32]>::try_from(bytes).map_err(|_| ChainProofError::NonCanonical);
         Ok(VerifiedChainHead {
             chain_id: self.chain_id.clone(),
+            header_hash: header.hash()?,
             height: header.height,
             time_ms: header
                 .time
