@@ -11140,3 +11140,23 @@ fix = "grep include/ and src/ for the symbol's definition first; if it is live, 
 title = "A task that changes a struct's fields must own, or hand off, the shared test support that fills them"
 symptom = "13.4.5 removed the kernel-batch fields from DeploymentProof and ProgramStateProof; tests/support/mod.rs, shared by seven test targets, stopped compiling and the package-wide --tests build failed every attempt."
 fix = "Build only the task's own --test target (decision.1910) and make the task that rebuilds the shared support require the type change; record the interval in which the other targets do not compile."
+
+[gotcha.2266]
+title = "Symbols a task removes, and documentation headings, fail the graph check as not defined"
+symptom = "cg spec done refuses a task after a passing verify with 'symbol X not defined in the graph' (14.29.3 named the three functions it deleted; 18.1259.1, a documentation task, named two headings)."
+fix = "A task's symbols list names code definitions that exist after the task. Removed names are described in do_ lines only; a documentation-only task declares symbols = []."
+
+[gotcha.2267]
+title = "A symbol defined twice in one file fails the graph check as ambiguous"
+symptom = "cg spec done reports 'symbol ProgramOperations::simulate ambiguous: 2 definitions (ops/program.rs)' when the generic impl and the SequencerEndpoint impl both define the method (18.1286.1)."
+fix = "Declare only names with one definition; the touched file carries the change. Check with grep -n 'fn <name>' before listing a method of a type that has several impl blocks."
+
+[gotcha.2268]
+title = "An explorer type change must port every caller because the build is the app-wide type check"
+symptom = "cd apps/explorer && yarn lint:tsc fails in spec, mock and page files outside touches as soon as a shared union or interface is narrowed (14.31.1 nine errors in seven files; 14.33.1 five errors in three files)."
+fix = "Before narrowing a shared TS type, grep its literals and members across apps/explorer and add every caller to touches with a do_ line that ports them; the graph check refuses touched files that are not declared."
+
+[gotcha.2269]
+title = "A reproducibility test over generated code fails until the checked-in files come from the pinned toolchain"
+symptom = "TestBufGenerateMatchesCheckedInGo reports 104 .pb.go files differing in gzipped FileDescriptorProto size and import blocks although no .proto changed (7.29.2 attempts 1-3)."
+fix = "Generated code is regenerated with the pinned plugin in the same task that adds the comparison; the comparison is never normalised. List the regenerated files in touches and build their packages."
