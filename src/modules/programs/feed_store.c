@@ -434,7 +434,7 @@ static lxp_result store_begin(void *context, const lxp_activity *activity,
     lxp_result status;
     if (store == NULL || store->canonical_log == NULL ||
         store->history == NULL || store->scratch == NULL ||
-        activity == NULL || receipt == NULL ||
+        activity == NULL || receipt == NULL || !store->baseline_present ||
         receipt->global_sequence < store->baseline_next_sequence)
         return LXP_ERR_NON_CANONICAL;
     mark = lxp_arena_mark(store->scratch);
@@ -1060,7 +1060,8 @@ lxp_result lxp_programs_state_feed_store_recover(
         kernel->commit_observer_context != &store->feed ||
         kernel->observe_commit == NULL)
         return LXP_ERR_NON_CANONICAL;
-    kernel->observe_maintenance = observe_maintenance;
+    status = lxp_programs_state_feed_store_bind_maintenance(store, kernel);
+    if (status != LXP_OK) return status;
     status = store_lock(store);
     if (status == LXP_OK) {
         locked = true;

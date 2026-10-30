@@ -28,6 +28,8 @@ func GetQueryCmd() *cobra.Command {
 		GetCmdDenomAuthorityMetadata(),
 		GetCmdDenomPaused(),
 		GetCmdDenomsFromCreator(),
+		GetCmdDenomMetadata(),
+		GetCmdDenomAllowList(),
 	)
 
 	return cmd
@@ -153,6 +155,62 @@ func GetCmdDenomsFromCreator() *cobra.Command {
 
 	flags.AddQueryFlagsToCmd(cmd)
 	flags.AddPaginationFlagsToCmd(cmd, "denoms-from-creator")
+
+	return cmd
+}
+
+func GetCmdDenomMetadata() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "denom-metadata [denom]",
+		Short: "Get the metadata for a specific denom",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			queryClient := types.NewQueryClient(clientCtx)
+
+			res, err := queryClient.DenomMetadata(cmd.Context(), &types.QueryDenomMetadataRequest{
+				Denom: args[0],
+			})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
+}
+
+func GetCmdDenomAllowList() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "denom-allow-list [denom]",
+		Short: "Get the allow list for a specific denom",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			queryClient := types.NewQueryClient(clientCtx)
+
+			res, err := queryClient.DenomAllowList(cmd.Context(), &types.QueryDenomAllowListRequest{
+				Denom: args[0],
+			})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
 
 	return cmd
 }

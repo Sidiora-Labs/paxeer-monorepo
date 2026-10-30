@@ -7,10 +7,10 @@ import { env } from '../env.js';
 import {
   PRECOMPILE_ADDRESSES,
   TEE_FAMILIES,
+  UNSERVED_PRECOMPILES,
   PrecompileNotServedError,
   ensureServed,
   eip712,
-  precompileAddressBook,
   scheduler,
   streams,
   teeAttestor,
@@ -31,6 +31,41 @@ import {
 import { executeAgentTransaction, getAgentWallet, type AgentTxInput } from './agentExec.js';
 import type { AgentTxIntent } from '../policy/agent.js';
 
+const PRECOMPILE_ROUTES = {
+  orob: [],
+  clearing: [],
+  oracle: [],
+  pofq: [],
+  scheduler: [
+    '/v1/agent/precompiles/scheduler/schedule',
+    '/v1/agent/precompiles/scheduler/cancel',
+    '/v1/agent/precompiles/scheduler/reschedule',
+    '/v1/agent/precompiles/scheduler/job/:id',
+    '/v1/agent/precompiles/scheduler/pending',
+  ],
+  streams: [
+    '/v1/agent/precompiles/streams/open',
+    '/v1/agent/precompiles/streams/settle',
+    '/v1/agent/precompiles/streams/close',
+    '/v1/agent/precompiles/streams/update-rate',
+    '/v1/agent/precompiles/streams/stream/:id',
+    '/v1/agent/precompiles/streams/accrued/:id',
+  ],
+  teeAttestor: [
+    '/v1/agent/precompiles/tee/verify',
+    '/v1/agent/precompiles/tee/root-count',
+    '/v1/agent/precompiles/tee/root-of',
+  ],
+  eip712: [
+    '/v1/agent/precompiles/eip712/domain-separator',
+    '/v1/agent/precompiles/eip712/hash-typed-data',
+    '/v1/agent/precompiles/eip712/recover',
+  ],
+  staking: [],
+  bech32: [],
+  p256: [],
+} as const satisfies Record<keyof typeof PRECOMPILE_ADDRESSES, readonly string[]>;
+
 /**
  * Network-native precompile surface for agents.
  *
@@ -50,7 +85,7 @@ function hashRequest(payload: unknown): string {
 
 function buildAudit(
   req: FastifyRequest,
-  payload: unknown,
+  payload: unknown
 ): {
   request_hash: string;
   ip: string | null;
@@ -71,13 +106,16 @@ function refuseUnserved(key: keyof typeof PRECOMPILE_ADDRESSES) {
     } catch (err) {
       if (!(err instanceof PrecompileNotServedError)) throw err;
     }
-    void reply.code(503).header('Retry-After', '3600').send({
-      error: 'precompile_not_served',
-      retryable: false,
-      message: `the node does not serve the ${key} precompile`,
-      precompile: key,
-      address: PRECOMPILE_ADDRESSES[key],
-    });
+    void reply
+      .code(503)
+      .header('Retry-After', '3600')
+      .send({
+        error: 'precompile_not_served',
+        retryable: false,
+        message: `the node does not serve the ${key} precompile`,
+        precompile: key,
+        address: PRECOMPILE_ADDRESSES[key],
+      });
   };
 }
 
@@ -128,7 +166,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         label: 'scheduler.schedule',
       });
       return reply.code(res.status).send(res.body);
-    },
+    }
   );
 
   app.post(
@@ -148,7 +186,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         label: 'scheduler.cancel',
       });
       return reply.code(res.status).send(res.body);
-    },
+    }
   );
 
   app.post(
@@ -168,7 +206,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         label: 'scheduler.reschedule',
       });
       return reply.code(res.status).send(res.body);
-    },
+    }
   );
 
   app.get(
@@ -183,7 +221,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
       });
       if (!job) return reply.code(404).send({ error: 'not_found' });
       return reply.send({ job });
-    },
+    }
   );
 
   app.get(
@@ -194,7 +232,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
       if (!wallet) return reply.code(404).send({ error: 'no_wallet', message: 'provision first' });
       const ids = await scheduler.pending(wallet.address).catch(() => []);
       return reply.send({ creator: wallet.address, job_ids: ids });
-    },
+    }
   );
 
   // ── PaymentStreams (0x0906) ─────────────────────────────────────────────────
@@ -234,7 +272,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         label: 'streams.open',
       });
       return reply.code(res.status).send(res.body);
-    },
+    }
   );
 
   for (const [path, op] of [
@@ -258,7 +296,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
           label: `streams.${path}`,
         });
         return reply.code(res.status).send(res.body);
-      },
+      }
     );
   }
 
@@ -279,7 +317,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         label: 'streams.updateRate',
       });
       return reply.code(res.status).send(res.body);
-    },
+    }
   );
 
   app.get(
@@ -291,7 +329,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
       const stream = await streams.getStream(BigInt(id)).catch(() => null);
       if (!stream) return reply.code(404).send({ error: 'not_found' });
       return reply.send({ stream });
-    },
+    }
   );
 
   app.get(
@@ -303,7 +341,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
       const accrued = await streams.accrued(BigInt(id)).catch(() => null);
       if (accrued === null) return reply.code(502).send({ error: 'read_failed' });
       return reply.send({ stream_id: id, accrued });
-    },
+    }
   );
 
   // ── EIP-712 helper (0x0908) — pure views ────────────────────────────────────
@@ -323,7 +361,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         verifyingContract: verifying_contract as `0x${string}`,
       });
       return reply.send({ separator });
-    },
+    }
   );
 
   app.post(
@@ -335,10 +373,10 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
         return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
       const digest = await eip712.hashTypedData(
         parsed.data.domain_separator as Hex,
-        parsed.data.struct_hash as Hex,
+        parsed.data.struct_hash as Hex
       );
       return reply.send({ digest });
-    },
+    }
   );
 
   app.post(
@@ -351,10 +389,10 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
       const signer = await eip712.recoverTypedSigner(
         parsed.data.domain_separator as Hex,
         parsed.data.struct_hash as Hex,
-        parsed.data.signature as Hex,
+        parsed.data.signature as Hex
       );
       return reply.send({ signer });
-    },
+    }
   );
 
   // ── TEE Attestor (0x0907) — views ───────────────────────────────────────────
@@ -372,7 +410,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
           ? await teeAttestor.verifyAndExpect(
               family,
               parsed.data.quote as Hex,
-              parsed.data.expected_report_data as Hex,
+              parsed.data.expected_report_data as Hex
             )
           : await teeAttestor.verify(family, parsed.data.quote as Hex);
         return reply.send({ attestation: att });
@@ -382,7 +420,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
           .code(422)
           .send({ error: 'attestation_failed', detail: (err as Error).message });
       }
-    },
+    }
   );
 
   app.post(
@@ -396,7 +434,7 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
       const count = await teeAttestor.rootCount(family).catch(() => null);
       if (count === null) return reply.code(502).send({ error: 'read_failed' });
       return reply.send({ family, count });
-    },
+    }
   );
 
   app.post(
@@ -411,11 +449,17 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
       const root = await teeAttestor.rootOf(family, BigInt(parsed.data.index)).catch(() => null);
       if (root === null) return reply.code(502).send({ error: 'read_failed' });
       return reply.send({ family, index: parsed.data.index, root });
-    },
+    }
   );
 
   // Expose the precompile address book for client convenience.
   app.get('/v1/agent/precompiles', { preHandler: requireAgent }, async (_req, reply) => {
-    return reply.send(precompileAddressBook());
+    const keys = Object.keys(PRECOMPILE_ADDRESSES) as (keyof typeof PRECOMPILE_ADDRESSES)[];
+    const served = Object.fromEntries(
+      keys
+        .filter((key) => !UNSERVED_PRECOMPILES.has(key))
+        .map((key) => [key, PRECOMPILE_ROUTES[key]])
+    );
+    return reply.send({ addresses: PRECOMPILE_ADDRESSES, served, tee_families: TEE_FAMILIES });
   });
 }
