@@ -177,7 +177,7 @@ fn document_for(
         "session_token_file": token_file.display().to_string(),
         "session_generation": 1,
         "capability_id": CAPABILITY_ID,
-        "core_sequence": 50,
+        "core_height": 50,
         "deadline_ms": 5_000,
         "agent": {
             "endpoint": endpoint,
@@ -421,6 +421,7 @@ fn a_binding_document_is_closed_complete_and_narrowable() {
     let mut binding = Binding::open(&path).unwrap_or_else(|error| panic!("open: {error:?}"));
     assert_eq!(binding.mode(), DeploymentMode::Full);
     assert_eq!(binding.deadline(), Duration::from_millis(5_000));
+    assert_eq!(binding.core_height(), 50);
     let declared = binding
         .listener()
         .unwrap_or_else(|| panic!("listener absent"))

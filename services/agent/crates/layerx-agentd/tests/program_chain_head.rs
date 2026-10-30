@@ -17,11 +17,11 @@ use layerx_programs::{
         decode::decode_commitment_proof,
         merkle::{hash_from_byte_slices, SimpleProof},
         validators::TrustedValidator,
-        vote::vote_sign_bytes,
+        vote::{vote_sign_bytes, Timestamp},
     },
     interface_state_key, interface_state_value, InterfaceEntryPoint, ProgramBundleError, ProgramId,
-    ProgramInterface, ProgramStateBundle, ProtocolDeploymentVerifier, Registry, ValueSchema,
-    ValueType,
+    ProgramInterface, ProgramStateBundle, ProtocolDeploymentVerifier, ProtocolEvidenceError,
+    Registry, ValueSchema, ValueType,
 };
 use openssl::{
     asn1::Asn1Time,
@@ -36,6 +36,10 @@ use sha2::{Digest, Sha256};
 #[allow(dead_code)]
 #[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/chain.rs"]
 mod chain;
+
+#[allow(dead_code)]
+#[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/mod.rs"]
+mod deployment_support;
 
 const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
 const REPLICA: [u8; 32] = [0xa1; 32];
@@ -398,5 +402,179 @@ fn chain_head_read_verifies_the_validator_signed_commitment() {
     assert_eq!(
         reader.read_chain_head(0).unwrap_err(),
         ChainHeadError::View(ProgramReadError::NonCanonicalView)
+    );
+}
+
+fn journal_head_document(fixture: &deployment_support::ProtocolFixture) -> Value {
+    let chain = &fixture.chain;
+    let transaction = &fixture.proof.state.transaction;
+    let proof = &fixture.proof.state.transaction_proof;
+    let now = u64::try_from(chain.header.time.seconds).unwrap() * 1_000
+        + u64::try_from(chain.header.time.nanos).unwrap() / 1_000_000;
+    json!({
+        "current": true,
+        "receipt_digest": hex::encode(Sha256::digest(transaction)),
+        "state_root": hex::encode(&chain.header.app_hash),
+        "observed_sequence": chain.header.height,
+        "observed_at": now,
+        "chain_evidence": {
+            "commitment_hex": hex::encode(chain.encode().unwrap()),
+            "transaction_hex": hex::encode(transaction),
+            "transaction_proof": {
+                "total": proof.total, "index": proof.index,
+                "leaf_hash": hex::encode(proof.leaf_hash),
+                "aunts": proof.aunts.iter().map(hex::encode).collect::<Vec<_>>()
+            }
+        }
+    })
+}
+
+fn sign_journal_head(fixture: &mut deployment_support::ProtocolFixture, now: u64) {
+    let chain = &mut fixture.chain;
+    chain.header.time.seconds = i64::try_from(now / 1_000).unwrap();
+    chain.header.time.nanos = i32::try_from(now % 1_000 * 1_000_000).unwrap();
+    chain.commit.height = chain.header.height;
+    chain.commit.block_id.hash = chain.header.hash().unwrap().to_vec();
+    let keys: Vec<_> = SEEDS.iter().map(SigningKey::from_bytes).collect();
+    for signature in &mut chain.commit.signatures {
+        let signer = keys
+            .iter()
+            .find(|key| {
+                TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                    .address
+                    .as_slice()
+                    == signature.validator_address
+            })
+            .unwrap();
+        signature.timestamp = Timestamp {
+            seconds: chain.header.time.seconds,
+            nanos: chain.header.time.nanos,
+        };
+        let bytes = vote_sign_bytes(
+            &chain.header.chain_id,
+            chain.commit.height,
+            chain.commit.round,
+            Some(&chain.commit.block_id),
+            signature.timestamp,
+        )
+        .unwrap();
+        signature.signature = signer.sign(&bytes).to_bytes().to_vec();
+    }
+}
+
+#[test]
+fn journal_admission_verifies_through_the_current_chain_head() {
+    chain_head_read_verifies_the_validator_signed_commitment();
+
+    let admission_time = deployment_support::NOW;
+    let mut fixture = deployment_support::deploy_fixture(
+        deployment_support::WASM_V1,
+        layerx_programs_runtime::UpgradePolicy::Authority(deployment_support::AUTHORITY),
+        41,
+        admission_time,
+    );
+    let verifier = deployment_support::verifier_for_fixture(&fixture, STALENESS_LIMIT);
+    let admission = verifier
+        .verify_deployment(&fixture.proof, admission_time)
+        .unwrap();
+    let ca_der = ca_der();
+
+    let document = journal_head_document(&fixture);
+    let mut authority_document = document.clone();
+    authority_document["authority_replica_id"] = json!(hex::encode(REPLICA));
+    let node = HeadServer::serve(
+        document,
+        "/v1/protocol/account-state/head".to_owned(),
+        "node-read",
+    );
+    let authority = HeadServer::serve(
+        authority_document,
+        format!(
+            "/v1/protocol/account-state/head?height={}",
+            fixture.chain.header.height
+        ),
+        "authority-read",
+    );
+    let reader = connect(&node, &authority, verifier.clone(), &ca_der);
+    assert_eq!(
+        reader
+            .verify_journal_admission(&fixture.proof, admission_time)
+            .unwrap()
+            .record(),
+        admission.record()
+    );
+    assert_eq!(
+        reader
+            .verify_journal_admission(&fixture.proof, 0)
+            .unwrap_err(),
+        ChainHeadError::View(ProgramReadError::NonCanonicalView)
+    );
+    drop(reader);
+    drop(authority);
+
+    fixture.chain.header.height += 2;
+    let now = admission_time + STALENESS_LIMIT + 1;
+    sign_journal_head(&mut fixture, now);
+    let document = journal_head_document(&fixture);
+    let mut authority_document = document.clone();
+    authority_document["authority_replica_id"] = json!(hex::encode(REPLICA));
+    node.set(document.clone());
+    let authority = HeadServer::serve(
+        authority_document.clone(),
+        format!(
+            "/v1/protocol/account-state/head?height={}",
+            fixture.chain.header.height
+        ),
+        "authority-read",
+    );
+    let reader = connect(&node, &authority, verifier.clone(), &ca_der);
+    assert_eq!(
+        verifier.verify_deployment(&fixture.proof, now),
+        Err(ProtocolEvidenceError::Stale)
+    );
+    let replayed = reader
+        .verify_journal_admission(&fixture.proof, now)
+        .unwrap();
+    assert_eq!(replayed.record(), admission.record());
+    let mut registry = Registry::new();
+    registry.record_verified_deployment(&replayed).unwrap();
+    assert_eq!(registry.latest_version(replayed.program()), Ok(1));
+
+    let mut disagreement = authority_document.clone();
+    disagreement["chain_evidence"]["transaction_hex"] =
+        json!(hex::encode(b"different transaction"));
+    authority.set(disagreement);
+    assert_eq!(
+        reader
+            .verify_journal_admission(&fixture.proof, now)
+            .unwrap_err(),
+        ChainHeadError::View(ProgramReadError::NonCanonicalView)
+    );
+
+    fixture.chain.commit.signatures[0].signature[0] ^= 1;
+    let forged = journal_head_document(&fixture);
+    let mut forged_authority = forged.clone();
+    forged_authority["authority_replica_id"] = json!(hex::encode(REPLICA));
+    node.set(forged);
+    authority.set(forged_authority);
+    assert_eq!(
+        reader
+            .verify_journal_admission(&fixture.proof, now)
+            .unwrap_err(),
+        ChainHeadError::Evidence(ProtocolEvidenceError::ChainProof)
+    );
+
+    let expired_now = admission_time + 14 * 24 * 60 * 60 * 1_000 + 1;
+    sign_journal_head(&mut fixture, expired_now);
+    let expired = journal_head_document(&fixture);
+    let mut expired_authority = expired.clone();
+    expired_authority["authority_replica_id"] = json!(hex::encode(REPLICA));
+    node.set(expired);
+    authority.set(expired_authority);
+    assert_eq!(
+        reader
+            .verify_journal_admission(&fixture.proof, expired_now)
+            .unwrap_err(),
+        ChainHeadError::Evidence(ProtocolEvidenceError::HistoricalTrustAnchor)
     );
 }
