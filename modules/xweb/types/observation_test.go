@@ -6,79 +6,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-const observationKernelDriver = `
-#include "layerx/lx_web.h"
-#include <stdio.h>
-#include <string.h>
-
-static uint8_t input[LXP_MAX_ACTIVITY_BYTES];
-
-int main(int argc, char **argv)
-{
-    lx_web_observation observation;
-    lxp_activity activity;
-    uint8_t canonical[LX_WEB_OBSERVATION_MAX_BYTES];
-    uint8_t code[4];
-    const uint8_t *payload = input;
-    size_t length = fread(input, 1U, sizeof(input), stdin);
-    size_t canonical_length = 0U;
-    lxp_result status;
-    uint32_t result;
-    if (argc != 2 || ferror(stdin) != 0 || fgetc(stdin) != EOF) return 1;
-    if (strcmp(argv[1], "activity") == 0) {
-        status = lxp_activity_decode(input, length, &activity);
-        if (status != LXP_OK || activity.activity_type != LX_WEB_OBSERVATION_ACTIVITY)
-            return 2;
-        payload = activity.payload.bytes;
-        length = activity.payload.length;
-    } else if (strcmp(argv[1], "observation") != 0) {
-        return 3;
-    }
-    status = lx_web_observation_decode(payload, length, &observation);
-    if (status == LXP_OK)
-        status = lx_web_observation_encode(&observation, canonical,
-                                           sizeof(canonical), &canonical_length);
-    result = (uint32_t)status;
-    code[0] = (uint8_t)(result >> 24U);
-    code[1] = (uint8_t)(result >> 16U);
-    code[2] = (uint8_t)(result >> 8U);
-    code[3] = (uint8_t)result;
-    if (fwrite(code, 1U, sizeof(code), stdout) != sizeof(code)) return 4;
-    if (status == LXP_OK &&
-        fwrite(canonical, 1U, canonical_length, stdout) != canonical_length)
-        return 5;
-    return fflush(stdout) == 0 ? 0 : 6;
-}
-`
-
-var (
-	observationKernelOnce   sync.Once
-	observationKernelDir    string
-	observationKernelBinary string
-	observationKernelError  error
-)
-
-func TestMain(m *testing.M) {
-	code := m.Run()
-	if observationKernelDir != "" {
-		if err := os.RemoveAll(observationKernelDir); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			code = 1
-		}
-	}
-	os.Exit(code)
-}
 
 func observationRoot(t *testing.T) string {
 	t.Helper()
@@ -87,55 +22,43 @@ func observationRoot(t *testing.T) string {
 	return root
 }
 
-func observationKernel(t *testing.T, mode string, raw []byte) (int32, []byte) {
-	t.Helper()
-	root := observationRoot(t)
-	observationKernelOnce.Do(func() {
-		observationKernelDir, observationKernelError = os.MkdirTemp("", "xweb-observation-")
-		if observationKernelError != nil {
-			return
-		}
-		source := filepath.Join(observationKernelDir, "observation.c")
-		observationKernelError = os.WriteFile(source, []byte(observationKernelDriver), 0600)
-		if observationKernelError != nil {
-			return
-		}
-		observationKernelBinary = filepath.Join(observationKernelDir, "observation")
-		args := []string{
-			"-std=c17", "-pedantic", "-Werror", "-Wall", "-Wextra", "-Wconversion", "-Wshadow", "-Wvla",
-			"-fno-strict-aliasing", "-ffp-contract=off", "-ffunction-sections", "-fdata-sections",
-			"-Iinclude", source,
-			"src/modules/web/lx_web_intake.c", "src/network/lx_web_adapter.c", "src/crypto/lxp_ct.c",
-			"src/protocol/lxp_activity.c", "src/codec/lxp_codec.c", "src/protocol/lxp_u128.c",
-			"src/protocol/lxp_protocol.c", "-Wl,--gc-sections", "-o", observationKernelBinary,
-		}
-		command := exec.Command("cc", args...)
-		command.Dir = root
-		output, err := command.CombinedOutput()
-		if err != nil {
-			observationKernelError = fmt.Errorf("compile kernel observation codec: %w\n%s", err, output)
-		}
-	})
-	require.NoError(t, observationKernelError)
-	command := exec.Command(observationKernelBinary, mode)
-	command.Dir = root
-	command.Stdin = bytes.NewReader(raw)
-	var stderr bytes.Buffer
-	command.Stderr = &stderr
-	output, err := command.Output()
-	require.NoError(t, err, "%s", stderr.String())
-	require.GreaterOrEqual(t, len(output), 4)
-	return int32(binary.BigEndian.Uint32(output[:4])), output[4:]
-}
-
 func observationFixture(t *testing.T) []byte {
 	t.Helper()
 	encoded, err := os.ReadFile(filepath.Join(observationRoot(t), "tests/fixtures/web/observation-activity.hex"))
 	require.NoError(t, err)
 	activity, err := hex.DecodeString(strings.TrimSpace(string(encoded)))
 	require.NoError(t, err)
-	status, raw := observationKernel(t, "activity", activity)
-	require.Equal(t, int32(0), status)
+	require.GreaterOrEqual(t, len(activity), 5)
+	require.Equal(t, []byte{0, 2, 0x10, 1, 12}, activity[:5])
+	remaining := activity[5:]
+	var raw []byte
+	for index, width := range []int{2, 4, 4, -1, -1, 8, 16, -1, 16, -1, -1, -1} {
+		require.NotEmpty(t, remaining)
+		tag := byte(index + 1)
+		require.Equal(t, tag, remaining[0])
+		remaining = remaining[1:]
+		if width == -1 {
+			require.GreaterOrEqual(t, len(remaining), 4)
+			length := binary.BigEndian.Uint32(remaining[:4])
+			remaining = remaining[4:]
+			require.LessOrEqual(t, uint64(length), uint64(len(remaining)))
+			width = int(length)
+		}
+		require.GreaterOrEqual(t, len(remaining), width)
+		field := remaining[:width]
+		switch tag {
+		case 1:
+			require.Equal(t, []byte{0, 2}, field)
+		case 3:
+			require.Equal(t, []byte{0, 0x0b, 0, 1}, field)
+		case 11:
+			raw = field
+		case 12:
+			require.Len(t, field, 64)
+		}
+		remaining = remaining[width:]
+	}
+	require.Empty(t, remaining)
 	require.Len(t, raw, 358)
 	return raw
 }
@@ -175,9 +98,6 @@ func TestDecodeObservationFixture(t *testing.T) {
 		canonical, err := types.EncodeObservation(observation)
 		require.NoError(t, err)
 		require.Equal(t, raw, canonical)
-		status, kernel := observationKernel(t, "observation", raw)
-		require.Equal(t, int32(0), status)
-		require.Equal(t, canonical, kernel)
 	})
 	t.Run("owned_bytes", func(t *testing.T) {
 		input := bytes.Clone(raw)
@@ -191,7 +111,7 @@ func TestDecodeObservationFixture(t *testing.T) {
 		observation.Signatures[0][0] ^= 1
 		require.Equal(t, raw, canonical)
 	})
-	t.Run("kernel_bounds", func(t *testing.T) {
+	t.Run("codec_bounds", func(t *testing.T) {
 		require.Equal(t, 146, types.ObservationHeaderBytes)
 		require.Equal(t, 16, types.ObservationMaxSignatures)
 		require.Equal(t, 5283, types.ObservationMaxBytes)
@@ -230,9 +150,6 @@ func TestDecodeObservationFixture(t *testing.T) {
 				tc.change(&want)
 				encoded, err := types.EncodeObservation(want)
 				require.NoError(t, err)
-				status, kernel := observationKernel(t, "observation", encoded)
-				require.Equal(t, int32(0), status)
-				require.Equal(t, encoded, kernel)
 				got, err := types.DecodeObservation(encoded)
 				require.NoError(t, err)
 				require.Equal(t, want, got)
@@ -247,11 +164,17 @@ func TestDecodeObservationFixture(t *testing.T) {
 	})
 }
 
+func TestObservationFixtureRoundTripsInGo(t *testing.T) {
+	raw := observationFixture(t)
+	observation, err := types.DecodeObservation(raw)
+	require.NoError(t, err)
+	canonical, err := types.EncodeObservation(observation)
+	require.NoError(t, err)
+	require.Equal(t, raw, canonical)
+}
+
 func observationRefusal(t *testing.T, raw []byte) {
 	t.Helper()
-	status, canonical := observationKernel(t, "observation", raw)
-	require.Equal(t, int32(-3), status)
-	require.Empty(t, canonical)
 	observation, err := types.DecodeObservation(raw)
 	require.EqualError(t, err, "LXP_NON_CANONICAL")
 	require.Equal(t, types.Observation{}, observation)

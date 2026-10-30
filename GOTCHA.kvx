@@ -11451,3 +11451,13 @@ fix = "When writing a cargo test leg for a package, read its Cargo.toml: a packa
 title = "A vector consumer task that its producer lists as a requirement never finds the vector"
 symptom = "A decoder task failed three times with 'No such file or directory' on a shared test vector because the task that writes the vector listed the decoder as a requirement, so the file could only appear after the test that reads it had passed."
 fix = "When a task reads a planned file, the task that creates it must be in that task's requires and in an earlier or equal wave; check the producer's planned_paths against the touches and do lines of every consumer before landing the requires lists."
+
+[gotcha.2328]
+title = "A task that deletes or reshapes a public type leaves unlisted callers red on main"
+symptom = "Tasks 13.4.5 and 13.4.6 replaced the ProtocolDeploymentVerifier head model and completed on their own gates; layerx-platform-registry (31 errors) and layerx-human-security-provider (2 errors) stayed red on main, every gateway task then failed the build of its dependents, and the aggregate gate failed in human-build; attempts of three tasks repeated the same failure."
+fix = "Before a task deletes or changes a pub item, grep every workspace (programs, services/agent, services/platform, services/human, tools) for its callers; add each caller crate to the touches of that task or create the port tasks in the same batch, ordered before the gates that build those crates, and make the aggregate gate require every port its workspace build needs."
+
+[gotcha.2329]
+title = "Explorer spec files are linted by the production build, not by vitest or yarn lint:tsc"
+symptom = "The frontend image build runs next build, which runs ESLint over lib/ with @typescript-eslint/naming-convention, vitest/valid-title and vitest/expect-expect; spec files that passed snake_case functions as test titles (test(fn, fn)) or declared a snake_case const resource passed vitest and the type check and failed the image build, so paxscan.io kept serving a stale frontend (openapi.yaml 404, home block rows at 0 transactions) until f038ebb3f."
+fix = "Write test titles as string literals, keep the assertions inline in the test callback, name identifiers camelCase or inline them into the typed map; an explorer task gate does not run the production lint, so the author checks these three rules before the gate."
