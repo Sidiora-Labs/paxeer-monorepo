@@ -121514,7 +121514,7 @@ do_5 = "Add to section (b) of spec/layerx-merge/contracts/address-table.md, in l
 do_6 = "lxpRustResultsForTest (precompiles/common/lxp_errors_test.go:78) reads services/agent/crates/layerx-types/src/result.rs for a protocol_result_codes! invocation that has not lived there since the layerx-types build script began generating it: services/agent/crates/layerx-types/build.rs:229-236 writes the invocation to OUT_DIR/result_codes.rs from include/layerx/lxp_result.h and the Retryable column of address-table.md, result.rs:85 includes it, and build.rs:529 checks header parity at every build. Rewrite the Rust half of TestLXPRevertTable for that design: read build.rs, assert it names include/layerx/lxp_result.h as the header input (build.rs:515) and emits one name = value, class; entry per declared code (build.rs:214-216), and remove the row comparison against the hand-written mirror that no longer exists; keep every Go-side assertion of the test as it is."
 [task.6.2.3]
 title = "Check the Python SDK retryable map against the LXP registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.2.2", "9.0.4", "9.97.1"]
@@ -121545,7 +121545,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.2.4]
 title = "Check the TypeScript SDK retryable set against the LXP registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.2.2", "9.0.4", "9.97.1"]
@@ -122972,7 +122972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.10.12]
 title = "Pin the gas of every p256 method across the merge plan height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.4", "6.9.12"]
