@@ -11160,3 +11160,10 @@ fix = "Before narrowing a shared TS type, grep its literals and members across a
 title = "A reproducibility test over generated code fails until the checked-in files come from the pinned toolchain"
 symptom = "TestBufGenerateMatchesCheckedInGo reports 104 .pb.go files differing in gzipped FileDescriptorProto size and import blocks although no .proto changed (7.29.2 attempts 1-3)."
 fix = "Generated code is regenerated with the pinned plugin in the same task that adds the comparison; the comparison is never normalised. List the regenerated files in touches and build their packages."
+
+[gotcha.2270]
+area = "spec/layerx-merge/qualification.kvx"
+symptom = "The qualification log on main at d028bd92b and 5b9b60520 held one character per line (2.1 MB then 4.3 MB) and every finding appended after it inherited the interleave."
+cause = "The batch wrote the log with '\\n'.join(qual) although qual is one string, so every character was followed by a newline; the next batch read the interleaved text as its base and doubled it."
+do = "Write the log with open(QUAL, 'w').write(qual) exactly as spec-batch-105 does, and have spec-lint refuse a qualification.kvx whose line count exceeds three times its finding count. Restore an interleaved file with text[0::2] after checking set(text[1::2]) == {'\\n'}."
+

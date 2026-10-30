@@ -96656,7 +96656,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.40.1]
 title = "Decode kernel receipts from the host with the Go layerxproof codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["1.24.1"]
@@ -100064,7 +100064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.25.5]
 title = "Expose the 0x0906 agent stream API on the pay keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.25.1", "2.25.2", "2.25.3", "2.25.4"]
@@ -158227,7 +158227,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.2]
 title = "Rewrite the registry replay tests on chain evidence and validator rotation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -158257,7 +158257,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.3]
 title = "Rewrite the program bundle verification tests on version 2 bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -158287,7 +158287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.4]
 title = "Remove the kernel merkle proof type from the interface protocol tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -158317,7 +158317,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.5]
 title = "Rewrite the interface binding test on a single chain head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -158347,7 +158347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.6]
 title = "Rewrite the sandbox lease lifecycle tests on proven lease records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1", "13.6.6"]
@@ -158377,7 +158377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.9.7]
 title = "Rewrite the sandbox snapshot tests on chain-proven call receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["13.9.1"]
@@ -163744,7 +163744,7 @@ do_6 = "Attempts 2 and 3 (a207581ea and the third) pass the verify and fail the 
 
 [task.14.29.4]
 title = "Drop the kernel receipt cases and the layerxd prerequisites from the data-boundary test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.29.3", "14.35.1"]
@@ -164150,7 +164150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.33.1]
 title = "Align the frontend unified account types and mocks with the backend answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["14.0.4", "14.27.1"]
