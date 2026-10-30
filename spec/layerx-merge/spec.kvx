@@ -125217,7 +125217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.56.1]
 title = "Retire contracts/crypto/Ed25519.sol, contracts/config/ed25519-vectors.json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125309,7 +125309,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.56.4]
 title = "Retire contracts/interfaces/ILayerXAssetRegistry.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125340,7 +125340,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.1]
 title = "Retire contracts/libraries/Burn.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125372,7 +125372,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.2]
 title = "Retire contracts/libraries/Bytes.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125404,7 +125404,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.3]
 title = "Retire contracts/libraries/CallerChecker.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125468,7 +125468,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.5]
 title = "Retire contracts/libraries/CryptographyPrimitives.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125500,7 +125500,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.6]
 title = "Retire contracts/libraries/DecimalsConverterHelper.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125532,7 +125532,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.7]
 title = "Retire contracts/libraries/EOA.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125564,7 +125564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.8]
 title = "Retire contracts/libraries/Encoding.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125596,7 +125596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.9]
 title = "Retire contracts/libraries/Error.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125628,7 +125628,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.57.10]
 title = "Retire contracts/libraries/Hashing.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -125660,7 +125660,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.58.1]
 title = "Retire contracts/libraries/MerkleLib.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["6.51.1", "16.30.1"]
@@ -138158,7 +138158,7 @@ do_5 = "Attempt 5 builds layerx-platform-cli while estimate_fee (tools/platform/
 
 [task.8.94.2]
 title = "Build the registry journal and CLI deployment verifier from the chain trust root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["8.0.2", "13.0.2", "9.1.8", "18.1083.1", "8.48.1"]
