@@ -815,16 +815,10 @@ impl AgentCreationContract for ProductionAgentCreation<'_> {
             purposes: request.purposes.into_iter().collect(),
             expiry_sequence: request.expiry_sequence,
         };
-        let (object_id, observed_sequence, rung_byte, receipt_digest) = self
+        let (object_id, observed_sequence, rung, receipt_digest) = self
             .runtime
             .capability_install(&install)
             .map_err(map_boundary)?;
-        let rung = match rung_byte {
-            0 => Rung::Submitted,
-            1 => Rung::Receipted,
-            2 => Rung::Committed,
-            _ => return Err(AgentFailure::Refused("capability rung is invalid")),
-        };
         let evidence = AgentEvidence {
             action_key: request.action_key,
             object_id,
