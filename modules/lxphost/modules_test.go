@@ -3,6 +3,7 @@
 package lxphost
 
 import (
+	"crypto/ed25519"
 	"encoding/binary"
 	"testing"
 
@@ -19,6 +20,28 @@ func TestHostPerpsModuleRegistered(t *testing.T) {
 	require.NotEqual(t, Code(-103), receipt.ResultCode)
 	require.Equal(t, Code(-734), receipt.ResultCode)
 	require.Equal(t, "LXP_ERR_PARAMETER_BOUNDS", receipt.ResultCode.Error())
+	require.NotEmpty(t, receipt.Encoded)
+}
+
+func TestHostPerpsOracleTransportDecoded(t *testing.T) {
+	chain := newTestChain(t)
+	host := chain.host(t)
+	actor := newTestActor(t, 115)
+	payload := make([]byte, 137)
+	payload[0] = 1
+	payload[1] = 1
+	binary.BigEndian.PutUint64(payload[33:41], 1)
+	binary.BigEndian.PutUint64(payload[49:57], 1)
+	binary.BigEndian.PutUint64(payload[57:65], uint64(bindingBlockTime))
+	binary.BigEndian.PutUint64(payload[65:73], 1)
+	copy(payload[73:137], ed25519.Sign(actor.private, payload[1:73]))
+
+	receipt := execute(t, host, chain.context(1, bindingBlockTime, 1),
+		actor.activity(t, host, 0x00060003, 0, bindingBlockTime, payload), actor.authority())
+	require.NotEqual(t, Code(-3), receipt.ResultCode)
+	require.NotEqual(t, Code(-103), receipt.ResultCode)
+	require.Equal(t, Code(-7), receipt.ResultCode)
+	require.Equal(t, "LXP_ERR_UNKNOWN_FIELD", receipt.ResultCode.Error())
 	require.NotEmpty(t, receipt.Encoded)
 }
 
