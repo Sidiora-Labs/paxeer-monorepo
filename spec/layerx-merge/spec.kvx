@@ -141603,7 +141603,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.18.1]
 title = "Re-target the boundary conformance harness at node JSON-RPC"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.0.3", "9.12.1"]
