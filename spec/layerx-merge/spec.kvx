@@ -145049,7 +145049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.4]
 title = "Verify managed agent owner transactions as EIP-1559 instead of layerx-intents envelopes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.0.4", "10.0.4", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1"]
