@@ -168224,7 +168224,7 @@ do_8 = "ReceiptGate keeps the single constructor ReceiptGate(ReceiptResolver, Lo
 
 [task.15.4.8]
 title = "Resolve signed receipts in the android sample relay resolver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.4.7"]
@@ -168316,7 +168316,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.11]
 title = "Drop SettlementAnchored and authorized batches from the agents daemon providers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.92.1", "8.24.2", "8.24.3", "12.27.2"]
