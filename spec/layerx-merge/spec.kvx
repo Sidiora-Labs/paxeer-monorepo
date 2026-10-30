@@ -100812,7 +100812,7 @@ do_12 = "As the one production exception to do_8 and do_10, in the getStream, ge
 
 [task.2.28.7]
 title = "Serve the thirteen 0x101B service writes and fourteen service events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["2.28.1", "2.28.2", "2.28.3", "2.26.1", "2.26.2", "2.26.3", "2.26.4", "2.28.6", "2.28.9"]
