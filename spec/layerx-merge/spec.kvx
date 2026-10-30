@@ -192933,7 +192933,7 @@ qualification = "UNRUN"
 
 [task.18.1304.1]
 title = "Issue #1304: Read the agent program head from a validator-signed chain proof and bind the simulation key to the authenticated handshake"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -193034,7 +193034,7 @@ qualification = "UNRUN"
 
 [task.18.1305.1]
 title = "Issue #1305: The hosted kernel registers the perps oracle-transport module interface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
