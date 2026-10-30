@@ -1,27 +1,9 @@
 #[path = "support/chain.rs"]
 mod chain;
-#[path = "../src/hash.rs"]
-mod hash;
-#[path = "../src/interface.rs"]
-mod interface;
-#[path = "../src/chain_evidence/program_state.rs"]
-mod program_state;
-#[path = "../src/protocol_evidence.rs"]
-mod protocol_evidence;
 
 use chain::{ChainFixture, STATE_HEIGHT};
-use chain_evidence::programs_state_key;
-use interface::{
-    verify_interface_read, InterfaceRefusal, InterfaceStateWitness, ProgramInterface,
-    VerifiedInterfaceRead,
-};
-use layerx_programs as account_state;
-use layerx_programs::{
-    chain_evidence, chain_proof, AccountStateHead, DeploymentRecord, ProgramId, ProgramLifecycle,
-    ReadFreshness, StateProof, UpgradePolicy,
-};
-use program_state::ChainProgramStateProof;
-use protocol_evidence::{ProtocolEvidenceError, VerifiedDeploymentEvidence, VerifiedProgramHead};
+use layerx_programs::chain_evidence::{program_state::ChainProgramStateProof, programs_state_key};
+use layerx_programs::{ProgramId, ProtocolEvidenceError, UpgradePolicy};
 
 fn program_key(program: ProgramId) -> Vec<u8> {
     let mut key = b"program\0".to_vec();

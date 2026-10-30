@@ -17,5 +17,4 @@ commands=()
 for target in "${targets[@]}"; do
     commands+=(-- make "$target")
 done
-log_dir=$(mktemp -d "${TMPDIR:-/tmp}/layerx-wave-3.XXXXXXXX")
-exec python3 "$root/scripts/gates/run_gate.py" --wave 3 --log-dir "$log_dir" "${commands[@]}"
+exec python3 "$root/scripts/gates/run_gate.py" --wave 3 --log-dir "${GATE_LOG_DIR:-$root/logs/waves/3}" "${commands[@]}"

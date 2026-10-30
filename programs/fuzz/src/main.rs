@@ -7,6 +7,7 @@ use layerx_programs::chain_proof::{
     header::ChainHeader,
     proto::{ProtoReader, ProtoValue},
     state::{verify_absent, verify_state},
+    trust_store::TrustRoot,
     validators::{TrustedValidator, ValidatorSet},
     vote::{BlockId, CommitSig, PartSetHeader},
     ChainProofError, ChainProofVerifier, Commit,
@@ -17,6 +18,7 @@ use layerx_programs_runtime::{programs_fuzz_observation, FuzzTarget as RuntimeFu
 enum FuzzTarget {
     Runtime(RuntimeFuzzTarget),
     ChainProof,
+    TrustRoot,
 }
 
 /// A heap ceiling far above the runtime's metered module memory bound. A lawful
@@ -107,6 +109,7 @@ fn target(name: &str) -> Result<FuzzTarget, String> {
         "instantiation" => Ok(FuzzTarget::Runtime(RuntimeFuzzTarget::Instantiation)),
         "execution" => Ok(FuzzTarget::Runtime(RuntimeFuzzTarget::Execution)),
         "chain-proof" => Ok(FuzzTarget::ChainProof),
+        "trust-root" => Ok(FuzzTarget::TrustRoot),
         _ => Err(format!("unknown fuzz target {name}")),
     }
 }
@@ -268,6 +271,25 @@ fn check(selected: FuzzTarget, input: &[u8], path: &Path) -> Result<(), String> 
             programs_fuzz_observation(target, input) == programs_fuzz_observation(target, input)
         }
         FuzzTarget::ChainProof => chain_proof_observation(input) == chain_proof_observation(input),
+        FuzzTarget::TrustRoot => {
+            let first = TrustRoot::decode(input);
+            let second = TrustRoot::decode(input);
+            for root in [&first, &second].into_iter().flatten() {
+                let canonical = root.canonical_bytes().map_err(|error| {
+                    format!(
+                        "accepted trust-root failed to re-encode for {}: {error:?}",
+                        path.display()
+                    )
+                })?;
+                if canonical != input {
+                    return Err(format!(
+                        "non-canonical trust-root acceptance for input derived from {}",
+                        path.display()
+                    ));
+                }
+            }
+            first == second
+        }
     };
     if deterministic {
         Ok(())
@@ -311,6 +333,38 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn trust_root_target_never_panics_on_seed_corpus() -> Result<(), String> {
+        let selected = target("trust-root")?;
+        assert!(matches!(selected, FuzzTarget::TrustRoot));
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("corpus/trust-root");
+        let source = fs::read_to_string(root.join("one-validator.hex"))
+            .map_err(|error| error.to_string())?;
+        let seed = decode_hex(&source)?;
+        let decoded = TrustRoot::decode(&seed).map_err(|error| format!("{error:?}"))?;
+        assert_eq!(decoded.validators.validators().len(), 1);
+        assert_eq!(
+            decoded
+                .canonical_bytes()
+                .map_err(|error| format!("{error:?}"))?,
+            seed
+        );
+        for path in corpus_files(&root)? {
+            let source = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+            let seed = decode_hex(&source)?;
+            for input in mutate(&seed) {
+                let outcome = std::panic::catch_unwind(|| check(selected, &input, &path));
+                assert!(
+                    outcome.is_ok(),
+                    "trust-root panicked for {}",
+                    path.display()
+                );
+                outcome.map_err(|_| format!("panic for {}", path.display()))??;
+            }
+        }
+        Ok(())
+    }
 
     #[test]
     fn chain_proof_target_never_panics_on_seed_corpus() -> Result<(), String> {
