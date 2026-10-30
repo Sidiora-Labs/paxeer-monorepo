@@ -102027,7 +102027,7 @@ do_5 = "The planned test file is package layerxpay_test and reaches unexported n
 
 [task.2.40.4]
 title = "Match 0x0906 stream records against the 0x101B stream path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.35.2", "2.38.2", "2.40.8"]
