@@ -103,6 +103,20 @@ impl Drop for Root {
 }
 
 fn config(root: &Root) -> Config {
+    let receipt_keys = root.0.join("receipt-keys.json");
+    must(
+        std::fs::write(
+            &receipt_keys,
+            serde_json::json!([{
+                "keyId": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+                "publicKey": "SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=",
+                "firstHeight": 1,
+                "lastHeight": u64::MAX,
+            }])
+            .to_string(),
+        ),
+        "receipt keys",
+    );
     let tls = must(
         rustls::ServerConfig::builder_with_provider(Arc::new(
             rustls::crypto::ring::default_provider(),
@@ -121,6 +135,10 @@ fn config(root: &Root) -> Config {
         lni_socket: root.socket(),
         lni_deadline: Duration::from_secs(5),
         node: NodeEndpoint { port: 1 },
+        chain_receipts: must(
+            super::chain_receipt::ChainReceipts::from_config("http://127.0.0.1:1", &receipt_keys),
+            "chain receipts",
+        ),
         node_token: Zeroizing::new("node-token".to_owned()),
         state_dir: root.0.join("state"),
         protocol_network_id: NETWORK_ID,
