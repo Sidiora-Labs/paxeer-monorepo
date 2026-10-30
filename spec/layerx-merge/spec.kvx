@@ -168254,7 +168254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.9]
 title = "Verify signed sequencer receipts in the iOS ReceiptGate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["15.0.3", "8.0.3", "9.0.3", "8.44.1", "8.44.5"]
