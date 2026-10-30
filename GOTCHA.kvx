@@ -11246,3 +11246,8 @@ fix = "Before reading an attempt's failure, compare its base_revision with the f
 title = "A first-time compile of a target exposes the older breaks beneath the blocker"
 symptom = "After a narrowed build or a cleared blocker lets a test target compile for the first time in several attempts, the attempt fails on an older, unrelated break in the same target (session_keys.rs:248 once the layerx-agentd half of 18.1228.1 passed; migration.rs and revocation.rs once --tests reached them in 18.1308.3; expiry.rs:68 once the registry dependents were checked in 13.4.6)."
 fix = "Before writing a re-qualify-unchanged note, run git log -S on every symbol the target calls that changed since its fixture was written, expect one new break per cleared blocker, and narrow build_cmd to the targets the verify runs."
+
+[gotcha.2287]
+title = "A candidate whose only extra file is its declared planned test is held as out of scope"
+symptom = "12.35.5 attempt 2 (6805e8616) passed its build and verify, yet the merge step held it because node/sequencer/commit_release_test.go, the task's planned_paths entry, is not in touches; the gate had admitted the file because its allowed set is touches plus planned_paths."
+fix = "The merge-scope check compares the candidate's changed files with touches plus planned_paths, the same set the gate admits; a held candidate whose only extra files are planned paths is re-collected, not re-run."

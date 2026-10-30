@@ -5969,20 +5969,12 @@ static lxp_result open_process(lxp_daemon_process *process,
             &process->evidence_log};
         status = require_distinct_logs(logs, 5U);
     }
-    if (status == LXP_OK) stage = "finality authority";
-    if (status == LXP_OK)
-        status = lxp_finality_authority_bind(
-            &process->finality_authority, &process->evidence_store);
     if (status == LXP_OK)
         status = lxp_daemon_evidence_open_history(
             &process->evidence_store, &process->evidence_log,
             process->network_id, &process->sequencer_authorization,
-            genesis_settlement_anchor, true,
-            lxp_finality_authority_verify_history,
-            &process->finality_authority, &process->owner_scratch, process->handover_chain);
-    if (status == LXP_OK &&
-        process->evidence_store.verify_finality_authority != NULL)
-        process->evidence_store.verify_finality_authority = lxp_finality_authority_verify;
+            genesis_settlement_anchor, true, NULL, NULL,
+            &process->owner_scratch, process->handover_chain);
     if (status == LXP_OK)
         process->evidence_store.availability_log = &process->availability_log;
     if (status == LXP_OK) {
@@ -6044,9 +6036,6 @@ static lxp_result open_process(lxp_daemon_process *process,
             }
         }
     }
-    if (status == LXP_OK &&
-        process->evidence_store.verify_finality_authority == NULL)
-        status = LXP_ERR_MODULE_DISABLED;
     if (status == LXP_OK) stage = "history";
     if (status == LXP_OK)
         status = lxp_history_open(
