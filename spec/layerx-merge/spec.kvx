@@ -172461,7 +172461,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.97.1]
 title = "Remove the grant, handover, bridge credit and qualification replay uses from the remaining kernel suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["16.31.1", "1.0.4"]
@@ -193563,7 +193563,7 @@ qualification = "UNRUN"
 
 [task.18.1211.4]
 title = "Issue #1211: Build the native PaymentExact tuple from the recorded calldata in the gateway, UCP and migration tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -193737,7 +193737,7 @@ qualification = "UNRUN"
 
 [task.18.1308.1]
 title = "Issue #1308: Retire Keeper.ResultByIdempotency and the resultByIdempotency precompile view with the idempotency read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
