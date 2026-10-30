@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -38,6 +39,14 @@ type Executor struct {
 
 var _ pcommon.PrecompileExecutor = (*Executor)(nil)
 
+type Precompile struct {
+	*pcommon.Precompile
+	executor *Executor
+	evm      utils.EVMKeeper
+}
+
+var _ vm.DynamicGasPrecompiledContract = (*Precompile)(nil)
+
 func NewPrecompile(keeper *paykeeper.Keeper) (*pcommon.Precompile, error) {
 	if keeper == nil {
 		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: layerxpay keeper is unavailable")
@@ -50,16 +59,74 @@ func NewPrecompile(keeper *paykeeper.Keeper) (*pcommon.Precompile, error) {
 	return pcommon.NewPrecompile(a, executor, common.HexToAddress(PayAddress), PrecompileName).WithLXPReasons().WithGasTable(methodGas), nil
 }
 
+func NewServedPrecompile(keeper *paykeeper.Keeper, evm utils.EVMKeeper) (*Precompile, error) {
+	p, err := NewPrecompile(keeper)
+	if err != nil {
+		return nil, err
+	}
+	if evm == nil {
+		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: EVM keeper is unavailable")
+	}
+	return &Precompile{Precompile: p, executor: p.GetExecutor().(*Executor), evm: evm}, nil
+}
+
 func NewMergePrecompile(keepers utils.Keepers, _ string) (precompiles.IPrecompile, error) {
 	wired, ok := keepers.(LayerXPayKeepers)
 	if !ok {
 		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required")
 	}
-	p, err := NewPrecompile(wired.LayerXPayK())
+	p, err := NewServedPrecompile(wired.LayerXPayK(), keepers.EVMK())
 	if err != nil {
 		return nil, err
 	}
 	return p, nil
+}
+
+func (p *Precompile) RunAndCalculateGas(evm *vm.EVM, caller, callingContract common.Address, input []byte,
+	suppliedGas uint64, value *big.Int, hooks *tracing.Hooks, readOnly bool, isFromDelegateCall bool,
+) (ret []byte, remainingGas uint64, err error) {
+	operation := p.GetName() + "_unknown"
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			if _, outOfGas := recovered.(sdk.ErrorOutOfGas); !outOfGas {
+				panic(recovered)
+			}
+			ret, remainingGas, err = nil, 0, vm.ErrOutOfGas
+		}
+		pcommon.HandlePrecompileError(err, evm, operation)
+		if err != nil && !errors.Is(err, vm.ErrOutOfGas) {
+			ret, err = pcommon.LXPReason(err), vm.ErrExecutionReverted
+		}
+	}()
+	ctx, method, args, err := p.Prepare(evm, input)
+	if err != nil {
+		if suppliedGas < pcommon.UnknownMethodCallGas {
+			return nil, 0, vm.ErrOutOfGas
+		}
+		return nil, suppliedGas - pcommon.UnknownMethodCallGas, err
+	}
+	operation = method.Name
+	charge := methodGas[method.Name].Gas(input[4:])
+	if suppliedGas < charge {
+		return nil, 0, vm.ErrOutOfGas
+	}
+	limit := p.evm.GetCosmosGasLimitFromEVMGas(ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx)), suppliedGas-charge)
+	if limit == 0 {
+		return nil, 0, vm.ErrOutOfGas
+	}
+	ctx = ctx.WithGasMeter(sdk.NewGasMeterWithMultiplier(ctx, limit))
+	em := ctx.EventManager()
+	ctx = ctx.WithEventManager(sdk.NewEventManager()).WithEVMPrecompileCalledFromDelegateCall(isFromDelegateCall)
+	ret, err = p.executor.Execute(ctx, method, caller, callingContract, args, value, readOnly, evm, hooks)
+	if errors.Is(err, vm.ErrOutOfGas) {
+		return nil, 0, err
+	}
+	remainingGas = p.evm.GetEVMGasLimitFromCtx(ctx)
+	if err != nil {
+		return ret, remainingGas, err
+	}
+	em.EmitEvents(ctx.EventManager().Events())
+	return ret, remainingGas, nil
 }
 
 func init() {
