@@ -11411,3 +11411,8 @@ fix = "Pending-tag reads and raw sends against the sequencer repeat on exactly t
 title = "Deleting a file another crate include_str!s passes a gate that builds only a tool crate"
 symptom = "A cleanup task deleted a schema file and qualified with the build of a small boundary-check tool crate; a library crate in the same tree still include_str!'d the file at its first lines, so every crate depending on that library failed to compile from the merge on, and the next attempts of unrelated tasks in three workspaces died in their build step."
 fix = "Before deleting any non-source file, grep the tree for include_str!, include_bytes!, include! and path-literal references to it, and let the deleting task build the crate that holds the reference, not only the crate that asserts the absence."
+
+[gotcha.2320]
+title = "A task that deletes a symbol must not list it under symbols"
+symptom = "A two-line deletion task built and passed its test, then the done gate refused because the task block named the deleted constant under symbols and the graph check requires every listed symbol to be defined after the change."
+fix = "For a deletion, leave symbols empty or name a symbol that remains defined (a test function the verify runs); the interfaces list may still cite the retired item because it is an index entry, not a graph check."

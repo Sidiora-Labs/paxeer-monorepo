@@ -142231,7 +142231,7 @@ capabilities = []
 interfaces = ["interface.9.rs-client-lni-schema-lni-v1-source-j44"]
 do_1 = "019a38eed (task 9.19.1, do_1) deleted services/agent/schema/lni/v1.kvx while services/agent/crates/layerx-client/src/lni/schema.rs:4 still reads `pub const LNI_V1_SOURCE: &str = include_str!('../../../../schema/lni/v1.kvx');`, so since that commit every build of layerx-client fails at schema.rs:4 with `couldn't read ../../../../schema/lni/v1.kvx`, and with it every crate that depends on layerx-client: the services/agent workspace, services/human (services/human/Cargo.toml:31) and services/platform (services/platform/Cargo.toml:46). Delete the constant and its doc comment at schema.rs:3-4. Nothing reads LNI_V1_SOURCE in services/ (grep over *.rs finds only the declaration); interfaces.kvx already marks the interface retired; lni_schema_v1 (schema.rs:566) builds the schema from Rust constants and does not use the file. Do not restore v1.kvx: agent_tree_has_no_lni_artifacts (services/agent/tools/boundary-check/tests/workspace.rs:13-33) asserts the directory is absent, and task 9.24.7 deletes the whole lni module per decision.923. Change no other line of schema.rs and no other file."
 do_2 = "scripts/ci/lni-version-parity.sh:96-101 (Makefile:3424) reads the deleted schema file and fails since 019a38eed independently of this task; record it, do not edit the script or the Makefile. The verify runs an existing layerx-client integration test, refusal_keeps_code_message_and_data in tests/sequencer.rs, whose only purpose here is to compile the crate and its test target on a tree without services/agent/schema/lni."
-symbols = ["LNI_V1_SOURCE"]
+symbols = []
 touches = ["services/agent/crates/layerx-client/src/lni/schema.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::refusal_keeps_code_message_and_data"]
 planned_paths = []
@@ -142248,6 +142248,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "symbols is empty, as in 9.19.1: the done gate checks that every listed symbol is defined in the code graph after the change, and this task's only change deletes LNI_V1_SOURCE (attempt at 32bb224a7 on c9e2ebd94 built layerx-client and passed refusal_keeps_code_message_and_data, then the done gate refused on `symbol LNI_V1_SOURCE — not defined in the graph`). The interfaces entry stays: it names the retired item for the contract index and is not a graph check."
 
 [task.9.20.1]
 title = "Re-target the limits exactly-once suite at EVM raw transactions"
@@ -194967,6 +194968,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
