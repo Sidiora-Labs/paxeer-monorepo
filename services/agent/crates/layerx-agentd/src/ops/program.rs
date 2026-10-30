@@ -46,6 +46,13 @@ pub enum ProgramOperationError<E = SubmitError> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramAccountBalance {
+    pub account: [u8; 32],
+    pub balance: u128,
+    pub exists: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProgramDiscovery {
     pub program: ProgramId,
     pub lifecycle: ProgramLifecycle,
@@ -876,6 +883,75 @@ pub(crate) struct ProgramActivityExecution {
 }
 
 impl ProgramOperations {
+    pub fn current_balances(
+        config: &crate::node_rpc::NodeRpcConfig,
+        program: ProgramId,
+        accounts: &[[u8; 32]],
+    ) -> Result<(u64, Vec<ProgramAccountBalance>), ProgramOperationError> {
+        let node = crate::node_rpc::NodeRpc::connect(config)
+            .map_err(|_| ProgramOperationError::Unavailable)?;
+        let certificates = if config.url.starts_with("https://") {
+            let loaded = rustls_native_certs::load_native_certs();
+            if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+                return Err(ProgramOperationError::Unavailable);
+            }
+            loaded.certs
+        } else {
+            Vec::new()
+        };
+        let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
+        let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
+            .map_err(|_| ProgramOperationError::Unavailable)?;
+        let height = endpoint
+            .block_number()
+            .map_err(|_| ProgramOperationError::Unavailable)?;
+        let balances = Self::value_accounts_at(&node, height, program, accounts)?;
+        Ok((height, balances))
+    }
+
+    pub fn value_accounts_at(
+        node: &crate::node_rpc::NodeRpc,
+        height: u64,
+        program: ProgramId,
+        accounts: &[[u8; 32]],
+    ) -> Result<Vec<ProgramAccountBalance>, ProgramOperationError> {
+        let selector =
+            layerx_crypto::evm_transaction::transaction_hash(b"getValueAccount(bytes32,bytes32)");
+        let mut address = [0; 20];
+        address[18..].copy_from_slice(&[0x10, 0x1d]);
+        let mut balances = Vec::with_capacity(accounts.len());
+        for account in accounts {
+            let mut data = selector[..4].to_vec();
+            data.extend_from_slice(&program.bytes());
+            data.extend_from_slice(account);
+            let result = node
+                .call_at(height, &address, &data)
+                .map_err(|_| ProgramOperationError::Unavailable)?;
+            if result.len() != 64
+                || result[..16] != [0; 16]
+                || result[32..63] != [0; 31]
+                || result[63] > 1
+            {
+                return Err(ProgramOperationError::UnverifiedReceipt);
+            }
+            let balance = u128::from_be_bytes(
+                result[16..32]
+                    .try_into()
+                    .map_err(|_| ProgramOperationError::UnverifiedReceipt)?,
+            );
+            let exists = result[63] == 1;
+            if !exists && balance != 0 {
+                return Err(ProgramOperationError::UnverifiedReceipt);
+            }
+            balances.push(ProgramAccountBalance {
+                account: *account,
+                balance,
+                exists,
+            });
+        }
+        Ok(balances)
+    }
+
     pub(crate) fn activity_execution(
         &self,
         registry: &ModuleRegistry,
@@ -993,13 +1069,12 @@ impl ProgramOperations {
         now: u64,
     ) -> Result<layerx_programs::VerifiedProgramBalanceRead, ProgramOperationError> {
         self.reader
-            .read_protocol_state(program, now)
-            .map(|state| state.into_balances())
+            .read_verified_balances(program, now)
             .map_err(|error| match error {
-                layerx_programs_protocol_adapter::ProtocolAdapterError::AccountState(
+                crate::read::ProgramReadError::AccountState(
                     layerx_programs::AccountStateError::StaleRead,
                 )
-                | layerx_programs_protocol_adapter::ProtocolAdapterError::Registry(
+                | crate::read::ProgramReadError::Registry(
                     layerx_programs::RegistryError::StaleRead,
                 ) => ProgramOperationError::Stale,
                 _ => ProgramOperationError::UnverifiedReceipt,
@@ -1074,45 +1149,44 @@ impl ProgramOperations {
     ) -> Result<ProgramDiscovery, ProgramOperationError> {
         let head = bound.program_head();
         let chain = bound.chain_head();
-        let state = self
-            .reader
-            .read_protocol_state(program, now)
-            .map_err(|_| ProgramOperationError::UnknownProgram)?;
-        let balances = state.balances();
-        let freshness = balances.freshness();
-        if freshness.observed_sequence > chain.global_sequence() {
-            return Err(ProgramOperationError::HeadAdvanced);
-        }
+        let freshness = chain.freshness();
         let valid_through = freshness
             .observed_at
             .checked_add(self.reader.staleness_limit())
             .ok_or(ProgramOperationError::Stale)?;
-        if now > valid_through {
+        if now < freshness.observed_at || now > valid_through || now > head.valid_until_ms() {
             return Err(ProgramOperationError::Stale);
         }
-        if balances.lifecycle() != ProgramLifecycle::Active {
+        if head.program() != program {
+            return Err(ProgramOperationError::UnknownProgram);
+        }
+        if head.lifecycle() != ProgramLifecycle::Active {
             return Err(ProgramOperationError::InactiveProgram);
         }
-        if head.program() != program
-            || head.lifecycle() != ProgramLifecycle::Active
-            || head.receipt_digest() != balances.receipt_digest()
-            || head.state_root() != balances.state_root()
+        if head.receipt_digest() != chain.receipt_digest()
+            || head.state_root() != chain.state_root()
             || head.freshness() != freshness
-            || chain.receipt_digest() != balances.receipt_digest()
-            || chain.state_root() != balances.state_root()
-            || chain.freshness() != freshness
-            || now > head.valid_until_ms()
         {
             return Err(ProgramOperationError::UnverifiedReceipt);
         }
+        let accounts = self
+            .reader
+            .value_account_ids(program)
+            .map_err(|_| ProgramOperationError::UnknownProgram)?;
+        let config = crate::node_rpc::NodeRpcConfig::from_environment()
+            .map_err(|_| ProgramOperationError::Unavailable)?;
+        let (_, balances) = Self::current_balances(&config, program, &accounts)?;
+        if balances.iter().any(|balance| !balance.exists) {
+            return Err(ProgramOperationError::ProgramStateAbsent);
+        }
         Ok(ProgramDiscovery {
             program,
-            lifecycle: balances.lifecycle(),
+            lifecycle: head.lifecycle(),
             observed_sequence: freshness.observed_sequence,
             observed_at: freshness.observed_at,
             valid_through,
-            receipt_digest: balances.receipt_digest(),
-            state_root: balances.state_root(),
+            receipt_digest: chain.receipt_digest(),
+            state_root: chain.state_root(),
             version: head.version(),
             abi_version: head.abi_version(),
             code_hash: head.code_hash(),

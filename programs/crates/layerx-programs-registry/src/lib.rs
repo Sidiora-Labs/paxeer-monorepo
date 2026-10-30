@@ -3,8 +3,8 @@
 mod account_state;
 mod archive;
 mod authority;
-pub mod chain_proof;
 pub mod chain_evidence;
+pub mod chain_proof;
 mod deprecate;
 mod hash;
 pub mod hex;
@@ -15,6 +15,7 @@ pub mod naming;
 mod pipeline;
 mod protocol_evidence;
 mod resolver;
+pub mod state_record;
 pub mod swap;
 
 pub use account_state::{
