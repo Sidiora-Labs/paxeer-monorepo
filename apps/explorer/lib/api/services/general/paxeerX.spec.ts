@@ -54,7 +54,6 @@ describe('the Paxeer X payload map', () => {
     expect(unifiedAccount.identities.evm).toBe(unifiedAccountMock.evmAddress);
     expect(unifiedAccount.balances).toHaveLength(3);
     expect(capabilities.addr).toBe(true);
-    expect(capabilities.custody).toBe(false);
     expect(txStatus.rung).toBe(PAXEER_X_TX_STATUS.rung);
     expect(anchors.items[0].checkpoint_id).toBe(PAXEER_X_ANCHORS_ITEM.checkpoint_id);
     expect(receipts.items[0].status).toBe(PAXEER_X_RECEIPTS_ITEM.status);

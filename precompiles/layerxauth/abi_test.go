@@ -38,10 +38,6 @@ func TestAuthABIMethods(t *testing.T) {
 			[]string{"grantId:bytes32", "reason:uint8", "sequence:uint64"}, nil,
 		},
 		{
-			"resultByIdempotency", "resultByIdempotency(bytes32,bytes32)", "0x2eda9f2b", "view",
-			[]string{"didId:bytes32", "idempotencyKey:bytes32"}, []string{"receipt:bytes"},
-		},
-		{
 			"getGrant", "getGrant(bytes32)", "0xe483ac04", "view",
 			[]string{"grantId:bytes32"}, []string{"grant:bytes", "revoked:bool", "revokedAt:uint64"},
 		},

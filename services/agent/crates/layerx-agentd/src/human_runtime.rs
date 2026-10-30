@@ -3914,7 +3914,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let (now, bound) =
             current_program_bundle(programs, &mut operations.node, context, program)?;
         let guest_abi_version = bound.program_head().abi_version();
-        let sequencer_public_key = bound.chain_head().sequencer_public_key();
+        let sequencer_public_key = operations.node.handshake().node().authorised_sequencer_key;
         let correlation = boundary_correlation(context.peer(), &program_id, b"program-simulate");
         let mut captured = None;
         let execution = {
@@ -3926,8 +3926,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 ),
                 captured: &mut captured,
             };
-            let mut simulator = ReceiptVerifiedProgramSimulator::new(transport, registry, &bound)
-                .map_err(program_operation_error)?;
+            let mut simulator = ReceiptVerifiedProgramSimulator::new(
+                transport,
+                registry,
+                &bound,
+                sequencer_public_key,
+            )
+            .map_err(program_operation_error)?;
             match &request {
                 ProgramSimulationRequest::Legacy(call) => {
                     let call = ProgramCall::new(

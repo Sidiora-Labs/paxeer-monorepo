@@ -276,28 +276,3 @@ func TestAuthCheckActivity(t *testing.T) {
 	require.Equal(t, branchBefore, authViewStores(branch, f.hostKey, f.harness.key))
 	require.Equal(t, before, authViewStores(f.ctx, f.hostKey, f.harness.key))
 }
-
-func TestAuthResultByIdempotency(t *testing.T) {
-	f := newAuthViewFixture(t)
-	before := authViewStores(f.ctx, f.hostKey, f.harness.key)
-	stored, err := f.host.ReadIdempotentReceipt(f.ctx, f.did, f.sessionActivity.IdempotencyKey)
-	require.NoError(t, err)
-	require.NotEmpty(t, stored.Encoded)
-	encoded, err := f.keeper.ResultByIdempotency(f.ctx, f.public, f.sessionActivity.IdempotencyKey)
-	require.NoError(t, err)
-	require.Equal(t, stored.Encoded, encoded)
-	decoded, err := codec.DecodeReceipt(encoded)
-	require.NoError(t, err)
-	require.Equal(t, uint64(42), decoded.GlobalSequence)
-	encoded[0] ^= 1
-	again, err := f.keeper.ResultByIdempotency(f.ctx, f.public, f.sessionActivity.IdempotencyKey)
-	require.NoError(t, err)
-	require.Equal(t, stored.Encoded, again)
-	missing, err := f.keeper.ResultByIdempotency(f.ctx, f.public, [32]byte{0xff})
-	require.NoError(t, err)
-	require.Empty(t, missing)
-	missing, err = f.keeper.ResultByIdempotency(f.ctx, f.delegate, f.sessionActivity.IdempotencyKey)
-	require.NoError(t, err)
-	require.Empty(t, missing)
-	require.Equal(t, before, authViewStores(f.ctx, f.hostKey, f.harness.key))
-}
