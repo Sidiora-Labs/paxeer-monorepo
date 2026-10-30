@@ -170260,7 +170260,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.30.1]
 title = "Delete the checkpoint, custody and library Solidity suites whose contracts retire"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["16.37.1", "16.0.3"]
@@ -170621,7 +170621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.3]
 title = "Delete the guarantor certificate and offline receipt suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["16.37.1", "16.0.3", "16.37.2"]
@@ -170654,7 +170654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.4]
 title = "Delete the guarantor bond and paxeer custody suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["16.37.1", "16.0.3", "16.37.2"]
@@ -170687,7 +170687,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.5]
 title = "Delete the emergency exit suite built on guarantor certificates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["16.37.1", "16.0.3"]
