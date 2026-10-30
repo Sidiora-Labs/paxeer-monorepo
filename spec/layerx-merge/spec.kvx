@@ -164082,7 +164082,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.31.1]
 title = "Move the frontend status ladder to submitted, receipted and committed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["14.0.4", "14.22.3"]
