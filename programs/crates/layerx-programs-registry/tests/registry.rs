@@ -2,6 +2,22 @@ use std::collections::BTreeMap;
 
 pub mod support;
 
+use ed25519_dalek::{Signer, SigningKey};
+use layerx_programs::{
+    chain_evidence::{
+        deployment::ChainDeploymentProof, lifecycle::ChainLifecycleProof,
+        program_state::ChainProgramStateProof, programs_state_key, wind_down::ChainWindDownProof,
+    },
+    chain_proof::{
+        decode::decode_commitment_proof,
+        merkle::{hash_from_byte_slices, SimpleProof},
+        validators::{TrustedValidator, ValidatorSet},
+        vote::{vote_sign_bytes, BlockIdFlag, CommitSig, Timestamp},
+        ChainProofError,
+    },
+    DeploymentProof, ProgramInterface, ProgramLifecycleProof, ProgramStateProof,
+    ProtocolDeploymentVerifier,
+};
 use layerx_programs::{
     BuildEnvironment, DeploymentJournal, DeploymentRecord, ExecutableAdmissionError,
     JournalReadAuthority, ObservedHead, ProgramLifecycle, ProtocolEvidenceError, PublishedSource,
@@ -12,19 +28,18 @@ use layerx_programs_runtime::{
     hash_bytes, ActivityBudgetBinding, CompositionRules, Deploy, HashAlgorithm, Lifecycle,
     ProgramId, ProgramVersion, UpgradePolicy, ABI_V1_VERSION, ABI_V2_VERSION, ABI_VERSION,
 };
-use layerx_proof::merkle::verify_path;
-use layerx_wire::receipt::decode_batch_header;
 
 use support::{
-    code_hash as fixture_code_hash, deploy_fixture, deploy_fixture_in_epoch, deprecated_state,
-    legacy_deploy_fixture, program as fixture_program, try_verifier_from_history, upgrade_fixture,
-    verifier_for_fixture, verifier_from_history, wrong_abi_fixture, wrong_batch_id_fixture,
-    TrustAnchorFixture, AUTHORITY, NOW, WASM_V1 as PROTOCOL_WASM_V1, WASM_V2 as PROTOCOL_WASM_V2,
+    chain::ChainFixture, code_hash as fixture_code_hash, deploy_fixture, deprecated_state,
+    program as fixture_program, upgrade_fixture, verifier_for_fixture, wrong_abi_fixture,
+    AUTHORITY, NOW, WASM_V1 as PROTOCOL_WASM_V1, WASM_V2 as PROTOCOL_WASM_V2,
 };
 
 const PROGRAM: [u8; 32] = [0x31; 32];
 const WASM_V1: &[u8] = &[0, 97, 115, 109, 1, 0, 0, 0];
 const WASM_V2: &[u8] = &[0, 97, 115, 109, 1, 0, 0, 0, 0, 3, 2, b'v', b'2'];
+const VALIDATOR_SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
+const ROTATED_SEEDS: [[u8; 32]; 4] = [[11; 32], [12; 32], [13; 32], [14; 32]];
 const INVALID_WASM: &[u8] = &[0, 97, 115, 109, 1, 0, 0, 0, 1, 1, 0xff];
 
 struct WrongAuthority;
@@ -80,9 +95,9 @@ impl DeploymentJournal for CanonicalJournal {
 fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
     let program = fixture_program();
     let policy = UpgradePolicy::Authority(AUTHORITY);
-    let deploy = deploy_fixture(PROTOCOL_WASM_V1, policy, 70, 1_700_000_070);
-    let upgrade = upgrade_fixture(PROTOCOL_WASM_V1, PROTOCOL_WASM_V2, 71, 1_700_000_071);
-    let verifier = verifier_for_fixture(&deploy, 70, 100, None, 1_000);
+    let deploy = deploy_fixture(PROTOCOL_WASM_V1, policy, 70, NOW - 800);
+    let upgrade = upgrade_fixture(PROTOCOL_WASM_V1, PROTOCOL_WASM_V2, 71, NOW - 700);
+    let verifier = verifier_for_fixture(&deploy, 1_000);
     let first = verifier
         .verify_deployment(&deploy.proof, NOW)
         .unwrap_or_else(|error| panic!("deploy evidence: {error}"));
@@ -108,7 +123,7 @@ fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
     assert_eq!(historical.code_hash(), fixture_code_hash(PROTOCOL_WASM_V1));
     assert_eq!(historical.receipt_digest(), first.receipt_digest());
     assert_eq!(historical.module(), PROTOCOL_WASM_V1);
-    assert_eq!(historical.freshness().observed_sequence, 70);
+    assert_eq!(historical.freshness().observed_sequence, 71);
     assert_eq!(historical.lifecycle(), ProgramLifecycle::Active);
     assert_eq!(latest.version(), 2);
     assert_eq!(latest.code_hash(), fixture_code_hash(PROTOCOL_WASM_V2));
@@ -116,7 +131,7 @@ fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
     assert_eq!(latest.module(), PROTOCOL_WASM_V2);
     let alternate = verifier
         .verify_deployment(
-            &deploy_fixture(PROTOCOL_WASM_V1, policy, 73, 1_700_000_073).proof,
+            &deploy_fixture(PROTOCOL_WASM_V1, policy, 73, NOW - 500).proof,
             NOW,
         )
         .unwrap_or_else(|error| panic!("alternate receipt evidence: {error}"));
@@ -156,238 +171,394 @@ fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
 
 #[test]
 fn forged_batch_journal_and_stale_evidence_never_create_deployment_authority() {
-    let fixture = deploy_fixture(
-        PROTOCOL_WASM_V1,
-        UpgradePolicy::Immutable,
-        70,
-        1_700_000_070,
+    let mut fixture = deploy_fixture(PROTOCOL_WASM_V1, UpgradePolicy::Immutable, 70, NOW);
+    let verifier = verifier_for_fixture(&fixture, 100);
+    let valid = verifier
+        .verify_deployment(&fixture.proof, NOW)
+        .expect("fully signed deployment");
+    fixture.chain.commit.signatures.truncate(2);
+    assert_eq!(fixture.chain.verifier.validators.total_power(), 4);
+    assert_eq!(fixture.chain.commit.signatures.len(), 2);
+    assert_eq!(
+        fixture
+            .chain
+            .verifier
+            .verify_head(&fixture.chain.header, &fixture.chain.commit),
+        Err(ChainProofError::InsufficientPower)
     );
-    let verifier = verifier_for_fixture(&fixture, 70, 100, None, 100);
     let mut forged = fixture.proof.clone();
-    forged.state.header_signature[0] ^= 1;
-    assert!(matches!(
+    forged.state.commitment = decode_commitment_proof(
+        &fixture
+            .chain
+            .encode_key(&forged.state.commitment.key)
+            .expect("underpowered commitment"),
+    )
+    .expect("decode underpowered commitment");
+    assert_eq!(
         verifier.verify_deployment(&forged, NOW),
-        Err(ProtocolEvidenceError::ReceiptInclusion | ProtocolEvidenceError::ActivityInclusion)
-    ));
+        Err(ProtocolEvidenceError::ChainProof)
+    );
+    let registry = Registry::new();
+    assert_eq!(
+        registry.latest_version(fixture_program()),
+        Err(RegistryError::UnknownProgram)
+    );
+    assert_eq!(
+        registry.resolve_deployment(valid.clone()),
+        Err(RegistryError::UnknownProgram)
+    );
     assert_eq!(
         verifier.verify_deployment(&fixture.proof, NOW + 100),
+        Ok(valid.clone())
+    );
+    assert_eq!(
+        verifier.verify_deployment(&fixture.proof, NOW + 101),
         Err(ProtocolEvidenceError::Stale)
     );
-    let wrong_batch = wrong_batch_id_fixture(70, 1_700_000_070);
+    let mut wrong_transaction = fixture.proof.clone();
+    wrong_transaction.state.transaction[0] ^= 1;
     assert_eq!(
-        verifier.verify_deployment(&wrong_batch.proof, NOW),
-        Err(ProtocolEvidenceError::BatchIdentifier)
+        verifier.verify_deployment(&wrong_transaction, NOW),
+        Err(ProtocolEvidenceError::ChainProof)
     );
-    let wrong_abi = wrong_abi_fixture(70, 1_700_000_070);
+    let wrong_abi = wrong_abi_fixture(70, NOW);
     assert_eq!(
         verifier.verify_deployment(&wrong_abi.proof, NOW),
-        Err(ProtocolEvidenceError::CanonicalActivity)
+        Err(ProtocolEvidenceError::DeploymentMismatch)
     );
-    let impossible_module =
-        deploy_fixture(b"not-wasm", UpgradePolicy::Immutable, 70, 1_700_000_070);
+    let mut impossible_module = fixture.proof.clone();
+    impossible_module.deployment.code = b"not-wasm".to_vec();
     assert_eq!(
-        verifier.verify_deployment(&impossible_module.proof, NOW),
-        Err(ProtocolEvidenceError::CanonicalActivity)
+        verifier.verify_deployment(&impossible_module, NOW),
+        Err(ProtocolEvidenceError::DeploymentMismatch)
     );
-    let foreign_network = verifier_from_history(
-        &[TrustAnchorFixture {
-            protocol_version: 2,
-            network_id: 43,
-            epoch: 2,
-            sequencer_id: fixture.sequencer_id,
-            sequencer_public_key: fixture.sequencer_public_key,
-            first_batch: 70,
-            last_batch: 100,
-            revoked_from_batch: None,
-        }],
-        0,
+    let foreign_network = ProtocolDeploymentVerifier::from_chain_trust(
+        "foreign-chain",
+        fixture.chain.verifier.validators.validators().to_vec(),
         100,
-    );
+    )
+    .expect("foreign chain trust");
     assert_eq!(
         foreign_network.verify_deployment(&fixture.proof, NOW),
-        Err(ProtocolEvidenceError::TrustAnchorUnavailable)
+        Err(ProtocolEvidenceError::ChainProof)
     );
-    for (protocol, epoch) in [(1, 2), (2, 3)] {
-        let foreign_domain = verifier_from_history(
-            &[TrustAnchorFixture {
-                protocol_version: protocol,
-                network_id: 42,
-                epoch,
-                sequencer_id: fixture.sequencer_id,
-                sequencer_public_key: fixture.sequencer_public_key,
-                first_batch: 70,
-                last_batch: 100,
-                revoked_from_batch: None,
-            }],
-            0,
-            100,
-        );
-        assert_eq!(
-            foreign_domain.verify_deployment(&fixture.proof, NOW),
-            Err(ProtocolEvidenceError::TrustAnchorUnavailable)
-        );
-    }
-    let revoked = verifier_for_fixture(&fixture, 70, 100, Some(71), 100);
+    let (foreign_set, _) =
+        chain_deployment_fixture(fixture_program(), PROTOCOL_WASM_V1, &ROTATED_SEEDS, None);
+    let foreign_domain = ProtocolDeploymentVerifier::from_chain_trust(
+        &fixture.chain.verifier.chain_id,
+        foreign_set.verifier.validators.validators().to_vec(),
+        100,
+    )
+    .expect("different validator trust");
     assert_eq!(
-        revoked.verify_deployment(&fixture.proof, NOW),
-        Ok(verifier
-            .verify_deployment(&fixture.proof, NOW)
-            .unwrap_or_else(|error| panic!("pre-revocation evidence: {error}")))
+        foreign_domain.verify_deployment(&fixture.proof, NOW),
+        Err(ProtocolEvidenceError::InvalidTrustAnchor)
     );
-    let revoked_fixture = deploy_fixture(
-        PROTOCOL_WASM_V1,
-        UpgradePolicy::Immutable,
-        71,
-        1_700_000_071,
-    );
+    assert_eq!(verifier.verify_deployment(&fixture.proof, NOW), Ok(valid));
+    let mut unauthorized = fixture.proof.clone();
+    let (mut rotated, _) =
+        chain_deployment_fixture(fixture_program(), PROTOCOL_WASM_V1, &ROTATED_SEEDS, None);
+    rotated.header.height = fixture.chain.header.height + 1;
+    rotated.header.time = fixture.chain.header.time;
+    sign_chain(&mut rotated, &ROTATED_SEEDS);
+    unauthorized.state.commitment = decode_commitment_proof(
+        &rotated
+            .encode_key(&unauthorized.state.commitment.key)
+            .expect("rotated commitment"),
+    )
+    .expect("decode rotated commitment");
     assert_eq!(
-        revoked.verify_deployment(&revoked_fixture.proof, NOW),
-        Err(ProtocolEvidenceError::SequencerRevoked)
+        verifier.verify_deployment(&unauthorized, NOW),
+        Err(ProtocolEvidenceError::InvalidTrustAnchor)
     );
 }
 
 #[test]
 fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
-    let historical = deploy_fixture_in_epoch(
+    let historical_program = fixture_program();
+    let current_program = ProgramId::new([0x32; 32]).expect("second program");
+    let (mut historical, mut historical_proof) = chain_deployment_fixture(
+        historical_program,
         PROTOCOL_WASM_V1,
-        UpgradePolicy::Immutable,
-        70,
-        1_700_000_070,
-        2,
-        [7; 32],
+        &VALIDATOR_SEEDS,
+        Some(support::fixture_interface(PROTOCOL_WASM_V1)),
     );
-    let current = deploy_fixture_in_epoch(
-        PROTOCOL_WASM_V1,
-        UpgradePolicy::Immutable,
-        101,
-        1_700_000_101,
-        3,
-        [8; 32],
+    let (mut current, mut current_proof) = chain_deployment_fixture(
+        current_program,
+        PROTOCOL_WASM_V2,
+        &VALIDATOR_SEEDS,
+        Some(support::fixture_interface(PROTOCOL_WASM_V2)),
     );
-    let verifier = verifier_from_history(
-        &[
-            TrustAnchorFixture {
-                protocol_version: 2,
-                network_id: 42,
-                epoch: 2,
-                sequencer_id: historical.sequencer_id,
-                sequencer_public_key: historical.sequencer_public_key,
-                first_batch: 70,
-                last_batch: 100,
-                revoked_from_batch: Some(101),
-            },
-            TrustAnchorFixture {
-                protocol_version: 2,
-                network_id: 42,
-                epoch: 3,
-                sequencer_id: current.sequencer_id,
-                sequencer_public_key: current.sequencer_public_key,
-                first_batch: 101,
-                last_batch: 200,
-                revoked_from_batch: None,
-            },
-        ],
-        1,
+    let mut rotated = ROTATED_SEEDS
+        .iter()
+        .map(|seed| {
+            let key = SigningKey::from_bytes(seed);
+            TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+        })
+        .collect::<Vec<_>>();
+    rotated.sort_by_key(|validator| validator.address);
+    let rotated = ValidatorSet::new(rotated).expect("rotated validators");
+    assert!(rotated.validators().iter().all(|validator| !historical
+        .verifier
+        .validators
+        .validators()
+        .contains(validator)));
+    historical.header.height = 71;
+    historical.header.time.seconds = 1_700_000_130;
+    historical.header.time.nanos = 0;
+    sign_chain(&mut historical, &VALIDATOR_SEEDS);
+    historical_proof.state.commitment = decode_commitment_proof(
+        &historical
+            .encode_key(&historical_proof.state.commitment.key)
+            .expect("historical commitment"),
+    )
+    .expect("decode historical commitment");
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        &historical.verifier.chain_id,
+        historical.verifier.validators.validators().to_vec(),
         50,
+    )
+    .expect("original validator trust");
+    let original_head = historical
+        .verifier
+        .verify_head(&historical.header, &historical.commit)
+        .expect("original deployment head");
+    let original_step = (
+        historical.header.clone(),
+        historical.commit.clone(),
+        historical.verifier.validators.clone(),
     );
+    let original = verifier
+        .verify_deployment(&historical_proof, NOW - 20_000)
+        .expect("deployment before rotation");
 
-    assert!(verifier
-        .verify_historical_deployment(&historical.proof)
-        .is_ok());
+    let mut transition = historical.header.clone();
+    transition.height += 1;
+    transition.time.seconds += 10;
+    transition.last_block_id.hash = historical.commit.block_id.hash.clone();
+    transition.last_block_id.part_set_total = historical.commit.block_id.part_set_header.total;
+    transition.last_block_id.part_set_hash =
+        historical.commit.block_id.part_set_header.hash.clone();
+    transition.next_validators_hash = rotated.hash().to_vec();
+    historical.header = transition;
+    sign_chain(&mut historical, &VALIDATOR_SEEDS);
+    let transition_trust = historical
+        .verifier
+        .advance(
+            &original_head,
+            &historical.header,
+            &historical.commit,
+            historical.verifier.validators.clone(),
+        )
+        .expect("old validators authorize next validator set");
+    let transition_head = transition_trust
+        .verify_head(&historical.header, &historical.commit)
+        .expect("authenticated rotation announcement");
+    current.header.height = historical.header.height + 1;
+    current.header.time.seconds = 1_700_000_150;
+    current.header.time.nanos = 0;
+    current.header.last_block_id.hash = historical.commit.block_id.hash.clone();
+    current.header.last_block_id.part_set_total = historical.commit.block_id.part_set_header.total;
+    current.header.last_block_id.part_set_hash =
+        historical.commit.block_id.part_set_header.hash.clone();
+    current.verifier.validators = rotated;
+    current.header.validators_hash = current.verifier.validators.hash().to_vec();
+    current.header.next_validators_hash = current.header.validators_hash.clone();
+    current.header.proposer_address = current.verifier.validators.validators()[0].address.to_vec();
+    sign_chain(&mut current, &ROTATED_SEEDS);
+    current.verifier = transition_trust
+        .advance(
+            &transition_head,
+            &current.header,
+            &current.commit,
+            current.verifier.validators.clone(),
+        )
+        .expect("authenticate rotated validators through the chain");
+    let current_head = current
+        .verifier
+        .verify_head(&current.header, &current.commit)
+        .expect("head after rotation");
+    current_proof.state.commitment = decode_commitment_proof(
+        &current
+            .encode_key(&current_proof.state.commitment.key)
+            .expect("current commitment"),
+    )
+    .expect("decode current commitment");
+    let history = vec![
+        original_step,
+        (
+            historical.header.clone(),
+            historical.commit.clone(),
+            transition_trust.validators.clone(),
+        ),
+        (
+            current.header.clone(),
+            current.commit.clone(),
+            current.verifier.validators.clone(),
+        ),
+    ];
     assert_eq!(
-        verifier.verify_deployment(&historical.proof, NOW),
+        verifier.verify_deployment(&historical_proof, NOW),
+        Err(ProtocolEvidenceError::Stale)
+    );
+    let first = verifier
+        .verify_historical_deployment(&historical_proof, &current_head, &history, NOW)
+        .expect("historical deployment verified across rotation");
+    assert_eq!(first, original);
+    let current_verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        &current.verifier.chain_id,
+        current.verifier.validators.validators().to_vec(),
+        50,
+    )
+    .expect("verifier derived from authenticated rotated validators");
+    let second = current_verifier
+        .verify_historical_deployment(&current_proof, &current_head, &history[2..], NOW)
+        .expect("deployment after rotation");
+    assert_eq!(
+        current_verifier.verify_deployment(&current_proof, NOW),
+        Ok(second.clone())
+    );
+    assert_eq!(
+        current_verifier.verify_historical_deployment(
+            &historical_proof,
+            &current_head,
+            &history,
+            NOW
+        ),
+        Err(ProtocolEvidenceError::InvalidTrustAnchor)
+    );
+    let missing_rotation = [history[0].clone(), history[2].clone()];
+    assert_eq!(
+        verifier.verify_historical_deployment(
+            &historical_proof,
+            &current_head,
+            &missing_rotation,
+            NOW
+        ),
         Err(ProtocolEvidenceError::HistoricalTrustAnchor)
     );
-    assert!(verifier.verify_deployment(&current.proof, NOW).is_ok());
-
-    let current_only = verifier_from_history(
-        &[TrustAnchorFixture {
-            protocol_version: 2,
-            network_id: 42,
-            epoch: 3,
-            sequencer_id: current.sequencer_id,
-            sequencer_public_key: current.sequencer_public_key,
-            first_batch: 101,
-            last_batch: 200,
-            revoked_from_batch: None,
-        }],
-        0,
-        50,
-    );
+    let mut forged_history = history.clone();
+    forged_history[1].1.signatures.truncate(2);
     assert_eq!(
-        current_only.verify_historical_deployment(&historical.proof),
-        Err(ProtocolEvidenceError::TrustAnchorUnavailable)
+        verifier.verify_historical_deployment(
+            &historical_proof,
+            &current_head,
+            &forged_history,
+            NOW
+        ),
+        Err(ProtocolEvidenceError::HistoricalTrustAnchor)
+    );
+    let mut wrong_anchor = history.clone();
+    wrong_anchor[0].2 = current.verifier.validators.clone();
+    assert_eq!(
+        verifier.verify_historical_deployment(&historical_proof, &current_head, &wrong_anchor, NOW),
+        Err(ProtocolEvidenceError::InvalidTrustAnchor)
     );
 
-    assert!(matches!(
-        try_verifier_from_history(
-            &[
-                TrustAnchorFixture {
-                    protocol_version: 2,
-                    network_id: 42,
-                    epoch: 2,
-                    sequencer_id: historical.sequencer_id,
-                    sequencer_public_key: historical.sequencer_public_key,
-                    first_batch: 70,
-                    last_batch: 100,
-                    revoked_from_batch: None,
-                },
-                TrustAnchorFixture {
-                    protocol_version: 2,
-                    network_id: 42,
-                    epoch: 2,
-                    sequencer_id: historical.sequencer_id,
-                    sequencer_public_key: historical.sequencer_public_key,
-                    first_batch: 80,
-                    last_batch: 110,
-                    revoked_from_batch: None,
-                },
-            ],
-            1,
-            1_000,
+    let records = [second.record().clone(), first.record().clone()];
+    let mut registry = Registry::new();
+    registry
+        .replay_journal(&records)
+        .expect("replay both chain-verified deployments");
+    assert_eq!(
+        registry.program_ids(),
+        vec![historical_program, current_program]
+    );
+    for (evidence, wasm, height) in [
+        (&first, PROTOCOL_WASM_V1, 71),
+        (&second, PROTOCOL_WASM_V2, 73),
+    ] {
+        assert_eq!(evidence.version(), 1);
+        assert_eq!(evidence.module(), wasm);
+        assert_eq!(evidence.code_hash(), fixture_code_hash(wasm));
+        assert_eq!(evidence.freshness().observed_sequence, height);
+        assert_eq!(registry.latest_version(evidence.program()), Ok(1));
+        let entry = registry
+            .entry_for_wind_down(evidence.program())
+            .expect("replayed entry");
+        assert_eq!(entry.versions.len(), 1);
+        assert_eq!(entry.versions[0].code_hash, evidence.code_hash());
+        assert_eq!(entry.versions[0].abi_version, evidence.abi_version());
+        assert_eq!(
+            entry.versions[0].deployment_receipt_digest,
+            evidence.record().digest()
+        );
+    }
+    assert_eq!(first.state_root(), original_head.app_hash());
+    assert_eq!(second.state_root(), current_head.app_hash());
+    assert_ne!(first.state_root(), second.state_root());
+    let authority = JournalReadAuthority::new(
+        CanonicalJournal::new(
+            &records,
+            ObservedHead {
+                sequence: 73,
+                observed_at: NOW,
+            },
         ),
-        Err(ProtocolEvidenceError::TrustAnchorAmbiguous)
-    ));
+        NOW,
+        50,
+    )
+    .expect("canonical deployment journal authority");
+    for evidence in [&first, &second] {
+        let read = registry
+            .read(evidence.program(), &authority)
+            .expect("authenticated journal read");
+        assert_eq!(read.entry.versions[0].code_hash, evidence.code_hash());
+        assert_eq!(
+            read.entry.versions[0].deployment_receipt_digest,
+            evidence.record().digest()
+        );
+    }
 }
 
 #[test]
 fn mismatched_receipt_invalid_module_stale_head_and_deprecation_are_fail_closed() {
-    let fixture = legacy_deploy_fixture(
-        INVALID_WASM,
+    let (invalid_chain, invalid_proof) =
+        chain_deployment_fixture(fixture_program(), INVALID_WASM, &VALIDATOR_SEEDS, None);
+    let fixture = deploy_fixture(
+        PROTOCOL_WASM_V1,
         UpgradePolicy::Authority(AUTHORITY),
         70,
-        1_700_000_070,
+        NOW - 800,
     );
     let other = deploy_fixture(
         PROTOCOL_WASM_V1,
         UpgradePolicy::Authority(AUTHORITY),
         71,
-        1_700_000_071,
+        NOW - 700,
     );
-    let verifier = verifier_for_fixture(&fixture, 70, 100, None, 1_000);
+    let verifier = verifier_for_fixture(&fixture, 1_000);
     let mut swapped_receipt = fixture.proof.clone();
-    swapped_receipt.state.receipt = other.proof.state.receipt.clone();
-    let signed_header = decode_batch_header(&swapped_receipt.state.header)
-        .unwrap_or_else(|error| panic!("decode signed header: {error:?}"));
-    assert!(verify_path(
-        &swapped_receipt.state.receipt,
-        &swapped_receipt.state.receipt_proof,
-        &signed_header.receipt_merkle_root(),
+    swapped_receipt.state.transaction = other.proof.state.transaction.clone();
+    swapped_receipt.state.transaction[0] ^= 1;
+    let signed_header = layerx_programs::chain_proof::header::ChainHeader::decode(
+        &swapped_receipt.state.commitment.signed_header,
+    )
+    .expect("decode signed chain header");
+    let signed_head = fixture
+        .chain
+        .verifier
+        .verify_head(&signed_header, &fixture.chain.commit)
+        .expect("signed chain head");
+    assert!(layerx_programs::verify_tx(
+        &signed_head,
+        &swapped_receipt.state.transaction,
+        &swapped_receipt.state.transaction_proof,
     )
     .is_err());
     let swapped_head =
         verifier.verify_current_program(&swapped_receipt.state, fixture_program(), NOW);
-    assert!(
-        matches!(swapped_head, Err(ProtocolEvidenceError::ReceiptInclusion)),
-        "unexpected swapped-receipt head result: {swapped_head:?}"
-    );
+    assert_eq!(swapped_head, Err(ProtocolEvidenceError::ChainProof));
     let swapped_result = verifier.verify_deployment(&swapped_receipt, NOW);
-    assert!(
-        matches!(swapped_result, Err(ProtocolEvidenceError::ReceiptInclusion)),
-        "unexpected swapped-receipt result: {swapped_result:?}"
-    );
-    let malformed_evidence = verifier
-        .verify_deployment(&fixture.proof, NOW)
+    assert_eq!(swapped_result, Err(ProtocolEvidenceError::ChainProof));
+    let invalid_verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        &invalid_chain.verifier.chain_id,
+        invalid_chain.verifier.validators.validators().to_vec(),
+        1_000,
+    )
+    .expect("invalid module chain verifier");
+    let malformed_evidence = invalid_verifier
+        .verify_deployment(&invalid_proof, NOW)
         .unwrap_or_else(|error| panic!("malformed module protocol evidence: {error}"));
     let mut executable = VerifiedProgramCatalog::declared()
         .unwrap_or_else(|error| panic!("verified catalog: {error}"));
@@ -401,7 +572,7 @@ fn mismatched_receipt_invalid_module_stale_head_and_deprecation_are_fail_closed(
         PROTOCOL_WASM_V1,
         UpgradePolicy::Authority(AUTHORITY),
         72,
-        1_700_000_072,
+        NOW - 600,
     );
     let evidence = verifier
         .verify_deployment(&valid.proof, NOW)
@@ -427,11 +598,7 @@ fn mismatched_receipt_invalid_module_stale_head_and_deprecation_are_fail_closed(
     ));
 
     let deprecated = verifier
-        .verify_current_program(
-            &deprecated_state(&valid, 1_700_000_073),
-            fixture_program(),
-            NOW,
-        )
+        .verify_current_program(&deprecated_state(&valid, NOW - 500), fixture_program(), NOW)
         .unwrap_or_else(|error| panic!("deprecated head: {error}"));
     let mut deprecated_catalog = VerifiedProgramCatalog::declared()
         .unwrap_or_else(|error| panic!("deprecated catalog: {error}"));
@@ -746,4 +913,124 @@ fn registry_replay_applies_every_supported_abi_transition_without_rewriting_hist
             }
         }
     }
+}
+
+fn sign_chain(fixture: &mut ChainFixture, seeds: &[[u8; 32]]) {
+    fixture.commit.height = fixture.header.height;
+    fixture.commit.block_id.hash = fixture.header.hash().expect("chain header hash").to_vec();
+    let timestamp = Timestamp {
+        seconds: fixture.header.time.seconds,
+        nanos: fixture.header.time.nanos,
+    };
+    let bytes = vote_sign_bytes(
+        &fixture.header.chain_id,
+        fixture.commit.height,
+        fixture.commit.round,
+        Some(&fixture.commit.block_id),
+        timestamp,
+    )
+    .expect("canonical vote bytes");
+    let mut keys = seeds.iter().map(SigningKey::from_bytes).collect::<Vec<_>>();
+    keys.sort_by_key(|key| TrustedValidator::new(key.verifying_key().to_bytes(), 1).address);
+    fixture.commit.signatures = keys
+        .iter()
+        .map(|key| CommitSig {
+            flag: BlockIdFlag::Commit,
+            validator_address: TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                .address
+                .to_vec(),
+            timestamp,
+            signature: key.sign(&bytes).to_bytes().to_vec(),
+        })
+        .collect();
+}
+
+fn chain_deployment_fixture(
+    program: ProgramId,
+    wasm: &[u8],
+    seeds: &[[u8; 32]],
+    interface: Option<ProgramInterface>,
+) -> (ChainFixture, DeploymentProof) {
+    let mut program_key = b"program\0".to_vec();
+    program_key.extend_from_slice(&program.bytes());
+    let program_key = programs_state_key(&program_key);
+    let mut status_key = b"wind-down\0s".to_vec();
+    status_key.extend_from_slice(&program.bytes());
+    let status_key = programs_state_key(&status_key);
+    let mut record = vec![0; 33];
+    record.extend_from_slice(&fixture_code_hash(wasm));
+    record.extend_from_slice(&ABI_V1_VERSION.to_be_bytes());
+    record.extend_from_slice(&1_u32.to_be_bytes());
+    let mut fixture = ChainFixture::new(
+        "paxeer-registry-replay",
+        seeds,
+        vec![(program_key.clone(), record.clone())],
+    )
+    .expect("real chain state fixture");
+    let interface = interface.map(|value| value.canonical_encoding().to_vec());
+    let mut transaction = program.bytes().to_vec();
+    transaction.extend_from_slice(&ABI_V1_VERSION.to_be_bytes());
+    transaction.extend_from_slice(&[0; 34]);
+    transaction.extend_from_slice(&fixture_code_hash(wasm));
+    transaction.extend_from_slice(
+        &u32::try_from(wasm.len())
+            .expect("module length")
+            .to_be_bytes(),
+    );
+    let interface_length = interface.as_ref().map_or(0, Vec::len);
+    transaction.extend_from_slice(
+        &u32::try_from(interface_length)
+            .expect("interface length")
+            .to_be_bytes(),
+    );
+    if let Some(encoding) = &interface {
+        transaction.extend_from_slice(encoding);
+    }
+    transaction.extend_from_slice(wasm);
+    let transaction_root = hash_from_byte_slices(&[&fixture_code_hash(&transaction)]);
+    fixture.header.time.seconds = 1_700_000_150;
+    fixture.header.time.nanos = 0;
+    fixture.header.data_hash = transaction_root.to_vec();
+    sign_chain(&mut fixture, seeds);
+    let state = ChainProgramStateProof {
+        program,
+        ops: fixture.prove(&program_key).expect("program membership"),
+    };
+    let status_ops = fixture
+        .prove_absent(&status_key)
+        .expect("active lifecycle absence");
+    let proof = DeploymentProof {
+        state: ProgramStateProof {
+            commitment: decode_commitment_proof(
+                &fixture.encode_key(&program_key).expect("chain commitment"),
+            )
+            .expect("decode chain commitment"),
+            state: state.clone(),
+            lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
+                program,
+                record: Some(record),
+                record_ops: state.ops.clone(),
+                status: None,
+                status_ops: status_ops.clone(),
+            }),
+            wind_down: ChainWindDownProof {
+                program,
+                value: None,
+                ops: status_ops,
+            },
+            transaction,
+            transaction_proof: SimpleProof {
+                total: 1,
+                index: 0,
+                leaf_hash: transaction_root,
+                aunts: Vec::new(),
+            },
+        },
+        deployment: ChainDeploymentProof {
+            program_state: state,
+            code: wasm.to_vec(),
+            interface,
+        },
+    };
+    (fixture, proof)
 }
