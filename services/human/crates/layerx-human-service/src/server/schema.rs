@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter};
 
+use layerx_types::rung::Rung;
 use serde_json::{Map, Value};
 
 const SCHEMA_FILES: &[(&str, &str)] = &[
@@ -367,6 +368,34 @@ impl ApiSchema {
         };
         if let Some(balance) = balance {
             enforce_verified_balance(balance)?;
+            if operation.name == "home.summary" && result.get("rung") != balance.get("rung") {
+                return Err(SchemaError::at(
+                    "response.result.rung",
+                    "must match the balance rung",
+                ));
+            }
+            if let Some(rung) = balance.get("rung") {
+                let rung = rung.as_str().and_then(Rung::from_name).ok_or_else(|| {
+                    SchemaError::at("response.result.balance.rung", "must be a declared rung")
+                })?;
+                let verification = super::HumanComponentServer::verification_level_name(rung);
+                if balance.get("verification").and_then(Value::as_str) != Some(verification) {
+                    return Err(SchemaError::at(
+                        "response.result.balance.rung",
+                        "must match the balance verification",
+                    ));
+                }
+                if operation.name == "home.summary"
+                    && result
+                        .get("rung")
+                        .is_some_and(|summary| summary.as_str() != Some(rung.name()))
+                {
+                    return Err(SchemaError::at(
+                        "response.result.rung",
+                        "must match the balance rung",
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -472,6 +501,27 @@ fn enforce_verified_balance(balance: &Value) -> Result<(), SchemaError> {
         .get("verification")
         .and_then(Value::as_str)
         .ok_or_else(|| SchemaError::at("response.result.balance.verification", "is required"))?;
+    if verification == "unverified" {
+        if object
+            .get("rung")
+            .is_some_and(|rung| rung.as_str() != Some("submitted"))
+            || object
+                .get("evidence")
+                .and_then(Value::as_array)
+                .is_none_or(|items| {
+                    items.is_empty()
+                        || items.iter().any(|entry| {
+                            entry.get("verification").and_then(Value::as_str) != Some("unverified")
+                        })
+                })
+        {
+            return Err(SchemaError::at(
+                "response.result.balance",
+                "unverified reads must not claim verified evidence",
+            ));
+        }
+        return Ok(());
+    }
     if !matches!(
         verification,
         "receipt-verified" | "checkpoint-finalised" | "settlement-anchored"

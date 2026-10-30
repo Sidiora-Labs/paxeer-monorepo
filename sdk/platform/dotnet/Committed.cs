@@ -50,16 +50,6 @@ public sealed record CommittedReceiptInclusion(byte[] Transaction, CommittedProo
     [JsonIgnore] public CometHeader ResultsHeader { get => NextHeader; init => NextHeader = value; }
     [JsonIgnore] public CometCommit ResultsCommit { get => NextCommit; init => NextCommit = value; }
     [JsonIgnore] public IReadOnlyList<CometValidator> ResultsValidators { get => NextValidators; init => NextValidators = value; }
-    [JsonIgnore] public IReadOnlyList<byte[]> ActivityIds { get; init; } = Array.Empty<byte[]>();
-
-    public CommittedReceiptInclusion(byte[] batchTransaction, MerkleProof batchProof,
-        IReadOnlyList<byte[]> activityIds, CometExecutionResult result, MerkleProof resultProof,
-        CometHeader resultsHeader, CometCommit resultsCommit, IReadOnlyList<CometValidator> resultsValidators)
-        : this(Array.Empty<byte>(), new(0, 0, Array.Empty<byte[]>()), result, resultProof,
-            batchTransaction, batchProof, resultsHeader, resultsCommit, resultsValidators)
-    {
-        ActivityIds = activityIds;
-    }
 }
 
 internal sealed class CometArray32Converter : JsonConverter<byte[]>
@@ -186,6 +176,7 @@ public static class Committed
             Require(result.Code is 0 or 45 && receipt.ResultCode == (result.Code == 0 ? 0 : 1) &&
                 result.GasUsed >= 0 && result.GasWanted >= result.GasUsed &&
                 (ulong)result.GasUsed == BinaryPrimitives.ReadUInt64BigEndian(receipt.Effects[0].Body));
+            VerifyResultData(result, receipt);
 
             var batch = receiptInclusion.BatchTransaction;
             var offset = BatchDomain.Length;
@@ -264,11 +255,13 @@ public static class Committed
             var signature = commit.Signatures[i];
             if (signature.BlockIdFlag == 1)
             {
-                Require(signature.Signature.Length == 0 && signature.ValidatorAddress.Length == 0 &&
+                Require((signature.Signature is null || signature.Signature.Length == 0) &&
+                    (signature.ValidatorAddress is null || signature.ValidatorAddress.Length == 0) &&
                     signature.Timestamp.Seconds == -62135596800 && signature.Timestamp.Nanoseconds == 0);
                 continue;
             }
-            Require(signature.BlockIdFlag is 2 or 3 && signature.Signature.Length == 64 &&
+            Require(signature.BlockIdFlag is 2 or 3 && signature.Signature is not null &&
+                signature.ValidatorAddress is not null && signature.Signature.Length == 64 &&
                 Equal(signature.ValidatorAddress, SHA256.HashData(validator.PublicKey).AsSpan(0, 20)));
             var verifier = new Ed25519Signer();
             verifier.Init(false, new Ed25519PublicKeyParameters(validator.PublicKey, 0));
@@ -296,6 +289,38 @@ public static class Committed
         if (data[0] >= 0xc0 || data[0] is >= 1 and <= 4) return data;
         var transaction = Parse(data);
         return EncodeEVM(Encoding.UTF8.GetString(Proto(transaction, 1, 2).Data), Parse(Single(transaction, 2).Data));
+    }
+
+    private static void VerifyResultData(CometExecutionResult result, ProtocolReceipt receipt)
+    {
+        var message = Parse(Single(Parse(result.Data), 1).Data);
+        var type = Encoding.UTF8.GetString(Single(message, 1).Data);
+        Require(type is "evm" or "/paxprotocol.paxchain.evm.MsgEVMTransaction" or "/ethermint.evm.v1.MsgEthereumTx");
+        var response = Parse(Single(message, 2).Data);
+        var summary = receipt.Effects[0].Body;
+        var returnData = Proto(response, 3, 2).Data;
+        Require(summary.Length >= 108 && Proto(response, 1, 0).Value == (ulong)result.GasUsed &&
+            Equal(SHA256.HashData(Proto(response, 2, 2).Data), summary.AsSpan(68, 32)) &&
+            returnData.Length == BinaryPrimitives.ReadUInt32BigEndian(summary.AsSpan(100, 4)) &&
+            Equal(SHA256.HashData(returnData), receipt.ActivityRoot) &&
+            Equal(Hex(Encoding.UTF8.GetString(Single(response, 4).Data), 32), receipt.ActivityId));
+        var logs = response.Where(field => field.Tag == 5).ToArray();
+        Require(logs.Length == receipt.Effects.Count - 1 &&
+            logs.Length == BinaryPrimitives.ReadUInt32BigEndian(summary.AsSpan(104, 4)));
+        for (var index = 0; index < logs.Length; index++)
+        {
+            Require(logs[index].Wire == 2);
+            var log = Parse(logs[index].Data);
+            var body = receipt.Effects[index + 1].Body;
+            var topics = log.Where(field => field.Tag == 2).ToArray();
+            Require(body.Length >= 53 && body[20] <= 4 && body.Length == 53 + body[20] * 32 &&
+                topics.Length == body[20] &&
+                Equal(Hex(Encoding.UTF8.GetString(Single(log, 1).Data), 20), body.AsSpan(0, 20)) &&
+                Equal(SHA256.HashData(Proto(log, 3, 2).Data), body.AsSpan(body.Length - 32)));
+            for (var topic = 0; topic < topics.Length; topic++)
+                Require(topics[topic].Wire == 2 &&
+                    Equal(Hex(Encoding.UTF8.GetString(topics[topic].Data), 32), body.AsSpan(21 + topic * 32, 32)));
+        }
     }
 
     private static byte[] EncodeEVM(string kind, List<Field> fields)

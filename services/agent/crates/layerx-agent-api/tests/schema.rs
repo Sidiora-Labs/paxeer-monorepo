@@ -17,52 +17,6 @@ const WRITE_BASELINE: &str = include_str!("../../../schema/agent-api/golden/writ
 const ERRORS_SOURCE: &str = include_str!("../../../schema/agent-api/errors.kvx");
 const ERRORS_BASELINE: &str = include_str!("../../../schema/agent-api/golden/errors.kvx");
 
-const CUSTODY_CLAIM_TAGS: &[(&str, &str)] = &[
-    (
-        "write.kvx",
-        "type.SubmissionState.Executed.settlement_domain",
-    ),
-    (
-        "stream.kvx",
-        "type.ReceiptReference.Verified.settlement_domain",
-    ),
-    ("read.kvx", "operation.export.offline.settlement_domain"),
-];
-
-fn settlement_domain_gate(
-    root: &BTreeMap<String, String>,
-    modules: &[(&str, &BTreeMap<String, String>)],
-) -> Result<(), String> {
-    let variants = root
-        .get("type.SettlementDomain.variants")
-        .ok_or_else(|| "missing the type.SettlementDomain claim vocabulary".to_owned())?;
-    if !variants.starts_with("[\"Paxeer\"") {
-        return Err(format!(
-            "Paxeer must be the first settlement domain variant, got {variants}"
-        ));
-    }
-    for (module, entries) in modules {
-        for (key, value) in *entries {
-            if key.ends_with(".settlement_domain") && value != "\"Paxeer\"" {
-                return Err(format!(
-                    "{module} names a foreign settlement domain at {key}: {value}"
-                ));
-            }
-        }
-    }
-    for (module, key) in CUSTODY_CLAIM_TAGS {
-        let tagged = modules.iter().any(|(name, entries)| {
-            name == module && entries.get(*key).map(String::as_str) == Some("\"Paxeer\"")
-        });
-        if !tagged {
-            return Err(format!(
-                "untagged custody claim: {module} must declare {key} = \"Paxeer\""
-            ));
-        }
-    }
-    Ok(())
-}
-
 fn declarations(source: &str) -> BTreeMap<String, String> {
     let mut section = String::new();
     let mut values = BTreeMap::new();
@@ -365,95 +319,55 @@ fn compatibility_gate_accepts_additions_and_rejects_mutation_or_removal() {
 }
 
 #[test]
-fn custody_receipt_shapes_name_the_paxeer_settlement_domain() {
-    let root = declarations(AGENT_API_V1_SOURCE);
-    assert_eq!(
-        root["type.SettlementDomain.variants"], "[\"Paxeer\"]",
-        "Paxeer is the sole valid settlement domain in this contract version"
-    );
+fn custody_receipt_shapes_preserve_their_required_fields() {
     let write = declarations(WRITE_SOURCE);
     let read = declarations(READ_SOURCE);
     let stream = declarations(STREAM_SOURCE);
-    let modules = [
-        ("v1.kvx", &root),
-        ("write.kvx", &write),
-        ("read.kvx", &read),
-        ("stream.kvx", &stream),
-    ];
-    assert_eq!(settlement_domain_gate(&root, &modules), Ok(()));
-}
-
-#[test]
-fn untagged_or_foreign_custody_claims_are_rejected() {
-    let root = declarations(AGENT_API_V1_SOURCE);
-    let read = declarations(READ_SOURCE);
-    let stream = declarations(STREAM_SOURCE);
-
-    let stripped_source = WRITE_SOURCE.replace("Executed.settlement_domain = \"Paxeer\"\n", "");
-    assert!(stripped_source.len() < WRITE_SOURCE.len());
-    let stripped = declarations(&stripped_source);
-    let untagged = settlement_domain_gate(
-        &root,
-        &[
-            ("v1.kvx", &root),
-            ("write.kvx", &stripped),
-            ("read.kvx", &read),
-            ("stream.kvx", &stream),
-        ],
-    );
-    assert!(untagged.is_err_and(|error| error.contains("untagged custody claim")));
-
-    let foreign_source = WRITE_SOURCE.replace(
-        "Executed.settlement_domain = \"Paxeer\"",
-        "Executed.settlement_domain = \"Ethereum\"",
-    );
-    let foreign = declarations(&foreign_source);
-    let mistagged = settlement_domain_gate(
-        &root,
-        &[
-            ("v1.kvx", &root),
-            ("write.kvx", &foreign),
-            ("read.kvx", &read),
-            ("stream.kvx", &stream),
-        ],
-    );
-    assert!(mistagged.is_err_and(|error| error.contains("foreign settlement domain")));
-
-    let no_vocabulary = declarations(
-        &AGENT_API_V1_SOURCE.replace("variants = [\"Paxeer\"]", "variants = [\"paxeer\"]"),
-    );
-    assert!(settlement_domain_gate(&no_vocabulary, &[]).is_err());
-}
-
-#[test]
-fn adding_a_settlement_domain_is_additive_by_construction() {
-    let previous = [(
-        "type.SubmissionState.Executed.settlement_domain",
-        "\"Paxeer\"",
-    )];
-    let with_second_domain = [
-        (
-            "type.SubmissionState.Executed.settlement_domain",
-            "\"Paxeer\"",
-        ),
-        ("type.SettlementDomain.variants", "[\"Paxeer\",\"Solana\"]"),
-    ];
     assert_eq!(
-        agent_api_compat_gate(1, 1, &previous, &with_second_domain),
-        Ok(())
+        write["type.SubmissionState.Executed.required"],
+        "[\"receipt_ref\"]"
     );
-    assert!(agent_api_compat_gate(
-        1,
-        1,
-        &previous,
-        &[(
-            "type.SubmissionState.Executed.settlement_domain",
-            "\"Solana\""
-        )]
-    )
-    .is_err());
-    let baseline = declarations(BASELINE);
-    assert_eq!(baseline["type.SettlementDomain.variants"], "[\"Paxeer\"]");
+    assert_eq!(
+        stream["type.ReceiptReference.Verified.required"],
+        "[\"receipt_ref\",\"verification_level\"]"
+    );
+    assert_eq!(
+        read["operation.export.offline.response_required"],
+        "[\"facts\",\"bundles\",\"height\"]"
+    );
+}
+
+#[test]
+fn custody_receipt_shapes_exclude_retired_domain_tags() {
+    for source in [
+        AGENT_API_V1_SOURCE,
+        WRITE_SOURCE,
+        READ_SOURCE,
+        STREAM_SOURCE,
+    ] {
+        for key in declarations(source).keys() {
+            assert!(
+                !key.contains("settlement_domain"),
+                "retired declaration: {key}"
+            );
+            assert!(
+                !key.contains("SettlementDomain"),
+                "retired declaration: {key}"
+            );
+        }
+    }
+}
+
+#[test]
+fn submission_state_retains_all_nine_variants() {
+    let expected = "[\"Prepared\",\"Signed\",\"Queued\",\"Submitted\",\"Unknown\",\"Executed\",\"Committed\",\"Failed\",\"Expired\"]";
+    for source in [WRITE_SOURCE, WRITE_BASELINE] {
+        assert_eq!(
+            declarations(source)["type.SubmissionState.variants"],
+            expected
+        );
+    }
+    assert_eq!(declarations(BASELINE), declarations(AGENT_API_V1_SOURCE));
 }
 
 #[test]

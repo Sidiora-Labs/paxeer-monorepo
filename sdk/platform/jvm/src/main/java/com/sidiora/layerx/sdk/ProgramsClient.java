@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 public final class ProgramsClient {
@@ -623,12 +624,22 @@ public final class ProgramsClient {
     public CompletionStage<Discovery> discover(byte[] programId, String verificationLevel) {
         if (!"pending".equals(verificationLevel)) invalid();
         byte[] id = exactArgument(programId, 32);
-        return ethCall(PROGRAMS_ADDRESS, Programs.abi("b1ffb3d4", new Object[] {id})).thenApply(data -> {
+        return ethCall(PROGRAMS_ADDRESS, Programs.abi("b1ffb3d4", new Object[] {id})).thenCompose(data -> {
             if (data.length != 192 || Programs.number(data, 0, 8).intValue() > 1) throw decodeFailure();
             int active = Programs.number(data, 160, 1).intValue();
-            return new Discovery(id, active == 1 ? Lifecycle.ACTIVE : Lifecycle.DEPRECATED,
+            CompletionStage<Lifecycle> lifecycle = active == 1
+                ? CompletableFuture.completedFuture(Lifecycle.ACTIVE)
+                : ethCall(PROGRAMS_ADDRESS, Programs.abi("98e4e41d", new Object[] {id})).thenApply(windDown -> {
+                    if (windDown.length != 192) throw decodeFailure();
+                    return switch (Programs.number(windDown, 0, 8).intValue()) {
+                        case 2 -> Lifecycle.DEPRECATED;
+                        case 3 -> Lifecycle.TOMBSTONED;
+                        default -> throw decodeFailure();
+                    };
+                });
+            return lifecycle.thenApply(value -> new Discovery(id, value,
                 Programs.number(data, 128, 32).longValueExact(), Arrays.copyOfRange(data, 64, 96),
-                Programs.number(data, 96, 16).intValueExact(), null, null, null, null, null, "pending");
+                Programs.number(data, 96, 16).intValueExact(), null, null, null, null, null, "pending"));
         });
     }
     public CompletionStage<Interface> interfaceAt(byte[] programId) { return interfaceAt(programId, "pending"); }

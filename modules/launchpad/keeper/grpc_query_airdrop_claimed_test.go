@@ -86,23 +86,28 @@ func TestQueryAirdropClaimedRefusals(t *testing.T) {
 		pool   string
 		holder string
 		want   error
+		field  string
 	}{
-		{"malformed pool", "0x1234", holder, sdkerrors.ErrInvalidAddress},
-		{"malformed holder", pool, "0x1234", sdkerrors.ErrInvalidAddress},
-		{"empty pool", "", holder, sdkerrors.ErrInvalidAddress},
-		{"empty holder", pool, "", sdkerrors.ErrInvalidAddress},
-		{"pool without prefix", strings.TrimPrefix(pool, "0x"), holder, sdkerrors.ErrInvalidAddress},
-		{"holder without prefix", pool, strings.TrimPrefix(holder, "0x"), sdkerrors.ErrInvalidAddress},
-		{"zero pool", (common.Address{}).Hex(), holder, types.ErrZeroAddress},
-		{"zero holder", pool, (common.Address{}).Hex(), types.ErrZeroAddress},
+		{"malformed pool", "0x1234", holder, nil, "pool"},
+		{"malformed holder", pool, "0x1234", nil, "holder"},
+		{"empty pool", "", holder, nil, "pool"},
+		{"empty holder", pool, "", nil, "holder"},
+		{"pool without prefix", strings.TrimPrefix(pool, "0x"), holder, nil, "pool"},
+		{"holder without prefix", pool, strings.TrimPrefix(holder, "0x"), nil, "holder"},
+		{"zero pool", (common.Address{}).Hex(), holder, types.ErrZeroAddress, ""},
+		{"zero holder", pool, (common.Address{}).Hex(), types.ErrZeroAddress, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			response, err := client.AirdropClaimed(goCtx, &types.QueryAirdropClaimedRequest{
 				Pool: tc.pool, Holder: tc.holder, Epoch: 1,
 			})
 			require.Nil(t, response)
+			if tc.field != "" {
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, tc.field+" must be a 0x-prefixed 40-hex-digit address: invalid address", status.Convert(err).Message())
+				return
+			}
 			require.ErrorIs(t, err, tc.want)
-			require.Same(t, tc.want, err)
 			wantSpace, wantCode, _ := sdkerrors.ABCIInfo(tc.want, false)
 			gotSpace, gotCode, _ := sdkerrors.ABCIInfo(err, false)
 			require.Equal(t, wantSpace, gotSpace)

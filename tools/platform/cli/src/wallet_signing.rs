@@ -11,6 +11,149 @@ use layerx_types::payload::{ActivityType, ModuleRegistry};
 use layerx_wire::activity::encode_signed_envelope;
 use serde_json::{json, Value};
 
+pub struct EvmSigningKey {
+    secret: zeroize::Zeroizing<[u8; 32]>,
+    address: [u8; 20],
+}
+
+#[derive(serde::Deserialize)]
+struct ExportedKeys {
+    evm_address: String,
+    evm_private_key: String,
+    layerx_seed: String,
+    did: String,
+    index: u32,
+}
+
+impl Drop for ExportedKeys {
+    fn drop(&mut self) {
+        use zeroize::Zeroize as _;
+        self.evm_private_key.zeroize();
+        self.layerx_seed.zeroize();
+    }
+}
+
+fn fixed_key_bytes<const N: usize>(name: &str, text: &str) -> Result<[u8; N], String> {
+    if text.len() != N * 2 || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(format!("invalid {name}"));
+    }
+    let mut bytes = [0; N];
+    for (byte, pair) in bytes.iter_mut().zip(text.as_bytes().chunks_exact(2)) {
+        let pair = std::str::from_utf8(pair).map_err(|_| format!("invalid {name}"))?;
+        *byte = u8::from_str_radix(pair, 16).map_err(|_| format!("invalid {name}"))?;
+    }
+    Ok(bytes)
+}
+
+impl EvmSigningKey {
+    pub fn read(path: &std::path::Path, actor: &str, public_key: [u8; 32]) -> Result<Self, String> {
+        use std::io::Read as _;
+        use std::os::unix::fs::PermissionsExt as _;
+        let file = std::fs::File::open(path).map_err(|e| format!("evm_key_unavailable: {e}"))?;
+        let metadata = file.metadata().map_err(debug)?;
+        if !metadata.is_file() || metadata.permissions().mode() & 0o077 != 0 {
+            return Err("evm_key_refused: key file must be an owner-only regular file".into());
+        }
+        let mut text = zeroize::Zeroizing::new(String::new());
+        file.take(4097).read_to_string(&mut text).map_err(debug)?;
+        if text.len() > 4096 {
+            return Err("evm_key_refused: key file exceeds 4096 bytes".into());
+        }
+        let exported: ExportedKeys = serde_json::from_str(&text)
+            .map_err(|_| "evm_key_refused: expected a wallet derive private-key export")?;
+        let seed =
+            zeroize::Zeroizing::new(fixed_key_bytes::<32>("LayerX seed", &exported.layerx_seed)?);
+        if exported.did != actor
+            || exported.index >= 0x8000_0000
+            || ed25519_dalek::SigningKey::from_bytes(&seed)
+                .verifying_key()
+                .to_bytes()
+                != public_key
+        {
+            return Err(
+                "evm_key_refused: export does not match the selected wallet identity".into(),
+            );
+        }
+        Ok(Self {
+            secret: zeroize::Zeroizing::new(fixed_key_bytes(
+                "EVM private key",
+                &exported.evm_private_key,
+            )?),
+            address: fixed_key_bytes(
+                "EVM address",
+                exported
+                    .evm_address
+                    .strip_prefix("0x")
+                    .ok_or("invalid EVM address")?,
+            )?,
+        })
+    }
+
+    #[must_use]
+    pub const fn address(&self) -> [u8; 20] {
+        self.address
+    }
+}
+
+pub struct PreparedTransaction {
+    call: layerx_crypto::evm_transaction::Eip1559Call,
+    from: [u8; 20],
+    disclosure: Disclosure,
+}
+
+impl PreparedTransaction {
+    pub fn new(
+        call: layerx_crypto::evm_transaction::Eip1559Call,
+        from: [u8; 20],
+    ) -> Result<Self, String> {
+        if call.chain_id != 125 {
+            return Err("wallet writes require chainId 125".into());
+        }
+        if call.gas_limit == 0
+            || call.max_fee_per_gas == 0
+            || call.max_priority_fee_per_gas > call.max_fee_per_gas
+        {
+            return Err("wallet writes require positive gas and valid EIP-1559 fee bounds".into());
+        }
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, from).map_err(debug)?;
+        Ok(Self {
+            call,
+            from,
+            disclosure,
+        })
+    }
+
+    #[must_use]
+    pub fn confirmation(&self) -> Value {
+        json!({
+            "chain_id":self.call.chain_id, "nonce":self.call.nonce.to_string(),
+            "from":format!("0x{}", hex(&self.from)), "to":format!("0x{}", hex(&self.call.to)),
+            "gas":self.call.gas_limit.to_string(), "max_fee_per_gas":self.call.max_fee_per_gas.to_string(),
+            "max_priority_fee_per_gas":self.call.max_priority_fee_per_gas.to_string(),
+            "fee_limit":self.disclosure.fee_limit.to_string(), "asset":hex(&self.disclosure.asset),
+            "payment":format!("{:?}", self.disclosure.payment), "data":format!("0x{}", hex(&self.call.data)),
+        })
+    }
+
+    pub fn sign(self, key: &EvmSigningKey) -> Result<(Vec<u8>, [u8; 32]), String> {
+        use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+        if key.address != self.from
+            || layerx_crypto::disclosure::call::bind_call(&self.call, self.from).map_err(debug)?
+                != self.disclosure
+        {
+            return Err("wallet signer does not match the disclosed EVM call".into());
+        }
+        let raw = self.call.sign(&key.secret).map_err(debug)?;
+        let (decoded, signature) = decode_signed(&raw).map_err(debug)?;
+        if decoded != self.call || recover_sender(&decoded, &signature).map_err(debug)? != self.from
+        {
+            return Err("wallet EVM key does not match the disclosed sender".into());
+        }
+        let hash = transaction_hash(&raw);
+        Ok((raw, hash))
+    }
+}
+
 pub struct SigningFacts<'a> {
     pub actor: &'a str,
     pub public_key: [u8; 32],

@@ -28,7 +28,7 @@ fn directory(label: &str) -> std::path::PathBuf {
     ))
 }
 
-fn prepared(amount: u128, request_id: u8) -> Prepared {
+pub fn prepared(amount: u128, request_id: u8) -> Prepared {
     let canonical = format!("canonical-preparation-{amount}-{request_id}").into_bytes();
     let digest: [u8; 32] = Sha256::digest(&canonical).into();
     let actor = AgentDid::new("did:layerx:approver-test")
@@ -63,7 +63,7 @@ fn prepared(amount: u128, request_id: u8) -> Prepared {
     }
 }
 
-fn context(request_id: u8) -> ApprovalContext {
+pub fn context(request_id: u8) -> ApprovalContext {
     ApprovalContext {
         tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
         agent: Did::new(b"did:layerx:approver-test")
@@ -188,4 +188,19 @@ fn expiry_at_the_declared_sequence_is_terminal_and_never_auto_approves() {
         )))
     );
     let _ = fs::remove_dir_all(root);
+}
+
+pub fn assert_major_two_approval_facts(
+    facts: &serde_json::Value,
+    approval_id: &str,
+    tx_hash: &str,
+    rung: &str,
+) {
+    assert_eq!(facts["approval_id"], approval_id);
+    assert_eq!(facts["tx_hash"], tx_hash);
+    assert_eq!(facts["rung"], rung);
+    assert!(facts.get("activity_id").is_none());
+    assert!(facts.get("resulting_activity_id").is_none());
+    assert!(facts.get("verification_level").is_none());
+    assert!(facts.get("level").is_none());
 }

@@ -308,6 +308,12 @@ pub fn inspect_artifact(path: &Path) -> Result<Value, String> {
     }))
 }
 
+pub struct EvmLifecycleRequest<'a> {
+    pub program_id: &'a str,
+    pub fee_limit: &'a str,
+    pub key_file: &'a Path,
+}
+
 pub struct DeployRequest<'a> {
     pub artifact: &'a Path,
     pub upgrade_authority: Option<&'a str>,
@@ -316,9 +322,8 @@ pub struct DeployRequest<'a> {
 
 pub fn deploy(
     client: &Client,
-    request: &CallRequest<'_>,
+    request: &EvmLifecycleRequest<'_>,
     deployment: &DeployRequest<'_>,
-    previous_state_root: &str,
 ) -> Result<Value, String> {
     let inspected = inspect_artifact(deployment.artifact)?;
     gate_artifact(deployment.artifact)?;
@@ -345,7 +350,7 @@ pub fn deploy(
     }
     .encode()
     .map_err(|error| format!("invalid native deployment: {error:?}"))?;
-    let mut result = submit_lifecycle(client, request, 1, &payload, previous_state_root)?;
+    let mut result = submit_lifecycle(client, request, 1, &payload)?;
     result["artifact"] = inspected;
     result["typed_interface"] = json!(interface.is_some());
     Ok(result)
@@ -362,9 +367,8 @@ pub struct UpgradeRequest<'a> {
 
 pub fn upgrade(
     client: &Client,
-    request: &CallRequest<'_>,
+    request: &EvmLifecycleRequest<'_>,
     upgrade: &UpgradeRequest<'_>,
-    previous_state_root: &str,
 ) -> Result<Value, String> {
     inspect_artifact(upgrade.artifact)?;
     gate_artifact(upgrade.artifact)?;
@@ -405,14 +409,13 @@ pub fn upgrade(
     }
     .encode()
     .map_err(|error| format!("invalid native upgrade: {error:?}"))?;
-    submit_lifecycle(client, request, 2, &payload, previous_state_root)
+    submit_lifecycle(client, request, 2, &payload)
 }
 
 pub fn wind_down(
     client: &Client,
-    request: &CallRequest<'_>,
+    request: &EvmLifecycleRequest<'_>,
     operation: ProgramWindDownOperation<'_>,
-    previous_state_root: &str,
 ) -> Result<Value, String> {
     let payload = NativeProgramWindDown {
         program_id: ProgramId::new(fixed_hex("program id", request.program_id)?),
@@ -420,7 +423,7 @@ pub fn wind_down(
     }
     .encode()
     .map_err(|error| format!("invalid native wind-down: {error:?}"))?;
-    submit_lifecycle(client, request, 7, &payload, previous_state_root)
+    submit_lifecycle(client, request, 7, &payload)
 }
 
 fn read_program_file(path: &Path) -> Result<Vec<u8>, String> {
@@ -501,44 +504,154 @@ fn merge_abi(declared: &mut Option<u16>, abi: u16) -> Result<(), String> {
     Ok(())
 }
 
-fn submit_lifecycle(
-    client: &Client,
-    request: &CallRequest<'_>,
+pub(crate) fn lifecycle_calldata(
     ordinal: u16,
     payload: &[u8],
-    previous_state_root: &str,
-) -> Result<Value, String> {
-    validate_idempotency_key(request.idempotency_key)?;
-    let root = fixed_hex("previous state root", previous_state_root)?;
-    let key = fixed_hex("sequencer public key", request.sequencer_public_key)?;
-    let signed = signed_program_with_signer(request, ordinal, payload, || {
-        Ok(SigningKey::from_bytes(&*crate::credential::key_seed(
-            request.key_name,
-        )?))
-    })?;
-    let route = match ordinal {
-        1 => "/v1/programs/deploy",
-        2 => "/v1/programs/upgrade",
-        7 => "/v1/programs/wind-down",
+    fee_limit: &str,
+) -> Result<Vec<u8>, String> {
+    let invalid = |error| format!("invalid lifecycle payload: {error:?}");
+    let fee = fee_limit
+        .parse::<u128>()
+        .map_err(|_| "program fee limit must be an unsigned 128-bit integer")?;
+    let (selector, mut words, bodies) = match ordinal {
+        1 => {
+            let value = NativeProgramDeploy::decode(payload).map_err(invalid)?;
+            let (policy, authority) = match value.policy {
+                ProgramUpgradePolicy::Immutable => (0, [0; 32]),
+                ProgramUpgradePolicy::Authority(authority) => (1, authority),
+            };
+            (
+                [0xbd, 0xe3, 0xff, 0x66],
+                vec![
+                    value.program_id.bytes(),
+                    abi_word(u128::from(value.guest_abi)),
+                    abi_word(policy),
+                    authority,
+                    value.new_hash,
+                    [0; 32],
+                    [0; 32],
+                ],
+                vec![(5, value.interface.unwrap_or_default()), (6, value.wasm)],
+            )
+        }
+        2 => {
+            let value = NativeProgramUpgrade::decode(payload).map_err(invalid)?;
+            let flags = u128::from(!value.migration_hook.is_empty())
+                | (u128::from(value.clear_interface) << 1);
+            (
+                [0xa8, 0x60, 0x92, 0x9f],
+                vec![
+                    value.program_id.bytes(),
+                    abi_word(u128::from(value.guest_abi)),
+                    abi_word(flags),
+                    value.old_hash,
+                    value.new_hash,
+                    [0; 32],
+                    [0; 32],
+                    [0; 32],
+                    abi_word(fee),
+                ],
+                vec![
+                    (5, value.migration_hook),
+                    (6, value.interface.unwrap_or_default()),
+                    (7, value.wasm),
+                ],
+            )
+        }
+        7 => {
+            let value = NativeProgramWindDown::decode(payload).map_err(invalid)?;
+            let id = value.program_id.bytes();
+            match value.operation {
+                ProgramWindDownOperation::Route {
+                    account,
+                    asset,
+                    destination,
+                    seed,
+                } => (
+                    [0x23, 0x33, 0x0d, 0xd5],
+                    vec![id, account, asset, destination, [0; 32]],
+                    vec![(4, seed)],
+                ),
+                ProgramWindDownOperation::Deprecate {
+                    exit_program,
+                    deadline_batch,
+                } => (
+                    [0x86, 0xba, 0x1a, 0x99],
+                    vec![id, exit_program, abi_word(u128::from(deadline_batch))],
+                    vec![],
+                ),
+                ProgramWindDownOperation::Tombstone => ([0xa5, 0x12, 0xf1, 0xa9], vec![id], vec![]),
+                ProgramWindDownOperation::Exit { account } => {
+                    ([0x4d, 0xc5, 0x07, 0x30], vec![id, account], vec![])
+                }
+                ProgramWindDownOperation::BoundedExit {
+                    account,
+                    maximum_exit_amount,
+                } => (
+                    [0xad, 0xe5, 0xd9, 0xe6],
+                    vec![id, account, abi_word(maximum_exit_amount)],
+                    vec![],
+                ),
+            }
+        }
         _ => return Err("unsupported lifecycle ordinal".into()),
     };
-    let response = client.post_activity(route, &signed, Some(request.idempotency_key))?;
-    refuse_transport_response(&response)?;
-    let activity = validate_signed_program(ordinal, payload, &signed)?;
-    let expected =
-        activity_id(&activity).map_err(|error| format!("invalid activity: {error:?}"))?;
-    if response
-        .get("result")
-        .unwrap_or(&response)
-        .get("state")
-        .and_then(Value::as_str)
-        == Some("unknown")
-    {
-        return Ok(json!({"activity_id":hex_encode(&expected),
-            "idempotency_key":request.idempotency_key, "signed_activity":hex_encode(&signed),
-            "outcome":{"status":"unknown"}, "failure":response.get("failure")}));
+    let mut tail = Vec::new();
+    for (index, body) in bodies {
+        words[index] = abi_word((words.len() * 32 + tail.len()) as u128);
+        tail.extend_from_slice(&abi_word(body.len() as u128));
+        tail.extend_from_slice(body);
+        tail.resize(tail.len().next_multiple_of(32), 0);
     }
-    verify_lifecycle_result(ordinal, expected, root, key, &response)
+    let mut data = selector.to_vec();
+    for word in words {
+        data.extend_from_slice(&word);
+    }
+    data.extend_from_slice(&tail);
+    Ok(data)
+}
+
+fn abi_word(value: u128) -> [u8; 32] {
+    let mut word = [0; 32];
+    word[16..].copy_from_slice(&value.to_be_bytes());
+    word
+}
+
+fn submit_lifecycle(
+    client: &Client,
+    request: &EvmLifecycleRequest<'_>,
+    ordinal: u16,
+    payload: &[u8],
+) -> Result<Value, String> {
+    let data = lifecycle_calldata(ordinal, payload, request.fee_limit)?;
+    let raw = prepare_program_transaction(client, data, request.key_file)?;
+    submit_lifecycle_transaction(client, &raw)
+}
+
+pub(crate) fn submit_lifecycle_transaction(client: &Client, raw: &[u8]) -> Result<Value, String> {
+    let submitted = submit_program_transaction(client, raw)?;
+    let hash = submitted["tx_hash"]
+        .as_str()
+        .ok_or("submission omitted transaction hash")?;
+    let receipt = sequencer_receipt(client, hash).map_err(|error| {
+        format!("transaction {hash} submitted; sequencer receipt unavailable: {error}")
+    })?;
+    lifecycle_receipt_result(hash, &receipt)
+}
+
+pub(crate) fn lifecycle_receipt_result(hash: &str, receipt: &Value) -> Result<Value, String> {
+    let expected = transaction_hash(hash)?;
+    let returned = receipt["txHash"]
+        .as_str()
+        .ok_or_else(|| format!("transaction {hash}: sequencer receipt omitted txHash"))?;
+    if transaction_hash(returned)? != expected {
+        return Err("sequencer receipt names another transaction".into());
+    }
+    let rung = receipt["rung"]
+        .as_str()
+        .and_then(layerx_types::rung::Rung::from_name)
+        .ok_or("sequencer receipt omitted a valid rung")?;
+    Ok(json!({"txHash":returned, "rung":rung.name(), "sequencer_receipt":receipt}))
 }
 
 fn verify_lifecycle_result(
@@ -1000,9 +1113,7 @@ pub fn registry_verify_source(
     )
 }
 
-/// One parsed `layerx program call` invocation. A call is a money-adjacent
-/// state change, so an idempotency key is mandatory and the returned receipt is
-/// verified before any typed result is rendered.
+/// Native guest arguments encoded for the layerxprograms precompile.
 #[derive(clap::Args, Clone)]
 pub struct NativeCallOptions {
     #[arg(
@@ -1083,42 +1194,256 @@ struct VerifiedCallHead {
     observed_at: u64,
 }
 
-/// Submits one program call through the active endpoint and renders the typed
-/// outcome only after re-binding it to the returned canonical receipt.
-///
-/// # Errors
-///
-/// Returns a typed error for an invalid identifier, malformed calldata, an
-/// unbounded budget, an unknown capability, a rejected idempotency key, or a
-/// response whose receipt does not back the typed outcome it reports.
-pub fn call(client: &Client, request: &CallRequest<'_>) -> Result<Value, String> {
-    validate_idempotency_key(request.idempotency_key)?;
-    let payload = build_call(request)?;
-    let signed = signed_call(request, &payload)?;
-    let head = discover_call_head(client, request)?;
-    let response =
-        client.post_activity("/v1/programs/call", &signed, Some(request.idempotency_key))?;
-    refuse_transport_response(&response)?;
-    if response
-        .get("result")
-        .unwrap_or(&response)
-        .get("state")
-        .and_then(Value::as_str)
-        == Some("unknown")
+const PROGRAMS_ADDRESS: &str = "0x000000000000000000000000000000000000101d";
+const CALL_SELECTOR: [u8; 4] = [0x54, 0xbd, 0x2b, 0x48];
+const SIMULATE_SELECTOR: [u8; 4] = [0x30, 0x44, 0xbd, 0x56];
+
+pub struct EvmCallRequest<'a> {
+    pub program_id: &'a str,
+    pub calldata: &'a str,
+    pub fuel: u64,
+    pub native: &'a NativeCallOptions,
+    pub fee_limit: &'a str,
+    pub capabilities: &'a [String],
+}
+
+pub fn rpc_call(client: &Client, method: &str, params: Value) -> Result<Value, String> {
+    let response = client.post(
+        "/rpc",
+        &json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
+        None,
+    )?;
+    if response["jsonrpc"] != "2.0"
+        || response["id"] != 1
+        || response.get("result").is_some() == response.get("error").is_some()
     {
-        let registry = program_call_registry()?;
-        let retained_activity = activity_id(
-            &decode_signed(&signed, &registry)
-                .map_err(|_| "retained signed call could not be decoded".to_owned())?,
-        )
-        .map_err(|_| "retained signed call has no canonical activity id".to_owned())?;
-        return Ok(
-            json!({"program_id":request.program_id,"idempotency_key":request.idempotency_key,
-            "activity_id":hex_encode(&retained_activity),"signed_activity":hex_encode(&signed),"outcome":{"status":"unknown","retained_bytes":true},"failure":response.get("failure")}),
+        return Err(format!("invalid JSON-RPC response for {method}"));
+    }
+    if let Some(error) = response.get("error") {
+        return Err(format!("{method} refused: {error}"));
+    }
+    Ok(response["result"].clone())
+}
+
+pub fn transaction_hash(value: &str) -> Result<[u8; 32], String> {
+    let encoded = value
+        .strip_prefix("0x")
+        .filter(|encoded| {
+            encoded.len() == 64 && encoded.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+        .ok_or("transaction hash must be 0x-prefixed and contain 32 bytes of hexadecimal digits")?;
+    fixed_hex("transaction hash", encoded)
+}
+
+pub fn sequencer_receipt(client: &Client, hash: &str) -> Result<Value, String> {
+    transaction_hash(hash)?;
+    rpc_call(client, "pax_sequencerReceipt", json!([hash]))
+}
+
+fn rpc_quantity(client: &Client, method: &str, params: Value) -> Result<u128, String> {
+    let result = rpc_call(client, method, params)?;
+    let encoded = result
+        .as_str()
+        .and_then(|s| s.strip_prefix("0x"))
+        .filter(|s| {
+            !s.is_empty()
+                && s.len() <= 32
+                && (s.len() == 1 || !s.starts_with('0'))
+                && s.bytes().all(|b| b.is_ascii_hexdigit())
+        })
+        .ok_or_else(|| format!("{method} returned an invalid hexadecimal quantity"))?;
+    u128::from_str_radix(encoded, 16).map_err(|_| format!("{method} quantity exceeds 128 bits"))
+}
+
+pub(crate) fn call_calldata(
+    request: &EvmCallRequest<'_>,
+    selector: [u8; 4],
+) -> Result<Vec<u8>, String> {
+    let payload = build_native_call(request)?;
+    let call = NativeProgramCall::decode(&payload)
+        .map_err(|error| format!("invalid native call: {error:?}"))?;
+    let fee_limit = request
+        .fee_limit
+        .parse::<u128>()
+        .map_err(|_| "program fee limit must be an unsigned 128-bit integer")?;
+    let mut data = vec![0; 15 * 32];
+    data[..32].copy_from_slice(&call.program_id.bytes());
+    let mut word = |index: usize, value: u128| {
+        data[index * 32 + 16..(index + 1) * 32].copy_from_slice(&value.to_be_bytes());
+    };
+    word(1, u128::from(call.guest_abi));
+    word(6, u128::from(call.response_capacity));
+    for (index, resource) in call.resources.0.iter().enumerate() {
+        word(7 + index, u128::from(*resource));
+    }
+    word(14, fee_limit);
+    for (index, body) in [
+        call.entrypoint,
+        call.calldata,
+        call.capabilities,
+        call.access_declaration,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let offset = data.len() as u128;
+        data[(2 + index) * 32 + 16..(3 + index) * 32].copy_from_slice(&offset.to_be_bytes());
+        data.extend_from_slice(&[0; 16]);
+        data.extend_from_slice(&(body.len() as u128).to_be_bytes());
+        data.extend_from_slice(body);
+        data.resize(data.len().next_multiple_of(32), 0);
+    }
+    let mut encoded = selector.to_vec();
+    encoded.extend_from_slice(&data);
+    Ok(encoded)
+}
+
+#[derive(serde::Deserialize)]
+struct EvmKeyFile {
+    evm_address: String,
+    evm_private_key: String,
+}
+
+impl zeroize::Zeroize for EvmKeyFile {
+    fn zeroize(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.evm_private_key);
+    }
+}
+
+fn evm_key(path: &Path) -> Result<(Zeroizing<[u8; 32]>, [u8; 20]), String> {
+    use std::io::Read as _;
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.custom_flags(
+            i32::try_from((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits())
+                .map_err(|error| error.to_string())?,
         );
     }
-    let response = complete_call_response(client, &signed, &response)?;
-    render_call_result(request, &payload, &signed, &head, &response)
+    let file = options
+        .open(path)
+        .map_err(|error| format!("could not open EVM key file: {error}"))?;
+    let metadata = file.metadata().map_err(|error| error.to_string())?;
+    if !metadata.is_file() {
+        return Err("EVM key file must be a regular file".into());
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        if metadata.mode() & 0o077 != 0 || metadata.uid() != rustix::process::geteuid().as_raw() {
+            return Err(
+                "EVM key file must be owned by the current user with owner-only permissions".into(),
+            );
+        }
+    }
+    let mut bytes = Zeroizing::new(Vec::new());
+    file.take(4097)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if bytes.len() > 4096 {
+        return Err("EVM key file exceeds 4096 bytes".into());
+    }
+    let key = Zeroizing::new(serde_json::from_slice::<EvmKeyFile>(&bytes).map_err(|_| {
+        "EVM key file must contain evm_address and evm_private_key from wallet derive"
+    })?);
+    let address = fixed_hex(
+        "EVM address",
+        key.evm_address
+            .strip_prefix("0x")
+            .ok_or("EVM address must be 0x-prefixed")?,
+    )?;
+    let secret = Zeroizing::new(fixed_hex("EVM private key", &key.evm_private_key)?);
+    Ok((secret, address))
+}
+
+pub fn call(
+    client: &Client,
+    request: &EvmCallRequest<'_>,
+    key_file: &Path,
+) -> Result<Value, String> {
+    let data = call_calldata(request, CALL_SELECTOR)?;
+    let raw = prepare_program_transaction(client, data, key_file)?;
+    submit_program_transaction(client, &raw)
+}
+
+fn prepare_program_transaction(
+    client: &Client,
+    data: Vec<u8>,
+    key_file: &Path,
+) -> Result<Vec<u8>, String> {
+    use layerx_crypto::evm_transaction::Eip1559Call;
+    let (secret, address) = evm_key(key_file)?;
+    let from = format!("0x{}", hex_encode(&address));
+    let chain_id = u64::try_from(rpc_quantity(client, "eth_chainId", json!([]))?)
+        .map_err(|_| "chain id exceeds 64 bits")?;
+    let nonce = u64::try_from(rpc_quantity(
+        client,
+        "eth_getTransactionCount",
+        json!([from, "pending"]),
+    )?)
+    .map_err(|_| "transaction count exceeds 64 bits")?;
+    let gas_price = rpc_quantity(client, "eth_gasPrice", json!([]))?;
+    let priority = rpc_quantity(client, "eth_maxPriorityFeePerGas", json!([]))?;
+    let max_fee = gas_price
+        .checked_mul(2)
+        .ok_or("gas price exceeds fee range")?;
+    if priority > max_fee {
+        return Err("priority fee exceeds the maximum fee".into());
+    }
+    let gas_limit = u64::try_from(rpc_quantity(client, "eth_estimateGas",
+        json!([{"from":from,"to":PROGRAMS_ADDRESS,"data":format!("0x{}",hex_encode(&data))}, "pending"]))?)
+        .map_err(|_| "gas estimate exceeds 64 bits")?;
+    let transaction = Eip1559Call {
+        chain_id,
+        nonce,
+        max_priority_fee_per_gas: priority,
+        max_fee_per_gas: max_fee,
+        gas_limit,
+        to: fixed_hex("programs address", &PROGRAMS_ADDRESS[2..])?,
+        data,
+    };
+    sign_program_transaction(&transaction, &secret, &address)
+}
+
+pub(crate) fn sign_program_transaction(
+    transaction: &layerx_crypto::evm_transaction::Eip1559Call,
+    secret: &[u8; 32],
+    address: &[u8; 20],
+) -> Result<Vec<u8>, String> {
+    use layerx_crypto::evm_transaction;
+    let raw = transaction
+        .sign(secret)
+        .map_err(|error| error.to_string())?;
+    let (decoded, signature) =
+        evm_transaction::decode_signed(&raw).map_err(|error| error.to_string())?;
+    if evm_transaction::recover_sender(&decoded, &signature).map_err(|error| error.to_string())?
+        != *address
+    {
+        return Err("EVM key file address does not match its private key".into());
+    }
+    Ok(raw)
+}
+
+pub(crate) fn submit_program_transaction(client: &Client, raw: &[u8]) -> Result<Value, String> {
+    let result = rpc_call(
+        client,
+        "eth_sendRawTransaction",
+        json!([format!("0x{}", hex_encode(raw))]),
+    )?;
+    submitted_program_result(raw, &result)
+}
+
+pub(crate) fn submitted_program_result(raw: &[u8], result: &Value) -> Result<Value, String> {
+    let expected = layerx_crypto::evm_transaction::transaction_hash(raw);
+    let hash = result
+        .as_str()
+        .ok_or("eth_sendRawTransaction did not return a transaction hash")?;
+    if transaction_hash(hash)? != expected {
+        return Err("eth_sendRawTransaction returned a different transaction hash".into());
+    }
+    Ok(json!({"tx_hash":hash,"rung":"submitted"}))
 }
 
 fn complete_call_response(
@@ -1183,24 +1508,72 @@ fn read_program_registry(
     )
 }
 
-pub fn simulate(client: &Client, request: &CallRequest<'_>) -> Result<Value, String> {
-    let payload = build_call(request)?;
-    let signed = signed_call(request, &payload)?;
-    let head = discover_call_head(client, request)?;
-    let response = client.post_activity("/v1/programs/simulate", &signed, None)?;
-    let result = response.get("result").unwrap_or(&response);
-    if result["committed"].as_bool() != Some(false) {
-        return Err("program simulation did not prove that it committed nothing".to_owned());
+pub fn simulate(
+    client: &Client,
+    request: &EvmCallRequest<'_>,
+    from: Option<&str>,
+) -> Result<Value, String> {
+    let data = call_calldata(request, SIMULATE_SELECTOR)?;
+    let mut transaction = json!({"to":PROGRAMS_ADDRESS,"data":format!("0x{}",hex_encode(&data))});
+    if let Some(from) = from {
+        fixed_hex::<20>(
+            "simulation sender",
+            from.strip_prefix("0x")
+                .ok_or("simulation sender must be a 0x-prefixed address")?,
+        )?;
+        transaction["from"] = json!(from);
     }
-    verify_simulation_evidence(request, &signed, &head, result)?;
-    let execution = result
-        .get("execution")
-        .ok_or_else(|| "program simulation omitted its execution document".to_owned())?;
-    let mut rendered = render_call_result(request, &payload, &signed, &head, execution)?;
-    if let Some(object) = rendered.as_object_mut() {
-        object.insert("committed".to_owned(), Value::Bool(false));
+    let result = rpc_call(client, "eth_call", json!([transaction, "pending"]))?;
+    simulated_program_result(&result)
+}
+
+pub(crate) fn simulated_program_result(result: &Value) -> Result<Value, String> {
+    let encoded = result
+        .as_str()
+        .and_then(|s| s.strip_prefix("0x"))
+        .ok_or("eth_call returned non-hexadecimal program output")?;
+    let bytes = hex_decode("program output", encoded)?;
+    Ok(json!({"outcome":decode_call_outcome(&bytes)?}))
+}
+
+pub(crate) fn decode_call_outcome(bytes: &[u8]) -> Result<Value, String> {
+    if bytes.len() < 128 || bytes.len() % 32 != 0 {
+        return Err("program output is not a canonical ABI tuple".into());
     }
-    Ok(rendered)
+    let result = i32::from_be_bytes(
+        bytes[28..32]
+            .try_into()
+            .map_err(|_| "invalid terminal result")?,
+    );
+    let extension = if result < 0 { 0xff } else { 0 };
+    if bytes[..28].iter().any(|b| *b != extension)
+        || bytes[32..63] != [0; 31]
+        || bytes[64..95] != [0; 31]
+        || bytes[95] != 96
+        || bytes[96..120] != [0; 24]
+    {
+        return Err("program output contains noncanonical ABI words".into());
+    }
+    let length = usize::try_from(u64::from_be_bytes(
+        bytes[120..128]
+            .try_into()
+            .map_err(|_| "invalid response length")?,
+    ))
+    .map_err(|_| "response length exceeds address space")?;
+    let end = 128_usize
+        .checked_add(length)
+        .ok_or("response length overflow")?;
+    let padded = end.checked_add(31).ok_or("response length overflow")? / 32 * 32;
+    if bytes.len() != padded
+        || bytes
+            .get(end..)
+            .is_none_or(|padding| padding.iter().any(|b| *b != 0))
+    {
+        return Err("program output has an invalid response length or padding".into());
+    }
+    Ok(
+        json!({"terminal_result":result,"terminal_kind":bytes[63],"response":format!("0x{}",hex_encode(&bytes[128..end]))}),
+    )
 }
 
 fn signed_call(request: &CallRequest<'_>, canonical_payload: &[u8]) -> Result<Vec<u8>, String> {
@@ -1334,6 +1707,17 @@ fn validate_program_payload(ordinal: u16, payload: &[u8]) -> Result<(), String> 
 }
 
 fn build_call(request: &CallRequest<'_>) -> Result<Vec<u8>, String> {
+    build_native_call(&EvmCallRequest {
+        program_id: request.program_id,
+        calldata: request.calldata,
+        fuel: request.fuel,
+        native: &request.native,
+        fee_limit: request.fee_limit,
+        capabilities: request.capabilities,
+    })
+}
+
+fn build_native_call(request: &EvmCallRequest<'_>) -> Result<Vec<u8>, String> {
     if request.fuel == 0 {
         return Err("declared call fuel must be greater than zero".into());
     }
@@ -3081,12 +3465,6 @@ mod call_tests {
         result
     }
 
-    const EXECUTED_V4_FIXTURE: &str = include_str!(
-        "../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
-    );
-    const POSITIVE_V2_FIXTURE: &str = include_str!(
-        "../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v2.json"
-    );
     const BATCH_AUTHORITY_MISMATCH: &str = "program response batch authority disagrees with the configured trust anchor or the discovered state boundary";
     const RECEIPT_AUTHORITY_MISMATCH: &str =
         "program receipt batch identity or state roots disagree with the served batch authority";
@@ -3102,8 +3480,12 @@ mod call_tests {
         resulting_state_root: String,
     }
 
-    fn fixture_document(source: &str) -> serde_json::Value {
-        serde_json::from_str(source).unwrap_or_else(|error| panic!("{error}"))
+    fn fixture_document(name: &str) -> serde_json::Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../sdk/platform/conformance/fixtures")
+            .join(name);
+        let source = std::fs::read_to_string(path).unwrap_or_else(|error| panic!("{error}"));
+        serde_json::from_str(&source).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn fixture_text<'a>(document: &'a serde_json::Value, field: &str) -> &'a str {
@@ -3133,7 +3515,7 @@ mod call_tests {
     }
 
     fn executed_v4_call() -> FixtureCall {
-        let document = fixture_document(EXECUTED_V4_FIXTURE);
+        let document = fixture_document("receipt-programs-executed-v4.json");
         let signed = fixture_bytes(&document, "signed_activity_hex");
         let registry = super::program_call_registry().unwrap_or_else(|error| panic!("{error}"));
         let activity = layerx_wire::activity::decode_signed(&signed, &registry)
@@ -3322,7 +3704,7 @@ mod call_tests {
 
     #[test]
     fn receipt_at_another_protocol_version_is_refused() -> Result<(), String> {
-        let document = fixture_document(POSITIVE_V2_FIXTURE);
+        let document = fixture_document("receipt-programs-positive-v2.json");
         let request = golden_request();
         let payload = build_call(&request)?;
         let signed =
@@ -3364,7 +3746,7 @@ mod call_tests {
 
     #[test]
     fn terminal_commitments_admit_protocol_three_and_keep_legacy_refusals() {
-        let document = fixture_document(EXECUTED_V4_FIXTURE);
+        let document = fixture_document("receipt-programs-executed-v4.json");
         let receipt =
             layerx_wire::receipt::decode(&fixture_bytes(&document, "canonical_receipt_hex"))
                 .unwrap_or_else(|error| panic!("{error:?}"));

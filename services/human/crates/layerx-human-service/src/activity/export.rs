@@ -974,7 +974,7 @@ fn statement_row(entry: &ActivityEntry) -> String {
     let verification = entry
         .receipts()
         .iter()
-        .map(|receipt| format!("{:?}", receipt.level()))
+        .map(|receipt| crate::server::HumanComponentServer::verification_level_name(receipt.rung()))
         .collect::<Vec<_>>()
         .join(";");
     let receipts = entry
