@@ -191310,7 +191310,7 @@ qualification = "UNRUN"
 
 [task.18.1286.1]
 title = "Issue #1286: Carry the selected actor address as the caller of agent program simulation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1304.1"]
