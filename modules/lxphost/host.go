@@ -151,7 +151,6 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
     status = lxp_state_store_bind_accounts(&node->store, &node->accounts);
     if (status == LXP_OK)
         status = lxp_state_store_require_account_root(&node->store);
-    if (status == LXP_OK) status = lxp_idempotency_reserve(&node->store);
     if (status == LXP_OK)
         status = lxp_arena_init(&node->arena, node->arena_bytes,
                                 sizeof(node->arena_bytes));
@@ -440,43 +439,6 @@ static int32_t lxphost_kv_read(const lxphost_node *node, size_t index,
     view->value = entry->value;
     view->value_length = entry->value_length;
     return LXP_OK;
-}
-
-static int32_t lxphost_load_idempotency(lxphost_node *node,
-                                        const uint8_t key_hash[32],
-                                        const uint8_t *bytes, size_t length)
-{
-    lxp_idempotency_key_state *entry;
-    int32_t status;
-    if (node->store.idempotency == NULL)
-        return LXP_FATAL_INVARIANT;
-    if (node->store.idempotency_count >= (size_t)LXP_STATE_MAX_IDEMPOTENCY)
-        return LXP_ERR_ARENA_EXHAUSTED;
-    entry = &node->store.idempotency[node->store.idempotency_count];
-    status = lxp_idempotency_snapshot_decode(entry, bytes, length);
-    if (status != LXP_OK) return status;
-    (void)memcpy(entry->key_hash, key_hash, 32U);
-    ++node->store.idempotency_count;
-    return LXP_OK;
-}
-
-static size_t lxphost_idempotency_count(const lxphost_node *node)
-{
-    return node->store.idempotency_count;
-}
-
-static int32_t lxphost_idempotency_read(const lxphost_node *node, size_t index,
-                                        uint8_t key_hash[32], uint8_t *bytes,
-                                        size_t capacity, size_t *length)
-{
-    const lxp_idempotency_key_state *entry;
-    if (node->store.idempotency == NULL ||
-        node->store.idempotency_count > (size_t)LXP_STATE_MAX_IDEMPOTENCY ||
-        index >= node->store.idempotency_count)
-        return LXP_FATAL_INVARIANT;
-    entry = &node->store.idempotency[index];
-    (void)memcpy(key_hash, entry->key_hash, 32U);
-    return lxp_idempotency_snapshot_encode(entry, bytes, capacity, length);
 }
 
 static lxp_identity *lxphost_identity_find(lxphost_node *node,
@@ -913,11 +875,6 @@ type kvEntry struct {
 	value  []byte
 }
 
-type idempotencyEntry struct {
-	hash  [32]byte
-	entry []byte
-}
-
 func NewHost(cfg Config) (*Host, error) {
 	if cfg.StoreKey == nil || cfg.NetworkID == 0 || cfg.ParameterVersion == 0 || cfg.GasLimit == 0 {
 		return nil, codeNonCanonical
@@ -1000,7 +957,7 @@ func (h *Host) Execute(ctx sdk.Context, activity Activity, authority KernelAutho
 // HostExecute enters the validate and execute functions of the kernel module
 // registered for the activity type through cgo. Kernel time is the block-open
 // timestamp of ctx and the batch number its height; module values, module
-// blobs, idempotency records and identity sequences are loaded from and
+// blobs and identity sequences are loaded from and
 // committed to the host store.
 func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelAuthority) (Receipt, error) {
 	bindingAuthority := binding_authority(activity, authority)
@@ -1191,10 +1148,6 @@ func (h *Host) loadModuleKV(module uint16, key, value []byte) error {
 		bytesPtr(value), C.size_t(len(value))))
 }
 
-func (h *Host) loadIdempotency(hash [32]byte, entry []byte) error {
-	return result(C.lxphost_load_idempotency(h.node, bytes32(&hash), bytesPtr(entry), C.size_t(len(entry))))
-}
-
 func (h *Host) moduleKV() ([]kvEntry, error) {
 	count := int(C.lxphost_kv_count(h.node))
 	entries := make([]kvEntry, 0, count)
@@ -1282,26 +1235,6 @@ func blobKey(module uint16, key []byte) []byte {
 	out[0] = blobPrefix
 	binary.BigEndian.PutUint16(out[1:3], module)
 	return append(out, key...)
-}
-
-func (h *Host) idempotencyFrom(start int) ([]idempotencyEntry, error) {
-	count := int(C.lxphost_idempotency_count(h.node))
-	if count < start {
-		return nil, codeFatalInvariant
-	}
-	buffer := make([]byte, C.LXP_STATE_MAX_REPLAY_ENTRY_BYTES)
-	entries := make([]idempotencyEntry, 0, count-start)
-	for i := start; i < count; i++ {
-		var entry idempotencyEntry
-		var length C.size_t
-		if err := result(C.lxphost_idempotency_read(h.node, C.size_t(i), bytes32(&entry.hash),
-			bytesPtr(buffer), C.size_t(len(buffer)), &length)); err != nil {
-			return nil, err
-		}
-		entry.entry = append([]byte(nil), buffer[:length]...)
-		entries = append(entries, entry)
-	}
-	return entries, nil
 }
 
 func result(status C.int32_t) error {
