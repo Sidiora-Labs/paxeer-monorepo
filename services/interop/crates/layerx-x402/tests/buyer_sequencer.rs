@@ -37,6 +37,49 @@ use sha2::{Digest as _, Sha256};
 
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
+fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
+    fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+        let prefix = input[0];
+        let (offset, length) = match prefix {
+            0x00..=0x7f => (0, 1),
+            0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+            0xb8..=0xbf | 0xf8..=0xff => {
+                let width = usize::from(if prefix < 0xc0 {
+                    prefix - 0xb7
+                } else {
+                    prefix - 0xf7
+                });
+                let length = input[1..1 + width]
+                    .iter()
+                    .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+                (1 + width, length)
+            }
+            0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+        };
+        let value = &input[offset..offset + length];
+        *input = &input[offset + length..];
+        value
+    }
+    let (mut envelope, data_index) = match raw[0] {
+        0x02 => (&raw[1..], 7),
+        0xc0..=0xff => (raw, 5),
+        _ => panic!("unsupported recorded transaction envelope"),
+    };
+    let mut fields = take(&mut envelope);
+    assert!(envelope.is_empty());
+    for _ in 0..data_index {
+        take(&mut fields);
+    }
+    let calldata = take(&mut fields);
+    assert_eq!(calldata.len(), 4 + 6 * 32);
+    assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    std::array::from_fn(|index| {
+        calldata[4 + index * 32..4 + (index + 1) * 32]
+            .try_into()
+            .unwrap()
+    })
+}
+
 fn historical_fixture(id: &str) -> Value {
     let document: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
@@ -52,7 +95,10 @@ fn historical_fixture(id: &str) -> Value {
 }
 
 fn fixture(id: &str) -> Value {
-    let mut case = historical_fixture(id);
+    native_fixture(historical_fixture(id))
+}
+
+fn native_fixture(mut case: Value) -> Value {
     let mut topics = case["receiptJson"]["logs"][0]["topics"]
         .as_array()
         .unwrap_or_else(|| panic!("fixture topics"))
@@ -60,7 +106,11 @@ fn fixture(id: &str) -> Value {
         .map(|topic| word(text(topic)))
         .collect::<Vec<_>>();
     let recorded_topics = topics.concat();
-    topics[1..].rotate_right(1);
+    if case["id"] == "V1-layerxledger-pay-exact" {
+        let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
+        topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+        topics[3] = account_identifiers("agent:did:layerx:payee:main").unwrap()[1];
+    }
     let mut receipt = bytes(text(&case["signedReceipt"]));
     let positions: Vec<_> = receipt
         .windows(recorded_topics.len())
@@ -233,7 +283,11 @@ fn buyer_captures_the_recorded_receipted_settlement() -> TestResult {
         }
         assert_eq!(
             capture(&buyer, &wrong_payment, &response),
-            Err(X402Error::EvidenceMismatch)
+            Err(if field == "asset" {
+                X402Error::EvidenceMismatch
+            } else {
+                X402Error::ProfileMismatch
+            })
         );
     }
     let mut wrong_payer = response.clone();
@@ -255,26 +309,58 @@ fn buyer_captures_the_recorded_receipted_settlement() -> TestResult {
 
 #[test]
 fn buyer_refuses_legacy_payment_exact_topic_order() -> TestResult {
-    let (_, payment, mut response, _) = recorded("V1-layerxledger-pay-exact")?;
-    let case = historical_fixture("V1-layerxledger-pay-exact");
-    let key = &case["pinnedKey"];
-    let authorization = SequencerAuthorization::new(
-        word(text(&key["keyId"])),
-        word(text(&key["publicKey"])),
-        key["firstHeight"].as_u64().ok_or("first height")?,
-        key["lastHeight"].as_u64().ok_or("last height")?,
+    let (buyer, payment, mut response, case) = recorded("V1-layerxledger-pay-exact")?;
+    capture(&buyer, &payment, &response)?;
+    assert_eq!(native_fixture(case.clone()), case);
+    let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
+    let native_topics = case["receiptJson"]["logs"][0]["topics"]
+        .as_array()
+        .ok_or("topics")?
+        .iter()
+        .map(|topic| word(text(topic)))
+        .collect::<Vec<_>>();
+    assert_eq!(native_topics[1], words[5]);
+    assert_eq!(native_topics[2], words[0]);
+    assert_eq!(
+        native_topics[3],
+        account_identifiers("agent:did:layerx:payee:main")?[1]
     );
-    let buyer = Buyer::with_receipt_keys(
-        vec![SupportedKind {
-            scheme: "exact".to_owned(),
-            network: "eip155:125".to_owned(),
-        }],
-        vec![authorization],
-    )?;
+    let topics = vec![native_topics[0], words[0], words[1], words[5]];
+    let mut signed = bytes(text(&case["signedReceipt"]));
+    let original = native_topics.concat();
+    let positions: Vec<_> = signed
+        .windows(original.len())
+        .enumerate()
+        .filter_map(|(index, value)| (value == original).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1);
+    signed[positions[0]..positions[0] + original.len()].copy_from_slice(&topics.concat());
+    let digest = canonical_receipt_digest(&signed)?;
+    let signature_start = signed.len() - 64;
+    signed[signature_start..]
+        .copy_from_slice(&SigningKey::from_bytes(&[0x72; 32]).sign(&digest).to_bytes());
+    let verified = verify_sequencer_signature(&signed, buyer.receipt_keys())
+        .map_err(|error| format!("legacy signature: {error:?}"))?;
+    let log = &case["receiptJson"]["logs"][0];
+    assert!(verify_logs(
+        &verified,
+        vec![SequencerLog::new(
+            bytes(text(&log["address"]))
+                .try_into()
+                .map_err(|_| "address")?,
+            topics.clone(),
+            bytes(text(&log["data"])),
+            0,
+        )]
+    )
+    .is_ok());
     let evidence = response.extensions.get_mut("layerx").ok_or("layerx")?;
-    evidence["receipt"] = json!(STANDARD.encode(bytes(text(&case["signedReceipt"]))));
-    evidence["receiptDigest"] = json!(text(&case["receiptDigest"]).trim_start_matches("0x"));
-    evidence["logs"] = case["receiptJson"]["logs"].clone();
+    evidence["receipt"] = json!(STANDARD.encode(&signed));
+    evidence["receiptDigest"] = json!(hex(&digest));
+    evidence["logs"][0]["topics"] = json!(topics
+        .iter()
+        .map(|topic| format!("0x{}", hex(topic)))
+        .collect::<Vec<_>>());
     assert_eq!(
         capture(&buyer, &payment, &response),
         Err(X402Error::EvidenceMismatch)
@@ -533,27 +619,42 @@ fn committed_response(
 
 fn recorded_for_seller() -> TestResult<(Buyer, BuiltPayment, SettlementResponse, Value)> {
     let (buyer, mut payment, mut response, case) = recorded("V1-layerxledger-pay-exact")?;
-    let payee = account_identifiers("agent:did:layerx:payee:main")?[0];
-    let original_payee = word(&payment.payload.accepted.pay_to);
+    let payee = account_identifiers("agent:did:layerx:payee:main")?[1];
+    let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
+    let original_topics = case["receiptJson"]["logs"][0]["topics"]
+        .as_array()
+        .ok_or("topics")?
+        .iter()
+        .map(|topic| word(text(topic)))
+        .collect::<Vec<_>>()
+        .concat();
+    let topics = vec![
+        word(text(&case["receiptJson"]["logs"][0]["topics"][0])),
+        words[5],
+        words[0],
+        payee,
+    ];
     let evidence = response.extensions.get_mut("layerx").ok_or("layerx")?;
     let mut signed = STANDARD.decode(text(&evidence["receipt"]))?;
     let unsigned_length = signed.len() - 69;
     let positions: Vec<_> = signed[..unsigned_length]
-        .windows(original_payee.len())
+        .windows(original_topics.len())
         .enumerate()
-        .filter_map(|(index, value)| (value == original_payee).then_some(index))
+        .filter_map(|(index, value)| (value == original_topics).then_some(index))
         .collect();
     assert!(!positions.is_empty());
-    for index in positions {
-        signed[index..index + payee.len()].copy_from_slice(&payee);
-    }
+    assert_eq!(positions.len(), 1);
+    signed[positions[0]..positions[0] + original_topics.len()].copy_from_slice(&topics.concat());
     let digest = canonical_receipt_digest(&signed)?;
     let signature = SigningKey::from_bytes(&[0x72; 32]).sign(&digest).to_bytes();
     let signature_start = signed.len() - signature.len();
     signed[signature_start..].copy_from_slice(&signature);
     evidence["receipt"] = json!(STANDARD.encode(&signed));
     evidence["receiptDigest"] = json!(hex(&digest));
-    evidence["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&payee)));
+    evidence["logs"][0]["topics"] = json!(topics
+        .iter()
+        .map(|topic| format!("0x{}", hex(topic)))
+        .collect::<Vec<_>>());
     payment.payload.accepted.pay_to = format!("0x{}", hex(&payee));
     capture(&buyer, &payment, &response)?;
     Ok((buyer, payment, response, case))

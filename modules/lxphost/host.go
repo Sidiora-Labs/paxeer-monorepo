@@ -588,6 +588,74 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
     return status;
 }
 
+static int32_t lxphost_service_apply_default_outcomes(
+    lxphost_node *node, uint64_t batch_number, uint64_t timestamp_ms,
+    uint64_t sequence, uint32_t parameter_version, uint64_t gas_limit)
+{
+    static const uint8_t domain[] = "lxphost/service-default-outcomes/v1";
+    const lxp_module_registration *registration;
+    lxp_module_ctx *ctx = calloc(1U, sizeof(*ctx));
+    lxp_receipt *receipt = &node->receipt;
+    lxp_hash_context hash;
+    uint64_t values[] = {node->epoch, batch_number, timestamp_ms, sequence,
+                         parameter_version};
+    uint8_t integers[sizeof(values)];
+    int32_t status;
+    if (ctx == NULL) return LXP_ERR_ARENA_EXHAUSTED;
+    status = lxp_kernel_module_by_id(&node->kernel, LXP_MODULE_SERVICE,
+                                     node->epoch, &registration);
+    if (status == LXP_OK)
+        status = lxp_state_root(&node->kernel, receipt->previous_state_root);
+    for (size_t i = 0U; i < sizeof(values) / sizeof(values[0]); ++i)
+        for (size_t j = 0U; j < 8U; ++j)
+            integers[i * 8U + j] = (uint8_t)(values[i] >> ((7U - j) * 8U));
+    lxp_hash_init(&hash);
+    if (status == LXP_OK) status = lxp_hash_update(&hash, domain, sizeof(domain));
+    if (status == LXP_OK)
+        status = lxp_hash_update(&hash, integers, sizeof(integers));
+    if (status == LXP_OK)
+        status = lxp_hash_update(&hash, receipt->previous_state_root, 32U);
+    if (status == LXP_OK) status = lxp_hash_final(&hash, receipt->activity_id);
+    if (status == LXP_OK)
+        status = lxp_module_ctx_init(ctx, &node->kernel, LXP_MODULE_SERVICE,
+            timestamp_ms, node->epoch, sequence, gas_limit, &node->arena, true);
+    if (status != LXP_OK) {
+        free(ctx);
+        return status;
+    }
+    ctx->protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    ctx->batch_number = batch_number;
+    receipt->protocol_version = ctx->protocol_version;
+    receipt->module_id = LXP_MODULE_SERVICE;
+    receipt->module_version = registration->abi_version;
+    receipt->parameter_version = parameter_version;
+    receipt->global_sequence = sequence;
+    receipt->timestamp = timestamp_ms;
+    status = lxp_effect_buffer_init(&receipt->effects);
+    if (status == LXP_OK)
+        status = lxp_module_ctx_bind_effects(ctx, &receipt->effects);
+    if (status == LXP_OK)
+        status = lxp_state_journal_open(&node->store, sequence, &node->journal);
+    if (status == LXP_OK)
+        status = lx_service_acceptance_default(ctx, timestamp_ms, sequence);
+    if (status == LXP_OK) status = lxp_module_ctx_prepare_commit(ctx);
+    if (status == LXP_OK)
+        status = lxp_module_ctx_preview_state_root(ctx, &node->journal,
+                                                   receipt->resulting_state_root);
+    if (status == LXP_OK) status = lxp_state_journal_commit(&node->journal);
+    if (status == LXP_OK) status = lxp_module_ctx_commit(ctx);
+    if (status == LXP_OK)
+        (void)memcpy(node->kernel.current_state_root,
+                     receipt->resulting_state_root, 32U);
+    else {
+        lxp_module_ctx_rollback(ctx);
+        if (node->journal.open)
+            (void)lxp_state_journal_rollback(&node->journal);
+    }
+    free(ctx);
+    return status;
+}
+
 static int32_t lxphost_span_copy(lxp_byte_span source, size_t limit,
                                  lxp_byte_span *destination)
 {
@@ -1118,6 +1186,68 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 		return Receipt{}, err
 	}
 	commitBlobs(branch.store, loadedBlobs, stagedBlobs)
+	return receipt, nil
+}
+
+func (h *Host) ServiceApplyDefaultOutcomes(ctx sdk.Context) (Receipt, error) {
+	branch, err := newBranchCtx(ctx, h.cfg.StoreKey)
+	if err != nil {
+		return Receipt{}, err
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.node == nil {
+		return Receipt{}, codeNonCanonical
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if err := lxphost_reset(h.node, branch.sequence); err != nil {
+		return Receipt{}, err
+	}
+	modules := activityModules(C.LXP_MODULE_SERVICE)
+	if err := branch.load(h, modules); err != nil {
+		return Receipt{}, err
+	}
+	if _, err := h.loadBlobs(branch.store, modules); err != nil {
+		return Receipt{}, err
+	}
+	if err := result(C.lxphost_service_apply_default_outcomes(h.node,
+		C.uint64_t(branch.batchNumber), C.uint64_t(branch.timestampMs), C.uint64_t(branch.sequence),
+		C.uint32_t(h.cfg.ParameterVersion), C.uint64_t(h.cfg.GasLimit))); err != nil {
+		return Receipt{}, err
+	}
+	var outcome lxphost_outcome
+	defer C.lxphost_outcome_release(&outcome)
+	if err := lxphost_outcome_read(h.node, &outcome); err != nil {
+		return Receipt{}, err
+	}
+	receipt := Receipt{
+		ResultCode:         Code(outcome.result_code),
+		GlobalSequence:     uint64(outcome.global_sequence),
+		Timestamp:          uint64(outcome.timestamp),
+		PreviousStateRoot:  *(*[32]byte)(unsafe.Pointer(&outcome.previous_state_root[0])),
+		ResultingStateRoot: *(*[32]byte)(unsafe.Pointer(&outcome.resulting_state_root[0])),
+		Encoded:            C.GoBytes(unsafe.Pointer(outcome.encoded), C.int(outcome.encoded_length)),
+		FeeCharged:         sdk.ZeroInt(),
+	}
+	for _, effect := range unsafe.Slice(outcome.effects, int(outcome.effect_count)) {
+		if effect.kind == C.LXP_EFFECT_EVENT {
+			receipt.Events = append(receipt.Events, ReceiptEvent{
+				Code: uint16(effect.event_type),
+				Body: C.GoBytes(unsafe.Pointer(&effect.body[0]), C.int(effect.body_length)),
+			})
+		}
+	}
+	entries, err := h.moduleKV()
+	if err != nil {
+		return Receipt{}, err
+	}
+	for _, entry := range entries {
+		if entry.module == C.LXP_MODULE_SERVICE {
+			branch.store.Set(moduleKVKey(entry.module, entry.key), entry.value)
+		}
+	}
+	branch.store.Set([]byte{lastSequenceKey}, binary.BigEndian.AppendUint64(nil, branch.sequence))
 	return receipt, nil
 }
 

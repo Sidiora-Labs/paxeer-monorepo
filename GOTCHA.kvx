@@ -11271,3 +11271,133 @@ fix = "The scheduler now re-parses the plan when the spec file has changed and b
 title = "The in-tree node starts only when a file under the task's paths already names LAYERX_TEST_PAXEER_CHAIN_ID before implementation"
 symptom = "9.0.3 attempt 5 wrote the first reader of LAYERX_TEST_PAXEER_CHAIN_ID inside its own paths, so the environment, which scans those paths once before implementation, started no node and the chain-id test failed by name"
 fix = "A task whose own test is the first reader of the variable gets the node on a re-qualify of the unchanged candidate, where the paths are applied before the scan; record the attempt and re-qualify instead of changing the test"
+
+[gotcha.2292]
+title = "A touches entry naming a directory did not cover the files inside it"
+symptom = "13.8.1 attempt 6 (efa450e95) passed its build and verify and was then refused because the 28 re-recorded fixture files under programs/fixtures/pay5/native-token and native-merchant were compared against the touches entries as exact file names."
+fix = "The scope check covers a changed path when it equals a touches or planned_paths entry or lies under an entry that names a directory; the attempt 6 candidate is re-qualified unchanged."
+
+[gotcha.2293]
+title = "A pom under sdk/integrations resolves com.sidiora.layerx:layerx-sdk only after sdk/platform/jvm/pom.xml is installed"
+symptom = "mvn -f sdk/integrations/android/pom.xml (or spring) fails with 'Could not resolve dependencies ... com.sidiora.layerx:layerx-sdk:jar:0.1.0' before compiling anything, because the integration poms declare the SDK as a plain dependency and no reactor builds it."
+fix = "Run mvn -q -f sdk/platform/jvm/pom.xml -DskipTests install first; the environment that runs the gates does this once for every com.sidiora.layerx dependency whose pom is in the tree, and the task's build and verify commands stay as declared."
+
+[gotcha.2294]
+title = "yarn install in apps/explorer exits 1 from the husky prepare hook where the tree is not a repository root"
+symptom = "yarn install under apps/explorer ends after 700 to 1100 s with rc=1 and 'husky - .git can't be found' although every package was installed."
+fix = "Set HUSKY=0 for dependency installs; the gates never need git hooks, and the duration is the install itself, not the hook."
+
+[gotcha.2295]
+title = "A touches entry that names a directory covers every file under it, and a cargo target directory beside a Cargo.toml is build output"
+symptom = "A task whose touches list a directory (a receipts folder) or whose verify compiles a test crate in place was refused with 'files changed outside scope' naming files under that directory or under <crate>/target/ although its verify passed."
+fix = "Declare a directory deliberately when a task owns a whole folder; never list a target directory in touches; a verify that compiles a crate in place leaves <crate>/target, which is generated output, not a change."
+
+[gotcha.2296]
+title = "A keeper removed from the application left its upgrade handler calling a zero value"
+symptom = "5.7.1 removed the LayerXAnchorKeeper construction and 5.41.3 its store key while 5.6.5's v7.0 handler kept RetireAtMerge (node/upgrades.go:490); 5.16.3, 5.6.9 and 6.47.1 then panicked with a nil pointer dereference at modules/layerxanchor/keeper/keeper.go:31 on every v7.0 application, five attempts spent on one wiring gap."
+fix = "Removing a keeper, a store key or a mount is complete only when every upgrade handler and test that calls the keeper is changed in the same task or ruled by a decision; decision.1954 and task 5.7.5 keep the anchor keeper and store until the store-delete step."
+
+[gotcha.2297]
+title = "A Maven profile that adds sample sources compiles files owned by a later task"
+symptom = "15.4.7's build and verify run with -Psample, which test-compiles src/sample/java; RelayReceiptResolver.java there still used the retired AuthorizedReceiptBatch and belonged to 15.4.8, which required 15.4.7, so the gate could not pass in either order (attempts 3 and 4)."
+fix = "Every source a gate compiles belongs to the task that runs the gate or to a task it requires; the resolver port moved into 15.4.7 as do_6 and 15.4.8 kept only its test."
+
+[gotcha.2298]
+title = "go test does not run the copylocks analyzer, so a by-value copy of the application struct passes go test and fails a sibling's go vet"
+symptom = "A done task's test copied *testkeeper.EVMTestApp by value to swap one keeper; its go build and go test gates passed. A later task whose build_cmd is go vet over the same package exits 1 with 'assignment copies lock value to application: node.App contains sync.RWMutex' before its own test compiles, in a file outside its touches."
+fix = "Build the precompile's keepers from a test-local type that embeds utils.Keepers from EVMTestApp.GetPrecompileKeepers() and adds the module keeper method; put the fix in the touches of the first vet-gated task of the package and make its siblings require it (decision.1956)."
+
+[gotcha.2299]
+title = "A source file compiled into a test binary that no task owns breaks every task whose gate builds that binary"
+symptom = "Three retyping tasks ported their named callers but not services/agent/tests/qualify/fabrication.rs, which is mod fabrication of the agent-qualification-gates bin; every qualify gate test builds that bin through CARGO_BIN_EXE or --bin, so three sibling tasks failed the same cargo build four times each with E0432 on an import none of them touches."
+fix = "Give the orphan file its own small port task that requires the retyping tasks, make the gate-sharing siblings require it, and re-qualify their candidates unchanged; narrowing build_cmd does not help when the verify builds the same binary (decision.1955)."
+
+[gotcha.2300]
+title = "paxd init --mode validator writes grpc.enable false, so the node never registers local services and its EVM HTTP server is never built"
+symptom = "A standby node created with paxd init --mode validator committed blocks but refused every EVM RPC connection; its halt log lacked 'Stopping EVM HTTP Server'. app.toml from that init has api.enable, grpc.enable and state-store.enable false, and sdk/server/start.go:369-376 calls RegisterLocalServices, the only place that builds the EVM server, only when grpc or api is enabled."
+fix = "Set grpc enable true in the node's app.toml beside the grpc address; evm http_enabled alone is not enough."
+
+[gotcha.2301]
+title = "A whole-application tsc as a task build gate fails on sibling-owned consumers of the types the task deletes"
+symptom = "An explorer task deleted five exported type names and repointed stubs; yarn lint:tsc then reported 20 errors in 17 files, none in the task's touches, because the pages, tables and specs that import those names belong to later sibling tasks."
+fix = "Narrow the task's build to tsc over its touched files and their imports with the tsconfig flags written out, give each sibling the same narrowed build, and keep the whole-application check on the last task of the family, which requires every consumer task."
+
+[gotcha.2302]
+title = "A schema validator that requires type names by string survives the deletion of those types and fails on a schema that is correct"
+symptom = "A code generator's lifecycle check required five type names that a later schema task deleted and replaced with one variant; the generator never read the names into any output, so the schema change passed its own gate and the generator's gate failed with 'missing type.X.required' on a correct schema."
+fix = "When a schema task deletes or renames types, grep every tool that validates the schema by name (sdk-gen validate_* functions) and port the check in the same decision; do not re-add the deleted types to the schema."
+
+[gotcha.2303]
+title = "An address-uniqueness loop over the precompile name table refuses the documented alias handoff"
+symptom = "The name table records three names (a camel-case name, its lower-case alias and the successor name) at one address under a recorded decision, and a sibling test requires exactly that; a registration test's loop over the same table asserted every address unique, so the two tests could never pass together."
+fix = "Teach the uniqueness loop the one documented shared address and the exact set of names allowed there; keep every other shared address a failure and leave the alias assertions as written."
+
+[gotcha.2304]
+title = "A do line that asserts two differently-typed ABI events share a topic cannot be implemented without changing a frozen contract table"
+symptom = "Two precompiles declare StreamRateUpdated with different parameter lists, so their topic0 values differ by construction and both are frozen by done gates; a later task's do line said to assert they match, and the literal implementation failed with expected one hash, actual the other."
+fix = "Assert each event's topic0 against its own canonical signature and that the two differ; supersede the do line with a decision instead of touching either ABI or contract table."
+
+[gotcha.2305]
+title = "A deleted generated file that one hand-written file still reads breaks every gate that compiles the package, including gates of unrelated tasks"
+symptom = "A retyping task deleted a generated Go file; another file in the same package kept reading a symbol from it, so the package has not compiled since, and four attempts of a task whose verify runs one test in that package all stopped at the same undefined symbol without reaching their own test."
+fix = "Give the dangling read to the task that owns the hand-written file, order the dependent task behind it by requires and a decision, and re-qualify the dependent candidate unchanged once the package compiles."
+
+[gotcha.2306]
+title = "Comparing a recovered secp256k1 transaction sender with an Ed25519 custody descriptor key refuses every valid request"
+symptom = "A creation path compared the left-padded sender recovered from a signed EIP-1559 transaction with KeyDescriptor.public_key, which is the Ed25519 verification key of the same custody secret; the two are points on different curves, so the check refused deterministically even when the fixture derived both from one secret."
+fix = "Compare the sender with the custody signer's EVM wallet (CustodySigner::evm_wallet) and carry the left-padded wallet as the evidence owner key; never compare across key classes."
+
+[gotcha.2307]
+title = "swift build compiles no test target, so a test that reaches a fileprivate library helper first fails at swift test"
+symptom = "A Swift SDK test used a Data.hex helper that is fileprivate in one library file and private in another; every build leg passed because swift build never compiles the test target, and the error waits for swift test, which only the verify runs."
+fix = "Format bytes inline in the test (map over the bytes with %02x and join) or add a test-target helper; do not widen the library helper's access to satisfy a test."
+
+[gotcha.2308]
+title = "A name lookup that re-runs the keeper-free dry run after a real-keeper dry run panics on a constructor that needs keepers"
+symptom = "GetPrecompileInfoE ran InitializePrecompiles(true, EmptyKeepers) whenever Initialized was false, even though a completed dry run with real keepers had already filled the name table; a merge precompile constructor that requires its keeper set refused the empty set and every lookup after that dry run panicked."
+fix = "Serve the recorded table entry first and run the keeper-free dry run only for an unrecorded name when nothing has been recorded; keep the unknown-name error path intact."
+
+[gotcha.2309]
+title = "Re-running a task before the base carries its spec amendment repeats the recorded failure"
+symptom = "Three tasks were re-run minutes after their spec amendments were written; each run started from a base revision that predated the amending commit, saw the old do lines and touches, and failed exactly as recorded, adding nothing."
+fix = "Before re-running a task whose spec was just amended, confirm the base revision is at or after the amending commit (and after the owner task's commit when the amendment adds a requires); otherwise wait for the base to advance."
+
+[gotcha.2310]
+title = "A static precompile's store gas lands in the transaction's infinite meter and is never billed"
+symptom = "A precompile that implemented only RequiredGas and Run charged its flat row while its body did state-proportional host work; inside a transaction the context meter is an infinite meter whose consumption nobody reads, so the extra KV gas was unpaid and grew with the store on every call."
+fix = "When a precompile body does work proportional to state, serve it as a DynamicGasPrecompiledContract: deduct the row, run under a meter limited to the remainder and return what the meter leaves; keep the rows as the base charge."
+
+[gotcha.2311]
+title = "Porting a signer to an approval surface that submits the transaction itself cannot answer a detached signature"
+symptom = "A do line asked to bind an agent signer to a wallet EVM approval, but the approval route signs, serialises and submits the raw transaction and answers tx_hash and receipt; the middleware consuming the signer needed a detached signature string, so the port could not compile without a stand-in across four attempts."
+fix = "Before writing a port, check that the target API answers the artifact the consumer submits; if the flow already completes inside the other service, remove the provider path instead of inventing a signature."
+
+[gotcha.2312]
+title = "A receipt gate whose key list defaults to empty refuses every receipt while its unit test passes"
+symptom = "A mobile receipt gate took receiptKeys with a default of [] and the integration entry point passed none, so every gate built through the public API refused every receipt; the gate's own test loaded fixture keys itself and passed."
+fix = "Every constructor path of a gate needs a configuration-held key source and a refusal when none is declared; the test that loads keys itself does not cover the public entry point."
+
+[gotcha.2313]
+title = "A daemon that admits a call and then stops its executor without exiting answers empty lookups until the client times out"
+symptom = "layerxd --serve admitted a program call and the executor stopped inside the batch apply; the process stayed alive, the serve loop kept polling only the network server, and every receipt lookup returned an empty envelope for 30 s until the test panicked without printing the daemon's stderr."
+fix = "Keep the daemon's stderr next to the verify log and read its 'execution failed at sequence ... with result ...' line first; a stalled executor with a live process looks like a missing receipt."
+
+[gotcha.2314]
+title = "Comparing RequiredGas with metered KV gas measures the row, not the charge"
+symptom = "A gas-bound test compared a precompile's static RequiredGas with the KV gas the call metered and failed for every method, because RequiredGas is only the fixed row of a dynamic charge."
+fix = "Measure the charge as supplied gas minus the gas the EVM call leaves, convert through GetCosmosGasLimitFromEVMGas, and compare that with the metered store gas."
+
+[gotcha.2315]
+title = "A -p lib or test build never compiles a binary declared in another crate with autobins = false"
+symptom = "A one-line change to an agent daemon's main.rs passed its task gate on -p <crate> --test <name>, because the crate sets autobins = false and the binary is declared in a sibling host crate pointing at that main.rs; two later tasks whose gates build the binary failed with E0277 at that line."
+fix = "A task whose touches include a file that only a binary target compiles names that binary in its build_cmd; check Cargo.toml for autobins = false and [[bin]] path declarations in sibling crates before trusting a lib gate."
+
+[gotcha.2316]
+title = "tsc with files on the command line ignores tsconfig.json, so generated declaration files must be listed as roots"
+symptom = "A narrowed type check listing the touched files plus the global declaration roots failed with TS2724 on a type that only a generated declaration file declares; the whole-application check picked that file up through tsconfig include, the narrowed one did not."
+fix = "When narrowing a tsc build to explicit files, copy every declaration root the sibling tasks list, including generated ones, and follow the import closure from the first root for module augmentations."
+
+[gotcha.2317]
+title = "A registration test's hard-coded ABI counts go stale when later tasks grow the ABI without running it"
+symptom = "A precompile registration test asserted 9 methods and 3 events; three later commits grew the ABI to 12 and 4 with gates that never ran the test, so the first task to add it to a verify found a failure on main unrelated to its own change."
+fix = "A task that changes an abi.json runs the registration test that counts it; when a count assertion disagrees with a declared ABI grown by completed tasks, rule which is the authority in a decision and set the test to it rather than leaving a known-red test on main."

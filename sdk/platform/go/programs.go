@@ -294,7 +294,6 @@ type ProgramSubmission struct {
 	Transaction            *ProgramTransaction
 	TransactionHash        [32]byte
 	SequencerReceipt       *SequencerReceiptVerification
-	IdempotencyResult      []byte
 	State                  ProgramSubmissionState
 	ActivityID             [32]byte
 	IdempotencyKey         string
@@ -2050,23 +2049,14 @@ func (programs *Programs) Submit(ctx context.Context, call ProgramCall, key Idem
 }
 
 func (programs *Programs) Receipt(ctx context.Context, key IdempotencyKey, expectedTransaction [32]byte) (ProgramSubmission, error) {
-	if !canonicalProgramKey(key) || programs.didID == ([32]byte{}) || expectedTransaction == ([32]byte{}) {
+	if !canonicalProgramKey(key) || expectedTransaction == ([32]byte{}) {
 		return ProgramSubmission{}, newSDKError(ErrorInvalidArgument, RetryNever)
-	}
-	keyBytes, _ := hex.DecodeString(key.String())
-	result, err := programs.view(ctx, layerxAuthAddress, programABI("2eda9f2b", programs.didID[:], keyBytes), [20]byte{})
-	if err != nil {
-		return ProgramSubmission{}, err
-	}
-	recorded, err := programABIBytes(result, 0, 32)
-	if err != nil {
-		return ProgramSubmission{}, err
 	}
 	submission, err := programs.Activity(ctx, expectedTransaction)
 	if err != nil {
 		return ProgramSubmission{}, err
 	}
-	submission.IdempotencyKey, submission.IdempotencyResult = key.String(), recorded
+	submission.IdempotencyKey = key.String()
 	return submission, nil
 }
 

@@ -17,13 +17,56 @@ use layerx_x402::model::{
 };
 use serde_json::{json, Value};
 
-const PAYEE_ACCOUNT: &str = "agent:did:layerx:content-service:main";
+const PAYEE_ACCOUNT: &str = "agent:did:layerx:payee:main";
 const ALTERNATE_ACCOUNT: &str = "agent:did:layerx:content-mirror:main";
 const CURRENCY: &str = "LXP";
 
+fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
+    fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+        let prefix = input[0];
+        let (offset, length) = match prefix {
+            0x00..=0x7f => (0, 1),
+            0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+            0xb8..=0xbf | 0xf8..=0xff => {
+                let width = usize::from(if prefix < 0xc0 {
+                    prefix - 0xb7
+                } else {
+                    prefix - 0xf7
+                });
+                let length = input[1..1 + width]
+                    .iter()
+                    .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+                (1 + width, length)
+            }
+            0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+        };
+        let value = &input[offset..offset + length];
+        *input = &input[offset + length..];
+        value
+    }
+    let (mut envelope, data_index) = match raw[0] {
+        0x02 => (&raw[1..], 7),
+        0xc0..=0xff => (raw, 5),
+        _ => panic!("unsupported recorded transaction envelope"),
+    };
+    let mut fields = take(&mut envelope);
+    assert!(envelope.is_empty());
+    for _ in 0..data_index {
+        take(&mut fields);
+    }
+    let calldata = take(&mut fields);
+    assert_eq!(calldata.len(), 4 + 6 * 32);
+    assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    std::array::from_fn(|index| {
+        calldata[4 + index * 32..4 + (index + 1) * 32]
+            .try_into()
+            .unwrap()
+    })
+}
+
 fn account_id(account: &str) -> [u8; 32] {
     account_identifiers(account)
-        .unwrap_or_else(|error| panic!("{account} has account identifiers: {error}"))[0]
+        .unwrap_or_else(|error| panic!("{account} has account identifiers: {error}"))[1]
 }
 
 fn pay_to(account: &str) -> String {
@@ -164,7 +207,8 @@ fn signed_settlement() -> (
         .collect();
     assert_eq!(topics.len(), 4);
     let recorded_topics = topics.concat();
-    topics[1..].rotate_right(1);
+    let words = pay_exact_words(&receipt_fixture_bytes(&fixture["rawTransaction"]));
+    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
     topics[3] = account_id(PAYEE_ACCOUNT);
     let mut receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
     let positions: Vec<_> = receipt
@@ -257,10 +301,11 @@ fn buyer_tests_capture_on_the_recorded_receipt() {
         digest
     );
     let mut expected_logs = fixture["receiptJson"]["logs"].clone();
+    let words = pay_exact_words(&receipt_fixture_bytes(&fixture["rawTransaction"]));
     expected_logs[0]["topics"] = json!([
         fixture["receiptJson"]["logs"][0]["topics"][0],
-        fixture["receiptJson"]["logs"][0]["topics"][3],
-        fixture["receiptJson"]["logs"][0]["topics"][1],
+        format!("0x{}", hex32(&words[5])),
+        format!("0x{}", hex32(&words[0])),
         pay_to(PAYEE_ACCOUNT),
     ]);
     assert_eq!(response.extensions["layerx"]["logs"], expected_logs);
