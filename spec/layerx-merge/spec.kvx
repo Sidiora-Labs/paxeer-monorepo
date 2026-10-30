@@ -101141,7 +101141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.35.1]
 title = "Serve the 0x0906 stream methods over the pay keeper agent stream API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["2.25.5", "2.28.1", "2.28.6", "2.39.1"]
@@ -164082,7 +164082,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.31.1]
 title = "Move the frontend status ladder to submitted, receipted and committed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["14.0.4", "14.22.3"]
@@ -164514,7 +164514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.34.1]
 title = "Add the sequencer signature type and API resource"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["14.0.4", "14.22.6", "14.31.1"]
