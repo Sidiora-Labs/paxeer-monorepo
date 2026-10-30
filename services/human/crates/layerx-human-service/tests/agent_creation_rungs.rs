@@ -181,7 +181,12 @@ fn capability_exchange(rung_byte: u8) -> (Vec<u8>, Vec<u8>) {
         action_key: request.action_key,
         object_id: request.capability_id,
         observed_sequence: HEIGHT,
-        rung: Rung::Committed,
+        rung: match rung_byte {
+            0 => Rung::Submitted,
+            1 => Rung::Receipted,
+            2 | 3 => Rung::Committed,
+            _ => panic!("unsupported capability fixture rung byte: {rung_byte}"),
+        },
         receipt_digest: [0; 32],
     };
     let mut answer = expected.object_id.to_vec();
@@ -424,8 +429,21 @@ fn finalization_evidence_refuses_rung_byte_three() {
         ));
         assert_eq!(
             capability,
-            Err(AgentFailure::Refused("capability rung is invalid"))
+            Err(AgentFailure::Refused(
+                "agent refused or corrupted creation operation"
+            ))
         );
+        fixture.finish();
+    }
+}
+
+#[test]
+fn capability_install_reports_submitted_and_receipted_rungs() {
+    for (rung_byte, expected_rung) in [(0, Rung::Submitted), (1, Rung::Receipted)] {
+        let mut fixture = Fixture::new(rung_byte, 2);
+        let (_, capability) = fixture.evidence();
+        let capability = checked(capability);
+        assert_eq!(capability.rung, expected_rung);
         fixture.finish();
     }
 }

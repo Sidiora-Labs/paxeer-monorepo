@@ -435,13 +435,6 @@ pub(crate) fn authenticates_native_owner(
     owner_account: &str,
     actor: &[u8],
 ) -> Result<bool, HumanOperationError> {
-    let kind = layerx_types::payload::ActivityType::new(ModuleId::Governance, 1)
-        .map_err(|_| HumanOperationError::Refused)?;
-    let registration =
-        layerx_types::payload::ModuleRegistration::new(ModuleId::Governance, &[kind])
-            .map_err(|_| HumanOperationError::Refused)?;
-    let registry = layerx_types::payload::ModuleRegistry::new(&[registration])
-        .map_err(|_| HumanOperationError::Refused)?;
     let mut found = false;
     for object_id in store.list_object_ids(tenant, ObjectKind::Configuration) {
         if !object_id.starts_with(PREFIX) {
@@ -496,34 +489,72 @@ pub(crate) fn authenticates_native_owner(
                 return Err(HumanOperationError::Refused);
             }
         }
-        let mut outbox = crate::outbox::Outbox::default();
-        outbox
-            .restore(store, tenant.clone(), action_key)
+        let authority = layerx_agent_api::identity::strict_hex32(
+            &agent.context.primary_authority,
+            "primary_authority",
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        if authority[..12] != [0; 12] {
+            return Err(HumanOperationError::Refused);
+        }
+        let sender = authority[12..]
+            .try_into()
             .map_err(|_| HumanOperationError::Refused)?;
-        let exact = outbox
-            .exact_signed_bytes(action_key)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let activity = layerx_intents::owner_activity::verify(exact, &registry)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let consent = layerx_crypto::onboarding::SponsoredRegistration::decode(activity.payload())
-            .map_err(|_| HumanOperationError::Refused)?;
-        consent
-            .validate_outer(&activity)
-            .map_err(|_| HumanOperationError::Refused)?;
-        if activity.actor_did() != owner.as_bytes()
-            || activity.network_id() != agent.context.network_id
-            || activity.idempotency_key() != action_key
-            || layerx_intents::canonical::activity_id(&activity)
-                .map_err(|_| HumanOperationError::Refused)?
-                != served.metadata.activity_id
-            || consent.consent.target.as_bytes() != actor
-            || consent.consent.target_public_key != agent.context.custody_public_key
+        let transaction =
+            restore_owner_transaction(store, tenant, &served, sender, agent.context.network_id)?;
+        let mut word = [0; 32];
+        word[31] = 64;
+        if transaction.to != layerx_client::account_binding::ADDR_PRECOMPILE
+            || transaction.data.len() != 164
+            || transaction.data[..4] != layerx_client::account_binding::SELECTOR_BIND_LAYERX
+            || transaction.data[4..36] != agent.context.custody_public_key
+            || transaction.data[36..68] != word
+            || transaction.data[68..100] != word
+            || format!("did:layerx:{}", hex(&agent.context.custody_public_key)).as_bytes() != actor
         {
             return Err(HumanOperationError::Refused);
         }
         found = true;
     }
     Ok(found)
+}
+
+/// Restores the exact owner-signed transaction bound to a served receipt.
+///
+/// # Errors
+/// Refuses malformed type-2 transactions, invalid signatures, or mismatched
+/// owner, network, outbox key, and receipt transaction hash.
+pub fn restore_owner_transaction(
+    store: &Store,
+    tenant: &TenantId,
+    served: &crate::receipt::ServedReceipt,
+    owner: [u8; 20],
+    network_id: u32,
+) -> Result<layerx_crypto::evm_transaction::Eip1559Call, HumanOperationError> {
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+
+    let action_key = served.metadata.idempotency_key;
+    let mut outbox = crate::outbox::Outbox::default();
+    outbox
+        .restore(store, tenant.clone(), action_key)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let exact = outbox
+        .exact_signed_bytes(action_key)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let (transaction, signature) =
+        decode_signed(exact).map_err(|_| HumanOperationError::Refused)?;
+    let sender =
+        recover_sender(&transaction, &signature).map_err(|_| HumanOperationError::Refused)?;
+    let hash = transaction_hash(exact);
+    if sender != owner
+        || network_id == 0
+        || transaction.chain_id != u64::from(network_id)
+        || hash != action_key
+        || hash != served.metadata.activity_id
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(transaction)
 }
 
 pub fn evidence_export(

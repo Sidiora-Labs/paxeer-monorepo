@@ -2,9 +2,8 @@
 
 import React from 'react';
 
-import type { PaxeerXAnchorsItem } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
 
-import { PAXEER_X_ANCHORS_ITEM } from 'stubs/paxeerXLists';
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,17 +12,28 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 import PaxeerXAnchorsTable from './PaxeerXAnchorsTable';
 import { ANCHOR_SETTLEMENT_RUNG } from './PaxeerXAnchorsTableItem';
 
-const sparse: PaxeerXAnchorsItem = {
-  ...PAXEER_X_ANCHORS_ITEM,
-  batch_number: PAXEER_X_ANCHORS_ITEM.batch_number - 1,
+const anchor: PaxeerXArchiveAnchor = {
+  frozen: true,
+  batch_number: 1042,
+  checkpoint_id: '0x1a2b3c4d5e6f7081928374655647382910ffeeddccbbaa99887766554433221100',
+  checkpoint_height: 8340992,
+  sealed_height: 8340960,
+  state_root: '0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+  block_number: 8341004,
+  timestamp: '2023-05-22T18:00:36.000000Z',
+};
+
+const sparse: PaxeerXArchiveAnchor = {
+  ...anchor,
+  batch_number: anchor.batch_number - 1,
   checkpoint_id: '0x4b3c2d1e0f9a8b7c6d5e4f30211223344556677889900aabbccddeeff00112233',
   checkpoint_height: null,
   sealed_height: null,
   state_root: null,
-  block_number: PAXEER_X_ANCHORS_ITEM.block_number - 1,
+  block_number: anchor.block_number - 1,
 };
 
-const items = [ PAXEER_X_ANCHORS_ITEM, sparse ];
+const items = [ anchor, sparse ];
 
 const renderTable = () => render(<PaxeerXAnchorsTable items={ items }/>);
 
@@ -37,7 +47,7 @@ describe('PaxeerXAnchorsTable', () => {
     const { container } = renderTable();
 
     expect(Array.from(container.querySelectorAll('thead th')).map((cell) => cell.textContent))
-      .toEqual([ 'Checkpoint height', 'Sealed height', 'State root', 'Block', 'Age', 'Settlement' ]);
+      .toEqual([ 'Batch', 'Checkpoint height', 'Sealed height', 'State root', 'Block', 'Age', 'Settlement' ]);
   });
 
   it('renders one row per checkpoint, each marked by its checkpoint id', () => {
@@ -51,12 +61,13 @@ describe('PaxeerXAnchorsTable', () => {
   it('spells the heights of a checkpoint and links its block', () => {
     const { container } = renderTable();
 
-    const row = container.querySelector(`[data-anchor="${ PAXEER_X_ANCHORS_ITEM.checkpoint_id }"]`) as HTMLElement;
+    const row = container.querySelector(`[data-anchor="${ anchor.checkpoint_id }"]`) as HTMLElement;
 
-    expect(row.querySelector('[data-label="checkpoint-height"]')?.textContent).toBe(String(PAXEER_X_ANCHORS_ITEM.checkpoint_height));
-    expect(row.querySelector('[data-label="sealed-height"]')?.textContent).toBe(String(PAXEER_X_ANCHORS_ITEM.sealed_height));
-    expect(row.querySelector(`a[href="/block/${ PAXEER_X_ANCHORS_ITEM.block_number }"]`)?.textContent)
-      .toBe(String(PAXEER_X_ANCHORS_ITEM.block_number));
+    expect(row.querySelector('[data-label="batch-number"]')?.textContent).toBe(String(anchor.batch_number));
+    expect(row.querySelector('[data-label="checkpoint-height"]')?.textContent).toBe(String(anchor.checkpoint_height));
+    expect(row.querySelector('[data-label="sealed-height"]')?.textContent).toBe(String(anchor.sealed_height));
+    expect(row.querySelector(`a[href="/block/${ anchor.block_number }"]`)?.textContent)
+      .toBe(String(anchor.block_number));
   });
 
   it('marks the columns the anchor log leaves empty', () => {
@@ -66,7 +77,7 @@ describe('PaxeerXAnchorsTable', () => {
 
     expect(row.querySelector('[data-label="checkpoint-height"]')?.textContent).toBe('—');
     expect(row.querySelector('[data-label="sealed-height"]')?.textContent).toBe('—');
-    expect(row.querySelectorAll('td')[2]?.textContent).toBe('—');
+    expect(row.querySelectorAll('td')[3]?.textContent).toBe('—');
   });
 
   it('puts every accepted checkpoint on the same rung of the settlement ladder', () => {

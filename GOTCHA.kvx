@@ -11431,3 +11431,23 @@ fix = "When a view's missing-record behaviour changes in the keeper, grep the pr
 title = "A re-recorded fixture hash has literal copies in sibling crate tests"
 symptom = "A fixture re-record task passed its Go legs and failed a Rust unit test whose const held the old txHash by value, in a file outside the task's touches."
 fix = "Before re-recording a fixture, grep services/ and sdk/ for the old hash bytes and add each literal copy to touches; the literal is updated, not read from the fixture."
+
+[gotcha.2324]
+title = "Block-view receipt validation decodes every consensus transaction as a TxRaw"
+symptom = "A local-node receipt test passed its pending nonce read and then failed every committed block view with 'decode consensus transaction 0 ... expected 2 wire type, got 0': transaction 0 of a sequenced block is the MsgSequenceBatch, which the rpc receipt validation fed to the sdk TxDecoder."
+fix = "A path that decodes block.Block.Txs must treat index 0 the way ProcessProposal does (DecodeSequenceBatchTx first); before trusting an rpc test suite on sequenced blocks, grep it for EncodeSequenceBatchTx and add a batch-headed block case."
+
+[gotcha.2325]
+title = "A validator that reads a table a prior task emptied fails every commit on the path"
+symptom = "Every maintenance batch failed with LXP_FATAL_INVARIANT because the settled snapshot validator required a latest receipt from the state idempotency table, whose only writer was removed two months earlier; no verify_cmd ran the two tests that commit maintenance batches, so the breakage was found by a daemon test in another domain."
+fix = "When a task removes the last writer of a store table, grep src/ for every reader of that table (including static validators) in the same task and name the authority the reader uses instead; schedule the tests that exercise the path in some verify_cmd."
+
+[gotcha.2326]
+title = "A verify leg that selects --lib on a binary-only package fails after every other leg passed"
+symptom = "A fixture re-record task passed nine verify legs and failed the tenth with 'no library targets found' because the service package declares only a [[bin]] and the verify_cmd asked for --lib; the leg had never run because earlier attempts stopped at earlier legs."
+fix = "When writing a cargo test leg for a package, read its Cargo.toml: a package with only [[bin]] takes --bin <name>, a package with [lib] takes --lib; check every leg of a chained verify_cmd against its target list before the first attempt."
+
+[gotcha.2327]
+title = "A vector consumer task that its producer lists as a requirement never finds the vector"
+symptom = "A decoder task failed three times with 'No such file or directory' on a shared test vector because the task that writes the vector listed the decoder as a requirement, so the file could only appear after the test that reads it had passed."
+fix = "When a task reads a planned file, the task that creates it must be in that task's requires and in an earlier or equal wave; check the producer's planned_paths against the touches and do lines of every consumer before landing the requires lists."
