@@ -11191,3 +11191,23 @@ fix = "Make each consumer derive its expected values from the recorded inputs (h
 title = "A requirement on a done task that sits in a later wave is a bad_ref for the plan validator"
 symptom = "18.1304.1 (wave 0) requiring 13.4.5 (wave 23, done) and 18.1305.1 requiring 1.24.1 (wave 23, done) raised bad_refs 2 although both requirements were satisfied."
 fix = "Do not list a done task from a later wave in requires; cite its commit in a do line and give the new task an empty requires or requires in its own or earlier waves."
+
+[gotcha.2276]
+title = "Retiring a host read must retire its keeper caller in the same revision"
+symptom = "a0a08d298 (1.25.2) deleted Host.ReadIdempotentReceipt while Keeper.ResultByIdempotency (modules/layerxauth/keeper/views.go:167) still called it, so every Go build that links the layerxauth keeper, including go build ./node/..., failed for four tasks' attempts (issue #1308)."
+fix = "When a task deletes an exported method, grep the whole module tree for callers before its verify; a caller outside the touches is a stop condition that needs its own task (18.1308.1) and a requires edge, not a silent omission."
+
+[gotcha.2277]
+title = "A test that asserts the retired idempotency replay cannot pass after the kernel stopped the lookup"
+symptom = "modules/layerxauth/keeper tests assert types.ErrIdempotentReplay on a second submission of the same payload, but 787dd93be (1.2.1) stopped kernel idempotency lookups, so the replay is a reused account sequence (-301) and the stored-receipt comparison has no store to read."
+fix = "Follow decision.1718: migrate the consumer to the sequence guard and the returned receipt under an explicit decision (decision.1932); never flip the expected code to whatever the kernel answers without that ruling."
+
+[gotcha.2278]
+title = "Hand edits inside generated protobuf or gateway files are reverted by the reproducibility task"
+symptom = "7.29.2 regenerated 104 files and the build failed because modules/xweb/types/query.pb.go carried 13 hand-written adapters (4d1f8830d) and sdk/x/bank/types/query.pb.gw.go a hand-reordered registration (5b9c0e997)."
+fix = "Put adapters in codec.go and binding order in the .proto; a generated file is committed only as unedited generator output (6.68.2, 7.26.5)."
+
+[gotcha.2279]
+title = "A renamed constant in a shared crate breaks test files of other crates that pin the old name"
+symptom = "18.1211.3 attempt 1 failed to compile layerx-ap2/tests/sequencer_settlement.rs:21 on PORTABLE_RECEIPT_FORMAT_V2, renamed to PORTABLE_RECEIPT_FORMAT by 2c4ecdb63 (11.29.4)."
+fix = "When a task's touches include a test file of another crate, build the test target first and fix pinned imports from the current crate exports before any behaviour change."
