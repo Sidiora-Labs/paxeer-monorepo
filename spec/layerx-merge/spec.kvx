@@ -138183,7 +138183,7 @@ do_8 = "Keep from attempt 7 (d7fa779bf) the sweep test no_kernel_disclosure_code
 
 [task.8.94.4]
 title = "Re-export the ledger call builders from layerx_crypto::payments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.31.2", "9.32.2"]
