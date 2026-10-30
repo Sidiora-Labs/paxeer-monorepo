@@ -147828,7 +147828,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.97.1]
 title = "Remove the layerx-intents activity and owner envelope uses from the human KMS and service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["10.0.4", "9.1.7", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1"]
