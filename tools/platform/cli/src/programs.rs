@@ -761,9 +761,8 @@ fn refuse_transport_response(response: &Value) -> Result<(), String> {
 }
 
 pub fn registry_get(client: &Client, program_id: &str) -> Result<Value, String> {
-    validate_resource_id(program_id, "program id")?;
-    let response = read_program_registry(client, program_id, false)?;
-    registry_program_document(&response, program_id)
+    let result = program_view(client, program_id, [0xb1, 0xff, 0xb3, 0xd4])?;
+    decode_program_view(program_id, &result)
 }
 
 /// Validates the program registry read behind `program registry get` out of the
@@ -910,26 +909,107 @@ fn program_registry_freshness(document: &Value) -> Result<(u64, [u8; 32]), Strin
 }
 
 pub fn discover(client: &Client, program_id: &str) -> Result<Value, String> {
-    validate_resource_id(program_id, "program id")?;
-    let response = read_program_registry(client, program_id, false)?;
-    let value = program_registry_document(&response)?;
-    if value["program_id"]
-        .as_str()
-        .is_none_or(|value| !value.eq_ignore_ascii_case(program_id))
-    {
-        return Err("program discovery changed the requested program identity".to_owned());
-    }
-    if value["lifecycle"].as_str() != Some("active") {
+    let value = registry_get(client, program_id)?;
+    if value["active"] != true {
         return Err("program discovery refused an inactive program".to_owned());
     }
-    program_registry_freshness(&value)?;
     Ok(value)
 }
 
 pub fn interface_get(client: &Client, program_id: &str) -> Result<Value, String> {
-    validate_resource_id(program_id, "program id")?;
-    let response = read_program_registry(client, program_id, true)?;
-    interface_program_document(&response)
+    let result = program_view(client, program_id, [0x8e, 0xfc, 0x72, 0x40])?;
+    decode_interface_view(program_id, &result)
+}
+
+fn program_view(client: &Client, program_id: &str, selector: [u8; 4]) -> Result<Value, String> {
+    let program = fixed_hex::<32>("program id", program_id)?;
+    let mut data = selector.to_vec();
+    data.extend_from_slice(&program);
+    rpc_call(
+        client,
+        "eth_call",
+        json!([
+            {"to": PROGRAMS_ADDRESS, "data": format!("0x{}", hex_encode(&data))}, "pending"
+        ]),
+    )
+}
+
+fn view_bytes(result: &Value) -> Result<Vec<u8>, String> {
+    let encoded = result
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .ok_or("program view must return 0x-prefixed ABI bytes")?;
+    if !encoded.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("program view contains non-hexadecimal input".into());
+    }
+    hex_decode("program view", encoded)
+}
+
+fn view_uint(word: &[u8], width: usize) -> Result<u64, String> {
+    if word.len() != 32 || width > 8 || word[..32 - width].iter().any(|byte| *byte != 0) {
+        return Err("program view contains a noncanonical ABI integer".into());
+    }
+    Ok(word[32 - width..]
+        .iter()
+        .fold(0, |value, byte| (value << 8) | u64::from(*byte)))
+}
+
+pub(crate) fn decode_program_view(program_id: &str, result: &Value) -> Result<Value, String> {
+    let program = fixed_hex::<32>("program id", program_id)?;
+    let bytes = view_bytes(result)?;
+    if bytes.len() != 192 {
+        return Err("getProgram must return six ABI words".into());
+    }
+    let policy = view_uint(&bytes[..32], 1)?;
+    let abi = view_uint(&bytes[96..128], 2)?;
+    let version = view_uint(&bytes[128..160], 4)?;
+    let active = view_uint(&bytes[160..192], 1)?;
+    if active > 1 {
+        return Err("getProgram returned a noncanonical boolean".into());
+    }
+    Ok(json!({
+        "program_id": hex_encode(&program), "policy": policy,
+        "authority": hex_encode(&bytes[32..64]), "code_hash": hex_encode(&bytes[64..96]),
+        "abi_version": abi, "version": version, "active": active == 1,
+        "lifecycle": if active == 1 { "active" } else { "inactive" },
+        "source": "eth_call", "block_tag": "pending"
+    }))
+}
+
+pub(crate) fn decode_interface_view(program_id: &str, result: &Value) -> Result<Value, String> {
+    let program = fixed_hex::<32>("program id", program_id)?;
+    let bytes = view_bytes(result)?;
+    if bytes.len() < 128 || bytes.len() % 32 != 0 {
+        return Err("getInterface must return a canonical ABI tuple".into());
+    }
+    let version = view_uint(&bytes[..32], 4)?;
+    if view_uint(&bytes[64..96], 8)? != 96 {
+        return Err("getInterface returned a noncanonical encoding offset".into());
+    }
+    let length = usize::try_from(view_uint(&bytes[96..128], 8)?)
+        .map_err(|_| "interface length exceeds address space")?;
+    let end = 128_usize
+        .checked_add(length)
+        .ok_or("interface length overflow")?;
+    let padded = end.checked_add(31).ok_or("interface length overflow")? / 32 * 32;
+    if bytes.len() != padded
+        || bytes
+            .get(end..)
+            .is_none_or(|padding| padding.iter().any(|b| *b != 0))
+    {
+        return Err("getInterface returned invalid encoding length or padding".into());
+    }
+    let interface = layerx_programs::ProgramInterface::decode(&bytes[128..end])
+        .map_err(|error| format!("program interface is not canonical: {error}"))?;
+    if interface.digest().as_bytes().as_slice() != &bytes[32..64] {
+        return Err("getInterface encoding disagrees with its published digest".into());
+    }
+    Ok(json!({
+        "program_id": hex_encode(&program), "version": version,
+        "interface": hex_encode(&bytes[128..end]), "interface_digest": hex_encode(&bytes[32..64]),
+        "code_hash": hex_encode(&interface.code_hash()), "abi_version": interface.abi_version(),
+        "source": "eth_call", "block_tag": "pending"
+    }))
 }
 
 /// Validates the published interface read behind `program interface get` out of
@@ -973,25 +1053,31 @@ fn interface_program_document(response: &Value) -> Result<Value, String> {
 
 pub fn interface_publish(
     client: &Client,
-    program_id: &str,
+    request: &EvmLifecycleRequest<'_>,
+    artifact: &Path,
     interface_path: &Path,
     idempotency_key: &str,
 ) -> Result<Value, String> {
-    validate_resource_id(program_id, "program id")?;
     validate_idempotency_key(idempotency_key)?;
-    let bytes = fs::read(interface_path)
-        .map_err(|error| format!("could not read {}: {error}", interface_path.display()))?;
-    let interface = layerx_programs::ProgramInterface::decode(&bytes)
-        .map_err(|error| format!("program interface is not canonical: {error}"))?;
-    client.post(
-        &format!("/v1/programs/registry/{program_id}/interface"),
-        &json!({
-            "interface": hex_encode(&bytes),
-            "interface_digest": hex_encode(interface.digest().as_bytes()),
-            "code_hash": hex_encode(&interface.code_hash()),
-            "abi_version": interface.abi_version(),
-        }),
-        Some(idempotency_key),
+    let head = registry_get(client, request.program_id)?;
+    let old_hash = head["code_hash"]
+        .as_str()
+        .ok_or("getProgram omitted its code hash")?;
+    let wasm = read_program_file(artifact)?;
+    if hex_encode(&Sha256::digest(&wasm)) != old_hash {
+        return Err("interface publication artifact differs from the deployed code".into());
+    }
+    upgrade(
+        client,
+        request,
+        &UpgradeRequest {
+            artifact,
+            old_hash,
+            migration_hook: None,
+            interface: Some(interface_path),
+            clear_interface: false,
+            allow_breaking_interface: false,
+        },
     )
 }
 
@@ -999,34 +1085,56 @@ pub const REGISTRY_URL_VARIABLE: &str = "LAYERX_BETA_REGISTRY_URL";
 pub const REGISTRY_PUBLICATION_TOKEN_VARIABLE: &str = "LAYERX_BETA_REGISTRY_PUBLICATION_TOKEN_FILE";
 pub const REGISTRY_PUBLICATION_KEY_VARIABLE: &str = "LAYERX_BETA_REGISTRY_PUBLICATION_KEY_FILE";
 
-/// Lists every program identity the receipt-backed registry projection carries.
-///
-/// # Errors
-/// Refuses transport failures and listings without verified freshness.
+pub const PROGRAM_DEPLOYED_TOPIC: &str =
+    "0x2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709";
+
 pub fn registry_list(client: &Client) -> Result<Value, String> {
-    let response = client.get("/v1/programs/registry")?;
-    let listing = response
-        .get("result")
-        .or_else(|| response.get("value"))
-        .unwrap_or(&response)
-        .clone();
-    let Some(program_ids) = listing["program_ids"].as_array() else {
-        return Err("registry listing omitted its program identities".to_owned());
-    };
-    let mut seen = std::collections::BTreeSet::new();
-    for entry in program_ids {
-        let program_id = entry
+    let logs = rpc_call(
+        client,
+        "eth_getLogs",
+        json!([{
+            "address": PROGRAMS_ADDRESS, "fromBlock": "earliest", "toBlock": "latest",
+            "topics": [PROGRAM_DEPLOYED_TOPIC]
+        }]),
+    )?;
+    decode_registry_logs(&logs)
+}
+
+pub(crate) fn decode_registry_logs(logs: &Value) -> Result<Value, String> {
+    let entries = logs.as_array().ok_or("eth_getLogs must return an array")?;
+    let mut program_ids = std::collections::BTreeSet::new();
+    for entry in entries {
+        let address = entry["address"]
             .as_str()
-            .ok_or_else(|| "registry listing carries a non-string program identity".to_owned())?;
-        let decoded: [u8; 32] = fixed_hex("program id", program_id)?;
-        if !seen.insert(decoded) {
-            return Err("registry listing repeats a program identity".to_owned());
+            .ok_or("program event omitted its address")?;
+        if !address.eq_ignore_ascii_case(PROGRAMS_ADDRESS) || entry["removed"] != false {
+            return Err("registry log is removed or belongs to another address".into());
         }
+        let topics = entry["topics"]
+            .as_array()
+            .ok_or("program event omitted its topics")?;
+        if topics.len() != 2
+            || topics[0]
+                .as_str()
+                .is_none_or(|topic| !topic.eq_ignore_ascii_case(PROGRAM_DEPLOYED_TOPIC))
+        {
+            return Err("registry log is not a ProgramDeployed event".into());
+        }
+        let id = transaction_hash(
+            topics[1]
+                .as_str()
+                .ok_or("program event omitted its identity")?,
+        )?;
+        transaction_hash(
+            entry["data"]
+                .as_str()
+                .ok_or("program event omitted its code hash")?,
+        )?;
+        program_ids.insert(hex_encode(&id));
     }
-    if listing["observed_sequence"].is_null() || listing["state_root"].as_str().is_none() {
-        return Err("registry listing omitted current-state freshness".to_owned());
-    }
-    Ok(listing)
+    Ok(
+        json!({"program_ids": program_ids, "events": entries, "source": "eth_getLogs", "block_tag": "latest"}),
+    )
 }
 
 fn required_variable(name: &str) -> Result<String, String> {
@@ -1060,6 +1168,8 @@ fn secret_from(name: &str) -> Result<Zeroizing<String>, String> {
 /// Refuses missing operator inputs, unreadable build inputs, transport
 /// failures, and mirror refusals.
 pub fn registry_mirror_source(
+    client: &Client,
+    program_id: &str,
     source_uri: &str,
     plan_path: &Path,
     archive_path: &Path,
@@ -1070,6 +1180,7 @@ pub fn registry_mirror_source(
     {
         return Err("source URI must be 1-1024 printable ASCII characters".to_owned());
     }
+    let head = registry_get(client, program_id)?;
     let endpoint = required_variable(REGISTRY_URL_VARIABLE)?;
     let token = secret_from(REGISTRY_PUBLICATION_TOKEN_VARIABLE)?;
     let publication_key = secret_from(REGISTRY_PUBLICATION_KEY_VARIABLE)?;
@@ -1090,7 +1201,7 @@ pub fn registry_mirror_source(
         }),
         publication_key.as_str(),
     )?;
-    let mirrored = response.get("result").unwrap_or(&response).clone();
+    let mut mirrored = response.get("result").unwrap_or(&response).clone();
     if mirrored["mirrored"] != Value::Bool(true) {
         return Err("registry did not confirm the source mirror".to_owned());
     }
@@ -1103,6 +1214,12 @@ pub fn registry_mirror_source(
             .as_str()
             .ok_or_else(|| "registry mirror omitted its source digest".to_owned())?,
     )?;
+    mirrored["program_id"] = head["program_id"].clone();
+    mirrored["deployed_code_hash"] = head["code_hash"].clone();
+    mirrored["source_verification"] = json!({
+        "state": "unavailable",
+        "reason": "layerxprograms getProgram does not expose a source digest"
+    });
     Ok(mirrored)
 }
 
@@ -1116,14 +1233,14 @@ pub fn registry_verify_source(
     validate_resource_id(program_id, "program id")?;
     validate_idempotency_key(idempotency_key)?;
     let _: [u8; 32] = crate::encoding::fixed_hex("source digest", source_digest)?;
-    client.post(
-        &format!("/v1/programs/registry/{program_id}/source"),
-        &json!({
-            "source_uri": source_uri,
-            "source_digest": source_digest,
-        }),
-        Some(idempotency_key),
-    )
+    if source_uri.is_empty()
+        || source_uri.len() > 1024
+        || !source_uri.bytes().all(|b| b.is_ascii_graphic())
+    {
+        return Err("source URI must be 1-1024 printable ASCII characters".into());
+    }
+    let _head = registry_get(client, program_id)?;
+    Err("source verification unavailable: layerxprograms getProgram does not expose a source digest".into())
 }
 
 /// Native guest arguments encoded for the layerxprograms precompile.
