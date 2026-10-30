@@ -625,7 +625,7 @@ type App struct {
 	sequencerSource  tmtypes.SequencerSource
 	sequencerRPC     evmrpc.SequencerOption
 	sequencerReceipt evmrpc.SequencerReceiptOption
-	commitListener   func(height int64, appHash []byte)
+	commitListener   func(height int64, appHash []byte) error
 }
 
 const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
@@ -3279,7 +3279,7 @@ func (app *App) SetSequencerRPC(opt evmrpc.SequencerOption, rcpt evmrpc.Sequence
 	app.sequencerReceipt = rcpt
 }
 
-func (app *App) SetCommitListener(fn func(height int64, appHash []byte)) {
+func (app *App) SetCommitListener(fn func(height int64, appHash []byte) error) {
 	app.commitListener = fn
 }
 
