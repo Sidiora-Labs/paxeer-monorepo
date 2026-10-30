@@ -4905,8 +4905,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             | Operation::SubscriptionCreate
             | Operation::Prepare
             | Operation::ProgramCall
-            | Operation::ProgramDeploy
-            | Operation::FaucetClaim => Ok(None),
+            | Operation::ProgramDeploy => Ok(None),
             Operation::SessionClose | Operation::SessionRefresh => {
                 let text = request
                     .get("session_id")

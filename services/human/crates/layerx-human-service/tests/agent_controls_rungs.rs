@@ -386,7 +386,7 @@ mod control_fixture {
                 &RevocationEvent {
                     did: self.did.clone(),
                     authority: Some(ProtocolAuthority::SessionKey(target.grant_id)),
-                    reason: InvalidationReason::SessionKeyRevoked,
+                    reason: InvalidationReason::GrantRevokedOnChain,
                     observed_sequence: self.core_sequence,
                 },
             )
@@ -1006,7 +1006,7 @@ mod archive_fixture {
         PreparationDefaults, PrepareRequest, Prepared,
     };
     use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
-    use layerx_agentd::sign::{attach_external_signature, verify_before_submit};
+    use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
     use layerx_agentd::store::{Store as AgentStore, TenantId};
     use layerx_human_service::custody::{
         CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, Operation, SigningLimits,
@@ -1178,6 +1178,20 @@ mod archive_fixture {
         }
     }
 
+    fn raw_transaction(nonce: usize, data: u8) -> Vec<u8> {
+        layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: u64::try_from(nonce).unwrap_or_else(|error| panic!("nonce: {error:?}")),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 10,
+            gas_limit: 100_000,
+            to: [0x22; 20],
+            data: vec![data],
+        }
+        .sign(&[0xa5; 32])
+        .unwrap_or_else(|error| panic!("sign transaction: {error:?}"))
+    }
+
     /// Test adapter over the real agentd prepare, signature-verification, durable
     /// outbox, and receipt store. Faults are injected only after the named real
     /// operation has completed, reproducing a service crash in the acknowledgement
@@ -1185,6 +1199,7 @@ mod archive_fixture {
     struct RealAgentLayer {
         store: AgentStore,
         outbox: Outbox,
+        outbox_submissions: BTreeMap<[u8; 32], [u8; 32]>,
         tenant: TenantId,
         registry: ModuleRegistry,
         preparations: BTreeMap<[u8; 32], Prepared>,
@@ -1208,6 +1223,7 @@ mod archive_fixture {
                 store: AgentStore::open(root)
                     .unwrap_or_else(|error| panic!("agent store: {error}")),
                 outbox: Outbox::default(),
+                outbox_submissions: BTreeMap::new(),
                 tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
                 registry: registry(),
                 preparations: BTreeMap::new(),
@@ -1403,24 +1419,32 @@ mod archive_fixture {
                 .as_bytes()
                 .try_into()
                 .map_err(|_| AgentBoundaryError::Refused)?;
-            let signed = attach_external_signature(&prepared, signature)
+            let signed = attach_kernel_signature(&prepared, signature)
                 .map_err(|_| AgentBoundaryError::Refused)?;
-            let verified =
-                verify_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
-                    .map_err(|_| AgentBoundaryError::Refused)?;
-            let activity_id = verified.activity_id();
-            match self
+            verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
+                .map_err(|_| AgentBoundaryError::Refused)?;
+            let raw = if let Some(id) = self.outbox_submissions.get(&key) {
+                self.outbox
+                    .exact_signed_bytes(*id)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                    .to_vec()
+            } else {
+                raw_transaction(self.outbox_submissions.len(), key[0])
+            };
+            let submission_id = match self
                 .outbox
-                .enqueue(&mut self.store, self.tenant.clone(), key, verified)
+                .enqueue(&mut self.store, self.tenant.clone(), raw)
             {
-                Ok(()) => {}
+                Ok(id) => id,
                 Err(OutboxError::Duplicate) => return Err(AgentBoundaryError::CorruptResponse),
                 Err(_) => return Err(AgentBoundaryError::Refused),
-            }
+            };
+            self.outbox_submissions.insert(key, submission_id);
+            let activity_id = submission_id;
             self.outbox
                 .transition(
                     &mut self.store,
-                    key,
+                    submission_id,
                     OutboxState::Submitted,
                     "real transport accepted exact bytes",
                     None,
@@ -1447,8 +1471,8 @@ mod archive_fixture {
                     self.outbox
                         .transition(
                             &mut self.store,
-                            key,
-                            OutboxState::Acknowledged,
+                            submission_id,
+                            OutboxState::Submitted,
                             "core acknowledged",
                             None,
                         )
@@ -1463,7 +1487,7 @@ mod archive_fixture {
                     self.outbox
                         .transition(
                             &mut self.store,
-                            key,
+                            submission_id,
                             OutboxState::Unknown,
                             "transport outcome unavailable",
                             None,
@@ -1498,17 +1522,21 @@ mod archive_fixture {
             if self.modes.get(&key) == Some(&DeliveryMode::UnknownThenLookup) {
                 return Err(AgentBoundaryError::CorruptResponse);
             }
+            let submission_id = *self
+                .outbox_submissions
+                .get(&key)
+                .ok_or(AgentBoundaryError::CorruptResponse)?;
             let activity_id = self
                 .outbox
-                .status(key)
+                .status(submission_id)
                 .map(|status| status.activity_id)
                 .ok_or(AgentBoundaryError::CorruptResponse)?;
             let current = self
                 .outbox
-                .status(key)
+                .status(submission_id)
                 .map(|status| status.state)
                 .ok_or(AgentBoundaryError::CorruptResponse)?;
-            if current == OutboxState::Acknowledged {
+            if current == OutboxState::Submitted {
                 let material = self
                     .receipt_material
                     .get(&key)
@@ -1516,22 +1544,44 @@ mod archive_fixture {
                 let signer = SigningKey::from_bytes(&[key[0].saturating_add(4); 32]);
                 let raw = support::raw_receipt_evidence(
                     material.canonical_bytes.clone(),
-                    material.authorised_batch,
+                    signer.verifying_key().to_bytes(),
+                    material.authorised_batch.previous_state_root(),
+                    material.authorised_batch.resulting_state_root(),
                     u64::from(key[0]),
                     &signer,
                 );
                 let verified = support::evidence_verifier(&signer)
                     .verify_receipt(&raw)
                     .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-                self.outbox
-                    .transition(
+                let executed = self
+                    .outbox
+                    .record_execution(
                         &mut self.store,
-                        key,
-                        OutboxState::Executed,
-                        "verified receipt attached",
-                        Some(verified),
+                        submission_id,
+                        verified,
+                        material.block_height,
+                        0,
                     )
                     .map_err(|_| AgentBoundaryError::Refused)?;
+                assert_eq!(executed.state, OutboxState::Executed);
+                let block = layerx_client::sequencer::SequencerBlock {
+                    number: material.block_height,
+                    hash: material.receipt_hash,
+                    parent_hash: material.authorised_batch.previous_state_root(),
+                    timestamp: 1_000,
+                    transactions_root: submission_id,
+                    receipts_root: material.receipt_hash,
+                    transactions: vec![self
+                        .outbox
+                        .exact_signed_bytes(submission_id)
+                        .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                        .to_vec()],
+                };
+                let committed = self
+                    .outbox
+                    .reconcile_committed_block(&mut self.store, submission_id, &block)
+                    .map_err(|_| AgentBoundaryError::Refused)?;
+                assert_eq!(committed.state, OutboxState::Committed);
             }
             let observation = self.executed_observation(key, activity_id);
             self.observations.insert(key, observation.clone());
@@ -2591,7 +2641,7 @@ mod archive_fixture {
                 &RevocationEvent {
                     did: self.did.clone(),
                     authority: Some(ProtocolAuthority::SessionKey(target.grant_id)),
-                    reason: InvalidationReason::SessionKeyRevoked,
+                    reason: InvalidationReason::GrantRevokedOnChain,
                     observed_sequence: self.core_sequence,
                 },
             )
