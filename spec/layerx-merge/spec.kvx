@@ -121102,7 +121102,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.7.6]
 title = "layerxd --serve commits an admitted Programs call to a receipt under the daemon-bound state feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["5.7.4", "1.2.6"]
@@ -154952,7 +154952,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.13.5]
 title = "Conformance: agent tee routes reach the served precompile 0x0907"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1"]
@@ -154982,7 +154982,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.13.6]
 title = "GET /v1/agent/precompiles lists the served method table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1"]
