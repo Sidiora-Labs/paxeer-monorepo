@@ -11763,3 +11763,11 @@ symbol = "receipt_bind_ledger_projection"
 observed = "Attempt 1 (e11bf9866): the new case fails with LXP_FATAL_INVARIANT from lxp_kernel_execute_activity and the loop diagnostic the attempt added did not print, so the fault comes from another invariant return."
 assumption = "The next attempt locates the returning site first."
 severity = "task"
+
+[finding.18.1172.2.7]
+task = "18.1172.2"
+file = "services/human/Cargo.lock"
+symbol = "layerx-agentd"
+observed = "Attempt 9 (91a9ca2c4): cargo build --locked is refused because services/human/Cargo.lock still lists layerx-programs-protocol-adapter under layerx-agentd after a02e09aec removed it from the manifest; seven other lock files share the drift (issue #1297)."
+assumption = "Task 18.1297.1 refreshes the eight lock files; the 114 pending tasks gated in those workspaces require it."
+severity = "cross-task"

@@ -11085,3 +11085,8 @@ fix = "Build both Makefile targets (layerxd layerx-genesis-build) and stage both
 title = "A coverage test must read the real admission surface, not the tables named for it"
 symptom = "A test counting frozen catalog operations in the four connected route tables reports seven missing although the gateway admits them: they live in a map local to allowedConnectedRoute."
 fix = "Hoist the map into a package-level function the product reads and the test counts; name documented beyond-catalog templates explicitly rather than widening the catalog."
+
+[gotcha.2255]
+title = "Changing a crate's dependency list leaves every other workspace's Cargo.lock stale"
+symptom = "After a path dependency is removed from one crate's Cargo.toml and only that workspace's Cargo.lock is refreshed, --locked builds in the eight other workspaces that pin the crate by path are refused with the lock file needs to be updated."
+fix = "List every Cargo.lock whose layerx-agentd (or changed crate) entry exists (grep -l 'name = <crate>' over git ls-files '*Cargo.lock') and regenerate each in the same task."
