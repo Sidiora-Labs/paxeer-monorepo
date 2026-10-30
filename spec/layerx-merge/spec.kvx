@@ -122159,7 +122159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.8.4]
 title = "Resolve call-precompile names without panicking, perps and spot included"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.0.3", "6.6.4", "6.8.3"]
@@ -124099,7 +124099,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.23.4]
 title = "Add denom-metadata and denom-allow-list tokenfactory query CLI commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.23.3", "6.0.3"]
@@ -124161,7 +124161,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.23.6]
 title = "Check DenomPaused answers agree across gRPC, REST gateway and wasm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.23.2", "6.23.5", "6.0.3"]
@@ -124315,7 +124315,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.25.2]
 title = "Check pause refusals across every user bank path of a tokenfactory denom"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.25.1", "6.22.4", "6.0.3"]
@@ -124468,7 +124468,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.27.1]
 title = "Check issuer pause outcomes against the supply-pause and supply-unpause receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.22.3", "6.0.3"]
@@ -124679,7 +124679,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.28.6]
 title = "Check governance pause scope conformance for every routed module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.28.3", "6.28.4", "6.0.3"]
@@ -125051,7 +125051,7 @@ do_5 = "Per decision.1954 the anchor keeper stays constructed in node/app.go and
 
 [task.6.35.1]
 title = "Rehearse the anchor retirement from bonds posted to store delete"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.33.2", "6.32.2", "6.0.3"]
@@ -128959,7 +128959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.96.2]
 title = "Retire the 0x1012 receipt verifiers and the custody inclusion and exit-balance paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.42.1", "6.0.3"]
