@@ -190712,7 +190712,7 @@ qualification = "UNRUN"
 
 [task.18.1296.1]
 title = "Issue #1296: Trust the configured Programs CA in the daemon readiness and chain-id checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190810,7 +190810,7 @@ qualification = "UNRUN"
 
 [task.18.1294.1]
 title = "Issue #1294: Remove the interop consumer of the retired gateway VerifiedTransfer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190909,7 +190909,7 @@ qualification = "UNRUN"
 
 [task.18.1292.1]
 title = "Issue #1292: Restore consensus validator order when decoding an address-sorted trust root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190952,7 +190952,7 @@ qualification = "UNRUN"
 
 [task.18.1291.1]
 title = "Issue #1291: Verify lease transition proofs against the mounted lxphost store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191041,7 +191041,7 @@ qualification = "UNRUN"
 
 [task.18.1288.1]
 title = "Issue #1288: Authenticate a funding receipt against the funded lease record so fund_lease can return success"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191085,7 +191085,7 @@ qualification = "UNRUN"
 
 [task.18.1287.1]
 title = "Issue #1287: Remove the retired REST envelope branches that still reference ProgramLifecycleRoutes from the JVM production transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191225,7 +191225,7 @@ qualification = "UNRUN"
 
 [task.18.1202.1]
 title = "Issue #1202: Record human-runtime receipt settlement through the location-bearing outbox API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191637,7 +191637,7 @@ qualification = "UNRUN"
 
 [task.18.835.1]
 title = "Issue #835: Pin the starter credit at one million base units of native PAX"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191733,7 +191733,7 @@ qualification = "UNRUN"
 
 [task.18.918.1]
 title = "Issue #918: Pin the trusted-spender approval rule and the USDL attestor caps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191785,7 +191785,7 @@ qualification = "UNRUN"
 
 [task.18.927.1]
 title = "Issue #927: Pin that embedded-wallet bridge-out moves only capped assets, USDL in the shipped policy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191880,7 +191880,7 @@ qualification = "UNRUN"
 
 [task.18.905.1]
 title = "Issue #905: Track consensus-changing commits and refuse an untracked one"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
