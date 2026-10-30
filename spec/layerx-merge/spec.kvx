@@ -95038,7 +95038,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.25.2]
 title = "Remove ReadIdempotentReceipt from the read bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["1.25.1", "1.21.2", "2.3.7", "1.98.1", "2.24.3", "1.23.5"]
@@ -96532,7 +96532,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.39.1]
 title = "Bound the store gas of one execution independently of unrelated store rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["1.22.1", "1.25.1"]
@@ -96625,7 +96625,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.39.4]
 title = "Fuzz the host execute path with arbitrary activity payloads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["1.23.1", "1.25.1"]
@@ -163710,7 +163710,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.29.3]
 title = "Start the history indexer from the EVM URL and drop the index binary probe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["14.0.4", "8.0.3", "14.35.1"]
@@ -191666,7 +191666,7 @@ qualification = "UNRUN"
 
 [task.18.1259.1]
 title = "Issue #1259: Document activity.submit as one signed raw_transaction sent to /rpc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
