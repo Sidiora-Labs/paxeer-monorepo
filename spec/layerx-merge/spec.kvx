@@ -144221,7 +144221,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.33.8]
 title = "Regenerate the TypeScript and Python client types with rung submission states"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.18.4", "9.18.9", "9.18.10"]
