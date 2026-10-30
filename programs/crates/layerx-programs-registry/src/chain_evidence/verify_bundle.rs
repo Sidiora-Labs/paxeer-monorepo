@@ -14,13 +14,8 @@ use crate::{
     interface_state_key, InterfaceStateWitness, ProgramId, StateProof, VerifiedInterfaceRead,
 };
 
-#[path = "program_state.rs"]
-mod program_state;
-#[path = "wind_down.rs"]
-mod wind_down;
-
-use program_state::{ChainProgramStateProof, VerifiedProgramRecord};
-pub(crate) use wind_down::ChainWindDownProof;
+use super::program_state::{ChainProgramStateProof, VerifiedProgramRecord};
+pub(crate) use super::wind_down::ChainWindDownProof;
 
 const MAGIC: &[u8; 4] = b"LXPB";
 const VERSION: u8 = 2;

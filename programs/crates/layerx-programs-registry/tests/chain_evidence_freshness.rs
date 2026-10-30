@@ -1,10 +1,8 @@
 #[path = "support/chain.rs"]
 mod chain;
-#[path = "../src/chain_evidence/freshness.rs"]
-mod freshness;
 
 use chain::ChainFixture;
-use freshness::chain_freshness;
+use layerx_programs::chain_evidence::freshness::chain_freshness;
 use layerx_programs::{chain_proof, ProtocolEvidenceError, ReadFreshness};
 
 #[test]
