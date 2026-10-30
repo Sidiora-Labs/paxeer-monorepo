@@ -1,12 +1,14 @@
 use crate::protocol_evidence::PROGRAMS_MODULE_ID;
 
-pub mod program_state {}
-pub mod deployment {}
-pub mod protocol_head {}
-pub mod lifecycle {}
-pub mod wind_down {}
-pub mod freshness {}
+pub mod deployment;
+pub mod freshness;
+pub mod lifecycle;
+pub mod program_state;
+pub mod protocol_head;
+pub mod wind_down;
 pub mod trust_root {}
+
+pub(crate) mod verify_bundle;
 
 pub fn programs_state_key(kernel_key: &[u8]) -> Vec<u8> {
     let mut key = Vec::with_capacity(3 + kernel_key.len());

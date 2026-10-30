@@ -1,11 +1,9 @@
 #[path = "support/chain.rs"]
 mod chain;
-#[path = "../src/chain_evidence/wind_down.rs"]
-mod wind_down;
 
 use chain::ChainFixture;
-use layerx_programs::{chain_evidence, chain_proof, ProgramId, ProtocolEvidenceError};
-use wind_down::ChainWindDownProof;
+use layerx_programs::chain_evidence::wind_down::ChainWindDownProof;
+use layerx_programs::{chain_evidence, ProgramId, ProtocolEvidenceError};
 
 fn status_key(program: ProgramId) -> Vec<u8> {
     let mut key = b"wind-down\0s".to_vec();

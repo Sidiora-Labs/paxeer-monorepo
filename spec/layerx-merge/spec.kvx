@@ -109595,7 +109595,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.24.7]
 title = "Pin the api development chain reads to the launchpad precompile ABIs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.24.3", "4.0.2", "4.23.6"]
@@ -115044,7 +115044,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.7]
 title = "Overlap the standby sync with re-execution and the primary sync with the exchange"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.0.4"]
@@ -156623,7 +156623,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.1.15]
 title = "Persist the chain trust root in a canonical file format"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.1.13", "13.0.2"]
@@ -157245,7 +157245,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.11]
 title = "Declare the chain evidence modules in the registry library and test them through it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["13.3.1", "13.3.2", "13.3.3", "13.3.4", "13.3.5", "13.3.6"]
@@ -173415,7 +173415,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.5.9]
 title = "Keep the failing wave gate step's log beside the wave evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.5.8"]
