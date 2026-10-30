@@ -178,11 +178,8 @@ pub(super) fn native_state(
     }
 }
 
-pub(super) fn level(level: layerx_agent_api::verify::Level) -> Result<&'static str, ApiFailure> {
-    level
-        .rung()
-        .map(super::HumanComponentServer::verification_level_name)
-        .ok_or_else(ApiFailure::upstream_degraded)
+pub(super) fn level(rung: Rung) -> Result<&'static str, ApiFailure> {
+    Ok(super::HumanComponentServer::verification_level_name(rung))
 }
 
 pub(super) fn native_approval(
@@ -536,7 +533,7 @@ pub(super) fn program_budget(
         || budget.checkpoint_digest == [0; 32]
         || budget.proof_digest == [0; 32]
         || budget.verified_proof_bytes.is_empty()
-        || budget.verification.rung() != Some(Rung::Committed)
+        || budget.verification != Rung::Committed
         || budget.age_sequences > budget.maximum_age_sequences
         || <[u8; 32]>::from(Sha256::digest(&budget.verified_proof_bytes)) != budget.proof_digest
         || proof_reference["evidence_id"] != json!(format!("evd_{}", hex(&budget.proof_digest)))

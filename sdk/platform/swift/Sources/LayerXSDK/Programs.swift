@@ -1,1587 +1,2616 @@
 import Crypto
 import Foundation
 
+#if canImport(FoundationNetworking)
+  import FoundationNetworking
+#endif
+
+public enum Programs {
+  public static let address = "0x000000000000000000000000000000000000101d"
+  public static let authAddress = "0x000000000000000000000000000000000000101c"
+  public static let chainID: UInt64 = 125
+}
+
+public struct ProgramRegistryRecord: Sendable {
+  public let programID: Data
+  public let policy: UInt8
+  public let authority: Data
+  public let codeHash: Data
+  public let abiVersion: UInt16
+  public let version: UInt32
+  public let active: Bool
+}
+
+public struct ProgramRegistryInterface: Sendable {
+  public let programID: Data
+  public let version: UInt32
+  public let digest: Data
+  public let encoding: Data
+}
+
+public struct UnsignedProgramTransaction: Sendable {
+  public let sender: Data
+  public let nonce: UInt64
+  public let gas: UInt64
+  public let maxFeePerGas: UInt64
+  public let maxPriorityFeePerGas: UInt64
+  public let calldata: Data
+  public var chainID: UInt64 { Programs.chainID }
+  public var to: String { Programs.address }
+  public var type: UInt8 { 2 }
+  public var value: UInt64 { 0 }
+
+  public func rpcValue(includeGas: Bool = true) -> JSONValue {
+    var fields: [String: JSONValue] = [
+      "type": .string("0x2"), "chainId": .string("0x7d"),
+      "from": .string("0x" + sender.hex), "to": .string(to),
+      "nonce": .string(ProgramABI.quantity(nonce)), "value": .string("0x0"),
+      "maxFeePerGas": .string(ProgramABI.quantity(maxFeePerGas)),
+      "maxPriorityFeePerGas": .string(ProgramABI.quantity(maxPriorityFeePerGas)),
+      "data": .string("0x" + calldata.hex), "accessList": .array([]),
+    ]
+    if includeGas { fields["gas"] = .string(ProgramABI.quantity(gas)) }
+    return .object(fields)
+  }
+
+  public func signingPayload() -> Data {
+    func scalar(_ value: UInt64) -> Data { Data(ProgramABI.word(value).drop(while: { $0 == 0 })) }
+    let fields = [
+      scalar(chainID), scalar(nonce), scalar(maxPriorityFeePerGas),
+      scalar(maxFeePerGas), scalar(gas), Data(hex: String(to.dropFirst(2))), Data(), calldata,
+    ]
+    var body = fields.reduce(into: Data()) { $0.append(ProgramABI.rlp($1)) }
+    body.append(0xc0)
+    return Data([2]) + ProgramABI.rlp(body, list: true)
+  }
+}
+
+struct ProgramRPC: Sendable {
+  let url: URL
+  let session: URLSession
+  init(url: URL, session: URLSession) throws {
+    guard ["http", "https"].contains(url.scheme), url.host != nil else { throw programInvalid() }
+    self.url = url
+    self.session = session
+  }
+  func call(_ method: String, _ params: [JSONValue]) async throws -> JSONValue {
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try JSONEncoder().encode(
+      JSONValue.object([
+        "jsonrpc": .string("2.0"), "id": .integer(1), "method": .string(method),
+        "params": .array(params),
+      ]))
+    let (bytes, response) = try await session.data(for: request)
+    guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+      throw PlatformSDKError(code: .transportFailure, retry: .safe)
+    }
+    let value = try JSONDecoder().decode(JSONValue.self, from: bytes)
+    guard let fields = value.objectValue, fields["jsonrpc"] == .string("2.0"),
+      fields["id"] == .integer(1)
+    else { throw programDecode() }
+    if fields["error"] != nil { throw PlatformSDKError(code: .coreRejection, retry: .never) }
+    guard let result = fields["result"] else { throw programDecode() }
+    return result
+  }
+  func quantity(_ method: String, _ params: [JSONValue]) async throws -> UInt64 {
+    let result = try await call(method, params)
+    guard let text = result.stringValue, text.hasPrefix("0x"),
+      text.count > 2, text.count <= 18, text == "0x0" || text.dropFirst(2).first != "0",
+      text.dropFirst(2).allSatisfy({ $0.isHexDigit }),
+      let value = UInt64(text.dropFirst(2), radix: 16)
+    else { throw programDecode() }
+    return value
+  }
+}
+
+enum ProgramABI {
+  enum Field { case word(Data), bytes(Data) }
+  static func id(_ bytes: Data) throws -> Data {
+    guard bytes.count == 32 else { throw programInvalid() }
+    return bytes
+  }
+  static func hex(_ text: String?) throws -> Data {
+    guard let text, text.hasPrefix("0x"), text.count % 2 == 0,
+      text.count <= 4_194_306, text.dropFirst(2).allSatisfy({ $0.isHexDigit })
+    else { throw programDecode() }
+    return Data(hex: String(text.dropFirst(2)))
+  }
+  static func quantity(_ value: UInt64) -> String { "0x" + String(value, radix: 16) }
+  static func word(_ value: UInt64) -> Data {
+    Data(repeating: 0, count: 24)
+      + Data((0..<8).reversed().map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) })
+  }
+  static func amount(_ value: ProtocolAmount) -> Data {
+    var bytes = [UInt8](repeating: 0, count: 32)
+    for digit in value.decimal.utf8 {
+      var carry = UInt16(digit - 48)
+      for i in bytes.indices.reversed() {
+        carry += UInt16(bytes[i]) * 10
+        bytes[i] = UInt8(truncatingIfNeeded: carry)
+        carry >>= 8
+      }
+    }
+    return Data(bytes)
+  }
+  static func encode(selector: String, fields: [Field]) throws -> Data {
+    guard selector.count == 8 else { throw programInvalid() }
+    let headSize = fields.reduce(0) { size, field in
+      switch field {
+      case .word(let bytes): return size + bytes.count
+      case .bytes: return size + 32
+      }
+    }
+    var head = Data()
+    var tail = Data()
+    for field in fields {
+      switch field {
+      case .word(let bytes):
+        guard !bytes.isEmpty, bytes.count % 32 == 0 else { throw programInvalid() }
+        head.append(bytes)
+      case .bytes(let bytes):
+        head.append(word(UInt64(headSize + tail.count)))
+        tail.append(word(UInt64(bytes.count)))
+        tail.append(bytes)
+        tail.append(Data(repeating: 0, count: (32 - bytes.count % 32) % 32))
+      }
+    }
+    return Data(hex: selector) + head + tail
+  }
+  static func integer(_ bytes: Data, at offset: Int, width: Int = 8, signed: Bool = false) throws
+    -> UInt64
+  {
+    guard offset >= 0, offset <= bytes.count - 32, (1...8).contains(width) else {
+      throw programDecode()
+    }
+    let negative = signed && bytes[offset + 32 - width] & 0x80 != 0
+    guard bytes[offset..<(offset + 32 - width)].allSatisfy({ $0 == (negative ? 255 : 0) }) else {
+      throw programDecode()
+    }
+    return bytes[(offset + 32 - width)..<(offset + 32)].reduce(0) { ($0 << 8) | UInt64($1) }
+  }
+  static func dynamic(_ bytes: Data, at offset: Int, headSize: Int) throws -> Data {
+    let position = try integer(bytes, at: offset)
+    guard position == UInt64(headSize), position <= UInt64(bytes.count),
+      bytes.count - headSize >= 32
+    else { throw programDecode() }
+    let length = try integer(bytes, at: headSize)
+    guard length <= UInt64(bytes.count - headSize - 32) else { throw programDecode() }
+    let end = headSize + 32 + Int(length)
+    guard bytes.count == end + (32 - Int(length) % 32) % 32,
+      bytes[end...].allSatisfy({ $0 == 0 })
+    else { throw programDecode() }
+    return bytes.subdata(in: (headSize + 32)..<end)
+  }
+  static func rlp(_ bytes: Data, list: Bool = false) -> Data {
+    if !list, bytes.count == 1, bytes[0] < 128 { return bytes }
+    let base = list ? 192 : 128
+    if bytes.count < 56 { return Data([UInt8(base + bytes.count)]) + bytes }
+    let length = Data(word(UInt64(bytes.count)).drop(while: { $0 == 0 }))
+    return Data([UInt8(base + 55 + length.count)]) + length + bytes
+  }
+}
+
 public struct ProgramBudget: Sendable {
-    public let fuel: UInt64
-    public let feeLimit: ProtocolAmount
-    public init(fuel: UInt64, feeLimit: ProtocolAmount) { self.fuel = fuel; self.feeLimit = feeLimit }
+  public let fuel: UInt64
+  public let feeLimit: ProtocolAmount
+  public init(fuel: UInt64, feeLimit: ProtocolAmount) {
+    self.fuel = fuel
+    self.feeLimit = feeLimit
+  }
 }
 
 public enum ProgramCapability: String, Sendable {
-    case storageRead = "storage_read"
-    case storageWrite = "storage_write"
-    case transfer
-    case emitEvent = "emit_event"
-    case compose
+  case storageRead = "storage_read"
+  case storageWrite = "storage_write"
+  case transfer
+  case emitEvent = "emit_event"
+  case compose
 
-    fileprivate var order: Int {
-        switch self {
-        case .storageRead: return 1
-        case .storageWrite: return 2
-        case .transfer: return 3
-        case .emitEvent: return 4
-        case .compose: return 5
-        }
+  fileprivate var order: Int {
+    switch self {
+    case .storageRead: return 1
+    case .storageWrite: return 2
+    case .transfer: return 3
+    case .emitEvent: return 4
+    case .compose: return 5
     }
+  }
 }
 
 public struct ProgramCall: Sendable {
-    public let nativeCall: NativeProgramCall?
-    public let programID: Data; public let calldata: Data; public let budget: ProgramBudget
-    public let capabilities: [ProgramCapability]; public let signedActivity: Data
+  public let nativeCall: NativeProgramCall?
+  public let programID: Data
+  public let calldata: Data
+  public let budget: ProgramBudget
+  public let capabilities: [ProgramCapability]
+  public let signedActivity: Data
+  public let transactionHash: Data?
 
-    public init(programID: Data, calldata: Data, budget: ProgramBudget,
-                capabilities: [ProgramCapability], signedActivity: Data, nativeCall: NativeProgramCall? = nil) throws {
-        guard programID.count == 32, budget.fuel > 0, calldata.count <= 1_048_576,
-              programID.contains(where: { $0 != 0 }),
-              capabilities.count <= 5,
-              zip(capabilities, capabilities.dropFirst()).allSatisfy({ $0.order < $1.order }),
-              !signedActivity.isEmpty, signedActivity.count <= 1_048_576 else { throw programInvalid() }
-        self.nativeCall = nativeCall
-        self.programID = programID; self.calldata = calldata; self.budget = budget
-        self.capabilities = capabilities; self.signedActivity = signedActivity
+  public init(
+    programID: Data, calldata: Data, budget: ProgramBudget,
+    capabilities: [ProgramCapability], signedActivity: Data, nativeCall: NativeProgramCall? = nil
+  ) throws {
+    guard programID.count == 32, budget.fuel > 0, calldata.count <= 1_048_576,
+      programID.contains(where: { $0 != 0 }),
+      capabilities.count <= 5,
+      zip(capabilities, capabilities.dropFirst()).allSatisfy({ $0.order < $1.order }),
+      !signedActivity.isEmpty, signedActivity.count <= 1_048_576
+    else { throw programInvalid() }
+    self.transactionHash = nil
+    self.nativeCall = nativeCall
+    self.programID = programID
+    self.calldata = calldata
+    self.budget = budget
+    self.capabilities = capabilities
+    self.signedActivity = signedActivity
+  }
+  public init(nativeCall: NativeProgramCall, feeLimit: ProtocolAmount, signedActivity: Data) throws
+  {
+    _ = try nativeCall.encode()
+    try self.init(
+      programID: nativeCall.programID, calldata: nativeCall.calldata,
+      budget: ProgramBudget(fuel: nativeCall.resources[0], feeLimit: feeLimit), capabilities: [],
+      signedActivity: signedActivity, nativeCall: nativeCall)
+  }
+
+  public init(nativeCall: NativeProgramCall, feeLimit: ProtocolAmount, transactionHash: Data? = nil)
+    throws
+  {
+    _ = try nativeCall.encode()
+    guard nativeCall.resources[0] > 0, transactionHash == nil || transactionHash!.count == 32 else {
+      throw programInvalid()
     }
-    public init(nativeCall: NativeProgramCall, feeLimit: ProtocolAmount, signedActivity: Data) throws {
-        _ = try nativeCall.encode()
-        try self.init(programID: nativeCall.programID, calldata: nativeCall.calldata,
-            budget: ProgramBudget(fuel: nativeCall.resources[0], feeLimit: feeLimit), capabilities: [], signedActivity: signedActivity, nativeCall: nativeCall)
-    }
+    self.nativeCall = nativeCall
+    self.programID = nativeCall.programID
+    self.calldata = nativeCall.calldata
+    self.budget = ProgramBudget(fuel: nativeCall.resources[0], feeLimit: feeLimit)
+    self.capabilities = []
+    self.signedActivity = Data()
+    self.transactionHash = transactionHash
+  }
+
+  public func evmCalldata(simulate: Bool = false) throws -> Data {
+    guard let native = nativeCall else { throw programInvalid() }
+    _ = try native.encode()
+    return try ProgramABI.encode(
+      selector: simulate ? "3044bd56" : "54bd2b48",
+      fields: [
+        .word(native.programID), .word(ProgramABI.word(UInt64(native.guestABI))),
+        .bytes(Data(native.entrypoint.utf8)), .bytes(native.calldata),
+        .bytes(native.capabilities), .bytes(native.accessDeclaration),
+        .word(ProgramABI.word(UInt64(native.responseCapacity))),
+        .word(native.resources.reduce(into: Data()) { $0.append(ProgramABI.word($1)) }),
+        .word(ProgramABI.amount(budget.feeLimit)),
+      ])
+  }
 
 }
 
 public enum ProgramLifecycle: String, Sendable { case active, deprecated, tombstoned }
 public enum ProgramSource: Sendable {
-    case unpublished
-    case verified(sourceDigest: Data, environmentDigest: Data, pipeline: String)
-    case mismatch(expectedCodeHash: Data, reproducedArtifactDigest: Data)
+  case unpublished
+  case verified(sourceDigest: Data, environmentDigest: Data, pipeline: String)
+  case mismatch(expectedCodeHash: Data, reproducedArtifactDigest: Data)
 }
 public struct ProgramDiscovery: Sendable {
-    public let programID: Data; public let lifecycle: ProgramLifecycle; public let version: UInt32
-    public let codeHash: Data; public let abiVersion: UInt16; public let receiptDigest: Data; public let stateRoot: Data
-    public let observedSequence: UInt64; public let observedAt: UInt64; public let validThrough: UInt64
-    public let deploymentReceiptDigest: Data?
-    public let verification: String
+  public let programID: Data
+  public let lifecycle: ProgramLifecycle
+  public let version: UInt32
+  public let codeHash: Data
+  public let abiVersion: UInt16
+  public let receiptDigest: Data
+  public let stateRoot: Data
+  public let observedSequence: UInt64
+  public let observedAt: UInt64
+  public let validThrough: UInt64
+  public let deploymentReceiptDigest: Data?
+  public let verification: String
 }
 public struct ProgramInterface: Sendable {
-    public let programID: Data; public let version: UInt32; public let codeHash: Data; public let abiVersion: UInt16
-    public let interface: Data; public let interfaceDigest: Data; public let receiptDigest: Data; public let stateRoot: Data
-    public let observedSequence: UInt64; public let observedAt: UInt64; public let validThrough: UInt64
-    public let source: ProgramSource; public let verification = "server-side-receipt-verification-only"
+  public let programID: Data
+  public let version: UInt32
+  public let codeHash: Data
+  public let abiVersion: UInt16
+  public let interface: Data
+  public let interfaceDigest: Data
+  public let receiptDigest: Data
+  public let stateRoot: Data
+  public let observedSequence: UInt64
+  public let observedAt: UInt64
+  public let validThrough: UInt64
+  public let source: ProgramSource
+  public let verification = "server-side-receipt-verification-only"
 }
 public struct VerifiedProgramExecution: Sendable {
-    public let transferVerification: String
-    public let value: JSONValue
-    public let receipt: ReceiptVerification
-    public let terminalPayload: Data
-    public let callGraph: Data
-    public var guestABIVersion: UInt16 {
-        UInt16(value.objectValue?["guest_abi_version"]?.integerValue ?? 0)
-    }
-    public var terminalPayloadRoot: Data { receipt.receipt.programOutcome?.terminalPayloadRoot ?? Data() }
-    public var callGraphRoot: Data { receipt.receipt.programOutcome?.callGraphRoot ?? Data() }
+  public let transferVerification: String
+  public let value: JSONValue
+  public let receipt: ReceiptVerification
+  public let terminalPayload: Data
+  public let callGraph: Data
+  public var guestABIVersion: UInt16 {
+    UInt16(value.objectValue?["guest_abi_version"]?.integerValue ?? 0)
+  }
+  public var terminalPayloadRoot: Data {
+    receipt.receipt.programOutcome?.terminalPayloadRoot ?? Data()
+  }
+  public var callGraphRoot: Data { receipt.receipt.programOutcome?.callGraphRoot ?? Data() }
 }
 public struct ProgramSimulation: Sendable {
-    public let value: JSONValue
-    public let execution: VerifiedProgramExecution
+  public let value: JSONValue
+  public let terminalResult: Int32
+  public let terminalKind: UInt8
+  public let response: Data
 }
 public struct ProgramSubmission: Sendable {
-    public let value: JSONValue
-    public let state: String
-    public let activityID: Data
-    public let idempotencyKey: String
-    public let retainedSignedActivity: Data?
-    public let execution: VerifiedProgramExecution?
-    public var isUnknown: Bool { state == "unknown" }
-    fileprivate init(_ value: JSONValue, state: String, activityID: Data, idempotencyKey: String,
-                     retainedSignedActivity: Data?, execution: VerifiedProgramExecution?) {
-        self.value = value; self.state = state; self.activityID = activityID
-        self.idempotencyKey = idempotencyKey; self.retainedSignedActivity = retainedSignedActivity
-        self.execution = execution
-    }
+  public let value: JSONValue
+  public let state: String
+  public let transactionHash: Data
+  public var activityID: Data { transactionHash }
+  public let sequencerReceipt: SequencerReceiptVerification?
+  public let idempotencyKey: String
+  public let retainedSignedActivity: Data?
+  public let execution: VerifiedProgramExecution?
+  public var isUnknown: Bool { state == "unknown" }
+  fileprivate init(
+    _ value: JSONValue, state: String, activityID: Data, idempotencyKey: String,
+    retainedSignedActivity: Data?, execution: VerifiedProgramExecution?,
+    sequencerReceipt: SequencerReceiptVerification? = nil
+  ) {
+    self.sequencerReceipt = sequencerReceipt
+    self.value = value
+    self.state = state
+    self.transactionHash = activityID
+    self.idempotencyKey = idempotencyKey
+    self.retainedSignedActivity = retainedSignedActivity
+    self.execution = execution
+  }
 }
 
 public struct ProgramsClient: Sendable {
-    public func lifecycleReceipt(_ request: NativeProgramLifecycleRequest) async throws
-    -> ReceiptVerification
-  {
-    guard protocolVersion == 3 else { throw programInvalid() }
-    let key = request.idempotencyKey.hex
-    let response = try await client.program(
-      "program.receipt",
-      request: .object([
-        "idempotency_key": .string(key), "expected_activity_id": .string(request.activityID.hex),
-        "requested_verification_level": .string("sequencer-signed"),
-      ]), pathParameters: ["idempotency_key": key])
-    guard let map = response.objectValue, Set(map.keys) == Set(["activity_id", "receipt"]),
-      map["activity_id"]?.stringValue == request.activityID.hex
-    else { throw programVerification() }
-    return try LocalVerifier.verifyProgramLifecycleReceipt(
-      nativeTransportHex(map["receipt"]?.stringValue), expectedActivity: request.activityID,
-      sequencer: sequencerPublicKey)
+  public static let receiptModuleID: UInt16 = 9
+  public static let callOperation: UInt8 = 3
+  fileprivate static let maximumCallGraphBytes =
+    Data("LayerX/programs/call-graph/v1\0".utf8).count + 32 + 16 + 8 + 64 * 68
+  private let rpc: ProgramRPC?
+  private let sender: Data?
+  private let actor: Data?
+  private let maxFeePerGas: UInt64
+  private let maxPriorityFeePerGas: UInt64
+  private let receiptKeys: [ReceiptKeys]
+
+  public init(
+    rpcURL: URL, sender: Data, actor: Data? = nil, receiptKeys: [ReceiptKeys],
+    maxFeePerGas: UInt64, maxPriorityFeePerGas: UInt64,
+    session: URLSession = .shared
+  ) throws {
+    guard sender.count == 20, sender.contains(where: { $0 != 0 }),
+      actor == nil || actor!.count == 32, maxFeePerGas > 0,
+      maxPriorityFeePerGas <= maxFeePerGas
+    else { throw programInvalid() }
+    self.rpc = try ProgramRPC(url: rpcURL, session: session)
+    self.sender = sender
+    self.actor = actor
+    self.receiptKeys = receiptKeys
+    self.maxFeePerGas = maxFeePerGas
+    self.maxPriorityFeePerGas = maxPriorityFeePerGas
   }
 
+  public init(
+    client: PlatformClient, sequencerPublicKey: Data,
+    protocolVersion: UInt16 = 2, maximumSimulationAgeMilliseconds: UInt64 = 300_000,
+    nowMilliseconds: @escaping @Sendable () -> UInt64 = {
+      UInt64(Date().timeIntervalSince1970 * 1_000)
+    }
+  ) throws {
+    guard protocolVersion == 2 || protocolVersion == 3,
+      sequencerPublicKey.count == 32, sequencerPublicKey.contains(where: { $0 != 0 }),
+      maximumSimulationAgeMilliseconds > 0
+    else { throw programInvalid() }
+    rpc = nil
+    sender = nil
+    actor = nil
+    receiptKeys = []
+    maxFeePerGas = 0
+    maxPriorityFeePerGas = 0
+  }
+
+  private func transport() throws -> ProgramRPC {
+    guard let rpc else { throw PlatformSDKError(code: .protocolIncompatibility, retry: .never) }
+    return rpc
+  }
+
+  public func call(_ call: ProgramCall) async throws -> UnsignedProgramTransaction {
+    try await transaction(calldata: call.evmCalldata())
+  }
+
+  public func submit(_ call: ProgramCall, idempotencyKey: IdempotencyKey) async throws
+    -> UnsignedProgramTransaction
+  {
+    guard hex32(idempotencyKey.rawValue) else { throw programInvalid() }
+    if !call.signedActivity.isEmpty {
+      let binding = try decodeSignedCall(call)
+      guard binding.idempotencyKey == Data(hex: idempotencyKey.rawValue) else {
+        throw programInvalid()
+      }
+    }
+    return try await self.call(call)
+  }
+
+  public func simulate(_ call: ProgramCall) async throws -> ProgramSimulation {
+    let value = try await read(calldata: call.evmCalldata(simulate: true))
+    let bytes = try ProgramABI.hex(value.stringValue)
+    guard bytes.count >= 128 else { throw programDecode() }
+    let result = try ProgramABI.integer(bytes, at: 0, width: 4, signed: true)
+    let kind = try ProgramABI.integer(bytes, at: 32, width: 1)
+    let response = try ProgramABI.dynamic(bytes, at: 64, headSize: 96)
+    guard bytes.count == 128 + ((response.count + 31) / 32) * 32 else { throw programDecode() }
+    return ProgramSimulation(
+      value: value, terminalResult: Int32(bitPattern: UInt32(result)),
+      terminalKind: UInt8(kind), response: response)
+  }
+
+  public func deploy(_ operation: NativeProgramDeploy) async throws -> UnsignedProgramTransaction {
+    try await transaction(calldata: NativeProgramLifecycleRequest.calldata(operation: operation))
+  }
+  public func upgrade(_ operation: NativeProgramUpgrade, feeLimit: ProtocolAmount) async throws
+    -> UnsignedProgramTransaction
+  {
+    try await transaction(
+      calldata: NativeProgramLifecycleRequest.calldata(operation: operation, feeLimit: feeLimit))
+  }
+  public func windDown(_ operation: NativeProgramWindDown) async throws
+    -> UnsignedProgramTransaction
+  {
+    try await transaction(calldata: NativeProgramLifecycleRequest.calldata(operation: operation))
+  }
   public func deploy(
-    _ operation: NativeProgramDeploy, signedActivity: Data, idempotencyKey: IdempotencyKey
-  ) async throws -> ReceiptVerification {
-    try await lifecycle(operation, signedActivity: signedActivity, key: idempotencyKey)
-  }
-  public func upgrade(
-    _ operation: NativeProgramUpgrade, signedActivity: Data, idempotencyKey: IdempotencyKey
-  ) async throws -> ReceiptVerification {
-    try await lifecycle(operation, signedActivity: signedActivity, key: idempotencyKey)
-  }
-  public func windDown(
-    _ operation: NativeProgramWindDown, signedActivity: Data, idempotencyKey: IdempotencyKey
-  ) async throws -> ReceiptVerification {
-    try await lifecycle(operation, signedActivity: signedActivity, key: idempotencyKey)
-  }
-  private func lifecycle(
-    _ operation: any NativeProgramLifecycle, signedActivity: Data, key: IdempotencyKey
-  ) async throws -> ReceiptVerification {
+    _ operation: NativeProgramDeploy, signedActivity: Data,
+    idempotencyKey: IdempotencyKey
+  ) async throws -> UnsignedProgramTransaction {
     let request = try NativeProgramLifecycleRequest(
       operation: operation, signedActivity: signedActivity)
-    guard protocolVersion == 3, key.rawValue == request.idempotencyKey.hex,
-      let name = ProgramLifecycleRoutes.ordinals.first(where: { $0.value == request.ordinal })?.key
-    else { throw programInvalid() }
-    let response = try await client.program(
-      name,
-      request: .object([
-        "payload": .string(request.payload.hex),
-        "signed_activity": .string(request.signedActivity.hex),
-      ]), idempotencyKey: key)
-    do {
-      guard let map = response.objectValue,
-        Set(map.keys)
-          == Set(["state", "activity_id", "receipt", "terminal_payload", "call_graph"]),
-        let state = map["state"]?.stringValue, ["executed", "refused"].contains(state),
-        map["terminal_payload"]?.stringValue == "", map["call_graph"]?.stringValue == "",
-        map["activity_id"]?.stringValue == request.activityID.hex
-      else { throw programVerification() }
-      let verified = try LocalVerifier.verifyProgramLifecycleReceipt(
-        nativeTransportHex(map["receipt"]?.stringValue), expectedActivity: request.activityID,
-        sequencer: sequencerPublicKey)
-      guard (state == "executed") == (verified.receipt.resultCode == 0) else {
-        throw programVerification()
-      }
-      return verified
-    } catch { throw PlatformSDKError(code: .unknownOutcome, retry: .unknownOutcome) }
+    guard request.idempotencyKey.hex == idempotencyKey.rawValue else { throw programInvalid() }
+    return try await transaction(calldata: request.calldata())
+  }
+  public func upgrade(
+    _ operation: NativeProgramUpgrade, signedActivity: Data,
+    idempotencyKey: IdempotencyKey
+  ) async throws -> UnsignedProgramTransaction {
+    let request = try NativeProgramLifecycleRequest(
+      operation: operation, signedActivity: signedActivity)
+    guard request.idempotencyKey.hex == idempotencyKey.rawValue else { throw programInvalid() }
+    return try await transaction(calldata: request.calldata())
+  }
+  public func windDown(
+    _ operation: NativeProgramWindDown, signedActivity: Data,
+    idempotencyKey: IdempotencyKey
+  ) async throws -> UnsignedProgramTransaction {
+    let request = try NativeProgramLifecycleRequest(
+      operation: operation, signedActivity: signedActivity)
+    guard request.idempotencyKey.hex == idempotencyKey.rawValue else { throw programInvalid() }
+    return try await transaction(calldata: request.calldata())
   }
 
-  public static let receiptModuleID: UInt16 = 9
-    public static let callOperation: UInt8 = 3
-    fileprivate static let maximumCallGraphBytes = Data("LayerX/programs/call-graph/v1\0".utf8).count + 32 + 16 + 8 + 64 * 68
-    private let client: PlatformClient
-    private let sequencerPublicKey: Data
-    private let protocolVersion: UInt16
-    private let nowMilliseconds: @Sendable () -> UInt64
-    private let maximumSimulationAgeMilliseconds: UInt64
+  public func transaction(calldata: Data) async throws -> UnsignedProgramTransaction {
+    let rpc = try transport()
+    guard let sender else { throw programInvalid() }
+    let nonce = try await rpc.quantity(
+      "eth_getTransactionCount", [.string("0x" + sender.hex), .string("pending")])
+    let base = UnsignedProgramTransaction(
+      sender: sender, nonce: nonce, gas: 0,
+      maxFeePerGas: maxFeePerGas, maxPriorityFeePerGas: maxPriorityFeePerGas, calldata: calldata)
+    let gas = try await rpc.quantity(
+      "eth_estimateGas", [base.rpcValue(includeGas: false), .string("pending")])
+    guard gas > 0 else { throw programDecode() }
+    return UnsignedProgramTransaction(
+      sender: sender, nonce: nonce, gas: gas,
+      maxFeePerGas: maxFeePerGas, maxPriorityFeePerGas: maxPriorityFeePerGas, calldata: calldata)
+  }
 
-    public init(client: PlatformClient, sequencerPublicKey: Data,
-                protocolVersion: UInt16 = 2, maximumSimulationAgeMilliseconds: UInt64 = 300_000,
-                nowMilliseconds: @escaping @Sendable () -> UInt64 = {
-                    UInt64(Date().timeIntervalSince1970 * 1_000)
-                }) throws {
-        guard protocolVersion == 2 || protocolVersion == 3 else { throw programInvalid() }
-        self.protocolVersion = protocolVersion
-        guard sequencerPublicKey.count == 32, sequencerPublicKey.contains(where: { $0 != 0 }),
-              maximumSimulationAgeMilliseconds > 0 else { throw programInvalid() }
-        self.client = client; self.sequencerPublicKey = Data(sequencerPublicKey)
-        self.maximumSimulationAgeMilliseconds = maximumSimulationAgeMilliseconds
-        self.nowMilliseconds = nowMilliseconds
-    }
+  private func read(calldata: Data, to: String = Programs.address) async throws -> JSONValue {
+    var tx: [String: JSONValue] = ["to": .string(to), "data": .string("0x" + calldata.hex)]
+    if let sender { tx["from"] = .string("0x" + sender.hex) }
+    return try await transport().call("eth_call", [.object(tx), .string("pending")])
+  }
 
-    public func discover(programID: Data, verificationLevel: String) async throws -> ProgramDiscovery {
-        let id = try identifier(programID); let value = try await client.program("program.discover", request:
-            .object(["program_id": .string(id), "requested_verification_level": .string(try level(verificationLevel))]),
-            pathParameters: ["program_id": id])
-        return try verifiedDiscovery(value, programID: id, interface: false, now: nowMilliseconds(), pinnedKey: sequencerPublicKey).discovery!
+  public func discover(programID: Data, verificationLevel: String = "pending") async throws
+    -> ProgramRegistryRecord
+  {
+    guard verificationLevel == "pending" else { throw programInvalid() }
+    let data = try await read(
+      calldata: ProgramABI.encode(
+        selector: "b1ffb3d4", fields: [.word(try ProgramABI.id(programID))]))
+    let bytes = try ProgramABI.hex(data.stringValue)
+    guard bytes.count == 192 else { throw programDecode() }
+    let active = try ProgramABI.integer(bytes, at: 160, width: 1)
+    guard active <= 1 else { throw programDecode() }
+    return ProgramRegistryRecord(
+      programID: programID,
+      policy: UInt8(try ProgramABI.integer(bytes, at: 0, width: 1)),
+      authority: bytes.subdata(in: 32..<64), codeHash: bytes.subdata(in: 64..<96),
+      abiVersion: UInt16(try ProgramABI.integer(bytes, at: 96, width: 2)),
+      version: UInt32(try ProgramABI.integer(bytes, at: 128, width: 4)),
+      active: active == 1)
+  }
+  public func interface(programID: Data, verificationLevel: String = "pending") async throws
+    -> ProgramRegistryInterface
+  {
+    guard verificationLevel == "pending" else { throw programInvalid() }
+    let data = try await read(
+      calldata: ProgramABI.encode(
+        selector: "8efc7240", fields: [.word(try ProgramABI.id(programID))]))
+    let bytes = try ProgramABI.hex(data.stringValue)
+    guard bytes.count >= 128 else { throw programDecode() }
+    return ProgramRegistryInterface(
+      programID: programID,
+      version: UInt32(try ProgramABI.integer(bytes, at: 0, width: 4)),
+      digest: bytes.subdata(in: 32..<64),
+      encoding: try ProgramABI.dynamic(bytes, at: 64, headSize: 96))
+  }
+  public func receipt(actor: Data, idempotencyKey: IdempotencyKey) async throws -> Data {
+    guard hex32(idempotencyKey.rawValue) else { throw programInvalid() }
+    let data = try await read(
+      calldata: ProgramABI.encode(
+        selector: "2eda9f2b",
+        fields: [
+          .word(try ProgramABI.id(actor)), .word(Data(hex: idempotencyKey.rawValue)),
+        ]), to: Programs.authAddress)
+    return try ProgramABI.dynamic(ProgramABI.hex(data.stringValue), at: 0, headSize: 32)
+  }
+  public func receipt(
+    idempotencyKey: IdempotencyKey, expectedActivityID: Data,
+    verificationLevel: String
+  ) async throws -> ProgramSubmission {
+    guard let actor, verificationLevel == "pending" else { throw programInvalid() }
+    _ = try await receipt(actor: actor, idempotencyKey: idempotencyKey)
+    return try await activity(transactionHash: expectedActivityID)
+  }
+  public func lifecycleReceipt(_ request: NativeProgramLifecycleRequest) async throws -> Data {
+    guard let actor else { throw programInvalid() }
+    return try await receipt(
+      actor: actor, idempotencyKey: IdempotencyKey(request.idempotencyKey.hex))
+  }
+  public func activity(activityID: Data, verificationLevel: String) async throws
+    -> ProgramSubmission
+  {
+    guard verificationLevel == "pending" else { throw programInvalid() }
+    return try await activity(transactionHash: activityID)
+  }
+  public func activity(transactionHash: Data) async throws -> ProgramSubmission {
+    _ = try ProgramABI.id(transactionHash)
+    let value = try await transport().call(
+      "eth_getTransactionByHash", [.string("0x" + transactionHash.hex)])
+    if value != .null {
+      guard try ProgramABI.hex(value.objectValue?["hash"]?.stringValue) == transactionHash else {
+        throw programVerification()
+      }
     }
-    public func interface(programID: Data, verificationLevel: String) async throws -> ProgramInterface {
-        let id = try identifier(programID)
-        let value = try await client.program("program.interface", request: .object(["program_id": .string(id),
-            "requested_verification_level": .string(try level(verificationLevel))]),
-            pathParameters: ["program_id": id])
-        let result = try verifiedDiscovery(value, programID: id, interface: true, now: nowMilliseconds(), pinnedKey: sequencerPublicKey).interface!
-        if result.abiVersion == ProgramGuestABI.v3.rawValue || result.abiVersion == ProgramGuestABI.v4.rawValue || result.abiVersion == ProgramGuestABI.v5.rawValue {
-            let head = try await discover(programID: programID, verificationLevel: verificationLevel)
-            try bindProgramInterface(result, discovery: head)
-        }
-        return result
-    }
-    public func simulate(_ call: ProgramCall) async throws -> ProgramSimulation {
-        guard call.nativeCall == nil || protocolVersion == 3 else { throw programInvalid() }
-        let binding = try decodeSignedCall(call)
-        let value = try await client.program("program.simulate", request: encode(call))
-        let execution = try await verifiedSimulation(value, expectedProgramID: call.programID,
-            binding: binding, pinnedKey: sequencerPublicKey, now: nowMilliseconds(),
-            maximumAge: maximumSimulationAgeMilliseconds, protocolVersion: protocolVersion)
-        return .init(value: value, execution: execution)
-    }
-    public func submit(_ call: ProgramCall, idempotencyKey: IdempotencyKey) async throws -> ProgramSubmission {
-        guard hex32(idempotencyKey.rawValue) else { throw programInvalid() }
-        guard call.nativeCall == nil || protocolVersion == 3 else { throw programInvalid() }
-        let binding = try decodeSignedCall(call)
-        guard binding.idempotencyKey == Data(hex: idempotencyKey.rawValue) else { throw programInvalid() }
-        let value: JSONValue
-        do { value = try await client.program("program.call", request: encode(call), idempotencyKey: idempotencyKey) }
-        catch let error as PlatformSDKError where error.code == .unknownOutcome {
-            return unknownSubmission(activity: binding.activityID, key: idempotencyKey.rawValue, retained: call.signedActivity)
-        }
-        do {
-            return try await verifiedSubmission(value, expectedProgramID: call.programID,
-                expectedActivityID: binding.activityID, expectedIdempotencyKey: idempotencyKey.rawValue,
-                retainedSignedActivity: call.signedActivity, pinnedKey: sequencerPublicKey, protocolVersion: protocolVersion,
-                expectedGuestABI: call.nativeCall?.guestABI)
-        } catch let error as PlatformSDKError where error.code == .decodeFailure || error.code == .verificationFailure {
-            return unknownSubmission(activity: binding.activityID, key: idempotencyKey.rawValue, retained: call.signedActivity)
-        }
-    }
-    public func receipt(idempotencyKey: IdempotencyKey, expectedActivityID: Data, verificationLevel: String) async throws -> ProgramSubmission {
-        let activity = try identifier(expectedActivityID)
-        guard hex32(idempotencyKey.rawValue) else { throw programInvalid() }
-        let value = try await client.program("program.receipt", request: .object(["idempotency_key": .string(idempotencyKey.rawValue),
-            "expected_activity_id": .string(activity), "requested_verification_level": .string(try level(verificationLevel))]),
-            pathParameters: ["idempotency_key": idempotencyKey.rawValue])
-        return try await verifiedSubmission(value, expectedProgramID: nil, expectedActivityID: expectedActivityID,
-            expectedIdempotencyKey: idempotencyKey.rawValue, retainedSignedActivity: nil, pinnedKey: sequencerPublicKey, protocolVersion: protocolVersion)
-    }
-    public func activity(activityID: Data, verificationLevel: String) async throws -> ProgramSubmission {
-        let id = try identifier(activityID)
-        let value = try await client.program("program.activity", request: .object(["activity_id": .string(id),
-            "requested_verification_level": .string(try level(verificationLevel))]), pathParameters: ["activity_id": id])
-        return try await verifiedSubmission(value, expectedProgramID: nil, expectedActivityID: activityID,
-            expectedIdempotencyKey: nil, retainedSignedActivity: nil, pinnedKey: sequencerPublicKey, protocolVersion: protocolVersion)
-    }
+    return ProgramSubmission(
+      value, state: value == .null ? "unknown" : "submitted",
+      activityID: transactionHash, idempotencyKey: "", retainedSignedActivity: nil, execution: nil)
+  }
+  public static func verifyReceipt(
+    _ canonicalReceipt: Data, rawTransaction: Data, keys: [ReceiptKeys],
+    receiptJSON: [String: JSONValue], prevSeqHash: Data
+  ) throws -> SequencerReceiptVerification {
+    try LocalVerifier.verifySequencerReceipt(
+      canonicalReceipt, rawTransaction: rawTransaction,
+      keys: keys, receiptJSON: receiptJSON, prevSeqHash: prevSeqHash)
+  }
+  public static func verifyRawV5Receipt(
+    _ canonicalReceipt: Data, rawTransaction: Data, keys: [ReceiptKeys],
+    receiptJSON: [String: JSONValue], prevSeqHash: Data
+  ) throws -> SequencerReceiptVerification {
+    try verifyReceipt(
+      canonicalReceipt, rawTransaction: rawTransaction, keys: keys,
+      receiptJSON: receiptJSON, prevSeqHash: prevSeqHash)
+  }
+  public func verifySubmission(
+    _ canonicalReceipt: Data, transactionHash: Data, rawTransaction: Data,
+    receiptJSON: [String: JSONValue], prevSeqHash: Data
+  ) throws -> ProgramSubmission {
+    let verified = try Self.verifyReceipt(
+      canonicalReceipt, rawTransaction: rawTransaction,
+      keys: receiptKeys, receiptJSON: receiptJSON, prevSeqHash: prevSeqHash)
+    guard verified.receipt.activityID == transactionHash else { throw programVerification() }
+    return ProgramSubmission(
+      .object(receiptJSON), state: verified.status == 1 ? "executed" : "refused",
+      activityID: transactionHash, idempotencyKey: "", retainedSignedActivity: nil,
+      execution: nil, sequencerReceipt: verified)
+  }
 
-    public static func verifyReceipt(_ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch,
-                                     expectedActivityID: Data, expectedGuestABIVersion: UInt16,
-                                     terminalPayload: Data, callGraph: Data, protocolVersion: UInt16 = 2,
-                                     expectedProgramID: Data? = nil, documentOutcome: [String: JSONValue]? = nil) async throws -> ReceiptVerification {
-        guard expectedActivityID.count == 32 else { throw programInvalid() }
-        let verified: ReceiptVerification
-        if expectedGuestABIVersion == 1 || expectedGuestABIVersion == 2 {
-            verified = try await LocalVerifier.verifyReceiptOutcome(canonicalReceipt, authorized: authorized, protocolVersion: protocolVersion)
-        } else if expectedGuestABIVersion == 3 || expectedGuestABIVersion == 4,
-                  let expectedProgramID, let documentOutcome {
-            verified = try await LocalVerifier.verifyProgramReceiptV5(canonicalReceipt, authorized: authorized,
-                protocolVersion: protocolVersion, expectedActivityID: expectedActivityID, expectedProgramID: expectedProgramID,
-                expectedGuestABI: expectedGuestABIVersion, terminalPayload: terminalPayload,
-                callGraph: callGraph, documentOutcome: documentOutcome)
-        } else { throw programInvalid() }
-        let receipt = verified.receipt
-        let outcome = receipt.programOutcome
-        guard receipt.protocolVersion > 0, receipt.moduleID == receiptModuleID, receipt.operation == callOperation,
-              (1...4).contains(receipt.moduleVersion),
-              receipt.activityID == expectedActivityID, let outcome,
-              outcome.abiVersion == expectedGuestABIVersion, terminalPayload.count <= 1_048_576,
-              !callGraph.isEmpty, callGraph.count <= maximumCallGraphBytes,
-              Data(SHA256.hash(data: terminalPayload)) == outcome.terminalPayloadRoot,
-              Data(SHA256.hash(data: callGraph)) == outcome.callGraphRoot else { throw programVerification() }
-        return verified
+  @available(
+    *, deprecated, message: "Use sequencer receipt verification with rawTransaction and ReceiptKeys"
+  )
+  public static func verifyReceipt(
+    _ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch,
+    expectedActivityID: Data, expectedGuestABIVersion: UInt16,
+    terminalPayload: Data, callGraph: Data, protocolVersion: UInt16 = 2,
+    expectedProgramID: Data? = nil, documentOutcome: [String: JSONValue]? = nil
+  ) async throws -> ReceiptVerification {
+    guard expectedActivityID.count == 32 else { throw programInvalid() }
+    let verified: ReceiptVerification
+    if expectedGuestABIVersion == 1 || expectedGuestABIVersion == 2 {
+      verified = try await LocalVerifier.verifyReceiptOutcome(
+        canonicalReceipt, authorized: authorized, protocolVersion: protocolVersion)
+    } else if expectedGuestABIVersion == 3 || expectedGuestABIVersion == 4,
+      let expectedProgramID, let documentOutcome
+    {
+      verified = try await LocalVerifier.verifyProgramReceiptV5(
+        canonicalReceipt, authorized: authorized,
+        protocolVersion: protocolVersion, expectedActivityID: expectedActivityID,
+        expectedProgramID: expectedProgramID,
+        expectedGuestABI: expectedGuestABIVersion, terminalPayload: terminalPayload,
+        callGraph: callGraph, documentOutcome: documentOutcome)
+    } else {
+      throw programInvalid()
     }
+    let receipt = verified.receipt
+    let outcome = receipt.programOutcome
+    guard receipt.protocolVersion > 0, receipt.moduleID == receiptModuleID,
+      receipt.operation == callOperation,
+      (1...4).contains(receipt.moduleVersion),
+      receipt.activityID == expectedActivityID, let outcome,
+      outcome.abiVersion == expectedGuestABIVersion, terminalPayload.count <= 1_048_576,
+      !callGraph.isEmpty, callGraph.count <= maximumCallGraphBytes,
+      Data(SHA256.hash(data: terminalPayload)) == outcome.terminalPayloadRoot,
+      Data(SHA256.hash(data: callGraph)) == outcome.callGraphRoot
+    else { throw programVerification() }
+    return verified
+  }
 
-    public static func verifyRawV5Receipt(_ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch,
-        call: ProgramCall, terminalPayload: Data, callGraph: Data, protocolVersion: UInt16 = 3) async throws -> ReceiptVerification {
-        guard protocolVersion == 3, let native = call.nativeCall,
-            native.guestABI == 3 || native.guestABI == 4,
-            !terminalPayload.isEmpty, terminalPayload.count <= 1_048_576,
-            !callGraph.isEmpty, callGraph.count <= maximumCallGraphBytes else { throw programInvalid() }
-        let binding = try verifySignedNativeCall(call)
-        return try await LocalVerifier.verifyRawProgramReceiptV5(canonicalReceipt, authorized: authorized,
-            protocolVersion: protocolVersion, expectedActivityID: binding.activityID,
-            expectedProgramID: native.programID, expectedGuestABI: native.guestABI,
-            terminalPayload: terminalPayload, callGraph: callGraph)
-    }
+  @available(
+    *, deprecated, message: "Use sequencer receipt verification with rawTransaction and ReceiptKeys"
+  )
+  public static func verifyRawV5Receipt(
+    _ canonicalReceipt: Data, authorized: AuthorizedReceiptBatch,
+    call: ProgramCall, terminalPayload: Data, callGraph: Data, protocolVersion: UInt16 = 3
+  ) async throws -> ReceiptVerification {
+    guard protocolVersion == 3, let native = call.nativeCall,
+      native.guestABI == 3 || native.guestABI == 4,
+      !terminalPayload.isEmpty, terminalPayload.count <= 1_048_576,
+      !callGraph.isEmpty, callGraph.count <= maximumCallGraphBytes
+    else { throw programInvalid() }
+    let binding = try verifySignedNativeCall(call)
+    return try await LocalVerifier.verifyRawProgramReceiptV5(
+      canonicalReceipt, authorized: authorized,
+      protocolVersion: protocolVersion, expectedActivityID: binding.activityID,
+      expectedProgramID: native.programID, expectedGuestABI: native.guestABI,
+      terminalPayload: terminalPayload, callGraph: callGraph)
+  }
 }
 
 struct ActivityBinding {
-    let activityID: Data
-    let idempotencyKey: Data
-    let notBefore: UInt64
-    let notAfter: UInt64
-    let guestABI: UInt16?
+  let activityID: Data
+  let idempotencyKey: Data
+  let notBefore: UInt64
+  let notAfter: UInt64
+  let guestABI: UInt16?
 }
 
 private struct TerminalUsage {
-    let cpu: UInt64; let memory: UInt64; let read: UInt64; let write: UInt64
-    let values: UInt32; let outputBytes: UInt64; let fee: UInt128Value
+  let cpu: UInt64
+  let memory: UInt64
+  let read: UInt64
+  let write: UInt64
+  let values: UInt32
+  let outputBytes: UInt64
+  let fee: UInt128Value
 }
 
 private struct TerminalAttachments {
-    let inner: Data; let occupancy: Data?; let authorization: Data?; let transferRoot: Data?
+  let inner: Data
+  let occupancy: Data?
+  let authorization: Data?
+  let transferRoot: Data?
 }
 
 private struct ProgramAuthorityBinding {
-    let owner: Data; let frame: Data; let source: Data; let asset: Data; let destination: Data; let amount: UInt128Value
+  let owner: Data
+  let frame: Data
+  let source: Data
+  let asset: Data
+  let destination: Data
+  let amount: UInt128Value
 }
 
 private struct ProgramFundingBinding {
-    let owner: Data; let destination: Data; let asset: Data
+  let owner: Data
+  let destination: Data
+  let asset: Data
 }
 
 private struct OccupancyChargeBinding {
-    let payer: Data; let amountDue: UInt128Value; let paid: Bool; let arrearsAfter: UInt128Value
+  let payer: Data
+  let amountDue: UInt128Value
+  let paid: Bool
+  let arrearsAfter: UInt128Value
 }
 
 private struct OccupancySettlementBinding {
-    let byteBatches: UInt128Value; let feeUnits: UInt128Value; let charges: [OccupancyChargeBinding]
+  let byteBatches: UInt128Value
+  let feeUnits: UInt128Value
+  let charges: [OccupancyChargeBinding]
 }
 
 private struct StorageNamespaceBinding {
-    let canonical: Data; let wire: Data; let program: Data; let principal: Data?
+  let canonical: Data
+  let wire: Data
+  let program: Data
+  let principal: Data?
 }
 
-private func verifiedSubmission(_ value: JSONValue, expectedProgramID: Data?, expectedActivityID: Data?,
-                                expectedIdempotencyKey: String?, retainedSignedActivity: Data?,
-                                pinnedKey: Data, protocolVersion: UInt16 = 2,
-                                expectedGuestABI: UInt16? = nil) async throws -> ProgramSubmission {
-    guard let object = value.objectValue, let state = object["state"]?.stringValue else { throw programVerification() }
-    if state == "unknown" {
-        let retainedPresent = object["retained_signed_activity"] != nil
-        try requireFields(object, retainedPresent
-            ? ["state", "activity_id", "idempotency_key", "retained_signed_activity"]
-            : ["state", "activity_id", "idempotency_key"])
-        let activity = try hexData(object, "activity_id", exactBytes: 32)
-        let idempotency = try requiredHex(object, "idempotency_key", exactBytes: 32)
-        let retained = retainedPresent ? try hexData(object, "retained_signed_activity", maximumBytes: 1_048_576) : nil
-        guard expectedActivityID == nil || activity == expectedActivityID,
-              expectedIdempotencyKey == nil || idempotency == expectedIdempotencyKey,
-              retainedSignedActivity == nil || retained == retainedSignedActivity else { throw programVerification() }
-        return .init(value, state: state, activityID: activity, idempotencyKey: idempotency,
-            retainedSignedActivity: retained, execution: nil)
-    }
-    guard state == "executed" || state == "refused" else { throw programDecode() }
-    let execution = try await verifiedExecution(object, state: state, idempotent: true,
-        expectedProgramID: expectedProgramID, expectedActivityID: expectedActivityID,
-        expectedIdempotencyKey: expectedIdempotencyKey, pinnedKey: pinnedKey, protocolVersion: protocolVersion,
-        expectedGuestABI: expectedGuestABI)
-    let outcomeKind = try objectValue(object, "outcome")["kind"]?.stringValue
-    guard state == "refused" && outcomeKind == "refused" || state == "executed"
-            && (outcomeKind == "completed" || outcomeKind == "legacy_completed") else { throw programVerification() }
-    return .init(value, state: state, activityID: try hexData(object, "activity_id", exactBytes: 32),
-        idempotencyKey: try text(object, "idempotency_key"), retainedSignedActivity: nil, execution: execution)
-}
-
-func verifiedExecution(_ object: [String: JSONValue], state: String, idempotent: Bool,
-                               expectedProgramID: Data?, expectedActivityID: Data?,
-                               expectedIdempotencyKey: String?, pinnedKey: Data, protocolVersion: UInt16 = 2,
-                               expectedGuestABI: UInt16? = nil) async throws -> VerifiedProgramExecution {
-    var fields: Set<String> = ["state", "activity_id", "program_id", "guest_abi_version", "module_version",
-        "batch_id", "global_sequence", "result_code", "state_root", "receipt", "receipt_digest",
-        "terminal_payload", "call_graph", "authority", "usage", "outcome", "verification"]
-    if idempotent { fields.insert("idempotency_key") }
-    try requireFields(object, fields)
+private func verifiedSubmission(
+  _ value: JSONValue, expectedProgramID: Data?, expectedActivityID: Data?,
+  expectedIdempotencyKey: String?, retainedSignedActivity: Data?,
+  pinnedKey: Data, protocolVersion: UInt16 = 2,
+  expectedGuestABI: UInt16? = nil
+) async throws -> ProgramSubmission {
+  guard let object = value.objectValue, let state = object["state"]?.stringValue else {
+    throw programVerification()
+  }
+  if state == "unknown" {
+    let retainedPresent = object["retained_signed_activity"] != nil
+    try requireFields(
+      object,
+      retainedPresent
+        ? ["state", "activity_id", "idempotency_key", "retained_signed_activity"]
+        : ["state", "activity_id", "idempotency_key"])
     let activity = try hexData(object, "activity_id", exactBytes: 32)
-    let program = try hexData(object, "program_id", exactBytes: 32)
-    guard try text(object, "state") == state,
-          expectedProgramID == nil || program == expectedProgramID,
-          expectedActivityID == nil || activity == expectedActivityID,
-          expectedIdempotencyKey == nil || object["idempotency_key"]?.stringValue == expectedIdempotencyKey,
-          let guestABI = object["guest_abi_version"]?.integerValue,
-          let namedABI = UInt16(exactly: guestABI), ProgramGuestABI(rawValue: namedABI) != nil,
-          expectedGuestABI == nil || namedABI == expectedGuestABI,
-          let moduleVersion = object["module_version"]?.integerValue, (1...5).contains(moduleVersion),
-          try text(object, "verification") == "receipt-terminal-and-call-graph-verified" else { throw programVerification() }
-    let resultCode = try integer32(object, "result_code")
-    let globalSequence = try decimalUInt64Field(object, "global_sequence")
-    let authorityObject = try objectValue(object, "authority")
-    try requireFields(authorityObject, ["batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"])
-    let authority = try authorized(object["authority"])
-    let namedBatchID = try hexData(object, "batch_id", exactBytes: 32)
-    let namedStateRoot = try hexData(object, "state_root", exactBytes: 32)
-    guard authority.batchID == namedBatchID,
-          authority.resultingStateRoot == namedStateRoot,
-          authority.sequencerPublicKey == pinnedKey else { throw programVerification() }
-    let usage = try objectValue(object, "usage")
-    try requireFields(usage, ["cpu_fuel", "memory_bytes", "storage_read_bytes", "storage_write_bytes",
-        "output_values", "output_bytes", "fee_units"])
-    let cpu = try decimalUInt64Field(usage, "cpu_fuel")
-    let memory = try decimalUInt64Field(usage, "memory_bytes")
-    let read = try decimalUInt64Field(usage, "storage_read_bytes")
-    let write = try decimalUInt64Field(usage, "storage_write_bytes")
-    let outputValues = try uint32Field(usage, "output_values")
-    let outputBytes = try decimalUInt64Field(usage, "output_bytes")
-    let fee = try decimalUInt128Field(usage, "fee_units")
-    let outcomeDocument = try objectValue(object, "outcome")
-    let outcomeKind = try validateOutcome(outcomeDocument)
-    let receipt = try hexData(object, "receipt", maximumBytes: 1_048_576)
-    let terminal = try hexData(object, "terminal_payload", maximumBytes: 1_048_576)
-    let graph = try hexData(object, "call_graph", maximumBytes: 1_048_576)
-    let verified = try await ProgramsClient.verifyReceipt(receipt, authorized: authority,
-        expectedActivityID: activity, expectedGuestABIVersion: UInt16(guestABI),
-        terminalPayload: terminal, callGraph: graph, protocolVersion: protocolVersion,
-        expectedProgramID: program, documentOutcome: outcomeDocument)
-    guard let receiptOutcome = verified.receipt.programOutcome else { throw programVerification() }
-    let transferVerification = try verifyTerminal(terminal, availableGraph: graph, expectedProgram: program,
-        documentOutcome: outcomeDocument, protocolVersion: verified.receipt.protocolVersion, receipt: receiptOutcome)
-    let kindMatches: Bool
-    if outcomeKind == "completed" || outcomeKind == "legacy_completed" {
-        let outcomeCode = try integer32(outcomeDocument, "code")
-        kindMatches = receiptOutcome.terminalKind == 1
-            && outcomeCode == receiptOutcome.resultCode
-    } else {
-        kindMatches = outcomeKind == "refused"
-            && (receiptOutcome.terminalKind == 2 || receiptOutcome.terminalKind == 3)
-    }
-    let namedReceiptDigest = try hexData(object, "receipt_digest", exactBytes: 32)
-    guard verified.receiptDigest == namedReceiptDigest,
-          verified.receipt.globalSequence == globalSequence, verified.receipt.resultCode == resultCode,
-          receiptOutcome.resultCode == resultCode, verified.receipt.moduleVersion == UInt32(moduleVersion),
-          receiptOutcome.cpuFuel == cpu, receiptOutcome.memoryBytes == memory,
-          receiptOutcome.storageReadBytes == read, receiptOutcome.storageWriteBytes == write,
-          receiptOutcome.outputValues == outputValues, receiptOutcome.outputBytes == outputBytes,
-          receiptOutcome.feeUnits == fee, kindMatches else { throw programVerification() }
-    return .init(transferVerification: transferVerification, value: .object(object), receipt: verified, terminalPayload: terminal, callGraph: graph)
+    let idempotency = try requiredHex(object, "idempotency_key", exactBytes: 32)
+    let retained =
+      retainedPresent
+      ? try hexData(object, "retained_signed_activity", maximumBytes: 1_048_576) : nil
+    guard expectedActivityID == nil || activity == expectedActivityID,
+      expectedIdempotencyKey == nil || idempotency == expectedIdempotencyKey,
+      retainedSignedActivity == nil || retained == retainedSignedActivity
+    else { throw programVerification() }
+    return .init(
+      value, state: state, activityID: activity, idempotencyKey: idempotency,
+      retainedSignedActivity: retained, execution: nil)
+  }
+  guard state == "executed" || state == "refused" else { throw programDecode() }
+  let execution = try await verifiedExecution(
+    object, state: state, idempotent: true,
+    expectedProgramID: expectedProgramID, expectedActivityID: expectedActivityID,
+    expectedIdempotencyKey: expectedIdempotencyKey, pinnedKey: pinnedKey,
+    protocolVersion: protocolVersion,
+    expectedGuestABI: expectedGuestABI)
+  let outcomeKind = try objectValue(object, "outcome")["kind"]?.stringValue
+  guard
+    state == "refused" && outcomeKind == "refused"
+      || state == "executed"
+        && (outcomeKind == "completed" || outcomeKind == "legacy_completed")
+  else { throw programVerification() }
+  return .init(
+    value, state: state, activityID: try hexData(object, "activity_id", exactBytes: 32),
+    idempotencyKey: try text(object, "idempotency_key"), retainedSignedActivity: nil,
+    execution: execution)
 }
 
-private func verifiedSimulation(_ value: JSONValue, expectedProgramID: Data, binding: ActivityBinding,
-                                pinnedKey: Data, now: UInt64, maximumAge: UInt64, protocolVersion: UInt16 = 2) async throws -> VerifiedProgramExecution {
-    guard let object = value.objectValue else { throw programVerification() }
-    try requireFields(object, ["committed", "execution", "simulation_evidence"])
-    guard object["committed"] == .boolean(false), let execution = object["execution"]?.objectValue else { throw programVerification() }
-    let verified = try await verifiedExecution(execution, state: "simulated", idempotent: false,
-        expectedProgramID: expectedProgramID, expectedActivityID: binding.activityID,
-        expectedIdempotencyKey: nil, pinnedKey: pinnedKey, protocolVersion: protocolVersion,
-        expectedGuestABI: binding.guestABI)
-    guard let evidence = object["simulation_evidence"]?.objectValue else { throw programVerification() }
-    try requireFields(evidence, ["boundary_id", "activity_id", "previous_state_root", "hypothetical_state_root",
-        "observed_sequence", "observed_at", "committed", "public_key", "signature"])
-    guard evidence["committed"] == .boolean(false) else { throw programVerification() }
-    let boundary = try hexData(evidence, "boundary_id", exactBytes: 32)
-    let publicKey = try hexData(evidence, "public_key", exactBytes: 32)
-    var boundaryMaterial = Data("LayerX/emulator/simulation-boundary/v1\0".utf8); boundaryMaterial.append(publicKey)
-    let activity = try hexData(evidence, "activity_id", exactBytes: 32)
-    let previous = try hexData(evidence, "previous_state_root", exactBytes: 32)
-    let hypothetical = try hexData(evidence, "hypothetical_state_root", exactBytes: 32)
-    let authority = try objectValue(execution, "authority")
-    let sequence = try decimalUInt64Field(evidence, "observed_sequence")
-    let observedAt = try decimalUInt64Field(evidence, "observed_at")
-    let executionActivity = try hexData(execution, "activity_id", exactBytes: 32)
-    let authorityPrevious = try hexData(authority, "previous_state_root", exactBytes: 32)
-    let authorityResulting = try hexData(authority, "resulting_state_root", exactBytes: 32)
-    let executionStateRoot = try hexData(execution, "state_root", exactBytes: 32)
-    let authorityKey = try hexData(authority, "sequencer_public_key", exactBytes: 32)
-    let executionSequence = try decimalUInt64Field(execution, "global_sequence")
-    guard sequence < UInt64.max, activity == binding.activityID,
-          activity == executionActivity,
-          previous == authorityPrevious,
-          hypothetical == authorityResulting,
-          hypothetical == executionStateRoot,
-          publicKey == authorityKey, publicKey == pinnedKey,
-          executionSequence == sequence + 1,
-          observedAt >= binding.notBefore, observedAt <= binding.notAfter, observedAt <= now,
-          now - observedAt <= maximumAge, Data(SHA256.hash(data: boundaryMaterial)) == boundary else { throw programVerification() }
-    var signed = Data("LayerX/agent/program-simulation-evidence/v1\0".utf8)
-    signed.append(boundary); signed.append(activity); signed.append(previous); signed.append(hypothetical)
-    signed.append(bigEndian(sequence)); signed.append(bigEndian(observedAt)); signed.append(0)
-    let digest = Data(SHA256.hash(data: signed))
-    let signature = try hexData(evidence, "signature", exactBytes: 64)
-    let verifier = try Curve25519.Signing.PublicKey(rawRepresentation: publicKey)
-    guard verifier.isValidSignature(signature, for: digest) else { throw programVerification() }
-    return verified
+func verifiedExecution(
+  _ object: [String: JSONValue], state: String, idempotent: Bool,
+  expectedProgramID: Data?, expectedActivityID: Data?,
+  expectedIdempotencyKey: String?, pinnedKey: Data, protocolVersion: UInt16 = 2,
+  expectedGuestABI: UInt16? = nil
+) async throws -> VerifiedProgramExecution {
+  var fields: Set<String> = [
+    "state", "activity_id", "program_id", "guest_abi_version", "module_version",
+    "batch_id", "global_sequence", "result_code", "state_root", "receipt", "receipt_digest",
+    "terminal_payload", "call_graph", "authority", "usage", "outcome", "verification",
+  ]
+  if idempotent { fields.insert("idempotency_key") }
+  try requireFields(object, fields)
+  let activity = try hexData(object, "activity_id", exactBytes: 32)
+  let program = try hexData(object, "program_id", exactBytes: 32)
+  guard try text(object, "state") == state,
+    expectedProgramID == nil || program == expectedProgramID,
+    expectedActivityID == nil || activity == expectedActivityID,
+    expectedIdempotencyKey == nil
+      || object["idempotency_key"]?.stringValue == expectedIdempotencyKey,
+    let guestABI = object["guest_abi_version"]?.integerValue,
+    let namedABI = UInt16(exactly: guestABI), ProgramGuestABI(rawValue: namedABI) != nil,
+    expectedGuestABI == nil || namedABI == expectedGuestABI,
+    let moduleVersion = object["module_version"]?.integerValue, (1...5).contains(moduleVersion),
+    try text(object, "verification") == "receipt-terminal-and-call-graph-verified"
+  else { throw programVerification() }
+  let resultCode = try integer32(object, "result_code")
+  let globalSequence = try decimalUInt64Field(object, "global_sequence")
+  let authorityObject = try objectValue(object, "authority")
+  try requireFields(
+    authorityObject,
+    ["batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"])
+  let authority = try authorized(object["authority"])
+  let namedBatchID = try hexData(object, "batch_id", exactBytes: 32)
+  let namedStateRoot = try hexData(object, "state_root", exactBytes: 32)
+  guard authority.batchID == namedBatchID,
+    authority.resultingStateRoot == namedStateRoot,
+    authority.sequencerPublicKey == pinnedKey
+  else { throw programVerification() }
+  let usage = try objectValue(object, "usage")
+  try requireFields(
+    usage,
+    [
+      "cpu_fuel", "memory_bytes", "storage_read_bytes", "storage_write_bytes",
+      "output_values", "output_bytes", "fee_units",
+    ])
+  let cpu = try decimalUInt64Field(usage, "cpu_fuel")
+  let memory = try decimalUInt64Field(usage, "memory_bytes")
+  let read = try decimalUInt64Field(usage, "storage_read_bytes")
+  let write = try decimalUInt64Field(usage, "storage_write_bytes")
+  let outputValues = try uint32Field(usage, "output_values")
+  let outputBytes = try decimalUInt64Field(usage, "output_bytes")
+  let fee = try decimalUInt128Field(usage, "fee_units")
+  let outcomeDocument = try objectValue(object, "outcome")
+  let outcomeKind = try validateOutcome(outcomeDocument)
+  let receipt = try hexData(object, "receipt", maximumBytes: 1_048_576)
+  let terminal = try hexData(object, "terminal_payload", maximumBytes: 1_048_576)
+  let graph = try hexData(object, "call_graph", maximumBytes: 1_048_576)
+  let verified = try await ProgramsClient.verifyReceipt(
+    receipt, authorized: authority,
+    expectedActivityID: activity, expectedGuestABIVersion: UInt16(guestABI),
+    terminalPayload: terminal, callGraph: graph, protocolVersion: protocolVersion,
+    expectedProgramID: program, documentOutcome: outcomeDocument)
+  guard let receiptOutcome = verified.receipt.programOutcome else { throw programVerification() }
+  let transferVerification = try verifyTerminal(
+    terminal, availableGraph: graph, expectedProgram: program,
+    documentOutcome: outcomeDocument, protocolVersion: verified.receipt.protocolVersion,
+    receipt: receiptOutcome)
+  let kindMatches: Bool
+  if outcomeKind == "completed" || outcomeKind == "legacy_completed" {
+    let outcomeCode = try integer32(outcomeDocument, "code")
+    kindMatches =
+      receiptOutcome.terminalKind == 1
+      && outcomeCode == receiptOutcome.resultCode
+  } else {
+    kindMatches =
+      outcomeKind == "refused"
+      && (receiptOutcome.terminalKind == 2 || receiptOutcome.terminalKind == 3)
+  }
+  let namedReceiptDigest = try hexData(object, "receipt_digest", exactBytes: 32)
+  guard verified.receiptDigest == namedReceiptDigest,
+    verified.receipt.globalSequence == globalSequence, verified.receipt.resultCode == resultCode,
+    receiptOutcome.resultCode == resultCode,
+    verified.receipt.moduleVersion == UInt32(moduleVersion),
+    receiptOutcome.cpuFuel == cpu, receiptOutcome.memoryBytes == memory,
+    receiptOutcome.storageReadBytes == read, receiptOutcome.storageWriteBytes == write,
+    receiptOutcome.outputValues == outputValues, receiptOutcome.outputBytes == outputBytes,
+    receiptOutcome.feeUnits == fee, kindMatches
+  else { throw programVerification() }
+  return .init(
+    transferVerification: transferVerification, value: .object(object), receipt: verified,
+    terminalPayload: terminal, callGraph: graph)
 }
 
-func verifiedDiscovery(_ value: JSONValue, programID: String, interface: Bool, now: UInt64, pinnedKey: Data)
-    throws -> (discovery: ProgramDiscovery?, interface: ProgramInterface?) {
-    guard let object = value.objectValue else { throw programVerification() }
-    var fields: Set<String> = interface
-        ? ["program_id", "version", "code_hash", "abi_version", "interface", "interface_digest",
-            "receipt_digest", "state_root", "observed_sequence", "observed_at", "valid_through", "source", "verification"]
-        : ["program_id", "lifecycle", "version", "code_hash", "abi_version", "receipt_digest", "state_root",
-            "observed_sequence", "observed_at", "valid_through", "verification"]
-    if !interface {
-        for name in ["deployment_receipt_digest", "discovery_public_key", "discovery_signature"] where object[name] != nil {
-            fields.insert(name)
-        }
+private func verifiedSimulation(
+  _ value: JSONValue, expectedProgramID: Data, binding: ActivityBinding,
+  pinnedKey: Data, now: UInt64, maximumAge: UInt64, protocolVersion: UInt16 = 2
+) async throws -> VerifiedProgramExecution {
+  guard let object = value.objectValue else { throw programVerification() }
+  try requireFields(object, ["committed", "execution", "simulation_evidence"])
+  guard object["committed"] == .boolean(false), let execution = object["execution"]?.objectValue
+  else { throw programVerification() }
+  let verified = try await verifiedExecution(
+    execution, state: "simulated", idempotent: false,
+    expectedProgramID: expectedProgramID, expectedActivityID: binding.activityID,
+    expectedIdempotencyKey: nil, pinnedKey: pinnedKey, protocolVersion: protocolVersion,
+    expectedGuestABI: binding.guestABI)
+  guard let evidence = object["simulation_evidence"]?.objectValue else {
+    throw programVerification()
+  }
+  try requireFields(
+    evidence,
+    [
+      "boundary_id", "activity_id", "previous_state_root", "hypothetical_state_root",
+      "observed_sequence", "observed_at", "committed", "public_key", "signature",
+    ])
+  guard evidence["committed"] == .boolean(false) else { throw programVerification() }
+  let boundary = try hexData(evidence, "boundary_id", exactBytes: 32)
+  let publicKey = try hexData(evidence, "public_key", exactBytes: 32)
+  var boundaryMaterial = Data("LayerX/emulator/simulation-boundary/v1\0".utf8)
+  boundaryMaterial.append(publicKey)
+  let activity = try hexData(evidence, "activity_id", exactBytes: 32)
+  let previous = try hexData(evidence, "previous_state_root", exactBytes: 32)
+  let hypothetical = try hexData(evidence, "hypothetical_state_root", exactBytes: 32)
+  let authority = try objectValue(execution, "authority")
+  let sequence = try decimalUInt64Field(evidence, "observed_sequence")
+  let observedAt = try decimalUInt64Field(evidence, "observed_at")
+  let executionActivity = try hexData(execution, "activity_id", exactBytes: 32)
+  let authorityPrevious = try hexData(authority, "previous_state_root", exactBytes: 32)
+  let authorityResulting = try hexData(authority, "resulting_state_root", exactBytes: 32)
+  let executionStateRoot = try hexData(execution, "state_root", exactBytes: 32)
+  let authorityKey = try hexData(authority, "sequencer_public_key", exactBytes: 32)
+  let executionSequence = try decimalUInt64Field(execution, "global_sequence")
+  guard sequence < UInt64.max, activity == binding.activityID,
+    activity == executionActivity,
+    previous == authorityPrevious,
+    hypothetical == authorityResulting,
+    hypothetical == executionStateRoot,
+    publicKey == authorityKey, publicKey == pinnedKey,
+    executionSequence == sequence + 1,
+    observedAt >= binding.notBefore, observedAt <= binding.notAfter, observedAt <= now,
+    now - observedAt <= maximumAge, Data(SHA256.hash(data: boundaryMaterial)) == boundary
+  else { throw programVerification() }
+  var signed = Data("LayerX/agent/program-simulation-evidence/v1\0".utf8)
+  signed.append(boundary)
+  signed.append(activity)
+  signed.append(previous)
+  signed.append(hypothetical)
+  signed.append(bigEndian(sequence))
+  signed.append(bigEndian(observedAt))
+  signed.append(0)
+  let digest = Data(SHA256.hash(data: signed))
+  let signature = try hexData(evidence, "signature", exactBytes: 64)
+  let verifier = try Curve25519.Signing.PublicKey(rawRepresentation: publicKey)
+  guard verifier.isValidSignature(signature, for: digest) else { throw programVerification() }
+  return verified
+}
+
+func verifiedDiscovery(
+  _ value: JSONValue, programID: String, interface: Bool, now: UInt64, pinnedKey: Data
+)
+  throws -> (discovery: ProgramDiscovery?, interface: ProgramInterface?)
+{
+  guard let object = value.objectValue else { throw programVerification() }
+  var fields: Set<String> =
+    interface
+    ? [
+      "program_id", "version", "code_hash", "abi_version", "interface", "interface_digest",
+      "receipt_digest", "state_root", "observed_sequence", "observed_at", "valid_through", "source",
+      "verification",
+    ]
+    : [
+      "program_id", "lifecycle", "version", "code_hash", "abi_version", "receipt_digest",
+      "state_root",
+      "observed_sequence", "observed_at", "valid_through", "verification",
+    ]
+  if !interface {
+    for name in ["deployment_receipt_digest", "discovery_public_key", "discovery_signature"]
+    where object[name] != nil {
+      fields.insert(name)
     }
-    try requireFields(object, fields)
-    let observedAt = try decimalUInt64Field(object, "observed_at")
-    let validThrough = try decimalUInt64Field(object, "valid_through")
-    guard object["program_id"]?.stringValue == programID, try uint32Field(object, "version") > 0,
-          let abi = object["abi_version"]?.integerValue, let exactABI = UInt16(exactly: abi),
-          ProgramGuestABI(rawValue: exactABI) != nil,
-          hex32(try text(object, "code_hash")), hex32(try text(object, "receipt_digest")),
-          hex32(try text(object, "state_root")), validThrough >= observedAt, now <= validThrough,
-          object["verification"]?.stringValue == (interface ? "deployment-interface-and-current-head-verified" :
-            "registry-receipt-and-current-head-verified") else { throw programVerification() }
-    let observedSequence = try decimalUInt64Field(object, "observed_sequence")
-    let program = try hexData(object, "program_id", exactBytes: 32)
-    let codeHash = try hexData(object, "code_hash", exactBytes: 32)
-    let receiptDigest = try hexData(object, "receipt_digest", exactBytes: 32)
-    let stateRoot = try hexData(object, "state_root", exactBytes: 32)
-    let version = try uint32Field(object, "version")
-    let abiVersion = UInt16(abi)
-    if interface {
-        let bytes = try hexData(object, "interface", maximumBytes: 952)
-        let interfaceDigest = try hexData(object, "interface_digest", exactBytes: 32)
-        guard !bytes.isEmpty, Data(SHA256.hash(data: bytes)) == interfaceDigest else {
-            throw programVerification()
-        }
-        let source = try typedSource(try objectValue(object, "source"))
-        return (nil, ProgramInterface(programID: program, version: version, codeHash: codeHash,
-            abiVersion: abiVersion, interface: bytes, interfaceDigest: interfaceDigest,
-            receiptDigest: receiptDigest, stateRoot: stateRoot, observedSequence: observedSequence,
-            observedAt: observedAt, validThrough: validThrough, source: source))
-    } else {
-        guard let lifecycle = object["lifecycle"]?.stringValue,
-              let typedLifecycle = ProgramLifecycle(rawValue: lifecycle) else { throw programDecode() }
-        var proof = Data("LayerX/program-discovery-proof/v1\0".utf8)
-        proof.append(program); proof.append(1); proof.append(bigEndian(version)); proof.append(codeHash)
-        proof.append(bigEndian(abiVersion)); proof.append(bigEndian(observedSequence)); proof.append(bigEndian(observedAt))
-        proof.append(bigEndian(validThrough)); proof.append(stateRoot)
-        guard Data(SHA256.hash(data: proof)) == receiptDigest else { throw programVerification() }
-        let deployment = object["deployment_receipt_digest"] == nil ? nil
-            : try hexData(object, "deployment_receipt_digest", exactBytes: 32)
-        let signed = object["discovery_public_key"] != nil || object["discovery_signature"] != nil
-        var verification = "server-side-receipt-verification-only"
-        if signed {
-            let publicKey = try hexData(object, "discovery_public_key", exactBytes: 32)
-            let signature = try hexData(object, "discovery_signature", exactBytes: 64)
-            guard pinnedKey.count == 32, publicKey == pinnedKey,
-                  try Curve25519.Signing.PublicKey(rawRepresentation: publicKey).isValidSignature(signature, for: receiptDigest)
-            else { throw programVerification() }
-            verification = "sequencer-signed"
-        }
-        guard signed || abiVersion == ProgramGuestABI.v1.rawValue || abiVersion == ProgramGuestABI.v2.rawValue else {
-            throw programVerification()
-        }
-        return (ProgramDiscovery(programID: program, lifecycle: typedLifecycle, version: version,
-            codeHash: codeHash, abiVersion: abiVersion, receiptDigest: receiptDigest, stateRoot: stateRoot,
-            observedSequence: observedSequence, observedAt: observedAt, validThrough: validThrough,
-            deploymentReceiptDigest: deployment, verification: verification), nil)
+  }
+  try requireFields(object, fields)
+  let observedAt = try decimalUInt64Field(object, "observed_at")
+  let validThrough = try decimalUInt64Field(object, "valid_through")
+  guard object["program_id"]?.stringValue == programID, try uint32Field(object, "version") > 0,
+    let abi = object["abi_version"]?.integerValue, let exactABI = UInt16(exactly: abi),
+    ProgramGuestABI(rawValue: exactABI) != nil,
+    hex32(try text(object, "code_hash")), hex32(try text(object, "receipt_digest")),
+    hex32(try text(object, "state_root")), validThrough >= observedAt, now <= validThrough,
+    object["verification"]?.stringValue
+      == (interface
+        ? "deployment-interface-and-current-head-verified"
+        : "registry-receipt-and-current-head-verified")
+  else { throw programVerification() }
+  let observedSequence = try decimalUInt64Field(object, "observed_sequence")
+  let program = try hexData(object, "program_id", exactBytes: 32)
+  let codeHash = try hexData(object, "code_hash", exactBytes: 32)
+  let receiptDigest = try hexData(object, "receipt_digest", exactBytes: 32)
+  let stateRoot = try hexData(object, "state_root", exactBytes: 32)
+  let version = try uint32Field(object, "version")
+  let abiVersion = UInt16(abi)
+  if interface {
+    let bytes = try hexData(object, "interface", maximumBytes: 952)
+    let interfaceDigest = try hexData(object, "interface_digest", exactBytes: 32)
+    guard !bytes.isEmpty, Data(SHA256.hash(data: bytes)) == interfaceDigest else {
+      throw programVerification()
     }
+    let source = try typedSource(try objectValue(object, "source"))
+    return (
+      nil,
+      ProgramInterface(
+        programID: program, version: version, codeHash: codeHash,
+        abiVersion: abiVersion, interface: bytes, interfaceDigest: interfaceDigest,
+        receiptDigest: receiptDigest, stateRoot: stateRoot, observedSequence: observedSequence,
+        observedAt: observedAt, validThrough: validThrough, source: source)
+    )
+  } else {
+    guard let lifecycle = object["lifecycle"]?.stringValue,
+      let typedLifecycle = ProgramLifecycle(rawValue: lifecycle)
+    else { throw programDecode() }
+    var proof = Data("LayerX/program-discovery-proof/v1\0".utf8)
+    proof.append(program)
+    proof.append(1)
+    proof.append(bigEndian(version))
+    proof.append(codeHash)
+    proof.append(bigEndian(abiVersion))
+    proof.append(bigEndian(observedSequence))
+    proof.append(bigEndian(observedAt))
+    proof.append(bigEndian(validThrough))
+    proof.append(stateRoot)
+    guard Data(SHA256.hash(data: proof)) == receiptDigest else { throw programVerification() }
+    let deployment =
+      object["deployment_receipt_digest"] == nil
+      ? nil
+      : try hexData(object, "deployment_receipt_digest", exactBytes: 32)
+    let signed = object["discovery_public_key"] != nil || object["discovery_signature"] != nil
+    var verification = "server-side-receipt-verification-only"
+    if signed {
+      let publicKey = try hexData(object, "discovery_public_key", exactBytes: 32)
+      let signature = try hexData(object, "discovery_signature", exactBytes: 64)
+      guard pinnedKey.count == 32, publicKey == pinnedKey,
+        try Curve25519.Signing.PublicKey(rawRepresentation: publicKey).isValidSignature(
+          signature, for: receiptDigest)
+      else { throw programVerification() }
+      verification = "sequencer-signed"
+    }
+    guard
+      signed || abiVersion == ProgramGuestABI.v1.rawValue
+        || abiVersion == ProgramGuestABI.v2.rawValue
+    else {
+      throw programVerification()
+    }
+    return (
+      ProgramDiscovery(
+        programID: program, lifecycle: typedLifecycle, version: version,
+        codeHash: codeHash, abiVersion: abiVersion, receiptDigest: receiptDigest,
+        stateRoot: stateRoot,
+        observedSequence: observedSequence, observedAt: observedAt, validThrough: validThrough,
+        deploymentReceiptDigest: deployment, verification: verification), nil
+    )
+  }
 }
 
 func bindProgramInterface(_ value: ProgramInterface, discovery: ProgramDiscovery) throws {
-    guard discovery.verification == "sequencer-signed", value.programID == discovery.programID,
-          value.version == discovery.version, value.codeHash == discovery.codeHash,
-          value.abiVersion == discovery.abiVersion, value.stateRoot == discovery.stateRoot,
-          value.observedSequence == discovery.observedSequence, value.observedAt == discovery.observedAt,
-          value.validThrough == discovery.validThrough, value.receiptDigest == discovery.deploymentReceiptDigest
-    else { throw programVerification() }
+  guard discovery.verification == "sequencer-signed", value.programID == discovery.programID,
+    value.version == discovery.version, value.codeHash == discovery.codeHash,
+    value.abiVersion == discovery.abiVersion, value.stateRoot == discovery.stateRoot,
+    value.observedSequence == discovery.observedSequence, value.observedAt == discovery.observedAt,
+    value.validThrough == discovery.validThrough,
+    value.receiptDigest == discovery.deploymentReceiptDigest
+  else { throw programVerification() }
 }
 
 private func typedSource(_ source: [String: JSONValue]) throws -> ProgramSource {
-    try validateSource(source)
-    switch try text(source, "status") {
-    case "unpublished": return .unpublished
-    case "verified": return .verified(sourceDigest: try hexData(source, "source_digest", exactBytes: 32),
-        environmentDigest: try hexData(source, "environment_digest", exactBytes: 32), pipeline: try text(source, "pipeline"))
-    case "mismatch": return .mismatch(expectedCodeHash: try hexData(source, "expected_code_hash", exactBytes: 32),
-        reproducedArtifactDigest: try hexData(source, "reproduced_artifact_digest", exactBytes: 32))
-    default: throw programDecode()
-    }
+  try validateSource(source)
+  switch try text(source, "status") {
+  case "unpublished": return .unpublished
+  case "verified":
+    return .verified(
+      sourceDigest: try hexData(source, "source_digest", exactBytes: 32),
+      environmentDigest: try hexData(source, "environment_digest", exactBytes: 32),
+      pipeline: try text(source, "pipeline"))
+  case "mismatch":
+    return .mismatch(
+      expectedCodeHash: try hexData(source, "expected_code_hash", exactBytes: 32),
+      reproducedArtifactDigest: try hexData(source, "reproduced_artifact_digest", exactBytes: 32))
+  default: throw programDecode()
+  }
 }
 
 private func validateSource(_ source: [String: JSONValue]) throws {
-    switch try text(source, "status") {
-    case "unpublished": try requireFields(source, ["status"])
-    case "verified":
-        try requireFields(source, ["status", "source_digest", "environment_digest", "pipeline"])
-        _ = try hexData(source, "source_digest", exactBytes: 32)
-        _ = try hexData(source, "environment_digest", exactBytes: 32)
-        guard try text(source, "pipeline") == "sha256-source-artifact-reproducible-build-v1" else { throw programDecode() }
-    case "mismatch":
-        try requireFields(source, ["status", "expected_code_hash", "reproduced_artifact_digest"])
-        _ = try hexData(source, "expected_code_hash", exactBytes: 32)
-        _ = try hexData(source, "reproduced_artifact_digest", exactBytes: 32)
-    default: throw programDecode()
+  switch try text(source, "status") {
+  case "unpublished": try requireFields(source, ["status"])
+  case "verified":
+    try requireFields(source, ["status", "source_digest", "environment_digest", "pipeline"])
+    _ = try hexData(source, "source_digest", exactBytes: 32)
+    _ = try hexData(source, "environment_digest", exactBytes: 32)
+    guard try text(source, "pipeline") == "sha256-source-artifact-reproducible-build-v1" else {
+      throw programDecode()
     }
+  case "mismatch":
+    try requireFields(source, ["status", "expected_code_hash", "reproduced_artifact_digest"])
+    _ = try hexData(source, "expected_code_hash", exactBytes: 32)
+    _ = try hexData(source, "reproduced_artifact_digest", exactBytes: 32)
+  default: throw programDecode()
+  }
 }
 
 private func validateOutcome(_ outcome: [String: JSONValue]) throws -> String {
-    let kind = try text(outcome, "kind")
-    switch kind {
-    case "completed":
-        try requireFields(outcome, ["kind", "code", "response"])
-        _ = try integer32(outcome, "code"); _ = try hexData(outcome, "response", maximumBytes: 1_048_576, empty: true)
-    case "legacy_completed":
-        try requireFields(outcome, ["kind", "code", "values"]); _ = try integer32(outcome, "code")
-        guard case let .array(values)? = outcome["values"], values.count <= 512 else { throw programDecode() }
-        try values.forEach(validateLegacyValue)
-    case "refused":
-        try requireFields(outcome, ["kind", "failure"]); try validateFailure(try objectValue(outcome, "failure"))
-    default: throw programDecode()
+  let kind = try text(outcome, "kind")
+  switch kind {
+  case "completed":
+    try requireFields(outcome, ["kind", "code", "response"])
+    _ = try integer32(outcome, "code")
+    _ = try hexData(outcome, "response", maximumBytes: 1_048_576, empty: true)
+  case "legacy_completed":
+    try requireFields(outcome, ["kind", "code", "values"])
+    _ = try integer32(outcome, "code")
+    guard case let .array(values)? = outcome["values"], values.count <= 512 else {
+      throw programDecode()
     }
-    return kind
+    try values.forEach(validateLegacyValue)
+  case "refused":
+    try requireFields(outcome, ["kind", "failure"])
+    try validateFailure(try objectValue(outcome, "failure"))
+  default: throw programDecode()
+  }
+  return kind
 }
 
 private func validateLegacyValue(_ value: JSONValue) throws {
-    guard let object = value.objectValue else { throw programDecode() }
-    try requireFields(object, ["type", "value"])
-    if try text(object, "type") == "i32" { _ = try integer32(object, "value") }
-    else if try text(object, "type") == "i64" { _ = try decimalInt64Field(object, "value") }
-    else { throw programDecode() }
+  guard let object = value.objectValue else { throw programDecode() }
+  try requireFields(object, ["type", "value"])
+  if try text(object, "type") == "i32" {
+    _ = try integer32(object, "value")
+  } else if try text(object, "type") == "i64" {
+    _ = try decimalInt64Field(object, "value")
+  } else {
+    throw programDecode()
+  }
 }
 
 private func validateFailure(_ failure: [String: JSONValue]) throws {
-    switch try text(failure, "kind") {
-    case "unknown_program", "reentrancy", "authority", "resource", "response", "fault":
-        try requireFields(failure, ["kind"])
-    case "depth_exceeded", "fanout_exceeded":
-        try requireFields(failure, ["kind", "limit", "attempted"])
-        _ = try uint32Field(failure, "limit"); _ = try uint32Field(failure, "attempted")
-    case "guest_refused":
-        try requireFields(failure, ["kind", "code"]); _ = try integer32(failure, "code")
-    default: throw programDecode()
-    }
+  switch try text(failure, "kind") {
+  case "unknown_program", "reentrancy", "authority", "resource", "response", "fault":
+    try requireFields(failure, ["kind"])
+  case "depth_exceeded", "fanout_exceeded":
+    try requireFields(failure, ["kind", "limit", "attempted"])
+    _ = try uint32Field(failure, "limit")
+    _ = try uint32Field(failure, "attempted")
+  case "guest_refused":
+    try requireFields(failure, ["kind", "code"])
+    _ = try integer32(failure, "code")
+  default: throw programDecode()
+  }
 }
 
 func isProgramTerminalV5(_ encoded: Data, receipt: ProgramReceiptOutcome) -> Bool {
-    guard let applied = try? unwrapAppliedTerminal(encoded, receipt: receipt),
-          let attachments = try? unwrapTerminal(applied) else { return false }
-    return starts(attachments.inner, "LXP/program-execution/v5\0")
-        || starts(attachments.inner, "LXP/programs/callback-failure/v1\0")
-        || starts(attachments.inner, "LXP/programs/settlement-failure/v1\0")
+  guard let applied = try? unwrapAppliedTerminal(encoded, receipt: receipt),
+    let attachments = try? unwrapTerminal(applied)
+  else { return false }
+  return starts(attachments.inner, "LXP/program-execution/v5\0")
+    || starts(attachments.inner, "LXP/programs/callback-failure/v1\0")
+    || starts(attachments.inner, "LXP/programs/settlement-failure/v1\0")
 }
 
-func deriveProgramTerminalV5Outcome(_ encoded: Data, receipt: ProgramReceiptOutcome) throws -> [String: JSONValue] {
-    guard encoded.count <= 1_048_576, Data(SHA256.hash(data: encoded)) == receipt.terminalPayloadRoot,
-        receipt.encodingVersion == 4, (3...5).contains(receipt.abiVersion) else { throw programVerification() }
+func deriveProgramTerminalV5Outcome(_ encoded: Data, receipt: ProgramReceiptOutcome) throws
+  -> [String: JSONValue]
+{
+  guard encoded.count <= 1_048_576, Data(SHA256.hash(data: encoded)) == receipt.terminalPayloadRoot,
+    receipt.encodingVersion == 4, (3...5).contains(receipt.abiVersion)
+  else { throw programVerification() }
+  let attachments = try unwrapTerminal(unwrapAppliedTerminal(encoded, receipt: receipt))
+  let inner = attachments.inner
+  if starts(inner, "LXP/program-execution/v5\0") {
+    var cursor = try TerminalCursor(inner, offset: Data("LXP/program-execution/v5\0".utf8).count)
+    let runtime = try cursor.u16()
+    let feeSchedule = try cursor.u32()
+    let metering = try cursor.u32()
+    let count = try cursor.u64()
+    guard count <= UInt64(cursor.remaining / 5) else { throw programVerification() }
+    for _ in 0..<Int(count) {
+      switch try cursor.u8() {
+      case 1: _ = try cursor.i32()
+      case 2: _ = try cursor.i64()
+      default: throw programVerification()
+      }
+    }
+    let usage = TerminalUsage(
+      cpu: try cursor.u64(), memory: try cursor.u64(), read: try cursor.u64(),
+      write: try cursor.u64(), values: try cursor.u32(), outputBytes: try cursor.u64(),
+      fee: try cursor.u128())
+    let trace = try cursor.u8()
+    if trace == 1 {
+      guard try cursor.sized64().count <= 34 + 65_536 * 52 else { throw programVerification() }
+    } else if trace != 0 {
+      throw programVerification()
+    }
+    _ = try cursor.take(32)
+    guard try cursor.u16() == receipt.abiVersion, runtime == receipt.runtimeVersion,
+      feeSchedule == receipt.feeScheduleVersion, metering == receipt.meteringScheduleVersion
+    else { throw programVerification() }
+    let document: [String: JSONValue]
+    switch try cursor.u8() {
+    case 0:
+      let code = try cursor.i32()
+      let response = try cursor.sized64()
+      guard code >= 0, response.count <= 1_048_576 else { throw programVerification() }
+      document = [
+        "kind": .string("completed"), "code": .integer(Int64(code)),
+        "response": .string(response.hex),
+      ]
+    case 1:
+      try validateAuthenticatedProgramFailure(cursor.sized64())
+      document = [
+        "kind": .string("refused"),
+        "failure": .object([
+          "kind": .string("guest_refused"), "code": .integer(Int64(receipt.resultCode)),
+        ]),
+      ]
+    case 2:
+      try validateCandidateResource(&cursor, usage: usage)
+      document = ["kind": .string("refused"), "failure": .object(["kind": .string("resource")])]
+    default: throw programVerification()
+    }
+    _ = try cursor.sized64()
+    try cursor.finish()
+    try matchUsage(usage, receipt)
+    return document
+  }
+  if starts(inner, "LXP/programs/callback-failure/v1\0") {
+    var cursor = try TerminalCursor(
+      inner, offset: Data("LXP/programs/callback-failure/v1\0".utf8).count)
+    _ = try cursor.u8()
+    _ = try cursor.i32()
+    try cursor.finish()
+  } else if starts(inner, "LXP/programs/settlement-failure/v1\0") {
+    var cursor = try TerminalCursor(
+      inner, offset: Data("LXP/programs/settlement-failure/v1\0".utf8).count)
+    guard (1...12).contains(try cursor.u8()) else { throw programVerification() }
+    try cursor.finish()
+  } else {
+    throw programVerification()
+  }
+  return [
+    "kind": .string("refused"),
+    "failure": .object([
+      "kind": .string("guest_refused"), "code": .integer(Int64(receipt.resultCode)),
+    ]),
+  ]
+}
+
+func verifyTerminal(
+  _ encoded: Data, availableGraph: Data, expectedProgram: Data,
+  documentOutcome: [String: JSONValue], protocolVersion: UInt16,
+  receipt: ProgramReceiptOutcome
+) throws -> String {
+  do {
+    guard !encoded.isEmpty, encoded.count <= 1_048_576,
+      Data(SHA256.hash(data: encoded)) == receipt.terminalPayloadRoot,
+      !availableGraph.isEmpty, Data(SHA256.hash(data: availableGraph)) == receipt.callGraphRoot
+    else { throw programVerification() }
     let attachments = try unwrapTerminal(unwrapAppliedTerminal(encoded, receipt: receipt))
     let inner = attachments.inner
-    if starts(inner, "LXP/program-execution/v5\0") {
-        var cursor = try TerminalCursor(inner, offset: Data("LXP/program-execution/v5\0".utf8).count)
-        let runtime = try cursor.u16(), feeSchedule = try cursor.u32(), metering = try cursor.u32()
-        let count = try cursor.u64()
-        guard count <= UInt64(cursor.remaining / 5) else { throw programVerification() }
-        for _ in 0..<Int(count) {
-            switch try cursor.u8() {
-            case 1: _ = try cursor.i32()
-            case 2: _ = try cursor.i64()
-            default: throw programVerification()
-            }
+    let profileV5 = starts(inner, "LXP/program-execution/v5\0")
+    let candidate = starts(inner, "LXP/program-execution/v4\0") || profileV5
+    var successful = false
+    if starts(inner, "LXP/program-execution/v2\0") || starts(inner, "LXP/program-execution/v3\0") {
+      let traced = starts(inner, "LXP/program-execution/v3\0")
+      let domain = Data((traced ? "LXP/program-execution/v3\0" : "LXP/program-execution/v2\0").utf8)
+      var cursor = try TerminalCursor(inner, offset: domain.count)
+      let runtime = try cursor.u16()
+      let abi = try cursor.u16()
+      let metering = try cursor.u32()
+      let countValue = try cursor.u128()
+      guard countValue.high == 0, countValue.low <= UInt64(Int.max) else {
+        throw programVerification()
+      }
+      let count = Int(countValue.low)
+      guard count <= cursor.remaining / 5,
+        case let .array(values)? = documentOutcome["values"], values.count == count,
+        try text(documentOutcome, "kind") == "legacy_completed", runtime > 0, metering > 0,
+        runtime == receipt.runtimeVersion, abi == 1, abi == receipt.abiVersion,
+        metering == receipt.meteringScheduleVersion
+      else { throw programVerification() }
+      for index in 0..<count {
+        guard let value = values[index].objectValue else { throw programVerification() }
+        let tag = try cursor.u8()
+        if tag == 1 {
+          let decoded = try cursor.i32()
+          let documented = try integer32(value, "value")
+          guard try text(value, "type") == "i32", decoded == documented else {
+            throw programVerification()
+          }
+        } else if tag == 2 {
+          let decoded = try cursor.i64()
+          let documented = try decimalInt64Field(value, "value")
+          guard try text(value, "type") == "i64", decoded == documented else {
+            throw programVerification()
+          }
+        } else {
+          throw programVerification()
         }
-        let usage = TerminalUsage(cpu: try cursor.u64(), memory: try cursor.u64(), read: try cursor.u64(),
-            write: try cursor.u64(), values: try cursor.u32(), outputBytes: try cursor.u64(), fee: try cursor.u128())
-        let trace = try cursor.u8()
-        if trace == 1 { guard try cursor.sized64().count <= 34 + 65_536 * 52 else { throw programVerification() } }
-        else if trace != 0 { throw programVerification() }
-        _ = try cursor.take(32)
-        guard try cursor.u16() == receipt.abiVersion, runtime == receipt.runtimeVersion,
-            feeSchedule == receipt.feeScheduleVersion, metering == receipt.meteringScheduleVersion else { throw programVerification() }
-        let document: [String: JSONValue]
-        switch try cursor.u8() {
-        case 0:
-            let code = try cursor.i32(), response = try cursor.sized64()
-            guard code >= 0, response.count <= 1_048_576 else { throw programVerification() }
-            document = ["kind": .string("completed"), "code": .integer(Int64(code)), "response": .string(response.hex)]
-        case 1:
-            try validateAuthenticatedProgramFailure(cursor.sized64())
-            document = ["kind": .string("refused"), "failure": .object([
-                "kind": .string("guest_refused"), "code": .integer(Int64(receipt.resultCode))])]
-        case 2:
-            try validateCandidateResource(&cursor, usage: usage)
-            document = ["kind": .string("refused"), "failure": .object(["kind": .string("resource")])]
-        default: throw programVerification()
+      }
+      let usage = TerminalUsage(
+        cpu: try cursor.u64(), memory: try cursor.u64(), read: try cursor.u64(),
+        write: try cursor.u64(), values: try cursor.u32(), outputBytes: 0, fee: try cursor.u128())
+      if traced {
+        guard try cursor.u8() == 1, try cursor.sized64().count <= 34 + 65_536 * 52 else {
+          throw programVerification()
         }
-        _ = try cursor.sized64(); try cursor.finish(); try matchUsage(usage, receipt)
-        return document
-    }
-    if starts(inner, "LXP/programs/callback-failure/v1\0") {
-        var cursor = try TerminalCursor(inner, offset: Data("LXP/programs/callback-failure/v1\0".utf8).count)
-        _ = try cursor.u8(); _ = try cursor.i32(); try cursor.finish()
+      }
+      try cursor.finish()
+      guard receipt.terminalKind == 1, try integer32(documentOutcome, "code") >= 0 else {
+        throw programVerification()
+      }
+      try matchUsage(usage, receipt)
+      successful = true
+    } else if candidate {
+      var cursor = try TerminalCursor(
+        inner,
+        offset: Data((profileV5 ? "LXP/program-execution/v5\0" : "LXP/program-execution/v4\0").utf8)
+          .count)
+      let runtime = try cursor.u16()
+      let feeSchedule = try cursor.u32()
+      let metering = try cursor.u32()
+      let countValue = try cursor.u64()
+      guard countValue <= UInt64(cursor.remaining / 5) else { throw programVerification() }
+      for _ in 0..<Int(countValue) {
+        let tag = try cursor.u8()
+        if tag == 1 {
+          _ = try cursor.i32()
+        } else if tag == 2 {
+          _ = try cursor.i64()
+        } else {
+          throw programVerification()
+        }
+      }
+      let usage = TerminalUsage(
+        cpu: try cursor.u64(), memory: try cursor.u64(), read: try cursor.u64(),
+        write: try cursor.u64(), values: try cursor.u32(), outputBytes: try cursor.u64(),
+        fee: try cursor.u128())
+      let traceTag = try cursor.u8()
+      if traceTag == 1 {
+        guard try cursor.sized64().count <= 34 + 65_536 * 52 else { throw programVerification() }
+      } else if traceTag != 0 {
+        throw programVerification()
+      }
+      let program = try cursor.take(32)
+      let abi = try cursor.u16()
+      let outcomeTag = try cursor.u8()
+      let expectedKind: String
+      if outcomeTag == 0 {
+        let code = try cursor.i32()
+        let response = try cursor.sized64()
+        guard code >= 0, response.count <= 1_048_576,
+          try text(documentOutcome, "kind") == "completed",
+          code == (try integer32(documentOutcome, "code")),
+          response
+            == (try hexData(documentOutcome, "response", maximumBytes: 1_048_576, empty: true))
+        else { throw programVerification() }
+        expectedKind = "completed"
+        successful = true
+      } else if outcomeTag == 1 {
+        try validateAuthenticatedProgramFailure(cursor.sized64())
+        expectedKind = "guest_refused"
+      } else if outcomeTag == 2 {
+        try validateCandidateResource(&cursor, usage: usage)
+        expectedKind = "resource"
+      } else {
+        throw programVerification()
+      }
+      let graph = try cursor.sized64()
+      try cursor.finish()
+      guard graph.count <= ProgramsClient.maximumCallGraphBytes, graph == availableGraph,
+        program == expectedProgram,
+        profileV5 ? (3...5).contains(abi) : abi == 2,
+        abi == receipt.abiVersion, runtime > 0, feeSchedule > 0, metering > 0,
+        runtime == receipt.runtimeVersion, feeSchedule == receipt.feeScheduleVersion,
+        metering == receipt.meteringScheduleVersion
+      else { throw programVerification() }
+      try matchUsage(usage, receipt)
+      if outcomeTag == 0 {
+        guard receipt.terminalKind == 1 else { throw programVerification() }
+      } else {
+        try requireRefusal(documentOutcome, expected: expectedKind, code: receipt.resultCode)
+        guard receipt.terminalKind != 1 else { throw programVerification() }
+      }
+    } else if starts(inner, "LXP/programs/failure-detail/v1\0") {
+      var cursor = try TerminalCursor(
+        inner, offset: Data("LXP/programs/failure-detail/v1\0".utf8).count)
+      let family = try cursor.u8()
+      let payload = try cursor.sized32()
+      try cursor.finish()
+      guard (1...4).contains(family), !payload.isEmpty else { throw programVerification() }
+      try validateFailureDetail(family, payload)
+      try requireRefusal(documentOutcome, expected: "guest_refused", code: receipt.resultCode)
+      guard receipt.terminalKind == 2 else { throw programVerification() }
+    } else if starts(inner, "LXP/programs/resource-detail/v1\0") {
+      var cursor = try TerminalCursor(
+        inner, offset: Data("LXP/programs/resource-detail/v1\0".utf8).count)
+      try validateLegacyResource(&cursor)
+      try cursor.finish()
+      try requireRefusal(documentOutcome, expected: "resource", code: receipt.resultCode)
+      guard receipt.terminalKind == 3 else { throw programVerification() }
     } else if starts(inner, "LXP/programs/settlement-failure/v1\0") {
-        var cursor = try TerminalCursor(inner, offset: Data("LXP/programs/settlement-failure/v1\0".utf8).count)
-        guard (1...12).contains(try cursor.u8()) else { throw programVerification() }; try cursor.finish()
-    } else { throw programVerification() }
-    return ["kind": .string("refused"), "failure": .object([
-        "kind": .string("guest_refused"), "code": .integer(Int64(receipt.resultCode))])]
-}
-
-func verifyTerminal(_ encoded: Data, availableGraph: Data, expectedProgram: Data,
-                            documentOutcome: [String: JSONValue], protocolVersion: UInt16,
-                            receipt: ProgramReceiptOutcome) throws -> String {
-    do {
-        guard !encoded.isEmpty, encoded.count <= 1_048_576,
-              Data(SHA256.hash(data: encoded)) == receipt.terminalPayloadRoot,
-              !availableGraph.isEmpty, Data(SHA256.hash(data: availableGraph)) == receipt.callGraphRoot else { throw programVerification() }
-        let attachments = try unwrapTerminal(unwrapAppliedTerminal(encoded, receipt: receipt)); let inner = attachments.inner
-        let profileV5 = starts(inner, "LXP/program-execution/v5\0")
-        let candidate = starts(inner, "LXP/program-execution/v4\0") || profileV5; var successful = false
-        if starts(inner, "LXP/program-execution/v2\0") || starts(inner, "LXP/program-execution/v3\0") {
-            let traced = starts(inner, "LXP/program-execution/v3\0")
-            let domain = Data((traced ? "LXP/program-execution/v3\0" : "LXP/program-execution/v2\0").utf8)
-            var cursor = try TerminalCursor(inner, offset: domain.count)
-            let runtime = try cursor.u16(); let abi = try cursor.u16(); let metering = try cursor.u32()
-            let countValue = try cursor.u128(); guard countValue.high == 0, countValue.low <= UInt64(Int.max) else { throw programVerification() }
-            let count = Int(countValue.low)
-            guard count <= cursor.remaining / 5,
-                  case let .array(values)? = documentOutcome["values"], values.count == count,
-                  try text(documentOutcome, "kind") == "legacy_completed", runtime > 0, metering > 0,
-                  runtime == receipt.runtimeVersion, abi == 1, abi == receipt.abiVersion,
-                  metering == receipt.meteringScheduleVersion else { throw programVerification() }
-            for index in 0..<count {
-                guard let value = values[index].objectValue else { throw programVerification() }
-                let tag = try cursor.u8()
-                if tag == 1 {
-                    let decoded = try cursor.i32(); let documented = try integer32(value, "value")
-                    guard try text(value, "type") == "i32", decoded == documented else { throw programVerification() }
-                } else if tag == 2 {
-                    let decoded = try cursor.i64(); let documented = try decimalInt64Field(value, "value")
-                    guard try text(value, "type") == "i64", decoded == documented else { throw programVerification() }
-                } else { throw programVerification() }
-            }
-            let usage = TerminalUsage(cpu: try cursor.u64(), memory: try cursor.u64(), read: try cursor.u64(),
-                write: try cursor.u64(), values: try cursor.u32(), outputBytes: 0, fee: try cursor.u128())
-            if traced { guard try cursor.u8() == 1, try cursor.sized64().count <= 34 + 65_536 * 52 else { throw programVerification() } }
-            try cursor.finish(); guard receipt.terminalKind == 1, try integer32(documentOutcome, "code") >= 0 else { throw programVerification() }
-            try matchUsage(usage, receipt); successful = true
-        } else if candidate {
-            var cursor = try TerminalCursor(inner, offset: Data((profileV5 ? "LXP/program-execution/v5\0" : "LXP/program-execution/v4\0").utf8).count)
-            let runtime = try cursor.u16(); let feeSchedule = try cursor.u32(); let metering = try cursor.u32()
-            let countValue = try cursor.u64(); guard countValue <= UInt64(cursor.remaining / 5) else { throw programVerification() }
-            for _ in 0..<Int(countValue) {
-                let tag = try cursor.u8(); if tag == 1 { _ = try cursor.i32() } else if tag == 2 { _ = try cursor.i64() }
-                else { throw programVerification() }
-            }
-            let usage = TerminalUsage(cpu: try cursor.u64(), memory: try cursor.u64(), read: try cursor.u64(),
-                write: try cursor.u64(), values: try cursor.u32(), outputBytes: try cursor.u64(), fee: try cursor.u128())
-            let traceTag = try cursor.u8()
-            if traceTag == 1 { guard try cursor.sized64().count <= 34 + 65_536 * 52 else { throw programVerification() } }
-            else if traceTag != 0 { throw programVerification() }
-            let program = try cursor.take(32); let abi = try cursor.u16(); let outcomeTag = try cursor.u8(); let expectedKind: String
-            if outcomeTag == 0 {
-                let code = try cursor.i32(); let response = try cursor.sized64()
-                guard code >= 0, response.count <= 1_048_576, try text(documentOutcome, "kind") == "completed",
-                      code == (try integer32(documentOutcome, "code")),
-                      response == (try hexData(documentOutcome, "response", maximumBytes: 1_048_576, empty: true)) else { throw programVerification() }
-                expectedKind = "completed"; successful = true
-            } else if outcomeTag == 1 {
-                try validateAuthenticatedProgramFailure(cursor.sized64()); expectedKind = "guest_refused"
-            } else if outcomeTag == 2 {
-                try validateCandidateResource(&cursor, usage: usage); expectedKind = "resource"
-            } else { throw programVerification() }
-            let graph = try cursor.sized64(); try cursor.finish()
-            guard graph.count <= ProgramsClient.maximumCallGraphBytes, graph == availableGraph, program == expectedProgram,
-                  profileV5 ? (3...5).contains(abi) : abi == 2,
-                  abi == receipt.abiVersion, runtime > 0, feeSchedule > 0, metering > 0,
-                  runtime == receipt.runtimeVersion, feeSchedule == receipt.feeScheduleVersion,
-                  metering == receipt.meteringScheduleVersion else { throw programVerification() }
-            try matchUsage(usage, receipt)
-            if outcomeTag == 0 { guard receipt.terminalKind == 1 else { throw programVerification() } }
-            else { try requireRefusal(documentOutcome, expected: expectedKind, code: receipt.resultCode); guard receipt.terminalKind != 1 else { throw programVerification() } }
-        } else if starts(inner, "LXP/programs/failure-detail/v1\0") {
-            var cursor = try TerminalCursor(inner, offset: Data("LXP/programs/failure-detail/v1\0".utf8).count)
-            let family = try cursor.u8(); let payload = try cursor.sized32(); try cursor.finish()
-            guard (1...4).contains(family), !payload.isEmpty else { throw programVerification() }
-            try validateFailureDetail(family, payload); try requireRefusal(documentOutcome, expected: "guest_refused", code: receipt.resultCode)
-            guard receipt.terminalKind == 2 else { throw programVerification() }
-        } else if starts(inner, "LXP/programs/resource-detail/v1\0") {
-            var cursor = try TerminalCursor(inner, offset: Data("LXP/programs/resource-detail/v1\0".utf8).count)
-            try validateLegacyResource(&cursor); try cursor.finish(); try requireRefusal(documentOutcome, expected: "resource", code: receipt.resultCode)
-            guard receipt.terminalKind == 3 else { throw programVerification() }
-        } else if starts(inner, "LXP/programs/settlement-failure/v1\0") {
-            var cursor = try TerminalCursor(inner, offset: Data("LXP/programs/settlement-failure/v1\0".utf8).count)
-            guard (1...12).contains(try cursor.u8()) else { throw programVerification() }; try cursor.finish()
-            try requireRefusal(documentOutcome, expected: "guest_refused", code: receipt.resultCode)
-            guard receipt.terminalKind == 2 else { throw programVerification() }
-        } else if starts(inner, "LXP/programs/callback-failure/v1\0") {
-            var cursor = try TerminalCursor(inner, offset: Data("LXP/programs/callback-failure/v1\0".utf8).count)
-            _ = try cursor.u8(); _ = try cursor.i32(); try cursor.finish()
-            try requireRefusal(documentOutcome, expected: "guest_refused", code: receipt.resultCode)
-            guard receipt.terminalKind == 2 else { throw programVerification() }
-        } else { throw programVerification() }
-        return try verifyTerminalAttachments(attachments, candidate: candidate, successful: successful,
-            protocolVersion: protocolVersion, receipt: receipt)
-    } catch { throw programVerification() }
+      var cursor = try TerminalCursor(
+        inner, offset: Data("LXP/programs/settlement-failure/v1\0".utf8).count)
+      guard (1...12).contains(try cursor.u8()) else { throw programVerification() }
+      try cursor.finish()
+      try requireRefusal(documentOutcome, expected: "guest_refused", code: receipt.resultCode)
+      guard receipt.terminalKind == 2 else { throw programVerification() }
+    } else if starts(inner, "LXP/programs/callback-failure/v1\0") {
+      var cursor = try TerminalCursor(
+        inner, offset: Data("LXP/programs/callback-failure/v1\0".utf8).count)
+      _ = try cursor.u8()
+      _ = try cursor.i32()
+      try cursor.finish()
+      try requireRefusal(documentOutcome, expected: "guest_refused", code: receipt.resultCode)
+      guard receipt.terminalKind == 2 else { throw programVerification() }
+    } else {
+      throw programVerification()
+    }
+    return try verifyTerminalAttachments(
+      attachments, candidate: candidate, successful: successful,
+      protocolVersion: protocolVersion, receipt: receipt)
+  } catch { throw programVerification() }
 }
 
 private func matchUsage(_ usage: TerminalUsage, _ receipt: ProgramReceiptOutcome) throws {
-    guard usage.cpu == receipt.cpuFuel, usage.memory == receipt.memoryBytes,
-          usage.read == receipt.storageReadBytes, usage.write == receipt.storageWriteBytes,
-          usage.values == receipt.outputValues, usage.outputBytes == receipt.outputBytes,
-          usage.fee == receipt.feeUnits else { throw programVerification() }
+  guard usage.cpu == receipt.cpuFuel, usage.memory == receipt.memoryBytes,
+    usage.read == receipt.storageReadBytes, usage.write == receipt.storageWriteBytes,
+    usage.values == receipt.outputValues, usage.outputBytes == receipt.outputBytes,
+    usage.fee == receipt.feeUnits
+  else { throw programVerification() }
 }
 
 private func requireRefusal(_ outcome: [String: JSONValue], expected: String, code: Int32) throws {
-    guard try text(outcome, "kind") == "refused" else { throw programVerification() }
-    let failure = try objectValue(outcome, "failure")
-    let failureKind = try text(failure, "kind")
-    guard failureKind == expected else { throw programVerification() }
-    if expected == "guest_refused" {
-        guard try integer32(failure, "code") == code else { throw programVerification() }
-    }
+  guard try text(outcome, "kind") == "refused" else { throw programVerification() }
+  let failure = try objectValue(outcome, "failure")
+  let failureKind = try text(failure, "kind")
+  guard failureKind == expected else { throw programVerification() }
+  if expected == "guest_refused" {
+    guard try integer32(failure, "code") == code else { throw programVerification() }
+  }
 }
 
 private func unwrapTerminal(_ encoded: Data) throws -> TerminalAttachments {
-    var current = encoded; var authorization: Data?; var transferRoot: Data?; var occupancy: Data?
-    let authorityDomain = Data("LXP/program-execution-with-transfer-authority/v2\0".utf8)
-    let occupancyDomain = Data("LXP/program-execution-with-occupancy/v1\0".utf8)
-    if starts(current, authorityDomain) {
-        var cursor = try TerminalCursor(current, offset: authorityDomain.count)
-        current = try cursor.sized32(); authorization = try cursor.sized32(); transferRoot = try cursor.take(32); try cursor.finish()
-    }
-    if starts(current, occupancyDomain) {
-        var cursor = try TerminalCursor(current, offset: occupancyDomain.count)
-        current = try cursor.sized32(); occupancy = try cursor.sized32(); try cursor.finish()
-    }
-    guard !starts(current, authorityDomain), !starts(current, occupancyDomain) else { throw programVerification() }
-    return .init(inner: current, occupancy: occupancy, authorization: authorization, transferRoot: transferRoot)
+  var current = encoded
+  var authorization: Data?
+  var transferRoot: Data?
+  var occupancy: Data?
+  let authorityDomain = Data("LXP/program-execution-with-transfer-authority/v2\0".utf8)
+  let occupancyDomain = Data("LXP/program-execution-with-occupancy/v1\0".utf8)
+  if starts(current, authorityDomain) {
+    var cursor = try TerminalCursor(current, offset: authorityDomain.count)
+    current = try cursor.sized32()
+    authorization = try cursor.sized32()
+    transferRoot = try cursor.take(32)
+    try cursor.finish()
+  }
+  if starts(current, occupancyDomain) {
+    var cursor = try TerminalCursor(current, offset: occupancyDomain.count)
+    current = try cursor.sized32()
+    occupancy = try cursor.sized32()
+    try cursor.finish()
+  }
+  guard !starts(current, authorityDomain), !starts(current, occupancyDomain) else {
+    throw programVerification()
+  }
+  return .init(
+    inner: current, occupancy: occupancy, authorization: authorization, transferRoot: transferRoot)
 }
 
-private func verifyTerminalAttachments(_ attachments: TerminalAttachments, candidate: Bool, successful: Bool,
-                                       protocolVersion: UInt16, receipt: ProgramReceiptOutcome) throws -> String {
-    guard protocolVersion == 1 || protocolVersion == 2 || protocolVersion == 3 else { throw programVerification() }
-    let zero = UInt128Value(high: 0, low: 0)
-    let occupancyRequired = (protocolVersion == 2 || protocolVersion == 3) && successful
-    guard occupancyRequired == (attachments.occupancy != nil) else { throw programVerification() }
-    if let occupancy = attachments.occupancy {
-        if occupancy.isEmpty {
-            guard receipt.occupancyEvidenceDigest.allSatisfy({ $0 == 0 }),
-                  receipt.occupancyTransferRoot.allSatisfy({ $0 == 0 }),
-                  receipt.occupancyByteBatches == zero,
-                  receipt.occupancyFeeUnits == zero else { throw programVerification() }
-        } else {
-            guard Data(SHA256.hash(data: occupancy)) == receipt.occupancyEvidenceDigest else { throw programVerification() }
-            let settlement = try decodeOccupancySettlement(occupancy)
-            guard settlement.byteBatches == receipt.occupancyByteBatches,
-                  settlement.feeUnits == receipt.occupancyFeeUnits,
-                  try occupancyTransferRoot(settlement, asset: receipt.occupancyAssetID) == receipt.occupancyTransferRoot else {
-                throw programVerification()
-            }
-        }
+private func verifyTerminalAttachments(
+  _ attachments: TerminalAttachments, candidate: Bool, successful: Bool,
+  protocolVersion: UInt16, receipt: ProgramReceiptOutcome
+) throws -> String {
+  guard protocolVersion == 1 || protocolVersion == 2 || protocolVersion == 3 else {
+    throw programVerification()
+  }
+  let zero = UInt128Value(high: 0, low: 0)
+  let occupancyRequired = (protocolVersion == 2 || protocolVersion == 3) && successful
+  guard occupancyRequired == (attachments.occupancy != nil) else { throw programVerification() }
+  if let occupancy = attachments.occupancy {
+    if occupancy.isEmpty {
+      guard receipt.occupancyEvidenceDigest.allSatisfy({ $0 == 0 }),
+        receipt.occupancyTransferRoot.allSatisfy({ $0 == 0 }),
+        receipt.occupancyByteBatches == zero,
+        receipt.occupancyFeeUnits == zero
+      else { throw programVerification() }
     } else {
-        guard receipt.occupancyEvidenceDigest.allSatisfy({ $0 == 0 }),
-              receipt.occupancyTransferRoot.allSatisfy({ $0 == 0 }),
-              receipt.occupancyByteBatches == zero, receipt.occupancyFeeUnits == zero else { throw programVerification() }
-    }
-    let transferPresent = receipt.transferRoot.contains(where: { $0 != 0 })
-    let recorded = receipt.encodingVersion != 4 && attachments.authorization == nil && transferPresent
-    let authorityRequired = candidate || receipt.encodingVersion == 4 && successful
-    guard recorded || (authorityRequired ? (attachments.authorization != nil) == transferPresent : attachments.authorization == nil) else {
+      guard Data(SHA256.hash(data: occupancy)) == receipt.occupancyEvidenceDigest else {
         throw programVerification()
+      }
+      let settlement = try decodeOccupancySettlement(occupancy)
+      guard settlement.byteBatches == receipt.occupancyByteBatches,
+        settlement.feeUnits == receipt.occupancyFeeUnits,
+        try occupancyTransferRoot(settlement, asset: receipt.occupancyAssetID)
+          == receipt.occupancyTransferRoot
+      else {
+        throw programVerification()
+      }
     }
-    if let authorization = attachments.authorization {
-        guard !authorization.isEmpty, attachments.transferRoot == receipt.transferRoot else { throw programVerification() }
-        guard try receipt.encodingVersion != 4 || authorizationV2(authorization) else { throw programVerification() }
-        try verifyAuthorizationRoot(authorization, expected: receipt.transferRoot)
+  } else {
+    guard receipt.occupancyEvidenceDigest.allSatisfy({ $0 == 0 }),
+      receipt.occupancyTransferRoot.allSatisfy({ $0 == 0 }),
+      receipt.occupancyByteBatches == zero, receipt.occupancyFeeUnits == zero
+    else { throw programVerification() }
+  }
+  let transferPresent = receipt.transferRoot.contains(where: { $0 != 0 })
+  let recorded = receipt.encodingVersion != 4 && attachments.authorization == nil && transferPresent
+  let authorityRequired = candidate || receipt.encodingVersion == 4 && successful
+  guard
+    recorded
+      || (authorityRequired
+        ? (attachments.authorization != nil) == transferPresent : attachments.authorization == nil)
+  else {
+    throw programVerification()
+  }
+  if let authorization = attachments.authorization {
+    guard !authorization.isEmpty, attachments.transferRoot == receipt.transferRoot else {
+      throw programVerification()
     }
-    return recorded ? "recorded_terminal_root_not_locally_reconstructable" : "reconstructed"
+    guard try receipt.encodingVersion != 4 || authorizationV2(authorization) else {
+      throw programVerification()
+    }
+    try verifyAuthorizationRoot(authorization, expected: receipt.transferRoot)
+  }
+  return recorded ? "recorded_terminal_root_not_locally_reconstructable" : "reconstructed"
 }
 
 private func verifyAuthorizationRoot(_ encoded: Data, expected: Data) throws {
-    guard try decodeAuthorizationRoot(encoded) == expected else { throw programVerification() }
+  guard try decodeAuthorizationRoot(encoded) == expected else { throw programVerification() }
 }
 
 private func authorizationV2(_ encoded: Data) throws -> Bool {
-    let domain = Data("LayerX/programs/402LXP/account-bound-set/v1\0".utf8)
-    var original = encoded
-    if starts(encoded, domain) {
-        var cursor = try TerminalCursor(encoded, offset: domain.count)
-        original = try cursor.sized32()
-    }
-    return starts(original, "LayerX/programs/402LXP/transfer-set/v2\0")
+  let domain = Data("LayerX/programs/402LXP/account-bound-set/v1\0".utf8)
+  var original = encoded
+  if starts(encoded, domain) {
+    var cursor = try TerminalCursor(encoded, offset: domain.count)
+    original = try cursor.sized32()
+  }
+  return starts(original, "LayerX/programs/402LXP/transfer-set/v2\0")
 }
 
 private func principalPaymentAccount(_ principal: Data, asset: Data, name: Data) throws -> Data {
-    guard name.count <= 512, name.allSatisfy({ ($0 >= 97 && $0 <= 122) || ($0 >= 48 && $0 <= 57) || [46, 95, 45, 58].contains($0) }),
-          let text = String(data: name, encoding: .ascii), text.hasPrefix("agent:"), !text.contains("::") else { throw programVerification() }
-    let suffix = text.hasSuffix(":main") ? ":main" : ":asset:" + asset.map { String(format: "%02x", $0) }.joined()
-    guard text.hasSuffix(suffix), text.utf8.count > 6 + suffix.utf8.count else { throw programVerification() }
-    let did = Data(text.utf8.dropFirst(6).dropLast(suffix.utf8.count))
-    guard did.first != 58, did.last != 58,
-          digest(Data("LXP/v1/did-id\0".utf8), bigEndian(UInt16(did.count)), did) == principal else { throw programVerification() }
-    return digest(Data("LX:ACCOUNT:v1".utf8), bigEndian(UInt32(name.count)), name)
+  guard name.count <= 512,
+    name.allSatisfy({
+      ($0 >= 97 && $0 <= 122) || ($0 >= 48 && $0 <= 57) || [46, 95, 45, 58].contains($0)
+    }),
+    let text = String(data: name, encoding: .ascii), text.hasPrefix("agent:"), !text.contains("::")
+  else { throw programVerification() }
+  let suffix =
+    text.hasSuffix(":main")
+    ? ":main" : ":asset:" + asset.map { String(format: "%02x", $0) }.joined()
+  guard text.hasSuffix(suffix), text.utf8.count > 6 + suffix.utf8.count else {
+    throw programVerification()
+  }
+  let did = Data(text.utf8.dropFirst(6).dropLast(suffix.utf8.count))
+  guard did.first != 58, did.last != 58,
+    digest(Data("LXP/v1/did-id\0".utf8), bigEndian(UInt16(did.count)), did) == principal
+  else { throw programVerification() }
+  return digest(Data("LX:ACCOUNT:v1".utf8), bigEndian(UInt32(name.count)), name)
 }
 
 private func decodeAuthorizationRoot(_ input: Data) throws -> Data {
-    var encoded = input
-    let boundDomain = Data("LayerX/programs/402LXP/account-bound-set/v1\0".utf8)
-    var names: TerminalCursor?
-    if starts(encoded, boundDomain) {
-        var wrapper = try TerminalCursor(encoded, offset: boundDomain.count)
-        encoded = try wrapper.sized32()
-        guard !starts(encoded, boundDomain) else { throw programVerification() }
-        names = wrapper
+  var encoded = input
+  let boundDomain = Data("LayerX/programs/402LXP/account-bound-set/v1\0".utf8)
+  var names: TerminalCursor?
+  if starts(encoded, boundDomain) {
+    var wrapper = try TerminalCursor(encoded, offset: boundDomain.count)
+    encoded = try wrapper.sized32()
+    guard !starts(encoded, boundDomain) else { throw programVerification() }
+    names = wrapper
+  }
+  let v1 = Data("LayerX/programs/402LXP/transfer-set/v1\0".utf8)
+  let v2 = Data("LayerX/programs/402LXP/transfer-set/v2\0".utf8)
+  let candidate = starts(encoded, v2)
+  let domain = candidate ? v2 : v1
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  guard starts(encoded, domain), try cursor.take(domain.count) == domain else {
+    throw programVerification()
+  }
+  try requireNonzero(cursor.take(32))
+  let principal = try cursor.take(32)
+  try requireNonzero(principal)
+  try requireNonzero(cursor.take(32))
+  _ = try decodeFrame(&cursor)
+  let eventLength = try cursor.u32()
+  try decodeEventEnvelope(cursor.take(Int(eventLength)))
+  let callCount = try cursor.u64()
+  guard callCount <= 64 else { throw programVerification() }
+  for _ in 0..<Int(callCount) {
+    try requireNonzero(cursor.take(32))
+    try requireNonzero(cursor.take(32))
+    try requireNonzero(cursor.take(32))
+    _ = try decodeFrame(&cursor)
+    _ = try decodeFrame(&cursor)
+    let capabilityLength = try cursor.u32()
+    try decodeCapabilitySet(cursor.take(Int(capabilityLength)), candidate: candidate)
+  }
+  let legCount = try cursor.u64()
+  guard legCount > 0, legCount <= 256 else { throw programVerification() }
+  var kernelLegs: [Data] = []
+  var total = UInt128Value(high: 0, low: 0)
+  for _ in 0..<Int(legCount) {
+    let frame = try decodeFrame(&cursor)
+    var source = principal
+    var authority: ProgramAuthorityBinding?
+    var funding: ProgramFundingBinding?
+    if candidate {
+      switch try cursor.u8() {
+      case 1:
+        source = try cursor.take(32)
+        try requireNonzero(source)
+        guard source == principal else { throw programVerification() }
+      case 2:
+        let authorityLength = try cursor.u32()
+        authority = try decodeProgramAuthority(cursor.take(Int(authorityLength)))
+        source = authority!.source
+      case 3:
+        source = try cursor.take(32)
+        try requireNonzero(source)
+        guard source == principal else { throw programVerification() }
+        let fundingLength = try cursor.u32()
+        funding = try decodeProgramFunding(cursor.take(Int(fundingLength)))
+      default: throw programVerification()
+      }
     }
-    let v1 = Data("LayerX/programs/402LXP/transfer-set/v1\0".utf8)
-    let v2 = Data("LayerX/programs/402LXP/transfer-set/v2\0".utf8)
-    let candidate = starts(encoded, v2); let domain = candidate ? v2 : v1
-    var cursor = try TerminalCursor(encoded, offset: 0)
-    guard starts(encoded, domain), try cursor.take(domain.count) == domain else { throw programVerification() }
-    try requireNonzero(cursor.take(32)); let principal = try cursor.take(32); try requireNonzero(principal)
-    try requireNonzero(cursor.take(32)); _ = try decodeFrame(&cursor)
-    let eventLength = try cursor.u32(); try decodeEventEnvelope(cursor.take(Int(eventLength)))
-    let callCount = try cursor.u64(); guard callCount <= 64 else { throw programVerification() }
-    for _ in 0..<Int(callCount) {
-        try requireNonzero(cursor.take(32)); try requireNonzero(cursor.take(32)); try requireNonzero(cursor.take(32))
-        _ = try decodeFrame(&cursor); _ = try decodeFrame(&cursor)
-        let capabilityLength = try cursor.u32(); try decodeCapabilitySet(cursor.take(Int(capabilityLength)), candidate: candidate)
+    let asset = try cursor.take(32)
+    let destination = try cursor.take(32)
+    let amount = try cursor.u128()
+    let program = try cursor.take(32)
+    try requireNonzero(asset)
+    try requireNonzero(destination)
+    try requireNonzero(program)
+    guard !isZero(amount) else { throw programVerification() }
+    if let authority {
+      guard authority.owner == program, authority.frame == frame, authority.asset == asset,
+        authority.destination == destination, authority.amount == amount
+      else { throw programVerification() }
     }
-    let legCount = try cursor.u64(); guard legCount > 0, legCount <= 256 else { throw programVerification() }
-    var kernelLegs: [Data] = []; var total = UInt128Value(high: 0, low: 0)
-    for _ in 0..<Int(legCount) {
-        let frame = try decodeFrame(&cursor); var source = principal
-        var authority: ProgramAuthorityBinding?; var funding: ProgramFundingBinding?
-        if candidate {
-            switch try cursor.u8() {
-            case 1:
-                source = try cursor.take(32); try requireNonzero(source)
-                guard source == principal else { throw programVerification() }
-            case 2:
-                let authorityLength = try cursor.u32(); authority = try decodeProgramAuthority(cursor.take(Int(authorityLength)))
-                source = authority!.source
-            case 3:
-                source = try cursor.take(32); try requireNonzero(source)
-                guard source == principal else { throw programVerification() }
-                let fundingLength = try cursor.u32(); funding = try decodeProgramFunding(cursor.take(Int(fundingLength)))
-            default: throw programVerification()
-            }
-        }
-        let asset = try cursor.take(32); let destination = try cursor.take(32); let amount = try cursor.u128()
-        let program = try cursor.take(32); try requireNonzero(asset); try requireNonzero(destination); try requireNonzero(program)
-        guard !isZero(amount) else { throw programVerification() }
-        if let authority {
-            guard authority.owner == program, authority.frame == frame, authority.asset == asset,
-                  authority.destination == destination, authority.amount == amount else { throw programVerification() }
-        }
-        if let funding {
-            guard funding.owner == program, funding.destination == destination, funding.asset == asset else {
-                throw programVerification()
-            }
-        }
-        if var wrapper = names {
-            let length = try wrapper.u16()
-            let name = try wrapper.take(Int(length))
-            if authority != nil { guard name.isEmpty else { throw programVerification() } }
-            else { source = try principalPaymentAccount(source, asset: asset, name: name) }
-            names = wrapper
-        }
-        total = try checkedAdd(total, amount)
-        kernelLegs.append(concatenated([Data([0]), source, destination, asset, bigEndian128(amount), bigEndian(UInt16(1))]))
+    if let funding {
+      guard funding.owner == program, funding.destination == destination, funding.asset == asset
+      else {
+        throw programVerification()
+      }
     }
-    try cursor.finish(); try names?.finish(); _ = total
-    return merkleRoot(kernelLegs)
+    if var wrapper = names {
+      let length = try wrapper.u16()
+      let name = try wrapper.take(Int(length))
+      if authority != nil {
+        guard name.isEmpty else { throw programVerification() }
+      } else {
+        source = try principalPaymentAccount(source, asset: asset, name: name)
+      }
+      names = wrapper
+    }
+    total = try checkedAdd(total, amount)
+    kernelLegs.append(
+      concatenated([
+        Data([0]), source, destination, asset, bigEndian128(amount), bigEndian(UInt16(1)),
+      ]))
+  }
+  try cursor.finish()
+  try names?.finish()
+  _ = total
+  return merkleRoot(kernelLegs)
 }
 
 private func decodeProgramAuthority(_ encoded: Data) throws -> ProgramAuthorityBinding {
-    let domain = Data("LayerX/programs/402LXP/program-authority/v1\0".utf8)
-    var cursor = try TerminalCursor(encoded, offset: 0)
-    guard try cursor.take(domain.count) == domain else { throw programVerification() }
-    let owner = try cursor.take(32); try requireNonzero(owner)
-    let seedLength = try cursor.u16(); guard seedLength <= 128 else { throw programVerification() }
-    let seed = try cursor.take(Int(seedLength)); let source = try cursor.take(32); let frame = try decodeFrame(&cursor)
-    let asset = try cursor.take(32); let destination = try cursor.take(32); let amount = try cursor.u128(); try cursor.finish()
-    try requireNonzero(asset); try requireNonzero(destination)
-    guard !isZero(amount), deriveProgramAccount(owner: owner, seed: seed) == source else { throw programVerification() }
-    return .init(owner: owner, frame: frame, source: source, asset: asset, destination: destination, amount: amount)
+  let domain = Data("LayerX/programs/402LXP/program-authority/v1\0".utf8)
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  guard try cursor.take(domain.count) == domain else { throw programVerification() }
+  let owner = try cursor.take(32)
+  try requireNonzero(owner)
+  let seedLength = try cursor.u16()
+  guard seedLength <= 128 else { throw programVerification() }
+  let seed = try cursor.take(Int(seedLength))
+  let source = try cursor.take(32)
+  let frame = try decodeFrame(&cursor)
+  let asset = try cursor.take(32)
+  let destination = try cursor.take(32)
+  let amount = try cursor.u128()
+  try cursor.finish()
+  try requireNonzero(asset)
+  try requireNonzero(destination)
+  guard !isZero(amount), deriveProgramAccount(owner: owner, seed: seed) == source else {
+    throw programVerification()
+  }
+  return .init(
+    owner: owner, frame: frame, source: source, asset: asset, destination: destination,
+    amount: amount)
 }
 
 private func decodeProgramFunding(_ encoded: Data) throws -> ProgramFundingBinding {
-    let domain = Data("LayerX/programs/402LXP/program-funding/v1\0".utf8)
-    var cursor = try TerminalCursor(encoded, offset: 0)
-    guard try cursor.take(domain.count) == domain else { throw programVerification() }
-    let owner = try cursor.take(32); try requireNonzero(owner)
-    let seedLength = try cursor.u16(); guard seedLength <= 128 else { throw programVerification() }
-    let seed = try cursor.take(Int(seedLength)); let destination = try cursor.take(32); let asset = try cursor.take(32)
-    try cursor.finish(); try requireNonzero(destination); try requireNonzero(asset)
-    guard deriveProgramAccount(owner: owner, seed: seed) == destination else { throw programVerification() }
-    return .init(owner: owner, destination: destination, asset: asset)
+  let domain = Data("LayerX/programs/402LXP/program-funding/v1\0".utf8)
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  guard try cursor.take(domain.count) == domain else { throw programVerification() }
+  let owner = try cursor.take(32)
+  try requireNonzero(owner)
+  let seedLength = try cursor.u16()
+  guard seedLength <= 128 else { throw programVerification() }
+  let seed = try cursor.take(Int(seedLength))
+  let destination = try cursor.take(32)
+  let asset = try cursor.take(32)
+  try cursor.finish()
+  try requireNonzero(destination)
+  try requireNonzero(asset)
+  guard deriveProgramAccount(owner: owner, seed: seed) == destination else {
+    throw programVerification()
+  }
+  return .init(owner: owner, destination: destination, asset: asset)
 }
 
 private func deriveProgramAccount(owner: Data, seed: Data) -> Data {
-    digest(Data("LayerX/programs/program-account/v1\0".utf8), owner, bigEndian(UInt32(seed.count)), seed)
+  digest(
+    Data("LayerX/programs/program-account/v1\0".utf8), owner, bigEndian(UInt32(seed.count)), seed)
 }
 
 private func decodeEventEnvelope(_ encoded: Data) throws {
-    let domain = Data("LayerX/programs/events/v1\0".utf8)
-    var cursor = try TerminalCursor(encoded, offset: 0)
-    guard try cursor.take(domain.count) == domain else { throw programVerification() }
-    let count = try cursor.u32(); guard count <= 64 else { throw programVerification() }
-    for _ in 0..<Int(count) {
-        try requireNonzero(cursor.take(32)); try requireNonzero(cursor.take(32)); _ = try decodeFrame(&cursor)
-        let topic = try cursor.sized32(); let payload = try cursor.sized32()
-        guard topic.count <= 64, payload.count <= 65_536 else { throw programVerification() }
-    }
-    try cursor.finish()
+  let domain = Data("LayerX/programs/events/v1\0".utf8)
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  guard try cursor.take(domain.count) == domain else { throw programVerification() }
+  let count = try cursor.u32()
+  guard count <= 64 else { throw programVerification() }
+  for _ in 0..<Int(count) {
+    try requireNonzero(cursor.take(32))
+    try requireNonzero(cursor.take(32))
+    _ = try decodeFrame(&cursor)
+    let topic = try cursor.sized32()
+    let payload = try cursor.sized32()
+    guard topic.count <= 64, payload.count <= 65_536 else { throw programVerification() }
+  }
+  try cursor.finish()
 }
 
 private func decodeFrame(_ cursor: inout TerminalCursor) throws -> Data {
-    let path = try cursor.take(8); let depth = try cursor.u8(); let pathBytes = [UInt8](path)
-    guard depth <= 8,
-          pathBytes.prefix(Int(depth)).allSatisfy({ $0 != 0 }),
-          pathBytes.dropFirst(Int(depth)).allSatisfy({ $0 == 0 }) else { throw programVerification() }
-    return concatenated([path, Data([depth])])
+  let path = try cursor.take(8)
+  let depth = try cursor.u8()
+  let pathBytes = [UInt8](path)
+  guard depth <= 8,
+    pathBytes.prefix(Int(depth)).allSatisfy({ $0 != 0 }),
+    pathBytes.dropFirst(Int(depth)).allSatisfy({ $0 == 0 })
+  else { throw programVerification() }
+  return concatenated([path, Data([depth])])
 }
 
 private func decodeCapabilitySet(_ encoded: Data, candidate v2: Bool) throws {
-    for grant in try NativeCapabilitySet.decode(encoded) {
-        switch grant {
-        case .programSpend, .balanceView:
-            guard v2 else { throw programVerification() }
-        default: break
-        }
+  for grant in try NativeCapabilitySet.decode(encoded) {
+    switch grant {
+    case .programSpend, .balanceView:
+      guard v2 else { throw programVerification() }
+    default: break
     }
+  }
 }
 
 private func decodeOccupancySettlement(_ encoded: Data) throws -> OccupancySettlementBinding {
-    guard encoded.count <= 65_536 else { throw programVerification() }
-    let v1 = Data("LXP/storage-occupancy-settlement/v1\0".utf8)
-    let v2 = Data("LXP/storage-occupancy-settlement/v2\0".utf8)
-    let v3 = Data("LXP/storage-occupancy-settlement/v3\0".utf8)
-    if starts(encoded, v1) || starts(encoded, v2) { return try decodeLegacyOccupancy(encoded, v1: v1, v2: v2) }
-    var cursor = try TerminalCursor(encoded, offset: 0)
-    guard try cursor.take(v3.count) == v3 else { throw programVerification() }
-    let batch = try cursor.u64(); let occupancyPrice = try decodeOccupancySchedule(&cursor, versioned: true)
-    let declaredUnits = try cursor.u128(); let declaredFee = try cursor.u128()
-    let declaredPaid = try cursor.u128(); let declaredArrears = try cursor.u128()
-    let count = try cursor.u32(); guard count <= 256 else { throw programVerification() }
-    var byteBatches = UInt128Value(high: 0, low: 0); var feeUnits = byteBatches
-    var paidUnits = byteBatches; var arrearsUnits = byteBatches; var priorNamespace: Data?
-    var charges: [OccupancyChargeBinding] = []
-    for _ in 0..<Int(count) {
-        let namespace = try decodeStorageNamespace(&cursor)
-        if let priorNamespace { guard compareData(priorNamespace, namespace.canonical) < 0 else { throw programVerification() } }
-        priorNamespace = namespace.canonical
-        let payer = try cursor.take(32); try requireNonzero(payer)
-        if let principal = namespace.principal { guard principal == payer else { throw programVerification() } }
-        let rootProgram = try cursor.take(32); try requireNonzero(rootProgram)
-        let activity = try cursor.take(32); let fromBatch = try cursor.u64(); let toBatch = try cursor.u64()
-        let recordedBytes = try cursor.u64(); let finalBytes = try cursor.u64(); let units = try cursor.u128()
-        let price = try cursor.u64(); let accrued = try cursor.u128(); let priorArrears = try cursor.u128()
-        let amountDue = try cursor.u128(); let authorizedAdded = try cursor.u128(); let disposition = try cursor.u8()
-        guard (1...5).contains(disposition) else { throw programVerification() }
-        let arrearsAfter = try cursor.u128(); let maximumBytes = try cursor.u64(); let maximumPrice = try cursor.u64()
-        _ = try cursor.u128(); let mandate = try cursor.take(32)
-        guard toBatch >= fromBatch else { throw programVerification() }
-        let expectedUnits = try checkedMultiply(recordedBytes, toBatch - fromBatch)
-        let expectedFee = try checkedMultiply(expectedUnits, price)
-        let expectedDue = try checkedAdd(priorArrears, expectedFee); let migration = disposition == 5
-        guard toBatch == batch, migration || price == occupancyPrice, units == expectedUnits, accrued == expectedFee,
-              amountDue == expectedDue, finalBytes <= maximumBytes,
-              migration || (mandate.contains(where: { $0 != 0 }) && activity.contains(where: { $0 != 0 })),
-              !migration || (price == 0 && isZero(accrued) && isZero(priorArrears) && isZero(amountDue)
-                && isZero(arrearsAfter) && mandate.allSatisfy({ $0 == 0 }) && activity.allSatisfy({ $0 == 0 })
-                && rootProgram == namespace.program),
-              (disposition == 4) == (price > maximumPrice),
-              disposition != 1 || isZero(arrearsAfter), disposition == 1 || arrearsAfter == amountDue else {
-            throw programVerification()
-        }
-        if !isZero(authorizedAdded) {
-            let expectedMandate = digest(Data("LXP/storage-occupancy-mandate/v1\0".utf8), payer, rootProgram,
-                activity, namespace.wire, bigEndian(maximumBytes), bigEndian(maximumPrice), bigEndian128(authorizedAdded))
-            guard mandate == expectedMandate else { throw programVerification() }
-        }
-        byteBatches = try checkedAdd(byteBatches, units); feeUnits = try checkedAdd(feeUnits, accrued)
-        if disposition == 1 { paidUnits = try checkedAdd(paidUnits, amountDue) }
-        else { arrearsUnits = try checkedAdd(arrearsUnits, arrearsAfter) }
-        charges.append(.init(payer: payer, amountDue: amountDue, paid: disposition == 1, arrearsAfter: arrearsAfter))
+  guard encoded.count <= 65_536 else { throw programVerification() }
+  let v1 = Data("LXP/storage-occupancy-settlement/v1\0".utf8)
+  let v2 = Data("LXP/storage-occupancy-settlement/v2\0".utf8)
+  let v3 = Data("LXP/storage-occupancy-settlement/v3\0".utf8)
+  if starts(encoded, v1) || starts(encoded, v2) {
+    return try decodeLegacyOccupancy(encoded, v1: v1, v2: v2)
+  }
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  guard try cursor.take(v3.count) == v3 else { throw programVerification() }
+  let batch = try cursor.u64()
+  let occupancyPrice = try decodeOccupancySchedule(&cursor, versioned: true)
+  let declaredUnits = try cursor.u128()
+  let declaredFee = try cursor.u128()
+  let declaredPaid = try cursor.u128()
+  let declaredArrears = try cursor.u128()
+  let count = try cursor.u32()
+  guard count <= 256 else { throw programVerification() }
+  var byteBatches = UInt128Value(high: 0, low: 0)
+  var feeUnits = byteBatches
+  var paidUnits = byteBatches
+  var arrearsUnits = byteBatches
+  var priorNamespace: Data?
+  var charges: [OccupancyChargeBinding] = []
+  for _ in 0..<Int(count) {
+    let namespace = try decodeStorageNamespace(&cursor)
+    if let priorNamespace {
+      guard compareData(priorNamespace, namespace.canonical) < 0 else {
+        throw programVerification()
+      }
     }
-    try cursor.finish()
-    guard byteBatches == declaredUnits, feeUnits == declaredFee, paidUnits == declaredPaid,
-          arrearsUnits == declaredArrears else { throw programVerification() }
-    return .init(byteBatches: byteBatches, feeUnits: feeUnits, charges: charges)
+    priorNamespace = namespace.canonical
+    let payer = try cursor.take(32)
+    try requireNonzero(payer)
+    if let principal = namespace.principal {
+      guard principal == payer else { throw programVerification() }
+    }
+    let rootProgram = try cursor.take(32)
+    try requireNonzero(rootProgram)
+    let activity = try cursor.take(32)
+    let fromBatch = try cursor.u64()
+    let toBatch = try cursor.u64()
+    let recordedBytes = try cursor.u64()
+    let finalBytes = try cursor.u64()
+    let units = try cursor.u128()
+    let price = try cursor.u64()
+    let accrued = try cursor.u128()
+    let priorArrears = try cursor.u128()
+    let amountDue = try cursor.u128()
+    let authorizedAdded = try cursor.u128()
+    let disposition = try cursor.u8()
+    guard (1...5).contains(disposition) else { throw programVerification() }
+    let arrearsAfter = try cursor.u128()
+    let maximumBytes = try cursor.u64()
+    let maximumPrice = try cursor.u64()
+    _ = try cursor.u128()
+    let mandate = try cursor.take(32)
+    guard toBatch >= fromBatch else { throw programVerification() }
+    let expectedUnits = try checkedMultiply(recordedBytes, toBatch - fromBatch)
+    let expectedFee = try checkedMultiply(expectedUnits, price)
+    let expectedDue = try checkedAdd(priorArrears, expectedFee)
+    let migration = disposition == 5
+    guard toBatch == batch, migration || price == occupancyPrice, units == expectedUnits,
+      accrued == expectedFee,
+      amountDue == expectedDue, finalBytes <= maximumBytes,
+      migration || (mandate.contains(where: { $0 != 0 }) && activity.contains(where: { $0 != 0 })),
+      !migration
+        || (price == 0 && isZero(accrued) && isZero(priorArrears) && isZero(amountDue)
+          && isZero(arrearsAfter) && mandate.allSatisfy({ $0 == 0 })
+          && activity.allSatisfy({ $0 == 0 })
+          && rootProgram == namespace.program),
+      (disposition == 4) == (price > maximumPrice),
+      disposition != 1 || isZero(arrearsAfter), disposition == 1 || arrearsAfter == amountDue
+    else {
+      throw programVerification()
+    }
+    if !isZero(authorizedAdded) {
+      let expectedMandate = digest(
+        Data("LXP/storage-occupancy-mandate/v1\0".utf8), payer, rootProgram,
+        activity, namespace.wire, bigEndian(maximumBytes), bigEndian(maximumPrice),
+        bigEndian128(authorizedAdded))
+      guard mandate == expectedMandate else { throw programVerification() }
+    }
+    byteBatches = try checkedAdd(byteBatches, units)
+    feeUnits = try checkedAdd(feeUnits, accrued)
+    if disposition == 1 {
+      paidUnits = try checkedAdd(paidUnits, amountDue)
+    } else {
+      arrearsUnits = try checkedAdd(arrearsUnits, arrearsAfter)
+    }
+    charges.append(
+      .init(payer: payer, amountDue: amountDue, paid: disposition == 1, arrearsAfter: arrearsAfter))
+  }
+  try cursor.finish()
+  guard byteBatches == declaredUnits, feeUnits == declaredFee, paidUnits == declaredPaid,
+    arrearsUnits == declaredArrears
+  else { throw programVerification() }
+  return .init(byteBatches: byteBatches, feeUnits: feeUnits, charges: charges)
 }
 
-private func decodeLegacyOccupancy(_ encoded: Data, v1: Data, v2: Data) throws -> OccupancySettlementBinding {
-    let versioned = starts(encoded, v2); let domain = versioned ? v2 : v1
-    var cursor = try TerminalCursor(encoded, offset: 0)
-    guard try cursor.take(domain.count) == domain else { throw programVerification() }
-    let batch = try cursor.u64(); let occupancyPrice = try decodeOccupancySchedule(&cursor, versioned: versioned)
-    let declaredUnits = try cursor.u128(); let declaredFee = try cursor.u128(); let count = try cursor.u64()
-    guard count <= 256 else { throw programVerification() }
-    var byteBatches = UInt128Value(high: 0, low: 0); var feeUnits = byteBatches; var charges: [OccupancyChargeBinding] = []
-    for _ in 0..<Int(count) {
-        _ = try decodeStorageNamespace(&cursor); let payer = try cursor.take(32); try requireNonzero(payer)
-        let fromBatch = try cursor.u64(); let toBatch = try cursor.u64(); let recordedBytes = try cursor.u64(); _ = try cursor.u64()
-        let units = try cursor.u128(); let price = try cursor.u64(); let accrued = try cursor.u128()
-        guard toBatch >= fromBatch else { throw programVerification() }
-        let expectedUnits = try checkedMultiply(recordedBytes, toBatch - fromBatch)
-        let expectedAccrued = try checkedMultiply(expectedUnits, price)
-        guard toBatch == batch, units == expectedUnits, price == occupancyPrice,
-              accrued == expectedAccrued else { throw programVerification() }
-        byteBatches = try checkedAdd(byteBatches, units); feeUnits = try checkedAdd(feeUnits, accrued)
-        charges.append(.init(payer: payer, amountDue: accrued, paid: true, arrearsAfter: .init(high: 0, low: 0)))
-    }
-    try cursor.finish(); guard byteBatches == declaredUnits, feeUnits == declaredFee else { throw programVerification() }
-    return .init(byteBatches: byteBatches, feeUnits: feeUnits, charges: charges)
+private func decodeLegacyOccupancy(_ encoded: Data, v1: Data, v2: Data) throws
+  -> OccupancySettlementBinding
+{
+  let versioned = starts(encoded, v2)
+  let domain = versioned ? v2 : v1
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  guard try cursor.take(domain.count) == domain else { throw programVerification() }
+  let batch = try cursor.u64()
+  let occupancyPrice = try decodeOccupancySchedule(&cursor, versioned: versioned)
+  let declaredUnits = try cursor.u128()
+  let declaredFee = try cursor.u128()
+  let count = try cursor.u64()
+  guard count <= 256 else { throw programVerification() }
+  var byteBatches = UInt128Value(high: 0, low: 0)
+  var feeUnits = byteBatches
+  var charges: [OccupancyChargeBinding] = []
+  for _ in 0..<Int(count) {
+    _ = try decodeStorageNamespace(&cursor)
+    let payer = try cursor.take(32)
+    try requireNonzero(payer)
+    let fromBatch = try cursor.u64()
+    let toBatch = try cursor.u64()
+    let recordedBytes = try cursor.u64()
+    _ = try cursor.u64()
+    let units = try cursor.u128()
+    let price = try cursor.u64()
+    let accrued = try cursor.u128()
+    guard toBatch >= fromBatch else { throw programVerification() }
+    let expectedUnits = try checkedMultiply(recordedBytes, toBatch - fromBatch)
+    let expectedAccrued = try checkedMultiply(expectedUnits, price)
+    guard toBatch == batch, units == expectedUnits, price == occupancyPrice,
+      accrued == expectedAccrued
+    else { throw programVerification() }
+    byteBatches = try checkedAdd(byteBatches, units)
+    feeUnits = try checkedAdd(feeUnits, accrued)
+    charges.append(
+      .init(payer: payer, amountDue: accrued, paid: true, arrearsAfter: .init(high: 0, low: 0)))
+  }
+  try cursor.finish()
+  guard byteBatches == declaredUnits, feeUnits == declaredFee else { throw programVerification() }
+  return .init(byteBatches: byteBatches, feeUnits: feeUnits, charges: charges)
 }
 
-private func decodeOccupancySchedule(_ cursor: inout TerminalCursor, versioned: Bool) throws -> UInt64 {
-    let version: UInt32 = versioned ? try cursor.u32() : 1; guard version != 0 else { throw programVerification() }
-    var occupancyPrice: UInt64 = 0; for _ in 0..<7 { occupancyPrice = try cursor.u64() }; return occupancyPrice
+private func decodeOccupancySchedule(_ cursor: inout TerminalCursor, versioned: Bool) throws
+  -> UInt64
+{
+  let version: UInt32 = versioned ? try cursor.u32() : 1
+  guard version != 0 else { throw programVerification() }
+  var occupancyPrice: UInt64 = 0
+  for _ in 0..<7 { occupancyPrice = try cursor.u64() }
+  return occupancyPrice
 }
 
-private func decodeStorageNamespace(_ cursor: inout TerminalCursor) throws -> StorageNamespaceBinding {
-    let length = try cursor.u8(); guard length == 33 || length == 65 else { throw programVerification() }
-    let canonical = try cursor.take(Int(length)); let program = Data(canonical.prefix(32)); try requireNonzero(program)
-    let tag = canonical[canonical.index(canonical.startIndex, offsetBy: 32)]; var principal: Data?
-    if tag == 0 && length == 65 {
-        principal = Data(canonical.dropFirst(33)); try requireNonzero(principal!)
-    } else if !(tag == 1 && length == 33) && !(tag == 2 && length == 65) { throw programVerification() }
-    return .init(canonical: canonical, wire: concatenated([Data([length]), canonical]), program: program, principal: principal)
+private func decodeStorageNamespace(_ cursor: inout TerminalCursor) throws
+  -> StorageNamespaceBinding
+{
+  let length = try cursor.u8()
+  guard length == 33 || length == 65 else { throw programVerification() }
+  let canonical = try cursor.take(Int(length))
+  let program = Data(canonical.prefix(32))
+  try requireNonzero(program)
+  let tag = canonical[canonical.index(canonical.startIndex, offsetBy: 32)]
+  var principal: Data?
+  if tag == 0 && length == 65 {
+    principal = Data(canonical.dropFirst(33))
+    try requireNonzero(principal!)
+  } else if !(tag == 1 && length == 33) && !(tag == 2 && length == 65) {
+    throw programVerification()
+  }
+  return .init(
+    canonical: canonical, wire: concatenated([Data([length]), canonical]), program: program,
+    principal: principal)
 }
 
-private func occupancyTransferRoot(_ settlement: OccupancySettlementBinding, asset: Data) throws -> Data {
-    guard asset.count == 32 else { throw programVerification() }; try requireNonzero(asset)
-    var payers: [Data: (due: UInt128Value, paid: UInt128Value, arrears: UInt128Value)] = [:]
-    let zero = UInt128Value(high: 0, low: 0)
-    for charge in settlement.charges {
-        var entry = payers[charge.payer] ?? (zero, zero, zero)
-        entry.due = try checkedAdd(entry.due, charge.amountDue)
-        if charge.paid { entry.paid = try checkedAdd(entry.paid, charge.amountDue) }
-        entry.arrears = try checkedAdd(entry.arrears, charge.arrearsAfter); payers[charge.payer] = entry
+private func occupancyTransferRoot(_ settlement: OccupancySettlementBinding, asset: Data) throws
+  -> Data
+{
+  guard asset.count == 32 else { throw programVerification() }
+  try requireNonzero(asset)
+  var payers: [Data: (due: UInt128Value, paid: UInt128Value, arrears: UInt128Value)] = [:]
+  let zero = UInt128Value(high: 0, low: 0)
+  for charge in settlement.charges {
+    var entry = payers[charge.payer] ?? (zero, zero, zero)
+    entry.due = try checkedAdd(entry.due, charge.amountDue)
+    if charge.paid { entry.paid = try checkedAdd(entry.paid, charge.amountDue) }
+    entry.arrears = try checkedAdd(entry.arrears, charge.arrearsAfter)
+    payers[charge.payer] = entry
+  }
+  let treasury = digest(Data("LX:ACCOUNT:v1".utf8), bigEndian(UInt32(11)), Data("system:fees".utf8))
+  var legs: [Data] = []
+  for payer in payers.keys.sorted(by: { compareData($0, $1) < 0 }) {
+    let entry = payers[payer]!
+    if !isZero(entry.due) || !isZero(entry.arrears), !isZero(entry.paid) {
+      legs.append(
+        concatenated([
+          Data([0]), payer, treasury, asset, bigEndian128(entry.paid), bigEndian(UInt16(23)),
+        ]))
     }
-    let treasury = digest(Data("LX:ACCOUNT:v1".utf8), bigEndian(UInt32(11)), Data("system:fees".utf8))
-    var legs: [Data] = []
-    for payer in payers.keys.sorted(by: { compareData($0, $1) < 0 }) {
-        let entry = payers[payer]!
-        if !isZero(entry.due) || !isZero(entry.arrears), !isZero(entry.paid) {
-            legs.append(concatenated([Data([0]), payer, treasury, asset, bigEndian128(entry.paid), bigEndian(UInt16(23))]))
-        }
-    }
-    return merkleRoot(legs)
+  }
+  return merkleRoot(legs)
 }
 
 func unwrapAppliedTerminal(_ encoded: Data, receipt: ProgramReceiptOutcome) throws -> Data {
-    if receipt.encodingVersion != 4 { return encoded }
-    let domain = Data("LXP/programs/terminal-applied-legs/v1\0".utf8)
-    var cursor = try TerminalCursor(encoded, offset: 0)
-    guard try cursor.take(domain.count) == domain else { throw programVerification() }
-    let inner = try cursor.sized32(); let legs = try cursor.sized32(); try cursor.finish()
-    guard !inner.isEmpty, inner.count <= 1_048_576,
-          Data(SHA256.hash(data: legs)) == receipt.appliedLegsDigest else { throw programVerification() }
-    try verifyAppliedLegs(legs, expected: receipt.transferRoot)
-    return inner
+  if receipt.encodingVersion != 4 { return encoded }
+  let domain = Data("LXP/programs/terminal-applied-legs/v1\0".utf8)
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  guard try cursor.take(domain.count) == domain else { throw programVerification() }
+  let inner = try cursor.sized32()
+  let legs = try cursor.sized32()
+  try cursor.finish()
+  guard !inner.isEmpty, inner.count <= 1_048_576,
+    Data(SHA256.hash(data: legs)) == receipt.appliedLegsDigest
+  else { throw programVerification() }
+  try verifyAppliedLegs(legs, expected: receipt.transferRoot)
+  return inner
 }
 
 func verifyAppliedLegs(_ encoded: Data, expected: Data) throws {
-    guard encoded.count <= 256 * 115, encoded.count % 115 == 0 else { throw programVerification() }
-    let bytes = [UInt8](encoded)
-    var legs: [Data] = []
-    for offset in stride(from: 0, to: bytes.count, by: 115) {
-        let leg = Array(bytes[offset..<(offset + 115)])
-        guard leg[0] == 0, leg[113] == 0, leg[114] == 1,
-              leg[1..<33].contains(where: { $0 != 0 }), leg[33..<65].contains(where: { $0 != 0 }),
-              leg[65..<97].contains(where: { $0 != 0 }), leg[97..<113].contains(where: { $0 != 0 }) else { throw programVerification() }
-        legs.append(Data(leg))
-    }
-    guard merkleRoot(legs) == expected else { throw programVerification() }
+  guard encoded.count <= 256 * 115, encoded.count % 115 == 0 else { throw programVerification() }
+  let bytes = [UInt8](encoded)
+  var legs: [Data] = []
+  for offset in stride(from: 0, to: bytes.count, by: 115) {
+    let leg = Array(bytes[offset..<(offset + 115)])
+    guard leg[0] == 0, leg[113] == 0, leg[114] == 1,
+      leg[1..<33].contains(where: { $0 != 0 }), leg[33..<65].contains(where: { $0 != 0 }),
+      leg[65..<97].contains(where: { $0 != 0 }), leg[97..<113].contains(where: { $0 != 0 })
+    else { throw programVerification() }
+    legs.append(Data(leg))
+  }
+  guard merkleRoot(legs) == expected else { throw programVerification() }
 }
 
 private func merkleRoot(_ legs: [Data]) -> Data {
-    guard !legs.isEmpty else { return Data(repeating: 0, count: 32) }
-    var level = legs.map { digest(Data("LXP/v1/merkle-leaf\0".utf8), $0) }
-    while level.count > 1 {
-        var next: [Data] = []; var index = 0
-        while index < level.count {
-            let right = index + 1 < level.count ? level[index + 1] : level[index]
-            next.append(digest(Data("LXP/v1/merkle-internal\0".utf8), level[index], right)); index += 2
-        }
-        level = next
+  guard !legs.isEmpty else { return Data(repeating: 0, count: 32) }
+  var level = legs.map { digest(Data("LXP/v1/merkle-leaf\0".utf8), $0) }
+  while level.count > 1 {
+    var next: [Data] = []
+    var index = 0
+    while index < level.count {
+      let right = index + 1 < level.count ? level[index + 1] : level[index]
+      next.append(digest(Data("LXP/v1/merkle-internal\0".utf8), level[index], right))
+      index += 2
     }
-    return level[0]
+    level = next
+  }
+  return level[0]
 }
 
 private func checkedAdd(_ left: UInt128Value, _ right: UInt128Value) throws -> UInt128Value {
-    let (low, carry) = left.low.addingReportingOverflow(right.low)
-    let (highValue, overflow) = left.high.addingReportingOverflow(right.high)
-    let (high, carryOverflow) = highValue.addingReportingOverflow(carry ? 1 : 0)
-    guard !overflow, !carryOverflow else { throw programVerification() }; return .init(high: high, low: low)
+  let (low, carry) = left.low.addingReportingOverflow(right.low)
+  let (highValue, overflow) = left.high.addingReportingOverflow(right.high)
+  let (high, carryOverflow) = highValue.addingReportingOverflow(carry ? 1 : 0)
+  guard !overflow, !carryOverflow else { throw programVerification() }
+  return .init(high: high, low: low)
 }
 
 private func checkedMultiply(_ left: UInt64, _ right: UInt64) throws -> UInt128Value {
-    let product = left.multipliedFullWidth(by: right); return .init(high: product.high, low: product.low)
+  let product = left.multipliedFullWidth(by: right)
+  return .init(high: product.high, low: product.low)
 }
 
 private func checkedMultiply(_ left: UInt128Value, _ right: UInt64) throws -> UInt128Value {
-    let lowProduct = left.low.multipliedFullWidth(by: right)
-    let (highProduct, overflow) = left.high.multipliedReportingOverflow(by: right)
-    let (high, carryOverflow) = highProduct.addingReportingOverflow(lowProduct.high)
-    guard !overflow, !carryOverflow else { throw programVerification() }; return .init(high: high, low: lowProduct.low)
+  let lowProduct = left.low.multipliedFullWidth(by: right)
+  let (highProduct, overflow) = left.high.multipliedReportingOverflow(by: right)
+  let (high, carryOverflow) = highProduct.addingReportingOverflow(lowProduct.high)
+  guard !overflow, !carryOverflow else { throw programVerification() }
+  return .init(high: high, low: lowProduct.low)
 }
 
 private func isZero(_ value: UInt128Value) -> Bool { value.high == 0 && value.low == 0 }
 
 private func concatenated(_ values: [Data]) -> Data {
-    var result = Data(); values.forEach { result.append($0) }; return result
+  var result = Data()
+  values.forEach { result.append($0) }
+  return result
 }
 
 private func compareData(_ left: Data, _ right: Data) -> Int {
-    let leftBytes = [UInt8](left); let rightBytes = [UInt8](right)
-    for index in 0..<min(leftBytes.count, rightBytes.count) {
-        if leftBytes[index] != rightBytes[index] { return Int(leftBytes[index]) - Int(rightBytes[index]) }
+  let leftBytes = [UInt8](left)
+  let rightBytes = [UInt8](right)
+  for index in 0..<min(leftBytes.count, rightBytes.count) {
+    if leftBytes[index] != rightBytes[index] {
+      return Int(leftBytes[index]) - Int(rightBytes[index])
     }
-    return leftBytes.count - rightBytes.count
+  }
+  return leftBytes.count - rightBytes.count
 }
 
 enum ProgramsWireTestSupport {
-    static func authorizationRoot(_ encoded: Data) throws -> Data {
-        try decodeAuthorizationRoot(encoded)
-    }
+  static func authorizationRoot(_ encoded: Data) throws -> Data {
+    try decodeAuthorizationRoot(encoded)
+  }
 
-    static func occupancyBinding(_ encoded: Data, asset: Data) throws -> (UInt128Value, UInt128Value, Data) {
-        let settlement = try decodeOccupancySettlement(encoded)
-        return (settlement.byteBatches, settlement.feeUnits, try occupancyTransferRoot(settlement, asset: asset))
-    }
+  static func occupancyBinding(_ encoded: Data, asset: Data) throws -> (
+    UInt128Value, UInt128Value, Data
+  ) {
+    let settlement = try decodeOccupancySettlement(encoded)
+    return (
+      settlement.byteBatches, settlement.feeUnits,
+      try occupancyTransferRoot(settlement, asset: asset)
+    )
+  }
 }
 
 private func validateAuthenticatedProgramFailure(_ encoded: Data) throws {
-    var cursor = try TerminalCursor(encoded, offset: 0); let program = try cursor.take(32)
-    let failureClass = try cursor.u32(); let reason = try cursor.sized32(); try cursor.finish()
-    guard program.contains(where: { $0 != 0 }), [1, 2, 3, 4, 5, 254, 255].contains(failureClass),
-          reason.count <= 4_096, ![254, 255].contains(failureClass) || reason.isEmpty else { throw programVerification() }
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  let program = try cursor.take(32)
+  let failureClass = try cursor.u32()
+  let reason = try cursor.sized32()
+  try cursor.finish()
+  guard program.contains(where: { $0 != 0 }), [1, 2, 3, 4, 5, 254, 255].contains(failureClass),
+    reason.count <= 4_096, ![254, 255].contains(failureClass) || reason.isEmpty
+  else { throw programVerification() }
 }
 
 private func validateFailureDetail(_ family: UInt8, _ encoded: Data) throws {
-    if family == 1 { try validateAuthenticatedProgramFailure(encoded); return }
-    var cursor = try TerminalCursor(encoded, offset: 0); let tag = try cursor.u8()
-    if family == 2 { try validateCompositionFailure(&cursor, tag: tag) }
-    else if family == 3 { try validateEntrypointFailure(&cursor, tag: tag) }
-    else if family == 4 { try validateABIFailure(&cursor, tag: tag) }
-    else { throw programVerification() }
-    try cursor.finish()
+  if family == 1 {
+    try validateAuthenticatedProgramFailure(encoded)
+    return
+  }
+  var cursor = try TerminalCursor(encoded, offset: 0)
+  let tag = try cursor.u8()
+  if family == 2 {
+    try validateCompositionFailure(&cursor, tag: tag)
+  } else if family == 3 {
+    try validateEntrypointFailure(&cursor, tag: tag)
+  } else if family == 4 {
+    try validateABIFailure(&cursor, tag: tag)
+  } else {
+    throw programVerification()
+  }
+  try cursor.finish()
 }
 
 private func validateCompositionFailure(_ cursor: inout TerminalCursor, tag: UInt8) throws {
-    switch tag {
-    case 1, 9, 10, 11, 20, 21, 22: break
-    case 2:
-        guard (1...2).contains(try cursor.u8()), (1...2).contains(try cursor.u8()) else { throw programVerification() }
-    case 3, 4: try requireNonzero(cursor.take(32))
-    case 5, 6, 7: _ = try cursor.u32(); _ = try cursor.u32()
-    case 8: try requireNonzero(cursor.take(32)); _ = try cursor.u32(); _ = try cursor.u32()
-    case 12: _ = try cursor.i32()
-    case 13: _ = try cursor.u64(); _ = try cursor.u64()
-    case 14: try requireNonzero(cursor.take(32)); _ = try cursor.i32()
-    case 15: try validateAuthenticatedProgramFailure(cursor.rest())
-    case 16:
-        let nested = try cursor.u8(); try validateABIFailure(&cursor, tag: nested)
-    case 17: try validateFault(&cursor)
-    case 18: try validateMeterFailure(&cursor)
-    case 19: try validateResponseFailure(&cursor)
-    case 23: _ = try cursor.take(76); _ = try cursor.take(76)
-    default: throw programVerification()
+  switch tag {
+  case 1, 9, 10, 11, 20, 21, 22: break
+  case 2:
+    guard (1...2).contains(try cursor.u8()), (1...2).contains(try cursor.u8()) else {
+      throw programVerification()
     }
+  case 3, 4: try requireNonzero(cursor.take(32))
+  case 5, 6, 7:
+    _ = try cursor.u32()
+    _ = try cursor.u32()
+  case 8:
+    try requireNonzero(cursor.take(32))
+    _ = try cursor.u32()
+    _ = try cursor.u32()
+  case 12: _ = try cursor.i32()
+  case 13:
+    _ = try cursor.u64()
+    _ = try cursor.u64()
+  case 14:
+    try requireNonzero(cursor.take(32))
+    _ = try cursor.i32()
+  case 15: try validateAuthenticatedProgramFailure(cursor.rest())
+  case 16:
+    let nested = try cursor.u8()
+    try validateABIFailure(&cursor, tag: nested)
+  case 17: try validateFault(&cursor)
+  case 18: try validateMeterFailure(&cursor)
+  case 19: try validateResponseFailure(&cursor)
+  case 23:
+    _ = try cursor.take(76)
+    _ = try cursor.take(76)
+  default: throw programVerification()
+  }
 }
 
 private func validateEntrypointFailure(_ cursor: inout TerminalCursor, tag: UInt8) throws {
-    switch tag {
-    case 1: _ = try cursor.u64(); _ = try cursor.u64()
-    case 2, 3, 4: break
-    case 5, 6: _ = try cursor.i32()
-    case 7: try validateFault(&cursor)
-    case 8: try validateMeterFailure(&cursor)
-    default: throw programVerification()
-    }
+  switch tag {
+  case 1:
+    _ = try cursor.u64()
+    _ = try cursor.u64()
+  case 2, 3, 4: break
+  case 5, 6: _ = try cursor.i32()
+  case 7: try validateFault(&cursor)
+  case 8: try validateMeterFailure(&cursor)
+  default: throw programVerification()
+  }
 }
 
 private func validateABIFailure(_ cursor: inout TerminalCursor, tag: UInt8) throws {
-    if (1...10).contains(tag) || (13...15).contains(tag) { return }
-    if tag == 11 { guard (1...11).contains(try cursor.u8()) else { throw programVerification() } }
-    else if tag == 12 { try validateMeterFailure(&cursor) }
-    else { throw programVerification() }
+  if (1...10).contains(tag) || (13...15).contains(tag) { return }
+  if tag == 11 {
+    guard (1...11).contains(try cursor.u8()) else { throw programVerification() }
+  } else if tag == 12 {
+    try validateMeterFailure(&cursor)
+  } else {
+    throw programVerification()
+  }
 }
 
 private func validateMeterFailure(_ cursor: inout TerminalCursor) throws {
-    let tag = try cursor.u8()
-    if tag == 1 {
-        let resource = try cursor.u8(); let limit = try cursor.u64(); let attempted = try cursor.u64()
-        guard (1...7).contains(resource), attempted > limit else { throw programVerification() }
-    } else if tag == 2 {
-        guard (1...7).contains(try cursor.u8()) else { throw programVerification() }
-    } else if tag != 3 { throw programVerification() }
+  let tag = try cursor.u8()
+  if tag == 1 {
+    let resource = try cursor.u8()
+    let limit = try cursor.u64()
+    let attempted = try cursor.u64()
+    guard (1...7).contains(resource), attempted > limit else { throw programVerification() }
+  } else if tag == 2 {
+    guard (1...7).contains(try cursor.u8()) else { throw programVerification() }
+  } else if tag != 3 {
+    throw programVerification()
+  }
 }
 
 private func validateFault(_ cursor: inout TerminalCursor) throws {
-    let tag = try cursor.u8()
-    if tag == 1 || tag == 2 || tag == 16 {
-        guard String(data: try cursor.sized32(), encoding: .utf8) != nil else { throw programVerification() }
-    } else if (3...13).contains(tag) || tag == 15 { return }
-    else if tag == 14 { try validateMeterFailure(&cursor) }
-    else { throw programVerification() }
+  let tag = try cursor.u8()
+  if tag == 1 || tag == 2 || tag == 16 {
+    guard String(data: try cursor.sized32(), encoding: .utf8) != nil else {
+      throw programVerification()
+    }
+  } else if (3...13).contains(tag) || tag == 15 {
+    return
+  } else if tag == 14 {
+    try validateMeterFailure(&cursor)
+  } else {
+    throw programVerification()
+  }
 }
 
 private func validateResponseFailure(_ cursor: inout TerminalCursor) throws {
-    switch try cursor.u8() {
-    case 1, 2: _ = try cursor.u64(); _ = try cursor.u64()
-    case 3, 4: break
-    case 5: _ = try cursor.i32(); _ = try cursor.i32()
-    case 6: try validateMeterFailure(&cursor)
-    default: throw programVerification()
-    }
+  switch try cursor.u8() {
+  case 1, 2:
+    _ = try cursor.u64()
+    _ = try cursor.u64()
+  case 3, 4: break
+  case 5:
+    _ = try cursor.i32()
+    _ = try cursor.i32()
+  case 6: try validateMeterFailure(&cursor)
+  default: throw programVerification()
+  }
 }
 
-private func validateCandidateResource(_ cursor: inout TerminalCursor, usage: TerminalUsage) throws {
-    let tag = try cursor.u8(); let resource = try cursor.u8(); guard resource <= 6 else { throw programVerification() }
-    if tag == 0 {
-        let limit = try cursor.u64(); let attempted = try cursor.u64()
-        guard attempted > limit, candidateUsage(usage, resource: resource) <= limit else { throw programVerification() }
-    } else if tag != 1 { throw programVerification() }
+private func validateCandidateResource(_ cursor: inout TerminalCursor, usage: TerminalUsage) throws
+{
+  let tag = try cursor.u8()
+  let resource = try cursor.u8()
+  guard resource <= 6 else { throw programVerification() }
+  if tag == 0 {
+    let limit = try cursor.u64()
+    let attempted = try cursor.u64()
+    guard attempted > limit, candidateUsage(usage, resource: resource) <= limit else {
+      throw programVerification()
+    }
+  } else if tag != 1 {
+    throw programVerification()
+  }
 }
 
 private func candidateUsage(_ usage: TerminalUsage, resource: UInt8) -> UInt64 {
-    switch resource {
-    case 0: return usage.cpu
-    case 1: return usage.memory
-    case 2: return usage.read
-    case 3: return usage.write
-    case 4: return UInt64(usage.values)
-    case 5: return usage.outputBytes
-    default: return 0
-    }
+  switch resource {
+  case 0: return usage.cpu
+  case 1: return usage.memory
+  case 2: return usage.read
+  case 3: return usage.write
+  case 4: return UInt64(usage.values)
+  case 5: return usage.outputBytes
+  default: return 0
+  }
 }
 
 private func validateLegacyResource(_ cursor: inout TerminalCursor) throws {
-    let tag = try cursor.u8(); guard (1...7).contains(try cursor.u8()) else { throw programVerification() }
-    if tag == 1 { let limit = try cursor.u64(); guard try cursor.u64() > limit else { throw programVerification() } }
-    else if tag != 2 { throw programVerification() }
+  let tag = try cursor.u8()
+  guard (1...7).contains(try cursor.u8()) else { throw programVerification() }
+  if tag == 1 {
+    let limit = try cursor.u64()
+    guard try cursor.u64() > limit else { throw programVerification() }
+  } else if tag != 2 {
+    throw programVerification()
+  }
 }
 
 private func requireNonzero(_ value: Data) throws {
-    guard value.contains(where: { $0 != 0 }) else { throw programVerification() }
+  guard value.contains(where: { $0 != 0 }) else { throw programVerification() }
 }
 
 func decodeSignedCall(_ call: ProgramCall) throws -> ActivityBinding {
-    do {
-        var cursor = BinaryCursor(call.signedActivity)
-        let envelopeVersion = try cursor.u16()
-        guard envelopeVersion == 1 || envelopeVersion == 2 || envelopeVersion == 3, try cursor.u16() == 0x1001, try cursor.u8() == 12 else { throw programInvalid() }
-        try cursor.tag(1); let version = try cursor.u16(); guard version == envelopeVersion else { throw programInvalid() }
-        try cursor.tag(2); _ = try cursor.u32(); try cursor.tag(3)
-        guard try cursor.u32() == ((UInt32(ProgramsClient.receiptModuleID) << 16) | UInt32(ProgramsClient.callOperation)) else {
-            throw programInvalid()
-        }
-        try cursor.tag(4); _ = try cursor.bounded(maximum: 255, empty: true)
-        try cursor.tag(5); _ = try cursor.bounded(maximum: 524_288, empty: true)
-        try cursor.tag(6); _ = try cursor.u64(); try cursor.tag(7)
-        let notBefore = try cursor.u64(); let notAfter = try cursor.u64(); guard notAfter >= notBefore else { throw programInvalid() }
-        try cursor.tag(8); let idempotency = try cursor.bounded(maximum: 32, empty: false); guard idempotency.count == 32 else { throw programInvalid() }
-        try cursor.tag(9); let envelopeFee = UInt128Value(high: try cursor.u64(), low: try cursor.u64());
-        if call.nativeCall != nil { guard version == 3, envelopeFee == (try decimalUInt128(call.budget.feeLimit.decimal)) else { throw programInvalid() } }
-        try cursor.tag(10)
-        let payloadHash = try cursor.bounded(maximum: 32, empty: false); guard payloadHash.count == 32 else { throw programInvalid() }
-        try cursor.tag(11); let payload = try cursor.bounded(maximum: 524_288, empty: true)
-        try cursor.tag(12); _ = try cursor.bounded(maximum: 128, empty: true); try cursor.finish()
-        let expected = try canonicalCallPayload(call)
-        guard payload == expected, payloadHash == digest(Data("LXP/v1/payload-hash\0".utf8), payload) else { throw programInvalid() }
-        return .init(activityID: digest(Data("LXP/v1/activity-id\0".utf8), call.signedActivity),
-            idempotencyKey: idempotency, notBefore: notBefore, notAfter: notAfter, guestABI: call.nativeCall?.guestABI)
-    } catch { throw programInvalid() }
+  do {
+    var cursor = BinaryCursor(call.signedActivity)
+    let envelopeVersion = try cursor.u16()
+    guard envelopeVersion == 1 || envelopeVersion == 2 || envelopeVersion == 3,
+      try cursor.u16() == 0x1001, try cursor.u8() == 12
+    else { throw programInvalid() }
+    try cursor.tag(1)
+    let version = try cursor.u16()
+    guard version == envelopeVersion else { throw programInvalid() }
+    try cursor.tag(2)
+    _ = try cursor.u32()
+    try cursor.tag(3)
+    guard
+      try cursor.u32()
+        == ((UInt32(ProgramsClient.receiptModuleID) << 16) | UInt32(ProgramsClient.callOperation))
+    else {
+      throw programInvalid()
+    }
+    try cursor.tag(4)
+    _ = try cursor.bounded(maximum: 255, empty: true)
+    try cursor.tag(5)
+    _ = try cursor.bounded(maximum: 524_288, empty: true)
+    try cursor.tag(6)
+    _ = try cursor.u64()
+    try cursor.tag(7)
+    let notBefore = try cursor.u64()
+    let notAfter = try cursor.u64()
+    guard notAfter >= notBefore else { throw programInvalid() }
+    try cursor.tag(8)
+    let idempotency = try cursor.bounded(maximum: 32, empty: false)
+    guard idempotency.count == 32 else { throw programInvalid() }
+    try cursor.tag(9)
+    let envelopeFee = UInt128Value(high: try cursor.u64(), low: try cursor.u64())
+    if call.nativeCall != nil {
+      guard version == 3, envelopeFee == (try decimalUInt128(call.budget.feeLimit.decimal)) else {
+        throw programInvalid()
+      }
+    }
+    try cursor.tag(10)
+    let payloadHash = try cursor.bounded(maximum: 32, empty: false)
+    guard payloadHash.count == 32 else { throw programInvalid() }
+    try cursor.tag(11)
+    let payload = try cursor.bounded(maximum: 524_288, empty: true)
+    try cursor.tag(12)
+    _ = try cursor.bounded(maximum: 128, empty: true)
+    try cursor.finish()
+    let expected = try canonicalCallPayload(call)
+    guard payload == expected, payloadHash == digest(Data("LXP/v1/payload-hash\0".utf8), payload)
+    else { throw programInvalid() }
+    return .init(
+      activityID: digest(Data("LXP/v1/activity-id\0".utf8), call.signedActivity),
+      idempotencyKey: idempotency, notBefore: notBefore, notAfter: notAfter,
+      guestABI: call.nativeCall?.guestABI)
+  } catch { throw programInvalid() }
 }
 
 private func verifySignedNativeCall(_ call: ProgramCall) throws -> ActivityBinding {
-    guard call.nativeCall != nil else { throw programInvalid() }
-    let binding = try decodeSignedCall(call)
-    var cursor = BinaryCursor(call.signedActivity)
-    guard try cursor.u16() == 3, try cursor.u16() == 0x1001, try cursor.u8() == 12 else { throw programInvalid() }
-    try cursor.tag(1); _ = try cursor.u16(); try cursor.tag(2); _ = try cursor.u32()
-    try cursor.tag(3); _ = try cursor.u32(); try cursor.tag(4); _ = try cursor.bounded(maximum: 255, empty: true)
-    try cursor.tag(5); let authority = try cursor.bounded(maximum: 32, empty: false)
-    guard authority.count == 32 else { throw programInvalid() }
-    try cursor.tag(6); _ = try cursor.u64(); try cursor.tag(7); _ = try cursor.u64(); _ = try cursor.u64()
-    try cursor.tag(8); _ = try cursor.bounded(maximum: 32, empty: false)
-    try cursor.tag(9); _ = try cursor.u64(); _ = try cursor.u64()
-    try cursor.tag(10); _ = try cursor.bounded(maximum: 32, empty: false)
-    try cursor.tag(11); _ = try cursor.bounded(maximum: 524_288, empty: false)
-    let unsignedLength = cursor.position
-    try cursor.tag(12); let signature = try cursor.bounded(maximum: 64, empty: false); try cursor.finish()
-    guard signature.count == 64 else { throw programInvalid() }
-    var unsigned = Data(call.signedActivity.prefix(unsignedLength)); unsigned[4] = 11
-    let preimage = digest(Data("LXP/v1/signature-preimage\0".utf8), unsigned)
-    guard try Curve25519.Signing.PublicKey(rawRepresentation: authority).isValidSignature(signature, for: preimage)
-    else { throw programVerification() }
-    return binding
+  guard call.nativeCall != nil else { throw programInvalid() }
+  let binding = try decodeSignedCall(call)
+  var cursor = BinaryCursor(call.signedActivity)
+  guard try cursor.u16() == 3, try cursor.u16() == 0x1001, try cursor.u8() == 12 else {
+    throw programInvalid()
+  }
+  try cursor.tag(1)
+  _ = try cursor.u16()
+  try cursor.tag(2)
+  _ = try cursor.u32()
+  try cursor.tag(3)
+  _ = try cursor.u32()
+  try cursor.tag(4)
+  _ = try cursor.bounded(maximum: 255, empty: true)
+  try cursor.tag(5)
+  let authority = try cursor.bounded(maximum: 32, empty: false)
+  guard authority.count == 32 else { throw programInvalid() }
+  try cursor.tag(6)
+  _ = try cursor.u64()
+  try cursor.tag(7)
+  _ = try cursor.u64()
+  _ = try cursor.u64()
+  try cursor.tag(8)
+  _ = try cursor.bounded(maximum: 32, empty: false)
+  try cursor.tag(9)
+  _ = try cursor.u64()
+  _ = try cursor.u64()
+  try cursor.tag(10)
+  _ = try cursor.bounded(maximum: 32, empty: false)
+  try cursor.tag(11)
+  _ = try cursor.bounded(maximum: 524_288, empty: false)
+  let unsignedLength = cursor.position
+  try cursor.tag(12)
+  let signature = try cursor.bounded(maximum: 64, empty: false)
+  try cursor.finish()
+  guard signature.count == 64 else { throw programInvalid() }
+  var unsigned = Data(call.signedActivity.prefix(unsignedLength))
+  unsigned[4] = 11
+  let preimage = digest(Data("LXP/v1/signature-preimage\0".utf8), unsigned)
+  guard
+    try Curve25519.Signing.PublicKey(rawRepresentation: authority).isValidSignature(
+      signature, for: preimage)
+  else { throw programVerification() }
+  return binding
 }
 
 private func canonicalCallPayload(_ call: ProgramCall) throws -> Data {
-    if let native = call.nativeCall {
-        guard native.programID == call.programID, native.calldata == call.calldata, native.resources[0] == call.budget.fuel, call.capabilities.isEmpty else { throw programInvalid() }
-        return try native.encode()
-    }
+  if let native = call.nativeCall {
+    guard native.programID == call.programID, native.calldata == call.calldata,
+      native.resources[0] == call.budget.fuel, call.capabilities.isEmpty
+    else { throw programInvalid() }
+    return try native.encode()
+  }
 
-    var value = Data("LayerX/programs/call/v1\0".utf8); value.append(call.programID)
-    value.append(bigEndian(call.budget.fuel)); value.append(bigEndian128(try decimalUInt128(call.budget.feeLimit.decimal)))
-    value.append(bigEndian(UInt16(call.capabilities.count)))
-    for capability in call.capabilities { value.append(UInt8(capability.order)) }
-    value.append(bigEndian(UInt32(call.calldata.count))); value.append(call.calldata); return value
+  var value = Data("LayerX/programs/call/v1\0".utf8)
+  value.append(call.programID)
+  value.append(bigEndian(call.budget.fuel))
+  value.append(bigEndian128(try decimalUInt128(call.budget.feeLimit.decimal)))
+  value.append(bigEndian(UInt16(call.capabilities.count)))
+  for capability in call.capabilities { value.append(UInt8(capability.order)) }
+  value.append(bigEndian(UInt32(call.calldata.count)))
+  value.append(call.calldata)
+  return value
 }
 
 private func unknownSubmission(activity: Data, key: String, retained: Data) -> ProgramSubmission {
-    let value: JSONValue = .object(["state": .string("unknown"), "activity_id": .string(activity.hex),
-        "idempotency_key": .string(key), "retained_signed_activity": .string(retained.hex)])
-    return .init(value, state: "unknown", activityID: activity, idempotencyKey: key,
-        retainedSignedActivity: retained, execution: nil)
+  let value: JSONValue = .object([
+    "state": .string("unknown"), "activity_id": .string(activity.hex),
+    "idempotency_key": .string(key), "retained_signed_activity": .string(retained.hex),
+  ])
+  return .init(
+    value, state: "unknown", activityID: activity, idempotencyKey: key,
+    retainedSignedActivity: retained, execution: nil)
 }
 
 private func authorized(_ value: JSONValue?) throws -> AuthorizedReceiptBatch {
-    guard let object = value?.objectValue else { throw programVerification() }
-    return .init(batchID: try hexData(object, "batch_id", exactBytes: 32), asset: try hexData(object, "asset", exactBytes: 32),
-        previousStateRoot: try hexData(object, "previous_state_root", exactBytes: 32),
-        resultingStateRoot: try hexData(object, "resulting_state_root", exactBytes: 32),
-        sequencerPublicKey: try hexData(object, "sequencer_public_key", exactBytes: 32))
+  guard let object = value?.objectValue else { throw programVerification() }
+  return .init(
+    batchID: try hexData(object, "batch_id", exactBytes: 32),
+    asset: try hexData(object, "asset", exactBytes: 32),
+    previousStateRoot: try hexData(object, "previous_state_root", exactBytes: 32),
+    resultingStateRoot: try hexData(object, "resulting_state_root", exactBytes: 32),
+    sequencerPublicKey: try hexData(object, "sequencer_public_key", exactBytes: 32))
 }
 
 private func requireFields(_ object: [String: JSONValue], _ fields: Set<String>) throws {
-    guard object.count == fields.count, Set(object.keys) == fields else { throw programDecode() }
+  guard object.count == fields.count, Set(object.keys) == fields else { throw programDecode() }
 }
 
-private func objectValue(_ object: [String: JSONValue], _ name: String) throws -> [String: JSONValue] {
-    guard let value = object[name]?.objectValue else { throw programDecode() }; return value
+private func objectValue(_ object: [String: JSONValue], _ name: String) throws -> [String:
+  JSONValue]
+{
+  guard let value = object[name]?.objectValue else { throw programDecode() }
+  return value
 }
 
 private func text(_ object: [String: JSONValue], _ name: String) throws -> String {
-    guard let value = object[name]?.stringValue, !value.isEmpty else { throw programDecode() }; return value
+  guard let value = object[name]?.stringValue, !value.isEmpty else { throw programDecode() }
+  return value
 }
 
 private func integer32(_ object: [String: JSONValue], _ name: String) throws -> Int32 {
-    guard let value = object[name]?.integerValue, let exact = Int32(exactly: value) else { throw programDecode() }; return exact
+  guard let value = object[name]?.integerValue, let exact = Int32(exactly: value) else {
+    throw programDecode()
+  }
+  return exact
 }
 
 private func uint32Field(_ object: [String: JSONValue], _ name: String) throws -> UInt32 {
-    guard let value = object[name]?.integerValue, let exact = UInt32(exactly: value) else { throw programDecode() }; return exact
+  guard let value = object[name]?.integerValue, let exact = UInt32(exactly: value) else {
+    throw programDecode()
+  }
+  return exact
 }
 
 private func decimalUInt64Field(_ object: [String: JSONValue], _ name: String) throws -> UInt64 {
-    guard let parsed = decimalUInt64(object[name]) else { throw programDecode() }; return parsed
+  guard let parsed = decimalUInt64(object[name]) else { throw programDecode() }
+  return parsed
 }
 
 private func decimalInt64Field(_ object: [String: JSONValue], _ name: String) throws -> Int64 {
-    guard let value = object[name]?.stringValue, value != "-0", !value.isEmpty,
-          !(value.count > 1 && value.first == "0"), !value.hasPrefix("-0"), let parsed = Int64(value),
-          String(parsed) == value else { throw programDecode() }; return parsed
+  guard let value = object[name]?.stringValue, value != "-0", !value.isEmpty,
+    !(value.count > 1 && value.first == "0"), !value.hasPrefix("-0"), let parsed = Int64(value),
+    String(parsed) == value
+  else { throw programDecode() }
+  return parsed
 }
 
-private func decimalUInt128Field(_ object: [String: JSONValue], _ name: String) throws -> UInt128Value {
-    guard let value = object[name]?.stringValue else { throw programDecode() }; return try decimalUInt128(value)
+private func decimalUInt128Field(_ object: [String: JSONValue], _ name: String) throws
+  -> UInt128Value
+{
+  guard let value = object[name]?.stringValue else { throw programDecode() }
+  return try decimalUInt128(value)
 }
 
 private func decimalUInt128(_ value: String) throws -> UInt128Value {
-    guard !value.isEmpty, value == "0" || value.first != "0",
-          value.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }) else { throw programDecode() }
-    var high: UInt64 = 0; var low: UInt64 = 0
-    for byte in value.utf8 {
-        let lowProduct = low.multipliedFullWidth(by: 10)
-        let (highProduct, highOverflow) = high.multipliedReportingOverflow(by: 10)
-        let (combinedHigh, carryOverflow) = highProduct.addingReportingOverflow(lowProduct.high)
-        let (nextLow, digitOverflow) = lowProduct.low.addingReportingOverflow(UInt64(byte - 48))
-        let (nextHigh, digitCarryOverflow) = combinedHigh.addingReportingOverflow(digitOverflow ? 1 : 0)
-        guard !highOverflow, !carryOverflow, !digitCarryOverflow else { throw programDecode() }
-        high = nextHigh; low = nextLow
-    }
-    return .init(high: high, low: low)
+  guard !value.isEmpty, value == "0" || value.first != "0",
+    value.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 })
+  else { throw programDecode() }
+  var high: UInt64 = 0
+  var low: UInt64 = 0
+  for byte in value.utf8 {
+    let lowProduct = low.multipliedFullWidth(by: 10)
+    let (highProduct, highOverflow) = high.multipliedReportingOverflow(by: 10)
+    let (combinedHigh, carryOverflow) = highProduct.addingReportingOverflow(lowProduct.high)
+    let (nextLow, digitOverflow) = lowProduct.low.addingReportingOverflow(UInt64(byte - 48))
+    let (nextHigh, digitCarryOverflow) = combinedHigh.addingReportingOverflow(digitOverflow ? 1 : 0)
+    guard !highOverflow, !carryOverflow, !digitCarryOverflow else { throw programDecode() }
+    high = nextHigh
+    low = nextLow
+  }
+  return .init(high: high, low: low)
 }
 
-private func requiredHex(_ object: [String: JSONValue], _ name: String, exactBytes: Int? = nil,
-                         maximumBytes: Int? = nil, empty: Bool = false) throws -> String {
-    guard let value = object[name]?.stringValue, value.utf8.count % 2 == 0,
-          empty || !value.isEmpty,
-          exactBytes == nil || value.utf8.count == exactBytes! * 2,
-          maximumBytes == nil || value.utf8.count <= maximumBytes! * 2,
-          value.utf8.allSatisfy({ ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102) }) else { throw programVerification() }
-    return value
+private func requiredHex(
+  _ object: [String: JSONValue], _ name: String, exactBytes: Int? = nil,
+  maximumBytes: Int? = nil, empty: Bool = false
+) throws -> String {
+  guard let value = object[name]?.stringValue, value.utf8.count % 2 == 0,
+    empty || !value.isEmpty,
+    exactBytes == nil || value.utf8.count == exactBytes! * 2,
+    maximumBytes == nil || value.utf8.count <= maximumBytes! * 2,
+    value.utf8.allSatisfy({ ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102) })
+  else { throw programVerification() }
+  return value
 }
 
-private func hexData(_ object: [String: JSONValue], _ name: String, exactBytes: Int? = nil,
-                     maximumBytes: Int? = nil, empty: Bool = false) throws -> Data {
-    Data(hex: try requiredHex(object, name, exactBytes: exactBytes, maximumBytes: maximumBytes, empty: empty))
+private func hexData(
+  _ object: [String: JSONValue], _ name: String, exactBytes: Int? = nil,
+  maximumBytes: Int? = nil, empty: Bool = false
+) throws -> Data {
+  Data(
+    hex: try requiredHex(
+      object, name, exactBytes: exactBytes, maximumBytes: maximumBytes, empty: empty))
 }
 
 private func decimalUInt64(_ value: JSONValue?) -> UInt64? {
-    guard let text = value?.stringValue, !text.isEmpty, text.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
-          text == "0" || text.first != "0" else { return nil }
-    return UInt64(text)
+  guard let text = value?.stringValue, !text.isEmpty,
+    text.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
+    text == "0" || text.first != "0"
+  else { return nil }
+  return UInt64(text)
 }
 
 private func bigEndian(_ value: UInt64) -> Data {
-    var encoded = value.bigEndian
-    return withUnsafeBytes(of: &encoded) { Data($0) }
+  var encoded = value.bigEndian
+  return withUnsafeBytes(of: &encoded) { Data($0) }
 }
 
 private func bigEndian(_ value: UInt32) -> Data {
-    var encoded = value.bigEndian; return withUnsafeBytes(of: &encoded) { Data($0) }
+  var encoded = value.bigEndian
+  return withUnsafeBytes(of: &encoded) { Data($0) }
 }
 
 private func bigEndian(_ value: UInt16) -> Data {
-    var encoded = value.bigEndian; return withUnsafeBytes(of: &encoded) { Data($0) }
+  var encoded = value.bigEndian
+  return withUnsafeBytes(of: &encoded) { Data($0) }
 }
 
 private func bigEndian128(_ value: UInt128Value) -> Data {
-    var encoded = Data(); encoded.append(bigEndian(value.high)); encoded.append(bigEndian(value.low)); return encoded
+  var encoded = Data()
+  encoded.append(bigEndian(value.high))
+  encoded.append(bigEndian(value.low))
+  return encoded
 }
 
 private func digest(_ values: Data...) -> Data {
-    var hasher = SHA256(); values.forEach { hasher.update(data: $0) }; return Data(hasher.finalize())
+  var hasher = SHA256()
+  values.forEach { hasher.update(data: $0) }
+  return Data(hasher.finalize())
 }
 
 private func starts(_ value: Data, _ prefix: String) -> Bool { starts(value, Data(prefix.utf8)) }
 private func starts(_ value: Data, _ prefix: Data) -> Bool {
-    value.count >= prefix.count && value.prefix(prefix.count) == prefix
+  value.count >= prefix.count && value.prefix(prefix.count) == prefix
 }
 
 private struct BinaryCursor {
-    private let bytes: Data
-    private var offset = 0
-    init(_ bytes: Data) { self.bytes = bytes }
-    var position: Int { offset }
-    mutating func u8() throws -> UInt8 { try take(1)[0] }
-    mutating func u16() throws -> UInt16 { UInt16(try unsigned(2)) }
-    mutating func u32() throws -> UInt32 { UInt32(try unsigned(4)) }
-    mutating func u64() throws -> UInt64 { try unsigned(8) }
-    mutating func tag(_ expected: UInt8) throws { guard try u8() == expected else { throw programInvalid() } }
-    mutating func bounded(maximum: Int, empty: Bool) throws -> Data {
-        let length = try u32(); guard length <= UInt32(maximum), empty || length > 0 else { throw programInvalid() }
-        return try take(Int(length))
-    }
-    mutating func take(_ count: Int) throws -> Data {
-        guard count >= 0, offset <= bytes.count - count else { throw programInvalid() }
-        let value = bytes.subdata(in: offset..<(offset + count)); offset += count; return value
-    }
-    mutating func finish() throws { guard offset == bytes.count else { throw programInvalid() } }
-    private mutating func unsigned(_ count: Int) throws -> UInt64 {
-        try take(count).reduce(0) { ($0 << 8) | UInt64($1) }
-    }
+  private let bytes: Data
+  private var offset = 0
+  init(_ bytes: Data) { self.bytes = bytes }
+  var position: Int { offset }
+  mutating func u8() throws -> UInt8 { try take(1)[0] }
+  mutating func u16() throws -> UInt16 { UInt16(try unsigned(2)) }
+  mutating func u32() throws -> UInt32 { UInt32(try unsigned(4)) }
+  mutating func u64() throws -> UInt64 { try unsigned(8) }
+  mutating func tag(_ expected: UInt8) throws {
+    guard try u8() == expected else { throw programInvalid() }
+  }
+  mutating func bounded(maximum: Int, empty: Bool) throws -> Data {
+    let length = try u32()
+    guard length <= UInt32(maximum), empty || length > 0 else { throw programInvalid() }
+    return try take(Int(length))
+  }
+  mutating func take(_ count: Int) throws -> Data {
+    guard count >= 0, offset <= bytes.count - count else { throw programInvalid() }
+    let value = bytes.subdata(in: offset..<(offset + count))
+    offset += count
+    return value
+  }
+  mutating func finish() throws { guard offset == bytes.count else { throw programInvalid() } }
+  private mutating func unsigned(_ count: Int) throws -> UInt64 {
+    try take(count).reduce(0) { ($0 << 8) | UInt64($1) }
+  }
 }
 
 private struct TerminalCursor {
-    private let bytes: Data
-    private var offset: Int
-    init(_ bytes: Data, offset: Int) throws {
-        guard offset >= 0, offset <= bytes.count else { throw programVerification() }
-        self.bytes = bytes; self.offset = offset
-    }
-    mutating func u8() throws -> UInt8 { try take(1)[0] }
-    mutating func u16() throws -> UInt16 { UInt16(try unsigned(2)) }
-    mutating func u32() throws -> UInt32 { UInt32(try unsigned(4)) }
-    mutating func u64() throws -> UInt64 { try unsigned(8) }
-    mutating func i32() throws -> Int32 { Int32(bitPattern: try u32()) }
-    mutating func i64() throws -> Int64 { Int64(bitPattern: try u64()) }
-    mutating func u128() throws -> UInt128Value { .init(high: try u64(), low: try u64()) }
-    var remaining: Int { bytes.count - offset }
-    mutating func sized32() throws -> Data {
-        let length = try u32(); return try take(Int(length))
-    }
-    mutating func sized64() throws -> Data {
-        let length = try u64(); guard length <= UInt64(Int.max) else { throw programVerification() }; return try take(Int(length))
-    }
-    mutating func take(_ count: Int) throws -> Data {
-        guard count >= 0, offset <= bytes.count - count else { throw programVerification() }
-        let value = bytes.subdata(in: offset..<(offset + count)); offset += count; return value
-    }
-    mutating func rest() throws -> Data { try take(bytes.count - offset) }
-    mutating func finish() throws { guard offset == bytes.count else { throw programVerification() } }
-    private mutating func unsigned(_ count: Int) throws -> UInt64 {
-        try take(count).reduce(0) { ($0 << 8) | UInt64($1) }
-    }
+  private let bytes: Data
+  private var offset: Int
+  init(_ bytes: Data, offset: Int) throws {
+    guard offset >= 0, offset <= bytes.count else { throw programVerification() }
+    self.bytes = bytes
+    self.offset = offset
+  }
+  mutating func u8() throws -> UInt8 { try take(1)[0] }
+  mutating func u16() throws -> UInt16 { UInt16(try unsigned(2)) }
+  mutating func u32() throws -> UInt32 { UInt32(try unsigned(4)) }
+  mutating func u64() throws -> UInt64 { try unsigned(8) }
+  mutating func i32() throws -> Int32 { Int32(bitPattern: try u32()) }
+  mutating func i64() throws -> Int64 { Int64(bitPattern: try u64()) }
+  mutating func u128() throws -> UInt128Value { .init(high: try u64(), low: try u64()) }
+  var remaining: Int { bytes.count - offset }
+  mutating func sized32() throws -> Data {
+    let length = try u32()
+    return try take(Int(length))
+  }
+  mutating func sized64() throws -> Data {
+    let length = try u64()
+    guard length <= UInt64(Int.max) else { throw programVerification() }
+    return try take(Int(length))
+  }
+  mutating func take(_ count: Int) throws -> Data {
+    guard count >= 0, offset <= bytes.count - count else { throw programVerification() }
+    let value = bytes.subdata(in: offset..<(offset + count))
+    offset += count
+    return value
+  }
+  mutating func rest() throws -> Data { try take(bytes.count - offset) }
+  mutating func finish() throws { guard offset == bytes.count else { throw programVerification() } }
+  private mutating func unsigned(_ count: Int) throws -> UInt64 {
+    try take(count).reduce(0) { ($0 << 8) | UInt64($1) }
+  }
 }
 
 private func encode(_ call: ProgramCall) throws -> JSONValue {
-    if let n = call.nativeCall {
-        return .object(["payload": .string(try n.encode().hex), "signed_activity": .string(call.signedActivity.hex)])
-    }
-    return .object(["program_id": .string(call.programID.hex), "calldata": .string(call.calldata.hex),
-        "budget": .object(["fuel": .string(String(call.budget.fuel)), "fee_limit": .string(call.budget.feeLimit.decimal)]),
-        "capabilities": .array(call.capabilities.map { .string($0.rawValue) }),
-        "signed_activity": .string(call.signedActivity.hex)])
+  if let n = call.nativeCall {
+    return .object([
+      "payload": .string(try n.encode().hex), "signed_activity": .string(call.signedActivity.hex),
+    ])
+  }
+  return .object([
+    "program_id": .string(call.programID.hex), "calldata": .string(call.calldata.hex),
+    "budget": .object([
+      "fuel": .string(String(call.budget.fuel)), "fee_limit": .string(call.budget.feeLimit.decimal),
+    ]),
+    "capabilities": .array(call.capabilities.map { .string($0.rawValue) }),
+    "signed_activity": .string(call.signedActivity.hex),
+  ])
 }
-private func identifier(_ value: Data) throws -> String { guard value.count == 32 else { throw programInvalid() }; return value.hex }
-private func level(_ value: String) throws -> String { guard value == "sequencer-signed" else { throw programInvalid() }; return value }
-private func hex32(_ value: String) -> Bool { value.utf8.count == 64 && value.utf8.allSatisfy { ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102) } }
+private func identifier(_ value: Data) throws -> String {
+  guard value.count == 32 else { throw programInvalid() }
+  return value.hex
+}
+private func level(_ value: String) throws -> String {
+  guard value == "sequencer-signed" else { throw programInvalid() }
+  return value
+}
+private func hex32(_ value: String) -> Bool {
+  value.utf8.count == 64
+    && value.utf8.allSatisfy { ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102) }
+}
 private func programInvalid() -> PlatformSDKError { .init(code: .invalidArgument, retry: .never) }
 private func programDecode() -> PlatformSDKError { .init(code: .decodeFailure, retry: .never) }
-private func programVerification() -> PlatformSDKError { .init(code: .verificationFailure, retry: .never) }
-private extension Data {
-    init(hex: String) { self.init(stride(from: 0, to: hex.count, by: 2).map { index in let start = hex.index(hex.startIndex, offsetBy: index); return UInt8(hex[start..<hex.index(start, offsetBy: 2)], radix: 16)! }) }
-    var hex: String { map { String(format: "%02x", $0) }.joined() }
+private func programVerification() -> PlatformSDKError {
+  .init(code: .verificationFailure, retry: .never)
+}
+extension Data {
+  fileprivate init(hex: String) {
+    self.init(
+      stride(from: 0, to: hex.count, by: 2).map { index in
+        let start = hex.index(hex.startIndex, offsetBy: index)
+        return UInt8(hex[start..<hex.index(start, offsetBy: 2)], radix: 16)!
+      })
+  }
+  fileprivate var hex: String { map { String(format: "%02x", $0) }.joined() }
 }
