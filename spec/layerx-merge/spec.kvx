@@ -102012,7 +102012,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.40.7]
 title = "Freeze the 0x0905 event topics against the contract table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.34.2", "2.38.1"]
