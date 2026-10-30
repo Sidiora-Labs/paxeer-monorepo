@@ -4839,6 +4839,18 @@ value = "LayerXAnchorKeeper stays constructed in New and the layerxanchor store 
 basis = "mergeUpgradePlan calls app.LayerXAnchorKeeper.RetireAtMerge at node/upgrades.go:490 (req.5049 ac_4, decision.631) and the v6.10 step reads its params at node/upgrades.go:349-352, while 5.7.1 do_4 removed the construction and 5.41.3 removed the store key and its mount, so node/app.go:522 is a zero value and every v7.0 application panics at modules/layerxanchor/keeper/keeper.go:31 (5.16.3 attempts 3 and 4, 5.6.9 attempts 3 and 4, 6.47.1 attempt 3); req.6288 ac_1 requires reads to answer until the store-delete height, which needs a mounted store."
 affects = ["5.7.1", "5.41.3", "5.6.5", "5.7.5", "5.16.3", "5.6.9", "6.34.1"]
 
+[decision.1955]
+title = "The qualification fabrication gate is ported to rungs and block heights by its own task"
+value = "services/agent/tests/qualify/fabrication.rs is compiled into the agent-qualification-gates bin that every qualify gate test builds; task 9.18.8 ports its Level, Freshness and BalanceValue uses to the rung and height types of tasks 9.1.1, 9.1.7 and 9.1.4, and 9.18.2, 9.18.5 and 9.18.6 require it and leave the file unchanged."
+basis = "b20ecde23 (task 9.1.4) removed layerx_agent_api::verify::Level, 71550012a (task 9.1.1) replaced the batch-era Freshness and added BalanceValue.height and 1866e77a1 (task 9.1.7) made Client::accept_verified_read take a Rung; none of those tasks touches fabrication.rs, so the qualify build fails at fabrication.rs:8 (E0432) and :66-76 (E0308, E0560, E0599, E0063) on every base since b20ecde23, and every qualify verify builds that bin through CARGO_BIN_EXE_agent-qualification-gates or --bin."
+affects = ["9.18.8", "9.18.2", "9.18.5", "9.18.6", "9.18.7"]
+
+[decision.1956]
+title = "Precompile merge tests build their keepers through a test-local wrapper instead of copying node.App"
+value = "A test that hands a precompile constructor its keepers builds a test-local type that embeds the utils.Keepers of testkeeper.EVMTestApp.GetPrecompileKeepers() and adds the module keeper method the constructor asserts (LayerXAgentK for 0x0905, LayerXPayK for 0x0906) instead of copying *testkeeper.EVMTestApp by value; node.App holds sync.RWMutex (node/app.go:567) and sync.Mutex (node/app.go:608), so go vet copylocks, the build gate of the 2.40.x tests, rejects the copy."
+basis = "precompiles/layerxagent/scheduler/merge_test.go:76 (task 2.34.2, 239bb1cd2) and precompiles/layerxagent/streams/merge_test.go:71 (task 2.35.2, e767d6e1b) copy node.App by value; go build and go test do not run copylocks, so both reached main, and go vet of either package exits 1 before any 2.40.x test compiles: 2.40.7 attempts 1 to 3 (9f5d9b101, f9d6e590b, 2bed8e6a6) stopped at merge_test.go:76:19 'assignment copies lock value to application'."
+affects = ["2.40.7", "2.40.8", "2.40.4", "2.34.2", "2.35.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -13050,7 +13062,7 @@ ac_1 = "With MaxJobsPerBlock 64 and MaxJobGasLimit 10000000 (modules/layerxagent
 
 [req.2317]
 title = "Freeze the 0x0905 event topics against the contract table"
-ac_1 = "The topic0 of JobScheduled, JobCancelled, JobRescheduled, JobExecuted and JobFailed in the 0x0905 ABI in precompiles/layerxagent/scheduler/scheduler.go (planned) begin with 0xf946d531, 0xa80c76c4, 0xb060fcde, 0x2052025f and 0x0bf83276 (spec/layerx-merge/contracts/agent-functions.md:133-137)."
+ac_1 = "The topic0 of JobScheduled, JobCancelled, JobRescheduled, JobExecuted and JobFailed in the 0x0905 ABI served by NewMergePrecompile (precompiles/layerxagent/scheduler/scheduler.go and merge.go) begin with 0xf946d531, 0xa80c76c4, 0xb060fcde, 0x2052025f and 0x0bf83276 (spec/layerx-merge/contracts/agent-functions.md:413-417)."
 
 [req.2318]
 title = "Freeze the 0x0906 event topics against the contract table"
@@ -18025,6 +18037,10 @@ ac_1 = "run-real-node-tests.sh prepare names neither layerxd nor lxp_test_daemon
 [req.9064]
 title = "Drop the LNI frame target from the qualification fuzz gate"
 ac_1 = "The qualification fuzz gate's required target list holds no lni_frame entry."
+
+[req.9188]
+title = "Port the qualification fabrication gate to rungs and block heights"
+ac_1 = "services/agent/tests/qualify/fabrication.rs compiles inside the agent-qualification-gates bin against the rung and height types: rust_sdk_refuses_unverified requests Rung::Receipted, receives a value achieved at Rung::Submitted with a block-height Freshness and gets Err(SdkError::UnverifiedRead)."
 
 [req.9065]
 title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
@@ -28163,23 +28179,23 @@ symbols = ["TestRunDueWorstCaseWithinMaxBlockGas"]
 [capability.2.40.7]
 title = "Freeze the 0x0905 event topics against the contract table"
 reqs = ["2317.1"]
-touches = ["precompiles/layerxagent/scheduler/topics_test.go"]
+touches = ["precompiles/layerxagent/scheduler/topics_test.go", "precompiles/layerxagent/scheduler/merge_test.go"]
 tests = ["precompiles/layerxagent/scheduler/topics_test.go::TestSchedulerEventTopicsMatchContract"]
 verification_contract = "contracts/agent-functions.md#scheduler-0x0905"
 do_1 = "Parse the abiJSON of precompiles/layerxagent/scheduler/scheduler.go (planned) with abi.JSON."
-do_2 = "Compare each Events[name].ID prefix with the literal prefixes of spec/layerx-merge/contracts/agent-functions.md:133-137."
-do_3 = "Check that keccak256 of each canonical signature of spec/layerx-merge/contracts/agent-functions.md:133-137 equals the ABI event ID."
+do_2 = "Compare each Events[name].ID prefix with the literal prefixes of spec/layerx-merge/contracts/agent-functions.md:413-417."
+do_3 = "Check that keccak256 of each canonical signature of spec/layerx-merge/contracts/agent-functions.md:413-417 equals the ABI event ID."
 do_4 = "Write TestSchedulerEventTopicsMatchContract in precompiles/layerxagent/scheduler/topics_test.go (planned)."
 symbols = ["TestSchedulerEventTopicsMatchContract"]
 
 [capability.2.40.8]
 title = "Freeze the 0x0906 event topics against the contract table"
 reqs = ["2318.1"]
-touches = ["precompiles/layerxagent/streams/topics_test.go"]
+touches = ["precompiles/layerxagent/streams/topics_test.go", "precompiles/layerxagent/streams/merge_test.go"]
 tests = ["precompiles/layerxagent/streams/topics_test.go::TestStreamsEventTopicsMatchContract"]
 verification_contract = "contracts/agent-functions.md#streams-0x0906"
 do_1 = "Parse the abiJSON of precompiles/layerxagent/streams/streams.go (planned) with abi.JSON."
-do_2 = "Compare each Events[name].ID prefix with the literal prefixes of spec/layerx-merge/contracts/agent-functions.md:138-141."
+do_2 = "Compare each Events[name].ID prefix with the literal prefixes of spec/layerx-merge/contracts/agent-functions.md:525-528."
 do_3 = "Check that the 0x0906 StreamRateUpdated topic equals the 0x101B one emitted by EmitStreamRateUpdated in precompiles/layerxpay/stream.go (planned)."
 do_4 = "Write TestStreamsEventTopicsMatchContract in precompiles/layerxagent/streams/topics_test.go (planned)."
 symbols = ["TestStreamsEventTopicsMatchContract"]
@@ -39204,6 +39220,15 @@ verification_contract = "contracts/agent-cli.md#agent-qualification-gates"
 do_1 = "services/agent/tests/qualify/fuzz.rs:13 lists lni_frame among the required fuzz targets; delete it so the gate no longer requires the retired LNI frame fuzzer."
 symbols = ["audit_targets", "agent_qualify_fuzz_gate"]
 
+[capability.9.18.8]
+title = "Port the qualification fabrication gate to rungs and block heights"
+reqs = ["9188.1"]
+touches = ["services/agent/tests/qualify/fabrication.rs"]
+tests = ["services/agent/tests/qualify/fabrication.rs::rust_sdk_refuses_a_submitted_read"]
+verification_contract = "contracts/agent-cli.md#agent-qualification-gates"
+do_1 = "services/agent/tests/qualify/fabrication.rs:8 imports layerx_agent_api::verify::Level, which task 9.1.4 deleted (b20ecde23); import layerx_agent_api::verify::Rung instead, drop BatchRef and CheckpointRef from the read import at :5-7 and Sequence from :9."
+symbols = ["rust_sdk_refuses_unverified", "freshness"]
+
 [capability.9.19.1]
 title = "Delete the LNI ABI header, LNI schema and stable ABI allowlist"
 reqs = ["9065.1", "9065.2"]
@@ -45849,7 +45874,7 @@ symbols = ["StatusLadderBadge", "TxStatusLadderBadge", "badge_labels_committed_r
 [capability.14.32.1]
 title = "Point the anchors and receipts resources at the archive routes"
 reqs = ["14282.1"]
-touches = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.ts", "apps/explorer/types/api/paxeerXLists.ts", "apps/explorer/stubs/paxeerXLists.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts"]
+touches = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.ts", "apps/explorer/types/api/paxeerXLists.ts", "apps/explorer/stubs/paxeerXLists.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts", "apps/explorer/lib/api/services/general/paxeerX.spec.ts"]
 tests = ["apps/explorer/lib/api/services/general/paxeerXLists.spec.ts::kernel_resources_use_archive_paths"]
 verification_contract = "contracts/explorer-frontend.md#paxeer-x-pages"
 do_1 = "Create apps/explorer/types/api/paxeerXArchive.ts (planned) with PaxeerXArchiveAnchor, PaxeerXArchiveReceiptsItem and PaxeerXArchiveReceipt, each the HEAD type at apps/explorer/types/api/paxeerXLists.ts:15-23, :35-40 and :64-69 without status and with frozen: true."
@@ -45862,7 +45887,7 @@ symbols = ["PaxeerXArchiveAnchor", "PaxeerXArchiveReceipt", "GENERAL_API_PAXEER_
 [capability.14.32.2]
 title = "Show the anchors page as a frozen archive"
 reqs = ["14283.1"]
-touches = ["apps/explorer/ui/pages/PaxeerXAnchors.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx", "apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx"]
+touches = ["apps/explorer/ui/pages/PaxeerXAnchors.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx", "apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx"]
 tests = ["apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx::anchors_page_shows_archive_notice"]
 verification_contract = "contracts/explorer-frontend.md#paxeer-x-pages"
 do_1 = "Retype the list query at apps/explorer/ui/pages/PaxeerXAnchors.tsx:22-24 to the archive anchor type, using the stub apps/explorer/stubs/paxeerXLists.ts:5-13 that task 14.32.1 retypes."
@@ -45886,7 +45911,7 @@ symbols = ["PaxeerXReceipts", "receipts_page_shows_archive_rows_without_rung"]
 [capability.14.32.4]
 title = "Show one archived kernel receipt with its frozen verification status"
 reqs = ["14285.1"]
-touches = ["apps/explorer/ui/pages/PaxeerXReceipt.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx", "apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx"]
+touches = ["apps/explorer/ui/pages/PaxeerXReceipt.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx", "apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx"]
 tests = ["apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx::receipt_page_shows_frozen_verification_status"]
 verification_contract = "contracts/explorer-frontend.md#paxeer-x-pages"
 do_1 = "Retype the query at apps/explorer/ui/pages/PaxeerXReceipt.tsx:63-69 to PaxeerXArchiveReceipt and add data-archive-notice under the title at apps/explorer/ui/pages/PaxeerXReceipt.tsx:206."
@@ -101895,7 +101920,7 @@ title = "Match 0x0906 stream records against the 0x101B stream path"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["2.35.2", "2.38.2"]
+requires = ["2.35.2", "2.38.2", "2.40.8"]
 reqs = ["2314.1"]
 capabilities = ["2.40.4"]
 interfaces = []
@@ -101920,6 +101945,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "go vet ./precompiles/layerxagent/streams/ exits 1 at precompiles/layerxagent/streams/merge_test.go:71 (a by-value copy of node.App, which holds mutexes) until task 2.40.8 replaces the copy with a keepers wrapper under decision.1956; this task requires 2.40.8 and changes nothing in merge_test.go. The most recent candidate is continued once 2.40.8 is done."
 
 [task.2.40.5]
 title = "Bound 0x101B charged gas against the measured host store work"
@@ -101994,11 +102020,11 @@ reqs = ["2317.1"]
 capabilities = ["2.40.7"]
 interfaces = []
 do_1 = "Parse the abiJSON of precompiles/layerxagent/scheduler/scheduler.go (planned) with abi.JSON."
-do_2 = "Compare each Events[name].ID prefix with the literal prefixes of spec/layerx-merge/contracts/agent-functions.md:133-137."
-do_3 = "Check that keccak256 of each canonical signature of spec/layerx-merge/contracts/agent-functions.md:133-137 equals the ABI event ID."
+do_2 = "Compare each Events[name].ID prefix with the literal prefixes of spec/layerx-merge/contracts/agent-functions.md:413-417."
+do_3 = "Check that keccak256 of each canonical signature of spec/layerx-merge/contracts/agent-functions.md:413-417 equals the ABI event ID."
 do_4 = "Write TestSchedulerEventTopicsMatchContract in precompiles/layerxagent/scheduler/topics_test.go (planned)."
 symbols = ["TestSchedulerEventTopicsMatchContract"]
-touches = ["precompiles/layerxagent/scheduler/topics_test.go"]
+touches = ["precompiles/layerxagent/scheduler/topics_test.go", "precompiles/layerxagent/scheduler/merge_test.go"]
 tests = ["precompiles/layerxagent/scheduler/topics_test.go::TestSchedulerEventTopicsMatchContract"]
 planned_paths = ["precompiles/layerxagent/scheduler/topics_test.go"]
 build_cmd = "go vet ./precompiles/layerxagent/scheduler/"
@@ -102014,6 +102040,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "The served 0x0905 ABI is abiJSON (precompiles/layerxagent/scheduler/scheduler.go:26-35), which declares JobScheduled, JobCancelled and JobRescheduled, joined by NewMergePrecompile (precompiles/layerxagent/scheduler/merge.go:51-57) with jobOutcomeABI (merge.go:20-23), which declares JobExecuted and JobFailed. The package scheduler test parses both constants with abi.JSON, checks the five events of their union, and takes its prefixes and canonical signatures from spec/layerx-merge/contracts/agent-functions.md:413-417 (lines 133-137 are error-code rows)."
+do_6 = "go vet copylocks rejects precompiles/layerxagent/scheduler/merge_test.go:76, where application := *testkeeper.EVMTestApp copies node.App, which holds sync.RWMutex (node/app.go:567) and sync.Mutex (node/app.go:608). Under decision.1956 replace :76-78 with a test-local type agentKeepers struct { utils.Keepers; agent *agentkeeper.Keeper } whose LayerXAgentK returns agent, and build with scheduler.NewMergePrecompile(agentKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), &h.keeper}, schedulerPlan), importing agentkeeper from modules/layerxagent/keeper. Keep every assertion of TestSchedulerJobOutcomesAreTypedEvents unchanged."
 
 [task.2.40.8]
 title = "Freeze the 0x0906 event topics against the contract table"
@@ -102025,11 +102053,11 @@ reqs = ["2318.1"]
 capabilities = ["2.40.8"]
 interfaces = []
 do_1 = "Parse the abiJSON of precompiles/layerxagent/streams/streams.go (planned) with abi.JSON."
-do_2 = "Compare each Events[name].ID prefix with the literal prefixes of spec/layerx-merge/contracts/agent-functions.md:138-141."
+do_2 = "Compare each Events[name].ID prefix with the literal prefixes of spec/layerx-merge/contracts/agent-functions.md:525-528."
 do_3 = "Check that the 0x0906 StreamRateUpdated topic equals the 0x101B one emitted by EmitStreamRateUpdated in precompiles/layerxpay/stream.go (planned)."
 do_4 = "Write TestStreamsEventTopicsMatchContract in precompiles/layerxagent/streams/topics_test.go (planned)."
 symbols = ["TestStreamsEventTopicsMatchContract"]
-touches = ["precompiles/layerxagent/streams/topics_test.go"]
+touches = ["precompiles/layerxagent/streams/topics_test.go", "precompiles/layerxagent/streams/merge_test.go"]
 tests = ["precompiles/layerxagent/streams/topics_test.go::TestStreamsEventTopicsMatchContract"]
 planned_paths = ["precompiles/layerxagent/streams/topics_test.go"]
 build_cmd = "go vet ./precompiles/layerxagent/streams/"
@@ -102045,6 +102073,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "go vet copylocks rejects precompiles/layerxagent/streams/merge_test.go:71, where application := *testkeeper.EVMTestApp copies node.App (sync.RWMutex at node/app.go:567, sync.Mutex at :608), so go vet ./precompiles/layerxagent/streams/ exits 1 before this task's test compiles. Under decision.1956 replace :71-74 with a test-local type payKeepers struct { utils.Keepers; pay *paykeeper.Keeper } whose LayerXPayK returns pay (the layerxpay.LayerXPayKeepers interface of precompiles/layerxpay/keepers.go:5-7 that streams.NewMergePrecompile asserts at precompiles/layerxagent/streams/merge.go:24-25), and build with streams.NewMergePrecompile(payKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), h.keeper}, plan), importing paykeeper from modules/layerxpay/keeper. Keep every assertion of TestStreamsMergePrecompileHeightGated unchanged; the event rows of this task are spec/layerx-merge/contracts/agent-functions.md:525-528."
 
 [task.2.40.9]
 title = "Rehearse layerxpay genesis export and import with kernel state intact"
@@ -141696,7 +141725,7 @@ title = "Retire the wire differential and the qualification wire gate"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["9.18.1", "9.1.4", "16.2.3"]
+requires = ["9.18.1", "9.1.4", "16.2.3", "9.18.8"]
 reqs = ["9059.1"]
 capabilities = ["9.18.2"]
 interfaces = ["interface.9.cli-agent-wire-differential", "interface.9.env-layerx-c-reference", "interface.9.env-layerx-repository-root", "interface.9.cli-agent-qualification-gates-wire", "interface.9.cli-agent-qualification-gates-boundary"]
@@ -141722,6 +141751,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "services/agent/tests/qualify/fabrication.rs, compiled into the agent-qualification-gates bin at services/agent/tests/qualify/src/main.rs:5-6, fails the build at :8 (E0432 Level) and :66-76 (E0308, E0560, E0599, E0063) because tasks 9.1.1, 9.1.7 and 9.1.4 changed the agent-api read and verify types; task 9.18.8 ports it (decision.1955), so this task requires 9.18.8. Change nothing in fabrication.rs; the attempt 4 candidate (4c1bb7ae8, the content of attempts 2 and 3) is re-qualified unchanged once 9.18.8 is done."
 
 [task.9.18.3]
 title = "Refuse any LNI transport import in the boundary purity check"
@@ -141793,7 +141823,7 @@ title = "Run the qualification boundary gate against a node JSON-RPC URL and del
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["9.18.1"]
+requires = ["9.18.1", "9.18.8"]
 reqs = ["9062.1", "9062.2"]
 capabilities = ["9.18.5"]
 interfaces = ["interface.9.cli-agent-qualification-gates-boundary"]
@@ -141818,13 +141848,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "services/agent/tests/qualify/fabrication.rs, compiled into the agent-qualification-gates bin at services/agent/tests/qualify/src/main.rs:5-6, fails the build at :8 (E0432 Level) and :66-76 (E0308, E0560, E0599, E0063) because tasks 9.1.1, 9.1.7 and 9.1.4 changed the agent-api read and verify types; task 9.18.8 ports it (decision.1955), so this task requires 9.18.8. Change nothing in fabrication.rs; the attempt 4 candidate (3da4b4e5a, the content of attempts 2 and 3 plus one line) is re-qualified unchanged once 9.18.8 is done."
 
 [task.9.18.6]
 title = "Prepare real-node tests without the kernel daemon"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["9.18.1"]
+requires = ["9.18.1", "9.18.8"]
 reqs = ["9063.1"]
 capabilities = ["9.18.6"]
 interfaces = ["interface.9.cli-run-real-node-tests-test", "interface.9.cli-run-real-node-tests-sanitizers", "interface.9.cli-run-real-node-tests-prepare"]
@@ -141849,6 +141880,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "services/agent/tests/qualify/fabrication.rs, compiled into the agent-qualification-gates bin at services/agent/tests/qualify/src/main.rs:5-6, fails the build at :8 (E0432 Level) and :66-76 (E0308, E0560, E0599, E0063) because tasks 9.1.1, 9.1.7 and 9.1.4 changed the agent-api read and verify types; task 9.18.8 ports it (decision.1955), so this task requires 9.18.8. Change nothing in fabrication.rs; the most recent candidate (attempt 3, 5bb8f1917, carries the content of attempts 1 and 2) is re-qualified unchanged once 9.18.8 is done."
 
 [task.9.18.7]
 title = "Drop the LNI frame target from the qualification fuzz gate"
@@ -141872,6 +141904,40 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert fuzz.rs."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The agent-qualification-gates bin compiles only after task 9.18.8 ports services/agent/tests/qualify/fabrication.rs (decision.1955); this task reaches it through 9.18.2 and changes nothing in fabrication.rs."
+
+[task.9.18.8]
+title = "Port the qualification fabrication gate to rungs and block heights"
+status = "pending"
+mode = "BUILD"
+wave = 23
+requires = ["9.1.1", "9.1.7", "9.1.4"]
+reqs = ["9188.1"]
+capabilities = ["9.18.8"]
+interfaces = []
+do_1 = "services/agent/tests/qualify/fabrication.rs:8 imports layerx_agent_api::verify::Level, which task 9.1.4 deleted (b20ecde23); import layerx_agent_api::verify::Rung instead, drop BatchRef and CheckpointRef from the read import at :5-7 and Sequence from :9."
+do_2 = "fabrication.rs:63-73 freshness() builds the batch-era Freshness; since 71550012a (task 9.1.1) Freshness is { chain_head: u64, value_height: u64, relative_to: RelativeTo } with RelativeTo::Block { height, hash } its only variant (services/agent/crates/layerx-agent-api/src/read.rs:98-108); build chain_head 1, value_height 1 and RelativeTo::Block { height: 1, hash: [1; 32] } in the form of services/agent/crates/layerx-agent-api/tests/read.rs:29-38."
+do_3 = "fabrication.rs:76-83: the BalanceValue literal gains height: 1 (read.rs:182-188)."
+do_4 = "fabrication.rs:84-87: since 1866e77a1 (task 9.1.7) Client::accept_verified_read takes requested: Rung and returns SdkError::UnverifiedRead for an achieved Rung::Submitted (services/agent/crates/layerx-sdk/src/lib.rs:363-369); pass Rung::Receipted where :85 passes Level::StateProven and Rung::Submitted where :86 passes Level::Unverified (decision.907), and keep the Err(SdkError::UnverifiedRead) comparison at :87 and the message at :91."
+do_5 = "Keep run_rust_suites (:33-59), dynamic_sdks_refuse_unverified (:95-126) and agent_qualify_fabrication_gate (:133-157) as written."
+do_6 = "Add #[cfg(test)] mod tests in services/agent/tests/qualify/fabrication.rs holding #[test] fn rust_sdk_refuses_a_submitted_read, which asserts rust_sdk_refuses_unverified() returns Ok(()); fabrication.rs is mod fabrication at services/agent/tests/qualify/src/main.rs:5-6, so its libtest path inside the agent-qualification-gates bin is fabrication::tests::rust_sdk_refuses_a_submitted_read, the exact filter of verify_cmd."
+symbols = ["rust_sdk_refuses_unverified", "freshness"]
+touches = ["services/agent/tests/qualify/fabrication.rs"]
+tests = ["services/agent/tests/qualify/fabrication.rs::rust_sdk_refuses_a_submitted_read"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/tests/qualify/Cargo.toml"
+verify_cmd = "cargo test --locked --manifest-path services/agent/tests/qualify/Cargo.toml --bin agent-qualification-gates -- --exact fabrication::tests::rust_sdk_refuses_a_submitted_read"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert fabrication.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -146761,6 +146827,7 @@ do_19 = "Attempt 13 (1565a0751, the attempt 12 candidate f189d2634 re-qualified 
 do_20 = "Attempt 14 (0548c127f, the attempt 13 candidate 1565a0751 re-qualified unchanged on base 73dfa5565) passes all three build_cmd members, and both startup tests fail when layerxd --serve (tests/production_unhooked.rs:590-667) exits 1 with 'layerxd: bootstrap finality authority failed with result -213'. -213 is LXP_ERR_CONTEXT_MISMATCH (include/layerx/lxp_result.h:62). The stage is lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_process.c:5972-5975, cmd/layerxd/lxp_daemon_finality_authority.c:540-579), which since 411c57eaa reads eth_chainId, threshold() and latestFinalized() from the anchor precompile 0x0000000000000000000000000000000000001014 over 127.0.0.1:LAYERX_NODE_PAXEER_RPC_PORT and refuses to start on a body that is not a strict JSON-RPC result (:330-337), a chain id other than LAYERX_NODE_PAXEER_CHAIN_ID (:554) or an inconsistent latestFinalized pair (:561). The test's chain id, port and anchor pins are accepted (a misconfiguration returns -3 at :378-401) and match services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1222-1265, so keep the layerxd environment and every assertion exactly as they are. In start_node, before spawning layerxd, send the same three JSON-RPC requests to 127.0.0.1:LAYERX_TEST_PAXEER_RPC_PORT and put their raw HTTP status and bodies into the 'real node exited' error of wait_for_process (:705-724). An answer the in-tree node of decision.1896 gives that layerxd refuses is recorded as the finding of do_16, never scripted and never worked around in cmd/layerxd."
 do_21 = "Attempt 15 (e299ec5de, the attempt 14 candidate re-qualified unchanged on 265e0cc8d) fails both startup tests at the same layerxd --serve exit that do_20 records, 'bootstrap finality authority failed with result -213', and the cause is in the product, not in the environment: since fc5bb55cf (task 5.7.2) AnchorK returns nil (node/precompiles.go:127), so threshold() and latestFinalized() on the anchor precompile 0x0000000000000000000000000000000000001014 revert 'layerxanchor: anchor module is not wired' (precompiles/layerxanchor/layerxanchor.go:218-219) and lxp_finality_authority_bind (cmd/layerxd/lxp_daemon_finality_authority.c:540-579) refuses the JSON-RPC error body (:330-333). Per decision.1944 task 5.7.3 removes that stage from layerxd --serve startup and the requires gain it. Keep every file and assertion as written, change nothing under cmd/, node/ or precompiles/, do not script the anchor answers, and re-qualify the attempt 15 candidate unchanged once 5.7.3 is on main."
 do_22 = "Attempt 17 (19d2b3b6d, the attempt 15 candidate e299ec5de re-qualified unchanged on e8519e92e with 5.7.3 merged) passes all three build_cmd members, and both startup tests fail when layerxd --serve exits 1 with 'layerxd: protocol owner module runtime binding failed with result -3' and 'bootstrap protocol owner failed with result -3'. The finality authority stage that 5.7.3 removed is passed. -3 is LXP_ERR_NON_CANONICAL (include/layerx/lxp_result.h:34). It comes from lxp_programs_state_feed_store_bind_maintenance (src/modules/programs/feed_store.c:1041-1052), which lxp_daemon_protocol_owner_attach calls at cmd/layerxd/lxp_daemon_protocol.c:1121-1122 under the stage set at :1116. That function requires the daemon's feed store to be the kernel's commit observer (:1048), and nothing installs it: 38c544316 (task 1.15.1 do_1) deleted the lxp_programs_bind_state_feed call from lxp_kernel_bind_module_runtime (src/protocol/lxp_kernel.c), and lxp_programs_bind_state_feed (src/modules/programs/feed.c:114-123) now has no caller under src/ or cmd/. Every layerxd --serve start fails there, whatever its input; 18.1200.1 attempt 13 meets the same exit on the same base. Per task 5.7.4 the daemon binds its own feed observer; this task now requires 5.7.4. Keep every file and assertion as written, change nothing under cmd/, src/ or include/, and re-qualify the attempt 17 candidate unchanged once 5.7.4 is on main."
+do_23 = "Attempt 18 (5f4c319c4, the attempt 17 candidate 19d2b3b6d re-qualified unchanged on 4f424c474 with 5.7.4 merged) passes all three build_cmd members; layerxd --serve now starts and creates its LNI socket, and both startup tests fail when layerx-agentd exits 2 with 'human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: missing LAYERX_AGENT_NODE_RPC_URL' (services/human/crates/layerx-human-service/tests/production_unhooked.rs:245-250). Since 8012f3c12 (task 9.12.5, decision.1920) and e5da82547 (task 9.0.3, decision.1942), serve_human_owner (services/agent/crates/layerx-agentd/src/human_owner_mode.rs:67-100) reads NodeRpcConfig::from_environment (src/node_rpc.rs:23-43) after human_peers and calls NodeRpc::connect (:83-84), which posts eth_chainId to LAYERX_AGENT_NODE_RPC_URL and refuses any value other than LAYERX_AGENT_NODE_CHAIN_ID (node_rpc.rs:140-146), before start_human_owner reads LAYERX_AGENT_HUMAN_NODE_LNI (src/main.rs:980); do_18 and decision.1913 predate that contract. In Environment::start_agent (tests/production_unhooked.rs:132-266) read LAYERX_TEST_PAXEER_RPC_PORT and LAYERX_TEST_PAXEER_CHAIN_ID as start_node does (:433-434), failing by name when either is missing, and give the layerx-agentd command LAYERX_AGENT_NODE_RPC_URL=http://127.0.0.1:<that port> and LAYERX_AGENT_NODE_CHAIN_ID=<that chain id>, as services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211-222 does for the in-tree node of decision.1896 (eth_chainId 0x7d); keep LAYERX_AGENT_HUMAN_NODE_LNI (:183-186), which the human runtime still reads. Change no other file and no assertion, and nothing under services/agent, cmd/, src/ or include/; a later layerx-agentd startup refusal is recorded as the finding of do_16."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -156754,6 +156821,7 @@ do_8 = "Attempt 7 (0ef3564c5) makes the standby a bonded validator (decision.190
 do_9 = "Attempt 8 (ba7c4c0f4) committed the activation height 34742403 and stalled at 34742404 because Driver.OnCommit(34742403) failed inside the primary's commit listener (node/sequencer/node_start.go:126-133), which fenced the executor and panicked, and node/abci.go:331-338 recovered that panic so the node kept validating while every Seal answered 'sequencer: executor fenced by a later lease' although no lease exists in this topology (no product path calls TakeLease, Failover, Handover or NewLeaseHolder); the standby's 'sequencer: no sealed layer' on odd rounds is the consequence (standby_role.go:271-272, :322). Task 18.1307.1 (required) makes a commit-listener failure stop the primary with its cause. Before re-qualifying the attempt 8 candidate, extend v6120-node.sh so every readiness deadline (:597-610, :611-625) prints both /status bodies and every node.log, standby.log and bootstrap-peer.log line matching 'commit failed for application', 'panic recovered in commit listener', 'standby stopped', 'refused', 'no ack' or 'fenced', and keeps the whole logs as evidence; the halt cause then names the OnCommit step to fix."
 do_10 = "Attempt 9 (525dff8f4) re-ran the attempt 8 files with 18.1307.1 merged. The primary's commit of 34742403 now fails with 'commit listener at height 34742403: sequencer: driver release open: sequencer: standby did not acknowledge: read tcp ...: i/o timeout', 10 s after its stores committed. That interval is the --sequencer.replication-timeout of v6120-node.sh:570. The standby and the bootstrap peer commit 34742403 only after that Commit returns, so consensus stops at 34742404. Driver.OnCommit runs inside ABCI Commit (node/abci.go:324-326, node/sequencer/node_start.go:126-136) and releases the OPEN for H+1 (node/sequencer/driver.go:107-110). The standby admits that OPEN only after its own commit of H (node/sequencer/standby.go:818, :864-890), and the primary resends on the commit-pending AckGap (standby.go:331-333) until the deadline. The two nodes wait on each other. This task requires 12.35.5 (decision.1939), which removes that wait; v6120-node.sh still gains the do_9 evidence output first."
 do_11 = "Attempt 10 (a48caaeb7) runs with 12.35.5 merged. All three nodes now commit past 34742403. The /status and /validators checks read the plain HTTP bodies the node returns (sync_info and validators at the top level, no result envelope; v6120-node.sh:648-676), so the script reports ready and the Go test runs. The test then fails at v6120_test.go:159: the standby's EVM RPC at LOCAL_NODE_STANDBY_RPC refuses connections while the standby process is alive. The EVM HTTP server binds only after the start signal that ProcessBlock sends (node/app.go:2376, :1347-1386). On restart, 34742402 is replayed against the mock app (consensus/internal/consensus/replay.go:338-347). The standby never processes a proposal and finalizes every sequenced block through the sealed branch of FinalizeBlocker (node/app.go:1798-1830, standby_role.go:288-325), so it never sends that signal. This task requires 12.35.6, which sends the start signal on sealed adoption. Re-qualify a48caaeb7 unchanged after 12.35.6 is on main."
+do_12 = "Attempt 11 (29f5c75f6) re-ran the a48caaeb7 files with 12.35.6 merged. The standby still refuses connections on LOCAL_NODE_STANDBY_RPC at v6120_test.go:159 while it commits blocks (34742450). The standby home is created with paxd init --mode validator (v6120-node.sh:233), which writes app.toml with api.enable, grpc.enable and state-store.enable false (node/params/config.go:141-147). configure_node keeps api enable false (v6120-node.sh:534) and never enables grpc, so sdk/server/start.go:369-376 skips RegisterLocalServices. That is the only place that builds the EVM HTTP server (node/app.go:3537-3553), so the standby has no EVM server for the start signal of 12.35.6 to bind. Its halt log has no 'Stopping EVM HTTP Server' line, while the primary's has one (rpc/rpcstack.go:285). configure_node sets grpc enable true beside the grpc address (v6120-node.sh:535) so every node home, including the standby, registers its local services and serves EVM RPC on its own http_port. The standby keeps consensus mode validator (decision.1902), api enable false and the standby chain-id assertion of v6120_test.go:152-160. Continue 29f5c75f6 with that one line."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -164467,10 +164535,10 @@ do_3 = "Delete PaxeerXAnchorsItem, PaxeerXReceiptsItem, PAXEER_X_VERIFICATION_ST
 do_4 = "Retype PAXEER_X_ANCHORS_ITEM and PAXEER_X_RECEIPTS_ITEM at apps/explorer/stubs/paxeerXLists.ts:5-20 to the archive types with frozen: true and no status."
 do_5 = "Create apps/explorer/lib/api/services/general/paxeerXLists.spec.ts (planned) with kernel_resources_use_archive_paths."
 symbols = ["PaxeerXArchiveAnchor", "PaxeerXArchiveReceipt", "GENERAL_API_PAXEER_X_LISTS_RESOURCES", "kernel_resources_use_archive_paths"]
-touches = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.ts", "apps/explorer/types/api/paxeerXLists.ts", "apps/explorer/stubs/paxeerXLists.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts"]
+touches = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.ts", "apps/explorer/types/api/paxeerXLists.ts", "apps/explorer/stubs/paxeerXLists.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts", "apps/explorer/lib/api/services/general/paxeerX.spec.ts"]
 tests = ["apps/explorer/lib/api/services/general/paxeerXLists.spec.ts::kernel_resources_use_archive_paths"]
 planned_paths = ["apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts"]
-build_cmd = "cd apps/explorer && yarn lint:tsc"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node global.d.ts decs.d.ts reset.d.ts types/api/paxeerXArchive.ts types/api/paxeerXLists.ts stubs/paxeerXLists.ts lib/api/services/general/paxeerXLists.ts lib/api/services/general/paxeerXLists.spec.ts lib/api/services/general/paxeerX.spec.ts"
 verify_cmd = "cd apps/explorer && yarn vitest run lib/api/services/general/paxeerXLists.spec.ts -t '(?:^|\s)(kernel_resources_use_archive_paths)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164483,6 +164551,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "apps/explorer/lib/api/services/general/paxeerX.spec.ts is the existing spec of the three resources do_2 repoints and of the receipts stub do_4 retypes. Its expected paths at :21, :23 and :28 still read /api/v2/paxeer-x/anchors, /api/v2/paxeer-x/receipts and /api/v2/paxeer-x/receipts/:id. Line :59 compares the removed status field, which fails with TS2339 at (59,30) and (59,66) (attempt 4, 4ebcacc3f). Set the expected paths at :21, :23 and :28 to /api/v2/paxeer-x/archive/anchors, /api/v2/paxeer-x/archive/receipts and /api/v2/paxeer-x/archive/receipts/:id. Replace .status with .frozen on both sides of :59. Keep every other assertion as written."
+do_7 = "The build type-checks the files this task touches and what they import, not the whole application. tsc -p ./tsconfig.json also checks 17 files that import PaxeerXAnchorsItem, PaxeerXReceiptsItem, PaxeerXReceipt, PaxeerXVerificationStatus or PAXEER_X_VERIFICATION_STATUSES, which do_3 deletes, or that read status from the stubs do_4 retypes (attempt 4, 4ebcacc3f: 20 errors, none in this task's files). Tasks 14.32.2, 14.32.3, 14.32.4 and 14.32.6 port those files, including apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx and apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx. Change none of them here. The whole-application check runs on 14.32.6, once every consumer is ported. The attempt 4 files need no change apart from do_6."
 
 [task.14.32.2]
 title = "Show the anchors page as a frozen archive"
@@ -164498,10 +164568,10 @@ do_2 = "Rename the page title at apps/explorer/ui/pages/PaxeerXAnchors.tsx:78 to
 do_3 = "Retype the item props of apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.tsx:1 and apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx:1 to PaxeerXArchiveAnchor."
 do_4 = "Add anchors_page_shows_archive_notice to apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx:1."
 symbols = ["PaxeerXAnchors", "anchors_page_shows_archive_notice"]
-touches = ["apps/explorer/ui/pages/PaxeerXAnchors.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx", "apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx"]
+touches = ["apps/explorer/ui/pages/PaxeerXAnchors.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx", "apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx"]
 tests = ["apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx::anchors_page_shows_archive_notice"]
 planned_paths = []
-build_cmd = "cd apps/explorer && yarn lint:tsc"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node,next,next/image-types/global global.d.ts decs.d.ts reset.d.ts nextjs/nextjs-routes.d.ts ui/pages/PaxeerXAnchors.tsx ui/pages/PaxeerXAnchors.spec.tsx ui/paxeerX/anchors/PaxeerXAnchorsListItem.tsx ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx"
 verify_cmd = "cd apps/explorer && yarn vitest run ui/pages/PaxeerXAnchors.spec.tsx -t '(?:^|\s)(anchors_page_shows_archive_notice)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164514,6 +164584,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx:3 imports PaxeerXAnchorsItem, which 14.32.1 deletes, and types the items prop with it at :11; PaxeerXAnchors.tsx renders this table. Retype :3 and :11 to PaxeerXArchiveAnchor from types/api/paxeerXArchive, and retype the fixture type at apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx:5, :20 and :29 to PaxeerXArchiveAnchor in the same way. The build type-checks the touched files and what they import; the whole-application check runs on 14.32.6."
 
 [task.14.32.3]
 title = "Show the kernel receipts page as a frozen archive without a settlement rung"
@@ -164532,7 +164603,7 @@ symbols = ["PaxeerXReceipts", "receipts_page_shows_archive_rows_without_rung"]
 touches = ["apps/explorer/ui/pages/PaxeerXReceipts.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.tsx", "apps/explorer/ui/pages/PaxeerXReceipts.spec.tsx"]
 tests = ["apps/explorer/ui/pages/PaxeerXReceipts.spec.tsx::receipts_page_shows_archive_rows_without_rung"]
 planned_paths = []
-build_cmd = "cd apps/explorer && yarn lint:tsc"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node,next,next/image-types/global global.d.ts decs.d.ts reset.d.ts nextjs/nextjs-routes.d.ts ui/pages/PaxeerXReceipts.tsx ui/pages/PaxeerXReceipts.spec.tsx ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx ui/paxeerX/receipts/PaxeerXReceiptsTable.tsx"
 verify_cmd = "cd apps/explorer && yarn vitest run ui/pages/PaxeerXReceipts.spec.tsx -t '(?:^|\s)(receipts_page_shows_archive_rows_without_rung)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164545,6 +164616,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Retype the PaxeerXReceiptsItem imports at apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx:4, PaxeerXReceiptsTableItem.tsx:4 and PaxeerXReceiptsTable.tsx:3 (prop at :10) to PaxeerXArchiveReceiptsItem from types/api/paxeerXArchive. In apps/explorer/ui/pages/PaxeerXReceipts.spec.tsx retype :5, :20 and :29 to it as well and drop status: 'committed' at :23, since archive items carry no rung. The build type-checks the touched files and what they import; the whole-application check runs on 14.32.6."
 
 [task.14.32.4]
 title = "Show one archived kernel receipt with its frozen verification status"
@@ -164560,10 +164632,10 @@ do_2 = "Delete data-settlement-status at apps/explorer/ui/paxeerX/receipts/Paxee
 do_3 = "Move the VERIFICATION_STATUS_LABELS keys at apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx:14 to the archive verification status list in apps/explorer/types/api/paxeerXArchive.ts (planned)."
 do_4 = "Add receipt_page_shows_frozen_verification_status to apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx:1."
 symbols = ["PaxeerXReceipt", "PaxeerXReceiptDetails", "receipt_page_shows_frozen_verification_status"]
-touches = ["apps/explorer/ui/pages/PaxeerXReceipt.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx", "apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx"]
+touches = ["apps/explorer/ui/pages/PaxeerXReceipt.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx", "apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx"]
 tests = ["apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx::receipt_page_shows_frozen_verification_status"]
 planned_paths = []
-build_cmd = "cd apps/explorer && yarn lint:tsc"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node,next,next/image-types/global global.d.ts decs.d.ts reset.d.ts nextjs/nextjs-routes.d.ts ui/pages/PaxeerXReceipt.tsx ui/pages/PaxeerXReceipt.spec.tsx ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx"
 verify_cmd = "cd apps/explorer && yarn vitest run ui/pages/PaxeerXReceipt.spec.tsx -t '(?:^|\s)(receipt_page_shows_frozen_verification_status)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164576,6 +164648,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "apps/explorer/ui/pages/PaxeerXReceipt.tsx reads next.status and PAXEER_X_STATUS_RUNGS in terminal (:34-35) and admissible (:39, :52) and imports PAXEER_X_VERIFICATION_STATUSES at :8, which 14.32.1 moves to PAXEER_X_ARCHIVE_VERIFICATION_STATUSES in types/api/paxeerXArchive. Archive receipts carry no status: terminal tests verification_status === 'settlement_anchored' only, admissible drops the two PAXEER_X_STATUS_RUNGS checks, and :8, :39 and :53 read PAXEER_X_ARCHIVE_VERIFICATION_STATUSES. VERIFICATION_STATUS_LABELS (PaxeerXReceiptDetails.tsx:14) is keyed by PaxeerXArchiveVerificationStatus. In apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx retype :5 and :20 to PaxeerXArchiveReceipt with frozen: true; :131 and :166 still use receipt.status, and archive receipts have none."
+do_6 = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx:5 imports PaxeerXReceipt, which 14.32.1 deletes, and its fixture at :17-26 sets status at :20. Retype :5, :17 and :93 to PaxeerXArchiveReceipt and replace status: 'submitted' with frozen: true. Since do_2 removes the settlement status row (req 14285.1: no settlement status), delete the 'Settlement status' assertion at :45, the 'Settlement status' entry of the key list at :122 and the 'puts the receipt on the settlement ladder' test at :63. Keep every other assertion as written. The build type-checks the touched files and what they import; the whole-application check runs on 14.32.6."
 
 [task.14.32.5]
 title = "Label the kernel pages Kernel archive in the navigation"
@@ -164593,7 +164667,7 @@ symbols = ["useNavItems", "nav_groups_kernel_pages_under_archive"]
 touches = ["apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/lib/hooks/useNavItemsArchive.spec.tsx"]
 tests = ["apps/explorer/lib/hooks/useNavItemsArchive.spec.tsx::nav_groups_kernel_pages_under_archive"]
 planned_paths = ["apps/explorer/lib/hooks/useNavItemsArchive.spec.tsx"]
-build_cmd = "cd apps/explorer && yarn lint:tsc"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit --strict --skipLibCheck --allowJs --esModuleInterop --forceConsistentCasingInFileNames --isolatedModules --resolveJsonModule --target es2017 --lib dom,dom.iterable,esnext --module esnext --moduleResolution bundler --jsx preserve --baseUrl . --types node,next,next/image-types/global global.d.ts decs.d.ts reset.d.ts nextjs/nextjs-routes.d.ts lib/hooks/useNavItems.tsx lib/hooks/useNavItemsArchive.spec.tsx"
 verify_cmd = "cd apps/explorer && yarn vitest run lib/hooks/useNavItemsArchive.spec.tsx -t '(?:^|\s)(nav_groups_kernel_pages_under_archive)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164606,13 +164680,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The build type-checks useNavItems.tsx, its spec and what they import. The whole-application check fails while 14.32.2, 14.32.3, 14.32.4 and 14.32.6 port the files that import the names 14.32.1 deletes, and none of those files is imported by useNavItems.tsx."
 
 [task.14.32.6]
 title = "Move the kernel list item specs to the archive item shapes"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["14.32.2", "14.32.3"]
+requires = ["14.32.2", "14.32.3", "14.32.4"]
 reqs = ["14287.1", "14287.2"]
 capabilities = ["14.32.6"]
 interfaces = []
@@ -164636,6 +164711,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "This task's build is the whole-application check for the archive move. It requires 14.32.4 as well, because apps/explorer/ui/pages/PaxeerXReceipt.tsx, PaxeerXReceipt.spec.tsx, ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx and PaxeerXReceiptDetails.spec.tsx import the names 14.32.1 deletes, and 14.32.4 ports them."
 
 [task.14.33.1]
 title = "Align the frontend unified account types and mocks with the backend answer"
@@ -194572,6 +194648,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 

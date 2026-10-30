@@ -12867,3 +12867,99 @@ symbol = "LocalVerifier.AuthorizedReceiptBatch"
 observed = "Attempt 4 (9df9d3bfa) changed only the five declared paths, and mvn -q -f sdk/integrations/spring/pom.xml -DskipTests package exited 1 with eight cannot-find-symbol AuthorizedReceiptBatch errors in Fulfillments.java:12,15, DurableStores.java:524,525 and SellerMiddleware.java:43,57,80,153, a type that a54c32322 (8.42.5) removed from the JVM SDK; the module has not compiled on main since that commit."
 assumption = "The spring module cannot compile until LayerXProperties, SellerMiddleware, Fulfillments, DurableStores and X402 are ported with the 15.4.5 files, and three of those belonged to 15.4.6, which required 15.4.5, so 15.4.6 is folded into 15.4.5 with LayerXProperties.java and X402.java in its touches and the attempt 4 candidate is continued."
 severity = "owner"
+
+[finding.9.18.2.1]
+task = "9.18.2"
+file = "services/agent/tests/qualify/fabrication.rs:8"
+symbol = "layerx_agent_api::verify::Level"
+observed = "Attempts 1 to 4 (ec66ecdb3, 5d1a8ab0d, edce69b4f, 4c1bb7ae8) fail the qualify build at logs-build-1.log:629 with E0432 Level at fabrication.rs:8 and E0308/E0560/E0599/E0063 at :66-76, in a file no attempt touched and unchanged since 699489127."
+assumption = "b20ecde23 (9.1.4) and 71550012a (9.1.1) left fabrication.rs unported and no task owned it; 9.18.8 ports it, 9.18.2 requires it and the candidate re-qualifies unchanged."
+severity = "owner"
+
+[finding.9.18.5.1]
+task = "9.18.5"
+file = "services/agent/tests/qualify/fabrication.rs:8"
+symbol = "layerx_agent_api::verify::Level"
+observed = "Attempts 1 to 4 (8811f045f, acdf3c6a2, 623371d45, 3da4b4e5a) fail the qualify build at logs-build-1.log:629 with E0432 Level at fabrication.rs:8 and E0308/E0560/E0599/E0063 at :66-76, in a file no attempt touched and unchanged since 699489127."
+assumption = "b20ecde23 (9.1.4) and 71550012a (9.1.1) left fabrication.rs unported and no task owned it; 9.18.8 ports it, 9.18.5 requires it and the candidate re-qualifies unchanged."
+severity = "owner"
+
+[finding.9.18.6.1]
+task = "9.18.6"
+file = "services/agent/tests/qualify/fabrication.rs:8"
+symbol = "layerx_agent_api::verify::Level"
+observed = "Attempts 1 to 3 (e46027e50, 2544b01d6, 5bb8f1917) fail the qualify build at logs-build-1.log:629 with E0432 Level at fabrication.rs:8 and E0308/E0560/E0599/E0063 at :66-76, in a file no attempt touched and unchanged since 699489127."
+assumption = "b20ecde23 (9.1.4) and 71550012a (9.1.1) left fabrication.rs unported and no task owned it; 9.18.8 ports it, 9.18.6 requires it and the candidate re-qualifies unchanged."
+severity = "owner"
+
+[finding.2.40.7.1]
+task = "2.40.7"
+file = "precompiles/layerxagent/scheduler/merge_test.go:76"
+symbol = "TestSchedulerJobOutcomesAreTypedEvents"
+observed = "At a722ac2a1 and 514f31ae6 go vet ./precompiles/layerxagent/scheduler/ exits 1 with 'merge_test.go:76:19: assignment copies lock value to application: node.App contains sync.RWMutex', in a file added by 2.34.2 (239bb1cd2) outside the 2.40.7 touches; attempts 1 to 3 (9f5d9b101, f9d6e590b, 2bed8e6a6) never reached the verify."
+assumption = "With merge_test.go in the 2.40.7 touches and the by-value App copy replaced by a utils.Keepers wrapper that supplies LayerXAgentK (decision.1956), vet passes with no assertion changed; streams/merge_test.go:71 needs the same change for 2.40.8 and 2.40.4."
+severity = "cross-task"
+
+[finding.2.40.7.2]
+task = "2.40.7"
+file = "precompiles/layerxagent/scheduler/scheduler.go:26"
+symbol = "abiJSON"
+observed = "abiJSON declares only JobScheduled, JobCancelled and JobRescheduled; JobExecuted and JobFailed live in jobOutcomeABI (merge.go:20-23), so a test that parses abiJSON alone, as do_1 said, fails req.2317 ac_1 for two of the five events; do_2, do_3 and ac_1 cited agent-functions.md:133-137, which are error rows (the event rows are :413-417)."
+assumption = "The test checks the union of abiJSON and jobOutcomeABI that NewMergePrecompile serves; do_5 and the corrected citations say so."
+severity = "owner"
+
+[finding.2.40.8.1]
+task = "2.40.8"
+file = "precompiles/layerxagent/streams/merge_test.go:71"
+symbol = "TestStreamsMergePrecompileHeightGated"
+observed = "precompiles/layerxagent/streams/merge_test.go:71 (task 2.35.2, e767d6e1b) copies node.App by value, so go vet ./precompiles/layerxagent/streams/, the build of 2.40.8 and 2.40.4, is expected to exit 1 with the copylocks diagnostic before either test compiles; do_2 cited agent-functions.md:138-141 where the 0x0906 event rows are :525-528."
+assumption = "2.40.8 owns the merge_test.go wrapper under decision.1956 and 2.40.4 requires 2.40.8."
+severity = "cross-task"
+
+[finding.2.40.4.1]
+task = "2.40.4"
+file = "precompiles/layerxagent/streams/merge_test.go:71"
+symbol = "TestStreamsMergePrecompileHeightGated"
+observed = "The 2.40.4 build go vet ./precompiles/layerxagent/streams/ shares the copylocks failure of merge_test.go:71 (task 2.35.2) with 2.40.8; the file is outside the 2.40.4 touches."
+assumption = "2.40.4 requires 2.40.8, which owns the fix; its candidate is continued once 2.40.8 is done."
+severity = "cross-task"
+
+[finding.10.20.3.11]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:181"
+symbol = "Environment::start_agent"
+observed = "Attempt 18 (5f4c319c4, the attempt 17 candidate unchanged on 4f424c474 with 5.7.4) builds all three build_cmd members, layerxd --serve starts, and both startup tests fail because layerx-agentd exits 2 with 'missing LAYERX_AGENT_NODE_RPC_URL': serve_human_owner (human_owner_mode.rs:83) has required LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID since 8012f3c12 (9.12.5) and connects to it since e5da82547 (9.0.3), and the test's agent command sets only the LNI and authority inputs of do_18."
+assumption = "The test passes http://127.0.0.1:$LAYERX_TEST_PAXEER_RPC_PORT and $LAYERX_TEST_PAXEER_CHAIN_ID (the in-tree node, eth_chainId 125) as the node RPC pair and keeps LAYERX_AGENT_HUMAN_NODE_LNI; no product file changes."
+severity = "task"
+
+[finding.12.35.4.8]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120-node.sh:535"
+symbol = "configure_node"
+observed = "In attempt 11 (29f5c75f6, with 12.35.6 merged) TestLocalNodeV6120SequencerReceipt again fails at v6120_test.go:159 with connection refused on the standby EVM RPC while the standby commits 34742450: the standby home comes from paxd init --mode validator (grpc.enable and api.enable false) and configure_node never enables grpc, so sdk/server/start.go:369 skips RegisterLocalServices and no EVM HTTP server is built; every bootstrap-standby halt log since attempt 7 lacks 'Stopping EVM HTTP Server'."
+assumption = "Setting grpc enable true in configure_node lets the standby register its local services, and the 12.35.6 sealed-branch start signal then binds its EVM port; the steps after the chain-id check are untested."
+severity = "task"
+
+[finding.14.32.1.1]
+task = "14.32.1"
+file = "apps/explorer/types/api/paxeerXLists.ts:14"
+symbol = "PaxeerXAnchorsItem, PaxeerXReceiptsItem, PaxeerXReceipt, PaxeerXVerificationStatus, PAXEER_X_VERIFICATION_STATUSES"
+observed = "At 4ebcacc3f (attempt 4; attempts 1 and 3 reached the same point) the whole-application yarn lint:tsc exits 2 with 20 errors in 17 files, none in the 14.32.1 touches, the first at lib/api/services/general/paxeerX.spec.ts(59,30) TS2339 status on PaxeerXArchiveReceiptsItem; 14 of those files belong to 14.32.2, 14.32.3, 14.32.4 and 14.32.6 and 3 to no pending task (paxeerX.spec.ts, ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx, ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx)."
+assumption = "The whole-application check passes at a91018ef6 and moves to 14.32.6 once every consumer is ported; the narrowed type-check over the 14.32.1 touches passes once paxeerX.spec.ts:21, :23, :28 and :59 are updated."
+severity = "owner"
+
+[finding.14.32.2.1]
+task = "14.32.2"
+file = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx:3"
+symbol = "PaxeerXAnchorsItem"
+observed = "PaxeerXAnchorsTable.tsx imports PaxeerXAnchorsItem, which 14.32.1 deletes, and no pending task touched it; PaxeerXAnchors.tsx (a 14.32.2 file) renders it."
+assumption = "14.32.2 owns the anchors table retype to PaxeerXArchiveAnchor."
+severity = "cross-task"
+
+[finding.14.32.4.1]
+task = "14.32.4"
+file = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx:5"
+symbol = "PaxeerXReceipt"
+observed = "PaxeerXReceiptDetails.spec.tsx imports PaxeerXReceipt, which 14.32.1 deletes, and sets status at :20, :45, :63-66 and :122; only the done task 14.31.1 touched it."
+assumption = "14.32.4 owns the details spec retype to PaxeerXArchiveReceipt and the removal of the settlement-status assertions that do_2 retires."
+severity = "cross-task"
