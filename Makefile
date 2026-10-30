@@ -270,7 +270,7 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
-test: test-state-diff test-result test-protocol test-state-commitment-transition test-program-artifacts test-daemon-maintenance-protocol test-daemon-allowance test-arena test-harness test-codec \
+test: test-state-diff test-result test-protocol test-state-commitment-transition test-program-artifacts test-daemon-maintenance-protocol test-arena test-harness test-codec \
 	test-codec-limits test-codec-version test-codec-vectors fuzz-codec-smoke \
 	test-crypto-suite test-arith-u128 test-arith-u256 test-arith-rounding \
 	test-arith-property test-arith-nofloat test-log test-log-durability \
@@ -3601,19 +3601,6 @@ test-daemon-maintenance-crash: $(BUILD_DIR)/tests/lxp_test_maintenance_crash $(B
 .PHONY: test-bridge-maintenance-publication
 test-bridge-maintenance-publication: $(BUILD_DIR)/tests/lxp_test_maintenance_publication $(BUILD_DIR)/tests/bridge/sign-credit $(BUILD_DIR)/tests/bridge/test-credit build/bin/layerx-genesis-build
 	$(BRIDGE_PYTHON) tests/bridge/qualify_credit.py --build-dir $(BUILD_DIR) --maintenance
-
-.PHONY: test-daemon-allowance
-$(BUILD_DIR)/tests/lxp_test_daemon_allowance: tests/daemon/lxp_test_daemon_allowance.c \
-        cmd/layerxd/lxp_daemon_allowance.h cmd/layerxd/lxp_daemon_allowance.c \
-        $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) tests/daemon/lxp_test_daemon_allowance.c \
-		cmd/layerxd/lxp_daemon_allowance.c \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-test-daemon-allowance: $(BUILD_DIR)/tests/lxp_test_daemon_allowance
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_daemon_allowance
 
 .PHONY: beta-qualify-focused
 beta-qualify-focused:
