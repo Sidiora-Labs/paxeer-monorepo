@@ -100877,7 +100877,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.9]
 title = "Apply lapsed service default outcomes on the hosted kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["2.26.3", "2.28.6"]
@@ -120754,7 +120754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.7.4]
 title = "Bind the Programs state feed as the kernel commit observer in the layerxd protocol owner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["5.7.3"]
@@ -156697,7 +156697,7 @@ do_11 = "Attempt 10 (a48caaeb7) runs with 12.35.5 merged. All three nodes now co
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["12.0.3", "9.0.3"]
