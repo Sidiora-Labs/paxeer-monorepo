@@ -193142,7 +193142,7 @@ qualification = "UNRUN"
 
 [task.18.1306.1]
 title = "Issue #1306: The hosted kernel binds a service runtime that reads escrow links"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["18.1305.1"]
@@ -193518,7 +193518,7 @@ qualification = "UNRUN"
 
 [task.18.1211.3]
 title = "Issue #1211: Build the native PaymentExact tuple from the recorded calldata in the Visa TAP, AP2 and fiat tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -193834,7 +193834,7 @@ qualification = "UNRUN"
 
 [task.18.1310.1]
 title = "Issue #1310: Replay the agent deployment journal through the four-argument chain-proof historical verifier so the layerx-agentd binary compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
