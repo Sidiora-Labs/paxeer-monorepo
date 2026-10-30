@@ -1,7 +1,5 @@
-#[path = "support/chain.rs"]
-mod chain;
+mod support;
 
-use chain::{ChainFixture, STATE_HEIGHT, STORE_NAME};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use layerx_programs::{
     chain_evidence::programs_state_key,
@@ -15,6 +13,7 @@ use layerx_programs::{
         ChainProofError,
     },
 };
+use support::chain::{ChainFixture, STATE_HEIGHT, STORE_NAME};
 
 #[test]
 fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), ChainProofError> {
@@ -207,4 +206,142 @@ fn chain_fixture_proofs_verify_through_chain_proof_verifier() -> Result<(), Chai
     )
     .is_err());
     Ok(())
+}
+
+#[test]
+fn support_fixture_verifies_through_public_verifier() {
+    use layerx_programs::{
+        DeploymentProof, ProgramLifecycle, ProtocolEvidenceError, ReadFreshness, UpgradePolicy,
+    };
+    use support::{
+        code_hash, deploy_fixture, program, verifier_for_fixture, AUTHORITY, NOW, WASM_V1, WASM_V2,
+    };
+
+    for policy in [
+        UpgradePolicy::Authority(AUTHORITY),
+        UpgradePolicy::Immutable,
+    ] {
+        let fixture = deploy_fixture(WASM_V1, policy, 4, NOW + 123);
+        let verifier = verifier_for_fixture(&fixture, 1_000);
+        let evidence = verifier
+            .verify_deployment(&fixture.proof, NOW + 123)
+            .unwrap_or_else(|error| panic!("verify shared deployment fixture: {error}"));
+        assert_eq!(evidence.program(), program());
+        assert_eq!(evidence.code_hash(), code_hash(WASM_V1));
+        assert_eq!(evidence.module(), WASM_V1);
+        assert_eq!(evidence.version(), 1);
+        assert_eq!(evidence.abi_version(), 1);
+        assert_eq!(evidence.record().upgrade_policy, policy);
+        assert_eq!(evidence.lifecycle(), ProgramLifecycle::Active);
+        assert_eq!(
+            evidence.interface(),
+            Some(&support::fixture_interface(WASM_V1))
+        );
+        assert_eq!(
+            evidence.state_root().as_slice(),
+            fixture.chain.header.app_hash
+        );
+        assert_eq!(evidence.programs_root(), evidence.state_root());
+        assert_eq!(
+            evidence.receipt_digest(),
+            code_hash(&fixture.proof.state.transaction)
+        );
+        assert_eq!(
+            evidence.freshness(),
+            ReadFreshness {
+                observed_sequence: 5,
+                observed_at: NOW + 123,
+            }
+        );
+        let head = fixture
+            .chain
+            .verifier
+            .verify_head(&fixture.chain.header, &fixture.chain.commit)
+            .unwrap_or_else(|error| panic!("verify fixture header: {error:?}"));
+        let record = fixture
+            .proof
+            .state
+            .state
+            .verify(&head)
+            .unwrap_or_else(|error| panic!("verify fixture record: {error}"));
+        assert_eq!(record.state_height(), 4);
+        assert_eq!(fixture.block_height, 4);
+        assert_eq!(
+            verify_state(
+                &head,
+                STORE_NAME,
+                &programs_state_key(&fixture.interface_witness.key),
+                &fixture.interface_witness.value,
+                &fixture.interface_witness.proof,
+            ),
+            Ok(4),
+        );
+        let encoded = fixture
+            .proof
+            .canonical_encoding()
+            .unwrap_or_else(|error| panic!("encode fixture proof: {error}"));
+        let decoded = DeploymentProof::decode(&encoded)
+            .unwrap_or_else(|error| panic!("decode fixture proof: {error}"));
+        assert_eq!(decoded, fixture.proof);
+        assert_eq!(
+            verifier.verify_deployment(&decoded, NOW + 123),
+            Ok(evidence)
+        );
+        assert_eq!(
+            verifier.verify_deployment(&fixture.proof, NOW + 1_124),
+            Err(ProtocolEvidenceError::Stale),
+        );
+        let mut changed = fixture.proof.clone();
+        changed.deployment.code = WASM_V2.to_vec();
+        assert_eq!(
+            verifier.verify_deployment(&changed, NOW + 123),
+            Err(ProtocolEvidenceError::DeploymentMismatch)
+        );
+        let mut changed = fixture.proof.clone();
+        changed.state.transaction[0] ^= 1;
+        assert!(verifier.verify_deployment(&changed, NOW + 123).is_err());
+        let mut changed = fixture.proof.clone();
+        changed.state.state.ops[0].data[0] ^= 1;
+        assert!(verifier.verify_deployment(&changed, NOW + 123).is_err());
+        let mut changed = fixture.proof.clone();
+        changed.state.commitment.commit[0] ^= 1;
+        assert!(verifier.verify_deployment(&changed, NOW + 123).is_err());
+
+        let deprecated = support::deprecated_state(&fixture, NOW + 124);
+        let current = verifier
+            .verify_current_program(&deprecated, program(), NOW + 124)
+            .unwrap_or_else(|error| panic!("verify deprecated fixture: {error}"));
+        assert_eq!(current.lifecycle(), ProgramLifecycle::Deprecated);
+        assert_eq!(current.freshness().observed_sequence, 6);
+        assert_eq!(current.code_hash(), code_hash(WASM_V1));
+        assert_eq!(current.policy(), policy);
+    }
+
+    let upgrade = support::upgrade_fixture(WASM_V1, WASM_V2, 71, NOW);
+    let verifier = verifier_for_fixture(&upgrade, 1_000);
+    let evidence = verifier
+        .verify_deployment(&upgrade.proof, NOW)
+        .unwrap_or_else(|error| panic!("verify upgrade fixture: {error}"));
+    assert_eq!(evidence.version(), 2);
+    assert_eq!(evidence.code_hash(), code_hash(WASM_V2));
+    assert_eq!(evidence.module(), WASM_V2);
+    assert_eq!(evidence.freshness().observed_sequence, 72);
+    let deprecated = support::deprecated_state(&upgrade, NOW + 1);
+    let head = verifier
+        .verify_current_program(&deprecated, program(), NOW + 1)
+        .unwrap_or_else(|error| panic!("verify deprecated upgrade: {error}"));
+    assert_eq!(head.lifecycle(), ProgramLifecycle::Deprecated);
+    assert_eq!(head.version(), 2);
+    assert_eq!(head.code_hash(), code_hash(WASM_V2));
+
+    let call = support::programs_call_fixture(b"program call payload", 5, NOW);
+    let verifier = verifier_for_fixture(&call, 1_000);
+    let head = verifier
+        .verify_current_program(&call.proof.state, program(), NOW)
+        .unwrap_or_else(|error| panic!("verify call fixture: {error}"));
+    assert_eq!(head.freshness().observed_sequence, 6);
+    assert_eq!(head.receipt_digest(), code_hash(b"program call payload"));
+    assert_eq!(call.proof.state.transaction, b"program call payload");
+    let wrong_abi = support::wrong_abi_fixture(4, NOW);
+    assert!(verifier.verify_deployment(&wrong_abi.proof, NOW).is_err());
 }
