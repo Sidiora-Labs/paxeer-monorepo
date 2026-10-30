@@ -302,7 +302,7 @@ fn send(
             "activity.submit requires signed raw_transaction hex",
         );
     }
-    let outcome = toolset::invoke(runtime, tool, &instruction.arguments);
+    let outcome = toolset::invoke_task(runtime, tool, &instruction.arguments);
     let task = build_task(&ids, &context, message, tool.name, &timestamp, outcome);
     let Ok(mut tasks) = tasks.lock() else {
         return failure(identifier, -32603, "the task ledger is unavailable");
@@ -958,6 +958,300 @@ fn civil_date(days: u64) -> (u64, u64, u64) {
         civil_year
     };
     (year, month, day_of_month)
+}
+
+#[cfg(test)]
+mod submission_outcome_tests {
+    use std::collections::BTreeMap;
+    use std::io::Read as _;
+    use std::net::{Shutdown, TcpListener};
+    use std::sync::Mutex;
+    use std::thread::{self, JoinHandle};
+    use std::time::{Duration, Instant};
+
+    use layerx_crypto::evm_transaction::{decode_signed, transaction_hash, Eip1559Call};
+    use layerx_mcp::server::{DeploymentMode, ToolDefinition};
+    use serde_json::{json, Value};
+
+    use super::{dispatch, encode, read_headers, write_response, MAX_REQUEST_BYTES};
+    use crate::encoding::hex_encode;
+    use crate::toolset::{self, Runtime};
+
+    fn node_response(
+        listener: &TcpListener,
+        response: Option<Value>,
+    ) -> std::io::Result<JoinHandle<Result<Value, String>>> {
+        let listener = listener.try_clone()?;
+        Ok(thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        if Instant::now() >= deadline {
+                            return Err("timed out waiting for submission".into());
+                        }
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => return Err(error.to_string()),
+                }
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .and_then(|()| stream.set_write_timeout(Some(Duration::from_secs(5))))
+                .map_err(|error| error.to_string())?;
+            let (mut bytes, header_end) = read_headers(&mut stream)?;
+            let headers =
+                std::str::from_utf8(&bytes[..header_end]).map_err(|error| error.to_string())?;
+            assert_eq!(headers.lines().next(), Some("POST /rpc HTTP/1.1"));
+            let fields: Vec<_> = headers
+                .lines()
+                .filter_map(|line| line.split_once(':'))
+                .map(|(name, value)| (name.to_ascii_lowercase(), value.trim()))
+                .collect();
+            assert!(
+                fields.contains(&("content-type".to_owned(), "application/json; charset=utf-8"))
+            );
+            assert!(!fields.iter().any(|(name, _)| name == "transfer-encoding"));
+            let lengths: Vec<_> = fields
+                .iter()
+                .filter(|(name, _)| name == "content-length")
+                .collect();
+            assert_eq!(lengths.len(), 1);
+            let length: usize = lengths[0]
+                .1
+                .parse::<usize>()
+                .map_err(|error| error.to_string())?;
+            assert!(length <= MAX_REQUEST_BYTES);
+            let received = bytes.len() - header_end;
+            assert!(received <= length);
+            bytes.resize(header_end + length, 0);
+            stream
+                .read_exact(&mut bytes[header_end + received..])
+                .map_err(|error| error.to_string())?;
+            let body =
+                serde_json::from_slice(&bytes[header_end..]).map_err(|error| error.to_string())?;
+            if let Some(response) = response {
+                write_response(&mut stream, &encode(200, &response))
+                    .map_err(|error| error.to_string())?;
+            }
+            stream
+                .shutdown(Shutdown::Both)
+                .map_err(|error| error.to_string())?;
+            Ok(body)
+        }))
+    }
+
+    fn call(
+        runtime: &Runtime,
+        tools: &[ToolDefinition],
+        tasks: &Mutex<BTreeMap<String, Value>>,
+        method: &str,
+        params: Value,
+    ) -> Value {
+        dispatch(
+            runtime,
+            tools,
+            tasks,
+            &serde_json::to_vec(&json!({
+                "jsonrpc": "2.0", "id": 1, "method": method, "params": params,
+            }))
+            .expect("serializable request"),
+        )
+    }
+
+    fn message(arguments: &Value) -> Value {
+        json!({"message": {
+            "kind": "message", "role": "user", "messageId": "submission",
+            "parts": [{"kind": "data", "data": {
+                "skill": "activity.submit", "arguments": arguments,
+            }}],
+        }})
+    }
+
+    #[test]
+    fn a2a_response_loss_keeps_unknown_outcome() -> Result<(), Box<dyn std::error::Error>> {
+        let call_data = Eip1559Call {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [0x22; 20],
+            data: vec![0xab; 512],
+        };
+        let raw = call_data.sign(&[1; 32])?;
+        let encoded = format!("0x{}", hex_encode(&raw));
+        let hash = format!("0x{}", hex_encode(&transaction_hash(&raw)));
+        let arguments = json!({"raw_transaction": encoded});
+        let tools = toolset::surface(DeploymentMode::Full)?;
+        let submit = tools
+            .iter()
+            .find(|tool| tool.name == "activity.submit")
+            .copied()
+            .ok_or("missing submit tool")?;
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        listener.set_nonblocking(true)?;
+        let runtime = Runtime::loopback(&format!("http://{}", listener.local_addr()?), 125)?;
+        let tasks = Mutex::new(BTreeMap::new());
+        for (response, state) in [
+            (None, "unknown"),
+            (
+                Some(json!({"jsonrpc":"2.0", "id":1, "result":null})),
+                "unknown",
+            ),
+            (
+                Some(json!({"jsonrpc":"2.0", "id":1, "result":"0x12"})),
+                "unknown",
+            ),
+            (
+                Some(json!({"jsonrpc":"2.0", "id":1, "result":format!("0x{}", "00".repeat(32))})),
+                "unknown",
+            ),
+            (
+                Some(json!({"jsonrpc":"2.0", "id":2, "result":hash})),
+                "unknown",
+            ),
+            (
+                Some(
+                    json!({"jsonrpc":"1.0", "id":1, "error":{"code":-32000, "message":"nonce too low"}}),
+                ),
+                "unknown",
+            ),
+            (
+                Some(
+                    json!({"jsonrpc":"2.0", "id":2, "error":{"code":-32000, "message":"nonce too low"}}),
+                ),
+                "unknown",
+            ),
+            (
+                Some(
+                    json!({"jsonrpc":"2.0", "id":1, "result":null, "error":{"code":-32000, "message":"nonce too low"}}),
+                ),
+                "unknown",
+            ),
+            (
+                Some(
+                    json!({"jsonrpc":"2.0", "id":1, "error":{"code":"-32000", "message":"nonce too low"}}),
+                ),
+                "unknown",
+            ),
+            (
+                Some(json!({"jsonrpc":"2.0", "id":1, "error":{"code":-32000, "message":null}})),
+                "unknown",
+            ),
+            (
+                Some(
+                    json!({"jsonrpc":"2.0", "id":1, "error":{"code":-32000, "message":"nonce too low"}}),
+                ),
+                "rejected",
+            ),
+            (
+                Some(json!({"jsonrpc":"2.0", "id":1, "result":hash})),
+                "submitted",
+            ),
+        ] {
+            let node = node_response(&listener, response.clone())?;
+            let sent = call(
+                &runtime,
+                &tools,
+                &tasks,
+                "message/send",
+                message(&arguments),
+            );
+            assert_eq!(
+                node.join().map_err(|_| "node reader panicked")??,
+                json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[encoded]})
+            );
+            let task = &sent["result"];
+            assert_eq!(task["status"]["state"], state, "response: {response:?}");
+            if state == "unknown" || state == "submitted" {
+                let result = &task["artifacts"][0]["parts"][0]["data"]["result"];
+                assert_eq!(result["txHash"], hash);
+                assert_eq!(result["rung"], state);
+                if state == "unknown" {
+                    assert!(result["detail"]
+                        .as_str()
+                        .is_some_and(|detail| !detail.is_empty()));
+                }
+                let fetched = call(
+                    &runtime,
+                    &tools,
+                    &tasks,
+                    "tasks/get",
+                    json!({"id":task["id"]}),
+                );
+                assert_eq!(&fetched["result"], task);
+                let canceled = call(
+                    &runtime,
+                    &tools,
+                    &tasks,
+                    "tasks/cancel",
+                    json!({"id":task["id"]}),
+                );
+                assert_eq!(canceled["error"]["code"], -32004);
+                assert_eq!(
+                    call(
+                        &runtime,
+                        &tools,
+                        &tasks,
+                        "tasks/get",
+                        json!({"id":task["id"]})
+                    )["result"],
+                    *task
+                );
+            } else {
+                assert!(task.get("artifacts").is_none());
+                assert!(task["status"]["message"]["parts"][0]["text"]
+                    .as_str()
+                    .is_some_and(|detail| detail.contains("nonce too low")));
+            }
+            assert!(
+                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            );
+
+            let node = node_response(&listener, response)?;
+            let mcp = toolset::invoke(&runtime, submit, &arguments);
+            assert_eq!(
+                node.join().map_err(|_| "node reader panicked")??,
+                json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[encoded]})
+            );
+            if state == "submitted" {
+                assert_eq!(mcp?, json!({"txHash":hash, "rung":"submitted"}));
+            } else {
+                assert!(mcp.is_err());
+            }
+            assert!(
+                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            );
+        }
+        let wrong_chain = Eip1559Call {
+            chain_id: 126,
+            ..call_data
+        }
+        .sign(&[1; 32])?;
+        let mut bad_signature = raw.clone();
+        let signature_start = bad_signature.len() - 32;
+        bad_signature[signature_start..].fill(0xff);
+        assert!(decode_signed(&bad_signature).is_err());
+        for invalid in [
+            json!({"raw_transaction":"0x02zz"}),
+            json!({"raw_transaction":"0x02c0"}),
+            json!({"raw_transaction":encoded.trim_start_matches("0x")}),
+            json!({"raw_transaction":encoded, "extra":true}),
+            json!({"raw_transaction":format!("0x{}", hex_encode(&bad_signature))}),
+            json!({"raw_transaction":format!("0x{}", hex_encode(&wrong_chain))}),
+        ] {
+            let sent = call(&runtime, &tools, &tasks, "message/send", message(&invalid));
+            assert_eq!(sent["result"]["status"]["state"], "rejected");
+            assert!(sent["result"].get("artifacts").is_none());
+            assert!(toolset::invoke(&runtime, submit, &invalid).is_err());
+            assert!(
+                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            );
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
