@@ -1013,6 +1013,168 @@ impl KmsProvider for EnvelopeKms {
         self.root_secret().map(|_| ())
     }
 
+    fn evm_operation(
+        &self,
+        operation: u8,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        payload: &[u8],
+    ) -> Result<Vec<u8>, KmsError> {
+        use std::io::{Read as _, Seek as _, Write as _};
+        use std::os::unix::fs::OpenOptionsExt as _;
+
+        if !matches!(operation, 6..=8) || payload.len() > PROVIDER_FRAME_LIMIT {
+            return Err(KmsError::Refused);
+        }
+        let seed = self.export_primary_key(binding, reference)?;
+        let key = k256::ecdsa::SigningKey::from_slice(&*seed).map_err(|_| KmsError::Integrity)?;
+        let wallet = layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
+        )
+        .map_err(|_| KmsError::Integrity)?;
+        if operation == 6 {
+            return if payload.is_empty() {
+                Ok(wallet.to_vec())
+            } else {
+                Err(KmsError::Refused)
+            };
+        }
+
+        let mut hasher = Sha256::new();
+        hasher.update(b"layerx-human/envelope-evm-actions/v1\0");
+        hasher.update(binding.digest);
+        hasher.update(reference.as_bytes());
+        let journal_id: String = hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        let path = self
+            .secret_path
+            .with_file_name(format!("{journal_id}.evm-actions"));
+        let mut journal = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .open(path)
+            .map_err(|_| KmsError::Unavailable)?;
+        rustix::fs::flock(&journal, rustix::fs::FlockOperation::LockExclusive)
+            .map_err(|_| KmsError::Unavailable)?;
+        if journal.metadata().map_err(|_| KmsError::Unavailable)?.len() > 16_777_216 {
+            return Err(KmsError::Integrity);
+        }
+        let mut bytes = Vec::new();
+        journal
+            .read_to_end(&mut bytes)
+            .map_err(|_| KmsError::Unavailable)?;
+        let mut actions: Vec<super::EvmAction> = if bytes.is_empty() {
+            Vec::new()
+        } else {
+            serde_json::from_slice(&bytes).map_err(|_| KmsError::Integrity)?
+        };
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| KmsError::Unavailable)?
+            .as_secs();
+        let action_key = if operation == 7 {
+            let authorization: super::EvmPlanAuthorization =
+                serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
+            let transaction = &authorization.transaction;
+            if authorization.plan_id == [0; 32]
+                || authorization.action_key == [0; 32]
+                || authorization.binding_digest != binding.digest
+                || authorization.wallet != wallet
+                || binding.identity().split(|byte| *byte == 0).nth(1)
+                    != Some(authorization.principal.as_bytes())
+                || authorization.tenant.is_empty()
+                || authorization.tenant.len() > 128
+                || authorization.not_before > now
+                || authorization.not_after < now
+                || authorization.not_after <= authorization.not_before
+                || transaction.chain_id != u64::from(binding.network_id)
+                || transaction.to == [0; 20]
+                || transaction.value != [0; 32]
+                || transaction.gas_limit < 21_000
+                || transaction.max_fee_per_gas == 0
+                || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
+                || transaction.calldata.len() > 524_288
+            {
+                return Err(KmsError::Refused);
+            }
+            let action_key = authorization.action_key;
+            if let Some(previous) = actions
+                .iter()
+                .find(|action| action.authorization.action_key == action_key)
+            {
+                if previous.authorization != authorization {
+                    return Err(KmsError::Conflict);
+                }
+            } else {
+                if actions.len() >= 4096 || transaction.nonce == u64::MAX {
+                    return Err(KmsError::Refused);
+                }
+                if actions.iter().any(|action| {
+                    action.authorization.transaction.chain_id == transaction.chain_id
+                        && action.authorization.transaction.nonce >= transaction.nonce
+                }) {
+                    return Err(KmsError::Conflict);
+                }
+                actions.push(super::EvmAction {
+                    authorization,
+                    raw_transaction: Vec::new(),
+                    transaction_hash: None,
+                    acknowledged: false,
+                });
+            }
+            action_key
+        } else {
+            serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?
+        };
+        let action = actions
+            .iter_mut()
+            .find(|action| action.authorization.action_key == action_key)
+            .ok_or(KmsError::KeyNotFound)?;
+        if operation == 8 {
+            let authorization = &action.authorization;
+            let transaction = &authorization.transaction;
+            if authorization.binding_digest != binding.digest
+                || authorization.wallet != wallet
+                || now < authorization.not_before
+                || now > authorization.not_after
+                || transaction.chain_id != u64::from(binding.network_id)
+                || transaction.value != [0; 32]
+            {
+                return Err(KmsError::Refused);
+            }
+            let call = Eip1559Call {
+                chain_id: transaction.chain_id,
+                nonce: transaction.nonce,
+                max_priority_fee_per_gas: u128::from(transaction.max_priority_fee_per_gas),
+                max_fee_per_gas: u128::from(transaction.max_fee_per_gas),
+                gas_limit: transaction.gas_limit,
+                to: transaction.to,
+                data: transaction.calldata.clone(),
+            };
+            action.raw_transaction = call.sign(&seed).map_err(|_| KmsError::Integrity)?;
+            action.transaction_hash = Some(layerx_crypto::evm_transaction::transaction_hash(
+                &action.raw_transaction,
+            ));
+        }
+        let response = serde_json::to_vec(action).map_err(|_| KmsError::Integrity)?;
+        let bytes = serde_json::to_vec(&actions).map_err(|_| KmsError::Integrity)?;
+        journal.rewind().map_err(|_| KmsError::Unavailable)?;
+        journal
+            .write_all(&bytes)
+            .map_err(|_| KmsError::Unavailable)?;
+        journal
+            .set_len(u64::try_from(bytes.len()).map_err(|_| KmsError::Integrity)?)
+            .map_err(|_| KmsError::Unavailable)?;
+        journal.sync_all().map_err(|_| KmsError::Unavailable)?;
+        Ok(response)
+    }
+
     fn create_key(
         &self,
         binding: &PrincipalKeyBinding,
