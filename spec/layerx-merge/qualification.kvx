@@ -12715,3 +12715,19 @@ symbol = "lxp_daemon_protocol_owner_attach"
 observed = "Attempt 17 (19d2b3b6d, the attempt 15 candidate e299ec5de unchanged on e8519e92e with 5.7.3) builds all three build_cmd members, and both startup tests fail because layerxd --serve exits 1 with 'protocol owner module runtime binding failed with result -3': lxp_programs_state_feed_store_bind_maintenance (feed_store.c:1048-1049) finds no commit observer because 38c544316 (1.15.1) removed the only caller of lxp_programs_bind_state_feed; 18.1200.1 attempt 13 meets the same exit."
 assumption = "Task 5.7.4 (decision.1951) binds the daemon's feed store as the commit observer after lxp_kernel_bind_module_runtime without relaxing any feed-store check; this task requires it and re-qualifies the attempt 17 candidate unchanged."
 severity = "cross-task"
+
+[finding.18.1211.2.4]
+task = "18.1211.2"
+file = "services/interop/specs/conformance/transport-http/role-messages.json:23"
+symbol = "every_role_round_trips_on_every_transport"
+observed = "Attempt 7 (7b392b93a, continuing f8608e045 with do_7 and do_8) passed lib, buyer, buyer_sequencer, evidence_format, facilitator_evidence, layerx_evidence, seller and sequenced_vectors and failed tests/transports.rs:327 with 'payment_required: encode: layerx offer terms are malformed or do not derive its payTo' (ProfileMismatch), because the three role-messages.json suites, last changed in 57507cc06, still offer network layerx:beta with extra.layerx, which e556c8b04 (18.1162.1) refuses at src/model.rs:179-185; the same suites carry pending:provider-reference transactions refused since 685b68cbc (11.6.3) at src/model.rs:478-480 and a layerx:beta kind and layerx:* signer refused since c6f95f885 at src/facilitator.rs:705 and :721-735, and no other gate runs this test."
+assumption = "Decision 1952 adds do_9 and the three role-messages.json files to touches, setting the networks to eip155:125, the pending transactions to a 0x hash and the signers key to eip155:*; the attempt 7 candidate continues."
+severity = "cross-task"
+
+[finding.12.35.4.7]
+task = "12.35.4"
+file = "node/app.go:2376"
+symbol = "App.sendEVMServerStartSignals"
+observed = "In attempt 10 (a48caaeb7, with 12.35.5 merged) all three nodes commit past 34742403 and the readiness script reports ready; TestLocalNodeV6120SequencerReceipt then fails at v6120_test.go:159 because the standby's EVM RPC refuses connections while the standby process is alive, and the verify-1 readiness failure was the script's result-envelope parse of /status, corrected in the same attempt."
+assumption = "The standby replays 34742402 against the mock app and finalizes every sequenced block through the sealed FinalizeBlocker branch (node/app.go:1798-1830), so ProcessBlock never sends the EVM start signal; task 12.35.6 sends it on sealed adoption and 12.35.4 re-qualifies a48caaeb7 unchanged after it."
+severity = "cross-task"
