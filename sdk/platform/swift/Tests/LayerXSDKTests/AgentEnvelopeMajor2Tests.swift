@@ -38,24 +38,134 @@ final class AgentEnvelopeMajor2Tests: XCTestCase {
     }
   }
 
-  func testAgentEnvelopeRefusesVersionOneResponse() throws {
+  func testAgentEnvelopeDecodesDaemonResponseShapes() throws {
+    let verification: JSONValue = .object([
+      "state": .string("achieved"), "rung": .string("submitted"),
+    ])
+    let success: [String: JSONValue] = [
+      "request_id": .string("42"), "value": .object(["account": .string("major-two")]),
+      "verification_status": verification,
+    ]
     let accepted = try AgentEnvelopeTransport.classifyResponse(
-      mutating: false, status: 200, data: agentEnvelope(.integer(2)), requestID: "42")
+      mutating: false, status: 200,
+      data: JSONEncoder().encode(JSONValue.object(success)), requestID: "42")
     XCTAssertEqual(accepted.requestID, "42")
     XCTAssertEqual(accepted.value, .object(["account": .string("major-two")]))
-    XCTAssertEqual(
-      accepted.verificationStatus,
-      .object(["state": .string("achieved"), "level": .string("Unverified")]))
+    XCTAssertEqual(accepted.verificationStatus, verification)
 
-    let refusedVersions: [JSONValue?] = [
-      .integer(1), .integer(0), .integer(3), .string("2"), .boolean(true), .null, nil,
+    let validStatuses: [JSONValue] = [
+      .object(["state": .string("achieved"), "rung": .string("receipted")]),
+      .object(["state": .string("achieved"), "rung": .string("committed")]),
+      .object([
+        "state": .string("unverified"), "requested": .string("receipted"),
+        "achieved": .string("submitted"), "reason": .string("owner_payload_carries_no_level"),
+      ]),
+      .object([
+        "state": .string("unverified"), "requested": .string("committed"),
+        "achieved": .string("submitted"), "reason": .string("owner_payload_carries_no_level"),
+      ]),
+      .object([
+        "state": .string("unverified"), "requested": .string("committed"),
+        "achieved": .string("receipted"), "reason": .string("verification.pending"),
+      ]),
     ]
-    for version in refusedVersions {
-      let data = try agentEnvelope(version)
+    for status in validStatuses {
+      var envelope = success
+      envelope["verification_status"] = status
+      let result = try AgentEnvelopeTransport.classifyResponse(
+        mutating: true, status: 200,
+        data: JSONEncoder().encode(JSONValue.object(envelope)), requestID: "42")
+      XCTAssertEqual(result.verificationStatus, status)
+      XCTAssertEqual(result.requestID, "42")
+      XCTAssertEqual(result.value, accepted.value)
+    }
+
+    var invalidStatuses: [JSONValue] = [
+      .object(["state": .string("achieved"), "level": .string("Unverified")]),
+      .object(["state": .string("achieved"), "rung": .string("unknown")]),
+      .object([
+        "state": .string("achieved"), "rung": .string("submitted"), "extra": .null,
+      ]),
+      .object(["state": .string("achieved")]),
+      .object([
+        "state": .string("unverified"), "requested": .string("unknown"),
+        "achieved": .string("submitted"), "reason": .string("verification.pending"),
+      ]),
+      .object([
+        "state": .string("unverified"), "requested": .string("committed"),
+        "achieved": .string("unknown"), "reason": .string("verification.pending"),
+      ]),
+      .object([
+        "state": .string("unverified"), "requested": .string("committed"),
+        "achieved": .string("submitted"), "reason": .string("invalid reason"),
+      ]),
+      .object([
+        "state": .string("unverified"), "requested": .string("committed"),
+        "achieved": .string("submitted"),
+      ]),
+      .object([
+        "state": .string("unverified"), "requested": .string("committed"),
+        "achieved": .string("submitted"), "reason": .string("verification.pending"),
+        "extra": .null,
+      ]),
+    ]
+    for (requested, achieved) in [
+      ("submitted", "submitted"), ("submitted", "receipted"), ("submitted", "committed"),
+      ("receipted", "receipted"), ("receipted", "committed"), ("committed", "committed"),
+    ] {
+      invalidStatuses.append(
+        .object([
+          "state": .string("unverified"), "requested": .string(requested),
+          "achieved": .string(achieved), "reason": .string("verification.pending"),
+        ]))
+    }
+    var invalidBodies = invalidStatuses.map { status in
+      var envelope = success
+      envelope["verification_status"] = status
+      return (200, envelope)
+    }
+    var versionedSuccess = success
+    versionedSuccess["version"] = .integer(1)
+    invalidBodies.append((200, versionedSuccess))
+    for field in success.keys {
+      var envelope = success
+      envelope.removeValue(forKey: field)
+      invalidBodies.append((200, envelope))
+    }
+
+    let refusal: [String: JSONValue] = [
+      "class": .string("InvalidRequest"), "protocol_result_code": .null,
+      "retriability": .string("Terminal"), "request_id": .string("42"),
+      "reason": .string("invalid_request"),
+    ]
+    for mutating in [false, true] {
+      XCTAssertThrowsError(
+        try AgentEnvelopeTransport.classifyResponse(
+          mutating: mutating, status: 400,
+          data: JSONEncoder().encode(JSONValue.object(refusal)), requestID: "42")
+      ) { error in
+        XCTAssertEqual(
+          error as? PlatformSDKError,
+          PlatformSDKError(code: .invalidArgument, retry: .never, requestID: "42"))
+      }
+    }
+    var versionedRefusal = refusal
+    versionedRefusal["version"] = .integer(1)
+    invalidBodies.append((400, versionedRefusal))
+    for field in refusal.keys {
+      var envelope = refusal
+      envelope.removeValue(forKey: field)
+      invalidBodies.append((400, envelope))
+    }
+    invalidBodies.append((200, refusal))
+    invalidBodies.append((201, success))
+
+    for (status, envelope) in invalidBodies {
+      let data = try JSONEncoder().encode(JSONValue.object(envelope))
       for mutating in [false, true] {
         XCTAssertThrowsError(
           try AgentEnvelopeTransport.classifyResponse(
-            mutating: mutating, status: 200, data: data, requestID: "42")
+            mutating: mutating, status: status, data: data, requestID: "42")
         ) { error in
           guard let error = error as? PlatformSDKError else {
             return XCTFail("Unexpected error: \(error)")
@@ -65,29 +175,5 @@ final class AgentEnvelopeMajor2Tests: XCTestCase {
         }
       }
     }
-
-    let errorEnvelope = try JSONEncoder().encode(
-      JSONValue.object([
-        "version": .integer(1), "class": .string("InvalidRequest"), "protocol_result_code": .null,
-        "retriability": .string("never"), "request_id": .string("42"),
-        "reason": .string("invalid_request"),
-      ]))
-    XCTAssertThrowsError(
-      try AgentEnvelopeTransport.decodeResponse(status: 400, data: errorEnvelope, requestID: "42")
-    ) { error in
-      XCTAssertEqual(
-        error as? PlatformSDKError,
-        PlatformSDKError(code: .decodeFailure, retry: .never, requestID: "42"))
-    }
-  }
-
-  private func agentEnvelope(_ version: JSONValue?) throws -> Data {
-    var envelope: [String: JSONValue] = [
-      "request_id": .string("42"), "value": .object(["account": .string("major-two")]),
-      "verification_status": .object(["state": .string("achieved"), "level": .string("Unverified")]
-      ),
-    ]
-    envelope["version"] = version
-    return try JSONEncoder().encode(JSONValue.object(envelope))
   }
 }

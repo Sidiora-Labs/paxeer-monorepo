@@ -293,8 +293,10 @@ Emulator account create posts `/__emulator/accounts/prefund`
 Receipts get `/v1/receipts/{id}` (`tools/platform/cli/src/main.rs:1008`). Program
 lifecycle posts octet-stream to `/v1/programs/deploy`, `/upgrade`,
 `/wind-down`, `/call`, `/simulate` (`tools/platform/cli/src/programs.rs:436-442,
-816, 906`). A2A `activity.submit` posts JSON to `/v1/activities`
-(`tools/platform/cli/src/toolset.rs:341-344`).
+816, 906`). A2A `activity.submit` takes one `raw_transaction`, a
+signed EIP-1559 transaction hex (`tools/platform/cli/src/toolset.rs:189-199`),
+and sends it with `eth_sendRawTransaction` to `/rpc`. It returns `txHash`
+with `rung: "submitted"` (`tools/platform/cli/src/toolset.rs:260-294`).
 
 ---
 
