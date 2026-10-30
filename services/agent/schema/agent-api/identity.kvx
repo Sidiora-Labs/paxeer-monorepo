@@ -25,13 +25,21 @@ variants = ["recovery_pending","store_unavailable","store_refused","budget_state
 
 [operation.agent.register]
 request = "AgentRegistration"
-required = ["tenant","agent_did","authority_ref","client","policy_version"]
-response = "AuthorityResponse<AgentRecord>"
+required = ["tenant","agent_did","authority_ref","client","policy_version","owner_address","binding_consent","fee_limit"]
+response = "AuthorityResponse<Prepared>"
+owner_address = "40 lowercase hex characters: the owner EVM address that will sign the transaction"
+binding_consent = "128 lowercase hex characters: the externally owner-signed Ed25519 binding consent; verified against the node chain id and current bind nonce"
+fee_limit = "decimal_string u128: upper bound on max_fee_per_gas"
 
 [operation.session.open]
 request = "SessionOpen"
-required = ["context"]
-response = "AuthorityResponse<SessionRecord>"
+required = ["context","grant_id","registration_payload","expiry_sequence","purpose","fee_limit"]
+response = "AuthorityResponse<Prepared>"
+grant_id = "64 lowercase hex characters: the provisioned session grant id"
+registration_payload = "Lowercase hex bytes of the canonical session grant matching grant_id and the provisioned session address"
+expiry_sequence = "Nonzero decimal_string u64 passed to grantSession"
+purpose = "64 lowercase hex characters passed to grantSession"
+fee_limit = "decimal_string u128: upper bound on max_fee_per_gas"
 
 [operation.session.refresh]
 request = "SessionRefresh"
