@@ -63,6 +63,9 @@ impl Fixture {
         .unwrap()
     }
     fn start(&self, uid: u32) -> Running {
+        self.start_with_clock(uid, RuntimeClock::from_environment().unwrap())
+    }
+    fn start_with_clock(&self, uid: u32, clock: Arc<RuntimeClock>) -> Running {
         let stop = Arc::new(AtomicBool::new(false));
         let config = Config {
             state_root: self.state(),
@@ -72,10 +75,8 @@ impl Fixture {
             deadline: Duration::from_secs(1),
         };
         let shutdown = stop.clone();
-        let clock = RuntimeClock::from_environment().unwrap();
         let service_clock = clock.clone();
         let thread = std::thread::spawn(move || serve(config, shutdown, service_clock));
-        let clock = RuntimeClock::from_environment().unwrap();
         let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(5)).unwrap();
         while !self.socket().exists() {
             assert!(!thread.is_finished(), "server exited before binding");
@@ -265,7 +266,8 @@ fn verified_admin_ingest_reveal_and_tamper_refusal() {
     let fixture = Fixture::new();
     assert!(fixture.ingest().status.success());
     assert!(fixture.ingest().status.success());
-    let server = fixture.start(uid());
+    let authority = support::ClockAuthority::start(&fixture.root);
+    let server = fixture.start_with_clock(uid(), authority.clock.clone());
     let client = fixture.client();
     let receipt = client
         .reveal_verified_receipt(&principal(), "recovery-1", 100)
@@ -280,7 +282,7 @@ fn verified_admin_ingest_reveal_and_tamper_refusal() {
         .is_err());
     assert!(!fixture.ingest().status.success());
     drop(server);
-    let server = fixture.start(uid());
+    let server = fixture.start_with_clock(uid(), authority.clock.clone());
     assert_eq!(
         client
             .reveal_verified_receipt(&principal(), "recovery-1", 101)
@@ -289,25 +291,98 @@ fn verified_admin_ingest_reveal_and_tamper_refusal() {
         receipt.expose()
     );
     drop(server);
-    let mut bad = support::evidence().1;
-    let replacement = if bad.header_signature.starts_with('A') {
-        "B"
-    } else {
-        "A"
-    };
-    bad.header_signature.replace_range(..1, replacement);
-    fs::write(
-        fixture.root.join("receipt"),
-        serde_json::to_vec(&bad).unwrap(),
-    )
-    .unwrap();
-    assert!(!fixture.ingest().status.success());
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use layerx_human_security_provider::{ingest_recovery_receipt, Error};
+    use layerx_programs::chain_proof::{trust_store::TrustRoot, validators::ValidatorSet};
+
+    for field in ["header", "commit", "transaction_proof", "canonical_receipt"] {
+        let tampered = Fixture::new();
+        let good = support::evidence().1;
+        let mut bad = good.clone();
+        let encoded = match field {
+            "header" => &mut bad.header,
+            "commit" => &mut bad.commit,
+            "transaction_proof" => &mut bad.transaction_proof,
+            "canonical_receipt" => &mut bad.canonical_receipt,
+            _ => unreachable!(),
+        };
+        let mut bytes = STANDARD.decode(&*encoded).unwrap();
+        let offset = if field == "transaction_proof" {
+            16
+        } else {
+            bytes.len() - 1
+        };
+        bytes[offset] ^= 1;
+        *encoded = STANDARD.encode(bytes);
+        let path = tampered.root.join("receipt");
+        fs::write(&path, serde_json::to_vec(&bad).unwrap()).unwrap();
+        assert!(
+            matches!(
+                ingest_recovery_receipt(&tampered.state(), &tampered.trust(), &path),
+                Err(Error::Refused)
+            ),
+            "accepted tampered {field}"
+        );
+        assert!(
+            !tampered.ingest().status.success(),
+            "accepted tampered {field}"
+        );
+        assert!(!tampered.state().exists());
+        fs::write(&path, serde_json::to_vec(&good).unwrap()).unwrap();
+        assert!(tampered.ingest().status.success());
+    }
     fs::set_permissions(
         fixture.root.join("receipt"),
         fs::Permissions::from_mode(0o644),
     )
     .unwrap();
     assert!(!fixture.ingest().status.success());
+
+    for invalid in [
+        "missing",
+        "unprotected",
+        "not-root",
+        "empty-validators",
+        "zero-power",
+    ] {
+        let bad_trust = Fixture::new();
+        match invalid {
+            "missing" => fs::remove_file(bad_trust.trust()).unwrap(),
+            "unprotected" => {
+                fs::set_permissions(bad_trust.trust(), fs::Permissions::from_mode(0o644)).unwrap()
+            }
+            "not-root" => {
+                fs::write(bad_trust.trust(), b"LayerX/sequencer-trust-history/v1\0").unwrap()
+            }
+            "empty-validators" | "zero-power" => {
+                let mut root = TrustRoot::decode(&fs::read(bad_trust.trust()).unwrap()).unwrap();
+                let validators = if invalid == "empty-validators" {
+                    Vec::new()
+                } else {
+                    root.validators
+                        .validators()
+                        .iter()
+                        .cloned()
+                        .map(|mut validator| {
+                            validator.voting_power = 0;
+                            validator
+                        })
+                        .collect()
+                };
+                root.validators = ValidatorSet::new(validators).unwrap();
+                fs::write(bad_trust.trust(), root.canonical_bytes().unwrap()).unwrap();
+            }
+            _ => unreachable!(),
+        }
+        assert!(
+            matches!(
+                Store::open(&bad_trust.state(), &bad_trust.trust()),
+                Err(Error::Configuration)
+            ),
+            "opened with {invalid} trust"
+        );
+        assert!(!bad_trust.ingest().status.success());
+    }
 }
 
 #[test]
