@@ -407,7 +407,12 @@ impl SandboxSubmissionReceipt {
             expected_usage_sequence: submission.expected_usage_sequence,
             expected_lease_digest: submission.expected_lease_digest,
         };
-        receipt.authenticated_usage_receipt()?;
+        // Funding submissions deliberately carry an execution-usage sequence of zero
+        // (see `decode_funding`); they have no usage receipt to authenticate. Only
+        // operations that expect a non-zero usage sequence must pass the receipt check.
+        if submission.expected_usage_sequence != 0 {
+            receipt.authenticated_usage_receipt()?;
+        }
         Ok(receipt)
     }
 
