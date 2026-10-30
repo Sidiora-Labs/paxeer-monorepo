@@ -190393,7 +190393,7 @@ do_6 = "Attempt 5 kept do_1 to do_3 and did do_5 with the build green but left d
 
 [task.18.1243.2]
 title = "Issue #1243: Port the agent host payer to the ledger GrantTerms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = []
