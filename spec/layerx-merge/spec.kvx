@@ -102117,7 +102117,7 @@ do_6 = "Attempt 1 (080b1e02a) built and its verify failed at precompiles/layerxp
 
 [task.2.40.10]
 title = "Serve 0x101B with dynamic gas: the row plus the metered store gas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["2.28.4", "2.28.5", "2.28.6", "2.28.7", "2.28.8"]
@@ -144865,7 +144865,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.96.3]
 title = "Drop the custody-proof binary from the real-node test script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["9.0.4", "5.0.4"]
@@ -165385,7 +165385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.37.1]
 title = "Describe the paxeer-x list feature in the frontend env example as the kernel archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["14.32.5"]
@@ -190441,7 +190441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1204.1]
 title = "Issue #1204: Decode the capability install answer as a rung at the agent runtime boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1172.2", "10.2.8", "10.2.9", "18.1297.1", "18.1204.2"]
@@ -194156,7 +194156,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.12.11]
 title = "Map the human runtime's node connection errors into the shared owner's String error so the layerx-agentd binary compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = []
