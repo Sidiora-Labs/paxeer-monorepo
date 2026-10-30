@@ -92036,7 +92036,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.0.4]
 title = "Prove the client read helpers leave kernel module storage untouched"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["1.0.3", "1.13.1", "1.14.1", "1.11.3", "16.2.1"]
@@ -95285,7 +95285,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.29.3]
 title = "Retire the oracle availability root of the batch header in lx_oracle_root.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["1.21.1", "1.0.3", "16.33.3"]
@@ -95576,7 +95576,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.31.6]
 title = "Retire data-availability challenges in src/guarantor/lxp_da_challenge.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["1.21.1", "1.0.3", "16.32.6"]
@@ -156296,7 +156296,7 @@ do_8 = "The qualification of this task also checks the dependent crates of the r
 
 [task.13.0.3]
 title = "Integrate the sandbox staticlib exports with the kernel host at the merged height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["13.6.2", "13.6.3", "13.6.4", "13.7.4", "13.6.1", "1.0.3", "13.32.1", "13.32.2", "1.14.4", "1.21.3", "1.14.5"]
