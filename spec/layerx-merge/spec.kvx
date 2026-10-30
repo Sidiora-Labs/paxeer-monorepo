@@ -114871,7 +114871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.1]
 title = "Bound the receipt latency of the sequencer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.0.4", "5.16.7"]
@@ -159310,7 +159310,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.7]
 title = "Complete a sandboxed execute to SUCCESS end to end in the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.27.6"]
@@ -190146,7 +190146,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1242.1]
 title = "Issue #1242: Prepare agent.register and session.open as unsigned transactions the owner signs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
