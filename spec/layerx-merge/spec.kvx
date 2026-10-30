@@ -145040,7 +145040,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.96.2]
 title = "Decode SnapshotBinding v2 in the client AI market reader"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["9.0.4", "13.0.4", "18.1304.1", "13.29.3"]
