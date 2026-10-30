@@ -25,7 +25,7 @@ import {
   type SecretBytes,
   type TransportCall,
 } from "@sidiora/layerx-sdk";
-import { AgentIntegrationError, parseHex32 } from "./config.js";
+import { AgentIntegrationError } from "./config.js";
 
 const MAXIMUM_RESPONSE_BYTES = 8 * 1024 * 1024;
 
@@ -182,7 +182,7 @@ export class LayerXRemoteSigner implements AgentSigner {
   public async sign(prepared: PreparedActivity): Promise<string> {
     const response = asObject(await this.#endpoint.call({
       preparation_ref: prepared.preparation_ref,
-      signing_preimage: prepared.signing_preimage,
+      signing_hash: prepared.signing_hash,
       disclosure: prepared.disclosure,
       expiry: prepared.expiry,
     }, prepared.preparation_ref));
@@ -203,19 +203,26 @@ export class LayerXReceiptResolver implements AgentReceiptResolver {
 
   public async resolve(receiptRef: string): Promise<AgentReceiptEvidence> {
     const response = asObject(await this.#endpoint.call({ receipt_ref: receiptRef }));
-    const batch = asObject(response["authorized_batch"]);
-    const encoded = response["canonical_receipt_base64"];
-    if (typeof encoded !== "string" || encoded.length === 0 || encoded.length > 2_796_208) {
+    const format = response["format"];
+    const verificationLevel = response["verificationLevel"];
+    if (format !== "layerx-receipt-proof-v2" || (verificationLevel !== "receipted" && verificationLevel !== "committed")) {
       throw new AgentIntegrationError("service-refused");
     }
+    const key = asObject(response["receiptKey"]);
+    const firstHeight = receiptHeight(key["firstHeight"]);
+    const lastHeight = receiptHeight(key["lastHeight"]);
+    if (BigInt(firstHeight) > BigInt(lastHeight)) throw new AgentIntegrationError("service-refused");
     return {
-      canonicalReceipt: decodeBase64(encoded),
-      authorizedBatch: {
-        batchId: hexField(batch, "batch_id"),
-        asset: hexField(batch, "asset"),
-        previousStateRoot: hexField(batch, "previous_state_root"),
-        resultingStateRoot: hexField(batch, "resulting_state_root"),
-        sequencerPublicKey: hexField(batch, "sequencer_public_key"),
+      format,
+      verificationLevel,
+      rawTransaction: receiptHexField(response, "rawTransaction"),
+      signedReceipt: receiptHexField(response, "signedReceipt"),
+      receiptDigest: receiptHexField(response, "receiptDigest", 32),
+      receiptKey: {
+        keyId: receiptHexField(key, "keyId", 32),
+        publicKey: receiptHexField(key, "publicKey", 32),
+        firstHeight,
+        lastHeight,
       },
     };
   }
@@ -415,16 +422,19 @@ function hexTextField(object: Readonly<Record<string, unknown>>, name: string): 
   return value;
 }
 
-function hexField(object: Readonly<Record<string, unknown>>, name: string): Uint8Array {
+function receiptHexField(object: Readonly<Record<string, unknown>>, name: string, bytes?: number): string {
   const value = object[name];
-  if (typeof value !== "string") {
+  if (typeof value !== "string" || value.length > 2 + 2 * 1048576 || !/^0x(?:[0-9a-f]{2})+$/u.test(value)
+    || bytes !== undefined && value.length !== 2 + 2 * bytes) {
     throw new AgentIntegrationError("service-refused");
   }
-  try {
-    return parseHex32(value.toLowerCase());
-  } catch {
-    throw new AgentIntegrationError("service-refused");
-  }
+  return value;
+}
+
+function receiptHeight(value: unknown): string {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]{0,19})$/u.test(value)
+    || BigInt(value) > 0xffff_ffff_ffff_ffffn) throw new AgentIntegrationError("service-refused");
+  return value;
 }
 
 function canonicalAmount(value: unknown): string {
@@ -432,14 +442,6 @@ function canonicalAmount(value: unknown): string {
     throw new AgentIntegrationError("service-refused");
   }
   return value;
-}
-
-function decodeBase64(value: string): Uint8Array {
-  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
-    throw new AgentIntegrationError("service-refused");
-  }
-  const binary = globalThis.atob(value);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 function asObject(value: unknown): Readonly<Record<string, unknown>> {
