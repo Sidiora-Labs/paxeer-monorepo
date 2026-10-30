@@ -191,19 +191,22 @@ layerx --rpc "$RPC_URL" --gateway-credential beta wallet receipt \
 
 ## 5. Inspect Assets, balances, and fees
 
+Set `FROM_ADDRESS` to the sender's EVM address and `UNSIGNED_TX_HEX` to the
+unsigned EIP-1559 transaction hex to estimate its fee.
+
 ```sh
 layerx --rpc "$RPC_URL" --gateway-credential beta wallet balance \
   --did "$WALLET_DID"
 layerx --rpc "$RPC_URL" --gateway-credential beta token info "$ASSET_ID"
 layerx --rpc "$RPC_URL" --gateway-credential beta token list
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee \
-  "$CANONICAL_HEX"
+layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee --from "$FROM_ADDRESS" "$UNSIGNED_TX_HEX"
 ```
 
 The corresponding RPC methods are `lx_getBalances`, `lx_getAsset`,
-`lx_listAssets`, and `lx_estimateFee`. Snapshot-authentication labels are not
-finality claims, and a fee estimate neither reserves the fee nor proves that
-the activity will execute.
+`lx_listAssets`, `eth_estimateGas`, and `eth_gasPrice`. Fee estimation multiplies
+the gas estimate at `pending` by the gas price. Snapshot-authentication labels
+are not finality claims, and a fee estimate neither reserves the fee nor proves
+that the transaction will execute.
 
 Live `receipts`, `checkpoints`, and `account` watches are unverified wake-ups.
 Always reconcile with a verified read or `wallet receipt` after a notification
