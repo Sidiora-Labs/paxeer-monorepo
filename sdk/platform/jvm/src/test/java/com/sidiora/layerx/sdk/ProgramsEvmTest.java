@@ -119,6 +119,60 @@ public final class ProgramsEvmTest {
         }
     }
 
+    @Test
+    void programDiscoverReadsWindDownLifecycle() throws Exception {
+        record Scenario(boolean active, int status, int length, ProgramsClient.Lifecycle lifecycle) {}
+        for (Scenario scenario : List.of(
+            new Scenario(true, 1, 192, ProgramsClient.Lifecycle.ACTIVE),
+            new Scenario(false, 2, 192, ProgramsClient.Lifecycle.DEPRECATED),
+            new Scenario(false, 3, 192, ProgramsClient.Lifecycle.TOMBSTONED),
+            new Scenario(false, 1, 192, null), new Scenario(false, 0, 192, null),
+            new Scenario(false, 4, 192, null), new Scenario(false, 258, 192, null),
+            new Scenario(false, 2, 0, null), new Scenario(false, 2, 31, null),
+            new Scenario(false, 2, 32, null), new Scenario(false, 3, 191, null))) {
+            byte[] program = new byte[32]; program[0] = 0x42;
+            byte[] head = new byte[192];
+            head[63] = 0x11; head[95] = 0x22; head[127] = 1; head[159] = 7;
+            head[191] = (byte) (scenario.active() ? 1 : 0);
+            byte[] windDown = new byte[192];
+            ByteBuffer.wrap(windDown).putInt(28, scenario.status());
+            Arrays.fill(windDown, 32, 64, (byte) 0x33);
+            for (int i = 2; i < 6; i++) ByteBuffer.wrap(windDown).putInt(i * 32 + 28, 9 - i);
+            String getProgram = "0xb1ffb3d4" + HexFormat.of().formatHex(program);
+            String getWindDown = "0x98e4e41d" + HexFormat.of().formatHex(program);
+            try (RpcFixture endpoint = new RpcFixture(request -> {
+                String calldata = request.required("params").get(0).required("data").asText();
+                if (getProgram.equals(calldata)) return "0x" + HexFormat.of().formatHex(head);
+                if (getWindDown.equals(calldata)) return "0x" + HexFormat.of().formatHex(Arrays.copyOf(windDown, scenario.length()));
+                throw new IllegalArgumentException("Unexpected calldata: " + calldata);
+            })) {
+                var discovery = client(endpoint).discover(program).toCompletableFuture();
+                if (scenario.lifecycle() == null) {
+                    var failure = assertThrows(java.util.concurrent.CompletionException.class, discovery::join);
+                    assertEquals(PlatformSdkException.Code.DECODE_FAILURE,
+                        assertInstanceOf(PlatformSdkException.class, failure.getCause()).code());
+                } else {
+                    var result = discovery.join();
+                    assertEquals(scenario.lifecycle(), result.lifecycle());
+                    assertArrayEquals(program, result.programId());
+                    assertEquals(7, result.version()); assertEquals(1, result.abiVersion());
+                    assertArrayEquals(Arrays.copyOfRange(head, 64, 96), result.codeHash());
+                }
+                assertEquals(scenario.active() ? 1 : 2, endpoint.requests.size());
+                for (int i = 0; i < endpoint.requests.size(); i++) {
+                    JsonNode request = endpoint.requests.get(i);
+                    assertEquals("eth_call", request.required("method").asText());
+                    assertEquals("2.0", request.required("jsonrpc").asText());
+                    JsonNode parameters = request.required("params");
+                    assertEquals(2, parameters.size());
+                    assertEquals("pending", parameters.get(1).asText());
+                    assertEquals(ProgramsClient.PROGRAMS_ADDRESS, parameters.get(0).required("to").asText());
+                    assertEquals(i == 0 ? getProgram : getWindDown, parameters.get(0).required("data").asText());
+                }
+            }
+        }
+    }
+
     private static void assertTransaction(ProgramsClient.ProgramCall call, JsonNode vector, List<JsonNode> requests) {
         ObjectNode tx = call.transaction();
         assertEquals("0x2", tx.required("type").asText());
@@ -229,6 +283,10 @@ public final class ProgramsEvmTest {
         private final List<JsonNode> requests = new CopyOnWriteArrayList<>();
         private final List<String> paths = new CopyOnWriteArrayList<>();
         RpcFixture() throws Exception {
+            this(request -> "0x" + "00".repeat(32) + "00".repeat(31) + "01"
+                + "00".repeat(31) + "60" + "00".repeat(31) + "02" + "61ff" + "00".repeat(30));
+        }
+        RpcFixture(java.util.function.Function<JsonNode, String> ethCallResponse) throws Exception {
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/", exchange -> {
                 try {
@@ -246,8 +304,7 @@ public final class ProgramsEvmTest {
                         case "eth_getTransactionByHash" -> response.putObject("result").put("hash", request.required("params").get(0).asText());
                         case "pax_sequencerReceipt" -> response.putObject("result").put("rung", "submitted")
                             .put("txHash", request.required("params").get(0).asText()).put("nonce", "0x3");
-                        case "eth_call" -> response.put("result", "0x" + "00".repeat(32) + "00".repeat(31) + "01"
-                            + "00".repeat(31) + "60" + "00".repeat(31) + "02" + "61ff" + "00".repeat(30));
+                        case "eth_call" -> response.put("result", ethCallResponse.apply(request));
                         default -> response.putObject("error").put("code", -32601).put("message", "Method not found");
                     }
                     byte[] body = JSON.writeValueAsBytes(response);

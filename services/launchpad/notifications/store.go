@@ -341,7 +341,7 @@ func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cu
 	}
 	rows, err := s.DB.QueryContext(ctx, `SELECT i.document,i.`+v2_id+`::text,i.created_at,i.id,i.read_at,o.deliveries,o.terminal
 		FROM discovery_notifications.inbox i JOIN discovery_notifications.outbox o ON o.id=i.id
-		WHERE i.account_id=$1 AND ($2 = false OR i.read_at IS NULL)
+		WHERE i.account_id=$1 AND ($2 = false OR NOT COALESCE((i.document->>'Read')::boolean, false))
 		AND ($3::timestamptz IS NULL OR i.created_at<$3 OR (i.created_at=$3 AND i.id>$4))
 		ORDER BY i.created_at DESC,i.id LIMIT $5`, account, unreadOnly, after, afterID, limit+1)
 	if err != nil {

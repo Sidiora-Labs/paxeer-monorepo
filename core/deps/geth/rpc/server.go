@@ -114,6 +114,12 @@ func (s *Server) RegisterDenyList(methodName string) {
 	s.denyList[methodName] = struct{}{}
 }
 
+// denyListCodec carries the server policy into connection handlers.
+type denyListCodec struct {
+	ServerCodec
+	denyList map[string]struct{}
+}
+
 // ServeCodec reads incoming requests from codec, calls the appropriate callback and writes
 // the response back using the given codec. It will block until the codec is closed or the
 // server is stopped. In either case the codec is closed.
@@ -132,7 +138,7 @@ func (s *Server) ServeCodec(codec ServerCodec, options CodecOption) {
 		batchItemLimit:     s.batchItemLimit,
 		batchResponseLimit: s.batchResponseLimit,
 	}
-	c := initClient(codec, &s.services, cfg)
+	c := initClient(&denyListCodec{ServerCodec: codec, denyList: s.denyList}, &s.services, cfg)
 	<-codec.closed()
 	c.Close()
 }
@@ -166,6 +172,7 @@ func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec) {
 
 	h := newHandler(ctx, codec, s.idgen, &s.services, s.batchItemLimit, s.batchResponseLimit)
 	h.allowSubscribe = false
+	h.denyList = s.denyList
 	defer h.close(io.EOF, nil)
 
 	reqs, batch, err := codec.readBatch()
@@ -175,15 +182,6 @@ func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec) {
 			codec.writeJSON(ctx, resp, true)
 		}
 		return
-	}
-	// check deny list
-	for _, req := range reqs {
-		method := req.Method
-		if _, found := s.denyList[method]; found {
-			resp := errorMessage(&methodNotFoundError{method: method})
-			codec.writeJSON(ctx, resp, true)
-			return
-		}
 	}
 	if batch {
 		h.handleBatch(reqs)

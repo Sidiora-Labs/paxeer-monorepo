@@ -160,12 +160,11 @@ impl Outbox {
         verified: VerifiedSubmission,
         origin: Option<PreparationAuthorization>,
         owner: Option<&str>,
-    ) -> Result<(), OutboxError> {
+    ) -> Result<[u8; 32], OutboxError> {
         if verified.idempotency_key() != submission_id {
             return Err(OutboxError::IdempotencyMismatch);
         }
-        self.enqueue_exact(store, tenant, verified.into_exact_bytes(), origin, owner)?;
-        Ok(())
+        self.enqueue_exact(store, tenant, verified.into_exact_bytes(), origin, owner)
     }
 
     fn enqueue_exact(
