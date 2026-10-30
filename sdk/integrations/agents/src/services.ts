@@ -203,6 +203,9 @@ export class LayerXReceiptResolver implements AgentReceiptResolver {
 
   public async resolve(receiptRef: string): Promise<AgentReceiptEvidence> {
     const response = asObject(await this.#endpoint.call({ receipt_ref: receiptRef }));
+    if (["authorized_batch", "authorizedBatch", "canonical_receipt", "canonicalReceipt"].some((field) => Object.hasOwn(response, field))) {
+      throw new AgentIntegrationError("service-refused");
+    }
     const format = response["format"];
     const verificationLevel = response["verificationLevel"];
     if (format !== "layerx-receipt-proof-v2" || (verificationLevel !== "receipted" && verificationLevel !== "committed")) {
