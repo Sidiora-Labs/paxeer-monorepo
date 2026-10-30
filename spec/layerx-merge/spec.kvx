@@ -102173,7 +102173,7 @@ do_6 = "go vet copylocks rejects precompiles/layerxagent/scheduler/merge_test.go
 
 [task.2.40.8]
 title = "Freeze the 0x0906 event topics against the contract table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["2.35.2", "2.38.2"]
@@ -168101,7 +168101,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.5]
 title = "Bind pinned receipt keys and settle signed sequencer receipts in the spring starter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["8.42.1", "8.42.5", "8.22.1"]
@@ -168173,7 +168173,7 @@ do_6 = "Folded into task 15.4.5: the spring starter is one Maven module, and onc
 
 [task.15.4.7]
 title = "Verify signed sequencer receipts in the android ReceiptGate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["8.0.3", "9.0.3", "8.42.1", "8.42.5"]
