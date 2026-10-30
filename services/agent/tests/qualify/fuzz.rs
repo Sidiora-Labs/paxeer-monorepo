@@ -10,7 +10,6 @@ const FUZZ_TARGETS: &[&str] = &[
     "receipt_decode",
     "proof_decode",
     "roundtrip",
-    "lni_frame",
     "contract_request",
     "policy_loader",
     "tenant_key",
@@ -142,7 +141,6 @@ fn audit_targets(repository: &Path) -> Result<(), String> {
         }
     }
     for (target, parser) in [
-        ("lni_frame", "decode_frame"),
         ("contract_request", "layerx_mcp::validate"),
         ("policy_loader", "load_policy_source"),
     ] {
@@ -264,4 +262,16 @@ pub fn agent_qualify_sanitizer_gate(repository: &Path) -> Result<String, String>
     Ok(format!(
         "agent_qualify_sanitizer_gate passed address=passed thread={thread} unsafe_allowlist=passed justified_exceptions={exceptions}"
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FUZZ_TARGETS;
+
+    #[test]
+    fn fuzz_gate_requires_no_lni_frame_target() {
+        assert!(!FUZZ_TARGETS.contains(&"lni_frame"));
+        assert!(FUZZ_TARGETS.contains(&"contract_request"));
+        assert!(FUZZ_TARGETS.contains(&"policy_loader"));
+    }
 }

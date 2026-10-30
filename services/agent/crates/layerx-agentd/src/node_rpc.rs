@@ -3,8 +3,8 @@ use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
 use layerx_client::sequencer::{
-    CallRequest, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint, SequencerError,
-    SequencerReceipt,
+    AccountProof, CallRequest, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint,
+    SequencerError, SequencerReceipt,
 };
 use serde_json::{json, Value};
 
@@ -80,6 +80,8 @@ impl From<SequencerError> for NodeRpcError {
 #[derive(Debug)]
 pub struct NodeRpc {
     endpoint: Arc<SequencerEndpoint>,
+    agent: ureq::Agent,
+    url: String,
     chain_id: u64,
     deadline: Duration,
 }
@@ -146,6 +148,8 @@ impl NodeRpc {
             }
             Ok(Self {
                 endpoint: Arc::new(endpoint),
+                agent,
+                url: config.url,
                 chain_id: observed,
                 deadline: config.deadline,
             })
@@ -198,6 +202,44 @@ impl NodeRpc {
         self.request(move |endpoint| endpoint.block_by_number(height))
     }
 
+    pub fn block_number(&self) -> Result<u64, NodeRpcError> {
+        self.request(SequencerEndpoint::block_number)
+    }
+
+    pub fn account_proof(
+        &self,
+        address: &[u8; 20],
+        slots: &[[u8; 32]],
+        height: u64,
+    ) -> Result<AccountProof, NodeRpcError> {
+        let address = *address;
+        let slots = slots.to_vec();
+        self.request(move |endpoint| endpoint.account_proof(&address, &slots, height))
+    }
+
+    pub fn bound_address(&self, public_key: &[u8; 32]) -> Result<Option<[u8; 20]>, NodeRpcError> {
+        let public_key = *public_key;
+        self.request(move |endpoint| endpoint.bound_address(&public_key))
+    }
+
+    pub fn history_page(
+        &self,
+        params: Value,
+        maximum_response_bytes: usize,
+    ) -> Result<Vec<u8>, NodeRpcError> {
+        let agent = self.agent.clone();
+        let url = self.url.clone();
+        within_deadline(self.deadline, move |_| {
+            rpc_response(
+                &agent,
+                &url,
+                "px_getHistory",
+                params,
+                maximum_response_bytes,
+            )
+        })
+    }
+
     fn request<T: Send + 'static>(
         &self,
         request: impl FnOnce(&SequencerEndpoint) -> Result<T, SequencerError> + Send + 'static,
@@ -242,11 +284,26 @@ fn within_deadline<T: Send + 'static>(
 }
 
 fn chain_id(agent: &ureq::Agent, url: &str) -> Result<u64, NodeRpcError> {
+    let bytes = rpc_response(agent, url, "eth_chainId", json!([]), 64 * 1024)?;
+    let response: Value = serde_json::from_slice(&bytes).map_err(|_| SequencerError::Malformed)?;
+    response["result"]
+        .as_str()
+        .and_then(quantity)
+        .ok_or_else(|| SequencerError::Malformed.into())
+}
+
+fn rpc_response(
+    agent: &ureq::Agent,
+    url: &str,
+    method: &str,
+    params: Value,
+    maximum_response_bytes: usize,
+) -> Result<Vec<u8>, NodeRpcError> {
     let mut response = agent
         .post(url)
         .header("Content-Type", "application/json")
         .header("Accept", "application/json")
-        .send_json(json!({"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []}))
+        .send_json(json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}))
         .map_err(transport)?;
     match response.status().as_u16() {
         200 => {}
@@ -256,7 +313,7 @@ fn chain_id(agent: &ureq::Agent, url: &str) -> Result<u64, NodeRpcError> {
     let bytes = response
         .body_mut()
         .with_config()
-        .limit(64 * 1024)
+        .limit(maximum_response_bytes as u64)
         .read_to_vec()
         .map_err(transport)?;
     let response: Value = serde_json::from_slice(&bytes).map_err(|_| SequencerError::Malformed)?;
@@ -286,10 +343,10 @@ fn chain_id(agent: &ureq::Agent, url: &str) -> Result<u64, NodeRpcError> {
         })
         .into());
     }
-    response["result"]
-        .as_str()
-        .and_then(quantity)
-        .ok_or_else(|| SequencerError::Malformed.into())
+    if !object.contains_key("result") {
+        return Err(SequencerError::Malformed.into());
+    }
+    Ok(bytes)
 }
 
 fn quantity(text: &str) -> Option<u64> {

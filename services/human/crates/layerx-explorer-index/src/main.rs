@@ -321,6 +321,41 @@ fn network_gateway() -> Result<GatewayEndpoint, String> {
     GatewayEndpoint::parse(&required(name)?).map_err(|error| format!("{name} is invalid: {error}"))
 }
 
+fn deployment_verifier(config: &Config) -> Result<ProtocolDeploymentVerifier, String> {
+    let name = "LAYERX_EXPLORER_SEQUENCER_TRUST_HISTORY";
+    let bytes =
+        layerx_agentd::config::read_protected_source(&config.sequencer_trust_history, 1_048_576)
+            .map_err(|error| format!("{name} is unavailable: {error:?}"))?;
+    let trust = layerx_programs::chain_proof::trust_store::TrustRoot::decode(&bytes)
+        .map_err(|error| format!("{name} is invalid: {error:?}"))?;
+    ProtocolDeploymentVerifier::from_chain_trust(
+        trust.chain_id,
+        trust.validators.validators().to_vec(),
+        config.staleness_ms,
+    )
+    .map_err(|error| format!("{name} deployment verifier is invalid: {error}"))
+}
+
+fn program_reader(
+    config: &Config,
+    verifier: ProtocolDeploymentVerifier,
+    registry: Registry,
+) -> Result<LayerxdProgramBalanceReader, String> {
+    LayerxdProgramBalanceReader::connect(
+        &config.node_endpoint,
+        config.node_bearer.clone(),
+        ProgramAuthority {
+            endpoint: &config.authority_endpoint,
+            authorization: config.authority_bearer.clone(),
+            replica_id: config.authority_replica_id,
+            ca_der: &config.authority_ca_der,
+        },
+        verifier,
+        registry,
+    )
+    .map_err(|error| format!("explorer protocol reader configuration failed: {error:?}"))
+}
+
 struct LoadedRegistry {
     registry: Registry,
     interfaces: Vec<VerifiedProgramInterfaceMetadata>,
@@ -354,7 +389,8 @@ impl fmt::Display for ProgramRefreshError {
 fn load_registry(
     root: &Path,
     verified_source_store: &Path,
-    verifier: &ProtocolDeploymentVerifier,
+    reader: &LayerxdProgramBalanceReader,
+    now: u64,
 ) -> Result<LoadedRegistry, String> {
     let mut paths = fs::read_dir(root)
         .map_err(|error| format!("deployment journal is unavailable: {error}"))?
@@ -371,9 +407,9 @@ fn load_registry(
             .map_err(|error| format!("{} is unreadable: {error}", path.display()))?;
         let proof = DeploymentProof::decode(&bytes)
             .map_err(|error| format!("{} is corrupt: {error}", path.display()))?;
-        let evidence = verifier
-            .verify_historical_deployment(&proof)
-            .map_err(|error| format!("{} is unverified: {error}", path.display()))?;
+        let evidence = reader
+            .verify_journal_admission(&proof, now)
+            .map_err(|error| format!("{} is unverified: {error:?}", path.display()))?;
         let expected = hex::encode(&evidence.receipt_digest());
         if path.file_stem().and_then(|value| value.to_str()) != Some(expected.as_str()) {
             return Err(format!(
@@ -615,19 +651,14 @@ fn refresh_program(
     program: ProgramId,
     now: u64,
 ) -> Result<(), ProgramRefreshError> {
-    let verifier = ProtocolDeploymentVerifier::from_protected_history(
-        &config.sequencer_trust_history,
-        config.staleness_ms,
-    )
-    .map_err(|error| {
-        ProgramRefreshError::Unavailable(format!(
-            "explorer deployment verifier is invalid: {error}"
-        ))
-    })?;
+    let verifier = deployment_verifier(config).map_err(ProgramRefreshError::Unavailable)?;
+    let journal = program_reader(config, verifier.clone(), Registry::new())
+        .map_err(ProgramRefreshError::Unavailable)?;
     let loaded = load_registry(
         &config.journal.root,
         &config.verified_source_store,
-        &verifier,
+        &journal,
+        now,
     )
     .map_err(ProgramRefreshError::Unavailable)?;
     if !loaded.registry.program_ids().contains(&program) {
@@ -640,23 +671,8 @@ fn refresh_program(
     let read = loaded.registry.read(program, &authority).map_err(|error| {
         ProgramRefreshError::Unavailable(format!("registry read is unavailable: {error}"))
     })?;
-    let reader = LayerxdProgramBalanceReader::connect(
-        &config.node_endpoint,
-        config.node_bearer.clone(),
-        ProgramAuthority {
-            endpoint: &config.authority_endpoint,
-            authorization: config.authority_bearer.clone(),
-            replica_id: config.authority_replica_id,
-            ca_der: &config.authority_ca_der,
-        },
-        verifier,
-        loaded.registry.clone(),
-    )
-    .map_err(|error| {
-        ProgramRefreshError::Unavailable(format!(
-            "explorer protocol reader configuration failed: {error:?}"
-        ))
-    })?;
+    let reader = program_reader(config, verifier, loaded.registry.clone())
+        .map_err(ProgramRefreshError::Unavailable)?;
     let mut ingestor = ProtocolProgramIngestor::new(reader);
     ingestor
         .ingest(index, read, &loaded.interfaces, now)
@@ -672,18 +688,19 @@ enum ResolveRefusal {
     Unavailable(String),
 }
 
-fn resolve_target(config: &Config, program: ProgramId) -> Result<ResolveTarget, ResolveRefusal> {
-    let verifier = ProtocolDeploymentVerifier::from_protected_history(
-        &config.sequencer_trust_history,
-        config.staleness_ms,
-    )
-    .map_err(|error| {
-        ResolveRefusal::Unavailable(format!("explorer deployment verifier is invalid: {error}"))
-    })?;
+fn resolve_target(
+    config: &Config,
+    program: ProgramId,
+    now: u64,
+) -> Result<ResolveTarget, ResolveRefusal> {
+    let verifier = deployment_verifier(config).map_err(ResolveRefusal::Unavailable)?;
+    let journal = program_reader(config, verifier.clone(), Registry::new())
+        .map_err(ResolveRefusal::Unavailable)?;
     let loaded = load_registry(
         &config.journal.root,
         &config.verified_source_store,
-        &verifier,
+        &journal,
+        now,
     )
     .map_err(ResolveRefusal::Unavailable)?;
     let target = loaded
@@ -721,8 +738,8 @@ fn resolve_name(
 fn probe_name_reads(config: &Config, now: u64) -> Result<(), String> {
     let naming_name = "LAYERX_EXPLORER_NAMING_PROGRAM";
     let target =
-        resolve_target(config, config.name_reads.naming_program).map_err(
-            |refusal| match refusal {
+        resolve_target(config, config.name_reads.naming_program, now).map_err(|refusal| {
+            match refusal {
                 ResolveRefusal::UnknownProgram => {
                     format!("{naming_name} is not a registered program")
                 }
@@ -730,8 +747,8 @@ fn probe_name_reads(config: &Config, now: u64) -> Result<(), String> {
                     format!("{naming_name} does not publish the naming reference interface")
                 }
                 ResolveRefusal::Unavailable(error) => error,
-            },
-        )?;
+            }
+        })?;
     match resolve_name(config, target, reads::READINESS_PROBE_NAME, now) {
         Ok(_) => Ok(()),
         Err(ResolveFailure::Transport(error)) => Err(error),
@@ -771,7 +788,7 @@ fn serve_resolve(
     else {
         return response(stream, 400, "{\"error\":\"invalid_name\"}");
     };
-    let target = match resolve_target(config, program) {
+    let target = match resolve_target(config, program, now_ms(clock)?) {
         Ok(target) => target,
         Err(ResolveRefusal::UnknownProgram) => {
             return response(stream, 404, "{\"error\":\"not_found\"}");
