@@ -10920,3 +10920,23 @@ fix = "Cast narrowing conversions explicitly in kernel tests; a warning in a tes
 title = "A build_cmd with --tests inherits every drifted sibling test target"
 symptom = "18.1200.1, 18.1230.1 and 18.1159.1 implemented their steps and failed only because the crate's --tests build compiled revocation.rs, unknown.rs, migration.rs and owner_bootstrap.rs, which other tasks own."
 fix = "Name the gate's own targets (--lib --test a --test b); record the drifted sibling once and leave it to its owner, unless the task's single gate binary includes the drifted module, in which case the task ports it."
+
+[gotcha.2222]
+title = "symbols must be code identifiers the graph indexes, never test titles"
+symptom = "18.1113.1 attempt 7 passed its vitest gate and failed the completion check because symbols held the two flow test titles; the check resolves each entry in the code graph and the graph indexes functions and types, not test names in strings."
+fix = "Name the exported functions or types the task changes or drives (provisionAccount, provisionDepsFromEnv); list test titles only under tests."
+
+[gotcha.2223]
+title = "--lib in a verify_cmd runs every unit test of the crate"
+symptom = "18.1200.1 attempt 5 passed its five integration test targets and failed on six crate unit tests outside its files that fail on main (retired level names, activity submission index, TLS boundary binary, native terminal evidence)."
+fix = "Name only the test targets the task owns in verify_cmd; keep --lib in build_cmd when the library must compile; record the crate's pre-existing unit failures once for their owners."
+
+[gotcha.2224]
+title = "A kernel case that hand-sets state does not prove the path a host call takes"
+symptom = "13.27.6 drove terminal_begin and terminal_publish with a hand-set published usage result and passed, while the real sandboxed execute through lxp_programs_sandbox_execute still returned LXP_FATAL_INVARIANT for 13.27.1 attempt 34."
+fix = "When a Go or host test reverts on a kernel status, the kernel task's case must enter through the same kernel entry point the host uses and run to the same terminal; a hand-set state proves only the step it sets."
+
+[gotcha.2225]
+title = "A test that opens a repository directory fails before any assertion when the directory is absent"
+symptom = "4.24.3 attempts 6 to 8 failed on launchpad/spec/production-system/integration/migrations/150002.sql, a directory the launchpad tests read five levels up that was never imported; the readers in ranking-algo, security, social and indexer share it."
+fix = "When a test resolves a path from the repository root, confirm the directory exists on main before the task is attempted; import the reviewed source set as its own commit (01d2bf319) rather than per task."
