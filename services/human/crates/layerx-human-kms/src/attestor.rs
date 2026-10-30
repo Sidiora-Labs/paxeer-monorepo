@@ -916,6 +916,7 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "preparation-purpose",
                 signers: &self.signers,
+                grant: None,
                 purpose: Some(&purpose),
                 capability: None,
                 native_session: None,
@@ -947,6 +948,7 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "send-purpose",
                 signers: &self.signers,
+                grant: None,
                 purpose: Some(&purpose),
                 capability: None,
                 native_session: None,
@@ -978,6 +980,7 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "local-grant-consent",
                 signers: &self.signers,
+                grant: None,
                 purpose: None,
                 capability: Some(&capability),
                 native_session: Some(&native_session),
@@ -986,6 +989,64 @@ impl AttestorSigner {
             Sha256::digest(&canonical).into(),
             assertion,
         )
+    }
+
+    pub fn sign_ledger_grant(
+        &self,
+        grant: &layerx_crypto::payments::Grant,
+        session_id: &str,
+        assertion: &str,
+    ) -> Result<AttestorSignature, AttestorError> {
+        if grant.public_key != self.public_key || grant.signature != [0; 64] {
+            return Err(native_invalid());
+        }
+        let digest = grant.signing_digest().map_err(|_| native_invalid())?;
+        let canonical = [
+            grant.id.as_slice(),
+            grant.from.as_slice(),
+            grant.recipient.as_slice(),
+            grant.asset.as_slice(),
+            &grant.per_draw_maximum.to_be_bytes(),
+            &grant.allowance.to_be_bytes(),
+            &[u8::from(grant.recurring)],
+            &grant.window_length.to_be_bytes(),
+            &grant.expiration.to_be_bytes(),
+            &grant.purpose_hash,
+            &[u8::from(grant.has_reference)],
+            &grant.reference_hash,
+            &grant.revocation_sequence.to_be_bytes(),
+            &grant.public_key,
+            &grant.signature,
+        ]
+        .concat();
+        let grant = encode_hex(&canonical);
+        self.request_native_signature(
+            NativeSignBody {
+                profile: 2,
+                session_id,
+                key_id: &self.key_id,
+                operation: "ledger-issue-grant",
+                signers: &self.signers,
+                grant: Some(&grant),
+                purpose: None,
+                capability: None,
+                native_session: None,
+                expiry_ms: None,
+            },
+            digest,
+            assertion,
+        )
+    }
+
+    pub fn sign_ledger_grant_with_stored_assertion(
+        &self,
+        grant: &layerx_crypto::payments::Grant,
+    ) -> Result<AttestorSignature, AttestorError> {
+        let assertion = self
+            .evm_assertion
+            .as_ref()
+            .ok_or(AttestorError::Configuration("EVM owner assertion"))?;
+        self.sign_ledger_grant(grant, &session_id("ledger-grant")?, assertion)
     }
 
     fn request_native_signature(
@@ -1783,6 +1844,8 @@ struct NativeSignBody<'a> {
     key_id: &'a str,
     operation: &'a str,
     signers: &'a [String],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    grant: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     purpose: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
