@@ -10965,3 +10965,38 @@ fix = "Name the owned targets in build_cmd (--lib --test a --test b) and keep --
 title = "An acceptance clause owned by another task's retirement cannot be met early"
 symptom = "16.0.3 ac_2 forbade lxp_daemon_lni in the make -n test dry run while the daemon still compiles cmd/layerxd/lxp_daemon_lni.c, retired by 5.50.1, which transitively requires 16.0.3; requiring it would have made a cycle."
 fix = "Place a dry-run absence clause on the task that deletes the source, and check the requires graph for a cycle before adding a dependency to satisfy an acceptance clause."
+
+[gotcha.2231]
+title = "A task that changes a public signature owns every in-crate caller"
+symptom = "13.6.3 rewrote verify_call to six arguments; cargo build --tests then failed in tests/lease.rs and tests/snapshot.rs, five callers outside the task's files, on attempts 3 and 4."
+fix = "Grep the crate for the symbol before writing the task and put every caller file in touches with a do that ports it."
+
+[gotcha.2232]
+title = "Landing one half of a two-task API change breaks every dependent build"
+symptom = "18.1243.1 changed GrantTerms and landed; the host payer port 18.1243.2 stayed held, and 9.12.4 (200 transitive dependents) failed twice in payer.rs before anything of its own compiled."
+fix = "When an API change is split across tasks, the dependents require the consumer-side port, and a held consumer task is a frontier emergency, not a parking lot."
+
+[gotcha.2233]
+title = "A chain scan on an exported-state node must respect its earliest block"
+symptom = "18.670.1 walked FundingSettled logs down to block 1 against a node whose genesis starts at an exported height, and eth_getLogs failed on ranges the node never held."
+fix = "Read the earliest served block once and clamp every historical scan and indexer start to it; a fresh node also has no hourly settlement yet, so wait for the first one."
+
+[gotcha.2234]
+title = "A gate test must not read a file a later-wave task creates"
+symptom = "16.0.3's chain-domain test read the golden file of 13.31.1, which requires 16.0.3; the gate could never pass before its own dependent landed."
+fix = "Derive the expected value inside the test from the recorded decision and let the later task assert equality from its side."
+
+[gotcha.2235]
+title = "Compiling the gateway local qualification crate needs the parent-built core binary"
+symptom = "8.94.6's build compiled services/platform/hosted/gateway/tests/local, whose build.rs panics without LAYERX_TEST_CORE_BIN, before any owned source compiled; another task had already hit the same panic."
+fix = "Build layerx-core-boundary in the same build command and pass its path in LAYERX_TEST_CORE_BIN, or keep that crate out of the task build."
+
+[gotcha.2236]
+title = "Raising an executable version constant moves the published row and the test literal"
+symptom = "9.12.2 set CONTRACT_VERSION to 2; the COMPATIBILITY.md row still said 1 and the drift test's unsupported-contract literal was 2, so 18.1200.1's migration target failed on a test it did not touch."
+fix = "A version-constant bump owns the publication row and every test literal that was chosen relative to the old value (write CONTRACT_VERSION + 1, not a number)."
+
+[gotcha.2237]
+title = "Tests that set process environment variables race across test threads"
+symptom = "10.20.3's startup tests each rewrote LAYERX_HUMAN_* through env::set_var and failed at startup in different components on different runs."
+fix = "Hold a static Mutex for the lifetime of each test's environment fixture, give every test its own canonical root, and keep one opener per store root."
