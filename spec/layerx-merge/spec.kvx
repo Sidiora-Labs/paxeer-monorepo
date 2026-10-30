@@ -141240,7 +141240,7 @@ do_5 = "Attempts 2 and 3 (95fe4aba2, 39d447b2c) made approval_get_tool_reports_t
 
 [task.9.15.4]
 title = "Bind MCP sessions by block height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["9.15.2", "9.16.2", "9.1.8", "18.1121.1", "18.1304.1"]
