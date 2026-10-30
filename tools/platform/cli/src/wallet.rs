@@ -53,7 +53,11 @@ pub enum WalletCommand {
         timeout_seconds: u64,
     },
     /// Estimate fees from unsigned EIP-1559 transaction bytes at pending.
-    EstimateFee { transaction_hex: String },
+    EstimateFee {
+        transaction_hex: String,
+        #[arg(long)]
+        from: String,
+    },
     /// Verify receipt evidence at the requested commitment.
     Receipt {
         activity_id: String,
@@ -313,8 +317,9 @@ fn estimate_fee(
     rpc: Option<&str>,
     gateway: Option<&str>,
     transaction_hex: &str,
+    from: &str,
 ) -> Result<CommandOutput, String> {
-    let transaction = unsigned_transaction(transaction_hex)
+    let transaction = unsigned_transaction(transaction_hex, from)
         .map_err(|error| format!("invalid_transaction: {error}"))?;
     let endpoint = rpc.unwrap_or(&config.active_environment()?.1.endpoint);
     let credential = gateway
@@ -389,7 +394,12 @@ fn rlp_item<'a>(input: &mut &'a [u8], list: bool) -> Result<&'a [u8], String> {
     Ok(value)
 }
 
-fn unsigned_transaction(encoded: &str) -> Result<Value, String> {
+fn unsigned_transaction(encoded: &str, from: &str) -> Result<Value, String> {
+    if !from.strip_prefix("0x").is_some_and(|digits| {
+        digits.len() == 40 && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }) {
+        return Err("sender must be 0x followed by exactly 40 hexadecimal digits".into());
+    }
     let encoded = encoded.strip_prefix("0x").unwrap_or(encoded);
     if encoded.len() > 1_048_576 {
         return Err("transaction exceeds the byte limit".into());
@@ -437,6 +447,7 @@ fn unsigned_transaction(encoded: &str) -> Result<Value, String> {
         return Err("expected nine unsigned transaction fields".into());
     }
     tx["accessList"] = json!(entries);
+    tx["from"] = json!(from.to_ascii_lowercase());
     layerx_platform_cli::rpc::request("eth_estimateGas", &json!([tx, "pending"]))?;
     Ok(tx)
 }
@@ -488,9 +499,10 @@ pub fn run_wallet(
 ) -> Result<CommandOutput, String> {
     let mut config = Configuration::load()?;
     match command {
-        WalletCommand::EstimateFee { transaction_hex } => {
-            estimate_fee(&config, rpc, gateway, &transaction_hex)
-        }
+        WalletCommand::EstimateFee {
+            transaction_hex,
+            from,
+        } => estimate_fee(&config, rpc, gateway, &transaction_hex, &from),
         WalletCommand::Watch {
             topic,
             account_id,
