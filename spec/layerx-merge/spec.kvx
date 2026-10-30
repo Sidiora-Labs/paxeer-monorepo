@@ -156439,7 +156439,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.4]
 title = "Check the Rust results-hash verifier against the consensus results vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2", "5.94.3"]
@@ -156501,7 +156501,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.2.6]
 title = "Add a chain-proof fuzz target over decode_commitment_proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]
@@ -156902,7 +156902,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.10]
 title = "Build sandbox lease and usage store keys for chain proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.0.2"]
