@@ -100674,6 +100674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Attempt 1 (2471b7cfc) built and its verify failed at setup with 'import cycle not allowed in test': precompiles/layerxpay/harness_test.go:1 is package layerxpay and imports node (:14) and tests/testutil/keeper (:20, which imports node at tests/testutil/keeper/evm.go:18), escrow_test.go:18 and events_test.go:12 import tests/testutil/keeper, and node imports precompiles/layerxpay at node/precompiles.go:27 (5.19.4) and node/upgrades.go:41 (5.6.5). Convert harness_test.go, escrow_test.go, events_test.go, budget_test.go, layerxpay_test.go, service_views_test.go and stream_test.go to package layerxpay_test, importing the package under an alias as precompiles/layerxprograms/gate_test.go:9 does, and add precompiles/layerxpay/export_test.go (planned, package layerxpay, precedent precompiles/layerxprograms/export_test.go) re-exporting what they use: escrowTuple (escrow.go:16), payU128 (layerxpay.go:160), payBudgetDrainRecord, payStreamChangeRecord and payServiceSequence (events.go:20-31), payEvents (events.go:36) with thin wrappers for the name and pack fields of payEvent (events.go:15-17), payAmount (events.go:121), emitPayEvent (events.go:214), gasABI and methodGas (gas.go:16-18), a wrapper for Executor.serviceViewHandlers (service_views.go:33), and the test helpers abiTestFS (abi_test.go:19) and zeroArgument (abi_test.go:359)."
 do_8 = "abi_test.go, errors_test.go and gas_test.go reach nothing that imports node and stay package layerxpay. Change no production file, no file under node/ and no file under tests/testutil/; in the moved files change only the package clause, imports and the qualification of names, and keep every test name, fixture value and assertion as written."
 do_9 = "Attempt 5 (91aa237a9) built and then failed its verify with 'FAIL github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay [build failed]' at modules/layerxauth/keeper/views.go:167 ('k.host.ReadIdempotentReceipt undefined'), which a0a08d298 (task 1.25.2) left behind and task 18.1308.1 removes (issue #1308, decision.1932); this task now requires it and changes nothing under modules/layerxauth. Re-qualify the attempt 5 candidate on a base that includes 18.1308.1."
+do_10 = "Attempt 6 (ee967669c) built and its verify failed only in TestPrecompileStreamViews/time and TestPrecompileStreamViews/metered at precompiles/layerxpay/stream_test.go:210: the expected Refunded big.NewInt(0) holds a nil nat while the zero that budgetTestView decodes with a.Unpack (budget_test.go:135) holds an empty one, so require.Equal reports 'abs: (big.nat) <nil>' against '{}' although every field is equal (gotcha.1481); stream_test.go:216 compares big.NewInt(0) the same way for the metered unsettled value (stream_test.go:213). As the one exception to do_8, change only these two assertions: at :210 pack the expected tuple and the decoded result with the getStreamResult outputs and require equal bytes, and at :216 pack the expected pair and the decoded values with the streamAccrued outputs and require equal bytes, as budget_test.go:173-178 does for getBudget. Keep every expected value and change no other file."
 
 [task.2.28.7]
 title = "Serve the thirteen 0x101B service writes and fourteen service events"
@@ -140943,7 +140944,7 @@ do_6 = "Attempt 4 (85d48f856) passed a NodeRpc to ProductionHumanOperations::new
 
 [task.9.12.6]
 title = "Retire the settlement, trust-history, handover and genesis startup variables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["9.12.5", "9.6.1", "9.5.7", "13.0.3", "9.1.8", "18.1131.1", "18.1304.1"]
@@ -146425,7 +146426,7 @@ title = "Unhook retired journeys, wallet binding and the settlement recipient fr
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1"]
+requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.3"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -146465,6 +146466,7 @@ do_15 = "The three tests of tests/production_unhooked.rs set LAYERX_HUMAN_* thro
 do_16 = "Attempt 8 (0e362109a) meets the identity-binding and principal-store preconditions and the two startup tests fail with agent boundary refused startup from production_agent (src/server/production_components.rs:9450-9462): AgentRuntime::connect (src/server/agent_runtime.rs:2119, connect_peer exchanges the module registry frame) and then native_fee_policy need a live agent daemon at LAYERX_HUMAN_AGENT_SOCKET and no scripted peer stands in for it (decisions 1884 and 1896). The build_cmd also builds the layerx-agentd binary (package layerx-agentd-host, compiling once task 9.5.10 is on main); the two startup tests start it from LAYERX_TEST_AGENTD_BIN with the smallest configuration it accepts against the isolated chain of decision.1896, wait for its socket, and run production_agent against it; a daemon precondition the environment cannot meet is recorded as a finding, not scripted."
 do_17 = "Task 9.5.10 is on main (attempt 4); re-run the attempt 8 candidate (0e362109a) against it per do_16."
 do_18 = "Attempts 9 and 10 (3e2a62ed9, 6918a6980) start layerx-agentd in human-owner mode from tests/production_unhooked.rs:125-233 without LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT, LAYERX_AGENT_HUMAN_AUTHORITY_BEARER, LAYERX_AGENT_HUMAN_AUTHORITY_CA_DER and LAYERX_AGENT_HUMAN_NODE_LNI, which services/agent/crates/layerx-agentd/src/human_owner_mode.rs:75 and src/main.rs:757-763, :967 and :981-982 have required since 3b0d29172 and 7bffafd0b; the environment that runs the gates exports none of them. Per decision.1913 the test serves the Human authority itself on loopback (decision.1884) as services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:353-410 does, a native_tls listener with an openssl-generated CA whose DER file is the CA_DER input, checking the bearer and answering GET /v1/agent/registry (src/human_runtime.rs:1456-1461) with the module registry of the one peer, and starts layerxd from LAYERX_TEST_NATIVE_BIN_DIR (decision.1896) for the NODE_LNI input, reading LAYERX_TEST_PAXEER_CHAIN_ID in its source; a missing LAYERX_TEST_NATIVE_BIN_DIR or a non-root test process is recorded as the finding of do_16, never scripted."
+do_19 = "Attempt 13 (1565a0751, the attempt 12 candidate f189d2634 re-qualified unchanged on base fb1c2cf88) passes the first two build_cmd members and fails the third, cargo build -p layerx-agentd-host --bin layerx-agentd, with E0061 at services/agent/crates/layerx-agentd/src/main.rs:1768: load_registry (:1753) still calls verify_historical_deployment(&proof) with one argument while 42c1fea30 (task 13.4.5) widened ProtocolDeploymentVerifier::verify_historical_deployment (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372-3378) to (proof, current, trust_chain, now_ms). The call is the same on main at the base and at 710592c26, in a file this task does not touch; task 18.1310.1 do_4 ports load_registry. This task now requires 18.1310.1 and changes nothing under services/agent or programs; the attempt 13 candidate continues unchanged on a base that includes it. Attempt 12 stopped earlier in the layerx-agentd library on the chain-proof head API that 18.1304.1 ported at c552f4ca5, which hid this binary error until attempt 13."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -162849,7 +162851,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.21.3]
 title = "Drop custody and anchor from the frontend capabilities type and mocks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 27
 requires = ["14.21.2", "14.33.6"]
@@ -173659,7 +173661,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -173686,13 +173688,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 6 stops in make workspace-build: agent-build fails in the layerx-agentd binary (services/agent/crates/layerx-agentd/src/main.rs:785, :1775, :1974, :2050 and services/agent/crates/layerx-agentd-host/src/payer.rs:389, :393, :441) and platform-build in tools/platform/cli/src/wallet.rs:331-333 and :794; those ports are tasks 9.98.1 and 8.48.1 (now required, decision.1847). The test file of attempt 5 is unchanged and right; qualify it on a revision that includes both, and record any further workspace break the gate reports with its file, line and owning task."
 do_5 = "Attempt 6 (827decfcd) stopped in make workspace-build before 9.98.1 (18d25efac) landed; since then 1e3b37aee (18.1243.1) left services/agent/crates/layerx-agentd-host/src/payer.rs:333, :336 and :353 unported and dc4290e1f (9.5.8) broke balance_json at services/agent/crates/layerx-agentd/src/main.rs:2004, and 18.1243.2 (37888aa9c) and 9.5.10 (1da2c7d62), both on main, port both. The requires gain 18.1301.1. The test of attempt 6 is unchanged and right: it reads only logs/waves/0/wave-0.log and evidence.log, which 17.5.9 does not move. Re-qualify it once on a revision that includes 18.1301.1, because the third step, make workspace-lint, runs agent-lint (clippy --all-targets -D warnings, Makefile:2230-2232) over services/agent/crates/layerx-mcp/tests/scope.rs:525, which names the removed InvalidationReason::CapabilityGrantRevoked, and over the unused binding at services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1738; record each further failure that the step log under logs/waves/0 names, with its file, line and owning task."
+do_6 = "Attempt 7 (dd5b5641f, base 710592c26) exited 2 in step 2, make workspace-build: agent-build (Makefile:1947) stops in the layerx-agentd binary at services/agent/crates/layerx-agentd/src/main.rs:1768 (E0061), the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372. Task 18.1310.1 (096e161e1, on main) ports it to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The test of attempt 6 is unchanged and right; re-qualify it once on a revision that includes 18.1310.1, and record each further failure the step log under logs/waves/0 names, with its file, line and owning task."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1"]
+requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1"]
 reqs = ["17055.1"]
 capabilities = ["17.5.2"]
 interfaces = []
@@ -173720,13 +173723,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 6 stops in make workspace-build: agent-build fails in the layerx-agentd binary (services/agent/crates/layerx-agentd/src/main.rs:785, :1775, :1974, :2050 and services/agent/crates/layerx-agentd-host/src/payer.rs:389, :393, :441) and platform-build in tools/platform/cli/src/wallet.rs:331-333 and :794; those ports are tasks 9.98.1 and 8.48.1 (now required, decision.1847). The test file of attempt 5 is unchanged and right; qualify it on a revision that includes both, and record any further workspace break the gate reports with its file, line and owning task."
 do_5 = "Attempt 6 (1b496750a) stopped on the same layerx-agentd binary break as 17.5.1 attempt 6, which 9.98.1 (18d25efac) ports; 18.1243.2 (37888aa9c) and 9.5.10 (1da2c7d62) are on main as well. The requires gain 18.1301.1, because step 2, make workspace-test, runs agent-test (cargo test --workspace, Makefile:2227-2228), which compiles services/agent/crates/layerx-mcp/tests/scope.rs:525."
 do_6 = "In spec/layerx-merge/programme/tests/test_wave_1_gate.py:73 the passing branch reads the step logs from GATE_LOG_DIR or ROOT/.logs/gates, but since 266e32829 (17.5.9) wave-1.sh:22 writes them to logs/waves/1, the wave's evidence_dir, so a passing wave fails the assertions at :86-87; take the directory as os.environ.get('GATE_LOG_DIR', directory) and keep every assertion and the failure branch at :53-70 exactly as written."
+do_7 = "Attempt 7 (d9c803cc7, base 710592c26) carries the do_6 change at spec/layerx-merge/programme/tests/test_wave_1_gate.py:73 and exited 2 in step 1, make workspace-build: agent-build (Makefile:1947) fails with E0061 at services/agent/crates/layerx-agentd/src/main.rs:1768, the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372; the layerx-agentd library compiles. Task 18.1310.1 (096e161e1, on main) ports the call to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The attempt 7 test is unchanged and right; re-qualify it once on a revision that includes 18.1310.1 and record each further failure the step logs under logs/waves/1 name, with file, line and owning task."
 
 [task.17.5.3]
 title = "Run the wave 2 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["17.5.8", "17.0.2", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.3", "18.1121.1", "17.5.9", "18.1301.1"]
+requires = ["17.5.8", "17.0.2", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.3", "18.1121.1", "17.5.9", "18.1301.1", "18.1310.1"]
 reqs = ["17056.1"]
 capabilities = ["17.5.3"]
 interfaces = []
@@ -173752,13 +173756,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempts 1 to 4 (568c457fd, 8949374a1, 4a9bc8586, e9affcc7b) stopped in make workspace-build on services/agent/crates/layerx-agentd-host/src/payer.rs:333 (E0609 current_height), :336 (E0599 prepare_budget) and :353 (E0061 prepare_draw), which 1e3b37aee (18.1243.1) introduced and 37888aa9c (18.1243.2) ported after attempt 4; 9.5.10 (1da2c7d62) is on main as well. The requires gain 18.1301.1. The test of attempt 4 is unchanged and right. Re-qualify it once on a revision that includes 18.1301.1, because steps 2 and 4 (make workspace-test, make agent-test) compile services/agent/crates/layerx-mcp/tests/scope.rs:525, which names the removed InvalidationReason::CapabilityGrantRevoked; record each further failure that the step log under logs/waves/2 names, with its file, line and owning task."
+do_5 = "Attempt 5 (21bc0a531, base 710592c26) exited 2 in step 1, make workspace-build: agent-build (Makefile:1947) stops in the layerx-agentd binary at services/agent/crates/layerx-agentd/src/main.rs:1768 (E0061), the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372. Task 18.1310.1 (096e161e1, on main) ports it to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The test of attempt 4 is unchanged and right; re-qualify it once on a revision that includes 18.1310.1 and record each further failure the step logs under logs/waves/2 name, with file, line and owning task."
 
 [task.17.5.4]
 title = "Run the wave 3 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["17.5.8", "17.13.1", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.4", "18.1121.1", "17.5.9", "18.1301.1"]
+requires = ["17.5.8", "17.13.1", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.4", "18.1121.1", "17.5.9", "18.1301.1", "18.1310.1"]
 reqs = ["17057.1"]
 capabilities = ["17.5.4"]
 interfaces = []
@@ -173784,6 +173789,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempts 1 to 4 (916900383, df91151a3, bba8fd9c6, 59add741d) stopped in make workspace-build on services/agent/crates/layerx-agentd-host/src/payer.rs:333, :336 and :353 (E0609 current_height, E0599 prepare_budget, E0061 prepare_draw), which 1e3b37aee (18.1243.1) introduced and 37888aa9c (18.1243.2) ported after attempt 4; 9.5.10 (1da2c7d62) is on main as well. The requires gain 18.1301.1. The test of attempt 4 is unchanged and right. Re-qualify it once on a revision that includes 18.1301.1, because steps 2 and 3 (make workspace-test, make agent-test) compile services/agent/crates/layerx-mcp/tests/scope.rs:525; interop-test and programs-test have not run yet, so record each further failure that the step log under logs/waves/3 names, with its file, line and owning task."
+do_5 = "Attempt 5 (b78eee5c8, base 710592c26) exited 2 in step 1, make workspace-build: agent-build (Makefile:1947) fails with E0061 at services/agent/crates/layerx-agentd/src/main.rs:1768, the one-argument verify_historical_deployment that 42c1fea30 (13.4.5) widened to four arguments at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:3372; the layerx-agentd library compiles. Task 18.1310.1 (096e161e1, on main) ports the call to verify_journal_admission (main.rs:1781, src/read/program_node.rs:403); the requires gain 18.1310.1. The test of attempt 4 is unchanged and right; re-qualify it once on a revision that includes 18.1310.1; make workspace-test, make agent-test, interop-test and programs-test have not run yet, so record each further failure the step logs under logs/waves/3 name, with file, line and owning task."
 
 [task.17.5.5]
 title = "Run the wave 4 aggregate gate once on the merged wave revision"
@@ -191598,7 +191604,7 @@ do_2 = "Sign that call with Eip1559Call::sign (services/agent/crates/layerx-cryp
 do_3 = "Pass the signed EIP-1559 v1 and v2 bytes to budget_create_identity in core_create_identity_is_read_from_the_signed_v1_and_v2_bytes (:510-558) in place of the envelope bytes at :513 and keep every existing assertion as written."
 do_4 = "The v1 assertions source_account == main_account() and source_sequence == ENVELOPE_SEQUENCE disagree with the decoder answering zero v1 source fields (create.rs:171-176); keep both intact and record the conflict in spec/layerx-merge/qualification.kvx if the gate shows it."
 do_5 = "core_create_identity_is_read_from_the_signed_v1_and_v2_bytes asserts that both signed EIP-1559 budget creates to 0x101B decode to the k256 sender of CREATE_SIGNING_SEED with the expected budget fields and the v2 source account and sequence (:550-557)."
-symbols = ["signed_evm_create", "core_create", "budget_create_identity", "Eip1559Call::sign", "BudgetCreateIdentity", "core_create_identity_is_read_from_the_signed_v1_and_v2_bytes"]
+symbols = ["signed_evm_create", "core_create", "budget_create_identity", "BudgetCreateIdentity", "core_create_identity_is_read_from_the_signed_v1_and_v2_bytes"]
 touches = ["services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs::core_create_identity_is_read_from_the_signed_v1_and_v2_bytes"]
 planned_paths = []
@@ -193973,3 +193979,4 @@ scenario = "Given the agent API errors schema, when LXP_IDEMPOTENT_REPLAY is rea
 contract = "contracts/agent-errors.md#idempotent-replay"
 test = "services/agent/crates/layerx-agent-api/tests/schema.rs::write_and_error_goldens_match_major_two_schema"
 qualification = "UNRUN"
+
