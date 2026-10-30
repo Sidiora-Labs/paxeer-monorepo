@@ -243,7 +243,7 @@ impl LxkpGateway {
             return Err(CustodyError::InvalidKeyReference);
         }
         if policy.network_id == 0
-            || !layerx_intents::canonical::protocol_version_supported(policy.protocol_version)
+            || !layerx_wire::limits::protocol_version_supported(policy.protocol_version)
         {
             return Err(CustodyError::InvalidNetwork);
         }
