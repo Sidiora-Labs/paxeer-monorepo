@@ -1204,8 +1204,8 @@ pub fn native_alias_target(name: &str) -> Option<NativeAliasTarget> {
         "wallet.send" | "token.transfer" => (5, 0x101a_u16),
         "token.create" => (1, 0x101a),
         "token.mint" => (10, 0x101a),
-        "grant.issue" => (7, 0x101b),
-        "grant.draw" => (6, 0x101b),
+        "grant.issue" => (7, 0x101a),
+        "grant.draw" => (6, 0x101a),
         _ => return None,
     };
     let mut address = [0; 20];
