@@ -95512,7 +95512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.31.4]
 title = "Retire guarantor dissent and withholding in src/guarantor/lxp_dissent.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["1.21.1", "1.0.3", "16.32.1"]
@@ -144266,7 +144266,7 @@ do_9 = "Issue #1190: the ordinal change of do_8 applies to the archive_defund fi
 
 [task.10.0.4]
 title = "Report retired operations from the client generator and pin the regenerated client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["10.16.1", "10.15.4", "10.0.2", "14.0.3", "18.1119.1"]
