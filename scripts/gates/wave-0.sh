@@ -15,7 +15,7 @@ if [[ $# -ne 0 ]]; then
 fi
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+root=$(cd -- "$script_dir/../.." && pwd)
 umask 077
-log_dir=$(mktemp -d "${TMPDIR:-/tmp}/wave-0.XXXXXXXX")
-exec python3 "$script_dir/run_gate.py" --wave 0 --log-dir "$log_dir" \
+exec python3 "$script_dir/run_gate.py" --wave 0 --log-dir "${GATE_LOG_DIR:-$root/logs/waves/0}" \
     -- "${dry_run[@]}" -- "${build[@]}" -- "${lint[@]}"

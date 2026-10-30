@@ -14,6 +14,7 @@
 #include "layerx/lxp_receipt.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1589,7 +1590,12 @@ lxp_result layerx_programs_call_terminal_publish(uint64_t token)
         return LXP_ERR_NON_CANONICAL;
     admission = lxp_ctx_call_admission(value->ctx);
     activity_id = lxp_ctx_activity_id(value->ctx);
-    if (admission == NULL || activity_id == NULL) return LXP_FATAL_INVARIANT;
+    if (admission == NULL || activity_id == NULL) {
+        (void)fprintf(stderr,
+            "call.c:%d: %s: invariant: admission=%u activity_id=%u\n",
+            __LINE__, __func__, admission != NULL, activity_id != NULL);
+        return LXP_FATAL_INVARIANT;
+    }
     if (value->ctx->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
         status = terminal_wrap_applied(value);
         if (status != LXP_OK) return status;
@@ -2060,7 +2066,12 @@ lxp_result layerx_programs_call_transfer_leg(
             leg->asset_id, value->ctx->protocol_version, &leg->from);
         if (status != LXP_OK) return status;
     }
-    if (leg->from == NULL || leg->to == NULL) return LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
+    if (leg->from == NULL || leg->to == NULL) {
+        (void)fprintf(stderr,
+            "call.c:%d: %s: transfer account absent: source=%u destination=%u\n",
+            __LINE__, __func__, leg->from != NULL, leg->to != NULL);
+        return LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
+    }
     leg->amount = (lxp_u128){amount_hi, amount_lo};
     leg->reason = LXP_REASON_PAYMENT;
     leg->supply_mode = LXP_TRANSFER_CONSERVED;
@@ -2314,7 +2325,12 @@ lxp_result layerx_programs_call_transfer_apply(uint64_t token)
             status = transfer_source_authority_add(
                 value, &set->legs[index], value->transfer_sources[index].kind,
                 &authority_count);
-        if (status != LXP_OK) return status;
+        if (status != LXP_OK) {
+            (void)fprintf(stderr,
+                "call.c:%d: %s: transfer source %zu refused: result=%d\n",
+                __LINE__, __func__, index, status);
+            return status;
+        }
         if (value->transfer_sources[index].kind ==
             PROGRAM_TRANSFER_SOURCE_PROGRAM)
             ++program_spend_legs;
@@ -2358,8 +2374,11 @@ lxp_result layerx_programs_call_transfer_apply(uint64_t token)
     set->context.source_authorities = value->transfer_source_authorities;
     set->context.source_authority_count = authority_count;
     {
-        lxp_result status = lxp_ctx_emit_transfer_set(value->ctx, set,
-                                                       &value->transfer_receipt);
+        lxp_result status = layerx_programs_call_sandbox_context(token) == LXP_OK ?
+            lxp_ctx_emit_monetary_transfer_set(value->ctx, set,
+                                                &value->transfer_receipt) :
+            lxp_ctx_emit_transfer_set(value->ctx, set,
+                                       &value->transfer_receipt);
         if (status == LXP_OK) value->transfer_applied = true;
         return status;
     }

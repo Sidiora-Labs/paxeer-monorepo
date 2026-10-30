@@ -1,28 +1,16 @@
 #[path = "support/chain.rs"]
 mod chain;
-#[path = "../src/hash.rs"]
-mod hash;
-#[path = "../src/interface.rs"]
-mod interface;
-#[path = "../src/protocol_evidence.rs"]
-mod protocol_evidence;
 mod support;
 #[path = "../src/chain_evidence/verify_bundle.rs"]
 mod verify_bundle;
 
 use chain::{ChainFixture, STATE_HEIGHT};
-use interface::{
-    interface_state_key, interface_state_value, verify_interface_read, InterfaceEntryPoint,
-    InterfaceRefusal, InterfaceStateWitness, ProgramInterface, ValueSchema, ValueType,
-    VerifiedInterfaceRead,
-};
-use layerx_programs as account_state;
+use layerx_programs as protocol_evidence;
+use layerx_programs::chain_evidence::{program_state, wind_down};
 use layerx_programs::{
-    chain_evidence, chain_proof, AccountStateHead, DeploymentRecord, ProgramId, ProgramLifecycle,
-    ReadFreshness, StateProof, UpgradePolicy,
-};
-use protocol_evidence::{
-    ProgramBundleError, ProtocolEvidenceError, VerifiedDeploymentEvidence, VerifiedProgramHead,
+    chain_evidence, chain_proof, interface_state_key, interface_state_value, InterfaceEntryPoint,
+    InterfaceStateWitness, ProgramBundleError, ProgramId, ProgramInterface, ProtocolEvidenceError,
+    StateProof, UpgradePolicy, ValueSchema, ValueType, VerifiedInterfaceRead,
 };
 use verify_bundle::{program_bundle_at, ChainWindDownProof, ProgramStateBundle};
 
