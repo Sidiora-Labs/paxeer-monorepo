@@ -1,23 +1,14 @@
 mod chain_fund;
 mod public_reads;
 
-use layerx_client::client::{Client, ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig};
-use layerx_client::lni::refusal::decode_core_refusal;
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
 use layerx_client::px::PxEndpoint;
-use layerx_client::read::ReadError;
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_platform_core::{
     asset_registry, did_for_public_key, fixed_hex, hex_decode, hex_encode, main_account, SendError,
     SocketSigner, TreasurySigner as _,
 };
-use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
-use layerx_proof::state::decode_account_value;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_types::verify::VerificationLevel;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
@@ -40,15 +31,11 @@ use zeroize::{Zeroize, Zeroizing};
 
 const MAX_REQUEST_BYTES: usize = 4 * 1024 * 1024;
 const MAX_RELAY_BYTES: usize = 4 * 1024 * 1024;
+const MAX_RECEIPT_BYTES: usize = 1_212_416;
 const IO_TIMEOUT: Duration = layerx_platform_internal::http::IO_TIMEOUT;
 const RESET_TIMEOUT: Duration = Duration::from_secs(180);
 const MAX_CONNECTIONS: usize = 128;
-const LNI_FRAME_BYTES: usize = 1_212_416;
-const LNI_DEADLINE: Duration = Duration::from_secs(5);
 const WIRE_VERSION: &str = "3";
-const RECEIPT_LOOKUP_REQUEST_TAG: u16 = 5;
-const RECEIPT_LOOKUP_RESPONSE_TAG: u16 = 6;
-const ERROR_RESPONSE_TAG: u16 = 25;
 const MAX_JOURNAL_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_REQUESTS_PER_CONNECTION: usize = 128;
 
@@ -75,7 +62,6 @@ struct Config {
     admin_listen: SocketAddr,
     tls: Arc<ServerConfig>,
     admin_tls: Arc<ServerConfig>,
-    lni_socket: PathBuf,
     sequencer: SequencerEndpoint,
     network: PxEndpoint,
     network_id: u32,
@@ -323,7 +309,6 @@ fn config() -> Result<Config, String> {
     fs::File::open(&state_dir)
         .and_then(|directory| directory.sync_all())
         .map_err(|error| format!("LAYERX_CORE_STATE_DIR is not durable: {error}"))?;
-    let lni_socket = PathBuf::from(required("LAYERX_CORE_LNI_SOCKET")?);
     let sequencer_url = required("LAYERX_CORE_SEQUENCER_ENDPOINT")?;
     let trust_anchor_path = required("LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER")?;
     let mut trust_anchor = Vec::new();
@@ -353,7 +338,6 @@ fn config() -> Result<Config, String> {
             "LAYERX_CORE_ADMIN_TLS_KEY_DER",
             None,
         )?,
-        lni_socket,
         sequencer,
         network,
         network_id,
@@ -563,134 +547,6 @@ fn write_response(
     .map_err(|error| error.to_string())
 }
 
-fn lni_limits() -> Limits {
-    Limits {
-        maximum_frame_bytes: LNI_FRAME_BYTES,
-        maximum_connections: 4,
-        maximum_streams: 1,
-        maximum_queued_bytes: 4 * 1024 * 1024,
-        deadline: LNI_DEADLINE,
-    }
-}
-
-fn handshake_config(config: &Config) -> HandshakeConfig {
-    HandshakeConfig {
-        built_interface_version: Version::V1_6,
-        expected_protocol_version: layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-        expected_network_id: config.network_id,
-    }
-}
-
-fn connect_client(config: &Config) -> Result<Client, String> {
-    Client::connect(ClientConfig {
-        endpoint: config.lni_socket.clone(),
-        handshake: handshake_config(config),
-        limits: lni_limits(),
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 1,
-            base_delay: Duration::from_millis(100),
-            maximum_delay: Duration::from_secs(1),
-            jitter_percent: 0,
-        },
-    })
-    .map_err(|error| format!("LNI connection failed: {error:?}"))
-}
-
-fn connect_raw(config: &Config) -> Result<(Uds, Handshake), String> {
-    connect_raw_with_deadline(config, LNI_DEADLINE)
-}
-
-fn connect_raw_with_deadline(
-    config: &Config,
-    deadline: Duration,
-) -> Result<(Uds, Handshake), String> {
-    let gate = ConnectionGate::new(1);
-    let mut limits = lni_limits();
-    limits.deadline = deadline.min(limits.deadline);
-    let mut transport = Uds::connect(&config.lni_socket, &gate, limits)
-        .map_err(|error| format!("LNI connection failed: {error:?}"))?;
-    let handshake = perform(&mut transport, &handshake_config(config), None)
-        .map_err(|error| format!("LNI handshake failed: {error:?}"))?;
-    Ok((transport, handshake))
-}
-
-fn lookup_receipt_bytes(
-    transport: &mut Uds,
-    handshake: &Handshake,
-    activity_id: [u8; 32],
-    correlation_id: u64,
-    wait_publication: bool,
-) -> Result<Option<Vec<u8>>, String> {
-    let mut selector = Vec::with_capacity(37);
-    selector.push(1);
-    selector.extend_from_slice(&activity_id);
-    lookup_receipt_selector(
-        transport,
-        handshake,
-        selector,
-        correlation_id,
-        wait_publication,
-    )
-}
-
-fn lookup_receipt_selector(
-    transport: &mut Uds,
-    handshake: &Handshake,
-    mut selector: Vec<u8>,
-    correlation_id: u64,
-    wait_publication: bool,
-) -> Result<Option<Vec<u8>>, String> {
-    if !handshake.capabilities().contains(Capability::ReceiptLookup) {
-        return Err("receipt_lookup capability is unavailable".to_owned());
-    }
-    if wait_publication {
-        if handshake.node().interface_version.minor < 5 {
-            return Err("receipt publication wait requires LNI minor 5".to_owned());
-        }
-        selector.push(1);
-    } else if handshake.node().interface_version.minor >= Version::V1_6.minor {
-        selector.push(0);
-    }
-    let request = encode_envelope(Envelope {
-        version: handshake.node().interface_version,
-        message_tag: RECEIPT_LOOKUP_REQUEST_TAG,
-        correlation_id,
-        canonical_payload: &selector,
-        proof_material: &[],
-    })
-    .map_err(|error| format!("receipt lookup encoding failed: {error:?}"))?;
-    transport
-        .send(&request)
-        .map_err(|error| format!("receipt lookup send failed: {error:?}"))?;
-    let response_bytes = transport
-        .receive()
-        .map_err(|error| format!("receipt lookup receive failed: {error:?}"))?;
-    let response = decode_envelope(&response_bytes)
-        .map_err(|error| format!("receipt lookup response is malformed: {error:?}"))?;
-    if response.version.major != handshake.node().interface_version.major
-        || !response.proof_material.is_empty()
-        || response.correlation_id != correlation_id
-    {
-        return Err("receipt lookup response correlation mismatch".to_owned());
-    }
-    if response.message_tag == ERROR_RESPONSE_TAG {
-        let refusal = decode_core_refusal(response.canonical_payload)
-            .ok_or_else(|| "receipt lookup refusal is malformed".to_owned())?;
-        return Err(format!(
-            "receipt lookup refused: class {} result {}",
-            refusal.class,
-            refusal.result.raw()
-        ));
-    }
-    if response.message_tag != RECEIPT_LOOKUP_RESPONSE_TAG {
-        return Err("receipt lookup response has an unexpected tag".to_owned());
-    }
-    if response.canonical_payload.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(response.canonical_payload.to_vec()))
-}
-
 fn receipt_facts(bytes: &[u8], sequencer_key: [u8; 32]) -> Result<ReceiptFacts, String> {
     let decoded = layerx_wire::receipt::decode(bytes)
         .map_err(|error| format!("receipt does not decode: {error:?}"))?;
@@ -720,39 +576,64 @@ fn receipt_facts(bytes: &[u8], sequencer_key: [u8; 32]) -> Result<ReceiptFacts, 
     })
 }
 
+fn await_authenticated_receipt(
+    config: &Config,
+    tx_hash: [u8; 32],
+    deadline: Duration,
+) -> Result<Option<layerx_client::rpc::receipt::AuthenticatedReceipt>, String> {
+    use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+    let started = Instant::now();
+    let keys = config
+        .sequencer
+        .receipt_keys()
+        .map_err(|error| format!("receipt keys unavailable: {error:?}"))?;
+    loop {
+        match lookup_authenticated(
+            &config.sequencer,
+            tx_hash,
+            LookupContext {
+                receipt_keys: &keys,
+            },
+        )
+        .map_err(|error| format!("receipt lookup failed: {error:?}"))?
+        {
+            Lookup::Verified(receipt) => return Ok(Some(receipt)),
+            Lookup::Absent | Lookup::Submitted { .. } => {}
+        }
+        let Some(remaining) = deadline
+            .checked_sub(started.elapsed())
+            .filter(|remaining| !remaining.is_zero())
+        else {
+            return Err("receipt_unavailable".to_owned());
+        };
+        thread::sleep(remaining.min(Duration::from_millis(250)));
+    }
+}
+
 fn await_receipt(
     config: &Config,
-    activity_id: [u8; 32],
+    tx_hash: [u8; 32],
     deadline: Duration,
 ) -> Result<Option<ReceiptFacts>, String> {
-    let total_started = Instant::now();
-    let connect_started = Instant::now();
-    let (mut transport, handshake) = if deadline.is_zero() {
-        connect_raw(config)?
-    } else {
-        connect_raw_with_deadline(config, deadline)?
-    };
-    pay_timing("core.receipt.connect_handshake", connect_started);
-    let wait_started = Instant::now();
-    let bytes = lookup_receipt_bytes(
-        &mut transport,
-        &handshake,
-        activity_id,
-        1,
-        !deadline.is_zero(),
-    )?;
-    pay_timing("core.receipt.publication_wait", wait_started);
-    let Some(bytes) = bytes else {
+    let Some(receipt) = await_authenticated_receipt(config, tx_hash, deadline)? else {
         return Ok(None);
     };
-    let verify_started = Instant::now();
-    let facts = receipt_facts(&bytes, handshake.node().authorised_sequencer_key)?;
-    pay_timing("core.receipt.verify", verify_started);
-    if facts.activity_id != activity_id {
-        return Err("receipt names another activity".to_owned());
-    }
-    pay_timing("core.receipt.total", total_started);
-    Ok(Some(facts))
+    let batch = layerx_client::rpc::evidence::checkpoint(&config.sequencer, receipt.height())
+        .map_err(|error| format!("receipt checkpoint unavailable: {error:?}"))?;
+    let state_root = layerx_platform_core::custody_checkpoint_state_root(
+        &config.sequencer,
+        receipt.height(),
+        receipt.height(),
+    )?
+    .unwrap_or([0; 32]);
+    Ok(Some(ReceiptFacts {
+        activity_id: receipt.activity_id(),
+        global_sequence: receipt.global_sequence(),
+        result_code: receipt.result_code().raw(),
+        canonical: receipt.canonical_bytes().to_vec(),
+        batch_id: batch.hash,
+        state_root,
+    }))
 }
 
 fn receipt_result(facts: &ReceiptFacts) -> serde_json::Value {
@@ -938,13 +819,14 @@ fn program_idempotency_receipt(config: &Config, key: &str) -> Response {
         }
         _ => return refusal(502, "receipt_invalid", None),
     };
-    let Ok((_, handshake)) = connect_raw(config) else {
+    let Ok(keys) = config.sequencer.receipt_keys() else {
         return refusal(503, "node_unavailable", Some(5));
     };
-    let Ok(receipt) = layerx_proof::receipt::verify_sequencer_signature(
-        &bytes,
-        handshake.node().authorised_sequencer_key,
-    ) else {
+    let Some(key) = keys.iter().max_by_key(|key| key.last_height) else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
+    let Ok(receipt) = layerx_proof::receipt::verify_sequencer_signature(&bytes, key.public_key)
+    else {
         return refusal(502, "receipt_invalid", None);
     };
     let Some(protocol) = receipt.protocol() else {
@@ -1572,42 +1454,6 @@ fn send_refusal(error: SendError) -> Response {
     }
 }
 
-fn treasury_sequence(config: &Config, client: &mut Client, amount: u128) -> Result<u64, Response> {
-    let treasury = main_account(&config.treasury_did)
-        .map_err(|_| refusal(503, "treasury_unavailable", Some(60)))?;
-    let authorization = SequencerAuthorization::new(
-        config.sequencer_id,
-        client.handshake().node().authorised_sequencer_key,
-        1,
-        u64::MAX,
-    );
-    let value = client
-        .account(treasury, VerificationLevel::STATE_PROVEN, 2, authorization)
-        .map_err(|error| match error {
-            ReadError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: treasury read refused class {class} result {}",
-                    result.raw()
-                );
-                refusal(422, "treasury_account_unavailable", Some(60))
-            }
-            ReadError::UnavailableCapability => refusal(503, "capability_unavailable", Some(30)),
-            other => {
-                eprintln!("layerx-core-boundary: treasury read failed: {other:?}");
-                refusal(422, "treasury_account_unavailable", Some(60))
-            }
-        })?;
-    let account = decode_account_value(treasury, value.canonical_bytes())
-        .map_err(|_| refusal(422, "treasury_account_unavailable", Some(60)))?;
-    let holds_amount = account
-        .asset
-        .is_some_and(|held| held.asset_id == config.treasury_asset && held.balance >= amount);
-    if !holds_amount {
-        return Err(refusal(422, "insufficient_treasury_balance", Some(60)));
-    }
-    Ok(account.next_sequence)
-}
-
 fn fund(config: &Config, request: &Request, key: &str) -> Response {
     let Ok(command) = serde_json::from_slice::<FundingCommand>(&request.body) else {
         return refusal(400, "invalid_argument", None);
@@ -1904,7 +1750,7 @@ fn funding_archive_facts(
     if archive.version != 1
         || archive.intent_digest != hex_encode(&Sha256::digest(intent_bytes))
         || archive.receipt.is_empty()
-        || archive.receipt.len() > LNI_FRAME_BYTES
+        || archive.receipt.len() > MAX_RECEIPT_BYTES
     {
         return Err("funding archive binding differs".to_owned());
     }
@@ -2109,20 +1955,14 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
                     .receipt_deadline
                     .checked_sub(started.elapsed())
                     .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
-                let (mut transport, handshake) = connect_raw_with_deadline(config, remaining)
-                    .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?;
-                if handshake.node().authorised_sequencer_key != intent.sequencer_key {
+                let receipt =
+                    await_authenticated_receipt(config, intent.signed.activity_id, remaining)
+                        .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?
+                        .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
+                if receipt.execution().signing_key != intent.sequencer_key {
                     return Err(refusal(503, "receipt_unavailable", Some(5)));
                 }
-                let receipt = lookup_receipt_bytes(
-                    &mut transport,
-                    &handshake,
-                    intent.signed.activity_id,
-                    1,
-                    false,
-                )
-                .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?
-                .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
+                let receipt = receipt.canonical_bytes().to_vec();
                 FundingArchive {
                     version: 1,
                     intent_digest: hex_encode(&Sha256::digest(&bytes)),

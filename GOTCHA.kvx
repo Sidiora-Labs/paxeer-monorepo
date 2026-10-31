@@ -12066,3 +12066,88 @@ fix = "Name the seam a test exercises: a journey test injects the boundary trait
 title = "A Makefile target is not a graph symbol"
 symptom = "A task listed its new phony Makefile target among its symbols; build and all three tests passed and the done check still failed because the code graph indexes functions and types, not make targets."
 fix = "List functions, types and tests under symbols; a Makefile target is proven by the build command or a test that runs it."
+
+[gotcha.2451]
+title = "The agent JSON surface carries no native send preview"
+symptom = "A test posted a native_send_preview_v1 variant through handle_rpc and got 400 envelope.malformed: the prepare operation of the JSON surface routes only native_effect_v1, native_registration_v1, native_send_v1 and native_send_submit_v1; previews travel as human frames (operation 63) written by the human service."
+fix = "Prove a native send preview through serve_one with the frame the human service writes (agent_runtime.rs native_send_preview), not through the JSON surface."
+
+[gotcha.2452]
+title = "The served-precompile probe is an eth_call with selector 0xffffffff"
+symptom = "Gateway tests expected an eth_getCode probe for a served precompile and saw none, and a route's eth_call count came out one too high: since the node serves precompiles natively without account code, ensureServed probes with eth_call data 0xffffffff once per process per key."
+fix = "Assert the probe as that eth_call and exclude it from per-route eth_call counts; eth_getCode at a native precompile answers 0x."
+
+[gotcha.2453]
+title = "The attestor test support resolves a wallet identity only from a held secp256k1 key bound to the primary's policy account"
+symptom = "A service test created a human primary key through the attestor test support and asked for its EVM wallet; the attestors refused with key_invalid_share: the inventory listed no key for generation, and the public-wallet route needs a held secp256k1 key owned by the same subject whose address equals the account the primary was generated with."
+fix = "Generate the owner's secp256k1 wallet first, approve the primary key id for generate, create the primary with the wallet address as its account, approve it for sign, then resolve the wallet."
+
+[gotcha.2454]
+title = "A human service test gated on the protected native producer fixture never runs inside a qualification gate"
+symptom = "A new test copied the fixture reader of tests/native_send_producer.rs, which expects PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, a running human service over TLS and a real daemon socket; the gate had none of them, so both cases panicked with NotPresent before their first assertion and the task failed three times without the preview path ever being exercised."
+fix = "Write such tests against an in-process peer double over a UnixListener and a temporary principal store, the way tests/agent_runtime_nonces.rs and tests/agent_runtime_eip1559.rs do; leave the protected fixture tests as release gates."
+
+[gotcha.2455]
+title = "The human service's plan route answers every refusal with the same reasonless 403"
+symptom = "An end-to-end fixture got {code: forbidden, retry: final} from POST /v1/intents/plan with no attestor refusal recorded; the route has about a dozen checks that answer exactly this (assertion admission, owner identity, balance coordinates, custody binding, plan refusals, leg transactions, observation cache), so the failing check could not be read from the response."
+fix = "Make the fixture's doubles record every request they serve and print the lists in the failure text, then bisect along the route's forbidden emitters in call order."
+
+[gotcha.2456]
+title = "The node serves a sequencer receipt only by transaction hash"
+symptom = "A service route keyed by the receipt's global sequence looked for a node JSON-RPC twin of the retired selector-3 receipt lookup; pax_sequencerReceipt (rpc/sequencer_receipt.go:252) takes a transaction hash and nothing looks a receipt up by global sequence."
+fix = "Key the route by transaction hash and read the global sequence from the executed receipt's seq field; a global-sequence index would be a new node method."
+
+[gotcha.2457]
+title = "A sequencer primary refuses to start without a standby address even though its config validation admits one"
+symptom = "Config.Validate (node/sequencer/config.go:165-205) accepts an empty sequencer.standby-address, but NewNode (node/sequencer/node.go:62) then fails with ErrConfigStandbyAddress and NewReplicator refuses a nil dialer, so a single-node sequencer start needs a second node it never uses."
+fix = "Treat the empty address as standalone replication (task 12.35.9) or configure a standby; do not point the standby address at the primary's own listener."
+
+[gotcha.2458]
+title = "The layerxauth keeper executes any governance payload ordinal the kernel admits, but only methods on its ABI reach it"
+symptom = "A service built a DID registration as a ledger send(bytes) call because no precompile exposed a lifecycle method; the ledger decoder refused the governance bytes with MalformedPayload. The layerxauth keeper's execute (modules/layerxauth/keeper/execute.go:15) already maps payload[1] to kernel activity 0x00070000 | ordinal and the kernel decoder admits ordinals 1 and 3."
+fix = "Add the ABI method, gas row and handler on the layerxauth precompile and the matching decoder arm in layerx-crypto; never tunnel a governance payload through another module's send."
+
+[gotcha.2459]
+title = "The gateway client refuses a balances answer that says bound without a DID and an account"
+symptom = "A test double answered px_getBalances with account {evm_address, bound: true} and the service reported upstream-degraded: retain_lookup in the gateway client requires bound to equal the presence of both layerx_did and layerx_account and an evm_address on every bound answer, and the plan path maps every gateway error to upstream-degraded."
+fix = "Answer the declared nested join shape the gateway crate's own decoder test fixes: identities with evm_address, pax_address, layerx_did, layerx_account and bound, rows with asset_id, denom, custody, paxeer and layerx, and an integer joined_limit."
+
+[gotcha.2460]
+title = "The JSON-RPC module-state read proves one storage word, not a kernel module record"
+symptom = "A caller ported a kernel module-state read (a 223-byte record) onto rpc::module_state::module_state and found it returns a single 32-byte slot value proven against a signed header the caller must supply; kernel-era records with their own layouts have no slot twin, and the node keeps that state in precompiles instead."
+fix = "Read precompile-backed state through eth_call (SequencerEndpoint::call_at with the ABI selector and arguments) and take finality from the anchor precompile's latestFinalized and checkpoint views; reserve rpc::module_state for genuine single-slot module values."
+
+[gotcha.2461]
+title = "The layerxauth precompile pins its method count in two tests"
+symptom = "A new layerxauth precompile method passed its own tests and the ABI test, then failed TestAuthGasTable (row count) and TestAuthSurfaceFrozen (three Len pins) because both pin the method count."
+fix = "When adding a layerxauth method, raise the pinned counts in gas_test.go and surface_test.go together with the ABI, handler and gas row."
+
+[gotcha.2462]
+title = "Store row keys are limited to 128 identifier characters, and two 32-byte hex fields plus a prefix exceed it"
+symptom = "A handler built a Cache row key from a prefix and two 64-character hex digests (148 characters); RowKey::new refused it as InvalidKey and the handler reported upstream-degraded on every request."
+fix = "Key rows by one digest of the inputs (prefix plus 64 hex characters) and keep RowKey::new's IDENTIFIER_LIMIT in mind whenever a key concatenates hashes."
+
+[gotcha.2463]
+title = "A panic inside an evmrpc handler is reported only as 'method handler crashed' and the node log shows nothing"
+symptom = "A client saw 'method handler crashed' from eth_sendRawTransaction; the JSON-RPC server recovers handler panics and logs them through its own logger, which the node does not route, and the handler's deferred recordMetricsWithError re-panicked without logging, so node.log held no error, no stack and the goroutine dump had already unwound."
+fix = "Log the panic value and debug.Stack() in recordMetricsWithError before re-raising (task 12.35.11), and reproduce handler paths in process with the production SendConfig instead of only through a started binary."
+
+[gotcha.2464]
+title = "A retired-module scan list is per crate, and extending it before that crate's own port fails the port's neighbour"
+symptom = "A core task added 'read' to the authority crate's retired-module list because an early do-line bundled the authority reader with the core port; the core port passed its own scan and the task failed on the authority crate's unchanged import."
+fix = "Keep each crate's retired list with the task that ports that crate; a cross-crate clause in a do-line is a second task, not a line item."
+
+[gotcha.2465]
+title = "The agent creation lifecycle binding matches the disclosure construct method exhaustively"
+symptom = "A task added a variant to layerx_crypto::disclosure::call::ConstructMethod, built and tested layerx-crypto, and landed; every later build of the layerx-human-service library failed with error[E0004] non-exhaustive patterns in agents/create.rs bound_activity."
+fix = "When adding a ConstructMethod variant, add its bound_activity arm in the same change and build layerx-human-service as part of the gate; the two crates live in different workspaces, so the human service build must be named explicitly."
+
+[gotcha.2466]
+title = "The human service's component server validates every response against the declared schema and answers upstream-degraded on an undeclared key"
+symptom = "A handler emitted fields the schema file did not declare; the service built and the peers answered, and every request still got 503 upstream-degraded with no log of the cause, because encode_response refuses an undeclared object key after the backend has executed."
+fix = "When a handler emits a new response field, declare it in services/human/schema/human-api (optional lists are additive within a major), regenerate baseline.kvx with the refresh command in its manifest, and run the schema-check conformance test with the handler's test."
+
+[gotcha.2467]
+title = "Test wrappers start with Block.MaxGasWanted zero and the sequencer admission then refuses every transaction"
+symptom = "An rpc test harness built app.NewTestWrapper, funded accounts and sent a transaction; the sequencer answered 'transaction does not fit the block limits: gas wanted 21000 exceeds Block.MaxGasWanted 0' from node/sequencer/limits.go, because the admission check reads the stored consensus params and the wrapper never stores any."
+fix = "Store consensus params with Block.MaxGasWanted set (50000000 is the production genesis value) through App.StoreConsensusParams before the harness's first block, as node/genesis_sequenced_test.go does."
