@@ -12016,3 +12016,18 @@ fix = "When replication acknowledgements time out, check committee membership of
 title = "A test fixture that reads node sockets from the environment cannot qualify where no node runs"
 symptom = "10.0.3 attempt 5 required LAYERX_AGENT_HUMAN_NODE_LNI and the authority endpoint from the environment and both tests failed before any request."
 fix = "Serve the counterpart in process (RealAgentLayer pattern in tests/intent_submit.rs) and set every ProductionComponents variable from the test itself; never gate a task's test on binaries or sockets the environment must provide."
+
+[gotcha.2441]
+title = "A DO NOT EDIT catalogue edited in place drifts silently until the next --write"
+symptom = "Four tasks changed sdk/platform/go/generated.go and the JVM GeneratedContract.java by hand; the reseal task then saw --write revert routes, vocabulary and retired operations and stopped, five attempts in."
+fix = "Put the change into the schema the generator reads, into the generator, or into a handwritten sibling file, and let the task that changes an interface run the generator and the consumer tests on one revision."
+
+[gotcha.2442]
+title = "Two services, two words for the same rung"
+symptom = "Webhooks say block-committed (decision.813) and the human API says checkpoint-finalised (decision.1002); SDK tasks copied the webhook word into the human SDKs, which then refused every committed journey the human service serves."
+fix = "Name the producer of the interface before choosing a vocabulary; a consumer speaks its producer's words, and a requirement that borrows another interface's word is amended, not implemented."
+
+[gotcha.2443]
+title = "A typed operation catalogue cannot address a retired wire name"
+symptom = "The Swift and .NET retired-faucet tests send PlatformOperation.AgentFaucetClaim; once the catalogue drops the case the tests cannot be written, while the Go and JVM tests send the string faucet.claim."
+fix = "Keep retired-name refusal tests on string-based transports; delete them where the transport is typed and note where the coverage lives."

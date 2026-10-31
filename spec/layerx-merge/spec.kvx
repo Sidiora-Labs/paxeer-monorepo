@@ -5787,6 +5787,48 @@ value = "tests/intent_plan_evm.rs drops the LAYERX_AGENT_HUMAN_NODE_LNI branch a
 basis = "Attempt 5 failed on an environment variable the qualification environment never sets (finding.10.0.3.2)."
 affects = ["10.0.3"]
 
+[decision.2113]
+title = "Generated platform SDK catalogues are rendered from the schemas, never edited in place"
+value = "A change a task needs inside a file whose header says DO NOT EDIT goes into the schema the generator reads, into the generator, or into a handwritten file beside the output; the reseal of 8.45.4 accepts every digest and handwritten-list change that --write makes to sdk/platform/pipeline.kvx, and its do_8 stop condition applies to sdk/platform/go/generated.go alone."
+basis = "Attempt 5 stopped on changes that were the reseal itself (finding.8.45.4.1)."
+affects = ["8.45.4"]
+
+[decision.2114]
+title = "The Go and JVM generators skip human operations the schema marks retired"
+value = "go_human_operations (sdk/platform/generators/src/main.rs:1261), the operations closure of generate_jvm_contract (:1504-1509) for the human plane, and the counter generate_jvm_conformance calls (:1634-1635) skip every [operation.*] section carrying retired = 'true' (services/human/schema/human-api/movement.kvx:144-192, identity.kvx:518-549), so the regenerated catalogues keep the shape 8.46.2 do_2 and 8.46.7 produced by hand and sdk/platform/conformance/jvm.kvx human_operations states the live count."
+basis = "The schema marks the binding, deposit, withdraw and exit operations retired but the generators read every operation section, so --write restores them (finding.8.45.4.1)."
+affects = ["8.45.4", "8.46.9"]
+
+[decision.2115]
+title = "Human API consumers name the committed rung checkpoint-finalised"
+value = "The Go and JVM human verification level enums carry exactly the live variants of journeys.kvx [type.VerificationLevel]: unverified, receipt-verified, checkpoint-finalised; block-committed stays the webhook word (decision.813) and is refused by the human SDKs together with paxeer-finalised and settlement-anchored. req.8520 ac_2, req.8521 ac_1, acceptance.8.520.2 and acceptance.8.521.1 are amended to this vocabulary."
+basis = "The human service emits checkpoint-finalised for the committed rung (finding.8.45.4.3); a consumer refusing that word rejects every committed journey."
+affects = ["8.45.4", "8.46.9"]
+
+[decision.2116]
+title = "intent.plan and intent.submit are human-service routes in every catalogue"
+value = "sdk/platform/conformance/operations.json intent.plan and intent.submit return to method POST, paths /v1/intents/plan and /v1/intents/submit, transport http and no per_leg key; the regenerated sdk/platform/go/generated.go renders their Metadata from the schema and no longer carries PerLeg or the hand-written HumanOperation.EVMMetadata (:374-380); the Swift and .NET catalogues are regenerated from operations.json; TestIntentOperationsArePerLegCalls becomes TestIntentOperationsUseTheHumanRoutes asserting the two routes, transport http, idempotency only on intent.submit and Metadata equal to the JSON entry. req.8517 ac_2 and acceptance.8.517.2 are amended; the per-leg EVM calls stay inside the IntentPlan result (req.8520 ac_1)."
+basis = "The Go, Swift and .NET intent entries cannot reach the human service as committed (finding.8.45.4.2)."
+affects = ["8.45.4"]
+
+[decision.2117]
+title = "faucet.claim leaves every platform SDK catalogue"
+value = "services/agent/schema/agent-api has no [operation.faucet.claim] since 9.1.5, so the regenerated Go catalogue drops AgentOperationFaucetClaim; operations.json loses its faucet.claim entry (the O28 group at :392-404) and the Swift and .NET catalogues are regenerated without the case; sdk/platform/go/agent_operation_envelope_test.go:498-500 sends the wire name 'faucet.claim' as a string; the Swift and .NET retired-faucet tests (AgentOperationEnvelopeTests.swift:181-190, AgentOperationEnvelopeTests.cs:198-210) are deleted because their TransportCall takes only a typed catalogue case, and the JVM probes keep the string-based refusal check."
+basis = "The Go count test (sdk/platform/go/operation_keys_test.go:100) holds operations.json and the generated constants to the same count, so the stale entry must leave both."
+affects = ["8.45.4"]
+
+[decision.2118]
+title = "The JVM generated contract returns to the generator's shape before the reseal"
+value = "Task 8.46.9 (JVM profile) removes the AgentOperationCatalog wrapper and the program transport map that 8.46.4 added inside GeneratedContract.java (:13-27, :85-93) so AGENT_OPERATIONS is again the plain Set the generator renders (sdk/platform/generators/src/main.rs:1486-1499), drops faucet.claim from it, reads program transports in GeneratedCatalogueProgramsTest from GeneratedSchema.programTransport and GeneratedSchema.AgentOperations, and moves the HumanVerificationLevel enum of GeneratedSchema.java:2579-2590 and its tests to decision 2115; 8.45.4 requires 8.46.9 and then accepts GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as --write renders them."
+basis = "GeneratedSchema.java is digest-tracked but not rendered, GeneratedContract.java is rendered; only the latter is rewritten by --write, and its JVM compile is proven by the mvn test in both gates."
+affects = ["8.45.4", "8.46.9"]
+
+[decision.2119]
+title = "8.45.4 qualifies on the sdk-all profile with the consumer tests in its gate"
+value = "8.45.4 builds the generator and the Go module, then verifies with the pipeline_reseal tests, the Go catalogue tests, generate_portable.py --check, the three JVM catalogue tests, swift build and dotnet build, so the regenerated producer and every SDK consumer are proven on one revision."
+basis = "The owner's quality ruling: every interface-changing task proves the producer, transport and consumer path."
+affects = ["8.45.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -18431,7 +18473,7 @@ ac_2 = "The pipeline lock lists no receipt-positive, receipt-refusals or receipt
 [req.8517]
 title = "Go catalogue and operations.json route program and intent operations to EVM calls"
 ac_1 = "No program operation in operations.json carries a /v1/programs route and each names its 0x101D selector or read method."
-ac_2 = "intent.plan and intent.submit are marked as per-leg EVM calls in operations.json and in the generated Go catalogue."
+ac_2 = "intent.plan and intent.submit are POST /v1/intents/plan and POST /v1/intents/submit over http in operations.json and in the generated Go catalogue (decision 2116); their per-leg EVM calls live in the IntentPlan result."
 
 [req.8518]
 title = "JVM generated schema routes program operations to 0x101D and prepares EIP-1559 transactions"
@@ -18446,11 +18488,11 @@ ac_2 = "Neither generated catalogue contains the text /v1/programs."
 [req.8520]
 title = "JVM generated schema builds per-leg intents, drops settlement evidence and the binding operations"
 ac_1 = "The generated intent plan result holds a list of per-leg EVM calls each with to, data and chainId."
-ac_2 = "The JVM human verification level enum has block-committed and no checkpoint-finalised, paxeer-finalised or settlement field on evidence."
+ac_2 = "The JVM human verification level enum has exactly unverified, receipt-verified and checkpoint-finalised (the live variants of the human schema, decision 2115), refuses block-committed, paxeer-finalised and settlement-anchored, and no settlement field remains on evidence."
 
 [req.8521]
 title = "Go catalogue and operations.json drop binding, deposit, exit, withdraw and settlement entries"
-ac_1 = "The Go human verification levels contain block-committed and none of checkpoint-finalised, paxeer-finalised or settlement-anchored."
+ac_1 = "The Go human verification levels are exactly unverified, receipt-verified and checkpoint-finalised, the live variants of the human schema (decision 2115); block-committed, paxeer-finalised and settlement-anchored are not valid."
 ac_2 = "No binding, deposit, exit or withdraw operation remains in operations.json or the generated Go catalogue."
 
 [req.8522]
@@ -68032,9 +68074,9 @@ qualification = "UNRUN"
 [acceptance.8.517.2]
 feature = "8"
 req = "8517.2"
-scenario = "Given operations.json and generated.go, when intent.plan and intent.submit are looked up, then both carry the per-leg EVM call transport and no two-domain endpoint."
+scenario = "Given operations.json and generated.go, when intent.plan and intent.submit are looked up, then both carry the human-service POST route over http and the generated Metadata equals the JSON entry."
 contract = "contracts/platform-sdk.md#operation-catalog"
-test = "sdk/platform/go/operation_catalog_test.go::TestIntentOperationsArePerLegCalls (planned)"
+test = "sdk/platform/go/operation_catalog_test.go::TestIntentOperationsUseTheHumanRoutes"
 qualification = "UNRUN"
 
 [acceptance.8.518.1]
@@ -68080,17 +68122,17 @@ qualification = "UNRUN"
 [acceptance.8.520.2]
 feature = "8"
 req = "8520.2"
-scenario = "Given the generated verification level enum and evidence record, when values and components are listed, then block-committed is present and the removed names are absent."
+scenario = "Given the generated verification level enum and evidence record, when values and components are listed, then unverified, receipt-verified and checkpoint-finalised are present and block-committed, paxeer-finalised and settlement-anchored are refused."
 contract = "contracts/platform-sdk.md#operation-catalog"
-test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsUseBlockCommitted (planned)"
+test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsFollowTheHumanSchema"
 qualification = "UNRUN"
 
 [acceptance.8.521.1]
 feature = "8"
 req = "8521.1"
-scenario = "Given the generated Go human verification level values, when they are enumerated, then block-committed is present and checkpoint-finalised, paxeer-finalised and settlement-anchored are absent."
+scenario = "Given the generated Go human verification level values, when they are enumerated, then unverified, receipt-verified and checkpoint-finalised are present and block-committed, paxeer-finalised and settlement-anchored are not valid."
 contract = "contracts/platform-sdk.md#operation-catalog"
-test = "sdk/platform/go/human_catalogue_test.go::TestHumanVerificationLevelsUseBlockCommitted (planned)"
+test = "sdk/platform/go/human_catalogue_test.go::TestHumanVerificationLevelsFollowTheHumanSchema"
 qualification = "UNRUN"
 
 [acceptance.8.521.2]
@@ -139513,7 +139555,7 @@ title = "Pipeline lock reseals every regenerated, added and retired platform SDK
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.45.3", "8.46.2", "8.47.7", "8.41.5", "8.42.5", "8.43.5", "8.44.5", "9.97.3", "8.47.4", "8.47.5", "8.47.6"]
+requires = ["8.45.3", "8.46.2", "8.47.7", "8.41.5", "8.42.5", "8.43.5", "8.44.5", "9.97.3", "8.47.4", "8.47.5", "8.47.6", "8.46.9"]
 reqs = ["8516.1", "8516.2"]
 capabilities = ["8.45.4"]
 interfaces = ["interface.8.cfg-sdk-pipeline-files-platform-go", "interface.8.cfg-sdk-pipeline-handwritten-platform-go", "interface.8.cfg-sdk-pipeline-files-platform-jvm", "interface.8.cfg-sdk-pipeline-handwritten-platform-jvm", "interface.8.cfg-sdk-pipeline-files-platform-conformance", "interface.8.cfg-sdk-pipeline-handwritten-platform-conformance", "interface.8.cfg-sdk-pipeline-files-platform-swift", "interface.8.cfg-sdk-pipeline-files-platform-dotnet", "interface.8.cfg-sdk-pipeline-files-platform-portable-conformance"]
@@ -139523,13 +139565,13 @@ do_2 = "Add committed.go, verify/Committed.java, Committed.cs and Committed.swif
 do_3 = "Remove the kernel receipt fixtures, their generators and terminal-v4.test.py from the conformance handwritten list at sdk/platform/pipeline.kvx:346."
 do_4 = "Create sdk/platform/generators/tests/pipeline_reseal.rs (planned) running --check against the repository root."
 symbols = ["write_lock", "check"]
-touches = ["sdk/platform/pipeline.kvx", "sdk/platform/generators/tests/pipeline_reseal.rs", "sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py", "sdk/platform/go/generated.go", "sdk/platform/go/evm_metadata.go"]
-tests = ["sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_matches_repository", "sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_lists_no_kernel_receipt_fixture"]
+touches = ["sdk/platform/pipeline.kvx", "sdk/platform/generators/tests/pipeline_reseal.rs", "sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py", "sdk/platform/go/generated.go", "sdk/platform/go/evm_metadata.go", "sdk/platform/generators/src/main.rs", "sdk/platform/conformance/operations.json", "sdk/platform/conformance/jvm.kvx", "sdk/platform/go/operation_catalog_test.go", "sdk/platform/go/human_catalogue_test.go", "sdk/platform/go/agent_operation_envelope_test.go", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift", "sdk/platform/dotnet/Generated/OperationCatalog.cs", "sdk/platform/swift/Tests/LayerXSDKTests/AgentOperationEnvelopeTests.swift", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java"]
+tests = ["sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_matches_repository", "sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_lists_no_kernel_receipt_fixture", "sdk/platform/go/operation_catalog_test.go::TestIntentOperationsUseTheHumanRoutes", "sdk/platform/go/human_catalogue_test.go::TestHumanVerificationLevelsFollowTheHumanSchema"]
 planned_paths = ["sdk/platform/generators/tests/pipeline_reseal.rs", "sdk/platform/go/evm_metadata.go"]
-build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen"
-verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test pipeline_reseal -- --exact pipeline_lock_matches_repository pipeline_lock_lists_no_kernel_receipt_fixture"
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && go -C sdk/platform/go build ./..."
+verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test pipeline_reseal -- --exact pipeline_lock_matches_repository pipeline_lock_lists_no_kernel_receipt_fixture && go -C sdk/platform/go test -count=1 . -run '^(TestIntentOperationsUseTheHumanRoutes|TestHumanVerificationLevelsFollowTheHumanSchema|TestHumanCatalogueHasNoRetiredJourneys|TestProgramOperationsHaveNoRestRoute|TestOperationsAreKeyedByContractId|TestPortableCataloguesMatchOperationsJson|TestPortableCataloguesHaveNoProgramsRoute)$' && python3 sdk/platform/generators/generate_portable.py --check . && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='GeneratedCatalogueProgramsTest,GeneratedCatalogueJourneysTest,GeneratedCatalogueIntentsTest' -Dsurefire.failIfNoSpecifiedTests=true && swift build --package-path sdk/platform/swift && dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "sdk-all"
 owner_role = "fm-platform"
 rollback = "Restore sdk/platform/pipeline.kvx from history."
 max_builds = 1
@@ -139544,6 +139586,12 @@ do_5 = "pipeline_lock_lists_no_kernel_receipt_fixture also walks sdk/platform/co
 do_6 = "Decision 2106: attempts 1 to 3 (6ea483455, a244de9cd, 50538eed4) fail pipeline_lock_lists_no_kernel_receipt_fixture on sdk/platform/conformance/kernel-fixtures-retired-2.test.py:40, which names generate_program_receipt_fixture.c, and kernel-fixtures-retired-4.test.py:9, which names receipt-programs-positive-v3.json: those files are the retirement tests of 8.47.4, 8.47.5 and 8.47.6 and name the retired files in order to assert their absence. The walk of do_5 skips every file matching kernel-fixtures-retired-*.test.py and otherwise asserts as written."
 do_7 = "Decision 2107: the same scan is right about sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:199-203, which runs the encoder with --stored-historical-v3 on receipt-programs-executed-v3.json, a fixture 8.47.6 deleted (the encoder's stored_historical_receipt at tests/programs/test_call_activity.c:2715 opens the path and fails). Delete that subprocess.run call; the file joins touches."
 do_8 = "Decision 2108: pipeline_lock_matches_repository fails because check_go (sdk/platform/generators/src/main.rs:1462-1473) regenerates sdk/platform/go/generated.go from the agent and human schemas and the committed file differs: type EVMOperationMetadata (generated.go:342-347) and func (operation AgentOperation) EVMMetadata() (:349 onward) were written by hand by 8.46.1 (35c3696c5), 8.46.2 (89145e0ce) and 18.1308.2 (ef56c7194) and no generator source renders them. Move both into sdk/platform/go/evm_metadata.go (planned, same package, byte-for-byte the current bodies, so sdk/platform/go/operation_catalog_test.go and portable_catalogue_test.go keep passing), list that file under [handwritten.platform-go] (sdk/platform/pipeline.kvx:258), then run --write (do_1) so generated.go is again exactly the generator's output. If --write changes generated.go beyond removing the two moved items, stop and record the differing lines."
+do_9 = "Decision 2113: attempt 5 (bf181d7df) mistook the reseal for the do_8 stop condition. The do_8 condition is about sdk/platform/go/generated.go only; every digest and handwritten-list change --write makes to sdk/platform/pipeline.kvx is do_1's reseal and is kept. The regenerated outputs it also rewrites are accepted once do_10 to do_14 are done, because the differences attempt 5 saw are hand edits inside DO NOT EDIT files (finding.8.45.4.1)."
+do_10 = "Decision 2114: in sdk/platform/generators/src/main.rs, go_human_operations (:1261), the operations closure of generate_jvm_contract (:1504-1509) for the human plane and the counter generate_jvm_conformance calls (:1634-1635) skip every [operation.*] section whose retired key is 'true' (services/human/schema/human-api/movement.kvx:144-192, identity.kvx:518-549); the regenerated Go catalogue then has 84 human operations, the same as operations.json, and sdk/platform/conformance/jvm.kvx states human_operations = 84 and agent_operations = 53."
+do_11 = "Decision 2115: the regenerated HumanVerificationLevel of sdk/platform/go/generated.go carries unverified, receipt-verified and checkpoint-finalised, the live variants of services/human/schema/human-api/journeys.kvx:26-27 (block-committed is the webhook word of decision.813 and does not belong to the human API). sdk/platform/go/human_catalogue_test.go:51-73 becomes TestHumanVerificationLevelsFollowTheHumanSchema: it expects those three constants and asserts that block-committed, paxeer-finalised, settlement-anchored and the empty string are not Valid()."
+do_12 = "Decision 2116: sdk/platform/conformance/operations.json:1442-1463: intent.plan becomes method POST, path /v1/intents/plan, transport http, idempotency false; intent.submit becomes method POST, path /v1/intents/submit, transport http, idempotency true; both lose the per_leg key. Run python3 sdk/platform/generators/generate_portable.py . to rewrite sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift and sdk/platform/dotnet/Generated/OperationCatalog.cs. The regenerated generated.go renders their Metadata from intent.kvx:66-85 (no PerLeg field, no HumanOperation.EVMMetadata). sdk/platform/go/operation_catalog_test.go:118-166 becomes TestIntentOperationsUseTheHumanRoutes: for each of the two JSON entries it asserts plane human, the method and path above, transport http, idempotency true only for intent.submit, and that Metadata() returns the same Method, Path, Request and Response; the EVMMetadata assertions at :143-148 and :165-167 are deleted."
+do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platform/conformance/operations.json:392-404) and rerun generate_portable.py so the Swift and .NET catalogues lose their faucet case; sdk/platform/go/agent_operation_envelope_test.go:498 encodes Operation: 'faucet.claim' as a string literal instead of string(AgentOperationFaucetClaim); delete testSdkSwiftFaucetClaimIsRetiredUnavailableCapability (sdk/platform/swift/Tests/LayerXSDKTests/AgentOperationEnvelopeTests.swift:181-190) and RetiredFaucetClaimReturnsTerminalUnavailableCapability (sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs:198-210). The regenerated Go agent catalogue has 53 operations, equal to the agent sections of services/agent/schema/agent-api."
+do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 
 [task.8.46.1]
 title = "Go catalogue and operations.json route program and intent operations to EVM calls"
@@ -197570,3 +197618,54 @@ qualification = "UNRUN"
 
 
 
+
+
+[req.8546]
+title = "JVM generated contract returns to the generator's shape and the human verification levels follow the human schema"
+ac_1 = "GeneratedContract.java carries only what layerx-platform-sdkgen renders: AGENT_OPERATIONS is a plain Set of the 53 live agent operations without faucet.claim, no AgentOperationCatalog wrapper and no program transport map; GeneratedCatalogueProgramsTest reads program transports from GeneratedSchema."
+ac_2 = "GeneratedSchema.HumanModels.HumanVerificationLevel has exactly unverified, receipt-verified and checkpoint-finalised and refuses block-committed, paxeer-finalised and settlement-anchored."
+
+[task.8.46.9]
+title = "JVM generated contract returns to the generator's shape and the human verification levels follow the human schema"
+status = "pending"
+mode = "BUILD"
+wave = 17
+requires = ["8.46.4", "8.46.7"]
+reqs = ["8546.1", "8546.2"]
+do_1 = "Decision 2118: sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java returns to what generate_jvm_contract renders (sdk/platform/generators/src/main.rs:1501-1603): delete the AgentOperationCatalog class (:13-27) and the transport map argument (:85-93) that 8.46.4 added, so AGENT_OPERATIONS is `static final Set<String> AGENT_OPERATIONS = Set.of(...)` as render_jvm_set (:1486-1499) writes it, in the generator's order, without faucet.claim (services/agent/schema/agent-api has no [operation.faucet.claim] since 9.1.5); keep only the imports the header at :1529 writes. HUMAN_ROUTES stays as it is (it already omits the retired binding, deposit, withdraw and exit routes)."
+do_2 = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java:40-67: the program transports come from GeneratedSchema.programTransport(descriptor) and GeneratedSchema.AgentOperations.<NAME>_TRANSPORT (already asserted at :57-58); the AGENT_OPERATIONS assertions keep the name-set comparison (:40-41) and the Set immutability check (:67); the transport('program.unknown') assertion (:66) becomes an assertion that GeneratedSchema.AGENT has no program.unknown descriptor."
+do_3 = "Decision 2115: sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2579-2590 HumanVerificationLevel becomes UNVERIFIED('unverified'), RECEIPT_VERIFIED('receipt-verified'), CHECKPOINT_FINALISED('checkpoint-finalised'), the live variants of services/human/schema/human-api/journeys.kvx:26-27; fromWire refuses every other word. GeneratedCatalogueJourneysTest.java:71-75 expects that set; GeneratedCatalogueIntentsTest.java:90-114 renames verificationLevelsUseBlockCommitted to verificationLevelsFollowTheHumanSchema, uses CHECKPOINT_FINALISED and the word checkpoint-finalised in the evidence fixture (:109), and lists block-committed, paxeer-finalised and settlement-anchored as the refused words (:102)."
+do_4 = "Nothing else in sdk/platform/jvm changes: ProgramsClient.java and the native prepare path keep their own transports, OperationCatalog.java is untouched, and sdk/platform/pipeline.kvx is resealed by 8.45.4, which requires this task."
+symbols = ["GeneratedContract", "GeneratedSchema.HumanModels.HumanVerificationLevel"]
+touches = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueJourneysTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java::programOperationsNameLayerxprogramsCalls", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsFollowTheHumanSchema", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueJourneysTest.java::humanOperationsHaveNoRetiredJourneys"]
+planned_paths = []
+build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_cmd = "mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='GeneratedCatalogueProgramsTest,GeneratedCatalogueJourneysTest,GeneratedCatalogueIntentsTest' -Dsurefire.failIfNoSpecifiedTests=true"
+gate_kind = "planned"
+sandbox_profile = "jvm"
+owner_role = "fm-platform"
+rollback = "Restore GeneratedContract.java, GeneratedSchema.java and the three catalogue tests from history."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[acceptance.8.546.1]
+feature = "8"
+req = "8546.1"
+scenario = "Given GeneratedContract.java, when its agent operation set and program transports are read, then the set is a plain Set of the live agent operations without faucet.claim and every program transport comes from GeneratedSchema."
+contract = "contracts/platform-sdk.md#operation-catalog"
+test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java::programOperationsNameLayerxprogramsCalls"
+qualification = "UNRUN"
+
+[acceptance.8.546.2]
+feature = "8"
+req = "8546.2"
+scenario = "Given the JVM human verification level enum, when its values are listed and the refused words are parsed, then unverified, receipt-verified and checkpoint-finalised are present and block-committed, paxeer-finalised and settlement-anchored are refused."
+contract = "contracts/platform-sdk.md#operation-catalog"
+test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsFollowTheHumanSchema"
+qualification = "UNRUN"

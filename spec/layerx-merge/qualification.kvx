@@ -14491,3 +14491,27 @@ symbol = "Fixture::open"
 observed = "Attempt 5 (40dd6adae) built and both tests failed with 'real in-process agent requires LAYERX_AGENT_HUMAN_NODE_LNI (native node LNI)': the fixture's agent branch (:147-183) demands a native node socket, the authority endpoint, bearer and CA and LAYERX_HUMAN_AGENT_ACTOR from the environment, which the qualification environment does not provide (tests/production_unhooked.rs:160-175 needs LAYERX_TEST_AGENTD_BIN, LAYERX_TEST_NATIVE_BIN_DIR and root for the same reason and is not this task's gate)."
 assumption = "Decision 2071 (do_10) already rules the test self-contained with the agent side served in process by RealAgentLayer (tests/intent_submit.rs:326, :385), which reads no environment variable and opens no node socket; attempt 5 chose the external-node path instead."
 severity = "cross-task"
+
+[finding.8.45.4.1]
+task = "8.45.4"
+file = "sdk/platform/pipeline.kvx:252"
+symbol = "pipeline_lock_matches_repository"
+observed = "Attempt 5 (bf181d7df) ran layerx-platform-sdkgen --write, saw it refresh digests and handwritten lists across sdk/platform/pipeline.kvx and rewrite sdk/platform/go/generated.go and the JVM GeneratedContract.java beyond the two moved items, treated the whole as the do_8 stop condition, restored the regenerated files and stopped without the verify."
+assumption = "The do_8 stop condition names generated.go only; the pipeline.kvx changes are the reseal do_1 asks for, and the generated.go and GeneratedContract.java reversions are hand edits that 8.46.1, 8.46.2, 8.46.4 and 18.1308.2 made inside files whose header says DO NOT EDIT, which the generator cannot reproduce from the schemas."
+severity = "cross_task"
+
+[finding.8.45.4.2]
+task = "8.45.4"
+file = "sdk/platform/go/generated.go:467"
+symbol = "HumanOperation.Metadata"
+observed = "intent.plan and intent.submit carry Method eth_call and eth_sendRawTransaction with an empty Path (8.46.1), while the human schema declares POST /v1/intents/plan and /v1/intents/submit (services/human/schema/human-api/intent.kvx:66-85) and the Go human transport builds its HTTP request from exactly these fields (sdk/platform/go/http.go:97-110); the Swift and .NET descriptors render POST with an empty path (OperationCatalog.swift:386, OperationCatalog.cs:388) and the JVM kept the routes (GeneratedContract.java:208-209)."
+assumption = "The per-leg EVM calls live inside the IntentPlan result (req.8520 ac_1); the operations themselves are human-service routes, so the Go, Swift and .NET catalogues cannot reach the service as committed."
+severity = "cross_task"
+
+[finding.8.45.4.3]
+task = "8.45.4"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2582"
+symbol = "HumanVerificationLevel"
+observed = "The Go (generated.go:682) and JVM human verification enums carry block-committed and refuse checkpoint-finalised (8.46.2 do_4, 8.46.7), while the human schema (services/human/schema/human-api/journeys.kvx:26-28, decision.1002) and the human service (services/human/crates/layerx-human-service/src/server/projection.rs:16, production_reads.rs:591) name the committed rung checkpoint-finalised; block-committed is the webhook vocabulary of decision.813 (services/platform/hosted/webhooks/src/events.rs:36)."
+assumption = "Consumers of the human API speak the human service's words; req.8520 ac_2 and req.8521 ac_1 borrowed the webhook word and are amended by decision 2115."
+severity = "owner"
