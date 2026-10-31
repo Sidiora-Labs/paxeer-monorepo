@@ -8,11 +8,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::disclosure::call::ledger_selector;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
-use layerx_wire::receipt::{decode, encode_unsigned};
+use layerx_wire::receipt::decode;
 use serde_json::{json, Value};
 
 fn hex(bytes: &[u8]) -> String {
@@ -208,40 +207,36 @@ fn submit_reply_carries_the_transaction_hash_and_rung() {
 
 fn signed_receipt() -> (Vec<u8>, Value, String) {
     let fixture: Value = serde_json::from_str(include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json"
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
     .expect("receipt fixture");
-    let mut canonical = unhex(
-        fixture["canonical_receipt_hex"]
+    let case = &fixture["cases"][0];
+    let canonical = unhex(
+        case["signedReceipt"]
             .as_str()
-            .expect("canonical receipt"),
+            .expect("signed sequencer receipt"),
     );
     let decoded = decode(&canonical).expect("decoded fixture");
     let protocol = decoded.protocol().expect("protocol receipt");
-    let matches: Vec<_> = canonical
-        .windows(32)
-        .enumerate()
-        .filter_map(|(at, bytes)| (bytes == protocol.batch_id()).then_some(at))
-        .collect();
-    assert_eq!(matches.len(), 1);
-    let mut height = [0; 32];
-    height[24..].copy_from_slice(&42_u64.to_be_bytes());
-    canonical[matches[0]..matches[0] + 32].copy_from_slice(&height);
-    let signing_key = SigningKey::from_bytes(&[0x33; 32]);
-    let receipt = decode(&canonical).expect("height receipt");
-    let digest =
-        layerx_wire::hash::receipt_digest(&encode_unsigned(&receipt).expect("unsigned receipt"))
-            .expect("receipt digest");
-    let signature_at = canonical.len() - 64;
-    canonical[signature_at..].copy_from_slice(&signing_key.sign(&digest).to_bytes());
+    let key = &case["pinnedKey"];
     let mut config = configuration("http://127.0.0.1:1/rpc");
     config["protocol_version"] = json!(protocol.protocol_version().to_string());
-    config["sequencer_id"] = json!(hex(&protocol.context_hash()));
-    config["sequencer_key"] = json!(hex(&signing_key.verifying_key().to_bytes()));
+    config["sequencer_id"] = json!(hex(&unhex(key["keyId"].as_str().expect("receipt key ID"))));
+    config["sequencer_key"] = json!(hex(&unhex(
+        key["publicKey"].as_str().expect("receipt public key")
+    )));
+    config["first_batch"] = json!(key["firstHeight"]
+        .as_u64()
+        .expect("first height")
+        .to_string());
+    config["last_batch"] = json!(key["lastHeight"].as_u64().expect("last height").to_string());
     (
         canonical,
         config,
-        format!("0x{}", hex(&protocol.activity_id())),
+        case["receiptJson"]["txHash"]
+            .as_str()
+            .expect("receipt transaction hash")
+            .to_owned(),
     )
 }
 

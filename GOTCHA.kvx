@@ -11846,3 +11846,103 @@ fix = "For every deleted declaration grep C.<symbol> under modules/, precompiles
 title = "A removed fixture must leave every include_str! and readFileSync that names it"
 symptom = "8.47.4 removed receipt-positive-v2.json while four Rust test files and one TypeScript test still include it, so two test builds failed on main."
 fix = "Grep the fixture name across *.rs, *.ts and *.py before deleting it and touch each consumer in the same task or a named follow-up."
+
+[gotcha.2407]
+title = "A planned test must not read an environment-named fixture"
+symptom = "10.0.3 attempt 2 read LAYERX_TEST_INTENT_FIXTURE_JSON, which nothing in the repository writes, so the test could never run on a fresh checkout."
+fix = "A planned test opens its own components in a temp directory and serves its peers in process; an environment variable may only select an optional external binary the verify command names."
+
+[gotcha.2408]
+title = "Porting a test onto a retired API reproduces the retirement as a test failure"
+symptom = "18.1205.1 attempt 5 built its cache value through declared_domain over a settlement document stripped since b284707f6."
+fix = "Before using a helper in a test, check the decisions that name it; build fixtures through the constructor production uses (CacheValue::from_receipt)."
+
+[gotcha.2409]
+title = "A package-wide --tests build is gated by every other task's test files"
+symptom = "18.1221.1 could not build because tests/degraded.rs, owned by 18.1205.1, fails to compile on main."
+fix = "Build the targets the task's verify runs (--lib --no-run or --test <name>), never -p <crate> --tests."
+
+[gotcha.2410]
+title = "A test that spawns a tool must name it in the gate command"
+symptom = "18.1233.1 and the new 10.13.9 spawn anvil; the gate environment installs Foundry only when the command text names it."
+fix = "Prefix verify_cmd with anvil --version && for every test that spawns anvil, forge or cast."
+
+[gotcha.2411]
+title = "A declared touch already absent from main fails the graph check"
+symptom = "8.19.5 attempt 4 passed its tests and failed on two deleted test files still listed in touches."
+fix = "When a prerequisite removed a declared path, drop it from touches in a decision before re-qualifying."
+
+[gotcha.2412]
+title = "Deleting a header while other sources include it breaks liblayerx.a"
+symptom = "1.18.2 and 1.19.3 deleted lx_web.h and lxp_bridge_credit.h while lx_web_adapter.c, lx_web_root.c, lx_batch.h, lxp_genesis.c, lxp_genesis_builder.h and lxp_module_ctx.c still include them."
+fix = "grep -rn 'include <layerx/<header>>' src include tests before deleting a header and sequence the task behind the owners of every include."
+
+[gotcha.2413]
+title = "Changing a pub accessor's return type breaks callers outside the task"
+symptom = "10.6.2 attempt 4 made SendRoute::intent return Option<&Intent> and broke sixteen call sites in reclaim.rs, intent_submit.rs and move_money.rs."
+fix = "Keep the accessor shape and express the new case as a refusal at the producer; grep callers before changing a signature."
+
+[gotcha.2414]
+title = "A symbols entry naming a deleted function fails the graph check"
+symptom = "9.97.6 and 9.97.7 passed every test and failed only because their symbols named the functions they removed."
+fix = "Pure-deletion tasks declare symbols = []; name only functions that exist after the change."
+
+[gotcha.2415]
+title = "Module-level awaits in a node:test file run under every filter"
+symptom = "9.97.12 attempt 4 passed its named test while the file's top-level history gateway block failed and left asynchronous activity after the run."
+fix = "Wrap every top-level block of a node:test file in await test(name, ...) so a filtered run executes only the named test."
+
+[gotcha.2416]
+title = "A directory-wide scan test reaches files outside the task's touches"
+symptom = "8.14.2 attempt 4 removed the anchor scripts and the scan still found the anchor genesis wiring in deployment.yaml and init-chain.sh."
+fix = "Run the scan's pattern over the whole scanned tree while writing the task and add every hit to touches."
+
+[gotcha.2417]
+title = "Duplicated cgo preambles must change together"
+symptom = "1.26.1 attempt 5 added a struct field to host.go's preamble and cgo refused the package with inconsistent definitions for C.lxphost_node because simulate.go repeats the typedef."
+fix = "Before changing a cgo preamble type, grep the package for every file that repeats it and change all copies identically."
+
+[gotcha.2418]
+title = "A regenerated output cannot pass a lock that only a later task reseals"
+symptom = "9.97.3 attempt 5 regenerated the receipt outputs and failed the pipeline lock comparison; the --write reseal belongs to 8.45.4, which requires 9.97.3."
+fix = "When a task regenerates locked outputs, put the lock file in touches and update the affected digest entries by hand."
+
+[gotcha.2419]
+title = "Removed fixtures break include_str in test targets the dependents check compiles"
+symptom = "10.13.9 attempts 1 and 2 failed the dependents compile on layerx-wire tests/maintenance_identity.rs, which includes two kernel fixtures task 8.47.5 deleted."
+fix = "A fixture deletion task greps include_str, read_to_string and open paths across every workspace for the deleted names and lists the readers in a follow-up task before publishing."
+
+[gotcha.2420]
+title = "Module and operation on a sequencer receipt are not a payment discriminator"
+symptom = "9.97.11 attempts 1 to 3 refused every draw with draw-receipt-mismatch on receipt.module_id == 1 and operation == 6 while every sequencer-receipt-v1.json case decodes to module 12, operation 2."
+fix = "Decode the fixture once before writing a receipt field check; prove payment terms through the verifier's amount, asset and pay_to arguments."
+
+[gotcha.2421]
+title = "CacheValue::from_receipt never yields a Committed rung"
+symptom = "18.1205.1 attempt 6 built its Committed cache value from a verified receipt and the level stayed SEQUENCER_SIGNED."
+fix = "Build Committed values with CacheValue::from_checkpoint over a ThresholdReport from verify_certificate; copy the certificate fixture of layerx-proof tests/checkpoint.rs."
+
+[gotcha.2422]
+title = "A test-local copy of a shared helper drifts from production"
+symptom = "18.1272.1 attempt 5 kept an inline canonical_owner module signing kernel envelope bytes while tests/support/canonical_owner.rs and production had moved to EVM transactions."
+fix = "Include the shared support helper with #[path] and extend it; never keep a second copy in one test file."
+
+[gotcha.2423]
+title = "ProductionComponents fixtures need the whole production environment"
+symptom = "10.0.3 attempt 3 set the roots and clock variables and stopped at LAYERX_HUMAN_AUTH_INDEX_KEY is required."
+fix = "Copy the complete environment block of tests/production_unhooked.rs:872-895 into any fixture that constructs ProductionComponents."
+
+[gotcha.2424]
+title = "Renaming or deleting an enum variant is a crate-wide change"
+symptom = "10.6.2 attempt 5 renamed Mechanism variants in resolver.rs and left six compile errors in move_money.rs, production_components.rs and a cfg(test) module of observed.rs."
+fix = "grep the crate for every variant path including cfg(test) modules, add each file to touches, and build the library unit tests as well as the integration target."
+
+[gotcha.2425]
+title = "Deleting a test source breaks scan tests that include it from another crate"
+symptom = "8.98.14 attempts 1 to 3 failed to compile layerx-platform-core's test targets because no_kernel_disclosure_codec.rs includes two gateway test files task 8.19.5 deleted."
+fix = "A task that deletes a source file greps the repository for its path in include_str, source! and read_to_string calls and removes or re-points every reader in the same change."
+
+[gotcha.2426]
+title = "Agent-function precompiles refuse on activation before reading the selector"
+symptom = "5.98.4 attempt 5 probed 0x0901 with an unknown selector and got LXP_AGENT_NOT_ACTIVE, not LXP_PRECOMPILE_UNKNOWN_METHOD."
+fix = "A readiness probe over 0x0901-0x0908 accepts the activation refusal as served; read the handler's first checks before fixing an expected error code."

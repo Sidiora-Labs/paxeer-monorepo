@@ -199,8 +199,7 @@ def decode_header(value):
 @dataclass(frozen=True)
 class PaymentEvidence:
     canonical_receipt: bytes
-    authorized_batch: object
-    commitment_evidence: object = None
+    raw_transaction: bytes
 
 
 class FulfillmentStore:
@@ -244,13 +243,13 @@ class SellerMiddleware:
     def __init__(
         self,
         required,
-        signatures,
+        receipt_keys,
         resolve_receipt,
         fulfillments: FulfillmentStore,
         draw=None,
     ):
         self.required = validate_required(json.loads(_canonical(required)))
-        self.signatures = signatures
+        self.receipt_keys = receipt_keys
         self.resolve_receipt = resolve_receipt
         self.fulfillments = fulfillments
         self.draw = draw
@@ -308,16 +307,14 @@ class SellerMiddleware:
                 return 202, {}, b""
         verified = verify_payment_receipt(
             evidence.canonical_receipt,
-            evidence.authorized_batch,
-            self.signatures,
+            evidence.raw_transaction,
+            self.receipt_keys,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
             payer=payment_payer(
                 offer.get("extra"), required=offer["scheme"] != "exact"
             ),
-            commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
         )
         receipt_digest = hashlib.sha256(
             b"LXP/v1/merkle-leaf\0" + evidence.canonical_receipt
@@ -347,9 +344,9 @@ class SellerMiddleware:
 
 
 class BuyerMiddleware:
-    def __init__(self, rpc, signatures, resolve_receipt, supported):
+    def __init__(self, rpc, receipt_keys, resolve_receipt, supported):
         self.rpc = rpc
-        self.signatures = signatures
+        self.receipt_keys = receipt_keys
         self.resolve_receipt = resolve_receipt
         self.supported = frozenset(supported)
 
@@ -375,13 +372,12 @@ class BuyerMiddleware:
             result,
             activity_id,
             payer,
-            evidence.authorized_batch,
-            self.signatures,
+            receipt_keys=self.receipt_keys,
+            raw_transaction=evidence.raw_transaction,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
             commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
         )
         if verified is None or evidence.canonical_receipt != receipt:
             raise ValueError("receipt-mismatch")
@@ -516,13 +512,12 @@ class BuyerMiddleware:
             {"activity_id": expected_activity, "receipt": receipt.hex()},
             expected_activity,
             receive["from"],
-            evidence.authorized_batch,
-            self.signatures,
+            receipt_keys=self.receipt_keys,
+            raw_transaction=evidence.raw_transaction,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
             commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
         )
 
     def capture_settlement(self, header, payment_header):
@@ -556,14 +551,12 @@ class BuyerMiddleware:
             raise ValueError("receipt-mismatch")
         verified = verify_payment_receipt(
             receipt,
-            evidence.authorized_batch,
-            self.signatures,
+            evidence.raw_transaction,
+            self.receipt_keys,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
             payer=payment_payer(offer.get("extra")),
-            commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
         )
         if settlement.get("payer") != verified.receipt.from_account.hex():
             raise ValueError("settlement-payer-mismatch")
@@ -571,13 +564,12 @@ class BuyerMiddleware:
 
 
 class ConfiguredReceiptAuthority:
-    def __init__(self, authorized_batch, commitment_evidence=None):
-        self.authorized_batch = authorized_batch
-        self.commitment_evidence = commitment_evidence
+    def __init__(self, raw_transaction: bytes):
+        self.raw_transaction = raw_transaction
 
     def __call__(self, receipt, offer):
         validate_requirements(offer)
-        return PaymentEvidence(receipt, self.authorized_batch, self.commitment_evidence)
+        return PaymentEvidence(receipt, self.raw_transaction)
 
 
 def grant_payment_header(required, accepted, receive_hex):

@@ -115,42 +115,7 @@ func (p *PrecompileExecutor) draw(ctx sdk.Context, method *abi.Method, actor led
 	if err := method.Inputs.Copy(&input, args); err != nil {
 		return nil, err
 	}
-	grant, err := p.keeper.GetPayerGrant(ctx, input.GrantId)
-	if err != nil {
-		return nil, RevertError(err)
-	}
-	if err := types.ValidateIssueGrantPayload(grant.Grant); err != nil {
-		return nil, RevertError(err)
-	}
-	var from, recipient, asset, purpose [32]byte
-	copy(from[:], grant.Grant[32:64])
-	copy(recipient[:], grant.Grant[64:96])
-	copy(asset[:], grant.Grant[96:128])
-	copy(purpose[:], grant.Grant[177:209])
-	account, err := ledgerkeeper.AccountID(actor.DIDKey, asset)
-	if err != nil {
-		return nil, RevertError(err)
-	}
-	if input.Recipient != recipient || input.Recipient != account {
-		return nil, RevertError(types.ErrUnauthorizedDebit)
-	}
-	if input.PurposeHash != purpose {
-		return nil, RevertError(types.ErrContextMismatch)
-	}
-	result, err := p.keeper.Draw(ctx, actor, ledgerkeeper.DrawArgs{
-		From: from, Asset: asset, Amount: sdk.NewIntFromBigInt(input.Amount),
-		GrantID: input.GrantId, ReceiverSequence: input.Sequence,
-		IdempotencyKey: input.IdempotencyKey, ContextHash: input.ContextHash,
-	})
-	if err != nil {
-		return nil, RevertError(err)
-	}
-	if _, err := p.paymentLogs(evm, 0x00010006, result, ledgerkeeper.EventArgs{
-		GrantID: input.GrantId, IdempotencyKey: input.IdempotencyKey, ContextHash: input.ContextHash,
-	}); err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack()
+	return nil, RevertError(types.ErrNoPayerGrant)
 }
 
 func (p *PrecompileExecutor) payExact(ctx sdk.Context, method *abi.Method, actor ledgerkeeper.Actor, args []interface{}, evm *vm.EVM, _ *tracing.Hooks) ([]byte, error) {
@@ -186,10 +151,5 @@ func (p *PrecompileExecutor) getPayerGrant(ctx sdk.Context, method *abi.Method, 
 	if err := method.Inputs.Copy(&input, args); err != nil {
 		return nil, err
 	}
-	grant, err := p.keeper.GetPayerGrant(ctx, input.GrantId)
-	if err != nil {
-		return nil, RevertError(err)
-	}
-	return method.Outputs.Pack(grant.Grant, grant.DrawnTotal.BigInt(), grant.DrawnThisPeriod.BigInt(),
-		grant.WindowStart, grant.RevokedAt, grant.Revoked, grant.InvoiceSettled)
+	return nil, RevertError(types.ErrNoPayerGrant)
 }
