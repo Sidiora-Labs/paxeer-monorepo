@@ -158100,7 +158100,7 @@ do_6 = "Continue from attempt 4 (62f5e09d4): keep its hooks.ts and hooks.test.ts
 
 [task.12.34.5]
 title = "Show the chain account in the account view and notice"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["12.34.4", "18.1053.1"]
