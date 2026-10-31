@@ -54,6 +54,5 @@ finally:os.close(fd)
 print('PAXEER_X_MULTI_ASSET_BUILD revision='+revision+' exit=0 evidence='+str(path))
 RECORD
     ;;
-verify) exec python3 tests/bridge/paxeer_x_multiasset_credit.py --connected ;;
-*) echo 'usage: 5.1.sh build|verify' >&2; exit 2 ;;
+*) echo 'usage: 5.1.sh build (bridge credit verification retired)' >&2; exit 2 ;;
 esac
