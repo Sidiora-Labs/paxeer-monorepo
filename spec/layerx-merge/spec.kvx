@@ -119117,7 +119117,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.50.2]
 title = "Retire the layerxd batch write-ahead log"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["5.0.3", "13.34.1", "16.2.4", "16.5.2", "16.9.4", "16.11.8", "16.32.9", "16.32.10"]
