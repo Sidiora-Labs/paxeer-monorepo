@@ -171438,7 +171438,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.8]
 title = "Remove retired daemon and codec references from the authority evidence and storage recovery producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -174434,7 +174434,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.97.5]
 title = "Remove the references to the deleted balance-read and interface protocol suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -174465,7 +174465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.97.6]
 title = "Read the sequencer receipt vectors instead of the deleted receipt fixtures in the Python SDK tests and ABI vector generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
