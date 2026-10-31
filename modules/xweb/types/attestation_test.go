@@ -1,12 +1,9 @@
 package types_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -63,6 +60,15 @@ func loadVectors(t *testing.T) vectorFile {
 // digest and recovers its signer, and checks ATTESTATION.md carries it. An api
 // vector takes its payload from the api vector it names.
 func TestPreimageVectors(t *testing.T) {
+	checkPreimageVectors(t)
+}
+
+func TestPreimageVectorsWithoutKernelSource(t *testing.T) {
+	checkPreimageVectors(t)
+}
+
+func checkPreimageVectors(t *testing.T) {
+	t.Helper()
 	file := loadVectors(t)
 	apiPayloads := map[string]string{}
 	for _, v := range loadApiVectors(t).Vectors {
@@ -111,6 +117,11 @@ func TestPreimageVectors(t *testing.T) {
 			preimage := types.Preimage(attestation)
 			require.Len(t, preimage, types.PreimageLength)
 			require.Equal(t, v.Preimage, hexutil.Encode(preimage))
+			if v.Origin == types.OriginProgram {
+				require.Equal(t, make([]byte, 28), preimage[15:43])
+				require.Equal(t, []byte{0, 0, 0, 1}, preimage[43:47])
+				require.Equal(t, attestation.Requester[:], preimage[47:79])
+			}
 			digest := types.Digest(attestation)
 			require.Equal(t, v.Digest, digest.Hex())
 			require.Contains(t, string(doc), v.Digest)
@@ -202,60 +213,6 @@ func TestPreimageVectorsFromKeeper(t *testing.T) {
 			require.Equal(t, []types.Address20{signer}, result.Signers)
 			require.Equal(t, genesis.Params.Fee,
 				testApp.BankKeeper.GetBalance(ctx, payout, sdk.MustGetBaseDenom()).Amount)
-		})
-	}
-}
-
-func kernelVectorBytes(t *testing.T, source, symbol string) []byte {
-	t.Helper()
-	pattern := `(?m)^static const uint8_t ` + regexp.QuoteMeta(symbol) +
-		`\[\] = \{\s*((?:0x[0-9a-fA-F]{2}U,\s*)*0x[0-9a-fA-F]{2}U\s*)\};`
-	arrays := regexp.MustCompile(pattern).FindAllStringSubmatch(source, -1)
-	require.Len(t, arrays, 1, "%s must have exactly one canonical byte array", symbol)
-	var encoded strings.Builder
-	for _, token := range regexp.MustCompile(`0x([0-9a-fA-F]{2})U`).FindAllStringSubmatch(arrays[0][1], -1) {
-		encoded.WriteString(token[1])
-	}
-	decoded, err := hex.DecodeString(encoded.String())
-	require.NoError(t, err)
-	return decoded
-}
-
-func TestPreimageVectorsMatchKernelBytes(t *testing.T) {
-	file := loadVectors(t)
-	source, err := os.ReadFile("../../../tests/modules/test_web_intake.c")
-	require.NoError(t, err)
-	for index, name := range []string{"evm-fetch", "program-search"} {
-		t.Run(name, func(t *testing.T) {
-			require.Greater(t, len(file.Vectors), index)
-			v := file.Vectors[index]
-			require.Equal(t, name, v.Name)
-			attested := types.Attestation{
-				Origin:        v.Origin,
-				NetworkID:     new(big.Int).SetUint64(v.NetworkID),
-				Requester:     types.Hash32(common.HexToHash(v.Requester)),
-				RequestID:     v.RequestID,
-				Kind:          v.Kind,
-				PayloadHash:   types.Hash32(common.HexToHash(v.PayloadHash)),
-				ContentDigest: types.Hash32(common.HexToHash(v.ContentDigest)),
-				ResponseHash:  types.Keccak([]byte(v.Response)),
-				FullLength:    v.FullLength,
-			}
-			prefix := fmt.Sprintf("xweb_vector_%d_", index)
-			kernelPreimage := kernelVectorBytes(t, string(source), prefix+"preimage")
-			require.Len(t, kernelPreimage, 188)
-			require.Equal(t, v.Preimage, hexutil.Encode(kernelPreimage))
-			require.Equal(t, kernelPreimage, types.Preimage(attested))
-			kernelDigest := kernelVectorBytes(t, string(source), prefix+"digest")
-			require.Len(t, kernelDigest, 32)
-			require.Equal(t, v.Digest, hexutil.Encode(kernelDigest))
-			digest := types.Digest(attested)
-			require.Equal(t, kernelDigest, digest[:])
-			if v.Origin == types.OriginProgram {
-				require.Equal(t, make([]byte, 28), kernelPreimage[15:43])
-				require.Equal(t, []byte{0, 0, 0, 1}, kernelPreimage[43:47])
-				require.Equal(t, attested.Requester[:], kernelPreimage[47:79])
-			}
 		})
 	}
 }

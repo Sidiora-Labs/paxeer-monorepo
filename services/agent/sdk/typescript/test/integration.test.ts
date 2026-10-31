@@ -77,10 +77,12 @@ export async function verifyTypeScriptPackage(): Promise<void> {
     "below-requested read accepted",
   );
 
-  const unknown: SubmissionState = { kind: "Unknown" };
-  const futureFailure: SubmissionState = { kind: "Failed", protocolResultCode: -77777 };
-  assert(unknown.kind === "Unknown", "unknown collapsed");
-  assert(futureFailure.protocolResultCode === -77777, "protocol code changed");
+  const submitted: SubmissionState = { kind: "Submitted", txHash: "0x1234" };
+  const reverted: SubmissionState = { kind: "Reverted", revertReason: "execution reverted" };
+  assert(submitted.kind === "Submitted", "submitted collapsed");
+  assert(submitted.txHash === "0x1234", "transaction hash changed");
+  assert(reverted.kind === "Reverted", "reverted collapsed");
+  assert(reverted.revertReason === "execution reverted", "revert reason changed");
 
   assert(APPROVAL_CONTRACT_INTRODUCED === "1.1", "approval introduction minor changed");
   assert(APPROVAL_ENFORCEMENT_NOTICE.includes("confers no protocol authority"), "approval authority overstated");
