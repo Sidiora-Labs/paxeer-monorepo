@@ -6,7 +6,7 @@ import { expect, expectTypeOf, test } from 'vitest';
 import type { GeneralApiPaxeerXListsResourcePayload } from './paxeerXLists';
 import { GENERAL_API_PAXEER_X_LISTS_RESOURCES } from './paxeerXLists';
 
-function kernel_resources_use_archive_paths() {
+test('kernel_resources_use_archive_paths', () => {
   const resources = GENERAL_API_PAXEER_X_LISTS_RESOURCES;
 
   expect(resources.paxeer_x_anchors.path).toBe('/api/v2/paxeer-x/archive/anchors');
@@ -35,6 +35,4 @@ function kernel_resources_use_archive_paths() {
   expect(PAXEER_X_ANCHORS_ITEM).not.toHaveProperty('status');
   expect(PAXEER_X_RECEIPTS_ITEM.frozen).toBe(true);
   expect(PAXEER_X_RECEIPTS_ITEM).not.toHaveProperty('status');
-}
-
-test(kernel_resources_use_archive_paths, kernel_resources_use_archive_paths);
+});

@@ -60,7 +60,7 @@ pub enum WalletCommand {
     },
     /// Verify receipt evidence at the requested commitment.
     Receipt {
-        activity_id: String,
+        tx_hash: String,
         #[arg(long, value_enum, default_value = "executed")]
         wait: Commitment,
         #[arg(long)]
@@ -226,53 +226,34 @@ impl Transport {
         })
     }
 
-    fn read(&self, method: &str, params: &Value, path: &str) -> Result<Value, String> {
-        match &self.rpc {
-            Some(rpc) => rpc.call(method, params),
-            None => self
-                .rest
-                .get(path)?
-                .get("result")
-                .cloned()
-                .ok_or_else(|| format!("{path} omitted result")),
-        }
-    }
-
     fn balances(&self, did: &str) -> Result<Value, String> {
         crate::http::validate_resource_id(did, "DID")?;
-        if self.emulator {
-            let state = self.rest.get("/v1/state")?;
-            let accounts = state
-                .pointer("/result/accounts")
-                .and_then(Value::as_array)
-                .ok_or("emulator state omitted accounts")?;
-            let prefix = format!("agent:{did}:");
-            let accounts: Vec<_> = accounts
-                .iter()
-                .filter(|a| {
-                    a["name"]
-                        .as_str()
-                        .and_then(|n| n.strip_prefix(&prefix))
-                        .is_some_and(|tail| {
-                            tail == "main"
-                                || ["asset:", "budget:", "escrow:", "margin:"].iter().any(
-                                    |marker| {
-                                        tail.strip_prefix(marker).is_some_and(|component| {
-                                            !component.is_empty() && !component.contains(':')
-                                        })
-                                    },
-                                )
-                        })
-                })
-                .cloned()
-                .collect();
-            return Ok(json!({"did":did,"accounts":accounts}));
-        }
-        self.read(
-            "lx_getBalances",
-            &json!([did]),
-            &format!("/v1/dids/{did}/accounts"),
-        )
+        let state = self.rest.get("/v1/state")?;
+        let accounts = state
+            .pointer("/result/accounts")
+            .and_then(Value::as_array)
+            .ok_or("emulator state omitted accounts")?;
+        let prefix = format!("agent:{did}:");
+        let accounts: Vec<_> = accounts
+            .iter()
+            .filter(|a| {
+                a["name"]
+                    .as_str()
+                    .and_then(|n| n.strip_prefix(&prefix))
+                    .is_some_and(|tail| {
+                        tail == "main"
+                            || ["asset:", "budget:", "escrow:", "margin:"]
+                                .iter()
+                                .any(|marker| {
+                                    tail.strip_prefix(marker).is_some_and(|component| {
+                                        !component.is_empty() && !component.contains(':')
+                                    })
+                                })
+                    })
+            })
+            .cloned()
+            .collect();
+        Ok(json!({"did":did,"accounts":accounts}))
     }
 }
 
@@ -524,7 +505,7 @@ pub fn run_wallet(
         WalletCommand::Balance { did, asset } => {
             let did = selected_did(&config, did.as_deref())?;
             let transport = Transport::new(&config, rpc, gateway)?;
-            let result = if rpc.is_some() {
+            let result = if !transport.emulator {
                 let environment = config.active_environment()?.1;
                 let policy = layerx_sdk::rpc_verification::AccountPolicy {
                     protocol_version: 3,
@@ -547,20 +528,12 @@ pub fn run_wallet(
             } else if let Some(asset) = asset {
                 let asset = fixed_hex::<32>("asset", &asset)?;
                 let account = account(&did, &asset)?;
-                if transport.emulator {
-                    let mut balances = transport.balances(&did)?;
-                    let accounts = balances["accounts"]
-                        .as_array_mut()
-                        .ok_or("accounts missing")?;
-                    accounts.retain(|a| a["id"] == account);
-                    balances
-                } else {
-                    transport.read(
-                        "lx_getBalance",
-                        &json!([account]),
-                        &format!("/v1/accounts/{account}/balance"),
-                    )?
-                }
+                let mut balances = transport.balances(&did)?;
+                let accounts = balances["accounts"]
+                    .as_array_mut()
+                    .ok_or("accounts missing")?;
+                accounts.retain(|a| a["id"] == account);
+                balances
             } else {
                 transport.balances(&did)?
             };
@@ -571,14 +544,14 @@ pub fn run_wallet(
             ))
         }
         WalletCommand::Receipt {
-            activity_id,
+            tx_hash,
             wait,
             receipt_policy,
         } => wallet_receipt(
             &config,
             rpc,
             gateway,
-            &activity_id,
+            &tx_hash,
             wait,
             receipt_policy.as_deref(),
         ),
@@ -604,58 +577,35 @@ fn wallet_receipt(
     config: &Configuration,
     rpc: Option<&str>,
     gateway: Option<&str>,
-    activity_id: &str,
+    tx_hash: &str,
     wait: Commitment,
     receipt_policy: Option<&std::path::Path>,
 ) -> Result<CommandOutput, String> {
-    if rpc.is_some() {
-        let client = sdk_rpc(config, rpc, gateway)?;
-        let policy = read_policy(receipt_policy, config)?;
-        return verified_output(
-            &client
-                .wait_for(
-                    fixed_hex("activity id", activity_id)?,
-                    sdk_commitment(wait),
-                    &policy,
-                    std::time::Duration::from_secs(60),
-                )
-                .map_err(rpc_error)?,
-        );
+    let hash = crate::programs::transaction_hash(tx_hash)?;
+    let policy = read_transaction_policy(receipt_policy.ok_or(
+        "provide --receipt-policy with independently pinned receipt keys and height bounds",
+    )?)?;
+    let client = sdk_rpc(config, rpc, gateway)?;
+    let status = client.sequencer_receipt(hash).map_err(rpc_error)?;
+    if status["txHash"] != format!("0x{}", hex_encode(&hash)) {
+        return Err("receipt_verification_failed: transaction hash mismatch".into());
     }
-    if !matches!(wait, Commitment::Executed) {
-        return Err("verified commitment waits require --rpc and --receipt-policy".into());
+    let nonce = u64::try_from(ethereum_amount(&status["nonce"])?)
+        .map_err(|_| "receipt_verification_failed: nonce overflow")?;
+    if matches!(wait, Commitment::Executed)
+        && matches!(status["rung"].as_str(), Some("receipted" | "committed"))
+    {
+        let (data, _) = verified_receipted_status(&status, hash, nonce, &policy)?;
+        return Ok(receipted_output(hash, data));
     }
-    let activity = fixed_hex::<32>("activity id", activity_id)?;
-    let transport = Transport::new(config, rpc, gateway)?;
-    let response = transport.read(
-        "lx_getReceipt",
-        &json!([hex_encode(&activity)]),
-        &format!("/v1/receipts/{}", hex_encode(&activity)),
-    )?;
-    let key = config
-        .active_environment()?
-        .1
-        .sequencer_trust_anchor
-        .as_deref()
-        .ok_or("configure a sequencer trust anchor before verifying receipts")?;
-    let receipt = verify_receipt(&response, activity, fixed_hex("sequencer public key", key)?)?;
-    let code = receipt["result_code"]
-        .as_i64()
-        .ok_or("receipt result missing")?;
-    if code != 0 {
-        return Err(format!(
-            "activity {}: receipt result {code}; commitment reached executed",
-            hex_encode(&activity)
-        ));
-    }
-    Ok(CommandOutput::new(
-        "wallet.receipt",
-        format!(
-            "Activity {}: receipt result {code}; commitment reached executed",
-            hex_encode(&activity)
-        ),
-        receipt,
-    ))
+    wait_transaction(
+        client,
+        hash,
+        nonce,
+        &policy,
+        wait,
+        std::time::Duration::from_secs(60),
+    )
 }
 
 pub fn run_token(
@@ -667,19 +617,14 @@ pub fn run_token(
     match command {
         TokenCommand::Info { asset } => {
             let asset = fixed_hex::<32>("asset", &asset)?;
-            layerx_platform_cli::rpc::request("lx_getAsset", &json!([hex_encode(&asset)]))?;
-            unavailable_asset_read(&config, rpc, gateway, &AssetRead::Metadata(asset))
+            read_asset(&config, rpc, gateway, &AssetRead::Metadata(asset))
         }
         TokenCommand::List { cursor, limit } => {
             let cursor = cursor
                 .as_deref()
                 .map(|value| fixed_hex::<32>("cursor", value))
                 .transpose()?;
-            layerx_platform_cli::rpc::request(
-                "lx_listAssets",
-                &layerx_sdk::rpc::list_assets_params(cursor, limit),
-            )?;
-            unavailable_asset_read(&config, rpc, gateway, &AssetRead::Page { cursor, limit })
+            read_asset(&config, rpc, gateway, &AssetRead::Page { cursor, limit })
         }
         TokenCommand::Transfer(args) => transfer(&config, rpc, gateway, &args),
         TokenCommand::Create {
@@ -757,7 +702,7 @@ enum AssetRead {
     },
 }
 
-fn unavailable_asset_read(
+fn read_asset(
     config: &Configuration,
     rpc: Option<&str>,
     gateway: Option<&str>,
@@ -1046,6 +991,137 @@ fn receipt_fixed<const N: usize>(value: &Value) -> Result<[u8; N], String> {
         .map_err(|_| "receipt_verification_failed: wrong field width".into())
 }
 
+pub(crate) fn verified_receipted_status(
+    status: &Value,
+    hash: [u8; 32],
+    nonce: u64,
+    policy: &layerx_proof::inclusion::SequencerAuthorization,
+) -> Result<(Value, layerx_proof::sequencer_logs::ReceiptSummary), String> {
+    use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
+    use layerx_types::rung::Rung;
+    use sha2::{Digest as _, Sha256};
+    let hash_text = format!("0x{}", hex_encode(&hash));
+    let served_nonce = u64::try_from(ethereum_amount(&status["nonce"])?)
+        .map_err(|_| "receipt_verification_failed: nonce overflow")?;
+    if status["txHash"] != hash_text || nonce != served_nonce {
+        return Err("receipt_verification_failed: transaction hash or nonce mismatch".into());
+    }
+    let nonce = served_nonce;
+    let rung = status["rung"]
+        .as_str()
+        .and_then(Rung::from_name)
+        .filter(|rung| *rung != Rung::Submitted)
+        .ok_or("receipt_verification_failed: receipt rung missing")?;
+    let canonical = receipt_bytes(&status["receipt"])?;
+    let keys = [*policy];
+    let receipt = layerx_proof::receipt::verify_sequencer_signature(&canonical, &keys)
+        .map_err(|e| format!("receipt_verification_failed: {:?}", e.check))?;
+    let protocol = receipt
+        .protocol()
+        .ok_or("receipt_verification_failed: missing protocol")?;
+    let logs = status["logs"]
+        .as_array()
+        .filter(|logs| logs.len() <= 4096)
+        .ok_or("receipt_verification_failed: missing bounded logs")?
+        .iter()
+        .map(|log| {
+            let topics = log["topics"]
+                .as_array()
+                .filter(|topics| topics.len() <= 4)
+                .ok_or("receipt_verification_failed: invalid topics")?
+                .iter()
+                .map(receipt_fixed::<32>)
+                .collect::<Result<Vec<_>, _>>()?;
+            let index = u64::try_from(ethereum_amount(&log["logIndex"])?)
+                .map_err(|_| "receipt_verification_failed: log index overflow")?;
+            Ok(SequencerLog::new(
+                receipt_fixed(&log["address"])?,
+                topics,
+                receipt_bytes(&log["data"])?,
+                index,
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let verified =
+        verify_logs(&receipt, logs).map_err(|e| format!("receipt_verification_failed: {e:?}"))?;
+    let summary = verified.summary();
+    let height = u64::try_from(ethereum_amount(&status["height"])?)
+        .map_err(|_| "receipt_verification_failed: height overflow")?;
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&height.to_be_bytes());
+    let return_data = receipt_bytes(&status["returnData"])?;
+    let vm_error = status["vmError"]
+        .as_str()
+        .ok_or("receipt_verification_failed: missing vmError")?;
+    let fee_denom = status["feeDenom"]
+        .as_str()
+        .ok_or("receipt_verification_failed: missing feeDenom")?;
+    let digest = |bytes: &[u8]| -> [u8; 32] { Sha256::digest(bytes).into() };
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&receipt_fixed::<20>(&status["from"])?);
+    let mut to = [0; 32];
+    to[12..].copy_from_slice(&receipt_fixed::<20>(&status["to"])?);
+    let success = match protocol.result_code() {
+        0 => true,
+        1 => false,
+        _ => return Err("receipt_verification_failed: invalid execution result".into()),
+    };
+    if protocol.protocol_version() != 2
+        || protocol.activity_id() != hash
+        || protocol.debit_sequence() != nonce
+        || protocol.batch_id() != batch_id
+        || protocol.parameter_version() != 0
+        || protocol.global_sequence() as u128 != ethereum_amount(&status["seq"])?
+        || protocol.timestamp() as u128 != ethereum_amount(&status["timestamp"])?
+        || protocol.context_hash() != receipt_fixed(&status["keyId"])?
+        || policy.public_key() != receipt_fixed(&status["signingKey"])?
+        || protocol.from() != from
+        || protocol.to() != to
+        || ethereum_amount(&status["status"])? != u128::from(success)
+        || summary.gas_used() as u128 != ethereum_amount(&status["gasUsed"])?
+        || summary.cumulative_gas_used() as u128 != ethereum_amount(&status["cumulativeGasUsed"])?
+        || summary.effective_gas_price() as u128 != ethereum_amount(&status["effectiveGasPrice"])?
+        || summary.tx_index() as u128 != ethereum_amount(&status["index"])?
+        || summary.contract_address() != receipt_fixed(&status["contractAddress"])?
+        || summary.sponsor() != receipt_fixed(&status["sponsor"])?
+        || summary.fee_denom() != fee_denom
+        || protocol.asset() != digest(fee_denom.as_bytes())
+        || protocol.fee_charged() != ethereum_amount(&status["feeAmount"])?
+        || usize::try_from(summary.return_data_len()).ok() != Some(return_data.len())
+        || protocol.activity_root() != digest(&return_data)
+        || summary.vm_error_hash() != digest(vm_error.as_bytes())
+    {
+        return Err(
+            "receipt_verification_failed: served execution differs from the signed receipt".into(),
+        );
+    }
+    if rung == Rung::Receipted
+        && (status.get("blockNumber").is_some() || status.get("blockHash").is_some())
+    {
+        return Err("receipt_verification_failed: receipted response carries a block".into());
+    }
+    if !success {
+        let reason =
+            layerx_platform_cli::wallet_encoding::revert_reason(&return_data).unwrap_or(vm_error);
+        return Err(format!(
+            "transaction_reverted: {hash_text}; rung {}; {reason}",
+            Rung::Receipted.name()
+        ));
+    }
+    Ok((
+        json!({"txHash":hash_text,"rung":"receipted","result_code":0,"receipt":format!("0x{}", hex_encode(&canonical))}),
+        summary.clone(),
+    ))
+}
+
+pub(crate) fn receipted_output(hash: [u8; 32], data: Value) -> CommandOutput {
+    CommandOutput::new(
+        "wallet.receipt",
+        format!("Transaction 0x{}: rung receipted", hex_encode(&hash)),
+        data,
+    )
+}
+
 fn wait_transaction(
     client: layerx_sdk::rpc::RpcClient,
     hash: [u8; 32],
@@ -1054,9 +1130,7 @@ fn wait_transaction(
     commitment: Commitment,
     timeout: std::time::Duration,
 ) -> Result<CommandOutput, String> {
-    use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
     use layerx_types::rung::Rung;
-    use sha2::{Digest as _, Sha256};
     let requested = match commitment {
         Commitment::Executed => Rung::Receipted,
         Commitment::Batched => Rung::Committed,
@@ -1112,113 +1186,11 @@ fn wait_transaction(
                 );
             }
         } else {
-            let canonical = receipt_bytes(&status["receipt"])?;
-            let keys = [*policy];
-            let receipt = layerx_proof::receipt::verify_sequencer_signature(&canonical, &keys)
-                .map_err(|e| format!("receipt_verification_failed: {:?}", e.check))?;
-            let protocol = receipt
-                .protocol()
-                .ok_or("receipt_verification_failed: missing protocol")?;
-            let logs = status["logs"]
-                .as_array()
-                .filter(|logs| logs.len() <= 4096)
-                .ok_or("receipt_verification_failed: missing bounded logs")?
-                .iter()
-                .map(|log| {
-                    let topics = log["topics"]
-                        .as_array()
-                        .filter(|topics| topics.len() <= 4)
-                        .ok_or("receipt_verification_failed: invalid topics")?
-                        .iter()
-                        .map(receipt_fixed::<32>)
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let index = u64::try_from(ethereum_amount(&log["logIndex"])?)
-                        .map_err(|_| "receipt_verification_failed: log index overflow")?;
-                    Ok(SequencerLog::new(
-                        receipt_fixed(&log["address"])?,
-                        topics,
-                        receipt_bytes(&log["data"])?,
-                        index,
-                    ))
-                })
-                .collect::<Result<Vec<_>, String>>()?;
-            let verified = verify_logs(&receipt, logs)
-                .map_err(|e| format!("receipt_verification_failed: {e:?}"))?;
-            let summary = verified.summary();
+            let (data, summary) = verified_receipted_status(&status, hash, nonce, policy)?;
             let height = u64::try_from(ethereum_amount(&status["height"])?)
                 .map_err(|_| "receipt_verification_failed: height overflow")?;
-            let mut batch_id = [0; 32];
-            batch_id[24..].copy_from_slice(&height.to_be_bytes());
-            let return_data = receipt_bytes(&status["returnData"])?;
-            let vm_error = status["vmError"]
-                .as_str()
-                .ok_or("receipt_verification_failed: missing vmError")?;
-            let fee_denom = status["feeDenom"]
-                .as_str()
-                .ok_or("receipt_verification_failed: missing feeDenom")?;
-            let digest = |bytes: &[u8]| -> [u8; 32] { Sha256::digest(bytes).into() };
-            let mut from = [0; 32];
-            from[12..].copy_from_slice(&receipt_fixed::<20>(&status["from"])?);
-            let mut to = [0; 32];
-            to[12..].copy_from_slice(&receipt_fixed::<20>(&status["to"])?);
-            let success = match protocol.result_code() {
-                0 => true,
-                1 => false,
-                _ => return Err("receipt_verification_failed: invalid execution result".into()),
-            };
-            if protocol.protocol_version() != 2
-                || protocol.activity_id() != hash
-                || protocol.debit_sequence() != nonce
-                || protocol.batch_id() != batch_id
-                || protocol.parameter_version() != 0
-                || protocol.global_sequence() as u128 != ethereum_amount(&status["seq"])?
-                || protocol.timestamp() as u128 != ethereum_amount(&status["timestamp"])?
-                || protocol.context_hash() != receipt_fixed(&status["keyId"])?
-                || policy.public_key() != receipt_fixed(&status["signingKey"])?
-                || protocol.from() != from
-                || protocol.to() != to
-                || ethereum_amount(&status["status"])? != u128::from(success)
-                || summary.gas_used() as u128 != ethereum_amount(&status["gasUsed"])?
-                || summary.cumulative_gas_used() as u128
-                    != ethereum_amount(&status["cumulativeGasUsed"])?
-                || summary.effective_gas_price() as u128
-                    != ethereum_amount(&status["effectiveGasPrice"])?
-                || summary.tx_index() as u128 != ethereum_amount(&status["index"])?
-                || summary.contract_address() != receipt_fixed(&status["contractAddress"])?
-                || summary.sponsor() != receipt_fixed(&status["sponsor"])?
-                || summary.fee_denom() != fee_denom
-                || protocol.asset() != digest(fee_denom.as_bytes())
-                || protocol.fee_charged() != ethereum_amount(&status["feeAmount"])?
-                || usize::try_from(summary.return_data_len()).ok() != Some(return_data.len())
-                || protocol.activity_root() != digest(&return_data)
-                || summary.vm_error_hash() != digest(vm_error.as_bytes())
-            {
-                return Err(
-                    "receipt_verification_failed: served execution differs from the signed receipt"
-                        .into(),
-                );
-            }
-            if rung == Rung::Receipted
-                && (status.get("blockNumber").is_some() || status.get("blockHash").is_some())
-            {
-                return Err(
-                    "receipt_verification_failed: receipted response carries a block".into(),
-                );
-            }
-            if !success {
-                let reason = layerx_platform_cli::wallet_encoding::revert_reason(&return_data)
-                    .unwrap_or(vm_error);
-                return Err(format!(
-                    "transaction_reverted: {hash_text}; rung {}; {reason}",
-                    Rung::Receipted.name()
-                ));
-            }
             if requested == Rung::Receipted {
-                return Ok(CommandOutput::new(
-                    "wallet.receipt",
-                    format!("Transaction {hash_text}: rung receipted"),
-                    json!({"txHash":hash_text,"rung":"receipted","result_code":0,"receipt":format!("0x{}", hex_encode(&canonical))}),
-                ));
+                return Ok(receipted_output(hash, data));
             }
             if rung == Rung::Committed {
                 let block_number = ethereum_amount(&status["blockNumber"])?;
@@ -1254,7 +1226,7 @@ fn wait_transaction(
                     return Ok(CommandOutput::new(
                         "wallet.receipt",
                         format!("Transaction {hash_text}: rung committed"),
-                        json!({"txHash":hash_text,"rung":"committed","result_code":0,"receipt":format!("0x{}", hex_encode(&canonical)),"blockNumber":status["blockNumber"],"blockHash":status["blockHash"]}),
+                        json!({"txHash":hash_text,"rung":"committed","result_code":0,"receipt":data["receipt"],"blockNumber":status["blockNumber"],"blockHash":status["blockHash"]}),
                     ));
                 }
             }

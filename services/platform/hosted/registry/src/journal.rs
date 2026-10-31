@@ -105,11 +105,11 @@ impl DeploymentEnvelope {
     /// Encodes the unit: the envelope domain, the framed canonical record, the
     /// framed canonical proof and a seal over everything before it.
     #[must_use]
-    pub fn canonical_encoding(&self) -> Vec<u8> {
-        let (mut bytes, proof_frame, seal) = self.frames();
+    pub fn canonical_encoding(&self) -> Result<Vec<u8>, String> {
+        let (mut bytes, proof_frame, seal) = self.frames()?;
         bytes.extend_from_slice(&proof_frame);
         bytes.extend_from_slice(&seal);
-        bytes
+        Ok(bytes)
     }
 
     /// Decodes one committed unit.
@@ -128,9 +128,12 @@ impl DeploymentEnvelope {
         Self::pair(record, proof)
     }
 
-    fn frames(&self) -> (Vec<u8>, Vec<u8>, [u8; SEAL_BYTES]) {
+    fn frames(&self) -> Result<(Vec<u8>, Vec<u8>, [u8; SEAL_BYTES]), String> {
         let record = self.record.canonical_encoding();
-        let proof = self.proof.canonical_encoding();
+        let proof = self
+            .proof
+            .canonical_encoding()
+            .map_err(|error| error.to_string())?;
         let mut record_frame = Vec::with_capacity(ENVELOPE_DOMAIN.len() + 4 + record.len());
         record_frame.extend_from_slice(ENVELOPE_DOMAIN);
         put_frame(&mut record_frame, &record);
@@ -139,7 +142,7 @@ impl DeploymentEnvelope {
         let mut seal = Sha256::new();
         seal.update(&record_frame);
         seal.update(&proof_frame);
-        (record_frame, proof_frame, seal.finalize().into())
+        Ok((record_frame, proof_frame, seal.finalize().into()))
     }
 }
 
@@ -611,7 +614,13 @@ impl FileDeploymentJournal {
             }
         }
         for (suffix, bytes) in [
-            (ADMISSION_SUFFIX, evidence.proof().canonical_encoding()),
+            (
+                ADMISSION_SUFFIX,
+                evidence
+                    .proof()
+                    .canonical_encoding()
+                    .map_err(|error| error.to_string())?,
+            ),
             (RECORD_SUFFIX, evidence.record().canonical_encoding()),
         ] {
             let name = format!("{}.{}", hex::encode(&evidence.receipt_digest()), suffix);
@@ -651,7 +660,7 @@ impl FileDeploymentJournal {
         let digest = envelope.receipt_digest();
         let path = self.unit_path(digest, ENVELOPE_SUFFIX);
         let temporary = self.temporary_path(digest, ENVELOPE_SUFFIX);
-        let (record_frame, proof_frame, seal) = envelope.frames();
+        let (record_frame, proof_frame, seal) = envelope.frames()?;
         self.reach(WriteStep::CreateTemporary)?;
         let mut file = OpenOptions::new()
             .mode(0o600)
@@ -952,7 +961,7 @@ struct ChainDeploymentPackage {
     interface: Option<Vec<u8>>,
 }
 
-fn persisted_chain_trust(
+pub(crate) fn persisted_chain_trust(
     path: &Path,
     max_age_ms: u64,
 ) -> Result<(TrustRoot, ProtocolDeploymentVerifier), String> {

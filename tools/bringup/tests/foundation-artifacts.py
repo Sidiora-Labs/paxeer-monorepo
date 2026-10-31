@@ -15,14 +15,14 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 NAMES = ("paxd", "attestor", "layerxd", "layerx-genesis-build",
-         "layerx-module-registry", "layerx-custody-proof")
+         "layerx-module-registry")
 GO_PATHS = ("chain.mk", "go.mod", "go.sum", "admin", "consensus", "custodyproof",
             "daemon", "engine", "interchain", "layerxproof", "modules", "node",
             "precompiles", "ratelimiter", "rpc", "sdk", "storage", "sync",
             "types", "utils", "wasm", "wasm-runtime", "tools/chain")
 NATIVE_PATHS = ("Makefile", "src", "include", "cmd", "programs", "agent",
                 "rust-toolchain.toml", "contracts/config/checkpoint-settlement.json")
-PATHS = {name: GO_PATHS if name in ("paxd", "layerx-custody-proof") else
+PATHS = {name: GO_PATHS if name == "paxd" else
          GO_PATHS + ("services/wallet/attestor",) if name == "attestor" else NATIVE_PATHS
          for name in NAMES}
 LIBRARIES = (
@@ -206,7 +206,7 @@ def build(destination):
     commands = [
         ["make", "-f", "chain.mk", "build"],
         ["make", "-j5", "-B", "LXP_REVISION=" + revision, "PAXEER_GO=" + tool,
-         "PAXEER_GO_JOBS=5", "PROGRAMS_CARGO=" + rust_paths["cargo"], "layerxd", "layerx-genesis-build", "layerx-module-registry", "custody-proof-build"],
+         "PAXEER_GO_JOBS=5", "PROGRAMS_CARGO=" + rust_paths["cargo"], "layerxd", "layerx-genesis-build", "layerx-module-registry"],
         [tool, "build", "-trimpath", "-ldflags=-s -w", "-o", str(stage / "attestor"), "./cmd/attestor"],
     ]
     manifest = {"version": 1, "source_revision": revision, "source_tree": tree,
@@ -234,7 +234,7 @@ def build(destination):
             record = {"path": str(destination / name), "sha256": sha256(stage / name),
                       "source_revision": revision, "source_tree": tree,
                       "source_paths": list(PATHS[name]), "source_binding": source_binding(revision, PATHS[name])}
-            if name in ("paxd", "attestor", "layerx-custody-proof"):
+            if name in ("paxd", "attestor"):
                 record["go_build_metadata"] = go_metadata(stage / name, revision, tool)
             manifest["artifacts"][name] = record
         for relative in LIBRARIES:
@@ -281,9 +281,9 @@ def verify(manifest_path, evidence):
         manifest = json.loads(manifest_path.read_text())
         revision = clean_identity()[0]
         result.update(source_revision=revision, artifact_manifest=str(manifest_path))
-        case("complete-six-real-executables", lambda: validate(manifest, manifest_path.parent, revision))
+        case("complete-five-real-executables", lambda: validate(manifest, manifest_path.parent, revision))
         tool, _ = go_tool()
-        for name in ("paxd", "attestor", "layerx-custody-proof"):
+        for name in ("paxd", "attestor"):
             case(name + "-embedded-source", lambda name=name: go_metadata(Path(manifest["artifacts"][name]["path"]), manifest["source_revision"], tool))
         with tempfile.TemporaryDirectory(prefix="foundation-negative-", dir=evidence) as temporary:
             root = Path(temporary)
@@ -344,9 +344,26 @@ def verify(manifest_path, evidence):
     return result["exit_code"]
 
 
+def verify_sources():
+    require(len(NAMES) == len(set(NAMES)) and set(PATHS) == set(NAMES),
+            "artifact source declarations mismatch")
+    makefile = (ROOT / "Makefile").read_text()
+    for name in NAMES:
+        require(bool(PATHS[name]), "missing artifact source paths: " + name)
+        source_binding(git("rev-parse", "HEAD"), PATHS[name])
+        if name not in ("paxd", "attestor"):
+            require(re.search(r"^" + re.escape(name) + r":", makefile, re.M) is not None,
+                    "missing artifact build target: " + name)
+    require(re.search(r"^build:", (ROOT / "chain.mk").read_text(), re.M) is not None,
+            "missing chain build target")
+    require((ROOT / "services/wallet/attestor/cmd/attestor/main.go").is_file(),
+            "missing attestor build source")
+
+
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    modes = parser.add_mutually_exclusive_group(required=True)
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     epilog="With no mode, check artifact source declarations without building.")
+    modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--build", action="store_true")
     modes.add_argument("--verify", action="store_true")
     parser.add_argument("--output", type=Path)
@@ -355,6 +372,11 @@ def main():
     args = parser.parse_args()
     os.umask(0o077)
     try:
+        if not args.build and not args.verify:
+            require(args.output is None and args.manifest is None and args.evidence is None,
+                    "artifact paths require an explicit --build or --verify mode")
+            verify_sources()
+            return 0
         if args.build:
             require(args.output is not None, "--output is required for the explicit build")
             build(args.output)

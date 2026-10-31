@@ -195,45 +195,20 @@ fn signed_settlement() -> (
     SettlementResponse,
     [SequencerAuthorization; 1],
 ) {
-    use ed25519_dalek::{Signer as _, SigningKey};
-
     let fixture = receipt_fixture();
     let log = &fixture["receiptJson"]["logs"][0];
-    let mut topics: Vec<[u8; 32]> = log["topics"]
+    let topics: Vec<[u8; 32]> = log["topics"]
         .as_array()
         .unwrap()
         .iter()
         .map(|topic| receipt_fixture_bytes(topic).try_into().unwrap())
         .collect();
     assert_eq!(topics.len(), 4);
-    let recorded_topics = topics.concat();
-    let words = pay_exact_words(&receipt_fixture_bytes(&fixture["rawTransaction"]));
-    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
-    topics[3] = account_id(PAYEE_ACCOUNT);
-    let mut receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
-    let positions: Vec<_> = receipt
-        .windows(recorded_topics.len())
-        .enumerate()
-        .filter_map(|(index, bytes)| (bytes == recorded_topics).then_some(index))
-        .collect();
-    assert_eq!(positions.len(), 1);
-    receipt[positions[0]..positions[0] + recorded_topics.len()].copy_from_slice(&topics.concat());
-    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap();
-    let signer = SigningKey::from_bytes(&[0x72; 32]);
-    let signature_start = receipt.len() - 64;
-    receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
-    let [pinned] = pinned_receipt_keys();
-    let keys = [SequencerAuthorization::new(
-        pinned.sequencer_id(),
-        signer.verifying_key().to_bytes(),
-        pinned.first_batch_number(),
-        pinned.last_batch_number(),
-    )];
-    let mut logs = fixture["receiptJson"]["logs"].clone();
-    logs[0]["topics"] = json!(topics
-        .iter()
-        .map(|topic| format!("0x{}", hex32(topic)))
-        .collect::<Vec<_>>());
+    let receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
+    let digest: [u8; 32] = receipt_fixture_bytes(&fixture["receiptDigest"])
+        .try_into()
+        .unwrap();
+    let keys = pinned_receipt_keys();
     let data = receipt_fixture_bytes(&log["data"]);
     assert_eq!(data.len(), 64);
     assert_eq!(data[32..48], [0; 16]);
@@ -250,7 +225,7 @@ fn signed_settlement() -> (
             accepted: PaymentRequirements {
                 amount,
                 asset: format!("0x{}", hex32(&asset)),
-                pay_to: pay_to(PAYEE_ACCOUNT),
+                pay_to: log["topics"][3].as_str().unwrap().to_owned(),
                 extra: Some(layerx_terms(PAYEE_ACCOUNT)),
                 ..test_requirements()
             },
@@ -274,11 +249,24 @@ fn signed_settlement() -> (
                 "receipt": STANDARD.encode(&receipt),
                 "receiptDigest": hex32(&digest),
                 "verificationLevel": fixture["receiptJson"]["rung"],
-                "logs": logs,
+                "logs": fixture["receiptJson"]["logs"],
             }),
         )]),
     };
     (payment, response, keys)
+}
+
+fn capture_settlement(
+    response: &SettlementResponse,
+    payment: &BuiltPayment,
+    keys: &[SequencerAuthorization],
+) -> Result<layerx_x402::buyer::CapturedSettlement, Traced<X402Error>> {
+    Buyer::capture_settlement(
+        &STANDARD.encode(serde_json::to_vec(response).unwrap()),
+        payment,
+        keys,
+        &TraceId::mint([0xab; 16]),
+    )
 }
 
 #[test]
@@ -300,24 +288,37 @@ fn buyer_tests_capture_on_the_recorded_receipt() {
         layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap(),
         digest
     );
-    let mut expected_logs = fixture["receiptJson"]["logs"].clone();
-    let words = pay_exact_words(&receipt_fixture_bytes(&fixture["rawTransaction"]));
-    expected_logs[0]["topics"] = json!([
-        fixture["receiptJson"]["logs"][0]["topics"][0],
-        format!("0x{}", hex32(&words[5])),
-        format!("0x{}", hex32(&words[0])),
-        pay_to(PAYEE_ACCOUNT),
-    ]);
-    assert_eq!(response.extensions["layerx"]["logs"], expected_logs);
+    let logs = &fixture["receiptJson"]["logs"];
+    let topics = &logs[0]["topics"];
+    let idempotency_key: [u8; 32] = receipt_fixture_bytes(&topics[1]).try_into().unwrap();
+    let payer: [u8; 32] = receipt_fixture_bytes(&topics[2]).try_into().unwrap();
+    assert_eq!(response.extensions["layerx"]["logs"], *logs);
+    assert_eq!(payment.idempotency_key, idempotency_key);
+    assert_eq!(
+        payment.payload.payload["idempotencyKey"],
+        hex32(&idempotency_key)
+    );
+    assert_eq!(response.payer.as_deref(), Some(hex32(&payer).as_str()));
+    assert_eq!(payment.payload.accepted.pay_to, topics[3].as_str().unwrap());
     assert_eq!(payment.payload.accepted.pay_to, pay_to(PAYEE_ACCOUNT));
+    assert_eq!(
+        payment.payload.accepted.pay_to,
+        "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4"
+    );
+    let words = pay_exact_words(&receipt_fixture_bytes(&fixture["rawTransaction"]));
+    assert_eq!(idempotency_key, words[5]);
+    assert_eq!(payer, words[0]);
+    assert_eq!(receipt_fixture_bytes(&topics[3]), words[1]);
     assert_eq!(
         payment.payload.accepted.extra.as_ref().unwrap()["layerx"]["account"],
         PAYEE_ACCOUNT
     );
-    let receipt = STANDARD
-        .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
-        .unwrap();
-    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap();
+    assert_eq!(
+        STANDARD
+            .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
+            .unwrap(),
+        receipt
+    );
     assert_eq!(
         response.extensions["layerx"]["receiptDigest"],
         hex32(&digest)
@@ -328,14 +329,18 @@ fn buyer_tests_capture_on_the_recorded_receipt() {
     assert_eq!(keys[0].sequencer_id(), pinned.sequencer_id());
     assert_eq!(keys[0].first_batch_number(), pinned.first_batch_number());
     assert_eq!(keys[0].last_batch_number(), pinned.last_batch_number());
+    let captured = capture_settlement(&response, &payment, &keys).unwrap_or_else(|error| {
+        let account = payment.payload.accepted.extra.as_ref().unwrap()["layerx"]["account"]
+            .as_str()
+            .unwrap();
+        panic!(
+            "recorded settlement: {error:?}; unmodified recorded payee {}; account {account}; \
+             derived account identifiers {:?}",
+            payment.payload.accepted.pay_to,
+            account_identifiers(account).unwrap().map(|id| hex32(&id))
+        )
+    });
     payment.payload.validate().unwrap();
-    let captured = Buyer::capture_settlement(
-        &STANDARD.encode(serde_json::to_vec(&response).unwrap()),
-        &payment,
-        &keys,
-        &TraceId::mint([0xab; 16]),
-    )
-    .unwrap_or_else(|error| panic!("recorded settlement: {error:?}"));
     assert_eq!(captured.response, response);
     assert_eq!(captured.canonical_receipt, receipt);
     assert_eq!(captured.receipt_digest, digest);
@@ -344,6 +349,14 @@ fn buyer_tests_capture_on_the_recorded_receipt() {
         captured.response.transaction,
         fixture["receiptJson"]["txHash"]
     );
+    assert_eq!(
+        captured.response.payer.as_deref(),
+        Some(hex32(&payer).as_str())
+    );
+    let captured_topics = &captured.response.extensions["layerx"]["logs"][0]["topics"];
+    assert_eq!(receipt_fixture_bytes(&captured_topics[1]), idempotency_key);
+    assert_eq!(receipt_fixture_bytes(&captured_topics[2]), payer);
+    assert_eq!(captured_topics[3], payment.payload.accepted.pay_to);
     assert_eq!(captured.rung, "receipted");
 }
 

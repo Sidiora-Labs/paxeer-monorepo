@@ -17,7 +17,16 @@ skip = ["contracts/src/**", "contracts/test/**", "contracts/lib/**", "contracts/
 fs_permissions = [
     { access = "read", path = "./contracts/config" },
     { access = "read", path = "./tests/vectors/checkpoint" },
+    { access = "read-write", path = "./tests/vectors/names" },
 ]
+
+[profile.names]
+src = "contracts/names"
+test = "tests/solidity/names"
+script = "contracts/names"
+out = "build/forge-artifacts-names"
+cache_path = "build/forge-cache-names"
+fs_permissions = [{ access = "read-write", path = "./tests/vectors/names" }]
 
 [fmt]
 ignore = ["contracts/src/**/*.sol", "contracts/test/**/*.sol", "contracts/lib/**/*.sol", "contracts/node_modules/**/*.sol", "contracts/bridge/**", "contracts/launchpad/**/*.sol"]

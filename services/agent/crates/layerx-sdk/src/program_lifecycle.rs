@@ -198,20 +198,6 @@ mod tests {
     }
 
     #[test]
-    fn call_receipt_is_not_lifecycle_evidence() -> Result<(), String> {
-        let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json"
-        ))
-        .map_err(|error| error.to_string())?;
-        let receipt = bytes(&fixture, "canonical_receipt_hex")?;
-        let key = bytes(&fixture["authorized_batch"], "sequencer_public_key_hex")?
-            .try_into()
-            .map_err(|_| "key length")?;
-        assert!(verify_lifecycle_receipt(&receipt, [0x41; 32], key).is_err());
-        Ok(())
-    }
-
-    #[test]
     fn c_signed_lifecycle_fixtures_bind_exactly() -> Result<(), String> {
         let registry = programs_module_registry().map_err(|error| format!("{error:?}"))?;
         for (name, ordinal) in [

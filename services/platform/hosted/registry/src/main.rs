@@ -437,8 +437,7 @@ fn config(builder_cgroup_root: &Path) -> Result<(Config, String), String> {
             listen: env::var("LAYERX_REGISTRY_LISTEN")
                 .unwrap_or_else(|_| DEFAULT_LISTEN.to_owned()),
             journal: parse_path("LAYERX_REGISTRY_JOURNAL", root.join("journal")),
-            deployment_lni_socket: std::env::var_os("LAYERX_REGISTRY_LNI_SOCKET")
-                .map(PathBuf::from),
+            deployment_lni_socket: None,
             mirror: parse_path("LAYERX_REGISTRY_SOURCE_MIRROR", root.join("sources")),
             verified: parse_path("LAYERX_REGISTRY_VERIFIED", root.join("verified")),
             workspace: parse_path("LAYERX_REGISTRY_BUILD_ROOT", root.join("builds")),
@@ -946,11 +945,6 @@ fn serve(config: &Config) -> Result<(), String> {
             .map_err(|error| format!("registry readiness thread: {error}"))?;
         eprintln!(
             "layerx-program-registry: readiness verdict of the mTLS /healthz served on {address}"
-        );
-    }
-    if config.deployment_lni_socket.is_none() {
-        eprintln!(
-            "layerx-program-registry: LAYERX_REGISTRY_LNI_SOCKET is not set; the sequencer discovery proof is requested through the node boundary at LAYERX_REGISTRY_NODE_ENDPOINT"
         );
     }
     eprintln!(

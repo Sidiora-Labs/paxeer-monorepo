@@ -391,18 +391,6 @@
         "bodyless": false
       }
     ],
-    "O28": [
-      {
-        "plane": "agent",
-        "name": "faucet.claim",
-        "method": "POST",
-        "path": "",
-        "request": "object",
-        "response": "FaucetGrant",
-        "idempotency": false,
-        "bodyless": false
-      }
-    ],
     "O29": [
       {
         "plane": "agent",
@@ -1440,26 +1428,24 @@
       {
         "plane": "human",
         "name": "intent.plan",
-        "method": "eth_call",
-        "path": "",
+        "method": "POST",
+        "path": "/v1/intents/plan",
         "request": "PlanIntentRequest",
         "response": "IntentPlan",
         "idempotency": false,
         "bodyless": false,
-        "transport": "evm",
-        "per_leg": true
+        "transport": "http"
       },
       {
         "plane": "human",
         "name": "intent.submit",
-        "method": "eth_sendRawTransaction",
-        "path": "",
+        "method": "POST",
+        "path": "/v1/intents/submit",
         "request": "SubmitPlanRequest",
         "response": "IntentSubmission",
         "idempotency": true,
         "bodyless": false,
-        "transport": "evm",
-        "per_leg": true
+        "transport": "http"
       }
     ]
   }

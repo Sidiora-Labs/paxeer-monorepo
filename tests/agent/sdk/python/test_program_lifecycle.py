@@ -47,9 +47,9 @@ class ProgramLifecycleTest(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         signatures = module.LayerXSignatureVerifier()
-        call_receipt = json.loads((fixtures / "receipt-programs-positive-v3.json").read_text())
-        recovery = {"activity_id": "41" * 32, "receipt": call_receipt["canonical_receipt_hex"]}
-        sequencer = bytes.fromhex(call_receipt["authorized_batch"]["sequencer_public_key_hex"])
+        call_receipt = json.loads((fixtures / "sequencer-receipt-v1.json").read_text())["cases"][0]
+        recovery = {"activity_id": "41" * 32, "receipt": call_receipt["signedReceipt"].removeprefix("0x")}
+        sequencer = bytes.fromhex(call_receipt["pinnedKey"]["publicKey"].removeprefix("0x"))
         self.assertEqual(_decode_envelope(200, json.dumps({"result": recovery}).encode(), "program.receipt"), recovery)
         for result, expected in [(recovery, "42" * 32), ({**recovery, "program_id": "11" * 32}, recovery["activity_id"]), (recovery, recovery["activity_id"])]:
             with self.assertRaises((ValueError, PlatformSdkError)):
@@ -73,7 +73,7 @@ class ProgramLifecycleTest(unittest.TestCase):
                 request = NativeProgramLifecycleRequest(ordinal, payload, signed)
                 bound = request.bind(fixture["idempotency_key_hex"])
                 expected_unknown = {"state": "unknown", "activity_id": fixture["activity_id_hex"], "idempotency_key": fixture["idempotency_key_hex"], "retained_signed_activity": fixture["signed_activity_hex"]}
-                damaged = bytearray.fromhex(call_receipt["canonical_receipt_hex"])
+                damaged = bytearray.fromhex(call_receipt["signedReceipt"].removeprefix("0x"))
                 damaged[-1] ^= 1
                 for response in (
                     {"state": "executed", "activity_id": bound.activity_id, "receipt": damaged.hex(), "terminal_payload": "", "call_graph": ""},

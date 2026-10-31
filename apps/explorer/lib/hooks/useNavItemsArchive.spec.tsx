@@ -16,7 +16,7 @@ vi.hoisted(() => {
 
 import useNavItems, { isGroupItem, isInternalItem } from './useNavItems';
 
-async function nav_groups_kernel_pages_under_archive() {
+test('nav_groups_kernel_pages_under_archive', async() => {
   const initialData = window.__NEXT_DATA__;
   const middlewareMatchers = Object.getOwnPropertyDescriptor(window, '__DEV_MIDDLEWARE_MATCHERS');
   window.__NEXT_DATA__ = { props: {}, page: '/', query: {}, buildId: 'navigation-archive' };
@@ -93,6 +93,4 @@ async function nav_groups_kernel_pages_under_archive() {
       Reflect.deleteProperty(window, '__DEV_MIDDLEWARE_MATCHERS');
     }
   }
-}
-
-test(nav_groups_kernel_pages_under_archive.name, nav_groups_kernel_pages_under_archive);
+});

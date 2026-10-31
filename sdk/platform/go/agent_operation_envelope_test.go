@@ -495,7 +495,7 @@ func TestAgentOperationEnvelopeClientEncoding(t *testing.T) {
 		t.Fatalf("session.open envelope must carry the owner credential and its key: %s", bootstrap)
 	}
 
-	faucet, err := transport.encode(TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationFaucetClaim), Request: json.RawMessage(`{}`)}, "2")
+	faucet, err := transport.encode(TransportCall{Plane: PlaneAgent, Operation: "faucet.claim", Request: json.RawMessage(`{}`)}, "2")
 	if err != nil || decodeStrict(faucet, &fields) != nil || string(fields["operation"]) != `"faucet.claim"` || string(fields["idempotency_key"]) != "null" {
 		t.Fatalf("faucet.claim must reach the daemon refusal as a plain envelope: %s", faucet)
 	}

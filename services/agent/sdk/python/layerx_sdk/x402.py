@@ -5,20 +5,15 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Literal, NoReturn
 
+from . import verifier
 from .generated.receipt import ReceiptFailureCode
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason
 from .verifier import (
-    AuthorizedReceiptBatch,
-    CheckpointVerificationInput,
-    LocalSignatureVerifier,
     MerkleProof,
-    ReceiptVerification,
+    ReceiptKey,
     ReceiptVerificationError,
-    SequencerAuthorization,
-    verify_batch_inclusion,
-    verify_checkpoint,
-    verify_receipt_outcome,
+    SequencerReceiptVerification,
 )
 
 PaymentCommitment = Literal["executed", "batched", "finalised"]
@@ -26,9 +21,11 @@ PAYMENT_RECEIPT_PROTOCOL_VERSIONS = (2, 3)
 
 
 @dataclass(frozen=True)
-class PaymentCheckpointEvidence:
-    verification: CheckpointVerificationInput
-    required_guarantors: int
+class _SequencerAuthorization:
+    sequencer_id: bytes
+    public_key: bytes
+    first_batch_number: int
+    last_batch_number: int
 
 
 @dataclass(frozen=True)
@@ -36,9 +33,8 @@ class PaymentCommitmentEvidence:
     network_id: int
     canonical_header: bytes
     header_signature: bytes
-    authorization: SequencerAuthorization
+    authorization: _SequencerAuthorization
     proof: MerkleProof
-    checkpoint: PaymentCheckpointEvidence | None = None
 
 
 def _failure() -> NoReturn:
@@ -106,71 +102,39 @@ def payment_purpose(extra: object = None, *, required: bool = False) -> str | No
     return purpose
 
 
-def verify_payment_commitment_evidence(
-    verified: ReceiptVerification,
-    sequencer_public_key: bytes,
-    commitment: PaymentCommitment,
-    evidence: PaymentCommitmentEvidence,
-    signatures: LocalSignatureVerifier,
-) -> None:
-    if commitment == "executed":
-        return
-    if commitment not in ("batched", "finalised"):
-        _failure()
-    version = verified.receipt.protocol_version
-    if (
-        version not in (2, 3)
-        or type(evidence.network_id) is not int
-        or not 0 < evidence.network_id <= 0xFFFF_FFFF
-        or evidence.authorization.public_key != sequencer_public_key
-    ):
-        _failure()
-    inclusion = verify_batch_inclusion(
-        "receipt",
-        verified.canonical_bytes,
-        evidence.proof,
-        evidence.canonical_header,
-        evidence.header_signature,
-        evidence.authorization,
-        signatures,
-        protocol_version=version,
+def verify_sequencer_receipt(
+    signed_receipt: bytes,
+    raw_transaction: bytes,
+    receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
+    *,
+    return_data: bytes | None = None,
+) -> SequencerReceiptVerification:
+    verified = verifier.verify_sequencer_receipt(
+        signed_receipt, raw_transaction, receipt_keys
     )
-    if (
-        inclusion.header.network_id != evidence.network_id
-        or not inclusion.header.first_sequence
-        <= verified.receipt.global_sequence
-        <= inclusion.header.last_sequence
+    if return_data is not None and (
+        not isinstance(return_data, bytes)
+        or sha256(return_data).digest() != verified.receipt.activity_root
     ):
         _failure()
-    if commitment == "batched":
-        return
-    checkpoint = evidence.checkpoint
-    if (
-        checkpoint is None
-        or type(checkpoint.required_guarantors) is not int
-        or checkpoint.required_guarantors <= 0
-        or checkpoint.verification.certificate.threshold
-        != checkpoint.required_guarantors
-        or checkpoint.verification.certificate.canonical_header
-        != evidence.canonical_header
-    ):
-        _failure()
-    verify_checkpoint(checkpoint.verification, signatures, protocol_version=version)
+    if verified.receipt.result_code != 0:
+        if verified.receipt.result_code == 1 and return_data is not None:
+            raise decode_revert_reason(return_data)
+        raise ReceiptVerificationError(ReceiptFailureCode.RESULT_CODE)
+    return verified
 
 
 def verify_payment_receipt(
-    canonical_receipt: bytes,
-    authorized: AuthorizedReceiptBatch,
-    signatures: LocalSignatureVerifier,
+    signed_receipt: bytes,
+    raw_transaction: bytes,
+    receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
     *,
     amount: str,
     asset: str,
     pay_to: str,
     payer: str | None = None,
-    commitment: PaymentCommitment = "executed",
-    evidence: PaymentCommitmentEvidence | None = None,
     return_data: bytes | None = None,
-) -> ReceiptVerification:
+) -> SequencerReceiptVerification:
     if (
         not isinstance(amount, str)
         or not 0 < len(amount) <= 39
@@ -188,21 +152,12 @@ def verify_payment_receipt(
             _failure()
     if payer == "0" * 64:
         _failure()
-    verified = verify_receipt_outcome(
-        canonical_receipt,
-        authorized,
-        signatures,
-        protocol_version=receipt_protocol_version(canonical_receipt),
+    verified = verify_sequencer_receipt(
+        signed_receipt,
+        raw_transaction,
+        receipt_keys,
+        return_data=return_data,
     )
-    if return_data is not None and (
-        not isinstance(return_data, bytes)
-        or sha256(return_data).digest() != verified.receipt.activity_root
-    ):
-        _failure()
-    if verified.receipt.result_code != 0:
-        if verified.receipt.result_code == 1 and return_data is not None:
-            raise decode_revert_reason(return_data)
-        raise ReceiptVerificationError(ReceiptFailureCode.RESULT_CODE)
     if (
         verified.receipt.amount != int(amount)
         or verified.receipt.asset.hex() != asset
@@ -210,12 +165,4 @@ def verify_payment_receipt(
         or (payer is not None and verified.receipt.from_account.hex() != payer)
     ):
         _failure()
-    if commitment not in ("executed", "batched", "finalised"):
-        _failure()
-    if commitment != "executed":
-        if evidence is None:
-            _failure()
-        verify_payment_commitment_evidence(
-            verified, authorized.sequencer_public_key, commitment, evidence, signatures
-        )
     return verified

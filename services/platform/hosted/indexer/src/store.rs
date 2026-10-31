@@ -180,9 +180,9 @@ CREATE TABLE IF NOT EXISTS chain_links(
 );
 ";
 
-/// Evidence source of the published local stability level: the configured
-/// reorg depth below the indexed head. It never implies LayerX settlement.
-pub const STABILITY_SOURCE: &str = "local_finality_depth";
+/// Evidence source of the published node stability level: block commit.
+/// It never implies LayerX settlement.
+pub const STABILITY_SOURCE: &str = "block_commit";
 /// Explorer row keys are strictly below this value.
 pub const EXPLORER_KEY_LIMIT: u64 = (1 << 62) - 1;
 /// The provenance of explorer-imported rows.
@@ -1314,132 +1314,6 @@ impl Store {
         };
         Self::rewind_projections(&transaction, chain, above)?;
         transaction.commit()?;
-        Ok(())
-    }
-
-    pub fn pending_settlement(&self, limit: usize) -> Result<Vec<(u64, Vec<u8>)>, IndexError> {
-        let connection = self.lock()?;
-        let mut statement = connection.prepare(
-            "SELECT events.decoded_json FROM events LEFT JOIN settlement_evidence evidence
-             ON evidence.chain = events.chain AND evidence.activity_id = events.tx_id AND evidence.sequence = events.height_or_seq
-             WHERE events.chain = 'layerx' AND events.source = 'layerx-receipt' AND events.name = 'activity'
-             AND json_extract(events.decoded_json, '$.receipt_hex') IS NOT NULL
-             AND (evidence.document IS NULL OR json_extract(evidence.document, '$.level') != 'settlement_verified')
-             ORDER BY COALESCE(evidence.last_attempt, 0), events.height_or_seq LIMIT ?1")?;
-        let rows = statement.query_map(
-            params![i64::try_from(limit)
-                .map_err(|_| IndexError::Store("settlement limit overflow".into()))?],
-            |row| row.get::<_, String>(0),
-        )?;
-        let mut result = Vec::new();
-        for row in rows {
-            let document: Value = serde_json::from_str(&row?)
-                .map_err(|_| IndexError::Integrity("invalid retained receipt context".into()))?;
-            let Some(bytes) = document.get("receipt_hex").and_then(Value::as_str) else {
-                continue;
-            };
-            let batch = document
-                .get("batch_number")
-                .and_then(Value::as_str)
-                .and_then(|value| value.parse().ok())
-                .ok_or_else(|| {
-                    IndexError::Integrity("retained receipt lacks batch number".into())
-                })?;
-            result.push((batch, crate::codec::unhex(bytes)?));
-        }
-        Ok(result)
-    }
-
-    pub fn record_settlement(
-        &self,
-        verified: &crate::settlement::VerifiedSettlement,
-    ) -> Result<(), IndexError> {
-        let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
-        let link = Self::link_in(&transaction, "layerx", verified.batch)?
-            .ok_or_else(|| IndexError::Integrity("settlement batch is not indexed".into()))?;
-        if link.hash != crate::codec::hex(&verified.batch_id) {
-            return Err(IndexError::Integrity(
-                "settlement receipt belongs to another batch".into(),
-            ));
-        }
-        Self::write_settlement(
-            &transaction,
-            &verified.receipt,
-            verified.activity_id,
-            verified.sequence,
-            &verified.document,
-        )?;
-        transaction.commit()?;
-        Ok(())
-    }
-
-    pub fn record_settlement_failure(
-        &self,
-        receipt: &[u8],
-        failure: crate::settlement::SettlementFailure,
-    ) -> Result<(), IndexError> {
-        let decoded = layerx_wire::receipt::decode(receipt)
-            .map_err(|_| IndexError::Integrity("retained receipt is malformed".into()))?;
-        let protocol = decoded.protocol().ok_or_else(|| {
-            IndexError::Integrity("retained receipt is not a protocol receipt".into())
-        })?;
-        let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
-        Self::write_settlement(
-            &transaction,
-            receipt,
-            protocol.activity_id(),
-            protocol.global_sequence(),
-            &failure.document(),
-        )?;
-        transaction.commit()?;
-        Ok(())
-    }
-
-    fn write_settlement(
-        connection: &Connection,
-        receipt: &[u8],
-        activity: [u8; 32],
-        sequence: u64,
-        document: &Value,
-    ) -> Result<(), IndexError> {
-        let activity = crate::codec::hex(&activity);
-        let retained: String = connection.query_row(
-            "SELECT decoded_json FROM events WHERE chain = 'layerx' AND source = 'layerx-receipt' AND name = 'activity' AND tx_id = ?1 AND height_or_seq = ?2",
-            params![activity, signed(sequence)?], |row| row.get(0))?;
-        let retained: Value = serde_json::from_str(&retained)
-            .map_err(|_| IndexError::Integrity("invalid retained receipt context".into()))?;
-        if retained.get("receipt_hex").and_then(Value::as_str)
-            != Some(crate::codec::hex(receipt).as_str())
-        {
-            return Err(IndexError::Integrity(
-                "settlement proof substitutes the indexed receipt".into(),
-            ));
-        }
-        let mut document = document.clone();
-        if document.get("level").and_then(Value::as_str) != Some("settlement_verified") {
-            let previous: Option<String> = connection.query_row(
-                "SELECT document FROM settlement_evidence WHERE chain = 'layerx' AND activity_id = ?1 AND sequence = ?2",
-                params![activity, signed(sequence)?], |row| row.get(0)).optional()?;
-            if let Some(previous) = previous {
-                let previous: Value = serde_json::from_str(&previous).map_err(|_| {
-                    IndexError::Integrity("invalid retained settlement provenance".into())
-                })?;
-                let evidence = if previous.get("level").and_then(Value::as_str)
-                    == Some("settlement_verified")
-                {
-                    Some(previous)
-                } else {
-                    previous.get("previously_verified_evidence").cloned()
-                };
-                if let Some(evidence) = evidence {
-                    document["previously_verified_evidence"] = evidence;
-                }
-            }
-        }
-        connection.execute("INSERT INTO settlement_evidence(chain, activity_id, sequence, document, last_attempt) VALUES('layerx', ?1, ?2, ?3, ?4)
-            ON CONFLICT(chain, activity_id, sequence) DO UPDATE SET document = excluded.document, last_attempt = excluded.last_attempt", params![activity, signed(sequence)?, document.to_string(), now()])?;
         Ok(())
     }
 

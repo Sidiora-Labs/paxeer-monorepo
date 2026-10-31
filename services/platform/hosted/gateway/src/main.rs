@@ -2,9 +2,7 @@ mod capabilities;
 mod chain_reads;
 mod explorer_proxy;
 mod history;
-mod native_call;
 mod paxeer;
-mod program_lifecycle;
 mod public_reads;
 mod routes;
 mod rpc;
@@ -743,11 +741,6 @@ fn program_call_bytes(
     request: &IncomingRequest,
     registry: &ModuleRegistry,
 ) -> Result<(Vec<u8>, [u8; 32]), String> {
-    if media_type_is(request, "application/json") {
-        if let Some(native) = native_call::parse_json(&request.body, registry)? {
-            return Ok(native);
-        }
-    }
     let (signed_activity, expected_call) = if media_type_is(request, "application/octet-stream") {
         if request.body.len() > 1_048_576 {
             return Err("signed program activity exceeds its bound".to_owned());
@@ -812,11 +805,7 @@ fn program_call_bytes(
         return Err("signed activity is not a Programs CALL".to_owned());
     }
     if activity.protocol_version() == 3 {
-        if expected_call.is_some() {
-            return Err("native protocol requires the native request model".to_owned());
-        }
-        let program = native_call::from_activity(&activity)?;
-        return Ok((signed_activity, program));
+        return Err("native program calls are retired".to_owned());
     }
     let call = ProgramCall::from_canonical_payload(activity.payload())
         .map_err(|_| "signed program payload is not canonical".to_owned())?;
@@ -1192,24 +1181,6 @@ fn json_response(status: u16, value: &serde_json::Value) -> OutgoingResponse {
         body: value.to_string().into_bytes(),
         retry_after: None,
     }
-}
-
-fn programs_request_path(method: &str, path: &str) -> bool {
-    matches!(
-        production_route(method, path),
-        Ok(ProductionRoute::ProgramCall
-            | ProductionRoute::ProgramDeploy
-            | ProductionRoute::ProgramUpgrade
-            | ProductionRoute::ProgramWindDown
-            | ProductionRoute::ProgramSimulation
-            | ProductionRoute::ProgramRead
-            | ProductionRoute::ProgramCatalog
-            | ProductionRoute::ProgramRegistry(_)
-            | ProductionRoute::ProgramInterface(_)
-            | ProductionRoute::ProgramSource(_)
-            | ProductionRoute::ProgramReceiptByIdempotency(_)
-            | ProductionRoute::ProgramActivity(_))
-    )
 }
 
 fn agent_error_class(status: u16, code: &str) -> &'static str {
@@ -1696,21 +1667,8 @@ fn record_scopes(record: &KeyRecord) -> Vec<&str> {
 
 fn permits(record: &KeyRecord, route: &ProductionRoute<'_>) -> bool {
     let required = match route {
-        ProductionRoute::Activity => "activity:write",
         ProductionRoute::Settle | ProductionRoute::Receipt(_) => "receipt:read",
-        ProductionRoute::ProgramCall
-        | ProductionRoute::ProgramDeploy
-        | ProductionRoute::ProgramUpgrade
-        | ProductionRoute::ProgramWindDown
-        | ProductionRoute::ProgramSource(_) => "program:call",
-        ProductionRoute::ProgramSimulation => "program:simulate",
         ProductionRoute::State => "state:read",
-        ProductionRoute::ProgramCatalog
-        | ProductionRoute::ProgramRegistry(_)
-        | ProductionRoute::ProgramRead
-        | ProductionRoute::ProgramInterface(_)
-        | ProductionRoute::ProgramActivity(_)
-        | ProductionRoute::ProgramReceiptByIdempotency(_) => "program:read",
     };
     record.scopes.split(',').any(|scope| scope == required)
 }
@@ -2361,8 +2319,7 @@ fn activity(
     preverified: Option<VerifiedSubmission>,
 ) -> OutgoingResponse {
     let total_started = Instant::now();
-    let lifecycle_ordinal = program_lifecycle::ordinal(&request.path);
-    let program_mutation = program_call || lifecycle_ordinal.is_some();
+    let program_mutation = program_call;
     let idempotency = match request.headers.get("idempotency-key") {
         Some(value)
             if if program_mutation {
@@ -2376,11 +2333,11 @@ fn activity(
         _ => return response(400, "idempotency_key_required", None),
     };
     let decode_started = Instant::now();
-    let (canonical, expected_program) =
-        match decode_activity_request(config, request, program_call, lifecycle_ordinal) {
-            Ok(value) => value,
-            Err(error) => return error,
-        };
+    let (canonical, expected_program) = match decode_activity_request(config, request, program_call)
+    {
+        Ok(value) => value,
+        Err(error) => return error,
+    };
     pay_timing("gateway.activity.decode", decode_started);
     let content_type = request
         .headers
@@ -2445,7 +2402,6 @@ fn activity(
         retained_signed_activity,
         program_mutation,
         program_call,
-        lifecycle_ordinal,
         program_head,
         canonical,
         activity_id: verified_submission.activity_id(),
@@ -2470,7 +2426,6 @@ struct ActivityOperation {
     retained_signed_activity: String,
     program_mutation: bool,
     program_call: bool,
-    lifecycle_ordinal: Option<u16>,
     program_head: Option<ProgramHead>,
     canonical: Vec<u8>,
     activity_id: [u8; 32],
@@ -2480,15 +2435,12 @@ fn decode_activity_request(
     config: &Config,
     request: &IncomingRequest,
     program_call: bool,
-    lifecycle_ordinal: Option<u16>,
 ) -> Result<(Vec<u8>, Option<[u8; 32]>), OutgoingResponse> {
     let content_type = request
         .headers
         .get("content-type")
         .map_or("", String::as_str);
-    let supported_content_type = if lifecycle_ordinal.is_some() {
-        media_type_is(request, "application/octet-stream")
-    } else if program_call {
+    let supported_content_type = if program_call {
         media_type_is(request, "application/json")
             || media_type_is(request, "application/octet-stream")
     } else {
@@ -2500,12 +2452,7 @@ fn decode_activity_request(
     if !supported_content_type || request.body.is_empty() {
         return Err(response(415, "activity_content_type_required", None));
     }
-    let (canonical, expected_program) = if let Some(ordinal) = lifecycle_ordinal {
-        if program_lifecycle::validate(&request.body, config.modules()?, ordinal).is_err() {
-            return Err(response(400, "invalid_program_lifecycle", None));
-        }
-        (request.body.clone(), None)
-    } else if program_call {
+    let (canonical, expected_program) = if program_call {
         match program_call_bytes(request, config.modules()?) {
             Ok((activity, program)) => (activity, Some(program)),
             Err(_) => return Err(response(400, "invalid_program_call", None)),
@@ -2627,10 +2574,7 @@ fn submit_upstreams(
     Option<Result<PreparedAuthority, OutgoingResponse>>,
 ) {
     thread::scope(|scope| {
-        let authority = (!operation.program_mutation
-            && !operation.program_call
-            && operation.lifecycle_ordinal.is_none())
-        .then(|| {
+        let authority = (!operation.program_mutation && !operation.program_call).then(|| {
             scope.spawn(|| {
                 let started = Instant::now();
                 let result = authority_request(config, &operation.submitted_activity_id, true);
@@ -2739,9 +2683,6 @@ fn submit_activity(
         .unwrap_or(&component_document)
         .clone();
     pay_timing("gateway.submit.decode", decode_started);
-    if operation.lifecycle_ordinal.is_some() {
-        return complete_lifecycle(config, record, operation, component_value, trace_id);
-    }
     let complete_started = Instant::now();
     let response = complete_activity(
         config,
@@ -2754,151 +2695,6 @@ fn submit_activity(
     pay_timing("gateway.submit.complete", complete_started);
     pay_timing("gateway.submit.total", total_started);
     response
-}
-
-fn publish_lifecycle(
-    config: &Config,
-    canonical_hex: &str,
-    activity_id: &str,
-    receipt: &[u8],
-) -> Result<(), OutgoingResponse> {
-    let canonical = decode_hex(canonical_hex, 1_048_576)
-        .map_err(|_| response(503, "persistence_unavailable", Some(5)))?;
-    let activity = decode_signed(&canonical, config.modules()?)
-        .map_err(|_| response(503, "persistence_unavailable", Some(5)))?;
-    if activity.activity_type().module() != ModuleId::Programs {
-        return Err(response(502, "lifecycle_binding_invalid", None));
-    }
-    if !matches!(activity.activity_type().ordinal(), 1 | 2) {
-        return Ok(());
-    }
-    let digest = layerx_wire::receipt::decode(receipt)
-        .and_then(|receipt| layerx_wire::receipt::encode_unsigned(&receipt))
-        .and_then(|unsigned| layerx_wire::hash::receipt_digest(&unsigned))
-        .map_err(|_| response(502, "receipt_verification_failed", None))?;
-    let upstream = config
-        .target(KernelBackend::Registry)
-        .and_then(|(endpoint, token)| {
-            config.client.request(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "POST",
-                    path: "/__registry/deployments",
-                    idempotency: Some(activity_id),
-                    content_type: "application/octet-stream",
-                    body: &canonical,
-                },
-            )
-        })
-        .map_err(|error| {
-            if std::env::var_os("LAYERX_PAY_TIMING").is_some() {
-                eprintln!("program_registry_transport_failure: {error}");
-            }
-            response(503, "program_registry_unavailable", Some(5))
-        })?;
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        if std::env::var_os("LAYERX_PAY_TIMING").is_some() {
-            let detail: serde_json::Value =
-                serde_json::from_slice(&upstream.body).unwrap_or(serde_json::Value::Null);
-            eprintln!(
-                "program_registry_refusal status={} error={}",
-                upstream.status, detail["error"]
-            );
-        }
-        return Err(response(503, "program_registry_unavailable", Some(5)));
-    }
-    let published: serde_json::Value = serde_json::from_slice(&upstream.body)
-        .map_err(|_| response(503, "program_registry_invalid", Some(5)))?;
-    if published["activity_id"] != activity_id
-        || published["receipt_digest"] != hex(&digest)
-        || published["state"] != "deployed"
-    {
-        return Err(response(503, "program_registry_invalid", Some(5)));
-    }
-    Ok(())
-}
-
-fn complete_lifecycle(
-    config: &Config,
-    record: &KeyRecord,
-    operation: &ActivityOperation,
-    component_value: serde_json::Value,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let component: LifecycleActivity = match serde_json::from_value(component_value) {
-        Ok(value) => value,
-        Err(_) => return response(503, "component_invalid", Some(5)),
-    };
-    if component.activity_id != operation.submitted_activity_id || component.receipt.is_empty() {
-        return response(503, "component_invalid", Some(5));
-    }
-    let Ok(receipt) = decode_hex(&component.receipt, 1_048_576) else {
-        return response(503, "component_invalid", Some(5));
-    };
-    let facts = match authority(config, &component.activity_id, &receipt) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    let receipt_keys = match config.receipt_keys() {
-        Ok(keys) => keys,
-        Err(unavailable) => return unavailable.into(),
-    };
-    if let Err(error) = receipt_keys.authorization_for_facts(facts) {
-        return unauthorized_or(error, response(502, "receipt_verification_failed", None));
-    }
-    if program_lifecycle::verify_receipt(&receipt, &facts.authorized(), operation.activity_id)
-        .is_err()
-    {
-        return response(502, "receipt_verification_failed", None);
-    }
-    let Ok(decoded) = layerx_wire::receipt::decode(&receipt) else {
-        return response(502, "receipt_verification_failed", None);
-    };
-    let Some(protocol) = decoded.protocol() else {
-        return response(502, "receipt_verification_failed", None);
-    };
-    if protocol.result_code() == 0 {
-        if let Err(error) = publish_lifecycle(
-            config,
-            &operation.retained_signed_activity,
-            &operation.submitted_activity_id,
-            &receipt,
-        ) {
-            return error;
-        }
-    }
-    let result = serde_json::json!({
-        "activity_id": operation.submitted_activity_id, "receipt": hex(&receipt),
-        "state": if protocol.result_code() == 0 { "completed" } else { "refused" },
-        "terminal_payload": "", "call_graph": "",
-    });
-    if config
-        .store
-        .complete(Completion {
-            idempotency_scope: &operation.scope,
-            request_digest: &operation.request_digest,
-            state: if protocol.result_code() == 0 {
-                "completed"
-            } else {
-                "refused"
-            },
-            response_hex: &hex(result.to_string().as_bytes()),
-            receipt_hex: &hex(&receipt),
-            activity_id: Some(&operation.submitted_activity_id),
-            principal_digest: &record.principal_digest,
-            audit_event: &audit_event(
-                &record.principal_digest,
-                "activity",
-                &record.key_id,
-                "receipt_verified",
-            ),
-        })
-        .is_err()
-    {
-        return response(503, "persistence_unavailable", Some(5));
-    }
-    program_terminal_response(config, result, trace_id, true)
 }
 
 fn activity_terminal_response(
@@ -3185,132 +2981,12 @@ fn pending_program_response(operation: &OperationRecord, trace_id: &str) -> Outg
     )
 }
 
-fn resolve_pending_lifecycle(
-    config: &Config,
-    record: &KeyRecord,
-    operation: &OperationRecord,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let Ok(canonical) = decode_hex(&operation.continuation, 1_048_576) else {
-        return response(503, "persistence_unavailable", Some(5));
-    };
-    let Ok(signer) = parse_hex32(&record.signer_public_key) else {
-        return response(503, "persistence_unavailable", Some(5));
-    };
-    let modules = match config.modules() {
-        Ok(modules) => modules,
-        Err(unavailable) => return unavailable.into(),
-    };
-    let binding = match verify_submission(
-        &canonical,
-        modules,
-        config.protocol_version,
-        config.protocol_network_id,
-        &signer,
-    ) {
-        Ok(value)
-            if hex(&value.activity_id()) == operation.activity_id
-                && hex(&value.idempotency_key()) == operation.idempotency_key =>
-        {
-            value
-        }
-        _ => return response(502, "lifecycle_binding_invalid", None),
-    };
-    let Ok(upstream) = config
-        .target(KernelBackend::Component)
-        .and_then(|(endpoint, token)| {
-            config.client.request(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "GET",
-                    path: &format!(
-                        "/v1/programs/receipts/by-idempotency/{}",
-                        operation.idempotency_key
-                    ),
-                    idempotency: None,
-                    content_type: "application/json",
-                    body: &[],
-                },
-            )
-        })
-    else {
-        return pending_program_response(operation, trace_id);
-    };
-    if matches!(upstream.status, 202 | 404) {
-        return pending_program_response(operation, trace_id);
-    }
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        return response(502, "component_invalid", None);
-    }
-    let Ok(document): Result<serde_json::Value, _> = serde_json::from_slice(&upstream.body) else {
-        return response(502, "component_invalid", None);
-    };
-    let component: LifecycleActivity =
-        match serde_json::from_value::<LifecycleActivity>(document["result"].clone()) {
-            Ok(value) if value.activity_id == operation.activity_id => value,
-            _ => return response(502, "lifecycle_binding_invalid", None),
-        };
-    let Ok(receipt) = decode_hex(&component.receipt, 1_048_576) else {
-        return response(502, "component_invalid", None);
-    };
-    let facts = match authority(config, &operation.activity_id, &receipt) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    let receipt_keys = match config.receipt_keys() {
-        Ok(keys) => keys,
-        Err(unavailable) => return unavailable.into(),
-    };
-    if let Err(error) = receipt_keys.authorization_for_facts(facts) {
-        return unauthorized_or(error, response(502, "receipt_verification_failed", None));
-    }
-    if program_lifecycle::verify_receipt(&receipt, &facts.authorized(), binding.activity_id())
-        .is_err()
-    {
-        return response(502, "receipt_verification_failed", None);
-    }
-    let Ok(decoded) = layerx_wire::receipt::decode(&receipt) else {
-        return response(502, "receipt_verification_failed", None);
-    };
-    let Some(protocol) = decoded.protocol() else {
-        return response(502, "receipt_verification_failed", None);
-    };
-    complete_pending_lifecycle(
-        config,
-        record,
-        operation,
-        &receipt,
-        protocol.result_code(),
-        trace_id,
-    )
-}
-
 fn resolve_pending_program(
     config: &Config,
     record: &KeyRecord,
     operation: &OperationRecord,
     trace_id: &str,
 ) -> OutgoingResponse {
-    if !operation.continuation.is_empty() {
-        let Ok(canonical) = decode_hex(&operation.continuation, 1_048_576) else {
-            return response(503, "persistence_unavailable", Some(5));
-        };
-        let modules = match config.modules() {
-            Ok(modules) => modules,
-            Err(unavailable) => return unavailable.into(),
-        };
-        let Ok(activity) = decode_signed(&canonical, modules) else {
-            return response(503, "persistence_unavailable", Some(5));
-        };
-        let ordinal = activity.activity_type().ordinal();
-        if activity.activity_type().module() == ModuleId::Programs && matches!(ordinal, 1 | 2 | 7) {
-            if program_lifecycle::validate(&canonical, modules, ordinal).is_err() {
-                return response(502, "lifecycle_binding_invalid", None);
-            }
-            return resolve_pending_lifecycle(config, record, operation, trace_id);
-        }
-    }
     let Ok(upstream) = config
         .target(KernelBackend::Component)
         .and_then(|(endpoint, token)| {
@@ -3395,32 +3071,10 @@ fn resolve_pending_program(
 
 fn read_route(
     config: &Config,
-    request: &IncomingRequest,
     record: &KeyRecord,
     route: &ProductionRoute<'_>,
     trace_id: &str,
 ) -> OutgoingResponse {
-    let expected_receipt_activity = match &route {
-        ProductionRoute::ProgramRegistry(program) | ProductionRoute::ProgramInterface(program) => {
-            if program_selector(request, program).is_err() {
-                return response(400, "invalid_program_selector", None);
-            }
-            None
-        }
-        ProductionRoute::ProgramReceiptByIdempotency(idempotency) => {
-            match program_receipt_selector(request, idempotency) {
-                Ok(activity_id) => Some(activity_id),
-                Err(()) => return response(400, "invalid_program_receipt_selector", None),
-            }
-        }
-        ProductionRoute::ProgramActivity(activity_id) => {
-            if program_activity_selector(request, activity_id).is_err() {
-                return response(400, "invalid_program_activity_selector", None);
-            }
-            None
-        }
-        _ => None,
-    };
     match config.store.consume_read(
         record,
         now().unwrap_or(0),
@@ -3440,32 +3094,7 @@ fn read_route(
         ProductionRoute::Receipt(activity_id) => {
             read_receipt(config, record, activity_id, trace_id)
         }
-        ProductionRoute::ProgramCatalog => read_program_catalog(config, trace_id),
-        ProductionRoute::ProgramRegistry(program) => {
-            read_program_registry(config, program, trace_id)
-        }
-        ProductionRoute::ProgramInterface(program) => {
-            read_program_interface(config, program, trace_id)
-        }
-        ProductionRoute::ProgramReceiptByIdempotency(idempotency) => read_program_receipt(
-            config,
-            record,
-            idempotency,
-            trace_id,
-            expected_receipt_activity.as_deref(),
-        ),
-        ProductionRoute::ProgramActivity(activity_id) => {
-            read_program_activity(config, record, activity_id, trace_id)
-        }
-        ProductionRoute::Activity
-        | ProductionRoute::Settle
-        | ProductionRoute::ProgramCall
-        | ProductionRoute::ProgramDeploy
-        | ProductionRoute::ProgramUpgrade
-        | ProductionRoute::ProgramWindDown
-        | ProductionRoute::ProgramSimulation
-        | ProductionRoute::ProgramSource(_)
-        | ProductionRoute::ProgramRead => response(404, "not_found", None),
+        ProductionRoute::Settle => response(404, "not_found", None),
     }
 }
 
@@ -3616,22 +3245,27 @@ fn route_with_peer(
     request: &IncomingRequest,
     peer: Option<SocketAddr>,
 ) -> OutgoingResponse {
+    let path = request
+        .path
+        .split_once('?')
+        .map_or(request.path.as_str(), |(path, _)| path);
+    if path == "/v1/activities"
+        || path.starts_with("/v1/activities/")
+        || path == "/v1/programs"
+        || path.starts_with("/v1/programs/")
+    {
+        return response(404, "not_found", None);
+    }
     public_reads::bind_client(
         &config.trusted_proxies,
         peer,
         request.headers.get("x-forwarded-for").map(String::as_str),
     );
-    let program_request = programs_request_path(&request.method, &request.path);
     let trace_id = trace(request);
     if request.headers.contains_key("x-layerx-principal")
         || request.headers.contains_key("x-layerx-api-key")
     {
-        let result = response(400, "untrusted_identity_header", None);
-        return if program_request {
-            agent_refusal(&trace_id, result)
-        } else {
-            result
-        };
+        return response(400, "untrusted_identity_header", None);
     }
     if let Some(result) = routes::route(config, request, peer) {
         return result;
@@ -3675,70 +3309,21 @@ fn route_with_peer(
         return manage_keys(config, request);
     }
     let Ok(parsed) = production_route(&request.method, &request.path) else {
-        let result = response(404, "not_found", None);
-        return if program_request {
-            agent_refusal(&trace_id, result)
-        } else {
-            result
-        };
+        return response(404, "not_found", None);
     };
     if let Err(unavailable) = config.backend(KernelBackend::Component) {
-        let result = OutgoingResponse::from(unavailable);
-        return if program_request {
-            agent_refusal(&trace_id, result)
-        } else {
-            result
-        };
+        return OutgoingResponse::from(unavailable);
     }
     let record = match authenticate_key(config, request) {
         Ok(value) => value,
-        Err(error) => {
-            return if program_request {
-                agent_refusal(&trace_id, error)
-            } else {
-                error
-            };
-        }
+        Err(error) => return error,
     };
     if !permits(&record, &parsed) {
-        let result = response(403, "insufficient_scope", None);
-        return if program_request {
-            agent_refusal(&trace_id, result)
-        } else {
-            result
-        };
+        return response(403, "insufficient_scope", None);
     }
-    let result = match parsed {
+    match parsed {
         ProductionRoute::Settle => settle(config, request, &record, &trace_id),
-        ProductionRoute::ProgramCall => {
-            activity(config, request, &record, &trace_id, true, false, None)
-        }
-        ProductionRoute::Activity
-        | ProductionRoute::ProgramDeploy
-        | ProductionRoute::ProgramUpgrade
-        | ProductionRoute::ProgramWindDown => {
-            activity(config, request, &record, &trace_id, false, false, None)
-        }
-        ProductionRoute::ProgramSimulation | ProductionRoute::ProgramRead => {
-            program_simulation(config, request, &record, &trace_id)
-        }
-        ProductionRoute::ProgramSource(program) => {
-            publish_program_source(config, request, &record, program, &trace_id)
-        }
-        read => read_route(config, request, &record, &read, &trace_id),
-    };
-    if program_request
-        && !(request.method == "POST"
-            && (request.path == "/v1/programs/call"
-                || program_lifecycle::ordinal(&request.path).is_some())
-            && (200..300).contains(&result.status))
-    {
-        match config.receipt_keys() {
-            Ok(receipt_keys) => agent_response(&trace_id, result, receipt_keys),
-            Err(unavailable) => agent_refusal(&trace_id, OutgoingResponse::from(unavailable)),
-        }
-    } else {
-        result
+        read => read_route(config, &record, &read, &trace_id),
     }
 }
 
@@ -3998,6 +3583,13 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
         paxeer_chain_readiness(config),
         consensus_readiness(config),
     ];
+    if KernelBackend::ALL
+        .into_iter()
+        .all(|backend| config.backend(backend).is_err())
+    {
+        backends.retain(|backend| backend.configured || backend.backend == "paxeer_chain");
+        return backends;
+    }
     backends.extend(KernelBackend::ALL.into_iter().map(|backend| {
         kernel_availability(config, backend, |endpoint, token| match backend {
             KernelBackend::Component => dependency_ready(config, endpoint, token, true),
@@ -4085,26 +3677,6 @@ fn consensus_readiness(config: &Config) -> BackendAvailability {
     BackendAvailability::probed("consensus", ready)
 }
 
-fn layerx_activity_readiness(backends: &[BackendAvailability]) -> BackendAvailability {
-    let required = [
-        "durable_store",
-        KernelBackend::Component.name(),
-        KernelBackend::Authority.name(),
-    ];
-    if required.iter().any(|name| {
-        !backends
-            .iter()
-            .any(|backend| backend.backend == *name && backend.configured)
-    }) {
-        BackendAvailability::not_configured("layerx_activity")
-    } else {
-        BackendAvailability::probed(
-            "layerx_activity",
-            required.iter().all(|name| backend_ready(backends, name)),
-        )
-    }
-}
-
 fn backend_ready(backends: &[BackendAvailability], name: &str) -> bool {
     backends
         .iter()
@@ -4127,7 +3699,9 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
         return response(503, "readiness_clock_unavailable", None);
     };
     let backends = readiness(config);
-    let activity = layerx_activity_readiness(&backends);
+    let kernel_configured = KernelBackend::ALL
+        .into_iter()
+        .any(|backend| config.backend(backend).is_ok());
     let chain = backends
         .iter()
         .find(|backend| backend.backend == "paxeer_chain")
@@ -4141,10 +3715,12 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
     } else {
         serde_json::Value::Null
     };
-    let complete = if include_product_routes {
+    let complete = if !kernel_configured {
+        backends.iter().all(|backend| backend.ready) && chain.ready
+    } else if include_product_routes {
         backends.iter().all(|backend| backend.ready) && product_routes["complete"] == true
     } else {
-        activity.ready
+        backends.iter().all(|backend| backend.ready)
     };
     let component_name = |name: &str| {
         if backend_ready(&backends, name) {
@@ -4153,6 +3729,15 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
             "unavailable"
         }
     };
+    let mut components = serde_json::json!({
+        "durable_store": component_name("durable_store")
+    });
+    if kernel_configured {
+        for backend in KernelBackend::ALL {
+            components[backend.name()] = serde_json::json!(component_name(backend.name()));
+        }
+        components["principal_state_boundary"] = serde_json::json!("unavailable");
+    }
     json_response(
         if (include_product_routes && serving) || (!include_product_routes && complete) {
             200
@@ -4176,18 +3761,9 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
                     "state": if chain.ready { "ready" } else { "unavailable" },
                     "reason": chain.reason,
                     "chain_id": 125_u64
-                },
-                "layerx_activity": activity.document()
+                }
             },
-            "components": {
-                "durable_store": component_name("durable_store"),
-                "core_agent_boundary": component_name(KernelBackend::Component.name()),
-                "public_core": component_name(KernelBackend::PublicCore.name()),
-                "identity": component_name(KernelBackend::Identity.name()),
-                "independent_receipt_authority": component_name(KernelBackend::Authority.name()),
-                "program_registry": component_name(KernelBackend::Registry.name()),
-                "principal_state_boundary": "unavailable"
-            },
+            "components": components,
             "product_routes": product_routes,
             "backends": backends
                 .iter()
@@ -5234,57 +4810,6 @@ fn rotate_key(
     }
 }
 
-fn complete_pending_lifecycle(
-    config: &Config,
-    record: &KeyRecord,
-    operation: &OperationRecord,
-    receipt: &[u8],
-    result_code: i32,
-    trace_id: &str,
-) -> OutgoingResponse {
-    if result_code == 0 {
-        if let Err(error) = publish_lifecycle(
-            config,
-            &operation.continuation,
-            &operation.activity_id,
-            receipt,
-        ) {
-            return error;
-        }
-    }
-    let result = serde_json::json!({
-        "activity_id": operation.activity_id, "receipt": hex(receipt),
-        "state": if result_code == 0 { "completed" } else { "refused" },
-        "terminal_payload": "", "call_graph": "",
-    });
-    if config
-        .store
-        .complete(Completion {
-            idempotency_scope: &operation.scope,
-            request_digest: &operation.digest,
-            state: if result_code == 0 {
-                "completed"
-            } else {
-                "refused"
-            },
-            response_hex: &hex(result.to_string().as_bytes()),
-            receipt_hex: &hex(receipt),
-            activity_id: Some(&operation.activity_id),
-            principal_digest: &record.principal_digest,
-            audit_event: &audit_event(
-                &record.principal_digest,
-                "program_reconcile",
-                &record.key_id,
-                "receipt_verified",
-            ),
-        })
-        .is_err()
-    {
-        return response(503, "persistence_unavailable", Some(5));
-    }
-    program_terminal_response(config, result, trace_id, false)
-}
-
 fn retain_submission_binding(
     result: &mut serde_json::Value,
     idempotency: &str,
@@ -5359,8 +4884,7 @@ mod programs_wire_tests {
         agent_error_class, agent_response, hex, json_response, now_millis, parse_program_head,
         pending_program_response, program_activity_selector, program_discovery_proof_digest,
         program_head_is_current, program_receipt_selector, program_selector,
-        program_source_publication, programs_request_path, response, upstream_value_accounts,
-        ProgramDiscoveryHead,
+        program_source_publication, response, upstream_value_accounts, ProgramDiscoveryHead,
     };
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_platform_gateway::http::IncomingRequest;
@@ -5951,21 +5475,30 @@ mod programs_wire_tests {
             ("GET", format!("/v1/programs/receipts/by-idempotency/{id}")),
             ("GET", format!("/v1/programs/activities/{id}")),
         ] {
-            assert!(programs_request_path(method, &path));
+            assert_eq!(
+                super::production_route(method, &path),
+                Err(super::GatewayError::InvalidRoute)
+            );
         }
-        assert!(!programs_request_path(
-            "GET",
-            &format!("/v1/programs/registry/{id}/source")
-        ));
-        assert!(!programs_request_path("POST", "/v1/programs/registry"));
-        assert!(!programs_request_path(
-            "POST",
-            &format!("/v1/programs/registry/{id}")
-        ));
-        assert!(!programs_request_path(
-            "GET",
-            &format!("/v1/programs/activities/{}", "A".repeat(64))
-        ));
+        assert_eq!(
+            super::production_route("GET", &format!("/v1/programs/registry/{id}/source")),
+            Err(super::GatewayError::InvalidRoute)
+        );
+        assert_eq!(
+            super::production_route("POST", "/v1/programs/registry"),
+            Err(super::GatewayError::InvalidRoute)
+        );
+        assert_eq!(
+            super::production_route("POST", &format!("/v1/programs/registry/{id}")),
+            Err(super::GatewayError::InvalidRoute)
+        );
+        assert_eq!(
+            super::production_route(
+                "GET",
+                &format!("/v1/programs/activities/{}", "A".repeat(64))
+            ),
+            Err(super::GatewayError::InvalidRoute)
+        );
     }
 
     #[test]
@@ -6812,7 +6345,10 @@ mod settlement_contract_tests {
         for scopes in ["activity:write", "program:read", "state:read"] {
             assert!(!permits(&key_record(scopes), &ProductionRoute::Settle));
         }
-        assert!(!programs_request_path("POST", "/v1/settle"));
+        assert_eq!(
+            production_route("POST", "/v1/settle"),
+            Ok(ProductionRoute::Settle)
+        );
     }
 
     #[test]
@@ -7499,7 +7035,7 @@ mod complete_readiness_contract_tests {
             let capabilities = document["capabilities"]
                 .as_object()
                 .expect("capabilities object");
-            assert_eq!(capabilities.len(), 2);
+            assert_eq!(capabilities.len(), 1);
             let chain = capabilities["chain_serving"]
                 .as_object()
                 .expect("chain capability");
@@ -7508,12 +7044,7 @@ mod complete_readiness_contract_tests {
             assert_eq!(chain["state"], backends["paxeer_chain"]["state"]);
             assert_eq!(chain["reason"], backends["paxeer_chain"]["reason"]);
             assert_eq!(chain["state"], case[scope]["chain_state"]);
-            let activity = capabilities["layerx_activity"]
-                .as_object()
-                .expect("activity capability");
-            assert_eq!(activity.len(), 2);
-            assert_eq!(activity["state"], case[scope]["activity_state"]);
-            assert_eq!(activity["reason"], case[scope]["activity_reason"]);
+            assert!(!capabilities.contains_key("layerx_activity"));
             assert_eq!(document["status"], case[scope]["status"]);
             assert_eq!(
                 u64::from(response.status),
@@ -7523,8 +7054,10 @@ mod complete_readiness_contract_tests {
                 assert!(document["product_routes"].is_object());
             } else {
                 assert!(document["product_routes"].is_null());
-                assert_eq!(response.status == 200, activity["state"] == "ready");
-                assert_eq!(document["status"] == "ready", activity["state"] == "ready");
+                let all_backends_ready =
+                    backends.values().all(|backend| backend["state"] == "ready");
+                assert_eq!(response.status == 200, all_backends_ready);
+                assert_eq!(document["status"] == "ready", all_backends_ready);
             }
             let observed_at = document["observed_at_ms"]
                 .as_u64()

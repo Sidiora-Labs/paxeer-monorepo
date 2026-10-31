@@ -25,6 +25,11 @@ const PaxeerXAnchorsTableItem = ({ item, isLoading }: Props) => {
   return (
     <TableRow data-anchor={ item.checkpoint_id }>
       <TableCell verticalAlign="middle">
+        <Skeleton loading={ isLoading } display="inline-block" fontWeight={ 600 } data-label="batch-number">
+          { item.batch_number }
+        </Skeleton>
+      </TableCell>
+      <TableCell verticalAlign="middle">
         <Skeleton loading={ isLoading } display="inline-block" fontWeight={ 600 } data-label="checkpoint-height">
           { item.checkpoint_height ?? <Text as="span" color="text.secondary">—</Text> }
         </Skeleton>

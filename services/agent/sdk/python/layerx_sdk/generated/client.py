@@ -55,13 +55,37 @@ def parse_timestamp_seconds(value: str) -> TimestampSeconds:
         raise OverflowError("TimestampSeconds out of range")
     return parsed
 
+class SignatureBytes(bytes):
+    def __new__(cls, value: bytes) -> "SignatureBytes":
+        if not isinstance(value, bytes) or len(value) != 65:
+            raise ValueError("invalid signature length")
+        return super().__new__(cls, value)
+
+
+class AddressBytes(bytes):
+    def __new__(cls, value: bytes) -> "AddressBytes":
+        if not isinstance(value, bytes) or len(value) != 20:
+            raise ValueError("invalid address length")
+        return super().__new__(cls, value)
+
+
+class SignRequest(TypedDict):
+    preparation_ref: str
+    signature: SignatureBytes
+
+
+class SubmitRequest(TypedDict):
+    preparation_ref: str
+    signature: SignatureBytes
+
+
 class Rung(IntEnum):
     SUBMITTED = 0
     RECEIPTED = 1
     COMMITTED = 2
 
 ErrorClass = Literal["TransportFailure", "Deadline", "ProtocolIncompatibility", "UnavailableCapability", "CoreRejection", "VerificationFailure", "PolicyRefusal", "CapabilityRefusal", "BudgetRefusal", "RateLimit", "IdempotencyConflict", "InternalFault"]
-Operation = Literal["agent.register", "approval.approve", "approval.get", "approval.list", "approval.reject", "availability.fetch", "budget.create", "budget.fund", "budget.list", "budget.reconciliation", "budget.revoke", "budget.state", "capability.attenuate", "capability.create", "capability.list", "capability.revoke", "export.offline", "faucet.claim", "mcp.invoke", "policy.dry_run", "prepare", "program.activity", "program.call", "program.deploy", "program.discover", "program.interface", "program.receipt", "program.simulate", "program.upgrade", "program.wind-down", "project", "read.account", "read.balance", "read.batch", "read.checkpoint", "read.history", "read.module_state", "read.proof_bundle", "session.close", "session.list", "session.open", "session.refresh", "sign", "submit", "subscription.acknowledge", "subscription.create", "subscription.delete", "subscription.health", "subscription.list", "subscription.pause", "subscription.resume", "tenant.readiness", "track", "wait"]
+Operation = Literal["agent.register", "approval.approve", "approval.get", "approval.list", "approval.reject", "availability.fetch", "budget.create", "budget.fund", "budget.list", "budget.reconciliation", "budget.revoke", "budget.state", "capability.attenuate", "capability.create", "capability.list", "capability.revoke", "export.offline", "mcp.invoke", "policy.dry_run", "prepare", "program.activity", "program.call", "program.deploy", "program.discover", "program.interface", "program.receipt", "program.simulate", "program.upgrade", "program.wind-down", "project", "read.account", "read.balance", "read.batch", "read.checkpoint", "read.history", "read.module_state", "read.proof_bundle", "session.close", "session.list", "session.open", "session.refresh", "sign", "submit", "subscription.acknowledge", "subscription.create", "subscription.delete", "subscription.health", "subscription.list", "subscription.pause", "subscription.resume", "tenant.readiness", "track", "wait"]
 
 APPROVAL_CONTRACT_INTRODUCED = "1.1"
 APPROVAL_ENFORCEMENT_NOTICE = "An approval hold is a daemon-enforced restriction. It confers no protocol authority, and bypassing the daemon bypasses the restriction."
@@ -370,26 +394,25 @@ def require_verified(requested: Rung, read: VerifiedRead[_R]) -> VerifiedRead[_R
     return read
 
 @dataclass(frozen=True)
-class SubmissionUnknown:
-    kind: Literal["Unknown"] = "Unknown"
+class SubmissionSubmitted:
+    tx_hash: str
+    kind: Literal["Submitted"] = "Submitted"
 
 @dataclass(frozen=True)
-class SubmissionExecuted:
-    receipt_ref: str
-    kind: Literal["Executed"] = "Executed"
+class SubmissionReceipted:
+    kind: Literal["Receipted"] = "Receipted"
 
 @dataclass(frozen=True)
-class SubmissionFailed:
-    protocol_result_code: int
-    kind: Literal["Failed"] = "Failed"
+class SubmissionCommitted:
+    kind: Literal["Committed"] = "Committed"
 
 @dataclass(frozen=True)
-class SubmissionPending:
-    stage: str
-    kind: Literal["Pending"] = "Pending"
+class SubmissionReverted:
+    revert_reason: str
+    kind: Literal["Reverted"] = "Reverted"
 
 SubmissionState: TypeAlias = (
-    SubmissionUnknown | SubmissionExecuted | SubmissionFailed | SubmissionPending
+    SubmissionSubmitted | SubmissionReceipted | SubmissionCommitted | SubmissionReverted
 )
 
 @dataclass(frozen=True)

@@ -373,7 +373,7 @@ impl AgentSessionContract for AgentLayer {
         let event = RevocationEvent {
             did: self.did.clone(),
             authority: Some(ProtocolAuthority::SessionKey(target.grant_id)),
-            reason: InvalidationReason::SessionKeyRevoked,
+            reason: InvalidationReason::GrantRevokedOnChain,
             observed_sequence: self.core_sequence.saturating_add(1),
         };
         invalidate_on_revocation(&mut self.store, &mut self.registry, &mut [], &event)

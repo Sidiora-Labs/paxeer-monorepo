@@ -470,7 +470,6 @@ fn decode_log(
         .first_address(&event.params)
         .or_else(|| decoded.arg("account").and_then(bare_bytes32))
         .or_else(|| decoded.arg("beneficiary").and_then(bare_bytes32));
-    custody_legs(unit, &decoded, source, ordinal, &emitter_text);
     unit.events.push(EventRow {
         height_or_seq: height,
         source: "evm-log".to_owned(),
@@ -532,85 +531,6 @@ fn holder_record(
         tx_id: tx_hash.to_owned(),
         decoded: document,
     });
-}
-
-fn custody_legs(
-    unit: &mut Unit,
-    decoded: &DecodedEvent,
-    source: &LogSource<'_>,
-    ordinal: u64,
-    emitter: &str,
-) {
-    let LogSource {
-        height,
-        tx_hash,
-        tx_index,
-        ..
-    } = *source;
-    let text = |name: &str| decoded.arg(name).and_then(Value::as_str).map(str::to_owned);
-    let bytes32 = |name: &str| decoded.arg(name).and_then(bare_bytes32);
-    let legs: Vec<(&str, &'static str, String, Option<String>)> = match decoded.name.as_str() {
-        "CustodyDeposit" => {
-            let (Some(payer), Some(beneficiary)) = (text("payer"), bytes32("beneficiary")) else {
-                return;
-            };
-            vec![
-                (
-                    "custody_deposit",
-                    "out",
-                    payer.clone(),
-                    Some(beneficiary.clone()),
-                ),
-                ("custody_deposit", "in", beneficiary, Some(payer)),
-            ]
-        }
-        "CustodyRelease" => {
-            let Some(recipient) = text("recipient") else {
-                return;
-            };
-            vec![("custody_release", "in", recipient, Some(emitter.to_owned()))]
-        }
-        "EmergencyExitExecuted" => {
-            let Some(recipient) = text("recipient") else {
-                return;
-            };
-            vec![("emergency_exit", "in", recipient, bytes32("account"))]
-        }
-        _ => return,
-    };
-    if decoded.contract != "layerxcustody" {
-        return;
-    }
-    let (Some(asset), Some(amount)) = (bytes32("assetId"), text("amount")) else {
-        return;
-    };
-    unit.assets.push(AssetRow {
-        asset: asset.clone(),
-        chain: crate::layerx::CHAIN.to_owned(),
-        kind: "layerx".to_owned(),
-        address: None,
-        denom: None,
-        metadata: json!({}),
-    });
-    for (kind, direction, account, counterparty) in legs {
-        unit.transfers.push(TransferRow {
-            height_or_seq: height,
-            tx_index,
-            kind: kind.to_owned(),
-            direction,
-            account,
-            counterparty,
-            asset: asset.clone(),
-            amount: amount.clone(),
-            tx_id: tx_hash.to_owned(),
-            ordinal,
-            decoded: json!({
-                "block_number": height.to_string(),
-                "event": decoded.name,
-                "args": Value::Object(decoded.args.clone()),
-            }),
-        });
-    }
 }
 
 fn attribute_text(value: &Value, encoding: AttributeEncoding) -> Result<String, IndexError> {

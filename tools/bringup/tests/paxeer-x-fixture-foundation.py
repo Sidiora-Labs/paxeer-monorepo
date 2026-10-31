@@ -19,7 +19,7 @@ spec = importlib.util.spec_from_file_location('foundation_artifacts', Path(__fil
 ART = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ART)
 SOURCES = ('docker/kernel', 'services/platform/hosted/node', 'services/platform/hosted/paxeer',
-           'services/platform/hosted/tests/publication-policy.py', 'services/wallet/attestor',
+           'services/wallet/attestor',
            'tools/bringup/kernel-genesis.sh', 'contracts/config/checkpoint-settlement.json',
            'migrations/0007_history_index.sql')
 NETWORK_ID = 77
@@ -310,12 +310,6 @@ for node in range(1,6):
         genesis = json.loads((self.output / 'chain' / 'config' / 'genesis.json').read_text())
         require(genesis['chain_id'] == 'hyperpax_125-1', 'real genesis source-network mismatch')
         require(genesis['app_state']['layerxcustody'] == json.loads((self.output / 'genesis' / 'custody.json').read_text()), 'custody genesis producer mismatch')
-        height_code = "import json,urllib.request; print(int(json.load(urllib.request.urlopen('http://127.0.0.1:26657/status'))['result']['sync_info']['latest_block_height'])-1)"
-        height = int(self.execute(['python3', '-c', height_code]))
-        self.execute(['/artifacts/layerx-custody-proof', 'light-profile', '--rpc', 'http://127.0.0.1:26657', '--asset', asset,
-                      '--network-id', str(NETWORK_ID), '--trusted-height', str(height), '--trusting-period-seconds', '86400',
-                      '--output', '/fixture/genesis/custody.profile'])
-        require((self.output / 'genesis' / 'custody.profile').stat().st_size == 223, 'actual custody profile length mismatch')
         treasury_seed = (self.output / 'keys' / 'treasury.key').read_bytes()
         treasury = self.producer(['openssl', 'pkey', '-inform', 'DER', '-pubout', '-outform', 'DER'],
                                 data=bytes.fromhex('302e020100300506032b657004220420') + treasury_seed)[-32:].hex()
@@ -325,11 +319,11 @@ for node in range(1,6):
                    '\nASSET_SYMBOL=PAX\nASSET_DECIMALS=6\nwrite_genesis_metadata() {' + function + '\n}\nwrite_genesis_metadata')
         self.execute(['bash', '/source/services/platform/hosted/node/bootstrap.sh', '--data-dir', '/fixture/node', '--run-dir', '/fixture/run',
                       '--network-id', str(NETWORK_ID), '--sequencer-key', '/fixture/keys/sequencer.key', '--treasury-key', '/fixture/keys/treasury.key',
-                      '--asset', asset, '--genesis-metadata', '/fixture/genesis/metadata.lxgb', '--custody-profile', '/fixture/genesis/custody.profile',
+                      '--asset', asset, '--genesis-metadata', '/fixture/genesis/metadata.lxgb',
                       '--genesis-build', '/artifacts/layerx-genesis-build', '--layerxd', '/artifacts/layerxd',
                       '--migrations', '/source/migrations/0007_history_index.sql'])
         module_args = ['/artifacts/layerx-module-registry', 'generate', '--network-id', str(NETWORK_ID), '--protocol-version', '3',
-                       '--asset', asset, '--symbol', 'PAX', '--currency', 'PAX', '--decimals', '6', '--custody-profile', '/fixture/genesis/custody.profile']
+                       '--asset', asset, '--symbol', 'PAX', '--currency', 'PAX', '--decimals', '6']
         for module in (ROOT / 'services/platform/hosted/node/genesis-modules.conf').read_text().splitlines():
             if module:
                 module_args += ['--enable-module', module]
@@ -337,11 +331,8 @@ for node in range(1,6):
         require(registry.get('schema_version') == 2 and registry.get('assets') == [{'asset': asset, 'symbol': 'PAX', 'currency': 'PAX', 'decimals': 6}], 'canonical registry asset identity mismatch')
         require(len(registry.get('modules', [])) == 7, 'canonical registry must contain all seven genesis modules')
         write(self.output / 'genesis' / 'module-registry.json', registry)
-        self.execute(['python3', '/source/services/platform/hosted/tests/publication-policy.py', 'treasury', '/fixture/genesis/binding-policy.json', str(NETWORK_ID), asset, address.removeprefix('0x')])
-        self.execute(['python3', '/source/services/platform/hosted/tests/publication-policy.py', 'authorization', '/fixture/genesis/publication-authorization.json',
-                      str(NETWORK_ID), '125', '0x0000000000000000000000000000000000001014', '0x0000000000000000000000000000000000001014',
-                      '0x0000000000000000000000000000000000001013', treasury, asset, address.removeprefix('0x'), '--human-socket', 'none',
-                      '--deposit-authority-key-file', '/fixture/keys/deposit.pem'])
+        write(self.output / 'genesis' / 'binding-policy.json',
+              {'asset_id': asset, 'network_id': NETWORK_ID, 'recipient': address.removeprefix('0x'), 'version': 1})
         node_ca, gateway_ca, operator_ca = self.ca('nodes'), self.ca('gateways'), self.ca('operators')
         self.identity('gateway', gateway_ca, 'clientAuth', ipv6)
         self.identity('operator', operator_ca, 'clientAuth', ipv6)
@@ -388,10 +379,10 @@ for node in range(1,6):
                          'sequencer_public_key': public, 'treasury_public_key': treasury, 'deposit_root_authority': deposit,
                          'attestors': members, 'authority': {'issuer': 'disposable-foundation', 'tenant': self.name,
                          'public_key': 'authority/public.pem', 'signing_key': 'authority/key.pem', 'inventory': 'authority/inventory.jwt'},
-                         'inputs': {'module_registry': 'genesis/module-registry.json', 'custody_profile': 'genesis/custody.profile',
+                         'inputs': {'module_registry': 'genesis/module-registry.json',
                          'metadata': 'genesis/metadata.lxgb', 'binding_policy': 'genesis/binding-policy.json',
                          'environment': 'genesis/environment.json', 'endpoint_policy': 'genesis/endpoint-policy.json',
-                         'publication_authorization': 'genesis/publication-authorization.json', 'native_genesis': 'node/genesis/genesis.manifest',
+                         'native_genesis': 'node/genesis/genesis.manifest',
                          'native_snapshot': 'node/genesis/00000000000000000000.lxs',
                          'native_registration': 'node/genesis/genesis.registration'},
                          'tls': {'node_ca': 'trust/nodes/ca.pem', 'gateway_ca': 'trust/gateways/ca.pem', 'operator_ca': 'trust/operators/ca.pem',
@@ -428,7 +419,7 @@ for node in range(1,6):
         self.wait_attestors()
 
     def restart(self):
-        protected = ['chain/config/genesis.json', 'genesis/custody.json', 'genesis/anchor.json', 'genesis/custody.profile',
+        protected = ['chain/config/genesis.json', 'genesis/custody.json', 'genesis/anchor.json',
                      'genesis/metadata.lxgb', 'genesis/module-registry.json', 'keys/treasury.key', 'keys/sequencer.key',
                      'authority/key.pem', 'authority/inventory.jwt', 'node/genesis/genesis.manifest']
         before = {name: ART.sha256(self.output / name) for name in protected}

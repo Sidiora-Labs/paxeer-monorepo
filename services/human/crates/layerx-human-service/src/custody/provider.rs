@@ -694,7 +694,7 @@ impl RemoteCustodySigner {
         disclosure: &Disclosure,
         _registry: &ModuleRegistry,
     ) -> Result<[u8; 65], CustodyError> {
-        let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(canonical_bytes)
+        let call = crate::server::agent_runtime::decode_unsigned(canonical_bytes)
             .map_err(|_| CustodyError::Sign(layerx_crypto::signer::SignError::InvalidDisclosure))?;
         let from =
             disclosure.actor.as_slice().try_into().map_err(|_| {

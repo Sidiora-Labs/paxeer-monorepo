@@ -389,9 +389,20 @@ def self_test(catalogue):
     spec = (ROOT / "spec/layerx-merge/spec.kvx").read_text()
     required = set()
     for line in spec.splitlines():
-        if line.startswith("verify_cmd = ") and "retired_callers_test.py" in line:
-            required.update(re.findall(r"--component ([a-z][a-z0-9-]*)", line))
-    check_equal(set(components), required, "complete component catalogue")
+        if "retired_callers_test.py" in line:
+            required.update(
+                re.findall(
+                    r"--component ([a-z][a-z0-9-]*)(?= --| with --| and\b|[\"']|$)",
+                    line,
+                )
+            )
+    missing = sorted(required - set(components))
+    check_equal(
+        missing,
+        [],
+        "complete component catalogue"
+        + (": missing " + ", ".join(missing) if missing else ""),
+    )
     check_equal(
         {entry.get("req") for entry in components.values()},
         {str(11000 + number) for number in range(1, 50) if number not in {6, 7}},
@@ -828,9 +839,9 @@ def self_test(catalogue):
             "services/agent/crates/layerx-paxeer-verifier/README.md",
         ),
         (
-            "agent",
+            "services/agent",
             "reviewed retirement notes",
-            "documentation path overlaps deleted tree: agent",
+            "documentation path overlaps deleted tree: services/agent",
         ),
         (
             "/spec/layerx-merge/docs",

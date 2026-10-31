@@ -18,6 +18,7 @@ const PaxeerXAnchorsTable = ({ items, top = 0, isLoading }: Props) => {
     <TableRoot variant="scan" minW="1000px" data-label="paxeer-x-anchors">
       <TableHeaderSticky top={ top }>
         <TableRow>
+          <TableColumnHeader width="100px">Batch</TableColumnHeader>
           <TableColumnHeader width="150px">Checkpoint height</TableColumnHeader>
           <TableColumnHeader width="150px">Sealed height</TableColumnHeader>
           <TableColumnHeader width="30%">State root</TableColumnHeader>

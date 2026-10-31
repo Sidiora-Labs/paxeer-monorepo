@@ -3,17 +3,15 @@ import type { PaxeerXArchiveAnchorsResponse, PaxeerXArchiveReceipt, PaxeerXArchi
 import type { PaxeerXTxStatus } from 'types/api/paxeerXLists';
 import type { PaxeerXTxSignature } from 'types/api/paxeerXSignature';
 
-const paxeer_x_tx_signature = {
-  path: '/api/v2/transactions/:hash/signature',
-  pathParams: [ 'hash' as const ],
-} satisfies ApiResource;
-
 export const GENERAL_API_PAXEER_X_LISTS_RESOURCES = {
   paxeer_x_tx_status: {
     path: '/api/v2/transactions/:hash/status',
     pathParams: [ 'hash' as const ],
   },
-  paxeer_x_tx_signature,
+  paxeer_x_tx_signature: {
+    path: '/api/v2/transactions/:hash/signature',
+    pathParams: [ 'hash' as const ],
+  },
   paxeer_x_anchors: {
     path: '/api/v2/paxeer-x/archive/anchors',
     filterFields: [],

@@ -339,7 +339,11 @@ func (s *SendAPI) recordReceiptLogs(signed []byte, hash common.Hash) error {
 		return invalidReceipt("summary is %d bytes", len(summary.Body))
 	}
 	txIndex := binary.BigEndian.Uint32(summary.Body[24:28])
-	rcpt, err := s.keeper.GetTransientReceipt(s.ctxProvider(PendingCtxHeight), hash, uint64(txIndex))
+	ctx := s.ctxProvider(PendingCtxHeight)
+	if ctx.BlockHeight() != int64(height) {
+		return mismatch("pending height %d, receipt height %d", ctx.BlockHeight(), height)
+	}
+	rcpt, err := s.keeper.GetTransientReceipt(ctx, hash, uint64(txIndex))
 	if err != nil {
 		return fmt.Errorf("read execution receipt at index %d: %w", txIndex, err)
 	}
