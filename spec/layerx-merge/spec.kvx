@@ -93622,7 +93622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.6.2]
 title = "Retire the queue disposition WAL record codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["1.0.1", "16.2.1", "16.96.2"]
@@ -171211,7 +171211,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.11.1]
 title = "Remove retired daemon and codec references from the arbiter producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171310,7 +171310,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.4]
 title = "Remove retired daemon and codec references from the replay and market sandbox producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171343,7 +171343,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.5]
 title = "Remove retired daemon and codec references from the native program link and archive producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171566,7 +171566,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.12]
 title = "Remove retired daemon and codec references from the custody and credit producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171597,7 +171597,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.13]
 title = "Remove retired daemon and codec references from the LNI readiness and admission producers (1 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171629,7 +171629,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.14]
 title = "Remove retired daemon and codec references from the LNI readiness and admission producers (2 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171660,7 +171660,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.15]
 title = "Remove retired daemon and codec references from the LNI readiness and admission producers (3 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171691,7 +171691,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.16]
 title = "Remove retired daemon and codec references from the client evidence producers that cite checkpoint settlement (1 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171723,7 +171723,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.17]
 title = "Remove retired daemon and codec references from the client evidence producers that cite checkpoint settlement (2 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "18.911.1"]
@@ -171757,7 +171757,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.18]
 title = "Remove retired daemon and codec references from the client evidence producers that cite checkpoint settlement (3 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
