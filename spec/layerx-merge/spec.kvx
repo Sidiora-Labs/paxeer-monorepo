@@ -134431,7 +134431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.9.2]
 title = "Drop the kernel client and program crates from the platform manifests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["8.7.3", "8.8.4", "8.11.3", "8.12.3", "8.16.4", "8.16.7", "8.1.5", "18.1083.1", "18.1297.1"]
