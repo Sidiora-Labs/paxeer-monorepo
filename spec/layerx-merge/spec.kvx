@@ -139109,7 +139109,7 @@ do_4 = "Continue from attempt 1 (fe10c7fe5): keep its deletions, scope the scan 
 
 [task.8.47.6]
 title = "Kernel program terminal v4 vectors, generator and terminal tests are removed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.41.5", "8.42.5", "8.43.5", "8.44.5", "16.97.6", "17.97.1"]
