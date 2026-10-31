@@ -114312,7 +114312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.8]
 title = "Carry the transient receipt through the accept critical section so a seal does not halt replication"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.5.4"]
@@ -133482,7 +133482,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Remove px_getBalances from kernel_backend (services/platform/hosted/gateway/src/rpc.rs:356) so dispatch reaches paxeer::dispatch without a kernel, and replace the px_getBalances assert_kernel_unavailable of services/platform/hosted/gateway/tests/degraded.rs:582-585 with an assertion of the chain-state answer {account, height, balances} that do_1 defines."
 [task.8.5.2]
 title = "Answer px_listAssets from the indexer asset list and chain metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.5.1", "8.2.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.12.3", "8.12.4"]
