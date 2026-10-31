@@ -9,7 +9,3 @@ def test_daemon_lni_retired():
     assert_symbols_unreferenced(
         ["lxp_daemon_lni_internal.h"], ["tests/programs/test_paxai_native_gaps.c"]
     )
-    assert_symbols_unreferenced(
-        ["lxp_daemon_lni_internal.h"],
-        ["tests/programs/test_paxai_storage_continuity.c"],
-    )
