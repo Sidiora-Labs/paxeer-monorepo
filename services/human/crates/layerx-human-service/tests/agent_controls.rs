@@ -47,6 +47,7 @@ use layerx_types::account::AccountId;
 use layerx_types::ids::{AssetId, Did};
 use layerx_types::intent::PurposeHash;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
@@ -85,6 +86,7 @@ struct RealAgentLayer {
     core_sequence: u64,
     installed: BTreeMap<[u8; 32], InstalledSession>,
     protocol_cache: BTreeMap<[u8; 32], ProtocolEvidence>,
+    active_budget_id: [u8; 32],
     protocol_limit_effects: usize,
     app_limit_effects: usize,
     app_limiter: Option<(BudgetLimiter, LimitId)>,
@@ -113,6 +115,7 @@ impl RealAgentLayer {
             core_sequence: 10,
             installed: BTreeMap::new(),
             protocol_cache: BTreeMap::new(),
+            active_budget_id: AGENT_ID,
             protocol_limit_effects: 0,
             app_limit_effects: 0,
             app_limiter: None,
@@ -312,7 +315,7 @@ impl AgentSessionContract for RealAgentLayer {
             &RevocationEvent {
                 did: self.did.clone(),
                 authority: Some(ProtocolAuthority::SessionKey(target.grant_id)),
-                reason: InvalidationReason::SessionKeyRevoked,
+                reason: InvalidationReason::GrantRevokedOnChain,
                 observed_sequence: self.core_sequence,
             },
         )
@@ -386,6 +389,7 @@ impl AgentCreationContract for RealAgentLayer {
             ));
         }
         self.protocol_limit_effects = self.protocol_limit_effects.saturating_add(1);
+        self.active_budget_id = action.action_key;
         self.protocol_cache
             .insert(action.action_key, receipt.clone());
         Ok(receipt)
@@ -631,7 +635,7 @@ fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
     let request = LimitChangeRequest::new([0x61; 32], 750)
         .unwrap_or_else(|error| panic!("protocol request: {error}"));
     let changed = protocol
-        .change_limit(&registry(), request, 1_002)
+        .change_limit(Rung::Committed, &registry(), request, 1_002)
         .unwrap_or_else(|error| panic!("protocol limit: {error}"));
     assert_eq!(changed.limit.monthly, 750);
     assert_eq!(changed.limit.enforcement, LimitEnforcement::Protocol);
@@ -649,7 +653,7 @@ fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
         1
     );
     let repeated = protocol
-        .change_limit(&registry(), request, 1_003)
+        .change_limit(Rung::Committed, &registry(), request, 1_003)
         .unwrap_or_else(|error| panic!("repeat protocol limit: {error}"));
     assert_eq!(repeated, changed);
     assert_eq!(
@@ -664,6 +668,7 @@ fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
     let (mut app, _) = controls("agent-controls-app-limit", LimitBacking::App);
     let changed = app
         .change_limit(
+            Rung::Committed,
             &registry(),
             LimitChangeRequest::new([0x71; 32], 100)
                 .unwrap_or_else(|error| panic!("app request: {error}")),
@@ -731,14 +736,23 @@ fn protocol_receipt_for_payload(
     action_key: [u8; 32],
     payload: &layerx_types::payload::Payload,
 ) -> ProtocolEvidence {
-    let owner = canonical_owner::sign(payload, action_key, STATE_COMMITMENT_PROTOCOL_VERSION, 77);
+    let owner = canonical_owner::sign_transaction(
+        payload,
+        action_key,
+        STATE_COMMITMENT_PROTOCOL_VERSION,
+        77,
+    );
 
     let previous_state_root = [0x81; 32];
     let fields = ReceiptFields {
         activity_id: owner.id,
         previous_state_root,
         resulting_state_root: [0x82; 32],
-        batch_id: support::execution_batch_id(previous_state_root, owner.id, 11),
+        batch_id: {
+            let mut height = [0; 32];
+            height[24..].copy_from_slice(&11_u64.to_be_bytes());
+            height
+        },
     };
     let signer = SigningKey::from_bytes(&[0x84; 32]);
     let unsigned = encode_receipt(&fields, None);
@@ -749,7 +763,7 @@ fn protocol_receipt_for_payload(
     let receipt_bytes = encode_receipt(&fields, Some(signature.to_bytes()));
     let evidence = ProtocolEvidence {
         signed_activity: owner.bytes,
-        actor: owner.actor,
+        actor: owner.public_key[12..].to_vec(),
         owner_public_key: owner.public_key,
         network_id: 77,
         action_key,
@@ -760,16 +774,45 @@ fn protocol_receipt_for_payload(
         block_height: 11,
         rung: layerx_types::rung::Rung::Committed,
     };
-    canonical_owner::assert_outcome(
-        &evidence,
-        payload.activity_type(),
-        &AuthorizedBatch::new(
-            fields.batch_id,
-            [0; 32],
-            fields.previous_state_root,
-            fields.resulting_state_root,
-            signer.verifying_key().to_bytes(),
-        ),
+    let authorized_batch = AuthorizedBatch::new(
+        fields.batch_id,
+        [0; 32],
+        fields.previous_state_root,
+        fields.resulting_state_root,
+        signer.verifying_key().to_bytes(),
+    );
+    evidence
+        .bound_activity(payload.activity_type())
+        .expect("bound owner transaction");
+    let receipt = layerx_proof::receipt::verify_sequencer_signature(
+        &evidence.receipt_bytes,
+        authorized_batch.sequencer_public_key(),
+    )
+    .expect("sequencer-signed owner transaction receipt");
+    let protocol = receipt.protocol().expect("protocol receipt");
+    assert_eq!(protocol.batch_id(), authorized_batch.batch_id());
+    assert_eq!(
+        protocol.previous_state_root(),
+        authorized_batch.previous_state_root()
+    );
+    assert_eq!(
+        protocol.resulting_state_root(),
+        authorized_batch.resulting_state_root()
+    );
+    let receipt = evidence
+        .verify_outcome(payload.activity_type())
+        .expect("verified owner transaction outcome");
+    let protocol = receipt.protocol().expect("protocol receipt");
+    assert_eq!(evidence.tx_hash, protocol.activity_id());
+    assert_eq!(evidence.tx_hash, evidence.activity_id);
+    assert_eq!(evidence.rung, layerx_types::rung::Rung::Committed);
+    assert_eq!(
+        &protocol.batch_id()[24..],
+        &evidence.block_height.to_be_bytes()
+    );
+    assert_eq!(
+        evidence.receipt_hash,
+        <[u8; 32]>::from(Sha256::digest(&evidence.receipt_bytes))
     );
     evidence
 }
