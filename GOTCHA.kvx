@@ -11546,3 +11546,8 @@ fix = "Delete the ProgramExecutionV4/V5 loop of receipt_contract; keep the Progr
 title = "The completion check refuses symbols another task already removed"
 symptom = "cg spec done fails when a task's symbols list names identifiers that an earlier task deleted, even if the task's own build and tests passed."
 fix = "List only the symbols the task adds or keeps; move deletions to the do lines."
+
+[gotcha.2347]
+title = "A unit gate can pass while the real path fails"
+symptom = "Tasks that change an interface passed their declared test with mocked transports or hand-built messages and failed in the next task that consumed the real output: receipts the consumer could not verify, a socket a reader still needed, a validator with a live caller, a generator pinned to a removed schema."
+fix = "Interface-changing tasks carry proof_policy: drive the real producer through the real transport into the real consumer in the declared test, restart and recover where state crosses a restart (decision 1990)."
