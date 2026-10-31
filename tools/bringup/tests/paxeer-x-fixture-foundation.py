@@ -19,7 +19,7 @@ spec = importlib.util.spec_from_file_location('foundation_artifacts', Path(__fil
 ART = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ART)
 SOURCES = ('docker/kernel', 'services/platform/hosted/node', 'services/platform/hosted/paxeer',
-           'services/platform/hosted/tests/publication-policy.py', 'services/wallet/attestor',
+           'services/wallet/attestor',
            'tools/bringup/kernel-genesis.sh', 'contracts/config/checkpoint-settlement.json',
            'migrations/0007_history_index.sql')
 NETWORK_ID = 77
@@ -331,11 +331,8 @@ for node in range(1,6):
         require(registry.get('schema_version') == 2 and registry.get('assets') == [{'asset': asset, 'symbol': 'PAX', 'currency': 'PAX', 'decimals': 6}], 'canonical registry asset identity mismatch')
         require(len(registry.get('modules', [])) == 7, 'canonical registry must contain all seven genesis modules')
         write(self.output / 'genesis' / 'module-registry.json', registry)
-        self.execute(['python3', '/source/services/platform/hosted/tests/publication-policy.py', 'treasury', '/fixture/genesis/binding-policy.json', str(NETWORK_ID), asset, address.removeprefix('0x')])
-        self.execute(['python3', '/source/services/platform/hosted/tests/publication-policy.py', 'authorization', '/fixture/genesis/publication-authorization.json',
-                      str(NETWORK_ID), '125', '0x0000000000000000000000000000000000001014', '0x0000000000000000000000000000000000001014',
-                      '0x0000000000000000000000000000000000001013', treasury, asset, address.removeprefix('0x'), '--human-socket', 'none',
-                      '--deposit-authority-key-file', '/fixture/keys/deposit.pem'])
+        write(self.output / 'genesis' / 'binding-policy.json',
+              {'asset_id': asset, 'network_id': NETWORK_ID, 'recipient': address.removeprefix('0x'), 'version': 1})
         node_ca, gateway_ca, operator_ca = self.ca('nodes'), self.ca('gateways'), self.ca('operators')
         self.identity('gateway', gateway_ca, 'clientAuth', ipv6)
         self.identity('operator', operator_ca, 'clientAuth', ipv6)
@@ -385,7 +382,7 @@ for node in range(1,6):
                          'inputs': {'module_registry': 'genesis/module-registry.json',
                          'metadata': 'genesis/metadata.lxgb', 'binding_policy': 'genesis/binding-policy.json',
                          'environment': 'genesis/environment.json', 'endpoint_policy': 'genesis/endpoint-policy.json',
-                         'publication_authorization': 'genesis/publication-authorization.json', 'native_genesis': 'node/genesis/genesis.manifest',
+                         'native_genesis': 'node/genesis/genesis.manifest',
                          'native_snapshot': 'node/genesis/00000000000000000000.lxs',
                          'native_registration': 'node/genesis/genesis.registration'},
                          'tls': {'node_ca': 'trust/nodes/ca.pem', 'gateway_ca': 'trust/gateways/ca.pem', 'operator_ca': 'trust/operators/ca.pem',

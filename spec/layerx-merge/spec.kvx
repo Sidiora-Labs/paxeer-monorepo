@@ -5073,6 +5073,24 @@ value = "When a task's declared tests share a cargo test binary with cases anoth
 basis = "Attempt 13 of 18.1228.1 (0315bff0d on 17dd9f358) built all seven test binaries and failed only those three archive_fixture cases with UndeclaredActivity(196616) at agent_controls_rungs.rs:2197, the reclaim journey divergence finding.10.2.9.1 already assigned to 18.1149.1; the whole-binary verify made 18.1228.1 an aggregate gate for work it does not own."
 affects = ["18.1228.1", "18.1149.1"]
 
+[decision.1994]
+title = "A bring-up names-file entry leaves with the certificate row it names"
+value = "tools/bringup/ca.sh services (ca.sh:154 reads the names file) refuses every names line that names no certificate row, so a task that deletes a row from ca_services also deletes that service's line from the names file; the names file is in the task's touches."
+basis = "Attempt 1 of 16.7.2 (35cfb92e1) removed the guarantor and relay-archive rows at ca.sh:173 and :180 as do_3 asks and its test then failed ca.sh services with 'line RELAY_ARCHIVE names no row' and 'line GUARANTOR names no row' (names file lines 24 and 17), a file no task owns."
+affects = ["16.7.2"]
+
+[decision.1995]
+title = "The xweb renderer takes its live inputs from overridable variables so a gate can supply fixtures"
+value = "tools/bringup/xweb-config.sh reads the serving RPC names from XWEB_SERVE_NAMES when it is set and asks search-front.sh names (and so the private host map) only when it is unset; the gateway endpoint stays XWEB_GATEWAY_ENDPOINT (xweb-config.sh:95). A gate test renders with XWEB_SERVE_NAMES and a loopback JSON-RPC fixture answering px_listAssets in the record shape tools/qualification/paxeer-x/paid-web-contract.py:3459-3476 reads, so the px_listAssets consumer path is proved without ssh or the operator host map."
+basis = "Attempt 1 of 16.7.4 (ad6d9fd98) replaced the lx_ routes and its test ran render serve, which sources check-live.sh (xweb-config.sh:6), lists names through search-front.sh names (:203) and exits 2 'check-live: BRINGUP_HOSTS_FILE is unset'; the host map is private by check-live.sh:220 and never enters a gate, and prices come from the gateway over the network (:95, :131)."
+affects = ["16.7.4"]
+
+[decision.1996]
+title = "The retired-callers catalogue is complete when it holds every component the spec names"
+value = "retired_callers_test.py --self-test collects --component names from every spec line that names retired_callers_test.py (do_ lines included, not only verify_cmd) and requires that set to be a subset of the catalogue's components, reporting the missing names; components no spec line names stay as catalogue data for the --deleted and --self-test scans."
+basis = "The self-test at tools/paxeer-x/tests/retired_callers_test.py:391-394 requires set equality with the components named in verify_cmd lines; the spec now has zero verify_cmd lines naming the tool (the scans moved into unittest files) and 16 components named in do_ lines against 47 in the catalogue, so 'complete component catalogue' fails for every caller, as attempt 1 of 16.9.4 (8d77d2b6b) showed."
+affects = ["16.9.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -93604,7 +93622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.6.2]
 title = "Retire the queue disposition WAL record codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["1.0.1", "16.2.1", "16.96.2"]
@@ -94366,7 +94384,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.12.2]
 title = "Retire the budget pull activity that draws on receive payer grants"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["1.0.3", "16.2.1", "16.96.2"]
@@ -94694,7 +94712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.15.2]
 title = "Delete the feed store, the replay engine bind and the fee relay declarations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["1.15.1", "1.14.3", "1.16.1", "1.0.4", "16.2.1", "16.96.1", "8.96.5", "13.8.1"]
@@ -119206,7 +119224,7 @@ do_4 = "Attempts 1 to 3 (460ed8339 first) delete tests/daemon/lxp_test_daemon_al
 
 [task.5.54.5]
 title = "Retire the batch-WAL consumer daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.11.1", "16.11.2", "16.11.3", "16.11.4", "16.11.5"]
@@ -119363,7 +119381,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.54.10]
 title = "Retire the runtime-fixture and finality-recording daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.7.3", "16.8.1", "16.11.8", "16.11.9", "16.11.10", "16.35.1", "16.35.2"]
@@ -126323,7 +126341,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.53.4]
 title = "Retire contracts/custody/ReserveReconciler.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.51.1", "16.6.1", "16.30.1"]
@@ -127639,7 +127657,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.60.4]
 title = "Retire the paxeer_x_credit_profiles kernel harness files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.51.1", "16.8.3"]
@@ -134963,7 +134981,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.17.2]
 title = "Delete the storage admission module of the authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.17.1"]
@@ -145650,7 +145668,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.10]
 title = "Python x402 draws verify sequencer receipts through pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.96.1"]
@@ -145681,7 +145699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.9]
 title = "Python web search verifies sequencer receipts through pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.96.1"]
@@ -170096,7 +170114,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.3.2]
 title = "Drop the retired daemons and checkpoint settlement file from the kernel image build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170163,7 +170181,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.3.4]
 title = "Retire the platform-node image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170611,10 +170629,10 @@ do_7 = "The task gate also runs scripts/ci/runner-routing-check.sh, which fails 
 
 [task.16.6.1]
 title = "Retire the beta deployment script for the retired root contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
-requires = ["16.0.4"]
+requires = ["16.0.4", "16.5.3"]
 reqs = ["16031.1"]
 capabilities = ["16.6.1"]
 interfaces = ["interface.16.cli-scr-paxeerbetadeploy-s", "interface.16.cli-scr-paxeerbetadeploy-s-sub-addr", "interface.16.cli-scr-paxeerbetadeploy-s-sub-envuint", "interface.16.cli-scr-paxeerbetadeploy-s-sub-startbroadcast", "interface.16.cli-scr-paxeerbetadeploy-s-sub-stopbroadcast", "interface.16.cli-scr-paxeerbetadeploy-s-sub-depositgenesisbond", "interface.16.env-scr-paxeerbetadeploy-s-evm-wallet-private-key"]
@@ -170640,6 +170658,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Continue from attempt 1 (ecbc1f4f9): the retired-callers scan over scripts flagged scripts/ci/solidity-state-surface.sh:4-7 (CheckpointRegistry, GuarantorBond, LayerXVault), the file task 16.5.3 owns and has since trimmed to the kept contracts (346b78160); rebase on a tree that carries 16.5.3, change no code, build once and verify once."
 
 [task.16.7.1]
 title = "Point the bring-up docs and live checks at the layerx-merge spec"
@@ -170686,7 +170705,7 @@ do_2 = "Delete the custody-proof light-credit step at tools/bringup/value-loop.s
 do_3 = "Delete the guarantor-* state pattern at tools/bringup/human-state-preserve.sh:27 and the guarantor and relay archive certificate rows at tools/bringup/ca.sh:173 and :180."
 do_4 = "Create tools/bringup/tests/test_kernel_genesis_retired.py (planned) with KernelGenesisRetiredTest.test_bringup_names_no_guarantor_or_custody_proof, which runs python3 tools/paxeer-x/tests/retired_callers_test.py --component guarantor-runtime --component custody-credit --component replica with --path for the four scripts and asserts exit 0, and runs tools/bringup/ca.sh services and asserts exit 0."
 symbols = ["KernelGenesisRetiredTest", "test_bringup_names_no_guarantor_or_custody_proof"]
-touches = ["tools/bringup/kernel-genesis.sh", "tools/bringup/value-loop.sh", "tools/bringup/human-state-preserve.sh", "tools/bringup/ca.sh", "tools/bringup/tests/test_kernel_genesis_retired.py"]
+touches = ["tools/bringup/kernel-genesis.sh", "tools/bringup/value-loop.sh", "tools/bringup/human-state-preserve.sh", "tools/bringup/ca.sh", "tools/bringup/tests/test_kernel_genesis_retired.py", "tools/bringup/railway-names.env"]
 tests = ["tools/bringup/tests/test_kernel_genesis_retired.py::KernelGenesisRetiredTest.test_bringup_names_no_guarantor_or_custody_proof"]
 planned_paths = ["tools/bringup/tests/test_kernel_genesis_retired.py"]
 build_cmd = "bash -n tools/bringup/kernel-genesis.sh"
@@ -170703,6 +170722,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_5 = "Delete the GUARANTOR line (tools/bringup/railway-names.env:17) and the RELAY_ARCHIVE line (tools/bringup/railway-names.env:24) from the names file, which ca.sh services reads and refuses when a line names no certificate row (decision.1994); no test asserts those two names (tools/bringup/tests/ca.test.sh, tools/bringup/check-live.test.sh, tools/bringup/tests/paxeer-x-runtime-contract.py:3354 name neither). Continue from attempt 1 (35cfb92e1): keep its four script edits and its test, add this deletion, build once and verify once."
 
 [task.16.7.3]
 title = "Remove the retired daemon readiness and custody-proof checks from bring-up tests"
@@ -170738,7 +170758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.7.4]
 title = "Render xweb bring-up configuration without lx_ routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
@@ -170747,7 +170767,7 @@ capabilities = ["16.7.4"]
 interfaces = ["interface.16.cli-bringup-bringup-xweb-config"]
 do_1 = "Replace lx_getAsset at tools/bringup/xweb-config.sh:22, tools/bringup/xweb-config.sh:169, tools/bringup/xweb-config.sh:171, tools/bringup/xweb-config.sh:177 and tools/bringup/xweb-config.sh:179 with px_listAssets (row L11 at spec/layerx-merge/contracts/clients.md:207), selecting the entry whose asset id matches, and lx_getAccount at tools/bringup/xweb-config.sh:34 with px_getAccount (row L3 at spec/layerx-merge/contracts/clients.md:199)."
 do_2 = "Keep the usage modes prices, render, inventory and register at tools/bringup/xweb-config.sh:10 unchanged."
-do_3 = "Create tools/bringup/tests/test_xweb_config.py (planned) with XwebConfigTest.test_render_emits_no_lx_route, which runs tools/bringup/xweb-config.sh render serve <tmpdir> and asserts exit 0 and that no rendered file contains lx_, and runs python3 tools/paxeer-x/tests/retired_callers_test.py --component kernel-web --path tools/bringup/xweb-config.sh and asserts exit 0."
+do_3 = "Create tools/bringup/tests/test_xweb_config.py (planned) with XwebConfigTest.test_render_emits_no_lx_route, which starts a loopback HTTP JSON-RPC fixture (http.server on a thread) answering px_listAssets with {\'height\': 1, \'assets\': [{\'asset_id\': <id>, \'layerx\': {\'verification\': \'authenticated_committed_snapshot\', \'asset_id\': <id>, \'symbol\': <SYM>, \'decimals\': <n>, \'paused\': false}}, ...]} for SID, PAX, USDC and USDL (the shape tools/qualification/paxeer-x/paid-web-contract.py:3459-3476 reads) and an error for any other method, exports XWEB_GATEWAY_ENDPOINT to it, XWEB_SERVE_NAMES='api1 api2', four synthetic 64-hex XWEB_ASSET_ID_* (not a single repeated digit), XWEB_DECIMALS_* matching the fixture, synthetic 64-hex XWEB_SEQUENCER_ID and XWEB_SEQUENCER_PUBLIC_KEY, XWEB_SEEDS, XWEB_SID_PER_PAX and XWEB_PAX_USD_PRICE=13.44, runs tools/bringup/xweb-config.sh render serve <tmpdir> and asserts exit 0, that api1.json and api2.json exist, that each lists the four symbols with the fixture asset ids and names the other as its only peer, and that neither rendered file nor tools/bringup/xweb-config.sh contains lx_; then runs python3 tools/paxeer-x/tests/retired_callers_test.py --component kernel-web --path tools/bringup/xweb-config.sh and asserts exit 0."
 symbols = ["XwebConfigTest", "test_render_emits_no_lx_route"]
 touches = ["tools/bringup/xweb-config.sh", "tools/bringup/tests/test_xweb_config.py"]
 tests = ["tools/bringup/tests/test_xweb_config.py::XwebConfigTest.test_render_emits_no_lx_route"]
@@ -170766,10 +170786,12 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Let XWEB_SERVE_NAMES, when set, supply the serving RPC names (space-separated) to xweb_render_serve (tools/bringup/xweb-config.sh:203-204) and xweb_render_attestor (:262-263, :333-334) in place of the search-front.sh names listing, so search-front.sh and BRINGUP_HOSTS_FILE are consulted only when it is unset (decision.1995); document it in the usage text at :10-14."
+do_5 = "Continue from attempt 1 (ad6d9fd98): keep its px_listAssets and px_getAccount edits, add the XWEB_SERVE_NAMES override, rewrite the test as do_3 now reads, build once and verify once."
 
 [task.16.8.1]
 title = "Remove the guarantor and finality steps from the paxeer-x gates 2.2 and 24.14"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170784,7 +170806,7 @@ symbols = ["GatesGuarantorRetiredTest", "test_gates_name_no_retired_daemon"]
 touches = ["tools/paxeer-x/gates/2.2.sh", "tools/paxeer-x/gates/24.14.sh", "tools/paxeer-x/tests/test_gates_guarantor_retired.py"]
 tests = ["tools/paxeer-x/tests/test_gates_guarantor_retired.py::GatesGuarantorRetiredTest.test_gates_name_no_retired_daemon"]
 planned_paths = ["tools/paxeer-x/tests/test_gates_guarantor_retired.py"]
-build_cmd = "bash -n tools/paxeer-x/gates/2.2.sh"
+build_cmd = "bash -n tools/paxeer-x/gates/24.14.sh"
 verify_cmd = "python3 tools/paxeer-x/tests/test_gates_guarantor_retired.py GatesGuarantorRetiredTest.test_gates_name_no_retired_daemon"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -170798,6 +170820,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Continue from attempt 2 (f3e788d74): the build command now checks tools/paxeer-x/gates/24.14.sh, the gate that stays, instead of the deleted 2.2.sh; keep attempt 2's tree, build once and verify once."
 
 [task.16.8.2]
 title = "Remove the layerxd and replica steps from the paxeer-x gates 104.30.5, 104.32.6 and 111.6.11"
@@ -170930,7 +170953,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.8.6]
 title = "Retire the versioned boundary gate and the hosted fixture checks of gate 104.17.4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "16.9.1", "8.0.4", "16.8.1"]
@@ -171069,7 +171092,7 @@ do_1 = "Keep the deleted-tree entries cmd/layerxd/lxp_daemon_finality_authority.
 do_2 = "Add tools/paxeer-x/retired_callers.json to the allowed_references list at tools/paxeer-x/retired_callers.json:630 so the catalogue is never reported as its own caller."
 do_3 = "Create tools/paxeer-x/tests/test_retired_catalogue_deleted.py (planned) with RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid, which runs python3 tools/paxeer-x/tests/retired_callers_test.py --self-test and asserts exit 0, then runs it with --deleted --component guarantor-runtime --component lni --component replica --component intent-ingester --path tools/paxeer-x/retired_callers.json and asserts exit 0."
 symbols = ["RetiredCatalogueDeletedTest", "test_deleted_trees_absent_and_catalogue_valid"]
-touches = ["tools/paxeer-x/retired_callers.json", "tools/paxeer-x/tests/test_retired_catalogue_deleted.py"]
+touches = ["tools/paxeer-x/retired_callers.json", "tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tools/paxeer-x/tests/retired_callers_test.py"]
 tests = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"]
 planned_paths = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py"]
 build_cmd = "python3 -m json.tool tools/paxeer-x/retired_callers.json"
@@ -171086,6 +171109,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Change the 'complete component catalogue' check at tools/paxeer-x/tests/retired_callers_test.py:391-394 to collect --component names from every spec line naming retired_callers_test.py and to require them to be a subset of the catalogue components, naming any missing component (decision.1996); keep the other self-test checks (:395-416) and, if one of them fails on catalogue data this task adds, repair the data, not the check."
+do_6 = "Continue from attempt 1 (8d77d2b6b): keep its catalogue edits and test, add the self-test change, build once and verify once."
 
 [task.16.10.1]
 title = "Read the service catalogue from the layerx-merge spec in the release and native custody producers"
@@ -171186,7 +171211,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.11.1]
 title = "Remove retired daemon and codec references from the arbiter producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171219,7 +171244,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.2]
 title = "Remove retired daemon and codec references from the arbiter producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171252,7 +171277,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.3]
 title = "Remove retired daemon and codec references from the replay and market sandbox producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171285,7 +171310,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.4]
 title = "Remove retired daemon and codec references from the replay and market sandbox producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171318,7 +171343,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.5]
 title = "Remove retired daemon and codec references from the native program link and archive producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171350,7 +171375,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.6]
 title = "Remove retired daemon and codec references from the native program link and archive producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171382,7 +171407,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.7]
 title = "Remove retired daemon and codec references from the authority evidence and storage recovery producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171413,7 +171438,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.8]
 title = "Remove retired daemon and codec references from the authority evidence and storage recovery producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171445,7 +171470,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.9]
 title = "Remove retired daemon and codec references from the agent envelope, event delivery and form validation producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171477,7 +171502,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.10]
 title = "Remove retired daemon and codec references from the agent envelope, event delivery and form validation producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171509,7 +171534,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.11]
 title = "Remove retired daemon and codec references from the custody and credit producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171541,7 +171566,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.12]
 title = "Remove retired daemon and codec references from the custody and credit producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171572,7 +171597,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.13]
 title = "Remove retired daemon and codec references from the LNI readiness and admission producers (1 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171604,7 +171629,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.14]
 title = "Remove retired daemon and codec references from the LNI readiness and admission producers (2 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171635,7 +171660,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.15]
 title = "Remove retired daemon and codec references from the LNI readiness and admission producers (3 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171666,7 +171691,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.16]
 title = "Remove retired daemon and codec references from the client evidence producers that cite checkpoint settlement (1 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171698,7 +171723,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.17]
 title = "Remove retired daemon and codec references from the client evidence producers that cite checkpoint settlement (2 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "18.911.1"]
@@ -171732,7 +171757,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.18]
 title = "Remove retired daemon and codec references from the client evidence producers that cite checkpoint settlement (3 of 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -173096,7 +173121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.9]
 title = "Delete the batch write-ahead log, maintenance publication and recovery-order checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.4", "16.5.2", "16.11.9", "16.11.2", "16.11.8"]
@@ -173168,7 +173193,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.11]
 title = "Delete the finality evidence suite built on guarantor certificates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.4", "16.5.2", "16.37.2"]
@@ -173329,7 +173354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.33.4]
 title = "Delete the web intake, adapter and root suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.2", "6.97.1", "16.5.2", "16.37.2"]
@@ -174055,7 +174080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.2]
 title = "Remove the queue-disposition codec and budget pull request cases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -174120,7 +174145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.4]
 title = "Remove the checkpoint-authority and publication-policy uses from kernel bringup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
@@ -174184,7 +174209,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.7]
 title = "Replace the retired anchor and receipt routes with the archive routes in the route catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "14.0.4"]
@@ -174246,7 +174271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.9]
 title = "Read nested and Go-embedded precompile ABIs in the system docs generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -174409,7 +174434,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.97.5]
 title = "Remove the references to the deleted balance-read and interface protocol suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -174440,7 +174465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.97.6]
 title = "Read the sequencer receipt vectors instead of the deleted receipt fixtures in the Python SDK tests and ABI vector generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
@@ -192669,7 +192694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1297.2]
 title = "Issue #1297: Refresh services/platform/Cargo.lock after the registry manifest dropped layerx-programs-protocol-adapter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
