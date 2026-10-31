@@ -108441,7 +108441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.4.1]
 title = "Repoint the wallet's name library at configured contracts and add website records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["19.1.2", "19.2.1"]
@@ -116367,7 +116367,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.19.6.1]
 title = "Write the .pax DNS answerer backed by the registry and resolver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["19.1.2"]
