@@ -2,12 +2,16 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::pin::pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::boot::{Gate, GateError};
@@ -21,6 +25,10 @@ use layerx_agentd::sign::{
     attach_kernel_signature, verify_kernel_before_submit, VerifiedSubmission,
 };
 use layerx_agentd::store::TenantId;
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
+use layerx_crypto::evm_transaction::{
+    decode_signed, recover_sender, transaction_hash, Eip1559Call,
+};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::{sign_disclosed, Signer};
 use layerx_programs::hex;
@@ -35,6 +43,9 @@ use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{
     account_id_for_protocol, batch_header_digest, program_execution_batch_id, receipt_digest,
 };
+use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
+use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 #[path = "../../../../tests/support/monotonic_clock.rs"]
 mod monotonic_clock;
@@ -134,6 +145,20 @@ fn send_payload(id: u8) -> Vec<u8> {
         .u16(layerx_wire::limits::PROTOCOL_VERSION)
         .unwrap_or_else(|error| panic!("version: {error:?}"));
     send_authorization::sign(encoder.finish())
+}
+
+pub fn signed_transaction(id: u8) -> Vec<u8> {
+    Eip1559Call {
+        chain_id: 125,
+        nonce: u64::from(id),
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to: [0x22; 20],
+        data: vec![id],
+    }
+    .sign(&[0xa5; 32])
+    .unwrap_or_else(|error| panic!("sign: {error:?}"))
 }
 
 pub fn verified_submission(id: u8) -> VerifiedSubmission {
@@ -465,6 +490,17 @@ fn try_evidence_authority_mode(
         .clone())
 }
 
+pub fn pinned_evidence_verifier() -> EvidenceAuthority {
+    EvidenceAuthority::pinned_to_handshake(
+        PROTOCOL_VERSION,
+        42,
+        SigningKey::from_bytes(&[0x3a; 32])
+            .verifying_key()
+            .to_bytes(),
+    )
+    .unwrap_or_else(|error| panic!("pinned evidence authority: {error:?}"))
+}
+
 pub fn evidence_verifier() -> EvidenceAuthority {
     evidence_authority(TestAuthorityPolicy {
         protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
@@ -777,4 +813,205 @@ pub fn corrupt_raw_state(raw: &RawStateEvidence, canonical_state: Vec<u8>) -> Ra
         canonical_header,
         header_signature,
     )
+}
+
+fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+    result.unwrap_or_else(|error| panic!("{error:?}"))
+}
+
+pub fn rpc_hex(bytes: &[u8]) -> String {
+    format!("0x{}", hex::encode(bytes))
+}
+
+const HEIGHT: u64 = 150;
+const KEY_ID: [u8; 32] = [1; 32];
+
+fn sha256(bytes: &[u8]) -> [u8; 32] {
+    Sha256::digest(bytes).into()
+}
+
+fn encoded_receipt(
+    tx_hash: [u8; 32],
+    sender: [u8; 20],
+    nonce: u64,
+    success: bool,
+    signature: Option<[u8; 64]>,
+) -> Vec<u8> {
+    let previous = [4; 32];
+    let mut sequence = b"PAXEER/v1/sequence\0".to_vec();
+    sequence.extend_from_slice(&previous);
+    sequence.extend_from_slice(&7_u64.to_be_bytes());
+    sequence.extend_from_slice(&tx_hash);
+    let mut height = [0; 32];
+    height[24..].copy_from_slice(&HEIGHT.to_be_bytes());
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&sender);
+    let mut to = [0; 32];
+    to[12..].fill(0x22);
+    let vm_error = if success { "" } else { "execution reverted" };
+    let mut summary = Encoder::new(256);
+    must(summary.u64(21_000));
+    must(summary.u64(42_000));
+    must(summary.u64(1));
+    must(summary.u32(1));
+    must(summary.fixed(&[0; 20]));
+    must(summary.fixed(&[0; 20]));
+    must(summary.fixed(&sha256(vm_error.as_bytes())));
+    must(summary.u32(2));
+    must(summary.u32(1));
+    must(summary.u8(4));
+    must(summary.fixed(b"upax"));
+    let mut log = vec![8; 20];
+    log.push(1);
+    log.extend_from_slice(&[9; 32]);
+    log.extend_from_slice(&sha256(&[10, 11]));
+
+    let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
+    must(encoder.structure_header_version(0x5201, PROTOCOL_VERSION));
+    must(encoder.u16(PROTOCOL_VERSION));
+    must(encoder.bytes(&tx_hash, 32));
+    must(encoder.u64(7));
+    must(encoder.bytes(&previous, 32));
+    must(encoder.bytes(&sha256(&sequence), 32));
+    must(encoder.bytes(&sha256(&[0xab, 0xcd]), 32));
+    must(encoder.i32(i32::from(!success)));
+    must(encoder.sequence_length(2, 512));
+    for (ordinal, kind, body) in [(0, 1, summary.finish()), (1, 3, log)] {
+        must(encoder.u16(12));
+        must(encoder.u16(ordinal));
+        must(encoder.u16(0));
+        must(encoder.u8(kind));
+        must(encoder.u8(0));
+        must(encoder.bytes(&[0; 32], 32));
+        must(encoder.bytes(&body, 256));
+    }
+    must(encoder.u128(21_000));
+    must(encoder.bytes(&height, 32));
+    must(encoder.u16(12));
+    must(encoder.u32(1));
+    must(encoder.u32(0));
+    must(encoder.u8(2));
+    must(encoder.bytes(&sha256(b"upax"), 32));
+    must(encoder.u128(1));
+    must(encoder.bytes(&from, 32));
+    must(encoder.u128(21_002));
+    must(encoder.u128(if success { 1 } else { 2 }));
+    must(encoder.u64(nonce));
+    must(encoder.bytes(&to, 32));
+    must(encoder.u128(0));
+    must(encoder.u128(u128::from(success)));
+    must(encoder.bytes(&[0; 32], 32));
+    must(encoder.bytes(&[0; 32], 32));
+    must(encoder.bytes(&KEY_ID, 32));
+    must(encoder.u64(1_000));
+    must(encoder.u8(u8::from(signature.is_some())));
+    if let Some(signature) = signature {
+        must(encoder.bytes(&signature, 64));
+    }
+    encoder.finish()
+}
+
+pub fn sequencer_receipt(raw: &[u8], success: bool) -> (Value, ReceiptKeyEntry) {
+    let (transaction, signature) = must(decode_signed(raw));
+    let sender = must(recover_sender(&transaction, &signature));
+    let tx_hash = transaction_hash(raw);
+    let nonce = transaction.nonce;
+    let signer = SigningKey::from_bytes(&[8; 32]);
+    let unsigned = encoded_receipt(tx_hash, sender, nonce, success, None);
+    let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
+    let bytes = encoded_receipt(tx_hash, sender, nonce, success, Some(signature));
+    let key = ReceiptKeyEntry {
+        key_id: KEY_ID,
+        public_key: signer.verifying_key().to_bytes(),
+        first_height: 100,
+        last_height: 199,
+    };
+    let view = json!({
+        "rung": "receipted", "txHash": rpc_hex(&tx_hash), "nonce": format!("{nonce:#x}"),
+        "seq": "0x7", "height": "0x96", "index": "0x1", "timestamp": "0x3e8",
+        "status": if success { "0x1" } else { "0x0" }, "returnData": "0xabcd",
+        "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
+            "data": "0x0a0b", "logIndex": "0x0"}],
+        "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
+        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "from": rpc_hex(&sender), "to": rpc_hex(&[0x22; 20]), "contractAddress": rpc_hex(&[0; 20]),
+        "vmError": if success { "" } else { "execution reverted" },
+        "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
+        "signingKey": rpc_hex(&key.public_key)
+    });
+    (view, key)
+}
+
+pub type Exchange = (&'static str, Value, Option<Value>);
+
+#[derive(Default)]
+pub struct SequencerTraffic {
+    pub lookups: usize,
+    pub resends: usize,
+    pub transmitted: Vec<([u8; 32], Vec<u8>)>,
+}
+
+pub fn serve(exchanges: Vec<Exchange>) -> (SequencerEndpoint, JoinHandle<SequencerTraffic>) {
+    let listener = must(TcpListener::bind("127.0.0.1:0"));
+    let url = format!("http://{}/", must(listener.local_addr()));
+    must(listener.set_nonblocking(true));
+    let server = thread::spawn(move || {
+        let mut traffic = SequencerTraffic::default();
+        for (method, params, result) in exchanges {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline, "missing {method} request");
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("accept: {error}"),
+                }
+            };
+            must(stream.set_read_timeout(Some(Duration::from_secs(2))));
+            must(stream.set_write_timeout(Some(Duration::from_secs(2))));
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(must(reader.read_line(&mut line)), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(must(value.trim().parse::<usize>()));
+                }
+            }
+            let length = length.unwrap_or_else(|| panic!("content length required"));
+            assert!(length <= 64 * 1024);
+            let mut body = vec![0; length];
+            must(reader.read_exact(&mut body));
+            let request: Value = must(serde_json::from_slice(&body));
+            assert_eq!(request["jsonrpc"], "2.0");
+            assert_eq!(request["method"], method);
+            assert_eq!(request["params"], params);
+            if method == "pax_sequencerReceipt" {
+                traffic.lookups += 1;
+            }
+            if method == "eth_sendRawTransaction" {
+                traffic.resends += 1;
+                let encoded = request["params"][0]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("raw transaction required"));
+                let bytes = must(::hex::decode(encoded.strip_prefix("0x").unwrap_or(encoded)));
+                traffic.transmitted.push((transaction_hash(&bytes), bytes));
+            }
+            let Some(result) = result else {
+                continue;
+            };
+            let answer =
+                json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string();
+            let mut stream = reader.into_inner();
+            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
+            must(stream.flush());
+        }
+        traffic
+    });
+    (must(SequencerEndpoint::new(&url, &[])), server)
 }
