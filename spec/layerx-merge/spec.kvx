@@ -96525,7 +96525,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.28.1]
 title = "Retire the sequencer recovery and handover-authorize code in src/sequencer/lxp_recovery.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.21.1", "1.0.3", "16.31.2", "16.31.6"]
@@ -96558,7 +96558,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.28.2]
 title = "Retire the sequencer global sequence allocator in src/sequencer/lxp_sequence.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.21.1", "1.0.3", "16.31.2", "16.31.6"]
@@ -96722,7 +96722,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.29.4]
 title = "Retire the web observation adapter in src/network/lx_web_adapter.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.21.1", "1.0.3", "6.97.1", "16.33.1", "16.33.2", "16.33.4"]
