@@ -135430,7 +135430,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.18.1]
 title = "Run the hosted node without guarantors and kernel boundary sockets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "6.0.3", "8.8.4", "8.11.3", "16.2.4"]
@@ -174019,7 +174019,7 @@ do_10 = "Continue from attempt 4 (a4317c95e): the build now names build/tests/pr
 
 [task.16.33.6]
 title = "Retire the replay fixture headers and the replay and certificate cases of the tools suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.31.5", "16.32.1", "16.32.7", "16.2.4", "16.37.2"]

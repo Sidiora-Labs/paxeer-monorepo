@@ -18,9 +18,7 @@ static const uint32_t activity_types[] = {
 
 enum {
     BUDGET_CAPABILITY_KEY_BYTES = 80,
-    BUDGET_CAPABILITY_BYTES = 195,
-    BUDGET_GRANT_DRAW_KEY_BYTES = 45,
-    BUDGET_GRANT_DRAW_BYTES = 42
+    BUDGET_CAPABILITY_BYTES = 195
 };
 
 typedef union budget_typed_payload {
@@ -646,52 +644,6 @@ static lxp_result budget_execute_delegate_spend(
     if (status == LXP_OK)
         status = budget_capability_save(ctx, record.budget_id, &capability);
     return budget_savepoint_end(ctx, &savepoint, status);
-}
-
-static void budget_grant_draw_key(const uint8_t grant_id[32],
-                                  uint8_t key[BUDGET_GRANT_DRAW_KEY_BYTES])
-{
-    (void)memcpy(key, "budget-grant:", 13U);
-    (void)memcpy(key + 13U, grant_id, 32U);
-}
-
-static lxp_result budget_grant_draw_decode(const uint8_t *bytes, size_t length,
-                                           lxp_grant_state *draws)
-{
-    lxp_result status;
-    if (length != (size_t)BUDGET_GRANT_DRAW_BYTES || bytes[0] != 0U ||
-        bytes[1] != 1U)
-        return LXP_ERR_NON_CANONICAL;
-    status = lxp_u128_from_be(bytes + 2U, &draws->drawn_total);
-    if (status == LXP_OK)
-        status = lxp_u128_from_be(bytes + 18U, &draws->drawn_this_period);
-    if (status != LXP_OK) return status;
-    draws->window_start = budget_capability_u64(bytes + 34U);
-    return lxp_u128_cmp(draws->drawn_this_period, draws->drawn_total) > 0 ?
-        LXP_ERR_NON_CANONICAL : LXP_OK;
-}
-
-lxp_result lx_budget_grant_draws_read(const lxp_kernel *kernel,
-                                      const uint8_t grant_id[32],
-                                      lxp_grant_state *draws)
-{
-    uint8_t key[BUDGET_GRANT_DRAW_KEY_BYTES];
-    if (kernel == NULL || grant_id == NULL || draws == NULL ||
-        kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV)
-        return LXP_ERR_NON_CANONICAL;
-    draws->drawn_total = (lxp_u128){ 0U, 0U };
-    draws->drawn_this_period = (lxp_u128){ 0U, 0U };
-    draws->window_start = 0U;
-    budget_grant_draw_key(grant_id, key);
-    for (size_t i = 0U; i < kernel->module_kv_count; ++i) {
-        const lxp_module_kv_entry *entry = &kernel->module_kv[i];
-        if (entry->module_id == LXP_MODULE_BUDGET &&
-            entry->key_length == sizeof(key) &&
-            memcmp(entry->key, key, sizeof(key)) == 0)
-            return budget_grant_draw_decode(entry->value, entry->value_length,
-                                             draws);
-    }
-    return LXP_OK;
 }
 
 static lxp_result budget_execute_close(lxp_module_ctx *ctx,
