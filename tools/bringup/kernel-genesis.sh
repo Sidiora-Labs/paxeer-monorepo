@@ -5,14 +5,14 @@
 # the governance step on chain 125:
 #
 #   kernel-genesis.sh keys [rotate]
-#       step A: generates the sequencer key, the checkpoint authority key, the
-#       deposit authority key and the publication recipient key under
+#       step A: generates the sequencer key, the deposit authority key and the
+#       publication recipient key under
 #       /data/layerx/keys and prints their public values. Submit a layerxcustody
 #       governance proposal through the chain's governance module carrying
 #       exactly the sequencer authorization, the deposit root authority (the
 #       deposit authority public key) and the custody asset map. The proposal
-#       must pass before step C. The checkpoint authority and publication
-#       recipient keys are kernel inputs, not proposal inputs.
+#       must pass before step C. The publication recipient key is a kernel
+#       input, not a proposal input.
 #       rotate first runs the identity preflight of kernel-init
 #       --identity-generation and retires the kernel keys, the genesis outputs,
 #       the registry material and the node data into
@@ -73,11 +73,11 @@ genesis=$layerx/genesis
 rpc=http://127.0.0.1:${LAYERX_NODE_PAXEER_RELAY_PORT:-18545}
 custody=0x0000000000000000000000000000000000001013
 deposit_key=$keys/checkpoint-submitter/deposit-authority.pem
-key_files=("$keys/sequencer.key" "$keys/checkpoint-authority/key.pem" "$deposit_key" "$keys/publication/recipient.key")
+key_files=("$keys/sequencer.key" "$deposit_key" "$keys/publication/recipient.key")
 genesis_files=("$keys/publication/binding-policy.json" "$keys/publication/authorization.json"
 	"$genesis/metadata.lxgb" "$genesis/custody.profile" "$genesis/custody.registry" "$genesis/custody-assets.json" "$genesis/comet-url" "$genesis/asset-id" "$genesis/replica-id")
 kernel_init=/usr/local/bin/kernel-init
-retire_files=("${key_files[@]}" "$keys/checkpoint-authority/key.pem.lock" "${genesis_files[@]}"
+retire_files=("${key_files[@]}" "$keys/checkpoint-authority/key.pem" "$keys/checkpoint-authority/key.pem.lock" "${genesis_files[@]}"
 	"$layerx/guarantor-submitter/checkpoint-authority.pem" "$layerx/registry-material")
 rotation=$layerx/identity/rotation.json
 
@@ -128,8 +128,6 @@ keys_step() {
 	# The sequencer seed, 64 hex characters as bootstrap.sh reads it, owned by the node user.
 	install -o 4020 -g 4020 -m 0600 /dev/null "$keys/sequencer.key"
 	openssl rand -hex 32 | tr -d '\n' >"$keys/sequencer.key"
-	python3 /opt/layerx/checkpoint-authority.py "$keys/checkpoint-authority/key.pem" >/dev/null ||
-		fail "checkpoint authority provisioning refused"
 	# The deposit authority signs deposit roots for the guarantor, which opens
 	# it as its own 0600 file (cmd/layerx-guarantor/authorization.py).
 	install -o 4021 -g 4020 -m 0600 /dev/null "$deposit_key"
@@ -148,7 +146,6 @@ keys_step() {
 	echo "sequencer_id=$(printf 'layerx-sequencer:%s' "$sequencer_public" | sha256sum | cut -d' ' -f1)"
 	echo "replica_id=$replica_id"
 	echo "treasury_public_key=$treasury_public"
-	echo "checkpoint_authority_public_key=$(pem_public "$keys/checkpoint-authority/key.pem")"
 	echo "deposit_authority_public_key=$(pem_public "$deposit_key")"
 	echo "publication_recipient=0x$recipient"
 	echo "custody keys=$keys next=submit a layerxcustody governance proposal through the chain's governance module carrying exactly the sequencer authorization, the deposit root authority (the deposit authority public key) and the custody asset map; after the proposal passes and governance is enacted run kernel-genesis.sh genesis (step C)"
@@ -339,8 +336,7 @@ PYMETA
 	public_values
 
 	# The treasury signer's recipient-binding policy and the guarantor's
-	# publication authorization, in the shapes services/platform/hosted/tests/publication-policy.py
-	# writes for the beta cluster, with the kernel's socket paths and uids.
+	# publication authorization, with the kernel's socket paths and uids.
 	printf '{"asset_id": "%s", "network_id": %s, "recipient": "%s", "version": 1}\n' "$pax" "$network_id" "$recipient" \
 		>"$keys/publication/binding-policy.json"
 	python3 - "$keys/publication/authorization.json" "$network_id" "$pax" "$recipient" "$treasury_public" "$deposit_key" <<'PY'
