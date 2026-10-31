@@ -96510,7 +96510,7 @@ do_6 = "Decision 2080: attempt 4 (5d09c9378) removed Host.ReadPayerGrant, and ma
 
 [task.1.26.1]
 title = "Replace the single host mutex with a bounded pool of kernel nodes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["1.25.1", "1.17.4", "1.98.1", "1.23.5"]
