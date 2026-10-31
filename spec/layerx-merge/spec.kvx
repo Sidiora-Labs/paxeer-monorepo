@@ -115600,7 +115600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.11]
 title = "Log recovered RPC handler panics with their stack and prove the standalone primary receipts a signed transfer through the send path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.5.4", "12.35.9"]
