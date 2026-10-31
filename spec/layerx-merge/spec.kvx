@@ -118805,7 +118805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.50.1]
 title = "Retire the layerxd LNI socket server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["5.0.3", "9.97.5", "16.2.4", "16.5.2", "16.9.4", "16.34.1"]
@@ -118901,7 +118901,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.50.4]
 title = "Retire the layerxd finality authority and handover history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["5.0.3", "16.2.4", "16.9.4", "16.11.8", "16.34.2"]
@@ -119186,7 +119186,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.52.2]
 title = "Retire the layerx-archive-codec binary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["5.0.3", "8.19.3", "8.19.8", "14.29.4", "16.2.4", "16.3.1", "16.3.2", "16.3.3", "16.11.6", "16.34.4"]
