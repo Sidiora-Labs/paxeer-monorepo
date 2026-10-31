@@ -59,8 +59,7 @@ var (
 type AckStatus uint8
 
 const (
-	// AckOK: every record is synced and every ACCEPT is re-executed. A trailing OPEN
-	// after COMMITTED may await the local commit before opening its executor layer.
+	// AckOK: every record is synced. Records awaiting a local commit are applied in order.
 	AckOK AckStatus = 1
 	// AckGap: records before the group are missing; nothing of the group was taken.
 	AckGap AckStatus = 2
@@ -71,7 +70,7 @@ const (
 // Ack is the standby's answer to one replicated group.
 type Ack struct {
 	Status AckStatus
-	// LastSeq is the last seq the standby holds synced and re-executed.
+	// LastSeq is the last seq the standby holds synced.
 	LastSeq uint64
 	// GapFrom..GapTo is the seq range a gap answer requests; GapTo below GapFrom means only
 	// non-ACCEPT records are missing. On an Ack returned by Release they name the ACCEPT seqs the
@@ -573,22 +572,23 @@ func (c *standbyCursor) advance(e wal.Entry) {
 }
 
 // Standby appends and syncs every replicated group to its own WAL and re-executes
-// ACCEPTs in seq order before acknowledging. A trailing OPEN after COMMITTED may
-// remain pending until the local app commits, before any later record executes.
+// ACCEPTs in seq order. Records awaiting a local commit remain queued for application
+// without delaying acknowledgement of their durability.
 type Standby struct {
-	recvMu             sync.Mutex
-	mu                 sync.Mutex
-	wal                *wal.WAL
-	exec               wal.Executor
-	consensusKey       tmtypes.PrivValidator
-	receiptKey         ed25519.PrivateKey
-	cur                standbyCursor
-	pendingOpen        *wal.Open
-	refusal            error
-	failed             error
-	leader             bool
-	ctx                context.Context
-	replicationTimeout time.Duration
+	recvMu       sync.Mutex
+	mu           sync.Mutex
+	wal          *wal.WAL
+	exec         wal.Executor
+	consensusKey tmtypes.PrivValidator
+	receiptKey   ed25519.PrivateKey
+	cur          standbyCursor
+	pending      []wal.Entry
+	applying     bool
+	appliedSeq   uint64
+	refusal      error
+	failed       error
+	leader       bool
+	ctx          context.Context
 }
 
 // NewStandby checks that the standby holds its own consensus and receipt keys, then replays the
@@ -636,13 +636,13 @@ func NewStandby(ctx context.Context, cfg StandbyConfig) (*Standby, error) {
 		cur = standbyCursor{lastSeq: c.LastSeq, openHeight: c.Height, sealedHeight: c.Height, committedHeight: c.Height}
 	}
 	s := &Standby{
-		wal:                cfg.WAL,
-		exec:               cfg.Executor,
-		consensusKey:       cfg.ConsensusKey,
-		receiptKey:         cfg.ReceiptKey,
-		cur:                cur,
-		ctx:                ctx,
-		replicationTimeout: cfg.ReplicationTimeout,
+		wal:          cfg.WAL,
+		exec:         cfg.Executor,
+		consensusKey: cfg.ConsensusKey,
+		receiptKey:   cfg.ReceiptKey,
+		cur:          cur,
+		appliedSeq:   cur.lastSeq,
+		ctx:          ctx,
 	}
 	res, err := cfg.WAL.Replay(standbyReplay{s})
 	if err != nil {
@@ -671,6 +671,7 @@ func (r standbyReplay) Execute(a *wal.Accept) ([]byte, error) {
 		return nil, err
 	}
 	r.s.cur.advance(a)
+	r.s.appliedSeq = a.Seq
 	return receipt, nil
 }
 
@@ -678,7 +679,7 @@ func (r standbyReplay) Execute(a *wal.Accept) ([]byte, error) {
 func (s *Standby) LastSeq() uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.cur.lastSeq
+	return s.appliedSeq
 }
 
 // TakeLease durably takes a later lease and fences further replication from the primary.
@@ -775,9 +776,8 @@ func (s *Standby) serveConn(conn net.Conn) {
 
 // receive takes one group: records already held are skipped, a gap before the group is answered
 // with AckGap and nothing taken; otherwise the new records are appended and synced to the
-// standby WAL concurrently with their ordered re-execution, then acknowledged.
-// A trailing OPEN after COMMITTED is durable before acknowledgement but opens the
-// executor only after the local commit, before executing the next fresh group.
+// standby WAL concurrently with their ready re-execution, then acknowledged.
+// Records awaiting a local commit are applied in order by applyPending.
 // A WAL or execution failure stops the standby: it refuses every later group.
 func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	s.recvMu.Lock()
@@ -811,6 +811,10 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 			return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 		}
 		if ok {
+			if open, ok := e.(*wal.Open); ok && (open.Height > math.MaxInt64 || open.OpenTimeMs > math.MaxInt64) {
+				s.refusal = fmt.Errorf("%w: OPEN height or time exceeds int64", wal.ErrMalformed)
+				return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
+			}
 			fresh = append(fresh, e)
 			next.advance(e)
 		}
@@ -818,55 +822,20 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	if len(fresh) == 0 {
 		return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}
 	}
-	s.mu.Unlock()
-	committed := true
-	if s.pendingOpen != nil {
-		committed = s.waitForCommit(s.pendingOpen.Height - 1)
-	}
-	var pendingOpen *wal.Open
-	for i, e := range fresh {
-		open, ok := e.(*wal.Open)
-		if !ok {
-			continue
-		}
-		if i == len(fresh)-1 && next.committedHeight == open.Height-1 && !s.hasCommitted(open.Height-1) {
-			if open.Height > math.MaxInt64 || open.OpenTimeMs > math.MaxInt64 {
-				s.mu.Lock()
-				s.refusal = fmt.Errorf("%w: OPEN height or time exceeds int64", wal.ErrMalformed)
-				return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
+	ready := len(fresh)
+	if s.applying {
+		ready = 0
+	} else {
+		for i, e := range fresh {
+			if open, ok := e.(*wal.Open); ok && !s.hasCommitted(open.Height-1) {
+				ready = i
+				break
 			}
-			pendingOpen = open
-			continue
 		}
-		if !s.waitForCommit(open.Height - 1) {
-			committed = false
-			break
-		}
-	}
-	s.mu.Lock()
-	if s.leader {
-		s.refusal = fmt.Errorf("%w: standby holds leadership at epoch %d", ErrFenced, s.cur.leaseEpoch)
-		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq, Epoch: s.cur.leaseEpoch}
-	}
-	if s.failed != nil {
-		s.refusal = fmt.Errorf("sequencer: standby stopped: %w", s.failed)
-		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
-	}
-	if !committed {
-		return Ack{Status: AckGap, LastSeq: s.cur.lastSeq, GapFrom: s.cur.lastSeq + 1, GapTo: s.cur.lastSeq}
 	}
 	executed := make(chan error, 1)
 	go func() {
-		if s.pendingOpen != nil {
-			if err := s.execute(s.pendingOpen); err != nil {
-				executed <- err
-				return
-			}
-		}
-		for _, e := range fresh {
-			if e == pendingOpen {
-				continue
-			}
+		for _, e := range fresh[:ready] {
 			if err := s.execute(e); err != nil {
 				executed <- err
 				return
@@ -883,15 +852,50 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 		s.refusal = err
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 	}
-	for _, e := range fresh {
-		s.cur.advance(e)
+	s.cur = next
+	for _, e := range fresh[:ready] {
+		if a, ok := e.(*wal.Accept); ok {
+			s.appliedSeq = a.Seq
+		}
 	}
-	s.pendingOpen = pendingOpen
+	s.pending = append(s.pending, fresh[ready:]...)
+	if len(s.pending) != 0 && !s.applying {
+		s.applying = true
+		go s.applyPending()
+	}
 	return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}
 }
 
-func standbyCommitWait(replicationTimeout time.Duration) time.Duration {
-	return replicationTimeout / 4
+func (s *Standby) applyPending() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	defer func() { s.applying = false }()
+	for len(s.pending) != 0 && !s.leader && s.failed == nil {
+		e := s.pending[0]
+		if open, ok := e.(*wal.Open); ok {
+			s.mu.Unlock()
+			committed := s.waitForCommit(open.Height - 1)
+			s.mu.Lock()
+			if !committed {
+				if err := s.ctx.Err(); err != nil {
+					s.failed = err
+				}
+				return
+			}
+			if s.leader || s.failed != nil {
+				return
+			}
+		}
+		if err := s.execute(e); err != nil {
+			s.failed = err
+			return
+		}
+		if a, ok := e.(*wal.Accept); ok {
+			s.appliedSeq = a.Seq
+		}
+		s.pending[0] = nil
+		s.pending = s.pending[1:]
+	}
 }
 
 func (s *Standby) hasCommitted(height uint64) bool {
@@ -907,15 +911,19 @@ func (s *Standby) waitForCommit(height uint64) bool {
 	if s.hasCommitted(height) {
 		return true
 	}
-	ctx, cancel := context.WithTimeout(s.ctx, standbyCommitWait(s.replicationTimeout))
-	defer cancel()
 	tick := time.NewTicker(time.Millisecond)
 	defer tick.Stop()
 	for {
 		select {
-		case <-ctx.Done():
+		case <-s.ctx.Done():
 			return false
 		case <-tick.C:
+			s.mu.Lock()
+			stopped := s.leader || s.failed != nil
+			s.mu.Unlock()
+			if stopped {
+				return false
+			}
 			if s.hasCommitted(height) {
 				return true
 			}
