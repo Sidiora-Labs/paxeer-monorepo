@@ -134917,7 +134917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.4]
 title = "Retire the programs journey and the registry dependency of testnet control"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["8.14.3", "8.7.3", "18.1083.1", "18.1297.1"]
