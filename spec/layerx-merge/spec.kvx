@@ -160706,7 +160706,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.7.5]
 title = "Remove the batch-keyed native receipt authority V1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["13.0.4", "1.17.4", "8.4.5"]
