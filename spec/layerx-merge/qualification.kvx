@@ -13715,3 +13715,51 @@ symbol = "16.0.4"
 observed = "Attempt 1 (a555b20e2 on 9ce722842) passed its build and cg spec done printed done 16.0.4 with every graph check green, but the attempt's working-time budget expired before the result record was written, so no evidence exists for that revision; attempt 2 continued from it and published."
 assumption = "Qualification evidence is attempt 2's; attempt 1's pass is recorded here only so the revision is not mistaken for a failure."
 severity = "low"
+
+[finding.16.6.1.1]
+task = "16.6.1"
+file = "scripts/ci/solidity-state-surface.sh"
+symbol = "contracts"
+observed = "Attempt 1 (ecbc1f4f9) deleted scripts/PaxeerBetaDeploy.s.sol and its test passed make -n workspace-build, but retired_callers_test.py --component anchor --component custody-claims --path scripts exited 1 on scripts/ci/solidity-state-surface.sh:4-7, a file outside the task's touches that 16.5.3 trims."
+assumption = "A scan whose path is wider than the task's touches depends on every sibling that owns a file under it; 16.6.1 now requires 16.5.3 and reruns unchanged."
+severity = "low"
+
+[finding.16.7.2.1]
+task = "16.7.2"
+file = "tools/bringup/railway-names.env"
+symbol = "GUARANTOR"
+observed = "Attempt 1 (35cfb92e1) passed the retired-callers scan of the four scripts and failed tools/bringup/ca.sh services with exit 1 because tools/bringup/railway-names.env:17 GUARANTOR and :24 RELAY_ARCHIVE name rows do_3 deleted."
+assumption = "The names file is part of the certificate inventory a row deletion touches (decision.1994); 16.7.2 owns it from attempt 2 on."
+severity = "medium"
+
+[finding.16.7.4.1]
+task = "16.7.4"
+file = "tools/bringup/xweb-config.sh"
+symbol = "xweb_render_serve"
+observed = "Attempt 1 (ad6d9fd98) replaced lx_getAsset and lx_getAccount and its test ran render serve, which exited 2 with 'check-live: BRINGUP_HOSTS_FILE is unset' from search-front.sh names (xweb-config.sh:203, check-live.sh:297); the private host map and the live gateway are not gate inputs."
+assumption = "The renderer accepts fixture inputs (decision.1995): XWEB_SERVE_NAMES for the names and XWEB_GATEWAY_ENDPOINT for a loopback px_listAssets fixture."
+severity = "medium"
+
+[finding.16.7.4.2]
+task = "16.7.4"
+file = "services/platform/hosted/gateway/src/paxeer.rs"
+symbol = "list_assets"
+observed = "The attempt 1 implementer reported that the gateway's px_listAssets layerx record carries neither verification nor paused, while tools/qualification/paxeer-x/paid-web-contract.py:3470-3475 requires verification == authenticated_committed_snapshot and paused == false on every configured asset; not confirmed against a running gateway."
+assumption = "The paid-web contract is the record shape; if list_assets (paxeer.rs:717) omits those fields the gateway owner adds them, the xweb fixture follows the contract."
+severity = "low"
+
+[finding.16.8.1.1]
+task = "16.8.1"
+file = "tools/paxeer-x/gates/2.2.sh"
+symbol = "build_cmd"
+observed = "Attempts 1 (c7276e0ae) and 2 (f3e788d74) deleted tools/paxeer-x/gates/2.2.sh as do_1 asks and the declared build bash -n tools/paxeer-x/gates/2.2.sh exited 127 on the missing file, so verification never ran."
+assumption = "A build command must name a file the task leaves in place; it now checks 24.14.sh."
+severity = "low"
+
+[finding.16.9.4.1]
+task = "16.9.4"
+file = "tools/paxeer-x/tests/retired_callers_test.py"
+symbol = "self_test"
+observed = "Attempt 1 (8d77d2b6b) added the deleted trees and the allowed reference and failed --self-test with 'complete component catalogue': the check compares the catalogue's 47 components with the --component names in spec verify_cmd lines, of which the spec now has none."
+assumption = "The check is spec-shaped and stale (decision.1996); 16.9.4 owns the test file and changes the check to a subset over every spec line."
+severity = "medium"
