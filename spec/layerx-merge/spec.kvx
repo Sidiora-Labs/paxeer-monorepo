@@ -139034,7 +139034,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.48.3]
 title = "layerx wallet and token reads use px_getBalances, px_listAssets and pax_sequencerReceipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.48.2", "8.0.4", "9.1.8", "18.1121.1", "8.48.1", "18.1297.1"]
@@ -145307,7 +145307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.2]
 title = "Stop the pay2 build script reading the deleted gateway and core test sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.0.4", "8.0.4", "18.1131.1"]
