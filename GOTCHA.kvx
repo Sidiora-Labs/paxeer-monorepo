@@ -11666,3 +11666,48 @@ fix = "After a tree move, run every self-test that builds fixtures from reposito
 title = "A do line keeps helpers the task's own planned scan forbids"
 symptom = "8.98.5 do_7 kept the lni connect helpers for a later task while do_4 asked the planned scan to fail on every retired path, so attempt 7 could not pass."
 fix = "When a do line defers part of a retirement, the planned scan's list excludes that part explicitly and the deferring task's do lines add it back."
+
+[gotcha.2371]
+title = "A rule-text task built a binary another task ports"
+symptom = "16.2.4's planned test asserted the make rule omits the WAL source and then built the binary, whose caller source still names the WAL symbols; the link failed in a task that does not touch that source."
+fix = "The link proof belongs to the task that ports the caller; a Makefile task asserts rule text and make -n output and leaves the build to the task whose touches hold the sources."
+
+[gotcha.2372]
+title = "A root-token scan cannot tell a project's own Dockerfile from the root one"
+symptom = "16.3.5 failed twice on eighteen lines where tests, deploy configuration and gates name the Dockerfile beside them, a docker/<name>/Dockerfile path or a retired-paths ledger."
+fix = "When a scan matches a bare file token, read every hit before ruling: exempt directories that own a file of that name and ledgers that list retired paths; read the first failure of an attempt, not only the last."
+
+[gotcha.2373]
+title = "Sibling retirement groups reference each other's files"
+symptom = "8.47.4's generator writes a fixture 8.47.5 deletes and 8.47.5's fixtures name 8.47.4's generator, so each task's absence scan hit the other's files."
+fix = "When a retirement is split into groups, each scan skips the sibling groups' files and the task that requires all groups asserts the closure."
+
+[gotcha.2374]
+title = "A red test binary pulled into a verify"
+symptom = "Decision 2005 put the layerx-sdk sdk binary into 9.97.6's verify; it had been failing on main since the agent-api contract moved to major 2 and the task failed on assertions it never touched."
+fix = "Before adding a test binary to a verify, check it is green on main at the task's base; if it is red, the task that owns the file updates the stale assertions and the finding records the red period."
+
+[gotcha.2375]
+title = "A dead public path kept alive by package exports"
+symptom = "The Python SDK's checkpoint-evidence path (x402.py, x402_checkpoint.py) had no caller but the __init__ exports and still broke the package import when its verifier dependencies went."
+fix = "When deleting a stack, follow every import of the deleted names through the package, including modules the task did not list, and delete dead consumers with the stack instead of keeping them importable."
+
+[gotcha.2376]
+title = "Type-only consumers of a retiring interface"
+symptom = "The TypeScript SDK's ai_market.ts imports two verifier interfaces as types only; deleting them with the kernel receipt functions broke the build three times."
+fix = "When retiring a module, grep for type imports as well as calls; interfaces with a surviving type-only consumer stay exported and the finding names the consumer for its owner."
+
+[gotcha.2377]
+title = "Graph-check symbols must be defined in touched files"
+symptom = "18.1195.1 and 18.1196.1 passed their verify and the qualification refused symbols naming the production item under test, which lives in an untouched file."
+fix = "A test-only task lists its declared test functions as symbols; the graph indexes only touched and declared-symbol files."
+
+[gotcha.2378]
+title = "An ordinal change proven on the producer only"
+symptom = "18.1188.1 moved the budget defund to activity 8 in the intents crate and verified that crate; the service's expected-operation constant and two test registries kept 7, so the real archive defund refuses its receipt and the archive binary has failed on main since."
+fix = "An interface change lists every consumer of the old value (grep the constant and the ordinal across the workspace, tests included) in its touches and runs the consumers' binaries; this is the producer-transport-consumer proof the proof_policy requires."
+
+[gotcha.2379]
+title = "An archive schema derived from the schema it replaces"
+symptom = "14.23.1 built the explorer archive schemas from the kernel schemas' schema() functions; 14.23.5, which deletes those, could not compile."
+fix = "A replacement schema is written standalone; a task that deletes a schema greps for its module name in schemas and tests and lists every deriving file in its touches."
