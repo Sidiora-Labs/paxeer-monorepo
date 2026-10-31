@@ -14851,3 +14851,11 @@ symbol = "bound_activity"
 observed = "Attempt 8 (1eebb5ac8) builds on a main that carries 9.99.2; creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths panics in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:20 with Refused('lifecycle transaction binding differs') raised by assert_outcome's call to ProtocolEvidence::bound_activity. That refusal is one string for eight comparisons (activity type, actor, authority word, chain id, non-zero network, idempotency key, transaction hash against activity_id and against tx_hash; create.rs:543-556), so the output does not say which binding the test's EVM-form owner (sign_transaction for the receipt() stages, prepare_call for the budget creation stage) gets wrong."
 assumption = "assert_outcome compares the eight bindings itself with named assertions before calling bound_activity, and the next attempt fixes the one that differs on the test side (decision 2165)."
 severity = "major"
+
+[finding.19.1.1.2]
+task = "19.1.1"
+file = "tests/solidity/names/PaxRegistrarController.t.sol:9"
+symbol = "LayerXTimelock"
+observed = "Attempt 5 (cc5753c65) adds [profile.names] and testOnlyPaxNamesAreRegistrable, and the names build still fails: the controller test imports contracts/governance/LayerXTimelock.sol to act as the Governed authority, and that file imports contracts/security/LayerXComponent.sol and contracts/libraries/Error.sol, both retired earlier in this feature (tasks 6.80.3 and 6.57.9); the timelock itself is retired by task 6.55.1. The names profile therefore compiles the one governance source that cannot compile on main."
+assumption = "The names tests use a plain governance address and never import contracts/governance (decision 2166)."
+severity = "major"

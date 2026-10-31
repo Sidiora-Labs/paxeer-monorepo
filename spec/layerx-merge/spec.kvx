@@ -6105,6 +6105,12 @@ value = "In services/human/crates/layerx-human-service/tests/support/canonical_o
 basis = "Finding 18.1272.1.3: eight comparisons behind one refusal string are the reason attempts 7 and 8 could not be read; the test can name the field without touching production."
 affects = ["18.1272.1"]
 
+[decision.2166]
+title = "The name-service tests govern through a plain address, not the retired timelock"
+value = "In tests/solidity/names/PaxRegistrarController.t.sol the Governed authority is a plain address (makeAddr('governance')) passed as the governance parameter of PaxBaseRegistrar and PaxRegistrarController; the _govern helper becomes vm.prank(governance) followed by a low-level call to the target that asserts success, and the LayerXTimelock import, field and constructor call go. No test under tests/solidity/names imports anything from contracts/governance, because LayerXTimelock.sol depends on sources retired by 6.80.3 and 6.57.9 and is itself retired by 6.55.1; the same holds for the tests of 19.1.2, 19.1.3 and 19.4.4 that share the names profile. Governed (contracts/security/Governed.sol:18-21) checks only msg.sender against the stored address, so a pranked address exercises exactly the production path."
+basis = "Finding 19.1.1.2: the only source in the names build that cannot compile is one the test pulled in for convenience, and the component it models is leaving the tree."
+affects = ["19.1.1", "19.1.2", "19.1.3", "19.4.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -180430,6 +180436,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2156: continue from attempt 1 (3018063d3), whose six files are written. Add [profile.names] to foundry.toml exactly as the decision lists it (src contracts/names, test tests/solidity/names, script contracts/names, out build/forge-artifacts-names, cache_path build/forge-cache-names, read permission on ./tests/vectors/names) and run the build and verify commands with FOUNDRY_PROFILE=names. Add testOnlyPaxNamesAreRegistrable to PaxRegistrarController.t.sol: registrar.baseNode() equals keccak256(abi.encodePacked(bytes32(0), keccak256('pax'))), a registered label is owned in the registry at namehash(<label>.pax), and the registrar refuses a controller or caller that presents another parent node. Build once and verify once; if the profile still compiles a file outside contracts/names and tests/solidity/names, name it in the finding and stop."
+do_7 = "Decision 2166: continue from attempt 5 (cc5753c65), keeping the names profile and testOnlyPaxNamesAreRegistrable. In tests/solidity/names/PaxRegistrarController.t.sol replace the timelock with a plain governance address, make _govern prank it and call the target directly asserting success, and drop the contracts/governance import. Build once with FOUNDRY_PROFILE=names and verify once."
 
 [req.18764]
 title = "An unchanged custodied value sync never reverts a vault release"

@@ -12241,3 +12241,8 @@ fix = "When a route is removed, list the tests that reach it through plan() and 
 title = "A refusal that folds several comparisons into one string needs test-side named assertions"
 symptom = "A creation test failed with 'lifecycle transaction binding differs' twice; the production check compares eight fields and names none, so neither attempt could tell which binding of the EVM-form owner was wrong."
 fix = "Have the test support recompute and assert each binding with its own message before calling the production check, so the next failure names the field."
+
+[gotcha.2485]
+title = "A retired contract imported by a test breaks a scoped Foundry profile"
+symptom = "A names-only Foundry profile still failed to build because one test imported the governance timelock, whose own imports were retired earlier in the feature."
+fix = "Scoped profiles compile every import of their tests; govern Governed components in tests through a pranked plain address and never import sources outside the profile's own directory."
