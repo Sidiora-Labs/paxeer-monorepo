@@ -5409,6 +5409,30 @@ value = "The verify of 10.20.3 runs production_configuration_validates_without_r
 basis = "Attempt 26 (16ba9bffc) passed the configuration test and failed both startup tests on the do_16 precondition for the daemon binaries; 25 earlier attempts chased the daemon's start-up through four retirements. 234 pending tasks transitively require 10.20.3."
 affects = ["10.20.3", "10.20.6"]
 
+[decision.2050]
+title = "The activity route scan of 8.7.4 covers the script corpus and leaves the gateway's refusal test alone"
+value = "test_gateway_tests_ship_no_activity_script asserts the four scripts absent and that no *.sh, *.js or *.json file under services/platform/hosted/gateway/tests outside tests/local names /v1/activities; services/platform/hosted/gateway/tests/degraded.rs:669 posts to /v1/activities to assert the gateway answers 503 kernel_unavailable for the retired route (task 8.3.1, 2a6feafe6) and stays as it is."
+basis = "Attempts 1 and 2 (21c0b992f, e6488ad8e) deleted the four scripts and failed the scan on degraded.rs, the only remaining file that names the route and a Rust test of the refusal itself."
+affects = ["8.7.4"]
+
+[decision.2051]
+title = "8.98.2 touches only the agent-boundary files that still exist"
+value = "services/platform/hosted/agent-boundary/src/head_attestation.rs and head_attestation_tests.rs are gone from main (task 8.8.4 removed them with the head attestation route, 7f570f950), so the graph check can never find a change in them; touches keeps deployment.rs and tests/retired_client_modules.rs, do_2 and do_3 are superseded, and the scan of do_9 covers deployment.rs alone."
+basis = "Attempts 2 and 3 (d10bdb5cf, df173a4ba) passed no_retired_layerx_client_module_paths and failed two graph checks 'touched ... head_attestation.rs - no matching change'; deployment.rs carries no retired path on main."
+affects = ["8.98.2"]
+
+[decision.2052]
+title = "18.1188.2 traces which bytes reach the signer's disclosure check in the three archive fixture tests before changing another helper"
+value = "Attempt 5 (41203dd42) rebuilt raw_transaction (tests/agent_controls_rungs.rs:1118) as disclosed send and budgetDefund calls per do_5 and mapped the defund tag to ActivityType::new(ModuleId::Budget, 8); eight tests pass and the three archive_fixture tests still fail: crashes_after_every_durable_stage_resume_with_one_effect_per_leg and acknowledgement_gap_faults_converge_without_resubmitting_unknown with 'journey custody failure: canonical bytes have no complete disclosure' (layerx-crypto signer.rs:207) at :1921, and every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity with 'reclaim journey failure: agent boundary failure: Refused' at :2234. The next attempt runs one failing test with RUST_BACKTRACE=1, records the frame that hands bytes to the signer and the helper that built them (journey_faults.rs is included by the same binary and also builds transaction bytes), fixes that helper to hand the custody step the disclosed bytes raw_transaction now builds, and records the refusal reason the agent-boundary double returns for the reclaim before touching it."
+basis = "do_4 keeps non-ordinal failures out of this task unless they come from the fixture; the fixture's own transaction bytes are the cause recorded in do_5 and still the cause after attempt 5. The archive binary is red on main until this task lands."
+affects = ["18.1188.2"]
+
+[decision.2053]
+title = "12.35.4 captures the standby's replication log and names why the standby does not acknowledge before another timing change"
+value = "Attempt 16 (63dda2164) reaches 'v6120-node: ready' with the three nodes and TestLocalNodeV6120SequencerReceipt fails at v6120_test.go:243: eth_sendRawTransaction answers 'sequencer: replication halted: sequencer: standby did not acknowledge: read tcp 127.0.0.1:...->127.0.0.1:43311: i/o timeout' (ErrNoAck, node/sequencer/standby.go:42), the same acknowledgement timeout do_10 recorded on the commit path at attempt 9. The primary's node.log excerpt the test prints carries no replication line, so the next attempt also prints the standby's node.log replication and sequencer lines (sequencer_evidence and the test's Cleanup), confirms the address the primary dials is the standby's replication listener from its configuration, and records whether the standby received the group and failed to apply it (its error) or never received it (dial target); only then changes the fixture."
+basis = "Sixteen attempts have each moved one step; a fix outside the two touched files is recorded in qualification.kvx per do_16."
+affects = ["12.35.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -94668,7 +94692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.12.1]
 title = "Retire kernel RECEIVE, GRANT_ISSUE and GRANT_REVOKE and the ledger grant store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.12.2", "1.11.1", "1.30.1", "1.0.4", "16.2.1", "16.97.1"]
@@ -134409,6 +134433,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "The route scan of test_gateway_tests_ship_no_activity_script covers only *.sh, *.js and *.json files under services/platform/hosted/gateway/tests outside tests/local, the kinds the retired corpus was made of; services/platform/hosted/gateway/tests/degraded.rs:669 posts to /v1/activities to assert the 503 kernel_unavailable refusal of the retired route (task 8.3.1) and is not a retired script (decision.2050)."
+do_6 = "Continue from attempt 2 (e6488ad8e): narrow the scan per decision.2050, change nothing else, build once and verify once."
 
 [task.8.8.1]
 title = "Answer agent-boundary receipts from pax_sequencerReceipt"
@@ -135404,7 +135430,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.18.1]
 title = "Run the hosted node without guarantors and kernel boundary sockets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "6.0.3", "8.8.4", "8.11.3", "16.2.4"]
@@ -135911,7 +135937,7 @@ do_6 = "Continue from attempt 3 (b84236330): restore the authority dependency at
 
 [task.8.20.4]
 title = "List only merged-chain surfaces on the beta page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["8.0.4", "8.19.2", "8.18.1"]
@@ -137393,7 +137419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.32.1]
 title = "Retire the relay archive JSON-RPC and HTTP serving runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.1", "16.2.4", "16.96.3"]
@@ -140474,8 +140500,8 @@ reqs = ["8942.1"]
 capabilities = ["8.98.2"]
 interfaces = []
 do_1 = "Replace the retired layerx_client module uses at services/platform/hosted/agent-boundary/src/deployment.rs:6, :7 with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
-do_2 = "Replace the retired layerx_client module uses at services/platform/hosted/agent-boundary/src/head_attestation.rs:5, :9 with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
-do_3 = "Replace the retired layerx_client module uses at services/platform/hosted/agent-boundary/src/head_attestation_tests.rs:4, :5, :6, :10 and 1 more with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
+do_2 = "Superseded: services/platform/hosted/agent-boundary/src/head_attestation.rs no longer exists on main (task 8.8.4, 7f570f950); nothing to migrate here (decision.2051)."
+do_3 = "Superseded: services/platform/hosted/agent-boundary/src/head_attestation_tests.rs no longer exists on main (task 8.8.4, 7f570f950); nothing to migrate here (decision.2051)."
 do_4 = "Superseded: the file this line migrated is deleted or stripped by task 8.19.6 before this task runs; nothing to migrate here."
 do_5 = "Superseded: the file this line migrated is deleted or stripped by task 8.19.6 before this task runs; nothing to migrate here."
 do_6 = "Superseded: the file this line migrated is deleted or stripped by task 8.19.6 before this task runs; nothing to migrate here."
@@ -140483,7 +140509,7 @@ do_7 = "Superseded: the file this line migrated is deleted or stripped by task 8
 do_8 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-platform-agent-boundary (services/platform/hosted/agent-boundary/Cargo.toml:1) and every existing test of the crate stay unchanged."
 do_9 = "Write no_retired_layerx_client_module_paths in services/platform/hosted/agent-boundary/tests/retired_client_modules.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains; include_str! only the files that still exist after tasks 8.8.4 and 8.19.6, and keep tests/retired_client_modules.rs from the first attempt."
 symbols = ["no_retired_layerx_client_module_paths"]
-touches = ["services/platform/hosted/agent-boundary/src/deployment.rs", "services/platform/hosted/agent-boundary/src/head_attestation.rs", "services/platform/hosted/agent-boundary/src/head_attestation_tests.rs", "services/platform/hosted/agent-boundary/tests/retired_client_modules.rs"]
+touches = ["services/platform/hosted/agent-boundary/src/deployment.rs", "services/platform/hosted/agent-boundary/tests/retired_client_modules.rs"]
 tests = ["services/platform/hosted/agent-boundary/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths"]
 planned_paths = ["services/platform/hosted/agent-boundary/tests/retired_client_modules.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary"
@@ -140501,6 +140527,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Scan only: after the requires tasks land the files in touches carry no retired layerx-client or layerx-crypto path; write the retired-module test over the listed source tree and change no production file. If a retired path remains, port it to its replacement in decision.1813 and record the file in the qualification log."
+do_11 = "Requalify the attempt 3 candidate (df173a4ba) unchanged: the verify passed on attempts 2 and 3 and only the graph check on the two removed files failed (decision.2051)."
 
 [task.8.98.3]
 title = "Migrate the authority callers of wiring.J44.20 (wave 2)"
@@ -146058,7 +146085,7 @@ do_5 = "Attempts 3 and 4 (28f485ddd on 17dd9f358, feb420d28 on d9595e251) regene
 
 [task.9.97.8]
 title = "Retire the kernel receipt verification from the TypeScript SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.92.1", "9.34.2"]
@@ -148371,7 +148398,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.20.3]
 title = "Unhook retired journeys, wallet binding and the settlement recipient from production"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3", "5.7.4", "9.12.11", "1.2.6"]
@@ -158602,6 +158629,7 @@ do_13 = "Attempt 12 (2bbcaee77) applies do_12 and the standby answers eth_chainI
 do_14 = "Attempt 13 (e4f1f13bb) applies do_13: the pending nonce read passes and TestLocalNodeV6120SequencerReceipt fails at v6120_test.go:191 because HeaderByNumber(nil) answers 'decode consensus transaction 0 in block 34742531: expected 2 wire type, got 0: tx parse error'. The chain is the fresh local pair (node/testdata/v6120-halt-export.json initial_height 34742401; every endpoint is loopback) and the two curl (28) lines are the /status readiness probes of v6120-node.sh:655-657. Transaction 0 of every sequenced block is the 241-byte MsgSequenceBatch (node/app.go:1639-1656; modules/sequencer/types/batch_tx.go:12-26; first byte 0x50 is protowire field 10 wire type 0), and validateBlockExecutionReceipts (rpc/utils.go:330-334, reached from EncodeTmBlock rpc/block.go:547, the count paths :163 and :185, getBlockByHash :457 and rpc/subscribe.go:573) decodes every block transaction with the sdk TxDecoder (sdk/x/auth/tx/decoder.go:29-34, :128-129), so every committed block view at a sequenced height fails on any sequencer node. This task requires 12.35.7 (decision.1968), which recognises the batch at index 0 in that validation. Re-qualify e4f1f13bb unchanged after 12.35.7 is on main; v6120-node.sh and v6120_test.go stay as written and HeaderByNumber(nil) stays a latest read."
 do_15 = "Attempt 14 (a564859dd on 22b9ee184) passes the build and fails TestLocalNodeV6120SequencerReceipt at v6120_test.go:221 with 'send one-wei transfer: sequencer: replication halted: sequencer: no block is open': the node seals the open layer between the accept and the send of the transfer, the accepter's Snapshot call (node/sequencer/accepter.go:86) returns ErrLayerNotOpen and replication halts. Task 12.35.8 repairs the accepter; this task requires it and re-qualifies the attempt 14 content unchanged on a revision that includes it. Change nothing in the two touched files for this failure."
 do_16 = "tools/qualification/localnode/v6120-node.sh writes LOCAL_NODE_HOME=%q of $NODE_HOME into localnode.env next to LOCAL_NODE_RPC (:719-724), and sequencer_evidence (:129-158) also greps 'method handler crashed|panic|goroutine ' in node.log; TestLocalNodeV6120SequencerReceipt registers a t.Cleanup that, when t.Failed(), logs the last 150 lines of $LOCAL_NODE_HOME/node.log. Attempt 15 (f779633fc on caf5a0531) failed at v6120_test.go:221 with 'send one-wei transfer: method handler crashed' from eth_sendRawTransaction; the closing report must quote the panic site from node.log, and a fix stays within the two touched files unless the panic names a product path, which is then recorded in qualification.kvx."
+do_17 = "Continue from attempt 16 (63dda2164): the test now fails at v6120_test.go:243 with ErrNoAck from node/sequencer/standby.go:42 on the send path. Make sequencer_evidence and the failing test's Cleanup print the standby's node.log replication and sequencer lines as well as the primary's; confirm the standby address the primary dials (--sequencer.standby-address) is the replication listener the standby's configuration opens; record in the closing report whether the standby received the group and why it did not acknowledge within --sequencer.replication-timeout, and fix the fixture accordingly (decision.2053); a cause in node/sequencer is recorded in qualification.kvx with file and line and the task stops. Build once and verify once."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -173991,7 +174019,7 @@ do_10 = "Continue from attempt 4 (a4317c95e): the build now names build/tests/pr
 
 [task.16.33.6]
 title = "Retire the replay fixture headers and the replay and certificate cases of the tools suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.31.5", "16.32.1", "16.32.7", "16.2.4", "16.37.2"]
@@ -191604,6 +191632,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Consumer-proof task for the 18.1188.1 interface change: the two declared tests drive the real intent compile, disclosure and module registry through the engine and the reclaim start; the service constant follows the same ordinal."
 do_5 = "Attempt 2 (7014255e5) fails the three archive_fixture tests of tests/agent_controls_rungs.rs at :1839 and :2152: raw_transaction (:1118) signs a one-byte call whose canonical bytes carry no disclosure, which layerx-crypto signer.rs:207 refuses, and payload_activity_type (:1019) refuses every tag but 0x4207. Build the fixture's transaction bytes as a disclosed call the way tests/support/canonical_owner.rs sign_transaction does (ledger selector, bind_call disclosure at :101 matching the payload activity type and key), and map the compiled budget defund payload tag to ActivityType::new(ModuleId::Budget, 8) in payload_activity_type (decision.2032). Keep the ordinal changes of do_1 to do_3; build once and verify once."
+do_6 = "Continue from attempt 5 (41203dd42): keep its raw_transaction and ordinal changes; run one of the two custody-failing archive_fixture tests with RUST_BACKTRACE=1 and record in the closing report the frame that passes canonical bytes to layerx-crypto signer.rs:207 and the test helper that built them (tests/agent_controls_rungs.rs or the included journey_faults.rs); make that helper hand the custody step the disclosed bytes raw_transaction builds, so the same bytes carry the disclosure end to end. For every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity record the refusal reason the agent-boundary double returns at transition 1 of jrn_reclaimbudget before changing it; a cause outside the two test files and production_components.rs:8239 is recorded in qualification.kvx and the task stops there (decision.2052). Build once and verify once."
 
 [task.18.1075.1]
 title = "Issue #1075: Receipt qualification accepts any manifest in the reviewed deployment history"
@@ -196192,7 +196221,7 @@ qualification = "UNRUN"
 
 [task.18.1211.5]
 title = "Issue #1211: Re-record the sequencer receipt vectors with a derivable payee in native PaymentExact order"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1211.2", "18.1211.3", "18.1211.4", "18.1308.2"]

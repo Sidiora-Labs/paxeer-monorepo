@@ -809,6 +809,7 @@ mod tests {
             "parentHash": format!("0x{}", "00".repeat(32)),
             "timestamp": "0x67a1b2c3",
             "transactionsRoot": format!("0x{}", "00".repeat(32)),
+            "receiptsRoot": format!("0x{}", "00".repeat(32)),
             "transactions": [],
         });
         let mut mismatched = block.clone();
