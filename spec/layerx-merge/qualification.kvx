@@ -14235,3 +14235,59 @@ symbol = "TestLocalNodeV6120SequencerReceipt"
 observed = "Attempt 16 (63dda2164, base 540ce351c) started the primary, standby and bootstrap peer and the one-wei send failed with 'sequencer: standby did not acknowledge ... i/o timeout' (ErrNoAck, node/sequencer/standby.go:42) at v6120_test.go:243; the primary's log excerpt shows no replication error."
 assumption = "The standby either never receives the group (dial target) or fails to apply it within the replication timeout; the standby's log decides (decision.2053)."
 severity = "major"
+
+[finding.16.33.2.2]
+task = "16.33.2"
+file = "tests/test_bridge_withdraw.c"
+symbol = "test_bridge_withdraw"
+observed = "At attempt 5 (ec9537040) build/tests/test_bridge_withdraw builds and exits 1 with no output; the attempt's only edit of the file was a two-line change at :292 made to give a touched path a change after task 16.94.1 (d1e505545) had already removed the guarantor and checkpoint-certificate cases."
+assumption = "The exit is pre-existing or caused by that edit; 16.33.2 no longer touches the file and its retirement check does not run the binary; the kernel test suite owner decides."
+severity = "cross-task"
+
+[finding.9.97.7.5]
+task = "9.97.7"
+file = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:240-252"
+symbol = "verify_rpc_payment"
+observed = "On main since dbd4d6402 (task 9.97.10) verify_rpc_payment calls verify_payment_receipt with the retired authorized, signatures, commitment and evidence arguments and raises TypeError; its callers x402_http.py:309, :374, :515 and :559 and x402_draw.py:104 in turn pass neither receipt_keys nor raw_transaction."
+assumption = "The verifier interface changed without re-pointing its consumers; 9.97.7 repairs the function and its test, task 9.97.11 the callers."
+severity = "cross-task"
+
+[finding.13.34.1.2]
+task = "13.34.1"
+file = "src/modules/programs/call.c:640"
+symbol = "lxp_protocol_version_uses_occupancy"
+observed = "Under occupancy every call to one program carries that program's occupancy, so a batch of independent calls to one program schedules serially: attempt 5 (71774e1df) printed serial=32 parallel=32 against a fixed expectation of 1 for the low-conflict workload."
+assumption = "The serialisation is the kernel's current rule; whether call occupancy should key on the program rather than the caller is an owner question for the programs and kernel owners, recorded here and not changed by 13.34.1."
+severity = "owner"
+
+[finding.5.98.4.1]
+task = "5.98.4"
+file = "services/wallet/gateway/src/precompiles.ts:60-66"
+symbol = "ensureServed"
+observed = "The gateway's ensureServed treats eth_getCode == 0x as not served, while the node serves every precompile without account code (attempt 1 of 5.98.4 on the local node: eth_getCode 0x at all twelve merge addresses while the native ledger accountId eth_call is served); against the merge node every guarded agent route would refuse."
+assumption = "Task 12.13.7 replaces the probe with the unknown-selector eth_call; tasks 12.13.2-12.13.4 require it."
+severity = "cross-task"
+
+[finding.1.12.1.2]
+task = "1.12.1"
+file = "modules/lxphost/read.go:827-872"
+symbol = "ReadPayerGrant"
+observed = "Since 52fda45db make -f chain.mk install fails: cgo cannot resolve C.lxp_grant_state, C.lx_asset_payer_grant_read, C.lx_budget_grant_draws_read and C.lxp_payer_grant_encode in modules/lxphost/read.go:830-854; every task that builds the node (5.98.4 attempt 2, 12.35.4 attempt 17) failed on it."
+assumption = "1.12.1 retired the kernel symbols without their Go consumer (decision.109 delegated the removal to 1.30.1, which did not make it); task 1.12.4 removes the read."
+severity = "cross-task"
+
+[finding.2.28.5.1]
+task = "2.28.5"
+file = "precompiles/layerxpay/budget_test.go:318-324"
+symbol = "TestPrecompileBudgetNativeAndPull"
+observed = "The case issues kernel activity 0x00010007 and calls budgetPull, which modules/layerxpay/types/activity.go:22 maps to kernel 0x0003000b; tasks 1.12.1 and 1.12.2 retired both types while precompiles/layerxpay/layerxpay.go:279, abi.json:12 and modules/layerxpay/keeper/budget_pull.go still serve budgetPull."
+assumption = "The served method now reaches a kernel type that no longer exists; whether budgetPull is retired or re-pointed is an owner ruling for the pay precompile, recorded here."
+severity = "owner"
+
+[finding.9.97.6.4]
+task = "9.97.6"
+file = "services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs:211"
+symbol = "signed_receipt"
+observed = "Since 6de397283 (task 8.47.4) the layerx-sdk test targets do not compile: four test files include the removed sdk/platform/conformance/fixtures/receipt-positive-v2.json, and services/agent/sdk/typescript/test/px.test.ts:577-590 reads it too."
+assumption = "The fixture was removed without its consumers; 9.97.6 repairs the Rust tests and task 9.97.12 the TypeScript test."
+severity = "cross-task"
