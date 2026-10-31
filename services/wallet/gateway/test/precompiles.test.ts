@@ -426,9 +426,87 @@ describe('unserved agent precompiles', () => {
   });
 });
 
-const chainCodeTests = {
-  async 'probes the chain for code before serving a linked agent precompile'() {
-    let code = '0x';
+async function ensureServedTreatsUnknownMethodRejectionAsServed() {
+  const requests: { method: string; params: unknown[] }[] = [];
+  const server = createServer(async (req, res) => {
+    let body = '';
+    for await (const chunk of req) body += chunk.toString();
+    const request = JSON.parse(body) as {
+      id: number;
+      method: string;
+      params: [{ to: string; data: string }, string];
+    };
+    requests.push({ method: request.method, params: request.params });
+    const to = request.params[0]?.to?.toLowerCase();
+    const response =
+      request.method !== 'eth_call'
+        ? { error: { code: -32601, message: 'Method not found' } }
+        : to === PRECOMPILE_ADDRESSES.scheduler
+          ? {
+              error: {
+                code: -32000,
+                message: 'LXP_PRECOMPILE_UNKNOWN_METHOD: no method with id: 0xffffffff',
+              },
+            }
+          : to === PRECOMPILE_ADDRESSES.streams
+            ? { result: '0x' }
+            : { error: { code: 3, message: 'LXP_MODULE_DISABLED: precompile is disabled' } };
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: request.id, ...response }));
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const previousRpcUrl = process.env.HYPERPAXEER_RPC_URL;
+  try {
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP listener');
+    process.env.HYPERPAXEER_RPC_URL = `http://127.0.0.1:${address.port}`;
+    vi.resetModules();
+    const { ensureServed, PrecompileNotServedError } = await import('../src/precompiles.js');
+
+    await expect(ensureServed('scheduler')).resolves.toBeUndefined();
+    expect(requests).toEqual([
+      {
+        method: 'eth_call',
+        params: [{ to: PRECOMPILE_ADDRESSES.scheduler, data: '0xffffffff' }, 'latest'],
+      },
+    ]);
+    await expect(ensureServed('scheduler')).resolves.toBeUndefined();
+    expect(requests).toHaveLength(1);
+    await expect(ensureServed('streams')).rejects.toBeInstanceOf(PrecompileNotServedError);
+    await expect(ensureServed('streams')).rejects.toBeInstanceOf(PrecompileNotServedError);
+    await expect(ensureServed('oracle')).rejects.toThrow('LXP_MODULE_DISABLED');
+    expect(requests).toEqual(
+      ['scheduler', 'streams', 'streams', 'oracle'].map((key) => ({
+        method: 'eth_call',
+        params: [
+          { to: PRECOMPILE_ADDRESSES[key as keyof typeof PRECOMPILE_ADDRESSES], data: '0xffffffff' },
+          'latest',
+        ],
+      })),
+    );
+    expect(requests.some(({ method }) => method === 'eth_getCode')).toBe(false);
+  } finally {
+    if (previousRpcUrl === undefined) delete process.env.HYPERPAXEER_RPC_URL;
+    else process.env.HYPERPAXEER_RPC_URL = previousRpcUrl;
+    vi.resetModules();
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+  }
+}
+
+test(
+  ensureServedTreatsUnknownMethodRejectionAsServed,
+  ensureServedTreatsUnknownMethodRejectionAsServed,
+);
+
+const chainProbeTests = {
+  async 'probes the chain before serving a linked agent precompile'() {
+    let served = false;
     const requests: { method: string; params: unknown[] }[] = [];
     const server = createServer(async (req, res) => {
       let body = '';
@@ -438,8 +516,14 @@ const chainCodeTests = {
       res.setHeader('content-type', 'application/json');
       res.end(
         JSON.stringify(
-          request.method === 'eth_getCode'
-            ? { jsonrpc: '2.0', id: request.id, result: code }
+          request.method === 'eth_call'
+            ? {
+                jsonrpc: '2.0',
+                id: request.id,
+                ...(served
+                  ? { error: { code: -32000, message: 'LXP_PRECOMPILE_UNKNOWN_METHOD' } }
+                  : { result: '0x' }),
+              }
             : {
                 jsonrpc: '2.0',
                 id: request.id,
@@ -464,7 +548,10 @@ const chainCodeTests = {
 
       await expect(ensureServed('clearing')).rejects.toBeInstanceOf(PrecompileNotServedError);
       expect(requests).toEqual([
-        { method: 'eth_getCode', params: [PRECOMPILE_ADDRESSES.clearing, 'latest'] },
+        {
+          method: 'eth_call',
+          params: [{ to: PRECOMPILE_ADDRESSES.clearing, data: '0xffffffff' }, 'latest'],
+        },
       ]);
       const domainSeparator = `0x${'11'.repeat(32)}` as const;
       const structHash = `0x${'22'.repeat(32)}` as const;
@@ -497,25 +584,25 @@ const chainCodeTests = {
       }
       expect(requests.slice(1)).toEqual(
         reads.map(({ key }) => ({
-          method: 'eth_getCode',
-          params: [PRECOMPILE_ADDRESSES[key], 'latest'],
+          method: 'eth_call',
+          params: [{ to: PRECOMPILE_ADDRESSES[key], data: '0xffffffff' }, 'latest'],
         })),
       );
 
-      code = '0x60006000f3';
+      served = true;
       await expect(ensureServed('clearing')).resolves.toBeUndefined();
       expect(requests).toHaveLength(reads.length + 2);
       expect(requests[reads.length + 1]).toEqual({
-        method: 'eth_getCode',
-        params: [PRECOMPILE_ADDRESSES.clearing, 'latest'],
+        method: 'eth_call',
+        params: [{ to: PRECOMPILE_ADDRESSES.clearing, data: '0xffffffff' }, 'latest'],
       });
-      code = '0x';
+      served = false;
       await expect(ensureServed('clearing')).resolves.toBeUndefined();
       expect(requests).toHaveLength(reads.length + 2);
       await expect(ensureServed('orob')).rejects.toBeInstanceOf(PrecompileNotServedError);
       expect(requests.at(-1)).toEqual({
-        method: 'eth_getCode',
-        params: [PRECOMPILE_ADDRESSES.orob, 'latest'],
+        method: 'eth_call',
+        params: [{ to: PRECOMPILE_ADDRESSES.orob, data: '0xffffffff' }, 'latest'],
       });
     } finally {
       if (previousRpcUrl === undefined) delete process.env.HYPERPAXEER_RPC_URL;
@@ -530,6 +617,6 @@ const chainCodeTests = {
 };
 
 test(
-  chainCodeTests['probes the chain for code before serving a linked agent precompile'],
-  chainCodeTests['probes the chain for code before serving a linked agent precompile'],
+  chainProbeTests['probes the chain before serving a linked agent precompile'],
+  chainProbeTests['probes the chain before serving a linked agent precompile'],
 );

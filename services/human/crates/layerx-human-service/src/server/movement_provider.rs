@@ -9,25 +9,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use layerx_paxeer_client::custody::{deposit_calldata, deposit_token_calldata, native_value_wei};
-use layerx_paxeer_client::{
-    DebitExpectation, DepositFailure, DepositProof, FinalityReport, TransactionHash,
-    WithdrawalBoundary, WithdrawalMaterial, CUSTODY_PRECOMPILE,
-};
 use rustix::net::sockopt::socket_peercred;
 
-use crate::audit::AuditChain;
-use crate::journeys::{
-    DepositBoundaryError, DepositPlan, DepositRuntime, ExitBoundaryError, ExitJourney,
-    ExitJourneyError, ExitPlan, ExitStatus, ExitWallet, ExitWalletOutcome, ExitWalletRequest,
-    IrreversibleExitConfirmation, MovePlan, PaxeerAction, PaxeerActionOutcome,
-    WalletCustodyOutcome, WalletCustodyRequest, WithdrawalBoundaryError, WithdrawalJourney,
-    WithdrawalJourneyError, WithdrawalPlan, WithdrawalRuntime, WithdrawalStatus,
-    WithdrawalTransactionRequest,
-};
+use crate::journeys::MovePlan;
 use crate::store::{AgentTenantId, PrincipalId, PrincipalScope, RowKey, Table};
 use crate::trace::TraceId;
-use layerx_paxeer_client::EmergencyExit;
 
 /// Movement frame revision. Revision 3 carries the native custody precompile
 /// shapes: withdrawal material in place of checkpoint proofs, the payable
@@ -307,38 +293,6 @@ impl AuthorizedMovePlan {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MovementProviderRequest {
     PlanMove(PlanningRequest),
-    PlanDeposit(PlanningRequest),
-    PlanWithdrawal(PlanningRequest),
-    PlanExit(PlanningRequest),
-    VerifyExternalDeposit {
-        request: WalletCustodyRequest,
-        transaction: TransactionHash,
-    },
-    SubmitDepositCustody(WalletCustodyRequest),
-    PollDepositFinality(TransactionHash),
-    ObtainDepositProof(TransactionHash),
-    VerifyClaimSignature {
-        request: WithdrawalTransactionRequest,
-        signature: Vec<u8>,
-    },
-    WithdrawalMaterial(DebitExpectation),
-    BindWithdrawalDebit {
-        identity: crate::journeys::MovementExecutionIdentity,
-        debit: DebitExpectation,
-        receipt_reference: [u8; 32],
-    },
-    SubmitWithdrawal(WithdrawalTransactionRequest),
-    LookupWithdrawal([u8; 32]),
-    SubmitExit(ExitWalletRequest),
-    PrepareEvmTransaction {
-        identity: crate::journeys::MovementExecutionIdentity,
-        action_key: [u8; 32],
-        target: layerx_types::intent::EvmAddress,
-        calldata: Vec<u8>,
-        /// Exact wei the prepared transaction must carry: the native custody
-        /// deposit is payable, every other movement call is value free.
-        value: [u8; 32],
-    },
     Readiness,
 }
 
@@ -347,19 +301,6 @@ pub enum MovementProviderRequest {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MovementProviderResponse {
     MovePlan(AuthorizedMovePlan),
-    DepositPlan(DepositPlan),
-    WithdrawalPlan(WithdrawalPlan),
-    ExitPlan(ExitPlan),
-    VerifiedDeposit(TransactionHash),
-    DepositCustody(WalletCustodyOutcome),
-    DepositFinality(FinalityReport),
-    DepositProof(Result<DepositProof, DepositFailure>),
-    ClaimTransaction(Vec<u8>),
-    WithdrawalMaterial(Option<WithdrawalMaterial>),
-    Withdrawal(PaxeerActionOutcome),
-    WithdrawalLookup(Option<TransactionHash>),
-    Exit(ExitWalletOutcome),
-    PreparedEvmTransaction(crate::custody::EvmTransaction),
     Ready,
     Unavailable,
     ContractViolation,
@@ -418,99 +359,7 @@ impl MovementProviderCodec for NativeMovementCodec {
                 w.tag(1);
                 w.planning(v)?;
             }
-            MovementProviderRequest::PlanDeposit(v) => {
-                w.tag(2);
-                w.planning(v)?;
-            }
-            MovementProviderRequest::PlanWithdrawal(v) => {
-                w.tag(3);
-                w.planning(v)?;
-            }
-            MovementProviderRequest::PlanExit(v) => {
-                w.tag(4);
-                w.planning(v)?;
-            }
-            MovementProviderRequest::VerifyExternalDeposit {
-                request,
-                transaction,
-            } => {
-                w.tag(5);
-                w.wallet_custody(request)?;
-                w.fixed(&transaction.bytes());
-            }
-            MovementProviderRequest::SubmitDepositCustody(v) => {
-                w.tag(6);
-                w.wallet_custody(v)?;
-            }
-            MovementProviderRequest::PollDepositFinality(v) => {
-                w.tag(7);
-                w.fixed(&v.bytes());
-            }
-            MovementProviderRequest::ObtainDepositProof(v) => {
-                w.tag(8);
-                w.fixed(&v.bytes());
-            }
-            MovementProviderRequest::VerifyClaimSignature { request, signature } => {
-                w.tag(9);
-                w.withdrawal_request(request)?;
-                w.blob(signature, 262_144)?;
-            }
-            MovementProviderRequest::BindWithdrawalDebit {
-                identity,
-                debit,
-                receipt_reference,
-            } => {
-                if debit.activity_id != debit.withdrawal_id
-                    || *receipt_reference == [0; 32]
-                    || identity.account != debit.account
-                    || identity.wallet != debit.recipient
-                {
-                    return Err(MovementProviderError::ContractViolation);
-                }
-                w.tag(16);
-                w.execution_identity(identity)?;
-                w.blob(
-                    &layerx_paxeer_client::wire::encode_debit_expectation(debit, 4096)
-                        .map_err(|_| MovementProviderError::ContractViolation)?,
-                    4096,
-                )?;
-                w.fixed(receipt_reference);
-            }
-            MovementProviderRequest::WithdrawalMaterial(v) => {
-                w.tag(10);
-                w.blob(
-                    &layerx_paxeer_client::wire::encode_debit_expectation(v, 4096)
-                        .map_err(|_| MovementProviderError::ContractViolation)?,
-                    4096,
-                )?;
-            }
-            MovementProviderRequest::SubmitWithdrawal(v) => {
-                w.tag(11);
-                w.withdrawal_request(v)?;
-            }
-            MovementProviderRequest::LookupWithdrawal(v) => {
-                w.tag(12);
-                w.fixed(v);
-            }
-            MovementProviderRequest::SubmitExit(v) => {
-                w.tag(13);
-                w.exit_request(v)?;
-            }
             MovementProviderRequest::Readiness => w.tag(14),
-            MovementProviderRequest::PrepareEvmTransaction {
-                identity,
-                action_key,
-                target,
-                calldata,
-                value,
-            } => {
-                w.tag(15);
-                w.execution_identity(identity)?;
-                w.fixed(action_key);
-                w.fixed(&target.bytes());
-                w.blob(calldata, 262_144)?;
-                w.fixed(value);
-            }
         }
         native_frame(w.finish())
     }
@@ -521,41 +370,7 @@ impl MovementProviderCodec for NativeMovementCodec {
         let mut r = MpReader::new(bytes)?;
         let value = match r.u8()? {
             1 => MovementProviderRequest::PlanMove(r.planning()?),
-            2 => MovementProviderRequest::PlanDeposit(r.planning()?),
-            3 => MovementProviderRequest::PlanWithdrawal(r.planning()?),
-            4 => MovementProviderRequest::PlanExit(r.planning()?),
-            5 => MovementProviderRequest::VerifyExternalDeposit {
-                request: r.wallet_custody()?,
-                transaction: TransactionHash::new(r.fixed()?),
-            },
-            6 => MovementProviderRequest::SubmitDepositCustody(r.wallet_custody()?),
-            7 => MovementProviderRequest::PollDepositFinality(TransactionHash::new(r.fixed()?)),
-            8 => MovementProviderRequest::ObtainDepositProof(TransactionHash::new(r.fixed()?)),
-            9 => MovementProviderRequest::VerifyClaimSignature {
-                request: r.withdrawal_request()?,
-                signature: r.blob(262_144)?.to_vec(),
-            },
-            10 => MovementProviderRequest::WithdrawalMaterial(
-                layerx_paxeer_client::wire::decode_debit_expectation(r.blob(4096)?, 4096)
-                    .map_err(|_| MovementProviderError::ContractViolation)?,
-            ),
-            11 => MovementProviderRequest::SubmitWithdrawal(r.withdrawal_request()?),
-            12 => MovementProviderRequest::LookupWithdrawal(r.fixed()?),
-            13 => MovementProviderRequest::SubmitExit(r.exit_request()?),
             14 => MovementProviderRequest::Readiness,
-            15 => MovementProviderRequest::PrepareEvmTransaction {
-                identity: r.execution_identity()?,
-                action_key: r.fixed()?,
-                target: layerx_types::intent::EvmAddress::new(r.fixed()?),
-                calldata: r.blob(262_144)?.to_vec(),
-                value: r.fixed()?,
-            },
-            16 => MovementProviderRequest::BindWithdrawalDebit {
-                identity: r.execution_identity()?,
-                debit: layerx_paxeer_client::wire::decode_debit_expectation(r.blob(4096)?, 4096)
-                    .map_err(|_| MovementProviderError::ContractViolation)?,
-                receipt_reference: r.fixed()?,
-            },
             _ => return Err(MovementProviderError::ContractViolation),
         };
         r.finish()?;
@@ -570,95 +385,8 @@ impl MovementProviderCodec for NativeMovementCodec {
     ) -> Result<Vec<u8>, MovementProviderError> {
         let mut w = MpWriter::new();
         match response {
-            MovementProviderResponse::MovePlan(_)
-            | MovementProviderResponse::DepositPlan(_)
-            | MovementProviderResponse::WithdrawalPlan(_)
-            | MovementProviderResponse::ExitPlan(_) => {
+            MovementProviderResponse::MovePlan(_) => {
                 w.plan_response(response)?;
-            }
-            MovementProviderResponse::VerifiedDeposit(v) => {
-                w.tag(5);
-                w.fixed(&v.bytes());
-            }
-            MovementProviderResponse::DepositCustody(v) => {
-                w.tag(6);
-                match v {
-                    WalletCustodyOutcome::Submitted(h) => {
-                        w.u8(1);
-                        w.fixed(&h.bytes());
-                    }
-                    WalletCustodyOutcome::Rejected => w.u8(2),
-                    WalletCustodyOutcome::Failed => w.u8(3),
-                }
-            }
-            MovementProviderResponse::DepositFinality(v) => {
-                w.tag(7);
-                w.blob(
-                    &layerx_paxeer_client::wire::encode_finality_report(v, 262_144)
-                        .map_err(|_| MovementProviderError::ContractViolation)?,
-                    262_144,
-                )?;
-            }
-            MovementProviderResponse::DepositProof(Ok(v)) => {
-                w.tag(8);
-                w.u8(1);
-                w.blob(
-                    &layerx_paxeer_client::wire::encode_deposit_proof(
-                        v,
-                        layerx_paxeer_client::wire::MAX_DEPOSIT_PROOF_BYTES,
-                    )
-                    .map_err(|_| MovementProviderError::ContractViolation)?,
-                    layerx_paxeer_client::wire::MAX_DEPOSIT_PROOF_BYTES,
-                )?;
-            }
-            MovementProviderResponse::DepositProof(Err(v)) => {
-                w.tag(8);
-                w.u8(2);
-                w.blob(
-                    &layerx_paxeer_client::wire::encode_deposit_failure(v, 262_144)
-                        .map_err(|_| MovementProviderError::ContractViolation)?,
-                    262_144,
-                )?;
-            }
-            MovementProviderResponse::ClaimTransaction(v) => {
-                w.tag(9);
-                w.blob(v, 262_144)?;
-            }
-            MovementProviderResponse::WithdrawalMaterial(value) => {
-                w.material_response(value.as_ref())?;
-            }
-            MovementProviderResponse::Withdrawal(v) => {
-                w.tag(11);
-                match v {
-                    PaxeerActionOutcome::Submitted(h) => {
-                        w.u8(1);
-                        w.fixed(&h.bytes());
-                    }
-                    PaxeerActionOutcome::Unknown => w.u8(2),
-                }
-            }
-            MovementProviderResponse::WithdrawalLookup(v) => {
-                w.tag(12);
-                match v {
-                    None => w.u8(0),
-                    Some(h) => {
-                        w.u8(1);
-                        w.fixed(&h.bytes());
-                    }
-                }
-            }
-            MovementProviderResponse::Exit(v) => {
-                w.tag(13);
-                match v {
-                    ExitWalletOutcome::Submitted(h) => {
-                        w.u8(1);
-                        w.fixed(&h.bytes());
-                    }
-                    ExitWalletOutcome::Rejected => w.u8(2),
-                }
-            }
-            MovementProviderResponse::PreparedEvmTransaction(transaction) => {
-                w.evm_transaction(transaction)?;
             }
             MovementProviderResponse::Ready => w.tag(14),
             MovementProviderResponse::Unavailable => w.tag(15),
@@ -675,70 +403,6 @@ impl MovementProviderCodec for NativeMovementCodec {
             1 => MovementProviderResponse::MovePlan(AuthorizedMovePlan::canonical_decode(
                 r.blob(1_048_576)?,
             )?),
-            2 => MovementProviderResponse::DepositPlan(
-                crate::journeys::decode_deposit_plan(r.blob(1_048_576)?)
-                    .map_err(|_| MovementProviderError::ContractViolation)?,
-            ),
-            3 => MovementProviderResponse::WithdrawalPlan(
-                crate::journeys::decode_withdrawal_plan(r.blob(1_048_576)?)
-                    .map_err(|_| MovementProviderError::ContractViolation)?,
-            ),
-            4 => MovementProviderResponse::ExitPlan(
-                crate::journeys::decode_exit_plan(r.blob(1_048_576)?)
-                    .map_err(|_| MovementProviderError::ContractViolation)?,
-            ),
-            5 => MovementProviderResponse::VerifiedDeposit(TransactionHash::new(r.fixed()?)),
-            6 => MovementProviderResponse::DepositCustody(match r.u8()? {
-                1 => WalletCustodyOutcome::Submitted(TransactionHash::new(r.fixed()?)),
-                2 => WalletCustodyOutcome::Rejected,
-                3 => WalletCustodyOutcome::Failed,
-                _ => return Err(MovementProviderError::ContractViolation),
-            }),
-            7 => MovementProviderResponse::DepositFinality(
-                layerx_paxeer_client::wire::decode_finality_report(r.blob(262_144)?, 262_144)
-                    .map_err(|_| MovementProviderError::ContractViolation)?,
-            ),
-            8 => MovementProviderResponse::DepositProof(match r.u8()? {
-                1 => Ok(layerx_paxeer_client::wire::decode_deposit_proof(
-                    r.blob(layerx_paxeer_client::wire::MAX_DEPOSIT_PROOF_BYTES)?,
-                    layerx_paxeer_client::wire::MAX_DEPOSIT_PROOF_BYTES,
-                )
-                .map_err(|_| MovementProviderError::ContractViolation)?),
-                2 => Err(layerx_paxeer_client::wire::decode_deposit_failure(
-                    r.blob(262_144)?,
-                    262_144,
-                )
-                .map_err(|_| MovementProviderError::ContractViolation)?),
-                _ => return Err(MovementProviderError::ContractViolation),
-            }),
-            9 => MovementProviderResponse::ClaimTransaction(r.blob(262_144)?.to_vec()),
-            10 => MovementProviderResponse::WithdrawalMaterial(match r.u8()? {
-                0 => None,
-                1 => Some(
-                    layerx_paxeer_client::wire::decode_withdrawal_material(
-                        r.blob(crate::journeys::MATERIAL_WIRE_BYTES)?,
-                        crate::journeys::MATERIAL_WIRE_BYTES,
-                    )
-                    .map_err(|_| MovementProviderError::ContractViolation)?,
-                ),
-                _ => return Err(MovementProviderError::ContractViolation),
-            }),
-            11 => MovementProviderResponse::Withdrawal(match r.u8()? {
-                1 => PaxeerActionOutcome::Submitted(TransactionHash::new(r.fixed()?)),
-                2 => PaxeerActionOutcome::Unknown,
-                _ => return Err(MovementProviderError::ContractViolation),
-            }),
-            12 => MovementProviderResponse::WithdrawalLookup(match r.u8()? {
-                0 => None,
-                1 => Some(TransactionHash::new(r.fixed()?)),
-                _ => return Err(MovementProviderError::ContractViolation),
-            }),
-            13 => MovementProviderResponse::Exit(match r.u8()? {
-                1 => ExitWalletOutcome::Submitted(TransactionHash::new(r.fixed()?)),
-                2 => ExitWalletOutcome::Rejected,
-                _ => return Err(MovementProviderError::ContractViolation),
-            }),
-            17 => MovementProviderResponse::PreparedEvmTransaction(r.evm_transaction()?),
             14 => MovementProviderResponse::Ready,
             15 => MovementProviderResponse::Unavailable,
             16 => MovementProviderResponse::ContractViolation,
@@ -880,94 +544,6 @@ impl MpWriter {
         self.fixed(&identity.plan_id);
         Ok(())
     }
-    fn wallet_custody(&mut self, v: &WalletCustodyRequest) -> Result<(), MovementProviderError> {
-        self.execution_identity(&v.identity)?;
-        if v.action_key == [0; 32] || v.chain_id == 0 || v.amount.value() == 0 {
-            return Err(MovementProviderError::ContractViolation);
-        }
-        self.fixed(&v.action_key);
-        self.fixed(&v.wallet.bytes());
-        self.u64(v.chain_id);
-        self.fixed(&v.vault.bytes());
-        match v.pointer {
-            None => self.u8(0),
-            Some(pointer) => {
-                if pointer.bytes() == [0; 20] {
-                    return Err(MovementProviderError::ContractViolation);
-                }
-                self.u8(1);
-                self.fixed(&pointer.bytes());
-            }
-        }
-        self.fixed(&v.asset.bytes());
-        self.fixed(&v.beneficiary);
-        self.out.extend(v.amount.to_be_bytes());
-        Ok(())
-    }
-    fn withdrawal_request(
-        &mut self,
-        v: &WithdrawalTransactionRequest,
-    ) -> Result<(), MovementProviderError> {
-        self.execution_identity(&v.identity)?;
-        if v.action_key == [0; 32] || v.calldata.is_empty() {
-            return Err(MovementProviderError::ContractViolation);
-        }
-        self.fixed(&v.action_key);
-        self.u8(match v.action {
-            PaxeerAction::QueueClaim => 1,
-            PaxeerAction::FinalisePayout => 2,
-        });
-        self.fixed(&v.target.bytes());
-        self.blob(&v.calldata, 262_144)?;
-        match &v.signed_transaction {
-            Some(bytes) => {
-                self.u8(1);
-                self.blob(bytes, 262_144)?;
-            }
-            None => self.u8(0),
-        }
-        Ok(())
-    }
-    fn exit_request(&mut self, v: &ExitWalletRequest) -> Result<(), MovementProviderError> {
-        self.execution_identity(&v.identity)?;
-        if v.action_key == [0; 32]
-            || v.calldata.is_empty()
-            || v.checkpoint == [0; 32]
-            || v.withdrawal_id == [0; 32]
-            || v.nullifier == [0; 32]
-            || v.finalised_balance == 0
-        {
-            return Err(MovementProviderError::ContractViolation);
-        }
-        self.fixed(&v.action_key);
-        self.fixed(&v.contract.bytes());
-        self.blob(&v.calldata, 262_144)?;
-        self.fixed(&v.checkpoint);
-        self.fixed(&v.withdrawal_id);
-        self.fixed(&v.nullifier);
-        self.fixed(&v.recipient.bytes());
-        self.out.extend(v.finalised_balance.to_be_bytes());
-        Ok(())
-    }
-    fn material_response(
-        &mut self,
-        material: Option<&WithdrawalMaterial>,
-    ) -> Result<(), MovementProviderError> {
-        self.tag(10);
-        match material {
-            None => self.u8(0),
-            Some(material) => {
-                self.u8(1);
-                let bytes = layerx_paxeer_client::wire::encode_withdrawal_material(
-                    material,
-                    crate::journeys::MATERIAL_WIRE_BYTES,
-                )
-                .map_err(|_| MovementProviderError::ContractViolation)?;
-                self.blob(&bytes, crate::journeys::MATERIAL_WIRE_BYTES)?;
-            }
-        }
-        Ok(())
-    }
     fn evm_transaction(
         &mut self,
         transaction: &crate::custody::EvmTransaction,
@@ -992,30 +568,6 @@ impl MpWriter {
             MovementProviderResponse::MovePlan(v) => {
                 w.tag(1);
                 w.blob(&v.canonical_encode(), 1_048_576)?;
-            }
-            MovementProviderResponse::DepositPlan(v) => {
-                w.tag(2);
-                w.blob(
-                    &crate::journeys::encode_deposit_plan(v)
-                        .map_err(|_| MovementProviderError::ContractViolation)?,
-                    1_048_576,
-                )?;
-            }
-            MovementProviderResponse::WithdrawalPlan(v) => {
-                w.tag(3);
-                w.blob(
-                    &crate::journeys::encode_withdrawal_plan(v)
-                        .map_err(|_| MovementProviderError::ContractViolation)?,
-                    1_048_576,
-                )?;
-            }
-            MovementProviderResponse::ExitPlan(v) => {
-                w.tag(4);
-                w.blob(
-                    &crate::journeys::encode_exit_plan(v)
-                        .map_err(|_| MovementProviderError::ContractViolation)?,
-                    1_048_576,
-                )?;
             }
             _ => return Err(MovementProviderError::ContractViolation),
         }
@@ -1184,84 +736,6 @@ impl<'a> MpReader<'a> {
             plan_id: self.fixed()?,
         })
     }
-    fn wallet_custody(&mut self) -> Result<WalletCustodyRequest, MovementProviderError> {
-        let value = WalletCustodyRequest {
-            identity: self.execution_identity()?,
-            action_key: self.fixed()?,
-            wallet: layerx_types::intent::EvmAddress::new(self.fixed()?),
-            chain_id: self.u64()?,
-            vault: layerx_types::intent::EvmAddress::new(self.fixed()?),
-            pointer: match self.u8()? {
-                0 => None,
-                1 => Some(layerx_types::intent::EvmAddress::new(self.fixed()?)),
-                _ => return Err(MovementProviderError::ContractViolation),
-            },
-            asset: layerx_types::ids::AssetId::new(self.fixed()?),
-            beneficiary: self.fixed()?,
-            amount: layerx_types::amount::Amount::from_u128(self.u128()?),
-        };
-        if value.action_key == [0; 32]
-            || value.chain_id == 0
-            || value.amount.value() == 0
-            || value
-                .pointer
-                .is_some_and(|pointer| pointer.bytes() == [0; 20])
-        {
-            return Err(MovementProviderError::ContractViolation);
-        }
-        Ok(value)
-    }
-    fn withdrawal_request(
-        &mut self,
-    ) -> Result<WithdrawalTransactionRequest, MovementProviderError> {
-        let identity = self.execution_identity()?;
-        let action_key = self.fixed()?;
-        let action = match self.u8()? {
-            1 => PaxeerAction::QueueClaim,
-            2 => PaxeerAction::FinalisePayout,
-            _ => return Err(MovementProviderError::ContractViolation),
-        };
-        let target = layerx_types::intent::EvmAddress::new(self.fixed()?);
-        let calldata = self.blob(262_144)?.to_vec();
-        let signed_transaction = match self.u8()? {
-            0 => None,
-            1 => Some(self.blob(262_144)?.to_vec()),
-            _ => return Err(MovementProviderError::ContractViolation),
-        };
-        if action_key == [0; 32] {
-            return Err(MovementProviderError::ContractViolation);
-        }
-        Ok(WithdrawalTransactionRequest {
-            signed_transaction,
-            identity,
-            action_key,
-            action,
-            target,
-            calldata,
-        })
-    }
-    fn exit_request(&mut self) -> Result<ExitWalletRequest, MovementProviderError> {
-        let value = ExitWalletRequest {
-            identity: self.execution_identity()?,
-            action_key: self.fixed()?,
-            contract: layerx_types::intent::EvmAddress::new(self.fixed()?),
-            calldata: self.blob(262_144)?.to_vec(),
-            checkpoint: self.fixed()?,
-            withdrawal_id: self.fixed()?,
-            nullifier: self.fixed()?,
-            recipient: layerx_types::intent::EvmAddress::new(self.fixed()?),
-            finalised_balance: self.u128()?,
-        };
-        if value.action_key == [0; 32]
-            || value.checkpoint == [0; 32]
-            || value.withdrawal_id == [0; 32]
-            || value.nullifier == [0; 32]
-            || value.finalised_balance == 0
-        {
-            return Err(MovementProviderError::ContractViolation);
-        }
-        Ok(value)
-    }
     fn finish(self) -> Result<(), MovementProviderError> {
         if self.at == self.bytes.len() {
             Ok(())
@@ -1351,7 +825,6 @@ pub enum MovementProviderError {
 pub struct UnixMovementProvider {
     config: MovementProviderConfig,
     codec: Arc<dyn MovementProviderCodec>,
-    withdrawal_boundary: WithdrawalBoundary,
     execution_authority: Option<Arc<crate::custody::CustodySigner>>,
     planning_authorities: std::collections::BTreeMap<[u8; 32], PlanningRequest>,
 }
@@ -1362,13 +835,11 @@ impl UnixMovementProvider {
     pub fn new(
         config: MovementProviderConfig,
         codec: Arc<dyn MovementProviderCodec>,
-        withdrawal_boundary: WithdrawalBoundary,
     ) -> Result<Self, MovementProviderError> {
         validate_socket(&config)?;
         Ok(Self {
             config,
             codec,
-            withdrawal_boundary,
             execution_authority: None,
             planning_authorities: std::collections::BTreeMap::new(),
         })
@@ -1401,76 +872,6 @@ impl UnixMovementProvider {
             self.planning_authorities
                 .insert(planning.idempotency_key, planning);
         }
-        Ok(())
-    }
-
-    fn authorize_transaction(
-        &self,
-        identity: &crate::journeys::MovementExecutionIdentity,
-        action_key: [u8; 32],
-        target: layerx_types::intent::EvmAddress,
-        calldata: &[u8],
-        value: [u8; 32],
-    ) -> Result<(), MovementProviderError> {
-        let planning = self
-            .planning_authorities
-            .get(&identity.plan_id)
-            .ok_or(MovementProviderError::ContractViolation)?;
-        let context = &planning.context;
-        if planning.principal != identity.principal
-            || planning.tenant != identity.tenant
-            || context.wallet != identity.wallet
-            || layerx_paxeer_client::account_address_for_protocol(
-                &context.account,
-                context.protocol_version,
-            )
-            .map_err(|_| MovementProviderError::ContractViolation)?
-                != identity.account
-        {
-            return Err(MovementProviderError::ContractViolation);
-        }
-        let signer = self
-            .execution_authority
-            .as_ref()
-            .ok_or(MovementProviderError::Unavailable)?;
-        let MovementProviderResponse::PreparedEvmTransaction(transaction) =
-            self.call(&MovementProviderRequest::PrepareEvmTransaction {
-                identity: identity.clone(),
-                action_key,
-                target,
-                calldata: calldata.to_vec(),
-                value,
-            })?
-        else {
-            return Err(MovementProviderError::ContractViolation);
-        };
-        if transaction.chain_id != context.paxeer_chain_id
-            || transaction.to != target.bytes()
-            || transaction.calldata != calldata
-            || transaction.value != value
-            || transaction.gas_limit == 0
-            || transaction.max_fee_per_gas == 0
-            || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
-            || transaction.gas_limit != context.evm_gas_limit
-            || transaction.max_fee_per_gas != context.evm_max_fee_per_gas
-            || transaction.max_priority_fee_per_gas != context.evm_max_priority_fee_per_gas
-        {
-            return Err(MovementProviderError::ContractViolation);
-        }
-        let authorization = crate::custody::EvmPlanAuthorization {
-            plan_id: identity.plan_id,
-            action_key,
-            principal: identity.principal.as_str().to_owned(),
-            tenant: identity.tenant.as_str().to_owned(),
-            binding_digest: context.custody_binding_digest,
-            wallet: identity.wallet.bytes(),
-            not_before: context.not_before,
-            not_after: context.not_after,
-            transaction,
-        };
-        signer
-            .authorize_evm_plan(&identity.principal, &context.custody_key, &authorization)
-            .map_err(|_| MovementProviderError::ContractViolation)?;
         Ok(())
     }
 
@@ -1538,96 +939,6 @@ impl UnixMovementProvider {
             _ => Err(MovementProviderError::ContractViolation),
         }
     }
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn deposit_plan(
-        &self,
-        request: PlanningRequest,
-    ) -> Result<DepositPlan, MovementProviderError> {
-        let context = request.context.clone();
-        let plan_id = request.idempotency_key;
-        match self.call(&MovementProviderRequest::PlanDeposit(request))? {
-            MovementProviderResponse::DepositPlan(value)
-                if value.idempotency_key == plan_id
-                    && value.recipient == context.account
-                    && value.reserve == context.reserve
-                    && value.wallet == context.wallet
-                    && value.asset == context.asset
-                    && value.amount == context.amount
-                    && value.network == context.network
-                    && value.layerx_network == context.network
-                    && value.layerx_protocol_version == context.protocol_version
-                    && value.paxeer_chain_id == context.paxeer_chain_id
-                    && value.currency == context.currency
-                    && value.agent.custody_key == context.custody_key
-                    && value.agent.actor == context.actor
-                    && value.agent.authority == context.authority
-                    && value.agent.account_sequence == context.account_sequence
-                    && value.agent.not_before == context.not_before
-                    && value.agent.not_after == context.not_after
-                    && value.agent.fee_limit == context.fee_limit =>
-            {
-                Ok(value)
-            }
-            _ => Err(MovementProviderError::ContractViolation),
-        }
-    }
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn withdrawal_plan(
-        &self,
-        request: PlanningRequest,
-    ) -> Result<WithdrawalPlan, MovementProviderError> {
-        let context = request.context.clone();
-        let plan_id = request.idempotency_key;
-        match self.call(&MovementProviderRequest::PlanWithdrawal(request))? {
-            MovementProviderResponse::WithdrawalPlan(value)
-                if value.idempotency_key == plan_id
-                    && value.owner == context.account
-                    && value.request_anchor.bytes() == context.request_anchor
-                    && value.withdrawals_account == context.withdrawals_account
-                    && value.payout_address == context.wallet
-                    && value.asset == context.asset
-                    && value.amount == context.amount
-                    && value.currency == context.currency
-                    && value.network == context.network
-                    && value.layerx_protocol_version == context.protocol_version
-                    && value.agent.custody_key == context.custody_key
-                    && value.agent.actor == context.actor
-                    && value.agent.authority == context.authority
-                    && value.agent.account_sequence == context.account_sequence
-                    && value.agent.not_before == context.not_before
-                    && value.agent.not_after == context.not_after
-                    && value.agent.fee_limit == context.fee_limit =>
-            {
-                Ok(value)
-            }
-            _ => Err(MovementProviderError::ContractViolation),
-        }
-    }
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn exit_plan(&self, request: PlanningRequest) -> Result<ExitPlan, MovementProviderError> {
-        let context = request.context.clone();
-        let plan_id = request.idempotency_key;
-        match self.call(&MovementProviderRequest::PlanExit(request))? {
-            MovementProviderResponse::ExitPlan(value)
-                if value.idempotency_key == plan_id
-                    && value.evidence.material.account
-                        == layerx_paxeer_client::account_address_for_protocol(
-                            &context.account,
-                            context.protocol_version,
-                        )
-                        .map_err(|_| MovementProviderError::ContractViolation)?
-                    && value.evidence.material.recipient == context.wallet
-                    && value.evidence.material.asset_id == context.asset.bytes()
-                    && value.evidence.finalised_balance == context.amount.value() =>
-            {
-                Ok(value)
-            }
-            _ => Err(MovementProviderError::ContractViolation),
-        }
-    }
     #[must_use]
     pub fn ready(&self) -> bool {
         matches!(
@@ -1635,131 +946,6 @@ impl UnixMovementProvider {
             Ok(MovementProviderResponse::Ready)
         )
     }
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn claim_withdrawal(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        journey: &mut WithdrawalJourney,
-        signature: &[u8],
-        now: u64,
-    ) -> Result<WithdrawalStatus, WithdrawalJourneyError> {
-        self.load_execution_authorities(scope).map_err(|_| {
-            WithdrawalJourneyError::Boundary(WithdrawalBoundaryError::ContractViolation)
-        })?;
-        let boundary = self.withdrawal_boundary.clone();
-        journey.claim_external_signature(scope, self, &boundary, signature, now)
-    }
-    #[allow(clippy::too_many_arguments)]
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn advance_deposit<A: crate::journeys::DepositAgentBoundary>(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        journey: &mut crate::journeys::DepositJourney,
-        agent_contract: &layerx_sdk::Client,
-        agent: &mut A,
-        custody: &crate::custody::CustodySigner,
-        registry: &layerx_types::payload::ModuleRegistry,
-        trace: &TraceId,
-        now: u64,
-    ) -> Result<crate::journeys::DepositStatus, crate::journeys::DepositJourneyError> {
-        self.load_execution_authorities(scope).map_err(|_| {
-            crate::journeys::DepositJourneyError::Boundary(DepositBoundaryError::ContractViolation)
-        })?;
-        crate::server::poll_once_ready(journey.advance(
-            scope,
-            self,
-            agent_contract,
-            agent,
-            custody,
-            registry,
-            trace,
-            now,
-        ))
-        .map_err(|_| {
-            crate::journeys::DepositJourneyError::Boundary(DepositBoundaryError::Unavailable)
-        })?
-    }
-    #[allow(clippy::too_many_arguments)]
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn advance_withdrawal<A: crate::journeys::AgentBoundary>(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        journey: &mut WithdrawalJourney,
-        agent_contract: &layerx_sdk::Client,
-        agent: &mut A,
-        custody: &crate::custody::CustodySigner,
-        registry: &layerx_types::payload::ModuleRegistry,
-        trace: &TraceId,
-        step_up: Option<&crate::custody::StepUpEvidence>,
-        now: u64,
-    ) -> Result<WithdrawalStatus, WithdrawalJourneyError> {
-        self.load_execution_authorities(scope).map_err(|_| {
-            WithdrawalJourneyError::Boundary(WithdrawalBoundaryError::ContractViolation)
-        })?;
-        let boundary = self.withdrawal_boundary.clone();
-        crate::server::poll_once_ready(journey.advance(
-            scope,
-            self,
-            &boundary,
-            agent_contract,
-            agent,
-            custody,
-            registry,
-            trace,
-            step_up,
-            now,
-        ))
-        .map_err(|_| WithdrawalJourneyError::Boundary(WithdrawalBoundaryError::Unavailable))?
-    }
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn advance_exit(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        trace: &TraceId,
-        exit: &EmergencyExit,
-        journey: &mut ExitJourney,
-        now: u64,
-    ) -> Result<ExitStatus, ExitJourneyError> {
-        self.load_execution_authorities(scope)
-            .map_err(|_| ExitJourneyError::Boundary(ExitBoundaryError::ContractViolation))?;
-        let mut audit = AuditChain::open(scope)?;
-        journey.advance(scope, &mut audit, trace, exit, self, now)
-    }
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn start_withdrawal(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        plan: &WithdrawalPlan,
-        now: u64,
-    ) -> Result<WithdrawalJourney, WithdrawalJourneyError> {
-        self.load_execution_authorities(scope).map_err(|_| {
-            WithdrawalJourneyError::Boundary(WithdrawalBoundaryError::ContractViolation)
-        })?;
-        WithdrawalJourney::start(scope, plan, now)
-    }
-    /// # Errors
-    /// Refuses invalid or unavailable movement authority, transport, or canonical evidence.
-    pub fn start_exit(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        trace: &TraceId,
-        exit: &EmergencyExit,
-        plan: &ExitPlan,
-        confirmation: IrreversibleExitConfirmation,
-        now: u64,
-    ) -> Result<ExitStatus, ExitJourneyError> {
-        self.load_execution_authorities(scope)
-            .map_err(|_| ExitJourneyError::Boundary(ExitBoundaryError::ContractViolation))?;
-        let mut audit = AuditChain::open(scope)?;
-        let mut journey = ExitJourney::start(scope, &mut audit, trace, plan, confirmation, now)?;
-        journey.advance(scope, &mut audit, trace, exit, self, now)
-    }
-
     fn call(
         &self,
         request: &MovementProviderRequest,
@@ -1817,196 +1003,6 @@ impl UnixMovementProvider {
     }
 }
 
-impl DepositRuntime for UnixMovementProvider {
-    fn verify_external_deposit(
-        &mut self,
-        request: &WalletCustodyRequest,
-        transaction: TransactionHash,
-    ) -> Result<TransactionHash, DepositBoundaryError> {
-        match self
-            .call(&MovementProviderRequest::VerifyExternalDeposit {
-                request: request.clone(),
-                transaction,
-            })
-            .map_err(deposit_error)?
-        {
-            MovementProviderResponse::VerifiedDeposit(value) => Ok(value),
-            _ => Err(DepositBoundaryError::ContractViolation),
-        }
-    }
-    fn submit_custody(
-        &mut self,
-        request: &WalletCustodyRequest,
-    ) -> Result<WalletCustodyOutcome, DepositBoundaryError> {
-        let (calldata, value) = match request.pointer {
-            None => (
-                deposit_calldata(request.beneficiary),
-                native_value_wei(request.amount.value())
-                    .map_err(|_| DepositBoundaryError::ContractViolation)?,
-            ),
-            Some(pointer) => (
-                deposit_token_calldata(pointer, request.amount.value(), request.beneficiary),
-                [0; 32],
-            ),
-        };
-        self.authorize_transaction(
-            &request.identity,
-            request.action_key,
-            CUSTODY_PRECOMPILE,
-            &calldata,
-            value,
-        )
-        .map_err(deposit_error)?;
-        match self
-            .call(&MovementProviderRequest::SubmitDepositCustody(
-                request.clone(),
-            ))
-            .map_err(deposit_error)?
-        {
-            MovementProviderResponse::DepositCustody(value) => Ok(value),
-            _ => Err(DepositBoundaryError::ContractViolation),
-        }
-    }
-    fn poll_finality(
-        &mut self,
-        transaction: TransactionHash,
-    ) -> Result<FinalityReport, DepositBoundaryError> {
-        match self
-            .call(&MovementProviderRequest::PollDepositFinality(transaction))
-            .map_err(deposit_error)?
-        {
-            MovementProviderResponse::DepositFinality(value) => Ok(value),
-            _ => Err(DepositBoundaryError::ContractViolation),
-        }
-    }
-    fn obtain_proof(
-        &mut self,
-        transaction: TransactionHash,
-    ) -> Result<DepositProof, DepositFailure> {
-        match self.call(&MovementProviderRequest::ObtainDepositProof(transaction)) {
-            Ok(MovementProviderResponse::DepositProof(value)) => value,
-            Err(MovementProviderError::Unavailable) => Err(DepositFailure::ProofUnavailable(
-                layerx_paxeer_client::ProofFault::ProducerUnavailable,
-            )),
-            _ => Err(DepositFailure::ProofUnavailable(
-                layerx_paxeer_client::ProofFault::EvidenceSourceMismatch,
-            )),
-        }
-    }
-}
-
-impl WithdrawalRuntime for UnixMovementProvider {
-    fn bind_debit(
-        &mut self,
-        identity: &crate::journeys::MovementExecutionIdentity,
-        debit: &layerx_paxeer_client::CommittedWithdrawalDebit,
-    ) -> Result<(), WithdrawalBoundaryError> {
-        match self
-            .call(&MovementProviderRequest::BindWithdrawalDebit {
-                identity: identity.clone(),
-                debit: debit.expectation(),
-                receipt_reference: debit.receipt_reference(),
-            })
-            .map_err(withdrawal_error)?
-        {
-            MovementProviderResponse::Ready => Ok(()),
-            _ => Err(WithdrawalBoundaryError::ContractViolation),
-        }
-    }
-
-    fn verify_claim_signature(
-        &mut self,
-        request: &WithdrawalTransactionRequest,
-        signature: &[u8],
-    ) -> Result<Vec<u8>, WithdrawalBoundaryError> {
-        self.authorize_transaction(
-            &request.identity,
-            request.action_key,
-            request.target,
-            &request.calldata,
-            [0; 32],
-        )
-        .map_err(withdrawal_error)?;
-        match self
-            .call(&MovementProviderRequest::VerifyClaimSignature {
-                request: request.clone(),
-                signature: signature.to_vec(),
-            })
-            .map_err(withdrawal_error)?
-        {
-            MovementProviderResponse::ClaimTransaction(value) => Ok(value),
-            _ => Err(WithdrawalBoundaryError::ContractViolation),
-        }
-    }
-    fn withdrawal_material(
-        &mut self,
-        debit: &DebitExpectation,
-    ) -> Result<Option<WithdrawalMaterial>, WithdrawalBoundaryError> {
-        match self
-            .call(&MovementProviderRequest::WithdrawalMaterial(*debit))
-            .map_err(withdrawal_error)?
-        {
-            MovementProviderResponse::WithdrawalMaterial(value) => Ok(value),
-            _ => Err(WithdrawalBoundaryError::ContractViolation),
-        }
-    }
-    fn submit_or_resolve(
-        &mut self,
-        request: &WithdrawalTransactionRequest,
-    ) -> Result<PaxeerActionOutcome, WithdrawalBoundaryError> {
-        self.authorize_transaction(
-            &request.identity,
-            request.action_key,
-            request.target,
-            &request.calldata,
-            [0; 32],
-        )
-        .map_err(withdrawal_error)?;
-        match self
-            .call(&MovementProviderRequest::SubmitWithdrawal(request.clone()))
-            .map_err(withdrawal_error)?
-        {
-            MovementProviderResponse::Withdrawal(value) => Ok(value),
-            _ => Err(WithdrawalBoundaryError::ContractViolation),
-        }
-    }
-    fn lookup(
-        &mut self,
-        key: [u8; 32],
-    ) -> Result<Option<TransactionHash>, WithdrawalBoundaryError> {
-        match self
-            .call(&MovementProviderRequest::LookupWithdrawal(key))
-            .map_err(withdrawal_error)?
-        {
-            MovementProviderResponse::WithdrawalLookup(value) => Ok(value),
-            _ => Err(WithdrawalBoundaryError::ContractViolation),
-        }
-    }
-}
-
-impl ExitWallet for UnixMovementProvider {
-    fn submit_or_resolve(
-        &mut self,
-        request: &ExitWalletRequest,
-    ) -> Result<ExitWalletOutcome, ExitBoundaryError> {
-        self.authorize_transaction(
-            &request.identity,
-            request.action_key,
-            request.contract,
-            &request.calldata,
-            [0; 32],
-        )
-        .map_err(exit_error)?;
-        match self
-            .call(&MovementProviderRequest::SubmitExit(request.clone()))
-            .map_err(exit_error)?
-        {
-            MovementProviderResponse::Exit(value) => Ok(value),
-            _ => Err(ExitBoundaryError::ContractViolation),
-        }
-    }
-}
-
 fn validate_socket(config: &MovementProviderConfig) -> Result<(), MovementProviderError> {
     let metadata =
         fs::symlink_metadata(&config.socket).map_err(|_| MovementProviderError::Unavailable)?;
@@ -2059,65 +1055,9 @@ fn number<T: std::str::FromStr>(name: &str) -> Result<T, MovementProviderError> 
         .parse()
         .map_err(|_| MovementProviderError::Configuration)
 }
-fn deposit_error(error: MovementProviderError) -> DepositBoundaryError {
-    match error {
-        MovementProviderError::Unavailable => DepositBoundaryError::Unavailable,
-        _ => DepositBoundaryError::ContractViolation,
-    }
-}
-fn withdrawal_error(error: MovementProviderError) -> WithdrawalBoundaryError {
-    match error {
-        MovementProviderError::Unavailable => WithdrawalBoundaryError::Unavailable,
-        _ => WithdrawalBoundaryError::ContractViolation,
-    }
-}
-fn exit_error(error: MovementProviderError) -> ExitBoundaryError {
-    match error {
-        MovementProviderError::Unavailable => ExitBoundaryError::Unavailable,
-        _ => ExitBoundaryError::ContractViolation,
-    }
-}
-
 #[cfg(test)]
 mod protocol_tests {
     use super::*;
-    use layerx_types::intent::EvmAddress;
-
-    const RECEIPT: &[u8] =
-        include_bytes!("../../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
-    const PROOF: &[u8] =
-        include_bytes!("../../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof");
-    const HEADER: &[u8] =
-        include_bytes!("../../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
-    const HEADER_SIGNATURE: &[u8] = include_bytes!(
-        "../../../../../../tests/fixtures/asset/bound-native-withdrawal/header.signature"
-    );
-
-    /// The withdrawal evidence a real node produced for the bound native
-    /// withdrawal fixture: receipt, `0x4d50` inclusion proof, sequencer header
-    /// and that header's ed25519 signature.
-    fn fixture_material() -> Result<WithdrawalMaterial, String> {
-        checked(
-            WithdrawalMaterial {
-                receipt: RECEIPT.to_vec(),
-                proof: PROOF.to_vec(),
-                header: HEADER.to_vec(),
-                header_signature: checked(<[u8; 64]>::try_from(HEADER_SIGNATURE))?,
-            }
-            .validated(),
-        )
-    }
-
-    fn identity() -> Result<crate::journeys::MovementExecutionIdentity, String> {
-        Ok(crate::journeys::MovementExecutionIdentity {
-            principal: checked(crate::store::PrincipalId::new("principal-mara"))?,
-            tenant: checked(crate::store::AgentTenantId::new("tenant-mara"))?,
-            account: [4; 32],
-            wallet: EvmAddress::new([6; 20]),
-            plan_id: [7; 32],
-        })
-    }
-
     #[test]
     fn prior_movement_shape_is_refused() -> Result<(), String> {
         let codec = NativeMovementCodec::new();
@@ -2128,133 +1068,6 @@ mod protocol_tests {
         for prior in [1_u8, 2] {
             assert!(codec.decode_request(&[prior, 14]).is_err());
             assert!(codec.decode_response(&[prior, 14]).is_err());
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn withdrawal_material_response_round_trips_real_node_evidence() -> Result<(), String> {
-        let codec = NativeMovementCodec::new();
-        let material = fixture_material()?;
-        let response = MovementProviderResponse::WithdrawalMaterial(Some(material.clone()));
-        let encoded = checked(codec.encode_response(&response))?;
-        let decoded = checked(codec.decode_response(&encoded))?;
-        assert_eq!(decoded, response);
-        let MovementProviderResponse::WithdrawalMaterial(Some(restored)) = decoded else {
-            return Err("withdrawal material response lost its evidence".to_owned());
-        };
-        assert_eq!(
-            restored.finalise_calldata(),
-            material.finalise_calldata(),
-            "carried material must finalise exactly the submitted claim"
-        );
-        assert_ne!(restored.request_calldata(), restored.finalise_calldata());
-
-        let absent = MovementProviderResponse::WithdrawalMaterial(None);
-        let absent_encoded = checked(codec.encode_response(&absent))?;
-        assert_ne!(absent_encoded, encoded);
-        assert_eq!(checked(codec.decode_response(&absent_encoded))?, absent);
-
-        let mut truncated = encoded.clone();
-        truncated.pop();
-        assert!(codec.decode_response(&truncated).is_err());
-        let mut padded = encoded.clone();
-        padded.push(0);
-        assert!(codec.decode_response(&padded).is_err());
-        let mut corrupt = encoded;
-        let receipt_byte = corrupt
-            .len()
-            .checked_sub(RECEIPT.len() + PROOF.len() + HEADER.len() + 64)
-            .ok_or("encoded material is shorter than its evidence")?;
-        corrupt[receipt_byte] ^= 0x01;
-        assert_ne!(
-            checked(codec.decode_response(&corrupt))?,
-            MovementProviderResponse::WithdrawalMaterial(Some(material)),
-            "altered evidence must never decode back to the node's material"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn native_custody_deposit_is_payable_to_the_precompile() -> Result<(), String> {
-        let codec = NativeMovementCodec::new();
-        let beneficiary = [9_u8; 32];
-        let amount = 1_500_000_u128;
-        let value = checked(native_value_wei(amount))?;
-        assert_ne!(value, [0; 32], "a native custody deposit carries the coin");
-        assert_eq!(
-            checked(layerx_paxeer_client::custody::base_units_from_wei(&value))?,
-            amount
-        );
-        let request = MovementProviderRequest::PrepareEvmTransaction {
-            identity: identity()?,
-            action_key: [5; 32],
-            target: CUSTODY_PRECOMPILE,
-            calldata: deposit_calldata(beneficiary),
-            value,
-        };
-        let encoded = checked(codec.encode_request(&request))?;
-        assert_eq!(checked(codec.decode_request(&encoded))?, request);
-        let MovementProviderRequest::PrepareEvmTransaction {
-            target, calldata, ..
-        } = &request
-        else {
-            return Err("prepared transaction lost its target".to_owned());
-        };
-        assert_eq!(target.bytes(), CUSTODY_PRECOMPILE.bytes());
-        assert_eq!(calldata, &deposit_calldata(beneficiary));
-        Ok(())
-    }
-
-    #[test]
-    fn token_custody_deposit_carries_the_pointer_and_no_value() -> Result<(), String> {
-        let codec = NativeMovementCodec::new();
-        let pointer = EvmAddress::new([0x11; 20]);
-        let beneficiary = [9_u8; 32];
-        let amount = 1_500_000_u128;
-        let request = MovementProviderRequest::PrepareEvmTransaction {
-            identity: identity()?,
-            action_key: [5; 32],
-            target: CUSTODY_PRECOMPILE,
-            calldata: deposit_token_calldata(pointer, amount, beneficiary),
-            value: [0; 32],
-        };
-        let encoded = checked(codec.encode_request(&request))?;
-        assert_eq!(checked(codec.decode_request(&encoded))?, request);
-        assert_ne!(
-            deposit_token_calldata(pointer, amount, beneficiary),
-            deposit_calldata(beneficiary),
-            "a token deposit never encodes the payable native entry"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn custody_request_codec_keeps_the_asset_discriminator() -> Result<(), String> {
-        let codec = NativeMovementCodec::new();
-        let base = WalletCustodyRequest {
-            identity: identity()?,
-            action_key: [5; 32],
-            wallet: EvmAddress::new([6; 20]),
-            chain_id: 31337,
-            vault: CUSTODY_PRECOMPILE,
-            pointer: None,
-            asset: layerx_types::ids::AssetId::new([3; 32]),
-            beneficiary: [9; 32],
-            amount: layerx_types::amount::Amount::from_u128(1_500_000),
-        };
-        let token = WalletCustodyRequest {
-            pointer: Some(EvmAddress::new([0x11; 20])),
-            ..base.clone()
-        };
-        for request in [base, token] {
-            let encoded = checked(codec.encode_request(
-                &MovementProviderRequest::SubmitDepositCustody(request.clone()),
-            ))?;
-            assert_eq!(
-                checked(codec.decode_request(&encoded))?,
-                MovementProviderRequest::SubmitDepositCustody(request)
-            );
         }
         Ok(())
     }

@@ -4276,7 +4276,7 @@ mod tests {
         let new_root: [u8; 32] = sequence.finalize().into();
         replace(
             &mut receipt,
-            &[transfer.from, transfer.to, transfer.reference].concat(),
+            &[transfer.reference, transfer.from, transfer.to].concat(),
             &[reference, transfer.from, transfer.to].concat(),
         );
         replace(&mut receipt, &old_hash, &hash);
@@ -4693,7 +4693,7 @@ mod tests {
     fn x402_fixture_request(payload: Value) -> FacilitatorRequest {
         let requirements = PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
             amount: AtomicAmount::parse("1000")
                 .unwrap_or_else(|error| panic!("fixture amount is canonical: {error:?}")),
             asset: "44".repeat(32),
@@ -4755,10 +4755,10 @@ mod tests {
         let reference = "26fde3dedb14662268bff5bb3ab6560550a0dc3938b0c9d5ed717932c75b9839";
         let requirements = PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
             amount: AtomicAmount::parse("1000000")?,
             asset: "4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28".to_owned(),
-            pay_to: "84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985".to_owned(),
+            pay_to: "112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4".to_owned(),
             max_timeout_seconds: 60,
             extra: None,
         };
@@ -4949,7 +4949,7 @@ mod tests {
         )?;
         replace(
             &mut receipt,
-            &[old_transfer.from, old_transfer.to, old_transfer.reference].concat(),
+            &[old_transfer.reference, old_transfer.from, old_transfer.to].concat(),
             &[stable_identity, old_transfer.from, recipient].concat(),
         );
         replace(&mut receipt, &old_hash, &tx_hash);
@@ -5083,7 +5083,15 @@ mod tests {
         let trace = TraceId::mint([0x75; 16]);
         let principal = PrincipalId::new("principal-x402-settle")?;
         let stable_identity = [0x76; 32];
-        let (request, receipt, keys) = x402_settlement_fixture(&principal, stable_identity)?;
+        let (request, _, _) = x402_settlement_fixture(&principal, stable_identity)?;
+        let identity = layerx_x402::facilitator::SettlementIdentity::derive(
+            &principal,
+            &request,
+            stable_identity,
+            SettlementStep::Single,
+        )?;
+        let (request, receipt, keys) =
+            x402_settlement_fixture(&principal, identity.idempotency_key)?;
         let redis = X402RedisProcess::start()?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         listener.set_nonblocking(true)?;
@@ -5383,7 +5391,7 @@ mod tests {
             kinds: vec![FacilitatorKind {
                 x402_version: 2,
                 scheme: "exact".to_owned(),
-                network: "layerx:beta".to_owned(),
+                network: "eip155:125".to_owned(),
                 extra: None,
             }],
             extensions: vec![],
@@ -5398,11 +5406,15 @@ mod tests {
             receipt_keys: &[],
         };
         let mut gateway = x402_fixture_gateway(&trace);
+        let (_, recorded) = recorded_x402_request("V1-layerxledger-pay-exact")
+            .unwrap_or_else(|error| panic!("recorded payment has a transaction hash: {error:?}"));
         let unsigned = facilitator
             .verify(
                 &mut gateway,
                 &principal,
-                &x402_fixture_request(serde_json::json!({})),
+                &x402_fixture_request(serde_json::json!({
+                    "transaction": recorded["txHash"],
+                })),
                 &mut plane,
                 &trace,
                 10,
@@ -5422,6 +5434,7 @@ mod tests {
                 &mut gateway,
                 &principal,
                 &x402_fixture_request(serde_json::json!({
+                    "transaction": recorded["txHash"],
                     "layerxTransaction": "deadbeef",
                     "layerxIdempotencyKey": "00".repeat(32),
                 })),

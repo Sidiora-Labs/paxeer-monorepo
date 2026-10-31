@@ -11688,6 +11688,13 @@ fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     }
 }
 
+pub(crate) fn receipt_rung_code(level: VerificationLevel) -> Result<u8, HumanOperationError> {
+    level
+        .rung()
+        .map(layerx_types::rung::Rung::wire_rank)
+        .ok_or(HumanOperationError::Refused)
+}
+
 impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     fn owner_replay(
         &self,
@@ -13524,7 +13531,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 out.fixed(&authority.previous_state_root());
                 out.fixed(&authority.resulting_state_root());
                 out.fixed(&authority.sequencer_public_key());
-                out.u8(served.metadata.verification_level.wire_rank());
+                out.u8(receipt_rung_code(served.metadata.verification_level)?);
             }
         }
         out.finish()
