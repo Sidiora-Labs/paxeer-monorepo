@@ -133967,7 +133967,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.8.4]
 title = "Remove the kernel session and the head attestation route from the agent boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.8.3", "8.12.3", "9.1.8", "18.1083.1", "18.1297.1"]
@@ -140094,7 +140094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "The scan test is an integration test of layerx-platform-gateway at services/platform/hosted/gateway/tests/retired_client_modules.rs reading the scanned source with include_str!(\"local/<file>.rs\"), because the local qualification package (services/platform/hosted/gateway/tests/local) has a build.rs that requires a parent-built core binary through LAYERX_TEST_CORE_BIN and whose boundary fixture path contract no longer matches, so it cannot be built on its own."
 [task.8.98.9]
 title = "Migrate the indexer callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.2", "8.1.5", "8.16.4", "18.1083.1", "18.1297.1"]
