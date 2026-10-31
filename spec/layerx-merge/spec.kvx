@@ -116529,7 +116529,7 @@ do_3 = "Decision 2157: continue from attempt 1 (afde1c7b6), which is complete ap
 
 [task.19.2.2]
 title = "Prove a resolver contenthash through eth_getProof against the committed app hash and commit the storage proof vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["19.1.2"]
