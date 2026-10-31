@@ -96134,7 +96134,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.28.3]
 title = "Remove the admission queue from lxp_admission.c and keep kernel admission"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.21.1", "1.0.3", "16.31.2"]
@@ -119088,7 +119088,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.52.1]
 title = "Retire the layerx-handover binary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "8.19.9", "16.2.4", "16.3.2", "16.3.4"]
@@ -119184,7 +119184,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.52.4]
 title = "Retire the C layerxctl tool entry point"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.2.4"]
@@ -119249,7 +119249,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.54.1]
 title = "Retire the guarantor C daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.2.4"]
@@ -119439,7 +119439,7 @@ do_4 = "Attempts 1 to 3 (cb61cd0b2 first) delete sources the Makefile still buil
 
 [task.5.54.7]
 title = "Retire the maintenance protocol daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.0.4", "16.2.4", "16.11.1"]
@@ -119565,7 +119565,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.54.11]
 title = "Retire the client daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.2.4", "16.11.3", "16.35.1", "16.35.2"]
@@ -165139,7 +165139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.5]
 title = "Replace the kernel list schemas in the OpenAPI document with the archive schemas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["14.23.3", "14.23.4"]
@@ -173152,7 +173152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.2]
 title = "Delete the equivocation and paxeer bond suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.4", "16.2.4", "16.37.2"]
@@ -173726,7 +173726,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.34.1]
 title = "Drop the retired daemon LNI socket server from the program suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.3", "16.2.4"]
