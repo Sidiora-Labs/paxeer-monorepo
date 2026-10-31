@@ -8,11 +8,8 @@ mod head_attestation_tests;
 mod lifecycle_tests;
 
 use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig};
-use layerx_client::lni::program_read::{
-    read_program, ProgramReadContext, ProgramReadError, ProgramReadResult,
-};
+use layerx_client::lni::program_read::ProgramReadResult;
 use layerx_client::lni::schema::{encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::simulate::{simulate, SimulateContext, SimulateError};
 use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, TransportError, Uds};
 use layerx_client::receipt::{
     lookup_authenticated, AuthenticatedLookup, AuthenticatedLookupContext, ReceiptError,
@@ -1454,86 +1451,6 @@ fn resolve_record(
     }
 }
 
-fn simulate_route(config: &Config, request: &Request) -> Response {
-    if request.headers.get("content-type").map(String::as_str) != Some("application/octet-stream") {
-        return refusal(400, "content_type_required", None);
-    }
-    if request.body.is_empty() || request.body.len() > MAX_ACTIVITY_BYTES {
-        return refusal(400, "invalid_activity_length", None);
-    }
-    let decoded = match decode_activity(config, Route::ProgramCall, &request.body) {
-        Ok(decoded) => decoded,
-        Err(response) => return response,
-    };
-    let Some(program_id) = decoded.program_id else {
-        return refusal(400, "not_program_call", None);
-    };
-    let outcome = with_session(config, |session| {
-        if !session
-            .handshake
-            .capabilities()
-            .contains(Capability::Simulate)
-        {
-            return Ok(Err(refusal(503, "capability_unavailable", Some(60))));
-        }
-        let context = SimulateContext {
-            interface_version: session.handshake.node().interface_version,
-            sequencer_public_key: session.handshake.node().authorised_sequencer_key,
-            correlation_id: session.correlation(),
-        };
-        match simulate(
-            &mut session.transport,
-            &config.registry,
-            &request.body,
-            context,
-        ) {
-            Ok(simulation) => Ok(Ok(simulation)),
-            Err(SimulateError::Transport(error)) => {
-                Err(LniFailure::Transport(format!("{error:?}")))
-            }
-            Err(SimulateError::CoreRefusal { class, result }) => {
-                if class == 3 {
-                    return Ok(Err(refusal(503, "capability_unavailable", Some(60))));
-                }
-                Ok(Err(refusal_response(&result_refusal(result))))
-            }
-            Err(SimulateError::MalformedRequest) => {
-                Ok(Err(refusal(400, "malformed_activity", None)))
-            }
-            Err(SimulateError::UnavailableCapability | SimulateError::InterfaceVersion(_)) => {
-                Ok(Err(refusal(503, "capability_unavailable", Some(60))))
-            }
-            Err(error) => Err(LniFailure::Transport(format!("{error:?}"))),
-        }
-    });
-    let simulation = match outcome {
-        Ok(Ok(simulation)) => simulation,
-        Ok(Err(response)) => return response,
-        Err(failure) => return failure.response(),
-    };
-    if simulation.execution.activity_id != decoded.activity_id {
-        return LniFailure::Transport("simulation names a different activity".to_owned())
-            .response();
-    }
-    let Ok(receipt) = verify_sequencer_signature(
-        &simulation.execution.receipt,
-        simulation.evidence.public_key,
-    ) else {
-        return LniFailure::Transport("simulated receipt is not sequencer-signed".to_owned())
-            .response();
-    };
-    let Some(protocol) = receipt.protocol() else {
-        return LniFailure::Transport("simulated receipt is not a protocol receipt".to_owned())
-            .response();
-    };
-    let state = if protocol.result_code() == 0 {
-        "simulated"
-    } else {
-        "refused"
-    };
-    simulation_response(&simulation, &program_id, protocol.result_code(), state)
-}
-
 fn simulation_response(
     simulation: &layerx_client::lni::simulate::Simulation,
     program_id: &[u8; 32],
@@ -1649,172 +1566,6 @@ fn program_read_response(
     ok(document.to_string())
 }
 
-fn program_read_route(config: &Config, request: &Request) -> Response {
-    if request.headers.get("content-type").map(String::as_str) != Some("application/octet-stream") {
-        return refusal(400, "content_type_required", None);
-    }
-    if request.body.is_empty() || request.body.len() > MAX_ACTIVITY_BYTES {
-        return refusal(400, "invalid_activity_length", None);
-    }
-    let freshness = match program_read_freshness(request) {
-        Ok(freshness) => freshness,
-        Err(response) => return response,
-    };
-    let decoded = match decode_activity(config, Route::ProgramCall, &request.body) {
-        Ok(decoded) => decoded,
-        Err(response) => return response,
-    };
-    let Some(program_id) = decoded.program_id else {
-        return refusal(400, "not_program_call", None);
-    };
-    let outcome = with_session(config, |session| {
-        if !session
-            .handshake
-            .capabilities()
-            .contains(Capability::ProgramRead)
-        {
-            return Ok(Err(refusal(503, "capability_unavailable", Some(60))));
-        }
-        let context = ProgramReadContext {
-            interface_version: session.handshake.node().interface_version,
-            sequencer_public_key: session.handshake.node().authorised_sequencer_key,
-            correlation_id: session.correlation(),
-            minimum_sequence: freshness.minimum_sequence,
-            expected_state_root: freshness.expected_state_root,
-        };
-        match read_program(
-            &mut session.transport,
-            &config.registry,
-            &request.body,
-            context,
-        ) {
-            Ok(result) => Ok(Ok(result)),
-            Err(ProgramReadError::SnapshotStale) => {
-                Ok(Err(refusal(409, "snapshot_stale", Some(1))))
-            }
-            Err(ProgramReadError::SnapshotMismatch) => {
-                Ok(Err(refusal(409, "snapshot_mismatch", None)))
-            }
-            Err(ProgramReadError::CoreRefusal { class, result }) => {
-                if class == 3 {
-                    Ok(Err(refusal(503, "capability_unavailable", Some(60))))
-                } else {
-                    Ok(Err(refusal_response(&result_refusal(result))))
-                }
-            }
-            Err(ProgramReadError::CanonicalActivity | ProgramReadError::MalformedRequest) => {
-                Ok(Err(refusal(400, "malformed_activity", None)))
-            }
-            Err(
-                ProgramReadError::UnavailableCapability | ProgramReadError::InterfaceVersion(_),
-            ) => Ok(Err(refusal(503, "capability_unavailable", Some(60)))),
-            Err(error) => Err(LniFailure::Transport(format!(
-                "program read failed: {error:?}"
-            ))),
-        }
-    });
-    let result = match outcome {
-        Ok(Ok(result)) => result,
-        Ok(Err(response)) => return response,
-        Err(failure) => return failure.response(),
-    };
-    if result.execution.activity_id != decoded.activity_id {
-        return LniFailure::Transport("program read names a different activity".to_owned())
-            .response();
-    }
-    let Ok(receipt) =
-        verify_sequencer_signature(&result.execution.receipt, result.evidence.public_key)
-    else {
-        return LniFailure::Transport("program read receipt is not sequencer-signed".to_owned())
-            .response();
-    };
-    let Some(protocol) = receipt.protocol() else {
-        return LniFailure::Transport("program read receipt is not a protocol receipt".to_owned())
-            .response();
-    };
-    program_read_response(&result, &program_id, protocol.result_code())
-}
-
-fn submit_route(config: &Config, request: &Request, route: Route) -> Response {
-    if request.headers.get("content-type").map(String::as_str) != Some("application/octet-stream") {
-        return refusal(400, "content_type_required", None);
-    }
-    if request.body.is_empty() || request.body.len() > MAX_ACTIVITY_BYTES {
-        return refusal(400, "invalid_activity_length", None);
-    }
-    let Some(idempotency) = request.headers.get("idempotency-key") else {
-        return refusal(400, "idempotency_key_required", None);
-    };
-    if !valid_identifier(idempotency, 128) {
-        return refusal(400, "invalid_idempotency_key", None);
-    }
-    let decoded = match decode_activity(config, route, &request.body) {
-        Ok(decoded) => decoded,
-        Err(response) => return response,
-    };
-    let key_digest = sha256_hex(idempotency.as_bytes());
-    let request_digest = sha256_hex(&request.body);
-    let lock = key_lock(config, &key_digest);
-    let _guard = lock.lock().unwrap_or_else(PoisonError::into_inner);
-    let Ok(existing) = load_record(config, &key_digest) else {
-        return refusal(503, "persistence_unavailable", Some(5));
-    };
-    let mut record = match existing {
-        Some(mut record) => {
-            if record
-                .request_digest
-                .as_bytes()
-                .ct_eq(request_digest.as_bytes())
-                .unwrap_u8()
-                != 1
-                || record.route != route.name()
-            {
-                return refusal(409, "idempotency_conflict", None);
-            }
-            if record.activity_id != hex(&decoded.activity_id)
-                || record.signed_activity != hex(&request.body)
-            {
-                return refusal(503, "persistence_invalid", Some(5));
-            }
-            record.program_id = decoded.program_id.map(|id| hex(&id));
-            match record.state.as_str() {
-                "completed"
-                    if record.program_id.is_none() || record.program_execution.is_some() =>
-                {
-                    return completed_response(config, &record);
-                }
-                "completed" if record.attempts == 0 => {
-                    return refusal(503, "persistence_invalid", Some(5))
-                }
-                "refused" => {
-                    return record.refusal.as_ref().map_or_else(
-                        || refusal(503, "persistence_invalid", Some(5)),
-                        refusal_response,
-                    )
-                }
-                _ => record,
-            }
-        }
-        None => JournalRecord {
-            idempotency_key: idempotency.clone(),
-            route: route.name().to_owned(),
-            request_digest,
-            activity_id: hex(&decoded.activity_id),
-            program_id: decoded.program_id.map(|id| hex(&id)),
-            signed_activity: hex(&request.body),
-            state: "submitting".to_owned(),
-            attempts: 0,
-            refusal: None,
-            receipt: None,
-            result_code: None,
-            program_execution: None,
-            lifecycle_sequencer_key: None,
-            receipt_sequencer_key: None,
-        },
-    };
-    resolve_record(config, &key_digest, &mut record, &decoded, &request.body)
-}
-
 fn receipt_route(config: &Config, transaction_text: &str, plane: Plane) -> Response {
     let Some(transaction) = parse_hex32(
         transaction_text
@@ -1898,160 +1649,12 @@ fn verify_idempotency_receipt(
     Ok(document)
 }
 
-fn idempotency_receipt_route(config: &Config, key: &str) -> Response {
-    if !valid_identifier(key, 128) {
-        return refusal(400, "invalid_idempotency_key", None);
-    }
-    let (protocol_key, expected_activity) = match idempotency_binding(config, key) {
-        Ok(binding) => binding,
-        Err(response) => return response,
-    };
-    let answer = relay_bounded(
-        config,
-        &format!("/v1/programs/receipts/by-idempotency/{protocol_key}"),
-        MAX_RELAY_BYTES,
-    );
-    if answer.status == 404 {
-        return refusal(404, "receipt_not_found", None);
-    }
-    if answer.status != 200 {
-        return refusal(503, "receipt_unavailable", Some(5));
-    }
-    let Ok(signer) = with_session(config, |session| {
-        Ok(session.handshake.node().authorised_sequencer_key)
-    }) else {
-        return refusal(503, "receipt_unavailable", Some(5));
-    };
-    match verify_idempotency_receipt(&answer.body, signer, expected_activity.as_deref()) {
-        Ok(document) => ok(serde_json::json!({"result":{"activity_id":document.activity_id,"receipt":document.receipt}}).to_string()),
-        Err(_) => refusal(502, "receipt_invalid", None),
-    }
-}
-
-fn program_activity_route(config: &Config, activity_text: &str) -> Response {
-    let Some(activity) = parse_hex32(activity_text) else {
-        return refusal(400, "invalid_activity_id", None);
-    };
-    let activity_hex = hex(&activity);
-    let key_digest = match fs::read_to_string(activity_index_path(config, &activity_hex)) {
-        Ok(digest) if is_hex32(&digest) => digest,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return refusal(404, "activity_not_journaled", None)
-        }
-        _ => return refusal(503, "persistence_unavailable", Some(5)),
-    };
-    let lock = key_lock(config, &key_digest);
-    let _guard = lock.lock().unwrap_or_else(PoisonError::into_inner);
-    let mut record = match load_record(config, &key_digest) {
-        Ok(Some(record)) if record.activity_id == activity_hex => record,
-        Ok(None) => return refusal(404, "activity_not_journaled", None),
-        _ => return refusal(503, "persistence_unavailable", Some(5)),
-    };
-    let Ok(signed) = artifacts::canonical_hex(&record.signed_activity, MAX_ACTIVITY_BYTES) else {
-        return refusal(503, "persistence_invalid", Some(5));
-    };
-    let decoded = match decode_activity(config, Route::ProgramCall, &signed) {
-        Ok(decoded) => decoded,
-        Err(response) => return response,
-    };
-    let Some(program_id) = decoded.program_id.map(|id| hex(&id)) else {
-        return refusal(400, "not_program_call", None);
-    };
-    if decoded.activity_id != activity
-        || record
-            .program_id
-            .as_ref()
-            .is_some_and(|stored| stored != &program_id)
-    {
-        return refusal(503, "persistence_invalid", Some(5));
-    }
-    record.program_id = Some(program_id.clone());
-    let response = if record.state == "completed" && record.program_execution.is_some() {
-        completed_response(config, &record)
-    } else {
-        match with_session(config, |session| {
-            lookup_receipt(session, activity, ReceiptWaitMode::Immediate)
-        }) {
-            Ok(Lookup::Present {
-                receipt,
-                result_code,
-                module_id,
-                sequencer_public_key,
-            }) => {
-                if module_id != 9 {
-                    return refusal(400, "not_program_call", None);
-                }
-                complete_record(
-                    config,
-                    &key_digest,
-                    &mut record,
-                    &receipt,
-                    result_code,
-                    sequencer_public_key,
-                )
-            }
-            Ok(Lookup::Absent) => return refusal(404, "receipt_not_found", None),
-            Err(failure) => return failure.response(),
-        }
-    };
-    if response.status != 200 {
-        return response;
-    }
-    let mut document: serde_json::Value = match serde_json::from_str(&response.body) {
-        Ok(document) => document,
-        Err(_) => return refusal(503, "persistence_invalid", Some(5)),
-    };
-    document["result"]["program_id"] = serde_json::Value::String(program_id);
-    if record.result_code == Some(0) {
-        document["result"]["state"] = serde_json::Value::String("executed".into());
-    }
-    ok(document.to_string())
-}
-
 fn relay_path_allowed(path: &str, query: Option<&str>) -> bool {
-    let digits = |value: &str| !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit());
     if path == "/v1/protocol/account-state/head" {
         return query.is_none();
     }
     if let Some(rest) = path.strip_prefix("/v1/receipts/") {
         return query.is_none() && rest.strip_suffix("/account-state").is_some_and(is_hex32);
-    }
-    if path == "/v1/programs/account-state/changes" {
-        return query
-            .and_then(|query| query.strip_prefix("after_sequence="))
-            .is_some_and(digits);
-    }
-    if let Some(rest) = path.strip_prefix("/v1/programs/") {
-        let canonical_sequence = |value: &str| {
-            digits(value)
-                && value
-                    .parse::<u64>()
-                    .ok()
-                    .is_some_and(|number| number != 0 && number.to_string() == value)
-        };
-        if rest.strip_suffix("/state-proof").is_some_and(is_hex32) {
-            return query
-                .and_then(|query| query.strip_prefix("at="))
-                .is_some_and(canonical_sequence);
-        }
-        if rest.strip_suffix("/account-state").is_some_and(is_hex32) {
-            let Some(sequence) = query.and_then(|query| query.strip_prefix("at=")) else {
-                return false;
-            };
-            return digits(sequence)
-                || sequence
-                    .strip_suffix("&profile=2")
-                    .is_some_and(canonical_sequence);
-        }
-        return false;
-    }
-    if let Some(rest) = path.strip_prefix("/v1/batches/") {
-        return rest
-            .strip_suffix("/receipt-authority")
-            .is_some_and(is_hex32)
-            && query
-                .and_then(|query| query.strip_prefix("receipt_digest="))
-                .is_some_and(is_hex32);
     }
     false
 }
@@ -2207,48 +1810,17 @@ fn route(config: &Config, request: &Request) -> Response {
     if !path.starts_with("/v1/") || query.is_some() {
         return refusal(404, "not_found", None);
     }
-    let gateway_path = matches!(
-        path,
-        "/v1/activities"
-            | "/v1/programs/call"
-            | "/v1/programs/read"
-            | "/v1/programs/simulate"
-            | "/v1/programs/deploy"
-            | "/v1/programs/upgrade"
-            | "/v1/programs/wind-down"
-    ) || path
+    let Some(activity) = path
         .strip_prefix("/v1/receipts/")
-        .or_else(|| path.strip_prefix("/v1/programs/activities/"))
-        .is_some_and(|activity| !activity.contains('/'));
-    let gateway_path = gateway_path
-        || path
-            .strip_prefix("/v1/programs/receipts/by-idempotency/")
-            .is_some_and(|key| !key.contains('/'));
-    if !gateway_path {
+        .filter(|activity| !activity.contains('/'))
+    else {
         return refusal(404, "not_found", None);
-    }
+    };
     if plane != Plane::Gateway {
         return refusal(403, "entitlement_denied", None);
     }
-    match (request.method.as_str(), path) {
-        ("POST", "/v1/activities") => submit_route(config, request, Route::Activities),
-        ("POST", "/v1/programs/call") => submit_route(config, request, Route::ProgramCall),
-        ("POST", "/v1/programs/deploy") => submit_route(config, request, Route::ProgramDeploy),
-        ("POST", "/v1/programs/upgrade") => submit_route(config, request, Route::ProgramUpgrade),
-        ("POST", "/v1/programs/wind-down") => submit_route(config, request, Route::ProgramWindDown),
-        ("POST", "/v1/programs/read") => program_read_route(config, request),
-        ("POST", "/v1/programs/simulate") => simulate_route(config, request),
-        ("GET", target) => {
-            if let Some(key) = target.strip_prefix("/v1/programs/receipts/by-idempotency/") {
-                idempotency_receipt_route(config, key)
-            } else if let Some(activity) = target.strip_prefix("/v1/receipts/") {
-                receipt_route(config, activity, plane)
-            } else if let Some(activity) = target.strip_prefix("/v1/programs/activities/") {
-                program_activity_route(config, activity)
-            } else {
-                refusal(404, "not_found", None)
-            }
-        }
+    match request.method.as_str() {
+        "GET" => receipt_route(config, activity, plane),
         _ => refusal(404, "not_found", None),
     }
 }
