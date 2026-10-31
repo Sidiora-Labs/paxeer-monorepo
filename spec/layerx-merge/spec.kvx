@@ -142746,7 +142746,7 @@ do_15 = "Finding 8.98.14.7: continue from attempt 10 (f38f93171); the code is co
 
 [task.8.98.15]
 title = "Port the authority budget reader onto the node's JSON-RPC and retire its LNI session"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["8.98.14", "8.98.4"]
