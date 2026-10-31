@@ -2392,9 +2392,20 @@ mod tests {
             super::super::paxeer::history_refusal(&id, "paxeer_unreachable")["error"]["code"],
             json!(-32001)
         );
+        let config = history_config(None, None);
+        let request = crate::IncomingRequest {
+            method: "POST".into(),
+            path: "/rpc".into(),
+            headers: BTreeMap::new(),
+            body: Vec::new(),
+        };
         assert_eq!(
-            super::super::rpc::selector("lx_getHistory", Some(&json!([ALICE]))),
-            Err(-32601)
+            super::super::rpc::dispatch(
+                &config,
+                &request,
+                &json!({"jsonrpc": "2.0", "id": id, "method": "lx_getHistory", "params": [ALICE]})
+            ),
+            Some(super::super::rpc::error(&id, -32601, "Method not found"))
         );
     }
 

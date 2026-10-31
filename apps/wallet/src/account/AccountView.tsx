@@ -22,8 +22,8 @@ export function AccountView({ account }: { account: string }) {
   const kernel = useKernelState();
 
   return (
-    <section aria-label="Unified account" className="space-y-3 rounded-[20px] bg-pax-surface p-4">
-      <h2 className="text-sm font-bold">Unified account</h2>
+    <section aria-label="Chain account" className="space-y-3 rounded-[20px] bg-pax-surface p-4">
+      <h2 className="text-sm font-bold">Chain account</h2>
       {document.status === 'loading' && <Skeleton className="h-24 w-full" />}
       {document.status === 'error' && (
         <ErrorState
