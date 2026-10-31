@@ -13763,3 +13763,139 @@ symbol = "self_test"
 observed = "Attempt 1 (8d77d2b6b) added the deleted trees and the allowed reference and failed --self-test with 'complete component catalogue': the check compares the catalogue's 47 components with the --component names in spec verify_cmd lines, of which the spec now has none."
 assumption = "The check is spec-shaped and stale (decision.1996); 16.9.4 owns the test file and changes the check to a subset over every spec line."
 severity = "medium"
+
+[finding.8.20.3.2]
+task = "8.20.3"
+file = "services/platform/hosted/authority/src/main.rs"
+symbol = "chain_endpoint"
+observed = "Attempt 3 (b84236330) deleted the authority's layerx-paxeer-verifier dependency and cargo build --locked exited 101 with E0433 at main.rs:96, :1024 and :1312, which type and call the chain endpoint through that crate."
+assumption = "The verifier crate is the authority's chain endpoint client (decision.1997); the task now removes it from the indexer only."
+severity = "medium"
+
+[finding.12.34.4.1]
+task = "12.34.4"
+file = "apps/wallet/src/account/AccountView.tsx"
+symbol = "useAccountDocument"
+observed = "Attempts 2-4 (eab090493, 82df751951, 62f5e09d4) changed the hook's return type to ChainAccount and pnpm --dir apps/wallet run typecheck exited 2 with TS2339 x5 at AccountView.tsx:31-38 and TS2345 at KernelPlan.tsx:234, consumers outside the declared touches."
+assumption = "The consumers port in the same task (decision.1998); 12.34.4 now touches both files and 12.34.5 builds on the ported view."
+severity = "medium"
+
+[finding.16.96.5.1]
+task = "16.96.5"
+file = "tools/paxeer-x/gates/5.1.sh"
+symbol = "custody_asset_send"
+observed = "Attempt 2 (f29d36339) failed test_no_gate_runs_core_kernel_tests with ['tools/paxeer-x/gates/5.1.sh: --test custody_asset_send']; the gate still compiled the retired core test."
+assumption = "The gate loses the compile step and its artifact row (decision.1999); 16.96.5 owns 5.1.sh for that change."
+severity = "low"
+
+[finding.8.19.6.1]
+task = "8.19.6"
+file = "services/platform/hosted/agent-boundary/tests/chain_receipt.rs"
+symbol = "receipt_digest"
+observed = "Attempts 3 and 4 (7db56cd8d, 76cc12b83) failed the planned test with 'chain_receipt.rs still references layerx_wire': the scan matched the bare crate name while chain_receipt.rs legitimately uses layerx_wire::encode::Encoder and layerx_wire::hash::receipt_digest."
+assumption = "The scan names the retired items (layerx_wire::activity, tests/bridge), not the crate; the kept receipt encoding is not a kernel node test."
+severity = "low"
+
+[finding.16.0.4.2]
+task = "16.0.4"
+file = "Makefile"
+symbol = "LAYERXD_SOURCES"
+observed = "Commit 2c706707f (16.0.4) removed cmd/layerxd/lxp_daemon_finality_authority.c and lxp_daemon_batch_wal.c from LAYERXD_SOURCES (hunk @@ -1087,9 +1064,7 @@) though its do lines retire only test rules; lxp_daemon_handover_history.c, lxp_daemon_process.c, lxp_daemon_lni.c and lxp_daemon_authority_replica.c still call them, and 8.50.4 attempt 3 (9d22653b2) failed to link layerxd through tools/platform/emulator/build.rs with undefined references to lxp_daemon_batch_wal_body, lxp_daemon_batch_wal_destroy and lxp_daemon_batch_bind_prefix. make -n build test, the declared build, cannot see a link failure."
+assumption = "A source leaves the link list only with its last caller; task 16.0.5 (wave 1) restores both sources and adds a link test, and every pending gate that runs a real make build requires it."
+severity = "high"
+
+[finding.16.2.4.1]
+task = "16.2.4"
+file = "services/platform/Makefile.inc"
+symbol = "platform-hosted-topology-check"
+observed = "Attempt 2 (19086e273) failed test_retired_targets_have_no_rule on platform-hosted-topology-check alone: the root alias was gone but services/platform/Makefile.inc:199-200 defines the target as the platform's own check, which the root Makefile includes."
+assumption = "The included target is live product behaviour (decision.2000); the test excludes it."
+severity = "low"
+
+[finding.16.3.1.1]
+task = "16.3.1"
+file = "tools/containers/check.sh"
+symbol = "OUT_OF_SCOPE"
+observed = "Attempts 3 and 4 (8f592d302, ebaaa92d0) ran tools/containers/check.sh with no arguments and it exited 1 on tracked Dockerfiles outside docker/ that are not on OUT_OF_SCOPE (:98-118): apps/perps/Dockerfile, core/deps/db-backend/tools/Dockerfile, core/deps/geth/Dockerfile, core/deps/geth/Dockerfile.alltools, core/deps/geth/crypto/secp256k1/libsecp256k1/ci/linux-debian.Dockerfile and deploy/launchpad/Dockerfile.native; none belongs to 16.3.1."
+assumption = "Pre-existing layout debt owned by the container check (16.96.8 is its last pending owner); 16.3.1 checks one surviving service and the absence of its two images."
+severity = "medium"
+
+[finding.16.3.5.1]
+task = "16.3.5"
+file = "tools/containers/check.sh"
+symbol = "ROOT_TOKEN_EXEMPT"
+observed = "Attempt 3 (62e527d10) ran tools/containers/check.sh layerx paxeer and exited 1 on docker/redis/tests/redis-image.test.sh:35 and tests/ci/test_runner_routing_container_runtime.py:74, quoted text the --file scan took for build invocations."
+assumption = "Quoted docker build text is exempt (decision.2001); 16.3.5 adds the two paths to ROOT_TOKEN_EXEMPT."
+severity = "low"
+
+[finding.9.97.6.1]
+task = "9.97.6"
+file = "services/agent/crates/layerx-sdk/tests/receipt_keys.rs"
+symbol = "verify_receipt"
+observed = "Attempts 2 and 3 (21f568768, e52212a3a) deleted receipt_keys.rs and receipt_fixture.rs, whose cases all called production::verify_receipt, and the verify command still named them: 'no test target named receipt_keys'."
+assumption = "The verify command names the surviving binaries (decision.2005)."
+severity = "low"
+
+[finding.9.97.6.2]
+task = "9.97.6"
+file = "services/agent/crates/layerx-sdk/tests/sdk.rs"
+symbol = "SessionOpen"
+observed = "Attempt 1 (818b048dd) failed to build: tests/sdk.rs:96 constructed SessionOpen(context()) in the tuple form that task 18.1242.1 (706b2e2ab) replaced by named fields at identity.rs:903-910; a pre-existing break of the sdk test binary that attempt 2 repaired."
+assumption = "A test file in the touches is the task's to port; attempts 2 and 3 did."
+severity = "low"
+
+[finding.9.97.8.1]
+task = "9.97.8"
+file = "services/agent/sdk/typescript/test/web-search.test.ts"
+symbol = "AuthorizedReceiptBatch"
+observed = "Attempt 1 (861b61b54) deleted AuthorizedReceiptBatch and npm run build exited 2: test/web-search.test.ts:16 imports it and src/web-search.ts:81 returns it from the authority hook; test/account-bound-call.test.ts:4, pre-runtime-refusal.test.ts and program-response-code.test.ts import verifyProgramReceipt, which do_2 deletes."
+assumption = "The type stays (decision.2002) and the four consumer tests are in the touches."
+severity = "medium"
+
+[finding.9.97.8.2]
+task = "9.97.8"
+file = "services/agent/sdk/typescript/test/agent-http.test.ts"
+symbol = "ProgramOperations"
+observed = "test/agent-http.test.ts:116, :178, :187 and :199 call programs.submit and programs.simulate, which ProgramOperations has not offered since 3422bafe2 (the agent move); tsc reports TS2339 on them in every build of the test tree, before 9.97.8."
+assumption = "Pre-existing break of an unowned test file; 9.97.8 drops those cases while it ports the file for the receipt retirement."
+severity = "medium"
+
+[finding.9.97.7.1]
+task = "9.97.7"
+file = "services/agent/sdk/python/layerx_sdk/program_wire.py"
+symbol = "decode_and_verify_program_terminal"
+observed = "Attempt 1 (834933ead) deleted ProgramReceiptOutcome and ProtocolReceipt from verifier.py and all four declared test modules failed at collection: program_wire.py:14 imports both (and layerx_sdk imports program_wire through bind_signed_program_lifecycle), and tests/test_sequencer_receipt.py:16 imports the deleted AuthorizedReceiptBatch."
+assumption = "program_wire.py joins the touches and loses the four kernel receipt consumers; AuthorizedReceiptBatch stays (decision.2002)."
+severity = "medium"
+
+[finding.8.47.5.1]
+task = "8.47.5"
+file = "sdk/platform/conformance/fixtures/generate_executed_program_v4_fixture.py"
+symbol = "receipt-programs-positive-v1"
+observed = "Attempt 1 (fe10c7fe5) failed its scan on generate_executed_program_v4_fixture.py:22 and generate_native_lifecycle_fixtures.py:201, which still name receipt-programs-positive-v1.json and receipt-programs-executed-v3.json; those generators belong to 8.47.6 and 8.47.2/8.47.9."
+assumption = "Generators are excluded from the fixture scans (decision.2004); their owners delete the references."
+severity = "low"
+
+[finding.8.47.4.1]
+task = "8.47.4"
+file = "sdk/platform/pipeline.kvx"
+symbol = "conformance"
+observed = "Attempts 1 of 8.47.4 (db2e4c7ea) and 8.47.6 (f9055cb8b) scanned sdk/platform and failed on pipeline.kvx:349-386, which lists all three fixture groups until 8.45.4 removes them."
+assumption = "The scan root is sdk/platform/conformance/ (decision.2004) and 8.45.4 requires the three fixture tasks."
+severity = "low"
+
+[finding.18.1228.1.13]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/archive.rs"
+symbol = "archive_requires_real_reclaim_and_step_up_then_retires_authority_once"
+observed = "Attempt 14 (2be9c3038) failed only the four archive-binary cases owned by 18.1149.1, 18.983.1 and 18.1195.1 ('journey custody failure: canonical bytes have no complete disclosure'); the verify command skipped them under the archive_fixture:: prefix, which does not match the top-level names in the archive binary."
+assumption = "cargo test --skip is a substring filter; the bare names skip the owned cases in every binary."
+severity = "low"
+
+[finding.1.12.2.1]
+task = "1.12.2"
+file = "include/layerx/lx_budget.h"
+symbol = "lx_budget_grant_draws_read"
+observed = "Commit 2f2a42982 (1.12.2) removed lx_budget_pull_request and the pull payload but kept lx_budget_grant_draws_read (lx_budget.h:202-204, lx_budget_module.c:674), a reader of lxp_grant_state with no caller; 1.12.1 attempts 2 and 3 (5753840da, f84c9f9af) then failed the kernel archive build at lx_budget.h:204 after deleting the type."
+assumption = "The declaration goes with the type (decision.2003); 1.12.1 owns both files for that deletion."
+severity = "low"
