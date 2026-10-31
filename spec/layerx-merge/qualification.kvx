@@ -14019,3 +14019,67 @@ symbol = "ArchiveAnchor"
 observed = "Commit b07fa373b (14.23.1) derived the archive anchor and receipt schemas from Anchor.schema() and Receipt.Details.schema(), the kernel schemas 14.23.5 deletes; 14.23.5 attempt 1 (4aa518a6b) failed its compile with UndefinedFunctionError Anchor.schema/0 at archive_anchor.ex:9."
 assumption = "14.23.5 inlines the bodies before deleting (decision.2021); a schema that replaces another is written standalone."
 severity = "medium"
+
+[finding.16.9.4.3]
+task = "16.9.4"
+file = "tools/paxeer-x/tests/retired_callers_test.py"
+symbol = "scan"
+observed = "The deleted-tree scan flags any deleted_trees entry that still exists; 16.9.4 (wave 29) asserted trees that wave-44 tasks delete and attempt 5 (6dd0f6cfd) failed on every one of them."
+assumption = "16.9.4 proves the catalogue data and the self-test; the deleting tasks' own absence tests prove the trees (decision.2025)."
+severity = "medium"
+
+[finding.8.47.6.1]
+task = "8.47.6"
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+symbol = "native_execution_preserves_captured_receipt_authority_and_unknown_identity"
+observed = "8.47.6 deleted receipt-programs-executed-v4.json and scanned sdk/platform/conformance only; program_http.rs:2442 and :2607, layerx-agentd ops/program.rs:779 and the platform CLI programs.rs:3706 and :3937 include the file, so the three lib test targets have not compiled on main since and 9.97.6 attempt 5 (8a516fdc5) failed its build on them."
+assumption = "Wave-1 task 8.47.10 deletes the readers and compiles the three targets (decision.2026); 9.97.6 requires it."
+severity = "high"
+
+[finding.9.97.7.3]
+task = "9.97.7"
+file = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+symbol = "require_checkpoint"
+observed = "ai_market.py imports CheckpointVerification (:42-44) and uses it at :633 and :1627; deleting the checkpoint verifier without it breaks the package import at __init__.py:295 (attempt 5, e32837ec6)."
+assumption = "9.97.7 touches ai_market.py and deletes the consumer with the verifier (decision.2027)."
+severity = "medium"
+
+[finding.9.97.3.3]
+task = "9.97.3"
+file = "services/agent/sdk/typescript/src/generated/receipt.ts"
+symbol = "PROGRAM_OUTCOME_TAGS"
+observed = "The generated receipt module still exports PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID; a hand-written retirement task (9.97.8 attempt 5, 4b50411f0) cannot remove them and failed asserting them undefined."
+assumption = "9.97.3 regenerates the receipt contract outputs and the constants leave with the generator input (decision.2028)."
+severity = "low"
+
+[finding.18.1200.1.13]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+symbol = "lookup_authenticated"
+observed = "The authenticated lookup asks for the sequencer receipt and the receipt keys and verifies execution before eth_getTransactionReceipt; seventeen attempts scripted a receipt that fails verify_execution and never reached the transaction-receipt exchange (attempt 17, 38314e995)."
+assumption = "The do line names the exchange order and the receipt builders (decision.2029)."
+severity = "medium"
+
+[finding.18.1211.5.7]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-x402/src/facilitator.rs"
+symbol = "transaction_form"
+observed = "The facilitator reports transaction_form for every refused gateway translation, which masks the typed_intent_required refusal when the fixture's recorded receipt hash is one the gateway does not open (attempt 9, 4be9cf795)."
+assumption = "The fixture records a receipt the gateway opens; the refusal reason then reflects the typed-intent check (decision.2030)."
+severity = "medium"
+
+[finding.12.13.2.1]
+task = "12.13.2"
+file = "services/wallet/gateway/src/env.ts"
+symbol = "HYPERPAXEER_RPC_URL"
+observed = "The precompile route tests need a node serving the agent precompiles; four attempts of each of 12.13.2, 12.13.3 and 12.13.4 ran against the default URL and the gateway answered 502 to eth_getCode."
+assumption = "The verify commands start the local node fixture and pass its RPC URL (decision.2031)."
+severity = "medium"
+
+[finding.18.1188.2.1]
+task = "18.1188.2"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"
+symbol = "raw_transaction"
+observed = "The archive fixture signs undisclosed one-byte calls; since the custody path verifies the disclosure (4a5c476d3) its three tests fail with 'canonical bytes have no complete disclosure' and Refused (attempt 2, 7014255e5)."
+assumption = "The fixture signs disclosed calls as support/canonical_owner.rs does (decision.2032)."
+severity = "medium"
