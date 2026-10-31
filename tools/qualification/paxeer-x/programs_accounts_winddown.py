@@ -171,9 +171,6 @@ def verify(arguments, evidence):
     require(os.geteuid() == 0, 'real process fixture requires root identity provisioning')
     for binary in ('anvil', 'forge', 'openssl', 'setpriv', 'python3'):
         require(shutil.which(binary), 'real fixture prerequisite missing: ' + binary)
-    for name in ('sign-credit', 'test-credit'):
-        require((ROOT / 'build/tests/bridge' / name).is_file(),
-                'genuine custody provisioning executable missing: ' + name)
     guest = ROOT / 'programs/sdk/rust/examples/escrow/target/wasm32-unknown-unknown/release/layerx_reference_escrow.wasm'
     require(guest.is_file() and guest.read_bytes()[:8] == b'\0asm\x01\0\0\0',
             'parent-built genuine escrow guest required')
@@ -223,7 +220,7 @@ ACCOUNTS_SOURCE_PATHS = ('Makefile', 'src', 'include', 'cmd/layerxd',
     'services/agent/crates', 'services/agent/Cargo.toml', 'services/agent/Cargo.lock',
     'services/platform/hosted/agent-boundary/src',
     'services/platform/hosted/agent-boundary/Cargo.toml', 'services/platform/Cargo.toml', 'services/platform/Cargo.lock',
-    'contracts', 'foundry.toml', 'tests/bridge', 'services/platform/hosted/paxeer/evm.py',
+    'contracts', 'foundry.toml', 'services/platform/hosted/paxeer/evm.py',
     'rust-toolchain.toml',
     'tools/paxeer-x/build', 'tools/build', 'services/platform/Makefile.inc',
     'tools/qualification/paxeer-x/programs_accounts_winddown.py')
@@ -255,8 +252,6 @@ def accounts_sources():
         'src/modules/programs/accounts.c', 'src/modules/programs/winddown.c',
         'src/modules/programs/deploy.c', 'src/modules/programs/call.c',
         'include/layerx/programs.h',
-        'tests/bridge/deploy_local_custody.py', 'tests/bridge/custody_credit.py',
-        'tests/bridge/sign_credit.c', 'tests/bridge/test_credit.c',
         'services/platform/hosted/paxeer/evm.py',
         'programs/sdk/rust/examples/escrow/src/lib.rs')),
         'complete native and real process producer sources required')
@@ -363,8 +358,7 @@ def accounts_build(arguments, evidence):
             'LXP_REVISION=' + revision,
             'EXTRA_LDFLAGS=' + shlex.join(linker_flags),
             'PAXEER_X_PROFILE2_RUNTIME_LIB=' + str(runtime),
-            'PROGRAMS_RUNTIME_LIB=' + str(runtime), 'paxeer-x-profile2-native',
-            'build/tests/bridge/sign-credit', 'build/tests/bridge/test-credit'],
+            'PROGRAMS_RUNTIME_LIB=' + str(runtime), 'paxeer-x-profile2-native'],
            evidence / 'native.log', environment)
     environment['CARGO_TARGET_DIR'] = str(platform)
     output = launch([*cargo, 'test', '--locked', '--manifest-path', 'services/platform/Cargo.toml',
@@ -401,8 +395,6 @@ def accounts_build(arguments, evidence):
         'runtime-library': accounts_artifact(runtime, b'!<arch>\n'),
         'real-node-tests': accounts_artifact(binaries.pop(), b'\x7fELF', True),
         'agent-boundary': accounts_artifact(boundary, b'\x7fELF', True),
-        'sign-credit': accounts_artifact(native / 'tests/bridge/sign-credit', b'\x7fELF', True),
-        'test-credit': accounts_artifact(native / 'tests/bridge/test-credit', b'\x7fELF', True),
         'escrow-guest': guest}
     path = evidence / 'artifacts.json'
     write_private(path, {'schema': ACCOUNTS_SCHEMA, 'task': '6.4',
@@ -446,8 +438,6 @@ def accounts_manifest(arguments):
         'genesis-builder': ROOT / 'build/bin/layerx-genesis-build',
         'native-library': ROOT / 'build/liblayerx.a',
         'native-testing-library': ROOT / 'build/liblayerx-testing.a',
-        'sign-credit': ROOT / 'build/tests/bridge/sign-credit',
-        'test-credit': ROOT / 'build/tests/bridge/test-credit',
         'escrow-guest': ROOT / ACCOUNTS_GUEST}
     artifacts = manifest['artifacts']
     require(set(artifacts) == set(expected) | {'runtime-library', 'real-node-tests', 'agent-boundary'},
