@@ -108329,7 +108329,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.6.2]
 title = "Resolve .pax names from the agent SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["19.2.1"]
