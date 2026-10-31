@@ -156968,7 +156968,7 @@ do_6 = "Decision 2129: continue from attempt 6 (91c1a17d3). In test/agent-precom
 
 [task.12.13.3]
 title = "Conformance: agent streams routes reach the served precompile 0x0906"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1", "5.98.4", "12.13.7"]
@@ -157002,7 +157002,7 @@ do_6 = "Decision 2129: continue from attempt 6 (d45816d07). In test/agent-precom
 
 [task.12.13.4]
 title = "Conformance: agent eip712 routes reach the served precompile 0x0908"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1", "5.98.4", "12.13.7"]
@@ -194026,7 +194026,7 @@ do_5 = "Decision 2098: attempts 1 to 3 (17cbdd8cb, 9940ca91d) fail the build of 
 
 [task.10.13.9]
 title = "Prepare native send previews as unsigned EIP-1559 ledger transfer calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.13.5", "8.47.11"]
