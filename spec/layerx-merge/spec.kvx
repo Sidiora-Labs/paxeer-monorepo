@@ -135100,7 +135100,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.16.7]
 title = "Retire the kernel relay source of the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.16.3", "8.16.4", "14.29.3", "16.7.3", "8.1.5", "18.1083.1", "18.1297.1", "8.4.5"]
@@ -135673,7 +135673,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.20.3]
 title = "Drop the paxeer checkpoint verifier from the platform crates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.3", "8.11.2", "8.16.4", "8.1.5", "18.1083.1", "18.1297.1", "8.4.5"]
@@ -139178,7 +139178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.47.4]
 title = "Kernel receipt positive and refusal vectors and their C generators are removed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.41.5", "8.42.5", "8.43.5", "8.44.5", "16.97.6"]
@@ -139213,7 +139213,7 @@ do_6 = "Continue from attempt 4 (455ccc40e): keep its deletions and test, add th
 
 [task.8.47.5]
 title = "Kernel programs-module receipt vectors v1 to v3 and their generators are removed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.41.5", "8.42.5", "8.43.5", "8.44.5", "16.97.6"]
@@ -169869,7 +169869,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.0.5]
 title = "Build the emulator against the kernel archive instead of the retiring daemon aggregate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170290,7 +170290,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.2.4]
 title = "Retire the layerxd, guarantor, handover, verify and daemon test rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "13.0.4"]
@@ -170469,7 +170469,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.3.5]
 title = "Drop the checkpoint settlement file from the layerx and paxd-node images"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -191616,7 +191616,7 @@ do_6 = "Continue from attempt 5 (128b8e84a): its two archive.rs tests pass and t
 
 [task.18.1196.1]
 title = "Issue #1196: Port the agent_controls limit-change callers and interface entry to the authority rung parameter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1172.2", "10.2.8", "10.2.9", "18.1297.1", "18.1228.1"]

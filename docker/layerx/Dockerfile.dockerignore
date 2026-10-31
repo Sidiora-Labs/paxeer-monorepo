@@ -1,3 +1,4 @@
+contracts/config/checkpoint-settlement.json
 build/
 **/node_modules/
 **/target/
@@ -102,7 +103,6 @@ tests
 !include/layerx/programs.h
 !services/agent/deny.toml
 !services/agent/unsafe-allowlist.toml
-!contracts/config/checkpoint-settlement.json
 !services/interop/specs/vendor/x402/x402-specification-v2.md
 !spec/layerx-merge/contracts/address-table.md
 !programs/vendor/**
