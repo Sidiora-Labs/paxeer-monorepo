@@ -12016,3 +12016,38 @@ fix = "When replication acknowledgements time out, check committee membership of
 title = "A test fixture that reads node sockets from the environment cannot qualify where no node runs"
 symptom = "10.0.3 attempt 5 required LAYERX_AGENT_HUMAN_NODE_LNI and the authority endpoint from the environment and both tests failed before any request."
 fix = "Serve the counterpart in process (RealAgentLayer pattern in tests/intent_submit.rs) and set every ProductionComponents variable from the test itself; never gate a task's test on binaries or sockets the environment must provide."
+
+[gotcha.2441]
+title = "A DO NOT EDIT catalogue edited in place drifts silently until the next --write"
+symptom = "Four tasks changed sdk/platform/go/generated.go and the JVM GeneratedContract.java by hand; the reseal task then saw --write revert routes, vocabulary and retired operations and stopped, five attempts in."
+fix = "Put the change into the schema the generator reads, into the generator, or into a handwritten sibling file, and let the task that changes an interface run the generator and the consumer tests on one revision."
+
+[gotcha.2442]
+title = "Two services, two words for the same rung"
+symptom = "Webhooks say block-committed (decision.813) and the human API says checkpoint-finalised (decision.1002); SDK tasks copied the webhook word into the human SDKs, which then refused every committed journey the human service serves."
+fix = "Name the producer of the interface before choosing a vocabulary; a consumer speaks its producer's words, and a requirement that borrows another interface's word is amended, not implemented."
+
+[gotcha.2443]
+title = "A typed operation catalogue cannot address a retired wire name"
+symptom = "The Swift and .NET retired-faucet tests send PlatformOperation.AgentFaucetClaim; once the catalogue drops the case the tests cannot be written, while the Go and JVM tests send the string faucet.claim."
+fix = "Keep retired-name refusal tests on string-based transports; delete them where the transport is typed and note where the coverage lives."
+
+[gotcha.2444]
+title = "A scan list that names a module the same decision keeps"
+symptom = "A retired-module scan over trust.rs listed batch while the decision that wrote it kept the trust::checkpoint batch lookup; the attempt that did everything else right failed on that one line."
+fix = "When a decision keeps a call, take its module out of the scan over that file in the same decision, and name the task that retires both."
+
+[gotcha.2445]
+title = "A reachability guard needs the wiring before it can pass"
+symptom = "The first run of the C and Rust reachability guard listed 78 programs: kernel suites built by name through a pattern rule, modules of fixture crates rooted under tests/, programs built by stem from a gate script, and four whose rules earlier retirements removed without the file."
+fix = "Decide what a build reference is (path or stem, which script roots, which suites are built by name) before the guard is written, exclude crates rooted under tests/, and give every program the guard exposes an owner task before the guard task runs."
+
+[gotcha.2446]
+title = "A test double with a constant identity fails the first real-identity check"
+symptom = "The human-service real-layer double hardcoded a budget id and derived the account from it; the kernel codec compared the payload's budget id with the context's and refused the preparation."
+fix = "A double that stands in for a producer derives every identity from the bytes it is handed, never from a constant."
+
+[gotcha.2447]
+title = "A purpose check no input can satisfy is a defect, not a gate"
+symptom = "native_send_preview_v1 required the disclosure's purpose commitment to equal the requested one; a native send never discloses a payment, so the commitment is always None and every send was refused, while the sibling owner-preview path already refused only a present commitment."
+fix = "When a check cannot be satisfied by any valid input, read the sibling path and the binding code before adding fields; the commitment is bound where the capability is checked."
