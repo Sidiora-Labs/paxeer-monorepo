@@ -97256,7 +97256,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.33.2]
 title = "Retire replica divergence reports in src/replica/lxp_divergence.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.21.1", "1.0.3", "16.31.5", "16.31.6"]
