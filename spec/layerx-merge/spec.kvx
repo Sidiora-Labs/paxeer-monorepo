@@ -146508,7 +146508,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.3]
 title = "Regenerate the receipt contract outputs after the resealed pipeline lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.0.4", "8.0.4", "9.1.7", "18.1304.1", "9.97.6", "9.97.7", "9.97.8"]
