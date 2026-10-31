@@ -7,7 +7,6 @@ use layerx_client::evidence::{
 use layerx_client::handover::SequencerHistory;
 use layerx_client::lni::schema::Version;
 use layerx_client::lni::transport::{FrameTransport, Limits};
-use layerx_paxeer_verifier::PaxeerCheckpointVerifier;
 use layerx_platform_authority::{parse_replica_evidence, BatchEvidence, EvidenceRefusal};
 use layerx_proof::inclusion::SequencerAuthorization;
 use std::env;
@@ -96,7 +95,6 @@ impl Trust {
             initial_key,
         )
         .map_err(|_| ())?;
-        PaxeerCheckpointVerifier::new(policy).map_err(|_| ())?;
         Ok(Self {
             history: Mutex::new(history),
         })
