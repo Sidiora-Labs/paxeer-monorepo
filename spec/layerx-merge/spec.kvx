@@ -115600,7 +115600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.11]
 title = "Log recovered RPC handler panics with their stack and prove the standalone primary receipts a signed transfer through the send path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.5.4", "12.35.9"]
@@ -141939,7 +141939,7 @@ do_8 = "Scan only: after the requires tasks land the files in touches carry no r
 
 [task.8.98.14]
 title = "Port the kernel custody reads of core and the probe custody steps onto the sequencer endpoint and retire the LNI socket variable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["8.20.2", "8.98.5", "18.1297.1"]
