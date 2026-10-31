@@ -276,6 +276,10 @@ pub enum AgentBoundaryError {
 /// the engine. Production adapters execute these typed SDK calls; tests bind
 /// the same contract to the real `layerx-agentd` implementation.
 pub trait AgentBoundary {
+    fn bind_transaction_sender(&mut self, _sender: [u8; 20]) -> Result<(), AgentBoundaryError> {
+        Err(AgentBoundaryError::Unavailable)
+    }
+
     fn native_journey_preview(
         &mut self,
         _call: &Call<IdempotentMutation<PrepareRequest>>,
@@ -298,7 +302,7 @@ pub trait AgentBoundary {
     ) -> Result<NativeJourneyAdmission, AgentBoundaryError> {
         Err(AgentBoundaryError::Unavailable)
     }
-    /// Prepares canonical unsigned activity bytes under the request action key.
+    /// Prepares canonical unsigned type-2 transaction bytes under the request action key.
     ///
     /// # Errors
     ///
@@ -308,7 +312,7 @@ pub trait AgentBoundary {
         call: &Call<IdempotentMutation<PrepareRequest>>,
     ) -> Result<AgentPreparation, AgentBoundaryError>;
 
-    /// Submits signed activity bytes under the original action key.
+    /// Submits a 65-byte signature for the prepared type-2 transaction under the original action key.
     ///
     /// # Errors
     ///
@@ -920,6 +924,13 @@ impl JourneyEngine {
         }
         let leg_index = self.record.current_leg;
         let phase = self.record.legs[leg_index].phase;
+        if matches!(
+            phase,
+            JourneyPhase::Preparing | JourneyPhase::Prepared | JourneyPhase::AwaitingApproval
+        ) {
+            let key = KeyId::new(self.record.custody_key.clone())?;
+            agent.bind_transaction_sender(custody.evm_wallet(scope.principal(), &key)?)?;
+        }
         if self.record.version == 2
             && matches!(
                 phase,
@@ -1524,7 +1535,7 @@ impl JourneyEngine {
         ))
     }
 
-    fn validate_preparation(
+    pub fn validate_preparation(
         &self,
         index: usize,
         prepared: &AgentPreparation,
@@ -1558,20 +1569,31 @@ impl JourneyEngine {
         {
             return Err(JourneyError::PreparationMismatch);
         }
-        let reencoded = prepared
+        let transaction =
+            crate::server::agent_runtime::decode_unsigned(&prepared.unsigned_canonical_bytes)
+                .map_err(|_| JourneyError::PreparationMismatch)?;
+        crate::server::agent_runtime::validate_call(
+            &transaction,
+            ActivityType::from_u32(leg.activity_type)?,
+            &leg.payload,
+            leg.preparation.account_sequence,
+            leg.preparation.fee_limit,
+        )
+        .map_err(|_| JourneyError::PreparationMismatch)?;
+        let from = prepared
             .disclosure
-            .reencode()
+            .actor
+            .as_slice()
+            .try_into()
             .map_err(|_| JourneyError::PreparationMismatch)?;
-        if reencoded != prepared.unsigned_canonical_bytes {
-            return Err(JourneyError::PreparationMismatch);
-        }
-        let _ = registry;
-        if prepared.disclosure.activity_type.value() != leg.activity_type
-            || prepared.disclosure.idempotency_key != leg.action_key
-            || prepared.disclosure.fee_limit != leg.preparation.fee_limit
+        let expected = layerx_crypto::disclosure::call::bind_call(&transaction, from)
+            .map_err(|_| JourneyError::PreparationMismatch)?;
+        if expected != prepared.disclosure
+            || prepared.signing_preimage != transaction.signing_hash()
         {
             return Err(JourneyError::PreparationMismatch);
         }
+        let _ = registry;
         Ok(())
     }
 
@@ -1848,17 +1870,17 @@ fn validate_native_send_purpose(
     if NativeSendPurposeV1::from_canonical_bytes(&canonical)? != *purpose {
         return Err(JourneyError::PreparationMismatch);
     }
-    let activity =
-        layerx_wire::activity::decode_unsigned(&prepared.unsigned_canonical_bytes, registry)
+    let transaction =
+        crate::server::agent_runtime::decode_unsigned(&prepared.unsigned_canonical_bytes)
             .map_err(|_| JourneyError::PreparationMismatch)?;
+    let _ = registry;
     if purpose.owner_public_key != owner_public_key
         || purpose.agent_did != prepared.actor
         || purpose.activity.activity_type()? != prepared.activity_type
-        || purpose.activity.activity_type()? != activity.activity_type()
-        || purpose.protocol_version != activity.protocol_version()
-        || purpose.network_id != activity.network_id()
+        || purpose.network_id
+            != u32::try_from(transaction.chain_id).map_err(|_| JourneyError::PreparationMismatch)?
+        || prepared.account_sequence != transaction.nonce
         || purpose.idempotency_key != prepared.idempotency_key
-        || purpose.idempotency_key != activity.idempotency_key()
         || purpose.preparation_id
             != <[u8; 32]>::from(Sha256::digest(&prepared.unsigned_canonical_bytes))
         || purpose.canonical_digest != purpose.preparation_id
@@ -2101,7 +2123,6 @@ fn operation_from_label(label: &str) -> Result<Operation, JourneyError> {
         "security-settings" => Ok(Operation::SecuritySettings),
         "secret-reveal" => Ok(Operation::SecretReveal),
         "withdrawal" => Ok(Operation::Withdrawal),
-        "emergency-exit" => Ok(Operation::EmergencyExit),
         "wallet-rebinding" => Ok(Operation::WalletRebinding),
         "agent-archive" => Ok(Operation::AgentArchive),
         _ => Err(JourneyError::Corrupt("unknown signing operation")),

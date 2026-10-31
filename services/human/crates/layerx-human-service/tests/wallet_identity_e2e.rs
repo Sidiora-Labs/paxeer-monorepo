@@ -876,21 +876,6 @@ fn loader_environment(
         ),
         ("LAYERX_HUMAN_AGENT_RECOVERY_ROOT", secret(0x63)),
         ("LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD", "1".to_owned()),
-        (
-            "LAYERX_HUMAN_PAXEER_RPC_URL",
-            "https://127.0.0.1:9443".to_owned(),
-        ),
-        ("LAYERX_HUMAN_PAXEER_RPC_TIMEOUT_SECONDS", "5".to_owned()),
-        (
-            "LAYERX_HUMAN_PAXEER_TRUST_ANCHOR_DER",
-            path("attestor-ca.der"),
-        ),
-        ("LAYERX_HUMAN_PAXEER_CHAIN_ID", "125".to_owned()),
-        (
-            "LAYERX_HUMAN_PAXEER_RPC_URLS",
-            json!(["https://127.0.0.1:9443", "https://127.0.0.2:9443"]).to_string(),
-        ),
-        ("LAYERX_HUMAN_PAXEER_MINIMUM_AGREEMENT", "2".to_owned()),
         ("LAYERX_HUMAN_EXIT_REQUIRED_CONFIRMATIONS", "12".to_owned()),
         ("LAYERX_HUMAN_ACTIVITY_FRESHNESS_SECONDS", "300".to_owned()),
         (

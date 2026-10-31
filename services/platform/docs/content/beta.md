@@ -75,16 +75,14 @@ report to stdout.
 | private_services | identity, policy, KMS, signer shares, event sources, provisioners, CI controllers and state stores stay behind authenticated internal boundaries and are not routed publicly |
 | explorer | the Paxeer explorer fork |
 
-Accounts are funded through custody credit submitted to the router. There is
-no public faucet or control surface on the mainnet-beta.
+Accounts are funded through chain transfers on chain 125. There is no public
+faucet or control surface on the mainnet-beta.
 
 ## Surfaces
 
 | Surface | Scope | Class | Required rung | Reached rung | Source |
 | --- | --- | --- | --- | --- | --- |
-| native-core | ledger transition, checkpoints, settlement, guarantor bonds | functional | runtime_proven | source_present | src/, include/ |
-| native-daemon | layerxd, layerxctl, layerx-verify, layerx-genesis | functional | runtime_proven | source_present | cmd/ |
-| paxeer-chain | paxd on chain 125 with the LayerX custody, anchor and kernel precompiles | hosted | deployment_proven | source_present | daemon/paxd, node/, modules/, precompiles/ |
+| paxeer-chain | paxd on chain 125 with the merged precompiles | hosted | deployment_proven | source_present | daemon/paxd, node/, modules/, precompiles/ |
 | router | unified router and its route catalogue | hosted | deployment_proven | source_present | services/platform/hosted/gateway |
 | kernel | LayerX kernel domain behind the router: core, receipt authority and agent boundaries | hosted | deployment_proven | source_present | services/platform/hosted/node, services/platform/hosted/core, services/platform/hosted/authority, services/platform/hosted/agent-boundary |
 | identity | principals, sessions, introspection and service tokens | hosted | deployment_proven | source_present | services/platform/hosted/identity |
