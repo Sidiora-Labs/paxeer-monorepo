@@ -133659,7 +133659,7 @@ do_7 = "Attempts 5 (ac2e91fba on a628abcf2) and 6 (d1e010855 on f038ebb3f) built
 
 [task.8.4.4]
 title = "Remove the custody and anchor constructs from the EVM table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.5.3", "8.5.2", "8.1.5", "18.1083.1", "18.1297.1"]
@@ -134302,7 +134302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.11.3]
 title = "Remove the kernel socket from the receipt authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.11.2", "8.0.4", "9.1.8", "18.1083.1", "18.1297.1"]
@@ -139469,7 +139469,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.51.1]
 title = "Emulator core stops calling the retired batch seal, batch sign and history functions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "16.0.2", "18.1121.1", "18.1297.1"]
@@ -156560,7 +156560,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.24.5]
 title = "Decode the px_getNetwork consensus head in place of anchor and kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.24.4", "12.25.3", "8.0.4"]
@@ -156594,7 +156594,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.12.24.6]
 title = "Retire the joined endpoint reads and their decoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.24.5", "12.34.7", "12.34.8", "12.34.9"]
@@ -157422,7 +157422,7 @@ do_4 = "Attempt 2 (cf3827a1e on f01e6246f) passed the build through a next.confi
 
 [task.17.5.11]
 title = "Web wallet reads call the gateway through a server-action module without a build alias"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["17.5.10"]
@@ -168969,7 +168969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.4]
 title = "Drop the authorized-batch exports from the fastapi package surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["15.4.3"]
