@@ -141818,7 +141818,7 @@ do_6 = "Attempt 3 ran an earlier build command that compiled the layerx-gateway-
 
 [task.8.98.10]
 title = "Migrate the node probe callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["8.0.2", "18.1083.1", "8.98.14"]
