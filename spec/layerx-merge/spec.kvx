@@ -139612,7 +139612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.45.4]
 title = "Pipeline lock reseals every regenerated, added and retired platform SDK file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.45.3", "8.46.2", "8.47.7", "8.41.5", "8.42.5", "8.43.5", "8.44.5", "9.97.3", "8.47.4", "8.47.5", "8.47.6", "8.46.9"]
@@ -192682,7 +192682,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1195.1]
 title = "Issue #1195: Port the archive test fixture to the rung field of FundsDispositionEvidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1172.2", "10.2.8", "10.2.9", "18.1297.1", "18.1228.1", "18.1188.2"]
