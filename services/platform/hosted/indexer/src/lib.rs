@@ -1,14 +1,11 @@
-//! `layerx-indexer`: a durable, decoded history of both halves of the network.
+//! `layerx-indexer`: a durable, decoded history of Paxeer blocks.
 //!
-//! The LayerX half follows a relay/archive node's public synchronization and
-//! history protocol and decodes every canonical receipt with the frozen
-//! `layerx-wire` decoder into both the 15-field activity receipt and the
-//! 21-field 402LXP receipt. The Paxeer half walks EVM blocks, receipts and
-//! logs plus CometBFT `tx_search` pages, decoding ERC-20 and pointer
-//! transfers, native value transfers, bank and tokenfactory typed events,
-//! LayerX anchor string events and every precompile ABI event found in the
-//! configured ABI directory. Everything lands in one SQLite file with
-//! checkpointed cursors and reorg rollback to a configured finality depth.
+//! Walks EVM blocks, receipts and logs plus CometBFT `tx_search` pages,
+//! decoding ERC-20 and pointer transfers, native value transfers, bank and
+//! tokenfactory typed events, LayerX anchor string events and every precompile
+//! ABI event found in the configured ABI directory. Everything lands in one
+//! SQLite file with checkpointed cursors and reorg rollback to a configured
+//! finality depth.
 
 pub mod abi;
 pub mod ai_health;
@@ -21,7 +18,6 @@ pub mod codec;
 pub mod config;
 pub mod explorer;
 pub mod follow;
-pub mod layerx;
 pub mod paxeer;
 pub mod paxscan;
 pub mod store;

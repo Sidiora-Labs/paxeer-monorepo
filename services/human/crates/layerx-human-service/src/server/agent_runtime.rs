@@ -21,10 +21,10 @@ use layerx_types::verify::VerificationLevel;
 use sha2::Digest as _;
 use zeroize::Zeroizing;
 
+use crate::journeys::ReceiptMaterial;
 use crate::journeys::{
     AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, ReceiptLookup,
 };
-use crate::journeys::{DepositAgentBoundary, ReceiptMaterial};
 
 const MAGIC: &[u8; 8] = b"LXHAGT01";
 const LXHAGT02: &[u8; 8] = b"LXHAGT02";
@@ -4168,19 +4168,6 @@ impl AgentBoundary for AgentRuntime {
         };
         reader.finish()?;
         Ok(result)
-    }
-}
-
-impl DepositAgentBoundary for AgentRuntime {
-    fn credit_receipt(
-        &mut self,
-        action_key: [u8; 32],
-        activity_id: [u8; 32],
-    ) -> Result<ReceiptMaterial, AgentBoundaryError> {
-        match self.receipt_by_idempotency_key(action_key, activity_id)? {
-            ReceiptLookup::Found(material) => Ok(material),
-            ReceiptLookup::Absent => Err(AgentBoundaryError::Unavailable),
-        }
     }
 }
 

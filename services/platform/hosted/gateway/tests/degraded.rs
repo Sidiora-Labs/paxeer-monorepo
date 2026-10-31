@@ -553,13 +553,12 @@ fn startup_refusal(environment: &[(String, String)]) -> (Option<i32>, String) {
     )
 }
 
-fn assert_kernel_unavailable(answer: &Value, backend: &str) {
+fn assert_method_not_found(answer: &Value) {
     assert!(answer.get("result").is_none(), "{answer}");
-    assert_eq!(answer["error"]["code"], -32010, "{answer}");
-    assert_eq!(answer["error"]["message"], "Kernel unavailable");
     assert_eq!(
-        answer["error"]["data"],
-        json!({"code": "kernel_unavailable", "backend": backend, "reason": "not_configured"})
+        answer["error"],
+        json!({"code": -32601, "message": "Method not found"}),
+        "{answer}"
     );
 }
 
@@ -573,7 +572,7 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
     let chain = payment_events::Listener::start(Arc::clone(&tls), move |request| {
         chain_answer(&answers, request)
     });
-    let gateway = start_gateway(&redis, chain.port, true, None);
+    let gateway = start_gateway(&redis, chain.port, false, None);
 
     let chain_id = gateway.rpc("eth_chainId", &json!([]));
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
@@ -591,10 +590,7 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
         "{resolved}"
     );
 
-    assert_kernel_unavailable(
-        &gateway.rpc("lx_getAccount", &json!(["ab".repeat(32)])),
-        "public_core",
-    );
+    assert_method_not_found(&gateway.rpc("lx_getAccount", &json!(["ab".repeat(32)])));
     let balances = gateway.rpc("px_getBalances", &json!([ACCOUNT]));
     let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json"))
         .unwrap_or_else(|error| panic!("ABI vectors: {error}"));
@@ -612,11 +608,12 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
     );
 
     let network = gateway.rpc("px_getNetwork", &json!([]));
+    assert_eq!(network["result"]["consensus"], Value::Null, "{network}");
     assert_eq!(
-        network["result"]["kernel"],
-        json!({"available": false, "reason": "not_configured"}),
+        network["result"]["reason"], "consensus_unavailable",
         "{network}"
     );
+    assert_eq!(network["result"]["paxeer"]["chain_id"], "0x7d", "{network}");
     assert_eq!(
         network["result"]["paxeer"],
         json!({"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK})
@@ -625,28 +622,15 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
-    assert_eq!(readiness["status"], "degraded");
-    let backends = &readiness["backends"];
+    assert_eq!(readiness["status"], "ready", "{readiness}");
     assert_eq!(
-        backends["paxeer_chain"],
-        json!({"state": "ready", "reason": "ready"}),
+        readiness["backends"],
+        json!({
+            "paxeer_chain": {"state": "ready", "reason": "ready"},
+            "durable_store": {"state": "ready", "reason": "ready"}
+        }),
         "{readiness}"
     );
-    assert_eq!(
-        backends["durable_store"],
-        json!({"state": "ready", "reason": "ready"})
-    );
-    for kernel in [
-        "core_agent_boundary",
-        "independent_receipt_authority",
-        "program_registry",
-    ] {
-        assert_eq!(
-            backends[kernel],
-            json!({"state": "unavailable", "reason": "not_configured"}),
-            "{kernel}"
-        );
-    }
     drop(gateway);
     drop(chain);
 }
@@ -666,21 +650,19 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
 
     let network = gateway.rpc("px_getNetwork", &json!([]));
+    assert_eq!(network["result"]["consensus"], Value::Null, "{network}");
     assert_eq!(
-        network["result"]["kernel"],
-        json!({"available": false, "reason": "not_configured"}),
+        network["result"]["reason"], "consensus_unavailable",
         "{network}"
     );
+    assert_eq!(network["result"]["paxeer"]["chain_id"], "0x7d", "{network}");
     assert_eq!(
         network["result"]["paxeer"],
         json!({"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK}),
         "{network}"
     );
 
-    assert_kernel_unavailable(
-        &gateway.rpc("lx_sendActivity", &json!(["00"])),
-        "core_agent_boundary",
-    );
+    assert_method_not_found(&gateway.rpc("lx_sendActivity", &json!(["00"])));
 
     let activity = gateway
         .client
@@ -794,21 +776,19 @@ fn degraded_endpoint_starts_without_the_event_producer_and_reports_it_unconfigur
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
 
     let network = gateway.rpc("px_getNetwork", &json!([]));
+    assert_eq!(network["result"]["consensus"], Value::Null, "{network}");
     assert_eq!(
-        network["result"]["kernel"],
-        json!({"available": false, "reason": "not_configured"}),
+        network["result"]["reason"], "consensus_unavailable",
         "{network}"
     );
+    assert_eq!(network["result"]["paxeer"]["chain_id"], "0x7d", "{network}");
     assert_eq!(
         network["result"]["paxeer"],
         json!({"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK}),
         "{network}"
     );
 
-    assert_kernel_unavailable(
-        &gateway.rpc("lx_sendActivity", &json!(["00"])),
-        "core_agent_boundary",
-    );
+    assert_method_not_found(&gateway.rpc("lx_sendActivity", &json!(["00"])));
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
@@ -903,11 +883,12 @@ fn degraded_endpoint_serves_the_chain_over_the_plain_listener() {
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
 
     let network = gateway.rpc("px_getNetwork", &json!([]));
+    assert_eq!(network["result"]["consensus"], Value::Null, "{network}");
     assert_eq!(
-        network["result"]["kernel"],
-        json!({"available": false, "reason": "not_configured"}),
+        network["result"]["reason"], "consensus_unavailable",
         "{network}"
     );
+    assert_eq!(network["result"]["paxeer"]["chain_id"], "0x7d", "{network}");
     assert_eq!(
         network["result"]["paxeer"],
         json!({"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK}),
@@ -915,10 +896,7 @@ fn degraded_endpoint_serves_the_chain_over_the_plain_listener() {
     );
     assert_eq!(network["result"]["network_id"], "paxeer-degraded");
 
-    assert_kernel_unavailable(
-        &gateway.rpc("lx_sendActivity", &json!(["00"])),
-        "core_agent_boundary",
-    );
+    assert_method_not_found(&gateway.rpc("lx_sendActivity", &json!(["00"])));
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
