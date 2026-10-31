@@ -14883,3 +14883,51 @@ symbol = "SEQUENCER"
 observed = "Attempt 8 (fd5d55aa7) runs the node with --sequencer and the chain now carries the test: the first FundingSettled log arrives after five seconds and the stall of attempt 7 is gone. TestEndToEnd then fails at e2e_test.go:486 with getMarkPriceDetails: execution reverted, which is viewMark (precompiles/perps/views.go:198) refusing market 11 because its mark price is zero. The script's collateral and price-feed setup (mint USDL to the test account, approve and deposit collateral, registerFeedKey, the background feeder, the wait for fresh BTC and PAX prices, then activate_merge) is one block guarded by SEQUENCER = 0 (tools/qualification/localnode/v6120-node.sh:712-757 in the attempt's script), so in sequencer mode no price is ever posted and the test account holds no collateral; the script's own TestLocalNodeV6120PerpsMarket (v6120_test.go:188-195) expects a fresh mark on market 11 from any started node."
 assumption = "The setup block runs in both modes and only activate_merge stays plain-mode, since the sequenced export is already past activation (decision 2169)."
 severity = "major"
+
+[finding.10.0.3.10]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/src/server/http.rs:582-586"
+symbol = "finish_response"
+observed = "Attempt 13 (base 0590a29db) builds; intent_plan_answers_eip1559_legs passes and only intent_submit_records_each_leg_tx_hash fails, with journey.get answering 503 upstream-degraded. The cause is not the advance path: finish_response at services/human/crates/layerx-human-service/src/server/http.rs:582-586 validates every handler result against the operation's response type (schema.rs:358 encode_response) and answers upstream-degraded when the result does not fit, writing no diagnostic. [operation.journey.get] answers Journey (journeys.kvx:63-68), whose required fields are journey_id, kind, state, state_copy_key, stages, evidence, started_at and updated_at, while the intent journey row the attempt returns (intent_submit.rs start_kernel_journey, services/human/crates/layerx-human-service/src/server/production_components.rs journey.get branch) carries journey_id, plan_digest, state processing, state_copy_key status.processing and a legs array, so the encoder refuses it on every read. The same mechanism explains why the plan test began passing once decision 2147 declared the optional IntentLeg fields."
+assumption = "The intent journey read must answer the declared Journey shape, with the per-leg tx hash and nonce carried on the stages as new optional JourneyStage fields (decision 2170); the service writes one stderr line for every schema refusal so the next one is self-describing."
+severity = "major"
+
+[finding.18.1272.1.5]
+task = "18.1272.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:555"
+symbol = "bound_activity"
+observed = "Attempt 10 (1fec77f4a) changed agent_creation.rs, tests/agent_create.rs and tests/support/canonical_owner.rs but not services/human/crates/layerx-human-service/src/agents/create.rs, stating the scope excludes it; the task's touches have carried create.rs since decision 2167 (7e3501a03). The test then panicked at canonical_owner.rs:20 with canonical owner encoding: Refused(lifecycle transaction binding differs), raised by bound_activity at :555 because the PayBudgetCreate disclosure word is the budget id and not the action key, exactly the comparison decision 2167 directs to change."
+assumption = "The next attempt makes the create.rs change decision 2167 describes; the fixture's panic is the product refusal it reproduces, not a test defect."
+severity = "major"
+
+[finding.18.670.1.9]
+task = "18.670.1"
+file = "node/app.go:3424-3430"
+symbol = "RPCContextProvider"
+observed = "Attempt 9 (8766345ee) builds and the node starts in --sequencer mode; the first eth_sendRawTransaction (the USDL mint of the setup block) answered Error: method handler crashed, and the node log shows rpc handler panicked logger=evmrpc method=eth_sendRawTransaction panic=sequencer: no block is open. RPCContextProvider panics when PendingSnapshot fails for PendingCtxHeight; rpc/tx.go:380 and :454 and rpc/send.go:342 call it unconditionally on the send path, and the executor's open layer is nil between Seal (executor.go:296) and the driver's Open after commit (driver.go:93), so a send landing in that window crashes the handler instead of waiting a few milliseconds for the next block."
+assumption = "A node defect, not a script defect: fixed by the new task 5.98.5 (decision 2172); 18.670.1 and 12.35.2 require it and keep their own changes."
+severity = "major"
+
+[finding.12.35.2.5]
+task = "12.35.2"
+file = "apps/wallet/playwright.config.ts"
+symbol = "webServer"
+observed = "Attempt 5 (85b99a037) builds with the browser installed, then the readiness probe of http://127.0.0.1:3099 saw only GET / 404 and GET /index.html 404 for 600 seconds. apps/wallet/next.config.mjs:15 sets basePath /wallet and the Next development server ignores the basePath override the harness passes in conf, so the app served under /wallet while the probe and every page.goto('/...') asked for the root."
+assumption = "The harness follows the product base path (decision 2171); the send path also depends on the node fix of 5.98.5, which the task now requires."
+severity = "major"
+
+[finding.19.2.2.1]
+task = "19.2.2"
+file = "rpc/state.go:150-176"
+symbol = "GetProof"
+observed = "Attempt 1 (325c5464b) builds, writes the vector and verifies the committed two-op proof against the stored app hash; the test then fails at names_proof_test.go:217 because the live eth_getProof answer does not verify against the commit hash (calculated root hash is invalid). GetProof queries the evm KV store itself (findQueryableKVStore, path /key), so each StorageProof carries only the ics23:iavl op from key to the evm store root and never the ics23:simple op from the store root to the app hash; the root multistore query at /evm/key yields both ops. The previous attempt declared rpc/state.go out of scope."
+assumption = "Acceptance 19003.1 requires the eth_getProof answer itself to verify against the app hash, so GetProof queries the root multistore (decision 2173); rpc/state.go, rpc/server.go and the test files that build a StateAPI join the touches."
+severity = "major"
+
+[finding.19.7.1.1]
+task = "19.7.1"
+file = "services/platform/hosted/indexer/src/explorer.rs:510"
+symbol = "node_unit"
+observed = "Attempts 1 (772aa50a7) and 2 (c0d3314e1) fail the build with error E0063 missing field name_events in initializer of store::Unit at services/platform/hosted/indexer/src/explorer.rs:510: the new Unit field is right, but explorer.rs builds a Unit in its test helper node_unit() and was outside the touches, so both attempts stopped. Attempt 2 also notes that no ReverseClaimed event exists: contracts/names/PaxReverseRegistrar.sol declares no events; setName writes the name through PaxPublicResolver.setName, which emits NameChanged(reverseNode, name), and the registrar's Transfer, NameRegistered and NameRenewed are declared in PaxBaseRegistrar.sol, not in IPaxNames.sol."
+assumption = "explorer.rs joins the touches and the reverse name is derived from the resolver's NameChanged on the sender's reverse node (decision 2174); the topic test reads the three files that declare the bound events."
+severity = "major"
