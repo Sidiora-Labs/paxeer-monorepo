@@ -108413,7 +108413,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.2.1]
 title = "Write the names SDK core: normalisation, namehash, manifests and the Paxeer contenthash form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116188,7 +116188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.5.1]
 title = "Commit a consensus vector: validator set, header with app hash and the commit over it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
