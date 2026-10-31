@@ -170445,7 +170445,7 @@ do_15 = "Continue from attempt 4 (2a4f7d54c): keep its Makefile, lni-version-par
 
 [task.16.3.1]
 title = "Retire the relay-archive and intent-ingester images"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "11.0.3", "8.19.8"]
@@ -171450,7 +171450,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.9.4]
 title = "Record the deleted daemon trees in the retired-callers catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
