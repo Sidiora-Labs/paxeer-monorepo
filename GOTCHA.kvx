@@ -11746,3 +11746,63 @@ fix = "Read the client's call order from the code and script the mock's exchange
 title = "Chain-reading tests run against the default RPC URL"
 symptom = "The gateway precompile route tests of 12.13.2, 12.13.3 and 12.13.4 need a node serving the precompiles; four attempts each ran against the default mainnet URL and failed with 502."
 fix = "A task whose tests read the chain starts the local node fixture in verify_cmd and passes its RPC URL."
+
+[gotcha.2387]
+title = "A codec deleted at wave 29 while its callers retire at wave 44"
+symptom = "1.6.3 deleted lxp_state_diff.h and its source at wave 29; three files that 1.34.1, 1.34.2 and 1.33.3 delete at wave 44 still included it and the library build stopped at the first include."
+fix = "A deletion task sits after every task that deletes the remaining callers and requires them; its title saying 'once the users leave' is not a schedule."
+
+[gotcha.2388]
+title = "Build commands naming test targets an earlier retirement unruled"
+symptom = "16.33.2, 16.33.5 and 16.33.6 built targets whose Makefile rules 16.0.4 and 16.2.4 had removed and stopped with 'No rule to make target' before any verify."
+fix = "Before a batch lands, grep the Makefile for every target build_cmd names; a test file no rule compiles is dead and a retirement task deletes it."
+
+[gotcha.2389]
+title = "A retired-suite scan matching a shared header include"
+symptom = "16.97.2's web intake scan matched '#include layerx/lx_web.h' and listed five live tests that include the still-live web module header."
+fix = "Absence scans match the retired suite's own path and identifiers, never a header other live files include."
+
+[gotcha.2390]
+title = "A symbols list naming a helper the task deletes"
+symptom = "8.18.1 listed collide, the manifest_check.py helper its do_4 removes; the verify passed and the graph check failed on the missing symbol twice."
+fix = "symbols names only what the task defines or keeps in its touched files; anything a do line deletes leaves the list."
+
+[gotcha.2391]
+title = "A package initialiser importing the module a task deletes"
+symptom = "8.32.1 deleted relay_archive/runtime.py and forward.py and __init__.py:3 still imported RelayArchive from the deleted module, failing the task's own import scan."
+fix = "When a task deletes modules of a python package that outlives them, its touches include the package's __init__.py and a do line removes the import."
+
+[gotcha.2392]
+title = "A retired-module scan list longer than the task's port"
+symptom = "8.98.4 and 8.98.5 listed every retired client module while their do lines kept lni, client, evidence or handover uses; attempts peeled one module per attempt, failing on the next."
+fix = "The scan list of a migration task equals the modules its do lines port in the files it owns; kept modules are named in a do line and left out of the list."
+
+[gotcha.2393]
+title = "A differential that reports one line for six checks"
+symptom = "13.34.1's qualify_workload returned 1 from six places and printed only 'low-conflict differential failed'; four attempts could not tell which stage diverged."
+fix = "A test with several silent early returns prints the stage and the compared values on each return before any repair is attempted."
+
+[gotcha.2394]
+title = "A recorded exchange re-recorded under a test that decodes it"
+symptom = "18.1129.1 re-recorded the x-websearch client exchange with a grantId reference; the typescript web search test still decoded grant bytes from it and failed on main."
+fix = "A task that re-records a shared fixture lists every reader of the fixture and ports or hands off each; readers across the sdk trees count."
+
+[gotcha.2395]
+title = "A locked cargo build against a lock a path dependency outdated"
+symptom = "18.1211.5 changed no manifest and cargo --locked refused services/interop/Cargo.lock; a path dependency manifest changed after the lock was last written."
+fix = "When a candidate changes no manifest and --locked refuses, the lock is stale on main: the task touches the lock and refreshes it before the build."
+
+[gotcha.2396]
+title = "A deletion whose last caller sits outside the touches"
+symptom = "1.12.1 deleted lxp_verify_payer_grant with the ledger header and lx_asset_transfer.c:68, not in its touches, still called it."
+fix = "Before deleting a declaration, grep every caller across src, include and tests and add each file to touches with a do line."
+
+[gotcha.2397]
+title = "End-to-end tests still starting a retired daemon"
+symptom = "10.20.3 and 18.1200.1 ran tests that start layerxd from build/bin after 5.50.1, 5.50.3 and 5.50.4 retired its servers; the binary no longer builds and 26 attempts chased it."
+fix = "When a component is retired, every test that spawns it is listed and reworked onto the replacement in the same programme; a precondition on its binaries is a stop sign."
+
+[gotcha.2398]
+title = "A local node fixture that never brings the merge precompiles live"
+symptom = "The gateway route tests of 12.13.2, 12.13.3 and 12.13.4 ran against the local node and every route returned precompile_not_served: eth_getCode at 0x0905-0x0908 is empty on the fresh genesis."
+fix = "A fixture that stands in for the merged node proves the precompile set it serves with eth_getCode before any consumer test depends on it."
