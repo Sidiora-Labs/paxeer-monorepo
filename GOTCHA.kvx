@@ -12061,3 +12061,28 @@ fix = "Before a generator reverts a hand edit, build every package in the module
 title = "The journey boundary and the socket are two different agent seams"
 symptom = "A router-level test was told to reuse the journey-level in-process agent of a sibling test; the Router reaches the agent only through a Unix socket, so the attempt started a real agent that needed a node."
 fix = "Name the seam a test exercises: a journey test injects the boundary trait, a router test serves the socket in process with the crate's existing peer pattern."
+
+[gotcha.2450]
+title = "A Makefile target is not a graph symbol"
+symptom = "A task listed its new phony Makefile target among its symbols; build and all three tests passed and the done check still failed because the code graph indexes functions and types, not make targets."
+fix = "List functions, types and tests under symbols; a Makefile target is proven by the build command or a test that runs it."
+
+[gotcha.2451]
+title = "The agent JSON surface carries no native send preview"
+symptom = "A test posted a native_send_preview_v1 variant through handle_rpc and got 400 envelope.malformed: the prepare operation of the JSON surface routes only native_effect_v1, native_registration_v1, native_send_v1 and native_send_submit_v1; previews travel as human frames (operation 63) written by the human service."
+fix = "Prove a native send preview through serve_one with the frame the human service writes (agent_runtime.rs native_send_preview), not through the JSON surface."
+
+[gotcha.2452]
+title = "The served-precompile probe is an eth_call with selector 0xffffffff"
+symptom = "Gateway tests expected an eth_getCode probe for a served precompile and saw none, and a route's eth_call count came out one too high: since the node serves precompiles natively without account code, ensureServed probes with eth_call data 0xffffffff once per process per key."
+fix = "Assert the probe as that eth_call and exclude it from per-route eth_call counts; eth_getCode at a native precompile answers 0x."
+
+[gotcha.2453]
+title = "The attestor test support resolves a wallet identity only from a held secp256k1 key bound to the primary's policy account"
+symptom = "A service test created a human primary key through the attestor test support and asked for its EVM wallet; the attestors refused with key_invalid_share: the inventory listed no key for generation, and the public-wallet route needs a held secp256k1 key owned by the same subject whose address equals the account the primary was generated with."
+fix = "Generate the owner's secp256k1 wallet first, approve the primary key id for generate, create the primary with the wallet address as its account, approve it for sign, then resolve the wallet."
+
+[gotcha.2454]
+title = "A human service test gated on the protected native producer fixture never runs inside a qualification gate"
+symptom = "A new test copied the fixture reader of tests/native_send_producer.rs, which expects PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, a running human service over TLS and a real daemon socket; the gate had none of them, so both cases panicked with NotPresent before their first assertion and the task failed three times without the preview path ever being exercised."
+fix = "Write such tests against an in-process peer double over a UnixListener and a temporary principal store, the way tests/agent_runtime_nonces.rs and tests/agent_runtime_eip1559.rs do; leave the protected fixture tests as release gates."

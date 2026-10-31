@@ -5877,6 +5877,30 @@ value = "sdk/platform/go/cmd/conformance/main.go joins 8.45.4's touches; the Per
 basis = "Finding 8.45.4.4: no human-plane operation carries an evm transport after the reseal, and the regenerated HumanOperationMetadata has no PerLeg."
 affects = ["8.45.4"]
 
+[decision.2128]
+title = "The native send preview test drives serve_one with the frame the human service writes"
+value = "tests/native_send_preview_evm.rs posts the preview through the human frame instead of handle_rpc: post_preview writes magic LXHAGT01, operation byte 63, then the credential (tenant text, session id, token id, generation), request_id, the prepare fields, owner public key, purpose_expires_at_ms, commitment and the local grant in the order decode_operation reads them at src/human.rs:2481-2520 (the order services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4794-4843 writes them), encoded as human.rs's Reader decodes each primitive (:2070-2120); it sends the frame length-prefixed over a UnixStream::pair into an AcceptedTransport (src/human.rs:1697) and calls serve_one with the fixture's owner and peer the way tests/human_frame.rs:219-245 does, then reads the response frame. Outcome byte 0 followed by the preview bytes (canonical_bytes, signing_preimage, the purpose canonical bytes and the head sequence, as agent_runtime.rs:4844-4851 reads them) for the commitment in the grant; outcome byte 1 and nothing after it for a commitment outside the grant's purpose commitments (encode_response, :1787-1810)."
+basis = "Finding 10.13.9.2: the JSON surface carries no native send preview, and the producer of that frame is the human service, so proving the frame grammar end to end is what the task's transport proof means."
+affects = ["10.13.9"]
+
+[decision.2129]
+title = "The precompile route tests assert the eth_call probe ensureServed issues and count route calls without it"
+value = "In agent-precompiles-scheduler.test.ts, agent-precompiles-streams.test.ts and agent-precompiles-eip712.test.ts a probe is a recorded request with method eth_call whose params[0].to equals the served address and whose params[0].data is 0xffffffff; the tests assert exactly one probe over the run, answered with non-empty result data or a JSON-RPC error whose message contains LXP_PRECOMPILE_UNKNOWN_METHOD, and every per-route eth_call count excludes probes. No assertion mentions eth_getCode."
+basis = "Finding 12.13.2.3: the gateway's readiness probe is the eth_call that decision 2061 chose, and the tests were written for the eth_getCode probe that preceded it."
+affects = ["12.13.2", "12.13.3", "12.13.4"]
+
+[decision.2130]
+title = "The intent EVM fixture provisions each owner's attestor wallet identity and inventory approvals before creating the primary key"
+value = "In tests/intent_plan_evm.rs bootstrap does, per subject and in this order: (1) generate_key on the attestor test support (services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs:642) with key id wallet-<subject>, curve secp256k1, owner <subject> and an empty account returns the 65-byte wallet public key; the wallet address is layerx_crypto::secp256k1::evm_address(&public) (services/agent/crates/layerx-crypto/src/secp256k1.rs:54), written as 0x plus lowercase hex; (2) the primary key id is lx- followed by the lowercase hex of the first 16 bytes of keystore.binding(&principal, &key, KeyClass::HumanPrimary)?.digest(), the formula of attestor_key_id in src/server/production_components.rs, with Keystore::binding (src/custody/mod.rs:944) made pub; approve_generate(&key_id, 'ed25519', subject) on the support publishes the inventory entry that Inventory.Check demands for generation; (3) kms.create_owned_key(&keystore, &principal, &key, subject, &wallet_address): the account is the wallet address because doPublicWallet (services/wallet/attestor/internal/server/public_identity.go:96-100) admits only a primary whose policy account equals the held secp256k1 wallet's address; (4) approve_sign(&key_id, &public) on the support lists the primary for sign; (5) kms.admit_assertion as today, then keystore.evm_wallet(&principal, &key)? must equal the wallet address (assert_eq). approve_generate and approve_sign are the two helpers 18.1151.1 do_4 specifies, added by this task to services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs with generate_key calling both. The attestor policy stays the start_with_kernel_policy default: a call to 0x0000000000000000000000000000000000001001 is no address of the attestor's ABI registry (services/wallet/attestor/internal/policy/evm/decode.go:31-41), so DecodeCalldata (:202-237) records it as an unlisted non-precompile destination with a zero native spend, which checkDestination (services/wallet/attestor/internal/policy/policy.go:590-617) admits. No attestor code changes."
+basis = "Finding 10.0.3.4: the attestors admit only inventory-listed keys and resolve a wallet identity only from a held secp256k1 key bound to the primary's policy account, so the real custody -> attestor -> chain path of the task needs that identity provisioned the way production provisions it, not a fixture that skips the wallet."
+affects = ["10.0.3", "18.1151.1"]
+
+[decision.2131]
+title = "The native send nonce tests run self-contained against an in-process peer double, never a protected environment fixture"
+value = "tests/native_send_nonces.rs reads no environment variable and opens no TLS connection. It builds its peer as tests/agent_runtime_nonces.rs:29-92 and tests/agent_runtime_eip1559.rs:170-240 do: a UnixListener in a directory from layerx_human_test_support::directory, a thread answering each frame by its opcode byte, and AgentRuntime::new(&socket, the same Limits, ModuleRegistry::new(&[])). Its store is layerx_human_test_support::install_and_open in a second temporary directory. The owner is a test ed25519 SigningKey whose verifying key is the session's owner_public_key, so the grant signature is a real signature over layerx_human_kms::attestor::native_local_grant_signing_bytes. Consent is retained through the public API only: a HumanOwnerNativeSessionV1 built as agent_runtime_nonces.rs:203-217 does, a NativeSendAccessRequest, the NativeSendOwnerCoordinatesV1 the runtime returns from native_send_owner_context against the double's frame-64 answer (agent_runtime_nonces.rs:226-252 is the body layout; account_sequence is the pending nonce), unsigned_access(&request, &session, &coordinates) for the grant, access_operation(&scope, &request) for consent_request_digest, then one HumanOwnerNativeContextV1 (nonce = coordinates.account_sequence, capability_id = request.action_key) serialised with serde_json and written with PrincipalScope::put (src/store/mod.rs:550) under the row key load_access reads (native_send.rs:278). The double answers frame 13 (ACCOUNT_SEQUENCE) with the pending nonce and a committed rung, and the preview frame (opcode 63, agent_runtime.rs:4794-4900 of attempt 3) with exactly what the runtime decodes: canonical_bytes = Eip1559Call::encode_unsigned (services/agent/crates/layerx-crypto/src/evm_transaction.rs:195) of a call whose nonce is the pending nonce and whose fees are non-zero with max_priority_fee_per_gas <= max_fee_per_gas, signing_preimage = that call's signing hash, a NativePreparationPurposeV1 canonical encoding whose tenant, agent DID, session id and generation match the session, then head_sequence, protocol_time_ms, owner_public_key and revocation_sequence. Case one: load_access admits a context whose nonce equals the pending nonce, preview_send returns nonce, max_fee_per_gas and max_priority_fee_per_gas equal to the decoded call's, signing_preimage equals the call's signing hash, and after dropping and reopening the store load_access returns the same nonce and commitment. Case two: a context retained at nonce N while the double answers pending nonce N+1 makes load_access return AgentFailure::Refused('native Send access expired'), and no preview frame is exchanged. The protected tests native_send_producer.rs and native_journey_approval.rs stay release gates and are not touched."
+basis = "Finding 10.13.8.4: a test that needs a running service, a daemon and a real owner never runs inside a gate, so the preview path was implemented three times without ever being proven; the two sibling tasks 10.13.4 and 10.13.5 proved the same runtime against in-process doubles and qualified. Every interface-changing task proves the producer, transport and consumer path inside its own gate, including the store reopen."
+affects = ["10.13.8"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -139600,7 +139624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.45.4]
 title = "Pipeline lock reseals every regenerated, added and retired platform SDK file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.45.3", "8.46.2", "8.47.7", "8.41.5", "8.42.5", "8.43.5", "8.44.5", "9.97.3", "8.47.4", "8.47.5", "8.47.6", "8.46.9"]
@@ -147091,7 +147115,7 @@ do_2 = "`execute_intent_plan` (services/human/crates/layerx-human-service/src/se
 do_3 = "Read the native send purpose signature at services/human/crates/layerx-human-service/src/server/production_components.rs:8875 through `sign_native_send_purpose` (services/human/crates/layerx-human-kms/src/attestor.rs:1100), which stays."
 do_4 = "Create services/human/crates/layerx-human-service/tests/intent_plan_evm.rs (planned) driving intent.plan and intent.submit through a real `Router` over `ProductionComponents` opened in a temp directory."
 symbols = ["start_kernel_journey", "execute_intent_plan", "intent_plan_json", "sign_send_now"]
-touches = ["services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs", "services/human/crates/layerx-human-service/src/custody/evm.rs", "services/human/crates/layerx-human-service/tests/agent_controls.rs"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs", "services/human/crates/layerx-human-service/src/custody/evm.rs", "services/human/crates/layerx-human-service/tests/agent_controls.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/intent_plan_evm.rs::intent_plan_answers_eip1559_legs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs::intent_submit_records_each_leg_tx_hash"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/intent_plan_evm.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -147118,6 +147142,7 @@ do_10 = "Decision 2071: attempt 2 (dca4574b0) wrote tests/intent_plan_evm.rs aro
 do_11 = "Decision 2093: attempt 3 (5aa1f3bcb) fails both tests with 'LAYERX_HUMAN_AUTH_INDEX_KEY is required' (src/server/production_components.rs:406): Fixture::open (tests/intent_plan_evm.rs:82-145 of that tree) sets the store, custody and auth-index roots, the tenancy digest and the runtime clock socket, but none of the secrets and limits ProductionComponents reads. Set every variable tests/production_unhooked.rs:872-895 sets, with the same test values (LAYERX_HUMAN_AUTH_INDEX_KEY, LAYERX_HUMAN_STREAM_CURSOR_KEY, the RP id, name and origin, the ceremony, assertion, session, refresh and step-up TTLs, the auth rate attempts and window). Continue from attempt 3, build once and verify once."
 do_12 = "Decision 2112: attempt 5 (40dd6adae) fails both tests at tests/intent_plan_evm.rs:147 demanding LAYERX_AGENT_HUMAN_NODE_LNI, the authority endpoint, bearer, CA and LAYERX_HUMAN_AGENT_ACTOR from the environment (finding.10.0.3.2). The fixture reads no LAYERX_AGENT_* or LAYERX_TEST_* variable and starts no node or agent process: it serves the agent side in process with RealAgentLayer exactly as tests/intent_submit.rs:326-420 and :859 do (decision 2071), sets the ProductionComponents variables of do_11 itself, and drives intent.plan and intent.submit through the real Router; the environment-dependent branch at :147-183 is deleted. Continue from attempt 5, build once and verify once."
 do_13 = "Decision 2126: continue from attempt 6 (b4ad3a357). In services/human/crates/layerx-human-service/tests/intent_plan_evm.rs replace RealAgentLayer::start (:125-265 of that tree, LAYERX_AGENT_HUMAN_NODE_LNI, the authority endpoint, bearer and CA) with an in-process peer bound to the LAYERX_HUMAN_AGENT_SOCKET path the fixture sets, built as tests/agent_runtime_eip1559.rs:174-249 Peer::serve builds it: a UnixListener thread, read_frame and layerx_agentd::human::decode_request in, encode_response and write_frame out, one match arm per HumanRequest variant the intent.plan and intent.submit paths send (Subject, Registry, Prepare, Submit, Track, Head and whatever execute_intent_plan at src/server/production_components.rs:4449 and the submit path ask for; an unexpected variant panics with its name), answering with the receipt and signed-leg logic of tests/intent_submit.rs RealAgentLayer. Keep the attempt 6 changes to production_components.rs, custody/evm.rs and intent_submit.rs. Build once and verify once."
+do_14 = "Decision 2130: continue from attempt 7 (12846c417). Both tests fail inside Fixture::open (tests/intent_plan_evm.rs:740-775 of that tree), not in the plan or submit routes. Rewrite the per-subject block of bootstrap as decision 2130 orders: generate_key(wallet-<subject>, secp256k1, subject, '') on the attestor support and derive the address with layerx_crypto::secp256k1::evm_address; compute the primary key id from keystore.binding(..)?.digest() (make Keystore::binding pub at src/custody/mod.rs:944, a visibility change only); approve_generate(&key_id, 'ed25519', subject); kms.create_owned_key(&keystore, &principal, &key, subject, &wallet_address) with the wallet address as the account instead of 0x..a1; approve_sign(&key_id, &public); kms.admit_assertion; assert_eq!(keystore.evm_wallet(&principal, &key)?, wallet_address). Add approve_generate(&mut self, key_id: &str, curve: &str, owner: &str) and approve_sign(&mut self, key_id: &str, public_key: &[u8]) to services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs by splitting the inventory bookkeeping of generate_key (:649-653 and :735-740) exactly as 18.1151.1 do_4 specifies, with generate_key calling both and every other test of that file unchanged. Change no attestor code and no policy. If a test still fails, include the attestor support's logs() and kms.last_refusal_code() in the failure text so the refusing check is named. Keep every attempt 7 change to production_components.rs, custody/evm.rs, intent_submit.rs and agent_controls.rs. Build once and verify once."
 
 [task.10.0.4]
 title = "Report retired operations from the client generator and pin the regenerated client"
@@ -148681,6 +148706,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "NativeSendPreviewV1 is decoded from the peer answer at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4800-4857 (canonical_bytes, signing_preimage, purpose, observed_head_sequence, protocol_timestamp, owner_public_key, revocation_sequence); the answer the daemon writes (services/agent/crates/layerx-agentd/src/human_runtime.rs:9145-9165, native_send_preview_v1) carries the nonce and the fee fields inside canonical_bytes once task 10.13.9 makes them an unsigned EIP-1559 call, so this task runs after 10.13.9 and reads nonce, max_fee_per_gas and max_priority_fee_per_gas by decoding canonical_bytes with layerx_human_kms::attestor::decode_unsigned_evm_transaction (the decoder agent_runtime.rs:32 already uses) instead of adding fields to the answer; the preview fields the planned test asserts are the decoded nonce and fees."
 do_6 = "Decision 2072: attempt 2 could not satisfy do_5 because the daemon previews are still kernel envelopes (finding.10.13.8.3); task 10.13.9 ports the daemon producer and this task requires it. Continue from attempt 2 once 10.13.9 is on main: decode the preview's canonical_bytes with decode_unsigned_evm_transaction for the nonce and fees, keep native_send_nonces.rs's two cases, build once and verify once."
+do_7 = "Decision 2131: continue from attempt 3 (56b9b087d) and keep every change it made to native_send.rs, agent_runtime.rs and production_components.rs. Rewrite tests/native_send_nonces.rs so it reads no environment variable and opens no TLS or TCP connection: build the peer double, the temporary store, the ed25519 owner and the retained HumanOwnerNativeContextV1 exactly as decision 2131 orders, with tests/agent_runtime_nonces.rs and tests/agent_runtime_eip1559.rs as the models for the Peer struct, its Drop and the frame answers; the double answers frame 13 with the pending nonce and frame 63 with the unsigned EIP-1559 call encoded by Eip1559Call::encode_unsigned. Keep the two test names the verify command runs and the assertions on nonce, both fee fields, signing_preimage, the reopened store and the expired refusal. Change no production code to make the double simpler; if the runtime refuses the double's preview answer, read agent_runtime.rs:4794-4900 and fix the answer. Build once and verify once."
 
 [task.10.14.1]
 title = "Answer home summary and account balance with the balance rung"
@@ -156922,7 +156948,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.13.2]
 title = "Conformance: agent scheduler routes reach the served precompile 0x0905"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1", "5.98.4", "12.13.7"]
@@ -156952,10 +156978,11 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Continue from attempt 4 (d766124e3): the test reads HYPERPAXEER_RPC_URL and needs a running node serving scheduler at 0x0905; the verify now starts the local node fixture and passes LOCAL_NODE_RPC as that variable (decision.2031). Keep the tree, build once and verify once."
 do_5 = "Continue from attempt 5 (af3bbc0c2) on a base that carries task 5.98.4: the local node then serves scheduler at 0x0905 and the route tests see served precompiles instead of precompile_not_served (decision.2048); change nothing unless the served node reveals a defect, build once and verify once."
+do_6 = "Decision 2129: continue from attempt 6 (91c1a17d3). In test/agent-precompiles-scheduler.test.ts the read loop at :356-357 counts eth_call records whose params[0].data is not 0xffffffff; the eth_getCode assertion at :367-372 becomes: exactly one record with method eth_call, params[0].to equal to the served address and params[0].data 0xffffffff, whose answer has a non-empty 0x result or an error message containing LXP_PRECOMPILE_UNKNOWN_METHOD. Change nothing else; build once and verify once."
 
 [task.12.13.3]
 title = "Conformance: agent streams routes reach the served precompile 0x0906"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1", "5.98.4", "12.13.7"]
@@ -156985,10 +157012,11 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Continue from attempt 4 (89d42bbc7): the test reads HYPERPAXEER_RPC_URL and needs a running node serving streams at 0x0906; the verify now starts the local node fixture and passes LOCAL_NODE_RPC as that variable (decision.2031). Keep the tree, build once and verify once."
 do_5 = "Continue from attempt 5 (985ac288a) on a base that carries task 5.98.4: the local node then serves streams at 0x0906 and the route tests see served precompiles instead of precompile_not_served (decision.2048); change nothing unless the served node reveals a defect, build once and verify once."
+do_6 = "Decision 2129: continue from attempt 6 (d45816d07). In test/agent-precompiles-streams.test.ts the probe filter at :334-336 selects requests with method eth_call, params[0].to equal to PRECOMPILE_ADDRESSES.streams and params[0].data 0xffffffff, asserts exactly one, and any per-route eth_call count excludes such probes. Change nothing else; build once and verify once."
 
 [task.12.13.4]
 title = "Conformance: agent eip712 routes reach the served precompile 0x0908"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1", "5.98.4", "12.13.7"]
@@ -157018,6 +157046,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Continue from attempt 4 (c4798c932): the test reads HYPERPAXEER_RPC_URL and needs a running node serving EIP-712 at 0x0908; the verify now starts the local node fixture and passes LOCAL_NODE_RPC as that variable (decision.2031). Keep the tree, build once and verify once."
 do_5 = "Continue from attempt 5 (64b301354) on a base that carries task 5.98.4: the local node then serves eip712 at 0x0908 and the route tests see served precompiles instead of precompile_not_served (decision.2048); change nothing unless the served node reveals a defect, build once and verify once."
+do_6 = "Decision 2129: continue from attempt 6 (3836a0732). In test/agent-precompiles-eip712.test.ts the emitted-method assertion at :252 allows eth_call only; the per-route count at :254 excludes eth_call records whose params[0].data is 0xffffffff; the eth_getCode probe loop at :260-262 and the assertion at :277 become one assertion over the whole run: exactly one eth_call request with params[0].to equal to the address and params[0].data 0xffffffff. Change nothing else; build once and verify once."
 
 [task.12.13.5]
 title = "Conformance: agent tee routes reach the served precompile 0x0907"
@@ -191316,6 +191345,7 @@ do_5 = "In wallet_identity_e2e.rs, before kms.create_owned_key (:971), compute t
 do_6 = "open_or_create_by_assertion (services/human/crates/layerx-human-identity-provider/src/assertion.rs:539-556) takes a producer-signed wallet binding token as its second argument, never DID text, and verify_binding (:391-399) refuses Unavailable without a producer key and a binding tenant; wallet_identity_e2e.rs:982 passes Some(&did). Configure the verifier at :911 with with_binding_producer_key (:380) over a test producer key, pin the binding tenant and mint the binding for (SUBJECT, did, tenant) exactly as tests/principal_store.rs:140-200 and :470-500 of the identity provider do, pass that token at :982, and keep the assertions resolved.did() == Some(did) and the rest of the test as written."
 do_7 = "authorize_kernel_send (src/server/production_components.rs:8630-8658) returning CustodyError::Kms(KmsError::Refused) with last_refusal_code() None is a local refusal inside CustodySigner::authorize_send, never a quorum decision: the branches are require_record_binding (src/custody/mod.rs:958-968, the stored record's binding digest differs from PrincipalKeyBinding::new(identity_bytes(principal, key, class), network_id, class, provider_reference)), seal_refusal (:270-279) and the secret-maximum guard (:250-255). Match the principal and key id wallet_identity_e2e.rs:262-270 passes against the ones create_owned_key stored; if the binding token of do_6 resolves a different principal, create the key under the principal the service resolves from the token. Never relax the binding check; name the firing branch in the summary."
 do_8 = "The send leg (tests/wallet_identity_e2e.rs:236-290) authorizes a kernel SendPlanAuthorization through authorize_kernel_send (src/server/production_components.rs:8630-8658) and Keystore::authorize_send (src/custody/evm.rs:212-227, KMS operation 11); since 10.11.5 (4bbccf849, decision.1005) both the attestor custody's sign_send_now (:8701-8760) and the local KMS send::digest parse that operation as an EIP-1559 send authorization and refuse the kernel payload at the parse step, which is the Kms(Refused) with no quorum code of attempt 10 (issue #1169). This task now follows 10.0.3, whose do_6 ports the service's send authorization to that shape: keep the attempt-10 work (dd4aaed6a) and port the send leg to authorize the EIP-1559 bank transfer through the attestors and verify the receipt of its tx_hash. Never add a kernel-send bypass."
+do_9 = "Decision 2130: 10.0.3, a requirement of this task, adds approve_generate and approve_sign to services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs and makes Keystore::binding pub; do_4 and do_5 use them as present and re-add nothing. If they are absent at this task's base, stop and record the finding."
 
 [task.18.1152.1]
 title = "Issue #1152: Add the golang.org/x/term v0.15.0 go.sum lines the module graph needs so the chain image's go mod download completes"
@@ -192349,7 +192379,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1188.2]
 title = "Follow the budget defund to kernel activity 0x00030008 in the service and its test registries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192667,7 +192697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1195.1]
 title = "Issue #1195: Port the archive test fixture to the rung field of FundsDispositionEvidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1172.2", "10.2.8", "10.2.9", "18.1297.1", "18.1228.1", "18.1188.2"]
@@ -194011,7 +194041,7 @@ do_5 = "Decision 2098: attempts 1 to 3 (17cbdd8cb, 9940ca91d) fail the build of 
 
 [task.10.13.9]
 title = "Prepare native send previews as unsigned EIP-1559 ledger transfer calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.13.5", "8.47.11"]
@@ -194042,6 +194072,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2087: attempts 1 and 2 (b3d4e6514, 52b7341e3) build and pass their test, and fail the dependents check because the layerx-wire test target maintenance_identity.rs includes two fixtures task 8.47.5 removed, so every test target of a crate depending on layerx-crypto fails to compile (finding.8.47.11.1). 10.13.9 now requires 8.47.11, which removes those tests; continue from attempt 2 unchanged once 8.47.11 is on main, build once and verify once."
 do_7 = "Decision 2124: continue from attempt 4 (0a356e6d7). In services/agent/crates/layerx-agentd/src/human_runtime.rs native_send_preview_v1 replace the `binding::purpose_commitment(&prepared.disclosure) != Some(purpose.commitment)` arm at :6118 with the `.is_some()` refusal used by the owner preview at :6403; the capability check at :6162 keeps binding purpose.commitment. In tests/native_send_preview_evm.rs post the preview through handle_rpc (do_4) instead of calling the owner directly, and add a case where a commitment not in the grant's purpose_commitments is refused. Build once and verify once."
+do_8 = "Decision 2128: continue from attempt 5 (d994bc887). In tests/native_send_preview_evm.rs delete the JSON envelope and the handle_rpc call of post_preview (:859-899 of that tree) and the `use` of handle_rpc/AgentRpcResponse if nothing else needs them; post_preview writes the NATIVE_SEND_PREVIEW_V1 frame (magic LXHAGT01, operation byte 63, then the fields in the order src/human.rs:2481-2520 reads them, each primitive encoded as the Reader at src/human.rs:2070-2120 decodes it), writes it length-prefixed into one end of a UnixStream::pair, wraps the other end in AcceptedTransport::new (src/human.rs:1697) and calls layerx_agentd::human::serve_one(&mut transport, &fixture.peer, &mut fixture.owner) the way tests/human_frame.rs:219-245 does, then reads the length-prefixed response and returns its bytes. The request 4 assertions at :1059-1073 read outcome byte 0 and then canonical_bytes, signing_preimage and the purpose bytes as agent_runtime.rs:4844-4851 reads them (services/human/crates/layerx-human-service/), decode canonical_bytes with decode_unsigned and compare with the call and its signing_hash as before; the request 5 assertion reads outcome byte 1 and asserts the frame ends there. Change nothing else; build once and verify once."
 
 [task.18.1243.2]
 title = "Issue #1243: Port the agent host payer to the ledger GrantTerms"
@@ -197733,7 +197764,7 @@ ac_2 = "make build/tools/dump_trading_vectors builds tests/modules/dump_trading_
 
 [task.16.28.5]
 title = "Delete the three rule-less retired kernel test programs and give the trading vector generator a Makefile rule"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["16.2.2", "16.0.4", "16.94.1", "16.34.1", "16.96.1"]
@@ -197743,7 +197774,7 @@ do_2 = "tests/ci/test_claims_and_replay_removed.py:35-41 test_replay_expects_seq
 do_3 = "Makefile: next to the kernel pattern rule at Makefile:1157-1161 add `$(BUILD_DIR)/tools/dump_trading_vectors: tests/modules/dump_trading_vectors.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build` with the same mkdir and $(CC) recipe, and `.PHONY: trading-vectors` / `trading-vectors: $(BUILD_DIR)/tools/dump_trading_vectors`. The header comment of tests/modules/dump_trading_vectors.c:1-11 names make trading-vectors and `build/tools/dump_trading_vectors > tests/fixtures/trading-payloads/vectors.json` instead of the hand cc line; the printed JSON at :415 keeps source tests/modules/dump_trading_vectors.c."
 do_4 = "Write tests/ci/test_trading_vectors_generator.py (planned) with test_generator_matches_fixture: run `make build/tools/dump_trading_vectors` from the repository root (subprocess, check=True), run the binary, json.loads its stdout, and assert source == 'tests/modules/dump_trading_vectors.c' and [(v['name'], v['activity_type']) for v in vectors] equals the same list from tests/fixtures/trading-payloads/vectors.json (17 vectors); a byte difference inside a vector is reported as a failure message naming the vector, not repaired here."
 do_5 = "Nothing else changes: the kernel suites under tests/arith, tests/codec, tests/crypto and tests/fuzz keep building by name through Makefile:1157, tests/fixtures/asset/generate_supply_receipts.sh keeps building its generator, and tests/programs/test_module_registration.c stays (tools/paxeer-x/gates/104.19.4.sh:145 builds it)."
-symbols = ["trading-vectors", "test_generator_matches_fixture", "test_replay_expects_sequence_refusal"]
+symbols = ["test_generator_matches_fixture", "test_replay_expects_sequence_refusal"]
 touches = ["Makefile", "tests/modules/dump_trading_vectors.c", "tests/state/lxp_test_idempotency.c", "tests/network/test_oracle_replay_absent.c", "tests/programs/test_paxai_storage_continuity.c", "tests/ci/test_claims_and_replay_removed.py", "tests/ci/test_retired_daemon_lni.py", "tests/ci/test_trading_vectors_generator.py"]
 tests = ["tests/ci/test_trading_vectors_generator.py::test_generator_matches_fixture", "tests/ci/test_claims_and_replay_removed.py::test_replay_expects_sequence_refusal", "tests/ci/test_retired_daemon_lni.py::test_daemon_lni_retired"]
 planned_paths = ["tests/ci/test_trading_vectors_generator.py"]
