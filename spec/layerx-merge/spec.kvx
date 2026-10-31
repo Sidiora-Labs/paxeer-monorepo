@@ -141106,7 +141106,7 @@ do_11 = "Requalify the attempt 3 candidate (df173a4ba) unchanged: the verify pas
 
 [task.8.98.3]
 title = "Migrate the authority callers of wiring.J44.20 (wave 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.2", "8.11.3", "9.1.8", "18.1083.1", "18.1297.1", "8.98.4"]
