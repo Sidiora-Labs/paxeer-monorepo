@@ -96963,7 +96963,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.29.5]
 title = "Retire the web availability root of the batch header in lx_web_root.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.21.1", "1.0.3", "16.33.1", "16.33.2", "16.33.4"]
