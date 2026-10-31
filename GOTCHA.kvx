@@ -12126,3 +12126,13 @@ fix = "When adding a layerxauth method, raise the pinned counts in gas_test.go a
 title = "Store row keys are limited to 128 identifier characters, and two 32-byte hex fields plus a prefix exceed it"
 symptom = "A handler built a Cache row key from a prefix and two 64-character hex digests (148 characters); RowKey::new refused it as InvalidKey and the handler reported upstream-degraded on every request."
 fix = "Key rows by one digest of the inputs (prefix plus 64 hex characters) and keep RowKey::new's IDENTIFIER_LIMIT in mind whenever a key concatenates hashes."
+
+[gotcha.2463]
+title = "A panic inside an evmrpc handler is reported only as 'method handler crashed' and the node log shows nothing"
+symptom = "A client saw 'method handler crashed' from eth_sendRawTransaction; the JSON-RPC server recovers handler panics and logs them through its own logger, which the node does not route, and the handler's deferred recordMetricsWithError re-panicked without logging, so node.log held no error, no stack and the goroutine dump had already unwound."
+fix = "Log the panic value and debug.Stack() in recordMetricsWithError before re-raising (task 12.35.11), and reproduce handler paths in process with the production SendConfig instead of only through a started binary."
+
+[gotcha.2464]
+title = "A retired-module scan list is per crate, and extending it before that crate's own port fails the port's neighbour"
+symptom = "A core task added 'read' to the authority crate's retired-module list because an early do-line bundled the authority reader with the core port; the core port passed its own scan and the task failed on the authority crate's unchanged import."
+fix = "Keep each crate's retired list with the task that ports that crate; a cross-crate clause in a do-line is a second task, not a line item."
