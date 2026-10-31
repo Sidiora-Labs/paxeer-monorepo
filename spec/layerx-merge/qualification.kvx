@@ -13539,3 +13539,107 @@ symbol = "pxResolveAccount"
 observed = "Attempt 15 (682092ffd on 29f8a5dc1) fails the wave-0 gate in the apps/web build: the client component imports the server-only ../../api/gateway, and @noble/curves, @noble/hashes, @sidiora/layerx-sdk and @supabase/supabase-js imported by the aliased sdk/wallet/src are not declared by apps/web."
 assumption = "A product build defect outside this gate task; task 17.5.10 moves the read behind a server action and declares the packages, and 17.5.1 requires it."
 severity = "cross-task"
+
+[finding.18.1211.5.6]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-interop-service/src/relay.rs:794"
+symbol = "a_committed_answer_with_another_block_hash_is_receipted"
+observed = "Attempt 9 fails the test because its mock block has no receiptsRoot and decode_block (services/agent/crates/layerx-client/src/sequencer.rs) answers Malformed, so the relay answers Receipted for the matching hash as well."
+assumption = "A test fixture gap, not a product change: do_13 adds the field."
+severity = "note"
+
+[finding.18.1200.1.11]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs:903"
+symbol = "sequencer_receipt"
+observed = "Attempt 17 fails restart_resolution_uses_receipts_without_duplicate_delivery at support/mod.rs:980 ('left pax_sequencerReceipt right eth_getTransactionReceipt'): the support receipt does not verify under rpc/receipt.rs lookup_authenticated, resolve_unknown records UnverifiedReceipt and never issues the receipt lookup."
+assumption = "The support builder predates the current receipt format; do_15 aligns it with the layerx-client receipt_rpc.rs builders."
+severity = "major"
+
+[finding.18.1200.1.12]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/recovery.rs:121"
+symbol = "recovered.queued_for_transmission"
+observed = "Attempt 17 expects queued_for_transmission == [ids[0]] and gets [] because Outbox::enqueue stores no origin and recover.rs:196-200 classifies the record as queued_without_authority."
+assumption = "Decision 1984: the assertion moves to queued_without_authority."
+severity = "note"
+
+[finding.10.20.3.17]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:1045"
+symbol = "production_components_open_without_paxeer_or_exit_environment"
+observed = "Attempt 23 fails the three tests because ProductionComponents::open reaches Client::from_environment, which refuses without the LAYERX_EVENTS_*_UPSTREAM_URL and _UPSTREAM_CA_DER variables the fixture never sets."
+assumption = "Fixture gap: do_28 supplies the variables with a bound listener and an existing DER file."
+severity = "note"
+
+[finding.8.4.4.1]
+task = "8.4.4"
+file = "services/platform/hosted/gateway/src/paxeer.rs:676"
+symbol = "custody_asset"
+observed = "Attempt 1 (6e3b7a21b on 6faf2f06b) deletes SELECTOR_GET_ASSET and fails the build with E0425 at paxeer.rs:676, where custody_asset still sends it to the ledger precompile."
+assumption = "The selector is shared with the ledger; decision 1985 keeps it."
+severity = "note"
+
+[finding.12.35.4.13]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120_test.go:221"
+symbol = "TestLocalNodeV6120SequencerReceipt"
+observed = "Attempt 15 fails 'send one-wei transfer: method handler crashed' on eth_sendRawTransaction against the local node; node.log stays in $NODE_HOME, which the test never learns, so the panic site is unknown."
+assumption = "A panic inside the SendRawTransaction admission path; do_16 surfaces node.log so the next attempt names it."
+severity = "blocker"
+
+[finding.18.1228.1.11]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/agent_controls.rs:397"
+symbol = "replacement_budget_id"
+observed = "Attempt 12 fails the build: agent_controls.rs keeps the attempt 11 helper calls (replacement_budget_id at :397 and :721, five-argument sign_transaction at :747) after do_17 restored canonical_owner.rs."
+assumption = "Half-applied port; do_18 completes it on agent_controls.rs alone."
+severity = "note"
+
+[finding.17.5.10.1]
+task = "17.5.10"
+file = "apps/web/next.config.mjs"
+symbol = "webpack.resolve.alias"
+observed = "Attempt 2 (cf3827a1e) makes next build pass by aliasing ./gateway.ts imported from src/api/wallet.ts to src/app/exchange/actions.ts; wallet.ts:4 still names the server-only module."
+assumption = "Accepted for the build gate; 17.5.11 removes the alias (decision 1986)."
+severity = "owner"
+
+[finding.12.24.5.1]
+task = "12.24.5"
+file = "sdk/wallet/src/kernel.ts:69"
+symbol = "KernelAvailability.current"
+observed = "Attempts 1 and 2 (2e3c1204f on 00271f78c, 39be7d0d9 on e164e1a2a) fail typecheck: current() reads network.kernel after do_2 replaced it with consensus and consensus_reason, and kernel.ts was outside the touches."
+assumption = "Spec gap; do_6 adds kernel.ts and the derivation."
+severity = "note"
+
+[finding.8.11.3.1]
+task = "8.11.3"
+file = "services/platform/hosted/authority/src/human/budget_state.rs:77"
+symbol = "Config.lni_socket"
+observed = "Attempts 1 and 2 (663d598ac on 00271f78c, 3790dd5e0 on e164e1a2a) delete Config.lni_socket and lni_gate per do_1 and fail the build with eight E0609 at budget_state.rs:77 and :256 and main.rs checkpoint_for and verify_withdrawal_request, files and functions of tasks 8.98.4 and 8.98.3 which both require 8.11.3."
+assumption = "Cross-task: decision 1987 keeps the fields here and deletes them in 8.98.3 after 8.98.4."
+severity = "cross-task"
+
+[finding.8.20.1.1]
+task = "8.20.1"
+file = "services/platform/hosted/core/src/public_reads.rs:246"
+symbol = "estimate_fee"
+observed = "Attempt 1 (918bd4937 on 00271f78c) deletes validate_submission_payload per do_2 and fails the build because public_reads.rs:246, a file of 8.98.5 and 8.98.6, still calls it; attempt 2 (b3959ad55 on 8451db6ab) keeps it as validate_fee_payload behind an alias and qualifies."
+assumption = "Decision 1988 records the kept validator; 8.98.6 deletes it with the fee route port."
+severity = "note"
+
+[finding.9.97.3.1]
+task = "9.97.3"
+file = "sdk/platform/generators/src/main.rs:519"
+symbol = "receipt_contract"
+observed = "Attempt 1 (ae367b322 on 00271f78c): the generator refuses 'missing declaration type.ProgramExecutionV4.domain' because 1d0cc3720 (9.10.2) removed the program-execution sections from services/agent/schema/agent-api/programs.kvx while receipt_contract still requires them; no pending task owned the generator."
+assumption = "Cross-task: decision 1989 moves the generator change into 9.97.3."
+severity = "cross-task"
+
+[finding.8.51.1.1]
+task = "8.51.1"
+file = "tools/platform/emulator/core/emulator_core.c"
+symbol = "open_native_feed"
+observed = "Attempt 1 (db0225c9e on 00271f78c) passes its build and both tests; the completion check refuses because the symbols list still names open_native_feed and close_native_feed, which 8.96.5 removed earlier."
+assumption = "Spec symbols list was stale; corrected."
+severity = "note"
