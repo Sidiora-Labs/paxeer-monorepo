@@ -9541,11 +9541,11 @@
       "connect_timeout_seconds": 3
     },
     {
-      "id": "explorer-backend:GET:/api/v2/paxeer-x/receipts",
+      "id": "explorer-backend:GET:/api/v2/paxeer-x/archive/receipts",
       "service": "explorer",
       "method": "GET",
-      "path": "/explorer/backend/api/v2/paxeer-x/receipts",
-      "upstream_path": "/api/v2/paxeer-x/receipts",
+      "path": "/explorer/backend/api/v2/paxeer-x/archive/receipts",
+      "upstream_path": "/api/v2/paxeer-x/archive/receipts",
       "transport": "http",
       "authentication": "public-read",
       "upstream": "explorer-backend",
@@ -11158,11 +11158,11 @@
       "connect_timeout_seconds": 3
     },
     {
-      "id": "explorer-backend:GET:/api/v2/paxeer-x/receipts/{id}",
+      "id": "explorer-backend:GET:/api/v2/paxeer-x/archive/receipts/{id}",
       "service": "explorer",
       "method": "GET",
-      "path": "/explorer/backend/api/v2/paxeer-x/receipts/{id}",
-      "upstream_path": "/api/v2/paxeer-x/receipts/{id}",
+      "path": "/explorer/backend/api/v2/paxeer-x/archive/receipts/{id}",
+      "upstream_path": "/api/v2/paxeer-x/archive/receipts/{id}",
       "transport": "http",
       "authentication": "public-read",
       "upstream": "explorer-backend",
@@ -11326,11 +11326,11 @@
       "connect_timeout_seconds": 3
     },
     {
-      "id": "explorer-backend:GET:/api/v2/paxeer-x/anchors",
+      "id": "explorer-backend:GET:/api/v2/paxeer-x/archive/anchors",
       "service": "explorer",
       "method": "GET",
-      "path": "/explorer/backend/api/v2/paxeer-x/anchors",
-      "upstream_path": "/api/v2/paxeer-x/anchors",
+      "path": "/explorer/backend/api/v2/paxeer-x/archive/anchors",
+      "upstream_path": "/api/v2/paxeer-x/archive/anchors",
       "transport": "http",
       "authentication": "public-read",
       "upstream": "explorer-backend",
