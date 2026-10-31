@@ -156410,7 +156410,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.13.7]
 title = "Probe precompile readiness with an unknown-selector call instead of account code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1"]
@@ -174127,7 +174127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.33.2]
 title = "Remove retired bundle, certificate and web-root uses from the state diff, withdraw and web program suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4"]
