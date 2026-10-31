@@ -169869,7 +169869,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.0.5]
 title = "Build the emulator against the kernel archive instead of the retiring daemon aggregate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170290,7 +170290,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.2.4]
 title = "Retire the layerxd, guarantor, handover, verify and daemon test rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "13.0.4"]
@@ -170469,7 +170469,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.3.5]
 title = "Drop the checkpoint settlement file from the layerx and paxd-node images"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
