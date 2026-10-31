@@ -607,7 +607,7 @@ impl<B: AgentControlContract> AgentControls<B> {
         let evidence = self.boundary.submit_protocol_limit(ProtocolAction {
             actor: None,
             stage: CreationStage::BudgetCreation,
-            action_key,
+            action_key: replacement,
             intent,
             compiled,
             disclosure,
@@ -615,7 +615,7 @@ impl<B: AgentControlContract> AgentControls<B> {
                 .map_err(|_| AgentControlError::InvalidProfile)?,
             started_at: observed_at,
         })?;
-        if evidence.action_key != action_key || evidence.bound_activity(kind)?.payload() != payload
+        if evidence.action_key != replacement || evidence.bound_activity(kind)?.payload() != payload
         {
             return Err(AgentControlError::EvidenceConflict);
         }
