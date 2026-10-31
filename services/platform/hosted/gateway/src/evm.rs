@@ -3,10 +3,10 @@
 //! the `px_*` namespace reads.
 //!
 //! Every selector and layout here is the one declared by the precompiles'
-//! own `abi.json` (`precompiles/addr`, `precompiles/layerxcustody`,
-//! `precompiles/layerxanchor`, `precompiles/bank`) and is pinned by vectors
-//! produced from those files with the go-ethereum ABI codec the precompiles
-//! run.
+//! own `abi.json`: addr, bank, exchange, bridge, launchpad, and the merged
+//! ledger, pay, auth and programs constructs. Addresses and selectors are
+//! pinned by the ABI fixture; calldata and answer vectors use the go-ethereum
+//! ABI codec the precompiles run.
 
 /// Method namespaces the unified endpoint relays to the Paxeer node.
 pub const EVM_NAMESPACES: [&str; 3] = ["eth_", "net_", "web3_"];
@@ -37,10 +37,6 @@ const MAX_METHOD_BYTES: usize = 64;
 pub const BANK_PRECOMPILE: [u8; 20] = precompile(0x10, 0x01);
 /// `0x0000000000000000000000000000000000001004`.
 pub const ADDR_PRECOMPILE: [u8; 20] = precompile(0x10, 0x04);
-/// `0x0000000000000000000000000000000000001013`.
-pub const CUSTODY_PRECOMPILE: [u8; 20] = precompile(0x10, 0x13);
-/// `0x0000000000000000000000000000000000001014`.
-pub const ANCHOR_PRECOMPILE: [u8; 20] = precompile(0x10, 0x14);
 /// `0x0000000000000000000000000000000000001015`, live from the Paxeer X fork.
 pub const EXCHANGE_PRECOMPILE: [u8; 20] = precompile(0x10, 0x15);
 /// `0x0000000000000000000000000000000000001016`, live from the Paxeer X fork.
@@ -49,6 +45,8 @@ pub const BRIDGE_PRECOMPILE: [u8; 20] = precompile(0x10, 0x16);
 pub const LAUNCHPAD_PRECOMPILE: [u8; 20] = precompile(0x10, 0x17);
 /// `0x000000000000000000000000000000000000101a`.
 pub const LEDGER_PRECOMPILE: [u8; 20] = precompile(0x10, 0x1a);
+/// Ledger `getAsset(bytes32)`.
+pub const SELECTOR_GET_ASSET: [u8; 4] = [0x2c, 0xc3, 0xce, 0x80];
 /// `0x000000000000000000000000000000000000101b`.
 pub const PAY_PRECOMPILE: [u8; 20] = precompile(0x10, 0x1b);
 /// `0x000000000000000000000000000000000000101c`.
@@ -71,18 +69,6 @@ pub const SELECTOR_GET_LAYERX_DID: [u8; 4] = [0xd3, 0x60, 0x0b, 0x24];
 pub const SELECTOR_GET_EVM_ADDR_BY_LAYERX: [u8; 4] = [0xc4, 0x13, 0xba, 0xd3];
 /// `layerXBindNonce(address)`.
 pub const SELECTOR_LAYERX_BIND_NONCE: [u8; 4] = [0xce, 0xdd, 0x9b, 0xa2];
-/// `getAsset(bytes32)`.
-pub const SELECTOR_GET_ASSET: [u8; 4] = [0x2c, 0xc3, 0xce, 0x80];
-/// `assetByPointer(address)`.
-pub const SELECTOR_ASSET_BY_POINTER: [u8; 4] = [0xca, 0x65, 0x02, 0x1c];
-/// `nativeAssetId()`.
-pub const SELECTOR_NATIVE_ASSET_ID: [u8; 4] = [0xaa, 0xfc, 0xde, 0x84];
-/// `latestFinalized()`.
-pub const SELECTOR_LATEST_FINALIZED: [u8; 4] = [0x6c, 0xdd, 0x45, 0xae];
-/// `statusOf(uint64)`.
-pub const SELECTOR_STATUS_OF: [u8; 4] = [0x4e, 0xb4, 0x77, 0x10];
-/// `checkpoint(uint64)`.
-pub const SELECTOR_CHECKPOINT: [u8; 4] = [0x2d, 0x58, 0x8b, 0x18];
 /// `balance(address,string)`.
 pub const SELECTOR_BANK_BALANCE: [u8; 4] = [0x16, 0xca, 0xde, 0xab];
 /// `all_balances(address)`.
@@ -143,21 +129,6 @@ pub struct UnifiedAccount {
     pub layerx_main_account_id: [u8; 32],
 }
 
-/// `ILayerXCustody.Asset`.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CustodyAsset {
-    pub asset_id: [u8; 32],
-    pub denom: String,
-    pub pointer: [u8; 20],
-    pub enabled: bool,
-    pub paused: bool,
-    pub minimum_deposit: [u8; 32],
-    pub custody_cap: [u8; 32],
-    pub custodied: [u8; 32],
-    pub released: [u8; 32],
-    pub pending: [u8; 32],
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LedgerAsset {
     pub asset_id: [u8; 32],
@@ -172,39 +143,6 @@ pub struct LedgerAsset {
     pub custody_reference: Vec<u8>,
     pub paused: bool,
     pub total_units: u128,
-}
-
-/// `ILayerXAnchor.Checkpoint`.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AnchorCheckpoint {
-    pub batch_number: u64,
-    pub checkpoint_id: [u8; 32],
-    pub header_digest: [u8; 32],
-    pub epoch: u64,
-    pub first_sequence: u64,
-    pub last_sequence: u64,
-    pub previous_state_root: [u8; 32],
-    pub state_root: [u8; 32],
-    pub receipt_root: [u8; 32],
-    pub data_availability_root: [u8; 32],
-    pub sequencer_id: [u8; 32],
-    pub timestamp_ms: u64,
-    pub status: u8,
-    pub signers: u8,
-    pub availability_mask: u8,
-    pub open_challenges: u32,
-    pub submitted_height: u64,
-    pub finalized_height: u64,
-}
-
-/// The anchor's status ladder as `ILayerXAnchor` declares it.
-#[must_use]
-pub fn anchor_status_name(status: u8) -> &'static str {
-    match status {
-        1 => "submitted",
-        2 => "final",
-        _ => "unknown",
-    }
 }
 
 fn calldata_head(selector: [u8; 4], words: usize) -> Vec<u8> {
@@ -486,40 +424,6 @@ pub fn decode_coins(answer: &[u8]) -> Result<Vec<(String, [u8; 32])>, AbiError> 
     Ok(coins)
 }
 
-/// Decodes `latestFinalized()`.
-///
-/// # Errors
-/// Refuses answers that do not carry the declared layout.
-pub fn decode_latest_finalized(answer: &[u8]) -> Result<(u64, bool), AbiError> {
-    let answer = Answer::new(answer);
-    Ok((answer.u64(0)?, answer.bool(1)?))
-}
-
-/// Decodes `getAsset(bytes32)`.
-///
-/// # Errors
-/// Refuses answers that do not carry the declared layout.
-pub fn decode_custody_asset(answer: &[u8]) -> Result<CustodyAsset, AbiError> {
-    let outer = Answer::new(answer);
-    let base = usize::try_from(outer.u64(0)?).map_err(|_| AbiError::Offset)?;
-    if base % 32 != 0 || base >= answer.len() {
-        return Err(AbiError::Offset);
-    }
-    let tuple = Answer::new(answer.get(base..).ok_or(AbiError::Offset)?);
-    Ok(CustodyAsset {
-        asset_id: tuple.word(0)?,
-        denom: tuple.string(1, 0)?,
-        pointer: tuple.address(2)?,
-        enabled: tuple.bool(3)?,
-        paused: tuple.bool(4)?,
-        minimum_deposit: tuple.word(5)?,
-        custody_cap: tuple.word(6)?,
-        custodied: tuple.word(7)?,
-        released: tuple.word(8)?,
-        pending: tuple.word(9)?,
-    })
-}
-
 pub fn decode_ledger_asset(answer: &[u8]) -> Result<LedgerAsset, AbiError> {
     let answer = Answer::new(answer);
     for index in [1, 2, 9] {
@@ -540,34 +444,6 @@ pub fn decode_ledger_asset(answer: &[u8]) -> Result<LedgerAsset, AbiError> {
         custody_reference: answer.bytes(9, 0)?,
         paused: answer.bool(10)?,
         total_units: answer.u128(11)?,
-    })
-}
-
-/// Decodes `checkpoint(uint64)`.
-///
-/// # Errors
-/// Refuses answers that do not carry the declared layout.
-pub fn decode_checkpoint(answer: &[u8]) -> Result<AnchorCheckpoint, AbiError> {
-    let answer = Answer::new(answer);
-    Ok(AnchorCheckpoint {
-        batch_number: answer.u64(0)?,
-        checkpoint_id: answer.word(1)?,
-        header_digest: answer.word(2)?,
-        epoch: answer.u64(3)?,
-        first_sequence: answer.u64(4)?,
-        last_sequence: answer.u64(5)?,
-        previous_state_root: answer.word(6)?,
-        state_root: answer.word(7)?,
-        receipt_root: answer.word(8)?,
-        data_availability_root: answer.word(9)?,
-        sequencer_id: answer.word(10)?,
-        timestamp_ms: answer.u64(11)?,
-        status: answer.u8(12)?,
-        signers: answer.u8(13)?,
-        availability_mask: answer.u8(14)?,
-        open_challenges: answer.u32(15)?,
-        submitted_height: answer.u64(16)?,
-        finalized_height: answer.u64(17)?,
     })
 }
 
@@ -756,38 +632,75 @@ mod tests {
     #[test]
     fn precompile_addresses_and_selectors_match_the_generated_vectors() {
         let document = vectors();
-        assert_eq!(
-            document["precompiles"]["bank"],
-            Value::String(address_hex(&BANK_PRECOMPILE))
-        );
-        assert_eq!(
-            document["precompiles"]["addr"],
-            Value::String(address_hex(&ADDR_PRECOMPILE))
-        );
-        assert_eq!(
-            document["precompiles"]["custody"],
-            Value::String(address_hex(&CUSTODY_PRECOMPILE))
-        );
-        assert_eq!(
-            document["precompiles"]["anchor"],
-            Value::String(address_hex(&ANCHOR_PRECOMPILE))
-        );
+        let precompiles = document["precompiles"]
+            .as_object()
+            .unwrap_or_else(|| panic!("precompiles missing"));
+        for retired in ["custody", "anchor"] {
+            assert!(!precompiles.contains_key(retired), "{retired}");
+        }
+        let addresses = [
+            ("bank", BANK_PRECOMPILE),
+            ("addr", ADDR_PRECOMPILE),
+            ("exchange", EXCHANGE_PRECOMPILE),
+            ("bridge", BRIDGE_PRECOMPILE),
+            ("launchpad", LAUNCHPAD_PRECOMPILE),
+            ("ledger", LEDGER_PRECOMPILE),
+            ("pay", PAY_PRECOMPILE),
+            ("auth", AUTH_PRECOMPILE),
+            ("programs", PROGRAMS_PRECOMPILE),
+        ];
+        assert_eq!(precompiles.len(), addresses.len());
+        for (name, address) in addresses {
+            assert_eq!(precompiles[name], address_hex(&address), "{name}");
+        }
+        let cases = document["cases"]
+            .as_array()
+            .unwrap_or_else(|| panic!("cases missing"));
+        assert_eq!(cases.len(), 6);
+        for vector in cases {
+            let contract = vector["contract"]
+                .as_str()
+                .unwrap_or_else(|| panic!("contract missing"));
+            let name = vector["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("name missing"));
+            assert!(matches!(contract, "addr" | "bank"), "{contract}");
+            assert!(name.starts_with(&format!("{contract}.")), "{name}");
+        }
         for (name, selector) in [
             ("addr.getUnifiedAccount", SELECTOR_GET_UNIFIED_ACCOUNT),
             ("addr.getLayerXDid", SELECTOR_GET_LAYERX_DID),
             ("addr.getEvmAddrByLayerX", SELECTOR_GET_EVM_ADDR_BY_LAYERX),
             ("addr.layerXBindNonce", SELECTOR_LAYERX_BIND_NONCE),
-            ("custody.getAsset", SELECTOR_GET_ASSET),
-            ("custody.assetByPointer", SELECTOR_ASSET_BY_POINTER),
-            ("custody.nativeAssetId", SELECTOR_NATIVE_ASSET_ID),
-            ("anchor.latestFinalized", SELECTOR_LATEST_FINALIZED),
-            ("anchor.statusOf", SELECTOR_STATUS_OF),
-            ("anchor.checkpoint", SELECTOR_CHECKPOINT),
             ("bank.balance", SELECTOR_BANK_BALANCE),
             ("bank.all_balances", SELECTOR_BANK_ALL_BALANCES),
         ] {
             let (calldata, _, _) = case(name);
             assert_eq!(calldata.get(..4), Some(selector.as_slice()), "{name}");
+            let vector = cases
+                .iter()
+                .find(|vector| vector["name"] == name)
+                .unwrap_or_else(|| panic!("{name} missing"));
+            assert_eq!(vector["selector"], hex_lower(&selector), "{name}");
+        }
+        let selectors = document["selectors"]
+            .as_object()
+            .unwrap_or_else(|| panic!("selectors missing"));
+        for name in selectors.keys() {
+            assert!(
+                !name.starts_with("custody.") && !name.starts_with("anchor."),
+                "{name}"
+            );
+        }
+        assert_eq!(selectors.len(), 5);
+        for (name, selector) in [
+            ("bank.name", SELECTOR_BANK_NAME),
+            ("bank.symbol", SELECTOR_BANK_SYMBOL),
+            ("bank.decimals", SELECTOR_BANK_DECIMALS),
+            ("bank.supply", SELECTOR_BANK_SUPPLY),
+            ("ledger.getAsset", SELECTOR_GET_ASSET),
+        ] {
+            assert_eq!(selectors[name], hex_lower(&selector), "{name}");
         }
     }
 
@@ -795,10 +708,7 @@ mod tests {
     fn calldata_matches_the_go_ethereum_encoding() {
         let account = parse_address("0x102132435465768798a9bacbdcedfe0f1e2d3c4b")
             .unwrap_or_else(|| panic!("address"));
-        let pointer = parse_address("0x00000000000000000000000000000000000000a1")
-            .unwrap_or_else(|| panic!("address"));
         let did = [0x61_u8; 32];
-        let asset = [0x2b_u8; 32];
         for (name, calldata) in [
             (
                 "addr.getUnifiedAccount",
@@ -816,24 +726,6 @@ mod tests {
                 "addr.layerXBindNonce",
                 calldata_address(SELECTOR_LAYERX_BIND_NONCE, &account),
             ),
-            (
-                "custody.getAsset",
-                calldata_word(SELECTOR_GET_ASSET, &asset),
-            ),
-            (
-                "custody.assetByPointer",
-                calldata_address(SELECTOR_ASSET_BY_POINTER, &pointer),
-            ),
-            (
-                "custody.nativeAssetId",
-                calldata_empty(SELECTOR_NATIVE_ASSET_ID),
-            ),
-            (
-                "anchor.latestFinalized",
-                calldata_empty(SELECTOR_LATEST_FINALIZED),
-            ),
-            ("anchor.statusOf", calldata_u64(SELECTOR_STATUS_OF, 918)),
-            ("anchor.checkpoint", calldata_u64(SELECTOR_CHECKPOINT, 918)),
             (
                 "bank.balance",
                 calldata_address_string(SELECTOR_BANK_BALANCE, &account, "ulxp"),
@@ -875,77 +767,7 @@ mod tests {
     }
 
     #[test]
-    fn asset_and_anchor_answers_decode_exactly() {
-        let (_, result, out) = case("custody.getAsset");
-        let asset = decode_custody_asset(&result).unwrap_or_else(|error| panic!("{error:?}"));
-        assert_eq!(Value::String(hex_lower(&asset.asset_id)), out["assetId"]);
-        assert_eq!(Value::String(asset.denom), out["denom"]);
-        assert_eq!(address_hex(&asset.pointer), out["pointer"]);
-        assert_eq!(Value::Bool(asset.enabled), out["enabled"]);
-        assert_eq!(Value::Bool(asset.paused), out["paused"]);
-        assert_eq!(
-            Value::String(uint256_decimal(&asset.minimum_deposit)),
-            out["minimumDeposit"]
-        );
-        assert_eq!(
-            Value::String(uint256_decimal(&asset.custody_cap)),
-            out["custodyCap"]
-        );
-        assert_eq!(
-            Value::String(uint256_decimal(&asset.custodied)),
-            out["custodied"]
-        );
-        assert_eq!(
-            Value::String(uint256_decimal(&asset.released)),
-            out["released"]
-        );
-        assert_eq!(
-            Value::String(uint256_decimal(&asset.pending)),
-            out["pending"]
-        );
-        let (_, result, out) = case("custody.assetByPointer");
-        assert_eq!(
-            Value::String(hex_lower(
-                &decode_word(&result).unwrap_or_else(|error| panic!("{error:?}"))
-            )),
-            out["assetId"]
-        );
-        let (_, result, out) = case("anchor.latestFinalized");
-        let (batch, exists) =
-            decode_latest_finalized(&result).unwrap_or_else(|error| panic!("{error:?}"));
-        assert_eq!(Value::String(batch.to_string()), out["batchNumber"]);
-        assert_eq!(Value::Bool(exists), out["exists"]);
-        let (_, result, out) = case("anchor.statusOf");
-        let status = decode_u8(&result).unwrap_or_else(|error| panic!("{error:?}"));
-        assert_eq!(Value::String(status.to_string()), out["status"]);
-        assert_eq!(anchor_status_name(status), "final");
-        let (_, result, out) = case("anchor.checkpoint");
-        let checkpoint = decode_checkpoint(&result).unwrap_or_else(|error| panic!("{error:?}"));
-        assert_eq!(
-            Value::String(checkpoint.batch_number.to_string()),
-            out["batchNumber"]
-        );
-        assert_eq!(
-            Value::String(hex_lower(&checkpoint.state_root)),
-            out["stateRoot"]
-        );
-        assert_eq!(
-            Value::String(hex_lower(&checkpoint.receipt_root)),
-            out["receiptRoot"]
-        );
-        assert_eq!(
-            Value::String(checkpoint.timestamp_ms.to_string()),
-            out["timestampMs"]
-        );
-        assert_eq!(Value::String(checkpoint.status.to_string()), out["status"]);
-        assert_eq!(
-            Value::String(checkpoint.open_challenges.to_string()),
-            out["openChallenges"]
-        );
-        assert_eq!(
-            Value::String(checkpoint.finalized_height.to_string()),
-            out["finalizedHeight"]
-        );
+    fn bank_balance_answer_decodes_exactly() {
         let (_, result, out) = case("bank.balance");
         let balance = decode_word(&result).unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(Value::String(uint256_decimal(&balance)), out["amount"]);
@@ -1043,16 +865,19 @@ mod tests {
         assert_eq!(decode_u64(&[0_u8; 31]), Err(AbiError::Truncated));
         assert_eq!(decode_u64(&[0xff_u8; 32]), Err(AbiError::Width));
         assert_eq!(decode_address(&[0xff_u8; 32]), Err(AbiError::Width));
-        assert_eq!(decode_custody_asset(&[0_u8; 32]), Err(AbiError::Truncated));
+        assert_eq!(
+            decode_unified_account(&[0_u8; 32]),
+            Err(AbiError::Truncated)
+        );
         let mut outside = [0_u8; 32];
         outside[31] = 64;
-        assert_eq!(decode_custody_asset(&outside), Err(AbiError::Offset));
+        assert_eq!(Answer::new(&outside).string(0, 0), Err(AbiError::Offset));
         let mut unaligned = [0_u8; 64];
         unaligned[31] = 8;
-        assert_eq!(decode_custody_asset(&unaligned), Err(AbiError::Offset));
-        let mut latest = [0_u8; 64];
-        latest[63] = 2;
-        assert_eq!(decode_latest_finalized(&latest), Err(AbiError::Width));
+        assert_eq!(Answer::new(&unaligned).string(0, 0), Err(AbiError::Offset));
+        let mut non_boolean = [0_u8; 64];
+        non_boolean[63] = 2;
+        assert_eq!(Answer::new(&non_boolean).bool(1), Err(AbiError::Width));
         let (_, result, _) = case("addr.getUnifiedAccount");
         assert_eq!(
             decode_unified_account(&result[..result.len() - 32]),
