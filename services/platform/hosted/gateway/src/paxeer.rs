@@ -588,62 +588,130 @@ fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
 }
 
 fn layerx_assets(config: &Config, id: &Value) -> Result<Vec<Value>, Value> {
-    let answer = public_reads::read(config, "/v1/assets");
-    let document = serde_json::from_slice::<Value>(&answer.body).ok();
-    if let Some(refusal) = document
+    let indexer = config
+        .indexer
         .as_ref()
-        .and_then(super::KernelUnavailable::from_body)
-    {
-        return Err(refusal.rpc(id));
+        .ok_or_else(|| unavailable(id, "indexer_not_configured"))?;
+    let mut records = Vec::new();
+    let mut cursor = 0_u64;
+    loop {
+        if !public_reads::consume_read() {
+            return Err(unavailable(id, "public_read_rate_limit"));
+        }
+        let query = if cursor == 0 {
+            "limit=500".to_owned()
+        } else {
+            format!("limit=500&cursor={cursor}")
+        };
+        let answer = match indexer {
+            super::history::Indexer::Tls(endpoint) => {
+                config.client.get_with_query(endpoint, "/v1/assets", &query)
+            }
+            super::history::Indexer::Loopback {
+                address,
+                authority,
+                base_path,
+            } => layerx_platform_gateway::http::loopback_get(
+                *address,
+                authority,
+                &format!("{base_path}/v1/assets"),
+                &query,
+            ),
+        }
+        .map_err(|_| unavailable(id, "indexer_unreachable"))?;
+        if answer.status != 200 || answer.content_type != "application/json" {
+            return Err(unavailable(id, "indexer_assets_unavailable"));
+        }
+        let document: Value = serde_json::from_slice(&answer.body)
+            .map_err(|_| unavailable(id, "invalid_indexer_response"))?;
+        let rows = document
+            .get("items")
+            .and_then(Value::as_array)
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        for row in rows {
+            let asset_id = row
+                .get("asset")
+                .and_then(Value::as_str)
+                .filter(|asset| !asset.is_empty())
+                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+            let kind = row
+                .get("kind")
+                .and_then(Value::as_str)
+                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+            let denom = row
+                .get("denom")
+                .filter(|denom| denom.is_null() || denom.is_string())
+                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+            records.push(json!({"asset_id": asset_id, "denom": denom, "kind": kind}));
+        }
+        match document.get("next_cursor") {
+            Some(Value::Null) => break,
+            Some(Value::String(next)) => {
+                cursor = next
+                    .parse::<u64>()
+                    .ok()
+                    .filter(|next| *next > cursor)
+                    .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+            }
+            _ => return Err(unavailable(id, "invalid_indexer_response")),
+        }
     }
-    let mut records: Vec<Value> = document
-        .filter(|_| answer.status == 200)
-        .and_then(|document| document.get("result")?.get("assets")?.as_array().cloned())
-        .ok_or_else(|| unavailable(id, "layerx_assets_unavailable"))?;
-    records.sort_by(|left, right| {
-        left.get("asset_id")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .cmp(
-                right
-                    .get("asset_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
-            )
-    });
+    records.sort_by(|left, right| left["asset_id"].as_str().cmp(&right["asset_id"].as_str()));
     records.truncate(MAX_JOINED_ASSETS);
     Ok(records)
 }
 
-fn custody_asset(config: &Config, asset_id: &str) -> Value {
-    let Ok(id) = super::parse_hex32(asset_id) else {
-        return Value::Null;
-    };
-    let Ok(answer) = call(
-        &mut |request| node(config, request),
-        &evm::CUSTODY_PRECOMPILE,
-        &evm::calldata_word(evm::SELECTOR_GET_ASSET, &id),
-    ) else {
-        return Value::Null;
-    };
-    let Ok(asset) = evm::decode_custody_asset(&answer) else {
-        return Value::Null;
-    };
-    if is_zero(&asset.asset_id) {
-        return Value::Null;
+fn custody_asset(config: &Config, record: &Value, height: u64) -> Value {
+    let mut node = |request: &Value| node_at_height(config, height, request);
+    let metadata = (|| -> Result<Value, &'static str> {
+        if matches!(record["kind"].as_str(), Some("layerx" | "ledger")) {
+            let id = record["asset_id"]
+                .as_str()
+                .and_then(|id| super::parse_hex32(id).ok())
+                .filter(|id| !is_zero(id))
+                .ok_or("invalid_asset_id")?;
+            let answer = call(
+                &mut node,
+                &evm::LEDGER_PRECOMPILE,
+                &evm::calldata_word(evm::SELECTOR_GET_ASSET, &id),
+            )?;
+            let asset = evm::decode_ledger_asset(&answer).map_err(|_| "invalid_ledger_asset")?;
+            if asset.asset_id != id {
+                return Err("invalid_ledger_asset");
+            }
+            return Ok(json!({"name": asset.name, "symbol": asset.symbol,
+                "decimals": asset.decimals, "supply": asset.total_units.to_string()}));
+        }
+        let denom = record["denom"]
+            .as_str()
+            .filter(|denom| !denom.is_empty())
+            .ok_or("missing_bank_denom")?;
+        let mut bank = |selector| {
+            call(
+                &mut node,
+                &evm::BANK_PRECOMPILE,
+                &evm::calldata_string(selector, denom),
+            )
+        };
+        let name = bank(evm::SELECTOR_BANK_NAME)?;
+        let name = evm::Answer::new(&name)
+            .string(0, 0)
+            .map_err(|_| "invalid_bank_metadata")?;
+        let symbol = bank(evm::SELECTOR_BANK_SYMBOL)?;
+        let symbol = evm::Answer::new(&symbol)
+            .string(0, 0)
+            .map_err(|_| "invalid_bank_metadata")?;
+        let decimals = bank(evm::SELECTOR_BANK_DECIMALS)?;
+        let decimals = evm::decode_u8(&decimals).map_err(|_| "invalid_bank_metadata")?;
+        let supply = bank(evm::SELECTOR_BANK_SUPPLY)?;
+        let supply = evm::decode_word(&supply).map_err(|_| "invalid_bank_metadata")?;
+        Ok(json!({"name": name, "symbol": symbol, "decimals": decimals,
+            "supply": evm::uint256_decimal(&supply)}))
+    })();
+    match metadata {
+        Ok(metadata) => metadata,
+        Err(_) => json!({"name": null, "symbol": null, "decimals": null, "supply": null}),
     }
-    json!({
-        "asset_id": hex32(&asset.asset_id),
-        "denom": asset.denom,
-        "pointer": evm::address_hex(&asset.pointer),
-        "enabled": asset.enabled,
-        "paused": asset.paused,
-        "minimum_deposit": evm::uint256_decimal(&asset.minimum_deposit),
-        "custody_cap": evm::uint256_decimal(&asset.custody_cap),
-        "custodied": evm::uint256_decimal(&asset.custodied),
-        "released": evm::uint256_decimal(&asset.released),
-        "pending": evm::uint256_decimal(&asset.pending)
-    })
 }
 
 fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
@@ -657,23 +725,28 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         Ok(records) => records,
         Err(refusal) => return refusal,
     };
+    let height = match block_number(&mut |request| node(config, request)) {
+        Ok(height) => height,
+        Err(code) => return unavailable(id, code),
+    };
     let mut joined = Vec::with_capacity(records.len());
-    for record in records {
-        let asset_id = record
-            .get("asset_id")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned();
-        joined.push(json!({
-            "asset_id": asset_id,
-            "layerx": record,
-            "paxeer": custody_asset(config, &asset_id)
-        }));
+    for mut record in records {
+        let metadata = custody_asset(config, &record, height);
+        record
+            .as_object_mut()
+            .expect("asset record is an object")
+            .extend(
+                metadata
+                    .as_object()
+                    .expect("asset metadata is an object")
+                    .clone(),
+            );
+        joined.push(record);
     }
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "result": {"assets": joined, "joined_limit": MAX_JOINED_ASSETS}
+        "result": {"height": height, "assets": joined, "joined_limit": MAX_JOINED_ASSETS}
     })
 }
 
