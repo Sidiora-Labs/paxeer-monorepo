@@ -147721,7 +147721,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.6.2]
 title = "Remove bridge mechanisms from send routing and executable shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.8.1", "10.8.2", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1"]
