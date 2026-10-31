@@ -4404,14 +4404,6 @@ impl ProductionComponents {
             (LegMechanism::Protocol(Mechanism::BudgetFund), protocol),
             (LegMechanism::Protocol(Mechanism::BudgetDefund), protocol),
             (
-                LegMechanism::Protocol(Mechanism::BridgeDepositCredit),
-                protocol,
-            ),
-            (
-                LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest),
-                protocol,
-            ),
-            (
                 LegMechanism::PaxeerCustodyDeposit,
                 u128::from(self.evm_gas_limit).saturating_mul(u128::from(self.evm_max_fee_per_gas)),
             ),

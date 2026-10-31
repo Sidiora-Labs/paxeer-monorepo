@@ -1,5 +1,8 @@
 //! Production operation owner for the authenticated Human-to-agent boundary.
 
+#[path = "read/balance.rs"]
+pub mod read;
+
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
@@ -15188,8 +15191,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let _ = (currency, observed_at, authorization);
         let config = read_rpc_config()?;
         let endpoint = read_rpc_endpoint(&config)?;
-        let address = self.read_bound_address(peer, &endpoint)?;
-        let value = crate::read::balance(&config, address, None)
+        self.read_bound_address(peer, &endpoint)?;
+        let value = read::ledger_balance(&config, account, asset, None)
             .map_err(|_| HumanOperationError::Unavailable)?;
         read_json_response(balance_operation_value(
             account,

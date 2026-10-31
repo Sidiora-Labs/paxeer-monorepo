@@ -59,6 +59,7 @@ class MakefileWaveOneTest(unittest.TestCase):
         for retired in (
             "lx_oracle_adapter",
             "lx_oracle_root",
+            "lx_web_adapter",
             "replay-golden",
         ):
             with self.subTest(retired=retired):
@@ -67,7 +68,6 @@ class MakefileWaveOneTest(unittest.TestCase):
             line for line in result.stdout.splitlines() if not LIBRARY_LINE.match(line)
         )
         for retired in (
-            "lx_web_adapter",
             "lx_web_root",
             "lxp_idempotency",
             "lxp_checkpoint_cert",
