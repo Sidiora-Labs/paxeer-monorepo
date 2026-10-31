@@ -57,7 +57,6 @@ struct RpcReply<'a> {
 #[derive(Debug, PartialEq)]
 enum Method {
     Status,
-    CustodyQuery(u64),
     Commit(Option<u64>),
     Validators { height: u64, page: u64 },
     Query(u64),
@@ -136,35 +135,19 @@ fn validate(body: &[u8]) -> Result<Validated, Response> {
             let height = decimal(params.height)
                 .filter(|height| *height < i64::MAX as u64)
                 .ok_or_else(invalid)?;
-            if params.path == "/store/layerxcustody/key" {
-                let digits = params.data;
-                let admitted_key = digits == "01"
-                    || (digits.len() == 66
-                        && (digits.starts_with("10") || digits.starts_with("20")));
-                if !params.prove
-                    || !admitted_key
-                    || !digits
-                        .bytes()
-                        .all(|byte| byte.is_ascii_digit() || (b'A'..=b'F').contains(&byte))
-                {
-                    return Err(invalid());
-                }
-                Method::CustodyQuery(height)
-            } else {
-                let digits = params.data.strip_prefix("0x").ok_or_else(invalid)?;
-                if params.path != "/store/evm/key"
-                    || !params.prove
-                    || digits.is_empty()
-                    || digits.len() > 256
-                    || !digits.len().is_multiple_of(2)
-                    || !digits
-                        .bytes()
-                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-                {
-                    return Err(invalid());
-                }
-                Method::Query(height)
+            let digits = params.data.strip_prefix("0x").ok_or_else(invalid)?;
+            if params.path != "/store/evm/key"
+                || !params.prove
+                || digits.is_empty()
+                || digits.len() > 256
+                || !digits.len().is_multiple_of(2)
+                || !digits
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            {
+                return Err(invalid());
             }
+            Method::Query(height)
         }
         _ => {
             return Err(rpc_error(
@@ -332,7 +315,7 @@ fn validate_result(method: &Method, result: &Value) -> Result<(), Failure> {
                 return Err(NodeFailure::Invalid.into());
             }
         }
-        Method::Query(height) | Method::CustodyQuery(height) => {
+        Method::Query(height) => {
             let query = result.get("response").ok_or(NodeFailure::Invalid)?;
             if query
                 .get("height")
@@ -374,7 +357,7 @@ fn validate_result(method: &Method, result: &Value) -> Result<(), Failure> {
 
 fn fetch(node: &NodeEndpoint, request: &Validated) -> Result<Vec<u8>, Failure> {
     let deadline = Instant::now() + NODE_IO_TIMEOUT;
-    if let Method::Query(height) | Method::CustodyQuery(height) = request.method {
+    if let Method::Query(height) = request.method {
         if committed_height(node, &request.id, None, deadline)? < height + 1 {
             return Err(Failure::Unavailable);
         }
@@ -434,37 +417,60 @@ mod tests {
     }
 
     #[test]
-    fn status_and_canonical_custody_proofs_are_admitted() {
+    fn status_and_evm_store_proofs_are_admitted() {
         for params in ["{}", "null"] {
             let body = format!(r#"{{"jsonrpc":"2.0","id":1,"method":"status","params":{params}}}"#);
             let request = validate(body.as_bytes()).unwrap_or_else(|_| panic!("status refused"));
             assert_eq!(request.method, Method::Status);
+            assert_eq!(request.id, 1);
+            let upstream: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+            assert_eq!(upstream["method"], "status");
+            assert_eq!(
+                upstream["params"],
+                serde_json::from_str::<serde_json::Value>(params).unwrap()
+            );
         }
         for data in [
-            "01".to_owned(),
-            format!("10{}", "AB".repeat(32)),
-            format!("20{}", "AB".repeat(32)),
+            "0x01".to_owned(),
+            "0x08ab".to_owned(),
+            format!("0x{}", "ab".repeat(128)),
         ] {
-            let body = serde_json::json!({"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/store/layerxcustody/key","data":data,"height":"17","prove":true}}).to_string();
-            let request =
-                validate(body.as_bytes()).unwrap_or_else(|_| panic!("custody proof refused"));
-            assert_eq!(request.method, Method::CustodyQuery(17));
+            let body = serde_json::json!({"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/store/evm/key","data":data,"height":"17","prove":true}}).to_string();
+            let request = validate(body.as_bytes()).unwrap_or_else(|_| panic!("EVM proof refused"));
+            assert_eq!(request.method, Method::Query(17));
+            assert_eq!(request.id, 1);
             let upstream: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
-            assert_eq!(upstream["params"]["data"], data);
+            assert_eq!(
+                upstream,
+                serde_json::json!({"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/store/evm/key","data":&data[2..],"height":"17","prove":true}})
+            );
         }
         for params in ["[]", r#"{"extra":1}"#, r#"{"height":"1"}"#] {
             let body = format!(r#"{{"jsonrpc":"2.0","id":1,"method":"status","params":{params}}}"#);
             assert!(validate(body.as_bytes()).is_err());
         }
+    }
+
+    #[test]
+    fn custody_store_query_is_refused() {
         for data in [
+            "01".to_owned(),
+            format!("10{}", "AB".repeat(32)),
+            format!("20{}", "AB".repeat(32)),
             "0x01".to_owned(),
+            "0x08ab".to_owned(),
             "02".to_owned(),
             format!("20{}", "ab".repeat(32)),
             format!("21{}", "AB".repeat(32)),
             format!("20{}", "AB".repeat(31)),
         ] {
             let body = serde_json::json!({"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/store/layerxcustody/key","data":data,"height":"17","prove":true}}).to_string();
-            assert!(validate(body.as_bytes()).is_err());
+            let response = validate(body.as_bytes())
+                .err()
+                .unwrap_or_else(|| panic!("custody query admitted: {data}"));
+            let error: serde_json::Value = serde_json::from_slice(&response.body).unwrap();
+            assert_eq!(error["id"], 1);
+            assert_eq!(error["error"]["code"], -32602);
         }
         let unproved = br#"{"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/store/layerxcustody/key","data":"01","height":"17","prove":false}}"#;
         assert!(validate(unproved).is_err());

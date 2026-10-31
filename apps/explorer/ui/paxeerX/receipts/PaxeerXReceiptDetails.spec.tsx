@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import type { PaxeerXReceipt } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveReceipt } from 'types/api/paxeerXArchive';
 
 import dayjs from 'lib/date/dayjs';
 import { describe, expect, it } from 'vitest';
@@ -14,10 +14,10 @@ import PaxeerXReceiptDetails from './PaxeerXReceiptDetails';
 // The payload the single-receipt endpoint renders, field for field: the list item fields plus the
 // rung of the kernel verification lattice, the payload hash, the emitting transaction and the
 // timestamp of the block that holds it.
-const receipt: PaxeerXReceipt = {
+const receipt: PaxeerXArchiveReceipt = {
   id: '0x0000000000000000000000000000000000000000000000000000000000000007',
   account: '0x0000000000000000000000000000000000000000000000000000000000000009',
-  status: 'submitted',
+  frozen: true,
   block_number: 70,
   verification_status: 'checkpoint_finalised',
   payload_hash: '0x3ed9d81e7c1001bdda1caa1dc62c0acbbe3d2c671cdc20dc1e65efdaa4186967',
@@ -42,8 +42,6 @@ describe('PaxeerXReceiptDetails', () => {
     expect(screen.getByText('Kernel account')).toBeTruthy();
     expect(container.querySelector('[data-field="account"]')?.textContent).toBe(receipt.account);
 
-    expect(screen.getByText('Settlement status')).toBeTruthy();
-
     expect(screen.getByText('Verification status')).toBeTruthy();
     expect(container.querySelector('[data-field="verification_status"]')?.textContent).toBe('Checkpoint finalised');
 
@@ -58,12 +56,6 @@ describe('PaxeerXReceiptDetails', () => {
 
     expect(screen.getByText('Timestamp')).toBeTruthy();
     expect(screen.getByText(dayjs(receipt.timestamp).utc().format('lll'))).toBeTruthy();
-  });
-
-  it('puts the receipt on the settlement ladder', () => {
-    const { container } = render(<PaxeerXReceiptDetails data={ receipt }/>);
-
-    expect(container.querySelector('[data-rung="submitted"]')).toBeTruthy();
   });
 
   it('links the transaction hash to the transaction page and the block number to the block page', () => {
@@ -90,7 +82,7 @@ describe('PaxeerXReceiptDetails', () => {
 
     for (const [ status, label ] of Object.entries(labels)) {
       const { unmount } = render(
-        <PaxeerXReceiptDetails data={{ ...receipt, verification_status: status as PaxeerXReceipt['verification_status'] }}/>,
+        <PaxeerXReceiptDetails data={{ ...receipt, verification_status: status as PaxeerXArchiveReceipt['verification_status'] }}/>,
       );
 
       expect(screen.getByText(label)).toBeTruthy();
@@ -119,7 +111,6 @@ describe('PaxeerXReceiptDetails', () => {
     expect(keys).toEqual([
       'Receipt ID',
       'Kernel account',
-      'Settlement status',
       'Verification status',
       'Payload hash',
       'Transaction',
@@ -130,7 +121,7 @@ describe('PaxeerXReceiptDetails', () => {
   });
 
   it('puts a dash in place of the transaction, block and timestamp the endpoint returns as null', () => {
-    const data = { ...receipt, transaction_hash: null, block_number: null, timestamp: null } as unknown as PaxeerXReceipt;
+    const data = { ...receipt, transaction_hash: null, block_number: null, timestamp: null } as unknown as PaxeerXArchiveReceipt;
     const { container } = render(<PaxeerXReceiptDetails data={ data }/>);
 
     const values = rowValues(container);
@@ -153,7 +144,7 @@ describe('PaxeerXReceiptDetails', () => {
   });
 
   it('reports a block alone as missing while the transaction and timestamp stay linked', () => {
-    const data = { ...receipt, block_number: null } as unknown as PaxeerXReceipt;
+    const data = { ...receipt, block_number: null } as unknown as PaxeerXArchiveReceipt;
     const { container } = render(<PaxeerXReceiptDetails data={ data }/>);
 
     const values = rowValues(container);

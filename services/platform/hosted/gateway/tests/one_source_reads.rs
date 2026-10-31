@@ -1,20 +1,13 @@
+include!("../src/main.rs");
+
 use layerx_platform_gateway::evm;
-use layerx_platform_gateway::store::{RedisEndpoint, RedisStore};
-use layerx_platform_internal::http;
+use layerx_platform_internal::http as internal_http;
 use layerx_platform_internal::tls::{Origin, Upstream};
-use native_tls::Certificate;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
-use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use serde_json::{json, Value};
-use std::fs;
-use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use zeroize::Zeroizing;
+use std::sync::atomic::AtomicBool;
+use std::sync::Mutex;
 
 const CHAIN_ID: &str = "0x7d";
 const LATEST_BLOCK: &str = "0x10";
@@ -278,8 +271,37 @@ fn gateway_command(environment: &[(String, String)]) -> Command {
 }
 
 fn start_gateway(redis: &RedisProcess, chain_port: u16) -> Gateway {
+    start_gateway_with_indexer(redis, chain_port, None)
+}
+
+fn start_gateway_with_indexer(
+    redis: &RedisProcess,
+    chain_port: u16,
+    indexer_port: Option<u16>,
+) -> Gateway {
+    start_gateway_with_consensus(redis, chain_port, indexer_port, None)
+}
+
+fn start_gateway_with_consensus(
+    redis: &RedisProcess,
+    chain_port: u16,
+    indexer_port: Option<u16>,
+    consensus_url: Option<&str>,
+) -> Gateway {
     let listen = free_port();
-    let environment = chain_only_environment(redis, chain_port, listen);
+    let mut environment = chain_only_environment(redis, chain_port, listen);
+    if let Some(url) = consensus_url {
+        environment.push((
+            "LAYERX_GATEWAY_CONSENSUS_RPC_URL".to_owned(),
+            url.to_owned(),
+        ));
+    }
+    if let Some(port) = indexer_port {
+        environment.push((
+            "LAYERX_GATEWAY_INDEXER_URL".to_owned(),
+            format!("http://127.0.0.1:{port}"),
+        ));
+    }
     assert!(environment.iter().all(|(name, _)| {
         name != "LAYERX_GATEWAY_COMPONENT_URL"
             && name != "LAYERX_GATEWAY_PUBLIC_CORE_URL"
@@ -364,9 +386,9 @@ impl ChainListener {
                         tcp.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
                         let connection = ServerConnection::new(Arc::clone(&tls)).unwrap();
                         let mut stream = StreamOwned::new(connection, tcp);
-                        if let Ok(request) = http::parse_client_request(&mut stream) {
+                        if let Ok(request) = internal_http::parse_client_request(&mut stream) {
                             let answer = chain_answer(&state, &request);
-                            let _ = http::write_response(&mut stream, &answer);
+                            let _ = internal_http::write_response(&mut stream, &answer);
                         }
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -409,10 +431,6 @@ fn main_account() -> String {
     hex(&layerx_wire::hash::account_id_for_protocol(&account, 3).unwrap())
 }
 
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
 fn account_document() -> Value {
     json!({
         "evm_address": ACCOUNT,
@@ -427,6 +445,7 @@ struct ChainState {
     calls: Vec<Value>,
     bank_answer: String,
     bank_refused: bool,
+    asset_reads: bool,
 }
 
 impl ChainState {
@@ -438,6 +457,7 @@ impl ChainState {
                 vector("bank.all_balances")["result"].as_str().unwrap()
             ),
             bank_refused: false,
+            asset_reads: false,
         }
     }
 
@@ -446,7 +466,10 @@ impl ChainState {
     }
 }
 
-fn chain_answer(state: &Mutex<ChainState>, request: &http::Request) -> http::Response {
+fn chain_answer(
+    state: &Mutex<ChainState>,
+    request: &internal_http::Request,
+) -> internal_http::Response {
     assert_eq!(request.path, "/rpc");
     let call: Value = serde_json::from_slice(&request.body).unwrap();
     let mut state = state.lock().unwrap();
@@ -466,6 +489,9 @@ fn chain_answer(state: &Mutex<ChainState>, request: &http::Request) -> http::Res
         "eth_call" => {
             let data = call["params"][0]["data"].as_str().unwrap();
             let to = call["params"][0]["to"].as_str().unwrap();
+            if state.asset_reads {
+                return asset_chain_answer(&call);
+            }
             let unified = vector("addr.getUnifiedAccount");
             let reverse = vector("addr.getEvmAddrByLayerX");
             let bank = vector("bank.all_balances");
@@ -508,7 +534,7 @@ fn chain_answer(state: &Mutex<ChainState>, request: &http::Request) -> http::Res
         }
         _ => panic!("unexpected chain request: {call}"),
     };
-    http::json(200, &result.map_or_else(
+    internal_http::json(200, &result.map_or_else(
         || json!({"jsonrpc":"2.0", "id":call["id"], "error":{"code":-32000,"message":"execution reverted"}}),
         |result| json!({"jsonrpc":"2.0", "id":call["id"], "result":result}),
     ))
@@ -658,4 +684,396 @@ fn px_get_account_reads_no_kernel_backend() {
         readiness["backends"]["public_core"]["reason"], "not_configured",
         "{readiness}"
     );
+}
+
+fn abi_word(value: u128) -> Vec<u8> {
+    let mut word = vec![0; 16];
+    word.extend_from_slice(&value.to_be_bytes());
+    word
+}
+
+fn abi_bytes(value: &[u8]) -> Vec<u8> {
+    let mut bytes = abi_word(value.len() as u128);
+    bytes.extend_from_slice(value);
+    bytes.resize(32 + value.len().div_ceil(32) * 32, 0);
+    bytes
+}
+
+fn ledger_asset_answer() -> Vec<u8> {
+    let mut answer = vec![0x11; 32];
+    answer.extend(abi_word(384));
+    answer.extend(abi_word(448));
+    answer.extend(abi_word(18));
+    answer.extend(abi_word(u128::MAX));
+    answer.extend([0x61; 32]);
+    answer.extend([0x42; 32]);
+    answer.extend(abi_word(1));
+    answer.extend(abi_word(2));
+    answer.extend(abi_word(512));
+    answer.extend(abi_word(0));
+    answer.extend(abi_word(u128::MAX - 1));
+    answer.extend(abi_bytes(b"LED"));
+    answer.extend(abi_bytes(b"Ledger Asset"));
+    answer.extend(abi_bytes(&[0xff, 0x00, 0x81]));
+    answer
+}
+
+fn asset_chain_answer(call: &Value) -> internal_http::Response {
+    let to = call["params"][0]["to"].as_str().unwrap();
+    let data = call["params"][0]["data"].as_str().unwrap();
+    assert_eq!(call["params"][1], LATEST_BLOCK);
+    let answer = if to == evm::address_hex(&evm::LEDGER_PRECOMPILE) {
+        let calldata = |byte| format!("0x2cc3ce80{}", hex(&[byte; 32]));
+        if data == calldata(0x11) {
+            Some(ledger_asset_answer())
+        } else if data == calldata(0x22) {
+            None
+        } else if data == calldata(0x33) {
+            Some(vec![0; 32])
+        } else if data == calldata(0x44) {
+            Some(ledger_asset_answer())
+        } else {
+            panic!("unexpected ledger read: {call}");
+        }
+    } else {
+        assert_eq!(to, evm::address_hex(&evm::BANK_PRECOMPILE));
+        // Independent ABI calldata for a single dynamic string argument.
+        let calldata = |selector: &str, denom: &[u8]| {
+            format!(
+                "0x{selector}{}{}",
+                hex(&abi_word(32)),
+                hex(&abi_bytes(denom))
+            )
+        };
+        if data == calldata("5b43bc99", b"ubroken") {
+            None
+        } else if data == calldata("5b43bc99", b"ubank") {
+            Some([abi_word(32), abi_bytes(b"Bank Asset")].concat())
+        } else if data == calldata("41bb0559", b"ubank") {
+            Some([abi_word(32), abi_bytes(b"BANK")].concat())
+        } else if data == calldata("3b2b3204", b"ubank") {
+            Some(abi_word(6))
+        } else if data == calldata("6923a1fd", b"ubank") {
+            Some(vec![0xff; 32])
+        } else {
+            panic!("unexpected bank read: {call}");
+        }
+    };
+    internal_http::json(
+        200,
+        &match answer {
+            Some(bytes) => {
+                json!({"jsonrpc":"2.0", "id":call["id"], "result":format!("0x{}", hex(&bytes))})
+            }
+            None => {
+                json!({"jsonrpc":"2.0", "id":call["id"], "error":{"code":-32000, "message":"execution reverted"}})
+            }
+        },
+    )
+}
+
+#[test]
+fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
+    use layerx_indexer::store::{AssetRow, Store};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let abi: Value = serde_json::from_str(include_str!(
+        "../../../../../precompiles/layerxledger/abi.json"
+    ))
+    .unwrap();
+    let get_asset = abi
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["name"] == "getAsset")
+        .unwrap();
+    let outputs: Vec<_> = get_asset["outputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|output| output["type"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        outputs,
+        [
+            "bytes32", "string", "string", "uint8", "uint128", "bytes32", "bytes32", "uint8",
+            "uint8", "bytes", "bool", "uint128"
+        ]
+    );
+    assert_eq!(
+        evm::SELECTOR_GET_ASSET,
+        layerx_indexer::abi::keccak(b"getAsset(bytes32)")[..4]
+    );
+    for (signature, selector) in [
+        ("name(string)", evm::SELECTOR_BANK_NAME),
+        ("symbol(string)", evm::SELECTOR_BANK_SYMBOL),
+        ("decimals(string)", evm::SELECTOR_BANK_DECIMALS),
+        ("supply(string)", evm::SELECTOR_BANK_SUPPLY),
+    ] {
+        assert_eq!(
+            selector,
+            layerx_indexer::abi::keccak(signature.as_bytes())[..4]
+        );
+    }
+    let bytes = ledger_asset_answer();
+    let decoded = evm::decode_ledger_asset(&bytes).unwrap();
+    assert_eq!(decoded.asset_id, [0x11; 32]);
+    assert_eq!(decoded.name, "Ledger Asset");
+    assert_eq!(decoded.symbol, "LED");
+    assert_eq!(decoded.decimals, 18);
+    assert_eq!(decoded.supply_cap, u128::MAX);
+    assert_eq!(decoded.total_units, u128::MAX - 1);
+    assert_eq!(decoded.custody_reference, [0xff, 0x00, 0x81]);
+    for (offset, value) in [
+        (3 * 32, 1),
+        (4 * 32, 1),
+        (7 * 32, 1),
+        (8 * 32, 1),
+        (10 * 32 + 31, 2),
+        (11 * 32, 1),
+    ] {
+        let mut malformed = bytes.clone();
+        malformed[offset] = value;
+        assert_eq!(
+            evm::decode_ledger_asset(&malformed),
+            Err(evm::AbiError::Width)
+        );
+    }
+    let mut malformed = bytes.clone();
+    malformed[63] = 32;
+    malformed[62] = 0;
+    assert_eq!(
+        evm::decode_ledger_asset(&malformed),
+        Err(evm::AbiError::Offset)
+    );
+    assert!(evm::decode_ledger_asset(&bytes[..383]).is_err());
+    assert!(evm::decode_ledger_asset(&bytes[..bytes.len() - 1]).is_err());
+
+    let store = Store::open_in_memory().unwrap();
+    let mut rows = Vec::new();
+    // The first sorted asset is registered beyond the first indexer page.
+    for number in (0..501).rev() {
+        rows.push(AssetRow {
+            asset: format!("z{number:04}"),
+            chain: "paxeer".to_owned(),
+            kind: "erc20".to_owned(),
+            address: None,
+            denom: None,
+            metadata: json!({}),
+        });
+    }
+    let mut expected = Vec::new();
+    for byte in [0x44, 0x33, 0x22, 0x11] {
+        let asset_id = hex(&[byte; 32]);
+        rows.push(AssetRow { asset:asset_id.clone(), chain:"paxeer".to_owned(),
+            kind:"layerx".to_owned(), address:None, denom:None,
+            metadata:json!({"name":"stale indexer name", "symbol":"STALE", "decimals":2,"supply":"7"}) });
+        expected.push(if byte == 0x11 {
+            json!({"asset_id":asset_id,"denom":null,"kind":"layerx","name":"Ledger Asset","symbol":"LED","decimals":18,"supply":(u128::MAX - 1).to_string()})
+        } else {
+            json!({"asset_id":asset_id,"denom":null,"kind":"layerx","name":null,"symbol":null,"decimals":null,"supply":null})
+        });
+    }
+    for (denom, kind) in [("ubank", "bank"), ("ubroken", "token_factory")] {
+        let asset_id = format!("denom:{denom}");
+        rows.push(AssetRow {
+            asset: asset_id.clone(),
+            chain: "paxeer".to_owned(),
+            kind: kind.to_owned(),
+            address: None,
+            denom: Some(denom.to_owned()),
+            metadata: json!({}),
+        });
+        expected.push(if denom == "ubank" {
+            json!({"asset_id":asset_id,"denom":denom,"kind":kind,"name":"Bank Asset","symbol":"BANK","decimals":6,"supply":"115792089237316195423570985008687907853269984665640564039457584007913129639935"})
+        } else {
+            json!({"asset_id":asset_id,"denom":denom,"kind":kind,"name":null,"symbol":null,"decimals":null,"supply":null})
+        });
+    }
+    for number in 0..10 {
+        expected.push(json!({"asset_id":format!("z{number:04}"),"denom":null,"kind":"erc20","name":null,"symbol":null,"decimals":null,"supply":null}));
+    }
+    expected.sort_by(|a, b| a["asset_id"].as_str().cmp(&b["asset_id"].as_str()));
+    store.register_assets(&rows).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let indexer_address = listener.local_addr().unwrap();
+    let store = Arc::new(store);
+    thread::spawn(move || layerx_indexer::api::serve(&listener, &store, None));
+    let redis = RedisProcess::start();
+    assert!(redis.store().ready());
+    let state = Arc::new(Mutex::new(ChainState::new()));
+    state.lock().unwrap().asset_reads = true;
+    let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
+    let gateway = start_gateway_with_indexer(&redis, chain.port, Some(indexer_address.port()));
+    let answer = gateway.rpc("px_listAssets", &json!([]));
+    assert!(answer.get("error").is_none(), "{answer}");
+    assert_eq!(
+        answer["result"],
+        json!({"height":16,"assets":expected,"joined_limit":16})
+    );
+    let calls = state.lock().unwrap().take_calls();
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|call| call["method"] == "eth_blockNumber")
+            .count(),
+        1
+    );
+    let asset_calls: Vec<_> = calls
+        .iter()
+        .filter(|call| call["method"] == "eth_call")
+        .collect();
+    assert_eq!(asset_calls.len(), 9);
+    for call in asset_calls {
+        assert_eq!(call["params"][1], LATEST_BLOCK);
+        assert!(
+            matches!(
+                call["params"][0]["to"].as_str(),
+                Some(
+                    "0x0000000000000000000000000000000000001001"
+                        | "0x000000000000000000000000000000000000101a"
+                )
+            ),
+            "{call}"
+        );
+    }
+    let invalid = gateway.rpc("px_listAssets", &json!(["unexpected"]));
+    assert_eq!(invalid["error"]["code"], -32602);
+    assert!(state.lock().unwrap().take_calls().is_empty());
+}
+
+#[test]
+fn px_get_network_reports_the_consensus_head() {
+    let block_hash = "A1".repeat(32);
+    let app_hash = "B2".repeat(32);
+    for (height, catching_up) in [("34742403", false), ("9007199254740993", true)] {
+        let status = json!({
+            "sync_info": {
+                "latest_block_height": height,
+                "latest_block_hash": block_hash,
+                "latest_app_hash": app_hash,
+                "catching_up": catching_up,
+                "earliest_block_height": "1"
+            }
+        });
+        let head = chain_reads::ConsensusHead::from_status(&status)
+            .expect("the consensus status sync_info must decode");
+        let result = paxeer::network_result("paxeer-degraded", CHAIN_ID, LATEST_BLOCK, Some(head));
+        assert_eq!(
+            result,
+            json!({
+                "network_id": "paxeer-degraded",
+                "paxeer": {"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK},
+                "consensus": {
+                    "latest_height": height,
+                    "latest_block_hash": block_hash,
+                    "latest_app_hash": app_hash,
+                    "catching_up": catching_up
+                }
+            })
+        );
+        for member in ["anchor", "kernel", "layerx", "reason"] {
+            assert!(result.get(member).is_none(), "{result}");
+        }
+        for (field, invalid) in [
+            ("latest_block_height", json!(16)),
+            ("latest_block_height", json!("-1")),
+            ("latest_block_height", json!("18446744073709551616")),
+            ("latest_block_hash", json!("not-a-hash")),
+            ("latest_app_hash", json!(null)),
+            ("catching_up", json!("false")),
+        ] {
+            let mut malformed = status.clone();
+            malformed["sync_info"][field] = invalid;
+            assert!(
+                chain_reads::ConsensusHead::from_status(&malformed).is_none(),
+                "{malformed}"
+            );
+        }
+        for field in [
+            "latest_block_height",
+            "latest_block_hash",
+            "latest_app_hash",
+            "catching_up",
+        ] {
+            let mut incomplete = status.clone();
+            incomplete["sync_info"]
+                .as_object_mut()
+                .unwrap()
+                .remove(field);
+            assert!(
+                chain_reads::ConsensusHead::from_status(&incomplete).is_none(),
+                "{incomplete}"
+            );
+        }
+    }
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let redis = RedisProcess::start();
+    assert!(redis.store().ready());
+    let state = Arc::new(Mutex::new(ChainState::new()));
+    let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
+    let unavailable_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let unavailable_port = unavailable_listener.local_addr().unwrap().port();
+    drop(unavailable_listener);
+    let unavailable_url = format!("https://localhost:{unavailable_port}/consensus");
+    for consensus_url in [None, Some(unavailable_url.as_str())] {
+        let gateway = start_gateway_with_consensus(&redis, chain.port, None, consensus_url);
+        state.lock().unwrap().take_calls();
+        let answer = gateway.rpc("px_getNetwork", &json!([]));
+        assert!(answer.get("error").is_none(), "{answer}");
+        assert_eq!(
+            answer["result"],
+            json!({
+                "network_id": "paxeer-degraded",
+                "paxeer": {"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK},
+                "consensus": null,
+                "reason": "consensus_unavailable"
+            })
+        );
+        let calls = state.lock().unwrap().take_calls();
+        let mut exchanges = calls.chunks_exact(2);
+        let methods: Vec<_> = exchanges
+            .by_ref()
+            .map(|exchange| {
+                assert_eq!(exchange[0], json!({
+                    "jsonrpc": "2.0", "id": "route-network", "method": "eth_chainId", "params": []
+                }));
+                assert_eq!(exchange[1]["id"], "px-read");
+                assert_eq!(exchange[1]["params"], json!([]));
+                exchange[1]["method"].as_str().unwrap()
+            })
+            .collect();
+        assert!(exchanges.remainder().is_empty());
+        assert_eq!(methods, ["eth_chainId", "eth_blockNumber"]);
+        let invalid = gateway.rpc("px_getNetwork", &json!(["unexpected"]));
+        assert_eq!(invalid["error"]["code"], -32602);
+        assert!(state.lock().unwrap().take_calls().is_empty());
+    }
+
+    let document: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap();
+    let method = document["methods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|method| method["name"] == "px_getNetwork")
+        .unwrap();
+    let schema = &method["result"]["schema"];
+    assert_eq!(schema["additionalProperties"], false);
+    assert_eq!(
+        schema["required"],
+        json!(["network_id", "paxeer", "consensus"])
+    );
+    assert_eq!(
+        schema["properties"]["consensus"]["required"],
+        json!([
+            "latest_height",
+            "latest_block_hash",
+            "latest_app_hash",
+            "catching_up"
+        ])
+    );
+    for member in ["anchor", "kernel", "layerx"] {
+        assert!(schema["properties"].get(member).is_none());
+    }
 }

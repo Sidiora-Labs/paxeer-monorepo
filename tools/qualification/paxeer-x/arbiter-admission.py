@@ -62,12 +62,10 @@ def inputs():
             "Makefile",
             "src",
             "include",
-            "cmd/layerxd",
             "services/agent/Cargo.toml",
             "services/agent/Cargo.lock",
             "services/agent/crates/layerx-client",
             "services/agent/crates/layerx-proof",
-            "services/agent/crates/layerx-wire",
             "services/agent/crates/layerx-types",
             "services/agent/crates/layerx-crypto",
             "go.mod",
@@ -188,7 +186,6 @@ def build(arguments, evidence):
             "revision": revision,
             "inputs": source,
             "native": artifact(arguments.native),
-            "daemon": artifact(arguments.daemon),
             "rust": artifact(executables.pop()),
         },
     )
@@ -214,7 +211,6 @@ def qualify(evidence):
     ):
         raise RuntimeError("declared artifacts do not bind current source")
     native, rust = checked(manifest["native"]), checked(manifest["rust"])
-    checked(manifest["daemon"])
     fixture = Path(tempfile.mkdtemp(prefix="lxp-arbiter-transport-"))
     os.chown(fixture, 0, 65534)
     fixture.chmod(0o750)
@@ -359,13 +355,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
     parser.add_argument("--native")
-    parser.add_argument("--daemon")
     parser.add_argument("--cargo", default="cargo")
     arguments = parser.parse_args()
     evidence = evidence_directory()
     if arguments.build:
-        if not arguments.native or not arguments.daemon:
-            raise RuntimeError("native and daemon declared build artifacts required")
+        if not arguments.native:
+            raise RuntimeError("native declared build artifact required")
         build(arguments, evidence)
     else:
         qualify(evidence)

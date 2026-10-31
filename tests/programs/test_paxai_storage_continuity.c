@@ -5,13 +5,10 @@
 #include "layerx/lxp_activity.h"
 #include "layerx/lxp_batch.h"
 #include "layerx/lxp_crypto.h"
-#include "layerx/lxp_daemon.h"
 #include "layerx/lxp_fault.h"
 #include "layerx/lxp_fee.h"
 #include "layerx/lxp_genesis.h"
-#include "layerx/lxp_handover.h"
 #include "layerx/lxp_hash.h"
-#include "layerx/lxp_history.h"
 #include "layerx/lxp_identity.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_module_ctx.h"
@@ -21,23 +18,17 @@
 #include "layerx/lxp_state_proof.h"
 #include "layerx/lxp_storage.h"
 
-#include "lxp_daemon_lni_internal.h"
-
 #include <openssl/evp.h>
 
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
-#include <spawn.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 enum {
@@ -46,21 +37,6 @@ enum {
     OUTSIDER = 2,
     CONTROLLER = 3,
     NETWORK_ID = 7,
-    LNI_MAJOR = 1,
-    LNI_MINOR = 8,
-    NODE_INFO_REQUEST = 1,
-    NODE_INFO_RESPONSE = 2,
-    ERROR_RESPONSE = 25,
-    OBSERVE = 50,
-    RESERVE = 52,
-    CANCEL = 56,
-    ENVELOPE_FIXED_BYTES = 22,
-    LNI_PROOF_BYTES = 96,
-    ID_BODY_BYTES = 10,
-    NODE_INFO_BYTES = 65536,
-    OWNER_SCRATCH_BYTES = 2 * 1024 * 1024,
-    KEEPER_OUTPUT_BYTES = 16384,
-    FLOOR_BLOBS = 64,
     PROOF_CAPACITY = 6144,
     PAYLOAD_CAPACITY = LXP_PROGRAMS_RETIREMENT_MAX_PAYLOAD_BYTES + 512,
     MANIFEST_BYTES = 58,
@@ -79,12 +55,6 @@ enum {
     POLICY_BYTES = 307,
     LOG_BYTES = 128 * 1024 * 1024,
     BLOB_KEY_BYTES = 1 + LXP_MODULE_MAX_KEY_BYTES
-};
-
-enum {
-    REC_ID = 0,
-    REC_STATE = 9,
-    REC_DIGEST = 10
 };
 
 _Static_assert(LXP_KERNEL_MAX_BLOBS == 512, "slot capacity changed");
@@ -172,68 +142,6 @@ typedef struct peaks {
     size_t kv;
 } peaks;
 
-typedef struct reply {
-    uint16_t tag;
-    uint8_t payload[1U + LXP_CAPACITY_RECORD_BYTES + LXP_CAPACITY_OBSERVATION_BYTES];
-    size_t length;
-    uint8_t refusal_class;
-    lxp_result refusal;
-} reply;
-
-typedef struct observation {
-    uint64_t next_sequence;
-    uint8_t root[32];
-    uint64_t committed[3];
-    uint64_t floor[3];
-    uint64_t work[3];
-    uint64_t available[3];
-    uint32_t active;
-} observation;
-
-typedef struct cap_request {
-    uint8_t kind;
-    uint8_t activity[32];
-    uint8_t idempotency[32];
-    const char *actor;
-    uint32_t blobs;
-    uint64_t bytes;
-    uint32_t kv;
-    uint64_t sequence;
-    uint8_t root[32];
-    uint64_t lifetime;
-} cap_request;
-
-typedef struct connection {
-    int descriptor;
-    int server_descriptor;
-    pthread_t thread;
-    lxp_result status;
-    bool open;
-} connection;
-
-typedef struct lni_fixture {
-    lxp_daemon_protocol_owner owner;
-    lxp_daemon_receipt_authority_store receipt_authority;
-    lxp_history history;
-    lxp_log canonical_log;
-    lxp_arena scratch;
-    uint8_t *scratch_bytes;
-    lxp_daemon daemon;
-    lxp_daemon_lni_server server;
-    char socket_directory[64];
-    char admission_directory[64];
-    char keeper_directory[64];
-    char socket_path[LXP_DAEMON_LNI_SOCKET_PATH_BYTES];
-    const char *keeper;
-    size_t applied;
-    bool daemon_started;
-    bool lni_started;
-    bool owner_ready;
-    connection link;
-    uint8_t node_info[NODE_INFO_BYTES];
-    size_t node_info_length;
-} lni_fixture;
-
 typedef struct work {
     node *n;
     unsigned actor;
@@ -253,11 +161,8 @@ static const uint8_t archive_seed_a[32] = {0x68U};
 static const uint8_t archive_seed_b[32] = {0x69U};
 static const uint8_t asset_id[32] = {9U};
 static const uint8_t rewards_seed[] = "paxai/rewards/v1";
-static const char request_domain[] = "LayerX/storage-capacity-request/v1";
-static const char response_domain[] = "LayerX/storage-capacity-response/v1";
 
 static node *primary, *replica, *scratch_node;
-static lni_fixture lni;
 static lxp_state_witness witness;
 static uint8_t *archive_bytes;
 static lxp_arena archive_arena;
@@ -280,7 +185,6 @@ static peaks peak;
 static char work_directory[64];
 static char archive_a[128], archive_b[128];
 static char primary_log[128], replica_log[128];
-static uint64_t correlation = 1U;
 static uint64_t request_serial;
 static uint64_t owner_app_sequence = 1U;
 static size_t passed, failed;
@@ -358,17 +262,6 @@ static uint64_t get_u64(const uint8_t *p)
     return ((uint64_t)get_u32(p) << 32U) | get_u32(p + 4U);
 }
 
-static void hex_encode(const uint8_t *bytes, size_t length, char *out)
-{
-    static const char digits[] = "0123456789abcdef";
-    size_t i;
-    for (i = 0U; i < length; ++i) {
-        out[i * 2U] = digits[bytes[i] >> 4U];
-        out[i * 2U + 1U] = digits[bytes[i] & 0x0fU];
-    }
-    out[length * 2U] = '\0';
-}
-
 static int hex_decode(const char *text, size_t text_length, uint8_t *out,
                       size_t capacity, size_t *length)
 {
@@ -424,18 +317,6 @@ static int write_all(int descriptor, const uint8_t *bytes, size_t length)
         ssize_t written = write(descriptor, bytes + offset, length - offset);
         if (written > 0) offset += (size_t)written;
         else if (written < 0 && errno == EINTR) continue;
-        else return 1;
-    }
-    return 0;
-}
-
-static int read_all(int descriptor, uint8_t *bytes, size_t length)
-{
-    size_t offset = 0U;
-    while (offset < length) {
-        ssize_t got = read(descriptor, bytes + offset, length - offset);
-        if (got > 0) offset += (size_t)got;
-        else if (got < 0 && errno == EINTR) continue;
         else return 1;
     }
     return 0;
@@ -1107,414 +988,10 @@ static int node_recover(node *n, const char *directory, uint64_t sequence,
     return 0;
 }
 
-static int send_frame(int descriptor, uint16_t minor, uint16_t tag,
-                      uint64_t correlation_id, const uint8_t *payload,
-                      size_t length)
-{
-    uint8_t frame[4U + ENVELOPE_FIXED_BYTES + LXP_CAPACITY_REQUEST_BYTES + 8U];
-    size_t cursor = 4U;
-    if (length > LXP_CAPACITY_REQUEST_BYTES + 8U) return 1;
-    put_u32(frame, (uint32_t)(ENVELOPE_FIXED_BYTES + length));
-    put_u16(frame + cursor, LNI_MAJOR); cursor += 2U;
-    put_u16(frame + cursor, minor); cursor += 2U;
-    put_u16(frame + cursor, tag); cursor += 2U;
-    put_u64(frame + cursor, correlation_id); cursor += 8U;
-    put_u32(frame + cursor, (uint32_t)length); cursor += 4U;
-    if (length != 0U) (void)memcpy(frame + cursor, payload, length);
-    cursor += length;
-    put_u32(frame + cursor, 0U); cursor += 4U;
-    return write_all(descriptor, frame, cursor);
-}
-
-static int verify_proof(uint16_t tag, const uint8_t *payload, size_t length,
-                        const uint8_t *proof)
-{
-    uint8_t *message = (uint8_t *)malloc(sizeof(response_domain) - 1U + 6U +
-                                         length);
-    uint8_t digest[32];
-    size_t cursor = sizeof(response_domain) - 1U;
-    int failure;
-    if (message == NULL) return 1;
-    (void)memcpy(message, response_domain, cursor);
-    put_u32(message + cursor, NETWORK_ID); cursor += 4U;
-    put_u16(message + cursor, tag); cursor += 2U;
-    (void)memcpy(message + cursor, payload, length);
-    cursor += length;
-    failure = lxp_hash_sha256(message, cursor, digest) != LXP_OK ||
-        memcmp(proof, sequencer_public, 32U) != 0 ||
-        lxp_ed25519_verify_raw(proof, proof + 32U, digest, 32U) != LXP_OK;
-    free(message);
-    return failure;
-}
-
-static int receive_reply(int descriptor, uint64_t correlation_id, reply *out)
-{
-    uint8_t prefix[4];
-    uint8_t *frame;
-    uint32_t length, payload_length, proof_length;
-    int failure = 0;
-    (void)memset(out, 0, sizeof(*out));
-    if (read_all(descriptor, prefix, 4U) != 0) return 1;
-    length = get_u32(prefix);
-    if (length < ENVELOPE_FIXED_BYTES || length > 65536U) return 1;
-    frame = (uint8_t *)malloc(length);
-    if (frame == NULL) return 1;
-    if (read_all(descriptor, frame, length) != 0) failure = 1;
-    if (failure == 0) {
-        payload_length = get_u32(frame + 14U);
-        if (get_u16(frame) != LNI_MAJOR || get_u16(frame + 2U) != LNI_MINOR ||
-            get_u64(frame + 6U) != correlation_id ||
-            payload_length > length - ENVELOPE_FIXED_BYTES ||
-            payload_length > sizeof(out->payload))
-            failure = 1;
-    }
-    if (failure == 0) {
-        proof_length = get_u32(frame + 18U + payload_length);
-        out->tag = get_u16(frame + 4U);
-        out->length = payload_length;
-        (void)memcpy(out->payload, frame + 18U, payload_length);
-        if (18U + payload_length + 4U + proof_length != length) failure = 1;
-        else if (out->tag == ERROR_RESPONSE) {
-            if (payload_length != 5U || proof_length != 0U) failure = 1;
-            else {
-                out->refusal_class = out->payload[0];
-                out->refusal = (lxp_result)(int32_t)get_u32(out->payload + 1U);
-            }
-        } else if (proof_length != LNI_PROOF_BYTES ||
-                   verify_proof(out->tag, out->payload, payload_length,
-                                frame + 22U + payload_length) != 0) {
-            failure = 1;
-        }
-    }
-    free(frame);
-    return failure;
-}
-
-static int lni_call(uint16_t tag, const uint8_t *body, size_t length,
-                    reply *out)
-{
-    uint64_t id = correlation++;
-    if (send_frame(lni.link.descriptor, LNI_MINOR, tag, id, body, length) != 0 ||
-        receive_reply(lni.link.descriptor, id, out) != 0)
-        return 1;
-    return out->tag == ERROR_RESPONSE || out->tag == tag + 1U ? 0 : 1;
-}
-
-static void *connection_run(void *context)
-{
-    connection *link = (connection *)context;
-    link->status = lxp_daemon_lni_serve_connected(&lni.server,
-                                                  link->server_descriptor);
-    (void)close(link->server_descriptor);
-    return NULL;
-}
-
-static int connection_open(connection *link)
-{
-    int sockets[2];
-    uint8_t prefix[4];
-    uint8_t *frame;
-    uint32_t length, payload_length;
-    int failure;
-    (void)memset(link, 0, sizeof(*link));
-    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockets) != 0)
-        return 1;
-    link->descriptor = sockets[0];
-    link->server_descriptor = sockets[1];
-    if (pthread_create(&link->thread, NULL, connection_run, link) != 0) {
-        (void)close(sockets[0]);
-        (void)close(sockets[1]);
-        return 1;
-    }
-    link->open = true;
-    if (send_frame(link->descriptor, LNI_MINOR, NODE_INFO_REQUEST, 0U, NULL,
-                   0U) != 0 ||
-        read_all(link->descriptor, prefix, 4U) != 0)
-        return 1;
-    length = get_u32(prefix);
-    if (length < ENVELOPE_FIXED_BYTES || length > 1048576U) return 1;
-    frame = (uint8_t *)malloc(length);
-    if (frame == NULL) return 1;
-    failure = read_all(link->descriptor, frame, length) != 0 ||
-        get_u16(frame + 2U) != LNI_MINOR ||
-        get_u16(frame + 4U) != NODE_INFO_RESPONSE ||
-        get_u64(frame + 6U) != 0U;
-    if (failure == 0) {
-        payload_length = get_u32(frame + 14U);
-        failure = payload_length > length - ENVELOPE_FIXED_BYTES ||
-            payload_length > sizeof(lni.node_info);
-        if (failure == 0) {
-            (void)memcpy(lni.node_info, frame + 18U, payload_length);
-            lni.node_info_length = payload_length;
-        }
-    }
-    free(frame);
-    return failure;
-}
-
-static int connection_close(connection *link)
-{
-    if (!link->open) return 0;
-    link->open = false;
-    (void)shutdown(link->descriptor, SHUT_RDWR);
-    (void)close(link->descriptor);
-    if (pthread_join(link->thread, NULL) != 0) return 1;
-    return link->status == LXP_OK ? 0 : 1;
-}
-
-static int observe(observation *o)
-{
-    uint8_t body[2];
-    reply answer;
-    size_t axis;
-    put_u16(body, 1U);
-    if (lni_call(OBSERVE, body, sizeof(body), &answer) != 0 ||
-        answer.tag != OBSERVE + 1U ||
-        answer.length != LXP_CAPACITY_OBSERVATION_BYTES ||
-        get_u16(answer.payload) != 1U ||
-        get_u32(answer.payload + 76U) != LXP_KERNEL_MAX_BLOBS ||
-        get_u64(answer.payload + 80U) != LXP_KERNEL_MAX_BLOB_TOTAL_BYTES ||
-        get_u32(answer.payload + 88U) != LXP_KERNEL_MAX_MODULE_KV)
-        return 1;
-    (void)memset(o, 0, sizeof(*o));
-    o->next_sequence = get_u64(answer.payload + 36U);
-    (void)memcpy(o->root, answer.payload + 44U, 32U);
-    for (axis = 0U; axis < 5U; ++axis) {
-        uint64_t *target[5] = {o->committed, o->floor, NULL, o->work,
-                               o->available};
-        const uint8_t *demand = answer.payload + 92U + axis * 16U;
-        if (target[axis] == NULL) continue;
-        target[axis][0] = get_u32(demand);
-        target[axis][1] = get_u64(demand + 4U);
-        target[axis][2] = get_u32(demand + 12U);
-    }
-    o->active = get_u32(answer.payload + 172U);
-    return 0;
-}
-
-static void request_encode(const cap_request *r,
-                           uint8_t out[LXP_CAPACITY_REQUEST_BYTES])
-{
-    size_t cursor = 0U;
-    size_t actor_length = strlen(r->actor);
-    (void)memset(out, 0, LXP_CAPACITY_REQUEST_BYTES);
-    put_u16(out, 1U); cursor += 2U;
-    out[cursor++] = r->kind;
-    (void)memcpy(out + cursor, r->activity, 32U); cursor += 32U;
-    (void)memcpy(out + cursor, r->idempotency, 32U); cursor += 32U;
-    put_u16(out + cursor, (uint16_t)actor_length); cursor += 2U;
-    (void)memcpy(out + cursor, r->actor, actor_length); cursor += 255U;
-    put_u32(out + cursor, r->blobs); cursor += 4U;
-    put_u64(out + cursor, r->bytes); cursor += 8U;
-    put_u32(out + cursor, r->kv); cursor += 4U;
-    put_u64(out + cursor, r->sequence); cursor += 8U;
-    (void)memcpy(out + cursor, r->root, 32U); cursor += 32U;
-    put_u64(out + cursor, r->lifetime); cursor += 8U;
-    put_u64(out + cursor, 0U);
-}
-
-static int reserve(const cap_request *r, reply *answer)
-{
-    uint8_t body[LXP_CAPACITY_REQUEST_BYTES];
-    uint8_t message[sizeof(request_domain) - 1U + LXP_CAPACITY_REQUEST_BYTES];
-    uint8_t digest[32];
-    request_encode(r, body);
-    (void)memcpy(message, request_domain, sizeof(request_domain) - 1U);
-    (void)memcpy(message + sizeof(request_domain) - 1U, body, sizeof(body));
-    if (lxp_hash_sha256(message, sizeof(message), digest) != LXP_OK ||
-        lni_call(RESERVE, body, sizeof(body), answer) != 0 ||
-        answer->tag != RESERVE + 1U)
-        return 1;
-    return answer->length != 1U + LXP_CAPACITY_RECORD_BYTES ||
-        answer->payload[0] != 0U ||
-        memcmp(answer->payload + 1U + REC_DIGEST, digest, 32U) != 0;
-}
-
-static int cancel(uint64_t id, reply *answer)
-{
-    uint8_t body[ID_BODY_BYTES];
-    put_u16(body, 1U);
-    put_u64(body + 2U, id);
-    return lni_call(CANCEL, body, sizeof(body), answer) != 0 ||
-        answer->tag != CANCEL + 1U ||
-        answer->payload[REC_STATE] != LXP_CAPACITY_CANCELLED;
-}
-
-static lxp_result apply_none(void *context, uint64_t global_sequence,
-                             const uint8_t *bytes, size_t length)
-{
-    (void)global_sequence;
-    (void)bytes;
-    (void)length;
-    ++*(size_t *)context;
-    return LXP_ERR_MODULE_DISABLED;
-}
-
-static int lni_serve(void)
-{
-    lxp_daemon_lni_configuration configuration;
-    (void)memset(&configuration, 0, sizeof(configuration));
-    configuration.socket_path = lni.socket_path;
-    configuration.admission_directory = lni.admission_directory;
-    configuration.allowed_peer_uid = (uint32_t)geteuid() + 1U;
-    configuration.allowed_peer_gid = (uint32_t)getegid();
-    configuration.frame_bytes = LXP_DAEMON_LNI_MAX_FRAME_BYTES;
-    configuration.deadline_milliseconds = 10000U;
-    configuration.socket_mode = 0660U;
-    if (lxp_daemon_lni_serve(&lni.server, &lni.daemon, &lni.owner,
-                             &configuration) != LXP_OK)
-        return 1;
-    lni.lni_started = true;
-    if (pthread_mutex_lock(&lni.server.mutex) != 0) return 1;
-    lni.server.allowed_peer_uid = (uint32_t)geteuid();
-    lni.server.allowed_peer_gid = (uint32_t)getegid();
-    return pthread_mutex_unlock(&lni.server.mutex) == 0 ? 0 : 1;
-}
-
-static int lni_stop(void)
-{
-    if (!lni.lni_started) return 0;
-    lni.lni_started = false;
-    return lxp_daemon_lni_stop(&lni.server) == LXP_OK ? 0 : 1;
-}
-
-static int lni_init(const char *keeper)
-{
-    lxp_daemon_configuration daemon_configuration;
-    char key_hex[65];
-    int written;
-    lni.keeper = keeper;
-    lni.scratch_bytes = (uint8_t *)malloc(OWNER_SCRATCH_BYTES);
-    if (lni.scratch_bytes == NULL ||
-        lxp_arena_init(&lni.scratch, lni.scratch_bytes, OWNER_SCRATCH_BYTES) !=
-            LXP_OK ||
-        pthread_mutex_init(&lni.owner.mutex, NULL) != 0 ||
-        pthread_mutex_init(&lni.owner.receipt_mutex, NULL) != 0 ||
-        pthread_mutex_init(&lni.owner.publication_mutex, NULL) != 0 ||
-        pthread_mutex_init(&lni.owner.receipt_authority_mutex, NULL) != 0)
-        return 1;
-    lni.owner_ready = true;
-    lni.canonical_log.descriptor = -1;
-    lni.history.log = &lni.canonical_log;
-    lni.owner.kernel = &primary->kernel;
-    lni.owner.identities = &primary->identities;
-    lni.owner.programs_runtime = &primary->runtime;
-    lni.owner.network_id = NETWORK_ID;
-    lni.owner.protocol_version = LXP_PROTOCOL_VERSION;
-    lni.owner.history = &lni.history;
-    lni.owner.receipt_authority = &lni.receipt_authority;
-    lni.owner.scratch = &lni.scratch;
-    lni.owner.feed_store.baseline_present = true;
-    lni.owner.feed_store.baseline_next_sequence = 1U;
-    lni.owner.attached = true;
-    (void)memcpy(lni.receipt_authority.authorization.public_key,
-                 sequencer_public, 32U);
-    if (lxp_handover_sequencer_id(sequencer_public,
-            lni.receipt_authority.authorization.sequencer_id) != LXP_OK)
-        return 1;
-    lni.receipt_authority.authorization.first_batch_number = 1U;
-    lni.receipt_authority.authorization.last_batch_number = 1000000U;
-    lni.receipt_authority.authorization.authorized = 1U;
-    hex_encode(sequencer_seed, 32U, key_hex);
-    if (setenv("LAYERX_NODE_SEQUENCER_PRIVATE_KEY", key_hex, 1) != 0)
-        return 1;
-    (void)memset(&daemon_configuration, 0, sizeof(daemon_configuration));
-    daemon_configuration.role = LXP_DAEMON_SEQUENCER;
-    daemon_configuration.network_id = NETWORK_ID;
-    daemon_configuration.start_sequence = 1U;
-    daemon_configuration.serial_execution = true;
-    if (lxp_daemon_start(&lni.daemon, &daemon_configuration, apply_none,
-                         &lni.applied) != LXP_OK)
-        return 1;
-    lni.daemon_started = true;
-    (void)strcpy(lni.socket_directory, "/tmp/lxp-continuity-socket-XXXXXX");
-    (void)strcpy(lni.admission_directory, "/tmp/lxp-continuity-node-XXXXXX");
-    (void)strcpy(lni.keeper_directory, "/tmp/lxp-continuity-keeper-XXXXXX");
-    if (mkdtemp(lni.socket_directory) == NULL ||
-        mkdtemp(lni.admission_directory) == NULL ||
-        mkdtemp(lni.keeper_directory) == NULL ||
-        chmod(lni.socket_directory, 0750) != 0 ||
-        chmod(lni.admission_directory, 0700) != 0)
-        return 1;
-    written = snprintf(lni.socket_path, sizeof(lni.socket_path), "%s/lni.sock",
-                       lni.socket_directory);
-    if (written < 0 || (size_t)written >= sizeof(lni.socket_path)) return 1;
-    return lni_serve() != 0 || connection_open(&lni.link) != 0;
-}
-
-static int keeper_run(const char *const *extra, size_t extra_count,
-                      char *output, int *exit_code)
-{
-    char network[16];
-    char sequencer[65];
-    char *argv[40];
-    char *environment[] = {NULL};
-    posix_spawn_file_actions_t actions;
-    size_t argc = 0U, length = 0U, i;
-    pid_t child;
-    int pipe_descriptors[2];
-    int status;
-    if (extra_count + 10U > sizeof(argv) / sizeof(argv[0])) return 1;
-    (void)snprintf(network, sizeof(network), "%u", (unsigned)NETWORK_ID);
-    hex_encode(sequencer_public, 32U, sequencer);
-    argv[argc++] = (char *)lni.keeper;
-    argv[argc++] = (char *)extra[0];
-    argv[argc++] = (char *)"--state";
-    argv[argc++] = lni.keeper_directory;
-    argv[argc++] = (char *)"--network-id";
-    argv[argc++] = network;
-    argv[argc++] = (char *)"--sequencer";
-    argv[argc++] = sequencer;
-    argv[argc++] = (char *)"--socket";
-    argv[argc++] = lni.socket_path;
-    for (i = 1U; i < extra_count; ++i) argv[argc++] = (char *)extra[i];
-    argv[argc] = NULL;
-    (void)fflush(stdout);
-    if (pipe2(pipe_descriptors, O_CLOEXEC) != 0) return 1;
-    if (posix_spawn_file_actions_init(&actions) != 0 ||
-        posix_spawn_file_actions_adddup2(&actions, pipe_descriptors[1], 1) != 0 ||
-        posix_spawn(&child, lni.keeper, &actions, NULL, argv, environment) != 0) {
-        (void)close(pipe_descriptors[0]);
-        (void)close(pipe_descriptors[1]);
-        return 1;
-    }
-    (void)posix_spawn_file_actions_destroy(&actions);
-    (void)close(pipe_descriptors[1]);
-    for (;;) {
-        ssize_t got;
-        if (length + 1U >= KEEPER_OUTPUT_BYTES) break;
-        got = read(pipe_descriptors[0], output + length,
-                   KEEPER_OUTPUT_BYTES - 1U - length);
-        if (got > 0) length += (size_t)got;
-        else if (got < 0 && errno == EINTR) continue;
-        else break;
-    }
-    output[length] = '\0';
-    (void)close(pipe_descriptors[0]);
-    while (waitpid(child, &status, 0) < 0)
-        if (errno != EINTR) return 1;
-    if (!WIFEXITED(status)) return 1;
-    *exit_code = WEXITSTATUS(status);
-    (void)fprintf(stdout, "%s", output);
-    return 0;
-}
-
-static int primary_pause(void)
-{
-    int failure = connection_close(&lni.link);
-    return lni_stop() != 0 || failure != 0;
-}
-
-static int primary_resume(void)
-{
-    return lni_serve() != 0 || connection_open(&lni.link) != 0;
-}
-
 static int primary_restart(const char *name, recovery *rec)
 {
     head_view pre, post;
     uint64_t newest;
-    CHECK(primary_pause() == 0, name);
     head_take(primary, &pre);
     CHECK(newest_archive(archive_a, &newest, NULL) == 0, name);
     CHECK(node_recover(primary, archive_a, 0U, primary_log, rec) == 0, name);
@@ -1523,7 +1000,6 @@ static int primary_restart(const char *name, recovery *rec)
     CHECK(rec->base == newest && rec->cleaned == 0U &&
           rec->replayed == pre.next_sequence - 1U - newest &&
           rec->matched == rec->replayed, name);
-    CHECK(primary_resume() == 0, name);
     return 0;
 }
 
@@ -1535,7 +1011,6 @@ static int crash_pair(const char *name, work *w)
     uint64_t newest, expected, before_bytes;
     size_t before_count;
     int exit_status = 0;
-    CHECK(primary_pause() == 0, name);
     head_take(primary, &pre);
     before_count = live_blob_keys(primary, before_keys, &before_bytes);
     CHECK(newest_archive(archive_a, &newest, NULL) == 0, name);
@@ -1555,7 +1030,6 @@ static int crash_pair(const char *name, work *w)
     CHECK(primary->state.next_sequence == pre.next_sequence + 1U &&
           rec.replayed == expected + 1U && rec.matched == rec.replayed, name);
     peak_after(primary, before_keys, before_count);
-    CHECK(primary_resume() == 0, name);
     return 0;
 }
 
@@ -2020,59 +1494,6 @@ static int case_profile_stage(void)
     return pass(name);
 }
 
-static int case_node_info_capacity(void)
-{
-    static const char name[] = "node_info_advertises_capacity";
-    const uint8_t *p = lni.node_info;
-    size_t cursor = 93U, i, count;
-    bool found = false;
-    CHECK(lni.node_info_length >= 93U && get_u32(p + 6U) == NETWORK_ID &&
-          memcmp(p + 59U, sequencer_public, 32U) == 0, name);
-    count = get_u16(p + 91U);
-    for (i = 0U; i < count; ++i) {
-        size_t length;
-        CHECK(cursor + 2U <= lni.node_info_length, name);
-        length = get_u16(p + cursor);
-        cursor += 2U;
-        CHECK(cursor + length <= lni.node_info_length, name);
-        if (memmem(p + cursor, length, "capacity", 8U) != NULL) found = true;
-        cursor += length;
-    }
-    CHECK(cursor == lni.node_info_length, name);
-    CHECK(found, name);
-    return pass(name);
-}
-
-static int case_keeper_install(void)
-{
-    static const char name[] = "keeper_installs_capacity_profile";
-    static const char *const install[] = {
-        "install", "--profile-version", "1", "--profile-digest",
-        "5151515151515151515151515151515151515151515151515151515151515151",
-        "--floor-blobs", "64", "--floor-bytes", "8388608", "--floor-kv", "16",
-        "--max-work-lifetime", "8"
-    };
-    char output[KEEPER_OUTPUT_BYTES];
-    int exit_code = -1;
-    CHECK(keeper_run(install, sizeof(install) / sizeof(install[0]), output,
-                     &exit_code) == 0 && exit_code == 0, name);
-    CHECK(strstr(output, "profile version=1 ") != NULL, name);
-    return pass(name);
-}
-
-static int case_observe_matches(const char *name)
-{
-    observation o;
-    CHECK(observe(&o) == 0, name);
-    CHECK(o.next_sequence == primary->state.next_sequence &&
-          memcmp(o.root, primary->kernel.current_state_root, 32U) == 0, name);
-    CHECK(o.committed[0] == primary->kernel.blob_count &&
-          o.committed[1] == primary->kernel.blob_total_bytes &&
-          o.committed[2] == primary->kernel.module_kv_count, name);
-    CHECK(o.floor[0] == FLOOR_BLOBS, name);
-    return pass(name);
-}
-
 static int deploy(const char *path)
 {
     static const char name[] = "market_program_deployed";
@@ -2145,7 +1566,6 @@ static int case_archive_temp_crash(void)
     uint64_t newest;
     int exit_status = 0;
     const uint64_t sequence = primary->state.next_sequence - 1U;
-    CHECK(primary_pause() == 0, name);
     head_take(primary, &pre);
     CHECK(newest_archive(archive_a, &newest, NULL) == 0 && newest < sequence,
           name);
@@ -2163,7 +1583,6 @@ static int case_archive_temp_crash(void)
           rec.replayed == pre.next_sequence - 1U - newest &&
           rec.matched == rec.replayed && head_equal(&pre, &post), name);
     CHECK(access(temp_path, F_OK) != 0 && access(final_path, F_OK) != 0, name);
-    CHECK(primary_resume() == 0, name);
     return pass(name);
 }
 
@@ -2175,7 +1594,6 @@ static int case_archive_rename_crash(void)
     char final_path[256];
     int exit_status = 0;
     const uint64_t sequence = primary->state.next_sequence - 1U;
-    CHECK(primary_pause() == 0, name);
     head_take(primary, &pre);
     CHECK(archive_path(final_path, sizeof(final_path), archive_a, sequence) == 0,
           name);
@@ -2188,58 +1606,7 @@ static int case_archive_rename_crash(void)
     head_take(primary, &post);
     CHECK(rec.cleaned == 0U && rec.base == sequence && rec.replayed == 0U &&
           rec.matched == 0U && head_equal(&pre, &post), name);
-    CHECK(primary_resume() == 0, name);
     CHECK(tally(checkpoint(false, name)) == 0, name);
-    return pass(name);
-}
-
-static int case_prepare_recheck(void)
-{
-    static const char name[] = "prepare_rechecks_open_reservations";
-    static uint8_t bytes[65536];
-    observation head, held, after;
-    cap_request request;
-    reply answer, cancelled;
-    lxp_module_ctx ctx;
-    lxp_arena arena;
-    uint8_t key[32], blob[64];
-    lxp_result status = LXP_OK;
-    uint64_t id;
-    int cancel_failed;
-    CHECK(observe(&head) == 0 && head.available[0] != 0U, name);
-    (void)memset(&request, 0, sizeof(request));
-    request.kind = LXP_CAPACITY_WORK;
-    (void)memset(request.activity, 0x41, 32U);
-    (void)memset(request.idempotency, 0x41 ^ 0xa5, 32U);
-    request.actor = dids[OWNER];
-    request.sequence = head.next_sequence;
-    (void)memcpy(request.root, head.root, 32U);
-    request.lifetime = 4U;
-    request.blobs = (uint32_t)head.available[0];
-    request.bytes = 1U;
-    CHECK(reserve(&request, &answer) == 0 &&
-          answer.payload[1U + REC_STATE] == LXP_CAPACITY_RESERVED, name);
-    id = get_u64(answer.payload + 1U + REC_ID);
-    if (observe(&held) != 0 || held.available[0] != 0U ||
-        held.active != head.active + 1U)
-        status = LXP_FATAL_INVARIANT;
-    (void)memset(blob, 0x6b, sizeof(blob));
-    if (status == LXP_OK &&
-        (lxp_hash_sha256(blob, sizeof(blob), key) != LXP_OK ||
-         seed_open(primary, &ctx, &arena, bytes, sizeof(bytes)) != 0))
-        status = LXP_FATAL_INVARIANT;
-    if (status == LXP_OK) {
-        status = lxp_ctx_blob_put(&ctx, key, blob, sizeof(blob));
-        if (status == LXP_OK) status = lxp_module_ctx_prepare_commit(&ctx);
-        lxp_module_ctx_rollback(&ctx);
-    }
-    cancel_failed = cancel(id, &cancelled);
-    CHECK(cancel_failed == 0, name);
-    CHECK(observe(&after) == 0 && after.available[0] == head.available[0] &&
-          after.active == head.active &&
-          memcmp(after.root, head.root, 32U) == 0, name);
-    (void)printf("CONTINUITY_NOTE %s prepare_status=%d\n", name, (int)status);
-    CHECK(status == LXP_ERR_ARENA_EXHAUSTED, name);
     return pass(name);
 }
 
@@ -2480,20 +1847,6 @@ static int case_funded(const char *script)
     return pass(name);
 }
 
-static int case_keeper_after_restart(void)
-{
-    static const char name[] = "keeper_profile_survives_restart";
-    static const char *const observe_args[] = {"observe"};
-    char output[KEEPER_OUTPUT_BYTES];
-    recovery rec;
-    int exit_code = -1;
-    CHECK(tally(primary_restart("final_restart", &rec)) == 0, name);
-    (void)pass("final_restart");
-    CHECK(keeper_run(observe_args, 1U, output, &exit_code) == 0 &&
-          exit_code == 0 && strstr(output, "profile_match=1") != NULL, name);
-    return pass(name);
-}
-
 static int copy_file(const char *from, const char *to)
 {
     static uint8_t chunk[1U << 20];
@@ -2537,9 +1890,7 @@ static int case_replica(void)
     head_view head_primary, head_replica;
     recovery rec;
     CHECK(archive_count != 0U, name);
-    CHECK(primary_pause() == 0, name);
     CHECK(copy_file(primary_log, replica_log) == 0, name);
-    CHECK(primary_resume() == 0, name);
     CHECK(node_recover(replica, archive_b, archives[0].sequence, replica_log,
                        &rec) == 0, name);
     CHECK(rec.replayed == primary->state.next_sequence - 1U - archives[0].sequence &&
@@ -2659,12 +2010,6 @@ static void remove_tree(const char *directory)
 
 static void cleanup(void)
 {
-    (void)connection_close(&lni.link);
-    (void)lni_stop();
-    if (lni.daemon_started) (void)lxp_daemon_shutdown(&lni.daemon);
-    remove_tree(lni.socket_directory);
-    remove_tree(lni.admission_directory);
-    remove_tree(lni.keeper_directory);
     remove_tree(archive_a);
     remove_tree(archive_b);
     if (primary != NULL) node_destroy(primary);
@@ -2673,13 +2018,6 @@ static void cleanup(void)
     if (primary_log[0] != '\0') (void)unlink(primary_log);
     if (replica_log[0] != '\0') (void)unlink(replica_log);
     if (work_directory[0] != '\0') (void)rmdir(work_directory);
-    if (lni.owner_ready) {
-        (void)pthread_mutex_destroy(&lni.owner.mutex);
-        (void)pthread_mutex_destroy(&lni.owner.receipt_mutex);
-        (void)pthread_mutex_destroy(&lni.owner.publication_mutex);
-        (void)pthread_mutex_destroy(&lni.owner.receipt_authority_mutex);
-    }
-    free(lni.scratch_bytes);
     free(primary);
     free(replica);
     free(scratch_node);
@@ -2689,7 +2027,7 @@ static void cleanup(void)
     free(envelope_buffer);
 }
 
-static int setup(const char *chain_hex, const char *keeper)
+static int setup(const char *chain_hex)
 {
     static const uint8_t market_domain[] = "PAXAI/market/v1";
     uint8_t preimage[sizeof(market_domain) + 64U];
@@ -2732,36 +2070,30 @@ static int setup(const char *chain_hex, const char *keeper)
         return 1;
     primary->log_open = true;
     (void)memcpy(controller_id, primary->principals[CONTROLLER], 32U);
-    return lni_init(keeper);
+    return 0;
 }
 
 int main(int argc, char **argv)
 {
     int status = 0;
-    if (argc != 4 && argc != 5) {
+    if (argc != 3 && argc != 4) {
         (void)fprintf(stderr,
-                      "usage: %s ai_market.wasm chain-hex64 keeper [script]\n",
+                      "usage: %s ai_market.wasm chain-hex64 [script]\n",
                       argv[0]);
         return 2;
     }
-    if (setup(argv[2], argv[3]) != 0) {
+    if (setup(argv[2]) != 0) {
         (void)printf("CONTINUITY_FAIL setup\n");
         cleanup();
         return 1;
     }
     (void)tally(case_profile_stage());
-    (void)tally(case_node_info_capacity());
-    (void)tally(case_keeper_install());
-    (void)tally(case_observe_matches("observation_matches_kernel"));
     if (tally(deploy(argv[1])) == 0) {
         (void)tally(case_archive_temp_crash());
         (void)tally(case_archive_rename_crash());
-        (void)tally(case_prepare_recheck());
         (void)tally(case_retirement_registered());
         (void)tally(case_mutations());
-        (void)tally(case_funded(argc == 5 ? argv[4] : NULL));
-        (void)tally(case_keeper_after_restart());
-        (void)tally(case_observe_matches("observation_matches_after_restart"));
+        (void)tally(case_funded(argc == 4 ? argv[3] : NULL));
         (void)tally(case_replica());
         (void)tally(case_historical());
     }

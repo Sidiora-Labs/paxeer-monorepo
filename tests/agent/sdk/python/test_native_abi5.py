@@ -42,14 +42,14 @@ VERIFIER = SIGNATURES.LayerXSignatureVerifier()
 
 FIXTURES = ROOT / "sdk/platform/conformance/fixtures"
 CALL = json.loads((FIXTURES / "native-program-call-v4.json").read_text())
-EXECUTED = json.loads((FIXTURES / "receipt-programs-executed-v4.json").read_text())
-BATCH = EXECUTED["authorized_batch"]
+EXECUTED = json.loads((ROOT / "tests/fixtures/programs/emulator-response-code/execution.json").read_text())
+BATCH = EXECUTED["authority"]
 AUTHORITY = AuthorizedReceiptBatch(
-    bytes.fromhex(BATCH["batch_id_hex"]), bytes.fromhex(BATCH["asset_hex"]),
-    bytes.fromhex(BATCH["previous_state_root_hex"]), bytes.fromhex(BATCH["resulting_state_root_hex"]),
-    bytes.fromhex(BATCH["sequencer_public_key_hex"]))
-ORIGINAL = bytes.fromhex(EXECUTED["canonical_receipt_hex"])
-SEQUENCER = Ed25519PrivateKey.from_private_bytes(b"\x45" + bytes(31))
+    bytes.fromhex(BATCH["batch_id"]), bytes.fromhex(BATCH["asset"]),
+    bytes.fromhex(BATCH["previous_state_root"]), bytes.fromhex(BATCH["resulting_state_root"]),
+    bytes.fromhex(BATCH["sequencer_public_key"]))
+ORIGINAL = bytes.fromhex(EXECUTED["receipt"])
+SEQUENCER = Ed25519PrivateKey.from_private_bytes(b"\x42" * 32)
 MODULE_HEADER = b"\0\0\0\x20" + AUTHORITY.batch_id + b"\0\x09"
 MODULE_VERSION_AT = ORIGINAL.index(MODULE_HEADER) + len(MODULE_HEADER)
 OUTCOME_AT = ORIGINAL.rindex(b"PRG4")
@@ -121,21 +121,23 @@ class NativeAbi5Test(unittest.TestCase):
         self.assert_refused(bytes(tampered), ReceiptFailureCode.SEQUENCER_SIGNATURE)
 
     def test_program_execution_evidence_requires_module_version_5_for_guest_abi_5(self) -> None:
-        trust = ProgramTrustContext(AUTHORITY.sequencer_public_key, protocol_version=3, network_id=EXECUTED["network_id"])
+        trust = ProgramTrustContext(
+            AUTHORITY.sequencer_public_key, protocol_version=3,
+            network_id=int.from_bytes(bytes.fromhex(EXECUTED["retained_signed_activity"])[6:8], "big"))
 
         def execution(module_version: int) -> dict[str, object]:
             receipt = receipt_with(module_version, 5)
             return {
-                "state": "executed", "activity_id": sha256(b"LXP/v1/activity-id\0" + bytes.fromhex(EXECUTED["signed_activity_hex"])).hexdigest(),
-                "program_id": EXECUTED["program_id_hex"], "guest_abi_version": 5, "module_version": module_version,
-                "batch_id": BATCH["batch_id_hex"], "global_sequence": "1", "result_code": 0,
-                "state_root": BATCH["resulting_state_root_hex"], "receipt": receipt.hex(),
+                "state": "executed", "activity_id": sha256(b"LXP/v1/activity-id\0" + bytes.fromhex(EXECUTED["retained_signed_activity"])).hexdigest(),
+                "program_id": EXECUTED["program_id"], "guest_abi_version": 5, "module_version": module_version,
+                "batch_id": BATCH["batch_id"], "global_sequence": EXECUTED["global_sequence"], "result_code": 0,
+                "state_root": BATCH["resulting_state_root"], "receipt": receipt.hex(),
                 "receipt_digest": sha256(b"LXP/v1/receipt\0" + receipt[:-69] + b"\0").hexdigest(),
-                "terminal_payload": EXECUTED["terminal_payload_hex"], "call_graph": EXECUTED["call_graph_hex"],
-                "authority": {"batch_id": BATCH["batch_id_hex"], "asset": BATCH["asset_hex"],
-                              "previous_state_root": BATCH["previous_state_root_hex"],
-                              "resulting_state_root": BATCH["resulting_state_root_hex"],
-                              "sequencer_public_key": BATCH["sequencer_public_key_hex"]},
+                "terminal_payload": EXECUTED["terminal_payload"], "call_graph": EXECUTED["call_graph"],
+                "authority": {"batch_id": BATCH["batch_id"], "asset": BATCH["asset"],
+                              "previous_state_root": BATCH["previous_state_root"],
+                              "resulting_state_root": BATCH["resulting_state_root"],
+                              "sequencer_public_key": BATCH["sequencer_public_key"]},
             }
 
         with self.assertRaisesRegex(ValueError, "^invalid program execution evidence$"):

@@ -7,14 +7,13 @@ use layerx_client::evidence::{
 use layerx_client::handover::SequencerHistory;
 use layerx_client::lni::schema::Version;
 use layerx_client::lni::transport::{FrameTransport, Limits};
-use layerx_paxeer_verifier::PaxeerCheckpointVerifier;
 use layerx_platform_authority::{parse_replica_evidence, BatchEvidence, EvidenceRefusal};
 use layerx_proof::inclusion::SequencerAuthorization;
 use std::env;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub(super) struct Trust {
     history: Mutex<SequencerHistory>,
@@ -96,7 +95,6 @@ impl Trust {
             initial_key,
         )
         .map_err(|_| ())?;
-        PaxeerCheckpointVerifier::new(policy).map_err(|_| ())?;
         Ok(Self {
             history: Mutex::new(history),
         })
@@ -217,3 +215,15 @@ pub(super) fn checkpoint(
 #[cfg(test)]
 #[path = "../tests/support/handover_trust.rs"]
 mod tests;
+
+pub(super) fn chain_endpoint(
+    url: &str,
+    timeout: Duration,
+) -> layerx_paxeer_verifier::EndpointConfig {
+    layerx_paxeer_verifier::EndpointConfig {
+        url: url.to_owned(),
+        request_timeout: timeout,
+        transport: layerx_paxeer_verifier::EndpointTransport::LocalEmulator,
+        expected_chain_id: 125,
+    }
+}

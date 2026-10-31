@@ -12,7 +12,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use layerx_agentd::read::LayerxdProgramBalanceReader;
 use layerx_platform_authority::AuthorityFacts;
-use layerx_programs_protocol_adapter::ProtocolAdapterError;
 use layerx_proof::availability::RootCommitments;
 use layerx_proof::checkpoint::{
     verify_certificate, Certificate, CheckpointError, GuarantorKey, SettlementDomain,
@@ -183,7 +182,7 @@ pub enum IndexError {
         id: RecordId,
     },
     ProgramRead(ExplorerProgramReadError),
-    ProgramProtocolUnavailable(ProtocolAdapterError),
+    ProgramProtocolUnavailable(layerx_agentd::read::ProgramReadError),
     ProgramHeadRegression {
         program: [u8; 32],
     },

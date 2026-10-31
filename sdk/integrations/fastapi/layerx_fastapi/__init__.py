@@ -6,9 +6,11 @@ from .config import (
     DeclaredConfig,
     IntegrationError,
     IntegrationErrorCode,
+    PxReceiptKeyEntry,
     WebhookSettings,
     assert_no_published_secrets,
-    parse_authorized_batch,
+    decode_px_receipt_keys,
+    parse_receipt_keys as _parse_receipt_keys,
     parse_webhook_keys,
     read_declared_config,
 )
@@ -21,6 +23,7 @@ from .integration import (
     LayerXSellerRuntime,
     LayerXWebhookEventHandler,
     assert_receipt_backed,
+    create_integration,
     create_layerx_mount,
     layerx_payment_gate,
     layerx_webhook_endpoint,
@@ -59,7 +62,6 @@ from .protocol import (
     verify_payment_receipt,
 )
 from .seller import (
-    AuthorizedBatchResolver,
     FulfillmentRepository,
     PaymentRequiredDecision,
     PendingDecision,
@@ -75,7 +77,6 @@ from .seller import (
     SettlementPending,
     SettlementRefused,
     SettlementSettled,
-    StaticAuthorizedBatches,
     StoredFulfillment,
 )
 from .signatures import (
@@ -99,7 +100,6 @@ from .webhooks import (
 )
 
 __all__ = [
-    "AuthorizedBatchResolver",
     "BuyerSettings",
     "DECLARED_KEYS",
     "DeclaredConfig",
@@ -129,6 +129,7 @@ __all__ = [
     "PaymentRequirements",
     "PendingDecision",
     "ProposedFulfillment",
+    "PxReceiptKeyEntry",
     "ReceiptPayloadAuthority",
     "RefusedDecision",
     "ReleasedDecision",
@@ -144,7 +145,6 @@ __all__ = [
     "SettlementResponse",
     "SettlementSettled",
     "SingleProcessWebhookDeliveryStore",
-    "StaticAuthorizedBatches",
     "StoredFulfillment",
     "VerifiedWebhookConsumer",
     "WEBHOOK_ID_HEADER",
@@ -162,9 +162,11 @@ __all__ = [
     "assert_no_published_secrets",
     "assert_receipt_backed",
     "canonical_json",
+    "create_integration",
     "create_layerx_mount",
     "decode_payment_payload_header",
     "decode_payment_required_header",
+    "decode_px_receipt_keys",
     "decode_settlement_header",
     "encode_payment_payload_header",
     "encode_payment_required_header",
@@ -174,8 +176,8 @@ __all__ = [
     "match_requirements",
     "merkle_leaf_digest",
     "mount_layerx",
-    "parse_authorized_batch",
     "parse_layerx_evidence",
+    "parse_receipt_keys",
     "parse_webhook_keys",
     "payment_error_status",
     "payment_idempotency_key",
@@ -187,3 +189,7 @@ __all__ = [
     "verify_secp256k1",
     "verify_recoverable_secp256k1",
 ]
+
+
+def parse_receipt_keys(value: str) -> tuple[PxReceiptKeyEntry, ...]:
+    return _parse_receipt_keys(value)

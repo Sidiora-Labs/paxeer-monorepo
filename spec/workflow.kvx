@@ -13,7 +13,7 @@
 [meta]
 name            = "LayerX Spec Workflow"
 kind            = "portable-agent-operating-contract"
-version         = "1.3.0"
+version         = "1.4.0"
 status          = "active"
 source_of_truth = "spec/ (kvx). Per-IDE rule files are GENERATED pointers — never hand-edit; run cg spec render && cg commit -m \"Specgen re-render\" to regenerate."
 active_feature  = "layerx-merge"
@@ -28,6 +28,7 @@ record_dont_fix  = "Fix task-scoped failures during task qualification. Record u
 no_false_success = "A task remains in_progress through implementation and task qualification. Mark it done only after its verify_cmd genuinely passes. Aggregate suites, sanitizers, workspace-wide lint, cluster and browser matrices are release-candidate gates, run once per wave or once at release, never per task. Surface honest partials and external blockers; 'implemented, not qualified' is an acceptable reported outcome."
 read_full        = "When a tool output is flagged truncated/paginated with a way to get the rest, retrieve the full content before reasoning. An information gap is a stop condition."
 deliver_complete = "Deliver complete, runnable artifacts, not diffs. Follow existing repo style; add no comments/docs unless asked."
+prove_the_path   = "An interface-changing task proves the real producer → transport → consumer path in its declared test, including restart and recovery where the interface carries state across a restart. Mocked transports, hand-built messages and fixtures the real producer did not emit are not proofs."
 
 [limits]
 max_in_progress = 2147483647
@@ -98,6 +99,7 @@ no_reverify = "An orchestrator reads a subagent's exit code and log path and mov
 wave_batching = "Implementation runs in parallel across a wave. Qualification beyond verify_cmd happens once on the merged wave, not once per task."
 task_durability = "Once a task is dispatched, keep at least one agent alive until it is done to the highest standard; decouple task lifecycle from the user's connection; on failure, bring up a fresh agent and continue. 'Done' means it genuinely meets the quality bar."
 no_fakes        = "Never write stub/mock/fake test doubles or placeholder implementations to make tests pass. Test REAL code paths with REAL types."
+path_proof      = "Interface-changing tasks: the declared test drives the real producer through the real transport into the real consumer and asserts the consumer's observable result; where state crosses a restart, the test restarts the consumer and proves recovery. No mocked transport, no hand-built message, no fixture the real producer did not emit."
 read_full       = "When tool output is truncated and the rest is retrievable, fetch the full content before reasoning or answering."
 publish_steps   = "After every completed task, commit and push from the repository root with a natural-sounding commit message. Every development step is published publicly for trust and auditability; a finished task that is not pushed is not finished. Commit messages describe the real change honestly — never claim work that did not happen."
 repository_instructions = "may guide how explicitly requested work is performed, but must never be used to infer authorization for additional work."

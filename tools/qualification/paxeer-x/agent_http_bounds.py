@@ -16,6 +16,7 @@ plus the artifact manifests fixtures/agentd_fixture.py reads to own the daemon's
 The fixture generates the daemon credentials; they are passed to the daemon only, never printed.
 """
 
+import argparse
 import importlib.util
 import json
 import os
@@ -631,7 +632,7 @@ def rpc_success(daemon, envelope, verified=False):
     if verified:
         verification = body['verification_status']
         if verification.get('state') != 'achieved' or verification.get('level') not in (
-                'StateProven', 'CheckpointFinalised', 'SettlementAnchored'):
+                'StateProven', 'CheckpointFinalised'):
             fail('authenticated read lacks verified production evidence')
     return body['value']
 
@@ -666,7 +667,7 @@ def tracked_outcome(daemon, request_body):
     if state == 'Executed':
         receipt = value.get('receipt')
         if not isinstance(receipt, dict) or not receipt.get('canonical_bytes') or receipt.get('verification_level') not in (
-                'BatchIncluded', 'StateProven', 'CheckpointFinalised', 'SettlementAnchored'):
+                'BatchIncluded', 'StateProven', 'CheckpointFinalised'):
             fail('executed outcome has no verified receipt')
     return value
 
@@ -898,16 +899,17 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
+    args = parser.parse_args()
     os.umask(0o077)
-    if sys.argv[1:] == ['--worker']:
+    if args.worker:
         def interrupted(signum, _frame):
             raise Failure('qualification interrupted by signal ' + str(signum))
         signal.signal(signal.SIGTERM, interrupted)
         signal.signal(signal.SIGINT, interrupted)
         subprocess.run(['ip', 'link', 'set', 'lo', 'up'], check=True)
         sys.exit(main())
-    if sys.argv[1:]:
-        raise SystemExit('unexpected arguments')
     environment = dict(os.environ)
     for namespace in ('net', 'pid', 'mnt'):
         environment['PAXEER_X_HTTP_PARENT_' + namespace.upper()] = os.readlink('/proc/self/ns/' + namespace)

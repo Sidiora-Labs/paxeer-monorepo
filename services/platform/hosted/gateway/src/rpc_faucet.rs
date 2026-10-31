@@ -397,8 +397,7 @@ pub(super) fn dispatch(
     id: &Value,
     params: Option<&Value>,
 ) -> Option<Value> {
-    (method == px_requestFunds || method == "lx_requestFunds")
-        .then(|| request_funds(config, request, id, params))
+    (method == px_requestFunds).then(|| request_funds(config, request, id, params))
 }
 
 pub(super) fn configured() -> Result<Option<Faucet>, String> {
