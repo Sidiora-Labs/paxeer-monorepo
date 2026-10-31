@@ -180394,7 +180394,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.1.2]
 title = "Write the .pax public resolver with the Paxeer contenthash form, the reverse registrar and the resolver layout vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["19.1.1"]
