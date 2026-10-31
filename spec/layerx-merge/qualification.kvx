@@ -13947,3 +13947,75 @@ symbol = "self_test"
 observed = "Attempt 3 (99f6dbc45) failed its planned test on the first step, the checker's --self-test, which exited 2 at the 84th case ('documentation path exact refusal agent', refusal expected): no deleted tree of tools/paxeer-x/retired_callers.json lies under agent/ since 3422bafe2 moved them to services/agent/. The self-test has been failing on main since that move; three verify commands in the spec run it."
 assumption = "16.9.4 updates the case to services/agent (decision.2011) because the checker is in its touches."
 severity = "medium"
+
+[finding.16.2.4.2]
+task = "16.2.4"
+file = "tests/ci/test_retired_make_rules.py"
+symbol = "test_parallel_differential_links_without_batch_wal"
+observed = "Attempts 3 and 4 (3b7bef8b6, 2a4f7d54c) passed the rule-text assertions and then built build/tests/programs_parallel_differential; the link failed with undefined references to lxp_daemon_batch_wal_destroy, lxp_daemon_batch_bind_prefix, lxp_daemon_batch_wal_commit_kernel and lxp_daemon_batch_wal_transition from programs/tests/differential/parallel.c, a file 16.2.4 does not touch; the rule itself already omits the WAL source (2c706707f)."
+assumption = "The link proof moves to 13.34.1, which ports parallel.c; 16.2.4's test asserts the rule text and make -n output only (decision.2012)."
+severity = "medium"
+
+[finding.16.3.5.2]
+task = "16.3.5"
+file = "tools/containers/check.sh"
+symbol = "ROOT_TOKEN_EXEMPT"
+observed = "Attempts 3 and 4 (62e527d10, 0996f49e9) failed the root-token scan at check.sh:250-255 on eighteen tracked lines that name a Dockerfile of their own directory (apps/perps, core/deps/geth, the feeder and perps-data tests), a docker/<name>/Dockerfile path (tools/containers/test_requested_image_edits.py, tools/paxeer-x/gates/24.20.sh) or a retired-paths ledger (scripts/ci/xweb-workflow-check.sh:69); the scan's regex cannot tell them from a root Dockerfile reference."
+assumption = "16.3.5 exempts the seven paths (decision.2013); the scan stays a token match."
+severity = "low"
+
+[finding.8.47.4.2]
+task = "8.47.4"
+file = "sdk/platform/conformance/kernel-fixtures-retired-1.test.py"
+symbol = "generate_program_receipt_fixture.c"
+observed = "Attempts 3 and 4 (0761a5242, 455ccc40e) deleted the group-1 fixtures and the generator; the scan then hit receipt-programs-positive-v1/v2/v3.json:4, where the generator field names the deleted source, and those files belong to 8.47.5, whose scan symmetrically hits the generator (attempts 2 and 3, 9a8ef5e8e, 622265cbd)."
+assumption = "Each scan skips the sibling group's files and 8.45.4 asserts the closure (decision.2014)."
+severity = "low"
+
+[finding.9.97.6.3]
+task = "9.97.6"
+file = "services/agent/crates/layerx-sdk/tests/sdk.rs"
+symbol = "ContractVersion"
+observed = "Attempt 4 (d2d0b6430) failed --test sdk on assertions that are stale on main: ContractVersion major 1 at :86 and :197 against an agent-api contract at major 2 (ContractMajor { supported: 2, requested: 1 }) and Operation::ALL.len() == 50 at :108 against 53 operations; the binary has been red since the major bump, and decision 2005 pulled it into this task's verify."
+assumption = "9.97.6 updates the three assertions because sdk.rs is in its touches (decision.2015)."
+severity = "medium"
+
+[finding.9.97.7.2]
+task = "9.97.7"
+file = "services/agent/sdk/python/layerx_sdk/x402.py"
+symbol = "verify_payment_commitment_evidence"
+observed = "Attempts 2-4 (83ec46b2e, daa8b4aa9) failed at import: x402.py:12-22 imports ten names of the deleted verifier stack for PaymentCheckpointEvidence and verify_payment_commitment_evidence, a kernel checkpoint-evidence path with no caller in the package or its tests beyond the __init__ exports; x402_checkpoint.py exists only to feed it."
+assumption = "9.97.7 deletes the path with the stack (decision.2016); the TypeScript SDK has no checkpoint-evidence path."
+severity = "low"
+
+[finding.9.97.8.3]
+task = "9.97.8"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "decodeProgramsReceipt"
+observed = "ai_market.ts:3222 decodes a kernel-shaped programs receipt from SequencerAuthorization keys and builds a ProtocolReceipt at :3316, so the two verifier.ts interfaces survive the kernel receipt retirement as type-only consumers; attempts 2-4 of 9.97.8 (38cb08950, 194257c10) failed the build on :30 and :32 after deleting them."
+assumption = "The interfaces stay (decision.2017); whether ai_market's receipt decoder has a live producer after the kernel retirement is for its owner to show."
+severity = "low"
+
+[finding.8.19.2.1]
+task = "8.19.2"
+file = "services/platform/hosted/node/tests/test_retired_node_drivers.py"
+symbol = "test_kernel_node_drivers_are_absent"
+observed = "Attempts 1 and 2 (98db680bf) failed on sequencer-seed-test.py:79 and signer-test.py:642, which read checkpoint-settlement.json through settlement_document(); the two files are in no task's touches and 6.59.7, which deletes the document, did not list them."
+assumption = "8.19.2 drops the document from its scan and 6.59.7 removes the readers (decision.2018)."
+severity = "medium"
+
+[finding.18.1188.1.1]
+task = "18.1188.1"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs"
+symbol = "archive_defund"
+observed = "Commit 4a5c476d3 moved the budget defund to (ModuleId::Budget, 8) in layerx-intents and verified the intents tests and reclaim_nonces only; production_components.rs:8239 still checks finalization_evidence against ordinal 7, so the real archive defund refuses its own receipt, and the registry fixtures of tests/journey_faults.rs and tests/agent_controls_rungs.rs still declare 7, which fails four of six tests of the archive binary on main (18.1195.1 attempt 5, 128b8e84a)."
+assumption = "Wave-1 task 18.1188.2 follows the ordinal into the three consumers and its verify runs the two binaries (decision.2019); 18.1195.1 requires it."
+severity = "high"
+
+[finding.14.23.1.2]
+task = "14.23.1"
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_anchor.ex"
+symbol = "ArchiveAnchor"
+observed = "Commit b07fa373b (14.23.1) derived the archive anchor and receipt schemas from Anchor.schema() and Receipt.Details.schema(), the kernel schemas 14.23.5 deletes; 14.23.5 attempt 1 (4aa518a6b) failed its compile with UndefinedFunctionError Anchor.schema/0 at archive_anchor.ex:9."
+assumption = "14.23.5 inlines the bodies before deleting (decision.2021); a schema that replaces another is written standalone."
+severity = "medium"
