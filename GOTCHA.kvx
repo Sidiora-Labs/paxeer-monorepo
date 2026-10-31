@@ -12216,3 +12216,28 @@ fix = "Derive test receipts from the committed fixture at run time: write the ke
 title = "The wallet already consumes a name indexer in the explorer name-service shape"
 symptom = "A name system planned without an indexer would have left the wallet's My Names tab and the explorer's name display empty: apps/wallet/src/lib/pns.ts and apps/explorer/configs/app/apis.ts both read the explorer name-service API, and the wallet proxy pointed at a literal origin serving nothing."
 fix = "When a feature replaces a hosted dependency, grep the consumers for the API shape they already speak and serve that shape; commit one answer vector that the producer test and the consumer test both assert against."
+
+[gotcha.2480]
+title = "A Next custom server ignores edits to the imported config object"
+symptom = "An embedded dev server set basePath to the empty string on the object imported from next.config.mjs and still served the product basePath, so every probe on the root answered 404 and the Playwright web server never became ready."
+fix = "Pass the adjusted object as next({ conf }) explicitly, and install the Playwright browser in the gate's build command when the environment has none."
+
+[gotcha.2481]
+title = "The v6120 export is past the sequencer activation height, so a plain local node rejects its own proposals"
+symptom = "A local node started from the v6120 export without sequencer mode produced its first block and then rejected every proposal with 'sequenced proposal tx 0 is not a sequence batch'; a test waiting for a transaction receipt timed out with no error from the RPC."
+fix = "Start v6120-node.sh with --sequencer for any test that sends a transaction; look for the proposal rejection in the node log whenever a receipt never arrives."
+
+[gotcha.2482]
+title = "An advance error mapped to one opaque code is unbisectable; log it with the journey id"
+symptom = "A journey read advanced an intent journey and mapped every error to upstream-degraded, so a failing test saw only the code after the node double had accepted the transaction and served no receipt."
+fix = "Log the error's Debug form with the journey id before mapping it, and make test doubles serve the receipt and block reads for every transaction they accept."
+
+[gotcha.2483]
+title = "Retiring a planner route also retires the tests that needed its multi-leg plans"
+symptom = "After the planner began refusing every custody endpoint, a nonce-reuse test that built a two-leg deposit plan failed with NoRoute; no remaining route yields more than one leg and the plan type has no test constructor."
+fix = "When a route is removed, list the tests that reach it through plan() and remove or rewrite them in the same wave; keep the single-leg assertions."
+
+[gotcha.2484]
+title = "A refusal that folds several comparisons into one string needs test-side named assertions"
+symptom = "A creation test failed with 'lifecycle transaction binding differs' twice; the production check compares eight fields and names none, so neither attempt could tell which binding of the EVM-form owner was wrong."
+fix = "Have the test support recompute and assert each binding with its own message before calling the production check, so the next failure names the field."
