@@ -108448,7 +108448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.3.1]
 title = "Write the site publisher: hash objects, upload only what the bucket lacks, write the manifest and set the contenthash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["19.2.1"]
