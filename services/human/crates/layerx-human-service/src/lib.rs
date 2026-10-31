@@ -5,7 +5,6 @@ pub mod agents;
 pub mod approvals;
 pub mod audit;
 pub mod auth;
-pub mod binding;
 pub mod custody;
 mod event_producer;
 pub mod frame;
