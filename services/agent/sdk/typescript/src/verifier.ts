@@ -1,17 +1,9 @@
 import { PlatformSdkError } from "./production.js";
-import { Rung } from "./generated/client.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
-import {
-  PROGRAM_OUTCOME_TAGS,
-  PROGRAMS_MODULE_ID,
-  ReceiptFailureCode,
-} from "./generated/receipt.js";
+import { ReceiptFailureCode } from "./generated/receipt.js";
 
-const MERKLE_LEAF_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-leaf\0");
-const MERKLE_INTERNAL_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-internal\0");
 const RECEIPT_DOMAIN = new TextEncoder().encode("LXP/v1/receipt\0");
-const BATCH_HEADER_BYTES = 354;
 const MAX_MESSAGE_BYTES = 1_048_576;
 const MAX_EFFECTS = 512;
 const MAX_EFFECT_BODY = 256;
@@ -19,9 +11,6 @@ const MAX_U128 = 0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffffn;
 export const LEGACY_PROTOCOL_VERSION = 1;
 export const DEFAULT_PROTOCOL_VERSION = 2;
 export const STATE_COMMITMENT_PROTOCOL_VERSION = 3;
-const PROGRAMS_STATE_OPERATION = 0;
-const PROGRAMS_CALL_OPERATION = 3;
-const [PROGRAM_OUTCOME_V1, PROGRAM_OUTCOME_V2, PROGRAM_OUTCOME_V3, PROGRAM_OUTCOME_V4] = PROGRAM_OUTCOME_TAGS;
 
 export type SelectableProtocolVersion = typeof DEFAULT_PROTOCOL_VERSION | typeof STATE_COMMITMENT_PROTOCOL_VERSION;
 
@@ -40,83 +29,13 @@ export function protocolVersionUsesOccupancy(version: number): boolean {
 export function selectedProtocolVersion(selection?: ProtocolSelection): SelectableProtocolVersion {
   const version = selection?.protocolVersion ?? DEFAULT_PROTOCOL_VERSION;
   if (!isSelectableProtocolVersion(version)) {
-    return receiptFailure(ReceiptFailureCode.ProtocolVersion);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   return version;
 }
 
-export function programsModuleVersionForProtocol(
-  protocolVersion: number,
-  moduleVersion: number,
-  accountState: boolean,
-): boolean {
-  if (protocolVersion === STATE_COMMITMENT_PROTOCOL_VERSION) {
-    return moduleVersion === 4 || moduleVersion === 5;
-  }
-  if (accountState) {
-    return moduleVersion === 2 || moduleVersion === 3;
-  }
-  return moduleVersion === 1 || moduleVersion === 2 || moduleVersion === 3;
-}
-
 export function supportedProgramGuestAbi(abiVersion: number): boolean {
   return abiVersion === 1 || abiVersion === 2;
-}
-
-export interface MerkleProof {
-  readonly leafIndex: number;
-  readonly leafCount: number;
-  readonly siblings: readonly Uint8Array[];
-}
-
-export interface BatchHeader {
-  readonly protocolVersion: number;
-  readonly networkId: number;
-  readonly epoch: bigint;
-  readonly batchNumber: bigint;
-  readonly firstSequence: bigint;
-  readonly lastSequence: bigint;
-  readonly previousStateRoot: Uint8Array;
-  readonly resultingStateRoot: Uint8Array;
-  readonly activityMerkleRoot: Uint8Array;
-  readonly receiptMerkleRoot: Uint8Array;
-  readonly eventMerkleRoot: Uint8Array;
-  readonly dataAvailabilityRoot: Uint8Array;
-  readonly oracleRoot: Uint8Array;
-  readonly timestampMs: bigint;
-  readonly sequencerId: Uint8Array;
-}
-
-export interface SequencerAuthorization {
-  readonly sequencerId: Uint8Array;
-  readonly publicKey: Uint8Array;
-  readonly firstBatchNumber: bigint;
-  readonly lastBatchNumber: bigint;
-}
-
-export type InclusionKind = "activity" | "receipt" | "event" | "state";
-
-export interface InclusionVerification {
-  readonly level: "batch-included" | "state-proven";
-  readonly header: BatchHeader;
-  readonly headerDigest: Uint8Array;
-  readonly root: Uint8Array;
-}
-
-export interface GuarantorKey {
-  readonly guarantorId: Uint8Array;
-  readonly publicKey: Uint8Array;
-  readonly bonded: boolean;
-}
-
-export interface LocalSignatureVerifier {
-  verifyRecoverableSecp256k1(
-    publicKey: Uint8Array,
-    signature: Uint8Array,
-    signatureV: number,
-    signer: Uint8Array,
-    digest: Uint8Array,
-  ): Promise<boolean>;
 }
 
 export interface ReceiptEffect {
@@ -129,34 +48,7 @@ export interface ReceiptEffect {
   readonly body: Uint8Array;
 }
 
-export interface ProgramReceiptOutcome {
-  readonly encodingVersion: 1 | 2 | 3 | 4;
-  readonly terminalKind: 1 | 2 | 3;
-  readonly resultCode: number;
-  readonly runtimeVersion: number;
-  readonly abiVersion: number;
-  readonly feeScheduleVersion: number;
-  readonly meteringScheduleVersion: number;
-  readonly cpuFuel: bigint;
-  readonly memoryBytes: bigint;
-  readonly storageReadBytes: bigint;
-  readonly storageWriteBytes: bigint;
-  readonly outputValues: number;
-  readonly outputBytes: bigint;
-  readonly occupancyByteBatches: bigint;
-  readonly occupancyFeeUnits: bigint;
-  readonly feeSchedulePrices: readonly bigint[];
-  readonly occupancyAssetId: Uint8Array;
-  readonly occupancyEvidenceDigest: Uint8Array;
-  readonly occupancyTransferRoot: Uint8Array;
-  readonly feeUnits: bigint;
-  readonly callGraphRoot: Uint8Array;
-  readonly terminalPayloadRoot: Uint8Array;
-  readonly transferRoot: Uint8Array;
-  readonly appliedLegsDigest: Uint8Array;
-}
-
-export interface ProtocolReceipt {
+export interface SequencerReceipt {
   readonly protocolVersion: number;
   readonly activityId: Uint8Array;
   readonly globalSequence: bigint;
@@ -185,9 +77,10 @@ export interface ProtocolReceipt {
   readonly contextHash: Uint8Array;
   readonly timestamp: bigint;
   readonly totalUnits?: readonly [bigint, bigint];
-  readonly programOutcome?: ProgramReceiptOutcome;
   readonly sequencerSignature: Uint8Array;
 }
+
+export interface ProtocolReceipt extends SequencerReceipt {}
 
 export interface AuthorizedReceiptBatch {
   readonly batchId: Uint8Array;
@@ -197,15 +90,18 @@ export interface AuthorizedReceiptBatch {
   readonly sequencerPublicKey: Uint8Array;
 }
 
-export interface ReceiptVerification {
-  readonly level: "sequencer-signed";
-  readonly receipt: ProtocolReceipt;
-  readonly canonicalBytes: Uint8Array;
-  readonly receiptDigest: Uint8Array;
+export interface SequencerAuthorization {
+  readonly sequencerId: Uint8Array;
+  readonly publicKey: Uint8Array;
+  readonly firstBatchNumber: bigint;
+  readonly lastBatchNumber: bigint;
 }
 
-export interface SubmittedReceiptVerification extends ReceiptVerification {
-  readonly rung: Rung.Submitted;
+export interface ReceiptVerification {
+  readonly level: "sequencer-signed";
+  readonly receipt: SequencerReceipt;
+  readonly canonicalBytes: Uint8Array;
+  readonly receiptDigest: Uint8Array;
 }
 
 export class ReceiptVerificationError extends PlatformSdkError {
@@ -266,61 +162,6 @@ function equal(left: Uint8Array, right: Uint8Array): boolean {
   return difference === 0;
 }
 
-function proofDepth(leafCount: number): number {
-  let count = leafCount;
-  let depth = 0;
-  while (count > 1) {
-    count = Math.ceil(count / 2);
-    depth += 1;
-  }
-  return depth;
-}
-
-async function leafHash(bytes: Uint8Array): Promise<Uint8Array> {
-  return sha256(MERKLE_LEAF_DOMAIN, bytes);
-}
-
-async function nodeHash(left: Uint8Array, right: Uint8Array): Promise<Uint8Array> {
-  return sha256(MERKLE_INTERNAL_DOMAIN, exactBytes(left, 32), exactBytes(right, 32));
-}
-
-export async function verifyMerkleInclusion(
-  canonicalLeaf: Uint8Array,
-  proof: MerkleProof,
-  expectedRoot: Uint8Array,
-): Promise<void> {
-  if (
-    !Number.isSafeInteger(proof.leafIndex)
-    || !Number.isSafeInteger(proof.leafCount)
-    || proof.leafCount <= 0
-    || proof.leafCount > 0xffff_ffff
-    || proof.leafIndex < 0
-    || proof.leafIndex > 0xffff_ffff
-    || proof.leafIndex >= proof.leafCount
-    || proof.siblings.length > 32
-    || proof.siblings.length !== proofDepth(proof.leafCount)
-  ) {
-    return verificationFailure();
-  }
-  let current = await leafHash(canonicalLeaf);
-  let index = proof.leafIndex;
-  let levelCount = proof.leafCount;
-  for (const siblingValue of proof.siblings) {
-    const sibling = exactBytes(siblingValue, 32);
-    if ((index ^ 1) >= levelCount && !equal(sibling, current)) {
-      return verificationFailure();
-    }
-    current = index % 2 === 0
-      ? await nodeHash(current, sibling)
-      : await nodeHash(sibling, current);
-    index = Math.floor(index / 2);
-    levelCount = Math.ceil(levelCount / 2);
-  }
-  if (!equal(current, exactBytes(expectedRoot, 32))) {
-    return verificationFailure();
-  }
-}
-
 class Decoder {
   #offset = 0;
 
@@ -366,10 +207,6 @@ class Decoder {
     return this.#offset;
   }
 
-  public remaining(): number {
-    return this.bytes.length - this.#offset;
-  }
-
   public fixed(length: number): Uint8Array {
     const end = this.#offset + length;
     if (!Number.isSafeInteger(end) || end > this.bytes.length) {
@@ -405,74 +242,6 @@ class Decoder {
   }
 }
 
-function field(decoder: Decoder, expected: number): void {
-  if (decoder.u8() !== expected) {
-    return verificationFailure();
-  }
-}
-
-export function decodeBatchHeader(canonicalHeader: Uint8Array): BatchHeader {
-  if (canonicalHeader.length !== BATCH_HEADER_BYTES) {
-    return verificationFailure();
-  }
-  const decoder = new Decoder(canonicalHeader);
-  const envelopeVersion = decoder.u16();
-  if (![1, 2, 3].includes(envelopeVersion) || decoder.u16() !== 0x1701 || decoder.u8() !== 15) {
-    return verificationFailure();
-  }
-  field(decoder, 1);
-  const protocolVersion = decoder.u16();
-  if (protocolVersion !== envelopeVersion) {
-    return verificationFailure();
-  }
-  field(decoder, 2);
-  const networkId = decoder.u32();
-  field(decoder, 3);
-  const epoch = decoder.u64();
-  field(decoder, 4);
-  const batchNumber = decoder.u64();
-  field(decoder, 5);
-  const firstSequence = decoder.u64();
-  field(decoder, 6);
-  const lastSequence = decoder.u64();
-  field(decoder, 7);
-  const previousStateRoot = decoder.bounded(32);
-  field(decoder, 8);
-  const resultingStateRoot = decoder.bounded(32);
-  field(decoder, 9);
-  const activityMerkleRoot = decoder.bounded(32);
-  field(decoder, 10);
-  const receiptMerkleRoot = decoder.bounded(32);
-  field(decoder, 11);
-  const eventMerkleRoot = decoder.bounded(32);
-  field(decoder, 12);
-  const dataAvailabilityRoot = decoder.bounded(32);
-  field(decoder, 13);
-  const oracleRoot = decoder.bounded(32);
-  field(decoder, 14);
-  const timestampMs = decoder.u64();
-  field(decoder, 15);
-  const sequencerId = decoder.bounded(32);
-  decoder.finish();
-  return Object.freeze({
-    protocolVersion,
-    networkId,
-    epoch,
-    batchNumber,
-    firstSequence,
-    lastSequence,
-    previousStateRoot,
-    resultingStateRoot,
-    activityMerkleRoot,
-    receiptMerkleRoot,
-    eventMerkleRoot,
-    dataAvailabilityRoot,
-    oracleRoot,
-    timestampMs,
-    sequencerId,
-  });
-}
-
 async function verifyEd25519(publicKey: Uint8Array, signature: Uint8Array, digest: Uint8Array): Promise<boolean> {
   try {
     const key = await globalThis.crypto.subtle.importKey(
@@ -494,7 +263,7 @@ async function verifyEd25519(publicKey: Uint8Array, signature: Uint8Array, diges
 }
 
 interface DecodedReceipt {
-  readonly receipt: ProtocolReceipt;
+  readonly receipt: SequencerReceipt;
   readonly unsignedBytes: Uint8Array;
 }
 
@@ -506,132 +275,22 @@ function allZero(value: Uint8Array): boolean {
   return aggregate === 0;
 }
 
-function decodeProgramReceiptOutcomeFrom(decoder: Decoder, protocolVersion: number): ProgramReceiptOutcome {
-  const tag = decoder.u32();
-  const encodingVersion = tag === PROGRAM_OUTCOME_V1 ? 1 : tag === PROGRAM_OUTCOME_V2 ? 2 : tag === PROGRAM_OUTCOME_V3 ? 3 : tag === PROGRAM_OUTCOME_V4 ? 4 : 0;
-  if (encodingVersion === 0) {
-    return receiptFailure(ReceiptFailureCode.ProgramOutcome);
-  }
-  const terminalKindValue = decoder.u8();
-  if (terminalKindValue < 1 || terminalKindValue > 3) {
-    return receiptFailure(ReceiptFailureCode.ProgramOutcome);
-  }
-  const terminalKind = terminalKindValue as 1 | 2 | 3;
-  const resultCode = decoder.i32();
-  const runtimeVersion = decoder.u16();
-  const abiVersion = decoder.u16();
-  const feeScheduleVersion = decoder.u32();
-  const meteringScheduleVersion = encodingVersion >= 3 ? decoder.u32() : 1;
-  const cpuFuel = decoder.u64();
-  const memoryBytes = decoder.u64();
-  const storageReadBytes = decoder.u64();
-  const storageWriteBytes = decoder.u64();
-  const outputValues = decoder.u32();
-  const outputBytes = decoder.u64();
-  const occupancyByteBatches = encodingVersion >= 2 ? decoder.u128() : 0n;
-  const occupancyFeeUnits = encodingVersion >= 2 ? decoder.u128() : 0n;
-  const feeSchedulePrices: bigint[] = [];
-  if (encodingVersion >= 2) {
-    for (let index = 0; index < 7; index += 1) feeSchedulePrices.push(decoder.u64());
-  } else {
-    feeSchedulePrices.push(0n, 0n, 0n, 0n, 0n, 0n, 0n);
-  }
-  const occupancyAssetId = encodingVersion >= 2 ? decoder.bounded(32) : new Uint8Array(32);
-  const occupancyEvidenceDigest = encodingVersion >= 2 ? decoder.bounded(32) : new Uint8Array(32);
-  const occupancyTransferRoot = encodingVersion >= 2 ? decoder.bounded(32) : new Uint8Array(32);
-  const feeUnits = decoder.u128();
-  const callGraphRoot = decoder.bounded(32);
-  const terminalPayloadRoot = decoder.bounded(32);
-  const transferRoot = decoder.bounded(32);
-  const appliedLegsDigest = encodingVersion === 4 ? decoder.bounded(32) : new Uint8Array(32);
-  const occupancyZero = occupancyByteBatches === 0n
-    && occupancyFeeUnits === 0n
-    && allZero(occupancyAssetId)
-    && allZero(occupancyEvidenceDigest)
-    && allZero(occupancyTransferRoot);
-  if (
-    runtimeVersion === 0
-    || abiVersion === 0
-    || feeScheduleVersion === 0
-    || meteringScheduleVersion !== 1
-    || allZero(terminalPayloadRoot)
-    || (terminalKind === 1 && resultCode !== 0)
-    || (terminalKind !== 1 && (resultCode === 0 || resultCode <= -1000))
-    || (terminalKind !== 1 && !allZero(transferRoot))
-    || !((protocolVersion === LEGACY_PROTOCOL_VERSION && (encodingVersion === 1 || encodingVersion === 3))
-      || (protocolVersionUsesOccupancy(protocolVersion) && (encodingVersion === 2 || encodingVersion === 3))
-      || (protocolVersion === 3 && encodingVersion === 4))
-    || ((encodingVersion === 4) === allZero(appliedLegsDigest))
-    || (encodingVersion === 1 && !occupancyZero)
-    || (encodingVersion >= 2 && terminalKind !== 1 && !occupancyZero)
-    || (encodingVersion === 2 && terminalKind === 1
-      && (allZero(occupancyAssetId) || allZero(occupancyEvidenceDigest)))
-    || (encodingVersion >= 3 && allZero(occupancyAssetId) !== allZero(occupancyEvidenceDigest))
-    || (protocolVersion === LEGACY_PROTOCOL_VERSION && encodingVersion >= 3 && !occupancyZero)
-    || (protocolVersionUsesOccupancy(protocolVersion) && encodingVersion >= 3 && terminalKind === 1
-      && (allZero(occupancyAssetId) || allZero(occupancyEvidenceDigest)))
-  ) {
-    return receiptFailure(ReceiptFailureCode.ProgramOutcome);
-  }
-  return Object.freeze({
-    encodingVersion,
-    terminalKind,
-    resultCode,
-    runtimeVersion,
-    abiVersion,
-    feeScheduleVersion,
-    meteringScheduleVersion,
-    cpuFuel,
-    memoryBytes,
-    storageReadBytes,
-    storageWriteBytes,
-    outputValues,
-    outputBytes,
-    occupancyByteBatches,
-    occupancyFeeUnits,
-    feeSchedulePrices: Object.freeze(feeSchedulePrices),
-    occupancyAssetId,
-    occupancyEvidenceDigest,
-    occupancyTransferRoot,
-    feeUnits,
-    callGraphRoot,
-    terminalPayloadRoot,
-    transferRoot,
-    appliedLegsDigest,
-  });
-}
-
-export function decodeProgramReceiptOutcome(canonicalOutcome: Uint8Array, protocolVersion: number): ProgramReceiptOutcome {
-  if (canonicalOutcome.length === 0 || canonicalOutcome.length > MAX_MESSAGE_BYTES) {
-    return receiptFailure(ReceiptFailureCode.ReceiptShape);
-  }
-  try {
-    const decoder = new Decoder(canonicalOutcome.slice());
-    const outcome = decodeProgramReceiptOutcomeFrom(decoder, protocolVersion);
-    decoder.finish();
-    return outcome;
-  } catch (error) {
-    if (error instanceof ReceiptVerificationError) throw error;
-    return receiptFailure(ReceiptFailureCode.ProgramOutcome);
-  }
-}
-
-function decodeProtocolReceipt(canonicalReceipt: Uint8Array): DecodedReceipt {
+function decodeSequencerReceipt(canonicalReceipt: Uint8Array): DecodedReceipt {
   if (canonicalReceipt.length === 0 || canonicalReceipt.length > MAX_MESSAGE_BYTES) {
-    return receiptFailure(ReceiptFailureCode.ReceiptShape);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   const decoder = new Decoder(canonicalReceipt);
   const envelopeVersion = decoder.u16();
   const structureTag = decoder.u16();
   if (
-    (envelopeVersion !== LEGACY_PROTOCOL_VERSION && !isSelectableProtocolVersion(envelopeVersion))
+    envelopeVersion !== DEFAULT_PROTOCOL_VERSION
     || (structureTag !== 0x5201 && structureTag !== 0x5202)
   ) {
     return receiptFailure(ReceiptFailureCode.Decode);
   }
   const protocolVersion = decoder.u16();
   if (protocolVersion !== envelopeVersion) {
-    return receiptFailure(ReceiptFailureCode.ProtocolVersion);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   const activityId = decoder.bounded(32);
   const globalSequence = decoder.u64();
@@ -700,37 +359,26 @@ function decodeProtocolReceipt(canonicalReceipt: Uint8Array): DecodedReceipt {
     totalUnits = Object.freeze([before, after]);
   }
   if (globalSequence === 0n) {
-    return receiptFailure(ReceiptFailureCode.GlobalSequence);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   if (moduleId === 0) {
-    return receiptFailure(ReceiptFailureCode.ModuleId);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   if (moduleVersion === 0) {
-    return receiptFailure(ReceiptFailureCode.ModuleVersion);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   if (timestamp === 0n) {
-    return receiptFailure(ReceiptFailureCode.Timestamp);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   if (allZero(activityId)) {
     return receiptFailure(ReceiptFailureCode.ActivityId);
   }
   if (allZero(resultingStateRoot)) {
-    return receiptFailure(ReceiptFailureCode.ResultingStateRoot);
-  }
-  const programOutcome = decoder.remaining() > 69
-    ? decodeProgramReceiptOutcomeFrom(decoder, protocolVersion)
-    : undefined;
-  if (programOutcome !== undefined && (
-    moduleId !== PROGRAMS_MODULE_ID
-    || programOutcome.resultCode !== resultCode
-    || (programOutcome.terminalKind === 1 && !equal(programOutcome.transferRoot, transferSetRoot))
-    || (programOutcome.terminalKind !== 1 && !allZero(transferSetRoot))
-  )) {
-    return receiptFailure(ReceiptFailureCode.ProgramOutcome);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   const signatureFlagOffset = decoder.position();
   if (decoder.u8() !== 1) {
-    return receiptFailure(ReceiptFailureCode.MissingSignature);
+    return receiptFailure(ReceiptFailureCode.Decode);
   }
   const sequencerSignature = decoder.bounded(64);
   decoder.finish();
@@ -764,189 +412,10 @@ function decodeProtocolReceipt(canonicalReceipt: Uint8Array): DecodedReceipt {
       contextHash,
       timestamp,
       ...(totalUnits === undefined ? {} : { totalUnits }),
-      ...(programOutcome === undefined ? {} : { programOutcome }),
       sequencerSignature,
     }),
     unsignedBytes: concatenate(canonicalReceipt.slice(0, signatureFlagOffset), new Uint8Array([0])),
   });
-}
-
-function verifyStateChain(receipt: ProtocolReceipt, authority: AuthorizedReceiptBatch): void {
-  if (!equal(receipt.batchId, authority.batchId)) return receiptFailure(ReceiptFailureCode.BatchId);
-  if (!equal(receipt.previousStateRoot, authority.previousStateRoot)) {
-    return receiptFailure(ReceiptFailureCode.PreviousStateRoot);
-  }
-  if (!equal(receipt.resultingStateRoot, authority.resultingStateRoot)) {
-    return receiptFailure(ReceiptFailureCode.ResultingStateRoot);
-  }
-}
-
-function verifyTransferOutcome(receipt: ProtocolReceipt, authority: AuthorizedReceiptBatch): void {
-  if (receipt.operation === 0) return receiptFailure(ReceiptFailureCode.Operation);
-  if (allZero(receipt.activityId)) return receiptFailure(ReceiptFailureCode.ActivityId);
-  if (allZero(receipt.asset)) return receiptFailure(ReceiptFailureCode.Asset);
-  if (!equal(receipt.batchId, authority.batchId)) return receiptFailure(ReceiptFailureCode.BatchId);
-  if (!equal(receipt.asset, authority.asset)) return receiptFailure(ReceiptFailureCode.Asset);
-  if (!equal(receipt.previousStateRoot, authority.previousStateRoot)) {
-    return receiptFailure(ReceiptFailureCode.PreviousStateRoot);
-  }
-  if (!equal(receipt.resultingStateRoot, authority.resultingStateRoot)) {
-    return receiptFailure(ReceiptFailureCode.ResultingStateRoot);
-  }
-  if (receipt.resultCode === 0) {
-    if (
-      receipt.fromBalanceBefore < receipt.amount
-      || receipt.fromBalanceBefore - receipt.amount !== receipt.fromBalanceAfter
-      || receipt.toBalanceBefore + receipt.amount > MAX_U128
-      || receipt.toBalanceBefore + receipt.amount !== receipt.toBalanceAfter
-    ) {
-      return receiptFailure(
-        receipt.fromBalanceBefore < receipt.amount
-          || receipt.fromBalanceBefore - receipt.amount !== receipt.fromBalanceAfter
-          ? ReceiptFailureCode.DebitBalance
-          : ReceiptFailureCode.CreditBalance,
-      );
-    }
-  }
-}
-
-function verifyProgramCallOutcome(receipt: ProtocolReceipt, authority: AuthorizedReceiptBatch): void {
-  if (!programsModuleVersionForProtocol(receipt.protocolVersion, receipt.moduleVersion, false)) {
-    return receiptFailure(ReceiptFailureCode.ModuleVersion);
-  }
-  const outcome = receipt.programOutcome;
-  if (outcome === undefined) return receiptFailure(ReceiptFailureCode.ReceiptShape);
-  if (!supportedProgramGuestAbi(outcome.abiVersion) || outcome.runtimeVersion !== 1) {
-    return receiptFailure(ReceiptFailureCode.ProtocolVersion);
-  }
-  if (allZero(receipt.activityId)) return receiptFailure(ReceiptFailureCode.ActivityId);
-  verifyStateChain(receipt, authority);
-}
-
-function verifyProgramStateOutcome(receipt: ProtocolReceipt, authority: AuthorizedReceiptBatch): void {
-  if (!programsModuleVersionForProtocol(receipt.protocolVersion, receipt.moduleVersion, true)) {
-    return receiptFailure(ReceiptFailureCode.ModuleVersion);
-  }
-  if (receipt.resultCode !== 0) return receiptFailure(ReceiptFailureCode.ResultCode);
-  if (allZero(receipt.activityId)) return receiptFailure(ReceiptFailureCode.ActivityId);
-  verifyStateChain(receipt, authority);
-}
-
-export async function verifyProgramLifecycleReceipt(canonicalReceipt: Uint8Array, expectedActivity: Uint8Array, sequencerPublicKey: Uint8Array): Promise<ReceiptVerification> {
-  const canonical = new Uint8Array(canonicalReceipt);
-  expectedActivity = new Uint8Array(expectedActivity);
-  sequencerPublicKey = new Uint8Array(sequencerPublicKey);
-  const { receipt, unsignedBytes } = decodeProtocolReceipt(canonical);
-  if (receipt.protocolVersion !== 3 || receipt.moduleId !== 9 || receipt.moduleVersion !== 4 || receipt.operation !== 0 || receipt.programOutcome !== undefined) return receiptFailure(ReceiptFailureCode.Operation);
-  if (!equal(receipt.activityId, exactBytes(expectedActivity, 32))) return receiptFailure(ReceiptFailureCode.ActivityId);
-  const receiptDigest = await sha256(RECEIPT_DOMAIN, unsignedBytes);
-  if (!await verifyEd25519(exactBytes(sequencerPublicKey, 32), receipt.sequencerSignature, receiptDigest)) return receiptFailure(ReceiptFailureCode.SequencerSignature);
-  return Object.freeze({ level: "sequencer-signed", receipt, canonicalBytes: canonical, receiptDigest });
-}
-
-export async function verifyReceiptOutcome(
-  canonicalReceipt: Uint8Array,
-  authorized: AuthorizedReceiptBatch,
-  selection?: ProtocolSelection,
-): Promise<SubmittedReceiptVerification> {
-  const selected = selectedProtocolVersion(selection);
-  const canonical = canonicalReceipt.slice();
-  const authority = Object.freeze({
-    batchId: exactBytes(authorized.batchId, 32).slice(),
-    asset: exactBytes(authorized.asset, 32).slice(),
-    previousStateRoot: exactBytes(authorized.previousStateRoot, 32).slice(),
-    resultingStateRoot: exactBytes(authorized.resultingStateRoot, 32).slice(),
-    sequencerPublicKey: exactBytes(authorized.sequencerPublicKey, 32).slice(),
-  });
-  let decoded: DecodedReceipt;
-  try {
-    decoded = decodeProtocolReceipt(canonical);
-  } catch (error) {
-    if (error instanceof ReceiptVerificationError) throw error;
-    return receiptFailure(ReceiptFailureCode.Decode);
-  }
-  const { receipt, unsignedBytes } = decoded;
-  if (receipt.protocolVersion !== selected) return receiptFailure(ReceiptFailureCode.ProtocolVersion);
-  if (receipt.moduleId === PROGRAMS_MODULE_ID && receipt.operation === PROGRAMS_CALL_OPERATION) {
-    verifyProgramCallOutcome(receipt, authority);
-  } else if (receipt.moduleId === PROGRAMS_MODULE_ID && receipt.operation === PROGRAMS_STATE_OPERATION) {
-    verifyProgramStateOutcome(receipt, authority);
-  } else {
-    verifyTransferOutcome(receipt, authority);
-  }
-  const receiptDigest = await sha256(RECEIPT_DOMAIN, unsignedBytes);
-  if (!await verifyEd25519(
-    authority.sequencerPublicKey,
-    receipt.sequencerSignature,
-    receiptDigest,
-  )) {
-    return receiptFailure(ReceiptFailureCode.SequencerSignature);
-  }
-  return Object.freeze({
-    level: "sequencer-signed",
-    rung: Rung.Submitted,
-    receipt,
-    canonicalBytes: canonical,
-    receiptDigest,
-  });
-}
-
-export async function verifyNativeProgramReceiptOutcomeV5(
-  canonicalReceipt: Uint8Array,
-  authorized: AuthorizedReceiptBatch,
-): Promise<ReceiptVerification> {
-  const selected = STATE_COMMITMENT_PROTOCOL_VERSION;
-  const canonical = canonicalReceipt.slice();
-  const authority = Object.freeze({
-    batchId: exactBytes(authorized.batchId, 32).slice(),
-    asset: exactBytes(authorized.asset, 32).slice(),
-    previousStateRoot: exactBytes(authorized.previousStateRoot, 32).slice(),
-    resultingStateRoot: exactBytes(authorized.resultingStateRoot, 32).slice(),
-    sequencerPublicKey: exactBytes(authorized.sequencerPublicKey, 32).slice(),
-  });
-  let decoded: DecodedReceipt;
-  try {
-    decoded = decodeProtocolReceipt(canonical);
-  } catch (error) {
-    if (error instanceof ReceiptVerificationError) throw error;
-    return receiptFailure(ReceiptFailureCode.Decode);
-  }
-  const { receipt, unsignedBytes } = decoded;
-  if (receipt.protocolVersion !== selected) return receiptFailure(ReceiptFailureCode.ProtocolVersion);
-  if (receipt.moduleId !== PROGRAMS_MODULE_ID || receipt.operation !== PROGRAMS_CALL_OPERATION) return receiptFailure(ReceiptFailureCode.Operation);
-  if (!programsModuleVersionForProtocol(receipt.protocolVersion, receipt.moduleVersion, false)) return receiptFailure(ReceiptFailureCode.ModuleVersion);
-  const outcome = receipt.programOutcome;
-  if (outcome === undefined) return receiptFailure(ReceiptFailureCode.ReceiptShape);
-  if ((outcome.abiVersion !== 3 && outcome.abiVersion !== 4 && outcome.abiVersion !== 5) || outcome.runtimeVersion !== 1 || outcome.encodingVersion !== 4) return receiptFailure(ReceiptFailureCode.ProtocolVersion);
-  if (outcome.abiVersion > receipt.moduleVersion) return receiptFailure(ReceiptFailureCode.ModuleVersion);
-  if (allZero(receipt.activityId)) return receiptFailure(ReceiptFailureCode.ActivityId);
-  verifyStateChain(receipt, authority);
-  const receiptDigest = await sha256(RECEIPT_DOMAIN, unsignedBytes);
-  if (!await verifyEd25519(
-    authority.sequencerPublicKey,
-    receipt.sequencerSignature,
-    receiptDigest,
-  )) {
-    return receiptFailure(ReceiptFailureCode.SequencerSignature);
-  }
-  return Object.freeze({
-    level: "sequencer-signed",
-    receipt,
-    canonicalBytes: canonical,
-    receiptDigest,
-  });
-}
-
-export async function verifyReceipt(
-  canonicalReceipt: Uint8Array,
-  authorized: AuthorizedReceiptBatch,
-  selection?: ProtocolSelection,
-): Promise<SubmittedReceiptVerification> {
-  const verified = await verifyReceiptOutcome(canonicalReceipt, authorized, selection);
-  if (verified.receipt.resultCode !== 0) {
-    return receiptFailure(ReceiptFailureCode.ResultCode);
-  }
-  return verified;
 }
 
 export type SequencerReceiptRefusal =
@@ -1032,13 +501,13 @@ export async function verifySequencerReceipt(
   const transactionHash = keccak_256(new Uint8Array(rawTransaction));
   let decoded: DecodedReceipt;
   try {
-    decoded = decodeProtocolReceipt(canonicalBytes);
+    decoded = decodeSequencerReceipt(canonicalBytes);
   } catch {
     return sequencerReceiptFailure("bad_signature");
   }
   const { receipt, unsignedBytes } = decoded;
   if (receipt.protocolVersion !== 2 || receipt.moduleVersion !== 1
-    || receipt.parameterVersion !== 0 || receipt.programOutcome !== undefined
+    || receipt.parameterVersion !== 0
     || !allZero(receipt.batchId.subarray(0, 24))) {
     return sequencerReceiptFailure("bad_signature");
   }

@@ -11,7 +11,6 @@ use std::thread;
 use std::time::Duration;
 
 use layerx_human_service::custody::RemoteKmsProvider;
-use layerx_human_service::journeys::DepositRuntime;
 use layerx_human_service::server::movement_provider::{
     MovementProviderCodec, MovementProviderConfig, MovementProviderRequest as Request,
     MovementProviderResponse as Response, NativeMovementCodec, PlanningContext, PlanningRequest,
@@ -20,9 +19,8 @@ use layerx_human_service::server::movement_provider::{
 use layerx_human_service::store::{AgentTenantId, PrincipalId};
 use layerx_human_service::trace::TraceId;
 use layerx_paxeer_client::{
-    raw_call, ChainSignal, DepositProofConfig, EndpointConfig, EndpointTransport, FinalityTracker,
-    ProofFault, TrackerConfig, TransactionHash, WithdrawalBoundary, WithdrawalConfig,
-    WithdrawalMaterial,
+    raw_call, DepositProofConfig, EndpointConfig, EndpointTransport, FinalityTracker,
+    TrackerConfig, TransactionHash,
 };
 use layerx_types::intent::EvmAddress;
 use sha2::{Digest, Sha256};
@@ -140,16 +138,6 @@ fn client(config: &Config) -> Result<UnixMovementProvider> {
             deadline: Duration::from_secs(2),
         },
         Arc::new(NativeMovementCodec::new()),
-        // The boundary's protocol version is the withdrawal receipt's, not the
-        // provider socket's: the custody precompile only honours
-        // state-commitment receipts, so the boundary adopts that version alone.
-        checked(WithdrawalBoundary::new(WithdrawalConfig {
-            endpoints: config.tracker.endpoints.clone(),
-            minimum_endpoint_agreement: config.tracker.minimum_endpoint_agreement,
-            required_confirmations: 2,
-            poll_cadence: Duration::from_secs(1),
-            delayed_after_polls: 2,
-        }))?,
     ))
 }
 fn plan(operation: &str) -> Result<PlanningRequest> {
@@ -158,11 +146,6 @@ fn plan(operation: &str) -> Result<PlanningRequest> {
         "move.quote" => {
             serde_json::json!({"source":"account", "destination":"managed-agent", "money":money})
         }
-        "deposit.start" => serde_json::json!({"money":money}),
-        "withdraw.start" => {
-            serde_json::json!({"money":money, "destination":"0x1111111111111111111111111111111111111111"})
-        }
-        "exit.start" => serde_json::json!({"confirmation":"GET MY MONEY OUT"}),
         _ => return Err("unsupported test operation".into()),
     };
     checked(PlanningRequest::from_wire_parts(PlanningRequest {
@@ -222,44 +205,27 @@ fn real_client_refuses_unavailable_plans_and_reads_actual_endpoint_failure() -> 
     let listener = Listener::bind(listener_config(&dir))?;
     let mut client = client(&config)?;
     let server = thread::spawn(move || {
-        for _ in 0..7 {
+        for _ in 0..2 {
             listener.serve_next(&mut service)?;
         }
         Ok::<_, Error>(())
     });
     assert!(!client.ready());
     assert!(client.move_plan(plan("move.quote")?).is_err());
-    assert!(client.deposit_plan(plan("deposit.start")?).is_err());
-    assert!(client.withdrawal_plan(plan("withdraw.start")?).is_err());
-    assert!(client.exit_plan(plan("exit.start")?).is_err());
-    let transaction = TransactionHash::new([4; 32]);
-    let report = checked(client.poll_finality(transaction))?;
-    assert!(matches!(report.signal(), ChainSignal::Unreachable { .. }));
-    assert_eq!(report.polls(), 1);
-    assert_eq!(
-        client.obtain_proof(transaction),
-        Err(layerx_paxeer_client::DepositFailure::ProofUnavailable(
-            ProofFault::ProducerUnavailable
-        ))
-    );
     server.join().map_err(|_| "server panicked")??;
     let journal = Journal::open(&config.state_root, 2)?;
-    let bytes = checked(
-        NativeMovementCodec::new().encode_request(&Request::PollDepositFinality(transaction)),
-    )?;
+    let bytes = checked(NativeMovementCodec::new().encode_request(&Request::Readiness))?;
     let key = hex_string(&Sha256::digest(bytes));
     let response = journal
         .record(&key)
-        .ok_or("missing poll record")?
+        .ok_or("missing readiness record")?
         .response
         .as_ref()
         .ok_or("missing response")?;
-    let Response::DepositFinality(saved) =
-        checked(NativeMovementCodec::new().decode_response(response))?
-    else {
-        return Err("wrong durable reply".into());
-    };
-    assert_eq!(saved, report);
+    assert_eq!(
+        checked(NativeMovementCodec::new().decode_response(response))?,
+        Response::Unavailable
+    );
     Ok(())
 }
 
@@ -339,12 +305,8 @@ fn journal_replays_pending_actions_and_refuses_conflicts_corruption_and_second_w
     let root = dir.0.join("state");
     let key = "a".repeat(64);
     let codec = NativeMovementCodec::new();
-    let request = checked(
-        codec.encode_request(&Request::PollDepositFinality(TransactionHash::new([3; 32]))),
-    )?;
-    let other = checked(
-        codec.encode_request(&Request::PollDepositFinality(TransactionHash::new([4; 32]))),
-    )?;
+    let request = checked(codec.encode_request(&Request::Readiness))?;
+    let other = checked(codec.encode_request(&Request::PlanMove(plan("move.quote")?)))?;
     let mut journal = Journal::open(&root, 2)?;
     journal.begin(&key, &request)?;
     assert!(matches!(Journal::open(&root, 2), Err(Error::Conflict)));
@@ -394,166 +356,6 @@ fn private_files_refuse_symlinks_hardlinks_and_public_permissions() -> Result {
 }
 
 #[test]
-fn signed_withdrawal_material_replays_without_converting_it_to_authority() -> Result {
-    for protocol in [2, 3] {
-        let dir = Directory::new()?;
-        let codec = NativeMovementCodec::new();
-        let material = withdrawal_material()?;
-        let response =
-            checked(codec.encode_response(&Response::WithdrawalMaterial(Some(material.clone()))))?;
-        let mut journal = Journal::open(&dir.0.join("state"), protocol)?;
-        let key = "b".repeat(64);
-        journal.begin(
-            &key,
-            &checked(codec.encode_request(&Request::WithdrawalMaterial(
-                layerx_paxeer_client::DebitExpectation {
-                    activity_id: [5; 32],
-                    network_id: 77,
-                    withdrawal_id: [5; 32],
-                    account: [7; 32],
-                    withdrawals_account: [8; 32],
-                    asset_id: [9; 32],
-                    amount: 10,
-                    recipient: EvmAddress::new([10; 20]),
-                },
-            )))?,
-        )?;
-        journal.complete(&key, &response)?;
-        drop(journal);
-        let journal = Journal::open(&dir.0.join("state"), protocol)?;
-        assert_eq!(
-            journal.record(&key).ok_or("record")?.response.as_ref(),
-            Some(&response)
-        );
-        let mut invalid = material;
-        invalid.header_signature[0] ^= 1;
-        let invalid_response = Response::WithdrawalMaterial(Some(invalid));
-        let invalid_bytes = checked(codec.encode_response(&invalid_response))?;
-        let decoded = checked(codec.decode_response(&invalid_bytes))?;
-        assert_eq!(checked(codec.encode_response(&decoded))?, invalid_bytes);
-    }
-    Ok(())
-}
-
-/// The real bound native withdrawal a `LayerX` node serves: its canonical
-/// receipt, the wire Merkle path under the header's receipt root, the
-/// canonical batch header and the sequencer signature over that header. Every
-/// byte comes from the recorded fixture; none of it is synthesised here.
-pub(crate) fn withdrawal_material() -> Result<WithdrawalMaterial> {
-    const RECEIPT: &[u8] =
-        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
-    const PROOF: &[u8] =
-        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof");
-    const HEADER: &[u8] =
-        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
-    const SIGNATURE: &[u8] =
-        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header.signature");
-    checked(
-        WithdrawalMaterial {
-            receipt: RECEIPT.to_vec(),
-            proof: PROOF.to_vec(),
-            header: HEADER.to_vec(),
-            header_signature: <[u8; 64]>::try_from(SIGNATURE)?,
-        }
-        .validated(),
-    )
-}
-
-/// The registry-publication check the Solidity checkpoint registry used to
-/// answer is now the anchor precompile's finalized roots: stored withdrawal
-/// material is never served while no origin anchors the batch its signed
-/// header names, and material for a debit this provider never bound is refused
-/// outright.
-#[test]
-fn stored_withdrawal_material_is_served_only_once_the_anchor_finalises_its_batch() -> Result {
-    use layerx_human_service::server::movement_provider::MovementProviderService;
-    let dir = Directory::new()?;
-    let config = config(&dir)?;
-    let codec = NativeMovementCodec::new();
-    let planning = plan("withdraw.start")?;
-    let identity = layerx_human_service::journeys::MovementExecutionIdentity {
-        principal: planning.principal.clone(),
-        tenant: planning.tenant.clone(),
-        account: checked(layerx_paxeer_client::account_address_for_protocol(
-            &planning.context.account,
-            2,
-        ))?,
-        wallet: planning.context.wallet,
-        plan_id: planning.idempotency_key,
-    };
-    let debit = layerx_paxeer_client::DebitExpectation {
-        activity_id: [42; 32],
-        withdrawal_id: [42; 32],
-        network_id: planning.context.network.value(),
-        account: identity.account,
-        withdrawals_account: checked(layerx_paxeer_client::account_address_for_protocol(
-            &planning.context.withdrawals_account,
-            2,
-        ))?,
-        asset_id: planning.context.asset.bytes(),
-        amount: planning.context.amount.value(),
-        recipient: identity.wallet,
-    };
-    let mut journal = Journal::open(&config.state_root, 2)?;
-    let key = hex_string(&[43; 32]);
-    journal.begin(
-        &key,
-        &checked(codec.encode_request(&Request::BindWithdrawalDebit {
-            identity,
-            debit,
-            receipt_reference: [44; 32],
-        }))?,
-    )?;
-    journal.complete(&key, &checked(codec.encode_response(&Response::Ready))?)?;
-    drop(journal);
-    let path = config.evidence_root.join(format!(
-        "withdrawal-{}.bin",
-        hex_string(&debit.withdrawal_id)
-    ));
-    let published = checked(
-        codec.encode_response(&Response::WithdrawalMaterial(Some(withdrawal_material()?))),
-    )?;
-    assert!(crate::journal::publish_private(&path, &published)?);
-    let mut service = EvidenceService::new(&config, Journal::open(&config.state_root, 2)?)?;
-    assert_eq!(
-        service.dispatch(Request::WithdrawalMaterial(debit)),
-        Response::Unavailable
-    );
-    let mut unbound = debit;
-    unbound.activity_id = [45; 32];
-    unbound.withdrawal_id = unbound.activity_id;
-    assert_eq!(
-        service.dispatch(Request::WithdrawalMaterial(unbound)),
-        Response::ContractViolation
-    );
-    Ok(())
-}
-
-#[test]
-fn malformed_proof_candidates_are_refused_over_the_real_socket() -> Result {
-    let dir = Directory::new()?;
-    let config = config(&dir)?;
-    let transaction = TransactionHash::new([5; 32]);
-    let path = config
-        .evidence_root
-        .join(format!("deposit-{}.bin", hex_string(&transaction.bytes())));
-    fs::write(&path, b"unverifiable")?;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
-    let mut service = EvidenceService::new(&config, Journal::open(&config.state_root, 2)?)?;
-    let listener = Listener::bind(listener_config(&dir))?;
-    let mut client = client(&config)?;
-    let server = thread::spawn(move || listener.serve_next(&mut service));
-    assert_eq!(
-        client.obtain_proof(transaction),
-        Err(layerx_paxeer_client::DepositFailure::ProofUnavailable(
-            ProofFault::EvidenceSourceMismatch
-        ))
-    );
-    server.join().map_err(|_| "server panicked")??;
-    Ok(())
-}
-
-#[test]
 fn published_evidence_is_private_complete_and_never_overwrites_an_existing_path() -> Result {
     let dir = Directory::new()?;
     let codec = NativeMovementCodec::new();
@@ -582,88 +384,6 @@ fn published_evidence_is_private_complete_and_never_overwrites_an_existing_path(
             .to_string_lossy()
             .starts_with("proof-pending-")
     })));
-    Ok(())
-}
-
-#[test]
-fn deposit_export_arguments_require_exact_nonzero_public_identity() -> Result {
-    use crate::evidence_export::Request;
-    assert!(Request::arguments(std::iter::empty()).is_ok_and(|value| value.is_none()));
-    let valid = vec![
-        "--publish-deposit-proof".to_owned(),
-        format!("0x{}", "11".repeat(32)),
-        format!("0x{}", "22".repeat(32)),
-        "agent:did:layerx:deposit-recipient:main".to_owned(),
-    ];
-    assert!(Request::arguments(valid.clone().into_iter())?.is_some());
-    for index in 0..valid.len() {
-        let mut invalid = valid.clone();
-        invalid[index] = "invalid".to_owned();
-        assert!(Request::arguments(invalid.into_iter()).is_err());
-    }
-    for index in [1, 2] {
-        let mut invalid = valid.clone();
-        invalid[index] = format!("0x{}", "00".repeat(32));
-        assert!(Request::arguments(invalid.into_iter()).is_err());
-    }
-    for length in 1..valid.len() {
-        assert!(Request::arguments(valid[..length].iter().cloned()).is_err());
-    }
-    let mut extra = valid;
-    extra.push("extra".to_owned());
-    assert!(Request::arguments(extra.into_iter()).is_err());
-    Ok(())
-}
-
-#[test]
-#[ignore = "requires LAYERX_HUMAN_MOVEMENT_TEST_PAXEER_RPC and a real signed deposit proof producer"]
-fn live_paxeer_deposit_proof_is_reverified_after_restart() -> Result {
-    let endpoint = std::env::var("LAYERX_HUMAN_MOVEMENT_TEST_PAXEER_RPC")?;
-    let transaction = checked(TransactionHash::from_hex(&std::env::var(
-        "LAYERX_HUMAN_MOVEMENT_TEST_TRANSACTION",
-    )?))?;
-    let dir = Directory::new()?;
-    let mut config = Config::from_environment()?;
-    if config.proof.paxeer_chain_id == 125
-        || !config
-            .proof
-            .endpoints
-            .iter()
-            .any(|value| value.url == endpoint)
-    {
-        return Err(
-            "test requires an explicitly designated disposable chain other than 125".into(),
-        );
-    }
-    config.state_root = dir.0.join("state");
-    config.listener.socket = dir.0.join("movement.sock");
-    config.listener.allowed_uid = rustix::process::geteuid().as_raw();
-    config.listener.allowed_gid = rustix::process::getegid().as_raw();
-    let mut prior = None;
-    for _ in 0..2 {
-        let mut service = EvidenceService::new(
-            &config,
-            Journal::open(&config.state_root, config.listener.protocol)?,
-        )?;
-        let listener = Listener::bind(ListenerConfig {
-            socket: config.listener.socket.clone(),
-            allowed_uid: config.listener.allowed_uid,
-            allowed_gid: config.listener.allowed_gid,
-            maximum_frame_bytes: MAX_FRAME,
-            deadline: config.listener.deadline,
-            protocol: config.listener.protocol,
-        })?;
-        let mut client = client(&config)?;
-        let server = thread::spawn(move || listener.serve_next(&mut service));
-        let result = client.obtain_proof(transaction);
-        server.join().map_err(|_| "server panicked")??;
-        let proof = checked(result)?;
-        assert_eq!(proof.transaction(), transaction);
-        if let Some(prior) = prior {
-            assert_eq!(proof.nullifier(), prior);
-        }
-        prior = Some(proof.nullifier());
-    }
     Ok(())
 }
 
@@ -722,128 +442,6 @@ fn drip_fed_payload_cannot_extend_absolute_connection_deadline() -> Result {
         closed,
         "payload trickle extended connection beyond its absolute deadline"
     );
-    Ok(())
-}
-
-#[test]
-fn restarting_server_reobserves_instead_of_serving_archived_finality() -> Result {
-    let dir = Directory::new()?;
-    let config = config(&dir)?;
-    let transaction = TransactionHash::new([6; 32]);
-    for requests in [2, 1] {
-        let mut service = EvidenceService::new(&config, Journal::open(&config.state_root, 2)?)?;
-        let listener = Listener::bind(listener_config(&dir))?;
-        let mut client = client(&config)?;
-        let server = thread::spawn(move || {
-            for _ in 0..requests {
-                listener.serve_next(&mut service)?;
-            }
-            Ok::<_, Error>(())
-        });
-        for expected_polls in 1..=requests {
-            let report = checked(client.poll_finality(transaction))?;
-            assert_eq!(report.polls(), expected_polls);
-            assert!(matches!(report.signal(), ChainSignal::Unreachable { .. }));
-        }
-        server.join().map_err(|_| "server panicked")??;
-    }
-    Ok(())
-}
-
-#[test]
-fn withdrawal_mapping_preserves_anchor_and_refuses_old_plan_shape() -> Result {
-    let request = plan("withdraw.start")?;
-    let plan = checked(crate::planning::withdrawal_plan(
-        &request,
-        layerx_human_service::journeys::SettlementConfig {
-            checkpoint_interval_seconds: 10,
-            paxeer_block_seconds: 2,
-            required_confirmations: 2,
-        },
-        60,
-    ))?;
-    assert_eq!(plan.request_anchor.bytes(), request.context.request_anchor);
-    assert_eq!(plan.payout_address, request.context.wallet);
-    assert_eq!(plan.agent.fee_limit, request.context.fee_limit);
-    let codec = NativeMovementCodec::new();
-    let encoded = checked(codec.encode_response(&Response::WithdrawalPlan(plan.clone())))?;
-    assert_eq!(
-        checked(codec.decode_response(&encoded))?,
-        Response::WithdrawalPlan(plan)
-    );
-    let mut old = encoded;
-    let tag = old
-        .windows(2)
-        .position(|bytes| bytes == [1, 6])
-        .ok_or("plan tag absent")?;
-    old[tag + 1] = 5;
-    assert!(codec.decode_response(&old).is_err());
-    Ok(())
-}
-
-#[test]
-fn receipt_identity_mapping_survives_restart_and_refuses_reassignment() -> Result {
-    let dir = Directory::new()?;
-    let codec = NativeMovementCodec::new();
-    let planning = plan("withdraw.start")?;
-    let identity = layerx_human_service::journeys::MovementExecutionIdentity {
-        principal: planning.principal.clone(),
-        tenant: planning.tenant.clone(),
-        account: checked(layerx_paxeer_client::account_address_for_protocol(
-            &planning.context.account,
-            2,
-        ))?,
-        wallet: planning.context.wallet,
-        plan_id: planning.idempotency_key,
-    };
-    let debit = layerx_paxeer_client::DebitExpectation {
-        activity_id: [31; 32],
-        withdrawal_id: [31; 32],
-        network_id: planning.context.network.value(),
-        account: identity.account,
-        withdrawals_account: checked(layerx_paxeer_client::account_address_for_protocol(
-            &planning.context.withdrawals_account,
-            2,
-        ))?,
-        asset_id: planning.context.asset.bytes(),
-        amount: planning.context.amount.value(),
-        recipient: identity.wallet,
-    };
-    let request = Request::BindWithdrawalDebit {
-        identity: identity.clone(),
-        debit,
-        receipt_reference: [32; 32],
-    };
-    let bytes = checked(codec.encode_request(&request))?;
-    assert_eq!(checked(codec.decode_request(&bytes))?, request);
-    let key = hex_string(&[30; 32]);
-    let root = dir.0.join("journal");
-    let mut journal = Journal::open(&root, 2)?;
-    journal.begin(&key, &bytes)?;
-    assert!(!journal.has_withdrawal_debit(&debit));
-    journal.complete(&key, &checked(codec.encode_response(&Response::Ready))?)?;
-    drop(journal);
-    let mut journal = Journal::open(&root, 2)?;
-    assert!(journal.has_withdrawal_debit(&debit));
-    journal.begin(&key, &bytes)?;
-    let mut other = debit;
-    other.activity_id = [33; 32];
-    other.withdrawal_id = other.activity_id;
-    let changed = checked(codec.encode_request(&Request::BindWithdrawalDebit {
-        identity: identity.clone(),
-        debit: other,
-        receipt_reference: [34; 32],
-    }))?;
-    assert!(journal.begin(&key, &changed).is_err());
-    assert!(!journal.has_withdrawal_debit(&other));
-    other.withdrawal_id = [35; 32];
-    assert!(codec
-        .encode_request(&Request::BindWithdrawalDebit {
-            identity,
-            debit: other,
-            receipt_reference: [34; 32]
-        })
-        .is_err());
     Ok(())
 }
 

@@ -789,7 +789,7 @@ fn fiat_adapter_suite_settles_on_the_recorded_receipt() {
             SEQUENCER_RECEIPTS_SOURCE,
         ),
         destination: hex_bytes::<32>(
-            "84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+            "112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4",
             SEQUENCER_RECEIPTS_SOURCE,
         ),
         observed_at: 10,
