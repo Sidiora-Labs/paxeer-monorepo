@@ -96361,7 +96361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.12.4]
 title = "Remove the host payer grant read that the retired kernel grant store backed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.12.1"]
