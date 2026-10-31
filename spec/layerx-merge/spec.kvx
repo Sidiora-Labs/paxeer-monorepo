@@ -147314,7 +147314,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.8.3]
 title = "Delete the orphaned exit journey source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.20.3", "10.1.1", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1"]
@@ -192046,7 +192046,7 @@ do_7 = "In the native prepare test at services/agent/crates/layerx-agentd/src/ag
 
 [task.18.1200.1]
 title = "Issue #1200: Port the stale outbox test callers to the three-argument enqueue and the nine-state submission set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1199.1", "18.1206.1", "18.1298.1", "18.1304.1", "5.7.3", "5.7.4", "5.7.6", "1.2.6"]
@@ -194295,7 +194295,7 @@ qualification = "UNRUN"
 
 [task.18.1211.1]
 title = "Issue #1211: Capture the x402 buyer settlement on the unmodified recorded receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1211.5"]
