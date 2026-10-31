@@ -182,7 +182,7 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
 	}
 	if p.anchor == nil {
-		return nil, errors.New("layerxanchor: anchor module is not wired")
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
 	}
 	if !isView(method.Name) && readOnly {
 		return nil, errors.New("cannot change layerxAnchor state from staticcall")
