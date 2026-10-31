@@ -5307,6 +5307,108 @@ value = "The archive_fixture module of services/human/crates/layerx-human-servic
 basis = "Attempt 2 of 18.1188.2 (7014255e5) passed eight tests and failed the three archive_fixture tests at :1839 ('canonical bytes have no complete disclosure') and :2152 ('agent boundary failure: Refused')."
 affects = ["18.1188.2"]
 
+[decision.2033]
+title = "1.6.3 moves to wave 45 behind the DA bundle, DA kernel and replica replay retirements"
+value = "include/layerx/lxp_state_diff.h is included by src/network/lxp_da_bundle.c:6, src/network/lxp_da_kernel.c:4 and src/replica/lxp_replay.c:8, and lxp_da_kernel.c:30 and :102 and lxp_replay.c:313 call lxp_state_diff_encode; deleting the header and src/state/lxp_state_diff.c at wave 29 stops make build/liblayerx.a at lxp_da_bundle.c:6. The task runs at wave 45 and requires 1.34.1, 1.34.2 and 1.33.3 (wave 44), which delete those three files; its title already says the codec leaves once the DA and replica users leave."
+basis = "Attempt 4 (ed6458839) implemented do_1 and do_4 and failed the build at the first includer; do_3 asked only to record the includes. The only dependant, 1.0.9, is at wave 48."
+affects = ["1.6.3", "1.0.9"]
+
+[decision.2034]
+title = "qualify_workload of the parallel differential prints the failing stage before returning"
+value = "programs/tests/differential/parallel.c qualify_workload (:921-:959) returns 1 from the batch root computations (:933), the identity checks (:936-:939, :944), exact_runs_equal (:950-:951) and derive_call_limit (:954-:956) without a message; the only text is 'low-conflict differential failed' at :959. Each early return prints its stage name and the compared values to stderr first."
+basis = "Attempt 4 (5d02b4cae) ported the file to lxp_batch_roots_compute and lxp_batch_identity_committed and the verify printed only the final line, so neither the attempt nor the reader can tell which check diverged. 42 pending tasks transitively require 13.34.1."
+affects = ["13.34.1"]
+
+[decision.2035]
+title = "The retirement tasks 16.33.2, 16.33.5 and 16.33.6 build only the test targets the Makefile still rules"
+value = "16.33.2 builds build/tests/test_bridge_withdraw and build/tests/test_web_program_path (Makefile:956, :2816); its former target lxp_test_program_artifacts lost its rule with 2c706707f (task 16.0.4). 16.33.5 builds build/tests/programs_call_activity (Makefile:2775), the only touched test with a rule; lxp_test_maintenance_publication has none, and tests/programs/test_balance_read.c and test_interface_protocol.c, which it deletes, are ruled by nothing. 16.33.6 builds build/liblayerx.a; tests/test_tools.c lost its rule with 7bef570ab (task 16.2.4), is deleted by this task (decision.2036) and nothing else it touches compiles."
+basis = "Attempts 16.33.2 a4 (378fc7daa), 16.33.5 a3 (e85ed3db2) and 16.33.6 a3 (e753de510) each stopped with 'No rule to make target' in build_cmd on a target an earlier retirement removed."
+affects = ["16.33.2", "16.33.5", "16.33.6"]
+
+[decision.2036]
+title = "16.33.6 deletes tests/test_tools.c, which nothing has built since task 16.2.4"
+value = "tests/test_tools.c is the only includer of tests/support/lxp_real_replay.h besides the deleted lxp_pay1_replay.h, and its Makefile rule left with 7bef570ab (16.2.4, 'Retire the layerxd, guarantor, handover, verify and daemon test rules'); stripping its retired helpers would leave a file no rule compiles. The task deletes it, the planned test asserts three deleted paths, and build_cmd becomes make -C . build/liblayerx.a."
+basis = "Attempt 3 (e753de510) stripped the file and stopped on the missing rule. The do_4 request about Makefile:1038 stands for any remaining mention of the file."
+affects = ["16.33.6"]
+
+[decision.2037]
+title = "test_web_intake_absent of 16.97.2 scans for the retired suite's own identifier, not for the live web module header"
+value = "The deleted suite is tests/modules/test_web_intake.c; the test asserts that path absent and that no file under tests/ outside tests/ci names the identifier web_intake (word-bounded). An include of layerx/lx_web.h is not a reference to the retired suite: tests/codec/lxp_test_modules_unregistered.c:4, tests/programs/test_language_abi.c:8, tests/programs/test_programs_web_read.c:6, tests/test_web_program_path.c:8 and one codec test include the live web module header, which task 1.18.2 retires at wave 31."
+basis = "Attempts 3 and 4 (939b70936, c8cab3f6c) matched the include pattern and listed the five live tests as retired references."
+affects = ["16.97.2"]
+
+[decision.2038]
+title = "The retired list of 8.98.4 omits evidence, handover, head, lni and batch and keeps read"
+value = "do_8 keeps the VerifiedCheckpoint, SequencerHistory and Head uses of src/human.rs, src/human/budget_state.rs and tests/budget_proof_exports.rs until the task recorded in finding.8.98.1 exists; budget_state.rs:13-15 and trust.rs:8-9 keep the lni handshake and transport those reads run over, and trust.rs:203 keeps batch::lookup_untrusted over that transport because do_9 leaves trust.rs scan-only. The list of tests/retired_client_modules.rs therefore omits evidence, handover, head, lni and batch for this task and keeps read, which do_9 ports to rpc::module_state; the task of finding.8.98.1 adds the five when it retires those paths."
+basis = "Attempts 3 and 4 (2d28d472c, 50020ed07) failed the scan on src/human.rs for layerx_client::evidence, the first module the test visits; budget_state.rs:16 still imports layerx_client::read, which do_9 ports."
+affects = ["8.98.4"]
+
+[decision.2039]
+title = "read stays in the retired list of 8.98.5; treasury_sequence reads the treasury nonce through rpc::account"
+value = "services/platform/hosted/core/src/main.rs:11 imports layerx_client::read::ReadError only for treasury_sequence (:1643-:1670), which do_6 ports to rpc::account::account(&SequencerEndpoint, ...); after that port the error arms at :1655 (CoreRefusal) and :1662 (UnavailableCapability) map rpc::account::ReadError (Rpc, History, MalformedValue, Submitted; layerx-client src/rpc/account.rs:41-46) onto refusal() with the status codes the current arms return, and the read import leaves main.rs. The retired list keeps read."
+basis = "Attempt 9 (6f8d051d3) removed client from the list per decision.2024 and failed on layerx_client::read at main.rs:11, the one do_6 call site still on the LNI client."
+affects = ["8.98.5"]
+
+[decision.2040]
+title = "8.18.1 lists validate and the planned test as symbols; collide is a helper it deletes"
+value = "do_4 deletes the collide helper of services/platform/hosted/agentd/manifest_check.py:192-198, so the graph check cannot find it after the task; symbols become validate (manifest_check.py:92) and test_node_deployment_runs_no_guarantor."
+basis = "Attempts 4 and 5 (07212f513, 5bd818d65) passed the verify and failed the graph check 'symbol collide - not defined in the graph'."
+affects = ["8.18.1"]
+
+[decision.2041]
+title = "8.32.1 removes the runtime import from the relay archive package initialiser"
+value = "services/platform/relay_archive/__init__.py:3 imports RelayArchive from the runtime module the task deletes; the task removes that import and leaves the docstring, the package directory stays until task 8.32.4 (wave 40) deletes it, and test_no_platform_python_imports_relay_runtime then finds no importer."
+basis = "Attempt 4 (209597270) deleted runtime.py and forward.py and the scan listed __init__.py:3 twice as a remaining import."
+affects = ["8.32.1", "8.32.4"]
+
+[decision.2042]
+title = "8.47.10 also deletes the layerx-sdk unit tests that include the removed v3 programs receipt fixture"
+value = "The layerx-sdk lib test target cannot compile while src/program_http.rs:1938 (corrupt_lifecycle_boundary_responses_retain_c_signed_request) and src/program_lifecycle.rs:203 (call_receipt_is_not_lifecycle_evidence) include sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json, deleted by task 8.47.5 (88faddb09). The task deletes those two tests with helpers left without a caller and its scan also asserts no scanned file names the v3 fixture."
+basis = "Attempts 1 to 3 (b5a94ff25, 90dc0b71a, f4d1f58b7) deleted the v4 readers and the verify stopped at 'couldn't read ... receipt-programs-positive-v3.json'. Other readers of that fixture remain on main outside this task's crates: layerx-proof src/receipt.rs:1130, layerx-wire tests/maintenance_identity.rs:96, agent-boundary src/lifecycle_tests.rs:197, authority tests/support/lifecycle_dispatch.rs:173, sdk/platform/go native_program_lifecycle_test.go:169 and the typescript program-lifecycle and receipt-fixture tests."
+affects = ["8.47.10"]
+
+[decision.2043]
+title = "test_verify_rpc_payment_uses_receipt_keys builds its receipt from the sequencer receipt vectors"
+value = "services/agent/sdk/python/tests/test_sequencer_receipt.py:120-125 reads sdk/platform/conformance/fixtures/receipt-positive-v2.json, deleted by task 8.47.4 (6de397283); the test derives its canonical receipt, authorized batch and expected amount, recipient and operation from a case of sequencer-receipt-v1.json (rawTransaction, signedReceipt, receiptJson, pinnedKey, expected), which the file already loads as VECTORS at :25, and keeps every assertion from the verify() calls on."
+basis = "Attempt 6 (f76a116c0) passed the three other test files of the verify and failed this test with FileNotFoundError on the kernel fixture; the test was added by 9.96.1 before the fixture left."
+affects = ["9.97.7"]
+
+[decision.2044]
+title = "web-search-sequencer.test.ts builds its payer grant and settlement itself instead of decoding the re-recorded exchange"
+value = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts:27-46 decodes a payer grant from the PAYMENT-SIGNATURE payload of services/interop/crates/x-websearch/tests/fixtures/client-exchange.json; since 33be5948f (task 18.1129.1) that payload carries grantId and idempotencyKey only, so bytes(payment.grant) throws. The test builds its grant, offer and settlement the way services/agent/sdk/python/tests/test_web_search_sequencer.py does from sequencer-receipt-v1.json and keeps its receipt assertions; the verify keeps running it."
+basis = "Attempt 6 (88abb50ab) passed retired-kernel-receipts and sequencer-receipt-verify and failed at web-search-sequencer.test.js:19 with 'Cannot read properties of undefined (reading replace)'; the test is owned by done task 9.34.3 and broke on main with the re-recording."
+affects = ["9.97.8"]
+
+[decision.2045]
+title = "1.12.1 deletes lx_asset_receive_execute, the last caller of lxp_verify_payer_grant"
+value = "src/modules/asset/lx_asset_transfer.c:61-77 lx_asset_receive_execute verifies request->payer_grant through lxp_verify_payer_grant, which do_1 deletes with include/layerx/lxp_ledger.h:398-418; the function, its declaration at include/layerx/lx_asset.h:287, the payer_grant member of lx_asset_transfer_request at lx_asset.h:118 and the case at tests/modules/test_asset_transfer.c:249-252 that calls it leave with the task."
+basis = "Attempt 5 (014a05224) applied do_7 and failed make build/liblayerx.a at lx_asset_transfer.c:68 with an implicit declaration of lxp_verify_payer_grant; the file was outside the touches."
+affects = ["1.12.1"]
+
+[decision.2046]
+title = "The operator audit case of 18.1200.1 runs without the kernel daemon"
+value = "inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal (services/agent/crates/layerx-agentd/tests/operator.rs:93) reaches tests/support/real_authority.rs:1017, which starts build/bin/layerxd and layerx-genesis-build; the daemon is retired by 5.50.1, 5.50.3 and 5.50.4 and leaves with 5.50.7, and does not build on main. The case is reworked onto the scripted authority the six passing operator cases use, keeping its audit assertions; if a step cannot run without the daemon it is recorded in qualification.kvx and the case is marked ignored with that reason."
+basis = "Attempt 18 (ce9486756) passed recovery, migration, unknown and operator_route and six of seven operator cases; the seventh panicked 'build/bin/layerxd is not built'."
+affects = ["18.1200.1"]
+
+[decision.2047]
+title = "18.1211.5 refreshes services/interop/Cargo.lock before its locked build"
+value = "cargo --locked refuses services/interop/Cargo.lock at 540ce351c: a path dependency manifest changed after the lock was last written (ff91c687b) and the candidate changes no manifest. The task touches the lock, regenerates it without --locked (cargo metadata --manifest-path services/interop/Cargo.toml), commits only the entries that change and then runs the verify as written."
+basis = "Attempt 10 (9604f7d65) passed both go tests and stopped at 'the lock file services/interop/Cargo.lock needs to be updated but --locked was passed'."
+affects = ["18.1211.5"]
+
+[decision.2048]
+title = "New wave-1 task 5.98.4 brings the merge precompile set live in the local node fixture; 12.13.2, 12.13.3 and 12.13.4 require it"
+value = "tools/qualification/localnode/v6120-node.sh starts a fresh chain-125 genesis on which the merge upgrade of node/upgrades.go, which registers the twelve MergeAddressTable constructors (precompiles/setup.go:66), has not run: eth_getCode at 0x0905, 0x0906 and 0x0908 returns 0x and the wallet gateway's ensureServed (services/wallet/gateway/src/precompiles.ts:60-66) refuses every route with precompile_not_served. 5.98.4 makes the fixture bring the merge set live and proves it with eth_getCode at all twelve addresses; the three gateway route tasks require it and continue unchanged."
+basis = "Attempts 12.13.2 a5 (af3bbc0c2), 12.13.3 a5 (985ac288a) and 12.13.4 a5 (64b301354) started the fixture ('v6120-node: ready') and every route returned 503 precompile_not_served for scheduler, streams and eip712."
+affects = ["5.98.4", "12.13.2", "12.13.3", "12.13.4"]
+
+[decision.2049]
+title = "10.20.3 qualifies on the configuration test; new task 10.20.6 proves the production startup against the merged node"
+value = "The verify of 10.20.3 runs production_configuration_validates_without_retired_operations only, which proves the unhooking of the retired journeys, wallet binding and settlement recipient from the production configuration. The two startup tests of tests/production_unhooked.rs start the kernel daemon (tests/production_unhooked.rs:564-715: layerx-genesis-build, layerxd, layerxd.sock), which 5.50.1, 5.50.3 and 5.50.4 retired and 5.50.7 removes, while agentd startup no longer needs it (9.12.5, 9.0.3); they move to task 10.20.6 (wave 45, requires 10.20.3, 5.50.7 and 5.98.4), which runs them against the local node fixture with the real layerx-agentd and no daemon."
+basis = "Attempt 26 (16ba9bffc) passed the configuration test and failed both startup tests on the do_16 precondition for the daemon binaries; 25 earlier attempts chased the daemon's start-up through four retirements. 234 pending tasks transitively require 10.20.3."
+affects = ["10.20.3", "10.20.6"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -93873,15 +93975,15 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 title = "Retire the state diff encoding once DA and replica users leave"
 status = "pending"
 mode = "BUILD"
-wave = 29
-requires = ["1.0.1", "16.2.1", "16.2.4"]
+wave = 45
+requires = ["1.0.1", "16.2.1", "16.2.4", "1.34.1", "1.34.2", "1.33.3"]
 reqs = ["1028.1"]
 capabilities = ["1.6.3"]
 interfaces = ["interface.1.fmt-state-diff", "interface.1.c-lxp-state-diff-entry", "interface.1.c-lxp-state-diff-encode", "interface.1.c-lxp-state-diff-decode"]
 wiring = ["wiring.J21.1", "wiring.J21.27"]
 do_1 = "Delete include/layerx/lxp_state_diff.h (entry at include/layerx/lxp_state_diff.h:7, encode at :12, decode at :15) and src/state/lxp_state_diff.c."
 do_2 = "Request through wiring.J21.27 removal of tests/state/lxp_test_state_diff.c and its test-state-diff rule at Makefile:4040-4047."
-do_3 = "Record in the task evidence that the remaining includes at src/network/lxp_da_kernel.c:4, src/network/lxp_da_bundle.c:6 and src/replica/lxp_replay.c:8 leave with the DA and replica retirements of the same domain."
+do_3 = "The includes at src/network/lxp_da_kernel.c:4, src/network/lxp_da_bundle.c:6 and src/replica/lxp_replay.c:8 and the lxp_state_diff_encode calls at lxp_da_kernel.c:30, :102 and lxp_replay.c:313 leave with tasks 1.34.2, 1.34.1 and 1.33.3, which this task requires (decision.2033); cmd/layerxd/lxp_daemon_batch_wal.c leaves with 5.50.2 and tests/bridge/test_credit.c with 6.60.2, both earlier. Record in the task evidence that no includer of the header remains before deleting it."
 do_4 = "Write tests/codec/lxp_test_state_diff_retired.c (planned) with state_diff_codec_removed."
 symbols = ["state_diff_codec_removed"]
 touches = ["include/layerx/lxp_state_diff.h", "src/state/lxp_state_diff.c", "tests/codec/lxp_test_state_diff_retired.c"]
@@ -93901,6 +94003,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_5 = "Continue from attempt 4 (ed6458839) on a base that carries 1.34.1, 1.34.2 and 1.33.3: keep its deletions and the planned test unchanged, build once and verify once; if any includer of include/layerx/lxp_state_diff.h remains, record it in qualification.kvx and stop."
 
 [task.1.6.4]
 title = "Cover the ledger transfer journal open, commit and rollback"
@@ -94580,7 +94683,7 @@ do_4 = "Remove the receive_environment member of the gateway context at include/
 do_5 = "Record that the planned lx_asset_payer_grant_encode and lxp_ctx_asset_grant_state_stage are not built (stale task 0.62), through the overrides of this job in tests/codec/lxp_test_receive_retired.c (planned)."
 do_6 = "Write tests/codec/lxp_test_receive_retired.c (planned) with receive_and_grant_types_refused and grant_store_symbols_absent."
 symbols = ["receive_and_grant_types_refused", "grant_store_symbols_absent"]
-touches = ["src/ledger/lxp_receive.c", "src/ledger/lxp_grant_store.c", "include/layerx/lxp_ledger.h", "include/layerx/lx_asset.h", "src/modules/asset/lx_asset_execution.h", "src/modules/asset/lx_asset_registry.c", "include/layerx/lxp_gateway.h", "tests/codec/lxp_test_receive_retired.c", "include/layerx/lx_budget.h", "src/modules/budget/lx_budget_module.c"]
+touches = ["src/ledger/lxp_receive.c", "src/ledger/lxp_grant_store.c", "include/layerx/lxp_ledger.h", "include/layerx/lx_asset.h", "src/modules/asset/lx_asset_execution.h", "src/modules/asset/lx_asset_registry.c", "include/layerx/lxp_gateway.h", "tests/codec/lxp_test_receive_retired.c", "include/layerx/lx_budget.h", "src/modules/budget/lx_budget_module.c", "src/modules/asset/lx_asset_transfer.c", "tests/modules/test_asset_transfer.c"]
 tests = ["tests/codec/lxp_test_receive_retired.c::receive_and_grant_types_refused", "tests/codec/lxp_test_receive_retired.c::grant_store_symbols_absent"]
 planned_paths = ["tests/codec/lxp_test_receive_retired.c"]
 build_cmd = "make -C . build/liblayerx.a"
@@ -94599,6 +94702,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Delete lx_budget_grant_draws_read, declared at include/layerx/lx_budget.h:202-204 and defined at src/modules/budget/lx_budget_module.c:674, with the grant state type it reads; no other file calls it (decision.2003)."
 do_8 = "Continue from attempt 4 (73161b2fa): keep its deletions and apply do_7, which attempts 3 and 4 both skipped: remove lx_budget_grant_draws_read from include/layerx/lx_budget.h:202-204 and its definition in src/modules/budget/lx_budget_module.c, then build once and verify once."
+do_9 = "Delete lx_asset_receive_execute (src/modules/asset/lx_asset_transfer.c:61-77, declared at include/layerx/lx_asset.h:287), the payer_grant member of lx_asset_transfer_request at include/layerx/lx_asset.h:118 and the case at tests/modules/test_asset_transfer.c:249-252 that calls it, with helpers left without a caller: they are the last users of lxp_verify_payer_grant and lxp_payer_grant, which do_1 deletes (decision.2045)."
+do_10 = "Continue from attempt 5 (014a05224): keep its deletions, apply decision.2045 to lx_asset_transfer.c, lx_asset.h and test_asset_transfer.c, build once and verify once."
 
 [task.1.12.2]
 title = "Retire the budget pull activity that draws on receive payer grants"
@@ -118805,7 +118910,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.50.1]
 title = "Retire the layerxd LNI socket server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["5.0.3", "9.97.5", "16.2.4", "16.5.2", "16.9.4", "16.34.1"]
@@ -118901,7 +119006,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.50.4]
 title = "Retire the layerxd finality authority and handover history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["5.0.3", "16.2.4", "16.9.4", "16.11.8", "16.34.2"]
@@ -119186,7 +119291,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.52.2]
 title = "Retire the layerx-archive-codec binary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["5.0.3", "8.19.3", "8.19.8", "14.29.4", "16.2.4", "16.3.1", "16.3.2", "16.3.3", "16.11.6", "16.34.4"]
@@ -121550,6 +121655,38 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.5.98.4]
+title = "Bring the merge precompile set live in the local node fixture"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["5982.1"]
+capabilities = ["5.98.4"]
+interfaces = []
+do_1 = "tools/qualification/localnode/v6120-node.sh starts a fresh chain-125 genesis on which the merge upgrade of node/upgrades.go, which registers the twelve MergeAddressTable constructors (precompiles/setup.go:66: 0x101A-0x101D and 0x0901-0x0908), has not run: eth_getCode at 0x0905, 0x0906 and 0x0908 returns 0x and the wallet gateway's ensureServed (services/wallet/gateway/src/precompiles.ts:60-66) refuses with precompile_not_served (decision.2048)."
+do_2 = "Bring the merge set live in the fixture: schedule the merge upgrade for the first blocks the fixture produces, or activate the twelve merge addresses in the genesis EVM parameters, whichever node/upgrades.go supports from genesis; print the ready line only after eth_getCode returns the precompile code at all twelve addresses. If the node serves a precompile without writing account code, record that in qualification.kvx as the gateway probe's defect and stop."
+do_3 = "Write tools/qualification/localnode/tests/test_merge_precompiles_served.py (planned) with test_merge_precompiles_served: run the fixture with --env-out beneath ${TMPDIR:-/tmp}/lx-localnode, read LOCAL_NODE_RPC from the env file, call eth_getCode for each of the twelve MergeAddressTable addresses and assert a non-empty code, then stop the node with --stop and the home the ready line prints (v6120-node.sh:430)."
+do_4 = "Change no gateway, node or precompile source; the fixture and its test are the only touches."
+symbols = ["test_merge_precompiles_served"]
+touches = ["tools/qualification/localnode/v6120-node.sh", "tools/qualification/localnode/tests/test_merge_precompiles_served.py"]
+tests = ["tools/qualification/localnode/tests/test_merge_precompiles_served.py::test_merge_precompiles_served"]
+planned_paths = ["tools/qualification/localnode/tests/test_merge_precompiles_served.py"]
+build_cmd = "make -f chain.mk install"
+verify_cmd = "python3 -m pytest tools/qualification/localnode/tests/test_merge_precompiles_served.py::test_merge_precompiles_served -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-node-runtime"
+rollback = "Revert the two files; the fixture then starts the genesis chain without the merge set and the gateway route tasks that require it stay refused."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Consumer-proof task: the test starts the real fixture, reads the real node over its JSON-RPC and asserts the code the wallet gateway's probe requires at every merge address; a mocked node or a stubbed eth_getCode is not a proof (decision.1990)."
 
 [task.5.98.3]
 title = "Seed the local node's dev genesis with the perps market, pricefeed and collateral state of the perps-data test"
@@ -126399,7 +126536,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.52.4]
 title = "Retire contracts/LayerXCustody.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.51.1", "16.0.3", "16.6.1", "16.30.1"]
@@ -133785,7 +133922,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.3.1]
 title = "Answer -32601 for every lx_ JSON-RPC name on HTTP and WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.2.1", "8.2.2", "16.9.3", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1"]
@@ -134209,7 +134346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.7.3]
 title = "Retire the kernel activity and program production routes of the gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["8.3.1", "8.7.2", "8.1.5", "18.1083.1", "18.1297.1"]
@@ -134431,7 +134568,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.9.2]
 title = "Drop the kernel client and program crates from the platform manifests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["8.7.3", "8.8.4", "8.11.3", "8.12.3", "8.16.4", "8.16.7", "8.1.5", "18.1083.1", "18.1297.1"]
@@ -134917,7 +135054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.4]
 title = "Retire the programs journey and the registry dependency of testnet control"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["8.14.3", "8.7.3", "18.1083.1", "18.1297.1"]
@@ -135280,7 +135417,7 @@ do_2 = "Remove LAYERX_AUTHORITY_LNI_SOCKET (services/platform/hosted/node/deploy
 do_3 = "Delete services/platform/hosted/tests/topology_check.py, which validates only the guarantor pair (services/platform/hosted/tests/topology_check.py:30); the root Makefile target that runs it is removed by its owner."
 do_4 = "Drop the health-port-collides-with-the-guarantor-exchange mutation of services/platform/hosted/agentd/manifest_check.py (services/platform/hosted/agentd/manifest_check.py:225) and its collide helper (services/platform/hosted/agentd/manifest_check.py:192-198), since port 9451 is no longer taken."
 do_5 = "Add services/platform/hosted/node/tests/test_node_without_guarantor.py (planned) with test_node_deployment_runs_no_guarantor, parsing the manifest with choose_parser of services/platform/hosted/tests/topology-check.sh:451 the way services/platform/hosted/tests/topology_check.py:7-10 loads it."
-symbols = ["validate", "collide", "test_node_deployment_runs_no_guarantor"]
+symbols = ["validate", "test_node_deployment_runs_no_guarantor"]
 touches = ["services/platform/hosted/node/deployment.yaml", "services/platform/hosted/tests/topology_check.py", "services/platform/hosted/agentd/manifest_check.py", "services/platform/hosted/node/tests/test_node_without_guarantor.py"]
 tests = ["services/platform/hosted/node/tests/test_node_without_guarantor.py::test_node_deployment_runs_no_guarantor"]
 planned_paths = ["services/platform/hosted/node/tests/test_node_without_guarantor.py"]
@@ -135336,7 +135473,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.19.2]
 title = "Delete the kernel node regression drivers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.19.3", "16.96.5"]
@@ -135475,7 +135612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Delete services/platform/hosted/gateway/tests/retired_client_modules.rs and services/platform/hosted/gateway/tests/retired_client_modules_w2.rs together with the funding and registry_runtime modules they scan."
 [task.8.19.6]
 title = "Delete the kernel node tests of the agent boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.8.4", "16.0.4"]
@@ -137270,7 +137407,7 @@ do_3 = "The kernel image Dockerfile (docker/kernel/Dockerfile lines 365-368 and 
 do_4 = "Makefile:4267-4275 builds and runs the relay archive end-to-end target; request removal of both targets through wiring.J41.7."
 do_5 = "Create services/platform/tests/test_relay_archive_rpc_retired.py (planned) with the two tests below."
 symbols = []
-touches = ["services/platform/relay_archive/runtime.py", "services/platform/relay_archive/forward.py", "services/platform/tests/test_relay_archive_rpc_retired.py"]
+touches = ["services/platform/relay_archive/runtime.py", "services/platform/relay_archive/forward.py", "services/platform/tests/test_relay_archive_rpc_retired.py", "services/platform/relay_archive/__init__.py"]
 tests = ["services/platform/tests/test_relay_archive_rpc_retired.py::test_relay_runtime_and_forwarder_absent", "services/platform/tests/test_relay_archive_rpc_retired.py::test_no_platform_python_imports_relay_runtime"]
 planned_paths = ["services/platform/tests/test_relay_archive_rpc_retired.py"]
 build_cmd = "python3 -m py_compile services/platform/tests/test_relay_archive_rpc_retired.py"
@@ -137287,6 +137424,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Remove the import of RelayArchive from .runtime at services/platform/relay_archive/__init__.py:3 and leave the module docstring; the package stays until task 8.32.4 deletes it (decision.2041)."
+do_7 = "Continue from attempt 4 (209597270): apply the __init__.py change of decision.2041, change nothing else, build once and verify once."
 
 [task.8.32.2]
 title = "Retire the relay archive installer, deployment manifests and configuration"
@@ -139364,7 +139503,7 @@ do_4 = "Create sdk/platform/conformance/kernel-fixtures-retired-4.test.py (plann
 do_5 = "The verify compiles the lib test targets of layerx-sdk and layerx-agentd (services/agent workspace) and layerx-platform-cli (tools/platform workspace) without running them, then runs the scan test; a compile error in those targets that is not a fixture reader is recorded in qualification.kvx with file and line, not repaired here."
 do_6 = "Change nothing under sdk/platform/conformance other than the planned test; the fixtures 8.47.6 deleted stay deleted."
 symbols = ["test_kernel_fixture_group_3_readers_gone"]
-touches = ["services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "tools/platform/cli/src/programs.rs", "sdk/platform/conformance/kernel-fixtures-retired-4.test.py"]
+touches = ["services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "tools/platform/cli/src/programs.rs", "sdk/platform/conformance/kernel-fixtures-retired-4.test.py", "services/agent/crates/layerx-sdk/src/program_lifecycle.rs"]
 tests = ["sdk/platform/conformance/kernel-fixtures-retired-4.test.py::test_kernel_fixture_group_3_readers_gone"]
 planned_paths = ["sdk/platform/conformance/kernel-fixtures-retired-4.test.py"]
 build_cmd = "python3 -m py_compile sdk/platform/conformance/kernel-fixtures-retired-4.test.py"
@@ -139381,6 +139520,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Consumer-proof task for the 8.47.6 fixture removal: the verify compiles the three consumers' unit-test targets against the tree without the fixture and the scan test asserts no reader remains."
+do_7 = "Also delete the two layerx-sdk unit tests that include sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json, deleted by task 8.47.5: corrupt_lifecycle_boundary_responses_retain_c_signed_request in src/program_http.rs (include_str! at :1938) and call_receipt_is_not_lifecycle_evidence in src/program_lifecycle.rs (:203), with helpers left without a caller; test_kernel_fixture_group_3_readers_gone also asserts that no scanned file names receipt-programs-positive-v3.json (decision.2042)."
+do_8 = "Continue from attempt 3 (f4d1f58b7): apply decision.2042 to program_http.rs and program_lifecycle.rs, extend the scan, build once and verify once."
 
 [task.8.47.7]
 title = "Conformance vectors V1-V5 are published under sdk/platform/conformance/fixtures"
@@ -140431,6 +140572,8 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Port services/platform/hosted/authority/src/human/budget_state.rs, src/human.rs and tests/budget_proof_exports.rs from read::* and evidence::checkpoint to rpc::module_state::module_state(ModuleReadContext{precompile, committed_height, signed_header, policy}) and rpc::evidence::checkpoint (decision.1813); src/trust.rs is scan-only."
 do_10 = "Config.lni_socket and lni_gate stay in src/main.rs for this task; 8.98.3, which requires it, deletes them after porting the main.rs readers (decision.1987)."
+do_11 = "The retired list of tests/retired_client_modules.rs omits evidence, handover, head, lni and batch (decision.2038): do_8 keeps those uses in src/human.rs, src/human/budget_state.rs:8-15 and :35, src/trust.rs:4-9, :84 and :203 and tests/budget_proof_exports.rs until the task of finding.8.98.1 retires them. The list keeps read: do_9 ports budget_state.rs:16 (read::{ReadContext, ReadValue, Requested}) to rpc::module_state::module_state(ModuleReadContext{...})."
+do_12 = "Continue from attempt 4 (50020ed07): shorten the retired list per decision.2038, complete the do_9 port of the read:: uses in src/human/budget_state.rs:16 and its call sites, change nothing else, build once with --locked and verify once."
 
 [task.8.98.5]
 title = "Migrate the core callers of wiring.J44.20 (wave 2)"
@@ -140468,6 +140611,7 @@ do_6 = "Port lookup_receipt_selector and await_receipt (main.rs:627-735) to rpc:
 do_7 = "This task lands before 8.98.6, which requires it: main.rs gains the SequencerEndpoint of do_5 that public_reads.rs is then ported over (decision.1843); connect_client and connect_raw stay callable until 8.98.6 replaces their callers in public_reads.rs. The retired layerx_client modules still compile at this revision, so lib.rs, src/caps_reads.rs and the files 8.98.6 owns build unchanged; the retired-module scan of do_4 covers main.rs only, and 8.98.14 adds the lib.rs scan when it ports the custody block (decision.1875)."
 do_8 = "Continue from attempt 7 (08fdcc5fa): remove 'lni' from the retired_modules list of tests/retired_client_modules_w2.rs, change nothing else, build once with --locked and verify once."
 do_9 = "Continue from attempt 8 (7badc9cbb): remove 'client' from the retired_modules list of tests/retired_client_modules_w2.rs; hosted/core/src/main.rs:5 still imports layerx_client::client::{Client, ClientConfig, ReconnectPolicy} for connect_client (:585), which do_7 keeps until 8.98.6 replaces its callers (decision.2024). Change nothing else, build once with --locked and verify once."
+do_10 = "Continue from attempt 9 (6f8d051d3): complete do_6 for treasury_sequence (main.rs:1643-1670): read the treasury nonce through rpc::account::account over the SequencerEndpoint of do_5, map rpc::account::ReadError (Rpc, History, MalformedValue, Submitted) onto refusal() keeping the status codes the arms at :1655 and :1662 return today, drop the layerx_client::read import at main.rs:11, keep read in the retired list (decision.2039), build once with --locked and verify once."
 
 [task.8.98.6]
 title = "Migrate the core callers of wiring.J44.20"
@@ -145927,7 +146071,7 @@ do_2 = "Delete the kernel program receipt callers in services/agent/sdk/typescri
 do_3 = "Delete the test cases that exercise the deleted functions in test/program-executed-v3.test.ts, test/native-abi5.test.ts, test/native-receipt.test.ts, test/program-lifecycle.test.ts and test/receipt-fixture.test.ts; a file left without cases is deleted and removed from the test script of services/agent/sdk/typescript/package.json."
 do_4 = "Create services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts (planned) with kernel_receipt_paths_are_gone: import the built package index and assert verifyReceipt, verifyReceiptOutcome, verifyProgramLifecycleReceipt, verifyNativeProgramReceiptOutcomeV5, decodeProgramReceiptOutcome and verifyProgramReceipt are undefined and verifySequencerReceipt and verifyCommittedReceipt are functions; PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID are generated into src/generated/receipt.ts from sdk/platform/generators/receipt.kvx and leave with task 9.97.3, so the test does not assert them (decision.2028). The sequencer receipt, web search and x402 draw tests of the verify command stay green."
 symbols = ["verifyReceipt", "verifyReceiptOutcome", "verifyProgramReceipt"]
-touches = ["services/agent/sdk/typescript/src/verifier.ts", "services/agent/sdk/typescript/src/programs.ts", "services/agent/sdk/typescript/package.json", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/test/native-abi5.test.ts", "services/agent/sdk/typescript/test/native-receipt.test.ts", "services/agent/sdk/typescript/test/program-lifecycle.test.ts", "services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts", "services/agent/sdk/typescript/test/account-bound-call.test.ts", "services/agent/sdk/typescript/test/agent-http.test.ts", "services/agent/sdk/typescript/test/pre-runtime-refusal.test.ts", "services/agent/sdk/typescript/test/program-response-code.test.ts", "services/agent/sdk/typescript/test/web-search.test.ts", "services/agent/sdk/typescript/src/program-wire.ts", "services/agent/sdk/typescript/examples/offline-receipt-verification.ts"]
+touches = ["services/agent/sdk/typescript/src/verifier.ts", "services/agent/sdk/typescript/src/programs.ts", "services/agent/sdk/typescript/package.json", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/test/native-abi5.test.ts", "services/agent/sdk/typescript/test/native-receipt.test.ts", "services/agent/sdk/typescript/test/program-lifecycle.test.ts", "services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts", "services/agent/sdk/typescript/test/account-bound-call.test.ts", "services/agent/sdk/typescript/test/agent-http.test.ts", "services/agent/sdk/typescript/test/pre-runtime-refusal.test.ts", "services/agent/sdk/typescript/test/program-response-code.test.ts", "services/agent/sdk/typescript/test/web-search.test.ts", "services/agent/sdk/typescript/src/program-wire.ts", "services/agent/sdk/typescript/examples/offline-receipt-verification.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"]
 tests = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts::kernel_receipt_paths_are_gone", "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key", "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_committed_receipt_two_thirds"]
 planned_paths = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts"]
 build_cmd = "cd services/agent/sdk/typescript && npm run build"
@@ -145948,6 +146092,8 @@ do_6 = "Continue from attempt 1 (861b61b54): restore AuthorizedReceiptBatch in v
 do_7 = "Keep the SequencerAuthorization (services/agent/sdk/typescript/src/verifier.ts:90) and ProtocolReceipt (:159) interfaces exported: src/ai_market.ts:30-32 imports them for decodeProgramsReceipt (:3222) and the receipt it builds (:3316), with callers at :3063 and test/ai-market.test.ts:2285, :2319, :2350 (decision.2017). Delete from src/program-wire.ts the import at :4 and decodeAndVerifyProgramTerminal (:149), verifyPreRuntimeFailure (:304), sameReceiptOutcome (:338), bindExecutionMetadata (:646) and receiptUsage (:651), whose only callers programs.ts:172 and :226 are inside the functions do_2 deletes; keep bindSignedProgramLifecycle, decodeSignedProgramCall, assertFreshSimulationObservation and bindRetainedProgramCall. Delete examples/offline-receipt-verification.ts, which imports verifyReceipt."
 do_8 = "Continue from attempt 4 (194257c10): keep its verifier.ts, programs.ts, package.json and test edits, restore the two interfaces if it removed them, apply the program-wire.ts and example deletions, build once and verify once."
 do_9 = "Continue from attempt 5 (4b50411f0): drop the PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID assertions from kernel_receipt_paths_are_gone, change nothing else, build once and verify once."
+do_10 = "Port services/agent/sdk/typescript/test/web-search-sequencer.test.ts off the x-websearch exchange recording: since 33be5948f (task 18.1129.1) the PAYMENT-SIGNATURE payload of client-exchange.json carries grantId and idempotencyKey and no grant bytes, so :46 decodePayerGrant(bytes(payment.grant)) throws. Build the grant, offer and settlement in the test the way services/agent/sdk/python/tests/test_web_search_sequencer.py does from sequencer-receipt-v1.json, keep every receipt assertion, and keep node dist/test/web-search-sequencer.test.js in the verify (decision.2044)."
+do_11 = "Continue from attempt 6 (88abb50ab): apply decision.2044 to test/web-search-sequencer.test.ts, change nothing else, build once and verify once."
 
 [task.9.97.7]
 title = "Retire the kernel receipt verification from the Python SDK"
@@ -145964,7 +146110,7 @@ do_2 = "Delete verify_program_receipt (services/agent/sdk/python/layerx_sdk/prog
 do_3 = "Remove the exports of the deleted names from services/agent/sdk/python/layerx_sdk/__init__.py (verify_program_receipt :136, ProtocolReceipt :193, verify_batch_inclusion :199, verify_checkpoint :200, verify_receipt :202, verify_receipt_outcome :203 and any other deleted name), keeping AuthorizedReceiptBatch (decision.2002), ReceiptKey, verify_sequencer_receipt and the x402 and web search exports."
 do_4 = "Create services/agent/sdk/python/tests/test_retired_kernel_receipts.py (planned) with test_kernel_receipt_paths_are_gone: import layerx_sdk and layerx_sdk.verifier and assert verify_receipt, verify_receipt_outcome, verify_program_lifecycle_receipt, verify_batch_inclusion, verify_checkpoint, decode_program_receipt_outcome, AuthorizedReceiptBatch, ProtocolReceipt and verify_program_receipt are absent and verify_sequencer_receipt and ReceiptKey present; the sequencer receipt, web search and x402 draw tests of the verify command stay green."
 symbols = ["verify_receipt", "verify_receipt_outcome", "verify_program_receipt"]
-touches = ["services/agent/sdk/python/layerx_sdk/verifier.py", "services/agent/sdk/python/layerx_sdk/programs.py", "services/agent/sdk/python/layerx_sdk/__init__.py", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py", "services/agent/sdk/python/layerx_sdk/program_wire.py", "services/agent/sdk/python/layerx_sdk/x402.py", "services/agent/sdk/python/layerx_sdk/x402_checkpoint.py", "services/agent/sdk/python/layerx_sdk/ai_market.py"]
+touches = ["services/agent/sdk/python/layerx_sdk/verifier.py", "services/agent/sdk/python/layerx_sdk/programs.py", "services/agent/sdk/python/layerx_sdk/__init__.py", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py", "services/agent/sdk/python/layerx_sdk/program_wire.py", "services/agent/sdk/python/layerx_sdk/x402.py", "services/agent/sdk/python/layerx_sdk/x402_checkpoint.py", "services/agent/sdk/python/layerx_sdk/ai_market.py", "services/agent/sdk/python/tests/test_sequencer_receipt.py"]
 tests = ["services/agent/sdk/python/tests/test_retired_kernel_receipts.py::test_kernel_receipt_paths_are_gone", "services/agent/sdk/python/tests/test_sequencer_receipt.py::test_verify_sequencer_receipt_pinned_key", "services/agent/sdk/python/tests/test_sequencer_receipt.py::test_verify_rpc_payment_uses_receipt_keys"]
 planned_paths = ["services/agent/sdk/python/tests/test_retired_kernel_receipts.py"]
 build_cmd = "python3 -m compileall -q services/agent/sdk/python/layerx_sdk"
@@ -145985,6 +146131,8 @@ do_6 = "Continue from attempt 1 (834933ead): restore AuthorizedReceiptBatch and 
 do_7 = "Delete the kernel checkpoint-evidence path with the verifier stack (decision.2016): PaymentCheckpointEvidence (services/agent/sdk/python/layerx_sdk/x402.py:30) and verify_payment_commitment_evidence (x402.py:110-161), the x402.py imports at :12-22 of every deleted verifier name, services/agent/sdk/python/layerx_sdk/x402_checkpoint.py whole (RpcCheckpointAuthority, rpc_checkpoint_evidence) and the __init__.py exports of those names (:264, :275 and the checkpoint names at :184-200, :359, :419, :459, :531). Keep verify_sequencer_receipt (x402.py:162) and verify_payment_receipt (:184) and every name another module still imports."
 do_8 = "Continue from attempt 4 (daa8b4aa9): keep its verifier.py, programs.py, program_wire.py and __init__.py deletions, delete the checkpoint-evidence path as the previous do line reads, build once and verify once; the four test files of the verify import layerx_sdk, which is the proof the package imports clean."
 do_9 = "Continue from attempt 5 (e32837ec6): services/agent/sdk/python/layerx_sdk/ai_market.py:42-44 imports CheckpointVerification from the deleted checkpoint verifier and uses it at :633 (require_checkpoint) and :1627, and __init__.py:295 imports ai_market, so the package does not import; delete the import and its two users, keeping the market calls that do not depend on the checkpoint evidence (decision.2027). Build once and verify once."
+do_10 = "Rewrite the setup of test_verify_rpc_payment_uses_receipt_keys (services/agent/sdk/python/tests/test_sequencer_receipt.py:120-150) to take its inputs from a case of VECTORS (sequencer-receipt-v1.json, loaded at :25) instead of receipt-positive-v2.json, which task 8.47.4 deleted: the canonical receipt bytes from the case's signedReceipt, the batch id, asset and state roots from its receiptJson, the amount and recipient from its expected; keep the re-signing with the test ReceiptKey, the AuthorizedReceiptBatch and terms built from those values and every assertion from the verify() calls on (decision.2043). No kernel receipt fixture is read."
+do_11 = "Continue from attempt 6 (f76a116c0): apply decision.2043 to tests/test_sequencer_receipt.py, change nothing else, build once and verify once."
 
 [task.9.97.10]
 title = "Python x402 draws verify sequencer receipts through pinned receipt keys"
@@ -148240,10 +148388,10 @@ do_7 = "Remove `mod deposit;`, `mod exit;` and `mod withdraw;` with their re-exp
 do_8 = "Create services/human/crates/layerx-human-service/tests/production_unhooked.rs (planned) opening `ProductionComponents` from a real environment in a temp directory."
 symbols = ["ProductionComponentsConfig", "ProductionComponents::open", "validate_production_configuration", "PRODUCTION_OPERATIONS"]
 touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/journeys/mod.rs", "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/health.rs", "services/human/crates/layerx-human-service/src/server/production_recipient.rs", "services/human/crates/layerx-human-service/src/custody/settlement_recipient.rs", "services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-components.rs", "services/human/crates/layerx-human-service/tests/deposit.rs", "services/human/crates/layerx-human-service/tests/withdraw.rs", "services/human/crates/layerx-human-service/tests/exit.rs", "services/human/crates/layerx-human-service/tests/production_unhooked.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/server/movement_provider.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-movement-provider/src/service.rs", "services/human/crates/layerx-human-movement-provider/src/journal.rs", "services/human/crates/layerx-human-movement-provider/src/planning.rs", "services/human/crates/layerx-human-movement-provider/src/evidence_export.rs", "services/human/crates/layerx-human-movement-provider/src/tests.rs", "services/human/crates/layerx-human-movement-provider/src/main.rs"]
-tests = ["services/human/crates/layerx-human-service/tests/production_unhooked.rs::production_components_open_without_paxeer_or_exit_environment", "services/human/crates/layerx-human-service/tests/production_unhooked.rs::production_configuration_validates_without_retired_operations", "services/human/crates/layerx-human-service/tests/production_unhooked.rs::components_binary_starts_without_recipient_environment"]
+tests = ["services/human/crates/layerx-human-service/tests/production_unhooked.rs::production_configuration_validates_without_retired_operations"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/production_unhooked.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd"
-verify_cmd = "LAYERX_TEST_AGENTD_BIN=${CARGO_TARGET_DIR:-$PWD/services/agent/target}/debug/layerx-agentd cargo run --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock -- --runtime-dir /tmp -- cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test production_unhooked -- --exact production_components_open_without_paxeer_or_exit_environment production_configuration_validates_without_retired_operations components_binary_starts_without_recipient_environment"
+verify_cmd = "LAYERX_TEST_AGENTD_BIN=${CARGO_TARGET_DIR:-$PWD/services/agent/target}/debug/layerx-agentd cargo run --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock -- --runtime-dir /tmp -- cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test production_unhooked -- --exact production_configuration_validates_without_retired_operations"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -148277,6 +148425,40 @@ do_26 = "Attempt 21 (962aaebd0 on 877e81900) passes the three build_cmd members 
 do_27 = "Attempt 22 (9449cd2a4 on 29f8a5dc1) builds, passes production_configuration_validates_without_retired_operations and fails the two startup tests with 'movement provider refused startup': UnixMovementProvider::new (src/server/movement_provider.rs:835-846) validates the configured socket at open (validate_socket :1006-1021) and connects lazily (:954), and the test Environment sets LAYERX_HUMAN_MOVEMENT_SOCKET without creating a socket (decision.1983). In tests/production_unhooked.rs give the Environment a std::os::unix::net::UnixListener bound at that path inside a 0o700 directory it creates, set the socket's mode to 0o600 right after bind, keep the listener alive for the whole test including while the spawned layerx-human-components binary runs, and change nothing else."
 do_28 = "HumanOutbox::start (src/event_producer.rs:268) calls layerx_platform_internal::producer::Client::from_environment(&['journey', 'approval']) unconditionally from production_components.rs:769, and Upstream::from_environment (producer.rs:652-664, tls.rs:252-257) requires LAYERX_EVENTS_JOURNEY_UPSTREAM_URL, LAYERX_EVENTS_APPROVAL_UPSTREAM_URL and LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL (an https origin with a non-zero port) with the matching _UPSTREAM_CA_DER files. The tests/production_unhooked.rs fixture sets the three URLs to https://127.0.0.1:<port of a TcpListener the test binds and keeps alive> and the three CA paths to the authority-ca.der it already writes; Client::spawn (producer.rs:969) opens no connection at startup, so the three tests pass without a live upstream."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_29 = "The verify runs production_configuration_validates_without_retired_operations only (decision.2049); the two startup tests stay in tests/production_unhooked.rs unchanged and are run and reworked by task 10.20.6 against the merged node. Requalify the attempt 26 candidate (16ba9bffc) unchanged."
+
+[task.10.20.6]
+title = "Prove the human service production startup against the merged node"
+status = "pending"
+mode = "BUILD"
+wave = 45
+requires = ["10.20.3", "5.50.7", "5.98.4"]
+reqs = ["10034.1", "10034.2", "10034.3"]
+capabilities = ["10.20.6"]
+interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
+do_1 = "The two startup tests of services/human/crates/layerx-human-service/tests/production_unhooked.rs, production_components_open_without_paxeer_or_exit_environment and components_binary_starts_without_recipient_environment, start the retired kernel daemon (:564-:715: layerx-genesis-build, layerxd --serve, layerxd.sock) behind the LAYERX_TEST_NATIVE_BIN_DIR precondition at :166; 5.50.1, 5.50.3 and 5.50.4 retired the daemon's servers, 5.50.7 removes the binary and agentd startup no longer connects to it (9.12.5, 9.0.3). Remove the daemon start, the precondition and the socket waits from the tests (decision.2049)."
+do_2 = "Run layerx-agentd (LAYERX_TEST_AGENTD_BIN) in human-owner mode against the local node the verify starts: map LOCAL_NODE_RPC and the chain id of the fixture's env file onto the variables the tests read at :144-149 (LAYERX_TEST_PAXEER_RPC_PORT, LAYERX_TEST_PAXEER_CHAIN_ID) or change the tests to read a URL; keep every environment rule recorded in do_15 to do_28 of task 10.20.3 that still holds."
+do_3 = "Keep the assertions of both tests: production components open without the retired journeys, wallet binding and settlement recipient environment, and the components binary starts without the recipient environment; the real layerx-agentd and the real node are the producers, the human service is the consumer."
+do_4 = "A step that still needs the kernel daemon, or an agentd requirement the node cannot meet, is recorded in qualification.kvx with the file and line and the task stops there."
+symbols = ["production_components_open_without_paxeer_or_exit_environment", "components_binary_starts_without_recipient_environment"]
+touches = ["services/human/crates/layerx-human-service/tests/production_unhooked.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/production_unhooked.rs::production_components_open_without_paxeer_or_exit_environment", "services/human/crates/layerx-human-service/tests/production_unhooked.rs::components_binary_starts_without_recipient_environment"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && LAYERX_TEST_AGENTD_BIN=${CARGO_TARGET_DIR:-$PWD/services/agent/target}/debug/layerx-agentd cargo run --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock -- --runtime-dir /tmp -- cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test production_unhooked -- --exact production_components_open_without_paxeer_or_exit_environment components_binary_starts_without_recipient_environment"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the touched files; the retired operations remain refused by the router either way."
+fulfils = []
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing proof: the two tests start the real layerx-agentd against the real local node and open the real production components; no daemon stub, no mocked agent socket (decision.1990)."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -155985,7 +156167,7 @@ title = "Conformance: agent scheduler routes reach the served precompile 0x0905"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["12.13.1"]
+requires = ["12.13.1", "5.98.4"]
 reqs = ["12051.1", "12051.2"]
 capabilities = ["12.13.2"]
 interfaces = ["interface.12.http-gw-post-v1-agent-precompiles-scheduler-schedule", "interface.12.http-gw-post-v1-agent-precompiles-scheduler-cancel", "interface.12.http-gw-post-v1-agent-precompiles-scheduler-reschedule", "interface.12.http-gw-get-v1-agent-precompiles-scheduler-job-id", "interface.12.http-gw-get-v1-agent-precompiles-scheduler-pending"]
@@ -156011,13 +156193,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Continue from attempt 4 (d766124e3): the test reads HYPERPAXEER_RPC_URL and needs a running node serving scheduler at 0x0905; the verify now starts the local node fixture and passes LOCAL_NODE_RPC as that variable (decision.2031). Keep the tree, build once and verify once."
+do_5 = "Continue from attempt 5 (af3bbc0c2) on a base that carries task 5.98.4: the local node then serves scheduler at 0x0905 and the route tests see served precompiles instead of precompile_not_served (decision.2048); change nothing unless the served node reveals a defect, build once and verify once."
 
 [task.12.13.3]
 title = "Conformance: agent streams routes reach the served precompile 0x0906"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["12.13.1"]
+requires = ["12.13.1", "5.98.4"]
 reqs = ["12052.1", "12052.2"]
 capabilities = ["12.13.3"]
 interfaces = ["interface.12.http-gw-post-v1-agent-precompiles-streams-open", "interface.12.http-gw-post-v1-agent-precompiles-streams-settle", "interface.12.http-gw-post-v1-agent-precompiles-streams-close", "interface.12.http-gw-post-v1-agent-precompiles-streams-update-rate", "interface.12.http-gw-get-v1-agent-precompiles-streams-stream-id", "interface.12.http-gw-get-v1-agent-precompiles-streams-accrued-id"]
@@ -156043,13 +156226,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Continue from attempt 4 (89d42bbc7): the test reads HYPERPAXEER_RPC_URL and needs a running node serving streams at 0x0906; the verify now starts the local node fixture and passes LOCAL_NODE_RPC as that variable (decision.2031). Keep the tree, build once and verify once."
+do_5 = "Continue from attempt 5 (985ac288a) on a base that carries task 5.98.4: the local node then serves streams at 0x0906 and the route tests see served precompiles instead of precompile_not_served (decision.2048); change nothing unless the served node reveals a defect, build once and verify once."
 
 [task.12.13.4]
 title = "Conformance: agent eip712 routes reach the served precompile 0x0908"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["12.13.1"]
+requires = ["12.13.1", "5.98.4"]
 reqs = ["12053.1", "12053.2"]
 capabilities = ["12.13.4"]
 interfaces = ["interface.12.http-gw-post-v1-agent-precompiles-eip712-domain-separator", "interface.12.http-gw-post-v1-agent-precompiles-eip712-hash-typed-data", "interface.12.http-gw-post-v1-agent-precompiles-eip712-recover"]
@@ -156075,6 +156259,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Continue from attempt 4 (c4798c932): the test reads HYPERPAXEER_RPC_URL and needs a running node serving EIP-712 at 0x0908; the verify now starts the local node fixture and passes LOCAL_NODE_RPC as that variable (decision.2031). Keep the tree, build once and verify once."
+do_5 = "Continue from attempt 5 (64b301354) on a base that carries task 5.98.4: the local node then serves eip712 at 0x0908 and the route tests see served precompiles instead of precompile_not_served (decision.2048); change nothing unless the served node reveals a defect, build once and verify once."
 
 [task.12.13.5]
 title = "Conformance: agent tee routes reach the served precompile 0x0907"
@@ -158066,7 +158251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.4]
 title = "Read kernel state and the chain account document in the account hooks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.25.4", "12.31.1", "18.1053.1"]
@@ -158100,7 +158285,7 @@ do_6 = "Continue from attempt 4 (62f5e09d4): keep its hooks.ts and hooks.test.ts
 
 [task.12.34.5]
 title = "Show the chain account in the account view and notice"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["12.34.4", "18.1053.1"]
@@ -162450,6 +162635,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Continue from attempt 4 (5d02b4cae): in qualify_workload (programs/tests/differential/parallel.c:921-959) print the stage name and the values compared to stderr on every early return (the root computations at :933, the identity checks at :936-:939 and :944, exact_runs_equal at :950-:951, derive_call_limit at :954-:956) before returning 1, then run the differential once, read the named stage and repair the port of that stage only (decision.2034). Build once and verify once."
 
 [task.13.34.2]
 title = "Run the programs conservation suite against 0x101D calls"
@@ -170445,7 +170631,7 @@ do_15 = "Continue from attempt 4 (2a4f7d54c): keep its Makefile, lni-version-par
 
 [task.16.3.1]
 title = "Retire the relay-archive and intent-ingester images"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "11.0.3", "8.19.8"]
@@ -171450,7 +171636,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.9.4]
 title = "Record the deleted daemon trees in the retired-callers catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -173677,7 +173863,7 @@ symbols = ["test_state_withdraw_web_retired"]
 touches = ["tests/state/lxp_test_state_diff.c", "tests/test_bridge_withdraw.c", "tests/test_web_program_path.c", "tests/ci/test_retired_state_withdraw_web.py"]
 tests = ["tests/ci/test_retired_state_withdraw_web.py::test_state_withdraw_web_retired"]
 planned_paths = ["tests/ci/test_retired_state_withdraw_web.py"]
-build_cmd = "make -C . build/tests/test_bridge_withdraw build/tests/lxp_test_program_artifacts"
+build_cmd = "make -C . build/tests/test_bridge_withdraw build/tests/test_web_program_path"
 verify_cmd = "python3 -m pytest tests/ci/test_retired_state_withdraw_web.py::test_state_withdraw_web_retired -q"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -173690,6 +173876,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Continue from attempt 4 (378fc7daa): the build now names build/tests/test_bridge_withdraw and build/tests/test_web_program_path, the two touched tests the Makefile still rules (decision.2035); change nothing unless that build or the verify shows a defect, build once and verify once."
 
 [task.16.33.3]
 title = "Delete the oracle transport, adapter and root suites"
@@ -173787,7 +173974,7 @@ symbols = ["test_programs_batch_retired"]
 touches = ["tests/programs/test_occupancy_batch.c", "tests/programs/test_balance_read.c", "tests/programs/test_interface_protocol.c", "tests/programs/test_call_activity.c", "tests/ci/test_retired_programs_batch.py"]
 tests = ["tests/ci/test_retired_programs_batch.py::test_programs_batch_retired"]
 planned_paths = ["tests/ci/test_retired_programs_batch.py"]
-build_cmd = "make -C . build/tests/lxp_test_maintenance_publication"
+build_cmd = "make -C . build/tests/programs_call_activity"
 verify_cmd = "python3 -m pytest tests/ci/test_retired_programs_batch.py::test_programs_batch_retired -q"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -173800,6 +173987,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Continue from attempt 4 (a4317c95e): the build now names build/tests/programs_call_activity (Makefile:2775), the only touched test the Makefile rules (decision.2035); keep the deletions and the edit of tests/programs/test_call_activity.c, build once and verify once."
 
 [task.16.33.6]
 title = "Retire the replay fixture headers and the replay and certificate cases of the tools suite"
@@ -173814,14 +174002,14 @@ wiring = ["wiring.J59.39"]
 fulfils = ["wiring.J22.14", "wiring.J22.18", "wiring.J22.26", "wiring.J22.39", "wiring.J22.41", "wiring.J22.48", "wiring.J22.51"]
 do_1 = "Delete tests/support/lxp_pay1_replay.h; it calls lxp_batch_body, lxp_replay_batch_result, lxp_replay_batch at tests/support/lxp_pay1_replay.h:119, tests/support/lxp_pay1_replay.h:120, tests/support/lxp_pay1_replay.h:132."
 do_2 = "Delete tests/support/lxp_real_replay.h; it calls lxp_replay_engine, lxp_replay_checkpoint, lxp_replay_activity_output at tests/support/lxp_real_replay.h:42, tests/support/lxp_real_replay.h:43, tests/support/lxp_real_replay.h:184."
-do_3 = "In tests/test_tools.c remove every use of lxp_real_replay.h, lxp_batch_body, lxp_da_bundle, lxp_checkpoint_certificate, lxp_guarantor_ctx, lxp_guarantor_attestation, lxp_guarantor_key_record, lxp_guarantor_cert at tests/test_tools.c:5, tests/test_tools.c:103, tests/test_tools.c:104, tests/test_tools.c:106, tests/test_tools.c:107, tests/test_tools.c:108 and delete the cases and helpers left without a caller."
+do_3 = "Delete tests/test_tools.c: its build rule left the Makefile with task 16.2.4 (7bef570ab), nothing compiles it, and it is the last includer of tests/support/lxp_real_replay.h (tests/test_tools.c:5) besides the deleted lxp_pay1_replay.h (decision.2036)."
 do_4 = "Request through wiring.J59.39 that the Makefile owner drop the references at Makefile:1038 in the same wave."
-do_5 = "Write tests/ci/test_retired_replay_support.py (planned) with test_replay_support_retired calling assert_paths_absent(2 deleted paths), assert_symbols_unreferenced(['lxp_guarantor_recompute_roots', 'lxp_replay_checkpoint', 'lxp_replay_checkpoint_create', 'lxp_replay_checkpoint_restore', 'lxp_replay_checkpoint_destroy', 'lxp_replay_engine_bind_transaction'], ['tests'], exclude=['tests/arith', 'tests/codec', 'tests/crypto', 'tests/fuzz', 'tests/chain', 'tests/daemon', 'tests/bridge', 'tests/explorer']), assert_symbols_unreferenced(['lxp_real_replay.h', 'lxp_batch_body', 'lxp_da_bundle', 'lxp_checkpoint_certificate', 'lxp_guarantor_ctx', 'lxp_guarantor_attestation', 'lxp_guarantor_key_record', 'lxp_guarantor_cert'], ['tests/test_tools.c']), build_and_run_c_suite('build/tests/test_tools') from tests/ci/retired_tests.py (planned in task 16.37.1)."
+do_5 = "Write tests/ci/test_retired_replay_support.py (planned) with test_replay_support_retired calling assert_paths_absent(3 deleted paths), assert_symbols_unreferenced(['lxp_guarantor_recompute_roots', 'lxp_replay_checkpoint', 'lxp_replay_checkpoint_create', 'lxp_replay_checkpoint_restore', 'lxp_replay_checkpoint_destroy', 'lxp_replay_engine_bind_transaction'], ['tests'], exclude=['tests/arith', 'tests/codec', 'tests/crypto', 'tests/fuzz', 'tests/chain', 'tests/daemon', 'tests/bridge', 'tests/explorer']), assert_symbols_unreferenced(['lxp_real_replay.h', 'lxp_batch_body', 'lxp_da_bundle', 'lxp_checkpoint_certificate', 'lxp_guarantor_ctx', 'lxp_guarantor_attestation', 'lxp_guarantor_key_record', 'lxp_guarantor_cert'], ['tests/test_tools.c']), build_and_run_c_suite('build/tests/test_tools') from tests/ci/retired_tests.py (planned in task 16.37.1)."
 symbols = ["test_replay_support_retired"]
 touches = ["tests/support/lxp_pay1_replay.h", "tests/support/lxp_real_replay.h", "tests/test_tools.c", "tests/ci/test_retired_replay_support.py"]
 tests = ["tests/ci/test_retired_replay_support.py::test_replay_support_retired"]
 planned_paths = ["tests/ci/test_retired_replay_support.py"]
-build_cmd = "make -C . build/tests/test_tools"
+build_cmd = "make -C . build/liblayerx.a"
 verify_cmd = "python3 -m pytest tests/ci/test_retired_replay_support.py::test_replay_support_retired -q"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -173835,6 +174023,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Continue from attempt 4 (5b1d8ecc1): delete tests/test_tools.c instead of editing it, list it as the third deleted path of test_replay_support_retired, keep the two header deletions, build build/liblayerx.a once and verify once."
 
 [task.16.34.1]
 title = "Drop the retired daemon LNI socket server from the program suites"
@@ -174743,6 +174932,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "test_web_intake_absent asserts tests/modules/test_web_intake.c absent and that no file under tests/ outside tests/ci contains the word-bounded identifier web_intake; it does not match includes of layerx/lx_web.h, the live web module header that five tests include until task 1.18.2 retires it (decision.2037). The other three tests keep the same shape: the deleted paths and the retired suite's own identifiers only."
+do_5 = "Continue from attempt 4 (c8cab3f6c): replace the lx_web.h include pattern of test_web_intake_absent with the web_intake identifier scan of decision.2037, check the three other tests for the same overreach, build once and verify once."
 
 [task.16.97.3]
 title = "Gate the retired relay-archive tree and the retired Solidity suites and scripts"
@@ -191866,6 +192057,7 @@ do_13 = "Decision 1975: port tests/operator_route.rs:14-66 to the 74-byte reply 
 do_14 = "Attempt 16 (b00385370 on 29f8a5dc1) passes operator_route and fails the three recovery tests with ReceiptLocationRequired: the transition helper at services/agent/crates/layerx-agentd/tests/recovery.rs:49-63 drives Executed through outbox::transition (src/outbox/mod.rs:310), which passes no block location, and the Committed check (:461-481) refuses. Drive the Executed step through outbox::record_execution (:325) with the support receipt and an explicit block position (height 9, transaction index 0), keep transition for the other states, keep tests/operator_route.rs as attempt 16 left it and change no assertion."
 do_15 = "The support receipt of tests/support/mod.rs (sequencer_receipt and encoded_receipt, :822-941) must verify under layerx_client::rpc::receipt::lookup_authenticated (signature over the supplied keys, verify_execution, then eth_getTransactionReceipt): align it with the builders of services/agent/crates/layerx-client/tests/receipt_rpc.rs:42-145 (encoded_receipt, signed_receipt) so restart_resolution_uses_receipts_without_duplicate_delivery reaches its scripted eth_getTransactionReceipt exchange; keep every exchange and assertion. recovery.rs:121: a submission enqueued through Outbox::enqueue carries no preparation authorization and recovery restores it as queued_without_authority (decision.1984); assert queued_without_authority == vec![ids[0]] and queued_for_transmission empty, and keep the bytes_for_transmission(ids[0]) check."
 do_16 = "Continue from attempt 17 (38314e995): lookup_authenticated (layerx-client src/rpc/receipt.rs:126) issues pax_sequencerReceipt (sequencer.rs:458-462), then px_getReceiptKeys (:502), verifies the receipt signature over the returned keys and its execution (verify_execution), and only then issues eth_getTransactionReceipt (:485). Build the scripted receipt of restart_resolution_uses_receipts_without_duplicate_delivery with the receipt_rpc.rs builders so verify_execution passes and the scripted eth_getTransactionReceipt exchange is reached, and script the mock exchanges in that order (decision.2029); the recovery.rs:121 assertion of do_15 stands. Build once and verify once."
+do_17 = "Continue from attempt 18 (ce9486756): rework inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal (tests/operator.rs:93) so it no longer reaches tests/support/real_authority.rs:1017 and the retired build/bin/layerxd; drive it through the scripted authority the other six operator cases use and keep its audit assertions (decision.2046). A step that needs the daemon is recorded in qualification.kvx and the case is marked ignored with that reason. Build once with --locked and verify once."
 
 [task.18.1203.1]
 title = "Issue #1203: Refuse operator verification retries for settlement-anchored requests"
@@ -196014,7 +196206,7 @@ do_4 = "Copy the rewritten V1, V2 and V3 cases byte for byte into sdk/platform/c
 do_5 = "Replace the recorded V1-layerxledger-pay-exact receipt, digest, transaction hash, log and payee word in services/interop/specs/conformance/x402/sequenced-settlement.json, services/interop/specs/conformance/ucp/sequenced-order.json, services/interop/specs/conformance/fiat/sequenced-journeys.json (also the V2 transaction hash and digest) and services/interop/PORTABILITY.md:136-146 with the rewritten values, and the payee literal 0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985 with 0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4 in services/interop/crates/layerx-visa-tap/tests/middleware.rs:273, tests/sequencer_result.rs:146, services/interop/crates/layerx-fiat/tests/adapter.rs:693 and services/interop/crates/layerx-interop-service/src/server.rs:4761 (recorded_x402_request); the paymentReference literal at server.rs:4756 is an input of the recording and does not change."
 do_6 = "Leave daemon/committed-fixture/vectors/vector-v2-receipted-revert.json (provenance revision 9e6b79d65), services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json, the layerx-bridge-relayer and layerx-gas-station test fixtures and services/interop/specs/conformance/x402/settlement-response.json unchanged; they are verified on their own and are recorded once in the qualification log. This task touches thirteen files because the fixture, its byte-equal copies and the payee literals must change in one revision (decision.1928)."
 symbols = ["seqVecLedgerPay", "seqVecLedgerPayment", "seqVecAssertFields", "TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture"]
-touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json", "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "services/interop/specs/conformance/x402/sequenced-settlement.json", "services/interop/specs/conformance/ucp/sequenced-order.json", "services/interop/specs/conformance/fiat/sequenced-journeys.json", "services/interop/PORTABILITY.md", "services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-interop-service/src/server.rs", "services/interop/crates/layerx-x402/src/buyer.rs", "services/interop/crates/layerx-interop-service/src/payer_tx.rs", "services/interop/crates/layerx-interop-service/src/relay.rs"]
+touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json", "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "services/interop/specs/conformance/x402/sequenced-settlement.json", "services/interop/specs/conformance/ucp/sequenced-order.json", "services/interop/specs/conformance/fiat/sequenced-journeys.json", "services/interop/PORTABILITY.md", "services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-interop-service/src/server.rs", "services/interop/crates/layerx-x402/src/buyer.rs", "services/interop/crates/layerx-interop-service/src/payer_tx.rs", "services/interop/crates/layerx-interop-service/src/relay.rs", "services/interop/Cargo.lock"]
 tests = ["rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors"]
 planned_paths = []
 build_cmd = "go build ./rpc/..."
@@ -196038,6 +196230,7 @@ do_11 = "Attempt 7 (0b506ccc2 on 22b9ee184), decision 1978: re-record the litera
 do_12 = "Attempt 8 (eb4261f6c on 29f8a5dc1), three parts: (1) port the three remaining 'layerx:beta' network literals of services/interop/crates/layerx-interop-service/src/server.rs (:4696, :4758, :5386) to 'eip155:125', the only network server.rs:1131 admits (services/interop/crates/layerx-x402/src/facilitator.rs:693-718 turns the mismatch into UnsupportedOffer, the failure of the ten server::tests); (2) in the tests module of services/interop/crates/layerx-interop-service/src/relay.rs, in touches now (decision.1979), make a_committed_answer_with_another_block_hash_is_receipted (:794) take the block number and block hash from the re-recorded fixture it includes instead of the literals 1001 and 0xab..ab, so the mock block's hash differs from the receipt's and receipt() (:292-312) answers Receipted; (3) for x402_settle_succeeds_on_the_receipted_rung (server.rs:5227) check the settlement fixture against the EvidenceMismatch conditions of services/interop/crates/layerx-x402/src/seller.rs:315-352 (signature verification, protocol.activity_id equal to the transaction hash, committed proof) and re-record it to this candidate's pay_to and concatenation order if that is the mismatch. Change no assertion."
 do_13 = "decode_block (services/agent/crates/layerx-client/src/sequencer.rs) requires number, hash, parentHash, timestamp, transactionsRoot, receiptsRoot and transactions; the mock block of a_committed_answer_with_another_block_hash_is_receipted (relay.rs tests) carries no receiptsRoot, so block_by_number answers Malformed and receipt() (relay.rs:292-312) downgrades to Receipted before any hash comparison, which is the attempt 9 failure. Add 'receiptsRoot' as 32 zero bytes in 0x hex to that mock block; change no assertion."
 do_14 = "Continue from attempt 9 (4be9cf795) with do_13 applied: the x402 refusal case must see typed_intent_required, and facilitator.rs:387 answers transaction_form whenever the fixture gateway's translation is Refused (interop-service server.rs:1641); re-record the receipt hash of recorded_x402_request (server.rs:4743-4747, sequencer-receipt-v1.json) to one the fixture gateway (server.rs:4723) opens, so the refusal reaches the typed-intent check (decision.2030). Change no assertion; build once and verify once."
+do_15 = "Continue from attempt 10 (9604f7d65): services/interop/Cargo.lock is stale on main (cargo --locked refuses it); refresh it with cargo metadata --manifest-path services/interop/Cargo.toml without --locked, keep only the lock entries that change, keep the candidate's source changes, then build once and verify once (decision.2047)."
 
 [req.1812115]
 title = "The recorded payExact receipt carries a derivable payee in native PaymentExact order"
