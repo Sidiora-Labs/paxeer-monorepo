@@ -245,7 +245,6 @@ impl Config {
     where
         F: Fn(&str) -> Option<String>,
     {
-        crate::settlement::validate_configuration(lookup)?;
         let database = lookup("LAYERX_INDEXER_DB")
             .map(PathBuf::from)
             .ok_or_else(|| IndexError::Config("LAYERX_INDEXER_DB is required".to_owned()))?;
@@ -361,6 +360,42 @@ impl Config {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn settlement_variables_are_not_read() {
+        let settlement_values = [
+            ("LAYERX_INDEXER_SETTLEMENT_POLICY", "invalid\0policy"),
+            ("LAYERX_INDEXER_GENESIS_TRUST", "invalid\0trust"),
+            ("LAYERX_INDEXER_INITIAL_SEQUENCER_KEY", "not-32-byte-hex"),
+            ("LAYERX_INDEXER_LNI_SOCKET", ""),
+        ];
+        let mut values: BTreeMap<&str, &str> = [
+            ("LAYERX_INDEXER_DB", "/tmp/indexer.sqlite"),
+            ("LAYERX_INDEXER_EVM_URL", "http://127.0.0.1:8545"),
+        ]
+        .into_iter()
+        .collect();
+        values.extend(settlement_values);
+        let reads = std::cell::RefCell::new(Vec::new());
+        let config = Config::from_lookup(&|name: &str| {
+            reads.borrow_mut().push(name.to_owned());
+            values.get(name).map(|value| (*value).to_owned())
+        })
+        .expect("EVM configuration ignores malformed settlement variables");
+
+        assert_eq!(config.database, PathBuf::from("/tmp/indexer.sqlite"));
+        assert!(config.layerx.is_none());
+        let paxeer = config.paxeer.expect("EVM source");
+        assert!(paxeer.comet.is_none());
+        assert_eq!(paxeer.start_block, 1);
+        assert_eq!(paxeer.policy.finality_depth, 0);
+        for (name, _) in settlement_values {
+            assert!(
+                !reads.borrow().iter().any(|read| read == name),
+                "retired settlement variable was read: {name}"
+            );
+        }
+    }
 
     #[test]
     fn finality_depth_follows_the_challenge_window() {

@@ -10,6 +10,7 @@ from urllib.error import URLError
 from .account_derivation import keccak256
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason, raise_for_receipt_status
+from .verifier import ReceiptKey, verify_sequencer_receipt
 from .x402 import verify_payment_receipt
 
 
@@ -215,6 +216,8 @@ def verify_rpc_payment(
     authorized,
     signatures,
     *,
+    receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
+    raw_transaction: bytes,
     amount,
     asset,
     pay_to,
@@ -231,9 +234,11 @@ def verify_rpc_payment(
         raise ValueError("payment-refused")
     if "commitment" in result and result["commitment"] != commitment:
         raise ValueError("commitment-mismatch")
+    canonical_receipt = rpc_hex(result.get("receipt"))
+    sequencer = verify_sequencer_receipt(canonical_receipt, raw_transaction, receipt_keys)
     try:
         verified = verify_payment_receipt(
-            rpc_hex(result.get("receipt")),
+            sequencer.canonical_bytes,
             authorized,
             signatures,
             amount=amount,

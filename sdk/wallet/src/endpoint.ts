@@ -1,7 +1,6 @@
 import { JsonRpcClient, JsonRpcError, JsonRpcTransportError, isRecord, type JsonRpcClientOptions } from './rpc.js';
 import type {
   AccountBalances,
-  AnchorHead,
   AssetMap,
   AssetPage,
   Balances,
@@ -10,6 +9,7 @@ import type {
   ChainHistoryPage,
   CompletedBalance,
   CompletionAsset,
+  ConsensusHead,
   CustodyAssetRecord,
   HistoryItem,
   HistoryPage,
@@ -30,7 +30,7 @@ export const DEFAULT_ENDPOINT_URL = 'https://api-mainnet-beta.paxeer.network';
 
 export const ERC20_BALANCE_OF_SELECTOR = '0x70a08231';
 
-const KERNEL_REASONS: readonly KernelReason[] = ['available', 'not_configured', 'unreachable', 'no_finalised_checkpoint'];
+const KERNEL_REASONS: readonly KernelReason[] = ['available', 'not_configured', 'unreachable', 'consensus_unavailable'];
 const HEX_QUANTITY = /^0x[0-9a-fA-F]{1,64}$/;
 const HEX_WORD = /^0x[0-9a-fA-F]{64}$/;
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
@@ -421,38 +421,41 @@ export function decodeKernelStatus(value: unknown): KernelStatus {
   return { available: doc.available, reason };
 }
 
-function decodeAnchor(value: unknown): AnchorHead | null {
-  if (value === null) return null;
-  const doc = record(value, 'anchor head');
-  const batch = doc.latest_finalized_batch;
-  if (batch !== null && (typeof batch !== 'number' || !Number.isInteger(batch) || batch < 0)) fail('anchor batch');
-  const status = doc.status;
-  if (status !== null && (typeof status !== 'number' || !Number.isInteger(status))) fail('anchor status');
-  const name = doc.status_name;
-  if (name !== null && name !== 'unknown' && name !== 'submitted' && name !== 'final') fail('anchor status_name');
-  const ladder = record(doc.status_ladder, 'anchor status_ladder');
-  const statusLadder: Record<string, string> = {};
-  for (const [key, rung] of Object.entries(ladder)) {
-    if (typeof rung !== 'string') fail('anchor status_ladder');
-    statusLadder[key] = rung;
+function decodeConsensusHead(value: unknown): ConsensusHead {
+  const doc = record(value, 'consensus head');
+  const height = decimalString(doc.latest_height, 'consensus latest_height');
+  if (height !== height.trim() || BigInt(height) > 18446744073709551615n) fail('consensus latest_height');
+  for (const key of ['latest_block_hash', 'latest_app_hash'] as const) {
+    const hash = doc[key];
+    if (typeof hash !== 'string' || hash.length % 2 !== 0 || /[^0-9a-fA-F]/.test(hash)) fail(`consensus ${key}`);
   }
-  return { latest_finalized_batch: batch, status, status_name: name, status_ladder: statusLadder };
+  if (typeof doc.catching_up !== 'boolean') fail('consensus catching_up');
+  return {
+    latest_height: height,
+    latest_block_hash: doc.latest_block_hash as string,
+    latest_app_hash: doc.latest_app_hash as string,
+    catching_up: doc.catching_up,
+  };
 }
 
 export function decodeNetwork(value: unknown): NetworkHead {
   const doc = record(value, 'network head');
   if (typeof doc.network_id !== 'string') fail('network_id');
   const paxeer = record(doc.paxeer, 'network paxeer');
-  const layerx = record(doc.layerx, 'network layerx');
+  const consensus = doc.consensus === null ? null : decodeConsensusHead(doc.consensus);
+  if (consensus === null) {
+    if (doc.reason !== 'consensus_unavailable') fail('network consensus reason');
+  } else if (Object.hasOwn(doc, 'reason')) {
+    fail('network consensus reason');
+  }
   return {
     network_id: doc.network_id,
     paxeer: {
       chain_id: hexQuantity(paxeer.chain_id, 'network chain_id'),
       latest_block: hexQuantity(paxeer.latest_block, 'network latest_block'),
     },
-    layerx: { node_info: nullableRecord(layerx.node_info, 'network node_info') },
-    anchor: decodeAnchor(doc.anchor),
-    kernel: decodeKernelStatus(doc.kernel),
+    consensus,
+    consensus_reason: consensus === null ? 'consensus_unavailable' : null,
   };
 }
 
