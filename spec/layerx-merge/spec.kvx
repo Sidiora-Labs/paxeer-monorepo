@@ -147857,7 +147857,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.5]
 title = "Carry EIP-1559 transactions instead of kernel activity envelopes in the agent runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.13.4", "10.0.1", "10.20.3", "9.1.8", "18.1119.1", "18.1186.1", "10.2.8", "18.1297.1"]
