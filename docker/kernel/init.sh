@@ -1138,40 +1138,6 @@ exec "$@"' sh "$run/generation-isolation" "$mask_one" "$mask_two" \
 	) &
 }
 
-guarantor() {
-	local identity=$1 port=$2 peer=$3
-	guarantor_identity=$identity service "guarantor-$identity" 4021 \
-		"$genesis_files $run/node/generation.sock $layerx/guarantor-$identity/identity/generation.cap $tls/guarantor/cert.pem $keys/checkpoint-authority/key.pem $keys/publication/authorization.json" \
-		guarantor_prepare clock -- \
-		env \
-		LAYERX_GUARANTOR_IDENTITY_DIR="$layerx/guarantor-$identity/identity" \
-		LAYERX_GUARANTOR_STATE_DIR="$layerx/guarantor-$identity/state" \
-		LAYERX_GUARANTOR_LNI_SOCKET="$run/node/layerxd.lni.sock" \
-		LAYERX_GUARANTOR_SETTLEMENT_ENV="$settlement_env" \
-		LAYERX_GUARANTOR_SETTLEMENT_FILE="$layerx/settlement/checkpoint-settlement.json" \
-		LAYERX_GUARANTOR_SETTLEMENT_DOMAIN=beta \
-		LAYERX_GUARANTOR_LISTEN_PORT="$port" \
-		LAYERX_GUARANTOR_PEER_URL="https://127.0.0.1:$peer" \
-		LAYERX_GUARANTOR_TLS_CA_FILE="$tls/guarantor/ca.pem" \
-		LAYERX_GUARANTOR_TLS_CERT_FILE="$tls/guarantor/cert.pem" \
-		LAYERX_GUARANTOR_TLS_KEY_FILE="$tls/guarantor/key.pem" \
-		LAYERX_GUARANTOR_SUBMITTER_KEY_FILE="$keys/checkpoint-submitter/key" \
-		LAYERX_GUARANTOR_SUBMITTER_LOCK_FILE="$layerx/guarantor-submitter/submitter.lock" \
-		LAYERX_GUARANTOR_CHECKPOINT_AUTHORITY_KEY_FILE="$layerx/guarantor-submitter/checkpoint-authority.pem" \
-		LAYERX_GUARANTOR_PUBLICATION_AUTHORIZATION_SOURCE="$layerx/guarantor-submitter/publication-authorization.json" \
-		LAYERX_GUARANTOR_PYTHON=/opt/layerx/guarantor/venv/bin/python3 \
-		python3 /opt/layerx/node/generation_client.py identity --socket "$run/node/generation.sock" \
-		--capability-file "$layerx/guarantor-$identity/identity/generation.cap" --slot "$identity" \
-		--watch-seconds 1 -- /bin/bash /opt/layerx/guarantor.sh
-}
-
-# The publication authorization of kernel-genesis.sh, handed from the root-only
-# publication directory to the guarantor uid that installs it.
-guarantor_prepare() {
-	checkpoint_authority && tls_for guarantor 4021 &&
-		install -o 4021 -g 4020 -m 0600 "$keys/publication/authorization.json" \
-			"$layerx/guarantor-submitter/publication-authorization.json"
-}
 
 human_authority_ready() {
 	while missing "$keys/human-authority/authority-token" "$keys/human-authority/principal-policy.json" \
@@ -1252,30 +1218,6 @@ kernel_ids() {
 		[[ $id =~ ^[0-9a-f]{64}$ ]] || return 1
 	done
 }
-
-# shellcheck disable=SC2016 # the ids expand when the service starts
-service layerxd 4020 "$genesis_files" kernel_ids clock -- \
-	/bin/sh -c 'if [ -e '"$genesis"'/custody.registry ]; then set -- "$@" --custody-registry '"$genesis"'/custody.registry; fi; exec /opt/layerx/supervisor.sh "$@" --asset "$(cat '"$genesis"'/asset-id)" --replica-id "$(cat '"$genesis"'/replica-id)"' layerxd \
-	--role sequencer --data-dir "$node_data" --run-dir "$run/node" -- \
-	--network-id "$LAYERX_NODE_NETWORK_ID" \
-	--genesis-metadata "$genesis/metadata.lxgb" \
-	--custody-profile "$genesis/custody.profile" \
-	--withdrawal-fee 0 \
-	--module-fees /opt/layerx/genesis-module-fees.json \
-	--sequencer-key "$keys/sequencer.key" \
-	--treasury-signer-socket "$run/node/treasury-signer.sock" \
-	--program-token-file "$keys/tokens/program-token" \
-	--replica-token-file "$keys/tokens/replica-token" \
-	--program-port 9401 \
-	--replica-port 9402 \
-	--lni-uid 4021 \
-	--lni-gid 4020
-
-service layerxd-authority 4020 "$genesis_files" - clock -- \
-	/opt/layerx/supervisor.sh --role replica --data-dir "$node_data" --run-dir "$run/node"
-
-guarantor 1 9451 9452
-guarantor 2 9452 9451
 
 start_paxeer
 
@@ -1384,7 +1326,6 @@ service core-boundary 4021 \
 	LAYERX_CORE_ADMIN_TLS_CERT_DER="$tls/pending-core-admin/cert.der" \
 	LAYERX_CORE_ADMIN_TLS_KEY_DER="$tls/pending-core-admin/key.der" \
 	LAYERX_CORE_CLIENT_CA_DER="$tls/pending-core/ca.der" \
-	LAYERX_CORE_LNI_SOCKET="$run/node/layerxd.lni.sock" \
 	LAYERX_CORE_SUPERVISOR_SOCKET="$run/node/supervisor.sock" \
 	LAYERX_CORE_NODE_URL=http://127.0.0.1:9401 \
 	LAYERX_CORE_NODE_BEARER_TOKEN_FILE="$keys/tokens/program-token" \
@@ -1404,7 +1345,7 @@ exec /usr/local/bin/layerx-core-boundary'
 # shellcheck disable=SC2016 # core.env and the material are read when the service starts
 if [ "$kernel_profile" = full ]; then
 service receipt-authority 4021 \
-	"$genesis_files $run/node/generation.sock $run/node/layerxd.lni.sock $tls/receipt-authority/cert.der $tls/receipt-authority/key.der $tls/receipt-authority/ca.der $run/registry-authority/token $authority_material/human-agent.token $authority_material/evidence-read.token $authority_material/principal-policy.json $authority_material/registry.json $authority_material/authority.json" \
+	"$genesis_files $run/node/generation.sock $tls/receipt-authority/cert.der $tls/receipt-authority/key.der $tls/receipt-authority/ca.der $run/registry-authority/token $authority_material/human-agent.token $authority_material/evidence-read.token $authority_material/principal-policy.json $authority_material/registry.json $authority_material/authority.json" \
 	receipt_authority_prepare - -- \
 	env \
 	"LAYERX_AUTHORITY_LISTEN=[::]:9445" \
@@ -1423,7 +1364,6 @@ service receipt-authority 4021 \
 	LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE="$authority_material/evidence-read.token" \
 	LAYERX_AUTHORITY_REPLICA_URL=http://127.0.0.1:9402 \
 	LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE="$keys/tokens/replica-token" \
-	LAYERX_AUTHORITY_LNI_SOCKET="$run/node/layerxd.lni.sock" \
 	LAYERX_AUTHORITY_FIRST_BATCH=1 \
 	LAYERX_AUTHORITY_LAST_BATCH=18446744073709551615 \
 	python3 /opt/layerx/node/generation_client.py core --socket "$run/node/generation.sock" --watch-seconds 1 -- \
@@ -1446,7 +1386,7 @@ fi
 exec /usr/local/bin/layerx-runtime-clock --runtime-dir '"$run"'/human/authority-clock -- /usr/local/bin/layerx-receipt-authority'
 else
 service receipt-authority 4021 \
-	"$genesis_files $run/node/generation.sock $run/node/layerxd.lni.sock $tls/receipt-authority/cert.der $tls/receipt-authority/key.der $tls/receipt-authority/ca.der $run/registry-authority/token" \
+	"$genesis_files $run/node/generation.sock $tls/receipt-authority/cert.der $tls/receipt-authority/key.der $tls/receipt-authority/ca.der $run/registry-authority/token" \
 	receipt_authority_native_prepare - -- \
 	env \
 	"LAYERX_AUTHORITY_LISTEN=[::]:9445" \
@@ -1457,7 +1397,6 @@ service receipt-authority 4021 \
 	LAYERX_AUTHORITY_TOKEN_FILES="$keys/tokens/gateway-authority:$run/registry-authority/token:$keys/tokens/webhooks-authority" \
 	LAYERX_AUTHORITY_REPLICA_URL=http://127.0.0.1:9402 \
 	LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE="$keys/tokens/replica-token" \
-	LAYERX_AUTHORITY_LNI_SOCKET="$run/node/layerxd.lni.sock" \
 	LAYERX_AUTHORITY_FIRST_BATCH=1 \
 	LAYERX_AUTHORITY_LAST_BATCH=18446744073709551615 \
 	python3 /opt/layerx/node/generation_client.py core --socket "$run/node/generation.sock" --watch-seconds 1 -- \
@@ -1474,7 +1413,7 @@ fi
 
 # shellcheck disable=SC2016 # the network name is read when the service starts
 service agent-boundary 4021 \
-	"$genesis_files $run/node/layerxd.lni.sock $tls/agent-boundary/cert.der $tls/agent-boundary/key.der $tls/agent-boundary/ca.der $run/registry-component/token" \
+	"$genesis_files $tls/agent-boundary/cert.der $tls/agent-boundary/key.der $tls/agent-boundary/ca.der $run/registry-component/token" \
 	agent_boundary_prepare - -- \
 	env \
 	"LAYERX_AGENT_BOUNDARY_LISTEN=[::]:9446" \
@@ -1485,7 +1424,6 @@ service agent-boundary 4021 \
 	LAYERX_AGENT_BOUNDARY_GATEWAY_TOKEN_FILE="$keys/tokens/gateway-component" \
 	LAYERX_AGENT_BOUNDARY_WEBHOOK_TOKEN_FILE="$keys/tokens/webhooks-component" \
 	LAYERX_AGENT_BOUNDARY_REGISTRY_TOKEN_FILE="$run/registry-component/token" \
-	LAYERX_AGENT_BOUNDARY_LNI_SOCKET="$run/node/layerxd.lni.sock" \
 	LAYERX_AGENT_BOUNDARY_NODE_URL=http://127.0.0.1:9401 \
 	LAYERX_AGENT_BOUNDARY_NODE_BEARER_TOKEN_FILE="$keys/tokens/program-token" \
 	LAYERX_AGENT_BOUNDARY_STATE_DIR="$layerx/agent-boundary" \
@@ -2079,9 +2017,8 @@ service human-tls 4020 "$tls/human/cert.der $tls/human/key.der" human_tls_prepar
 fi
 
 # The mirror-signer and mirror-publisher containers: the signer serves both
-# publisher keys on its socket, and the publisher reads the LNI socket and
-# answers /readyz and /status on 127.0.0.1:9456, the status_listen the
-# rendered config names.
+# publisher keys on its socket, and the publisher answers /readyz and
+# /status on 127.0.0.1:9456, the status_listen the rendered config names.
 service mirror-signer 4021 "$genesis_files $mirror_material/ethereum.key" - - -- \
 	env \
 	LAYERX_MIRROR_SIGNER_SOCKET=/run/mirror-signer/signer.sock \
@@ -2090,44 +2027,9 @@ service mirror-signer 4021 "$genesis_files $mirror_material/ethereum.key" - - --
 	/usr/local/bin/layerx-mirror-signer
 
 service mirror-publisher 4021 \
-	"$genesis_files $run/node/layerxd.lni.sock $mirror_run/config.json /run/mirror-signer/signer.sock" - - -- \
+	"$genesis_files $mirror_run/config.json /run/mirror-signer/signer.sock" - - -- \
 	/usr/local/bin/layerx-mirror-publisher "$mirror_run/config.json"
 
-relay_archive_prepare() {
-    local config_dir sequencer_id sequencer_public genesis_digest
-    openssl verify -CAfile "$tls/relay-archive/ca.pem" -purpose sslserver "$tls/relay-archive/cert.pem" >/dev/null || return 1
-    tls_for relay-archive 4020 || return 1
-    install -d -o 4020 -g 4020 -m 0700 "$layerx/relay-archive" "$run/relay-archive" || return 1
-    sequencer_id=$(sed -n 's/^LAYERX_CORE_SEQUENCER_ID=//p' "$run/node/core.env")
-    sequencer_public=$(tr -d '\r\n' <"$run/node/sequencer-public-key")
-    genesis_digest=$(sha256sum "$node_data/genesis/genesis.manifest" | cut -d' ' -f1)
-    config_dir=$(mktemp -d "$run/relay-archive/config.XXXXXX") || return 1
-    if ! /opt/layerx/relay_archive/install.sh --config-only \
-        --config "$config_dir/origin.json" --codec /usr/local/bin/layerx-archive-codec \
-        --network-id "$LAYERX_NODE_NETWORK_ID" --genesis-sha256 "$genesis_digest" \
-        --sequencer-id "$sequencer_id" --sequencer-public-key "$sequencer_public" \
-        --data-dir "$layerx/relay-archive" --listen '[::]:9457' \
-        --public-url https://api-mainnet-beta.paxeer.network \
-        --genesis-manifest "$node_data/genesis/genesis.manifest" \
-        --genesis-snapshot "$node_data/genesis/00000000000000000000.lxs" \
-        --source-log "$node_data/checkpoints/da-bodies.log" \
-        --submission-upstream https://api-mainnet-beta.paxeer.network/v1/activities \
-        --ca-file /etc/ssl/certs/ca-certificates.crt \
-        --tls-cert "$tls/relay-archive/cert.pem" --tls-key "$tls/relay-archive/key.pem"; then
-        rm -f "$config_dir/origin.json"
-        rmdir "$config_dir"
-        return 1
-    fi
-    chown 4020:4020 "$config_dir/origin.json" || return 1
-    chmod 0600 "$config_dir/origin.json" || return 1
-    mv -f "$config_dir/origin.json" "$run/relay-archive/config.json" || return 1
-    rmdir "$config_dir"
-}
-
-service relay-archive 4020 \
-    "$genesis_files $node_data/genesis/genesis.manifest $node_data/genesis/00000000000000000000.lxs $node_data/checkpoints/da-bodies.log $run/node/core.env $run/node/sequencer-public-key $tls/relay-archive/cert.pem $tls/relay-archive/key.pem $tls/relay-archive/ca.pem" \
-    relay_archive_prepare - -- \
-    python3 /opt/layerx/relay_archive/runtime.py --config "$run/relay-archive/config.json"
 
 if [ "$kernel_profile" = full ]; then
     human_authority_ready &
