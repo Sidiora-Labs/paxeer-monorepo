@@ -202,8 +202,8 @@ def main():
             print("terminal V4 schema vector drift", file=sys.stderr); return 1
     else:
         path.write_text(generated)
-    fixture = ROOT / "sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
-    canonical = bytes.fromhex(json.loads(fixture.read_text())["canonical_receipt_hex"])
+    fixture = ROOT / "tests/fixtures/programs/emulator-response-code/receipt.hex"
+    canonical = bytes.fromhex(fixture.read_text())
     outcome = canonical[-490:-69]
     if len(outcome) != 421 or outcome[:4] != bytes.fromhex("50524734") or canonical[-69:-64] != bytes.fromhex("0100000040"):
         raise ValueError("executed C fixture does not carry the declared V4 layout")

@@ -13459,3 +13459,307 @@ symbol = "start_agent"
 observed = "Attempt 21 (962aaebd0 on 877e81900): the real daemon refused its human listener because the socket's parent directory root carries mode 0o711 and validate_path (services/agent/crates/layerx-agentd/src/human.rs:1725-1742) refuses any other-user bit on it."
 assumption = "Fixture layout, not a daemon defect: a 0o700 socket directory under root satisfies the listener and keeps root traversable for the node; do_26 applies it."
 severity = "task-scoped"
+
+[finding.8.5.2.4]
+task = "8.5.2"
+file = "services/platform/hosted/gateway/src/rpc.rs:356"
+symbol = "kernel_backend"
+observed = "Attempt 6 (33b0b5024 on d88134e96) reached the gate for the first time and px_listAssets was refused with kernel_unavailable/not_configured because kernel_backend still routes it to the public core kernel, which the test (and req.8041) run without."
+assumption = "A one-arm product change outside the four declared files; rpc.rs joins touches and do_8 removes the arm. Task 8.3.1 (pending) also touches rpc.rs and is unaffected."
+severity = "cross-task"
+
+[finding.18.1200.1.10]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/recovery.rs:49"
+symbol = "transition"
+observed = "Attempt 16 (b00385370 on 29f8a5dc1) fails restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema and the two other recovery tests with ReceiptLocationRequired from src/outbox/mod.rs:461-481 because the helper reaches Executed through outbox::transition, which carries no block location."
+assumption = "A test-helper gap, not a product change: do_14 routes the Executed step through outbox::record_execution with the support receipt and a block position."
+severity = "minor"
+
+[finding.18.1211.5.5]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-interop-service/src/relay.rs:794"
+symbol = "a_committed_answer_with_another_block_hash_is_receipted"
+observed = "Attempt 8 (eb4261f6c on 29f8a5dc1) fails this relay test, ten server::tests and x402_settle_succeeds_on_the_receipted_rung: the relay mock's block hash literal equals the re-recorded receipt's hash, the server tests still build offers on the 'layerx:beta' network that server.rs:1131 refuses, and the settle test reports EvidenceMismatch from services/interop/crates/layerx-x402/src/seller.rs:315-352."
+assumption = "relay.rs joins touches for its tests module (decision.1979, amending 1978) and do_12 carries the three repairs without changing an assertion."
+severity = "cross-task"
+
+[finding.18.1228.1.9]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/src/agents/controls.rs:610"
+symbol = "change_protocol_limit"
+observed = "Attempt 11 (c61196b80 on 29f8a5dc1) fails only protocol_and_app_limit_changes_keep_their_real_enforcement_labels with Refused 'lifecycle transaction binding differs' (src/agents/create.rs:550): the ProtocolAction carries control_action_key (:686) while the compiled PayBudgetCreate payload and its disclosure carry the replacement budget id (:585), and the production boundary (src/server/agent_creation.rs:422, :474) binds the evidence to the disclosed key."
+assumption = "A production contradiction, not a fixture gap; decision.1980 rules the action key is the budget id and task 18.1228.2 changes controls.rs and the test's receipt builder."
+severity = "owner"
+
+[finding.18.1228.1.10]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:1457"
+symbol = "BudgetCreation"
+observed = "The creation journey's BudgetCreation stage compiles a PayBudgetCreate whose budget id is BudgetId::new(agent_id) (:1457) while its action key is digest(ACTION_DOMAIN, agent_id, stage) (:1646) and :1481 sets the idempotency key from that action key; under decision.1980 the two keys would have to coincide, and no gate fails on it today."
+assumption = "Recorded for the owner, not fixed by any task in this batch; the limit-change fix of 18.1228.2 does not touch the creation stages."
+severity = "owner"
+
+[finding.6.32.3.1]
+task = "6.32.3"
+file = "precompiles/common/precompiles.go:197"
+symbol = "Run"
+observed = "Attempts 1 to 3 (b6d68f78f, 11359f1e9, e499b9df6) fail 48 of 84 cases: every write method of 0x1014 after the store-delete step answers Error('execution reverted') (100 bytes) through Run instead of RetiredRevert (132 bytes), because the deferred handler repacks executor errors whenever the wrapper's retirePlan gate (:215-223) did not fire, and that gate names the nine view methods only."
+assumption = "A wrapper defect outside this test-only task; decision.1981 and task 6.34.2 keep executor revert data and reorder the Execute checks, and 6.32.3 requires it."
+severity = "cross-task"
+
+[finding.8.0.4.1]
+task = "8.0.4"
+file = "services/platform/hosted/gateway/src/main.rs:4117"
+symbol = "gateway_readiness_scope"
+observed = "Attempts 1 and 2 (f87e0cd18, d399c7d77 on a1c0f4e7f) fail chain_only_router_serves_receipts_balances_and_assets at router_surface.rs:1010: readiness answers 'degraded' because complete is computed over every KernelBackend::ALL entry and product_routes['complete'] even when no kernel backend is configured, while paxeer_chain, consensus and chain_serving are ready."
+assumption = "A product readiness rule outside this test-only task; decision.1982 and task 8.0.5 make an unconfigured kernel fall out of the readiness document, and 8.0.4 requires it."
+severity = "cross-task"
+
+[finding.8.5.3.1]
+task = "8.5.3"
+file = "services/platform/hosted/gateway/src/rpc.rs"
+symbol = "anchor_head"
+observed = "Attempts 1 and 2 (954c60ae0, 66d37aa82 on a1c0f4e7f) pass the declared test, and the completion check then fails on symbol anchor_head not defined in the graph because do_1 deletes it."
+assumption = "A spec defect: a symbol a task removes cannot stay in its symbols list; the list now names the surviving function and the test."
+severity = "note"
+
+[finding.10.20.3.16]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/src/server/movement_provider.rs:835"
+symbol = "UnixMovementProvider::new"
+observed = "Attempt 22 (9449cd2a4 on 29f8a5dc1) fails production_components_open_without_paxeer_or_exit_environment and components_binary_starts_without_recipient_or_exit_environment with 'movement provider refused startup' from src/server/production_components.rs:707: validate_socket requires an existing socket owned by the configured peer with no other-permission bits, and the test environment only names the path."
+assumption = "A test precondition, not a product change (decision.1983); do_27 binds a listener in the test environment."
+severity = "minor"
+
+[finding.17.5.1.13]
+task = "17.5.1"
+file = "apps/web/src/app/exchange/exchange-client.tsx:18"
+symbol = "pxResolveAccount"
+observed = "Attempt 15 (682092ffd on 29f8a5dc1) fails the wave-0 gate in the apps/web build: the client component imports the server-only ../../api/gateway, and @noble/curves, @noble/hashes, @sidiora/layerx-sdk and @supabase/supabase-js imported by the aliased sdk/wallet/src are not declared by apps/web."
+assumption = "A product build defect outside this gate task; task 17.5.10 moves the read behind a server action and declares the packages, and 17.5.1 requires it."
+severity = "cross-task"
+
+[finding.18.1211.5.6]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-interop-service/src/relay.rs:794"
+symbol = "a_committed_answer_with_another_block_hash_is_receipted"
+observed = "Attempt 9 fails the test because its mock block has no receiptsRoot and decode_block (services/agent/crates/layerx-client/src/sequencer.rs) answers Malformed, so the relay answers Receipted for the matching hash as well."
+assumption = "A test fixture gap, not a product change: do_13 adds the field."
+severity = "note"
+
+[finding.18.1200.1.11]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs:903"
+symbol = "sequencer_receipt"
+observed = "Attempt 17 fails restart_resolution_uses_receipts_without_duplicate_delivery at support/mod.rs:980 ('left pax_sequencerReceipt right eth_getTransactionReceipt'): the support receipt does not verify under rpc/receipt.rs lookup_authenticated, resolve_unknown records UnverifiedReceipt and never issues the receipt lookup."
+assumption = "The support builder predates the current receipt format; do_15 aligns it with the layerx-client receipt_rpc.rs builders."
+severity = "major"
+
+[finding.18.1200.1.12]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/recovery.rs:121"
+symbol = "recovered.queued_for_transmission"
+observed = "Attempt 17 expects queued_for_transmission == [ids[0]] and gets [] because Outbox::enqueue stores no origin and recover.rs:196-200 classifies the record as queued_without_authority."
+assumption = "Decision 1984: the assertion moves to queued_without_authority."
+severity = "note"
+
+[finding.10.20.3.17]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:1045"
+symbol = "production_components_open_without_paxeer_or_exit_environment"
+observed = "Attempt 23 fails the three tests because ProductionComponents::open reaches Client::from_environment, which refuses without the LAYERX_EVENTS_*_UPSTREAM_URL and _UPSTREAM_CA_DER variables the fixture never sets."
+assumption = "Fixture gap: do_28 supplies the variables with a bound listener and an existing DER file."
+severity = "note"
+
+[finding.8.4.4.1]
+task = "8.4.4"
+file = "services/platform/hosted/gateway/src/paxeer.rs:676"
+symbol = "custody_asset"
+observed = "Attempt 1 (6e3b7a21b on 6faf2f06b) deletes SELECTOR_GET_ASSET and fails the build with E0425 at paxeer.rs:676, where custody_asset still sends it to the ledger precompile."
+assumption = "The selector is shared with the ledger; decision 1985 keeps it."
+severity = "note"
+
+[finding.12.35.4.13]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120_test.go:221"
+symbol = "TestLocalNodeV6120SequencerReceipt"
+observed = "Attempt 15 fails 'send one-wei transfer: method handler crashed' on eth_sendRawTransaction against the local node; node.log stays in $NODE_HOME, which the test never learns, so the panic site is unknown."
+assumption = "A panic inside the SendRawTransaction admission path; do_16 surfaces node.log so the next attempt names it."
+severity = "blocker"
+
+[finding.18.1228.1.11]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/agent_controls.rs:397"
+symbol = "replacement_budget_id"
+observed = "Attempt 12 fails the build: agent_controls.rs keeps the attempt 11 helper calls (replacement_budget_id at :397 and :721, five-argument sign_transaction at :747) after do_17 restored canonical_owner.rs."
+assumption = "Half-applied port; do_18 completes it on agent_controls.rs alone."
+severity = "note"
+
+[finding.17.5.10.1]
+task = "17.5.10"
+file = "apps/web/next.config.mjs"
+symbol = "webpack.resolve.alias"
+observed = "Attempt 2 (cf3827a1e) makes next build pass by aliasing ./gateway.ts imported from src/api/wallet.ts to src/app/exchange/actions.ts; wallet.ts:4 still names the server-only module."
+assumption = "Accepted for the build gate; 17.5.11 removes the alias (decision 1986)."
+severity = "owner"
+
+[finding.12.24.5.1]
+task = "12.24.5"
+file = "sdk/wallet/src/kernel.ts:69"
+symbol = "KernelAvailability.current"
+observed = "Attempts 1 and 2 (2e3c1204f on 00271f78c, 39be7d0d9 on e164e1a2a) fail typecheck: current() reads network.kernel after do_2 replaced it with consensus and consensus_reason, and kernel.ts was outside the touches."
+assumption = "Spec gap; do_6 adds kernel.ts and the derivation."
+severity = "note"
+
+[finding.8.11.3.1]
+task = "8.11.3"
+file = "services/platform/hosted/authority/src/human/budget_state.rs:77"
+symbol = "Config.lni_socket"
+observed = "Attempts 1 and 2 (663d598ac on 00271f78c, 3790dd5e0 on e164e1a2a) delete Config.lni_socket and lni_gate per do_1 and fail the build with eight E0609 at budget_state.rs:77 and :256 and main.rs checkpoint_for and verify_withdrawal_request, files and functions of tasks 8.98.4 and 8.98.3 which both require 8.11.3."
+assumption = "Cross-task: decision 1987 keeps the fields here and deletes them in 8.98.3 after 8.98.4."
+severity = "cross-task"
+
+[finding.8.20.1.1]
+task = "8.20.1"
+file = "services/platform/hosted/core/src/public_reads.rs:246"
+symbol = "estimate_fee"
+observed = "Attempt 1 (918bd4937 on 00271f78c) deletes validate_submission_payload per do_2 and fails the build because public_reads.rs:246, a file of 8.98.5 and 8.98.6, still calls it; attempt 2 (b3959ad55 on 8451db6ab) keeps it as validate_fee_payload behind an alias and qualifies."
+assumption = "Decision 1988 records the kept validator; 8.98.6 deletes it with the fee route port."
+severity = "note"
+
+[finding.9.97.3.1]
+task = "9.97.3"
+file = "sdk/platform/generators/src/main.rs:519"
+symbol = "receipt_contract"
+observed = "Attempt 1 (ae367b322 on 00271f78c): the generator refuses 'missing declaration type.ProgramExecutionV4.domain' because 1d0cc3720 (9.10.2) removed the program-execution sections from services/agent/schema/agent-api/programs.kvx while receipt_contract still requires them; no pending task owned the generator."
+assumption = "Cross-task: decision 1989 moves the generator change into 9.97.3."
+severity = "cross-task"
+
+[finding.8.51.1.1]
+task = "8.51.1"
+file = "tools/platform/emulator/core/emulator_core.c"
+symbol = "open_native_feed"
+observed = "Attempt 1 (db0225c9e on 00271f78c) passes its build and both tests; the completion check refuses because the symbols list still names open_native_feed and close_native_feed, which 8.96.5 removed earlier."
+assumption = "Spec symbols list was stale; corrected."
+severity = "note"
+
+[finding.8.20.3.1]
+task = "8.20.3"
+file = "services/platform/hosted/tests/test_workspace_manifest.py"
+symbol = "test_paxeer_verifier_is_not_a_platform_dependency"
+observed = "Attempts 1 and 2 (94b5caf8c on 71b0f8ac8, 0c05fca05 on b4769b6cf) removed both direct dependencies and the trust.rs verifier, built with --locked, and failed only the planned test: it asserted the whole platform lock free of layerx-paxeer-verifier while layerx-client, layerx-agentd and layerx-paxeer-client still depend on it."
+assumption = "The test over-asserted; decision.1991 narrows it to the two manifests and the two package entries, and attempt 3 continues from attempt 2 with the narrowed test."
+severity = "medium"
+
+[finding.9.97.3.2]
+task = "9.97.3"
+file = "services/agent/crates/layerx-sdk/src/production.rs"
+symbol = "verify_receipt"
+observed = "Attempts 3 and 4 (28f485ddd on 17dd9f358, feb420d28 on d9595e251) regenerated receipt_generated.rs, receipt.ts, receipt.py and receipt.pyi from the 8.45.1 contract; cargo build -p layerx-sdk then failed with 22 errors because production.rs:56-209 and :791 and lib.rs:69-71 still use PROGRAMS_MODULE_ID, PROGRAM_OUTCOME_TAGS, REQUIRED_NONZERO_CHECKS and ReceiptFailureCode members the contract no longer defines; verifier.py:9-10 and verifier.ts:5-7 import the same names."
+assumption = "Cross-task: 8.45.1 rewrote the contract and no task retired the kernel receipt verification in the SDK consumers; decision.1992 adds 9.97.6 to 9.97.10 and sequences 9.97.3 after them."
+severity = "high"
+
+[finding.18.1228.1.12]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"
+symbol = "archive_fixture"
+observed = "Attempt 13 (0315bff0d on 17dd9f358) ported the session-key revocation tests, built the seven binaries and failed only archive_fixture::every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity, acknowledgement_gap_faults_converge_without_resubmitting_unknown and crashes_after_every_durable_stage_resume_with_one_effect_per_leg with UndeclaredActivity(196616) at :2197."
+assumption = "Pre-existing and owned by 18.1149.1 (finding.10.2.9.1, decision.1883); decision.1993 makes the verify skip those three cases."
+severity = "medium"
+
+[finding.8.50.4.1]
+task = "8.50.4"
+file = "tools/platform/cli/src/http.rs"
+symbol = "post_activity"
+observed = "Attempts 1 and 2 (e16f669b1, 71346e460 on 17dd9f358) deleted Client::post_activity as do_3 asks, built with --locked and passed the three lx_switch_off tests; cg spec done refused with 'symbol post_activity — not defined in the graph' because the task's symbols list named the deleted function."
+assumption = "Spec defect: a symbols entry must exist after the task; post_activity is removed from the list and attempt 3 continues from attempt 2."
+severity = "low"
+
+[finding.8.98.5.5]
+task = "8.98.5"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-platform-registry"
+observed = "Attempt 5 (82bf18444 on 80e0cf011) restored lib.rs and migrated endpoint configuration, readiness and network-head reads; cargo build --locked -p layerx-platform-core refused with 'the lock file services/platform/Cargo.lock needs to be updated' before compiling and verification did not run."
+assumption = "Pre-existing: 0fdebd9dc (task 8.96.4) dropped layerx-programs-protocol-adapter from the registry manifest and built without --locked, leaving the lock entry at services/platform/Cargo.lock:1591 stale; task 18.1297.2 refreshes the lock."
+severity = "high"
+
+[finding.8.98.1.2]
+task = "8.98.1"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-platform-registry"
+observed = "Attempt 3 (2002fee9b on 913944c1a) changed only import usage in main.rs and the retired-path test; cargo build --locked -p layerx-platform-agent-boundary refused with 'the lock file services/platform/Cargo.lock needs to be updated' before compiling. Attempt 4 (5556f679c on d9595e251) refreshed the lock in its tree, built, verified and published without the lock."
+assumption = "Pre-existing: 0fdebd9dc (task 8.96.4) dropped layerx-programs-protocol-adapter from the registry manifest and built without --locked, leaving the lock entry at services/platform/Cargo.lock:1591 stale; task 18.1297.2 refreshes the lock."
+severity = "high"
+
+[finding.8.4.4.2]
+task = "8.4.4"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-platform-registry"
+observed = "Attempt 2 (dbeb9da7e on 17dd9f358) removed the selectors while keeping SELECTOR_GET_ASSET; cargo build --locked -p layerx-platform-gateway refused with 'the lock file services/platform/Cargo.lock needs to be updated' before compiling. Attempt 3 refreshed the lock in its tree, built, verified and published without the lock."
+assumption = "Pre-existing: 0fdebd9dc (task 8.96.4) dropped layerx-programs-protocol-adapter from the registry manifest and built without --locked, leaving the lock entry at services/platform/Cargo.lock:1591 stale; task 18.1297.2 refreshes the lock."
+severity = "high"
+
+[finding.10.20.3.18]
+task = "10.20.3"
+file = "services/platform/Cargo.lock"
+symbol = "layerx-platform-registry"
+observed = "Attempt 24 (88a3285ad on 17dd9f358) built services/human and then cargo build --locked against services/platform/Cargo.toml refused with 'the lock file services/platform/Cargo.lock needs to be updated' before compiling."
+assumption = "Pre-existing: 0fdebd9dc (task 8.96.4) dropped layerx-programs-protocol-adapter from the registry manifest and built without --locked, leaving the lock entry at services/platform/Cargo.lock:1591 stale; task 18.1297.2 refreshes the lock."
+severity = "high"
+
+[finding.16.0.4.1]
+task = "16.0.4"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "16.0.4"
+observed = "Attempt 1 (a555b20e2 on 9ce722842) passed its build and cg spec done printed done 16.0.4 with every graph check green, but the attempt's working-time budget expired before the result record was written, so no evidence exists for that revision; attempt 2 continued from it and published."
+assumption = "Qualification evidence is attempt 2's; attempt 1's pass is recorded here only so the revision is not mistaken for a failure."
+severity = "low"
+
+[finding.16.6.1.1]
+task = "16.6.1"
+file = "scripts/ci/solidity-state-surface.sh"
+symbol = "contracts"
+observed = "Attempt 1 (ecbc1f4f9) deleted scripts/PaxeerBetaDeploy.s.sol and its test passed make -n workspace-build, but retired_callers_test.py --component anchor --component custody-claims --path scripts exited 1 on scripts/ci/solidity-state-surface.sh:4-7, a file outside the task's touches that 16.5.3 trims."
+assumption = "A scan whose path is wider than the task's touches depends on every sibling that owns a file under it; 16.6.1 now requires 16.5.3 and reruns unchanged."
+severity = "low"
+
+[finding.16.7.2.1]
+task = "16.7.2"
+file = "tools/bringup/railway-names.env"
+symbol = "GUARANTOR"
+observed = "Attempt 1 (35cfb92e1) passed the retired-callers scan of the four scripts and failed tools/bringup/ca.sh services with exit 1 because tools/bringup/railway-names.env:17 GUARANTOR and :24 RELAY_ARCHIVE name rows do_3 deleted."
+assumption = "The names file is part of the certificate inventory a row deletion touches (decision.1994); 16.7.2 owns it from attempt 2 on."
+severity = "medium"
+
+[finding.16.7.4.1]
+task = "16.7.4"
+file = "tools/bringup/xweb-config.sh"
+symbol = "xweb_render_serve"
+observed = "Attempt 1 (ad6d9fd98) replaced lx_getAsset and lx_getAccount and its test ran render serve, which exited 2 with 'check-live: BRINGUP_HOSTS_FILE is unset' from search-front.sh names (xweb-config.sh:203, check-live.sh:297); the private host map and the live gateway are not gate inputs."
+assumption = "The renderer accepts fixture inputs (decision.1995): XWEB_SERVE_NAMES for the names and XWEB_GATEWAY_ENDPOINT for a loopback px_listAssets fixture."
+severity = "medium"
+
+[finding.16.7.4.2]
+task = "16.7.4"
+file = "services/platform/hosted/gateway/src/paxeer.rs"
+symbol = "list_assets"
+observed = "The attempt 1 implementer reported that the gateway's px_listAssets layerx record carries neither verification nor paused, while tools/qualification/paxeer-x/paid-web-contract.py:3470-3475 requires verification == authenticated_committed_snapshot and paused == false on every configured asset; not confirmed against a running gateway."
+assumption = "The paid-web contract is the record shape; if list_assets (paxeer.rs:717) omits those fields the gateway owner adds them, the xweb fixture follows the contract."
+severity = "low"
+
+[finding.16.8.1.1]
+task = "16.8.1"
+file = "tools/paxeer-x/gates/2.2.sh"
+symbol = "build_cmd"
+observed = "Attempts 1 (c7276e0ae) and 2 (f3e788d74) deleted tools/paxeer-x/gates/2.2.sh as do_1 asks and the declared build bash -n tools/paxeer-x/gates/2.2.sh exited 127 on the missing file, so verification never ran."
+assumption = "A build command must name a file the task leaves in place; it now checks 24.14.sh."
+severity = "low"
+
+[finding.16.9.4.1]
+task = "16.9.4"
+file = "tools/paxeer-x/tests/retired_callers_test.py"
+symbol = "self_test"
+observed = "Attempt 1 (8d77d2b6b) added the deleted trees and the allowed reference and failed --self-test with 'complete component catalogue': the check compares the catalogue's 47 components with the --component names in spec verify_cmd lines, of which the spec now has none."
+assumption = "The check is spec-shaped and stale (decision.1996); 16.9.4 owns the test file and changes the check to a subset over every spec line."
+severity = "medium"

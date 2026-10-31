@@ -14,6 +14,7 @@ use std::time::Instant;
 mod programs_chain;
 use programs_chain::{DeploymentReadError, ProgramHead, ProgramsChain};
 
+use layerx_programs::state_record::{restore_verified, restore_verified_profile2};
 use layerx_programs::{
     hex, programs_source_verification, AccountStateHead, BuildPlan, BuildRefusal,
     JournalReadAuthority, LifecycleReceipt, ObservedHead, ProgramId, ProgramInterface,
@@ -21,7 +22,6 @@ use layerx_programs::{
     SourceStatus, SourceVerifier, UpgradePolicy, VerifiedDeploymentEvidence,
     VerifiedProgramBalanceRead, VerifiedRegistryRead, WindDownStateAccess,
 };
-use layerx_programs_protocol_adapter::ProtocolProgramStateRead;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -75,6 +75,7 @@ pub struct Registrar {
     request_authority: crate::RegistryAuthority,
     publication_authority: crate::RegistryAuthority,
     staleness_ms: u64,
+    request_deadline: Option<Instant>,
     balance_reads: BTreeMap<ProgramId, VerifiedProgramBalanceRead>,
     account_profile2_reads: BTreeMap<ProgramId, [u8; 32]>,
     interfaces: BTreeMap<(ProgramId, u32), ProgramInterface>,
@@ -142,6 +143,7 @@ impl Registrar {
             request_authority: config.request_authority.clone(),
             publication_authority: config.publication_authority.clone(),
             staleness_ms: config.staleness_ms,
+            request_deadline: None,
             balance_reads: BTreeMap::new(),
             account_profile2_reads: BTreeMap::new(),
             interfaces: BTreeMap::new(),
@@ -224,6 +226,7 @@ impl Registrar {
                 "the registry request deadline expired",
             );
         }
+        self.request_deadline = Some(deadline);
         self.node_state.set_request_deadline(deadline);
         if self
             .verifier
@@ -416,9 +419,20 @@ impl Registrar {
                 "program-state feed is ahead of the independently verified head".to_owned(),
             );
         }
+        let endpoint = std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL")
+            .map_err(|_| "LAYERX_REGISTRY_CHAIN_RPC_URL is required".to_owned())?;
+        let deadline = self
+            .request_deadline
+            .unwrap_or_else(|| Instant::now() + std::time::Duration::from_secs(15));
         let mut registry = self.registry.clone();
         let mut staged = Vec::with_capacity(programs.len());
         for program in programs {
+            self.program_state.store(
+                &endpoint,
+                program,
+                current_head.freshness.observed_sequence,
+                deadline,
+            )?;
             let entry = registry
                 .entry_for_wind_down(program)
                 .map_err(|error| format!("program-state registry lookup refused: {error}"))?;
@@ -438,7 +452,7 @@ impl Registrar {
                 self.node_state.program_state(program, current_head)?
             };
             let state = if profile2 {
-                ProtocolProgramStateRead::restore_verified_profile2(
+                restore_verified_profile2(
                     &record.bytes,
                     &mut registry,
                     record.receipt,
@@ -447,7 +461,7 @@ impl Registrar {
                     self.staleness_ms,
                 )
             } else {
-                ProtocolProgramStateRead::restore_verified(
+                restore_verified(
                     &record.bytes,
                     &mut registry,
                     record.receipt,
@@ -456,7 +470,7 @@ impl Registrar {
                     self.staleness_ms,
                 )
             }
-            .map_err(|error| format!("protocol program-state adapter refused: {error:?}"))?;
+            .map_err(|error| format!("program balance proof refused: {error:?}"))?;
             if profile2 != state.account_profile2().is_some() {
                 return Err("program account evidence profile mismatch".to_owned());
             }
@@ -466,13 +480,6 @@ impl Registrar {
             staged.push((state, record.bytes));
         }
 
-        for (state, bytes) in &staged {
-            if state.account_profile2().is_some() {
-                self.program_state.store_profile2(state, bytes)?;
-            } else {
-                self.program_state.store(state)?;
-            }
-        }
         self.program_state.advance(complete)?;
         self.journal.refresh_head(ObservedHead {
             sequence: current_head.freshness.observed_sequence,
