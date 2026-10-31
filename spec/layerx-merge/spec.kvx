@@ -97268,7 +97268,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.35.4]
 title = "Retire batch timestamp selection in src/sequencer/lxp_batch_time.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.21.1", "1.0.3", "16.31.3"]
