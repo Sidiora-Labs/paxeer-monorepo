@@ -588,10 +588,6 @@ fn subscription_text(
     if request.path == "/rpc/ws"
         && rpc::invalid_request(&value).is_none()
         && !evm::SUBSCRIPTION_METHODS.contains(&method)
-        && !matches!(
-            method,
-            "lx_subscribe" | "lx_unsubscribe" | "lx_subscription"
-        )
     {
         if let Some(answer) = rpc::dispatch(config, request, &value) {
             subscription_answer(stream, &answer)?;

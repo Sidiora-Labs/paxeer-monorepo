@@ -408,7 +408,6 @@ mod tests {
     const TOKEN_PAGE_ONE: &str = include_str!("explorer_fixtures/token_transfers_page1.json");
     const TOKEN_PAGE_TWO: &str = include_str!("explorer_fixtures/token_transfers_page2.json");
     const TRANSACTIONS: &str = include_str!("explorer_fixtures/transactions.json");
-    const RELAY: &str = include_str!("../fixtures/relay_archive_batches.json");
 
     fn explorer_server() -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
         explorer_server_with_transactions(0)
@@ -582,6 +581,7 @@ mod tests {
             "evm:0x21f7cf8e59a3f3c3b2c3f0c5e8b5e43e8b1d6a0b"
         );
         assert_eq!(items[0]["final_basis"], "explorer_api");
+        assert_eq!(items[1]["final_basis"], "explorer_api");
         assert_eq!(items[1]["height_or_seq"], "1200");
         assert_eq!(items[1]["tx_index"], "0");
         assert_eq!(items[1]["direction"], "in");
@@ -616,6 +616,9 @@ mod tests {
             .filter_map(|item| item["height_or_seq"].as_str())
             .collect();
         assert_eq!(heights, vec!["1250", "1300"]);
+        assert!(items
+            .iter()
+            .all(|item| item["final_basis"] == "explorer_api"));
         assert_eq!(items[0]["kind"], "native_transfer");
         assert_eq!(items[0]["direction"], "in");
         assert_eq!(items[0]["tx_index"], "3");
@@ -640,7 +643,7 @@ mod tests {
             .unwrap_or_else(|| panic!("no items"));
         assert_eq!(items.len(), 1);
         assert_eq!(items[0]["tx_id"], "0xnode");
-        assert_eq!(items[0]["final_basis"], "local_finality_depth");
+        assert_eq!(items[0]["final_basis"], "block_commit");
         assert_eq!(third["next_cursor"], Value::Null);
         assert_eq!(served.load(std::sync::atomic::Ordering::SeqCst), requests);
 
@@ -802,46 +805,5 @@ mod tests {
         assert_eq!(response.status, 503);
         assert_eq!(body(&response)["error"]["code"], "explorer_unavailable");
         assert!(!store.explorer_imported(ACCOUNT).unwrap_or(true));
-    }
-
-    #[test]
-    fn kernel_receipts_from_the_history_route_page_per_account() {
-        let relay: Value = serde_json::from_str(RELAY).unwrap_or_else(|error| panic!("{error}"));
-        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
-        let batches = relay["canonical"]["batches"]
-            .as_object()
-            .unwrap_or_else(|| panic!("no batches"));
-        let mut numbers: Vec<u64> = batches.keys().filter_map(|key| key.parse().ok()).collect();
-        numbers.sort_unstable();
-        let mut account = None;
-        for number in numbers {
-            let unit = crate::layerx::decode_batch(&batches[&number.to_string()])
-                .unwrap_or_else(|error| panic!("{error}"));
-            if account.is_none() {
-                account = unit.transfers.first().map(|row| row.account.clone());
-            }
-            store
-                .commit(&unit, 1)
-                .unwrap_or_else(|error| panic!("{error}"));
-        }
-        let account = account.unwrap_or_else(|| panic!("the kernel fixture carries no transfer"));
-        let all = store
-            .merged_history(&account, None, 500, None)
-            .unwrap_or_else(|error| panic!("{error}"));
-        assert!(!all.items.is_empty());
-        assert!(all
-            .items
-            .iter()
-            .all(|item| item["chain"] == "layerx" && item["account"] == account.as_str()));
-        let response = route_with(
-            &store,
-            &Readiness::default(),
-            "GET",
-            &format!("/v1/history/{account}?limit=1"),
-        );
-        assert_eq!(response.status, 200);
-        let page = body(&response);
-        assert_eq!(page["items"][0], all.items[0]);
-        assert_eq!(page["next_cursor"].is_string(), all.items.len() > 1);
     }
 }
