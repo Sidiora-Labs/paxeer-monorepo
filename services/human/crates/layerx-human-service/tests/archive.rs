@@ -98,7 +98,7 @@ impl AuthorityLayer {
                 protocol_state_digest: [0x81; 32],
                 observed_sequence: 10,
                 observed_at: 1_000,
-                verification_level: VerificationLevel::STATE_PROVEN,
+                rung: layerx_types::rung::Rung::Committed,
             },
             suspension_effects: 0,
             revocation_effects: 0,
@@ -285,7 +285,7 @@ impl AgentSessionContract for AuthorityLayer {
             &RevocationEvent {
                 did: self.did.clone(),
                 authority: Some(ProtocolAuthority::SessionKey(target.grant_id)),
-                reason: InvalidationReason::SessionKeyRevoked,
+                reason: InvalidationReason::GrantRevokedOnChain,
                 observed_sequence: self.core_sequence,
             },
         )
