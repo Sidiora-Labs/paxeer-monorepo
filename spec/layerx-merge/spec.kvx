@@ -149117,7 +149117,7 @@ do_6 = "Decision 2088: attempt 5 (6a449ae79) renamed the Mechanism variants of s
 
 [task.10.6.3]
 title = "Remove the retired bridge mechanisms from the resolver and intent-nonce tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.6.2", "9.99.2"]
@@ -180419,7 +180419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.1.1]
 title = "Write the .pax registry, base registrar and registrar controller matching the wallet's controller ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
