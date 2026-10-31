@@ -125137,7 +125137,7 @@ do_4 = "Attempts 1 to 3 (b6d68f78f on b8937670d; 11359f1e9 and e499b9df6 on a1c0
 
 [task.6.34.2]
 title = "Keep executor retirement reverts through the precompile wrapper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.32.2", "6.34.1", "6.0.3"]
@@ -133049,7 +133049,7 @@ do_5 = "Attempt 1 (f87e0cd18 on a1c0f4e7f; attempt 2 d399c7d77 repeats it) fails
 
 [task.8.0.5]
 title = "Report chain-only readiness when no kernel backend is configured"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.5.2"]
@@ -191312,7 +191312,7 @@ do_17 = "Attempt 11 (c61196b80 on 29f8a5dc1) passes revocation, tenant_resolve a
 
 [task.18.1228.2]
 title = "Issue #1228: Submit the replacement budget id as the limit-change action key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1204.2", "10.2.9"]
