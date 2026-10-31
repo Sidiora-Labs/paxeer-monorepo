@@ -122694,7 +122694,7 @@ do_7 = "Decision 2109: attempt 6 (3ecc5b567) built and the verify stopped at tes
 
 [task.5.98.3]
 title = "Seed the local node's dev genesis with the perps market, pricefeed and collateral state of the perps-data test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["12.35.4"]
