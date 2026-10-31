@@ -170114,7 +170114,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.3.2]
 title = "Drop the retired daemons and checkpoint settlement file from the kernel image build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170758,7 +170758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.7.4]
 title = "Render xweb bring-up configuration without lx_ routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
