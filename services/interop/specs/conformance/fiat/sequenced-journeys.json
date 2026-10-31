@@ -14,25 +14,25 @@
       "class": "settled",
       "amount": "1000000",
       "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
-      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "destination": "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4",
       "observed_at": 10,
       "hold_until": null,
       "token_reference_sha256": "0x812be8128e73728833bc1af20392a443ba6116736070b1a0719a542baf6a4a80"
     },
-    "provider_signature": "0x1bc4c9befe9dfd2489ced98d1ec2a52856e56953f6fd3d6599601d8b2a25dffe8245a7c28544ec479bbc58081dd3212f3ac73b5991875da774003ce83f1dab0d",
+    "provider_signature": "0x4f539214d7b75abb4571933556a49abfa33b37f4ac1abf6197a97ff1da2225734e8fb43c0198a3ab8f7b7fdea1bb8538cbaaa1fdb86cfa4c955ad1f5baa2630c",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
       "case": "V1-layerxledger-pay-exact",
       "rung": "receipted",
-      "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
-      "receipt_digest": "0xe7c6a13ed062d534ce0387c8d00735e390ba1097c019e4c3da3d06e126401f6c",
-      "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
+      "transaction_hash": "0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1",
+      "receipt_digest": "0xc7ecf924109be6874db7677301607c6426f74bd1df1b5051726e3d4439b1a138",
+      "source_receipt_digest": "0x3f63045f1bcd3b2eb0fd9de72de19e76de4e509b567212c8645c58a18d2b4bcb",
       "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
       "payment_reference": "0x0b5827ae8eac02b6eba77b8b130d6a64e9fe1a8e875256b87bce0d79393227a4"
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0xe7c6a13ed062d534ce0387c8d00735e390ba1097c019e4c3da3d06e126401f6c",
+      "receipt_digest": "0xc7ecf924109be6874db7677301607c6426f74bd1df1b5051726e3d4439b1a138",
       "translation": "receipt-verified"
     }
   },
@@ -51,25 +51,25 @@
       "class": "settled",
       "amount": "1000000",
       "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
-      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "destination": "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4",
       "observed_at": 10,
       "hold_until": null,
       "token_reference_sha256": "0x679bd79fc9f6a75b5773ed5a41108d7d17c5745adb0e43acaa6ea2029056f1a3"
     },
-    "provider_signature": "0xc924adeef2bb56eb9b484fb02bdd6254882bbb3a51eb211873c79eebce16ff31857a97817be6da4bb66fbaf2df810c1b6b4f698bad98ab1993f4598c127d870e",
+    "provider_signature": "0x86767f26e0d9d6117b10a01094408345b4475f68467b2f5b95fb967dfccde90f255b1b2629a22d4b3f12fbf4aab91dab14deccb4097d7956d84ba743a1b0010c",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
       "case": "V1-layerxledger-pay-exact",
       "rung": "receipted",
-      "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
-      "receipt_digest": "0xae073c877f5615aec23c61e051b69c703e7680e7f603be886d2163efdc15d5bb",
-      "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
+      "transaction_hash": "0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1",
+      "receipt_digest": "0x1cb7fa00962a341065e8f52572bb1c070aea364cc11515d9317a1e5b58985cd9",
+      "source_receipt_digest": "0x3f63045f1bcd3b2eb0fd9de72de19e76de4e509b567212c8645c58a18d2b4bcb",
       "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
       "payment_reference": "0xd37ec5ad3fec2fc46907d83e2acbacb9adaffa7372f75ba7df9146d18427bd62"
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0xae073c877f5615aec23c61e051b69c703e7680e7f603be886d2163efdc15d5bb",
+      "receipt_digest": "0x1cb7fa00962a341065e8f52572bb1c070aea364cc11515d9317a1e5b58985cd9",
       "translation": "receipt-verified"
     }
   },
@@ -88,25 +88,25 @@
       "class": "settled",
       "amount": "1000000",
       "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
-      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "destination": "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4",
       "observed_at": 10,
       "hold_until": null,
       "token_reference_sha256": "0xe5fa27e2cfe2a4422f3c1e569029384407666ab67ff542b6b307ddadb8ddce50"
     },
-    "provider_signature": "0x695be42638852eebfe801e77be2c164213b90dcf33fa5e87caaf3365908c633386f46a8e596679d57fb1604cc699d7309a1cf506badd3b440f625caa76aace0d",
+    "provider_signature": "0xb08ed21a1e6a8ae80e30f981b0f7e46bf30dd8b7d4248c647bf0b2d16699de3ad4afb636164b1bd39420a4b6e549fd251b8044e273ca856e9c6e635d8504060c",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
       "case": "V1-layerxledger-pay-exact",
       "rung": "receipted",
-      "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
-      "receipt_digest": "0x797340ee02757c9b4478537f26674ac8804b6b74a39658eacd3633498eb9e933",
-      "source_receipt_digest": "0x07ca8892f51d79da84854829f737777341e03fe8bb156ce1784c88a4cc92b4ab",
+      "transaction_hash": "0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1",
+      "receipt_digest": "0xdf11a2917424eb597138442b16b045a756ecd60235ae51905955749ace92becb",
+      "source_receipt_digest": "0x3f63045f1bcd3b2eb0fd9de72de19e76de4e509b567212c8645c58a18d2b4bcb",
       "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
       "payment_reference": "0x682606fee5a23df2e15cabd4baacf2f8342bc7bbe9e381988742f6722a11f103"
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0x797340ee02757c9b4478537f26674ac8804b6b74a39658eacd3633498eb9e933",
+      "receipt_digest": "0xdf11a2917424eb597138442b16b045a756ecd60235ae51905955749ace92becb",
       "translation": "receipt-verified"
     }
   },
@@ -125,17 +125,17 @@
       "class": "settled",
       "amount": "1000000",
       "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
-      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "destination": "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4",
       "observed_at": 10,
       "hold_until": null,
       "token_reference_sha256": "0xf55db7d9d16120cc170bd9cd78cb4272df97abe7a47c044e75fb8b38d2ccd06e"
     },
-    "provider_signature": "0xec1f85b17394dd5f04766f02c062989a8d347ad679835b8f45f2df478b2cd83dc2978a1957e58f1ad782794f923b0ecde7acc3fc9661fb56928c953393305407",
+    "provider_signature": "0x95b4086a3f68999a83f2f5660addadf340a257a766c6c9afcf5b5fc5e3dab59471d65eafb4cf128201e495209f15ba9409701f4ec5b88aeb8809d35b6b2a960f",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
       "case": "V1-layerxledger-pay-exact",
       "rung": "submitted",
-      "transaction_hash": "0x9f6be3b6fda7dd664ddb83a901dad4458b78298b59e307151c217a2a1f13d2bb",
+      "transaction_hash": "0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1",
       "receipt_digest": null
     },
     "expect": {
@@ -158,18 +158,18 @@
       "class": "settled",
       "amount": "1267650600228229401496703205376",
       "asset": "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
-      "destination": "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+      "destination": "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4",
       "observed_at": 10,
       "hold_until": null,
       "token_reference_sha256": "0xac836dd073e7c3515d73bcdf861fbf6e8e35c16a9d88dfc890726b048fe26c52"
     },
-    "provider_signature": "0x15635e103ee1948773ad984369d4adf80f985bf7b622bc9cb4befe4ae4353074f9b35a82144d8eaef3e23662c81767338d4d47c0c991d761f72ec502889c1b01",
+    "provider_signature": "0x635d3719399f448e3cdc99a72d3c68281a5be4510281897b474367b36717980080fc0791a4fb52de0c39e3162b545d3d88c5953474a363b4f6ef22a2a9de0a0e",
     "sequencer": {
       "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
       "case": "V2-layerxledger-revert",
       "rung": "receipted",
-      "transaction_hash": "0x4f96a837589571ea40d90364edb4857a4df24a84d991a035ffb21b87a079e8b8",
-      "receipt_digest": "0xd538b9b7edae31032e2f91f217c15512eaeb0224706e99f17cdd61452f850ea4"
+      "transaction_hash": "0xd094a7ecf7bea5c2b54967020a06984d50b26c6a7219748d1c30db5dfc896d03",
+      "receipt_digest": "0xb4e6fb3842c14bda5052950c2bd3322f04c50856fbfb6ece5b428c065ccc33df"
     },
     "expect": {
       "refusal": "ReceiptMismatch",
