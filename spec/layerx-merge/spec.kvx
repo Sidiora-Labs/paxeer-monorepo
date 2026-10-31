@@ -5829,6 +5829,42 @@ value = "8.45.4 builds the generator and the Go module, then verifies with the p
 basis = "The owner's quality ruling: every interface-changing task proves the producer, transport and consumer path."
 affects = ["8.45.4"]
 
+[decision.2120]
+title = "The authority retired-module scan checks trust.rs for client, head and caps only while trust::checkpoint keeps its batch lookup"
+value = "tests/retired_client_modules_w2.rs scans src/main.rs for layerx_client::client, ::head, ::caps and ::batch and src/trust.rs for layerx_client::client, ::head and ::caps; the layerx_client::batch::lookup_untrusted call at src/trust.rs:203 belongs to trust::checkpoint, which decision 2105 keeps until the human-reader port of the checkpoint read retires it together with its scan exemption."
+basis = "Attempt 8 (006f514eb) fails only on trust.rs:203 (finding 8.98.3.5); the two halves of decision 2105 cannot both hold with batch in the trust.rs list."
+affects = ["8.98.3"]
+
+[decision.2121]
+title = "The reachability guard excludes the kernel suites and Cargo packages rooted under tests/, and accepts a reference by path or by stem from Makefile, chain.mk, tools/, scripts/ or tests/"
+value = "TestEveryCTestMainHasBuildReference walks tests/ without tests/arith, tests/codec, tests/crypto and tests/fuzz (acceptance.16.297.1; the kernel pattern rule at Makefile:1157 builds them by name), reads Makefile, chain.mk and every *.sh, *.py and *.mk file under tools/, scripts/ and tests/, and accepts a program whose root-relative path or whose file stem appears as a whole word. TestEveryRustTestFileIsCompiled skips every *.rs file that has a Cargo.toml in an ancestor directory below tests/ (a module of a fixture crate) and keeps the reference scan outside tests/. The task waits for 16.28.5, 5.54.9 and 6.60.2, which delete or wire the remaining programs."
+basis = "Finding 16.28.1.1: of the 78 names, 69 are the excluded kernel suites, two are built by stem or from a script under tests/, three are deleted by pending tasks and four need 16.28.5."
+affects = ["16.28.1", "16.28.5"]
+
+[decision.2122]
+title = "Three retired kernel test programs leave the tree and the trading vector generator gets a Makefile rule"
+value = "tests/state/lxp_test_idempotency.c (its rule deleted by 16.2.2 do_5, its deletion asked by wiring.J21.25 after 1.2.1), tests/network/test_oracle_replay_absent.c (its object rule deleted by 16.2.2 do_2 with the oracle adapter) and tests/programs/test_paxai_storage_continuity.c (its rule deleted by 16.0.4 do_6 with the paxai storage keeper of wiring.J40.22) are deleted; tests/ci/test_claims_and_replay_removed.py::test_replay_expects_sequence_refusal asserts the idempotency file is absent and tests/ci/test_retired_daemon_lni.py drops the deleted path from its roots. tests/modules/dump_trading_vectors.c, the producer of tests/fixtures/trading-payloads/vectors.json, is built by a Makefile rule for $(BUILD_DIR)/tools/dump_trading_vectors with the kernel recipe of Makefile:1157 and a trading-vectors phony target, and a planned test runs the binary and compares its vector list with the fixture. New task 16.28.5 (wave 33, req 8547)."
+basis = "No pending task owns these four files (finding 16.28.1.1); a retired harness without a rule is dead code, and a fixture producer that no rule builds cannot be checked against its fixture."
+affects = ["16.28.5", "16.28.1"]
+
+[decision.2123]
+title = "The human-service real-layer test double derives the budget identity from the budget_defund payload"
+value = "In tests/agent_controls_rungs.rs the RealAgentLayer::prepare double reads budget_id from bytes 2..34 of the budget_defund payload (u16 version 1, 32-byte budget_id, u128 amount; services/agent/crates/layerx-crypto/src/disclosure/native.rs:402-423) for Budget ordinal 8 and derives budget_account as account_id of agent:{actor}:budget:{hex(budget_id)} under protocol 3 (native.rs:351) instead of the constant [0x41; 32]; continue from attempt 9 (569d39e41)."
+basis = "Finding 18.1188.2.5: the kernel codec compares the payload's budget_id with the context's and refuses the constant."
+affects = ["18.1188.2"]
+
+[decision.2124]
+title = "A native send carries no kernel purpose commitment, so native_send_preview_v1 refuses only a disclosure that carries one"
+value = "native_send_preview_v1 (services/agent/crates/layerx-agentd/src/human_runtime.rs:6118) adopts the owner-preview form at :6403: refuse when binding::purpose_commitment(&prepared.disclosure).is_some(); the requested purpose.commitment stays bound by the capability check at :6162 (capability.purpose_commitments.contains) and the signed local grant. native_send_preview_is_an_unsigned_ledger_transfer_call posts through handle_rpc as do_4 asks and gains a negative case: a commitment absent from the grant's purpose_commitments is refused. Continue from attempt 4 (0a356e6d7)."
+basis = "Finding 10.13.9.1: no native send disclosure yields a purpose commitment, so the equality check is a defect, not a gate; the same refusal form already guards the owner preview."
+affects = ["10.13.9", "10.13.8"]
+
+[decision.2125]
+title = "8.98.14 waits for the owner's ruling on the rpc surface that serves the custody profile record and the public reads"
+value = "The task is held until the owner rules how the 223-byte custody profile record (services/platform/hosted/core/src/lib.rs:386-397) and the node_info, sequence and receipt-by-global-sequence reads of services/platform/hosted/core/src/public_reads.rs are served without the kernel socket; the one-word module_state read cannot carry the record. The same family as the j4420_mapping_ruling holds."
+basis = "Finding 8.98.14.3: two consecutive attempts stop at the same missing interface."
+affects = ["8.98.14"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -23570,8 +23606,8 @@ ac_1 = "contracts/config/checkpoint-settlement.json is removed from EXTRA at tes
 
 [req.16297]
 title = "C and Rust suite reachability guard"
-ac_1 = "TestEveryCTestMainHasBuildReference (planned) fails naming every tests/**/*.c file that defines int main and whose path appears in none of Makefile, chain.mk or a file under tools/ or scripts/; at HEAD tests/test_qual_replay.c:20 is built only by tools/lxp_qual_replay_matrix.sh:1 and passes."
-ac_2 = "TestEveryRustTestFileIsCompiled (planned) fails naming every tests/**/*.rs file that no #[path = ...] attribute, build.rs string or Cargo.toml path references; at HEAD tests/support/lxgb_metadata.rs is reached by services/platform/hosted/registry/tests/native_deployment.rs:1."
+ac_1 = "TestEveryCTestMainHasBuildReference fails naming every tests/**/*.c file outside tests/arith, tests/codec, tests/crypto and tests/fuzz that defines int main and whose root-relative path or file stem appears as a whole word in none of Makefile, chain.mk or a *.sh, *.py or *.mk file under tools/, scripts/ or tests/ (decision 2121); at HEAD tests/test_qual_replay.c:20 is built only by tools/lxp_qual_replay_matrix.sh:1 and passes."
+ac_2 = "TestEveryRustTestFileIsCompiled fails naming every tests/**/*.rs file outside a Cargo package rooted under tests/ that no #[path = ...] attribute, build.rs string or Cargo.toml path references (decision 2121); at HEAD tests/support/lxgb_metadata.rs is reached by services/platform/hosted/registry/tests/native_deployment.rs:1."
 
 [req.16298]
 title = "Makefile go test selector guard"
@@ -82140,7 +82176,7 @@ qualification = "UNRUN"
 [acceptance.16.297.1]
 feature = "16"
 req = "16297.1"
-scenario = "Given the repository after the wave-6 retirements, when the guard walks tests/ excluding the tests/arith, tests/codec, tests/crypto and tests/fuzz kernel suites, then every C file with int main has a build reference and the test passes"
+scenario = "Given the repository after the wave-6 retirements, when the guard walks tests/ excluding the tests/arith, tests/codec, tests/crypto and tests/fuzz kernel suites and reads Makefile, chain.mk and the build scripts under tools/, scripts/ and tests/, then every C file with int main is named by path or stem and the test passes"
 contract = "contracts/test-harness.md#reachability"
 test = "tools/repotest/reachability_test.go::TestEveryCTestMainHasBuildReference (planned)"
 qualification = "UNRUN"
@@ -82148,7 +82184,7 @@ qualification = "UNRUN"
 [acceptance.16.297.2]
 feature = "16"
 req = "16297.2"
-scenario = "Given the repository, when the guard walks tests/ for *.rs, then each file is referenced from a crate and the test passes"
+scenario = "Given the repository, when the guard walks tests/ for *.rs outside the Cargo packages rooted under tests/, then each file is referenced from a crate and the test passes"
 contract = "contracts/test-harness.md#reachability"
 test = "tools/repotest/reachability_test.go::TestEveryRustTestFileIsCompiled (planned)"
 qualification = "UNRUN"
@@ -141092,6 +141128,7 @@ do_7 = "Decision 2083: attempt 4 (b28010d09) changed one import line of src/main
 do_8 = "Decision 2100: attempt 5 stopped on decision 2083's condition. rpc::evidence::ProofBundle (src/rpc/evidence.rs:9-12) carries an account proof and the landing block, the replica document (BatchEvidence, src/lib.rs:97-106) carries the header, its signature, the receipt proof and the batch identity, and layerx-client's JSON-RPC surface has no read of a signed activity by activity id (sequencer.rs public methods; rpc::receipt::AuthenticatedReceipt returns the receipt only), so the signed_activity that layerx_proof::receipt::withdrawal::verify (receipt/withdrawal.rs:179-185) decodes cannot be obtained by the authority (finding.8.98.3.3). Delete verify_withdrawal_request (:858-957), its call and the withdrawal_evidence_unavailable refusal (:819-821) and the imports only it used; the receipt stays bound to its batch through authorized_batch_by_activity, and withdrawal semantics are verified at submission by the gateway (services/platform/hosted/gateway/src/main.rs:2903-2931 verify_withdrawal_submission over the submission's canonical activity). checkpoint_for ports to rpc::evidence::checkpoint as decision 2083 says and the rest of decision 2083 stands. Continue from attempt 4 (b28010d09), build once and verify once."
 do_9 = "Decision 2104: attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) fail the authority test build because tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes the receipt-programs-positive-v3.json fixture that 8.47.5 deleted (finding.8.98.14.2). Whichever of 8.98.3 and 8.98.14 publishes first deletes call_fixture (:171-195) and its only consumer call_outcome_cannot_be_reclassified_as_state (:262-274); module_offset (:198) stays for malformed_state_module_version_and_signature_are_refused (:235) and the verify_outcome import for the deploy test at :214-217. If main already lacks call_fixture, this line is satisfied."
 do_10 = "Decision 2105: attempt 6 (6a83e2d41) ported checkpoint_for and checkpoint_header onto rpc::evidence::checkpoint and broke the human readers (finding.8.98.3.4): human/budget_state.rs:5, :77, :103 and :256 still read over the socket (decisions 2057, 2058, until 8.98.14), and human.rs:134, :579, :588, :1013, :1025, :1037 and human/dynamic.rs:141, :563, :570 consume VerifiedCheckpoint methods that rpc SequencerBlock (services/agent/crates/layerx-client/src/sequencer.rs:190-200) lacks. The checkpoint port of do_4, do_6 and do_7 is withdrawn: checkpoint_for, checkpoint_header, trust::limits, trust::checkpoint, LNI_FRAME_BYTES, MAX_LNI_CONNECTIONS, Config.lni_socket, Config.lni_gate and the LAYERX_AUTHORITY_LNI_SOCKET block stay as on main. The task deletes verify_withdrawal_request, its call, the withdrawal_evidence_unavailable refusal and the imports only it used (decision 2100), and no_retired_layerx_client_module_paths_w2 scans src/main.rs and src/trust.rs for layerx_client::client, ::head, ::caps and ::batch; lni, read and evidence join the list in the task that ports the human readers. Every existing authority test still passes."
+do_11 = "Decision 2120: continue from attempt 8 (006f514eb). In services/platform/hosted/authority/tests/retired_client_modules_w2.rs scan src/trust.rs for layerx_client::client, layerx_client::head and layerx_client::caps only (src/main.rs keeps the four modules); src/trust.rs:203 and trust::checkpoint stay as attempt 8 left them. Build once and verify once."
 
 [task.8.98.4]
 title = "Migrate the authority callers of wiring.J44.20"
@@ -141526,6 +141563,7 @@ do_7 = "When connect_client and its layerx_client::client import leave services/
 do_8 = "After porting the custody block and the authority budget reader (services/platform/hosted/authority/src/human/budget_state.rs, decision 2057), add 'read' to the retired_modules lists of services/platform/hosted/core/tests/retired_client_modules_w2.rs and services/platform/hosted/authority/tests/retired_client_modules.rs (decisions 2057 and 2058), so both tests then prove the port."
 do_9 = "Decision 2095: attempts 1 to 3 (f558a861c and 25e68910b among them) fail the build on the core test target no_kernel_disclosure_codec.rs, whose source! list (:16-17) includes services/platform/hosted/gateway/tests/local/funding.rs and withdrawal.rs, files task 8.19.5 deleted (finding.8.98.14.1). The test joins touches: delete those two source! entries and no other; then the task as declared. Continue from attempt 3, build once and verify once."
 do_10 = "Decision 2104: attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) fail the authority test build because tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes the receipt-programs-positive-v3.json fixture that 8.47.5 deleted (finding.8.98.14.2). Whichever of 8.98.3 and 8.98.14 publishes first deletes call_fixture (:171-195) and its only consumer call_outcome_cannot_be_reclassified_as_state (:262-274); module_offset (:198) stays for malformed_state_module_version_and_signature_are_refused (:235) and the verify_outcome import for the deploy test at :214-217. If main already lacks call_fixture, this line is satisfied."
+do_11 = "Decision 2125: held for the owner's ruling. When it lands, continue from attempt 7 (a41a80ed3): the custody profile record read and the three services/platform/hosted/core/src/public_reads.rs reads move to the ruled rpc surface, and only then do the FrameTransport parameters at lib.rs:451, :511 and :575 go."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -173652,8 +173690,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Guard that every C test program and Rust test file is built by some rule"
 status = "pending"
 mode = "BUILD"
-wave = 33
-requires = ["16.31.1", "16.31.2", "16.31.3", "16.31.4", "16.31.5", "16.31.6", "16.31.7", "16.32.1", "16.32.2", "16.32.3", "16.32.4", "16.32.5", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "16.32.10", "16.32.11", "16.32.12", "16.33.1", "16.33.2", "16.33.3", "16.33.4", "16.33.5", "16.33.6", "16.34.1", "16.34.2", "16.34.3", "16.34.4", "16.35.1", "16.35.2", "16.36.1", "16.36.2", "16.36.3", "16.37.1"]
+wave = 36
+requires = ["16.31.1", "16.31.2", "16.31.3", "16.31.4", "16.31.5", "16.31.6", "16.31.7", "16.32.1", "16.32.2", "16.32.3", "16.32.4", "16.32.5", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "16.32.10", "16.32.11", "16.32.12", "16.33.1", "16.33.2", "16.33.3", "16.33.4", "16.33.5", "16.33.6", "16.34.1", "16.34.2", "16.34.3", "16.34.4", "16.35.1", "16.35.2", "16.36.1", "16.36.2", "16.36.3", "16.37.1", "16.28.5", "5.54.9", "6.60.2"]
 reqs = ["16297.1", "16297.2"]
 capabilities = ["16.28.1"]
 interfaces = []
@@ -173677,12 +173715,13 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2121: continue from attempt 2 (e5415471d). TestEveryCTestMainHasBuildReference skips tests/arith, tests/codec, tests/crypto and tests/fuzz, adds the *.sh, *.py and *.mk files under tests/ to the build sources, and treats a program as referenced when its root-relative path or its file stem (the base name without .c) appears as a whole word in a build source (tools/paxeer-x/gates/104.19.4.sh:18 names test_module_registration by stem; tests/fixtures/asset/generate_supply_receipts.sh:8 names its generator by path). TestEveryRustTestFileIsCompiled skips a tests/**/*.rs file when a directory between tests/ and the file holds a Cargo.toml. Build once and verify once."
 
 [task.16.28.2]
 title = "Guard that every go test -run selector in the Makefile matches at least one test"
 status = "pending"
 mode = "BUILD"
-wave = 34
+wave = 37
 requires = ["16.28.1"]
 reqs = ["16298.1"]
 capabilities = ["16.28.2"]
@@ -173712,7 +173751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Guard that every pytest suite under tests/ is run by a Makefile, workflow or script"
 status = "pending"
 mode = "BUILD"
-wave = 34
+wave = 37
 requires = ["16.28.1", "16.2.4"]
 reqs = ["16299.1"]
 capabilities = ["16.28.3"]
@@ -192330,6 +192369,7 @@ do_6 = "Continue from attempt 5 (41203dd42): keep its raw_transaction and ordina
 do_7 = "Decision 2065: the custody failure of attempt 6 (11a1a83b6) is the test double's, not production's (finding.18.1188.2.3): RealAgentLayer::prepare (tests/agent_controls_rungs.rs:1340-1400 of that tree) hands custody the kernel canonical bytes of layerx_agentd prepare_activity, and production custody (src/journeys/provider.rs:697, src/server/agent_runtime.rs:31-34 decode_unsigned_evm_transaction) accepts only an unsigned EIP-1559 call. Make prepare return as canonical bytes the unsigned type-2 encoding of the call that raw_transaction (:1118) builds for the same activity, with the bind_call disclosure of that call as the prepared disclosure, so the three archive_fixture cases pass custody on the production decoder; the out-of-scope claim of the attempt 6 closing report is withdrawn. Continue from attempt 6, build once and verify once."
 do_8 = "Decision 2091: attempt 7 (adc848588) passes 10 of 11 and every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity panics (:2288) at transition 1 of jrn_reclaimbudget with 'agent preparation for ActivityType(196616) refused: Disclosure(Decode(MalformedPayload))' out of RealAgentLayer::prepare (:1365-1409 of that tree), which calls prepare_activity for every activity. The activity is Budget ordinal 8 (defund): layerx-agentd routes Budget ordinals 2, 8 and 9 through prepare_budget_mutation_for_protocol(boundary, defaults, request, protocol_version, &BudgetStateContext) (src/prepare/mod.rs:780-788), and layerx-crypto native.rs budget_defund (:402-423) answers MalformedPayload when the amount is 0 or above context.balance and FieldMismatch when budget_id, owner (agent:{actor}:main), budget account (agent:{actor}:budget:{hex}), asset or source account differ from the context (:588 requires Some(context)). Record the RUST_BACKTRACE=1 frame of the refusal first; then make the test double route Budget ordinals 2, 8 and 9 through prepare_budget_mutation_for_protocol with a BudgetStateContext consistent with the fixture budget and a balance at least the defund amount. If production refuses a consistent context, record one qualification entry and stop. Continue from attempt 7, build once and verify once."
 do_9 = "Decision 2103: attempt 8 (378650fe1) routes Budget ordinals 2, 8 and 9 through prepare_budget_mutation_for_protocol with a BudgetStateContext and still fails 'agent preparation for ActivityType(196616) refused: Disclosure(Decode(MalformedPayload))'. The defund payload is the 50-byte form budget_defund (layerx-crypto src/disclosure/native.rs:402-415) decodes and amount 1 is within balance 1; bound_context (:339-363) derives the owner, budget and per-asset account ids with hash::account_id_for_protocol(&account, 3) (:218-220) and answers MalformedPayload when context.owner or context.budget_account differ, while the double (that tree's tests/agent_controls_rungs.rs:1424-1452) derives them with layerx_intents::canonical::PROTOCOL_VERSION (finding.18.1188.2.4). Derive the context's owner, budget_account and source_account with protocol 3 (layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION), remove the double's refusal of authority references other than custody-human-primary (:1419-1421), and keep the eprintln of the preparation error. Continue from attempt 8, build once and verify once."
+do_10 = "Decision 2123: continue from attempt 9 (569d39e41). In services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs the RealAgentLayer::prepare double, for Budget ordinal 8 (budget_defund), takes budget_id from bytes 2..34 of the payload (u16 version 1, 32-byte budget_id, u128 amount, services/agent/crates/layerx-crypto/src/disclosure/native.rs:402-423) and derives budget_account as account_id('agent:{actor}:budget:{hex(budget_id)}') under protocol 3 (native.rs:351) so that bound_context at native.rs:345 accepts the preparation; the balance stays 1. Build once and verify once."
 
 [task.18.1075.1]
 title = "Issue #1075: Receipt qualification accepts any manifest in the reviewed deployment history"
@@ -193987,6 +194027,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2087: attempts 1 and 2 (b3d4e6514, 52b7341e3) build and pass their test, and fail the dependents check because the layerx-wire test target maintenance_identity.rs includes two fixtures task 8.47.5 removed, so every test target of a crate depending on layerx-crypto fails to compile (finding.8.47.11.1). 10.13.9 now requires 8.47.11, which removes those tests; continue from attempt 2 unchanged once 8.47.11 is on main, build once and verify once."
+do_7 = "Decision 2124: continue from attempt 4 (0a356e6d7). In services/agent/crates/layerx-agentd/src/human_runtime.rs native_send_preview_v1 replace the `binding::purpose_commitment(&prepared.disclosure) != Some(purpose.commitment)` arm at :6118 with the `.is_some()` refusal used by the owner preview at :6403; the capability check at :6162 keeps binding purpose.commitment. In tests/native_send_preview_evm.rs post the preview through handle_rpc (do_4) instead of calling the owner directly, and add a case where a commitment not in the grant's purpose_commitments is refused. Build once and verify once."
 
 [task.18.1243.2]
 title = "Issue #1243: Port the agent host payer to the ledger GrantTerms"
@@ -197668,4 +197709,56 @@ req = "8546.2"
 scenario = "Given the JVM human verification level enum, when its values are listed and the refused words are parsed, then unverified, receipt-verified and checkpoint-finalised are present and block-committed, paxeer-finalised and settlement-anchored are refused."
 contract = "contracts/platform-sdk.md#operation-catalog"
 test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsFollowTheHumanSchema"
+qualification = "UNRUN"
+
+
+[req.8547]
+title = "Retired kernel test programs without a rule are deleted and the trading vector generator is built and checked against its fixture"
+ac_1 = "tests/state/lxp_test_idempotency.c, tests/network/test_oracle_replay_absent.c and tests/programs/test_paxai_storage_continuity.c are absent; tests/ci/test_claims_and_replay_removed.py::test_replay_expects_sequence_refusal and tests/ci/test_retired_daemon_lni.py::test_daemon_lni_retired pass without them."
+ac_2 = "make build/tools/dump_trading_vectors builds tests/modules/dump_trading_vectors.c, and the JSON it prints carries source tests/modules/dump_trading_vectors.c and the same (name, activity_type) vector list as tests/fixtures/trading-payloads/vectors.json."
+
+[task.16.28.5]
+title = "Delete the three rule-less retired kernel test programs and give the trading vector generator a Makefile rule"
+status = "pending"
+mode = "BUILD"
+wave = 33
+requires = ["16.2.2", "16.0.4", "16.94.1", "16.34.1", "16.96.1"]
+reqs = ["8547.1", "8547.2"]
+do_1 = "Decision 2122: git rm tests/state/lxp_test_idempotency.c (wiring.J21.25; 16.2.2 do_5 deleted its rule at the former Makefile:2183-2190 and 16.94.1 do_3 removed its replay cases), tests/network/test_oracle_replay_absent.c (16.2.2 do_2 deleted its object rule with the oracle adapter at the former Makefile:805-823) and tests/programs/test_paxai_storage_continuity.c (16.0.4 do_6 deleted test-paxai-storage-continuity and its object rule with the paxai storage keeper, wiring.J40.22). No Makefile, chain.mk, tools/ or scripts/ file names any of the three."
+do_2 = "tests/ci/test_claims_and_replay_removed.py:35-41 test_replay_expects_sequence_refusal asserts (ROOT / 'tests/state/lxp_test_idempotency.c') does not exist instead of reading it; the tests/test_state_commitment_transition.c:616 assertion at :42-48 stays. tests/ci/test_retired_daemon_lni.py:14 drops 'tests/programs/test_paxai_storage_continuity.c' from the assert_symbols_unreferenced roots (the other roots stay)."
+do_3 = "Makefile: next to the kernel pattern rule at Makefile:1157-1161 add `$(BUILD_DIR)/tools/dump_trading_vectors: tests/modules/dump_trading_vectors.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build` with the same mkdir and $(CC) recipe, and `.PHONY: trading-vectors` / `trading-vectors: $(BUILD_DIR)/tools/dump_trading_vectors`. The header comment of tests/modules/dump_trading_vectors.c:1-11 names make trading-vectors and `build/tools/dump_trading_vectors > tests/fixtures/trading-payloads/vectors.json` instead of the hand cc line; the printed JSON at :415 keeps source tests/modules/dump_trading_vectors.c."
+do_4 = "Write tests/ci/test_trading_vectors_generator.py (planned) with test_generator_matches_fixture: run `make build/tools/dump_trading_vectors` from the repository root (subprocess, check=True), run the binary, json.loads its stdout, and assert source == 'tests/modules/dump_trading_vectors.c' and [(v['name'], v['activity_type']) for v in vectors] equals the same list from tests/fixtures/trading-payloads/vectors.json (17 vectors); a byte difference inside a vector is reported as a failure message naming the vector, not repaired here."
+do_5 = "Nothing else changes: the kernel suites under tests/arith, tests/codec, tests/crypto and tests/fuzz keep building by name through Makefile:1157, tests/fixtures/asset/generate_supply_receipts.sh keeps building its generator, and tests/programs/test_module_registration.c stays (tools/paxeer-x/gates/104.19.4.sh:145 builds it)."
+symbols = ["trading-vectors", "test_generator_matches_fixture", "test_replay_expects_sequence_refusal"]
+touches = ["Makefile", "tests/modules/dump_trading_vectors.c", "tests/state/lxp_test_idempotency.c", "tests/network/test_oracle_replay_absent.c", "tests/programs/test_paxai_storage_continuity.c", "tests/ci/test_claims_and_replay_removed.py", "tests/ci/test_retired_daemon_lni.py", "tests/ci/test_trading_vectors_generator.py"]
+tests = ["tests/ci/test_trading_vectors_generator.py::test_generator_matches_fixture", "tests/ci/test_claims_and_replay_removed.py::test_replay_expects_sequence_refusal", "tests/ci/test_retired_daemon_lni.py::test_daemon_lni_retired"]
+planned_paths = ["tests/ci/test_trading_vectors_generator.py"]
+build_cmd = "make -n build/tools/dump_trading_vectors"
+verify_cmd = "python3 -m pytest tests/ci/test_trading_vectors_generator.py::test_generator_matches_fixture tests/ci/test_claims_and_replay_removed.py::test_replay_expects_sequence_refusal tests/ci/test_retired_daemon_lni.py::test_daemon_lni_retired -q"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Restore the three deleted programs, the two CI tests, the Makefile and the generator header from history and delete the planned test."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[acceptance.16.547.1]
+feature = "16"
+req = "8547.1"
+scenario = "Given the repository, when the three retired programs are looked up and the two CI retirement tests run, then the files are absent and both tests pass."
+contract = "contracts/test-harness.md#reachability"
+test = "tests/ci/test_claims_and_replay_removed.py::test_replay_expects_sequence_refusal"
+qualification = "UNRUN"
+
+[acceptance.16.547.2]
+feature = "16"
+req = "8547.2"
+scenario = "Given the Makefile rule, when make build/tools/dump_trading_vectors runs and the binary prints its JSON, then the source field and the (name, activity_type) vector list equal the committed fixture."
+contract = "contracts/test-harness.md#reachability"
+test = "tests/ci/test_trading_vectors_generator.py::test_generator_matches_fixture"
 qualification = "UNRUN"

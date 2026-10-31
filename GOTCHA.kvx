@@ -12031,3 +12031,23 @@ fix = "Name the producer of the interface before choosing a vocabulary; a consum
 title = "A typed operation catalogue cannot address a retired wire name"
 symptom = "The Swift and .NET retired-faucet tests send PlatformOperation.AgentFaucetClaim; once the catalogue drops the case the tests cannot be written, while the Go and JVM tests send the string faucet.claim."
 fix = "Keep retired-name refusal tests on string-based transports; delete them where the transport is typed and note where the coverage lives."
+
+[gotcha.2444]
+title = "A scan list that names a module the same decision keeps"
+symptom = "A retired-module scan over trust.rs listed batch while the decision that wrote it kept the trust::checkpoint batch lookup; the attempt that did everything else right failed on that one line."
+fix = "When a decision keeps a call, take its module out of the scan over that file in the same decision, and name the task that retires both."
+
+[gotcha.2445]
+title = "A reachability guard needs the wiring before it can pass"
+symptom = "The first run of the C and Rust reachability guard listed 78 programs: kernel suites built by name through a pattern rule, modules of fixture crates rooted under tests/, programs built by stem from a gate script, and four whose rules earlier retirements removed without the file."
+fix = "Decide what a build reference is (path or stem, which script roots, which suites are built by name) before the guard is written, exclude crates rooted under tests/, and give every program the guard exposes an owner task before the guard task runs."
+
+[gotcha.2446]
+title = "A test double with a constant identity fails the first real-identity check"
+symptom = "The human-service real-layer double hardcoded a budget id and derived the account from it; the kernel codec compared the payload's budget id with the context's and refused the preparation."
+fix = "A double that stands in for a producer derives every identity from the bytes it is handed, never from a constant."
+
+[gotcha.2447]
+title = "A purpose check no input can satisfy is a defect, not a gate"
+symptom = "native_send_preview_v1 required the disclosure's purpose commitment to equal the requested one; a native send never discloses a payment, so the commitment is always None and every send was refused, while the sibling owner-preview path already refused only a present commitment."
+fix = "When a check cannot be satisfied by any valid input, read the sibling path and the binding code before adding fields; the commitment is bound where the capability is checked."
