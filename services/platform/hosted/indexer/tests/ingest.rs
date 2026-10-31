@@ -488,16 +488,7 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
     );
     assert_eq!(pointer_legs[0]["amount"], "42");
 
-    let deposit = by(&transfers, "kind", "custody_deposit");
-    assert_eq!(deposit.len(), 2);
-    let deposit_in = &by(&deposit, "direction", "in")[0];
-    assert_eq!(deposit_in["account"], RECEIVER);
-    assert_eq!(deposit_in["asset"], SEND_ASSET);
-    assert_eq!(deposit_in["amount"], "2500");
-    assert_eq!(
-        by(&deposit, "direction", "out")[0]["account"],
-        alice.as_str()
-    );
+    assert!(by(&transfers, "kind", "custody_deposit").is_empty());
 
     let bank = by(&transfers, "kind", "bank_transfer");
     assert_eq!(bank.len(), 4);
@@ -517,24 +508,16 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
     let events = store
         .events("paxeer")
         .unwrap_or_else(|error| panic!("{error}"));
-    let custody = by(&events, "name", "CustodyDeposit");
-    assert_eq!(custody.len(), 1);
-    assert_eq!(custody[0]["contract"], "layerxcustody");
-    assert_eq!(custody[0]["account"], alice.as_str());
-    assert_eq!(custody[0]["decoded"]["args"]["nonce"], "7");
-    assert_eq!(
-        custody[0]["decoded"]["address"],
-        "0x0000000000000000000000000000000000001013"
-    );
+    assert!(by(&events, "name", "CustodyDeposit").is_empty());
     let checkpoint = by(&events, "name", "layerx_checkpoint_submitted");
     assert_eq!(checkpoint.len(), 1);
     assert_eq!(checkpoint[0]["decoded"]["attributes"]["batch_number"], "3");
     assert_eq!(by(&events, "name", "create_denom").len(), 1);
 
-    let first = api::route(&store, "GET", &format!("/v1/history/{alice}?limit=2"));
+    let first = api::route(&store, "GET", &format!("/v1/history/{alice}?limit=1"));
     assert_eq!(first.status, 200);
     let first: Value = serde_json::from_str(&first.body).unwrap_or_else(|error| panic!("{error}"));
-    assert_eq!(first["items"].as_array().map(Vec::len), Some(2));
+    assert_eq!(first["items"].as_array().map(Vec::len), Some(1));
     assert_eq!(first["indexedHeight"], 3);
     assert_eq!(first["chainHeight"], 3);
     assert_eq!(first["freshness"]["version"], 1);
@@ -543,12 +526,12 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         .as_str()
         .unwrap_or_else(|| panic!("second page cursor"))
         .to_owned();
-    assert_eq!(next, "00000000000000020000000100000000");
+    assert_eq!(next, "00000000000000020000000000000000");
     assert_eq!(
         Position::parse(&next),
         Some(Position {
             height: 2,
-            tx_index: 1,
+            tx_index: 0,
             log_index: 0
         })
     );
@@ -556,7 +539,7 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         &store,
         "GET",
         &format!(
-            "/v1/history/{}?limit=2&cursor={next}",
+            "/v1/history/{}?limit=1&cursor={next}",
             alice.to_uppercase().replacen("0X", "0x", 1)
         ),
     );
@@ -594,7 +577,6 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
         [
             ("native_transfer".to_owned(), (2, 0, 0)),
             ("erc20_transfer".to_owned(), (2, 1, 0)),
-            ("custody_deposit".to_owned(), (2, 2, 1)),
         ]
     );
     for cursor in [
@@ -681,12 +663,14 @@ fn paxeer_blocks_logs_and_tx_search_decode_paginate_and_roll_back() {
     let transfers = store
         .transfers("paxeer")
         .unwrap_or_else(|error| panic!("{error}"));
+    assert!(by(&transfers, "kind", "custody_deposit").is_empty());
     assert!(by(&transfers, "kind", "pointer_transfer").is_empty());
     assert!(by(&transfers, "kind", "tokenfactory_mint").is_empty());
     assert_eq!(by(&transfers, "kind", "erc20_transfer").len(), 2);
     let events = store
         .events("paxeer")
         .unwrap_or_else(|error| panic!("{error}"));
+    assert!(by(&events, "name", "CustodyDeposit").is_empty());
     assert!(by(&events, "name", "create_denom").is_empty());
     assert_eq!(
         step_ok(|| ingester.step(&store)),

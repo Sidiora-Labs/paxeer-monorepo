@@ -7,7 +7,7 @@ PLATFORM_BETA_CLUSTER_ENV ?= build/beta-cluster/env
 .PHONY: platform-js-install platform-build platform-build-all platform-lint platform-test platform-sdk-check \
 	platform-sdk-generate platform-receipt-fixture platform-verify-sdks platform-test-sdks platform-release-check platform-release-plan platform-release-test \
 	platform-test-tooling platform-emulator-conformance platform-test-middleware \
-	platform-test-cli-production-credential-refusal platform-test-registry platform-test-node \
+	platform-test-cli-production-credential-refusal platform-test-registry \
 	platform-test-core platform-test-authority platform-test-agent-boundary platform-test-identity platform-test-paxeer-boundary \
 	platform-test-trusted-boundary platform-test-plain-listeners \
 	platform-test-reference-apps platform-test-mobile-artifacts \
@@ -152,15 +152,6 @@ platform-test-cli-production-credential-refusal:
 platform-test-registry:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-registry
 
-.PHONY: platform-build-node-artifacts platform-test-node-runtime
-platform-build-node-artifacts:
-	PLATFORM_CARGO="$(PLATFORM_CARGO)" $(BRIDGE_PYTHON) services/platform/hosted/node/tests/node-artifacts.py build --output "$(PAXEER_X_NODE_ARTIFACT_MANIFEST)" --image "$(LAYERX_NODE_IMAGE)"
-
-platform-test-node: platform-test-node-runtime
-
-platform-test-node-runtime:
-	BRIDGE_PYTHON="$(BRIDGE_PYTHON)" $(BRIDGE_PYTHON) services/platform/hosted/node/tests/node-artifacts.py run
-
 platform-test-core:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-core
 
@@ -173,12 +164,11 @@ platform-test-agent-boundary:
 platform-test-identity:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-identity
 
-platform-test-plain-listeners: $(BUILD_DIR)/bin/layerxd $(BUILD_DIR)/bin/layerx-genesis-build $(BUILD_DIR)/bin/layerx-archive-codec
+platform-test-plain-listeners:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-dashboard --test plain_listener
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-webhooks --test plain_listener
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-reference-ramp --test plain_listener
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh cargo test --offline --manifest-path services/interop/Cargo.toml --locked -p layerx-interop-service --test plain_listener
-	$(BRIDGE_PYTHON) tests/relay-archive/plain_listener.py $(BUILD_DIR)
 
 platform-test-paxeer-boundary:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-paxeer-boundary

@@ -441,7 +441,7 @@ export default function useNavItems(): ReturnType {
         subItems: tokensNavItems,
       },
       paxeerXNavItems.length > 0 ? {
-        text: 'Kernel',
+        text: 'Kernel archive',
         icon: 'navigation/blockchain',
         isActive: paxeerXNavItems.some(item => isInternalItem(item) && item.isActive),
         subItems: paxeerXNavItems,

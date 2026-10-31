@@ -34,6 +34,7 @@ func TestPayPrecompileRegistersMergeConstructor(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, custom, address)
 	require.Contains(t, custom[address], precompiles.MergeUpgrade)
+	require.Implements(t, (*vm.DynamicGasPrecompiledContract)(nil), custom[address][precompiles.MergeUpgrade])
 	registered, ok := custom[address][precompiles.MergeUpgrade].(precompiles.IPrecompile)
 	require.True(t, ok)
 	require.Equal(t, lp.PrecompileName, registered.GetName())
@@ -42,6 +43,9 @@ func TestPayPrecompileRegistersMergeConstructor(t *testing.T) {
 
 func TestPayPrecompileChargesGasTable(t *testing.T) {
 	h := newPayPrecompileHarness(t)
+	custom, err := precompiles.GetCustomPrecompilesE(precompiles.MergeUpgrade, h.keepers)
+	require.NoError(t, err)
+	require.Implements(t, (*vm.DynamicGasPrecompiledContract)(nil), custom[h.precompile.Address()][precompiles.MergeUpgrade])
 	a := h.precompile.GetABI()
 	require.Len(t, a.Methods, 57)
 	require.Len(t, lp.MethodGas, len(a.Methods))
@@ -72,12 +76,24 @@ func TestPayPrecompileChargesGasTable(t *testing.T) {
 				require.Equal(t, row.Gas(calldata[4:]), h.precompile.RequiredGas(calldata))
 			}
 			output, left, err := h.evm.StaticCall(h.caller, h.precompile.Address(), input, supplied)
-			require.Equal(t, supplied-want, left)
-			if method.IsConstant() && name == "progressHighWater" {
+			if row.Write {
+				require.Equal(t, supplied-want, left)
+			} else {
+				require.GreaterOrEqual(t, supplied-left, want)
+			}
+			if method.IsConstant() && (name == "progressHighWater" || name == "budgetRemaining") {
 				require.NoError(t, err)
+				require.Greater(t, supplied-left, want)
 				decoded, decodeErr := method.Outputs.Unpack(output)
 				require.NoError(t, decodeErr)
-				require.Equal(t, []interface{}{uint32(0)}, decoded)
+				if name == "budgetRemaining" {
+					require.Len(t, decoded, 1)
+					remaining, ok := decoded[0].(*big.Int)
+					require.True(t, ok)
+					require.Zero(t, remaining.Sign())
+				} else {
+					require.Equal(t, []interface{}{uint32(0)}, decoded)
+				}
 			} else {
 				require.ErrorIs(t, err, vm.ErrExecutionReverted)
 				reason, decodeErr := abi.UnpackRevert(output)

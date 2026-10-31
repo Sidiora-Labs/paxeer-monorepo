@@ -87,6 +87,10 @@ pub const SELECTOR_CHECKPOINT: [u8; 4] = [0x2d, 0x58, 0x8b, 0x18];
 pub const SELECTOR_BANK_BALANCE: [u8; 4] = [0x16, 0xca, 0xde, 0xab];
 /// `all_balances(address)`.
 pub const SELECTOR_BANK_ALL_BALANCES: [u8; 4] = [0x0c, 0x5e, 0x27, 0x89];
+pub const SELECTOR_BANK_NAME: [u8; 4] = [0x5b, 0x43, 0xbc, 0x99];
+pub const SELECTOR_BANK_SYMBOL: [u8; 4] = [0x41, 0xbb, 0x05, 0x59];
+pub const SELECTOR_BANK_DECIMALS: [u8; 4] = [0x3b, 0x2b, 0x32, 0x04];
+pub const SELECTOR_BANK_SUPPLY: [u8; 4] = [0x69, 0x23, 0xa1, 0xfd];
 
 /// Largest ABI string the endpoint decodes from a precompile answer.
 pub const MAX_ABI_STRING_BYTES: usize = 4096;
@@ -152,6 +156,22 @@ pub struct CustodyAsset {
     pub custodied: [u8; 32],
     pub released: [u8; 32],
     pub pending: [u8; 32],
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LedgerAsset {
+    pub asset_id: [u8; 32],
+    pub symbol: String,
+    pub name: String,
+    pub decimals: u8,
+    pub supply_cap: u128,
+    pub issuer_did: [u8; 32],
+    pub salt: [u8; 32],
+    pub issuer_kind: u8,
+    pub custody_kind: u8,
+    pub custody_reference: Vec<u8>,
+    pub paused: bool,
+    pub total_units: u128,
 }
 
 /// `ILayerXAnchor.Checkpoint`.
@@ -225,6 +245,16 @@ pub fn calldata_u64(selector: [u8; 4], value: u64) -> Vec<u8> {
     calldata
 }
 
+#[must_use]
+pub fn calldata_string(selector: [u8; 4], text: &str) -> Vec<u8> {
+    let mut calldata = calldata_head(selector, 1);
+    calldata.extend_from_slice(&word_u64(32));
+    calldata.extend_from_slice(&word_u64(u64::try_from(text.len()).unwrap_or(u64::MAX)));
+    calldata.extend_from_slice(text.as_bytes());
+    calldata.resize(4 + 64 + text.len().div_ceil(32) * 32, 0);
+    calldata
+}
+
 /// `selector(address,string)`.
 #[must_use]
 pub fn calldata_address_string(selector: [u8; 4], address: &[u8; 20], text: &str) -> Vec<u8> {
@@ -292,6 +322,16 @@ impl<'a> Answer<'a> {
         Ok(u64::from_be_bytes(value))
     }
 
+    pub fn u128(&self, index: usize) -> Result<u128, AbiError> {
+        let word = self.word(index)?;
+        if word[..16].iter().any(|byte| *byte != 0) {
+            return Err(AbiError::Width);
+        }
+        let mut value = [0_u8; 16];
+        value.copy_from_slice(&word[16..]);
+        Ok(u128::from_be_bytes(value))
+    }
+
     /// # Errors
     /// Refuses a word wider than 32 bits.
     pub fn u32(&self, index: usize) -> Result<u32, AbiError> {
@@ -321,6 +361,10 @@ impl<'a> Answer<'a> {
     /// Refuses offsets outside the answer and text that is not UTF-8 or
     /// exceeds [`MAX_ABI_STRING_BYTES`].
     pub fn string(&self, index: usize, base: usize) -> Result<String, AbiError> {
+        String::from_utf8(self.bytes(index, base)?).map_err(|_| AbiError::Text)
+    }
+
+    pub fn bytes(&self, index: usize, base: usize) -> Result<Vec<u8>, AbiError> {
         let offset = usize::try_from(self.u64(index)?).map_err(|_| AbiError::Offset)?;
         let start = base.checked_add(offset).ok_or(AbiError::Offset)?;
         if start % 32 != 0 {
@@ -344,7 +388,7 @@ impl<'a> Answer<'a> {
             .bytes
             .get(text_start..text_end)
             .ok_or(AbiError::Truncated)?;
-        String::from_utf8(text.to_vec()).map_err(|_| AbiError::Text)
+        Ok(text.to_vec())
     }
 }
 
@@ -473,6 +517,29 @@ pub fn decode_custody_asset(answer: &[u8]) -> Result<CustodyAsset, AbiError> {
         custodied: tuple.word(7)?,
         released: tuple.word(8)?,
         pending: tuple.word(9)?,
+    })
+}
+
+pub fn decode_ledger_asset(answer: &[u8]) -> Result<LedgerAsset, AbiError> {
+    let answer = Answer::new(answer);
+    for index in [1, 2, 9] {
+        if answer.u64(index)? < 12 * 32 {
+            return Err(AbiError::Offset);
+        }
+    }
+    Ok(LedgerAsset {
+        asset_id: answer.word(0)?,
+        symbol: answer.string(1, 0)?,
+        name: answer.string(2, 0)?,
+        decimals: answer.u8(3)?,
+        supply_cap: answer.u128(4)?,
+        issuer_did: answer.word(5)?,
+        salt: answer.word(6)?,
+        issuer_kind: answer.u8(7)?,
+        custody_kind: answer.u8(8)?,
+        custody_reference: answer.bytes(9, 0)?,
+        paused: answer.bool(10)?,
+        total_units: answer.u128(11)?,
     })
 }
 

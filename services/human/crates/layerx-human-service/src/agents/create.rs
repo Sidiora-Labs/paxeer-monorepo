@@ -577,6 +577,12 @@ impl ProtocolEvidence {
                 }
                 (payload, version)
             }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { payload }) => {
+                (
+                    payload,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                )
+            }
             Some(
                 layerx_crypto::disclosure::call::ConstructMethod::LedgerOpenAccount { .. }
                 | layerx_crypto::disclosure::call::ConstructMethod::LedgerRegister { .. }

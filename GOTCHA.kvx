@@ -11411,3 +11411,93 @@ fix = "Pending-tag reads and raw sends against the sequencer repeat on exactly t
 title = "Deleting a file another crate include_str!s passes a gate that builds only a tool crate"
 symptom = "A cleanup task deleted a schema file and qualified with the build of a small boundary-check tool crate; a library crate in the same tree still include_str!'d the file at its first lines, so every crate depending on that library failed to compile from the merge on, and the next attempts of unrelated tasks in three workspaces died in their build step."
 fix = "Before deleting any non-source file, grep the tree for include_str!, include_bytes!, include! and path-literal references to it, and let the deleting task build the crate that holds the reference, not only the crate that asserts the absence."
+
+[gotcha.2320]
+title = "A task that deletes a symbol must not list it under symbols"
+symptom = "A two-line deletion task built and passed its test, then the done gate refused because the task block named the deleted constant under symbols and the graph check requires every listed symbol to be defined after the change."
+fix = "For a deletion, leave symbols empty or name a symbol that remains defined (a test function the verify runs); the interfaces list may still cite the retired item because it is an index entry, not a graph check."
+
+[gotcha.2321]
+title = "A task that commits regenerated files must require the template task and name the real generator"
+symptom = "Three attempts of a regenerate-the-client task failed with the same twelve type errors: the task required a generator task that never changed the template literal, and its do line named a different generator that does not write those files."
+fix = "Before writing a regenerate task, grep the generator template for the old literal and the Makefile for the target that writes the output paths; require the task that changes the template and name that generator and target in the do line."
+
+[gotcha.2322]
+title = "View-method revert expectations go stale when keeper missing-record semantics change"
+symptom = "A precompile gas-table test expected budgetRemaining of a zero id to revert; the keeper had been changed to answer zero for a missing budget, three other tests and an acceptance criterion froze that, and the subtest failed on every base."
+fix = "When a view's missing-record behaviour changes in the keeper, grep the precompile tests for revert expectations on that view and realign them in the same wave; assert the succeeding view like the existing progressHighWater branch does."
+
+[gotcha.2323]
+title = "A re-recorded fixture hash has literal copies in sibling crate tests"
+symptom = "A fixture re-record task passed its Go legs and failed a Rust unit test whose const held the old txHash by value, in a file outside the task's touches."
+fix = "Before re-recording a fixture, grep services/ and sdk/ for the old hash bytes and add each literal copy to touches; the literal is updated, not read from the fixture."
+
+[gotcha.2324]
+title = "Block-view receipt validation decodes every consensus transaction as a TxRaw"
+symptom = "A local-node receipt test passed its pending nonce read and then failed every committed block view with 'decode consensus transaction 0 ... expected 2 wire type, got 0': transaction 0 of a sequenced block is the MsgSequenceBatch, which the rpc receipt validation fed to the sdk TxDecoder."
+fix = "A path that decodes block.Block.Txs must treat index 0 the way ProcessProposal does (DecodeSequenceBatchTx first); before trusting an rpc test suite on sequenced blocks, grep it for EncodeSequenceBatchTx and add a batch-headed block case."
+
+[gotcha.2325]
+title = "A validator that reads a table a prior task emptied fails every commit on the path"
+symptom = "Every maintenance batch failed with LXP_FATAL_INVARIANT because the settled snapshot validator required a latest receipt from the state idempotency table, whose only writer was removed two months earlier; no verify_cmd ran the two tests that commit maintenance batches, so the breakage was found by a daemon test in another domain."
+fix = "When a task removes the last writer of a store table, grep src/ for every reader of that table (including static validators) in the same task and name the authority the reader uses instead; schedule the tests that exercise the path in some verify_cmd."
+
+[gotcha.2326]
+title = "A verify leg that selects --lib on a binary-only package fails after every other leg passed"
+symptom = "A fixture re-record task passed nine verify legs and failed the tenth with 'no library targets found' because the service package declares only a [[bin]] and the verify_cmd asked for --lib; the leg had never run because earlier attempts stopped at earlier legs."
+fix = "When writing a cargo test leg for a package, read its Cargo.toml: a package with only [[bin]] takes --bin <name>, a package with [lib] takes --lib; check every leg of a chained verify_cmd against its target list before the first attempt."
+
+[gotcha.2327]
+title = "A vector consumer task that its producer lists as a requirement never finds the vector"
+symptom = "A decoder task failed three times with 'No such file or directory' on a shared test vector because the task that writes the vector listed the decoder as a requirement, so the file could only appear after the test that reads it had passed."
+fix = "When a task reads a planned file, the task that creates it must be in that task's requires and in an earlier or equal wave; check the producer's planned_paths against the touches and do lines of every consumer before landing the requires lists."
+
+[gotcha.2328]
+title = "A task that deletes or reshapes a public type leaves unlisted callers red on main"
+symptom = "Tasks 13.4.5 and 13.4.6 replaced the ProtocolDeploymentVerifier head model and completed on their own gates; layerx-platform-registry (31 errors) and layerx-human-security-provider (2 errors) stayed red on main, every gateway task then failed the build of its dependents, and the aggregate gate failed in human-build; attempts of three tasks repeated the same failure."
+fix = "Before a task deletes or changes a pub item, grep every workspace (programs, services/agent, services/platform, services/human, tools) for its callers; add each caller crate to the touches of that task or create the port tasks in the same batch, ordered before the gates that build those crates, and make the aggregate gate require every port its workspace build needs."
+
+[gotcha.2329]
+title = "Explorer spec files are linted by the production build, not by vitest or yarn lint:tsc"
+symptom = "The frontend image build runs next build, which runs ESLint over lib/ with @typescript-eslint/naming-convention, vitest/valid-title and vitest/expect-expect; spec files that passed snake_case functions as test titles (test(fn, fn)) or declared a snake_case const resource passed vitest and the type check and failed the image build, so paxscan.io kept serving a stale frontend (openapi.yaml 404, home block rows at 0 transactions) until f038ebb3f."
+fix = "Write test titles as string literals, keep the assertions inline in the test callback, name identifiers camelCase or inline them into the typed map; an explorer task gate does not run the production lint, so the author checks these three rules before the gate."
+
+[gotcha.2330]
+title = "The agent daemon's human socket directory must carry no other-user bits"
+symptom = "layerx-agentd exits 2 with 'human listener is invalid: Unauthenticated' when LAYERX_AGENT_HUMAN_SOCKET sits in a directory whose mode has any bit in 0o007 (0o711 for example), whose uid or gid differ from LAYERX_AGENT_HUMAN_SOCKET_UID and _GID, or that is a symlink (services/agent/crates/layerx-agentd/src/human.rs:1725-1742)."
+fix = "Bind the socket inside a dedicated directory created with mode 0o700 by the uid and gid the daemon is told to expect; keep shared fixture roots at their wider mode."
+
+[gotcha.2331]
+title = "apps/web is outside the root npm workspace"
+symptom = "make human-build fails with 'tsup: not found' (or another missing devDependency) in an environment that installed only the root package-lock.json: apps/web has its own lockfile and is excluded from the root workspaces, so the root install never provides its tools."
+fix = "Run npm ci inside apps/web before any human-build or human-test target; the root install does not cover it."
+
+[gotcha.2332]
+title = "A go test package fails to build when another test file still names a removed field"
+symptom = "go test ./precompiles/<pkg>/ -run X reports '[build failed]' from a different test file of the package (retire_read_gate_test.go:115 keepers.AnchorKeeper undefined) even though the focused test and the package build pass."
+fix = "A task that removes a field from a shared struct owns every test file in the package that names it: add those files to touches and delete the dead statements in the same change."
+
+[gotcha.2333]
+title = "A gateway method moved off the kernel core must also leave kernel_backend"
+symptom = "The gateway answers {'code':-32010,'data':{'backend':'public_core','code':'kernel_unavailable','reason':'not_configured'}} for a method whose handler no longer reads the kernel, because kernel_backend (services/platform/hosted/gateway/src/rpc.rs:338) still maps the method name to a KernelBackend and the readiness check runs before the handler."
+fix = "When a method's reads move to the indexer or the chain, remove its arm from kernel_backend in the same task and declare rpc.rs in touches."
+
+[gotcha.2334]
+title = "The precompile wrapper repacks an executor's retirement revert"
+symptom = "A precompile method retired inside its executor (layerxanchor Execute answering RetiredRevert) reaches the EVM as Error('execution reverted') (100 bytes) instead of the 132-byte LXP_MODULE_DISABLED data, because precompiles/common/precompiles.go Run repacks every executor error through revertData unless its own retirePlan gate fired for that method."
+fix = "Test retirement through Run, not GetExecutor().Execute; keep executor revert data in Run when the error is vm.ErrExecutionReverted and bytes were returned (decision.1981), and evaluate retirement before the staticcall refusal in Execute."
+
+[gotcha.2335]
+title = "A symbol a task deletes cannot stay in its symbols list"
+symptom = "The focused test passes and completion fails with 'symbol <name> not defined in the graph' because the task's symbols list names a function one of its do lines deletes."
+fix = "When a do line deletes a function, remove it from symbols in the same spec edit; symbols names what the finished task defines."
+
+[gotcha.2336]
+title = "A client component cannot import a server-only module"
+symptom = "next build fails on a 'use client' component that imports a module beginning with import 'server-only' (apps/web/src/api/gateway.ts), even if only one function is used."
+fix = "Move the read behind a 'use server' action in the route's actions.ts and call the action from the client."
+
+[gotcha.2337]
+title = "UnixMovementProvider validates socket ownership and mode at open"
+symptom = "ProductionComponents::open fails with 'movement provider refused startup' when LAYERX_HUMAN_MOVEMENT_SOCKET names a path with no socket, a symlink, a socket not owned by LAYERX_HUMAN_MOVEMENT_PEER_UID/GID, or one with other-permission bits (the umask leaves them after bind); the provider connects lazily, so no provider process is needed."
+fix = "In tests bind a UnixListener at the path inside a 0o700 directory, chmod the socket to 0o600 right after bind and keep the listener alive for the test's duration."

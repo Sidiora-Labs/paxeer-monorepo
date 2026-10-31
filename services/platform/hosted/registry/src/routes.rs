@@ -14,24 +14,20 @@ use std::time::Instant;
 mod programs_chain;
 use programs_chain::{DeploymentReadError, ProgramHead, ProgramsChain};
 
-use layerx_client::lni::head_attestation::ProgramDiscoveryHead;
+use layerx_programs::state_record::{restore_verified, restore_verified_profile2};
 use layerx_programs::{
     hex, programs_source_verification, AccountStateHead, BuildPlan, BuildRefusal,
     JournalReadAuthority, LifecycleReceipt, ObservedHead, ProgramId, ProgramInterface,
-    ProgramLifecycle, ProtocolDeploymentVerifier, Registry, RegistryError, RegistryVersion,
-    ReproducibleBuild, SourceArchive, SourceStatus, SourceVerifier, UpgradePolicy,
-    VerifiedDeploymentEvidence, VerifiedProgramBalanceRead, VerifiedRegistryRead,
-    WindDownStateAccess,
+    ProgramLifecycle, Registry, RegistryError, RegistryVersion, ReproducibleBuild, SourceArchive,
+    SourceStatus, SourceVerifier, UpgradePolicy, VerifiedDeploymentEvidence,
+    VerifiedProgramBalanceRead, VerifiedRegistryRead, WindDownStateAccess,
 };
-use layerx_programs_protocol_adapter::ProtocolProgramStateRead;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
 use crate::builder::{HermeticBuilder, HermeticBuilderConfig};
-use crate::head_attestation::{
-    attach_discovery_proof, verified_discovery_proof, DiscoveryProofFields, ExpectedDiscoveryHead,
-};
+use crate::deployment::deployment_header_hash;
 use crate::journal::{FileDeploymentJournal, QuarantinedUnit};
 use crate::mirror::{MirrorRefusal, SourceMirror};
 use crate::node_state::{HeadAuthority, NodeProgramStateSource, ProgramStateCursor};
@@ -71,7 +67,6 @@ pub struct Registrar {
     event_outbox: crate::event_producer::ProgramOutbox,
     journal: FileDeploymentJournal,
     chain_deployment_journal: std::path::PathBuf,
-    deployment_lni_socket: Option<std::path::PathBuf>,
     program_state: FileProgramStateJournal,
     node_state: NodeProgramStateSource,
     mirror: SourceMirror,
@@ -80,6 +75,7 @@ pub struct Registrar {
     request_authority: crate::RegistryAuthority,
     publication_authority: crate::RegistryAuthority,
     staleness_ms: u64,
+    request_deadline: Option<Instant>,
     balance_reads: BTreeMap<ProgramId, VerifiedProgramBalanceRead>,
     account_profile2_reads: BTreeMap<ProgramId, [u8; 32]>,
     interfaces: BTreeMap<(ProgramId, u32), ProgramInterface>,
@@ -134,34 +130,20 @@ impl Registrar {
         if config.staleness_ms == 0 {
             return Err("a registry read freshness bound is required".to_owned());
         }
-        let deployment_verifier = ProtocolDeploymentVerifier::from_protected_history(
-            &config.sequencer_trust_history,
-            config.staleness_ms,
-        )
-        .map_err(|error| format!("sequencer trust history is unavailable: {error}"))?;
         let mut registrar = Self {
             registry: Registry::new(),
             event_outbox: crate::event_producer::ProgramOutbox::new(&config.journal),
             journal: FileDeploymentJournal::open(config.journal.clone())?,
             chain_deployment_journal: config.journal.clone(),
-            deployment_lni_socket: config.deployment_lni_socket.clone(),
             program_state: FileProgramStateJournal::open(config.journal.join("program-state"))?,
-            node_state: NodeProgramStateSource::connect_with_identity(
-                &config.node_endpoint,
-                config.node_authorization.clone(),
-                &config.outbound_ca_der,
-                config.outbound_client_identity.as_ref(),
-                &config.receipt_authority_endpoint,
-                config.receipt_authority_authorization.clone(),
-                config.receipt_authority_replica_id,
-                deployment_verifier,
-            )?,
+            node_state: node_state(config)?,
             mirror: SourceMirror::open(config.mirror.clone())?,
             verified: VerifiedSourceStore::open(config.verified.clone())?,
             verifier,
             request_authority: config.request_authority.clone(),
             publication_authority: config.publication_authority.clone(),
             staleness_ms: config.staleness_ms,
+            request_deadline: None,
             balance_reads: BTreeMap::new(),
             account_profile2_reads: BTreeMap::new(),
             interfaces: BTreeMap::new(),
@@ -173,7 +155,7 @@ impl Registrar {
             quarantined: Vec::new(),
         };
         registrar.verification_reconciled = registrar.verification.reconcile(now)?;
-        registrar.rebuild()?;
+        registrar.rebuild(now)?;
         match registrar.verification.lease(Instant::now()) {
             Ok(lease) => {
                 for record in lease.pending_publications()? {
@@ -244,6 +226,7 @@ impl Registrar {
                 "the registry request deadline expired",
             );
         }
+        self.request_deadline = Some(deadline);
         self.node_state.set_request_deadline(deadline);
         if self
             .verifier
@@ -436,9 +419,20 @@ impl Registrar {
                 "program-state feed is ahead of the independently verified head".to_owned(),
             );
         }
+        let endpoint = std::env::var("LAYERX_REGISTRY_CHAIN_RPC_URL")
+            .map_err(|_| "LAYERX_REGISTRY_CHAIN_RPC_URL is required".to_owned())?;
+        let deadline = self
+            .request_deadline
+            .unwrap_or_else(|| Instant::now() + std::time::Duration::from_secs(15));
         let mut registry = self.registry.clone();
         let mut staged = Vec::with_capacity(programs.len());
         for program in programs {
+            self.program_state.store(
+                &endpoint,
+                program,
+                current_head.freshness.observed_sequence,
+                deadline,
+            )?;
             let entry = registry
                 .entry_for_wind_down(program)
                 .map_err(|error| format!("program-state registry lookup refused: {error}"))?;
@@ -458,7 +452,7 @@ impl Registrar {
                 self.node_state.program_state(program, current_head)?
             };
             let state = if profile2 {
-                ProtocolProgramStateRead::restore_verified_profile2(
+                restore_verified_profile2(
                     &record.bytes,
                     &mut registry,
                     record.receipt,
@@ -467,7 +461,7 @@ impl Registrar {
                     self.staleness_ms,
                 )
             } else {
-                ProtocolProgramStateRead::restore_verified(
+                restore_verified(
                     &record.bytes,
                     &mut registry,
                     record.receipt,
@@ -476,7 +470,7 @@ impl Registrar {
                     self.staleness_ms,
                 )
             }
-            .map_err(|error| format!("protocol program-state adapter refused: {error:?}"))?;
+            .map_err(|error| format!("program balance proof refused: {error:?}"))?;
             if profile2 != state.account_profile2().is_some() {
                 return Err("program account evidence profile mismatch".to_owned());
             }
@@ -486,13 +480,6 @@ impl Registrar {
             staged.push((state, record.bytes));
         }
 
-        for (state, bytes) in &staged {
-            if state.account_profile2().is_some() {
-                self.program_state.store_profile2(state, bytes)?;
-            } else {
-                self.program_state.store(state)?;
-            }
-        }
         self.program_state.advance(complete)?;
         self.journal.refresh_head(ObservedHead {
             sequence: current_head.freshness.observed_sequence,
@@ -638,11 +625,9 @@ impl Registrar {
             return Response {
                 status: 200,
                 body: self
-                    .with_discovery_proof(
+                    .with_deployment_provenance(
                         registry_read_json(read, None, head, valid_through),
                         read,
-                        head,
-                        valid_through,
                     )
                     .to_string(),
             };
@@ -697,25 +682,18 @@ impl Registrar {
         Response {
             status: 200,
             body: self
-                .with_discovery_proof(
+                .with_deployment_provenance(
                     registry_read_json(read, Some(balances), head, valid_through),
                     read,
-                    head,
-                    valid_through,
                 )
                 .to_string(),
         }
     }
 
-    /// Attaches the sequencer's discovery proof when the node attests exactly
-    /// the head and latest version this read verified. Every other outcome
-    /// publishes the document without the proof fields.
-    fn with_discovery_proof(
+    fn with_deployment_provenance(
         &self,
         mut document: Value,
         read: &VerifiedRegistryRead,
-        head: AccountStateHead,
-        valid_through: u64,
     ) -> Value {
         if let Some(owner) = self.account_profile2_reads.get(&read.entry.program) {
             document["value_accounts"]["account_profile"] = json!({
@@ -735,52 +713,7 @@ impl Registrar {
                 }
             }
         }
-        if let Err(error) = self
-            .discovery_proof(read, head, valid_through)
-            .and_then(|fields| attach_discovery_proof(&mut document, &fields))
-        {
-            eprintln!(
-                "layerx-program-registry: program {} published without discovery proof: {error}",
-                hex::encode(&read.entry.program.bytes())
-            );
-        }
         document
-    }
-
-    fn discovery_proof(
-        &self,
-        read: &VerifiedRegistryRead,
-        head: AccountStateHead,
-        valid_through: u64,
-    ) -> Result<DiscoveryProofFields, String> {
-        let authority = self
-            .head_authority
-            .ok_or_else(|| "the verified head authority is unavailable".to_owned())?;
-        let version = read
-            .entry
-            .versions
-            .last()
-            .ok_or_else(|| "program has no verified version".to_owned())?;
-        let expected = ExpectedDiscoveryHead {
-            head: ProgramDiscoveryHead {
-                program_id: read.entry.program.bytes(),
-                version: version.number,
-                code_hash: version.code_hash,
-                abi_version: version.abi_version,
-                observed_sequence: head.freshness.observed_sequence,
-                observed_at: head.freshness.observed_at,
-                valid_through,
-                state_root: head.state_root,
-            },
-            head_receipt_digest: head.receipt_digest,
-        };
-        verified_discovery_proof(
-            self.deployment_lni_socket.as_deref(),
-            &self.node_state,
-            &expected,
-            self.staleness_ms,
-            &authority,
-        )
     }
 
     fn read_interface(&mut self, program: &str, now: u64) -> Response {
@@ -1246,8 +1179,7 @@ impl Registrar {
                 "current protocol head is unavailable",
             )
         })?;
-        let valid_through = head
-            .freshness
+        head.freshness
             .observed_at
             .checked_add(self.staleness_ms)
             .filter(|until| now >= head.freshness.observed_at && now <= *until)
@@ -1258,8 +1190,29 @@ impl Registrar {
                     "current protocol head is outside its freshness bound",
                 )
             })?;
-        self.discovery_proof(&read, head, valid_through)
+        let authority = self.head_authority.as_ref().ok_or_else(|| {
+            refusal(
+                503,
+                "deployment_head_unverified",
+                "current chain authority is unavailable",
+            )
+        })?;
+        let bundle = self
+            .node_state
+            .current_program_bundle(program, head, authority, now)
             .map_err(|error| refusal(503, "deployment_head_unverified", &error))?;
+        let current = bundle.program_head();
+        if current.version() != deployment.version()
+            || current.code_hash() != deployment.code_hash()
+            || current.abi_version() != deployment.abi_version()
+            || current.lifecycle() != ProgramLifecycle::Active
+        {
+            return Err(refusal(
+                422,
+                "deployment_mismatch",
+                "verified deployment differs from the current chain program",
+            ));
+        }
         Ok(deployment.clone())
     }
 
@@ -1431,13 +1384,15 @@ impl Registrar {
         }
     }
 
-    fn rebuild(&mut self) -> Result<(), String> {
+    fn rebuild(&mut self, now: u64) -> Result<(), String> {
         let mut registry = Registry::new();
         let mut interfaces = BTreeMap::new();
         let mut deployments = BTreeMap::new();
         let loaded = self.journal.load()?;
         for unit in &loaded.units {
-            let evidence = self.node_state.verify_stored_deployment(unit.proof())?;
+            let evidence = self
+                .node_state
+                .verify_stored_deployment(unit.proof(), now)?;
             self.journal.audit_projection(&evidence)?;
             deployments.insert((evidence.program(), evidence.version()), evidence.clone());
             self.journal.export_pair(&evidence)?;
@@ -1970,13 +1925,30 @@ fn request_digest(
     .into()
 }
 
+fn node_state(config: &Config) -> Result<NodeProgramStateSource, String> {
+    let (_, deployment_verifier) = crate::journal::persisted_chain_trust(
+        &config.sequencer_trust_history,
+        config.staleness_ms,
+    )?;
+    NodeProgramStateSource::connect_with_identity(
+        &config.node_endpoint,
+        config.node_authorization.clone(),
+        &config.outbound_ca_der,
+        config.outbound_client_identity.as_ref(),
+        &config.receipt_authority_endpoint,
+        config.receipt_authority_authorization.clone(),
+        config.receipt_authority_replica_id,
+        deployment_verifier,
+    )
+}
+
 fn deployment_provenance(evidence: &VerifiedDeploymentEvidence) -> VerifiedSourceDeployment {
     VerifiedSourceDeployment {
         abi_version: evidence.abi_version(),
         code_hash: evidence.code_hash(),
         activity_id: evidence.activity_id(),
         receipt_digest: evidence.receipt_digest(),
-        batch_header_digest: evidence.batch_header_digest(),
+        batch_header_digest: deployment_header_hash(evidence),
         state_root: evidence.state_root(),
         programs_root: evidence.programs_root(),
         observed_sequence: evidence.freshness().observed_sequence,
@@ -1992,7 +1964,7 @@ fn deployment_provenance_json(evidence: &VerifiedDeploymentEvidence) -> Value {
         "code_hash": hex::encode(&evidence.code_hash()),
         "activity_id": hex::encode(&evidence.activity_id()),
         "receipt_digest": hex::encode(&evidence.receipt_digest()),
-        "batch_header_digest": hex::encode(&evidence.batch_header_digest()),
+        "header_hash": hex::encode(&deployment_header_hash(evidence)),
         "state_root": hex::encode(&evidence.state_root()),
         "programs_root": hex::encode(&evidence.programs_root()),
         "observed_sequence": evidence.freshness().observed_sequence,

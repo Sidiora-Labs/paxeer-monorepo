@@ -902,6 +902,8 @@ fn certify(
     binding: &SnapshotBinding,
     proof: &BlockCommitProof<'_>,
 ) -> Result<(), Stop> {
+    // Match the same SnapshotBindingV2 commit fields that indexer promotion builds
+    // through VerifiedCommit::finality_evidence before admitting the outbox row.
     let rejected = || Stop::Refuse(MarketEventError::CommitRejected);
     let verified = verify_block_commit(proof, &policy.authority).map_err(|_| rejected())?;
     if verified.chain_id != policy.authority.chain_id {
@@ -1209,7 +1211,7 @@ impl MarketConsumer {
     /// Returns [`WebhookError::InvalidRequest`] for an oversized body,
     /// [`WebhookError::StaleTimestamp`] or [`WebhookError::SignatureRejected`]
     /// from the published scheme, [`WebhookError::VerificationRequired`] for
-    /// an event below checkpoint finality, [`WebhookError::EventConflict`] for
+    /// an event below block commitment, [`WebhookError::EventConflict`] for
     /// a changed body under an applied identifier,
     /// [`WebhookError::OrderViolation`] for a decreasing sequence,
     /// [`WebhookError::ReplayCapacity`] when the ledger is full, and store failures.
@@ -1230,9 +1232,7 @@ impl MarketConsumer {
         }
         event.validate()?;
         if event.kind() != EventKind::Program
-            || !event
-                .verification()
-                .at_least(Verification::CheckpointFinalised)
+            || !event.verification().at_least(Verification::BlockCommitted)
         {
             return Err(WebhookError::VerificationRequired);
         }

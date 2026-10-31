@@ -3998,6 +3998,13 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
         paxeer_chain_readiness(config),
         consensus_readiness(config),
     ];
+    if KernelBackend::ALL
+        .into_iter()
+        .all(|backend| config.backend(backend).is_err())
+    {
+        backends.retain(|backend| backend.configured || backend.backend == "paxeer_chain");
+        return backends;
+    }
     backends.extend(KernelBackend::ALL.into_iter().map(|backend| {
         kernel_availability(config, backend, |endpoint, token| match backend {
             KernelBackend::Component => dependency_ready(config, endpoint, token, true),
@@ -4127,6 +4134,9 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
         return response(503, "readiness_clock_unavailable", None);
     };
     let backends = readiness(config);
+    let kernel_configured = KernelBackend::ALL
+        .into_iter()
+        .any(|backend| config.backend(backend).is_ok());
     let activity = layerx_activity_readiness(&backends);
     let chain = backends
         .iter()
@@ -4141,7 +4151,9 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
     } else {
         serde_json::Value::Null
     };
-    let complete = if include_product_routes {
+    let complete = if !kernel_configured {
+        backends.iter().all(|backend| backend.ready) && chain.ready
+    } else if include_product_routes {
         backends.iter().all(|backend| backend.ready) && product_routes["complete"] == true
     } else {
         activity.ready
@@ -4153,6 +4165,15 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
             "unavailable"
         }
     };
+    let mut components = serde_json::json!({
+        "durable_store": component_name("durable_store")
+    });
+    if kernel_configured {
+        for backend in KernelBackend::ALL {
+            components[backend.name()] = serde_json::json!(component_name(backend.name()));
+        }
+        components["principal_state_boundary"] = serde_json::json!("unavailable");
+    }
     json_response(
         if (include_product_routes && serving) || (!include_product_routes && complete) {
             200
@@ -4179,15 +4200,7 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
                 },
                 "layerx_activity": activity.document()
             },
-            "components": {
-                "durable_store": component_name("durable_store"),
-                "core_agent_boundary": component_name(KernelBackend::Component.name()),
-                "public_core": component_name(KernelBackend::PublicCore.name()),
-                "identity": component_name(KernelBackend::Identity.name()),
-                "independent_receipt_authority": component_name(KernelBackend::Authority.name()),
-                "program_registry": component_name(KernelBackend::Registry.name()),
-                "principal_state_boundary": "unavailable"
-            },
+            "components": components,
             "product_routes": product_routes,
             "backends": backends
                 .iter()
