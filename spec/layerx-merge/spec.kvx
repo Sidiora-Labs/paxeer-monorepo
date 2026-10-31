@@ -170130,7 +170130,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.3.3]
 title = "Remove the layerxd, guarantor and relay archive services from the kernel init script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170323,7 +170323,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.4.3]
 title = "Drop layerxd and sign-credit from the human workflow build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170355,7 +170355,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.4.4]
 title = "Drop the retired custody module from the node build workflow test step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "6.0.4"]
@@ -170483,7 +170483,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.5.3]
 title = "Drop the retired root contracts from the Solidity state surface check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "6.0.4"]
@@ -170514,7 +170514,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.5.4]
 title = "Probe pax_ routes instead of lx_ routes in the wallet live check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
@@ -170545,7 +170545,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.5.5]
 title = "Drop the LNI step from the program HTTP producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170706,7 +170706,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.7.3]
 title = "Remove the retired daemon readiness and custody-proof checks from bring-up tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170801,7 +170801,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.8.2]
 title = "Remove the layerxd and replica steps from the paxeer-x gates 104.30.5, 104.32.6 and 111.6.11"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170834,7 +170834,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.8.3]
 title = "Remove the checkpoint, custody and bridge credit steps from the paxeer-x gates 24.16 and 5.1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -173641,7 +173641,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.36.1]
 title = "Delete the paxeer anchor submission and DA-withhold suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.4", "16.37.2"]
@@ -173674,7 +173674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.36.2]
 title = "Delete the paxeer membership sync suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.4", "16.37.2"]
@@ -174022,7 +174022,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.1]
 title = "Remove the capacity ledger, feed store and replay engine uses from the programs suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
