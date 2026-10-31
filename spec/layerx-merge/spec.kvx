@@ -169408,7 +169408,7 @@ do_13 = "Attempt 5 (7e3367d33) passes both unittest gates and test_makefile_chai
 
 [task.16.0.4]
 title = "Retire the batch WAL, finality, custody-proof, credit and anchor submit rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.3", "8.0.4", "10.0.4"]
