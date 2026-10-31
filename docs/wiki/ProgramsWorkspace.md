@@ -109,7 +109,7 @@ The script license allowlist tokens are `Apache-2.0`, `BSD-1-Clause`, `BSD-2-Cla
 
 ## Fixture recipes
 
-`PROGRAMS_CARGO` defaults to `cargo` (`Makefile:2861`). Capability recipes run the `layerx-programs-runtime` example `capability_fixture` (`Makefile:2893-2901`). Lifecycle and executed recipes depend on `$(BUILD_DIR)/tests/programs_call_activity`, built from `tests/programs/test_call_activity.c` plus `$(LIBRARY)` and `$(PROGRAMS_RUNTIME_LIB)` after `programs-build` (`Makefile:2921-2925`, `Makefile:2872-2876`).
+`PROGRAMS_CARGO` defaults to `cargo` (`Makefile:2861`). Capability recipes run the `layerx-programs-runtime` example `capability_fixture` (`Makefile:2893-2901`). Lifecycle recipes depend on `$(BUILD_DIR)/tests/programs_call_activity`, built from `tests/programs/test_call_activity.c` plus `$(LIBRARY)` and `$(PROGRAMS_RUNTIME_LIB)` after `programs-build` (`Makefile:2921-2925`, `Makefile:2872-2876`).
 
 | Recipe | What it does | Files |
 | --- | --- | --- |
@@ -117,8 +117,29 @@ The script license allowlist tokens are `Apache-2.0`, `BSD-1-Clause`, `BSD-2-Cla
 | `programs-check-capability-fixture` | Same generator, then `cmp` against the committed fixture (`Makefile:2898-2901`). | Reads `sdk/platform/conformance/fixtures/native-program-capabilities-v2.json` (`Makefile:2901`). |
 | `programs-native-lifecycle-fixtures` | Runs `python3 sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py --encoder $<` (`Makefile:2928-2929`). `$<` is `$(BUILD_DIR)/tests/programs_call_activity`. The encoder is invoked as `--dump-native-lifecycle` (`sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:12-16`). | Writes, next to the generator, `native-program-deploy-v3.json`, `native-program-upgrade-v3.json`, `native-program-wind-down-route-v3.json`, `native-program-wind-down-deprecate-v3.json`, `native-program-wind-down-tombstone-v3.json`, `native-program-wind-down-exit-v3.json` (`sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:18-48`). |
 | `programs-check-native-lifecycle-fixtures` | Same generator with `--check` (`Makefile:2931-2932`). | Reads those six JSON files and compares them to encoder output (`sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:44-46`). |
-| `programs-executed-fixture` | Runs `python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $<` (`Makefile:2935-2936`). The encoder is invoked as `--dump-executed-v3` (`sdk/platform/conformance/fixtures/generate_executed_program_fixture.py:131-132`). | Writes `sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json` (`sdk/platform/conformance/fixtures/generate_executed_program_fixture.py:137-143`). |
-| `programs-check-executed-fixture` | Same generator with `--check` (`Makefile:2938-2939`). | Reads `sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json` (`sdk/platform/conformance/fixtures/generate_executed_program_fixture.py:138-141`). |
+
+### Sequencer receipt verification
+
+SDK execution evidence uses the stored vectors in
+`daemon/committed-fixture/vectors/`. Verify the original signed bytes and
+provenance without regenerating receipts.
+
+| Vector | Verification |
+| --- | --- |
+| `vector-v1-receipted-positive.json` | Successful EIP-1559 contract creation with two logs; verify key pins, signature, raw transaction and RPC view. |
+| `vector-v2-receipted-revert.json` | Authenticated LayerXLedger revert; verify status, result code and the `LXP_INSUFFICIENT_BALANCE` return data. |
+| `vector-v3-receipt-refusals.json` | Refuse all six named key, height, transaction, sequence, log and canonical-encoding mutations. |
+| `vector-v4-committed.json` | Verify receipt inclusion, both inclusion-envelope refusals and the recorded `payExact` settlement proofs; refuse a commit with at most two thirds voting power. |
+
+The daemon reference tests are
+`TestVectorV1ReceiptedPositiveVerifies`,
+`TestVectorV2ReceiptedRevertVerifies`,
+`TestVectorV3EveryRefusalIsRefused` and
+`TestVectorV4CommittedVerifies` in `daemon/committed-fixture/vector_v*_test.go`.
+A receipt signature authenticates execution; committed settlement also needs
+transaction, batch and result inclusion plus consensus commits under trusted
+chain authority. See [SDK terminal verification](SdkTerminalVerification.md) for the check order
+and `sdk/platform/conformance/README.md` for the SDK-adapted vector schemas.
 
 ## Test tiers
 

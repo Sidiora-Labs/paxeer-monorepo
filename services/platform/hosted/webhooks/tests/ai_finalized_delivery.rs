@@ -491,12 +491,12 @@ fn finalized_event_carries_exact_identity_and_public_content_only() {
     assert_eq!(event.subject(), &subject());
     assert_eq!(event.subject_sequence(), 1);
     assert_eq!(event.occurred_at(), 1_700_000_000);
-    assert_eq!(event.verification(), Verification::CheckpointFinalised);
+    assert_eq!(event.verification(), Verification::BlockCommitted);
     assert_eq!(event.receipt_digest(), Some("ef".repeat(32).as_str()));
     assert!(event
         .facts()
         .iter()
-        .all(|fact| fact.verification() == Verification::CheckpointFinalised));
+        .all(|fact| fact.verification() == Verification::BlockCommitted));
     let facts: BTreeMap<&str, &str> = event
         .facts()
         .iter()
@@ -616,7 +616,7 @@ fn bonded_guarantor_signatures_gate_finalized_publication() {
     );
     let event = admit(&outbox, &grant, &signed);
     assert_eq!(event.subject_sequence(), 1);
-    assert_eq!(event.verification(), Verification::CheckpointFinalised);
+    assert_eq!(event.verification(), Verification::BlockCommitted);
     assert_eq!(ok(outbox.pending(&MARKET), "published"), vec![event]);
 }
 

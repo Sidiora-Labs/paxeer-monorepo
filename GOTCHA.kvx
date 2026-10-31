@@ -11501,3 +11501,78 @@ fix = "Move the read behind a 'use server' action in the route's actions.ts and 
 title = "UnixMovementProvider validates socket ownership and mode at open"
 symptom = "ProductionComponents::open fails with 'movement provider refused startup' when LAYERX_HUMAN_MOVEMENT_SOCKET names a path with no socket, a symlink, a socket not owned by LAYERX_HUMAN_MOVEMENT_PEER_UID/GID, or one with other-permission bits (the umask leaves them after bind); the provider connects lazily, so no provider process is needed."
 fix = "In tests bind a UnixListener at the path inside a 0o700 directory, chmod the socket to 0o600 right after bind and keep the listener alive for the test's duration."
+
+[gotcha.2338]
+title = "decode_block requires receiptsRoot"
+symptom = "A mock eth_getBlockByNumber answer without receiptsRoot decodes as SequencerError::Malformed in layerx-client sequencer.rs decode_block, and the interop relay then reports Receipted instead of Committed; it looks like a hash mismatch but is a missing field."
+fix = "Mock blocks carry number, hash, parentHash, timestamp, transactionsRoot, receiptsRoot and transactions."
+
+[gotcha.2339]
+title = "ProductionComponents::open needs the events upstream variables"
+symptom = "layerx-human-service ProductionComponents::open starts HumanOutbox, which calls producer::Client::from_environment and refuses without LAYERX_EVENTS_JOURNEY_, LAYERX_EVENTS_APPROVAL_ and LAYERX_EVENTS_WEBHOOKS_ UPSTREAM_URL (https origin with a port) and UPSTREAM_CA_DER (existing DER file)."
+fix = "Tests bind a TcpListener on 127.0.0.1, point the three URLs at https://127.0.0.1:<port> and the three CA paths at a DER file they write; spawn opens no connection at startup."
+
+[gotcha.2340]
+title = "SELECTOR_GET_ASSET is the ledger getAsset selector"
+symptom = "The gateway's SELECTOR_GET_ASSET (0x2cc3ce80) looks like a custody-only constant but custody_asset sends it to the ledger precompile; deleting it with the custody selectors breaks paxeer.rs."
+fix = "Keep it beside the ledger constants when retiring the custody selectors."
+
+[gotcha.2341]
+title = "Local node panics need node.log"
+symptom = "tools/qualification/localnode/v6120-node.sh keeps node.log under $NODE_HOME and exports no home path, so an eth_sendRawTransaction 'method handler crashed' in the Go test leaves no panic site in the test output."
+fix = "Export LOCAL_NODE_HOME in localnode.env and log the tail of node.log from a t.Cleanup when the test failed."
+
+[gotcha.2342]
+title = "A webpack alias can hide a server-only import"
+symptom = "next build passes when next.config.mjs aliases a server-only module path to a 'use server' actions file for one importer, while the importer still names the server-only module."
+fix = "Import the server action module directly; add no resolve.alias detours."
+
+[gotcha.2343]
+title = "The receipt authority's kernel socket has three readers"
+symptom = "Deleting Config.lni_socket and lni_gate in services/platform/hosted/authority/src/main.rs breaks human/budget_state.rs:77 and :256, checkpoint_for and verify_withdrawal_request with E0609; the receipt handshake is only one of the socket's users."
+fix = "Remove the handshake first; delete the fields after the budget-state, checkpoint and withdrawal readers are ported."
+
+[gotcha.2344]
+title = "validate_submission_payload has a caller in public_reads.rs"
+symptom = "The core fee route public_reads.rs:246 calls super::validate_submission_payload, so deleting the submission validator with the activity routes in main.rs fails the build."
+fix = "Keep the validator until the fee route is ported or retired."
+
+[gotcha.2345]
+title = "sdkgen receipt_contract requires the retired program-execution sections"
+symptom = "sdk/platform/generators receipt_contract fails with 'missing declaration type.ProgramExecutionV4.domain' because programs.kvx no longer carries [type.ProgramExecutionV4] and [type.ProgramExecutionV5] since 1d0cc3720."
+fix = "Delete the ProgramExecutionV4/V5 loop of receipt_contract; keep the ProgramGuestAbi checks."
+
+[gotcha.2346]
+title = "The completion check refuses symbols another task already removed"
+symptom = "cg spec done fails when a task's symbols list names identifiers that an earlier task deleted, even if the task's own build and tests passed."
+fix = "List only the symbols the task adds or keeps; move deletions to the do lines."
+
+[gotcha.2347]
+title = "A unit gate can pass while the real path fails"
+symptom = "Tasks that change an interface passed their declared test with mocked transports or hand-built messages and failed in the next task that consumed the real output: receipts the consumer could not verify, a socket a reader still needed, a validator with a live caller, a generator pinned to a removed schema."
+fix = "Interface-changing tasks carry proof_policy: drive the real producer through the real transport into the real consumer in the declared test, restart and recover where state crosses a restart (decision 1990)."
+
+[gotcha.2348]
+title = "A cargo gate without --locked lets a manifest change drift the workspace lock"
+symptom = "0fdebd9dc (task 8.96.4) dropped a dependency from services/platform/hosted/registry/Cargo.toml; its build ran without --locked, cargo rewrote the lock in the tree, the lock was outside touches and stayed stale on main, and every later --locked gate of the platform workspace refused before compiling (8.98.5, 8.98.1, 8.4.4, 10.20.3)."
+fix = "A task that edits a Cargo.toml dependency declares the workspace Cargo.lock in touches and builds with --locked; a lock refresh task (18.1297.2) repairs a drift that already landed."
+
+[gotcha.2349]
+title = "Refreshing a stale lock in the tree qualifies a tree that is not the one published"
+symptom = "Attempts of 8.11.3 (622f52719), 8.4.4 and 8.98.1 ran cargo fetch without --locked to get past the stale platform lock, built and verified with the refreshed lock, and published without it because the lock was outside touches; main still refuses --locked builds."
+fix = "Record the drift as a finding and let the lock refresh task land; a passing gate on a tree the publication does not contain is not the task's proof."
+
+[gotcha.2350]
+title = "A whole-binary cargo test verify is an aggregate gate when another task owns cases in the binary"
+symptom = "18.1228.1 ran cargo test --test agent_controls_rungs and failed thirteen attempts on three archive_fixture cases that 18.1149.1 lists as its tests."
+fix = "Name the owned cases with --skip in the verify command (decision.1993) or run the declared cases with --exact; the owning task proves its own cases."
+
+[gotcha.2351]
+title = "A symbols entry the task deletes fails the graph check"
+symptom = "8.50.4 listed post_activity in symbols while do_3 deletes Client::post_activity; two attempts implemented and tested everything and cg spec done refused with 'symbol post_activity — not defined in the graph'."
+fix = "symbols lists only the symbols that exist after the task; a deleted symbol is named in the do line and the test, never in symbols."
+
+[gotcha.2352]
+title = "Regenerating a contract's outputs breaks the consumers the contract rewrite left behind"
+symptom = "8.45.1 rewrote the receipt contract and 9.97.3 regenerated its Rust, TypeScript and Python outputs; the SDK verifiers, programs modules and web search and x402 clients still implemented the kernel receipt path over names the new contract no longer defines, and no task owned their port."
+fix = "When a contract is rewritten, list every consumer of the generated names and give each a retirement or port task that the regeneration task requires (decision.1992)."
