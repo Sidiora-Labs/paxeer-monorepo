@@ -17,6 +17,8 @@ type catalogOperation struct {
 	To          string `json:"to"`
 	Selector    string `json:"selector"`
 	PerLeg      bool   `json:"per_leg"`
+	Request     string `json:"request"`
+	Response    string `json:"response"`
 	Idempotency bool   `json:"idempotency"`
 }
 
@@ -119,10 +121,10 @@ func TestProgramOperationsHaveNoRestRoute(t *testing.T) {
 	}
 }
 
-func TestIntentOperationsArePerLegCalls(t *testing.T) {
-	expected := map[HumanOperation]string{
-		HumanOperationIntentPlan:   "eth_call",
-		HumanOperationIntentSubmit: "eth_sendRawTransaction",
+func TestIntentOperationsUseTheHumanRoutes(t *testing.T) {
+	expected := map[HumanOperation]HumanOperationMetadata{
+		HumanOperationIntentPlan:   {Method: "POST", Path: "/v1/intents/plan", Request: "PlanIntentRequest", Response: "IntentPlan"},
+		HumanOperationIntentSubmit: {Method: "POST", Path: "/v1/intents/submit", Request: "SubmitPlanRequest", Response: "IntentSubmission"},
 	}
 	listed := make(map[HumanOperation]bool)
 	for _, operation := range AllHumanOperations() {
@@ -134,35 +136,30 @@ func TestIntentOperationsArePerLegCalls(t *testing.T) {
 			continue
 		}
 		operation := HumanOperation(entry.Name)
-		method, exists := expected[operation]
+		want, exists := expected[operation]
 		if !exists || entry.Plane != "human" || seen[operation] {
 			t.Fatalf("unexpected intent entry: %+v", entry)
 		}
 		seen[operation] = true
 		t.Run(entry.Name, func(t *testing.T) {
-			want := EVMOperationMetadata{Method: method, PerLeg: true}
-			got := EVMOperationMetadata{Method: entry.Method, To: entry.To, Selector: entry.Selector, PerLeg: entry.PerLeg}
-			if entry.Path != "" || entry.Transport != "evm" || got != want {
-				t.Fatalf("intent must use per-leg EVM calls: %+v", entry)
-			}
-			generated, ok := operation.EVMMetadata()
-			if !ok || generated != want || !operation.Valid() || !listed[operation] {
-				t.Fatalf("generated intent catalogue diverges: %+v (present %t)", generated, ok)
+			got := HumanOperationMetadata{Method: entry.Method, Path: entry.Path, Request: entry.Request, Response: entry.Response}
+			if entry.Transport != "http" || entry.PerLeg || entry.To != "" || entry.Selector != "" || got != want {
+				t.Fatalf("intent must use the human HTTP route: %+v, want %+v", entry, want)
 			}
 			metadata, ok := operation.Metadata()
-			if !ok || metadata.Path != "" || metadata.Method != method || !metadata.PerLeg {
-				t.Fatalf("intent metadata retains a REST route or lacks per-leg execution: %+v", metadata)
+			if !ok || metadata != want || !operation.Valid() || !listed[operation] {
+				t.Fatalf("generated intent catalogue diverges: %+v (present %t), want %+v", metadata, ok, want)
 			}
 			mutating := operation == HumanOperationIntentSubmit
 			if entry.Idempotency != mutating || operation.RequiresIdempotency() != mutating {
-				t.Fatalf("%s idempotency does not match per-leg transaction semantics", operation)
+				t.Fatalf("%s idempotency does not match the human route", operation)
 			}
 		})
 	}
 	if len(seen) != len(expected) {
 		t.Fatalf("found %d intent operations, want %d", len(seen), len(expected))
 	}
-	if _, ok := HumanOperation("intent.unknown").EVMMetadata(); ok {
-		t.Fatal("unknown intent operation has EVM metadata")
+	if _, ok := HumanOperation("intent.unknown").Metadata(); ok {
+		t.Fatal("unknown intent operation has metadata")
 	}
 }

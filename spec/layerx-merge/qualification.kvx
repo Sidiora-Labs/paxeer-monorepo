@@ -14587,3 +14587,163 @@ symbol = "ensureServed"
 observed = "Attempts 6 of 12.13.2 (91c1a17d3), 12.13.3 (d45816d07) and 12.13.4 (3836a0732) reach the served precompiles over the node fixture and fail only their probe assertions: agent-precompiles-scheduler.test.ts:367 expects an eth_getCode record and sees none, agent-precompiles-streams.test.ts:334-336 expects one eth_getCode probe and sees zero, agent-precompiles-eip712.test.ts:254 expects one eth_call on the domain-separator route and sees two."
 assumption = "Since decision 2061 (task 5.98.4) the node serves precompiles as native handlers without account code, so ensureServed (src/precompiles.ts:60-71) probes with eth_call to the address with data 0xffffffff once per process per key, accepting non-empty data or an error whose message contains LXP_PRECOMPILE_UNKNOWN_METHOD, and never issues eth_getCode; the second eth_call on the first eip712 route is that probe."
 severity = "cross_task"
+
+[finding.10.0.3.4]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:746"
+symbol = "AttestorKms::create_owned_key"
+observed = "Attempt 7 (12846c417) builds; intent_plan_answers_eip1559_legs and intent_submit_records_each_leg_tx_hash both return Error: Kms(Refused) from Fixture::open before any request: bootstrap (:740-775 of that tree) creates each subject's primary key through kms.create_owned_key with account 0x00000000000000000000000000000000000000a1 and resolves the wallet with keystore.evm_wallet (:769, KMS operation 6). The attestors refuse the service's key generation with key_invalid_share because the test support's wallet inventory lists no key (Inventory.Check, services/wallet/attestor/internal/server/authority.go:125-165, the refusal finding 18.1151.1.2 recorded), and an admitted primary still cannot answer operation 6: doPublicWallet (services/wallet/attestor/internal/server/public_identity.go:56-100) resolves the owner's held secp256k1 key and requires the primary's policy account to equal that wallet's address, while the native-only support holds no secp256k1 key for any owner (tests/wallet_identity_e2e.rs:1033-1038 asserts exactly that absence). attestor_refusal surfaces both codes as KmsError::Refused."
+assumption = "The fixture provisions the real wallet identity per owner (decision 2130). 18.1151.1 requires this task and specifies the same two support helpers and the pub Keystore::binding, so this task adds them and 18.1151.1 finds them present."
+severity = "major"
+
+[finding.10.13.8.4]
+task = "10.13.8"
+file = "services/human/crates/layerx-human-service/tests/native_send_nonces.rs:311"
+symbol = "fixture"
+observed = "Attempt 3 (56b9b087d) built and implemented the preview and expiry changes, but both tests read PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, connect to a running human service over TLS and to a real daemon socket, the release-gate profile of tests/native_send_producer.rs:555; the gate carries no such foundation (finding 10.4.3.2 recorded the same for 10.4.3), so both panicked at :312 with NotPresent before any assertion."
+assumption = "The two cases run self-contained against an in-process peer double and a temporary principal store (decision 2131); the protected producer test stays a release gate."
+severity = "major"
+
+[finding.10.0.3.5]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:894"
+symbol = "Fixture::request"
+observed = "Attempt 8 (1ba15e3ad) provisions the wallet identity and inventory approvals as decision 2130 orders and both tests now pass Fixture::open and the key bootstrap (keystore.evm_wallet equals the generated address). The first verify run failed at ProductionComponents startup because the fixture set a movement socket path it never bound; the repair binds a 0600 UnixListener at root/movement-socket/movement.sock as tests/production_unhooked.rs does. The second run reaches POST /v1/intents/plan, which answers 403 {code: forbidden, copy_key: error.request.forbidden, retry: final} with no reason; kms.last_refusal_code() is None, so no attestor refused. The second test then panicked on the ENVIRONMENT mutex poisoned by the first."
+assumption = "ApiFailure::forbidden (src/server/backend.rs:64-73) carries no cause and the plan route has about a dozen emitters of it; decision 2132 makes the fixture record which peer requests, node RPC methods and gateway paths were served before the refusal so the refusing check is bracketed, and names the emitters to bisect."
+severity = "major"
+
+[finding.8.98.14.4]
+task = "8.98.14"
+file = "services/platform/hosted/core/src/public_reads.rs:289"
+symbol = "node_info"
+observed = "Attempt 7 (a41a80ed3) stopped at do_11 for the owner's ruling. node_info (services/platform/hosted/core/src/public_reads.rs:289) answers from client.handshake().node(), sequence (:335) from client.preparation_state(&actor, 1), receipt_event (:448) from connect_raw plus lookup_receipt_selector with a selector of 3 followed by the big-endian global sequence, and read_custody_profile / read_custody_asset (services/platform/hosted/core/src/lib.rs:450, :524) read custody module 8 through custody_read (:588) on layerx_client::read::module_state over a FrameTransport. Every one of those is a retired frame-protocol surface. The node answers a receipt only by transaction hash (rpc/sequencer_receipt.go:252; the decoded receipt carries its global sequence) and no node method looks a receipt up by global sequence."
+assumption = "Decision 2133 rules the twins: PxEndpoint::network plus px_getReceiptKeys plus rpc::evidence::checkpoint for node_info, rpc::history::did_accounts plus eth_getTransactionCount(pending) for sequence, pax_sequencerReceipt by transaction hash for the receipt-events route, and rpc::module_state::module_state with the unchanged verify_module_evidence check for the custody reads; no new node method and no local profile file."
+severity = "major"
+
+[finding.10.0.3.6]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:506"
+symbol = "px_getBalances"
+observed = "Attempt 9 (0de777956) builds; intent_plan_answers_eip1559_legs and intent_submit_records_each_leg_tx_hash fail at tests/intent_plan_evm.rs:981 with HTTP 503 upstream-degraded after the peers served eth_chainId, eth_call and px_getBalances (gateway: '/ px_getBalances') and no attestor refused. The plan path reads the sender's joined balances with GatewayEndpoint::get_balances(AccountIdentifier::Evm(wallet)) (src/server/production_components.rs:4629 of that tree, every error mapped to upstream_degraded at :4631); get_balances (services/human/crates/layerx-network-gateway/src/lib.rs:633-641) decodes the answer and then calls retain_lookup (:243-257), which refuses with GatewayError::Unbound when bound is true but layerx_did or layerx_account is absent. The test double answers {account: {evm_address: <queried wallet>, bound: true}, balances: [{asset_id, denom: alxp}], joined_limit: '1'} (tests/intent_plan_evm.rs:506-509 of that tree): bound without a DID and an account, so the real client refuses it as unbound."
+assumption = "The double answers the declared nested join shape the gateway crate's own test fixes (services/human/crates/layerx-network-gateway/src/lib.rs:1108-1135 of that tree) for the identity whose wallet was queried (decision 2139); the production mapping at :4631 is not relaxed."
+severity = "major"
+
+[finding.8.98.14.5]
+task = "8.98.14"
+file = "services/platform/hosted/core/src/lib.rs:575"
+symbol = "custody_read"
+observed = "Attempt 8 (f2cf54eb5) builds and moves node_info, sequence and receipt_event in public_reads.rs onto the JSON-RPC twins decision 2133 names; both scans of retired_client_modules_w2.rs still fail: lib.rs keeps the FrameTransport parameters and layerx_client::read and ::evidence at :451, :511 and :575, and main.rs keeps the lni imports at :4-7 for connect_raw (:579), lookup_receipt_selector (:617) and await_receipt (:703), which the receipt route (:867) and the funding reconciliation (:2062) still call. The custody twin decision 2133 chose does not fit: rpc::module_state::module_state (services/agent/crates/layerx-client/src/rpc/module_state.rs:87-125) proves one 32-byte storage word of a module slot by eth_getProof against a SignedHeader the caller must already hold, while the kernel custody records are a 5-byte LXBR1 registry marker, 223-byte LX:CUSTODY:PROFILE:v2 profiles and 89-byte LXLT1 LX:CUSTODY:TRUST:v2 records, and no LX:CUSTODY domain exists anywhere in the node. The node's custody state is the custody precompile at 0x...1013 (getAsset(bytes32) view: assetId, denom, pointer, enabled, paused, minimumDeposit, custodyCap, custodied, released, pending) and the anchor precompile at 0x...1014 (latestFinalized(), checkpoint(uint64), finalizedStateRoot(uint64))."
+assumption = "The custody reads move onto eth_call against the custody and anchor precompiles and the receipt waits onto rpc::receipt::lookup_authenticated (decision 2140); the scans of retired_client_modules_w2.rs stay the gate."
+severity = "major"
+
+[finding.2.96.1.1]
+task = "2.96.1"
+file = "precompiles/layerxauth/surface_test.go:28"
+symbol = "TestAuthSurfaceFrozen"
+observed = "Attempt 1 (2f7d8e2e5) builds and passes TestAuthABIMethods and TestPrecompileRecordLifecycleRegistersDid; the verify command fails in TestAuthGasTable (gas_test.go:27: gas table has 10 rows, want 9) and TestAuthSurfaceFrozen (surface_test.go:28-30: three require.Len pins at 9), because both tests pin the layerxauth method count and neither file is in the task's touches."
+assumption = "The two test files join the touches and their pins move to ten with the recordLifecycle row and signature (decision 2140)."
+severity = "minor"
+
+[finding.10.0.3.7]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:4489"
+symbol = "plan_intent"
+observed = "Attempt 10 (bd2ffdb5f) builds; the gateway double now answers px_getBalances in the declared joined shape (the assertion text prints it: bound true with layerx_did and layerx_account, one row with paxeer and layerx, joined_limit 16), and intent_plan_answers_eip1559_legs and intent_submit_records_each_leg_tx_hash still fail at tests/intent_plan_evm.rs:1006 with 503 upstream-degraded. The next emitter after the balances read is the observation memo: plan_intent builds the Cache row key intent-observation-<64 hex plan digest>-<64 hex session digest> (services/human/crates/layerx-human-service/src/server/production_components.rs:4489-4492 on main), 148 characters, and RowKey::new (src/store/mod.rs:69-82) refuses any identifier above IDENTIFIER_LIMIT = 128, which :4493 maps to upstream_degraded. submit_intent rebuilds the same 148-character key at :4517-4527 and answers invalid_request(plan_digest). The limit and the key shape both predate this task; the memo already carries plan_digest, and submit_intent compares it (:4535), so the key needs only to be unique per plan and session."
+assumption = "The observation key becomes intent-observation-<64 hex> over a digest of the two inputs at both sites, a production change this task is allowed to make in services/human/crates/layerx-human-service/src/server/production_components.rs (decision 2142); the remaining fixture stays as attempt 10 left it."
+severity = "major"
+
+[finding.12.35.4.17]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120_test.go:276"
+symbol = "TestLocalNodeV6120SequencerReceipt"
+observed = "Attempt 20 (a82d45b6d) changes only the script and the test: the primary now starts alone, serves eth_chainId and the nonce and balance reads, and the one-wei transfer fails at v6120_test.go:276 with 'send one-wei transfer: method handler crashed'. That text is the JSON-RPC server's recovery of a panic inside eth_sendRawTransaction; the server reports it through its own logger, which the node never routes to its log, and SendRawTransaction's deferred recordMetricsWithError (rpc/send.go:173-175, rpc/utils.go:474-488) re-panics without logging the value or the stack, so node.log holds only 'committed store' lines and the goroutine dump shows nothing of the handler. The in-process sequencer send tests (rpc/send_sequencer_test.go:172-190) drive a Receipter alone with SendConfig{Sequencer}, never a started Node with its Accepter, Replicator in standalone mode, ReceiptLogFeed and receipt source, so the path the test fails on has no unit test."
+assumption = "A node task (12.35.11) makes a recovered handler panic log its value and stack, adds the in-process standalone-primary send test and fixes the panic; 12.35.4 requires it and reruns unchanged (decision 2143)."
+severity = "major"
+
+[finding.8.98.14.6]
+task = "8.98.14"
+file = "services/platform/hosted/authority/src/human/budget_state.rs:16"
+symbol = "budget_state"
+observed = "Attempt 9 (10566c3cc) builds after one repair, ports the custody reads and the receipt waits as decision 2140 directs, and both scans of retired_client_modules_w2.rs pass. The authority scan fails only because the attempt added 'read' to the list in services/platform/hosted/authority/tests/retired_client_modules.rs (do_8) while services/platform/hosted/authority/src/human/budget_state.rs:16 still imports layerx_client::read: the authority budget reader is a complete LNI session (lni::transport::Uds and handshake::perform at :13-15 and :77, evidence, head, handover, read) that opens the socket, verifies module 7 identity records and module 3 budget records against a verified checkpoint and exports the proofs; its port is a design of its own and shares no code with the core custody block."
+assumption = "The authority half leaves this task: the verify command keeps only the core scan, the authority files leave the touches, decision 2057 stands, and task 8.98.15 ports the budget reader onto the node's JSON-RPC (decision 2144)."
+severity = "major"
+
+[finding.18.1272.1.2]
+task = "18.1272.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 7 (fd5a06e21) fails its build in the layerx-human-service library, not in the task's files: error[E0004] non-exhaustive patterns at services/human/crates/layerx-human-service/src/agents/create.rs:558, because the bound_activity match on disclosure.construct_method() has no arm for ConstructMethod::AuthLifecycle { payload, idempotency_key }, the variant task 9.99.1 (a1cb41550, merged in 8825b1fa7) added to services/agent/crates/layerx-crypto/src/disclosure/call.rs. 9.99.1's gates build layerx-crypto only, so the variant landed on main without its consumer and every build of the human service library on main now fails, including 10.0.3's build command. Decision 2135 already asks this task to add the arm, but create.rs is not in its touches and 10.0.3 needs the same arm."
+assumption = "The arm lands through its own task 9.99.2 (req.8955), which both 18.1272.1 and 10.0.3 require, so neither carries a duplicate hunk and main builds again before either reruns (decision 2146)."
+severity = "major"
+
+[finding.10.0.3.8]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/src/server/component.rs:482"
+symbol = "encode_response"
+observed = "Attempt 11 (3240d5abd) builds with the 83-character observation key; every peer now answers (agent list ends Subject and IdentityResolve, node served eth_chainId, eth_call and px_getBalances, no attestor refused) and both tests still get 503 upstream-degraded from the plan route, quickly. The last step of the component server is a response check: component.rs:480-482 runs self.schema.encode_response(operation, &response.result) after backend.execute and maps any refusal to upstream_degraded, and schema.rs:471-478 refuses an object key that the schema version does not declare. The plan's legs (intent_plan_json in production_components.rs) carry to, value, calldata, nonce, chain_id, gas_limit, max_fee_per_gas and max_priority_fee_per_gas, while services/human/schema/human-api/intent.kvx:36-38 declares [type.IntentLeg] with only index, mechanism, domain, source, destination, money and fee and no optional list. Every plan with an EVM leg is therefore refused by the service's own schema, and the tests assert those fields (nonce, chain_id and gas_limit as integers, the fees and value as decimal strings, to and calldata as 0x strings)."
+assumption = "The EVM leg fields are declared as an additive optional list on IntentLeg with the scalars the service already emits, the frozen baseline is refreshed with the schema tool's own refresh command, and the schema conformance test joins the verify command so the declaration is proven with the plan (decision 2147)."
+severity = "major"
+
+[finding.8.98.14.7]
+task = "8.98.14"
+file = "services/platform/hosted/node/deployment.yaml:1"
+symbol = "deployment"
+observed = "Attempt 10 (f38f93171) builds and passes both scans of retired_client_modules_w2.rs; the done check refuses the task because the touches list the path node/deployment.yaml, which does not exist in the tree (the hosted node's manifest is services/platform/hosted/node/deployment.yaml) and which no attempt has changed. The path is left over from an earlier scope and nothing in the task's do-lines asks for a change to it."
+assumption = "The path leaves the touches; nothing remains to implement and the gate reruns on attempt 10's tree."
+severity = "minor"
+
+[finding.12.35.11.1]
+task = "12.35.11"
+file = "rpc/send_sequencer_test.go:124"
+symbol = "newSendSeqHarness"
+observed = "Attempt 1 (8f77fc1b2) builds, and both node tests pass: the standalone primary receipts the transfer through the send path and the node starts without a standby address. The two rpc tests in the verify command fail before any send-path code of this task with 'sequencer: transaction does not fit the block limits: gas wanted 21000 exceeds Block.MaxGasWanted 0' from node/sequencer/limits.go:44. That admission check (task 5.4.3, f3ef8c257) reads the consensus Block.MaxGasWanted the way checkTotalBlockGas does (app.go:3660-3662), and the rpc harness newSendSeqHarness (rpc/send_sequencer_test.go:124-170) builds app.NewTestWrapper, funds the accounts and commits a block without ever storing consensus params, so the cap is zero and every transaction is refused. node/genesis_sequenced_test.go:51-53 stores MaxGasWanted = 21000 for the same reason; the production genesis sets 50000000 (scripts/initialize_local_chain.sh:101, consensus_params_test.go:26). The failure predates this task and is independent of its changes."
+assumption = "The harness stores the production cap before its first block, the test file joins the touches, and the verify command reruns unchanged (decision 2148)."
+severity = "major"
+
+[finding.9.99.2.1]
+task = "9.99.2"
+file = "services/human/crates/layerx-human-service/tests/resolver.rs:128"
+symbol = "resolver_selects_every_normative_mechanism_and_vocabulary_term"
+observed = "Attempt 1 (3a80aa5e0) adds the AuthLifecycle arm and the library build passes; the verify command, a build of every target of layerx-human-service, fails in two test targets that do not compile on main: tests/intent_nonces.rs:49 and tests/resolver.rs:128 and :133 still name Mechanism::BridgeDepositCredit and Mechanism::BridgeWithdrawRequest, which task 10.6.2 (ec7c4dc54) removed from journeys::resolver::Mechanism without touching either test (its touches were the resolver, router, move_money, production_components and tests/send_routes.rs). The resolver now answers RouteError::Unavailable with relationship custody-deposit or custody-withdrawal for those requests (src/journeys/resolver.rs:1069-1070), which tests/send_routes.rs::bridge_only_destination_is_refused already pins. The breakage predates 9.99.2 and is unrelated to its arm."
+assumption = "The two tests are repaired by their own task 10.6.3 (req.8956); 9.99.2's gate becomes a compile of the library tests and of its two consumer test targets, agent_create and intent_plan_evm, which is what 18.1272.1 and 10.0.3 need (decision 2149)."
+severity = "major"
+
+[finding.8.98.15.1]
+task = "8.98.15"
+file = "services/platform/hosted/authority/tests/chain_receipts.rs:249"
+symbol = "Config"
+observed = "Attempt 1 (95762caa0) ports budget_state.rs, dynamic.rs and main.rs onto SequencerEndpoint and PxEndpoint over LAYERX_AUTHORITY_CHAIN_RPC_URL and writes the v2 exports; the build of the crate's tests fails with error[E0063] missing field chain_rpc_url in the Config initializer at tests/chain_receipts.rs:249, a test outside the touches that builds Config literally and already carries the node URL it needs as format!('http://{address}/evm') in its ChainReceipts::load call two lines below. The repair cycle could not touch it."
+assumption = "tests/chain_receipts.rs joins the touches and its initializer gains chain_rpc_url with that same URL; nothing else changes."
+severity = "minor"
+
+[finding.8.98.15.2]
+task = "8.98.15"
+file = "services/platform/hosted/authority/src/human/dynamic.rs:1"
+symbol = "subject"
+observed = "The attempt reports that the subject check it replaced compared four fields of the module 7 identity record that the node join does not carry one-for-one: the raw identity bytes, the authority key, the canonical account name and the record's chain sequence against the head. Decision 2145 replaces that record with px_getAccount's layerx join deliberately: the join's layerx_did and layerx_account bound to the subject's EVM address is the node's statement of identity, the committed height and the anchor's finality replace the sequence-against-head staleness check, and an unbound subject answers subject_not_bound."
+assumption = "The four legacy comparisons have no node twin by design; the bound join plus finality is the equivalent, and the attempt's refusal paths (subject_not_bound, subject_checkpoint_stale) are the ones decision 2145 asks for."
+severity = "minor"
+
+[finding.19.4.1.1]
+task = "19.4.1"
+file = "apps/wallet/src/lib/pns.ts:11"
+symbol = "PNS_CONTRACTS"
+observed = "The wallet's name library hard-codes three contract addresses (controller 0xed04f296..., public resolver 0x0f7b8437..., reverse registrar 0x967e8e45...) and the widget drives commit, register, renew, transfer and setName against them, but eth_getCode for all three on chain 125 (block 41447835) returns no code, and no name-service contract source exists in the repository; every write the widget offers fails on chain."
+assumption = "Feature 19 writes the contract set in-tree with the exact controller ABI the wallet encodes (19.1.1 to 19.1.3) and 19.4.1 repoints the wallet at environment-configured addresses with a not-configured state instead of literal addresses without code."
+severity = "major"
+
+[finding.9.99.2.2]
+task = "9.99.2"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "ConstructMethod::AuthLifecycle"
+observed = "Attempts 3 and 4 (5d6f04258) build the AuthLifecycle arm and then fail the verify command with cargo exit 101: no test target named intent_plan_evm in layerx-human-service, because tests/intent_plan_evm.rs is a planned path of task 10.0.3 and is not on main."
+assumption = "The verify command and the capability's verification contract compile the library and the agent_create target only (decision 2151); 10.0.3 keeps its own gate."
+severity = "minor"
+
+[finding.8.98.15.3]
+task = "8.98.15"
+file = "services/platform/hosted/authority/tests/human_tls.rs:429"
+symbol = "real_server_wire_statuses_remain_distinct"
+observed = "Attempt 3 (9699103b6) builds and passes retired_client_modules, budget_proof_exports (5 tests) and the corpus-driven human_tls test, but the three human_tls tests that launch the authority with the unreachable chain URL http://127.0.0.1:1 fail at their first registry read: /v1/agent/registry answers 503 where 200 is expected (:429), the real client reports Refused (:15) and the child client run fails (:364). The registry handler (src/human.rs:545, registry(&human.registry_path)) reads only the module registry file, so the refusal code in the response body (policy_unavailable, module_registry_unavailable, module_registry_invalid, human_authority_unconfigured or state_unavailable) is the diagnosis the attempt did not capture; the suite had not run on main since the authority began requiring LAYERX_AUTHORITY_CHAIN_RPC_URL and LAYERX_AUTHORITY_RECEIPT_KEYS_FILE (src/main.rs:283-287) without the test setting them. Separately, prepare_root (:49) creates every test root under qual-logs/hm2 inside the repository, and the qualification harness lists those files as changes outside the task's scope."
+assumption = "The attempt prints the refusal body and server.log tail on every status assertion, fixes the cause the code names without replacing the unreachable chain URL in those three tests, and /qual-logs/ joins .cgignore (decision 2152)."
+severity = "major"

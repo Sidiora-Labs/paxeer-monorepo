@@ -22,7 +22,6 @@ type operationDescriptor struct {
 	Method      string `json:"method"`
 	Path        string `json:"path"`
 	Transport   string `json:"transport"`
-	PerLeg      bool   `json:"per_leg"`
 	Request     string `json:"request"`
 	Response    string `json:"response"`
 	Idempotency bool   `json:"idempotency"`
@@ -421,12 +420,7 @@ func verifyHumanVectors(repo string) error {
 		if err != nil {
 			return err
 		}
-		if strings.HasPrefix(metadata.Method, "eth_") {
-			entry, exists := humanOperations[operation]
-			if !exists || entry.Transport != "evm" || metadata.Method != entry.Method || metadata.PerLeg != entry.PerLeg || metadata.Path != "" || entry.Path != "" {
-				return fmt.Errorf("generated EVM routing for %s diverges from operations.json", operation)
-			}
-		} else if request.Method != metadata.Method || !pathMatches(metadata.Path, request.Path) {
+		if request.Method != metadata.Method || !pathMatches(metadata.Path, request.Path) {
 			return fmt.Errorf("request vector for %s diverges from generated method/path", operation)
 		}
 		if operation.RequiresIdempotency() && request.Headers["Idempotency-Key"] == "" {
