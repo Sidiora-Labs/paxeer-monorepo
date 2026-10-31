@@ -91,31 +91,6 @@ func readBridgeSession(t *testing.T, actor, session testActor, action [32]byte,
 	return payload, id, summary
 }
 
-func readBridgePayerGrant(t *testing.T, actor testActor, from, recipient, asset [32]byte,
-	expiration uint64) ([]byte, [32]byte) {
-	t.Helper()
-	body := append([]byte(nil), from[:]...)
-	body = append(body, recipient[:]...)
-	body = append(body, asset[:]...)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 40)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 100)
-	body = append(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, expiration)
-	body = append(body, bytes.Repeat([]byte{0x22}, 32)...)
-	body = append(body, 0)
-	body = append(body, make([]byte, 32)...)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = append(body, actor.public[:]...)
-	message := append([]byte("LXP:GRANT:v1"), body...)
-	id, err := codec.DomainHash(codec.DomainAuthorityHash, message)
-	require.NoError(t, err)
-	grant := append(append([]byte(nil), id[:]...), body...)
-	return append(grant, ed25519.Sign(actor.private, id[:])...), id
-}
-
 func TestReadBridgeValues(t *testing.T) {
 	const blockTime = int64(10000)
 
@@ -284,32 +259,6 @@ func TestReadBridgeValues(t *testing.T) {
 		unpaused := actor.activity(t, host, 0x00010003, 4, blockTime, append([]byte{0, 1}, asset[:]...))
 		receipt = execute(t, host, chain.context(1, blockTime, 45), unpaused, actor.authority())
 		require.Equal(t, Code(0), receipt.ResultCode)
-		grant, grantID := readBridgePayerGrant(t, actor, accountID, accountID, asset, uint64(blockTime)+1000)
-		issued := actor.activity(t, host, 0x00010007, 5, blockTime, grant)
-		receipt = execute(t, host, chain.context(1, blockTime, 46), issued, actor.authority())
-		require.Equal(t, Code(0), receipt.ResultCode)
-		grantState, err := host.ReadPayerGrant(ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, PayerGrantState{Grant: grant, DrawnTotal: sdk.ZeroInt(),
-			DrawnThisPeriod: sdk.ZeroInt()}, grantState)
-		revocation := append([]byte{0, 1}, grantID[:]...)
-		revocation = binary.BigEndian.AppendUint64(revocation, 6)
-		revoked := actor.activity(t, host, 0x00010008, 6, blockTime, revocation)
-		receipt = execute(t, host, chain.context(1, blockTime, 47), revoked, actor.authority())
-		require.Equal(t, Code(0), receipt.ResultCode)
-		grantState, err = host.ReadPayerGrant(ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, PayerGrantState{Grant: grant, DrawnTotal: sdk.ZeroInt(),
-			DrawnThisPeriod: sdk.ZeroInt(), Revoked: true, RevokedAt: 47}, grantState)
-		before = chain.dump()
-		freshGrant, err := fresh.ReadPayerGrant(ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, grantState, freshGrant)
-		freshGrant.Grant[0] ^= 0xff
-		again, err := host.ReadPayerGrant(ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, grantState, again)
-		require.Equal(t, before, chain.dump())
 	})
 }
 
@@ -337,9 +286,6 @@ func TestReadBridgeRefusals(t *testing.T) {
 	summary, err := host.ReadSessionKey(ctx, id)
 	require.Equal(t, Code(-7), err)
 	require.Nil(t, summary)
-	grant, err := host.ReadPayerGrant(ctx, id)
-	require.Equal(t, Code(-214), err)
-	require.Equal(t, PayerGrantState{}, grant)
 	host.Close()
 	_, err = host.ReadAsset(ctx, id)
 	require.Equal(t, codeNonCanonical, err)
@@ -352,8 +298,6 @@ func TestReadBridgeRefusals(t *testing.T) {
 	_, err = host.ReadAccount(ctx, "", id)
 	require.Equal(t, codeNonCanonical, err)
 	_, err = host.ReadSessionKey(ctx, id)
-	require.Equal(t, codeNonCanonical, err)
-	_, err = host.ReadPayerGrant(ctx, id)
 	require.Equal(t, codeNonCanonical, err)
 	_, err = host.ReadIdentityState(ctx, nil)
 	require.Equal(t, codeNonCanonical, err)

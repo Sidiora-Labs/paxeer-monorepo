@@ -329,16 +329,6 @@ type AccountRecord struct {
 	HasAuthorityKey   bool
 }
 
-type PayerGrantState struct {
-	Grant           []byte
-	DrawnTotal      sdk.Int
-	DrawnThisPeriod sdk.Int
-	WindowStart     uint64
-	RevokedAt       uint64
-	Revoked         bool
-	InvoiceSettled  bool
-}
-
 type AuthorityScope struct {
 	ModuleMask         uint64
 	ActivityOrdinalMin uint16
@@ -820,56 +810,6 @@ func (h *Host) ReadIdentityState(ctx sdk.Context, actorDID []byte) (IdentityStat
 	})
 	if err != nil {
 		return IdentityState{}, err
-	}
-	return out, nil
-}
-
-func (h *Host) ReadPayerGrant(ctx sdk.Context, grantID [32]byte) (PayerGrantState, error) {
-	var out PayerGrantState
-	err := h.withRead(ctx, []uint16{C.LXP_MODULE_ASSET, C.LXP_MODULE_BUDGET}, func(state *C.lxphost_read_state) error {
-		var grant C.lxp_grant_state
-		if err := result(C.lx_asset_payer_grant_read(&state.kernel, bytes32(&grantID), &grant)); err != nil {
-			return err
-		}
-		var draws C.lxp_grant_state
-		if err := result(C.lx_budget_grant_draws_read(&state.kernel, bytes32(&grantID), &draws)); err != nil {
-			return err
-		}
-		var sum C.struct_lxp_u128
-		if err := result(C.lxp_u128_add(grant.drawn_total, draws.drawn_total, &sum)); err != nil {
-			return err
-		}
-		grant.drawn_total = sum
-		if draws.window_start > grant.window_start {
-			grant.drawn_this_period = draws.drawn_this_period
-			grant.window_start = draws.window_start
-		} else if draws.window_start == grant.window_start {
-			if err := result(C.lxp_u128_add(grant.drawn_this_period, draws.drawn_this_period, &sum)); err != nil {
-				return err
-			}
-			grant.drawn_this_period = sum
-		}
-		var encoded [1024]byte
-		var length C.size_t
-		if err := result(C.lxp_payer_grant_encode(&grant.grant, bytesPtr(encoded[:]), C.size_t(len(encoded)), &length)); err != nil {
-			return err
-		}
-		if length > C.size_t(len(encoded)) {
-			return codeFatalInvariant
-		}
-		out = PayerGrantState{
-			Grant:           append([]byte(nil), encoded[:int(length)]...),
-			DrawnTotal:      readAmount(grant.drawn_total),
-			DrawnThisPeriod: readAmount(grant.drawn_this_period),
-			WindowStart:     uint64(grant.window_start),
-			RevokedAt:       uint64(grant.revoked_at_sequence),
-			Revoked:         bool(grant.revoked),
-			InvoiceSettled:  bool(grant.invoice_settled),
-		}
-		return nil
-	})
-	if err != nil {
-		return PayerGrantState{}, err
 	}
 	return out, nil
 }
