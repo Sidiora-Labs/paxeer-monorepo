@@ -134963,7 +134963,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.17.2]
 title = "Delete the storage admission module of the authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.17.1"]
@@ -173168,7 +173168,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.11]
 title = "Delete the finality evidence suite built on guarantor certificates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.4", "16.5.2", "16.37.2"]
@@ -173329,7 +173329,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.33.4]
 title = "Delete the web intake, adapter and root suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.2", "6.97.1", "16.5.2", "16.37.2"]
@@ -174055,7 +174055,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.2]
 title = "Remove the queue-disposition codec and budget pull request cases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -174120,7 +174120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.4]
 title = "Remove the checkpoint-authority and publication-policy uses from kernel bringup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
@@ -174184,7 +174184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.7]
 title = "Replace the retired anchor and receipt routes with the archive routes in the route catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "14.0.4"]
@@ -174246,7 +174246,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.9]
 title = "Read nested and Go-embedded precompile ABIs in the system docs generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
