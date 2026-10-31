@@ -148303,7 +148303,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.17.1]
 title = "Retire the emergency-exit custody signing operation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.8.3", "10.20.3", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1"]
