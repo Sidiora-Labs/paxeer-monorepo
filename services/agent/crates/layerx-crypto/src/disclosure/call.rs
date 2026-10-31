@@ -46,6 +46,10 @@ pub enum ConstructMethod {
         budget: [u8; 32],
         amount: u128,
     },
+    AuthLifecycle {
+        payload: Vec<u8>,
+        idempotency_key: [u8; 32],
+    },
     BankSend {
         from: [u8; 20],
         to: [u8; 20],
@@ -384,6 +388,25 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
             _ => Err(DisclosureError::MalformedPayload),
         };
     }
+    if target(&call.to, [0x10, 0x1c]) {
+        if selector != ledger_selector("recordLifecycle(bytes,bytes32)") {
+            return Err(DisclosureError::MalformedPayload);
+        }
+        let payload = dynamic(args, 2, 0)?;
+        if !(4..=1024).contains(&payload.len())
+            || payload[0] != 0x71
+            || !matches!(
+                (payload[1], payload[2], payload[3], payload.len()),
+                (1, 0, 2, 68) | (1, 2, 1, 8..=1024) | (3, 0, 3, 70) | (3, 0, 5, 86)
+            )
+        {
+            return Err(DisclosureError::MalformedPayload);
+        }
+        return Ok(ConstructMethod::AuthLifecycle {
+            payload: payload.to_vec(),
+            idempotency_key: word(args, 1)?,
+        });
+    }
     if target(&call.to, [0x10, 0x01]) && selector == [0x5c, 0x05, 0x96, 0x1b] {
         return Ok(ConstructMethod::BankSend {
             from: uint(word(args, 0)?)?,
@@ -412,12 +435,15 @@ pub(super) fn fields(
         ConstructMethod::LedgerDraw { .. } => 6,
         ConstructMethod::LedgerRevokeGrant { .. } => 8,
         ConstructMethod::PayBudgetDefund { .. } => 8,
+        ConstructMethod::AuthLifecycle { payload, .. } => u16::from(payload[1]),
     };
     let module = if matches!(
         &method,
         ConstructMethod::PayBudgetCreate { .. } | ConstructMethod::PayBudgetDefund { .. }
     ) {
         ModuleId::Budget
+    } else if matches!(&method, ConstructMethod::AuthLifecycle { .. }) {
+        ModuleId::Governance
     } else {
         ModuleId::Asset
     };
@@ -544,6 +570,11 @@ pub(super) fn fields(
             disclose_party(&mut fields.counterparties, CounterpartyRole::Payer, budget);
             disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
         }
+        ConstructMethod::AuthLifecycle {
+            idempotency_key, ..
+        } => {
+            fields.idempotency_key = idempotency_key;
+        }
         ConstructMethod::BankSend { from, to, .. } => {
             // Bank denominations and uint256 amounts are exposed by construct_method;
             // they are not protocol asset ids or uint128 ledger amounts.
@@ -568,6 +599,7 @@ pub(super) fn payload_sequence(call: &Eip1559Call) -> Result<Option<u64>, Disclo
         ConstructMethod::LedgerDraw {
             receiver_sequence, ..
         } => Ok(Some(receiver_sequence)),
+        ConstructMethod::AuthLifecycle { .. } => Ok(None),
         _ => Ok(None),
     }
 }

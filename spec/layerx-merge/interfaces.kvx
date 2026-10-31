@@ -445363,7 +445363,7 @@ signature = "pub struct FundsDispositionEvidence"
 callers = ["services/human/crates/layerx-human-service/tests/archive.rs:68", "services/human/crates/layerx-human-service/tests/archive.rs:89", "services/human/crates/layerx-human-service/tests/archive.rs:330", "services/human/crates/layerx-human-service/tests/archive.rs:358"]
 status = "change"
 contract = "contracts/services.md#human-service"
-notes = "public path layerx_human_service::agents::FundsDispositionEvidence; uses VerificationLevel (VerificationLevel is replaced by layerx_types::rung::Rung)"
+notes = "public path layerx_human_service::agents::FundsDispositionEvidence; rung: layerx_types::rung::Rung; archive fixture uses layerx_types::rung::Rung::Committed"
 
 [interface.10.rs-human-service-agents-archive-session-archive-adapter]
 kind = "rust_pub_item"

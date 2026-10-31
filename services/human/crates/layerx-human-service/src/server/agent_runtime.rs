@@ -4830,7 +4830,7 @@ impl AgentRuntime {
         writer.bytes(&grant.session_scope)?;
         writer.u64(grant.expires_at_ms);
         writer.fixed(&grant.owner_public_key);
-        let signature: &[u8; 65] = grant
+        let signature: &[u8; 64] = grant
             .signature
             .as_slice()
             .try_into()
@@ -4843,7 +4843,11 @@ impl AgentRuntime {
             &reader.bytes()?,
         )
         .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let transaction = decode_unsigned(&canonical_bytes)?;
         let value = super::native_send::NativeSendPreviewV1 {
+            nonce: transaction.nonce,
+            max_fee_per_gas: transaction.max_fee_per_gas,
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
             canonical_bytes,
             signing_preimage,
             purpose,
@@ -4877,7 +4881,8 @@ impl AgentRuntime {
             || value.revocation_sequence == 0
             || value.revocation_sequence > value.head_sequence
             || value.protocol_time_ms >= purpose_expires_ms
-            || value.signing_preimage.is_empty()
+            || value.nonce != request.account_sequence.0
+            || value.signing_preimage != transaction.signing_hash()
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }

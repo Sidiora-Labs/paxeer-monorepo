@@ -12076,3 +12076,53 @@ fix = "Prove a native send preview through serve_one with the frame the human se
 title = "The served-precompile probe is an eth_call with selector 0xffffffff"
 symptom = "Gateway tests expected an eth_getCode probe for a served precompile and saw none, and a route's eth_call count came out one too high: since the node serves precompiles natively without account code, ensureServed probes with eth_call data 0xffffffff once per process per key."
 fix = "Assert the probe as that eth_call and exclude it from per-route eth_call counts; eth_getCode at a native precompile answers 0x."
+
+[gotcha.2453]
+title = "The attestor test support resolves a wallet identity only from a held secp256k1 key bound to the primary's policy account"
+symptom = "A service test created a human primary key through the attestor test support and asked for its EVM wallet; the attestors refused with key_invalid_share: the inventory listed no key for generation, and the public-wallet route needs a held secp256k1 key owned by the same subject whose address equals the account the primary was generated with."
+fix = "Generate the owner's secp256k1 wallet first, approve the primary key id for generate, create the primary with the wallet address as its account, approve it for sign, then resolve the wallet."
+
+[gotcha.2454]
+title = "A human service test gated on the protected native producer fixture never runs inside a qualification gate"
+symptom = "A new test copied the fixture reader of tests/native_send_producer.rs, which expects PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, a running human service over TLS and a real daemon socket; the gate had none of them, so both cases panicked with NotPresent before their first assertion and the task failed three times without the preview path ever being exercised."
+fix = "Write such tests against an in-process peer double over a UnixListener and a temporary principal store, the way tests/agent_runtime_nonces.rs and tests/agent_runtime_eip1559.rs do; leave the protected fixture tests as release gates."
+
+[gotcha.2455]
+title = "The human service's plan route answers every refusal with the same reasonless 403"
+symptom = "An end-to-end fixture got {code: forbidden, retry: final} from POST /v1/intents/plan with no attestor refusal recorded; the route has about a dozen checks that answer exactly this (assertion admission, owner identity, balance coordinates, custody binding, plan refusals, leg transactions, observation cache), so the failing check could not be read from the response."
+fix = "Make the fixture's doubles record every request they serve and print the lists in the failure text, then bisect along the route's forbidden emitters in call order."
+
+[gotcha.2456]
+title = "The node serves a sequencer receipt only by transaction hash"
+symptom = "A service route keyed by the receipt's global sequence looked for a node JSON-RPC twin of the retired selector-3 receipt lookup; pax_sequencerReceipt (rpc/sequencer_receipt.go:252) takes a transaction hash and nothing looks a receipt up by global sequence."
+fix = "Key the route by transaction hash and read the global sequence from the executed receipt's seq field; a global-sequence index would be a new node method."
+
+[gotcha.2457]
+title = "A sequencer primary refuses to start without a standby address even though its config validation admits one"
+symptom = "Config.Validate (node/sequencer/config.go:165-205) accepts an empty sequencer.standby-address, but NewNode (node/sequencer/node.go:62) then fails with ErrConfigStandbyAddress and NewReplicator refuses a nil dialer, so a single-node sequencer start needs a second node it never uses."
+fix = "Treat the empty address as standalone replication (task 12.35.9) or configure a standby; do not point the standby address at the primary's own listener."
+
+[gotcha.2458]
+title = "The layerxauth keeper executes any governance payload ordinal the kernel admits, but only methods on its ABI reach it"
+symptom = "A service built a DID registration as a ledger send(bytes) call because no precompile exposed a lifecycle method; the ledger decoder refused the governance bytes with MalformedPayload. The layerxauth keeper's execute (modules/layerxauth/keeper/execute.go:15) already maps payload[1] to kernel activity 0x00070000 | ordinal and the kernel decoder admits ordinals 1 and 3."
+fix = "Add the ABI method, gas row and handler on the layerxauth precompile and the matching decoder arm in layerx-crypto; never tunnel a governance payload through another module's send."
+
+[gotcha.2459]
+title = "The gateway client refuses a balances answer that says bound without a DID and an account"
+symptom = "A test double answered px_getBalances with account {evm_address, bound: true} and the service reported upstream-degraded: retain_lookup in the gateway client requires bound to equal the presence of both layerx_did and layerx_account and an evm_address on every bound answer, and the plan path maps every gateway error to upstream-degraded."
+fix = "Answer the declared nested join shape the gateway crate's own decoder test fixes: identities with evm_address, pax_address, layerx_did, layerx_account and bound, rows with asset_id, denom, custody, paxeer and layerx, and an integer joined_limit."
+
+[gotcha.2460]
+title = "The JSON-RPC module-state read proves one storage word, not a kernel module record"
+symptom = "A caller ported a kernel module-state read (a 223-byte record) onto rpc::module_state::module_state and found it returns a single 32-byte slot value proven against a signed header the caller must supply; kernel-era records with their own layouts have no slot twin, and the node keeps that state in precompiles instead."
+fix = "Read precompile-backed state through eth_call (SequencerEndpoint::call_at with the ABI selector and arguments) and take finality from the anchor precompile's latestFinalized and checkpoint views; reserve rpc::module_state for genuine single-slot module values."
+
+[gotcha.2461]
+title = "The layerxauth precompile pins its method count in two tests"
+symptom = "A new layerxauth precompile method passed its own tests and the ABI test, then failed TestAuthGasTable (row count) and TestAuthSurfaceFrozen (three Len pins) because both pin the method count."
+fix = "When adding a layerxauth method, raise the pinned counts in gas_test.go and surface_test.go together with the ABI, handler and gas row."
+
+[gotcha.2462]
+title = "Store row keys are limited to 128 identifier characters, and two 32-byte hex fields plus a prefix exceed it"
+symptom = "A handler built a Cache row key from a prefix and two 64-character hex digests (148 characters); RowKey::new refused it as InvalidKey and the handler reported upstream-degraded on every request."
+fix = "Key rows by one digest of the inputs (prefix plus 64 hex characters) and keep RowKey::new's IDENTIFIER_LIMIT in mind whenever a key concatenates hashes."
