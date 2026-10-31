@@ -197627,7 +197627,7 @@ ac_2 = "GeneratedSchema.HumanModels.HumanVerificationLevel has exactly unverifie
 
 [task.8.46.9]
 title = "JVM generated contract returns to the generator's shape and the human verification levels follow the human schema"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.46.4", "8.46.7"]
