@@ -3,6 +3,7 @@ import posixpath
 import re
 import subprocess
 from collections.abc import Iterable
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Final
 
@@ -140,6 +141,13 @@ RETIRED: Final[frozenset[str]] = frozenset(
     }
 )
 
+RETIREMENT_ASSERTIONS: Final[frozenset[str]] = frozenset(
+    {
+        "tools/paxeer-x/retired_callers.json",
+        "tools/ci/tests/test_makefile_*.py",
+    }
+)
+
 _QUOTED_PATH = re.compile(r'''"([^"\r\n]+)"|'([^'\r\n]+)'|<([^<>\r\n]+)>''')
 
 
@@ -178,6 +186,7 @@ def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
             path.parts[0] in {"docs", "spec"}
             or path.suffix == ".md"
             or name == "GOTCHA.kvx"
+            or any(fnmatch(name, pattern) for pattern in RETIREMENT_ASSERTIONS)
         ):
             continue
         source = root / path
