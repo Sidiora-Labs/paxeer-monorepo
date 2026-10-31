@@ -173631,7 +173631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.31.6]
 title = "Remove the retired sequencer and replica fault cases from lxp_qual_faults"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["16.37.1", "1.12.3"]
