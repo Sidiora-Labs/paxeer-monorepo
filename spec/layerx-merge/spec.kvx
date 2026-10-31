@@ -168707,7 +168707,7 @@ do_7 = "The verify_cmd imports layerx_fastapi (sdk/integrations/fastapi/layerx_f
 
 [task.15.4.3]
 title = "Verify signed sequencer receipts in the fastapi seller and protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["15.4.2", "8.0.3", "9.0.3", "9.96.1"]
