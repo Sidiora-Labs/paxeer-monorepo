@@ -116098,7 +116098,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.99.2]
 title = "Match the AuthLifecycle disclosure method in the agent creation lifecycle binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.99.1"]
