@@ -9,7 +9,7 @@ PLATFORM_BETA_CLUSTER_ENV ?= build/beta-cluster/env
 	platform-test-tooling platform-emulator-conformance platform-test-middleware \
 	platform-test-cli-production-credential-refusal platform-test-registry \
 	platform-test-core platform-test-authority platform-test-agent-boundary platform-test-identity platform-test-paxeer-boundary \
-	platform-test-trusted-boundary platform-test-plain-listeners \
+	platform-test-trusted-boundary \
 	platform-test-reference-apps platform-test-mobile-artifacts \
 	platform-test-android-artifact platform-test-ios-artifact \
 	platform-real-agent-integration \
@@ -164,6 +164,7 @@ platform-test-agent-boundary:
 platform-test-identity:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-identity
 
+.PHONY: platform-test-plain-listeners
 platform-test-plain-listeners:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-dashboard --test plain_listener
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-webhooks --test plain_listener
