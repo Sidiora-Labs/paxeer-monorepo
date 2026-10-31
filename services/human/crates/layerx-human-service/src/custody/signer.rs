@@ -17,9 +17,6 @@ const RATE_MAGIC: &[u8; 4] = b"LXRL";
 const RATE_VERSION: u8 = 1;
 const STEP_UP_KEY_PREFIX: &str = "custody-stepup-";
 const STEP_UP_ID_LIMIT: usize = 96;
-#[path = "settlement_recipient.rs"]
-mod settlement_recipient;
-pub use settlement_recipient::SettlementRecipientRequest;
 
 /// The operation class named in a custody signing decision.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -29,7 +26,6 @@ pub enum Operation {
     SecuritySettings,
     SecretReveal,
     Withdrawal,
-    EmergencyExit,
     WalletRebinding,
     AgentArchive,
 }
@@ -44,7 +40,6 @@ impl Operation {
             "security-settings" => Some(Self::SecuritySettings),
             "secret-reveal" => Some(Self::SecretReveal),
             "withdrawal" => Some(Self::Withdrawal),
-            "emergency-exit" => Some(Self::EmergencyExit),
             "wallet-rebinding" => Some(Self::WalletRebinding),
             "agent-archive" => Some(Self::AgentArchive),
             _ => None,
@@ -60,7 +55,6 @@ impl Operation {
             Self::SecuritySettings => "security-settings",
             Self::SecretReveal => "secret-reveal",
             Self::Withdrawal => "withdrawal",
-            Self::EmergencyExit => "emergency-exit",
             Self::WalletRebinding => "wallet-rebinding",
             Self::AgentArchive => "agent-archive",
         }
@@ -862,7 +856,6 @@ fn signing_operation(request: &SignRequest<'_>) -> SigningOperation {
         Operation::SecuritySettings => SigningOperation::SecuritySettings,
         Operation::SecretReveal => SigningOperation::SecretReveal,
         Operation::Withdrawal => SigningOperation::BridgeWithdrawRequest,
-        Operation::EmergencyExit => SigningOperation::EmergencyExit,
         Operation::WalletRebinding => SigningOperation::EvmPayoutBinding,
         Operation::AgentArchive => SigningOperation::AgentArchive,
     }

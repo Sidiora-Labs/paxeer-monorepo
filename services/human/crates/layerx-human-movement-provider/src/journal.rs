@@ -204,7 +204,7 @@ impl Journal {
     /// Confirms the journal can still answer the reads the executing paths make:
     /// the durable state is healthy and every recorded request and completed
     /// response decodes under the configured protocol, exactly as
-    /// `authorized_plan` and `withdrawal_request` require.
+    /// the executing paths require.
     pub fn readable(&self) -> Result<(), Error> {
         if !self.healthy {
             return Err(Error::Integrity);
@@ -221,124 +221,6 @@ impl Journal {
             }
         }
         Ok(())
-    }
-
-    pub fn authorized_plan(
-        &self,
-        identity: &layerx_human_service::journeys::MovementExecutionIdentity,
-    ) -> Result<layerx_human_service::server::movement_provider::PlanningRequest, Error> {
-        if !self.healthy {
-            return Err(Error::Integrity);
-        }
-        let codec = NativeMovementCodec::new();
-        let mut result = None;
-        for record in self.records.values() {
-            let Some(response) = &record.response else {
-                continue;
-            };
-            let response = codec
-                .decode_response(response)
-                .map_err(|_| Error::Integrity)?;
-            if !matches!(
-                response,
-                Response::DepositPlan(_) | Response::WithdrawalPlan(_) | Response::ExitPlan(_)
-            ) {
-                continue;
-            }
-            let request = codec
-                .decode_request(&record.request)
-                .map_err(|_| Error::Integrity)?;
-            let (Request::PlanDeposit(plan)
-            | Request::PlanWithdrawal(plan)
-            | Request::PlanExit(plan)) = request
-            else {
-                return Err(Error::Integrity);
-            };
-            if plan.principal == identity.principal
-                && plan.tenant == identity.tenant
-                && plan.idempotency_key == identity.plan_id
-            {
-                if layerx_paxeer_client::account_address_for_protocol(
-                    &plan.context.account,
-                    plan.context.protocol_version,
-                )
-                .map_err(|_| Error::Integrity)?
-                    != identity.account
-                    || plan.context.wallet != identity.wallet
-                    || result.is_some()
-                {
-                    return Err(Error::Conflict);
-                }
-                result = Some(plan);
-            }
-        }
-        result.ok_or(Error::Integrity)
-    }
-
-    pub fn withdrawal_request(&self, action_key: [u8; 32]) -> Result<Option<Request>, Error> {
-        if !self.healthy {
-            return Err(Error::Integrity);
-        }
-        let codec = NativeMovementCodec::new();
-        let mut found = None;
-        for record in self.records.values() {
-            let request = codec
-                .decode_request(&record.request)
-                .map_err(|_| Error::Integrity)?;
-            if let Request::SubmitWithdrawal(value) = &request {
-                if value.action_key == action_key {
-                    if found.is_some() {
-                        return Err(Error::Conflict);
-                    }
-                    found = Some(request);
-                }
-            }
-        }
-        Ok(found)
-    }
-
-    pub fn has_withdrawal_debit(&self, expected: &layerx_paxeer_client::DebitExpectation) -> bool {
-        if !self.healthy {
-            return false;
-        }
-        let codec = NativeMovementCodec::new();
-        self.records.values().any(|record| {
-            matches!(codec.decode_request(&record.request), Ok(Request::BindWithdrawalDebit { debit, .. }) if debit == *expected)
-                && record.response.as_ref().is_some_and(|bytes| matches!(codec.decode_response(bytes), Ok(Response::Ready)))
-        })
-    }
-
-    pub fn next_nonce(
-        &self,
-        wallet: layerx_types::intent::EvmAddress,
-        chain: u64,
-        observed: u64,
-    ) -> Result<u64, Error> {
-        if !self.healthy {
-            return Err(Error::Integrity);
-        }
-        let codec = NativeMovementCodec::new();
-        for record in self.records.values() {
-            let Some(bytes) = &record.response else {
-                continue;
-            };
-            let response = codec.decode_response(bytes).map_err(|_| Error::Integrity)?;
-            if let Response::PreparedEvmTransaction(transaction) = response {
-                let Request::PrepareEvmTransaction { identity, .. } = codec
-                    .decode_request(&record.request)
-                    .map_err(|_| Error::Integrity)?
-                else {
-                    return Err(Error::Integrity);
-                };
-                if identity.wallet == wallet
-                    && transaction.chain_id == chain
-                    && transaction.nonce >= observed
-                {
-                    return Err(Error::Conflict);
-                }
-            }
-        }
-        Ok(observed)
     }
 
     fn persist(&mut self) -> Result<(), Error> {
@@ -404,41 +286,7 @@ fn validate_response(request: &[u8], bytes: &[u8], protocol: u16) -> Result<(), 
         (request, response),
         (_, Response::Unavailable | Response::ContractViolation)
             | (Request::PlanMove(_), Response::MovePlan(_))
-            | (Request::PlanDeposit(_), Response::DepositPlan(_))
-            | (Request::PlanWithdrawal(_), Response::WithdrawalPlan(_))
-            | (Request::PlanExit(_), Response::ExitPlan(_))
-            | (
-                Request::VerifyExternalDeposit { .. },
-                Response::VerifiedDeposit(_)
-            )
-            | (
-                Request::SubmitDepositCustody(_),
-                Response::DepositCustody(_)
-            )
-            | (
-                Request::PollDepositFinality(_),
-                Response::DepositFinality(_)
-            )
-            | (Request::ObtainDepositProof(_), Response::DepositProof(_))
-            | (
-                Request::VerifyClaimSignature { .. },
-                Response::ClaimTransaction(_)
-            )
-            | (
-                Request::BindWithdrawalDebit { .. } | Request::Readiness,
-                Response::Ready
-            )
-            | (
-                Request::WithdrawalMaterial(_),
-                Response::WithdrawalMaterial(_)
-            )
-            | (Request::SubmitWithdrawal(_), Response::Withdrawal(_))
-            | (Request::LookupWithdrawal(_), Response::WithdrawalLookup(_))
-            | (Request::SubmitExit(_), Response::Exit(_))
-            | (
-                Request::PrepareEvmTransaction { .. },
-                Response::PreparedEvmTransaction(_)
-            )
+            | (Request::Readiness, Response::Ready)
     ) {
         return Err(Error::Integrity);
     }
