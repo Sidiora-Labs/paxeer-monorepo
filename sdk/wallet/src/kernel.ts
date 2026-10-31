@@ -7,8 +7,8 @@ import type {
   KernelAvailabilityState,
   KernelBackendName,
   KernelRead,
-  KernelStatus,
   KernelUnavailableState,
+  NetworkHead,
   SequencerReceiptAnswer,
 } from './types.js';
 
@@ -28,16 +28,21 @@ export interface KernelAvailabilityOptions {
   now?: () => number;
 }
 
-export function availabilityFromStatus(status: KernelStatus): KernelAvailabilityState {
-  if (status.reason === 'available') return { available: true, reason: 'available' };
-  return { available: false, reason: status.reason, backend: null };
+function availabilityFromStatus(network: NetworkHead): KernelAvailabilityState {
+  return network.consensus !== null && !network.consensus.catching_up
+    ? { available: true, reason: 'available' }
+    : { available: false, reason: 'consensus_unavailable', backend: null };
 }
 
 export function kernelUnavailableFrom(error: unknown): KernelUnavailableState | null {
   if (!(error instanceof JsonRpcError) || error.code !== KERNEL_UNAVAILABLE_CODE) return null;
   const data = error.data;
   if (!isRecord(data) || data.code !== 'kernel_unavailable') return null;
-  if (data.reason !== 'not_configured' && data.reason !== 'unreachable') return null;
+  if (
+    data.reason !== 'not_configured' &&
+    data.reason !== 'unreachable' &&
+    data.reason !== 'consensus_unavailable'
+  ) return null;
   const backend =
     typeof data.backend === 'string' && (KERNEL_BACKENDS as readonly string[]).includes(data.backend)
       ? (data.backend as KernelBackendName)
@@ -66,7 +71,7 @@ export class KernelAvailability {
     this.inflight = this.endpoint
       .getNetwork()
       .then((network) => {
-        const state = availabilityFromStatus(network.kernel);
+        const state = availabilityFromStatus(network);
         this.cached = { state, at: this.now() };
         return state;
       })

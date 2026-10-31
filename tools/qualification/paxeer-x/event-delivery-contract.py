@@ -1664,7 +1664,7 @@ def roles_artifacts(manifest):
             or value.get('source_revision') != manifest['source']['revision']:
         raise Missing('webhook process artifacts do not bind this candidate')
     required = {'layerx-webhooks', 'layerx-identity', 'layerx-kms', 'layerx-gateway',
-                'layerx-event-source', 'layerx-agent-boundary', 'layerx-receipt-authority', 'layerx-program-registry',
+                'layerx-event-source', 'layerx-agent-boundary', 'layerx-program-registry',
                 'builder-isolation', 'builder-supervisor'}
     if set(value.get('artifacts', {})) != required:
         raise Missing('webhook runtime artifact set is incomplete')
@@ -1690,318 +1690,7 @@ def roles_artifacts(manifest):
 
 def webhook_ingress_roles(manifest, results):
     roles_artifacts(manifest)
-    sys.path.insert(0, str(ROOT / 'tools/qualification/paxeer-x/fixtures'))
-    if os.environ.get('PAXEER_X_WEBHOOK_HEALTHY_WORKER'):
-        roles_healthy_worker(manifest, results, Path(os.environ['PAXEER_X_WEBHOOK_HEALTHY_WORKER']))
-        return
     roles_webhook_ingress_roles(manifest, results)
-    from hosted_delivery_fixture import CaMaterial
-    from event_receiver_fixture import EventReceiverFixture
-    evidence = private_directory(Path(os.environ['PAXEER_X_EVIDENCE_DIR']))
-    work = Path(tempfile.mkdtemp(prefix='webhook-delivery-', dir=evidence))
-    work.chmod(0o700)
-    ca = CaMaterial(work)
-    receiver = EventReceiverFixture(work, ca)
-    try:
-        receiver._materials()
-        receiver._start_namespace()
-    except BaseException:
-        receiver._terminate(receiver.holder)
-        raise
-    descriptor = {'parent_pid': os.getpid(), 'candidate_manifest_sha256': MANIFEST_DIGEST,
-                  'network_namespace': os.stat(f'/proc/{receiver.holder.pid}/ns/net').st_ino,
-                  'mount_namespace': os.stat(f'/proc/{receiver.holder.pid}/ns/mnt').st_ino,
-                  'work': str(work), 'ca': str(ca.directory), 'receiver_root': str(receiver.root),
-                  'receiver_endpoint': receiver.endpoint, 'receiver_address': receiver.address,
-                  'receiver_port': receiver.port,
-                  'receiver_cert': str(receiver.materials['server_cert']),
-                  'receiver_key': str(receiver.materials['server_key'])}
-    attachment = work / 'worker.json'
-    attachment.write_text(json.dumps(descriptor))
-    attachment.chmod(0o600)
-    command = receiver.ns_command([sys.executable, str(Path(__file__).resolve()), '--case', 'webhook-ingress-roles',
-                                  '--candidate-manifest', str(MANIFEST_PATH)])
-    try:
-        child_environment = {key: value for key, value in os.environ.items() if key.lower() not in ('http_proxy', 'https_proxy', 'all_proxy', 'no_proxy')}
-        child_environment.update(PAXEER_X_WEBHOOK_HEALTHY_WORKER=str(attachment), NO_PROXY='*')
-        child = subprocess.Popen(command, env=child_environment,
-            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
-        try:
-            output, errors = child.communicate(timeout=900)
-        except subprocess.TimeoutExpired:
-            child.terminate()
-            try:
-                output, errors = child.communicate(timeout=45)
-            except subprocess.TimeoutExpired:
-                child.kill()
-                output, errors = child.communicate()
-        (work / 'worker.log').write_text(output + errors)
-        for line in output.splitlines():
-            if line.startswith(('PASS ', 'FAIL ', 'MISSING ')):
-                print(line, flush=True)
-                if line.startswith('PASS '):
-                    results.passes += 1
-                else:
-                    results.failures += 1
-        results.check('all real delivery fixture executions completed', child.returncode == 0)
-    finally:
-        receiver.stop()
-        receiver._terminate(receiver.holder)
-
-
-def roles_healthy_worker(manifest, results, attachment):
-    import signal
-    def stopped(signum, frame):
-        raise SystemExit(128 + signum)
-    signal.signal(signal.SIGTERM, stopped)
-    import base64
-    import importlib.util
-    from hosted_delivery_fixture import CaMaterial, TlsRedis, binary, wait_port, private_file
-    from identity_fixture import IdentityFixture
-    from kms_fixture import KmsFixture
-    from event_source_fixture import EventSourceFixture, PRINCIPAL
-    from receipt_authority_fixture import der_pair, https, wait_until, node_environment, NETWORK_NAME
-    descriptor = json.loads(protected_input(attachment, 'healthy worker attachment').read_bytes())
-    if descriptor['parent_pid'] != os.getppid() or descriptor['candidate_manifest_sha256'] != MANIFEST_DIGEST \
-            or descriptor['network_namespace'] != os.stat('/proc/self/ns/net').st_ino \
-            or descriptor['mount_namespace'] != os.stat('/proc/self/ns/mnt').st_ino:
-        raise Missing('healthy worker must be launched by this gate in its owned isolated namespace')
-    work = Path(descriptor['work'])
-    ca = CaMaterial.__new__(CaMaterial)
-    ca.directory = Path(descriptor['ca'])
-    ca.ca_pem, ca.ca_der, ca._key = ca.directory / 'ca.pem', ca.directory / 'ca.der', ca.directory / 'ca.key'
-    ca._serial = 100
-    specification = importlib.util.spec_from_file_location('webhook_runtime', ROOT / 'tests/daemon/paxeer_x_runtime_fixture.py')
-    runtime_module = importlib.util.module_from_spec(specification)
-    specification.loader.exec_module(runtime_module)
-    bundle = runtime_module.artifacts(os.environ.get('PAXEER_X_RUNTIME_ARTIFACTS'))
-    client = runtime_module.client_artifact(os.environ.get('PAXEER_X_RUNTIME_CLIENT'))
-    runtime_path = Path(tempfile.mkdtemp(prefix='webhook-runtime-'))
-    runtime_path.rmdir()
-    runtime = runtime_module.RuntimeFixture(runtime_path, bundle, client)
-    redis = TlsRedis(work, ca)
-    identity = IdentityFixture(work, ca)
-    kms = KmsFixture(work, ca)
-    ingress = public = source = receiver = None
-    logs = []
-    receiver_root = Path(descriptor['receiver_root'])
-
-    def start_receiver():
-        marker = receiver_root / 'receiver.ready'
-        marker.unlink(missing_ok=True)
-        log = (work / 'receiver-worker.log').open('ab')
-        logs.append(log)
-        child = subprocess.Popen([sys.executable, str(ROOT / 'tools/qualification/paxeer-x/fixtures/event_receiver_fixture.py'),
-            'serve', str(receiver_root), descriptor['receiver_address'], str(descriptor['receiver_port']),
-            descriptor['receiver_cert'], descriptor['receiver_key']], stdout=log, stderr=log,
-            stdin=subprocess.DEVNULL, start_new_session=True)
-        wait_until(lambda: marker.exists(), child, 'verified webhook receiver', 30)
-        return child
-
-    def stop_receiver(child):
-        if child is not None and child.poll() is None:
-            child.terminate()
-            child.wait(timeout=15)
-
-    def request(port, method, path, bearer=None, body=None, peer=None, extra=None):
-        headers = dict(extra or {})
-        if bearer:
-            headers['Authorization'] = 'Bearer ' + bearer
-        encoded = None if body is None else json.dumps(body).encode()
-        if encoded is not None:
-            headers['Content-Type'] = 'application/json'
-        status, kind, data = https(method, f'https://localhost:{port}{path}', ca, encoded, headers, client=peer)
-        return status, json.loads(data) if kind.startswith('application/json') and data else {}
-
-    def require(label, condition):
-        results.check(label, condition)
-        if not condition:
-            raise Missing(label)
-
-    try:
-        runtime.generate()
-        results.check('real signed runtime and independent authority replica are ready', bool(runtime.readiness()))
-        redis.start()
-        identity.start()
-        kms.start()
-        tokens = private_directory(work / 'role-tokens')
-        source_token = private_file(tokens / 'source', os.urandom(32).hex())
-        operator_token = private_file(tokens / 'operator', os.urandom(32).hex())
-        public_port, ingress_port = free_port(), free_port()
-        source = EventSourceFixture(work, ca, runtime,
-            {'url': f'https://localhost:{ingress_port}', 'token_file': source_token}, identity)
-        source.start()
-        wait_until(source.registry.ready, source.registry.process, 'genuine registry builder and event readiness', 60)
-        wait_until(lambda: source._ready(source.gateway_endpoint), source.gateway.process, 'gateway and its genuine registry dependency', 60)
-        require('gateway retains its real registry readiness dependency', source._ready(source.gateway_endpoint))
-        session = (source.dirs['tokens'] / 'developer-session').read_text().strip()
-        server = der_pair(ca, work, 'webhook-server')
-        outbound = der_pair(ca, work, 'webhook-client', (), True, ())
-        password = private_file(work / 'webhook-client.password', os.urandom(24).hex())
-        p12 = work / 'webhook-client.p12'
-        run(['openssl', 'pkcs12', '-export', '-in', outbound['cert_pem'], '-inkey', outbound['key_pem'],
-             '-certfile', ca.ca_pem, '-passout', 'file:' + str(password), '-out', p12])
-        p12.chmod(0o600)
-        node = node_environment(runtime)
-        shared = {
-            'PATH': '/usr/bin:/bin', 'LAYERX_WEBHOOKS_REDIS_URL': redis.endpoint,
-            'LAYERX_WEBHOOKS_REDIS_USERNAME_FILE': str(redis.materials['username']),
-            'LAYERX_WEBHOOKS_REDIS_PASSWORD_FILE': str(redis.materials['password']),
-            'LAYERX_WEBHOOKS_INTERNAL_CA_DER': str(ca.ca_der), 'LAYERX_WEBHOOKS_PUBLIC_CA_DER': str(ca.ca_der),
-            'LAYERX_WEBHOOKS_CLIENT_IDENTITY_PKCS12': str(p12),
-            'LAYERX_WEBHOOKS_CLIENT_IDENTITY_PASSWORD_FILE': str(password),
-            'LAYERX_WEBHOOKS_KMS_URL': kms.endpoint, 'LAYERX_WEBHOOKS_KMS_TOKEN_FILE': str(kms.token_file),
-            'LAYERX_WEBHOOKS_CURSOR_KEY_FILE': str(private_file(work / 'cursor.key', os.urandom(32).hex())),
-            'LAYERX_WEBHOOKS_TLS_CERT_DER': str(server['cert_der']),
-            'LAYERX_WEBHOOKS_TLS_KEY_DER': str(server['key_der']), 'LAYERX_WEBHOOKS_LISTENER': 'tls',
-            'LAYERX_WEBHOOKS_INSTANCE_ID': 'ingress-real-delivery',
-            'LAYERX_WEBHOOKS_NETWORK_ID': NETWORK_NAME, 'LAYERX_WEBHOOKS_LXP_WIRE_VERSION': '3',
-        }
-        public_env = dict(shared, LAYERX_WEBHOOKS_ROLE='public', LAYERX_WEBHOOKS_LISTEN=f'127.0.0.1:{public_port}',
-            LAYERX_WEBHOOKS_IDENTITY_URL=identity.endpoint,
-            LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE=str(identity.service_tokens['layerx-webhooks']))
-        ingress_env = dict(shared, LAYERX_WEBHOOKS_ROLE='ingress', LAYERX_WEBHOOKS_LISTEN=f'127.0.0.1:{ingress_port}',
-            LAYERX_WEBHOOKS_INGRESS_CLIENT_CA_DER=str(ca.ca_der),
-            LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE=str(source_token),
-            LAYERX_WEBHOOKS_OPERATOR_TOKEN_FILE=str(operator_token),
-            LAYERX_WEBHOOKS_COMPONENT_URL=source.boundary_endpoint,
-            LAYERX_WEBHOOKS_COMPONENT_TOKEN_FILE=str(source.boundary_tokens['webhook']),
-            LAYERX_WEBHOOKS_AUTHORITY_URL=source.authority.endpoint,
-            LAYERX_WEBHOOKS_AUTHORITY_TOKEN_FILE=str(source.authority.token_files['webhooks']))
-        public_key, sequencer = source._sequencer()
-        for key, value in {'SEQUENCER_PUBLIC_KEY': public_key, 'SEQUENCER_ID': sequencer,
-                           'SEQUENCER_FIRST_BATCH': node['LAYERX_NODE_FIRST_BATCH'],
-                           'SEQUENCER_LAST_BATCH': node['LAYERX_NODE_LAST_BATCH']}.items():
-            ingress_env['LAYERX_WEBHOOKS_' + key + '_FILE'] = str(private_file(work / key.lower(), value))
-        for kind in ('JOURNEY', 'PAYMENT', 'APPROVAL', 'PROGRAM'):
-            ingress_env[f'LAYERX_WEBHOOKS_{kind}_SOURCE_URL'] = source.endpoint
-            ingress_env[f'LAYERX_WEBHOOKS_{kind}_SOURCE_TOKEN_FILE'] = str(source.source_token_file)
-        public = roles_Process(str(binary('layerx-webhooks')), public_env, work / 'public.log')
-        ingress = roles_Process(str(binary('layerx-webhooks')), ingress_env, work / 'ingress.log')
-        operator_dir = work / 'local-operator'
-        issued = roles_ca_sh(['issue-local', 'webhook-operator-client', '--output-dir', str(operator_dir)], ca.directory, check=False)
-        require('healthy dispatch identity comes from fixed local operator issuance', issued.returncode == 0)
-        operator = {'cert_pem': operator_dir / 'cert.pem', 'key_pem': operator_dir / 'key.pem'}
-        producer = source.producer_client
-        wait_until(lambda: request(ingress_port, 'GET', '/healthz', peer=producer)[0] == 200,
-                   ingress.child, 'all real ingress dependencies', 60)
-        require('real public delivery state and KMS are healthy', request(public_port, 'GET', '/healthz')[0] == 200)
-        status, registration = request(public_port, 'POST', '/v1/webhooks/endpoints', session,
-            {'url': descriptor['receiver_endpoint'], 'kinds': ['payment'], 'minimum_verification': 'receipt-verified'},
-            extra={'Idempotency-Key': 'real-ingress-registration'})
-        require('real developer registration binds a KMS key and durable endpoint', status == 201 and bool(registration.get('endpoint')))
-        private_file(receiver_root / 'public-keys.json', registration['public_keys_json'])
-        receiver = start_receiver()
-        status, _ = request(public_port, 'POST', '/v1/webhooks/endpoints', session,
-            {'url': 'https://127.0.0.1:8443/events', 'kinds': ['payment']}, extra={'Idempotency-Key': 'private-destination-refused'})
-        require('destination guard still rejects a loopback endpoint', status not in (200, 201, 202))
-        first = source.produce_event('payment')
-        def effect(identifier):
-            return (receiver_root / 'effects' / identifier).exists()
-        wait_until(lambda: effect(first), ingress.child, 'verified KMS-signed first delivery', 90)
-        body = (receiver_root / 'effects' / first).read_bytes()
-        require('first effect came from the real canonical source', source.read_event(first)[1].get('id') == first)
-        status, duplicate = request(ingress_port, 'POST', '/internal/v1/events/payment/' + first,
-            source_token.read_text().strip(), {}, producer)
-        require('canonical duplicate publication preserves its durable position', status == 202 and duplicate.get('duplicate') is True)
-        status, ledger = request(public_port, 'GET', '/v1/webhooks/events', session)
-        require('only one canonical first event is stored', status == 200 and sum(item['id'] == first for item in ledger) == 1)
-        stop_receiver(receiver)
-        receiver = None
-        second = source.produce_event('payment')
-        wait_until(lambda: request(public_port, 'GET', '/v1/webhooks/events', session)[0] == 200 and
-                   any(item['id'] == second for item in request(public_port, 'GET', '/v1/webhooks/events', session)[1]),
-                   ingress.child, 'durable delivery during destination outage', 60)
-        ingress.stop(); public.stop()
-        redis.restart(); kms.restart(); identity.restart()
-        public = roles_Process(str(binary('layerx-webhooks')), public_env, work / 'public-restarted.log')
-        ingress = roles_Process(str(binary('layerx-webhooks')), ingress_env, work / 'ingress-restarted.log')
-        receiver = start_receiver()
-        wait_until(lambda: effect(second), ingress.child, 'retained delivery after real store and process restart', 180)
-        require('restart preserves the acknowledged first effect bytes', (receiver_root / 'effects' / first).read_bytes() == body)
-        for path in ('/internal/v1/dispatch', '/internal/v1/events/payment/' + second):
-            require('public TLS refuses private routes after durable restart', request(public_port, 'POST', path,
-                source_token.read_text().strip(), {})[0] == 404)
-        rotated_ca = CaMaterial(private_directory(work / 'rotation'))
-        rotated_producer = der_pair(rotated_ca, work, 'rotated-producer', [PRODUCER], True, ())
-        rotated_operator_dir = work / 'rotated-local-operator'
-        issued = roles_ca_sh(['issue-local', 'webhook-operator-client', '--output-dir', str(rotated_operator_dir)],
-                             rotated_ca.directory, check=False)
-        require('rotation issues the operator through its fixed policy', issued.returncode == 0)
-        rotated_operator = {'cert_pem': rotated_operator_dir / 'cert.pem', 'key_pem': rotated_operator_dir / 'key.pem'}
-        new_source = private_file(tokens / 'source-rotated', os.urandom(32).hex())
-        new_operator = private_file(tokens / 'operator-rotated', os.urandom(32).hex())
-        ingress.stop()
-        ingress_env.update(LAYERX_WEBHOOKS_INGRESS_CLIENT_CA_DER=str(rotated_ca.ca_der),
-            LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE=str(new_source), LAYERX_WEBHOOKS_OPERATOR_TOKEN_FILE=str(new_operator))
-        ingress = roles_Process(str(binary('layerx-webhooks')), ingress_env, work / 'ingress-rotated.log')
-        try:
-            request(ingress_port, 'POST', '/internal/v1/events/payment/' + first, new_source.read_text().strip(), {}, producer)
-            old_refused = False
-        except (OSError, ssl.SSLError):
-            old_refused = True
-        require('rotation refuses the previous producer certificate', old_refused)
-        require('rotation refuses the previous source token', request(ingress_port, 'POST',
-            '/internal/v1/events/payment/' + first, source_token.read_text().strip(), {}, rotated_producer)[0] == 401)
-        require('rotation refuses the previous operator token', request(ingress_port, 'POST',
-            '/internal/v1/dispatch', operator_token.read_text().strip(), {}, rotated_operator)[0] == 401)
-        require('producer role cannot dispatch with the rotated operator bearer', request(ingress_port, 'POST',
-            '/internal/v1/dispatch', new_operator.read_text().strip(), {}, rotated_producer)[0] == 403)
-        rotated_password = private_file(tokens / 'client-rotated.password', os.urandom(24).hex())
-        rotated_p12 = tokens / 'client-rotated.p12'
-        run(['openssl', 'pkcs12', '-export', '-in', rotated_producer['cert_pem'], '-inkey', rotated_producer['key_pem'],
-             '-passout', 'file:' + str(rotated_password), '-out', rotated_p12])
-        source.ingress.update(token_file=new_source, client_identity=rotated_p12, client_password=rotated_password)
-        source.gateway.stop()
-        source.gateway.start()
-        third = source.produce_event('payment')
-        wait_until(lambda: effect(third), ingress.child, 'coordinated credential rotation with real producer', 90)
-        status, duplicate = request(ingress_port, 'POST', '/internal/v1/events/payment/' + third,
-            new_source.read_text().strip(), {}, rotated_producer)
-        require('rotated exact retry reuses its canonical event', status == 202 and duplicate.get('duplicate') is True)
-        status, dispatch = request(ingress_port, 'POST', '/internal/v1/dispatch', new_operator.read_text().strip(), {}, rotated_operator)
-        require('rotated operator dispatch uses the real durable delivery service', status == 200 and isinstance(dispatch, dict))
-        status, final = request(public_port, 'GET', '/v1/webhooks/events', session)
-        require('restart and rotation retain exactly the three real payment events', status == 200 and
-                sorted(item['id'] for item in final) == sorted((first, second, third)))
-        effects = sorted(path.name for path in (receiver_root / 'effects').iterdir())
-        require('verified receiver applies each canonical event effect once', effects == sorted((first, second, third)))
-        records = [json.loads(path.read_text()) for path in sorted((receiver_root / 'received').glob('*.json'))]
-        require('every delivered body has a verified production KMS signature', bool(records) and all(item['verified'] for item in records))
-        stop_receiver(receiver)
-        receiver = start_receiver()
-        replayed = records[-1]
-        replay_body = base64.b64decode(replayed['body'], validate=True)
-        replay_headers = {key: value for key, value in replayed['headers'].items() if key.startswith('layerx-webhook-')}
-        replay_headers['Content-Type'] = 'application/json'
-        status, _, _ = https('POST', descriptor['receiver_endpoint'], ca, replay_body, replay_headers)
-        require('shipped receiver verifies and deduplicates an exact signed redelivery after restart', status == 200 and
-                sorted(path.name for path in (receiver_root / 'effects').iterdir()) == effects)
-        status, _, _ = https('POST', descriptor['receiver_endpoint'], ca, replay_body + b' ', replay_headers)
-        require('shipped receiver refuses a changed body under the original signature', status == 401)
-        stale_headers = dict(replay_headers)
-        stale_headers['layerx-webhook-timestamp'] = str(int(stale_headers['layerx-webhook-timestamp']) - 3600)
-        status, _, _ = https('POST', descriptor['receiver_endpoint'], ca, replay_body, stale_headers)
-        require('shipped receiver refuses a stale signed delivery', status == 401)
-
-        for kind, stem in ((source.authority, 'receipt authority'), (kms, 'KMS')):
-            kind.stop()
-            if kind is source.authority:
-                require('canonical receipt retrieval fails closed when authority is unavailable', request(ingress_port, 'POST',
-                    '/internal/v1/events/payment/' + first, new_source.read_text().strip(), {}, rotated_producer)[0] == 503)
-            require('unavailable real ' + stem + ' cannot report healthy ingress',
-                    request(ingress_port, 'GET', '/healthz', peer=rotated_producer)[0] == 503)
-            kind.start()
-        wait_until(lambda: request(ingress_port, 'GET', '/healthz', peer=rotated_producer)[0] == 200,
-                   ingress.child, 'restored real ingress dependencies', 60)
-    finally:
-        stop_receiver(receiver)
-        if ingress is not None: ingress.stop()
-        if public is not None: public.stop()
-        if source is not None: source.stop()
-        kms.stop(); identity.stop(); redis.stop(); runtime.cleanup()
-        for log in logs: log.close()
-
 
 
 
@@ -2031,7 +1720,7 @@ def provisioning_inputs(manifest):
         raise Missing('all five internal groups, real Human issuer, identity and webhook roles are required')
     allowed = {'layerx-kms', 'layerx-event-source', 'layerx-identity', 'layerx-human-components',
                'layerx-human-service', 'layerx-webhooks', 'layerx-gateway', 'layerx-program-registry',
-               'layerx-agent-boundary', 'layerx-receipt-authority', 'layerxd', 'paxd', 'redis-server',
+               'layerx-agent-boundary', 'layerxd', 'paxd', 'redis-server',
                'layerx-guarantor', 'layerx-human-kms', 'layerx-human-security-provider',
                'layerx-human-movement-provider', 'layerx-human-identity-provider', 'layerx-human-onboarding',
                'layerx-agentd', 'layerx-identity-binding', 'layerx-remote-signer'}
@@ -2153,6 +1842,23 @@ def provisioning_inputs(manifest):
             or run(['git', '-C', ROOT, 'status', '--porcelain']).stdout:
         raise Missing('provisioning requires the clean final candidate source')
     return document
+
+
+def delivery_https(method, url, ca_pem, body, headers):
+    endpoint = urlsplit(url)
+    if endpoint.scheme != 'https' or not endpoint.hostname or endpoint.username or endpoint.password or endpoint.fragment:
+        raise Missing('delivery receiver must use an HTTPS endpoint')
+    context = ssl.create_default_context(cafile=str(ca_pem))
+    connection = http.client.HTTPSConnection(endpoint.hostname, endpoint.port or 443, context=context, timeout=10)
+    try:
+        path = endpoint.path or '/'
+        if endpoint.query:
+            path += '?' + endpoint.query
+        connection.request(method, path, body, headers)
+        response = connection.getresponse()
+        return response.status, response.getheader('Content-Type', ''), response.read()
+    finally:
+        connection.close()
 
 
 class ProvisioningHttp:
@@ -2567,7 +2273,6 @@ def provisioning_worker(manifest, results, attachment, readiness=False):
               and all(sum(event['id'] == identifier for event in ledger) == 1 for identifier in observed_events))
         replay_record = next(record for record, event in records() if event['id'] == observed_events[-1])
         replay_body = base64.b64decode(replay_record['body'], validate=True)
-        from receipt_authority_fixture import https
         from hosted_delivery_fixture import CaMaterial
         ca = CaMaterial.__new__(CaMaterial)
         ca.ca_pem = Path(fixture['ca']['certificate'])
@@ -2575,10 +2280,10 @@ def provisioning_worker(manifest, results, attachment, readiness=False):
         headers = {key: value for key, value in replay_record['headers'].items() if key.startswith('layerx-webhook-')}
         headers['Content-Type'] = 'application/json'
         before = sorted(path.name for path in (receiver_root / 'effects').iterdir())
-        status, _, _ = https('POST', descriptor['receiver_endpoint'], ca, replay_body, headers)
+        status, _, _ = delivery_https('POST', descriptor['receiver_endpoint'], ca.ca_pem, replay_body, headers)
         check('exact signed webhook retry has no duplicate economic effect', status == 200
               and before == sorted(path.name for path in (receiver_root / 'effects').iterdir()))
-        status, _, _ = https('POST', descriptor['receiver_endpoint'], ca, replay_body + b' ', headers)
+        status, _, _ = delivery_https('POST', descriptor['receiver_endpoint'], ca.ca_pem, replay_body + b' ', headers)
         check('changed delivery bytes fail the real signature verifier', status == 401)
         record = {'candidate_manifest_sha256': MANIFEST_DIGEST, 'source_revision': manifest['source']['revision'],
                   'principal': principal, 'tenant': tenant, 'bindings': bindings, 'canonical_events': observed_events,
@@ -2698,7 +2403,6 @@ def producer_readiness_inputs(fixture):
     dependencies = configuration['dependencies']
     binaries = {'redis': {'redis-server'}, 'kms': {'layerx-kms'},
                 'component': {'layerx-agent-boundary'},
-                'authority': {'layerx-receipt-authority'},
                 'source-principal': {'layerx-human-service', 'layerx-human-components'}}
     if not isinstance(dependencies, dict) or set(dependencies) != set(binaries):
         raise Missing('readiness requires every owned real dependency for deadline refusal and restoration')
@@ -2706,7 +2410,6 @@ def producer_readiness_inputs(fixture):
     origins = {'redis': ingress_env['LAYERX_WEBHOOKS_REDIS_URL'],
                'kms': ingress_env['LAYERX_WEBHOOKS_KMS_URL'],
                'component': ingress_env['LAYERX_WEBHOOKS_COMPONENT_URL'],
-               'authority': ingress_env['LAYERX_WEBHOOKS_AUTHORITY_URL'],
                'source-principal': fixture['services']['journeys']['environment']['LAYERX_EVENTS_UPSTREAM_URL']}
     for name, service_name in dependencies.items():
         service = fixture['services'].get(service_name)

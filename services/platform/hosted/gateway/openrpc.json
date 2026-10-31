@@ -2560,10 +2560,84 @@
       "result": {
         "name": "result",
         "schema": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "height",
+            "assets",
+            "joined_limit"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "assets": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "required": [
+                  "asset_id",
+                  "denom",
+                  "kind",
+                  "name",
+                  "symbol",
+                  "decimals",
+                  "supply"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "asset_id": {
+                    "type": "string"
+                  },
+                  "denom": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "symbol": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "decimals": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 255
+                  },
+                  "supply": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]+$"
+                  }
+                }
+              }
+            },
+            "joined_limit": {
+              "type": "integer",
+              "const": 16
+            }
+          }
         }
       },
-      "description": "The joined asset map: for each LayerX asset (asset_id, denom and its public core record) the custody precompile's record on Paxeer (pointer, enabled, paused, minimum_deposit, custody_cap, custodied, released, pending), or null when the asset is not registered with custody. At most 16 assets are joined per answer, reported as joined_limit. Takes no arguments.",
+      "description": "Lists indexer assets sorted by asset_id, limited to 16. Bank denoms read name, symbol, decimals and supply from bank 0x1001; ledger assets read getAsset at 0x101A. All chain reads use the returned height. A failed or unsupported asset read leaves name, symbol, decimals and supply null. Supply is an integer in base units rendered as a decimal string. Takes no arguments.",
       "errors": [
         {
           "code": -32602,
@@ -2619,31 +2693,98 @@
         "name": "result",
         "schema": {
           "type": "object",
+          "required": [
+            "network_id",
+            "paxeer",
+            "consensus"
+          ],
+          "additionalProperties": false,
           "properties": {
-            "kernel": {
+            "network_id": {
+              "type": "string"
+            },
+            "paxeer": {
               "type": "object",
               "required": [
-                "available",
+                "chain_id",
+                "latest_block"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "chain_id": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]+$"
+                },
+                "latest_block": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]+$"
+                }
+              }
+            },
+            "consensus": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "required": [
+                "latest_height",
+                "latest_block_hash",
+                "latest_app_hash",
+                "catching_up"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "latest_height": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "latest_block_hash": {
+                  "type": "string",
+                  "pattern": "^([0-9a-fA-F]{2})*$"
+                },
+                "latest_app_hash": {
+                  "type": "string",
+                  "pattern": "^([0-9a-fA-F]{2})*$"
+                },
+                "catching_up": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "consensus_unavailable"
+              ]
+            }
+          },
+          "oneOf": [
+            {
+              "properties": {
+                "consensus": {
+                  "type": "object"
+                }
+              },
+              "not": {
+                "required": [
+                  "reason"
+                ]
+              }
+            },
+            {
+              "required": [
                 "reason"
               ],
               "properties": {
-                "available": {
-                  "type": "boolean"
-                },
-                "reason": {
-                  "enum": [
-                    "available",
-                    "not_configured",
-                    "unreachable",
-                    "no_finalised_checkpoint"
-                  ]
+                "consensus": {
+                  "type": "null"
                 }
               }
             }
-          }
+          ]
         }
       },
-      "description": "One head for the whole network: network_id, paxeer {chain_id, latest_block} from eth_chainId and eth_blockNumber, layerx {node_info} from the public core node information, and anchor {latest_finalized_batch, status, status_name, status_ladder} from the anchor precompile's latestFinalized and statusOf. The status ladder is the anchor's own: 0 unknown, 1 submitted, 2 final. kernel {available, reason} reports whether kernel-side operations are offered: reason is available, not_configured when the endpoint runs without the kernel backends, unreachable when the public core node information cannot be read, or no_finalised_checkpoint when the anchor precompile reports no finalised batch. Takes no arguments.",
+      "description": "Network head: network_id and paxeer {chain_id, latest_block} from eth_chainId and eth_blockNumber, beside consensus {latest_height, latest_block_hash, latest_app_hash, catching_up} from the consensus status method. latest_height is a decimal string; hashes retain the consensus hexadecimal encoding. When the consensus endpoint is unset, unreachable, or returns an invalid response, consensus is null and reason is consensus_unavailable; the Paxeer chain ID and latest block still answer. Takes no arguments.",
       "errors": [
         {
           "code": -32602,
@@ -3469,7 +3610,7 @@
           }
         }
       },
-      "description": "Which Paxeer X fork surfaces the chain answers for. The gateway reads eth_blockNumber and then uses eth_call at that height to probe each precompile's view: exchange at 0x0000000000000000000000000000000000001015 with totalMarkets(), bridge at 0x0000000000000000000000000000000000001016 with isPaused(), launchpad at 0x0000000000000000000000000000000000001017 with getPoolCount(), pay at 0x000000000000000000000000000000000000101b with budgetRemaining(bytes32) using a zero bytes32 argument, and programs at 0x000000000000000000000000000000000000101d with getCurrentFeeSchedule(). A surface is true when the answer decodes as its view's return value, and false when the call reverts or answers a malformed value, including an empty answer. The answer is cached for LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS (default 15). While a surface is false, eth_sendRawTransaction and eth_sendRawTransactionSync addressed to its precompile are refused with -32003 Surface unavailable and data {code: surface_unavailable, surface, address}; reads and history are never gated. Takes no arguments.",
+      "description": "Which Paxeer X fork surfaces the chain answers for. The gateway reads eth_blockNumber and then uses eth_call at that height to probe each precompile's view: exchange at 0x0000000000000000000000000000000000001015 with totalMarkets(), bridge at 0x0000000000000000000000000000000000001016 with isPaused(), launchpad at 0x0000000000000000000000000000000000001017 with getPoolCount(), ledger at 0x000000000000000000000000000000000000101a with accountId(bytes32,bytes32) using two zero bytes32 arguments, pay at 0x000000000000000000000000000000000000101b with budgetRemaining(bytes32) using a zero bytes32 argument, auth at 0x000000000000000000000000000000000000101c with isLive(bytes32,uint64,uint64) using a zero bytes32 and two zero uint64 arguments, and programs at 0x000000000000000000000000000000000000101d with getCurrentFeeSchedule(). A surface is true when the answer decodes as its view's return value, and false when the call reverts or answers a malformed value, including an empty answer. The answer is cached for LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS (default 15). While a surface is false, eth_sendRawTransaction and eth_sendRawTransactionSync addressed to its precompile are refused with -32003 Surface unavailable and data {code: surface_unavailable, surface, address}; reads and history are never gated. Takes no arguments.",
       "errors": [
         {
           "code": -32602,

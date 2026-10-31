@@ -112,7 +112,6 @@ func TestReadsRevertFromStoreDelete(t *testing.T) {
 
 	keepers, ok := h.app.GetPrecompileKeepers().(*app.PrecompileKeepers)
 	require.True(t, ok)
-	keepers.AnchorKeeper = nil
 	withoutAnchor, err := layerxanchor.NewPrecompile(keepers)
 	require.NoError(t, err)
 	precompiles := map[string]*pcommon.Precompile{"wired": h.precompile, "unwired": withoutAnchor}

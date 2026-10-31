@@ -1,5 +1,4 @@
 use super::*;
-use layerx_intents::{BridgeWithdrawRequest, DisclosureCheck, Intent, IntentKind};
 use layerx_sdk::rpc_verification::{AccountPolicy, VerifiedRpcAccount};
 use layerx_types::account::AccountId;
 use layerx_types::ids::AssetId;
@@ -109,22 +108,18 @@ fn signed(cluster: &Cluster, sequence: u64) -> (Vec<u8>, [u8; 32]) {
         ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[activity_type])
             .required("withdrawal registration")])
         .required("withdrawal registry");
-    let request = BridgeWithdrawRequest::new(
-        CheckpointId::new([0x42; 32]),
-        17,
-        AccountId::parse(&format!("agent:{}:main", cluster.treasury_did))
-            .required("withdrawal owner account"),
-        AccountId::parse("system:paxeer-withdrawals").required("withdrawal custody account"),
-        EvmAddress::new([0x31; 20]),
-        AssetId::new(cluster.asset),
-        Amount::from_u128(1),
-        IdempotencyKey::new(idempotency),
-    )
-    .required("withdrawal intent");
-    let intent = Intent::v2(IntentKind::BridgeWithdrawRequest(request));
-    let compiled =
-        layerx_intents::compile(&intent, &registry).required("canonical withdrawal payload");
-    DisclosureCheck::verify(&intent, &compiled).required("withdrawal disclosure roundtrip");
+    let mut encoder = layerx_wire::encode::Encoder::new(108);
+    encoder
+        .fixed(&AssetId::new(cluster.asset).bytes())
+        .and_then(|()| encoder.u128(1))
+        .and_then(|()| encoder.fixed(&EvmAddress::new([0x31; 20]).bytes()))
+        .and_then(|()| encoder.fixed(&CheckpointId::new([0x42; 32]).bytes()))
+        .and_then(|()| encoder.u64(17))
+        .required("canonical withdrawal fields");
+    let payload = layerx_types::payload::Payload::new(&registry, activity_type, &encoder.finish())
+        .required("canonical withdrawal payload");
+    let payload_hash =
+        layerx_wire::hash::payload_hash_for(&payload).required("withdrawal payload hash");
     let now = now_ms();
     let actor = Did::new(cluster.treasury_did.as_bytes()).required("withdrawal actor");
     let authority =
@@ -142,8 +137,8 @@ fn signed(cluster: &Cluster, sequence: u64) -> (Vec<u8>, [u8; 32]) {
         .and_then(|value| value.timestamp_bound(timestamp))
         .and_then(|value| value.idempotency_key(IdempotencyKey::new(idempotency)))
         .and_then(|value| value.fee_limit(Amount::from_u128(17)))
-        .and_then(|value| value.payload_hash(compiled.payload_hash()))
-        .and_then(|value| value.payload(compiled.payload().clone()))
+        .and_then(|value| value.payload_hash(payload_hash))
+        .and_then(|value| value.payload(payload))
         .required("withdrawal envelope");
     let unsigned = builder.build().required("complete withdrawal envelope");
     let digest =
