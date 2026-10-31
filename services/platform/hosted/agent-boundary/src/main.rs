@@ -4,6 +4,7 @@ mod deployment;
 #[cfg(test)]
 mod lifecycle_tests;
 
+use crate::chain_receipt::ChainReceipts;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::program_call::NativeProgramCall;
@@ -56,7 +57,7 @@ struct Config {
     registry_token: Zeroizing<String>,
     webhook_token: Zeroizing<String>,
     node: NodeEndpoint,
-    chain_receipts: chain_receipt::ChainReceipts,
+    chain_receipts: ChainReceipts,
     node_token: Zeroizing<String>,
     state_dir: PathBuf,
     protocol_network_id: u32,
@@ -416,7 +417,7 @@ fn config() -> Result<Config, String> {
             &env::var("LAYERX_AGENT_BOUNDARY_NODE_URL")
                 .map_err(|_| "LAYERX_AGENT_BOUNDARY_NODE_URL is required")?,
         )?,
-        chain_receipts: chain_receipt::ChainReceipts::from_config(
+        chain_receipts: ChainReceipts::from_config(
             &env::var("LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL")
                 .map_err(|_| "LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL is required")?,
             &PathBuf::from(

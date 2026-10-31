@@ -12,9 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . .
 ARG LXP_REVISION=unknown
 RUN rustup show active-toolchain \
-    && make LXP_REVISION="$LXP_REVISION" layerxd layerx-genesis-build layerx-handover layerxctl layerx-guarantor layerx-module-registry \
-    && test -x build/bin/layerx-guarantor && test -x build/bin/layerxd && test -x build/bin/layerx-genesis-build \
-    && test -x build/bin/layerx-handover && test -x build/bin/layerxctl && test -x build/bin/layerx-module-registry \
+    && make LXP_REVISION="$LXP_REVISION" layerx-genesis-build layerx-module-registry \
+    && test -x build/bin/layerx-genesis-build && test -x build/bin/layerx-module-registry \
     && test -f programs/target/release/liblayerx_programs_sandbox.a
 RUN cargo build --locked --release --manifest-path services/platform/Cargo.toml \
         -p layerx-platform-core -p layerx-platform-authority -p layerx-runtime-clock -p layerx-platform-agent-boundary \
@@ -23,28 +22,13 @@ RUN CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path serv
         --package layerx-mirror --bin layerx-mirror-publisher --bin layerx-mirror-verify \
     && CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path services/interop/Cargo.toml --release \
         --package layerx-mirror-signer --bin layerx-mirror-signer
-RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms -p layerx-explorer-index --bins
+RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms --bins
 RUN cargo build --locked --release --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd -p layerx-mcp --bin layerx-mcp
 RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider -p layerx-human-security-provider -p layerx-human-movement-provider --bins
-# The relay archive origin of docker/kernel/init.sh (task 4.6): its codec.
-RUN make LXP_REVISION="$LXP_REVISION" layerx-archive-codec && test -x build/bin/layerx-archive-codec
-# The value loop of tools/bringup/value-loop.sh (task 1.6): the node probe and the credit signer.
-RUN make LXP_REVISION="$LXP_REVISION" build/tests/bridge/sign-credit && test -x build/tests/bridge/sign-credit
 RUN cargo build --locked --release --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml
-
-# The light credit of tools/bringup/value-loop.sh and the light profile of
-# tools/bringup/kernel-genesis.sh (task 1.6): the Go custody proof tool.
-FROM docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS custody-proof
-WORKDIR /src
-COPY . .
-RUN make custody-proof-build && test -x build/bin/layerx-custody-proof \
-    && go list -mod=readonly -deps -f '{{if not .Standard}}{{range .GoFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .CgoFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .CFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .HFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .SFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .EmbedFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{end}}' \
-        ./daemon/layerx-custody-proof >build/custody-proof.deps \
-    && test -s build/custody-proof.deps
 
 FROM build AS native-manifest
 ARG LXP_REVISION
-COPY --from=custody-proof /src/build/bin/layerx-custody-proof /src/build/custody-proof.deps /src/build/custody-proof/
 RUN --mount=type=bind,source=.,target=/source,ro \
     python3 - "$LXP_REVISION" <<'PY_MANIFEST'
 import glob
@@ -77,17 +61,13 @@ c_extra = ["Makefile"] + sorted(
 )
 artifacts = {
     name: ("build/bin/" + name, c_deps, c_extra, None)
-    for name in ("layerxd", "layerx-genesis-build", "layerx-handover", "layerx-guarantor",
-                 "layerx-module-registry", "layerx-archive-codec")
+    for name in ("layerx-genesis-build", "layerx-module-registry")
 }
-artifacts["layerxctl"] = ("build/bin/layerxctl", [src + "/cmd/layerxctl/target/release/layerxctl.d"], ["Makefile"], None)
 for name in ("layerx-core-boundary", "layerx-receipt-authority", "layerx-runtime-clock",
              "layerx-agent-boundary", "layerx-paxeer-boundary"):
     artifacts[name] = ("services/platform/target/release/" + name, [src + "/services/platform/target/release/" + name + ".d"], [], None)
 for name in ("layerx-mirror-signer", "layerx-mirror-publisher", "layerx-mirror-verify"):
     artifacts[name] = (".lane-target/release/" + name, [src + "/.lane-target/release/" + name + ".d"], [], None)
-artifacts["layerx-custody-proof"] = ("build/custody-proof/layerx-custody-proof", [], ["Makefile", "go.mod", "go.sum"],
-                                     src + "/build/custody-proof/custody-proof.deps")
 
 
 def dep_paths(dep_file):
@@ -168,22 +148,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && groupadd -g 4020 layerx && useradd -M -u 4020 -g 4020 -s /usr/sbin/nologin layerx \
     && mkdir -p /opt/layerx/migrations /opt/layerx/paxeer /etc/layerx/trust
 RUN setpriv --help | grep -- --pdeathsig
-COPY cmd/layerx-guarantor/requirements.txt /opt/layerx/guarantor/requirements.txt
-RUN python3 -m venv /opt/layerx/guarantor/venv \
-    && /opt/layerx/guarantor/venv/bin/pip install --no-cache-dir -r /opt/layerx/guarantor/requirements.txt
-COPY --from=native-artifacts --chmod=0555 /bin/layerxd /usr/local/bin/layerxd
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-genesis-build /usr/local/bin/layerx-genesis-build
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-handover /usr/local/bin/layerx-handover
-COPY --from=native-artifacts --chmod=0555 /bin/layerxctl /usr/local/bin/layerxctl
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-guarantor /usr/local/bin/layerx-guarantor
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-module-registry /usr/local/bin/layerx-module-registry
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-archive-codec /usr/local/bin/layerx-archive-codec
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-core-boundary /usr/local/bin/layerx-core-boundary
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-receipt-authority /usr/local/bin/layerx-receipt-authority
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-runtime-clock /usr/local/bin/layerx-runtime-clock
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-agent-boundary /usr/local/bin/layerx-agent-boundary
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-paxeer-boundary /usr/local/bin/layerx-paxeer-boundary
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-custody-proof /usr/local/bin/layerx-custody-proof
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-mirror-signer /usr/local/bin/layerx-mirror-signer
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-mirror-publisher /usr/local/bin/layerx-mirror-publisher
 COPY --from=native-artifacts --chmod=0555 /bin/layerx-mirror-verify /usr/local/bin/layerx-mirror-verify
@@ -300,10 +271,9 @@ if not isinstance(manifest, dict) or manifest.get("schema") != "layerx.native-ar
 if manifest.get("candidate_revision") != revision:
     refuse("candidate revision mismatch")
 required = {
-    "layerxd", "layerx-genesis-build", "layerx-handover", "layerxctl",
-    "layerx-guarantor", "layerx-module-registry", "layerx-archive-codec",
+    "layerx-genesis-build", "layerx-module-registry",
     "layerx-core-boundary", "layerx-receipt-authority", "layerx-runtime-clock",
-    "layerx-agent-boundary", "layerx-paxeer-boundary", "layerx-custody-proof",
+    "layerx-agent-boundary", "layerx-paxeer-boundary",
     "layerx-mirror-signer", "layerx-mirror-publisher", "layerx-mirror-verify",
 }
 artifacts = manifest.get("artifacts")
@@ -346,33 +316,25 @@ for name, record in artifacts.items():
         if verified_sources[relative] != digest:
             refuse("producer source differs from candidate for " + name)
 PY_VERIFY
-COPY cmd/layerx-guarantor/settlement.py cmd/layerx-guarantor/publication.py \
-     cmd/layerx-guarantor/authorization.py /opt/layerx/guarantor/
 COPY services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/onboarding_socket.py \
      services/platform/hosted/human/provision.py /opt/layerx/human/
 COPY migrations/0007_history_index.sql /opt/layerx/migrations/0007_history_index.sql
-COPY contracts/config/checkpoint-settlement.json /opt/layerx/checkpoint-settlement.json
 COPY services/platform/hosted/node/bootstrap.sh services/platform/hosted/node/supervisor.sh \
      services/platform/hosted/node/sequencer-env.sh services/platform/hosted/node/genesis-modules.conf \
      services/platform/hosted/node/genesis_fees.py services/platform/hosted/node/genesis-module-fees.json \
-     services/platform/hosted/node/data_directory.py services/platform/hosted/node/guarantor.sh \
-     services/platform/hosted/node/checkpoint-authority.py /opt/layerx/
+     services/platform/hosted/node/data_directory.py /opt/layerx/
 COPY services/platform/hosted/node/generation_client.py services/platform/hosted/node/generation_transport.py /opt/layerx/node/
 COPY precompiles/layerxanchor/abi.json /opt/layerx/precompiles/layerxanchor/abi.json
 COPY services/platform/hosted/node/signer /opt/layerx/signer
 COPY services/platform/hosted/paxeer/evm.py /opt/layerx/paxeer/evm.py
 COPY services/platform/hosted/tests/publication-policy.py /opt/layerx/publication-policy.py
-COPY services/platform/relay_archive/__init__.py services/platform/relay_archive/runtime.py \
-     services/platform/relay_archive/store.py services/platform/relay_archive/protocol.py \
-     services/platform/relay_archive/forward.py services/platform/relay_archive/peers.py /opt/layerx/relay_archive/
-COPY --chmod=0555 services/platform/relay_archive/install.sh /opt/layerx/relay_archive/install.sh
 COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py \
      services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py \
      services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py \
      services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/recipient_check.py /usr/local/lib/layerx-human/
 COPY --chmod=0555 tools/bringup/kernel-genesis.sh /opt/layerx/kernel-genesis.sh
 COPY --chmod=0555 docker/kernel/init.sh /usr/local/bin/kernel-init
-RUN chmod 0555 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh /opt/layerx/guarantor.sh
+RUN chmod 0555 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh
 ENTRYPOINT ["/usr/local/bin/kernel-init"]
 
 FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
@@ -383,27 +345,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && groupadd -g 4020 layerx && useradd -M -u 4020 -g 4020 -s /usr/sbin/nologin layerx \
     && mkdir -p /opt/layerx/migrations /opt/layerx/paxeer /etc/layerx/trust
 RUN setpriv --help | grep -- --pdeathsig
-COPY --from=build /src/cmd/layerx-guarantor/requirements.txt /opt/layerx/guarantor/requirements.txt
-RUN python3 -m venv /opt/layerx/guarantor/venv \
-    && /opt/layerx/guarantor/venv/bin/pip install --no-cache-dir -r /opt/layerx/guarantor/requirements.txt
-COPY --from=build /src/build/bin/layerx-guarantor /src/build/bin/layerxd /src/build/bin/layerx-genesis-build \
-     /src/build/bin/layerx-handover /src/build/bin/layerx-module-registry /usr/local/bin/
-COPY --from=build /src/cmd/layerx-guarantor/settlement.py /src/cmd/layerx-guarantor/publication.py \
-     /src/cmd/layerx-guarantor/authorization.py /opt/layerx/guarantor/
+COPY --from=build /src/build/bin/layerx-genesis-build /src/build/bin/layerx-module-registry /usr/local/bin/
 COPY --from=build /src/services/platform/hosted/human/recipient_binding.py /src/services/platform/hosted/human/onboarding_socket.py \
      /src/services/platform/hosted/human/provision.py /opt/layerx/human/
 COPY --from=build /src/migrations/0007_history_index.sql /opt/layerx/migrations/0007_history_index.sql
-COPY --from=build /src/contracts/config/checkpoint-settlement.json /opt/layerx/checkpoint-settlement.json
 COPY --from=build /src/services/platform/hosted/node/bootstrap.sh /src/services/platform/hosted/node/genesis-modules.conf \
      /src/services/platform/hosted/node/genesis_fees.py /src/services/platform/hosted/node/genesis-module-fees.json \
-     /src/services/platform/hosted/node/data_directory.py /src/services/platform/hosted/node/supervisor.sh \
-     /src/services/platform/hosted/node/guarantor.sh /src/services/platform/hosted/node/checkpoint-authority.py /opt/layerx/
+     /src/services/platform/hosted/node/data_directory.py /src/services/platform/hosted/node/supervisor.sh /opt/layerx/
 COPY --from=build /src/services/platform/hosted/node/generation_client.py /src/services/platform/hosted/node/generation_transport.py /opt/layerx/node/
 COPY --from=build /src/precompiles/layerxanchor/abi.json /opt/layerx/precompiles/layerxanchor/abi.json
 COPY --from=build /src/services/platform/hosted/node/signer /opt/layerx/signer
 COPY --from=build /src/services/platform/hosted/paxeer/evm.py /opt/layerx/paxeer/evm.py
 COPY --from=build /src/services/platform/hosted/tests/publication-policy.py /opt/layerx/publication-policy.py
-RUN chmod 0755 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh /opt/layerx/guarantor.sh
+RUN chmod 0755 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh
 COPY --from=build /src/services/platform/target/release/layerx-core-boundary /src/services/platform/target/release/layerx-receipt-authority \
      /src/services/platform/target/release/layerx-runtime-clock /src/services/platform/target/release/layerx-agent-boundary \
      /src/services/platform/target/release/layerx-paxeer-boundary /usr/local/bin/
@@ -411,26 +365,17 @@ COPY --from=build /src/.lane-target/release/layerx-mirror-publisher /src/.lane-t
      /src/.lane-target/release/layerx-mirror-signer /usr/local/bin/
 COPY --from=build /src/services/human/target/release/layerx-human-service /src/services/human/target/release/layerx-human-components \
      /src/services/human/target/release/layerx-human-onboarding /src/services/human/target/release/layerx-human-kms \
-     /src/services/human/target/release/layerx-explorer-index /src/services/human/target/release/layerx-human-identity-provider \
+     /src/services/human/target/release/layerx-human-identity-provider \
      /src/services/human/target/release/layerx-human-security-provider /src/services/human/target/release/layerx-human-movement-provider \
      /src/services/agent/target/release/layerx-agentd /src/services/agent/target/release/layerx-mcp /usr/local/bin/
-COPY --from=build /src/cmd/layerxctl/target/release/layerxctl /usr/local/bin/layerxctl
 COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py \
      services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py \
      services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py \
      services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/recipient_check.py /usr/local/lib/layerx-human/
 COPY --chmod=0555 docker/human-service/entrypoint.sh /usr/local/bin/human-entrypoint
-# The relay archive origin of docker/kernel/init.sh (task 4.6): the codec, the
-# runtime modules and install.sh --config-only that renders its config.
-COPY --from=build /src/build/bin/layerx-archive-codec /usr/local/bin/layerx-archive-codec
-COPY --from=build /src/services/platform/relay_archive/__init__.py /src/services/platform/relay_archive/runtime.py \
-     /src/services/platform/relay_archive/store.py /src/services/platform/relay_archive/protocol.py \
-     /src/services/platform/relay_archive/forward.py /src/services/platform/relay_archive/peers.py /opt/layerx/relay_archive/
-COPY --from=build --chmod=0555 /src/services/platform/relay_archive/install.sh /opt/layerx/relay_archive/install.sh
 # The value loop of tools/bringup/value-loop.sh (task 1.6).
 COPY --from=build /src/services/platform/hosted/node/tests/probe/target/release/layerx-node-probe \
-     /src/build/tests/bridge/sign-credit /usr/local/bin/
-COPY --from=custody-proof /src/build/bin/layerx-custody-proof /usr/local/bin/layerx-custody-proof
+     /usr/local/bin/
 COPY --chmod=0555 tools/bringup/kernel-genesis.sh /opt/layerx/kernel-genesis.sh
 COPY --chmod=0555 docker/kernel/init.sh /usr/local/bin/kernel-init
 ENTRYPOINT ["/usr/local/bin/kernel-init"]

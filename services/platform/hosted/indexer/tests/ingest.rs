@@ -9,12 +9,10 @@ use layerx_indexer::abi::AbiRegistry;
 use layerx_indexer::api;
 use layerx_indexer::codec::hex0x;
 use layerx_indexer::follow::{FollowPolicy, StepOutcome};
-use layerx_indexer::layerx::LayerXIngester;
 use layerx_indexer::paxeer::{AttributeEncoding, PaxeerIngester};
 use layerx_indexer::store::{AssetRow, Position, Store};
 use layerx_indexer::transport::{Endpoint, Security};
 use layerx_indexer::IndexError;
-use layerx_types::receipt::{ACTIVITY_RECEIPT_FIELDS, LXP_RECEIPT_FIELDS};
 use serde_json::{json, Value};
 
 type Handler = dyn Fn(&str, &str, &[u8]) -> (u16, Value) + Send + Sync;
@@ -107,31 +105,6 @@ fn endpoint(url: &str) -> Endpoint {
         Duration::from_secs(5),
     )
     .unwrap_or_else(|error| panic!("{error}"))
-}
-
-fn relay_server(state: Arc<Mutex<&'static str>>) -> String {
-    let relay = fixture("relay_archive_batches.json");
-    serve_fixture(Arc::new(move |method, target, _| {
-        let chosen = *state.lock().unwrap_or_else(|error| panic!("{error}"));
-        let view = &relay[chosen];
-        match (method, target) {
-            ("GET", "/v1/sync/network") => (200, relay["network"].clone()),
-            ("GET", "/v1/sync/head") => (200, view["head"].clone()),
-            ("GET", path) => path
-                .strip_prefix("/v1/history/batches/")
-                .and_then(|number| view["batches"].get(number))
-                .map_or_else(
-                    || {
-                        (
-                            404,
-                            json!({"error": {"code": "batch_not_found", "retry": "never"}}),
-                        )
-                    },
-                    |batch| (200, batch.clone()),
-                ),
-            _ => (405, json!({"error": {"code": "method_not_allowed"}})),
-        }
-    }))
 }
 
 fn tx_search_range(query: &str) -> (u64, u64) {
@@ -229,165 +202,6 @@ fn by(rows: &[Value], field: &str, value: &str) -> Vec<Value> {
         .filter(|row| row[field] == value)
         .cloned()
         .collect()
-}
-
-const SENDER: &str = "3aa29bcf27f39c8bcfe4017be09686802ed23412631c141902d715255ec8acba";
-const RECEIVER: &str = "29b27231b5c9eb1fee8193f1334c6a44c34f68f20c38f905001fca9f8ce6b553";
-const SEND_ASSET: &str = "cd4caf041d0f03a1f172d10218e890ede6e1f93dfa8702c43f25e56c4c2fcdb5";
-const SEND_ACTIVITY: &str = "a1f5977a9aa9cb2d167a315c9a8769083dfa9a68225c757e7e96beef275662e4";
-
-#[test]
-fn layerx_relay_batches_decode_receipts_and_roll_back_reorgs() {
-    let state = Arc::new(Mutex::new("canonical"));
-    let relay = relay_server(Arc::clone(&state));
-    let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
-    let policy = FollowPolicy {
-        finality_depth: 1,
-        max_units_per_step: 16,
-    };
-    let ingester = LayerXIngester::new(endpoint(&relay), policy, None);
-
-    assert_eq!(
-        step_ok(|| ingester.step(&store)),
-        StepOutcome::Advanced {
-            units: 3,
-            position: 3
-        }
-    );
-    assert_eq!(step_ok(|| ingester.step(&store)), StepOutcome::Idle);
-
-    let transfers = store
-        .transfers("layerx")
-        .unwrap_or_else(|error| panic!("{error}"));
-    let send = by(&transfers, "tx_id", SEND_ACTIVITY);
-    assert_eq!(send.len(), 2);
-    let out = &by(&send, "direction", "out")[0];
-    assert_eq!(out["kind"], "lxp_transfer");
-    assert_eq!(out["account"], SENDER);
-    assert_eq!(out["counterparty"], RECEIVER);
-    assert_eq!(out["asset"], SEND_ASSET);
-    assert_eq!(out["amount"], "1");
-    assert_eq!(out["height_or_seq"], "5");
-    let inbound = &by(&send, "direction", "in")[0];
-    assert_eq!(inbound["account"], RECEIVER);
-    assert_eq!(inbound["counterparty"], SENDER);
-
-    let lxp = &out["decoded"]["lxp_receipt"];
-    let activity = &out["decoded"]["activity_receipt"];
-    assert_eq!(
-        lxp.as_object().map(serde_json::Map::len),
-        Some(LXP_RECEIPT_FIELDS.len())
-    );
-    assert_eq!(
-        activity.as_object().map(serde_json::Map::len),
-        Some(ACTIVITY_RECEIPT_FIELDS.len())
-    );
-    assert_eq!(LXP_RECEIPT_FIELDS.len(), 21);
-    assert_eq!(ACTIVITY_RECEIPT_FIELDS.len(), 15);
-    for field in LXP_RECEIPT_FIELDS {
-        assert!(lxp.get(field).is_some(), "lxp field {field} missing");
-    }
-    for field in ACTIVITY_RECEIPT_FIELDS {
-        assert!(
-            activity.get(field).is_some(),
-            "activity field {field} missing"
-        );
-    }
-    assert_eq!(out["decoded"]["supply"]["before"], "0");
-
-    let events = store
-        .events("layerx")
-        .unwrap_or_else(|error| panic!("{error}"));
-    let activities = by(&events, "name", "activity");
-    assert_eq!(activities.len(), 3);
-    let effects = by(&events, "source", "layerx-effect");
-    let names: Vec<&str> = effects
-        .iter()
-        .filter_map(|event| event["name"].as_str())
-        .collect();
-    assert!(names.contains(&"module8/event1"));
-    assert!(names.contains(&"module8/event2"));
-    assert!(names.contains(&"module9/event7"));
-    let emulator = by(
-        &activities,
-        "tx_id",
-        "a790ebe72b3431e6bd06d85a26db8809c73b2f713102b47923208a76d80e0eab",
-    );
-    assert!(!emulator[0]["decoded"]["program_outcome"].is_null());
-    assert_eq!(by(&events, "source", "layerx-maintenance").len(), 1);
-    assert!(store
-        .account_known("layerx", RECEIVER)
-        .unwrap_or_else(|error| panic!("{error}")));
-
-    let asset = store
-        .asset(SEND_ASSET)
-        .unwrap_or_else(|error| panic!("{error}"))
-        .unwrap_or_else(|| panic!("asset indexed"));
-    assert_eq!(asset["transfer_legs"], "2");
-
-    let cursor = store
-        .cursor("layerx")
-        .unwrap_or_else(|error| panic!("{error}"))
-        .unwrap_or_else(|| panic!("cursor"));
-    assert_eq!(cursor.position, 3);
-    assert_eq!(
-        cursor.hash,
-        "7f98bf6fc1f8cff652cb9ec527c1c8484cce46ea50a4222449716aa5bbf0bd36"
-    );
-    assert_eq!(cursor.finalized_position, Some(2));
-
-    set(&state, "reorg");
-    assert_eq!(
-        step_ok(|| ingester.step(&store)),
-        StepOutcome::RolledBack { fork: Some(2) }
-    );
-    let transfers = store
-        .transfers("layerx")
-        .unwrap_or_else(|error| panic!("{error}"));
-    assert!(by(&transfers, "tx_id", SEND_ACTIVITY).is_empty());
-    let events = store
-        .events("layerx")
-        .unwrap_or_else(|error| panic!("{error}"));
-    assert!(by(&events, "tx_id", SEND_ACTIVITY).is_empty());
-    assert_eq!(by(&events, "name", "activity").len(), 2);
-    assert_eq!(
-        store
-            .cursor("layerx")
-            .unwrap_or_else(|error| panic!("{error}"))
-            .map(|cursor| cursor.position),
-        Some(2)
-    );
-    assert_eq!(
-        step_ok(|| ingester.step(&store)),
-        StepOutcome::Advanced {
-            units: 2,
-            position: 4
-        }
-    );
-
-    set(&state, "deep_reorg");
-    match ingester.step(&store) {
-        Err(IndexError::ReorgBeyondFinality { source, .. }) => assert_eq!(source, "layerx"),
-        other => panic!("a reorg below finality must stop indexing, got {other:?}"),
-    }
-    assert_eq!(
-        store
-            .cursor("layerx")
-            .unwrap_or_else(|error| panic!("{error}"))
-            .map(|cursor| cursor.position),
-        Some(4)
-    );
-}
-
-#[test]
-fn layerx_rejects_a_receipt_filed_under_another_batch() {
-    let relay = fixture("relay_archive_batches.json");
-    let mut batch = relay["canonical"]["batches"]["3"].clone();
-    batch["batch_id"] = json!("00".repeat(32));
-    match layerx_indexer::layerx::decode_batch(&batch) {
-        Err(IndexError::Integrity(_)) => {}
-        other => panic!("expected an integrity refusal, got {other:?}"),
-    }
 }
 
 fn address_of(label: &str) -> String {

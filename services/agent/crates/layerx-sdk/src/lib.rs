@@ -66,9 +66,7 @@ mod tls;
 pub mod wallet;
 
 pub use layerx_agent_api::Operation;
-pub use receipt_generated::{
-    ReceiptFailureCode, PROGRAMS_MODULE_ID, PROGRAM_OUTCOME_TAGS, REQUIRED_NONZERO_CHECKS,
-};
+pub use receipt_generated::ReceiptFailureCode;
 
 macro_rules! mutation_methods {
     ($( $method:ident: $request:ty => $operation:ident ),+ $(,)?) => {

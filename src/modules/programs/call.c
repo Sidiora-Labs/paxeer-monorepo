@@ -27,9 +27,10 @@ enum {
     PROGRAM_CALL_FIXED_BYTES = 32 + 2 + 2 + 4 + 2 + 4 + 4 +
                                LX_PROGRAMS_CALL_BUDGET_FIELDS * 8,
     PROGRAM_RECORD_BYTES = 71,
-    PROGRAM_KEY_BYTES = 40,
-    ARBITER_AUTHORITY_BYTES = 247
+    PROGRAM_KEY_BYTES = 40
 };
+
+#define ARBITER_AUTHORITY_BYTES 151U
 
 enum { WEB_FEE_DOMAIN_BYTES = 19 };
 
@@ -895,7 +896,7 @@ lxp_result layerx_programs_call_receipt_view_byte(
 
 lxp_result layerx_programs_call_arbiter_authority_begin(
     uint64_t token, uint64_t d0, uint64_t d1, uint64_t d2, uint64_t d3,
-    uint64_t expected_batch)
+    uint64_t expected_height)
 {
     lxp_programs_call_activity *value =
         (lxp_programs_call_activity *)(uintptr_t)token;
@@ -909,7 +910,7 @@ lxp_result layerx_programs_call_arbiter_authority_begin(
     (void)memset(value->arbiter_authority, 0,
                  sizeof(value->arbiter_authority));
     if (value->ctx == NULL || value->authority == NULL ||
-        value->network_id == 0U || expected_batch == 0U)
+        value->network_id == 0U || expected_height == 0U)
         return LXP_ERR_NON_CANONICAL;
     write_u64(digest, d0);
     write_u64(digest + 8U, d1);
@@ -921,21 +922,16 @@ lxp_result layerx_programs_call_arbiter_authority_begin(
     status = lxp_ctx_verified_receipt_authority_facts(
         value->ctx, digest, &facts);
     if (status != LXP_OK) return status;
-    if (facts.version != 1U)
+    if (facts.version != 2U)
         return LXP_ERR_VERSION_UNSUPPORTED;
     if (facts.network_id != value->network_id)
         return LXP_ERR_WRONG_NETWORK;
     if (lxp_ct_memcmp(facts.receipt_digest, digest, sizeof(digest)) != 0)
         return LXP_ERR_ROOT_MISMATCH;
-    if (facts.batch_number != expected_batch)
+    if (facts.block_height != expected_height)
         return LXP_ERR_ROOT_MISMATCH;
-    if (facts.batch_number >= value->ctx->batch_number ||
-        facts.global_sequence == 0U ||
-        facts.global_sequence >= value->ctx->global_sequence)
+    if (facts.block_height >= value->ctx->batch_number)
         return LXP_ERR_NOT_YET_VALID;
-    if (facts.authorization_first_batch_number > facts.batch_number ||
-        facts.authorization_last_batch_number < facts.batch_number)
-        return LXP_ERR_AUTH_SCOPE;
     bytes = value->arbiter_authority;
 #define AUTHORITY_U16(field) do { \
     bytes[offset++] = (uint8_t)((field) >> 8U); \
@@ -962,17 +958,11 @@ lxp_result layerx_programs_call_arbiter_authority_begin(
     AUTHORITY_U16(facts.module_id);
     bytes[offset++] = facts.operation;
     AUTHORITY_U32(facts.result_code);
-    AUTHORITY_U64(facts.batch_number);
-    AUTHORITY_U64(facts.epoch);
-    AUTHORITY_U64(facts.global_sequence);
-    AUTHORITY_U64(facts.authorization_first_batch_number);
-    AUTHORITY_U64(facts.authorization_last_batch_number);
+    AUTHORITY_U64(facts.block_height);
     AUTHORITY_HASH(facts.receipt_digest);
     AUTHORITY_HASH(facts.activity_id);
     AUTHORITY_HASH(facts.previous_state_root);
     AUTHORITY_HASH(facts.resulting_state_root);
-    AUTHORITY_HASH(facts.sequencer_id);
-    AUTHORITY_HASH(facts.sequencer_public_key);
 #undef AUTHORITY_HASH
 #undef AUTHORITY_U64
 #undef AUTHORITY_U32

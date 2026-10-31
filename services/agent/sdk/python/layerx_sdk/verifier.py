@@ -5,33 +5,14 @@ from hashlib import sha256
 from typing import Literal, Protocol, cast
 
 from .account_derivation import keccak256
-from .generated.receipt import (
-    PROGRAM_OUTCOME_TAGS,
-    PROGRAMS_MODULE_ID,
-    ReceiptFailureCode,
-)
+from .generated.receipt import ReceiptFailureCode
 from .production import PlatformSdkError, SdkErrorCode
 
-
-def programs_module_version_for_protocol(protocol: object, module: object, account_state: bool = False) -> bool:
-    if type(protocol) is not int or type(module) is not int or type(account_state) is not bool or protocol not in (2, 3):
-        return False
-    return module in ((4, 5) if protocol == 3 else ((2, 3) if account_state else (1, 2, 3)))
-
-_MERKLE_LEAF_DOMAIN = b"LXP/v1/merkle-leaf\0"
-_MERKLE_INTERNAL_DOMAIN = b"LXP/v1/merkle-internal\0"
-_BATCH_HEADER_DOMAIN = b"LXP/v1/batch-header\0"
 _RECEIPT_DOMAIN = b"LXP/v1/receipt\0"
-_CHECKPOINT_DOMAIN = b"LXP/v2/checkpoint-certificate\0"
-_GUARANTOR_ATTESTATION_DOMAIN = b"LXP/v2/guarantor-attestation\0"
-_BATCH_HEADER_BYTES = 354
 _MAX_MESSAGE_BYTES = 1_048_576
 _MAX_EFFECTS = 512
 _MAX_EFFECT_BODY = 256
 _MAX_U128 = 0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF
-_ALL_AVAILABILITY_CLASSES = 0x1F
-_CURRENT_PROTOCOL_VERSION = 2
-_PROGRAM_OUTCOME_V1, _PROGRAM_OUTCOME_V2, _PROGRAM_OUTCOME_V3, _PROGRAM_OUTCOME_V4 = PROGRAM_OUTCOME_TAGS
 
 
 class ReceiptVerificationError(PlatformSdkError):
@@ -78,43 +59,6 @@ class MerkleProof:
     leaf_index: int
     leaf_count: int
     siblings: tuple[bytes, ...]
-
-
-def _proof_depth(leaf_count: int) -> int:
-    count = leaf_count
-    depth = 0
-    while count > 1:
-        count = (count + 1) // 2
-        depth += 1
-    return depth
-
-
-def verify_merkle_inclusion(canonical_leaf: bytes, proof: MerkleProof, expected_root: bytes) -> None:
-    if (
-        proof.leaf_count <= 0
-        or proof.leaf_count > 0xFFFF_FFFF
-        or proof.leaf_index < 0
-        or proof.leaf_index >= proof.leaf_count
-        or len(proof.siblings) > 32
-        or len(proof.siblings) != _proof_depth(proof.leaf_count)
-    ):
-        _failure()
-    current = _digest(_MERKLE_LEAF_DOMAIN, canonical_leaf)
-    index = proof.leaf_index
-    level_count = proof.leaf_count
-    for sibling_value in proof.siblings:
-        sibling = _exact(sibling_value, 32)
-        if (index ^ 1) >= level_count and not _equal(sibling, current):
-            _failure()
-        current = (
-            _digest(_MERKLE_INTERNAL_DOMAIN, current, sibling)
-            if index % 2 == 0
-            else _digest(_MERKLE_INTERNAL_DOMAIN, sibling, current)
-        )
-        index //= 2
-        level_count = (level_count + 1) // 2
-    if not _equal(current, _exact(expected_root, 32)):
-        _failure()
 
 
 class _Decoder:
@@ -173,89 +117,6 @@ class _Decoder:
             _failure()
 
 
-@dataclass(frozen=True)
-class BatchHeader:
-    protocol_version: int
-    network_id: int
-    epoch: int
-    batch_number: int
-    first_sequence: int
-    last_sequence: int
-    previous_state_root: bytes
-    resulting_state_root: bytes
-    activity_merkle_root: bytes
-    receipt_merkle_root: bytes
-    event_merkle_root: bytes
-    data_availability_root: bytes
-    oracle_root: bytes
-    timestamp_ms: int
-    sequencer_id: bytes
-
-
-def _field(decoder: _Decoder, expected: int) -> None:
-    if decoder.u8() != expected:
-        _failure()
-
-
-def decode_batch_header(canonical_header: bytes) -> BatchHeader:
-    if len(canonical_header) != _BATCH_HEADER_BYTES:
-        _failure()
-    decoder = _Decoder(canonical_header)
-    envelope_version = decoder.u16()
-    if envelope_version not in (1, 2, 3) or decoder.u16() != 0x1701 or decoder.u8() != 15:
-        _failure()
-    _field(decoder, 1)
-    protocol_version = decoder.u16()
-    if protocol_version != envelope_version:
-        _failure()
-    _field(decoder, 2)
-    network_id = decoder.u32()
-    _field(decoder, 3)
-    epoch = decoder.u64()
-    _field(decoder, 4)
-    batch_number = decoder.u64()
-    _field(decoder, 5)
-    first_sequence = decoder.u64()
-    _field(decoder, 6)
-    last_sequence = decoder.u64()
-    _field(decoder, 7)
-    previous_state_root = decoder.bounded(32)
-    _field(decoder, 8)
-    resulting_state_root = decoder.bounded(32)
-    _field(decoder, 9)
-    activity_merkle_root = decoder.bounded(32)
-    _field(decoder, 10)
-    receipt_merkle_root = decoder.bounded(32)
-    _field(decoder, 11)
-    event_merkle_root = decoder.bounded(32)
-    _field(decoder, 12)
-    data_availability_root = decoder.bounded(32)
-    _field(decoder, 13)
-    oracle_root = decoder.bounded(32)
-    _field(decoder, 14)
-    timestamp_ms = decoder.u64()
-    _field(decoder, 15)
-    sequencer_id = decoder.bounded(32)
-    decoder.finish()
-    return BatchHeader(
-        protocol_version=protocol_version,
-        network_id=network_id,
-        epoch=epoch,
-        batch_number=batch_number,
-        first_sequence=first_sequence,
-        last_sequence=last_sequence,
-        previous_state_root=previous_state_root,
-        resulting_state_root=resulting_state_root,
-        activity_merkle_root=activity_merkle_root,
-        receipt_merkle_root=receipt_merkle_root,
-        event_merkle_root=event_merkle_root,
-        data_availability_root=data_availability_root,
-        oracle_root=oracle_root,
-        timestamp_ms=timestamp_ms,
-        sequencer_id=sequencer_id,
-    )
-
-
 class LocalSignatureVerifier(Protocol):
     def verify_ed25519(self, public_key: bytes, signature: bytes, digest: bytes) -> bool: ...
     def verify_recoverable_secp256k1(
@@ -269,7 +130,7 @@ class LocalSignatureVerifier(Protocol):
 
 
 @dataclass(frozen=True)
-class ReceiptEffect:
+class _SequencerEffect:
     module_id: int
     ordinal: int
     event_type: int
@@ -280,35 +141,7 @@ class ReceiptEffect:
 
 
 @dataclass(frozen=True)
-class ProgramReceiptOutcome:
-    encoding_version: Literal[1, 2, 3, 4]
-    terminal_kind: Literal[1, 2, 3]
-    result_code: int
-    runtime_version: int
-    abi_version: int
-    fee_schedule_version: int
-    metering_schedule_version: int
-    cpu_fuel: int
-    memory_bytes: int
-    storage_read_bytes: int
-    storage_write_bytes: int
-    output_values: int
-    output_bytes: int
-    occupancy_byte_batches: int
-    occupancy_fee_units: int
-    fee_schedule_prices: tuple[int, int, int, int, int, int, int]
-    occupancy_asset_id: bytes
-    occupancy_evidence_digest: bytes
-    occupancy_transfer_root: bytes
-    fee_units: int
-    call_graph_root: bytes
-    terminal_payload_root: bytes
-    transfer_root: bytes
-    applied_legs_digest: bytes = bytes(32)
-
-
-@dataclass(frozen=True)
-class ProtocolReceipt:
+class _SequencerReceipt:
     protocol_version: int
     activity_id: bytes
     global_sequence: int
@@ -316,7 +149,7 @@ class ProtocolReceipt:
     resulting_state_root: bytes
     activity_root: bytes
     result_code: int
-    effects: tuple[ReceiptEffect, ...]
+    effects: tuple[_SequencerEffect, ...]
     fee_charged: int
     batch_id: bytes
     module_id: int
@@ -336,7 +169,6 @@ class ProtocolReceipt:
     authorization_hash: bytes
     context_hash: bytes
     timestamp: int
-    program_outcome: ProgramReceiptOutcome | None
     sequencer_signature: bytes
     total_units: tuple[int, int] | None = None
 
@@ -353,7 +185,7 @@ class AuthorizedReceiptBatch:
 @dataclass(frozen=True)
 class ReceiptVerification:
     level: Literal["sequencer-signed"]
-    receipt: ProtocolReceipt
+    receipt: _SequencerReceipt
     canonical_bytes: bytes
     receipt_digest: bytes
 
@@ -384,451 +216,13 @@ class SequencerReceiptVerification(ReceiptVerification):
     height: int
 
 
-def verify_sequencer_receipt(
-    signed_receipt: bytes,
-    raw_transaction: bytes,
-    receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
-) -> SequencerReceiptVerification:
-    from cryptography.exceptions import InvalidSignature
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
-    canonical_bytes = bytes(signed_receipt)
-    transaction_hash = keccak256(bytes(raw_transaction))
-    try:
-        receipt, unsigned_bytes = _decode_protocol_receipt(canonical_bytes)
-    except PlatformSdkError as error:
-        raise SequencerReceiptVerificationError("bad_signature") from error
-    if (
-        receipt.protocol_version != 2
-        or receipt.module_version != 1
-        or receipt.parameter_version != 0
-        or receipt.program_outcome is not None
-        or any(receipt.batch_id[:24])
-    ):
-        raise SequencerReceiptVerificationError("bad_signature")
-    height = int.from_bytes(receipt.batch_id[24:], "big")
-    pinned = [key for key in receipt_keys if _equal(key.key_id, receipt.context_hash)]
-    if not pinned:
-        raise SequencerReceiptVerificationError("unpinned_key")
-    active = [
-        key
-        for key in pinned
-        if type(key.first_height) is int
-        and type(key.last_height) is int
-        and 0 <= key.first_height <= height <= key.last_height <= 0xFFFF_FFFF_FFFF_FFFF
-    ]
-    if not active:
-        raise SequencerReceiptVerificationError("key_out_of_range")
-    receipt_digest = _digest(_RECEIPT_DOMAIN, unsigned_bytes)
-    valid = False
-    for key in active:
-        try:
-            Ed25519PublicKey.from_public_bytes(key.public_key).verify(
-                receipt.sequencer_signature, receipt_digest
-            )
-        except (InvalidSignature, ValueError):
-            continue
-        valid = True
-    if not valid:
-        raise SequencerReceiptVerificationError("bad_signature")
-    if not _equal(receipt.activity_id, transaction_hash):
-        raise SequencerReceiptVerificationError("hash_mismatch")
-    return SequencerReceiptVerification(
-        level="sequencer-signed",
-        receipt=receipt,
-        canonical_bytes=canonical_bytes,
-        receipt_digest=receipt_digest,
-        height=height,
-    )
-
-
-@dataclass(frozen=True)
-class SequencerAuthorization:
-    sequencer_id: bytes
-    public_key: bytes
-    first_batch_number: int
-    last_batch_number: int
-
-
-InclusionKind = Literal["activity", "receipt", "event", "state"]
-
-
-@dataclass(frozen=True)
-class InclusionVerification:
-    level: Literal["batch-included", "state-proven"]
-    header: BatchHeader
-    header_digest: bytes
-    root: bytes
-
-
-def verify_batch_inclusion(
-    kind: InclusionKind,
-    canonical_leaf: bytes,
-    proof: MerkleProof,
-    canonical_header: bytes,
-    header_signature: bytes,
-    authorization: SequencerAuthorization,
-    signatures: LocalSignatureVerifier,
-    *, protocol_version: int = _CURRENT_PROTOCOL_VERSION,
-) -> InclusionVerification:
-    header = decode_batch_header(canonical_header)
-    if protocol_version not in (2, 3) or header.protocol_version != protocol_version:
-        _failure()
-    if (
-        header.batch_number < authorization.first_batch_number
-        or header.batch_number > authorization.last_batch_number
-        or not _equal(header.sequencer_id, _exact(authorization.sequencer_id, 32))
-    ):
-        _failure()
-    digest = _digest(_BATCH_HEADER_DOMAIN, canonical_header)
-    if not signatures.verify_ed25519(
-        _exact(authorization.public_key, 32),
-        _exact(header_signature, 64),
-        digest,
-    ):
-        _failure()
-    roots = {
-        "activity": header.activity_merkle_root,
-        "receipt": header.receipt_merkle_root,
-        "event": header.event_merkle_root,
-        "state": header.resulting_state_root,
-    }
-    root = roots[kind]
-    verify_merkle_inclusion(canonical_leaf, proof, root)
-    return InclusionVerification(
-        level="state-proven" if kind == "state" else "batch-included",
-        header=header,
-        header_digest=digest,
-        root=root,
-    )
-
-
-@dataclass(frozen=True)
-class CheckpointAttestation:
-    protocol_version: int
-    network_id: int
-    paxeer_chain_id: int
-    settlement_contract: bytes
-    epoch: int
-    checkpoint_id: bytes
-    checkpoint_hash: bytes
-    guarantor_id: bytes
-    batch_number: int
-    data_availability_root: bytes
-    replayed: bool
-    data_possessed: bool
-    availability_class_mask: int
-    attested_at_ms: int
-    signer: bytes
-    signature: bytes
-    signature_v: int
-
-
-@dataclass(frozen=True)
-class GuarantorKey:
-    guarantor_id: bytes
-    public_key: bytes
-    bonded: bool
-
-
-@dataclass(frozen=True)
-class CheckpointCertificate:
-    canonical_header: bytes
-    validity_proof: bytes
-    attestations: tuple[CheckpointAttestation, ...]
-    threshold: int
-    settlement_reference: bytes | None = None
-
-
-@dataclass(frozen=True)
-class CheckpointVerificationInput:
-    certificate: CheckpointCertificate
-    bonded_set: tuple[GuarantorKey, ...]
-    registered_checkpoint_id: bytes
-    expected_paxeer_chain_id: int
-    expected_settlement_contract: bytes
-    registered_settlement_reference: bytes | None
-    availability_obtained: bool
-
-
-@dataclass(frozen=True)
-class CheckpointVerification:
-    level: Literal["checkpoint-finalised", "settlement-anchored"]
-    checkpoint_id: bytes
-    achieved: int
-    required: int
-    header: BatchHeader
-
-
-def _u32(value: int) -> bytes:
-    if value < 0 or value > 0xFFFF_FFFF:
-        _failure()
-    return value.to_bytes(4, "big", signed=False)
-
-
-def _u16(value: int) -> bytes:
-    if value < 0 or value > 0xFFFF:
-        _failure()
-    return value.to_bytes(2, "big", signed=False)
-
-
-def _u64(value: int) -> bytes:
-    if value < 0 or value > 0xFFFF_FFFF_FFFF_FFFF:
-        _failure()
-    return value.to_bytes(8, "big", signed=False)
-
-
-def _attestation_message(attestation: CheckpointAttestation) -> bytes:
-    return b"".join((
-        _u16(attestation.protocol_version),
-        _u32(attestation.network_id),
-        _u64(attestation.paxeer_chain_id),
-        _exact(attestation.settlement_contract, 20),
-        _u64(attestation.epoch),
-        _exact(attestation.checkpoint_id, 32),
-        _exact(attestation.checkpoint_hash, 32),
-        _exact(attestation.guarantor_id, 32),
-        _u64(attestation.batch_number),
-        _exact(attestation.data_availability_root, 32),
-        bytes((
-            1 if attestation.replayed else 0,
-            1 if attestation.data_possessed else 0,
-            attestation.availability_class_mask,
-        )),
-        _u64(attestation.attested_at_ms),
-    ))
-
-
-def verify_checkpoint(
-    verification: CheckpointVerificationInput,
-    signatures: LocalSignatureVerifier,
-    *, protocol_version: int = _CURRENT_PROTOCOL_VERSION,
-) -> CheckpointVerification:
-    certificate = verification.certificate
-    if not verification.availability_obtained or len(certificate.validity_proof) > 0xFFFF_FFFF:
-        _failure()
-    header = decode_batch_header(certificate.canonical_header)
-    if protocol_version not in (2, 3) or header.protocol_version != protocol_version:
-        _failure()
-    checkpoint_id = _digest(
-        _CHECKPOINT_DOMAIN,
-        certificate.canonical_header,
-        _u32(len(certificate.validity_proof)),
-        certificate.validity_proof,
-    )
-    if not _equal(checkpoint_id, _exact(verification.registered_checkpoint_id, 32)):
-        _failure()
-    expected_settlement_contract = _exact(verification.expected_settlement_contract, 20)
-    if (
-        certificate.threshold <= 0
-        or verification.expected_paxeer_chain_id <= 0
-        or not any(expected_settlement_contract)
-    ):
-        _failure()
-    seen: set[bytes] = set()
-    achieved = 0
-    for attestation in certificate.attestations:
-        guarantor_id = _exact(attestation.guarantor_id, 32)
-        if (
-            guarantor_id in seen
-            or attestation.protocol_version != header.protocol_version
-            or attestation.network_id != header.network_id
-            or attestation.epoch != header.epoch
-            or attestation.paxeer_chain_id != verification.expected_paxeer_chain_id
-            or not _equal(_exact(attestation.settlement_contract, 20), expected_settlement_contract)
-            or not _equal(attestation.checkpoint_id, checkpoint_id)
-            or not _equal(attestation.checkpoint_hash, checkpoint_id)
-            or attestation.batch_number != header.batch_number
-            or not _equal(attestation.data_availability_root, header.data_availability_root)
-            or not attestation.replayed
-            or not attestation.data_possessed
-            or attestation.availability_class_mask != _ALL_AVAILABILITY_CLASSES
-            or attestation.attested_at_ms <= 0
-            or not any(_exact(attestation.signer, 20))
-            or attestation.signature_v not in (27, 28)
-        ):
-            _failure()
-        seen.add(guarantor_id)
-        member = next(
-            (
-                candidate
-                for candidate in verification.bonded_set
-                if candidate.bonded and _equal(candidate.guarantor_id, guarantor_id)
-            ),
-            None,
-        )
-        if member is None:
-            _failure()
-        digest = _digest(_GUARANTOR_ATTESTATION_DOMAIN, _attestation_message(attestation))
-        if not signatures.verify_recoverable_secp256k1(
-            _exact(member.public_key, 33),
-            _exact(attestation.signature, 64),
-            attestation.signature_v,
-            _exact(attestation.signer, 20),
-            digest,
-        ):
-            _failure()
-        achieved += 1
-    if achieved < certificate.threshold:
-        _failure()
-    settlement = certificate.settlement_reference
-    if settlement is not None and (
-        not settlement
-        or verification.registered_settlement_reference is None
-        or not _equal(settlement, verification.registered_settlement_reference)
-    ):
-        _failure()
-    return CheckpointVerification(
-        level="checkpoint-finalised" if settlement is None else "settlement-anchored",
-        checkpoint_id=checkpoint_id,
-        achieved=achieved,
-        required=certificate.threshold,
-        header=header,
-    )
-
-
-def _all_zero(value: bytes) -> bool:
-    aggregate = 0
-    for byte in value:
-        aggregate |= byte
-    return aggregate == 0
-
-
-def _decode_program_receipt_outcome_from(
-    decoder: _Decoder, protocol_version: int
-) -> ProgramReceiptOutcome:
-    tags = {
-        _PROGRAM_OUTCOME_V1: 1,
-        _PROGRAM_OUTCOME_V2: 2,
-        _PROGRAM_OUTCOME_V3: 3,
-        _PROGRAM_OUTCOME_V4: 4,
-    }
-    encoding_value = tags.get(decoder.u32())
-    if encoding_value is None:
-        _failure()
-    encoding_version = cast(Literal[1, 2, 3, 4], encoding_value)
-    terminal_value = decoder.u8()
-    if terminal_value not in (1, 2, 3):
-        _failure()
-    terminal_kind = cast(Literal[1, 2, 3], terminal_value)
-    result_code = decoder.i32()
-    runtime_version = decoder.u16()
-    abi_version = decoder.u16()
-    fee_schedule_version = decoder.u32()
-    metering_schedule_version = decoder.u32() if encoding_version >= 3 else 1
-    cpu_fuel = decoder.u64()
-    memory_bytes = decoder.u64()
-    storage_read_bytes = decoder.u64()
-    storage_write_bytes = decoder.u64()
-    output_values = decoder.u32()
-    output_bytes = decoder.u64()
-    occupancy_byte_batches = decoder.u128() if encoding_version >= 2 else 0
-    occupancy_fee_units = decoder.u128() if encoding_version >= 2 else 0
-    fee_schedule_prices = cast(
-        tuple[int, int, int, int, int, int, int],
-        tuple(decoder.u64() for _ in range(7)) if encoding_version >= 2 else (0,) * 7,
-    )
-    occupancy_asset_id = decoder.bounded(32) if encoding_version >= 2 else bytes(32)
-    occupancy_evidence_digest = decoder.bounded(32) if encoding_version >= 2 else bytes(32)
-    occupancy_transfer_root = decoder.bounded(32) if encoding_version >= 2 else bytes(32)
-    fee_units = decoder.u128()
-    call_graph_root = decoder.bounded(32)
-    terminal_payload_root = decoder.bounded(32)
-    transfer_root = decoder.bounded(32)
-    applied_legs_digest = decoder.bounded(32) if encoding_version == 4 else bytes(32)
-    occupancy_zero = (
-        occupancy_byte_batches == 0
-        and occupancy_fee_units == 0
-        and _all_zero(occupancy_asset_id)
-        and _all_zero(occupancy_evidence_digest)
-        and _all_zero(occupancy_transfer_root)
-    )
-    if (
-        runtime_version == 0
-        or abi_version == 0
-        or fee_schedule_version == 0
-        or metering_schedule_version != 1
-        or _all_zero(terminal_payload_root)
-        or (terminal_kind == 1 and result_code != 0)
-        or (terminal_kind != 1 and (result_code == 0 or result_code <= -1000))
-        or (terminal_kind != 1 and not _all_zero(transfer_root))
-        or not (
-            (protocol_version == 1 and encoding_version in (1, 3))
-            or (protocol_version in (2, 3) and encoding_version in (2, 3))
-            or (protocol_version == 3 and encoding_version == 4)
-        )
-        or ((encoding_version == 4) == _all_zero(applied_legs_digest))
-        or (encoding_version == 1 and not occupancy_zero)
-        or (encoding_version >= 2 and terminal_kind != 1 and not occupancy_zero)
-        or (
-            encoding_version == 2
-            and terminal_kind == 1
-            and (_all_zero(occupancy_asset_id) or _all_zero(occupancy_evidence_digest))
-        )
-        or (
-            encoding_version >= 3
-            and _all_zero(occupancy_asset_id) != _all_zero(occupancy_evidence_digest)
-        )
-        or (protocol_version == 1 and encoding_version >= 3 and not occupancy_zero)
-        or (
-            protocol_version in (2, 3)
-            and encoding_version >= 3
-            and terminal_kind == 1
-            and (_all_zero(occupancy_asset_id) or _all_zero(occupancy_evidence_digest))
-        )
-    ):
-        _failure()
-    return ProgramReceiptOutcome(
-        encoding_version=encoding_version,
-        terminal_kind=terminal_kind,
-        result_code=result_code,
-        runtime_version=runtime_version,
-        abi_version=abi_version,
-        fee_schedule_version=fee_schedule_version,
-        metering_schedule_version=metering_schedule_version,
-        cpu_fuel=cpu_fuel,
-        memory_bytes=memory_bytes,
-        storage_read_bytes=storage_read_bytes,
-        storage_write_bytes=storage_write_bytes,
-        output_values=output_values,
-        output_bytes=output_bytes,
-        occupancy_byte_batches=occupancy_byte_batches,
-        occupancy_fee_units=occupancy_fee_units,
-        fee_schedule_prices=fee_schedule_prices,
-        occupancy_asset_id=occupancy_asset_id,
-        occupancy_evidence_digest=occupancy_evidence_digest,
-        occupancy_transfer_root=occupancy_transfer_root,
-        fee_units=fee_units,
-        call_graph_root=call_graph_root,
-        terminal_payload_root=terminal_payload_root,
-        transfer_root=transfer_root,
-        applied_legs_digest=applied_legs_digest,
-    )
-
-
-def decode_program_receipt_outcome(
-    canonical_outcome: bytes, protocol_version: int
-) -> ProgramReceiptOutcome:
-    if not canonical_outcome or len(canonical_outcome) > _MAX_MESSAGE_BYTES:
-        _receipt_failure(ReceiptFailureCode.RECEIPT_SHAPE)
-    try:
-        decoder = _Decoder(bytes(canonical_outcome))
-        outcome = _decode_program_receipt_outcome_from(decoder, protocol_version)
-        decoder.finish()
-        return outcome
-    except ReceiptVerificationError:
-        raise
-    except PlatformSdkError:
-        _receipt_failure(ReceiptFailureCode.PROGRAM_OUTCOME)
-
-
-def _decode_protocol_receipt(canonical_receipt: bytes) -> tuple[ProtocolReceipt, bytes]:
+def _decode_sequencer_receipt(canonical_receipt: bytes) -> tuple[_SequencerReceipt, bytes]:
     if not canonical_receipt or len(canonical_receipt) > _MAX_MESSAGE_BYTES:
         _receipt_failure(ReceiptFailureCode.RECEIPT_SHAPE)
     decoder = _Decoder(canonical_receipt)
     envelope_version = decoder.u16()
     structure_tag = decoder.u16()
-    if envelope_version not in (1, 2, 3) or structure_tag not in (0x5201, 0x5202):
+    if envelope_version != 2 or structure_tag not in (0x5201, 0x5202):
         _receipt_failure(ReceiptFailureCode.DECODE)
     protocol_version = decoder.u16()
     if protocol_version != envelope_version:
@@ -842,7 +236,7 @@ def _decode_protocol_receipt(canonical_receipt: bytes) -> tuple[ProtocolReceipt,
     effect_count = decoder.u32()
     if effect_count > _MAX_EFFECTS:
         _receipt_failure(ReceiptFailureCode.DECODE)
-    effects: list[ReceiptEffect] = []
+    effects: list[_SequencerEffect] = []
     for _ in range(effect_count):
         module_id = decoder.u16()
         ordinal = decoder.u16()
@@ -853,7 +247,7 @@ def _decode_protocol_receipt(canonical_receipt: bytes) -> tuple[ProtocolReceipt,
         monetary_value = decoder.u8()
         if monetary_value > 1 or (monetary_value == 1 and kind_value != 2):
             _receipt_failure(ReceiptFailureCode.DECODE)
-        effects.append(ReceiptEffect(
+        effects.append(_SequencerEffect(
             module_id=module_id,
             ordinal=ordinal,
             event_type=event_type,
@@ -893,7 +287,7 @@ def _decode_protocol_receipt(canonical_receipt: bytes) -> tuple[ProtocolReceipt,
             expected = before + amount
         elif operation == 11 and amount > 0 and before >= amount:
             expected = before - amount
-        if module_id != 1 or result_code != 0 or _all_zero(asset) or expected != after:
+        if module_id != 1 or result_code != 0 or not any(asset) or expected != after:
             _receipt_failure(ReceiptFailureCode.DECODE)
         total_units = (before, after)
     if global_sequence == 0:
@@ -904,35 +298,17 @@ def _decode_protocol_receipt(canonical_receipt: bytes) -> tuple[ProtocolReceipt,
         _receipt_failure(ReceiptFailureCode.MODULE_VERSION)
     if timestamp == 0:
         _receipt_failure(ReceiptFailureCode.TIMESTAMP)
-    if _all_zero(activity_id):
+    if not any(activity_id):
         _receipt_failure(ReceiptFailureCode.ACTIVITY_ID)
-    if _all_zero(resulting_state_root):
+    if not any(resulting_state_root):
         _receipt_failure(ReceiptFailureCode.RESULTING_STATE_ROOT)
-    try:
-        program_outcome = (
-            _decode_program_receipt_outcome_from(decoder, protocol_version)
-            if decoder.remaining() > 69
-            else None
-        )
-    except PlatformSdkError:
-        _receipt_failure(ReceiptFailureCode.PROGRAM_OUTCOME)
-    if program_outcome is not None and (
-        module_id != PROGRAMS_MODULE_ID
-        or program_outcome.result_code != result_code
-        or (
-            program_outcome.terminal_kind == 1
-            and not _equal(program_outcome.transfer_root, transfer_set_root)
-        )
-        or (program_outcome.terminal_kind != 1 and not _all_zero(transfer_set_root))
-    ):
-        _receipt_failure(ReceiptFailureCode.PROGRAM_OUTCOME)
     signature_flag_offset = decoder.position()
     if decoder.u8() != 1:
         _receipt_failure(ReceiptFailureCode.MISSING_SIGNATURE)
     sequencer_signature = decoder.bounded(64)
     decoder.finish()
     return (
-        ProtocolReceipt(
+        _SequencerReceipt(
             protocol_version=protocol_version,
             activity_id=activity_id,
             global_sequence=global_sequence,
@@ -960,7 +336,6 @@ def _decode_protocol_receipt(canonical_receipt: bytes) -> tuple[ProtocolReceipt,
             authorization_hash=authorization_hash,
             context_hash=context_hash,
             timestamp=timestamp,
-            program_outcome=program_outcome,
             sequencer_signature=sequencer_signature,
             total_units=total_units,
         ),
@@ -968,130 +343,58 @@ def _decode_protocol_receipt(canonical_receipt: bytes) -> tuple[ProtocolReceipt,
     )
 
 
-def verify_program_lifecycle_receipt(canonical_receipt: bytes, expected_activity: bytes, sequencer_public_key: bytes, signatures: LocalSignatureVerifier) -> ReceiptVerification:
-    receipt, unsigned = _decode_protocol_receipt(canonical_receipt)
-    if (receipt.protocol_version != 3 or receipt.module_id != 9 or receipt.module_version != 4
-            or receipt.operation != 0 or receipt.program_outcome is not None):
-        _receipt_failure(ReceiptFailureCode.OPERATION)
-    if not _equal(receipt.activity_id, _exact(expected_activity, 32)):
-        _receipt_failure(ReceiptFailureCode.ACTIVITY_ID)
-    digest = _digest(_RECEIPT_DOMAIN, unsigned)
-    if not signatures.verify_ed25519(_exact(sequencer_public_key, 32), receipt.sequencer_signature, digest):
-        _receipt_failure(ReceiptFailureCode.SEQUENCER_SIGNATURE)
-    return ReceiptVerification(level="sequencer-signed", receipt=receipt, canonical_bytes=bytes(canonical_receipt), receipt_digest=digest)
+def verify_sequencer_receipt(
+    signed_receipt: bytes,
+    raw_transaction: bytes,
+    receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
+) -> SequencerReceiptVerification:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-
-def verify_receipt_outcome(
-    canonical_receipt: bytes,
-    authorized: AuthorizedReceiptBatch,
-    signatures: LocalSignatureVerifier,
-    *, protocol_version: int = _CURRENT_PROTOCOL_VERSION,
-) -> ReceiptVerification:
-    return _verify_receipt_outcome(canonical_receipt, authorized, signatures, protocol_version=protocol_version)
-
-
-def verify_program_receipt_outcome_v5(
-    canonical_receipt: bytes, authorized: AuthorizedReceiptBatch, signatures: LocalSignatureVerifier,
-    terminal_payload: bytes, call_graph: bytes, program_id: str, expected_signed_activity: bytes,
-    *, occupancy_payers: tuple = (),
-) -> ReceiptVerification:
-    from .program_wire import (decode_and_verify_program_terminal, bind_retained_program_call,
-                               verify_native_program_call_signature)
-    receipt, _ = _decode_protocol_receipt(canonical_receipt)
-    outcome = receipt.program_outcome
-    if (receipt.protocol_version != 3 or receipt.module_id != PROGRAMS_MODULE_ID or receipt.operation != 3
-            or outcome is None or outcome.abi_version not in (3, 4, 5) or outcome.runtime_version != 1):
-        _receipt_failure(ReceiptFailureCode.PROTOCOL_VERSION)
-    expected_payload_hash, expected_abi, _ = bind_retained_program_call(
-        expected_signed_activity, receipt.activity_id.hex(), program_id, 3)
-    if expected_abi != outcome.abi_version:
-        _receipt_failure(ReceiptFailureCode.PROTOCOL_VERSION)
-    verify_native_program_call_signature(expected_signed_activity, signatures)
-    decode_and_verify_program_terminal(terminal_payload, call_graph, program_id, outcome, 3,
-                                       protocol=receipt, expected_payload_hash=expected_payload_hash,
-                                       occupancy_payers=occupancy_payers)
-    return _verify_receipt_outcome(canonical_receipt, authorized, signatures, protocol_version=3,
-                                   validated_v5_outcome=outcome)
-
-
-def _verify_receipt_outcome(
-    canonical_receipt: bytes, authorized: AuthorizedReceiptBatch, signatures: LocalSignatureVerifier,
-    *, protocol_version: int = _CURRENT_PROTOCOL_VERSION,
-    validated_v5_outcome: ProgramReceiptOutcome | None = None,
-) -> ReceiptVerification:
+    canonical_bytes = bytes(signed_receipt)
+    transaction_hash = keccak256(bytes(raw_transaction))
     try:
-        receipt, unsigned_receipt = _decode_protocol_receipt(canonical_receipt)
-    except ReceiptVerificationError:
-        raise
-    except PlatformSdkError:
-        _receipt_failure(ReceiptFailureCode.DECODE)
-    if protocol_version not in (2, 3) or receipt.protocol_version != protocol_version:
-        _receipt_failure(ReceiptFailureCode.PROTOCOL_VERSION)
-    _exact(authorized.asset, 32)
-    program = receipt.module_id == PROGRAMS_MODULE_ID and receipt.operation in (0, 3)
-    if program:
-        if not programs_module_version_for_protocol(protocol_version, receipt.module_version, receipt.operation == 0):
-            _receipt_failure(ReceiptFailureCode.MODULE_VERSION)
-        if receipt.operation == 0 and receipt.result_code != 0:
-            _receipt_failure(ReceiptFailureCode.RESULT_CODE)
-        if receipt.operation == 3:
-            outcome = receipt.program_outcome
-            if outcome is None:
-                _receipt_failure(ReceiptFailureCode.RECEIPT_SHAPE)
-            assert outcome is not None
-            if outcome.abi_version not in (1, 2) or outcome.runtime_version != 1:
-                if (protocol_version != 3 or outcome.abi_version not in (3, 4, 5)
-                        or outcome.runtime_version != 1 or validated_v5_outcome != outcome):
-                    _receipt_failure(ReceiptFailureCode.PROTOCOL_VERSION)
-            if outcome.abi_version > receipt.module_version:
-                _receipt_failure(ReceiptFailureCode.MODULE_VERSION)
-    if not program and receipt.operation == 0:
-        _receipt_failure(ReceiptFailureCode.OPERATION)
-    if _all_zero(receipt.activity_id):
-        _receipt_failure(ReceiptFailureCode.ACTIVITY_ID)
-    if not program and _all_zero(receipt.asset):
-        _receipt_failure(ReceiptFailureCode.ASSET)
-    if not _equal(receipt.batch_id, _exact(authorized.batch_id, 32)):
-        _receipt_failure(ReceiptFailureCode.BATCH_ID)
-    if not program and not _equal(receipt.asset, _exact(authorized.asset, 32)):
-        _receipt_failure(ReceiptFailureCode.ASSET)
-    if not _equal(receipt.previous_state_root, _exact(authorized.previous_state_root, 32)):
-        _receipt_failure(ReceiptFailureCode.PREVIOUS_STATE_ROOT)
-    if not _equal(receipt.resulting_state_root, _exact(authorized.resulting_state_root, 32)):
-        _receipt_failure(ReceiptFailureCode.RESULTING_STATE_ROOT)
-    if not program and receipt.result_code == 0:
-        if (
-            receipt.from_balance_before < receipt.amount
-            or receipt.from_balance_before - receipt.amount != receipt.from_balance_after
-        ):
-            _receipt_failure(ReceiptFailureCode.DEBIT_BALANCE)
-        if (
-            receipt.to_balance_before + receipt.amount > _MAX_U128
-            or receipt.to_balance_before + receipt.amount != receipt.to_balance_after
-        ):
-            _receipt_failure(ReceiptFailureCode.CREDIT_BALANCE)
-    receipt_digest = _digest(_RECEIPT_DOMAIN, unsigned_receipt)
-    if not signatures.verify_ed25519(
-        _exact(authorized.sequencer_public_key, 32),
-        receipt.sequencer_signature,
-        receipt_digest,
+        receipt, unsigned_bytes = _decode_sequencer_receipt(canonical_bytes)
+    except PlatformSdkError as error:
+        raise SequencerReceiptVerificationError("bad_signature") from error
+    if (
+        receipt.protocol_version != 2
+        or receipt.module_version != 1
+        or receipt.parameter_version != 0
+        or any(receipt.batch_id[:24])
     ):
-        _receipt_failure(ReceiptFailureCode.SEQUENCER_SIGNATURE)
-    return ReceiptVerification(
+        raise SequencerReceiptVerificationError("bad_signature")
+    height = int.from_bytes(receipt.batch_id[24:], "big")
+    pinned = [key for key in receipt_keys if _equal(key.key_id, receipt.context_hash)]
+    if not pinned:
+        raise SequencerReceiptVerificationError("unpinned_key")
+    active = [
+        key
+        for key in pinned
+        if type(key.first_height) is int
+        and type(key.last_height) is int
+        and 0 <= key.first_height <= height <= key.last_height <= 0xFFFF_FFFF_FFFF_FFFF
+    ]
+    if not active:
+        raise SequencerReceiptVerificationError("key_out_of_range")
+    receipt_digest = _digest(_RECEIPT_DOMAIN, unsigned_bytes)
+    valid = False
+    for key in active:
+        try:
+            Ed25519PublicKey.from_public_bytes(key.public_key).verify(
+                receipt.sequencer_signature, receipt_digest
+            )
+        except (InvalidSignature, ValueError):
+            continue
+        valid = True
+    if not valid:
+        raise SequencerReceiptVerificationError("bad_signature")
+    if not _equal(receipt.activity_id, transaction_hash):
+        raise SequencerReceiptVerificationError("hash_mismatch")
+    return SequencerReceiptVerification(
         level="sequencer-signed",
         receipt=receipt,
-        canonical_bytes=bytes(canonical_receipt),
+        canonical_bytes=canonical_bytes,
         receipt_digest=receipt_digest,
+        height=height,
     )
-
-
-def verify_receipt(
-    canonical_receipt: bytes,
-    authorized: AuthorizedReceiptBatch,
-    signatures: LocalSignatureVerifier,
-    *, protocol_version: int = _CURRENT_PROTOCOL_VERSION,
-) -> ReceiptVerification:
-    verified = verify_receipt_outcome(canonical_receipt, authorized, signatures, protocol_version=protocol_version)
-    if verified.receipt.result_code != 0:
-        _receipt_failure(ReceiptFailureCode.RESULT_CODE)
-    return verified

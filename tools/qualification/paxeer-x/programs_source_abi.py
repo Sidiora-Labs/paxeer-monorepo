@@ -296,8 +296,6 @@ class Gate:
                      'PUBLICATION_TOKEN_FILE', 'IDENTITY_URL'):
             require(self.environment.get('LAYERX_REGISTRY_' + name),
                     'missing production configuration: LAYERX_REGISTRY_' + name)
-        require('LAYERX_REGISTRY_LNI_SOCKET' not in self.environment,
-                'use provisioned HTTPS node evidence boundary for this gate')
         for name in ('PROGRAM', 'WEBHOOKS'):
             require(self.environment.get('LAYERX_EVENTS_' + name + '_UPSTREAM_URL'),
                     'real event upstream configuration required')

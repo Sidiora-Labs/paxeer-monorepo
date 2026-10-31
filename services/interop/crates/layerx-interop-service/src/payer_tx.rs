@@ -195,16 +195,16 @@ mod tests {
         assert_eq!(
             call,
             PayExactCall {
-                from: hex(&log["topics"][1])?
+                from: hex(&log["topics"][2])?
                     .try_into()
                     .map_err(|_| "payer width")?,
-                to: hex(&log["topics"][2])?
+                to: hex(&log["topics"][3])?
                     .try_into()
                     .map_err(|_| "payee width")?,
                 asset: data[..32].try_into()?,
                 amount: 1_000_000,
                 expires_at: 1_750_003_600_000,
-                reference: hex(&log["topics"][3])?
+                reference: hex(&log["topics"][1])?
                     .try_into()
                     .map_err(|_| "reference width")?,
             }

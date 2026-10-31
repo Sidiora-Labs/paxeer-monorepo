@@ -6,9 +6,6 @@ use sha2::{Digest, Sha256};
 
 use crate::config::hex_string;
 use crate::Error;
-use layerx_human_service::journeys::{
-    DepositAgentPlan, DepositPlan, SettlementConfig, WithdrawalAgentPlan, WithdrawalPlan,
-};
 use layerx_paxeer_client::DepositProofConfig;
 
 pub(crate) fn identity(request: &PlanningRequest, purpose: &[u8]) -> Result<[u8; 32], Error> {
@@ -28,78 +25,6 @@ pub(crate) fn identity(request: &PlanningRequest, purpose: &[u8]) -> Result<[u8;
     }
     digest.update(request.idempotency_key);
     Ok(digest.finalize().into())
-}
-
-pub(crate) fn deposit_plan(request: &PlanningRequest) -> Result<DepositPlan, Error> {
-    if request.operation != "deposit.start" {
-        return Err(Error::Integrity);
-    }
-    let context = &request.context;
-    Ok(DepositPlan {
-        journey_id: JourneyId::new(format!(
-            "deposit-{}",
-            hex_string(&identity(request, b"deposit")?)
-        ))
-        .map_err(|_| Error::Integrity)?,
-        idempotency_key: request.idempotency_key,
-        wallet: context.wallet,
-        network: context.network,
-        paxeer_chain_id: context.paxeer_chain_id,
-        layerx_network: context.network,
-        layerx_protocol_version: context.protocol_version,
-        vault: layerx_paxeer_client::CUSTODY_PRECOMPILE,
-        asset: context.asset,
-        amount: context.amount,
-        recipient: context.account.clone(),
-        reserve: context.reserve.clone(),
-        currency: context.currency.clone(),
-        agent: DepositAgentPlan {
-            actor: context.actor.clone(),
-            authority: context.authority.clone(),
-            account_sequence: context.account_sequence,
-            not_before: context.not_before,
-            not_after: context.not_after,
-            fee_limit: context.fee_limit,
-            custody_key: context.custody_key.clone(),
-        },
-    })
-}
-
-pub(crate) fn withdrawal_plan(
-    request: &PlanningRequest,
-    settlement: SettlementConfig,
-    reminder: u64,
-) -> Result<WithdrawalPlan, Error> {
-    if request.operation != "withdraw.start" {
-        return Err(Error::Integrity);
-    }
-    let context = &request.context;
-    let id = identity(request, b"withdrawal")?;
-    Ok(WithdrawalPlan {
-        journey_id: JourneyId::new(format!("jrn_{}", hex_string(&id)))
-            .map_err(|_| Error::Integrity)?,
-        idempotency_key: request.idempotency_key,
-        network: context.network,
-        layerx_protocol_version: context.protocol_version,
-        request_anchor: layerx_types::ids::CheckpointId::new(context.request_anchor),
-        owner: context.account.clone(),
-        withdrawals_account: context.withdrawals_account.clone(),
-        payout_address: context.wallet,
-        asset: context.asset,
-        amount: context.amount,
-        currency: context.currency.clone(),
-        settlement,
-        reminder_interval_seconds: reminder,
-        agent: WithdrawalAgentPlan {
-            actor: context.actor.clone(),
-            authority: context.authority.clone(),
-            account_sequence: context.account_sequence,
-            not_before: context.not_before,
-            not_after: context.not_after,
-            fee_limit: context.fee_limit,
-            custody_key: context.custody_key.clone(),
-        },
-    })
 }
 
 pub(crate) fn validate(

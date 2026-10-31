@@ -109,7 +109,6 @@ struct Config {
     core: Endpoint,
     core_admin: Endpoint,
     receipt_authority: Endpoint,
-    registry: Endpoint,
     redis: Endpoint,
     gateway: Endpoint,
     paxeer: Endpoint,
@@ -165,20 +164,18 @@ enum Dependency {
     Core,
     CoreAdmin,
     ReceiptAuthority,
-    Registry,
     Redis,
     Gateway,
     Paxeer,
 }
 
 impl Dependency {
-    const ALL: [Self; 9] = [
+    const ALL: [Self; 8] = [
         Self::Identity,
         Self::Faucet,
         Self::Core,
         Self::CoreAdmin,
         Self::ReceiptAuthority,
-        Self::Registry,
         Self::Redis,
         Self::Gateway,
         Self::Paxeer,
@@ -191,7 +188,6 @@ impl Dependency {
             Self::Core => "core",
             Self::CoreAdmin => "core_admin",
             Self::ReceiptAuthority => "receipt_authority",
-            Self::Registry => "registry",
             Self::Redis => "redis",
             Self::Gateway => "gateway",
             Self::Paxeer => "paxeer",
@@ -204,23 +200,16 @@ enum Journey {
     Funding,
     Payment,
     ReceiptInspection,
-    Programs,
 }
 
 impl Journey {
-    const ALL: [Self; 4] = [
-        Self::Funding,
-        Self::Payment,
-        Self::ReceiptInspection,
-        Self::Programs,
-    ];
+    const ALL: [Self; 3] = [Self::Funding, Self::Payment, Self::ReceiptInspection];
 
     fn name(self) -> &'static str {
         match self {
             Self::Funding => "funding",
             Self::Payment => "payment",
             Self::ReceiptInspection => "receipt_inspection",
-            Self::Programs => "programs",
         }
     }
 
@@ -229,7 +218,6 @@ impl Journey {
             Self::Funding => "/v1/journeys/funding",
             Self::Payment => "/v1/journeys/payment",
             Self::ReceiptInspection => "/v1/journeys/receipt-inspection",
-            Self::Programs => "/v1/journeys/programs",
         }
     }
 
@@ -258,12 +246,6 @@ impl Journey {
                 Dependency::Gateway,
                 Dependency::ReceiptAuthority,
                 Dependency::Core,
-            ],
-            Self::Programs => &[
-                Dependency::Gateway,
-                Dependency::Registry,
-                Dependency::Core,
-                Dependency::ReceiptAuthority,
             ],
         }
     }
@@ -330,7 +312,7 @@ fn dependency_view(dependency: &Result<ReadyDependency, FailedDependency>) -> De
 }
 
 struct DependencyReports {
-    reports: [DependencyReport; 9],
+    reports: [DependencyReport; 8],
 }
 
 impl DependencyReports {
@@ -495,7 +477,6 @@ struct ReadyJourneys {
     funding: ReadyJourney,
     payment: ReadyJourney,
     receipt_inspection: ReadyJourney,
-    programs: ReadyJourney,
 }
 
 enum HostedReadiness {
@@ -517,7 +498,7 @@ impl HostedReadiness {
     }
 
     fn assemble(reports: &DependencyReports, release: &ReleaseGate) -> Self {
-        let [funding, payment, receipt_inspection, programs] =
+        let [funding, payment, receipt_inspection] =
             Journey::ALL.map(|journey| JourneyReadiness::compute(journey, reports));
         let dependencies = reports.classify();
         let every_dependency: Result<Vec<ReadyDependency>, FailedDependency> =
@@ -526,7 +507,6 @@ impl HostedReadiness {
             funding,
             payment,
             receipt_inspection,
-            programs,
             every_dependency,
             release.verify(),
         ) {
@@ -534,7 +514,6 @@ impl HostedReadiness {
                 JourneyReadiness::Ready(funding),
                 JourneyReadiness::Ready(payment),
                 JourneyReadiness::Ready(receipt_inspection),
-                JourneyReadiness::Ready(programs),
                 Ok(dependencies),
                 Ok(release),
             ) => Self::Ready {
@@ -542,13 +521,12 @@ impl HostedReadiness {
                     funding,
                     payment,
                     receipt_inspection,
-                    programs,
                 },
                 dependencies,
                 release,
             },
-            (funding, payment, receipt_inspection, programs, _, release) => Self::Degraded {
-                journeys: vec![funding, payment, receipt_inspection, programs],
+            (funding, payment, receipt_inspection, _, release) => Self::Degraded {
+                journeys: vec![funding, payment, receipt_inspection],
                 dependencies,
                 release,
             },
@@ -603,7 +581,6 @@ impl HostedReadiness {
                 journeys.funding.view(),
                 journeys.payment.view(),
                 journeys.receipt_inspection.view(),
-                journeys.programs.view(),
             ],
             Self::Degraded { journeys, .. } => {
                 journeys.iter().map(JourneyReadiness::view).collect()
@@ -631,7 +608,6 @@ impl HostedReadiness {
                 Dependency::Faucet,
                 Dependency::CoreAdmin,
                 Dependency::ReceiptAuthority,
-                Dependency::Registry,
                 Dependency::Redis,
             ]
             .into_iter()
@@ -847,10 +823,6 @@ fn config() -> Result<Config, String> {
             &env::var("LAYERX_TESTNET_RECEIPT_AUTHORITY_URL")
                 .map_err(|_| "LAYERX_TESTNET_RECEIPT_AUTHORITY_URL is required")?,
         )?,
-        registry: Endpoint::parse(
-            &env::var("LAYERX_TESTNET_REGISTRY_URL")
-                .map_err(|_| "LAYERX_TESTNET_REGISTRY_URL is required")?,
-        )?,
         redis: Endpoint::parse_redis(
             &env::var("LAYERX_TESTNET_REDIS_URL")
                 .map_err(|_| "LAYERX_TESTNET_REDIS_URL is required")?,
@@ -1051,15 +1023,6 @@ fn probe_tls(ca: &Certificate, endpoint: &Endpoint) -> Result<String, String> {
     Ok("TLS handshake completed".to_owned())
 }
 
-fn probe_tcp(endpoint: &Endpoint) -> Result<String, String> {
-    let stream = connect(endpoint).map_err(|error| format!("TCP connect failed: {error}"))?;
-    let _ = stream.shutdown(std::net::Shutdown::Both);
-    Ok(
-        "TCP connection accepted; the registry requires client-certificate TLS beyond this probe"
-            .to_owned(),
-    )
-}
-
 fn probe_redis(ca: &Certificate, endpoint: &Endpoint) -> Result<String, String> {
     let mut stream =
         tls_stream(ca, endpoint).map_err(|error| format!("TLS handshake failed: {error}"))?;
@@ -1106,7 +1069,6 @@ fn probe_dependency(config: &Config, dependency: Dependency) -> DependencyReport
         Dependency::Core => probe(ca, &config.core),
         Dependency::CoreAdmin => probe_tls(ca, &config.core_admin),
         Dependency::ReceiptAuthority => probe(ca, &config.receipt_authority),
-        Dependency::Registry => probe_tcp(&config.registry),
         Dependency::Redis => probe_redis(ca, &config.redis),
         Dependency::Gateway => probe(ca, &config.gateway),
         Dependency::Paxeer => probe(ca, &config.paxeer),
@@ -1449,6 +1411,32 @@ mod tests {
     }
 
     #[test]
+    fn no_journey_depends_on_the_program_registry() {
+        assert_eq!(
+            Journey::ALL,
+            [
+                Journey::Funding,
+                Journey::Payment,
+                Journey::ReceiptInspection
+            ]
+        );
+        for journey in Journey::ALL {
+            assert!(
+                journey
+                    .dependencies()
+                    .iter()
+                    .all(|dependency| dependency.name() != "registry"),
+                "{} depends on the program registry",
+                journey.name()
+            );
+        }
+        assert!(Dependency::ALL
+            .into_iter()
+            .all(|dependency| dependency.name() != "registry"));
+        assert_eq!(Journey::from_route("/v1/journeys/programs"), None);
+    }
+
+    #[test]
     fn journeys_declare_their_dependency_sets() {
         assert_eq!(
             Journey::Funding.dependencies(),
@@ -1478,15 +1466,6 @@ mod tests {
             ]
         );
         assert_eq!(
-            Journey::Programs.dependencies(),
-            &[
-                Dependency::Gateway,
-                Dependency::Registry,
-                Dependency::Core,
-                Dependency::ReceiptAuthority
-            ]
-        );
-        assert_eq!(
             Journey::from_route("/v1/journeys/receipt-inspection"),
             Some(Journey::ReceiptInspection)
         );
@@ -1498,10 +1477,7 @@ mod tests {
             Journey::from_route("/v1/journeys/payment"),
             Some(Journey::Payment)
         );
-        assert_eq!(
-            Journey::from_route("/v1/journeys/programs"),
-            Some(Journey::Programs)
-        );
+        assert_eq!(Journey::from_route("/v1/journeys/programs"), None);
         assert_eq!(Journey::from_route("/v1/journeys/settlement"), None);
     }
 
@@ -1566,8 +1542,8 @@ mod tests {
         let document = json(ready.document(&release()))?;
         assert_eq!(document["state"], "ready");
         assert_eq!(document["release"]["state"], "ready");
-        assert_eq!(document["dependencies"].as_array().map(Vec::len), Some(9));
-        assert_eq!(document["journeys"].as_array().map(Vec::len), Some(4));
+        assert_eq!(document["dependencies"].as_array().map(Vec::len), Some(8));
+        assert_eq!(document["journeys"].as_array().map(Vec::len), Some(3));
         assert!(document["dependencies"]
             .as_array()
             .is_some_and(|entries| entries.iter().all(|entry| entry["ready"] == true)));
@@ -1582,22 +1558,23 @@ mod tests {
         assert!(document["journeys"]
             .as_array()
             .is_some_and(|entries| entries.iter().all(|entry| entry["ready"] == true)));
-        assert_eq!(document["dependencies"][8]["name"], "paxeer");
-        assert_eq!(document["dependencies"][8]["ready"], false);
+        assert_eq!(document["dependencies"][7]["name"], "paxeer");
+        assert_eq!(document["dependencies"][7]["ready"], false);
 
-        let registry_down =
-            HostedReadiness::assemble(&reports(&[Dependency::Registry]), &release());
-        assert!(!registry_down.is_ready());
-        let document = json(registry_down.document(&release()))?;
+        let authority_down =
+            HostedReadiness::assemble(&reports(&[Dependency::ReceiptAuthority]), &release());
+        assert!(!authority_down.is_ready());
+        let document = json(authority_down.document(&release()))?;
         assert_eq!(document["state"], "degraded");
-        assert_eq!(document["journeys"][3]["journey"], "programs");
-        assert_eq!(document["journeys"][3]["ready"], false);
-        assert_eq!(
-            document["journeys"][3]["failing"],
-            serde_json::json!(["registry"])
-        );
-        for index in 0..3 {
-            assert_eq!(document["journeys"][index]["ready"], true);
+        assert_eq!(document["journeys"][0]["journey"], "funding");
+        assert_eq!(document["journeys"][0]["ready"], true);
+        for (index, journey) in [(1, "payment"), (2, "receipt_inspection")] {
+            assert_eq!(document["journeys"][index]["journey"], journey);
+            assert_eq!(document["journeys"][index]["ready"], false);
+            assert_eq!(
+                document["journeys"][index]["failing"],
+                serde_json::json!(["receipt_authority"])
+            );
         }
         Ok(())
     }
@@ -1693,7 +1670,6 @@ mod tests {
             Dependency::Faucet,
             Dependency::CoreAdmin,
             Dependency::ReceiptAuthority,
-            Dependency::Registry,
             Dependency::Redis,
         ] {
             let readiness = HostedReadiness::assemble(&reports(&[failed]), &release());

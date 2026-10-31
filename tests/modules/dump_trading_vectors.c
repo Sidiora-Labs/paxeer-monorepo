@@ -2,12 +2,9 @@
  *
  * Every payload is produced by the kernel's own codec from the fields printed
  * beside it, so the SDK and layerx-types codecs are checked against the C
- * encoding byte for byte. Not part of any Makefile target; regenerate with
- *   make build/liblayerx.a programs-build
- *   cc -std=c17 -Iinclude tests/modules/dump_trading_vectors.c \
- *      build/liblayerx.a programs/target/debug/liblayerx_programs_sandbox.a \
- *      build/liblayerx.a -lcrypto -pthread -ldl -lm -o build/dump_trading_vectors
- *   build/dump_trading_vectors > tests/fixtures/trading-payloads/vectors.json
+ * encoding byte for byte. Regenerate with
+ *   make trading-vectors
+ *   build/tools/dump_trading_vectors > tests/fixtures/trading-payloads/vectors.json
  */
 #include "layerx/lx_perps.h"
 #include "layerx/lx_spot.h"

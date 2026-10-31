@@ -134,7 +134,7 @@ fn revocation_cancels_only_unsubmitted_work_and_persists_session_invalidation() 
         &RevocationEvent {
             did: did.clone(),
             authority: Some(ProtocolAuthority::SessionKey([3; 32])),
-            reason: InvalidationReason::SessionKeyRevoked,
+            reason: InvalidationReason::GrantRevokedOnChain,
             observed_sequence: 8,
         },
     )
@@ -242,7 +242,7 @@ fn revocation_leaves_sibling_and_cross_tenant_sessions_at_their_generation() {
         &RevocationEvent {
             did: did.clone(),
             authority: Some(ProtocolAuthority::SessionKey([3; 32])),
-            reason: InvalidationReason::SessionKeyRevoked,
+            reason: InvalidationReason::GrantRevokedOnChain,
             observed_sequence: 8,
         },
     )
@@ -319,7 +319,7 @@ fn authority_revocation_is_global_for_the_same_did_and_authority_but_session_ids
         &RevocationEvent {
             did: did.clone(),
             authority: Some(ProtocolAuthority::SessionKey([3; 32])),
-            reason: InvalidationReason::SessionKeyRevoked,
+            reason: InvalidationReason::GrantRevokedOnChain,
             observed_sequence: 8,
         },
     )
@@ -375,7 +375,7 @@ fn authority_revocation_batch_failure_changes_no_session_or_generation() {
             &RevocationEvent {
                 did: did.clone(),
                 authority: Some(ProtocolAuthority::SessionKey([3; 32])),
-                reason: InvalidationReason::SessionKeyRevoked,
+                reason: InvalidationReason::GrantRevokedOnChain,
                 observed_sequence: 8,
             },
         ),
@@ -428,7 +428,7 @@ fn revocation_stops_the_in_flight_stream_with_a_typed_event() {
         &RevocationEvent {
             did: did.clone(),
             authority: Some(ProtocolAuthority::SessionKey([3; 32])),
-            reason: InvalidationReason::SessionKeyRevoked,
+            reason: InvalidationReason::GrantRevokedOnChain,
             observed_sequence: 8,
         },
     )

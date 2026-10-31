@@ -16,14 +16,6 @@ const nextConfig = {
   },
   webpack(config) {
     config.module.rules.push({
-      include: fileURLToPath(new URL("./src/api/wallet.ts", import.meta.url)),
-      resolve: {
-        alias: {
-          "./gateway.ts$": fileURLToPath(new URL("./src/app/exchange/actions.ts", import.meta.url)),
-        },
-      },
-    });
-    config.module.rules.push({
       include: fileURLToPath(new URL("../../sdk/wallet/src", import.meta.url)),
       resolve: {
         modules: [

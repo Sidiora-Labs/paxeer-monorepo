@@ -762,82 +762,9 @@ mod simulation_rejection_vectors {
 
 #[cfg(test)]
 mod node_simulation_transport_contract {
-    use super::{
-        decode_fixed_json, decode_hex_json, legacy_simulation_error, raw_program_simulation,
-        ProgramOperationError,
-    };
-    use layerx_client::lni::simulate::{
-        simulation_boundary_id, simulation_evidence_digest, SimulateError, SimulatedExecution,
-        Simulation, SimulationEvidence,
-    };
+    use super::{legacy_simulation_error, ProgramOperationError};
+    use layerx_client::lni::simulate::SimulateError;
     use layerx_types::result::ResultCode;
-    use sha2::{Digest as _, Sha256};
-
-    #[test]
-    fn node_simulation_preserves_the_signed_evidence_contract() -> Result<(), String> {
-        let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
-        ))
-        .map_err(|error| error.to_string())?;
-        let public: [u8; 32] =
-            decode_fixed_json(&fixture["authorized_batch"], "sequencer_public_key_hex")
-                .map_err(|error| format!("{error:?}"))?;
-        let receipt = decode_hex_json(&fixture, "canonical_receipt_hex")
-            .map_err(|error| format!("{error:?}"))?;
-        let terminal_payload = decode_hex_json(&fixture, "terminal_payload_hex")
-            .map_err(|error| format!("{error:?}"))?;
-        let call_graph =
-            decode_hex_json(&fixture, "call_graph_hex").map_err(|error| format!("{error:?}"))?;
-        let decoded =
-            layerx_wire::receipt::decode(&receipt).map_err(|error| format!("{error:?}"))?;
-        let protocol = decoded.protocol().ok_or("protocol receipt")?;
-        let evidence = SimulationEvidence {
-            boundary_id: simulation_boundary_id(&public),
-            activity_id: protocol.activity_id(),
-            previous_state_root: protocol.previous_state_root(),
-            hypothetical_state_root: protocol.resulting_state_root(),
-            observed_sequence: protocol.global_sequence(),
-            observed_at: protocol.timestamp(),
-            public_key: public,
-            signature: [7; 64],
-        };
-        let raw = raw_program_simulation(Simulation {
-            execution: SimulatedExecution {
-                activity_id: protocol.activity_id(),
-                receipt: receipt.clone(),
-                terminal_payload: terminal_payload.clone(),
-                call_graph: call_graph.clone(),
-            },
-            evidence,
-        });
-        assert_eq!(raw.receipt, receipt);
-        assert_eq!(raw.terminal_payload, terminal_payload);
-        assert_eq!(raw.call_graph, call_graph);
-        assert_eq!(raw.evidence_signature, evidence.signature);
-        assert!(!raw.evidence.committed);
-        assert_eq!(
-            raw.evidence.signing_digest(),
-            simulation_evidence_digest(&evidence)
-        );
-        let mut boundary = b"LayerX/emulator/simulation-boundary/v1\0".to_vec();
-        boundary.extend_from_slice(&public);
-        let simulator_boundary: [u8; 32] = Sha256::digest(boundary).into();
-        assert!(raw.evidence.matches_context(
-            simulator_boundary,
-            protocol.activity_id(),
-            protocol.previous_state_root(),
-            protocol.resulting_state_root(),
-            protocol.global_sequence(),
-            protocol.timestamp(),
-        ));
-        let mut committed = raw.evidence;
-        committed.committed = true;
-        assert_ne!(
-            committed.signing_digest(),
-            simulation_evidence_digest(&evidence)
-        );
-        Ok(())
-    }
 
     #[test]
     fn node_simulation_refusals_keep_their_existing_paths() {

@@ -80,7 +80,7 @@ def sources():
     tracked = subprocess.check_output([
         'git', 'ls-files', '-z', '--', 'src', 'include', 'programs',
         'services/agent/crates', 'services/agent/Cargo.toml', 'services/agent/Cargo.lock',
-        'contracts/config/checkpoint-settlement.json', 'tests/programs', '.cargo',
+        'tests/programs', '.cargo',
     ], cwd=ROOT).decode().split('\0')
     names = set(OWN)
     for name in tracked:

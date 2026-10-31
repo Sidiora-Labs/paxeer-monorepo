@@ -721,7 +721,6 @@ fn ledger_asset_answer() -> Vec<u8> {
 fn asset_chain_answer(call: &Value) -> internal_http::Response {
     let to = call["params"][0]["to"].as_str().unwrap();
     let data = call["params"][0]["data"].as_str().unwrap();
-    assert_ne!(to, evm::address_hex(&evm::CUSTODY_PRECOMPILE));
     assert_eq!(call["params"][1], LATEST_BLOCK);
     let answer = if to == evm::address_hex(&evm::LEDGER_PRECOMPILE) {
         let calldata = |byte| format!("0x2cc3ce80{}", hex(&[byte; 32]));

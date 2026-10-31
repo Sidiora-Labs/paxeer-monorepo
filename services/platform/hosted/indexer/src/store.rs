@@ -180,9 +180,9 @@ CREATE TABLE IF NOT EXISTS chain_links(
 );
 ";
 
-/// Evidence source of the published local stability level: the configured
-/// reorg depth below the indexed head. It never implies LayerX settlement.
-pub const STABILITY_SOURCE: &str = "local_finality_depth";
+/// Evidence source of the published node stability level: block commit.
+/// It never implies LayerX settlement.
+pub const STABILITY_SOURCE: &str = "block_commit";
 /// Explorer row keys are strictly below this value.
 pub const EXPLORER_KEY_LIMIT: u64 = (1 << 62) - 1;
 /// The provenance of explorer-imported rows.
