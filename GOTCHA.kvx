@@ -11976,3 +11976,38 @@ fix = "Before specifying a transaction form for a payload, read decode_method's 
 title = "Budget context binding derives account ids at protocol 3 regardless of the preparation protocol"
 symptom = "18.1188.2 attempt 8 derived the context accounts at layerx_intents::canonical::PROTOCOL_VERSION and bound_context answered MalformedPayload."
 fix = "Build a BudgetStateContext with account_id_for_protocol(.., 3), the derivation native.rs:220 uses; a mismatch surfaces as MalformedPayload, not FieldMismatch."
+
+[gotcha.2433]
+title = "A deleted conformance fixture breaks a test support module pulled into a library test by #[path]"
+symptom = "8.98.14 attempt 5 and 8.98.3 attempt 6 failed to build the authority tests on lifecycle_dispatch.rs:172 including receipt-programs-positive-v3.json, deleted by 8.47.5."
+fix = "After fixture deletions grep include_str across services/platform too, including tests/support files reached through #[path] in src/lib.rs; the crate's own src tree is not the whole test build."
+
+[gotcha.2434]
+title = "Porting one checkpoint reader to the RPC block type breaks every sibling consumer of VerifiedCheckpoint"
+symptom = "8.98.3 attempt 6 changed checkpoint_for to return SequencerBlock and human.rs, human/dynamic.rs and human/budget_state.rs failed to compile on canonical_header, report() and the socket constants."
+fix = "Before replacing a shared return type, grep the crate for every consumer of the old type's methods; port them in the same task or leave the type and record the gap."
+
+[gotcha.2435]
+title = "Retirement tests name the files they retire, so a sibling absence scan must skip them"
+symptom = "8.45.4's conformance walk flagged kernel-fixtures-retired-2.test.py and kernel-fixtures-retired-4.test.py for naming the retired generator and fixture."
+fix = "When a scan asserts a name is absent from a tree, exclude the tests whose assertions quote that name, or the two scans contradict each other."
+
+[gotcha.2436]
+title = "A hand edit to a DO NOT EDIT generated file fails the generator's check gate much later"
+symptom = "8.46.1, 8.46.2 and 18.1308.2 wrote EVMMetadata into sdk/platform/go/generated.go; 8.45.4's reseal test ran check_go and reported the file stale."
+fix = "Put hand-written code beside a generated file in a handwritten sibling of the same package and list it in pipeline.kvx; never add to a file whose header says the generator owns it."
+
+[gotcha.2437]
+title = "pax-tendermint answers GET /status without the jsonrpc result envelope"
+symptom = "5.98.4 attempt 6 asserted status['result']['node_info'] and the body carried node_info at the top level."
+fix = "Read Comet GET responses the way tools/hpx/registry/main.go rpcGet does: unwrap result when present, otherwise use the object itself."
+
+[gotcha.2438]
+title = "The call activity binary's default path reads a conformance fixture that no longer exists"
+symptom = "16.33.5 attempt 9 would have failed after the spend case too: test_call_activity.c:3329 opens receipt-programs-executed-v3.json with no argument given."
+fix = "Grep the C test sources for every deleted fixture path, not only Rust include_str readers."
+
+[gotcha.2439]
+title = "A consensus standby that is not in the committee times out on acknowledgements without saying so first"
+symptom = "12.35.4 attempts up to 19 saw acknowledgement timeouts; only the latest log reached 'validator not in committee' at round_state.go:537."
+fix = "When replication acknowledgements time out, check committee membership of the acknowledging identity before tuning timeouts."

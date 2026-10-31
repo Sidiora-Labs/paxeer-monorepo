@@ -5733,6 +5733,54 @@ value = "tests/agent_controls_rungs.rs derives owner, budget_account and source_
 basis = "bound_context pins the derivation to protocol 3 (finding.18.1188.2.4); a context derived at another protocol is refused as MalformedPayload."
 affects = ["18.1188.2"]
 
+[decision.2104]
+title = "The authority test support file drops its reader of the deleted v3 programs receipt"
+value = "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs joins the touches of 8.98.3 and 8.98.14; call_fixture (:171-195) and call_outcome_cannot_be_reclassified_as_state (:262-274) go, the two deploy-receipt tests stay."
+basis = "Both tasks build the authority crate with --tests and both stopped at the include of a fixture 8.47.5 removed (finding.8.98.14.2)."
+affects = ["8.98.3", "8.98.14"]
+
+[decision.2105]
+title = "The authority keeps its socket checkpoint reads until a task ports the human readers"
+value = "8.98.3 withdraws the checkpoint_for port of decisions 2075, 2083 and 2100's first half; it deletes verify_withdrawal_request and scans main.rs and trust.rs for client, head, caps and batch only."
+basis = "rpc SequencerBlock carries no canonical header or threshold report, and the human readers and budget_state.rs need both (finding.8.98.3.4); decisions 2057 and 2058 already defer the budget reads to 8.98.14."
+affects = ["8.98.3", "8.98.14"]
+
+[decision.2106]
+title = "The pipeline retirement scan skips the retirement tests that name the retired files on purpose"
+value = "pipeline_lock_lists_no_kernel_receipt_fixture skips kernel-fixtures-retired-*.test.py and otherwise walks sdk/platform/conformance as decision 2014 says."
+basis = "Attempts 1 to 3 of 8.45.4 failed on the two retirement tests whose assertions are the retired names."
+affects = ["8.45.4"]
+
+[decision.2107]
+title = "The native lifecycle fixture generator stops reading the deleted v3 executed receipt"
+value = "generate_native_lifecycle_fixtures.py joins 8.45.4's touches and loses its --stored-historical-v3 call on receipt-programs-executed-v3.json (:199-203)."
+basis = "8.47.6 deleted the fixture and the encoder fails to open it; 8.47.2 and 8.47.9, the file's previous owners, are done."
+affects = ["8.45.4"]
+
+[decision.2108]
+title = "The hand-written Go EVM metadata moves out of the generated catalogue file"
+value = "EVMOperationMetadata and AgentOperation::EVMMetadata live in sdk/platform/go/evm_metadata.go, a handwritten file of the pipeline lock; generated.go is again the generator's exact output."
+basis = "check_go compares the committed file with the rendered schemas byte for byte and the generator renders no EVM metadata; three tasks edited the generated file by hand."
+affects = ["8.45.4"]
+
+[decision.2109]
+title = "The local node test accepts the bare Comet status object"
+value = "test_merge_precompiles_served reads node_info from the optional result envelope or the top level."
+basis = "The node's Comet answers GET /status without the jsonrpc envelope, as the registry tool and the v6120 Go test already assume."
+affects = ["5.98.4"]
+
+[decision.2110]
+title = "The call activity binary stops opening the deleted v3 executed receipt"
+value = "tests/programs/test_call_activity.c loses the no-argument stored_historical_receipt call on receipt-programs-executed-v3.json (:3329-3331)."
+basis = "8.47.6 deleted the fixture; the retired-suite test runs the binary without arguments."
+affects = ["16.33.5"]
+
+[decision.2111]
+title = "The program-owned spend case follows the kernel's planning refusal code when that is what refuses it"
+value = "16.33.5 may change the :2895-2914 expectations from LXP_ERR_NON_CANONICAL to LXP_ERR_PROGRAM_REFUSED after reading the refusing kernel path, and stops otherwise."
+basis = "Attempt 9 failed on that case on a line the task never touched (finding.16.33.5.1)."
+affects = ["16.33.5"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -96584,7 +96632,7 @@ do_9 = "Decision 2094: attempt 5 (2434dfc8e, the re-qualification of attempt 4) 
 
 [task.1.26.2]
 title = "Prove optimistic concurrent execution equals sequential execution through the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.26.1", "1.23.2"]
@@ -98081,7 +98129,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.39.2]
 title = "Check read bridge calls against concurrent executions on the node pool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.26.1"]
@@ -122129,6 +122177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Consumer-proof task: the test starts the real fixture, reads the real node over its JSON-RPC and asserts the code the wallet gateway's probe requires at every merge address; a mocked node or a stubbed eth_getCode is not a proof (decision.1990)."
 do_5 = "Decision 2061: the node serves precompiles as native handlers without account code (attempt 1: eth_getCode answers 0x at all twelve merge addresses while the native ledger accountId eth_call is served), so eth_getCode is not a readiness probe. require_merge_precompiles in tools/qualification/localnode/v6120-node.sh probes each MergeAddressTable address (precompiles/setup.go) with eth_call data 0xffffffff: every merge precompile rejects an unknown selector with LXP_PRECOMPILE_UNKNOWN_METHOD (precompiles/common/precompiles.go:277-283, precompiles/layerxledger/layerxledger.go:75-81, precompiles/layerxagent/common/common.go:194-196), so a JSON-RPC error means served and an empty 0x result means no handler is registered there; keep the native-ledger accountId positive call; the planned test asserts the same over RPC after start. Where the 0x0901-0x0908 handlers answer 0x, the fixture's upgrade or genesis configuration must register them (do_1-do_3); the gateway's own eth_getCode probe is task 12.13.7's (finding.5.98.4.1). Continue from attempt 2 (dfcaca56f) once the node builds again (task 1.12.4): apply this, build once and verify once."
 do_6 = "Decision 2096: attempt 5 (4fd96be14) fails at 0x0901 because the agent-function handlers at 0x0901-0x0908 check the merge upgrade activation before the selector and answer LXP_AGENT_NOT_ACTIVE (finding.5.98.4.2). require_merge_precompiles treats a JSON-RPC error whose message contains LXP_PRECOMPILE_UNKNOWN_METHOD or LXP_AGENT_NOT_ACTIVE as served; any other error text, an empty 0x result or a successful return fails the probe as before. The planned test asserts the same two accepted codes. Continue from attempt 5, build once and verify once."
+do_7 = "Decision 2109: attempt 6 (3ecc5b567) built and the verify stopped at test_merge_precompiles_served.py:85 with KeyError 'result': this node's Comet RPC answers GET /status with the bare status object (tools/hpx/registry/main.go:500-518 rpcGet documents and unwraps the optional jsonrpc envelope; tools/qualification/localnode/v6120_test.go:44-49 decodes the body straight into coretypes.ResultStatus). The test reads node_info from status['result'] when that key is present and from the top level otherwise, and still requires node_info.network == hyperpax_125-1."
 
 [task.5.98.3]
 title = "Seed the local node's dev genesis with the perps market, pricefeed and collateral state of the perps-data test"
@@ -139468,9 +139517,9 @@ do_2 = "Add committed.go, verify/Committed.java, Committed.cs and Committed.swif
 do_3 = "Remove the kernel receipt fixtures, their generators and terminal-v4.test.py from the conformance handwritten list at sdk/platform/pipeline.kvx:346."
 do_4 = "Create sdk/platform/generators/tests/pipeline_reseal.rs (planned) running --check against the repository root."
 symbols = ["write_lock", "check"]
-touches = ["sdk/platform/pipeline.kvx", "sdk/platform/generators/tests/pipeline_reseal.rs"]
+touches = ["sdk/platform/pipeline.kvx", "sdk/platform/generators/tests/pipeline_reseal.rs", "sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py", "sdk/platform/go/generated.go", "sdk/platform/go/evm_metadata.go"]
 tests = ["sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_matches_repository", "sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_lists_no_kernel_receipt_fixture"]
-planned_paths = ["sdk/platform/generators/tests/pipeline_reseal.rs"]
+planned_paths = ["sdk/platform/generators/tests/pipeline_reseal.rs", "sdk/platform/go/evm_metadata.go"]
 build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen"
 verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test pipeline_reseal -- --exact pipeline_lock_matches_repository pipeline_lock_lists_no_kernel_receipt_fixture"
 gate_kind = "planned"
@@ -139486,6 +139535,9 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "pipeline_lock_lists_no_kernel_receipt_fixture also walks sdk/platform/conformance and asserts no file there names a retired receipt fixture or generator of tasks 8.47.4, 8.47.5 and 8.47.6 (decision.2014): the two retirement scans skip each other's files and this task, which requires all three, closes that gap."
+do_6 = "Decision 2106: attempts 1 to 3 (6ea483455, a244de9cd, 50538eed4) fail pipeline_lock_lists_no_kernel_receipt_fixture on sdk/platform/conformance/kernel-fixtures-retired-2.test.py:40, which names generate_program_receipt_fixture.c, and kernel-fixtures-retired-4.test.py:9, which names receipt-programs-positive-v3.json: those files are the retirement tests of 8.47.4, 8.47.5 and 8.47.6 and name the retired files in order to assert their absence. The walk of do_5 skips every file matching kernel-fixtures-retired-*.test.py and otherwise asserts as written."
+do_7 = "Decision 2107: the same scan is right about sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:199-203, which runs the encoder with --stored-historical-v3 on receipt-programs-executed-v3.json, a fixture 8.47.6 deleted (the encoder's stored_historical_receipt at tests/programs/test_call_activity.c:2715 opens the path and fails). Delete that subprocess.run call; the file joins touches."
+do_8 = "Decision 2108: pipeline_lock_matches_repository fails because check_go (sdk/platform/generators/src/main.rs:1462-1473) regenerates sdk/platform/go/generated.go from the agent and human schemas and the committed file differs: type EVMOperationMetadata (generated.go:342-347) and func (operation AgentOperation) EVMMetadata() (:349 onward) were written by hand by 8.46.1 (35c3696c5), 8.46.2 (89145e0ce) and 18.1308.2 (ef56c7194) and no generator source renders them. Move both into sdk/platform/go/evm_metadata.go (planned, same package, byte-for-byte the current bodies, so sdk/platform/go/operation_catalog_test.go and portable_catalogue_test.go keep passing), list that file under [handwritten.platform-go] (sdk/platform/pipeline.kvx:258), then run --write (do_1) so generated.go is again exactly the generator's output. If --write changes generated.go beyond removing the two moved items, stop and record the differing lines."
 
 [task.8.46.1]
 title = "Go catalogue and operations.json route program and intent operations to EVM calls"
@@ -140962,7 +141014,7 @@ do_1 = "After task 8.11.3 removes the kernel socket from the receipt authority, 
 do_2 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-platform-authority (services/platform/hosted/authority/Cargo.toml:1) and every existing test of the crate stay unchanged."
 do_3 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/authority/tests/retired_client_modules_w2.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
 symbols = ["no_retired_layerx_client_module_paths_w2"]
-touches = ["services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules_w2.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/tests/chain_receipts.rs"]
+touches = ["services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules_w2.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"]
 tests = ["services/platform/hosted/authority/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2"]
 planned_paths = ["services/platform/hosted/authority/tests/retired_client_modules_w2.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
@@ -140984,6 +141036,8 @@ do_5 = "This task requires 8.98.4, which ports human/budget_state.rs off Uds::co
 do_6 = "Decision 2075: attempt 3 (321642b79) changed two lines of src/main.rs and failed the scan on 'src/main.rs names retired path layerx_client::lni' (imports :8-10, MAX_LNI_CONNECTIONS :40, Config.lni_socket and lni_gate :94-95, the LAYERX_AUTHORITY_LNI_SOCKET block :288-291 and :338-339, the Uds::connect uses :687-688 and :878-883, :992). do_4 and do_5 are the task: checkpoint_for (:681) reads the committed checkpoint through layerx_client::rpc::evidence::checkpoint (src/rpc/evidence.rs:25) and verify_withdrawal_request (:858) the proof through rpc::evidence::proof_bundle_with_history (:46, ProofBundle :9), both over the configured PxEndpoint; then the lni imports, the constant, the two Config fields, the environment block and the connection gate leave src/main.rs. tests/human_tls.rs, tests/chain_receipts.rs and src/trust.rs keep their lni uses (finding.8.98.3.1). Continue from attempt 3, build once and verify once."
 do_7 = "Decision 2083: attempt 4 (b28010d09) changed one import line of src/main.rs and the scan failed again on src/main.rs naming layerx_client::lni. The task is the port of decision 2075 plus the removal of the lni transport plumbing it leaves dead: checkpoint_for (:681) reads the committed checkpoint through layerx_client::rpc::evidence::checkpoint (src/rpc/evidence.rs:25) and verify_withdrawal_request (:858) the proof through rpc::evidence::proof_bundle_with_history (:46), both over the configured PxEndpoint; the lni imports (:8-10), LNI_FRAME_BYTES (:41), Config.lni_socket and lni_gate (:94-95), the LAYERX_AUTHORITY_LNI_SOCKET block (:288-291, :338-339) and its USAGE line leave src/main.rs, and MAX_LNI_CONNECTIONS (:40) becomes MAX_READINESS_PERMITS with the same value for the readiness permit count at :992. src/trust.rs drops the lni schema and transport imports (:8-9), limits() (:32) and the FrameTransport-taking checkpoint fetch (:177) that only the removed path called; tests/chain_receipts.rs drops its lni_socket, lni_gate and LAYERX_AUTHORITY_LNI_SOCKET harness lines (:263-264, :372, :456, :641, :839-849, :905). trust.rs and tests/chain_receipts.rs join touches; the build compiles the test targets and verify also runs chain_receipts. If proof_bundle_with_history cannot answer the evidence verify_withdrawal_request needs, record one qualification entry and stop. Continue from attempt 4, build once and verify once."
 do_8 = "Decision 2100: attempt 5 stopped on decision 2083's condition. rpc::evidence::ProofBundle (src/rpc/evidence.rs:9-12) carries an account proof and the landing block, the replica document (BatchEvidence, src/lib.rs:97-106) carries the header, its signature, the receipt proof and the batch identity, and layerx-client's JSON-RPC surface has no read of a signed activity by activity id (sequencer.rs public methods; rpc::receipt::AuthenticatedReceipt returns the receipt only), so the signed_activity that layerx_proof::receipt::withdrawal::verify (receipt/withdrawal.rs:179-185) decodes cannot be obtained by the authority (finding.8.98.3.3). Delete verify_withdrawal_request (:858-957), its call and the withdrawal_evidence_unavailable refusal (:819-821) and the imports only it used; the receipt stays bound to its batch through authorized_batch_by_activity, and withdrawal semantics are verified at submission by the gateway (services/platform/hosted/gateway/src/main.rs:2903-2931 verify_withdrawal_submission over the submission's canonical activity). checkpoint_for ports to rpc::evidence::checkpoint as decision 2083 says and the rest of decision 2083 stands. Continue from attempt 4 (b28010d09), build once and verify once."
+do_9 = "Decision 2104: attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) fail the authority test build because tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes the receipt-programs-positive-v3.json fixture that 8.47.5 deleted (finding.8.98.14.2). Whichever of 8.98.3 and 8.98.14 publishes first deletes call_fixture (:171-195) and its only consumer call_outcome_cannot_be_reclassified_as_state (:262-274); module_offset (:198) stays for malformed_state_module_version_and_signature_are_refused (:235) and the verify_outcome import for the deploy test at :214-217. If main already lacks call_fixture, this line is satisfied."
+do_10 = "Decision 2105: attempt 6 (6a83e2d41) ported checkpoint_for and checkpoint_header onto rpc::evidence::checkpoint and broke the human readers (finding.8.98.3.4): human/budget_state.rs:5, :77, :103 and :256 still read over the socket (decisions 2057, 2058, until 8.98.14), and human.rs:134, :579, :588, :1013, :1025, :1037 and human/dynamic.rs:141, :563, :570 consume VerifiedCheckpoint methods that rpc SequencerBlock (services/agent/crates/layerx-client/src/sequencer.rs:190-200) lacks. The checkpoint port of do_4, do_6 and do_7 is withdrawn: checkpoint_for, checkpoint_header, trust::limits, trust::checkpoint, LNI_FRAME_BYTES, MAX_LNI_CONNECTIONS, Config.lni_socket, Config.lni_gate and the LAYERX_AUTHORITY_LNI_SOCKET block stay as on main. The task deletes verify_withdrawal_request, its call, the withdrawal_evidence_unavailable refusal and the imports only it used (decision 2100), and no_retired_layerx_client_module_paths_w2 scans src/main.rs and src/trust.rs for layerx_client::client, ::head, ::caps and ::batch; lni, read and evidence join the list in the task that ports the human readers. Every existing authority test still passes."
 
 [task.8.98.4]
 title = "Migrate the authority callers of wiring.J44.20"
@@ -141396,7 +141450,7 @@ do_2 = "Add no_kernel_custody_reads_in_core to services/platform/hosted/core/tes
 do_3 = "Remove the LAYERX_CORE_LNI_SOCKET read at services/platform/hosted/core/src/main.rs:349 and the variable at node/deployment.yaml:432 once no code path reads it (8.18.1 do_2 keeps it until this task); if a reader remains, stop and record it."
 do_4 = "Change nothing under services/agent and weaken no scan; layerx-platform-core and layerx-node-probe build and the retired_client_modules_w2 target passes both scans."
 symbols = ["no_kernel_custody_reads_in_core"]
-touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"]
+touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"]
 tests = ["services/platform/hosted/core/tests/retired_client_modules_w2.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests && cargo build --locked --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml -p layerx-node-probe && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
@@ -141417,6 +141471,7 @@ do_6 = "When custody_session and the custody reads no longer open an LNI connect
 do_7 = "When connect_client and its layerx_client::client import leave services/platform/hosted/core/src/main.rs, add 'client' to the retired_modules list of tests/retired_client_modules_w2.rs (decision.2024)."
 do_8 = "After porting the custody block and the authority budget reader (services/platform/hosted/authority/src/human/budget_state.rs, decision 2057), add 'read' to the retired_modules lists of services/platform/hosted/core/tests/retired_client_modules_w2.rs and services/platform/hosted/authority/tests/retired_client_modules.rs (decisions 2057 and 2058), so both tests then prove the port."
 do_9 = "Decision 2095: attempts 1 to 3 (f558a861c and 25e68910b among them) fail the build on the core test target no_kernel_disclosure_codec.rs, whose source! list (:16-17) includes services/platform/hosted/gateway/tests/local/funding.rs and withdrawal.rs, files task 8.19.5 deleted (finding.8.98.14.1). The test joins touches: delete those two source! entries and no other; then the task as declared. Continue from attempt 3, build once and verify once."
+do_10 = "Decision 2104: attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) fail the authority test build because tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes the receipt-programs-positive-v3.json fixture that 8.47.5 deleted (finding.8.98.14.2). Whichever of 8.98.3 and 8.98.14 publishes first deletes call_fixture (:171-195) and its only consumer call_outcome_cannot_be_reclassified_as_state (:262-274); module_offset (:198) stays for malformed_state_module_version_and_signature_are_refused (:235) and the verify_outcome import for the deploy test at :214-217. If main already lacks call_fixture, this line is satisfied."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -147721,7 +147776,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.6.2]
 title = "Remove bridge mechanisms from send routing and executable shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.8.1", "10.8.2", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1"]
@@ -163544,7 +163599,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.98.1]
 title = "Program submissions carry their receipt authorities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["13.22.4", "13.0.4", "1.26.1", "18.1073.1", "18.1130.1"]
@@ -174593,6 +174648,8 @@ do_11 = "Decision 2055: do_9's build_and_run_c_suite target is build/tests/progr
 do_12 = "Decision 2077: attempt 6 (912059ee1) builds, and build/tests/programs_call_activity exits 1 because tests/programs/test_call_activity.c:3020 and :3330 call stored_historical_receipt on sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json, a fixture task 8.47.5 (88faddb09) removed; tests/ci/test_receipt_fixture_readers.py:77 admits only the v4 receipt fixture. Delete those two cases from test_call_activity.c (the remaining cases cover the executed receipt through the v4 fixture). Continue from attempt 6, build once and verify once."
 do_13 = "Decision 2086: attempt 7 (351305ac9) deleted the two v3 cases, publish_artifact_fixture_batch, post_upgrade_batch_regression and the post-upgrade branch of deploy_and_upgrade_artifacts_case, changed the kernel to `static lxp_kernel kernel;`, and build/tests/programs_call_activity now exits -11 (segmentation fault) when tests/ci/retired_tests.py:75 build_and_run_c_suite runs it without arguments. Before the declared build, rebuild the binary once with the Makefile's knobs (EXTRA_CFLAGS :8, EXTRA_LDFLAGS :9, the pattern of :1183-1189: EXTRA_CFLAGS='-fsanitize=address -g' EXTRA_LDFLAGS='-fsanitize=address'), run it, and fix the case the first sanitizer frame names in tests/programs/test_call_activity.c (a case that still reaches state the deleted helpers set up, or the static kernel reused across cases without re-initialisation). Also delete the --stored-historical-v3 argv mode (:3017-3018) and stored_historical_receipt (:2405) since no caller remains. Then the declared build once and verify once."
 do_14 = "Decision 2099: attempt 8 (50f498acb) builds, and build/tests/programs_call_activity exits 1 ('Programs artifact fixture protocol=3 failed at line=1467'): replaying the accepted call with its original account_sequence expects LXP_ERR_IDEMPOTENT_REPLAY (tests/programs/test_call_activity.c:1439 in the dump_executed_v4 branch and :1466), but lxp_admit_activity (src/sequencer/lxp_admission.c:33-37) refuses a reused account sequence before it reads the idempotency key, so the kernel answers LXP_ERR_SEQUENCE_REUSED; task 16.94.1 (d1e505545) already moved tests/test_state_commitment_transition.c to that expectation and tests/ci/test_claims_and_replay_removed.py:35-50 pins it. Change both expectations to LXP_ERR_SEQUENCE_REUSED; the following case (:1469-1472, changed idempotency key, same sequence) keeps LXP_ERR_SEQUENCE_REUSED and the sequence-gap case after it stays. Continue from attempt 8, build once and verify once."
+do_15 = "Decision 2110: with no argument, test_call_activity.c:3329-3331 runs stored_historical_receipt on sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json, which 8.47.6 deleted, so the binary cannot pass as the retired-suite test runs it. Delete that call (the --stored-historical-v3 mode at :3327-3328 stays; 8.45.4 removes its last caller)."
+do_16 = "Decision 2111: attempt 9 (e3d2eda13) stopped at test_call_activity.c:2915 (finding.16.33.5.1): the program-owned spend activity at :2895-2914 expects LXP_ERR_NON_CANONICAL and the kernel answers LXP_ERR_PROGRAM_REFUSED. Read the kernel path that refuses this activity; when it is a program planning refusal of the spend itself (lxp_kernel.c:5335-5352 lists LXP_ERR_PROGRAM_REFUSED among the planning refusals) and not an encoding check, change both expectations of that case to LXP_ERR_PROGRAM_REFUSED and name the kernel line in the commit; when the kernel refuses on an encoding fault, stop and record the kernel line instead."
 
 [task.16.33.6]
 title = "Retire the replay fixture headers and the replay and certificate cases of the tools suite"
@@ -192736,7 +192793,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1205.1]
 title = "Issue #1205: Port the degraded-mode tests to rungs and the current metric labels"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1199.1", "18.1206.1", "18.1200.1", "18.1304.1"]
