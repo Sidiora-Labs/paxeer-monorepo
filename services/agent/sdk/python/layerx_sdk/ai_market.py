@@ -41,7 +41,6 @@ from .native_program_call import (
 from .production import PlatformSdkError, SdkErrorCode
 from .verifier import (
     AuthorizedReceiptBatch,
-    CheckpointVerification,
     LocalSignatureVerifier,
 )
 
@@ -629,19 +628,6 @@ class SnapshotBinding:
             + struct.pack(">BQ", self.rank, self.publication_time_ms)
             + bytes(8)
         )
-
-    def require_checkpoint(self, verification: CheckpointVerification) -> None:
-        if verification.level not in ("checkpoint-finalised", "settlement-anchored"):
-            raise AiMarketError("FinalityUnavailable")
-        header = verification.header
-        if (
-            verification.checkpoint_id != self.checkpoint
-            or header.resulting_state_root != self.native_state_root
-            or not header.first_sequence
-            <= self.observed_sequence
-            <= header.last_sequence
-        ):
-            raise AiMarketError("BindingMismatch")
 
 
 @dataclass(frozen=True)
@@ -1622,12 +1608,6 @@ class OperationJournal:
         if receipt is None:
             return record.state
         raise AiMarketError("ProgramsReceiptVerifierUnavailable")
-
-    def finalize(
-        self, record: OperationRecord, verification: CheckpointVerification
-    ) -> SdkState:
-        _require(record, SdkState.EXECUTED)
-        raise AiMarketError("CometCommitVerifierUnavailable")
 
     def expire(self, record: OperationRecord, now: int) -> SdkState:
         _require(record, SdkState.SIGNED)

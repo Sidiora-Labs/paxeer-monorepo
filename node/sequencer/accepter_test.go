@@ -34,10 +34,20 @@ import (
 
 type accepterReceiptReplayer struct {
 	appReplayer
-	r *sequencer.Receipter
+	r      *sequencer.Receipter
+	sealed *sequencer.Batch
 }
 
-func (r accepterReceiptReplayer) Execute(entry *wal.Accept) ([]byte, error) {
+func (r *accepterReceiptReplayer) Apply(entry wal.Entry) error {
+	if seal, ok := entry.(*wal.Seal); ok {
+		batch, err := r.exec.Seal(int64(seal.Height))
+		r.sealed = batch
+		return err
+	}
+	return r.appReplayer.Apply(entry)
+}
+
+func (r *accepterReceiptReplayer) Execute(entry *wal.Accept) ([]byte, error) {
 	acc, receipt, err := r.r.Accept(entry.Tx)
 	if err != nil {
 		return nil, err
@@ -50,6 +60,9 @@ func (r accepterReceiptReplayer) Execute(entry *wal.Accept) ([]byte, error) {
 
 type accepterHarness struct {
 	h      *harness
+	sh     *harness
+	rep    *sequencer.Replicator
+	replay *accepterReceiptReplayer
 	sb     *sequencer.Standby
 	w      *wal.WAL
 	sw     *wal.WAL
@@ -91,7 +104,15 @@ func newAccepterAppHarness(t *testing.T, funded ...utils.TestAcct) *harness {
 
 func newAccepterHarness(t *testing.T, funded ...utils.TestAcct) *accepterHarness {
 	t.Helper()
+	return newAccepterHarnessWithExecutor(t, nil, funded...)
+}
+
+func newAccepterHarnessWithExecutor(t *testing.T, configure func(sequencer.Executor) sequencer.Executor, funded ...utils.TestAcct) *accepterHarness {
+	t.Helper()
 	h, sh := newAccepterAppHarness(t, funded...), newAccepterAppHarness(t, funded...)
+	if configure != nil {
+		h.exec = configure(h.exec)
+	}
 	key, err := loadKey(t, testKeySeed, []verify.SequencerAuthorization{{
 		SequencerID: testKeyID, PublicKey: publicOf(testKeySeed), FirstBatchNumber: 1, LastBatchNumber: 1000,
 	}}, openHeight)
@@ -127,8 +148,9 @@ func newAccepterHarness(t *testing.T, funded ...utils.TestAcct) *accepterHarness
 	_, standbyKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 	pub := key.PublicKey()
+	replay := &accepterReceiptReplayer{appReplayer: appReplayer{exec: sh.exec}, r: sr}
 	sb, err := sequencer.NewStandby(context.Background(), sequencer.StandbyConfig{
-		WAL: sw, Executor: accepterReceiptReplayer{appReplayer{exec: sh.exec}, sr},
+		WAL: sw, Executor: replay,
 		ConsensusKey: pv, ReceiptKey: standbyKey,
 		PrimaryConsensusKey: primaryPub, PrimaryReceiptKey: ed25519.PublicKey(pub[:]),
 		CommittedHeight: uint64(committedTip), LastSeq: startSeq,
@@ -150,7 +172,7 @@ func newAccepterHarness(t *testing.T, funded ...utils.TestAcct) *accepterHarness
 	t.Cleanup(rep.Close)
 	src := sequencer.NewReceiptSource(32)
 	return &accepterHarness{
-		h: h, sb: sb, w: w, sw: sw, dir: dir, sdir: sdir, l: l,
+		h: h, sh: sh, rep: rep, replay: replay, sb: sb, w: w, sw: sw, dir: dir, sdir: sdir, l: l,
 		a: sequencer.NewAccepter(r, rep, src, m), src: src, key: key, reader: reader, synced: synced,
 	}
 }
@@ -184,6 +206,126 @@ func accepterHistogram(t *testing.T, h *accepterHarness, name string) metricdata
 	require.True(t, ok)
 	require.Len(t, hist.DataPoints, 1)
 	return hist.DataPoints[0]
+}
+
+type accepterSealAfterSnapshot struct {
+	sequencer.Executor
+	snapshots int
+	sealed    *sequencer.Batch
+}
+
+func (s *accepterSealAfterSnapshot) Snapshot() (sdk.Context, error) {
+	ctx, err := s.Executor.Snapshot()
+	if err != nil {
+		return ctx, err
+	}
+	s.snapshots++
+	if s.snapshots == 2 {
+		s.sealed, err = s.Executor.Seal(ctx.BlockHeight())
+	}
+	return ctx, err
+}
+
+func TestAccepterReceiptsASendAcrossASeal(t *testing.T) {
+	sender := utils.NewSigner()
+	to := utils.NewSigner().EvmAddress
+	var sealing *accepterSealAfterSnapshot
+	h := newAccepterHarnessWithExecutor(t, func(exec sequencer.Executor) sequencer.Executor {
+		sealing = &accepterSealAfterSnapshot{Executor: exec}
+		return sealing
+	}, sender)
+	tx, bz := transfer(t, sender, 0, to, big.NewInt(onePaxInWei))
+	type outcome struct {
+		receipt []byte
+		err     error
+	}
+	returned := make(chan outcome, 1)
+	go func() {
+		receipt, err := h.a.Accept(bz)
+		returned <- outcome{receipt, err}
+	}()
+	select {
+	case <-h.synced:
+	case result := <-returned:
+		t.Fatalf("Accept returned before standby acknowledgement: %x, %v", result.receipt, result.err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("primary did not sync the send across the seal")
+	}
+	require.NotNil(t, sealing.sealed)
+	require.Equal(t, [][]byte{bz}, sealing.sealed.Txs)
+	_, err := sealing.Executor.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	send, err := h.src.SequencerSend(tx.Hash())
+	require.NoError(t, err)
+	require.Nil(t, send)
+	select {
+	case result := <-returned:
+		t.Fatalf("Accept returned before standby acknowledgement: %x, %v", result.receipt, result.err)
+	default:
+	}
+	h.serve()
+	var result outcome
+	select {
+	case result = <-returned:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Accept did not return after standby acknowledgement")
+	}
+	require.NoError(t, result.err)
+	verified, err := verify.ReceiptSignature(result.receipt, h.key.PublicKey())
+	require.NoError(t, err)
+	require.Equal(t, startSeq+1, verified.Receipt.GlobalSequence)
+	entries := accepterWALEntries(t, h.dir)
+	require.Len(t, entries, 2)
+	persisted, ok := entries[1].(*wal.Accept)
+	require.True(t, ok)
+	require.Equal(t, result.receipt, persisted.Receipt)
+	require.Equal(t, entries, accepterWALEntries(t, h.sdir))
+	send, err = h.src.SequencerSend(tx.Hash())
+	require.NoError(t, err)
+	require.NotNil(t, send)
+	require.Equal(t, result.receipt, send.Receipt)
+	rcpt, err := h.h.app.EvmKeeper.GetTransientReceipt(sealing.sealed.Ctx, tx.Hash(), 1)
+	require.NoError(t, err)
+	require.Equal(t, rcpt.VmError, send.VMError)
+	require.Len(t, send.LogData, len(rcpt.Logs))
+	for i, log := range rcpt.Logs {
+		require.Equal(t, log.Data, send.LogData[i])
+	}
+	ack, err := h.rep.Release(context.Background(), &wal.Seal{
+		Height: uint64(openHeight), FromSeq: sealing.sealed.FromSeq,
+		ToSeq: sealing.sealed.LastSeq, LastSeqHash: sealing.sealed.LastSeqHash,
+	})
+	require.NoError(t, err)
+	require.Equal(t, sequencer.AckOK, ack.Status)
+	require.NotNil(t, h.replay.sealed)
+	for i, fixture := range []*harness{h.h, h.sh} {
+		batch := []*sequencer.Batch{sealing.sealed, h.replay.sealed}[i]
+		batch.Store.Write()
+		require.Equal(t, openHeight, fixture.app.CommitMultiStore().Commit(true).Version)
+	}
+	nextMs := sealing.sealed.TimestampMs + 1
+	require.NoError(t, h.h.exec.Open(openHeight+1, nextMs))
+	ack, err = h.rep.Release(context.Background(),
+		&wal.Committed{
+			Height: uint64(openHeight), LastSeq: startSeq + 1,
+			AppHash: [32]byte(h.h.app.CommitMultiStore().LastCommitID().Hash),
+		},
+		&wal.Open{Height: uint64(openHeight + 1), OpenTimeMs: uint64(nextMs), BaseFee: uint256.NewInt(0)},
+	)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.AckOK, ack.Status)
+	nextTx, next := transfer(t, sender, 1, to, big.NewInt(onePaxInWei))
+	nextReceipt, err := h.a.Accept(next)
+	require.NoError(t, err)
+	nextVerified, err := verify.ReceiptSignature(nextReceipt, h.key.PublicKey())
+	require.NoError(t, err)
+	require.Equal(t, startSeq+2, nextVerified.Receipt.GlobalSequence)
+	require.Equal(t, startSeq+2, h.sb.LastSeq())
+	require.NoError(t, h.sb.Err())
+	nextSend, err := h.src.SequencerSend(nextTx.Hash())
+	require.NoError(t, err)
+	require.NotNil(t, nextSend)
+	require.Equal(t, nextReceipt, nextSend.Receipt)
 }
 
 func TestAccepterReturnsReceiptAfterStandbyAck(t *testing.T) {

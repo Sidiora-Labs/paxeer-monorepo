@@ -30,7 +30,7 @@ fn main() {
         .env("OPT_LEVEL", "-O2")
         .env_remove("CARGO_TARGET_DIR")
         .env_remove("CARGO_BUILD_TARGET_DIR")
-        .arg("build");
+        .arg("build/liblayerx.a");
     run(make, "LayerX core build");
 
     let mut compiler = Command::new(env::var_os("CC").unwrap_or_else(|| "cc".into()));

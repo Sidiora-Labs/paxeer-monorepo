@@ -7,7 +7,7 @@ from the node and must pass `layerx-proof`; compatibility never permits local re
 
 | Daemon | Node interface | Contract | SDK |
 | --- | --- | --- | --- |
-| 0.1.0 | 1.0+ | 1 | 0.1.0 |
+| 0.1.0 | 1.0+ | 2 | 0.1.0 |
 
 The approval SDK module is an additive contract `1.1` feature. Clients negotiating contract
 `1.0` must treat approval operations and lifecycle events as unavailable. The feature is

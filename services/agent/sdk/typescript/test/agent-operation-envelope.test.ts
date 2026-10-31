@@ -13,7 +13,7 @@ import {
   SecretBytes,
 } from "../src/index.js";
 import type { AgentEnvelopeSuccess } from "../src/index.js";
-import { encodeProofBundleRequest, checkProofBundleResponse } from "../src/agent-http.js";
+import { encodeProofBundleRequest, checkProofBundleResponse, RetiredOperationError } from "../src/agent-http.js";
 import { encodeNativePrepareRequest, encodeNativeApprovalDecision,
   type NativePrepareRequestV1, type NativeLocalGrantV1, type NativeApprovalResultV1, type Operation,
 } from "../src/generated/client.js";
@@ -458,7 +458,18 @@ for (const name of cases) await runCase(name);
 
 const readAccount = object(object(requests, "read"), "request");
 await expectRefusal("faucet_retired",
-  () => transport.call({ plane: "agent", operation: "faucet.claim", request: {} }),
+  async () => {
+    const responsesBefore = responseCount;
+    try {
+      await transport.callRetiredOperation("faucet.claim");
+    } catch (error) {
+      assert(error instanceof RetiredOperationError && error.class === "UnavailableCapability"
+        && error.reason === "unavailable_capability.faucet.claim" && error.retriability === "Terminal",
+        `faucet_retired: expected terminal retired-operation refusal, got ${describe(error)}`);
+      assert(responseCount === responsesBefore, "faucet_retired: the SDK sent a request");
+      throw error;
+    }
+  },
   "unavailable-capability", "never");
 const staleGeneration = (BigInt(generation) + 1n).toString(10);
 await expectRefusal("wrong_generation",

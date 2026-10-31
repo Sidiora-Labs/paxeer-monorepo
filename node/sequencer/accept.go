@@ -76,14 +76,15 @@ func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	s.lastSeq = seq
 	s.lastSeqHash = seqHash
 	return &Accepted{
-		Seq:         seq,
-		PrevSeqHash: prev,
-		SeqHash:     seqHash,
-		ActivityID:  activityID,
-		Height:      s.open.height,
-		TxIndex:     txIndex,
-		TimestampMs: s.open.timestampMs,
-		Result:      result,
+		Seq:            seq,
+		PrevSeqHash:    prev,
+		SeqHash:        seqHash,
+		ActivityID:     activityID,
+		Height:         s.open.height,
+		TxIndex:        txIndex,
+		TimestampMs:    s.open.timestampMs,
+		Result:         result,
+		ReceiptContext: s.receiptContextLocked(),
 	}, nil
 }
 

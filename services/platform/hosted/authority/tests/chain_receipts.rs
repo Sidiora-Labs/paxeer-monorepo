@@ -74,6 +74,14 @@ impl ReceiptHarness {
     }
 
     fn start_with_pins(cases: &[serde_json::Value], pinned: &[serde_json::Value]) -> Self {
+        Self::start_with_chain_id(cases, pinned, 125)
+    }
+
+    fn start_with_chain_id(
+        cases: &[serde_json::Value],
+        pinned: &[serde_json::Value],
+        chain_id: u64,
+    ) -> Self {
         let mut nonce = [0; 16];
         must(getrandom::fill(&mut nonce));
         let directory =
@@ -130,7 +138,13 @@ impl ReceiptHarness {
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
                 must(reader.read_line(&mut line));
-                assert_eq!(line, "POST /evm HTTP/1.0\r\n");
+                let replica_probe = line.starts_with("GET /v1/batches/");
+                if !replica_probe {
+                    assert!(matches!(
+                        line.as_str(),
+                        "POST /evm HTTP/1.0\r\n" | "POST /evm HTTP/1.1\r\n"
+                    ));
+                }
                 let mut length = None;
                 loop {
                     line.clear();
@@ -142,25 +156,41 @@ impl ReceiptHarness {
                         length = Some(must(value.trim().parse::<usize>()));
                     }
                 }
+                if replica_probe {
+                    let mut stream = reader.into_inner();
+                    must(write!(
+                        stream,
+                        "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    ));
+                    continue;
+                }
                 let length = length.unwrap();
                 assert!(length <= 1024);
                 let mut bytes = vec![0; length];
                 must(reader.read_exact(&mut bytes));
                 let request: serde_json::Value = must(serde_json::from_slice(&bytes));
                 assert_eq!(request["jsonrpc"], "2.0");
-                assert_eq!(request["method"], "pax_sequencerReceipt");
-                assert_eq!(request["params"].as_array().unwrap().len(), 1);
-                let hash = request["params"][0].as_str().unwrap();
-                let result = recorded
-                    .get(hash)
-                    .cloned()
-                    .unwrap_or(serde_json::Value::Null);
+                let result = match request["method"].as_str().unwrap() {
+                    "eth_chainId" => {
+                        assert_eq!(request["params"], serde_json::json!([]));
+                        serde_json::json!(format!("0x{chain_id:x}"))
+                    }
+                    "pax_sequencerReceipt" => {
+                        assert_eq!(request["params"].as_array().unwrap().len(), 1);
+                        let hash = request["params"][0].as_str().unwrap();
+                        recorded
+                            .get(hash)
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null)
+                    }
+                    method => panic!("unexpected chain method: {method}"),
+                };
                 let answer =
                     serde_json::json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
                         .to_string();
                 must(seen.lock()).push(request);
                 let mut stream = reader.into_inner();
-                must(write!(stream, "HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", answer.len(), answer));
+                must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", answer.len(), answer));
             }
         });
 
@@ -231,7 +261,11 @@ impl ReceiptHarness {
                 &keys_file,
             )),
             lni_socket: directory.join("absent-lni.sock"),
-            lni_gate: ConnectionGate::new(1),
+            lni_gate: ConnectionGate::new(MAX_LNI_CONNECTIONS),
+            chain_endpoint: trust::chain_endpoint(
+                &format!("http://{address}/evm"),
+                READINESS_TIMEOUT,
+            ),
             protocol_network_id: 125,
             network_id: "chain-receipts-test".to_owned(),
             wire_version: PROTOCOL_VERSION.to_string(),
@@ -283,12 +317,17 @@ struct AuthorityProcess {
 
 impl AuthorityProcess {
     fn start(harness: &ReceiptHarness) -> Self {
+        Self::start_with_replica(harness, None)
+    }
+
+    fn start_with_replica(harness: &ReceiptHarness, replica: Option<SocketAddr>) -> Self {
         let listener = must(TcpListener::bind("127.0.0.1:0"));
         let address = must(listener.local_addr());
         drop(listener);
-        let replica = must(TcpListener::bind("127.0.0.1:0"));
-        let replica_address = must(replica.local_addr());
-        drop(replica);
+        let replica_address = replica.unwrap_or_else(|| {
+            let listener = must(TcpListener::bind("127.0.0.1:0"));
+            must(listener.local_addr())
+        });
         let token = harness.directory.join("authority-token");
         let replica_token = harness.directory.join("replica-token");
         for (path, value) in [
@@ -363,6 +402,10 @@ impl AuthorityProcess {
     }
 
     fn receipt(&self, activity: &str) -> (u16, serde_json::Value) {
+        self.get(&format!("/v1/authorized-batches/by-activity/{activity}"))
+    }
+
+    fn get(&self, path: &str) -> (u16, serde_json::Value) {
         let output = must(
             Command::new("curl")
                 .args([
@@ -376,10 +419,7 @@ impl AuthorityProcess {
                     "--write-out",
                     "\n%{http_code}",
                 ])
-                .arg(format!(
-                    "https://{}/v1/authorized-batches/by-activity/{activity}",
-                    self.address
-                ))
+                .arg(format!("https://{}{path}", self.address))
                 .output(),
         );
         assert!(
@@ -413,7 +453,7 @@ fn receipt_lookup_reads_the_sequencer_receipt() {
         ReceiptSource::Found(bytes) => assert_eq!(bytes, expected),
         other => panic!("pinned signed receipt was not admitted: {other:?}"),
     }
-    assert!(!harness.config.lni_socket.exists());
+    assert!(!harness.directory.join("absent-lni.sock").exists());
     assert!(
         matches!(lookup_receipt(&harness.config, hash, true), ReceiptSource::Found(bytes) if bytes == expected)
     );
@@ -597,7 +637,9 @@ fn trust_snapshot_is_the_pinned_key_list() {
         }
     }
     let mut harness = ReceiptHarness::start_with_pins(&cases, &pins);
-    let kernel = must(UnixListener::bind(&harness.config.lni_socket));
+    let kernel = must(UnixListener::bind(
+        harness.directory.join("absent-lni.sock"),
+    ));
     must(kernel.set_nonblocking(true));
     let initial_key = harness.config.sequencer_public_key;
     harness.config.sequencer_public_key = [0x73; 32];
@@ -787,4 +829,78 @@ fn trust_snapshot_is_the_pinned_key_list() {
         std::io::ErrorKind::WouldBlock,
         "trust snapshots and chain receipt admission must never open the kernel socket"
     );
+}
+
+#[test]
+fn receipt_admission_needs_no_kernel_socket() {
+    let document = receipt_vectors();
+    let case = vector(&document, "V1-pax-transfer");
+    let harness = ReceiptHarness::start(&[case.clone()], &case);
+    assert!(harness.config.lni_socket.is_absolute());
+    assert!(!harness.config.lni_socket.exists());
+    assert_eq!(
+        std::os::unix::net::UnixStream::connect(&harness.config.lni_socket)
+            .expect_err("the kernel socket must have no listener")
+            .kind(),
+        std::io::ErrorKind::NotFound
+    );
+    let authority =
+        AuthorityProcess::start_with_replica(&harness, Some(harness.config.replica_address));
+    assert!(!harness.directory.join("absent-lni.sock").exists());
+    let (status, body) = authority.get("/readyz");
+    assert_eq!(status, 200);
+    assert_eq!(
+        body,
+        serde_json::json!({
+            "ready": true,
+            "network_id": "chain-receipts-test",
+            "protocol_network_id": 125,
+            "wire_version": PROTOCOL_VERSION.to_string(),
+        })
+    );
+    let activity = hex_bytes(&case["receiptJson"]["txHash"])
+        .try_into()
+        .unwrap();
+    let expected = hex_bytes(&case["signedReceipt"]);
+    match lookup_receipt(&harness.config, activity, false) {
+        ReceiptSource::Found(bytes) => assert_eq!(bytes, expected),
+        other => panic!("chain receipt was not admitted without a kernel socket: {other:?}"),
+    }
+    let activity = hex::encode(&activity);
+    let (status, body) = authority.receipt(&activity);
+    assert_eq!(status, 503);
+    assert_eq!(body["error"]["code"], "replica_evidence_unavailable",
+        "the running authority must admit the pinned chain receipt before requesting independent replica evidence");
+    let mut wrong_chain = harness.config.chain_endpoint.clone();
+    wrong_chain.expected_chain_id += 1;
+    let error = layerx_paxeer_verifier::raw_call(&wrong_chain, "eth_chainId", &[])
+        .expect_err("a mismatched chain must be refused");
+    assert!(matches!(
+        error.fault,
+        layerx_paxeer_verifier::EndpointFault::ChainMismatch {
+            expected: 126,
+            actual: 125
+        }
+    ));
+    let mut other = ReceiptHarness::start_with_chain_id(&[case.clone()], &[case], 126);
+    let other_authority =
+        AuthorityProcess::start_with_replica(&other, Some(other.config.replica_address));
+    let (status, body) = other_authority.get("/readyz");
+    assert_eq!(status, 503);
+    assert_eq!(body["ready"], false);
+    other.stop_chain();
+    let (status, body) = other_authority.get("/readyz");
+    assert_eq!(status, 503);
+    assert_eq!(body["ready"], false);
+    let calls = must(harness.calls.lock());
+    assert!(calls.iter().any(|call| call["method"] == "eth_chainId"));
+    let receipt_calls: Vec<_> = calls
+        .iter()
+        .filter(|call| call["method"] == "pax_sequencerReceipt")
+        .collect();
+    assert_eq!(receipt_calls.len(), 2);
+    for call in receipt_calls {
+        assert_eq!(call["params"], serde_json::json!([format!("0x{activity}")]));
+    }
+    assert!(!harness.config.lni_socket.exists());
 }

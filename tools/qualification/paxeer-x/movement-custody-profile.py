@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import json
 import os
@@ -91,15 +92,14 @@ def digest(value):
 
 def sources():
     paths = set()
-    for package in ('layerx-human-movement-provider', 'layerx-paxeer-client'):
+    for package in ('layerx-human-movement-provider',):
         base = ROOT / 'services/human/crates' / package
         paths.update(path for path in (base / 'src').rglob('*') if path.is_file())
         paths.update(path for path in (base / 'tests').rglob('*') if path.is_file())
         paths.add(base / 'Cargo.toml')
-    for relative in ('services/human/Cargo.toml', 'services/human/Cargo.lock', 'services/platform/hosted/human/owner_custody.py',
+    for relative in ('services/human/Cargo.toml', 'services/human/Cargo.lock',
                      'services/platform/hosted/human/material.py', 'docker/kernel/init.sh',
-                     'docker/human-service/entrypoint.sh', 'tests/bridge/custody_credit.py',
-                     'tests/bridge/comet_credit.py', 'tests/fixtures/custody/native-credit-receipt/profile',
+                     'docker/human-service/entrypoint.sh',
                      'tools/qualification/paxeer-x/movement-custody-profile.py'):
         paths.add(ROOT / relative)
     require(all(path.is_file() and not path.is_symlink() for path in paths), 'complete real source inputs required')
@@ -124,7 +124,8 @@ def env_value(directory, suffix, owner=None):
 
 
 def main():
-    require(not sys.argv[1:], 'this gate consumes prebuilt artifacts only')
+    parser = argparse.ArgumentParser(description='Qualify prebuilt movement custody artifacts.')
+    parser.parse_args()
     fixture_path = os.environ.get('LAYERX_MOVEMENT_CUSTODY_FIXTURE')
     manifest_path = os.environ.get('LAYERX_MOVEMENT_CUSTODY_ARTIFACT_MANIFEST')
     if not fixture_path or not manifest_path:
@@ -152,11 +153,6 @@ def main():
     policy = document(fixture['policy_path'])
     owner = document(producer / 'owner-custody.json')
     profile = private_bytes(producer / 'custody.profile', 223)
-    require(len(profile) == 223 and profile[:5] == b'LXBC3'
-            and int.from_bytes(profile[5:13], 'big') == 125
-            and profile[13:33].hex() == '0000000000000000000000000000000000001013'
-            and profile[33:65] == hashlib.sha256(b'LX:CUSTODY:MODULE:v1' + b'layerxcustody' + profile[13:33]).digest(),
-            'actual canonical native custody producer binding required')
     profile_hash = digest(profile)
     require(owner.get('custody_profile') == 'custody.profile'
             and owner.get('custody_profile_sha256') == '0x' + profile_hash

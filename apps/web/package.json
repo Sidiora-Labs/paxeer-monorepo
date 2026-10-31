@@ -26,6 +26,10 @@
   },
   "dependencies": {
     "@layerx/ui": "file:packages/layerx-ui",
+    "@noble/curves": "^1.9.1",
+    "@noble/hashes": "^1.8.0",
+    "@sidiora/layerx-sdk": "file:../../services/agent/sdk/typescript",
+    "@supabase/supabase-js": "^2.45.4",
     "next": "16.3.5",
     "qrcode": "^1.5.4",
     "react": "19.2.8",

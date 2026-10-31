@@ -194,43 +194,6 @@ impl Client {
 
     /// # Errors
     /// Refuses invalid request inputs, transport failures, or malformed responses.
-    pub fn post_activity(
-        &self,
-        path: &str,
-        body: &[u8],
-        idempotency: Option<&str>,
-    ) -> Result<Value, String> {
-        let url = self.url(path)?;
-        let mut request = self
-            .agent
-            .post(&url)
-            .header("Content-Type", "application/octet-stream");
-        let authorization = self.authorization_header();
-        if let Some(value) = &authorization {
-            request = request.header("Authorization", value.as_str());
-        }
-        if let Some(key) = idempotency {
-            request = request.header("Idempotency-Key", key);
-        }
-        let response = match request.send(body) {
-            Ok(response) => response,
-            Err(error) if idempotency.is_some() => {
-                return Ok(json!({
-                    "state": "unknown",
-                    "failure": {"code": "gateway_transport_unavailable", "detail": error.to_string()},
-                }));
-            }
-            Err(error) => return Err(format!("POST {path} failed: {error}")),
-        };
-        if idempotency.is_some() {
-            Ok(decode_stateful(response, "POST", path))
-        } else {
-            decode(response, "POST", path)
-        }
-    }
-
-    /// # Errors
-    /// Refuses invalid request inputs, transport failures, or malformed responses.
     pub fn post_sensitive<T: DeserializeOwned>(
         &self,
         path: &str,
@@ -300,7 +263,11 @@ fn configured_client_identity(endpoint: &str) -> Result<Option<ureq::tls::Client
     let (certificate, key) = match (certificate, key) {
         (None, None) => return Ok(None),
         (Some(certificate), Some(key)) => (certificate, key),
-        _ => return Err("client TLS identity requires both certificate and private-key files".into()),
+        _ => {
+            return Err(
+                "client TLS identity requires both certificate and private-key files".into(),
+            )
+        }
     };
     if !endpoint.starts_with("https://") {
         return Err("configured client TLS identity requires an HTTPS endpoint".into());
@@ -315,38 +282,65 @@ fn configured_client_identity(endpoint: &str) -> Result<Option<ureq::tls::Client
         }
     }
     let mut keys = ureq::tls::parse_pem(&key);
-    let private_key = match keys.next().transpose()
-        .map_err(|_| "client private-key PEM is invalid".to_owned())? {
+    let private_key = match keys
+        .next()
+        .transpose()
+        .map_err(|_| "client private-key PEM is invalid".to_owned())?
+    {
         Some(ureq::tls::PemItem::PrivateKey(value)) => value,
         _ => return Err("client private-key file contains no private key".into()),
     };
     if chain.is_empty() || keys.next().is_some() {
-        return Err("client identity requires a certificate chain and exactly one private key".into());
+        return Err(
+            "client identity requires a certificate chain and exactly one private key".into(),
+        );
     }
-    Ok(Some(ureq::tls::ClientCert::new_with_certs(&chain, private_key)))
+    Ok(Some(ureq::tls::ClientCert::new_with_certs(
+        &chain,
+        private_key,
+    )))
 }
 
 fn protected_tls_file(path: &std::ffi::OsStr) -> Result<Zeroizing<Vec<u8>>, String> {
     #[cfg(not(unix))]
-    { let _ = path; Err("protected client TLS identity requires Unix file ownership".into()) }
+    {
+        let _ = path;
+        Err("protected client TLS identity requires Unix file ownership".into())
+    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
         let path = std::path::Path::new(path);
-        if !path.is_absolute() || std::fs::canonicalize(path).map_err(|_| "client identity path is unavailable")? != path {
+        if !path.is_absolute()
+            || std::fs::canonicalize(path).map_err(|_| "client identity path is unavailable")?
+                != path
+        {
             return Err("client identity requires canonical absolute paths".into());
         }
-        let flags = i32::try_from((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits())
-            .map_err(|_| "client identity file flags are unavailable")?;
-        let file = std::fs::OpenOptions::new().read(true).custom_flags(flags).open(path)
+        let flags =
+            i32::try_from((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits())
+                .map_err(|_| "client identity file flags are unavailable")?;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(flags)
+            .open(path)
             .map_err(|_| "client identity file is unavailable")?;
-        let metadata = file.metadata().map_err(|_| "client identity metadata is unavailable")?;
-        if !metadata.is_file() || metadata.nlink() != 1 || metadata.mode() & 0o077 != 0
-            || metadata.uid() != rustix::process::geteuid().as_raw() || metadata.len() == 0 || metadata.len() > 1_048_576 {
+        let metadata = file
+            .metadata()
+            .map_err(|_| "client identity metadata is unavailable")?;
+        if !metadata.is_file()
+            || metadata.nlink() != 1
+            || metadata.mode() & 0o077 != 0
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.len() == 0
+            || metadata.len() > 1_048_576
+        {
             return Err("client identity files must be nonempty private single-link caller-owned regular files".into());
         }
         let mut bytes = Zeroizing::new(Vec::new());
-        file.take(1_048_577).read_to_end(&mut bytes).map_err(|_| "client identity read failed")?;
+        file.take(1_048_577)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "client identity read failed")?;
         if bytes.len() as u64 != metadata.len() {
             return Err("client identity file changed during read".into());
         }

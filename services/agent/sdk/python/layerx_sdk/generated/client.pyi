@@ -18,13 +18,33 @@ def parse_sequence(value: str) -> Sequence: ...
 TimestampSeconds: TypeAlias = int
 def parse_timestamp_seconds(value: str) -> TimestampSeconds: ...
 
+class SignatureBytes(bytes):
+    def __new__(cls, value: bytes) -> SignatureBytes: ...
+    def __len__(self) -> Literal[65]: ...
+
+
+class AddressBytes(bytes):
+    def __new__(cls, value: bytes) -> AddressBytes: ...
+    def __len__(self) -> Literal[20]: ...
+
+
+class SignRequest(TypedDict):
+    preparation_ref: str
+    signature: SignatureBytes
+
+
+class SubmitRequest(TypedDict):
+    preparation_ref: str
+    signature: SignatureBytes
+
+
 class Rung(IntEnum):
     SUBMITTED = 0
     RECEIPTED = 1
     COMMITTED = 2
 
 ErrorClass: TypeAlias = Literal["TransportFailure", "Deadline", "ProtocolIncompatibility", "UnavailableCapability", "CoreRejection", "VerificationFailure", "PolicyRefusal", "CapabilityRefusal", "BudgetRefusal", "RateLimit", "IdempotencyConflict", "InternalFault"]
-Operation: TypeAlias = Literal["agent.register", "approval.approve", "approval.get", "approval.list", "approval.reject", "availability.fetch", "budget.create", "budget.fund", "budget.list", "budget.reconciliation", "budget.revoke", "budget.state", "capability.attenuate", "capability.create", "capability.list", "capability.revoke", "export.offline", "faucet.claim", "mcp.invoke", "policy.dry_run", "prepare", "program.activity", "program.call", "program.deploy", "program.discover", "program.interface", "program.receipt", "program.simulate", "program.upgrade", "program.wind-down", "project", "read.account", "read.balance", "read.batch", "read.checkpoint", "read.history", "read.module_state", "read.proof_bundle", "session.close", "session.list", "session.open", "session.refresh", "sign", "submit", "subscription.acknowledge", "subscription.create", "subscription.delete", "subscription.health", "subscription.list", "subscription.pause", "subscription.resume", "tenant.readiness", "track", "wait"]
+Operation: TypeAlias = Literal["agent.register", "approval.approve", "approval.get", "approval.list", "approval.reject", "availability.fetch", "budget.create", "budget.fund", "budget.list", "budget.reconciliation", "budget.revoke", "budget.state", "capability.attenuate", "capability.create", "capability.list", "capability.revoke", "export.offline", "mcp.invoke", "policy.dry_run", "prepare", "program.activity", "program.call", "program.deploy", "program.discover", "program.interface", "program.receipt", "program.simulate", "program.upgrade", "program.wind-down", "project", "read.account", "read.balance", "read.batch", "read.checkpoint", "read.history", "read.module_state", "read.proof_bundle", "session.close", "session.list", "session.open", "session.refresh", "sign", "submit", "subscription.acknowledge", "subscription.create", "subscription.delete", "subscription.health", "subscription.list", "subscription.pause", "subscription.resume", "tenant.readiness", "track", "wait"]
 
 ApprovalState: TypeAlias = Literal["Held", "Granted", "Rejected", "Expired", "Defective"]
 ApprovalDecisionOutcome: TypeAlias = Literal["Granted", "Rejected", "Expired", "Defective", "AlreadyDecided", "Conflict"]
@@ -213,26 +233,25 @@ class VerifiedRead(Generic[_R]):
 
 def require_verified(requested: Rung, read: VerifiedRead[_R]) -> VerifiedRead[_R]: ...
 
-class SubmissionUnknown:
-    kind: Literal["Unknown"]
-    def __init__(self, kind: Literal["Unknown"] = "Unknown") -> None: ...
+class SubmissionSubmitted:
+    tx_hash: str
+    kind: Literal["Submitted"]
+    def __init__(self, tx_hash: str, kind: Literal["Submitted"] = "Submitted") -> None: ...
 
-class SubmissionExecuted:
-    receipt_ref: str
-    kind: Literal["Executed"]
-    def __init__(self, receipt_ref: str, kind: Literal["Executed"] = "Executed") -> None: ...
+class SubmissionReceipted:
+    kind: Literal["Receipted"]
+    def __init__(self, kind: Literal["Receipted"] = "Receipted") -> None: ...
 
-class SubmissionFailed:
-    protocol_result_code: int
-    kind: Literal["Failed"]
-    def __init__(self, protocol_result_code: int, kind: Literal["Failed"] = "Failed") -> None: ...
+class SubmissionCommitted:
+    kind: Literal["Committed"]
+    def __init__(self, kind: Literal["Committed"] = "Committed") -> None: ...
 
-class SubmissionPending:
-    stage: str
-    kind: Literal["Pending"]
-    def __init__(self, stage: str, kind: Literal["Pending"] = "Pending") -> None: ...
+class SubmissionReverted:
+    revert_reason: str
+    kind: Literal["Reverted"]
+    def __init__(self, revert_reason: str, kind: Literal["Reverted"] = "Reverted") -> None: ...
 
-SubmissionState: TypeAlias = SubmissionUnknown | SubmissionExecuted | SubmissionFailed | SubmissionPending
+SubmissionState: TypeAlias = SubmissionSubmitted | SubmissionReceipted | SubmissionCommitted | SubmissionReverted
 
 class IdempotentMutation(Generic[_T]):
     request_id: int

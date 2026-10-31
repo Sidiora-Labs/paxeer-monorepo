@@ -5,6 +5,7 @@ Runs the prebuilt native kernel settlement test and the Rust transfer-law and
 real-guest monetary-law executables recorded by the scoped producer manifest.
 Nothing is compiled here; the manifest must bind the exact checkout.
 """
+import argparse
 import datetime
 import hashlib
 import json
@@ -32,7 +33,7 @@ INPUTS = sorted({"tests/programs/test_monetary_law.c", "programs/Cargo.lock", "r
                  "tools/paxeer-x/build/104.30.2.mk", "tools/paxeer-x/gates/104.30.2.sh",
                  "tools/qualification/paxeer-x/program_transfer_authority.py",
                  "tests/programs/test_call_activity.c", "services/agent/Cargo.toml", "services/agent/Cargo.lock",
-                 "programs/Cargo.toml", "contracts/config/checkpoint-settlement.json", "Makefile"})
+                 "programs/Cargo.toml", "Makefile"})
 BINARIES = ("native_monetary_law", "runtime_unit", "monetary_law", "sandbox_staticlib")
 UNIT = [
     "real_guest_mixed_effects_seal_exact_dual_authority_kernel_set",
@@ -188,6 +189,8 @@ def native(binary, log):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args()
     evidence = Path(os.environ.get("PAXEER_X_EVIDENCE_DIR") or os.environ.get("TASK_LOG_DIR") or "")
     if not evidence.is_dir():
         print("program_transfer_authority: no private evidence directory", file=sys.stderr)

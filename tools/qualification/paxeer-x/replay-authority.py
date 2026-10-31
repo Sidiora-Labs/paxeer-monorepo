@@ -21,9 +21,9 @@ DECLARED = (
     "tools/qualification/paxeer-x/replay-authority.py",
 )
 SOURCE_PATHS = (
-    "src", "include", "cmd/layerxd", "programs", "Makefile",
+    "src", "include", "programs", "Makefile",
     "services/agent/crates/layerx-client", "services/agent/crates/layerx-proof",
-    "services/agent/crates/layerx-types", "services/agent/crates/layerx-wire",
+    "services/agent/crates/layerx-types",
     "tests/daemon/lxp_test_arbiter_admission.c", "tests/daemon/lxp_test_program_replay.c",
     "tests/programs/test_call_activity.c", "tests/bridge/files.h",
     "tools/paxeer-x/build/104.35.20.mk", "tools/qualification/paxeer-x/program-replay-record.py",

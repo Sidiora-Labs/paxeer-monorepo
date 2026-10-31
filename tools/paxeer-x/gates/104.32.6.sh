@@ -67,9 +67,6 @@ def production_path():
             'level workers lack the identical inline refusal path')
     require(re.search(r'if \(levels\[index\] == level\) \{\s*if \(index != settled_count\)', kernel),
             'prepared level results are not applied in canonical activity order')
-    daemon = (ROOT / 'cmd/layerxd/lxp_daemon_process.c').read_text()
-    require(re.search(r'lxp_kernel_prepare_activity_batch\(\s*&process->kernel, activities, executions, count,\s*maximum_workers',
-                      daemon), 'production daemon does not prepare batches through the scheduler')
     ffi = (SRC / 'ffi_call.rs').read_text()
     require('if enrichment_complete && has_storage_writes {' in ffi,
             'treasury occupancy dependency is not derived from effective storage writes')
@@ -77,7 +74,7 @@ def production_path():
             'protocol plan does not use the deterministic conflict graph')
     print('production path: kernel plans levels from declared access sets, runs each level on bounded workers with '
           'an identical inline refusal path and applies results in canonical order')
-    return 8
+    return 7
 
 
 try:

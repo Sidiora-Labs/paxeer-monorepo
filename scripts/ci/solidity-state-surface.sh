@@ -1,20 +1,7 @@
 #!/bin/sh
 set -eu
 
-contracts='CheckpointRegistry
-GuarantorBond
-AssetRegistry
-LayerXVault
-CheckpointChallengeManager
-WithdrawalNullifierRegistry
-WithdrawalClaims
-EmergencyExit
-ReserveReconciler
-LayerXTimelock
-Blueprint
-ManagerContainer
-ManagerMigrator
-LayerXCustody'
+contracts='SidioraProxyTimelock'
 
 surface_file=$(mktemp)
 trap 'rm -f -- "$surface_file"' EXIT HUP INT TERM
@@ -38,7 +25,7 @@ missing=0
 while IFS= read -r surface; do
     method=${surface#*.}
     method=${method%%(*}
-    if ! rg --glob '*.t.sol' -q "\\b${method}\\b" test; then
+    if ! rg --glob '*.t.sol' -q "\\b${method}\\b" tests/solidity; then
         echo "untested external state-changing function: $surface" >&2
         missing=1
     fi

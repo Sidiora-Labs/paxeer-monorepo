@@ -170,7 +170,7 @@ fn from_receipt_reads_the_pay_exact_log() {
                 "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769"
             )),
             to: fixed(&Value::from(
-                "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985"
+                "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4"
             )),
             asset: fixed(&Value::from(
                 "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28"

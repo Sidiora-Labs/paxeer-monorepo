@@ -28,7 +28,18 @@ public final class GeneratedSchema {
     public static ProgramTransport programTransport(SchemaTypes.Operation operation) {
         Objects.requireNonNull(operation, "operation");
         if (operation.plane() != OperationCatalog.Plane.AGENT) throw PlatformSdkException.invalidArgument();
-        return GeneratedContract.AGENT_OPERATIONS.transport(operation.wireName());
+        return switch (operation.wireName()) {
+            case "program.activity" -> AgentOperations.PROGRAM_ACTIVITY_TRANSPORT;
+            case "program.call" -> AgentOperations.PROGRAM_CALL_TRANSPORT;
+            case "program.deploy" -> AgentOperations.PROGRAM_DEPLOY_TRANSPORT;
+            case "program.discover" -> AgentOperations.PROGRAM_DISCOVER_TRANSPORT;
+            case "program.interface" -> AgentOperations.PROGRAM_INTERFACE_TRANSPORT;
+            case "program.receipt" -> AgentOperations.PROGRAM_RECEIPT_TRANSPORT;
+            case "program.simulate" -> AgentOperations.PROGRAM_SIMULATE_TRANSPORT;
+            case "program.upgrade" -> AgentOperations.PROGRAM_UPGRADE_TRANSPORT;
+            case "program.wind-down" -> AgentOperations.PROGRAM_WIND_DOWN_TRANSPORT;
+            default -> throw PlatformSdkException.invalidArgument();
+        };
     }
     public static final class AgentModels {
         private AgentModels() {}
@@ -2579,7 +2590,7 @@ public final class GeneratedSchema {
         public enum HumanVerificationLevel {
             UNVERIFIED("unverified"),
             RECEIPT_VERIFIED("receipt-verified"),
-            BLOCK_COMMITTED("block-committed");
+            CHECKPOINT_FINALISED("checkpoint-finalised");
             private final String wire;
             HumanVerificationLevel(String wire) { this.wire = wire; }
             @JsonValue public String wire() { return wire; }
@@ -2879,7 +2890,6 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(network, "network");
             }
         }
-        public static final SchemaTypes.TypedOperation<FaucetClaimRequest, FaucetClaimResponse> FAUCET_CLAIM = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "faucet.claim", false, FaucetClaimRequest.class, FaucetClaimResponse.class);
         public record McpInvokeRequest(JsonNode tool, JsonNode arguments) implements SchemaTypes.GeneratedRequest {
             public McpInvokeRequest {
                 Objects.requireNonNull(tool, "tool");
@@ -2959,7 +2969,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramActivityRequest, ProgramActivityResponse> PROGRAM_ACTIVITY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.activity", false, ProgramActivityRequest.class, ProgramActivityResponse.class);
-        public static final ProgramTransport PROGRAM_ACTIVITY_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.activity");
+        public static final ProgramTransport PROGRAM_ACTIVITY_TRANSPORT = new ProgramTransport("eth_getLogs", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)"));
         public record ProgramCallRequest(JsonNode program_id, JsonNode calldata, AgentModels.ProgramCallBudget budget, JsonNode capabilities, JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramCallRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -2977,7 +2987,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramCallRequest, ProgramCallResponse> PROGRAM_CALL = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.call", true, ProgramCallRequest.class, ProgramCallResponse.class);
-        public static final ProgramTransport PROGRAM_CALL_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.call");
+        public static final ProgramTransport PROGRAM_CALL_TRANSPORT = new ProgramTransport("eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"));
         public record ProgramDeployRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramDeployRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -2991,7 +3001,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramDeployRequest, ProgramDeployResponse> PROGRAM_DEPLOY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.deploy", true, ProgramDeployRequest.class, ProgramDeployResponse.class);
-        public static final ProgramTransport PROGRAM_DEPLOY_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.deploy");
+        public static final ProgramTransport PROGRAM_DEPLOY_TRANSPORT = new ProgramTransport("eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"));
         public record ProgramDiscoverRequest(JsonNode program_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramDiscoverRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3015,7 +3025,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramDiscoverRequest, ProgramDiscoverResponse> PROGRAM_DISCOVER = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.discover", false, ProgramDiscoverRequest.class, ProgramDiscoverResponse.class);
-        public static final ProgramTransport PROGRAM_DISCOVER_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.discover");
+        public static final ProgramTransport PROGRAM_DISCOVER_TRANSPORT = new ProgramTransport("eth_call", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.getProgram(bytes32)"));
         public record ProgramInterfaceRequest(JsonNode program_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramInterfaceRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3040,7 +3050,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramInterfaceRequest, ProgramInterfaceResponse> PROGRAM_INTERFACE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.interface", false, ProgramInterfaceRequest.class, ProgramInterfaceResponse.class);
-        public static final ProgramTransport PROGRAM_INTERFACE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.interface");
+        public static final ProgramTransport PROGRAM_INTERFACE_TRANSPORT = new ProgramTransport("eth_call", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.getInterface(bytes32)"));
         public record ProgramReceiptRequest(JsonNode idempotency_key, JsonNode expected_activity_id, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest {
             public ProgramReceiptRequest {
                 Objects.requireNonNull(idempotency_key, "idempotency_key");
@@ -3056,7 +3066,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramReceiptResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramReceiptRequest, ProgramReceiptResponse> PROGRAM_RECEIPT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.receipt", false, ProgramReceiptRequest.class, ProgramReceiptResponse.class);
-        public static final ProgramTransport PROGRAM_RECEIPT_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.receipt");
+        public static final ProgramTransport PROGRAM_RECEIPT_TRANSPORT = new ProgramTransport("eth_getLogs", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)"));
         public record ProgramSimulateRequest(JsonNode program_id, JsonNode calldata, AgentModels.ProgramCallBudget budget, JsonNode capabilities, JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramSimulateRequest {
                 Objects.requireNonNull(program_id, "program_id");
@@ -3074,7 +3084,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramSimulateRequest, ProgramSimulateResponse> PROGRAM_SIMULATE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.simulate", false, ProgramSimulateRequest.class, ProgramSimulateResponse.class);
-        public static final ProgramTransport PROGRAM_SIMULATE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.simulate");
+        public static final ProgramTransport PROGRAM_SIMULATE_TRANSPORT = new ProgramTransport("eth_call", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"));
         public record ProgramUpgradeRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramUpgradeRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -3088,7 +3098,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramUpgradeRequest, ProgramUpgradeResponse> PROGRAM_UPGRADE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.upgrade", true, ProgramUpgradeRequest.class, ProgramUpgradeResponse.class);
-        public static final ProgramTransport PROGRAM_UPGRADE_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.upgrade");
+        public static final ProgramTransport PROGRAM_UPGRADE_TRANSPORT = new ProgramTransport("eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"));
         public record ProgramWindDownRequest(JsonNode signed_activity) implements SchemaTypes.GeneratedRequest {
             public ProgramWindDownRequest {
                 Objects.requireNonNull(signed_activity, "signed_activity");
@@ -3102,7 +3112,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramLifecycleResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramWindDownRequest, ProgramWindDownResponse> PROGRAM_WIND_DOWN = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.wind-down", true, ProgramWindDownRequest.class, ProgramWindDownResponse.class);
-        public static final ProgramTransport PROGRAM_WIND_DOWN_TRANSPORT = GeneratedContract.AGENT_OPERATIONS.transport("program.wind-down");
+        public static final ProgramTransport PROGRAM_WIND_DOWN_TRANSPORT = new ProgramTransport("eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.setExitRoute(bytes32,bytes32,bytes32,bytes32,bytes)", "layerxprograms.deprecate(bytes32,bytes32,uint64)", "layerxprograms.tombstone(bytes32)", "layerxprograms.exitValue(bytes32,bytes32)"));
         public record ProjectRequest(JsonNode protocol_activity_type, JsonNode canonical_bytes, JsonNode execution_units, JsonNode storage_units) implements SchemaTypes.GeneratedRequest {
             public ProjectRequest {
                 Objects.requireNonNull(protocol_activity_type, "protocol_activity_type");
@@ -4601,7 +4611,6 @@ public final class GeneratedSchema {
         Map.entry("capability.list", AgentOperations.CAPABILITY_LIST ),
         Map.entry("capability.revoke", AgentOperations.CAPABILITY_REVOKE ),
         Map.entry("export.offline", AgentOperations.EXPORT_OFFLINE ),
-        Map.entry("faucet.claim", AgentOperations.FAUCET_CLAIM ),
         Map.entry("mcp.invoke", AgentOperations.MCP_INVOKE ),
         Map.entry("policy.dry_run", AgentOperations.POLICY_DRY_RUN ),
         Map.entry("prepare", AgentOperations.PREPARE ),

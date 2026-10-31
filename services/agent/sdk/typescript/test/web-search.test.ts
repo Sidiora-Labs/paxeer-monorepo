@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
+import type { AuthorizedReceiptBatch } from "../src/index.js";
 
 import {
   WebSearchClient,
@@ -13,7 +14,6 @@ import {
   decodeWebContent,
   encodeGrant,
   webContentBytes,
-  type AuthorizedReceiptBatch,
   type WebSearchCurrency,
   type WebSearchOffer,
   type WebSearchPayer,

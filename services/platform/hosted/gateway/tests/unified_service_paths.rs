@@ -222,6 +222,7 @@ struct Gateway {
     redis: Child,
     directory: PathBuf,
     port: u16,
+    redis_port: u16,
 }
 
 impl Drop for Gateway {
@@ -391,6 +392,7 @@ impl Gateway {
             redis,
             directory,
             port,
+            redis_port,
         };
         for _ in 0..200 {
             if let Ok(Some(status)) = started.gateway.try_wait() {
@@ -450,6 +452,111 @@ impl Gateway {
         assert_eq!(answer["id"], 9, "{answer}");
         answer
     }
+
+    fn websocket(&self) -> TcpStream {
+        use layerx_platform_gateway::gateway_digest;
+        use layerx_platform_gateway::store::{KeyRecord, RedisEndpoint, RedisStore};
+        use zeroize::Zeroizing;
+
+        let ca = native_tls::Certificate::from_der(
+            &fs::read(self.directory.join("server.der")).expect("outbound CA"),
+        )
+        .expect("outbound certificate");
+        let store = RedisStore::new(
+            RedisEndpoint::parse(&format!("rediss://localhost:{}", self.redis_port))
+                .expect("Redis endpoint"),
+            ca,
+            Zeroizing::new("gateway".into()),
+            Zeroizing::new("gateway-secret".into()),
+        );
+        let secret = format!("lxp_live_{}", "34".repeat(32));
+        let record = KeyRecord {
+            key_id: "lx-refusal-reader".into(),
+            principal_digest: gateway_digest(&[b"lx-refusal-reader"]),
+            salt: "lx-refusal-salt".into(),
+            secret_digest: gateway_digest(&[
+                b"gateway-key-v1",
+                b"lx-refusal-salt",
+                secret.as_bytes(),
+            ]),
+            signer_public_key: "11".repeat(32),
+            scopes: "receipt:read".into(),
+            quota_requests: 100,
+            quota_window_seconds: 60,
+            epoch: 1,
+            disabled: false,
+        };
+        store
+            .issue_key(&record, "issue-lx-refusal-reader")
+            .expect("issue WebSocket reader key");
+        let mut stream = TcpStream::connect(("127.0.0.1", self.port)).expect("WebSocket connect");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("WebSocket timeout");
+        write!(stream, "GET /rpc/ws HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nAuthorization: LayerX-Key {}:{secret}\r\n\r\n", record.key_id).expect("WebSocket upgrade");
+        let mut headers = Vec::new();
+        while !headers.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            stream
+                .read_exact(&mut byte)
+                .expect("WebSocket upgrade response");
+            headers.push(byte[0]);
+            assert!(headers.len() <= 4096, "bounded WebSocket upgrade");
+        }
+        let headers = String::from_utf8(headers).expect("WebSocket response headers");
+        assert!(headers.starts_with("HTTP/1.1 101 "), "{headers}");
+        assert!(
+            headers.contains("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo="),
+            "{headers}"
+        );
+        stream
+    }
+}
+
+fn websocket_call(stream: &mut TcpStream, method: &str, params: &Value) -> Value {
+    let body =
+        serde_json::to_vec(&json!({"jsonrpc": "2.0", "id": 9, "method": method, "params": params}))
+            .expect("WebSocket request");
+    let mut frame = vec![0x81];
+    if body.len() < 126 {
+        frame.push(0x80 | u8::try_from(body.len()).expect("short frame length"));
+    } else {
+        frame.push(0x80 | 126);
+        frame.extend_from_slice(
+            &u16::try_from(body.len())
+                .expect("frame length")
+                .to_be_bytes(),
+        );
+    }
+    let mut mask = [0; 4];
+    getrandom::fill(&mut mask).expect("WebSocket mask");
+    frame.extend_from_slice(&mask);
+    frame.extend(body.iter().enumerate().map(|(i, byte)| byte ^ mask[i % 4]));
+    stream.write_all(&frame).expect("WebSocket request write");
+    let mut header = [0; 2];
+    stream
+        .read_exact(&mut header)
+        .expect("WebSocket response header");
+    assert_eq!(header[0], 0x81, "text response for {method}");
+    assert_eq!(header[1] & 0x80, 0, "server response is unmasked");
+    let length = match header[1] {
+        126 => {
+            let mut length = [0; 2];
+            stream
+                .read_exact(&mut length)
+                .expect("WebSocket response length");
+            usize::from(u16::from_be_bytes(length))
+        }
+        127 => panic!("unbounded WebSocket refusal"),
+        length => usize::from(length),
+    };
+    let mut body = vec![0; length];
+    stream
+        .read_exact(&mut body)
+        .expect("WebSocket response body");
+    let answer: Value = serde_json::from_slice(&body).expect("WebSocket JSON response");
+    assert_eq!(answer["id"], 9, "{answer}");
+    answer
 }
 
 const ACCOUNT: &str = "0x00000000000000000000000000000000000000ab";
@@ -519,6 +626,7 @@ fn explorer_program_paths_are_not_proxied() {
 #[test]
 fn lx_reads_switched_off() {
     let gateway = Gateway::start();
+    let mut websocket = gateway.websocket();
     let key = "ab".repeat(32);
     let did = format!("did:layerx:{key}");
     for (method, params) in [
@@ -537,14 +645,47 @@ fn lx_reads_switched_off() {
         ("lx_getAsset", json!([key])),
         ("lx_getNodeInfo", json!([])),
         ("lx_requestFunds", json!([key])),
+        ("lx_sendActivity", json!(["00", "executed"])),
+        ("lx_estimateFee", json!(["00"])),
+        (
+            "lx_getProgramEvents",
+            json!([{"topic": "ab", "from_sequence": 0, "limit": 1}]),
+        ),
+        ("lx_getWalletCaps", json!([])),
+        ("lx_subscribe", json!(["receipts"])),
+        ("lx_unsubscribe", json!(["retired-subscription"])),
+        ("lx_subscription", json!([])),
+        ("lx_unknown", json!({"invalid": true})),
     ] {
         let answer = gateway.call(method, &params);
         assert!(answer.get("result").is_none(), "{method} {answer}");
         assert_eq!(answer["error"]["code"], -32601, "{method} {answer}");
+        assert_eq!(
+            answer["error"]["message"], "Method not found",
+            "{method} {answer}"
+        );
+        assert_eq!(
+            websocket_call(&mut websocket, method, &params),
+            answer,
+            "WebSocket {method}"
+        );
     }
     for method in ["px_getHistory", "px_getUnifiedHistory"] {
         let answer = gateway.call(method, &json!([ACCOUNT]));
         assert_ne!(answer["error"]["code"], -32601, "{method} {answer}");
         assert_ne!(answer["error"]["code"], -32602, "{method} {answer}");
     }
+    let (status, schema) = gateway
+        .exchange("GET", "/rpc/schema", b"")
+        .expect("served schema");
+    assert_eq!(status, 200);
+    let schema: Value = serde_json::from_slice(&schema).expect("served OpenRPC JSON");
+    assert!(schema["methods"]
+        .as_array()
+        .expect("schema methods")
+        .iter()
+        .all(|method| !method["name"]
+            .as_str()
+            .expect("method name")
+            .starts_with("lx_")));
 }

@@ -178,17 +178,17 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 	if ctx.EVMPrecompileCalledFromDelegateCall() {
 		return nil, errors.New("cannot delegatecall layerxAnchor")
 	}
-	if isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade, ctx.BlockHeight()) {
+	if p.anchor == nil {
 		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
 	}
-	if p.anchor == nil {
-		return nil, errors.New("layerxanchor: anchor module is not wired")
-	}
-	if !isView(method.Name) && readOnly {
-		return nil, errors.New("cannot change layerxAnchor state from staticcall")
+	if pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade, ctx.BlockHeight()) {
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
 	}
 	if !isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade, ctx.BlockHeight()) {
 		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
+	}
+	if !isView(method.Name) && readOnly {
+		return nil, errors.New("cannot change layerxAnchor state from staticcall")
 	}
 	switch method.Name {
 	case RegisterGuarantorMethod, IncreaseBondMethod, OpenChallengeMethod:

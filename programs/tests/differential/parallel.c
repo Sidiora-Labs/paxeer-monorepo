@@ -4,13 +4,10 @@
 #include "../../../tests/programs/test_call_activity.c"
 #undef main
 
-#include "layerx/lxp_snapshot.h"
-#include "layerx/lxp_da.h"
-#include "../../../cmd/layerxd/lxp_daemon_batch_wal.h"
+#include "layerx/lxp_batch_identity.h"
 
 #include <openssl/evp.h>
 #include <time.h>
-#include <unistd.h>
 
 enum { DIFFERENTIAL_BATCH_SIZE = 32, DIFFERENTIAL_WORKERS = 8 };
 static lxp_u128 observed_call_fee;
@@ -43,7 +40,8 @@ typedef struct differential_fixture {
     uint8_t program_id[32];
     uint8_t fee_asset[32];
     uint8_t sequencer_private_key[32];
-    lxp_sequencer_authorization sequencer_authorization;
+    uint16_t protocol_version;
+    uint16_t module_version;
     uint64_t parameters;
 } differential_fixture;
 
@@ -62,69 +60,45 @@ typedef struct differential_run {
     size_t level_count;
 } differential_run;
 
-typedef struct differential_checkpoint {
-    const char *directory;
-    lxp_kernel *kernel;
-    uint8_t *storage;
-    size_t storage_length;
-    char path[128];
-    bool stored;
-} differential_checkpoint;
-
-static lxp_result persist_differential_checkpoint(
-    void *context, const lxp_kernel_batch_boundary *settled)
+static lxp_result bind_differential_prefix(
+    const lxp_byte_span *canonical_activities, size_t count,
+    const uint8_t base_state_root[32], uint64_t first_sequence,
+    uint64_t batch_number, lxp_arena *arena,
+    lxp_kernel_execution *executions, lxp_batch_roots *roots,
+    uint8_t batch_id[32])
 {
-    differential_checkpoint *checkpoint =
-        (differential_checkpoint *)context;
-    lxp_snapshot_manifest_record manifest;
-    lxp_byte_span snapshot;
-    lxp_arena arena;
-    uint64_t sequence;
+    size_t index;
+    size_t total = 0U;
     lxp_result status;
-    if (checkpoint == NULL || settled == NULL ||
-        checkpoint->directory == NULL || checkpoint->kernel == NULL ||
-        checkpoint->storage == NULL || settled->next_sequence == 0U)
+    if (canonical_activities == NULL || count == 0U ||
+        count > DIFFERENTIAL_BATCH_SIZE || base_state_root == NULL ||
+        first_sequence == 0U || batch_number == 0U || arena == NULL ||
+        executions == NULL || roots == NULL || batch_id == NULL ||
+        count - 1U > UINT64_MAX - first_sequence)
         return LXP_ERR_NON_CANONICAL;
-    sequence = settled->next_sequence - 1U;
-    status = lxp_arena_init(&arena, checkpoint->storage,
-                            checkpoint->storage_length);
+    for (index = 0U; index < count; ++index) {
+        if (canonical_activities[index].bytes == NULL ||
+            canonical_activities[index].length == 0U ||
+            canonical_activities[index].length >
+                LXP_MAX_BATCH_BODY_BYTES - total)
+            return LXP_ERR_LENGTH_LIMIT;
+        total += canonical_activities[index].length;
+    }
+    status = lxp_batch_roots_compute(
+        &(lxp_batch_root_inputs){canonical_activities, count, NULL, 0U,
+                                 NULL, 0U, NULL, 0U, NULL, 0U},
+        arena, roots);
     if (status == LXP_OK)
-        status = lxp_snapshot_write(checkpoint->kernel, sequence,
-                                    &arena, &snapshot);
-    if (status == LXP_OK)
-        status = lxp_snapshot_manifest(
-            snapshot.bytes, snapshot.length, sequence,
-            settled->canonical_state_root, settled->receipt_state_root,
-            &manifest);
-    if (status == LXP_OK)
-        status = lxp_snapshot_store_write(
-            checkpoint->directory, &manifest,
-            snapshot.bytes, snapshot.length);
-    if (status == LXP_OK &&
-        snprintf(checkpoint->path, sizeof(checkpoint->path),
-                 "%s/%020llu.lxs", checkpoint->directory,
-                 (unsigned long long)sequence) <= 0)
-        status = LXP_ERR_LENGTH_LIMIT;
-    if (status == LXP_OK) checkpoint->stored = true;
+        status = lxp_batch_identity_committed(
+            base_state_root, roots->activity_merkle_root, first_sequence,
+            first_sequence + (uint64_t)count - 1U, batch_number, batch_id);
+    for (index = 0U; status == LXP_OK && index < count; ++index) {
+        (void)memcpy(executions[index].batch_id, batch_id, 32U);
+        (void)memcpy(executions[index].activity_root,
+                     roots->activity_merkle_root, 32U);
+        executions[index].global_sequence = first_sequence + index;
+    }
     return status;
-}
-
-static bool cleanup_differential_directory(
-    const char *directory, differential_checkpoint *checkpoint,
-    lxp_daemon_batch_wal_record *record,
-    lxp_kernel_prepared_batch *prepared)
-{
-    char path[160];
-    lxp_daemon_batch_wal_destroy(record);
-    lxp_kernel_prepared_batch_destroy(prepared);
-    if (checkpoint != NULL && checkpoint->stored)
-        (void)unlink(checkpoint->path);
-    if (directory == NULL) return true;
-    if (snprintf(path, sizeof(path), "%s/prepared-batch.lxw", directory) > 0)
-        (void)unlink(path);
-    if (snprintf(path, sizeof(path), "%s/prepared-batch.lxw.tmp", directory) > 0)
-        (void)unlink(path);
-    return rmdir(directory) == 0;
 }
 
 static int public_key_for(const uint8_t private_key[32],
@@ -364,7 +338,7 @@ static int observe_schedule_levels(differential_fixture *fixture,
 
 static int differential_fixture_init_balanced(
     differential_fixture *fixture, lxp_u128 actor_zero_balance,
-    lxp_u128 treasury_balance)
+    lxp_u128 treasury_balance, uint16_t protocol_version)
 {
     static const uint8_t treasury_name[] = "system:fees";
     uint8_t wasm[256];
@@ -383,17 +357,12 @@ static int differential_fixture_init_balanced(
     size_t payload_length;
     size_t index;
     (void)memset(fixture, 0, sizeof(*fixture));
+    fixture->protocol_version = protocol_version;
+    fixture->module_version = protocol_version == LXP_PROTOCOL_VERSION_LEGACY ?
+        LX_PROGRAMS_ABI_VERSION : LX_PROGRAMS_ACCOUNT_ABI_VERSION;
     fixture->parameters = 1U;
     fixture->fee_asset[0] = 9U;
     fixture->sequencer_private_key[0] = 0x71U;
-    if (public_key_for(fixture->sequencer_private_key,
-                       fixture->sequencer_authorization.public_key) != 0)
-        return 1;
-    (void)memcpy(fixture->sequencer_authorization.sequencer_id,
-                 fixture->sequencer_authorization.public_key, 32U);
-    fixture->sequencer_authorization.first_batch_number = 1U;
-    fixture->sequencer_authorization.last_batch_number = 100U;
-    fixture->sequencer_authorization.authorized = 1U;
     (void)memset(fixture->program_id, 0x31, 32U);
     if (lx_account_registry_init(&fixture->accounts) != LXP_OK ||
         lxp_state_store_init(&fixture->state, 1U) != LXP_OK ||
@@ -403,7 +372,9 @@ static int differential_fixture_init_balanced(
                           &fixture->journal, &fixture->parameters, 1U) != LXP_OK ||
         install_metering_v1(&fixture->kernel) != LXP_OK ||
         lxp_kernel_register_module(&fixture->kernel,
-                                   programs_module_registration_v2()) != LXP_OK)
+            protocol_version == LXP_PROTOCOL_VERSION_LEGACY ?
+                programs_module_registration() :
+                programs_module_registration_v2()) != LXP_OK)
         return 1;
     for (index = 0U; index < DIFFERENTIAL_BATCH_SIZE; ++index) {
         lx_account *actor;
@@ -503,10 +474,11 @@ static int differential_fixture_init_balanced(
     wasm_length = event_emitting_module(wasm);
     payload_length = deploy_payload(
         payload, fixture->program_id, fixture->authorities[0].principal,
-        wasm, wasm_length, code_hash, LX_PROGRAMS_ACCOUNT_ABI_VERSION,
+        wasm, wasm_length, code_hash, fixture->module_version,
         INTERFACE_CAPABILITIES_EMIT_EVENT);
     fill_activity(&deployment, LX_PROGRAMS_DEPLOY, payload, payload_length,
                   fixture->dids[0], fixture->did_lengths[0], fixture->keys[0]);
+    deployment.protocol_version = fixture->protocol_version;
     if (sign_activity(&deployment, fixture->private_keys[0],
                       deployment_signature) != 0)
         return 1;
@@ -521,7 +493,7 @@ static int differential_fixture_init_balanced(
     execution.maximum_timestamp_window = 100U;
     execution.global_sequence = 1U;
     execution.epoch = 1U;
-    execution.recorded_module_version = LX_PROGRAMS_ACCOUNT_ABI_VERSION;
+    execution.recorded_module_version = fixture->module_version;
     execution.parameter_version = 1U;
     execution.signature_valid = true;
     execution.identities = &fixture->identities;
@@ -537,14 +509,15 @@ static int differential_fixture_init_balanced(
 static int differential_fixture_init(differential_fixture *fixture)
 {
     return differential_fixture_init_balanced(
-        fixture, (lxp_u128){0U, UINT64_MAX}, (lxp_u128){0U, 0U});
+        fixture, (lxp_u128){0U, UINT64_MAX}, (lxp_u128){0U, 0U},
+        LXP_PROTOCOL_VERSION);
 }
 
 static int execute_workload(differential_fixture *fixture,
                             differential_workload workload,
                             size_t activity_count, uint32_t workers,
                             lxp_u128 fee_limit,
-                            bool expect_retry, bool commit_retry_prefix,
+                            bool expect_retry, bool prepare_retry_prefix,
                             lxp_result *retry_status,
                             size_t *retry_prefix, differential_run *run)
 {
@@ -558,42 +531,41 @@ static int execute_workload(differential_fixture *fixture,
     static lxp_kernel_execution executions[DIFFERENTIAL_BATCH_SIZE];
     static uint8_t batch_arena_storage[
         (2U * DIFFERENTIAL_BATCH_SIZE + 4U) * LXP_MAX_ACTIVITY_BYTES];
-    static uint8_t snapshot_storage[16U * 1024U * 1024U];
     lxp_byte_span canonical_activities[DIFFERENTIAL_BATCH_SIZE];
     lxp_byte_span canonical_receipts[DIFFERENTIAL_BATCH_SIZE];
-    lxp_byte_span terminal_payloads[DIFFERENTIAL_BATCH_SIZE];
-    lxp_byte_span call_graphs[DIFFERENTIAL_BATCH_SIZE];
     lxp_merkle_proof proofs[DIFFERENTIAL_BATCH_SIZE];
     uint8_t receipt_hashes[DIFFERENTIAL_BATCH_SIZE][32];
     lxp_kernel_prepared_batch *prepared = NULL;
-    lxp_daemon_batch_wal_record *wal_record = NULL;
     const lxp_receipt *prepared_receipts;
     const lxp_byte_span *prepared_events;
     const lxp_kernel_batch_boundary *base;
     const lxp_kernel_batch_boundary *settled;
-    lxp_daemon_batch_wal_input wal_input;
+    const lxp_kernel *settled_kernel;
     lxp_batch_roots roots;
     lxp_batch_roots scheduling_roots;
-    lxp_batch_header header;
-    lxp_batch_body availability_body = {0};
-    lxp_byte_span canonical_header;
     lxp_arena batch_arena;
-    differential_checkpoint checkpoint;
-    uint8_t header_signature[64];
     uint8_t proof_root[32];
     uint8_t batch_id[32];
     uint8_t offered_activity_root[32];
     uint8_t offered_batch_id[32];
-    char directory[] = "/tmp/lxp-program-parallel-XXXXXX";
+    uint8_t live_canonical_root[32];
     struct timespec start;
     struct timespec finish;
     size_t index;
     size_t retry_prefix_count = 0U;
+    const char *stage = "prepare-batch";
     lxp_result status;
     if (activity_count == 0U || activity_count > DIFFERENTIAL_BATCH_SIZE)
         return 1;
     (void)memset(run, 0, sizeof(*run));
-    (void)memset(&checkpoint, 0, sizeof(checkpoint));
+    (void)memcpy(run->root, fixture->kernel.current_state_root, 32U);
+    status = lxp_state_root(&fixture->kernel, run->canonical_root);
+    if (status != LXP_OK) {
+        (void)fprintf(stderr,
+                      "execute_workload stage=base-state-root status=%d expected=%d\n",
+                      (int)status, (int)LXP_OK);
+        return 1;
+    }
     for (index = 0U; index < activity_count; ++index) {
         size_t actor = workload == DIFFERENTIAL_ALL_CONFLICTING ? 0U : index;
         size_t payload_length = workload == DIFFERENTIAL_LOW_CONFLICT ?
@@ -607,6 +579,7 @@ static int execute_workload(differential_fixture *fixture,
         fill_activity(&activities[index], LX_PROGRAMS_CALL, payloads[index],
                       payload_length, fixture->dids[actor],
                       fixture->did_lengths[actor], fixture->keys[actor]);
+        activities[index].protocol_version = fixture->protocol_version;
         activities[index].account_sequence =
             workload == DIFFERENTIAL_ALL_CONFLICTING ? index + 1U :
             (actor == 0U ? 1U : 0U);
@@ -628,8 +601,7 @@ static int execute_workload(differential_fixture *fixture,
         executions[index].maximum_timestamp_window = 100U;
         executions[index].global_sequence = index + 2U;
         executions[index].epoch = 1U;
-        executions[index].recorded_module_version =
-            LX_PROGRAMS_ACCOUNT_ABI_VERSION;
+        executions[index].recorded_module_version = fixture->module_version;
         executions[index].parameter_version = 1U;
         executions[index].signature_valid = true;
         executions[index].identities = &fixture->identities;
@@ -643,23 +615,20 @@ static int execute_workload(differential_fixture *fixture,
             fixture->sequencer_private_key;
     }
     if (lxp_arena_init(&batch_arena, batch_arena_storage,
-                       sizeof(batch_arena_storage)) != LXP_OK ||
-        mkdtemp(directory) == NULL)
+                       sizeof(batch_arena_storage)) != LXP_OK)
         return 1;
     for (index = 0U; index < activity_count; ++index)
         if (lxp_activity_encode(&activities[index], &batch_arena,
                                 &canonical_activities[index]) != LXP_OK) {
-            cleanup_differential_directory(
-                directory, &checkpoint, wal_record, prepared);
+            lxp_kernel_prepared_batch_destroy(prepared);
             return 1;
         }
-    if (lxp_daemon_batch_bind_prefix(
+    if (bind_differential_prefix(
             canonical_activities, activity_count,
             fixture->kernel.current_state_root, 2U, 2U,
             &batch_arena, executions, &scheduling_roots,
             batch_id) != LXP_OK) {
-        cleanup_differential_directory(
-            directory, &checkpoint, wal_record, prepared);
+        lxp_kernel_prepared_batch_destroy(prepared);
         return 1;
     }
     (void)memcpy(offered_activity_root,
@@ -668,13 +637,14 @@ static int execute_workload(differential_fixture *fixture,
     if (workload != DIFFERENTIAL_PLANNING_REFUSAL && !expect_retry &&
         observe_schedule_levels(fixture, activities, executions,
                                 activity_count, &run->level_count) != 0) {
-        cleanup_differential_directory(
-            directory, &checkpoint, wal_record, prepared);
+        (void)fprintf(stderr,
+                      "execute_workload stage=schedule-plan workload=%d workers=%u levels=%zu expected=valid-plan\n",
+                      (int)workload, (unsigned)workers, run->level_count);
+        lxp_kernel_prepared_batch_destroy(prepared);
         return 1;
     }
     if (clock_gettime(CLOCK_MONOTONIC, &start) != 0) {
-        cleanup_differential_directory(
-            directory, &checkpoint, wal_record, prepared);
+        lxp_kernel_prepared_batch_destroy(prepared);
         return 1;
     }
     status = lxp_kernel_prepare_activity_batch(
@@ -683,9 +653,9 @@ static int execute_workload(differential_fixture *fixture,
     if (expect_retry && status != LXP_OK && prepared == NULL) {
         if (retry_status != NULL) *retry_status = status;
         if (retry_prefix != NULL) *retry_prefix = retry_prefix_count;
-        if (commit_retry_prefix && retry_prefix_count != 0U) {
+        if (prepare_retry_prefix && retry_prefix_count != 0U) {
             activity_count = retry_prefix_count;
-            status = lxp_daemon_batch_bind_prefix(
+            status = bind_differential_prefix(
                 canonical_activities, activity_count,
                 fixture->kernel.current_state_root, 2U, 2U,
                 &batch_arena, executions, &scheduling_roots, batch_id);
@@ -701,22 +671,22 @@ static int execute_workload(differential_fixture *fixture,
                     activity_count, workers, &prepared,
                     &retry_prefix_count);
             expect_retry = false;
-            if (status == LXP_OK) {
-                /* Continue through the exact WAL/checkpoint/finalize path
-                 * with the retained original prefix. */
-            } else {
-                cleanup_differential_directory(
-                    directory, &checkpoint, wal_record, prepared);
+            if (status != LXP_OK) {
+                lxp_kernel_prepared_batch_destroy(prepared);
                 return 1;
             }
         } else {
-            return cleanup_differential_directory(
-                       directory, &checkpoint, wal_record, prepared) ? 0 : 1;
+            uint8_t canonical_root[32];
+            (void)memcpy(run->prepared_root, run->root, 32U);
+            return lxp_state_root(&fixture->kernel, canonical_root) == LXP_OK &&
+                   memcmp(run->root,
+                          fixture->kernel.current_state_root, 32U) == 0 &&
+                   memcmp(run->canonical_root, canonical_root, 32U) == 0 ?
+                   0 : 1;
         }
     }
     if (expect_retry) {
-        cleanup_differential_directory(
-            directory, &checkpoint, wal_record, prepared);
+        lxp_kernel_prepared_batch_destroy(prepared);
         return 1;
     }
     prepared_receipts = status == LXP_OK ?
@@ -727,26 +697,84 @@ static int execute_workload(differential_fixture *fixture,
         lxp_kernel_prepared_batch_base_boundary(prepared) : NULL;
     settled = status == LXP_OK ?
         lxp_kernel_prepared_batch_final_boundary(prepared) : NULL;
+    settled_kernel = status == LXP_OK ?
+        lxp_kernel_prepared_batch_settled_kernel(prepared) : NULL;
     if (status == LXP_OK &&
         (lxp_kernel_prepared_batch_count(prepared) != activity_count ||
          retry_prefix_count != 0U ||
          prepared_receipts == NULL || prepared_events == NULL ||
-         base == NULL || settled == NULL))
+         base == NULL || settled == NULL || settled_kernel == NULL)) {
+        stage = "prepared-interfaces";
         status = LXP_FATAL_INVARIANT;
+    }
+    if (status == LXP_OK) {
+        stage = "live-state-root";
+        status = lxp_state_root(&fixture->kernel, live_canonical_root);
+    }
+    if (status == LXP_OK &&
+        (base->next_sequence != 2U ||
+         settled->next_sequence != base->next_sequence + activity_count ||
+         memcmp(base->receipt_state_root, run->root, 32U) != 0 ||
+         memcmp(base->canonical_state_root, run->canonical_root, 32U) != 0 ||
+         memcmp(fixture->kernel.current_state_root, run->root, 32U) != 0 ||
+         memcmp(live_canonical_root, run->canonical_root, 32U) != 0)) {
+        stage = "boundary-identity";
+        (void)fprintf(stderr,
+                      "execute_workload stage=%s base_sequence=%llu expected=2 settled_sequence=%llu expected=%llu base_receipt_cmp=%d base_canonical_cmp=%d live_receipt_cmp=%d live_canonical_cmp=%d expected_cmp=0\n",
+                      stage, (unsigned long long)base->next_sequence,
+                      (unsigned long long)settled->next_sequence,
+                      (unsigned long long)(base->next_sequence + activity_count),
+                      memcmp(base->receipt_state_root, run->root, 32U),
+                      memcmp(base->canonical_state_root, run->canonical_root, 32U),
+                      memcmp(fixture->kernel.current_state_root, run->root, 32U),
+                      memcmp(live_canonical_root, run->canonical_root, 32U));
+        status = LXP_FATAL_INVARIANT;
+    }
     if (status == LXP_OK)
         (void)memcpy(run->prepared_root,
                      lxp_kernel_prepared_batch_final_root(prepared), 32U);
-    for (index = 0U; status == LXP_OK && index < activity_count; ++index)
-        if (memcmp(prepared_receipts[index].activity_root,
+    for (index = 0U; status == LXP_OK && index < activity_count; ++index) {
+        stage = "receipt-identity";
+        if (prepared_receipts[index].global_sequence !=
+                base->next_sequence + index ||
+            memcmp(prepared_receipts[index].previous_state_root,
+                   index == 0U ? base->receipt_state_root :
+                       prepared_receipts[index - 1U].resulting_state_root,
+                   32U) != 0 ||
+            memcmp(prepared_receipts[index].activity_root,
                    scheduling_roots.activity_merkle_root, 32U) != 0 ||
-            memcmp(prepared_receipts[index].batch_id, batch_id, 32U) != 0)
+            memcmp(prepared_receipts[index].batch_id, batch_id, 32U) != 0) {
+            (void)fprintf(stderr,
+                          "execute_workload stage=%s index=%zu sequence=%llu expected=%llu previous_root_cmp=%d activity_root_cmp=%d batch_id_cmp=%d expected_cmp=0\n",
+                          stage, index,
+                          (unsigned long long)prepared_receipts[index].global_sequence,
+                          (unsigned long long)(base->next_sequence + index),
+                          memcmp(prepared_receipts[index].previous_state_root,
+                                 index == 0U ? base->receipt_state_root :
+                                     prepared_receipts[index - 1U].resulting_state_root,
+                                 32U),
+                          memcmp(prepared_receipts[index].activity_root,
+                                 scheduling_roots.activity_merkle_root, 32U),
+                          memcmp(prepared_receipts[index].batch_id, batch_id, 32U));
             status = LXP_FATAL_INVARIANT;
+        }
+    }
+    if (status == LXP_OK &&
+        (memcmp(prepared_receipts[activity_count - 1U].resulting_state_root,
+                settled->receipt_state_root, 32U) != 0 ||
+         memcmp(run->prepared_root, settled->receipt_state_root, 32U) != 0)) {
+        stage = "final-receipt-root";
+        status = LXP_FATAL_INVARIANT;
+    }
     for (index = 0U; status == LXP_OK &&
-                     index < activity_count; ++index)
+                     index < activity_count; ++index) {
+        stage = "receipt-encode";
         status = lxp_receipt_encode(&prepared_receipts[index], true,
                                     &batch_arena,
                                     &canonical_receipts[index]);
-    if (status == LXP_OK)
+    }
+    if (status == LXP_OK) {
+        stage = "batch-roots";
         status = lxp_batch_roots_compute(
             &(lxp_batch_root_inputs){
                 canonical_activities, activity_count,
@@ -754,6 +782,7 @@ static int execute_workload(differential_fixture *fixture,
                 prepared_events, activity_count,
                 NULL, 0U, NULL, 0U},
             &batch_arena, &roots);
+    }
     for (index = 0U; status == LXP_OK &&
                      index < activity_count; ++index)
         status = lxp_merkle_leaf_hash(canonical_receipts[index].bytes,
@@ -769,100 +798,24 @@ static int execute_workload(differential_fixture *fixture,
             memcmp(proof_root, roots.receipt_merkle_root, 32U) != 0)
             status = LXP_FATAL_INVARIANT;
     }
-    (void)memset(&header, 0, sizeof(header));
-    header.protocol_version = activities[0].protocol_version;
-    header.network_id = 7U;
-    header.epoch = 1U;
-    header.batch_number = 2U;
-    header.first_sequence = prepared_receipts == NULL ? 0U :
-        prepared_receipts[0].global_sequence;
-    header.last_sequence = prepared_receipts == NULL ? 0U :
-        prepared_receipts[activity_count - 1U].global_sequence;
-    if (prepared_receipts != NULL) {
-        (void)memcpy(header.previous_state_root,
-                     prepared_receipts[0].previous_state_root, 32U);
-        (void)memcpy(header.resulting_state_root,
-                     prepared_receipts[activity_count - 1U]
-                         .resulting_state_root, 32U);
-    }
-    (void)memcpy(header.activity_merkle_root, roots.activity_merkle_root, 32U);
-    (void)memcpy(header.receipt_merkle_root, roots.receipt_merkle_root, 32U);
-    (void)memcpy(header.event_merkle_root, roots.event_merkle_root, 32U);
-    (void)memcpy(header.oracle_root, roots.oracle_root, 32U);
-    (void)memcpy(header.data_availability_root,
-                 roots.data_availability_root, 32U);
-    header.timestamp_ms = 20U;
-    (void)memcpy(header.sequencer_id,
-                 fixture->sequencer_authorization.sequencer_id, 32U);
-    if (status == LXP_OK)
-        status = lxp_da_body_from_kernels(
-            &header, lxp_kernel_prepared_batch_base_kernel(prepared),
-            lxp_kernel_prepared_batch_settled_kernel(prepared),
-            canonical_activities, activity_count,
-            canonical_receipts, activity_count, prepared_events, activity_count,
-            NULL, 0U, &batch_arena, &availability_body);
-    if (status == LXP_OK) header = availability_body.header;
-    if (status == LXP_OK)
-        status = lxp_batch_sign(
-            &header, fixture->sequencer_private_key,
-            &fixture->sequencer_authorization, header_signature,
-            &batch_arena);
-    if (status == LXP_OK)
-        status = lxp_batch_header_encode(&header, &batch_arena,
-                                         &canonical_header);
-    (void)memset(&wal_input, 0, sizeof(wal_input));
-    if (status == LXP_OK) {
-        wal_input.protocol_version = header.protocol_version;
-        wal_input.network_id = header.network_id;
-        wal_input.epoch = header.epoch;
-        wal_input.batch_number = header.batch_number;
-        wal_input.timestamp_ms = header.timestamp_ms;
-        wal_input.parameter_version = 1U;
-        wal_input.fee_schedule_version =
-            prepared_receipts[0].program_outcome.fee_schedule_version;
-        wal_input.metering_schedule_version =
-            prepared_receipts[0].program_outcome.metering_schedule_version;
-        wal_input.first_sequence = header.first_sequence;
-        wal_input.last_sequence = header.last_sequence;
-        wal_input.count = activity_count;
-        wal_input.base = *base;
-        wal_input.settled = *settled;
-        (void)memcpy(wal_input.publication_digest,
-                     lxp_kernel_prepared_batch_publication_digest(prepared),
-                     32U);
-        wal_input.authorization = fixture->sequencer_authorization;
-        wal_input.canonical_header = canonical_header;
-        (void)memcpy(wal_input.header_signature, header_signature, 64U);
-        wal_input.activities = canonical_activities;
-        wal_input.receipts = canonical_receipts;
-        wal_input.events = prepared_events;
-        for (index = 0U; index < activity_count; ++index) {
-            terminal_payloads[index] = prepared_receipts[index].program_outcome.terminal_payload;
-            call_graphs[index] = prepared_receipts[index].program_outcome.call_graph_payload;
-        }
-        wal_input.terminal_payloads = terminal_payloads;
-        wal_input.call_graphs = call_graphs;
-        wal_input.receipt_proofs = proofs;
-        wal_input.state_diff = availability_body.state_diff;
-        wal_input.recovery_metadata = availability_body.recovery_metadata;
-        checkpoint.directory = directory;
-        checkpoint.kernel = &fixture->kernel;
-        checkpoint.storage = snapshot_storage;
-        checkpoint.storage_length = sizeof(snapshot_storage);
-        status = lxp_daemon_batch_wal_commit_kernel(
-            directory, &wal_input, &fixture->kernel, &fixture->identities,
-            activities, prepared, persist_differential_checkpoint,
-            &checkpoint, &wal_record);
-    }
     if (clock_gettime(CLOCK_MONOTONIC, &finish) != 0) status = LXP_ERR_IO;
     run->elapsed_ns = elapsed_ns(&start, &finish);
     if (status == LXP_OK) {
-        (void)memcpy(run->root, fixture->kernel.current_state_root, 32U);
-        status = lxp_state_root(&fixture->kernel, run->canonical_root);
+        stage = "settled-state-root";
+        (void)memcpy(run->root, settled_kernel->current_state_root, 32U);
+        status = lxp_state_root(settled_kernel, run->canonical_root);
+        if (status == LXP_OK &&
+            (memcmp(run->root, settled->receipt_state_root, 32U) != 0 ||
+             memcmp(run->canonical_root,
+                    settled->canonical_state_root, 32U) != 0))
+            status = LXP_FATAL_INVARIANT;
     }
     if (status != LXP_OK) {
-        cleanup_differential_directory(
-            directory, &checkpoint, wal_record, prepared);
+        (void)fprintf(stderr,
+                      "execute_workload stage=%s workload=%d workers=%u status=%d expected=%d count=%zu retry_prefix=%zu\n",
+                      stage, (int)workload, (unsigned)workers, (int)status,
+                      (int)LXP_OK, activity_count, retry_prefix_count);
+        lxp_kernel_prepared_batch_destroy(prepared);
         return 1;
     }
     for (index = 0U; index < activity_count; ++index) {
@@ -873,14 +826,19 @@ static int execute_workload(differential_fixture *fixture,
             lxp_arena_init(&receipt_arena, run->receipt_storage[index],
                            sizeof(run->receipt_storage[index])) != LXP_OK ||
             lxp_receipt_encode(&run->receipts[index], true, &receipt_arena,
-                               &run->canonical_receipts[index]) != LXP_OK) {
-            cleanup_differential_directory(
-                directory, &checkpoint, wal_record, prepared);
+                               &run->canonical_receipts[index]) != LXP_OK ||
+            lxp_receipt_decode(run->canonical_receipts[index].bytes,
+                               run->canonical_receipts[index].length, true,
+                               &run->receipts[index]) != LXP_OK) {
+            (void)fprintf(stderr,
+                          "execute_workload stage=receipt-copy index=%zu program_outcome=%d expected=1 receipt_bytes=%zu\n",
+                          index, (int)run->receipts[index].program_outcome.present,
+                          run->canonical_receipts[index].length);
+            lxp_kernel_prepared_batch_destroy(prepared);
             return 1;
         }
         if (run->events[index].length > sizeof(run->event_storage[index])) {
-            cleanup_differential_directory(
-                directory, &checkpoint, wal_record, prepared);
+            lxp_kernel_prepared_batch_destroy(prepared);
             return 1;
         }
         if (run->events[index].length != 0U)
@@ -891,8 +849,7 @@ static int execute_workload(differential_fixture *fixture,
             if (run->receipts[index].result_code != LXP_ERR_UNKNOWN_FIELD ||
                 run->events[index].length != 4U ||
                 memcmp(run->events[index].bytes, "\0\0\0\0", 4U) != 0) {
-                cleanup_differential_directory(
-                    directory, &checkpoint, wal_record, prepared);
+                lxp_kernel_prepared_batch_destroy(prepared);
                 return 1;
             }
         } else if (run->events[index].length <= 4U ||
@@ -901,33 +858,17 @@ static int execute_workload(differential_fixture *fixture,
              memcmp(run->events[index].bytes,
                     run->events[index - 1U].bytes,
                     run->events[index].length) == 0)) {
-            cleanup_differential_directory(
-                directory, &checkpoint, wal_record, prepared);
+            (void)fprintf(stderr,
+                          "execute_workload stage=event-identity index=%zu result=%d event_bytes=%zu expected=>4 previous_event_bytes=%zu\n",
+                          index, (int)run->receipts[index].result_code,
+                          run->events[index].length,
+                          index == 0U ? 0U : run->events[index - 1U].length);
+            lxp_kernel_prepared_batch_destroy(prepared);
             return 1;
         }
     }
-    if (lxp_daemon_batch_wal_transition(
-            directory, wal_record,
-            lxp_kernel_prepared_batch_final_boundary(prepared),
-            LXP_DAEMON_BATCH_WAL_COMMITTED) != LXP_OK) {
-        cleanup_differential_directory(
-            directory, &checkpoint, wal_record, prepared);
-        return 1;
-    }
-    if (lxp_daemon_batch_wal_retire(
-            directory, wal_record,
-            lxp_kernel_prepared_batch_final_boundary(prepared)) != LXP_OK) {
-        cleanup_differential_directory(
-            directory, &checkpoint, wal_record, prepared);
-        return 1;
-    }
-    if (!checkpoint.stored) {
-        cleanup_differential_directory(
-            directory, &checkpoint, wal_record, prepared);
-        return 1;
-    }
-    return cleanup_differential_directory(
-               directory, &checkpoint, wal_record, prepared) ? 0 : 1;
+    lxp_kernel_prepared_batch_destroy(prepared);
+    return 0;
 }
 
 static lxp_result differential_fixture_destroy(differential_fixture *fixture)
@@ -967,7 +908,14 @@ static int qualify_zero_prefix_fee_limit(void)
             DIFFERENTIAL_WORKERS, impossible_limit, true, false,
             &parallel_status, &parallel_prefix, &parallel_run) != 0 ||
         serial_status == LXP_OK || serial_status != parallel_status ||
-        serial_prefix != 0U || parallel_prefix != 0U)
+        serial_prefix != 0U || parallel_prefix != 0U ||
+        memcmp(serial_run.root, parallel_run.root, 32U) != 0 ||
+        memcmp(serial_run.canonical_root,
+               parallel_run.canonical_root, 32U) != 0 ||
+        memcmp(serial_run.root,
+               serial_fixture.kernel.current_state_root, 32U) != 0 ||
+        memcmp(parallel_run.root,
+               parallel_fixture.kernel.current_state_root, 32U) != 0)
         return 1;
     return differential_fixture_destroy(&serial_fixture) == LXP_OK &&
            differential_fixture_destroy(&parallel_fixture) == LXP_OK ? 0 : 1;
@@ -991,9 +939,10 @@ static int exact_runs_equal(const differential_run *serial,
                 parallel->receipts[index].program_outcome.cpu_fuel ||
             serial->canonical_receipts[index].length !=
                 parallel->canonical_receipts[index].length ||
-            memcmp(serial->canonical_receipts[index].bytes,
-                   parallel->canonical_receipts[index].bytes,
-                   serial->canonical_receipts[index].length) != 0 ||
+            (serial->canonical_receipts[index].length != 0U &&
+             memcmp(serial->canonical_receipts[index].bytes,
+                    parallel->canonical_receipts[index].bytes,
+                    serial->canonical_receipts[index].length) != 0) ||
             serial->events[index].length != parallel->events[index].length ||
             (serial->events[index].length != 0U &&
              memcmp(serial->events[index].bytes,
@@ -1036,28 +985,93 @@ static int qualify_workload(differential_workload workload)
     static differential_run parallel;
     lxp_u128 fee_limit = workload == DIFFERENTIAL_LOW_CONFLICT ?
         (lxp_u128){0U, UINT64_MAX} : observed_call_limit;
+    uint16_t protocol_version = LXP_PROTOCOL_VERSION;
+    size_t expected_level_count;
+    int result;
+    lxp_result serial_status;
+    lxp_result parallel_status;
     if (workload == DIFFERENTIAL_ALL_CONFLICTING &&
-        lxp_u128_is_zero(fee_limit))
+        lxp_u128_is_zero(fee_limit)) {
+        (void)fprintf(stderr,
+                      "qualify_workload stage=fee-limit workload=%d limit=%llu:%llu expected=nonzero\n",
+                      (int)workload, (unsigned long long)fee_limit.hi,
+                      (unsigned long long)fee_limit.lo);
         return 1;
-    if (differential_fixture_init(&serial_fixture) != 0 ||
-        differential_fixture_init(&parallel_fixture) != 0 ||
-        execute_workload(&serial_fixture, workload,
+    }
+    result = differential_fixture_init_balanced(
+            &serial_fixture, (lxp_u128){0U, UINT64_MAX},
+            (lxp_u128){0U, 0U}, protocol_version);
+    if (result != 0) {
+        (void)fprintf(stderr,
+                      "qualify_workload stage=serial-fixture workload=%d result=%d expected=0 protocol=%u\n",
+                      (int)workload, result, (unsigned)protocol_version);
+        return 1;
+    }
+    result = differential_fixture_init_balanced(
+            &parallel_fixture, (lxp_u128){0U, UINT64_MAX},
+            (lxp_u128){0U, 0U}, protocol_version);
+    if (result != 0) {
+        (void)fprintf(stderr,
+                      "qualify_workload stage=parallel-fixture workload=%d result=%d expected=0 protocol=%u\n",
+                      (int)workload, result, (unsigned)protocol_version);
+        return 1;
+    }
+    result = execute_workload(&serial_fixture, workload,
                          DIFFERENTIAL_BATCH_SIZE, 1U,
                          fee_limit,
                          false, false, NULL, NULL,
-                         &serial) != 0 ||
-        execute_workload(&parallel_fixture, workload,
+                         &serial);
+    if (result != 0) {
+        (void)fprintf(stderr,
+                      "qualify_workload stage=serial-execution workload=%d result=%d expected=0\n",
+                      (int)workload, result);
+        return 1;
+    }
+    result = execute_workload(&parallel_fixture, workload,
                          DIFFERENTIAL_BATCH_SIZE,
                          DIFFERENTIAL_WORKERS,
                          fee_limit,
                          false, false, NULL, NULL,
-                         &parallel) != 0 ||
-        exact_runs_equal(&serial, &parallel) != 0)
+                         &parallel);
+    if (result != 0) {
+        (void)fprintf(stderr,
+                      "qualify_workload stage=parallel-execution workload=%d result=%d expected=0\n",
+                      (int)workload, result);
         return 1;
+    }
+    result = exact_runs_equal(&serial, &parallel);
+    if (result != 0) {
+        size_t index;
+        (void)fprintf(stderr,
+                      "qualify_workload stage=exact_runs_equal workload=%d result=%d expected=0 receipt_root_cmp=%d canonical_root_cmp=%d prepared_root_cmp=%d\n",
+                      (int)workload, result,
+                      memcmp(serial.root, parallel.root, 32U),
+                      memcmp(serial.canonical_root, parallel.canonical_root, 32U),
+                      memcmp(serial.prepared_root, parallel.prepared_root, 32U));
+        for (index = 0U; index < DIFFERENTIAL_BATCH_SIZE; ++index)
+            (void)fprintf(stderr,
+                          "receipt=%zu serial_sequence=%llu parallel_sequence=%llu serial_bytes=%zu parallel_bytes=%zu serial_events=%zu parallel_events=%zu\n",
+                          index,
+                          (unsigned long long)serial.receipts[index].global_sequence,
+                          (unsigned long long)parallel.receipts[index].global_sequence,
+                          serial.canonical_receipts[index].length,
+                          parallel.canonical_receipts[index].length,
+                          serial.events[index].length, parallel.events[index].length);
+        return 1;
+    }
     observed_call_fee = serial.receipts[0].fee_charged;
-    if (derive_call_limit(&serial.receipts[0], &observed_call_limit) != 0 ||
-        lxp_u128_cmp(observed_call_limit, observed_call_fee) < 0)
+    result = derive_call_limit(&serial.receipts[0], &observed_call_limit);
+    if (result != 0 ||
+        lxp_u128_cmp(observed_call_limit, observed_call_fee) < 0) {
+        (void)fprintf(stderr,
+                      "qualify_workload stage=derive_call_limit workload=%d result=%d expected=0 limit=%llu:%llu fee=%llu:%llu expected=limit>=fee\n",
+                      (int)workload, result,
+                      (unsigned long long)observed_call_limit.hi,
+                      (unsigned long long)observed_call_limit.lo,
+                      (unsigned long long)observed_call_fee.hi,
+                      (unsigned long long)observed_call_fee.lo);
         return 1;
+    }
     /* Elapsed values are source-harness measurements only. They are excluded
      * from every consensus comparison and no baseline number is embedded. */
     (void)fprintf(stderr,
@@ -1068,12 +1082,28 @@ static int qualify_workload(differential_workload workload)
                   (unsigned)DIFFERENTIAL_WORKERS,
                   (unsigned long long)serial.elapsed_ns,
                   (unsigned long long)parallel.elapsed_ns);
+    expected_level_count = workload == DIFFERENTIAL_LOW_CONFLICT &&
+        !lxp_protocol_version_uses_occupancy(serial_fixture.protocol_version) ?
+        1U : (size_t)DIFFERENTIAL_BATCH_SIZE;
+    (void)fprintf(stderr,
+                  "qualify_workload stage=schedule-levels workload=%d protocol=%u serial=%zu parallel=%zu expected=%zu\n",
+                  (int)workload, (unsigned)serial_fixture.protocol_version,
+                  serial.level_count, parallel.level_count,
+                  expected_level_count);
     if (serial.level_count != parallel.level_count ||
-        serial.level_count != (workload == DIFFERENTIAL_LOW_CONFLICT ?
-                               1U : (size_t)DIFFERENTIAL_BATCH_SIZE))
+        serial.level_count != expected_level_count) {
         return 1;
-    return differential_fixture_destroy(&serial_fixture) == LXP_OK &&
-           differential_fixture_destroy(&parallel_fixture) == LXP_OK ? 0 : 1;
+    }
+    serial_status = differential_fixture_destroy(&serial_fixture);
+    parallel_status = differential_fixture_destroy(&parallel_fixture);
+    if (serial_status != LXP_OK || parallel_status != LXP_OK) {
+        (void)fprintf(stderr,
+                      "qualify_workload stage=fixture-destroy workload=%d serial=%d parallel=%d expected=%d\n",
+                      (int)workload, (int)serial_status, (int)parallel_status,
+                      (int)LXP_OK);
+        return 1;
+    }
+    return 0;
 }
 
 static int execute_scalar_prefix(differential_fixture *fixture,
@@ -1144,7 +1174,7 @@ static int execute_scalar_prefix(differential_fixture *fixture,
         executions[index].sequencer_private_key =
             fixture->sequencer_private_key;
     }
-    if (lxp_daemon_batch_bind_prefix(
+    if (bind_differential_prefix(
             canonical_activities, activity_count,
             fixture->kernel.current_state_root, 2U, 2U,
             &root_arena, executions, &scheduling_roots,
@@ -1197,9 +1227,11 @@ static int qualify_retry_balance_case(lxp_u128 actor_balance,
     size_t serial_prefix_count = 0U;
     size_t parallel_prefix_count = 0U;
     if (differential_fixture_init_balanced(
-            &serial_refusal, actor_balance, treasury_balance) != 0 ||
+            &serial_refusal, actor_balance, treasury_balance,
+            LXP_PROTOCOL_VERSION) != 0 ||
         differential_fixture_init_balanced(
-            &parallel_refusal, actor_balance, treasury_balance) != 0 ||
+            &parallel_refusal, actor_balance, treasury_balance,
+            LXP_PROTOCOL_VERSION) != 0 ||
         execute_workload(
             &serial_refusal, DIFFERENTIAL_ALL_CONFLICTING,
             RETRY_OFFER, 1U, observed_call_limit,
@@ -1215,7 +1247,8 @@ static int qualify_retry_balance_case(lxp_u128 actor_balance,
         parallel_prefix_count != RETRY_PREFIX)
         return 1;
     if (differential_fixture_init_balanced(
-            &scalar_prefix, actor_balance, treasury_balance) != 0 ||
+            &scalar_prefix, actor_balance, treasury_balance,
+            LXP_PROTOCOL_VERSION) != 0 ||
         execute_scalar_prefix(&scalar_prefix, RETRY_PREFIX,
                               &scalar_run) != 0 ||
         exact_runs_equal(&serial_run, &parallel_run) != 0 ||
@@ -1319,7 +1352,7 @@ static int qualify_payment_account_balance(void)
     return 0;
 }
 
-int main(void)
+static int programs_parallel_differential(void)
 {
     if (qualify_payment_account_balance() != 0) return 1;
     if (qualify_workload(DIFFERENTIAL_LOW_CONFLICT) != 0) {
@@ -1343,4 +1376,9 @@ int main(void)
         return 1;
     }
     return 0;
+}
+
+int main(void)
+{
+    return programs_parallel_differential();
 }

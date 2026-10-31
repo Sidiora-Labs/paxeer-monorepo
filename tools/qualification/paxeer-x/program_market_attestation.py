@@ -20,7 +20,7 @@ SCHEMA = "paxeer-x.market-attestation-artifacts.v1"
 SOURCE_PATHS = (
     "Makefile", "rust-toolchain.toml", "programs", "services/agent/Cargo.toml",
     "services/agent/Cargo.lock", "services/agent/unsafe-allowlist.toml", "services/agent/deny.toml", "services/agent/crates", "src", "include", "tests/programs",
-    "tests/support", "contracts/config/checkpoint-settlement.json",
+    "tests/support",
     "tools/qualification/paxeer-x/program_market_attestation.py",
     "tools/paxeer-x/build/104.35.7.mk", "tools/paxeer-x/gates/104.35.7.sh",
 )

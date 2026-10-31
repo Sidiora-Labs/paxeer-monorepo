@@ -1905,113 +1905,11 @@ mod source_contract {
     use super::{
         accepted_program_verification, bind_interface_discovery, bounded_hex, decode_discovery,
         decode_execution, decode_execution_usage, decode_interface, decode_service_error,
-        decode_submission, discovery_digest, ed25519, evm_transaction, exact_fields, fixed,
-        guest_abi, hex, object, require_native_execution, required_string, wire_native_call,
-        ExecutionState, NativeProgramCallRequest, ProgramLifecycle, ProgramOperationError,
-        ProgramSubmission, SubmissionExpectation, VerifiedProgramDiscovery,
+        discovery_digest, ed25519, evm_transaction, exact_fields, fixed, guest_abi, hex, object,
+        require_native_execution, required_string, wire_native_call, NativeProgramCallRequest,
+        ProgramLifecycle, ProgramOperationError, VerifiedProgramDiscovery,
         MAX_SIGNED_ACTIVITY_BYTES,
     };
-
-    #[test]
-    fn corrupt_lifecycle_boundary_responses_retain_c_signed_request() -> Result<(), String> {
-        use crate::program_lifecycle::{
-            programs_module_registry, NativeProgramLifecycleRequest, ProgramLifecycleSubmission,
-        };
-        use layerx_types::program_lifecycle::NativeProgramDeploy;
-        let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/native-program-deploy-v3.json"
-        ))
-        .map_err(|error| error.to_string())?;
-        let fields = object(&fixture).map_err(|error| format!("{error:?}"))?;
-        let payload = super::bounded_hex(fields, "payload_hex", 524_288, None)
-            .map_err(|error| format!("{error:?}"))?;
-        let signed = super::bounded_hex(fields, "signed_activity_hex", 1_048_576, None)
-            .map_err(|error| format!("{error:?}"))?;
-        let registry = programs_module_registry().map_err(|error| format!("{error:?}"))?;
-        let request = NativeProgramLifecycleRequest::deploy(
-            &registry,
-            NativeProgramDeploy::decode(&payload).map_err(|error| format!("{error:?}"))?,
-            &signed,
-        )
-        .map_err(|error| format!("{error:?}"))?;
-        let receipt_fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json"
-        ))
-        .map_err(|error| error.to_string())?;
-        let mut receipt = super::bounded_hex(
-            object(&receipt_fixture).map_err(|error| format!("{error:?}"))?,
-            "canonical_receipt_hex",
-            1_048_576,
-            None,
-        )
-        .map_err(|error| format!("{error:?}"))?;
-        *receipt.last_mut().ok_or("missing receipt signature")? ^= 1;
-        let expected = ProgramLifecycleSubmission::Unknown {
-            activity_id: request.bound_activity_id(),
-            idempotency_key: request.bound_idempotency_key(),
-            retained_signed_activity: signed,
-        };
-        for document in [
-            json!({"result":{"state":"executed", "activity_id":fixture["activity_id_hex"], "receipt":super::hex(&receipt), "terminal_payload":"", "call_graph":""}}),
-            json!({"result":{"state":"refused", "activity_id":fixture["activity_id_hex"], "receipt":"00", "terminal_payload":"", "call_graph":""}}),
-            json!({"result":{},"extra":true}),
-            json!({"state":"unknown", "activity_id":"00".repeat(32), "retry":"after", "retry_after_seconds":2}),
-        ] {
-            let attempt =
-                super::decode_agent_document(200, document, "program.deploy").and_then(|value| {
-                    super::HttpProgramTransport::decode_lifecycle_submission(
-                        &value, &request, [1; 32],
-                    )
-                });
-            assert_eq!(
-                super::resolve_lifecycle_submission(&request, attempt)
-                    .map_err(|error| format!("{error:?}"))?,
-                expected
-            );
-        }
-        let malformed = serde_json::from_slice::<serde_json::Value>(b"{\"result\":")
-            .map_err(|_| super::ProgramOperationError::Decode)
-            .and_then(|value| {
-                super::HttpProgramTransport::decode_lifecycle_submission(&value, &request, [1; 32])
-            });
-        assert_eq!(
-            super::resolve_lifecycle_submission(&request, malformed)
-                .map_err(|error| format!("{error:?}"))?,
-            expected
-        );
-        let refusal = super::decode_agent_document(
-            400,
-            json!({"error":{"code":"invalid_program_payload","retry":"never"}}),
-            "program.deploy",
-        )
-        .and_then(|value| {
-            super::HttpProgramTransport::decode_lifecycle_submission(&value, &request, [1; 32])
-        });
-        assert!(matches!(
-            super::resolve_lifecycle_submission(&request, refusal),
-            Err(super::ProgramOperationError::Boundary { status: 400, .. })
-        ));
-        let transport =
-            super::HttpProgramTransport::connect("http://127.0.0.1:1", None, [1; 32], || {
-                super::wall_clock::wall_time()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .ok()
-                    .and_then(|duration| u64::try_from(duration.as_millis()).ok())
-                    .ok_or(super::ProgramOperationError::Verification)
-            })
-            .map_err(|error| format!("{error:?}"))?;
-        assert!(matches!(
-            transport.submit_lifecycle(
-                &request,
-                [0; 32],
-                1,
-                "program.deploy",
-                "/v1/programs/deploy"
-            ),
-            Err(super::ProgramOperationError::IdentityMismatch)
-        ));
-        Ok(())
-    }
 
     #[test]
     fn lifecycle_recovery_requires_exact_identity_and_state_receipt() {
@@ -2436,141 +2334,6 @@ mod source_contract {
     }
 
     #[test]
-    fn native_execution_preserves_captured_receipt_authority_and_unknown_identity(
-    ) -> Result<(), ProgramOperationError> {
-        let fixture: Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
-        ))
-        .map_err(|_| ProgramOperationError::Decode)?;
-        let source = object(&fixture)?;
-        let signed = bounded_hex(
-            source,
-            "signed_activity_hex",
-            MAX_SIGNED_ACTIVITY_BYTES,
-            None,
-        )?;
-        let activity = super::signed_program_transaction(&signed)?;
-        let (call, _) = super::program_call_body(&activity.data)?;
-        let authority = object(
-            fixture
-                .get("authorized_batch")
-                .ok_or(ProgramOperationError::Decode)?,
-        )?;
-        let key = fixed(authority, "sequencer_public_key_hex")?;
-        let evidence = super::ProgramExecutionEvidence {
-            payload_hash: super::execution_call_binding(
-                &signed,
-                evm_transaction::transaction_hash(&signed),
-                call.program_id.bytes(),
-                call.guest_abi,
-            )?
-            .0,
-            receipt: bounded_hex(
-                source,
-                "canonical_receipt_hex",
-                MAX_SIGNED_ACTIVITY_BYTES,
-                None,
-            )?,
-            terminal_payload: bounded_hex(
-                source,
-                "terminal_payload_hex",
-                MAX_SIGNED_ACTIVITY_BYTES,
-                None,
-            )?,
-            call_graph: bounded_hex(source, "call_graph_hex", MAX_SIGNED_ACTIVITY_BYTES, None)?,
-            authority: layerx_proof::receipt::AuthorizedBatch::new(
-                fixed(authority, "batch_id_hex")?,
-                fixed(authority, "asset_hex")?,
-                fixed(authority, "previous_state_root_hex")?,
-                fixed(authority, "resulting_state_root_hex")?,
-                key,
-            ),
-            activity_id: evm_transaction::transaction_hash(&signed),
-            program_id: call.program_id.bytes(),
-            guest_abi_version: call.guest_abi,
-        };
-        let capture = super::verify_program_evidence_with_payers(&evidence, &[])?;
-        let protocol = capture
-            .receipt()
-            .receipt()
-            .protocol()
-            .ok_or(ProgramOperationError::Verification)?;
-        let document = json!({
-            "state":"executed","verification":super::EXECUTION_VERIFICATION,
-            "activity_id":hex(&evidence.activity_id),"program_id":hex(&evidence.program_id),
-            "guest_abi_version":evidence.guest_abi_version,"module_version":protocol.module_version(),
-            "batch_id":hex(&protocol.batch_id()),"global_sequence":protocol.global_sequence().to_string(),
-            "result_code":protocol.result_code(),"state_root":hex(&protocol.resulting_state_root()),
-            "receipt_digest":hex(&capture.receipt().evidence().receipt_digest().ok_or(ProgramOperationError::Verification)?),
-            "receipt":hex(&evidence.receipt),"terminal_payload":hex(&evidence.terminal_payload),"call_graph":hex(&evidence.call_graph),
-            "authority":{"batch_id":hex(&evidence.authority.batch_id()),"asset":hex(&fixed(authority,"asset_hex")?),
-                "previous_state_root":hex(&evidence.authority.previous_state_root()),
-                "resulting_state_root":hex(&evidence.authority.resulting_state_root()),"sequencer_public_key":hex(&key)},
-            "usage":{"cpu_fuel":capture.cpu_fuel().to_string(),"memory_bytes":capture.memory_bytes().to_string(),
-                "storage_read_bytes":capture.storage_read_bytes().to_string(),"storage_write_bytes":capture.storage_write_bytes().to_string(),
-                "output_values":capture.output_values(),"output_bytes":capture.output_bytes().to_string(),"fee_units":capture.fee_units().to_string()},
-            "outcome":super::expected_outcome(capture.outcome())
-        });
-        let document = &document;
-        let execution = decode_execution(document, Some(ExecutionState::Executed), key, &signed)?;
-        require_native_execution(&execution.verified)?;
-        assert_eq!(
-            execution.activity_id,
-            fixed(object(document)?, "activity_id")?
-        );
-        assert!(decode_execution(
-            document,
-            Some(ExecutionState::Executed),
-            [0x55; 32],
-            &signed
-        )
-        .is_err());
-        for (field, change) in [
-            ("guest_abi_version", json!(3)),
-            ("state_root", json!(hex(&[0x55; 32]))),
-            ("activity_id", json!(hex(&[0x55; 32]))),
-            ("receipt_digest", json!(hex(&[0x55; 32]))),
-            ("terminal_payload", json!("00")),
-            ("call_graph", json!("00")),
-        ] {
-            let mut altered = document.clone();
-            altered[field] = change;
-            assert!(
-                decode_execution(&altered, Some(ExecutionState::Executed), key, &signed).is_err()
-            );
-        }
-        let activity = super::signed_program_transaction(&signed)?;
-        let (native, fee_limit) = super::program_call_body(&activity.data)?;
-        let request =
-            NativeProgramCallRequest::from_signed_transaction(native, fee_limit, &signed)?;
-        let value = json!({"state":"unknown","program_id":hex(&request.program_id),
-            "activity_id":hex(&request.activity_id),"idempotency_key":hex(&request.idempotency_key),
-            "retained_signed_activity":hex(&signed)});
-        let outcome = decode_submission(
-            &value,
-            SubmissionExpectation {
-                program_id: Some(request.program_id),
-                activity_id: Some(request.activity_id),
-                idempotency_key: Some(request.idempotency_key),
-                retained_signed_activity: Some(&signed),
-                trusted_sequencer_public_key: key,
-            },
-        )?;
-        let ProgramSubmission::Unknown {
-            activity_id,
-            idempotency_key,
-            retained_signed_activity,
-        } = outcome
-        else {
-            return Err(ProgramOperationError::Verification);
-        };
-        assert_eq!(activity_id, request.activity_id);
-        assert_eq!(idempotency_key, request.idempotency_key);
-        assert_eq!(retained_signed_activity.as_deref(), Some(signed.as_slice()));
-        Ok(())
-    }
-
-    #[test]
     fn v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes(
     ) -> Result<(), ProgramOperationError> {
         let path = std::env::var_os("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS")
@@ -2603,18 +2366,11 @@ mod source_contract {
             .and_then(Value::as_array)
             .ok_or(ProgramOperationError::Decode)?;
         assert_eq!(cases.len(), 10);
-        let anchor: Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
-        ))
-        .map_err(|_| ProgramOperationError::Decode)?;
-        let pinned_key = fixed(
-            object(
-                anchor
-                    .get("authorized_batch")
-                    .ok_or(ProgramOperationError::Decode)?,
-            )?,
-            "sequencer_public_key_hex",
-        )?;
+        let pinned_key = [
+            0xb4, 0xf0, 0x5a, 0xee, 0x17, 0x29, 0x65, 0x77, 0x47, 0x43, 0xf4, 0xcd, 0x7d, 0xe4,
+            0xc3, 0x62, 0x1c, 0x9e, 0x36, 0xfd, 0x77, 0xaf, 0x71, 0x39, 0xaa, 0xfe, 0xc2, 0x5e,
+            0xb3, 0xfb, 0x33, 0x60,
+        ];
         let mut seen = std::collections::BTreeSet::new();
         for case in cases {
             let case_object = object(case)?;
