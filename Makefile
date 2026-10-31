@@ -54,8 +54,6 @@ TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 	test-exchange-native \
 	test-harness list-tests \
 	test-paxai-blob-lifecycle paxai-host-boundary paxai-host-boundary-build \
-	test-paxai-blob-admission \
-	test-paxai-storage-continuity \
 	test-paxai-native-gaps \
 	test-result test-protocol test-arena test-sanitizer-smoke \
 	test-sanitizer-suite test-codec test-codec-limits test-codec-version \
@@ -66,8 +64,7 @@ TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 	test-arith-u128 test-arith-u256 test-arith-rounding test-arith-property \
 	test-arith-nofloat \
 	test-log test-log-durability test-recovery test-projection test-rebuild \
-	test-batch-wal-recovery test-finality-evidence test-storage-order test-storage \
-	test-terminal-rejection \
+	test-storage-order test-storage \
 	test-journal \
 	test-activity-codec test-envelope test-verify-pool test-admission \
 	test-fee-gate \
@@ -132,10 +129,8 @@ TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 	test-sequencer-recovery \
 	test-wave-10 \
 	test-snapshot \
-	test-history \
 	test-replay-crossarch \
 	test-wave-11 \
-	test-equivocation \
 	test-governance \
 	test-governance-activation \
 	test-governance-emergency \
@@ -270,7 +265,7 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
-test: test-state-diff test-result test-protocol test-state-commitment-transition test-program-artifacts test-daemon-maintenance-protocol test-arena test-harness test-codec \
+test: test-state-diff test-result test-protocol test-state-commitment-transition test-arena test-harness test-codec \
 	test-codec-limits test-codec-version test-codec-vectors fuzz-codec-smoke \
 	test-crypto-suite test-arith-u128 test-arith-u256 test-arith-rounding \
 	test-arith-property test-arith-nofloat test-log test-log-durability \
@@ -279,7 +274,6 @@ test: test-state-diff test-result test-protocol test-state-commitment-transition
 	test-fee-gate test-identity test-grants \
 	test-authority-resolve test-authority-multisig test-allowance \
 	test-revocation test-rotation test-kernel-symbol-isolation \
-	test-terminal-rejection test-batch-identity \
 	test-escrow-open test-escrow-capture test-escrow-timeout \
 	test-escrow-dispute test-escrow-invariants \
 	test-budget-create test-budget-period test-budget-spend \
@@ -888,27 +882,10 @@ $(BUILD_DIR)/tests/test_snapshot: tests/test_snapshot.c $(LIBRARY) \
 test-snapshot: $(BUILD_DIR)/tests/test_snapshot
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_snapshot
 
-$(BUILD_DIR)/tests/test_history_query: tests/test_history_query.c $(LIBRARY) \
-		migrations/0007_history_index.sql
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -lsqlite3 -o $@
-
-test-history: $(BUILD_DIR)/tests/test_history_query
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_history_query
-
 test-replay-crossarch: tests/vectors/replay_corpus.lxb
 	sh tests/replica/lxp_replay_matrix.sh
 
-test-wave-11: test-snapshot test-history test-replay-crossarch
-
-$(BUILD_DIR)/tests/test_equivocation: tests/test_equivocation.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-equivocation: $(BUILD_DIR)/tests/test_equivocation
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_equivocation
+test-wave-11: test-snapshot test-replay-crossarch
 
 $(BUILD_DIR)/tests/test_governance_params: \
 		tests/test_governance_params.c $(LIBRARY)
@@ -982,7 +959,7 @@ $(BUILD_DIR)/tests/test_fee_replay: tests/test_fee_replay.c \
 test-fee-replay: $(BUILD_DIR)/tests/test_fee_replay test-dispatch
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_fee_replay
 
-test-wave-12: test-equivocation test-governance test-governance-activation \
+test-wave-12: test-governance test-governance-activation \
 		test-governance-emergency test-fees test-metering test-fee-replay
 
 $(BUILD_DIR)/tests/test_paxeer_bond: tests/test_paxeer_bond.c $(LIBRARY)
@@ -1087,9 +1064,7 @@ LAYERXD_SOURCES = \
 	cmd/layerxd/lxp_daemon_listener.c \
 	cmd/layerxd/lxp_daemon_lni.c \
 	cmd/layerxd/lxp_daemon_evidence.c \
-	cmd/layerxd/lxp_daemon_finality_authority.c \
 	cmd/layerxd/lxp_daemon_handover_history.c \
-	cmd/layerxd/lxp_daemon_batch_wal.c \
 	cmd/layerxd/lxp_daemon_artifact.c \
 	cmd/layerxd/lxp_daemon_allowance.c \
 	cmd/layerxd/lxp_daemon_process.c \
@@ -1249,22 +1224,12 @@ $(BUILD_DIR)/tests/test_genesis_builder_cli: \
 		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-$(BUILD_DIR)/tests/test_daemon_bootstrap_artifact: \
-		tests/test_daemon_bootstrap_artifact.c \
-		cmd/layerxd/lxp_daemon_artifact.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_daemon_bootstrap_artifact.c \
-		cmd/layerxd/lxp_daemon_artifact.c $(LIBRARY) \
-		$(EXTRA_LDFLAGS) -o $@
-
 test-genesis-bootstrap: $(BUILD_DIR)/tests/test_genesis_manifest \
 		$(BUILD_DIR)/tests/test_genesis_module_table \
-		$(BUILD_DIR)/tests/test_genesis_builder_cli \
-		$(BUILD_DIR)/tests/test_daemon_bootstrap_artifact
+		$(BUILD_DIR)/tests/test_genesis_builder_cli
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_genesis_manifest
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_genesis_module_table
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_genesis_builder_cli
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_daemon_bootstrap_artifact
 
 .PHONY: test-genesis-builder-cli
 test-genesis-builder-cli: $(BUILD_DIR)/tests/test_genesis_builder_cli
@@ -1640,156 +1605,11 @@ $(BUILD_DIR)/tools/log_inspect: tools/log_inspect.c $(LIBRARY)
 test-rebuild: $(BUILD_DIR)/tests/lxp_test_rebuild $(BUILD_DIR)/tools/log_inspect
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_rebuild
 
-$(BUILD_DIR)/tests/lxp_test_batch_wal_recovery: \
-		tests/storage/lxp_test_batch_wal_recovery.c \
-		cmd/layerxd/lxp_daemon_batch_wal.c $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) \
-		tests/storage/lxp_test_batch_wal_recovery.c \
-		cmd/layerxd/lxp_daemon_batch_wal.c $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
-		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -o $@
-
-$(BUILD_DIR)/tests/lxp_test_maintenance_publication: \
-		tests/storage/lxp_test_maintenance_publication.c \
-		tests/programs/test_call_activity.c cmd/layerxd/lxp_daemon_batch_wal.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c cmd/layerxd/lxp_daemon_evidence.c \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) \
-		tests/storage/lxp_test_maintenance_publication.c \
-		cmd/layerxd/lxp_daemon_batch_wal.c cmd/layerxd/lxp_daemon_receipt_authority.c \
-		cmd/layerxd/lxp_daemon_evidence.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
-		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -lsqlite3 -ldl -lm -o $@
-
-test-maintenance-publication: $(BUILD_DIR)/tests/lxp_test_maintenance_publication
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_maintenance_publication
-
-$(BUILD_DIR)/tests/lxp_test_terminal_rejection: \
-		tests/protocol/lxp_test_terminal_rejection.c \
-		tests/programs/test_call_activity.c cmd/layerxd/lxp_daemon_batch_wal.c \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) \
-		tests/protocol/lxp_test_terminal_rejection.c \
-		cmd/layerxd/lxp_daemon_batch_wal.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -lsqlite3 -ldl -lm -o $@
-
-test-terminal-rejection: $(BUILD_DIR)/tests/lxp_test_terminal_rejection
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_terminal_rejection
-
-.PHONY: test-versioned-boundaries
-test-versioned-boundaries: $(BUILD_DIR)/tests/lxp_test_terminal_rejection
-	BUILD_DIR=$(BUILD_DIR) python3 tools/paxeer-x/tests/versioned_boundaries.py
-
-$(BUILD_DIR)/tests/lxp_test_batch_identity: \
-		tests/protocol/lxp_test_batch_identity.c \
-		cmd/layerxd/lxp_daemon_batch_wal.c \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) \
-		tests/protocol/lxp_test_batch_identity.c \
-		cmd/layerxd/lxp_daemon_batch_wal.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -lsqlite3 -ldl -lm -o $@
-
-test-batch-identity: $(BUILD_DIR)/tests/lxp_test_batch_identity
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_batch_identity
-
-test-batch-wal-recovery: $(BUILD_DIR)/tests/lxp_test_batch_wal_recovery
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_batch_wal_recovery
-
-$(BUILD_DIR)/tests/lxp_test_finality_evidence: \
-		tests/storage/lxp_test_finality_evidence.c \
-		cmd/layerxd/lxp_daemon_evidence.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) \
-		tests/storage/lxp_test_finality_evidence.c \
-		cmd/layerxd/lxp_daemon_evidence.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
-		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-finality-evidence: $(BUILD_DIR)/tests/lxp_test_finality_evidence
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_finality_evidence
-
-$(BUILD_DIR)/tests/lxp_test_daemon_finality_authority: \
-		tests/daemon/lxp_test_finality_authority.c \
-		cmd/layerx-guarantor/producer.c cmd/layerx-guarantor/producer.h \
-		cmd/layerxd/lxp_daemon_finality_authority.c \
-		cmd/layerxd/lxp_daemon_finality_authority.h \
-		cmd/layerxd/lxp_daemon_evidence.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) \
-		tests/daemon/lxp_test_finality_authority.c \
-		cmd/layerx-guarantor/producer.c \
-		cmd/layerxd/lxp_daemon_finality_authority.c \
-		cmd/layerxd/lxp_daemon_evidence.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
-		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-.PHONY: test-daemon-finality-authority
-.PHONY: test-program-artifacts
-$(BUILD_DIR)/tests/lxp_test_program_artifacts: \
-		tests/daemon/lxp_test_program_artifacts.c tests/test_web_program_path.c \
-		tests/programs/test_call_activity.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c cmd/layerxd/lxp_daemon_protocol.c \
-		cmd/layerxd/lxp_daemon_evidence.c cmd/layerxd/lxp_daemon_maintenance_json.h $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/daemon/lxp_test_program_artifacts.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c cmd/layerxd/lxp_daemon_protocol.c \
-		cmd/layerxd/lxp_daemon_evidence.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-test-program-artifacts: $(BUILD_DIR)/tests/lxp_test_program_artifacts programs-reference-escrow \
-		programs-reference-web-reader \
-		$(BUILD_DIR)/tests/bridge/sign-credit $(BUILD_DIR)/tests/bridge/test-credit
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_program_artifacts \
-		$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/sdk/rust/examples/web-reader/target)/wasm32-unknown-unknown/release/layerx_reference_web_reader.wasm)
-
-.PHONY: test-daemon-maintenance-protocol
-$(BUILD_DIR)/tests/lxp_test_maintenance_protocol: \
-		tests/daemon/lxp_test_maintenance_protocol.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c cmd/layerxd/lxp_daemon_protocol.c \
-		cmd/layerxd/lxp_daemon_evidence.c cmd/layerxd/lxp_daemon_maintenance_json.h $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/daemon/lxp_test_maintenance_protocol.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c cmd/layerxd/lxp_daemon_protocol.c \
-		cmd/layerxd/lxp_daemon_evidence.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-test-daemon-maintenance-protocol: $(BUILD_DIR)/tests/lxp_test_maintenance_protocol
-	python3 tests/daemon/maintenance-protocol.py $(BUILD_DIR)/tests/lxp_test_maintenance_protocol
-
-$(BUILD_DIR)/tests/lxp_test_finality_json: tests/daemon/lxp_test_finality_json.c \
-		cmd/layerxd/lxp_daemon_finality_authority.c \
-		cmd/layerxd/lxp_daemon_finality_authority.h \
-		cmd/layerxd/lxp_daemon_evidence.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< \
-		cmd/layerxd/lxp_daemon_evidence.c \
-		cmd/layerxd/lxp_daemon_receipt_authority.c $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
-		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-daemon-finality-authority: $(BUILD_DIR)/tests/lxp_test_daemon_finality_authority $(BUILD_DIR)/tests/lxp_test_finality_json layerxd layerx-genesis-build
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_finality_json
-	bash tests/daemon/finality-authority-chain.sh $(BUILD_DIR)/tests/lxp_test_daemon_finality_authority
-	bash tests/daemon/bootstrap-send.sh
-
 test-storage-order:
 	sh tests/storage/check_daemon_recovery_order.sh
 
 test-storage: test-storage-order test-log test-log-durability test-recovery \
-		test-projection test-rebuild test-batch-wal-recovery \
-		test-finality-evidence
+		test-projection test-rebuild
 
 $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
 	@mkdir -p $(@D)
@@ -1975,19 +1795,15 @@ test-owner-movement-proof: build/bin/layerxd build/bin/layerx-genesis-build buil
 	cargo build --locked --manifest-path cmd/layerxctl/Cargo.toml --target-dir $(MOVEMENT_PROOF_TARGET)
 	CARGO_TARGET_DIR=$(MOVEMENT_PROOF_TARGET) LAYERX_RUNTIME_CLOCK_BIN=$(MOVEMENT_PROOF_TARGET)/debug/layerx-runtime-clock sh tools/runtime/run-with-clock.sh python3 tests/bridge/owner-custody.py --native --governance --checkpoint --settlement-only --movement-proof
 HUMAN_TEST_PAXD := $(abspath build/paxd)
-HUMAN_TEST_CUSTODY_PROOF := $(abspath $(BUILD_DIR)/bin/layerx-custody-proof)
 
 .PHONY: human-test-custody-prerequisites
 human-test human-test-integration: human-test-custody-prerequisites
 human-test human-test-integration: export PAXD = $(HUMAN_TEST_PAXD)
-human-test human-test-integration: export LAYERX_CUSTODY_PROOF_BIN = $(HUMAN_TEST_CUSTODY_PROOF)
 human-test human-test-integration: export LAYERX_TEST_NATIVE_BIN_DIR = $(abspath $(BUILD_DIR)/bin)
-human-test human-test-integration: export LAYERX_TEST_SIGN_CREDIT_BIN = $(abspath $(BUILD_DIR)/tests/bridge/sign-credit)
 human-test-custody-prerequisites:
 	$(MAKE) public-tls-test-prerequisites
-	$(MAKE) PAXEER_GO_JOBS=4 custody-proof-build
 	$(MAKE) -j4 LXP_REVISION="$(shell git rev-parse HEAD)" \
-		layerxd layerx-genesis-build $(BUILD_DIR)/tests/bridge/sign-credit
+		layerxd layerx-genesis-build
 	GOMAXPROCS=4 GOFLAGS="$(GOFLAGS) -p=4" $(MAKE) paxeer-build
 
 HUMAN_IDENTITY_PROVIDER := $(HUMAN_TARGET_DIR)/debug/layerx-human-identity-provider
@@ -2044,11 +1860,6 @@ human-test-journeys:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-human-service --test exit
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-human-service --test move_money
 
-human-test-explorer: $(BUILD_DIR)/tests/explorer_fixture
-	LAYERX_EXPLORER_CORE_FIXTURE=$(abspath $<) \
-		sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked \
-		-p layerx-explorer-index
-
 human-test-notify:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-human-service --test notify
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-human-service --test links
@@ -2063,9 +1874,6 @@ human-test-activity:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-human-service --test detail
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-human-service --test export
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-human-service --doc activity::export::VerificationStatus
-
-human-test-paxeer: test-bridge-deposit
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-paxeer-client
 
 human-fuzz-intents:
 	cargo +nightly-2025-11-10 fuzz run intent --fuzz-dir services/human/crates/layerx-intents/fuzz -- -max_total_time=120 -timeout=10
@@ -2761,7 +2569,7 @@ test-lxphost: paxd-native-libs
 
 test-paxd-domain: paxd-native-libs
 	$(MAKE) test-lxphost
-	CGO_ENABLED=1 go test ./node/... ./modules/layerxcustody/... ./modules/evm/keeper/... ./rpc/...
+	CGO_ENABLED=1 go test ./node/... ./modules/evm/keeper/... ./rpc/...
 
 paxd-version-check:
 	@want=$$(jq -er .version tools/release/version.json) && \
@@ -3252,25 +3060,7 @@ $(BUILD_DIR)/tests/lxp_test_blob_admission: tests/programs/test_blob_admission.c
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
-test-paxai-blob-admission: $(BUILD_DIR)/tests/lxp_test_blob_admission
-	cargo build --locked --manifest-path services/platform/hosted/paxai-storage-keeper/Cargo.toml
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_blob_admission \
-		services/platform/hosted/paxai-storage-keeper/target/debug/paxai-storage-keeper
-
 PAXAI_FUNDED_SCRIPT ?=
-
-$(BUILD_DIR)/tests/lxp_test_paxai_storage_continuity: tests/programs/test_paxai_storage_continuity.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LAYERXD_SOURCES) \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-test-paxai-storage-continuity: $(BUILD_DIR)/tests/lxp_test_paxai_storage_continuity paxai-host-boundary-build
-	cargo build --locked --manifest-path services/platform/hosted/paxai-storage-keeper/Cargo.toml
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_paxai_storage_continuity \
-		$(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm $(PAXAI_CHAIN_DOMAIN) \
-		services/platform/hosted/paxai-storage-keeper/target/debug/paxai-storage-keeper $(PAXAI_FUNDED_SCRIPT)
 
 $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps: tests/programs/test_paxai_native_gaps.c \
 		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -3325,11 +3115,10 @@ programs-qualify:
 
 $(BUILD_DIR)/tests/programs_parallel_differential: programs/tests/differential/parallel.c \
 		tests/programs/test_call_activity.c \
-		cmd/layerxd/lxp_daemon_batch_wal.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) programs/tests/differential/parallel.c \
-		cmd/layerxd/lxp_daemon_batch_wal.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 programs-differential: $(BUILD_DIR)/tests/programs_parallel_differential
@@ -3475,8 +3264,8 @@ test-daemon-handover-consumers: test-guarantor-receipt $(BUILD_DIR)/tests/lxp_te
 	sh programs/sdk/rust/examples/escrow/build.sh
 	cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock
 	cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --example native_handover_history
-	cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --example native_handover_reads --example native_handover_programs
-	$(MAKE) test-daemon-handover-peers LAYERX_TEST_GUARANTOR_FEEDBACK_BIN=$(abspath $(BUILD_DIR)/tests/lxp_test_guarantor_feedback) LAYERX_TEST_HANDOVER_CONSUMER_BIN=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),services/agent/target)/debug/examples/native_handover_history) LAYERX_TEST_HANDOVER_READ_CONSUMER_BIN=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),services/agent/target)/debug/examples/native_handover_reads) LAYERX_TEST_HANDOVER_CLOCK_BIN=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),services/platform/target)/debug/layerx-runtime-clock) LAYERX_TEST_HANDOVER_PROGRAM_CONSUMER_BIN=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),services/agent/target)/debug/examples/native_handover_programs) LAYERX_TEST_HANDOVER_ESCROW_WASM=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/sdk/rust/examples/escrow/target)/wasm32-unknown-unknown/release/layerx_reference_escrow.wasm)
+	cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --example native_handover_programs
+	$(MAKE) test-daemon-handover-peers LAYERX_TEST_GUARANTOR_FEEDBACK_BIN=$(abspath $(BUILD_DIR)/tests/lxp_test_guarantor_feedback) LAYERX_TEST_HANDOVER_CONSUMER_BIN=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),services/agent/target)/debug/examples/native_handover_history) LAYERX_TEST_HANDOVER_CLOCK_BIN=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),services/platform/target)/debug/layerx-runtime-clock) LAYERX_TEST_HANDOVER_PROGRAM_CONSUMER_BIN=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),services/agent/target)/debug/examples/native_handover_programs) LAYERX_TEST_HANDOVER_ESCROW_WASM=$(abspath $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/sdk/rust/examples/escrow/target)/wasm32-unknown-unknown/release/layerx_reference_escrow.wasm)
 
 .PHONY: test-program-admission
 test-program-admission: $(BUILD_DIR)/tests/lxp_test_program_admission $(BUILD_DIR)/bin/layerxd $(BUILD_DIR)/bin/layerx-genesis-build
@@ -3522,35 +3311,7 @@ latency-wave-test:
 BRIDGE_PYTHON ?= python3
 PAXEER_GO ?= go
 PAXEER_GO_JOBS ?= 4
-.PHONY: custody-proof-build
-custody-proof-build:
-	@mkdir -p $(BUILD_DIR)/bin
-	$(PAXEER_GO) build -mod=readonly -buildvcs=true -p $(PAXEER_GO_JOBS) -o $(abspath $(BUILD_DIR)/bin/layerx-custody-proof) ./daemon/layerx-custody-proof
-
-$(BUILD_DIR)/tests/bridge/test-light-credit: tests/bridge/test_light_credit.c tests/bridge/files.h $(LIBRARY) $(PROGRAMS_RUNTIME_LIB)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-LIGHT_CREDIT_FIXTURES := tests/fixtures/custody/paxeer-light-v1
-.PHONY: test-light-credit
-test-light-credit: $(BUILD_DIR)/tests/bridge/test-light-credit
-	$(BUILD_DIR)/tests/bridge/test-light-credit $(LIGHT_CREDIT_FIXTURES)/custody.profile $(LIGHT_CREDIT_FIXTURES)/custody.credit \
-		$(LIGHT_CREDIT_FIXTURES)/custody-adjacent.profile $(LIGHT_CREDIT_FIXTURES)/custody-adjacent.credit \
-		$(LIGHT_CREDIT_FIXTURES)/custody-later.credit \
-		tests/fixtures/custody/paxeer-state-v2/custody.profile tests/fixtures/custody/paxeer-state-v2/custody.credit \
-		$(LIGHT_CREDIT_FIXTURES)/did.txt $(LIGHT_CREDIT_FIXTURES)/custody-skip.profile $(LIGHT_CREDIT_FIXTURES)/custody-skip.credit
-
-$(BUILD_DIR)/tests/bridge/test-credit-admission: tests/bridge/test_credit_admission.c tests/bridge/files.h \
-		$(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-.PHONY: test-bridge-credit
-test-bridge-credit: $(BUILD_DIR)/tests/bridge/sign-credit $(BUILD_DIR)/tests/bridge/test-credit $(BUILD_DIR)/tests/bridge/test-credit-admission build/bin/layerx-genesis-build
-	$(BRIDGE_PYTHON) tests/bridge/qualify_credit.py --build-dir $(BUILD_DIR)
-
-.PHONY: test-daemon-maintenance-publication test-maintenance-publication
+.PHONY: test-daemon-maintenance-publication
 test-daemon-maintenance-publication: $(BUILD_DIR)/tests/lxp_test_program_admission $(BUILD_DIR)/bin/layerxd $(BUILD_DIR)/bin/layerx-genesis-build
 	bash tests/daemon/program-admission.sh $(BUILD_DIR) --maintenance
 
@@ -3575,7 +3336,7 @@ beta-qualify-focused:
 		'make platform-build' \
 		'make programs-build' \
 		'make interop-build' \
-		'make test-admission test-batch-wal-recovery agent-test-client-submit-focused agent-test-agentd-handshake-gate agent-test-boundary' \
+		'make test-admission agent-test-client-submit-focused agent-test-agentd-handshake-gate agent-test-boundary' \
 		'make agent-test-agentd-session agent-test-agentd-revocation agent-test-agentd-tenant-resolve agent-test-agentd-subscription agent-test-agentd-delivery agent-test-agentd-gaps agent-test-agentd-webhook agent-test-mcp-scope agent-test-mcp-readonly agent-test-mcp-write agent-test-sdk-rust agent-test-contract-schema platform-sdk-check human-test-service' \
 		'make human-test-activity' \
 		'make human-build human-test-unit human-test-component' \
@@ -3726,9 +3487,6 @@ $(BUILD_DIR)/tests/test_asset_withdraw_activity: tests/modules/test_asset_withdr
 .PHONY: test-native-withdrawal-proof
 test-native-withdrawal-proof: $(BUILD_DIR)/tests/test_asset_withdraw_activity
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_asset_withdraw_activity
-	$(BUILD_DIR)/tests/test_asset_withdraw_activity --vectors > $(BUILD_DIR)/tests/native-withdrawal-proof.json
-	cmp $(BUILD_DIR)/tests/native-withdrawal-proof.json services/human/crates/layerx-paxeer-client/tests/vectors/native-withdrawal-proof.json
-	cmp $(BUILD_DIR)/tests/native-withdrawal-proof.json contracts/config/native-withdrawal-proof.json
 
 .PHONY: layerx-module-registry test-module-registry
 build: layerx-module-registry
@@ -3741,41 +3499,6 @@ $(BUILD_DIR)/bin/layerx-module-registry: cmd/layerx-module-registry/main.c $(LIB
 test-module-registry: layerx-module-registry
 	python3 cmd/layerx-module-registry/test_registry.py $(BUILD_DIR)/bin/layerx-module-registry
 	bash services/platform/hosted/tests/beta-cluster.sh test-retained-material
-
-.PHONY: test-paxeer-membership-sync test-paxeer-membership-chain
-$(BUILD_DIR)/tests/test_paxeer_membership_sync: tests/paxeer/test_membership_sync.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-paxeer-membership-sync: $(BUILD_DIR)/tests/test_paxeer_membership_sync
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_paxeer_membership_sync
-
-test: test-paxeer-membership-sync
-
-.PHONY: test-paxeer-anchor-submit
-$(BUILD_DIR)/tests/test_paxeer_anchor_submit: tests/paxeer/test_anchor_submit.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-paxeer-anchor-submit: $(BUILD_DIR)/tests/test_paxeer_anchor_submit
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_paxeer_anchor_submit \
-		layerxproof/testdata/anchor_vectors.json precompiles/layerxanchor/abi.json
-
-test: test-paxeer-anchor-submit
-
-$(BUILD_DIR)/tests/lxp_test_paxeer_membership_sync: tests/paxeer/membership_sync_driver.c \
-		$(filter-out $(BUILD_DIR)/obj/cmd/layerx-guarantor/main.o,$(GUARANTOR_OBJECTS)) \
-		$(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $^ $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-test-paxeer-membership-chain: $(BUILD_DIR)/tests/lxp_test_paxeer_membership_sync
-	$(GUARANTOR_PYTHON) tests/paxeer/membership-sync-chain.py \
-		$(BUILD_DIR)/tests/lxp_test_paxeer_membership_sync
 
 $(BUILD_DIR)/tests/lxp_test_grant_issuance: tests/daemon/lxp_test_grant_issuance.c tests/daemon/lxp_test_program_admission.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
