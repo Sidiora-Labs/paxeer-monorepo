@@ -126399,7 +126399,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.52.4]
 title = "Retire contracts/LayerXCustody.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.51.1", "16.0.3", "16.6.1", "16.30.1"]
