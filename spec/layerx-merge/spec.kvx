@@ -147345,7 +147345,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.9.1]
 title = "Delete the wallet payout binding module and its tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.20.3", "10.1.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "18.1297.1"]
@@ -148521,7 +148521,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.20.7]
 title = "Drop the retired Paxeer component and settings from the service integration tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.20.3", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "18.1297.1"]
