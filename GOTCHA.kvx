@@ -12011,3 +12011,8 @@ fix = "Grep the C test sources for every deleted fixture path, not only Rust inc
 title = "A consensus standby that is not in the committee times out on acknowledgements without saying so first"
 symptom = "12.35.4 attempts up to 19 saw acknowledgement timeouts; only the latest log reached 'validator not in committee' at round_state.go:537."
 fix = "When replication acknowledgements time out, check committee membership of the acknowledging identity before tuning timeouts."
+
+[gotcha.2440]
+title = "A test fixture that reads node sockets from the environment cannot qualify where no node runs"
+symptom = "10.0.3 attempt 5 required LAYERX_AGENT_HUMAN_NODE_LNI and the authority endpoint from the environment and both tests failed before any request."
+fix = "Serve the counterpart in process (RealAgentLayer pattern in tests/intent_submit.rs) and set every ProductionComponents variable from the test itself; never gate a task's test on binaries or sockets the environment must provide."

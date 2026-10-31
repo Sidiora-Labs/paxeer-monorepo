@@ -14483,3 +14483,11 @@ symbol = "validator not in committee"
 observed = "Attempt 19 of 12.35.4 (ef91a499c) built and the qualification failed before the Go test ran: the acknowledgement timeout persisted and the log then reported 'validator ... not in committee' at consensus/internal/consensus/types/round_state.go:537 while the replication endpoints matched."
 assumption = "Nineteen attempts have not shown whether the standby's validator key belongs to the committee the fixture seals; the correlation between the standby identity and the committee needs a product ruling before another attempt runs."
 severity = "owner"
+
+[finding.10.0.3.2]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:147"
+symbol = "Fixture::open"
+observed = "Attempt 5 (40dd6adae) built and both tests failed with 'real in-process agent requires LAYERX_AGENT_HUMAN_NODE_LNI (native node LNI)': the fixture's agent branch (:147-183) demands a native node socket, the authority endpoint, bearer and CA and LAYERX_HUMAN_AGENT_ACTOR from the environment, which the qualification environment does not provide (tests/production_unhooked.rs:160-175 needs LAYERX_TEST_AGENTD_BIN, LAYERX_TEST_NATIVE_BIN_DIR and root for the same reason and is not this task's gate)."
+assumption = "Decision 2071 (do_10) already rules the test self-contained with the agent side served in process by RealAgentLayer (tests/intent_submit.rs:326, :385), which reads no environment variable and opens no node socket; attempt 5 chose the external-node path instead."
+severity = "cross-task"

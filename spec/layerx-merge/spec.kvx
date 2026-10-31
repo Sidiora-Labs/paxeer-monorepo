@@ -5781,6 +5781,12 @@ value = "16.33.5 may change the :2895-2914 expectations from LXP_ERR_NON_CANONIC
 basis = "Attempt 9 failed on that case on a line the task never touched (finding.16.33.5.1)."
 affects = ["16.33.5"]
 
+[decision.2112]
+title = "The intent EVM test serves its agent in process and reads no node socket from the environment"
+value = "tests/intent_plan_evm.rs drops the LAYERX_AGENT_HUMAN_NODE_LNI branch and uses RealAgentLayer as decision 2071 states."
+basis = "Attempt 5 failed on an environment variable the qualification environment never sets (finding.10.0.3.2)."
+affects = ["10.0.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -147011,6 +147017,7 @@ do_9 = "Issue #1190: the ordinal change of do_8 applies to the archive_defund fi
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_10 = "Decision 2071: attempt 2 (dca4574b0) wrote tests/intent_plan_evm.rs around a Fixture::open (:48-63 of that tree) that reads LAYERX_TEST_INTENT_FIXTURE_JSON, an environment variable nothing in the repository provides (finding.10.0.3.1), and edited tests/production_owner_tests.rs outside its touches. The test is self-contained: it opens ProductionComponents in a temp directory and serves the agent side in process the way tests/intent_submit.rs does with RealAgentLayer (:326, impl at :385, its directory at :860, new at :1112), reads no environment-named fixture, and drives intent.plan and intent.submit through the real Router (do_4); production_owner_tests.rs stays untouched. Continue from attempt 2, build once and verify once."
 do_11 = "Decision 2093: attempt 3 (5aa1f3bcb) fails both tests with 'LAYERX_HUMAN_AUTH_INDEX_KEY is required' (src/server/production_components.rs:406): Fixture::open (tests/intent_plan_evm.rs:82-145 of that tree) sets the store, custody and auth-index roots, the tenancy digest and the runtime clock socket, but none of the secrets and limits ProductionComponents reads. Set every variable tests/production_unhooked.rs:872-895 sets, with the same test values (LAYERX_HUMAN_AUTH_INDEX_KEY, LAYERX_HUMAN_STREAM_CURSOR_KEY, the RP id, name and origin, the ceremony, assertion, session, refresh and step-up TTLs, the auth rate attempts and window). Continue from attempt 3, build once and verify once."
+do_12 = "Decision 2112: attempt 5 (40dd6adae) fails both tests at tests/intent_plan_evm.rs:147 demanding LAYERX_AGENT_HUMAN_NODE_LNI, the authority endpoint, bearer, CA and LAYERX_HUMAN_AGENT_ACTOR from the environment (finding.10.0.3.2). The fixture reads no LAYERX_AGENT_* or LAYERX_TEST_* variable and starts no node or agent process: it serves the agent side in process with RealAgentLayer exactly as tests/intent_submit.rs:326-420 and :859 do (decision 2071), sets the ProductionComponents variables of do_11 itself, and drives intent.plan and intent.submit through the real Router; the environment-dependent branch at :147-183 is deleted. Continue from attempt 5, build once and verify once."
 
 [task.10.0.4]
 title = "Report retired operations from the client generator and pin the regenerated client"
