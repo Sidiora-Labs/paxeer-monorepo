@@ -5907,6 +5907,42 @@ value = "Continue from attempt 8 (1ba15e3ad) and keep all of it. (1) Diagnostics
 basis = "Finding 10.0.3.5: the route's refusal carries no reason, so a fixture that cannot name the step it died at costs one attempt per hypothesis. Every interface-changing task proves the producer -> transport -> consumer path, and a fixture that logs each exchange is what makes that proof readable when it fails."
 affects = ["10.0.3"]
 
+[decision.2133]
+title = "The hosted-core public reads and custody reads use the EVM-era JSON-RPC twins; the receipt-events route is keyed by transaction hash"
+value = "(1) node_info (services/platform/hosted/core/src/public_reads.rs:289) calls config.network.network() (services/agent/crates/layerx-client/src/px.rs:122, PxNetworkHead) and config.sequencer.receipt_keys() (services/agent/crates/layerx-client/src/sequencer.rs:501, px_getReceiptKeys) and answers protocol_version = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION, network_id = head.network_id, chain_head_sequence = head.latest_committed_height, latest_sealed_batch = head.paxeer.latest_block, latest_finalised_checkpoint = the hash of rpc::evidence::checkpoint(&config.sequencer, head.latest_committed_height), authorised_sequencer_key = the public key of the receipt key entry whose last_height is the greatest (the live key), capabilities = head.layerx or an empty object; either RPC failure answers refusal(503, node_unavailable, Some(5)) as evidence (:305) does. (2) sequence(did) (:335) calls rpc::history::did_accounts(&config.network, did) (services/agent/crates/layerx-client/src/rpc/history.rs:19); an empty list answers refusal(404, unknown_did, None); the first entry's 20-byte EVM address goes to config.sequencer.pending_nonce (services/agent/crates/layerx-client/src/sequencer.rs:356) for next_sequence, observed_head_sequence is head.latest_committed_height from config.network.network(), the state_root key is dropped and verification is sequencer_pending_nonce. (3) receipt_event (:448) keeps its bearer-token, method, query and body checks and takes a 32-byte transaction hash (fixed_hex::<32>, refusal(400, invalid_tx_hash, None)) in place of the global sequence; it calls config.sequencer.sequencer_receipt(&hash) (services/agent/crates/layerx-client/src/sequencer.rs:458): Some(Receipted(r)) answers success with state completed when r.success else refused, activity_id = the hash, global_sequence = r.seq, height = r.height, index = r.index, result_code = 0 when r.success else 1, timestamp = r.timestamp; Some(Submitted) or Some(Committed) without an executed receipt and None both answer 202 {result:{state:pending}}; an RPC error answers refusal(503, receipt_events_unavailable, Some(5)). The selector-3 lookup, lookup_receipt_selector, receipt_facts and connect_raw go when this was their last caller. (4) custody_read (services/platform/hosted/core/src/lib.rs:588) takes &SequencerEndpoint and a layerx_client::rpc::module_state::ModuleReadContext built from config.network_id and the head in place of the FrameTransport and ReadContext, calls rpc::module_state::module_state(endpoint, 8, key, context) (services/agent/crates/layerx-client/src/rpc/module_state.rs:87) and keeps verify_module_evidence and the state-root equality unchanged; read_custody_profile (:450) and read_custody_asset (:524) take (&SequencerEndpoint, network_id: u32, head: &PxNetworkHead, asset, [source_did,] &VerifiedEffectiveAsset), keep validate_custody_profile, the four-symbol registry walk, the incompatible-domain check and the effective-asset equality (freshness compared against head.latest_committed_height), and the two probe callers (services/platform/hosted/node/tests/probe/src/main.rs:493 and :550) pass the probe's sequencer endpoint and head. No new node method; no operator-provided profile file: the module-state twin already serves the registry. The FrameTransport parameters at lib.rs:451, :511 and :575 go only after these moves."
+basis = "Finding 8.98.14.4 and Sir's ruling for the public reads: existing node JSON-RPC, no new node method. Decision 1813 already names rpc::module_state::module_state as the twin of read::module_state, so the custody profile keeps its on-chain producer -> RPC -> verified-evidence consumer path instead of becoming operator state; the receipt-events route cannot keep a global-sequence key the node does not serve."
+affects = ["8.98.14"]
+
+[decision.2134]
+title = "The sequencer receipt qualification runs the primary alone; the standby acknowledgement defect becomes its own node task"
+value = "Task 12.35.9 (req.5083) lets a primary with an empty sequencer.standby-address run without replication; task 12.35.10 (req.5084) fixes the standby's acknowledgement timing that finding 12.35.4.15 recorded. 12.35.4 requires 12.35.9 and not 12.35.10: its --sequencer mode starts one sequencer node with leaders = [primary], no standby home, no --sequencer.standby-address and no LOCAL_NODE_STANDBY_RPC, and TestLocalNodeV6120SequencerReceipt drops its standby chain-id check; the receipt path it proves is accept -> WAL -> receipt -> pax_sequencerReceipt on the primary. Replicated operation is proven by the node unit tests of 12.35.9 and 12.35.10, not by the local node script."
+basis = "Sir's ruling: primary-only qualification, standby bug to a node task. Nineteen attempts of 12.35.4 failed on standby start-up and acknowledgement behaviour that the task does not own, and node.go:62 refuses a primary without a standby address, so the script cannot drop the standby without 12.35.9."
+affects = ["12.35.4", "12.35.9", "12.35.10"]
+
+[decision.2135]
+title = "Agent creation registers the DID and the recovery root through a new layerxauth lifecycle method, decoded by the call decoder"
+value = "Task 2.96.1 (req.5085) adds recordLifecycle(bytes payload, bytes32 idempotencyKey) to the layerxauth precompile at 0x...101C, executing governance ordinals 1 and 3 through the keeper's existing kernel path (modules/layerxauth/keeper/execute.go:15-60). Task 9.99.1 (req.5086) adds ConstructMethod::AuthLifecycle to decode_method. 18.1272.1 requires both: prepare_lifecycle_intent (src/server/agent_creation.rs, attempt 6 :578) and the Governance arm of sign_transaction in tests/support/canonical_owner.rs (attempt 6 :79-83) build the recordLifecycle call with the compiled Governance payload and the intent's idempotency key instead of the ledger send(bytes) call, and bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:522-600) gains an AuthLifecycle arm answering (payload, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION) like the PayBudgetCreate arm. This supersedes the wait decision 2102 recorded."
+basis = "Sir's ruling: a new lifecycle precompile method on the node. The ledger precompile has no lifecycle method and decode_send refuses governance bytes (finding 18.1272.1.1), the node keeps no DID storage outside the kernel, and the layerxauth keeper already turns a governance payload into the kernel activity, so one method plus one decoder arm closes the creation path end to end."
+affects = ["18.1272.1", "2.96.1", "9.99.1"]
+
+[decision.2136]
+title = "The J44.21 and J44.25 module mapping and the 65-byte signature form stand as decisions 1813 and 1849 rule"
+value = "The retired lni, read, evidence, handover, availability and caps modules of layerx-client map as decision 1813 lists (PxEndpoint::network and PxNetworkHead for head reads, rpc::account, rpc::module_state and rpc::history for reads, rpc::evidence for evidence, rpc::submit::Submission::Submitted for the acknowledgement; handover, availability and caps have no twin and their callers go). Signatures are the 65-byte secp256k1 recoverable form of the EVM transaction (decision 1849); the 64-byte Ed25519 form is not re-added. APIs the port lacks (read_frame, write_frame, Limits, MutualTlsConfig, the canonical and registry fields of DisclosedCall) are added by the task whose caller needs them, in the EVM form, never restored from the retired modules. 18.1149.1 stands as specified (EIP-1559 budgetDefund with the 65-byte signature, do_2 and do_3). Tasks 10.98.6, 10.98.8, 10.98.10, 10.98.11, 10.98.12, 10.98.14 and 18.1149.1 proceed without further ruling."
+basis = "Sir's ruling: port to the EVM form and add the missing APIs. Findings 10.98.5.1, 10.98.9.1, 18.1149.1.1 and 18.1149.1.2 asked whether the frame-era surfaces return; the pending tasks' do-lines already embody the EVM form, so only the confirmation was outstanding."
+affects = ["10.98.6", "10.98.8", "10.98.10", "10.98.11", "10.98.12", "10.98.14", "18.1149.1"]
+
+[decision.2137]
+title = "12.35.2 and 18.670.1 qualify against the in-tree node that tools/qualification/localnode/v6120-node.sh starts"
+value = "12.35.2 keeps its verify_cmd: v6120-node.sh --sequencer (the primary-only mode of decision 2134) followed by its test on LOCAL_NODE_SEQUENCER_RPC, LOCAL_NODE_ADDRESS and LOCAL_NODE_KEY; it requires 12.35.4 and runs after it. 18.670.1 keeps the plain v6120-node.sh start without --sequencer, requires 5.98.3 as written, and reads no sequencer receipt (perps-data has no pax_sequencerReceipt caller; decision 1887). Neither task needs a live external RPC."
+basis = "Sir's ruling: the in-tree node from 12.35.4. Both tasks were parked on a live-RPC hold that decision 1887 had already made stale."
+affects = ["12.35.2", "18.670.1"]
+
+[decision.2138]
+title = "16.24.6 is superseded: the paxload profile bounds keep the values 16.24.5 set"
+value = "Task 16.24.6 (tighten the seven tools/loadtest/profiles bounds to release-candidate measurements) is superseded. The release-candidate runs it would read are not part of this feature's qualification record, attempt 1 changed nothing, and TestProfilesDeclarePerformanceBounds already guards the bounds 16.24.5 declares. A later feature may retighten them from a recorded run."
+basis = "Sir's ruling: supersede it in this feature."
+affects = ["16.24.6"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -15655,6 +15691,22 @@ title = "A receipt is returned only once it is durable on the primary and the st
 ac_1 = "Accepter.Accept (node/sequencer/accepter.go, planned) returns the signed receipt only after Release (node/sequencer/standby.go:214) returned AckOK."
 ac_2 = "After a Release failure every Accept returns ErrReplicationHalted."
 ac_3 = "Accept records one sequencer_receipt_latency_seconds sample per receipted send."
+
+[req.5086]
+title = "The call decoder discloses the layerxauth lifecycle call"
+ac_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) returns ConstructMethod::AuthLifecycle { payload } for recordLifecycle(bytes,bytes32) to 0x...101C carrying a governance payload of ordinal 1 or 3, fields() discloses it as a Governance activity of that ordinal, and any other payload is refused with MalformedPayload."
+
+[req.5085]
+title = "The layerxauth precompile records DID and recovery registrations through the kernel"
+ac_1 = "recordLifecycle(bytes payload, bytes32 idempotencyKey) on 0x000000000000000000000000000000000000101C executes a governance payload of ordinal 1 or 3 through the layerxauth keeper's kernel path and, for ordinal 1, the registered DID afterwards has an identity sequence the host reads."
+
+[req.5084]
+title = "The standby acknowledges an OPEN whose predecessor commit is still pending"
+ac_1 = "A Standby that receives OPEN h+1 before COMMIT h has been applied acknowledges the group within the primary's replication timeout, and Replicator.Release (node/sequencer/standby.go:234) returns AckOK instead of ErrNoAck."
+
+[req.5083]
+title = "A primary with no standby address runs without replication"
+ac_1 = "NewNode (node/sequencer/node.go:62) accepts an empty cfg.StandbyAddress on the primary, builds the Replicator without a standby dialer, and Replicator.Release (node/sequencer/standby.go:234) returns AckOK as soon as the group's WAL fsync completes, so Accepter.Accept returns the receipt with no standby."
 
 [req.5082]
 title = "A seal between accept and send does not halt replication"
@@ -32793,6 +32845,42 @@ tests = ["node/sequencer/accepter_test.go::TestAccepterReturnsReceiptAfterStandb
 verification_contract = "go test -count=1 ./node/sequencer/ -run '^(TestAccepterReturnsReceiptAfterStandbyAck|TestAccepterHaltsAfterReleaseFailure|TestAccepterRecordsReceiptLatency)$'"
 do_1 = "Create node/sequencer/accepter.go (planned) with type Accepter implementing evmrpc.SequencerAccepter (rpc/send.go:124): Accept calls Receipter.Accept (node/sequencer/receipt.go:325), then Replicator.Release (node/sequencer/standby.go:214) with a wal.Accept entry (node/sequencer/wal/wal.go:114), and returns the receipt only after Release returns AckOK."
 symbols = ["Accepter", "ErrReplicationHalted", "NewAccepter"]
+
+[capability.9.99.1]
+title = "Disclose the layerxauth recordLifecycle call as a Governance activity in the call decoder"
+reqs = ["5086.1"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lifecycle_call_discloses_the_governance_payload", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs::unknown_target_or_selector_is_refused"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
+do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
+symbols = ["ConstructMethod", "decode_method"]
+
+[capability.2.96.1]
+title = "Add recordLifecycle to the layerxauth precompile so DID and recovery registrations execute through the kernel"
+reqs = ["5085.1"]
+touches = ["precompiles/layerxauth/abi.json", "precompiles/layerxauth/abi_test.go", "precompiles/layerxauth/gas.go", "precompiles/layerxauth/lifecycle.go", "precompiles/layerxauth/lifecycle_test.go", "modules/layerxauth/keeper/lifecycle.go"]
+tests = ["precompiles/layerxauth/lifecycle_test.go::TestPrecompileRecordLifecycleRegistersDid", "precompiles/layerxauth/abi_test.go::TestAuthABIMethods", "precompiles/layerxauth/gas_test.go::TestAuthGasTable", "precompiles/layerxauth/surface_test.go::TestAuthSurfaceFrozen"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./precompiles/layerxauth/ -run '^(TestPrecompileRecordLifecycleRegistersDid|TestAuthABIMethods|TestAuthGasTable|TestAuthSurfaceFrozen)$'"
+do_1 = "The layerxauth keeper already executes any 0x71-tagged governance payload as kernel activity 0x00070000 | payload[1] through k.host.Execute (modules/layerxauth/keeper/execute.go:15-60), and the kernel's governance decoder admits ordinal 1 (DID registration: variant 0 with 2 fields and 68 bytes, or variant 2) and ordinal 3 (recovery registration) at src/modules/governance/lxp_governance.c:158-172. Add Keeper.RecordLifecycle(ctx, actor Actor, payload []byte, idempotencyKey [32]byte) (Result, error) in modules/layerxauth/keeper/lifecycle.go (planned): refuse with types.ErrNonCanonical unless len(payload) >= 4, payload[0] == 0x71 and payload[1] is 1 or 3, then return k.execute(ctx, actor, payload, idempotencyKey)."
+symbols = ["RecordLifecycle", "recordLifecycle", "GasTable"]
+
+[capability.12.35.10]
+title = "Acknowledge replicated groups on WAL durability so a pending commit cannot time the primary out"
+reqs = ["5084.1"]
+touches = ["node/sequencer/standby.go", "node/sequencer/standby_test.go"]
+tests = ["node/sequencer/standby_test.go::TestStandbyAcksOpenBeforePriorCommitApplies", "node/sequencer/standby_test.go::TestStandbyNoAckNoReceipt", "node/sequencer/standby_test.go::TestStandbyAckBeforeRelease", "node/sequencer/standby_test.go::TestStandbyTimeoutRefusesSend", "node/sequencer/standby_test.go::TestStandbyAppliesInSeqOrder", "node/sequencer/standby_test.go::TestReplicatorResendsAfterLostCommitted"]
+verification_contract = "go test -count=1 ./node/sequencer/ -run '^(TestStandbyAcksOpenBeforePriorCommitApplies|TestStandbyNoAckNoReceipt|TestStandbyAckBeforeRelease|TestStandbyTimeoutRefusesSend|TestStandbyAppliesInSeqOrder|TestReplicatorResendsAfterLostCommitted)$'"
+do_1 = "Finding 12.35.4.15 and attempt 19 (ef91a499c) of 12.35.4: the primary logs 'unable to create proposal block ... seal height N: sequencer: standby did not acknowledge: ... i/o timeout' while the standby's goroutines sit idle in Accept (node/sequencer/standby_role.go:165) and the replication listener records its dial address equal to the listener. Standby.receive (node/sequencer/standby.go:782-890) defers a trailing OPEN when committedHeight == open.Height-1 is not yet committed and otherwise blocks in waitForCommit(open.Height-1) (:893-925) for standbyCommitWait = replicationTimeout/4, answering AckGap when the commit has not landed, so the primary's Release inside the commit listener (node/sequencer/node_start.go:111-136) waits the full replication timeout for an acknowledgement the standby is withholding on the commit it is itself waiting for."
+symbols = ["Standby", "Replicator"]
+
+[capability.12.35.9]
+title = "Run the sequencer primary without a standby when no standby address is configured"
+reqs = ["5083.1"]
+touches = ["node/sequencer/node.go", "node/sequencer/standby.go", "node/sequencer/standalone_primary_test.go"]
+tests = ["node/sequencer/standalone_primary_test.go::TestReplicatorStandaloneAcknowledgesAfterWALSync", "node/sequencer/standalone_primary_test.go::TestNodeStartsPrimaryWithoutStandbyAddress"]
+verification_contract = "go test -count=1 ./node/sequencer/ -run '^(TestReplicatorStandaloneAcknowledgesAfterWALSync|TestNodeStartsPrimaryWithoutStandbyAddress)$'"
+do_1 = "node/sequencer/node.go:62 refuses an empty cfg.StandbyAddress with ErrConfigStandbyAddress and NewReplicator (node/sequencer/standby.go:216-226) refuses a nil Dial, while Config.Validate (node/sequencer/config.go:165-205) already admits an empty standby address. Make the empty address mean no standby: NewNode skips the SplitHostPort check and builds the Replicator with Dial nil; NewReplicator admits a nil Dial when a new ReplicatorConfig field Standalone is true (NewNode sets it from the empty address) and refuses the combination of a Dial and Standalone."
+symbols = ["ReplicatorConfig", "NewReplicator", "Replicator", "NewNode"]
 
 [capability.12.35.8]
 title = "Carry the transient receipt through the accept critical section so a seal does not halt replication"
@@ -115411,6 +115499,126 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.99.1]
+title = "Disclose the layerxauth recordLifecycle call as a Governance activity in the call decoder"
+status = "pending"
+mode = "BUILD"
+wave = 19
+requires = ["2.96.1"]
+reqs = ["5086.1"]
+capabilities = ["9.99.1"]
+interfaces = []
+do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
+do_2 = "In fields() (:400-430) the ordinal of AuthLifecycle is payload[1] and the module is ModuleId::Governance; fields.idempotency_key is the call's key; no counterparties, amounts or asset are disclosed; payload_sequence (:565) answers None; every other match over ConstructMethod in the crate (including the canonical payload at :483) gains the arm so the crate compiles with exhaustive matches."
+do_3 = "Add auth_lifecycle_call_discloses_the_governance_payload to services/agent/crates/layerx-crypto/tests/disclosure_call.rs using call(0x101c, selector, args) (:35): a 68-byte ordinal-1 variant-0 payload round-trips to AuthLifecycle with the same payload and key and discloses module Governance ordinal 1; an ordinal-3 payload discloses ordinal 3; an ordinal-5 payload and a 0x1a-tagged payload are refused with MalformedPayload; extend unknown_target_or_selector_is_refused (:239) so an unknown selector to 0x101c is still refused. One build, one verify."
+symbols = ["ConstructMethod", "decode_method", "auth_lifecycle_call_discloses_the_governance_payload"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lifecycle_call_discloses_the_governance_payload", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs::unknown_target_or_selector_is_refused"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the two files in touches; calls to 0x101c are refused by the decoder again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.2.96.1]
+title = "Add recordLifecycle to the layerxauth precompile so DID and recovery registrations execute through the kernel"
+status = "pending"
+mode = "BUILD"
+wave = 19
+requires = []
+reqs = ["5085.1"]
+capabilities = ["2.96.1"]
+interfaces = []
+do_1 = "The layerxauth keeper already executes any 0x71-tagged governance payload as kernel activity 0x00070000 | payload[1] through k.host.Execute (modules/layerxauth/keeper/execute.go:15-60), and the kernel's governance decoder admits ordinal 1 (DID registration: variant 0 with 2 fields and 68 bytes, or variant 2) and ordinal 3 (recovery registration) at src/modules/governance/lxp_governance.c:158-172. Add Keeper.RecordLifecycle(ctx, actor Actor, payload []byte, idempotencyKey [32]byte) (Result, error) in modules/layerxauth/keeper/lifecycle.go (planned): refuse with types.ErrNonCanonical unless len(payload) >= 4, payload[0] == 0x71 and payload[1] is 1 or 3, then return k.execute(ctx, actor, payload, idempotencyKey)."
+do_2 = "Add recordLifecycle(bytes payload, bytes32 idempotencyKey) returns (uint64 globalSequence), nonpayable, to precompiles/layerxauth/abi.json; register authHandlers['recordLifecycle'] in precompiles/layerxauth/lifecycle.go (planned) following grantCapability (precompiles/layerxauth/grants.go:70-80): resolve the arguments, call p.keeper.RecordLifecycle, return the receipt's GlobalSequence ABI-packed, RevertError on failure; add the GasTable row {Write: true, Surcharge: 36680} (precompiles/layerxauth/gas.go); extend TestAuthABIMethods (precompiles/layerxauth/abi_test.go:12) with the method's name, signature, selector, mutability, inputs and outputs and TestAuthSurfaceFrozen (surface_test.go:14) and TestAuthGasTable (gas_test.go:10) with the new row."
+do_3 = "Add TestPrecompileRecordLifecycleRegistersDid to precompiles/layerxauth/lifecycle_test.go (planned) on the harness of precompiles/layerxauth/harness_test.go: bind a caller address to an owner DID the way grants_test.go:177 does, encode an ordinal-1 variant-0 payload (0x71, 1, 0, 2 then the 64 payload bytes the kernel decoder expects for a new DID identity key), call recordLifecycle through Execute, assert a non-zero global sequence and that the host's ReadIdentitySequence for the registered DID succeeds afterwards; then call recordLifecycle with an ordinal-5 payload and assert the ErrNonCanonical revert. If the kernel refuses the registration because the actor differs from the registered DID, record the kernel result code as a finding and keep the ordinal-3 and refusal assertions. One build, one verify."
+symbols = ["RecordLifecycle", "recordLifecycle", "GasTable", "TestPrecompileRecordLifecycleRegistersDid"]
+touches = ["precompiles/layerxauth/abi.json", "precompiles/layerxauth/abi_test.go", "precompiles/layerxauth/gas.go", "precompiles/layerxauth/lifecycle.go", "precompiles/layerxauth/lifecycle_test.go", "modules/layerxauth/keeper/lifecycle.go"]
+tests = ["precompiles/layerxauth/lifecycle_test.go::TestPrecompileRecordLifecycleRegistersDid", "precompiles/layerxauth/abi_test.go::TestAuthABIMethods", "precompiles/layerxauth/gas_test.go::TestAuthGasTable", "precompiles/layerxauth/surface_test.go::TestAuthSurfaceFrozen"]
+planned_paths = ["precompiles/layerxauth/lifecycle.go", "precompiles/layerxauth/lifecycle_test.go", "modules/layerxauth/keeper/lifecycle.go"]
+build_cmd = "CGO_ENABLED=1 go build ./precompiles/layerxauth/... ./modules/layerxauth/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./precompiles/layerxauth/ -run '^(TestPrecompileRecordLifecycleRegistersDid|TestAuthABIMethods|TestAuthGasTable|TestAuthSurfaceFrozen)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the files in touches; the layerxauth surface returns to its nine methods."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.12.35.10]
+title = "Acknowledge replicated groups on WAL durability so a pending commit cannot time the primary out"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["5.5.4", "12.35.5", "12.35.8"]
+reqs = ["5084.1"]
+capabilities = ["12.35.10"]
+interfaces = []
+do_1 = "Finding 12.35.4.15 and attempt 19 (ef91a499c) of 12.35.4: the primary logs 'unable to create proposal block ... seal height N: sequencer: standby did not acknowledge: ... i/o timeout' while the standby's goroutines sit idle in Accept (node/sequencer/standby_role.go:165) and the replication listener records its dial address equal to the listener. Standby.receive (node/sequencer/standby.go:782-890) defers a trailing OPEN when committedHeight == open.Height-1 is not yet committed and otherwise blocks in waitForCommit(open.Height-1) (:893-925) for standbyCommitWait = replicationTimeout/4, answering AckGap when the commit has not landed, so the primary's Release inside the commit listener (node/sequencer/node_start.go:111-136) waits the full replication timeout for an acknowledgement the standby is withholding on the commit it is itself waiting for."
+do_2 = "Make the acknowledgement independent of the commit ordering: the standby acknowledges a group once its frames are durable in its WAL (the fsync it already performs), and applies OPEN h+1 after COMMIT h in its own apply loop without holding the acknowledgement; waitForCommit stays only for the apply order. AckGap is answered only for a real sequence gap in the retained window. Keep TestStandbyNoAckNoReceipt, TestStandbyAckBeforeRelease, TestStandbyTimeoutRefusesSend, TestStandbyAppliesInSeqOrder and TestReplicatorResendsAfterLostCommitted (node/sequencer/standby_test.go) passing as written."
+do_3 = "Add TestStandbyAcksOpenBeforePriorCommitApplies to node/sequencer/standby_test.go on the real WAL and loopback Standby the existing tests use: release ACCEPT and OPEN for height h+1 while the COMMIT of height h is held back, assert Release returns AckOK within replicationTimeout/2, then release COMMIT h and assert the standby applied h before h+1. One build, one verify."
+symbols = ["Standby", "Replicator", "TestStandbyAcksOpenBeforePriorCommitApplies"]
+touches = ["node/sequencer/standby.go", "node/sequencer/standby_test.go"]
+tests = ["node/sequencer/standby_test.go::TestStandbyAcksOpenBeforePriorCommitApplies", "node/sequencer/standby_test.go::TestStandbyNoAckNoReceipt", "node/sequencer/standby_test.go::TestStandbyAckBeforeRelease", "node/sequencer/standby_test.go::TestStandbyTimeoutRefusesSend", "node/sequencer/standby_test.go::TestStandbyAppliesInSeqOrder", "node/sequencer/standby_test.go::TestReplicatorResendsAfterLostCommitted"]
+planned_paths = []
+build_cmd = "go build ./node/sequencer/..."
+verify_cmd = "go test -count=1 ./node/sequencer/ -run '^(TestStandbyAcksOpenBeforePriorCommitApplies|TestStandbyNoAckNoReceipt|TestStandbyAckBeforeRelease|TestStandbyTimeoutRefusesSend|TestStandbyAppliesInSeqOrder|TestReplicatorResendsAfterLostCommitted)$'"
+gate_kind = "existing"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the two files in touches; the standby again withholds the acknowledgement of an OPEN until the prior commit is applied."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.12.35.9]
+title = "Run the sequencer primary without a standby when no standby address is configured"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["5.5.4", "12.35.8"]
+reqs = ["5083.1"]
+capabilities = ["12.35.9"]
+interfaces = []
+do_1 = "node/sequencer/node.go:62 refuses an empty cfg.StandbyAddress with ErrConfigStandbyAddress and NewReplicator (node/sequencer/standby.go:216-226) refuses a nil Dial, while Config.Validate (node/sequencer/config.go:165-205) already admits an empty standby address. Make the empty address mean no standby: NewNode skips the SplitHostPort check and builds the Replicator with Dial nil; NewReplicator admits a nil Dial when a new ReplicatorConfig field Standalone is true (NewNode sets it from the empty address) and refuses the combination of a Dial and Standalone."
+do_2 = "In Release (standby.go:234-300), when the replicator is standalone: append the entries, run the group fsync (the GroupSync the standby path already overlaps), call onWALSync as today, and return Ack{Kind: AckOK} covering maxSeq without opening a link, retaining frames or waiting for an acknowledgement; ErrNoAck, ErrStandbyRefused and ErrFenced cannot occur. The lease, fence and take-lease paths stay standby-only and return their existing errors when called standalone."
+do_3 = "Add node/sequencer/standalone_primary_test.go (planned): TestReplicatorStandaloneAcknowledgesAfterWALSync builds a Replicator on a real WAL in t.TempDir with Standalone true, releases two ACCEPT entries and one OPEN, asserts Ack{Kind: AckOK} each time and that the WAL contains the frames after Release returns; TestNodeStartsPrimaryWithoutStandbyAddress builds a Config with an empty StandbyAddress the way node_test.go builds one, asserts NewNode returns a node whose Replicator is standalone, and asserts that a Config with a standby address still takes the replicated path. One build, one verify."
+symbols = ["ReplicatorConfig", "NewReplicator", "Replicator", "NewNode", "TestReplicatorStandaloneAcknowledgesAfterWALSync", "TestNodeStartsPrimaryWithoutStandbyAddress"]
+touches = ["node/sequencer/node.go", "node/sequencer/standby.go", "node/sequencer/standalone_primary_test.go"]
+tests = ["node/sequencer/standalone_primary_test.go::TestReplicatorStandaloneAcknowledgesAfterWALSync", "node/sequencer/standalone_primary_test.go::TestNodeStartsPrimaryWithoutStandbyAddress"]
+planned_paths = ["node/sequencer/standalone_primary_test.go"]
+build_cmd = "go build ./node/sequencer/..."
+verify_cmd = "go test -count=1 ./node/sequencer/ -run '^(TestReplicatorStandaloneAcknowledgesAfterWALSync|TestNodeStartsPrimaryWithoutStandbyAddress)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the three files in touches; a primary again refuses to start without a standby address."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.12.35.8]
 title = "Carry the transient receipt through the accept critical section so a seal does not halt replication"
 status = "done"
@@ -141584,7 +141792,7 @@ do_2 = "Add no_kernel_custody_reads_in_core to services/platform/hosted/core/tes
 do_3 = "Remove the LAYERX_CORE_LNI_SOCKET read at services/platform/hosted/core/src/main.rs:349 and the variable at node/deployment.yaml:432 once no code path reads it (8.18.1 do_2 keeps it until this task); if a reader remains, stop and record it."
 do_4 = "Change nothing under services/agent and weaken no scan; layerx-platform-core and layerx-node-probe build and the retired_client_modules_w2 target passes both scans."
 symbols = ["no_kernel_custody_reads_in_core"]
-touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"]
+touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs", "services/platform/hosted/core/src/public_reads.rs"]
 tests = ["services/platform/hosted/core/tests/retired_client_modules_w2.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests && cargo build --locked --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml -p layerx-node-probe && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
@@ -141607,6 +141815,7 @@ do_8 = "After porting the custody block and the authority budget reader (service
 do_9 = "Decision 2095: attempts 1 to 3 (f558a861c and 25e68910b among them) fail the build on the core test target no_kernel_disclosure_codec.rs, whose source! list (:16-17) includes services/platform/hosted/gateway/tests/local/funding.rs and withdrawal.rs, files task 8.19.5 deleted (finding.8.98.14.1). The test joins touches: delete those two source! entries and no other; then the task as declared. Continue from attempt 3, build once and verify once."
 do_10 = "Decision 2104: attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) fail the authority test build because tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes the receipt-programs-positive-v3.json fixture that 8.47.5 deleted (finding.8.98.14.2). Whichever of 8.98.3 and 8.98.14 publishes first deletes call_fixture (:171-195) and its only consumer call_outcome_cannot_be_reclassified_as_state (:262-274); module_offset (:198) stays for malformed_state_module_version_and_signature_are_refused (:235) and the verify_outcome import for the deploy test at :214-217. If main already lacks call_fixture, this line is satisfied."
 do_11 = "Decision 2125: held for the owner's ruling. When it lands, continue from attempt 7 (a41a80ed3): the custody profile record read and the three services/platform/hosted/core/src/public_reads.rs reads move to the ruled rpc surface, and only then do the FrameTransport parameters at lib.rs:451, :511 and :575 go."
+do_12 = "Decision 2133: the owner's ruling do_11 waited for has landed. Continue from attempt 7 (a41a80ed3): move node_info, sequence and receipt_event (services/platform/hosted/core/src/public_reads.rs:289, :335, :448) to the twins the decision lists, point custody_read (services/platform/hosted/core/src/lib.rs:588) at rpc::module_state::module_state with verify_module_evidence unchanged, give read_custody_profile and read_custody_asset the (&SequencerEndpoint, network_id, &PxNetworkHead, ...) signatures and update the two probe callers (probe main.rs:493, :550); only then remove the FrameTransport parameters at lib.rs:451, :511 and :575 and the connect_raw, lookup_receipt_selector and receipt_facts helpers. Keep the response keys the decision names so tests/retired_client_modules_w2.rs and the authority retired_client_modules test pass as declared. Build once, verify once."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -159323,6 +159532,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Run the transfer truth against the in-tree node that tools/qualification/localnode/v6120-node.sh --sequencer starts (task 12.35.4, decision.1886): the verify names WALLET_TRANSFER_TRUTH_ANVIL_URL and the new WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL as LOCAL_NODE_SEQUENCER_RPC, WALLET_TRANSFER_TRUTH_SENDER as LOCAL_NODE_ADDRESS and the new WALLET_TRANSFER_TRUTH_SEQUENCER_KEY as LOCAL_NODE_KEY from the script's env file; add the sequencer URL to the OBSERVED_METHODS routing at apps/wallet/e2e/send.spec.ts:26, :85-89 so pax_sequencerReceipt reaches that node, and derive any other WALLET_TRANSFER_TRUTH_* or PAXEER_X_* variable the suite requires (send.spec.ts:24-31, :75-76) from the same node instead of requiring a second chain. No stub answer for pax_sequencerReceipt is added to page.route."
 do_5 = "The new test signs its one-wei transfer with WALLET_TRANSFER_TRUTH_SEQUENCER_KEY through viem (privateKeyToAccount, the chain id read from the node) and submits it with eth_sendRawTransaction to WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL instead of the eth_sendTransaction helper of send.spec.ts:46-51, which assumes an unlocked anvil account; the existing tests keep that helper."
+do_6 = "Decision 2137: the hold is lifted; qualify against the in-tree node exactly as verify_cmd states, with the primary-only --sequencer mode decision 2134 gives v6120-node.sh. Build once, verify once."
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"
@@ -159359,7 +159569,7 @@ title = "Start the in-tree node as a sequencer primary with a standby for local 
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5", "12.35.6", "12.35.7", "12.35.8"]
+requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5", "12.35.6", "12.35.7", "12.35.8", "12.35.9"]
 reqs = ["12035.3"]
 capabilities = []
 interfaces = []
@@ -159398,6 +159608,7 @@ do_15 = "Attempt 14 (a564859dd on 22b9ee184) passes the build and fails TestLoca
 do_16 = "tools/qualification/localnode/v6120-node.sh writes LOCAL_NODE_HOME=%q of $NODE_HOME into localnode.env next to LOCAL_NODE_RPC (:719-724), and sequencer_evidence (:129-158) also greps 'method handler crashed|panic|goroutine ' in node.log; TestLocalNodeV6120SequencerReceipt registers a t.Cleanup that, when t.Failed(), logs the last 150 lines of $LOCAL_NODE_HOME/node.log. Attempt 15 (f779633fc on caf5a0531) failed at v6120_test.go:221 with 'send one-wei transfer: method handler crashed' from eth_sendRawTransaction; the closing report must quote the panic site from node.log, and a fix stays within the two touched files unless the panic names a product path, which is then recorded in qualification.kvx."
 do_17 = "Continue from attempt 16 (63dda2164): the test now fails at v6120_test.go:243 with ErrNoAck from node/sequencer/standby.go:42 on the send path. Make sequencer_evidence and the failing test's Cleanup print the standby's node.log replication and sequencer lines as well as the primary's; confirm the standby address the primary dials (--sequencer.standby-address) is the replication listener the standby's configuration opens; record in the closing report whether the standby received the group and why it did not acknowledge within --sequencer.replication-timeout, and fix the fixture accordingly (decision.2053); a cause in node/sequencer is recorded in qualification.kvx with file and line and the task stops. Build once and verify once."
 do_18 = "Decision 2097: attempt 18 (110c9d81f) fails with 'send one-wei transfer: method handler crashed' (v6120_test.go:286); the standby proposes every fourth height and fails with 'no sealed layer' at the same seconds the primary's acknowledgement reads time out (finding.12.35.4.15). Keep the standby as the second sequencer leader but out of the validator set: no bonded validator entry, no power and no genesis.validators entry for it (v6120-node.sh:428-441 and the identity check :478-491 follow), so consensus never asks it to seal. The test prints every node.log and standby.log line containing 'crashed' or 'panic' with the forty lines after it, and the standby and node start with the rpc logger at error level reaching their logs. If the acknowledgement timeouts persist with a non-proposing standby, or the sequencer module refuses a leader outside the validator set, record one qualification entry naming the node/sequencer file and line and stop; no further fixture-only attempt follows. Continue from attempt 18, build once and verify once."
+do_19 = "Decision 2134: continue from attempt 19 (ef91a499c). --sequencer now starts the primary alone: delete the standby home initialisation (v6120-node.sh:249-251 of that tree), make the genesis leaders list [primary] and drop the standby identity check (:401-434), drop --sequencer.standby-address from SEQUENCER_ARGS (:569-572) and leave --sequencer.replication-timeout and --sequencer.lease-duration, delete the standby start (:573-577), the replication-listener check (:598-629) and the standby readiness and env lines (:645-660, :678 onward) including LOCAL_NODE_STANDBY_RPC and LOCAL_NODE_STANDBY_PROFILE_RPC; the primary runs with the empty standby address task 12.35.9 admits. In v6120_test.go remove the standby endpoint requirement and dial (:212-219, :243-250 of that tree) and the standby.log and standby-goroutines.txt collection (:150, :186); keep the crashed/panic log printing of do_18. If the primary refuses to start without a standby address, 12.35.9 is not at this task's base: stop and record the finding. Build once, verify once."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -173490,7 +173701,8 @@ do_5 = "The bounds object decodes into config.BoundsConfig (tools/loadtest/confi
 
 [task.16.24.6]
 title = "Tighten the paxload profile bounds to the release-candidate measurements"
-status = "pending"
+status = "superseded"
+superseded_by = "16.24.5"
 mode = "BUILD"
 wave = 49
 requires = ["16.24.5"]
@@ -173517,6 +173729,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "This task has work only after the release-candidate run that measures the seven profiles is recorded in the feature qualification log; until then the provisional bounds of decision.1895 stand and the task changes nothing. Attempt 1 (06:03Z) changed no file and was refused as such; the task is not re-attempted before that run exists."
+do_4 = "Decision 2138: superseded; the bounds 16.24.5 set stand for this feature."
 
 [task.16.25.1]
 title = "Add tps_stats.py to summarise and compare benchmark TPS logs with exit codes"
@@ -177974,6 +178187,7 @@ do_5 = "Qualify against the in-tree node of tools/qualification/localnode/v6120-
 do_6 = "latestFunding (services/platform/perps-data/e2e_test.go:998-1011) walks scanWindow ranges down from head with from clamped only at block 1; the in-tree node of decision.1887 serves blocks from the exported height its genesis starts at (tools/qualification/localnode/v6120-node.sh:211-312), so read the earliest block the node serves once (eth_getBlockByNumber earliest), clamp from to it, stop the walk when to drops below it and return 0 for no settlement instead of failing on an absent range; start the indexer (:432, start := uint64(1)) at that earliest block too."
 do_7 = "The comment at e2e_test.go:428-431 assumes the chain already holds an hourly FundingSettled log; a fresh in-tree node has none until fundingPeriods (modules/perps/keeper/funding.go:15) have elapsed, so the test waits for the first FundingSettled log on the local node (or drives the blocks that produce it) before asserting projections, and records the wait it needs in the test rather than reaching for a hosted chain."
 do_8 = "Attempt 5 (a350a148f) passes the earliest-block clamp and the funding wait (e2e_test.go:432-460) and the WETH read (:485), then fails at e2e_test.go:486 because getMarkPriceDetails(11) reverts: market 11 is PAX (modules/pricefeed/types/market.go:44, stored with the other perps markets by the perps hook of the v6.12.0 plan at node/upgrades_v6120.go:93-95, which the in-tree node applies at its first block, tools/qualification/localnode/v6120-node.sh:368-385), but the price loop of v6120-node.sh:99-102 submits market_id 0 only, so the market 11 price is never fresh, updateMarketPrice keeps a zero mark (modules/perps/keeper/mark.go:94-97) and viewMark refuses it (precompiles/perps/views.go:197-201). Task 5.98.3 makes market 11 fresh and gives the LOCAL_NODE_KEY account perps collateral; re-qualify against it with e2e_test.go still reading market 11, PAX, store.USDL and the precompiles at :62-67 and :76-78 as written."
+do_9 = "Decision 2137: the hold is lifted; qualify against the in-tree node exactly as verify_cmd states (no --sequencer, no sequencer receipt read). Build once, verify once."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"
@@ -196394,7 +196608,7 @@ title = "Issue #1272: Admit call-sourced disclosures in the agent creation prepa
 status = "pending"
 mode = "BUILD"
 wave = 20
-requires = ["10.13.5"]
+requires = ["10.13.5", "2.96.1", "9.99.1"]
 reqs = ["181272.1"]
 capabilities = []
 interfaces = []
@@ -196422,6 +196636,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Decision 2074: attempt 4 (db8b2e34f) panics at tests/agent_create.rs:1002 with 'kernel creation disclosure: MalformedPayload' because the do_4 regression calls layerx_crypto::disclosure::bind (disclosure.rs:1337) on the kernel envelope bytes, and bind refuses an opaque module payload. The regression hands the kernel envelope bytes to verify_creation_call_disclosure beside a call disclosure and asserts that refusal; it never binds kernel bytes itself. Continue from attempt 4, build once and verify once."
 do_6 = "Decision 2089: attempt 5 (18134ca48) panics at tests/agent_create.rs:21:38 with 'canonical owner encoding: Refused(invalid signed lifecycle transaction)': the test's inline mod canonical_owner (:1-70) still signs kernel EnvelopeBuilder bytes, while production bound_activity (src/agents/create.rs:522-600) decode_signed's an EVM transaction (:534-536), recovers the sender, binds the call and reads the payload from the LedgerSend or PayBudgetCreate call data. Delete the inline module and include tests/support/canonical_owner.rs with #[path] as tests/agent_controls.rs does; its sign_transaction(payload, action_key, version, network) (:65-115) already builds and signs the budgetCreate call for the Budget module, so the BudgetCreation and BudgetFunding stages use it as is. Extend sign_transaction with an arm for the Governance module that builds the ledger send(bytes) call to 0x101a carrying the payload followed by the 6-byte scope (network id, protocol version), the form agent_controls_rungs.rs raw_transaction builds for (Asset, 5) and production reads from LedgerSend; the DidRegistration and RecoveryRegistration stages use that arm. tests/support/canonical_owner.rs joins touches; its signature does not change, so agent_controls.rs, agent_creation_rungs.rs and agent_controls_rungs.rs keep compiling. Continue from attempt 5, build once and verify once."
 do_7 = "Decision 2102 withdraws decision 2089's Governance arm: attempt 6 (570af0da6) built the ledger send(bytes) call carrying the Governance payload and bind_call refuses it with MalformedPayload, because decode_method (layerx-crypto src/disclosure/call.rs:315-320) admits send(bytes) to 0x101a only when decode_send (src/disclosure.rs:293) decodes an Asset send, decode_method handles only 0x101a, 0x101b and the bank send (:241, :349, :387), and the ledger precompile exposes no lifecycle method; production bound_activity's LedgerSend arm (src/agents/create.rs:562-579, task 10.97.1) is therefore unreachable, and no EIP-1559 transaction carries the DidRegistration or RecoveryRegistration payload of an agent creation (finding.18.1272.1.1). The test does not change on this instruction and no attempt runs until a task provides the lifecycle construct; the Budget stages keep sign_transaction as attempt 6 left them."
+do_8 = "Decision 2135: continue from attempt 6 (570af0da6). Replace the ledger send(bytes) construction of the Governance arm in prepare_lifecycle_intent (src/server/agent_creation.rs:578 of that tree) and in sign_transaction of tests/support/canonical_owner.rs (:79-83 of that tree) with a call to 0x000000000000000000000000000000000000101C, calldata = the recordLifecycle(bytes,bytes32) selector, the compiled Governance payload as the dynamic bytes argument and the intent's idempotency key as the bytes32 argument; add the ConstructMethod::AuthLifecycle arm to bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:562-579) answering (payload, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION); keep the KeyRotation, EvmPayoutBinding and budget arms as attempt 6 left them. If decode_method has no AuthLifecycle variant at this task's base, 9.99.1 is missing: stop and record the finding. Build once, verify once."
 
 [req.181272]
 title = "Agent creation admits a preparation whose disclosure is bind_call of its unsigned EIP-1559 call"

@@ -12091,3 +12091,18 @@ fix = "Write such tests against an in-process peer double over a UnixListener an
 title = "The human service's plan route answers every refusal with the same reasonless 403"
 symptom = "An end-to-end fixture got {code: forbidden, retry: final} from POST /v1/intents/plan with no attestor refusal recorded; the route has about a dozen checks that answer exactly this (assertion admission, owner identity, balance coordinates, custody binding, plan refusals, leg transactions, observation cache), so the failing check could not be read from the response."
 fix = "Make the fixture's doubles record every request they serve and print the lists in the failure text, then bisect along the route's forbidden emitters in call order."
+
+[gotcha.2456]
+title = "The node serves a sequencer receipt only by transaction hash"
+symptom = "A service route keyed by the receipt's global sequence looked for a node JSON-RPC twin of the retired selector-3 receipt lookup; pax_sequencerReceipt (rpc/sequencer_receipt.go:252) takes a transaction hash and nothing looks a receipt up by global sequence."
+fix = "Key the route by transaction hash and read the global sequence from the executed receipt's seq field; a global-sequence index would be a new node method."
+
+[gotcha.2457]
+title = "A sequencer primary refuses to start without a standby address even though its config validation admits one"
+symptom = "Config.Validate (node/sequencer/config.go:165-205) accepts an empty sequencer.standby-address, but NewNode (node/sequencer/node.go:62) then fails with ErrConfigStandbyAddress and NewReplicator refuses a nil dialer, so a single-node sequencer start needs a second node it never uses."
+fix = "Treat the empty address as standalone replication (task 12.35.9) or configure a standby; do not point the standby address at the primary's own listener."
+
+[gotcha.2458]
+title = "The layerxauth keeper executes any governance payload ordinal the kernel admits, but only methods on its ABI reach it"
+symptom = "A service built a DID registration as a ledger send(bytes) call because no precompile exposed a lifecycle method; the ledger decoder refused the governance bytes with MalformedPayload. The layerxauth keeper's execute (modules/layerxauth/keeper/execute.go:15) already maps payload[1] to kernel activity 0x00070000 | ordinal and the kernel decoder admits ordinals 1 and 3."
+fix = "Add the ABI method, gas row and handler on the layerxauth precompile and the matching decoder arm in layerx-crypto; never tunnel a governance payload through another module's send."
