@@ -13,6 +13,7 @@ name = "layerx-receipt-authority"
 path = "src/main.rs"
 
 [dependencies]
+# Retained for receipt verification and LNI transport in src/main.rs and src/trust.rs.
 layerx-client.workspace = true
 layerx-paxeer-verifier = { path = "../../../agent/crates/layerx-paxeer-verifier" }
 layerx-identity-binding.workspace = true

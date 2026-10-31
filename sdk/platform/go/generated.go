@@ -27,7 +27,6 @@ const (
 	AgentOperationCapabilityList          AgentOperation = "capability.list"
 	AgentOperationCapabilityRevoke        AgentOperation = "capability.revoke"
 	AgentOperationExportOffline           AgentOperation = "export.offline"
-	AgentOperationFaucetClaim             AgentOperation = "faucet.claim"
 	AgentOperationMcpInvoke               AgentOperation = "mcp.invoke"
 	AgentOperationPolicyDryRun            AgentOperation = "policy.dry_run"
 	AgentOperationPrepare                 AgentOperation = "prepare"
@@ -85,7 +84,6 @@ func AllAgentOperations() []AgentOperation {
 		AgentOperationCapabilityList,
 		AgentOperationCapabilityRevoke,
 		AgentOperationExportOffline,
-		AgentOperationFaucetClaim,
 		AgentOperationMcpInvoke,
 		AgentOperationPolicyDryRun,
 		AgentOperationPrepare,
@@ -127,7 +125,7 @@ func AllAgentOperations() []AgentOperation {
 
 func (operation AgentOperation) Valid() bool {
 	switch operation {
-	case AgentOperationAgentRegister, AgentOperationApprovalApprove, AgentOperationApprovalGet, AgentOperationApprovalList, AgentOperationApprovalReject, AgentOperationAvailabilityFetch, AgentOperationBudgetCreate, AgentOperationBudgetFund, AgentOperationBudgetList, AgentOperationBudgetReconciliation, AgentOperationBudgetRevoke, AgentOperationBudgetState, AgentOperationCapabilityAttenuate, AgentOperationCapabilityCreate, AgentOperationCapabilityList, AgentOperationCapabilityRevoke, AgentOperationExportOffline, AgentOperationFaucetClaim, AgentOperationMcpInvoke, AgentOperationPolicyDryRun, AgentOperationPrepare, AgentOperationProgramActivity, AgentOperationProgramCall, AgentOperationProgramDeploy, AgentOperationProgramDiscover, AgentOperationProgramInterface, AgentOperationProgramReceipt, AgentOperationProgramSimulate, AgentOperationProgramUpgrade, AgentOperationProgramWindDown, AgentOperationProject, AgentOperationReadAccount, AgentOperationReadBalance, AgentOperationReadBatch, AgentOperationReadCheckpoint, AgentOperationReadHistory, AgentOperationReadModuleState, AgentOperationReadProofBundle, AgentOperationSessionClose, AgentOperationSessionList, AgentOperationSessionOpen, AgentOperationSessionRefresh, AgentOperationSign, AgentOperationSubmit, AgentOperationSubscriptionAcknowledge, AgentOperationSubscriptionCreate, AgentOperationSubscriptionDelete, AgentOperationSubscriptionHealth, AgentOperationSubscriptionList, AgentOperationSubscriptionPause, AgentOperationSubscriptionResume, AgentOperationTenantReadiness, AgentOperationTrack, AgentOperationWait:
+	case AgentOperationAgentRegister, AgentOperationApprovalApprove, AgentOperationApprovalGet, AgentOperationApprovalList, AgentOperationApprovalReject, AgentOperationAvailabilityFetch, AgentOperationBudgetCreate, AgentOperationBudgetFund, AgentOperationBudgetList, AgentOperationBudgetReconciliation, AgentOperationBudgetRevoke, AgentOperationBudgetState, AgentOperationCapabilityAttenuate, AgentOperationCapabilityCreate, AgentOperationCapabilityList, AgentOperationCapabilityRevoke, AgentOperationExportOffline, AgentOperationMcpInvoke, AgentOperationPolicyDryRun, AgentOperationPrepare, AgentOperationProgramActivity, AgentOperationProgramCall, AgentOperationProgramDeploy, AgentOperationProgramDiscover, AgentOperationProgramInterface, AgentOperationProgramReceipt, AgentOperationProgramSimulate, AgentOperationProgramUpgrade, AgentOperationProgramWindDown, AgentOperationProject, AgentOperationReadAccount, AgentOperationReadBalance, AgentOperationReadBatch, AgentOperationReadCheckpoint, AgentOperationReadHistory, AgentOperationReadModuleState, AgentOperationReadProofBundle, AgentOperationSessionClose, AgentOperationSessionList, AgentOperationSessionOpen, AgentOperationSessionRefresh, AgentOperationSign, AgentOperationSubmit, AgentOperationSubscriptionAcknowledge, AgentOperationSubscriptionCreate, AgentOperationSubscriptionDelete, AgentOperationSubscriptionHealth, AgentOperationSubscriptionList, AgentOperationSubscriptionPause, AgentOperationSubscriptionResume, AgentOperationTenantReadiness, AgentOperationTrack, AgentOperationWait:
 		return true
 	default:
 		return false
@@ -339,50 +337,7 @@ func (operation HumanOperation) RequiresIdempotency() bool {
 	}
 }
 
-type EVMOperationMetadata struct {
-	Method   string
-	To       string
-	Selector string
-	PerLeg   bool
-}
-
-func (operation AgentOperation) EVMMetadata() (EVMOperationMetadata, bool) {
-	switch operation {
-	case AgentOperationProgramActivity:
-		return EVMOperationMetadata{Method: "eth_getTransactionByHash", To: "", Selector: ""}, true
-	case AgentOperationProgramCall:
-		return EVMOperationMetadata{Method: "eth_sendRawTransaction", To: "0x000000000000000000000000000000000000101d", Selector: "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"}, true
-	case AgentOperationProgramDeploy:
-		return EVMOperationMetadata{Method: "eth_sendRawTransaction", To: "0x000000000000000000000000000000000000101d", Selector: "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"}, true
-	case AgentOperationProgramDiscover:
-		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101d", Selector: "getProgram(bytes32)"}, true
-	case AgentOperationProgramInterface:
-		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101d", Selector: "getInterface(bytes32)"}, true
-	case AgentOperationProgramReceipt:
-		return EVMOperationMetadata{Method: "eth_getTransactionByHash", To: "", Selector: ""}, true
-	case AgentOperationProgramSimulate:
-		return EVMOperationMetadata{Method: "eth_call", To: "0x000000000000000000000000000000000000101d", Selector: "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"}, true
-	case AgentOperationProgramUpgrade:
-		return EVMOperationMetadata{Method: "eth_sendRawTransaction", To: "0x000000000000000000000000000000000000101d", Selector: "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"}, true
-	case AgentOperationProgramWindDown:
-		return EVMOperationMetadata{Method: "eth_sendRawTransaction", To: "0x000000000000000000000000000000000000101d", Selector: "deprecate(bytes32,bytes32,uint64)"}, true
-	default:
-		return EVMOperationMetadata{}, false
-	}
-}
-
-func (operation HumanOperation) EVMMetadata() (EVMOperationMetadata, bool) {
-	switch operation {
-	case HumanOperationIntentPlan, HumanOperationIntentSubmit:
-		metadata, ok := operation.Metadata()
-		return EVMOperationMetadata{Method: metadata.Method, PerLeg: metadata.PerLeg}, ok
-	default:
-		return EVMOperationMetadata{}, false
-	}
-}
-
 type HumanOperationMetadata struct {
-	PerLeg   bool
 	Method   string
 	Path     string
 	Request  string
@@ -406,7 +361,7 @@ func (operation HumanOperation) Metadata() (HumanOperationMetadata, bool) {
 	case HumanOperationAgentArchive:
 		return HumanOperationMetadata{Method: "POST", Path: "/v1/agents/{agent_id}/archive", Request: "AgentArchiveRequest", Response: "Journey"}, true
 	case HumanOperationAgentCreate:
-		return HumanOperationMetadata{Method: "POST", Path: "/v1/agents", Request: "AgentCreateRequest", Response: "Journey"}, true
+		return HumanOperationMetadata{Method: "POST", Path: "/v1/agents", Request: "AgentCreateRequest", Response: "AgentCreationJourney"}, true
 	case HumanOperationAgentGet:
 		return HumanOperationMetadata{Method: "GET", Path: "/v1/agents/{agent_id}", Request: "Empty", Response: "Agent"}, true
 	case HumanOperationAgentLimit:
@@ -464,9 +419,9 @@ func (operation HumanOperation) Metadata() (HumanOperationMetadata, bool) {
 	case HumanOperationHomeSummary:
 		return HumanOperationMetadata{Method: "GET", Path: "/v1/home", Request: "Empty", Response: "HomeSummary"}, true
 	case HumanOperationIntentPlan:
-		return HumanOperationMetadata{Method: "eth_call", Path: "", Request: "PlanIntentRequest", Response: "IntentPlan", PerLeg: true}, true
+		return HumanOperationMetadata{Method: "POST", Path: "/v1/intents/plan", Request: "PlanIntentRequest", Response: "IntentPlan"}, true
 	case HumanOperationIntentSubmit:
-		return HumanOperationMetadata{Method: "eth_sendRawTransaction", Path: "", Request: "SubmitPlanRequest", Response: "IntentSubmission", PerLeg: true}, true
+		return HumanOperationMetadata{Method: "POST", Path: "/v1/intents/submit", Request: "SubmitPlanRequest", Response: "IntentSubmission"}, true
 	case HumanOperationJourneyGet:
 		return HumanOperationMetadata{Method: "GET", Path: "/v1/journeys/{journey_id}", Request: "Empty", Response: "Journey"}, true
 	case HumanOperationJourneyList:
@@ -490,9 +445,9 @@ func (operation HumanOperation) Metadata() (HumanOperationMetadata, bool) {
 	case HumanOperationNotificationRead:
 		return HumanOperationMetadata{Method: "POST", Path: "/v1/notifications/{notification_id}/read", Request: "Empty", Response: "NotificationSummary"}, true
 	case HumanOperationOnboardingResume:
-		return HumanOperationMetadata{Method: "POST", Path: "/v1/onboarding/resume", Request: "Empty", Response: "Journey"}, true
+		return HumanOperationMetadata{Method: "POST", Path: "/v1/onboarding/resume", Request: "Empty", Response: "OnboardingJourney"}, true
 	case HumanOperationOnboardingStatus:
-		return HumanOperationMetadata{Method: "GET", Path: "/v1/onboarding", Request: "Empty", Response: "Journey"}, true
+		return HumanOperationMetadata{Method: "GET", Path: "/v1/onboarding", Request: "Empty", Response: "OnboardingJourney"}, true
 	case HumanOperationPasskeyAssertBegin:
 		return HumanOperationMetadata{Method: "POST", Path: "/v1/passkeys/assertions", Request: "PasskeyAssertionBegin", Response: "PasskeyAssertionChallenge"}, true
 	case HumanOperationPasskeyAssertFinish:
@@ -677,14 +632,14 @@ func (value JourneyState) Valid() bool {
 type HumanVerificationLevel string
 
 const (
-	HumanVerificationUnverified      HumanVerificationLevel = "unverified"
-	HumanVerificationReceiptVerified HumanVerificationLevel = "receipt-verified"
-	HumanVerificationBlockCommitted  HumanVerificationLevel = "block-committed"
+	HumanVerificationUnverified          HumanVerificationLevel = "unverified"
+	HumanVerificationReceiptVerified     HumanVerificationLevel = "receipt-verified"
+	HumanVerificationCheckpointFinalised HumanVerificationLevel = "checkpoint-finalised"
 )
 
 func (value HumanVerificationLevel) Valid() bool {
 	switch value {
-	case HumanVerificationUnverified, HumanVerificationReceiptVerified, HumanVerificationBlockCommitted:
+	case HumanVerificationUnverified, HumanVerificationReceiptVerified, HumanVerificationCheckpointFinalised:
 		return true
 	default:
 		return false

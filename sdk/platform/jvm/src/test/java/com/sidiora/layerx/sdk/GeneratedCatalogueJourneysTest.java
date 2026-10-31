@@ -68,7 +68,7 @@ public final class GeneratedCatalogueJourneysTest {
             assertThrows(IllegalArgumentException.class,
                 () -> GeneratedSchema.HumanModels.ErrorCode.fromWire(retired));
         }
-        assertEquals(Set.of("unverified", "receipt-verified", "block-committed"),
+        assertEquals(Set.of("unverified", "receipt-verified", "checkpoint-finalised"),
             Arrays.stream(GeneratedSchema.HumanModels.HumanVerificationLevel.values())
                 .map(GeneratedSchema.HumanModels.HumanVerificationLevel::wire).collect(Collectors.toSet()));
         assertThrows(IllegalArgumentException.class,

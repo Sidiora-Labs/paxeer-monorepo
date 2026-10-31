@@ -9,18 +9,18 @@ use layerx_agentd::human_runtime::route_operator_command;
 use layerx_agentd::outbox::{Outbox, SubmissionState};
 use layerx_agentd::store::Store;
 
-use support::{directory, tenant, verified_submission};
+use support::{directory, signed_transaction, tenant};
 
 const OPERATOR: &str = "operator:incident-response";
 
-fn enqueue_unknown(store: &mut Store, outbox: &mut Outbox, id: u8) {
-    outbox
-        .enqueue(store, tenant(), [id; 32], verified_submission(id))
+fn enqueue_unknown(store: &mut Store, outbox: &mut Outbox, id: u8) -> [u8; 32] {
+    let hash = outbox
+        .enqueue(store, tenant(), signed_transaction(id))
         .unwrap_or_else(|error| panic!("enqueue: {error:?}"));
     outbox
         .transition(
             store,
-            [id; 32],
+            hash,
             SubmissionState::Submitted,
             "real boundary accepted bytes",
             None,
@@ -29,12 +29,13 @@ fn enqueue_unknown(store: &mut Store, outbox: &mut Outbox, id: u8) {
     outbox
         .transition(
             store,
-            [id; 32],
+            hash,
             SubmissionState::Unknown,
             "acknowledgement was not observed",
             None,
         )
         .unwrap_or_else(|error| panic!("unknown: {error:?}"));
+    hash
 }
 
 #[test]
@@ -42,9 +43,9 @@ fn human_socket_operator_commands_reach_the_audited_admin_dispatch() {
     let root = directory("operator-route");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut outbox = Outbox::default();
-    enqueue_unknown(&mut store, &mut outbox, 1);
+    let hash = enqueue_unknown(&mut store, &mut outbox, 1);
     let activity_id = outbox
-        .status([1; 32])
+        .status(hash)
         .unwrap_or_else(|| panic!("unknown missing"))
         .activity_id;
 
@@ -54,16 +55,16 @@ fn human_socket_operator_commands_reach_the_audited_admin_dispatch() {
         &outbox,
         OPERATOR,
         [7; 32],
-        OperatorCommand::InspectUnknown([1; 32]),
+        OperatorCommand::InspectUnknown(hash),
     )
     .unwrap_or_else(|error| panic!("inspect unknown: {error:?}"));
     let bytes = inspected.bytes();
-    assert_eq!(bytes.len(), 110);
+    assert_eq!(bytes.len(), 74);
     assert_eq!(bytes[0], 1);
     assert_eq!(&bytes[1..33], &activity_id);
-    assert_eq!(&bytes[33..37], &64_u32.to_be_bytes());
-    assert_eq!(bytes[101], 5);
-    assert_eq!(&bytes[102..110], &1_u64.to_be_bytes());
+    assert_eq!(&bytes[33..65], &hash);
+    assert_eq!(bytes[65], 5);
+    assert_eq!(&bytes[66..74], &1_u64.to_be_bytes());
 
     assert_eq!(
         route_operator_command(
@@ -85,7 +86,7 @@ fn human_socket_operator_commands_reach_the_audited_admin_dispatch() {
             OPERATOR,
             [9; 32],
             OperatorCommand::AttemptProtectedMutation {
-                target: [1; 32],
+                target: hash,
                 mutation: ProtectedMutation::MarkUnknownExecuted,
             },
         )
@@ -94,7 +95,7 @@ fn human_socket_operator_commands_reach_the_audited_admin_dispatch() {
     );
     assert_eq!(
         outbox
-            .status([1; 32])
+            .status(hash)
             .unwrap_or_else(|| panic!("unknown missing"))
             .state,
         SubmissionState::Unknown
@@ -106,7 +107,7 @@ fn human_socket_operator_commands_reach_the_audited_admin_dispatch() {
         &outbox,
         OPERATOR,
         [10; 32],
-        OperatorCommand::ResolveUnknown([1; 32]),
+        OperatorCommand::ResolveUnknown(hash),
     )
     .unwrap_or_else(|error| panic!("resolve plan: {error:?}"));
     assert_eq!(

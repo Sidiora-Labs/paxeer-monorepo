@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 from dataclasses import FrozenInstanceError, replace
 from hashlib import sha256
@@ -10,10 +9,8 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.production import SdkErrorCode
 from layerx_sdk.verifier import (
-    AuthorizedReceiptBatch,
     ReceiptKey,
     SequencerReceiptVerificationError,
     verify_sequencer_receipt,
@@ -38,17 +35,6 @@ def _key(vector: dict) -> ReceiptKey:
         key["firstHeight"],
         key["lastHeight"],
     )
-
-
-def _signatures():
-    spec = importlib.util.spec_from_file_location(
-        "sequencer_receipt_signatures",
-        ROOT / "sdk/integrations/fastapi/layerx_fastapi/signatures.py",
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.LayerXSignatureVerifier()
 
 
 def test_verify_sequencer_receipt_pinned_key():
@@ -119,13 +105,11 @@ def test_verify_sequencer_receipt_pinned_key():
 
 
 def test_verify_rpc_payment_uses_receipt_keys():
-    vector = VECTORS[0]
+    vector = next(vector for vector in VECTORS if vector["vector"] == "V1")
     raw = _bytes(vector["rawTransaction"])
-    fixture = json.loads(
-        (ROOT / "sdk/platform/conformance/fixtures/receipt-positive-v2.json").read_text()
-    )
-    batch = fixture["authorized_batch"]
-    expected = fixture["expected"]
+    fixture_receipt = verify_sequencer_receipt(
+        _bytes(vector["signedReceipt"]), raw, [_key(vector)]
+    ).receipt
     payment_secret = Ed25519PrivateKey.from_private_bytes(b"\x31" * 32)
     key = ReceiptKey(
         b"k" * 32,
@@ -133,25 +117,12 @@ def test_verify_rpc_payment_uses_receipt_keys():
         1000,
         1999,
     )
-    canonical = bytearray.fromhex(fixture["canonical_receipt_hex"])
-    batch_id = bytes.fromhex(batch["batch_id_hex"])
-    assert canonical.count(batch_id) == 1
-    batch_at = canonical.index(batch_id)
-    canonical[10:42] = keccak256(raw)
-    canonical[batch_at : batch_at + 32] = (1000).to_bytes(32, "big")
-    canonical[batch_at + 38 : batch_at + 42] = bytes(4)
+    canonical = bytearray(_bytes(vector["signedReceipt"]))
     canonical[-109:-77] = key.key_id
     digest = sha256(b"LXP/v1/receipt\0" + bytes(canonical[:-69]) + b"\0").digest()
     canonical[-64:] = payment_secret.sign(digest)
     signed = bytes(canonical)
     receipt = verify_sequencer_receipt(signed, raw, [key]).receipt
-    authorized = AuthorizedReceiptBatch(
-        (1000).to_bytes(32, "big"),
-        bytes.fromhex(batch["asset_hex"]),
-        bytes.fromhex(batch["previous_state_root_hex"]),
-        bytes.fromhex(batch["resulting_state_root_hex"]),
-        key.public_key,
-    )
     result = {
         "state": "completed",
         "activity_id": receipt.activity_id.hex(),
@@ -159,19 +130,16 @@ def test_verify_rpc_payment_uses_receipt_keys():
     }
     terms = {
         "raw_transaction": raw,
-        "amount": expected["amount"],
-        "asset": batch["asset_hex"],
-        "pay_to": expected["to_hex"],
+        "amount": str(fixture_receipt.amount),
+        "asset": fixture_receipt.asset.hex(),
+        "pay_to": fixture_receipt.to_account.hex(),
     }
-    signatures = _signatures()
 
-    def verify(row, authority=authorized, keys=(key,), **changes):
+    def verify(row, keys=(key,), payer=fixture_receipt.from_account.hex(), **changes):
         return verify_rpc_payment(
             row,
             receipt.activity_id.hex(),
-            receipt.from_account.hex(),
-            authority,
-            signatures,
+            payer,
             receipt_keys=keys,
             **{**terms, **changes},
         )
@@ -180,8 +148,9 @@ def test_verify_rpc_payment_uses_receipt_keys():
     assert payment.receipt == receipt
     assert payment.canonical_bytes == signed
     assert payment.receipt_digest == digest
-    assert payment.receipt.module_id == 1
-    assert payment.receipt.operation == expected["operation"]
+    assert payment.receipt.module_id == fixture_receipt.module_id
+    assert payment.receipt.operation == fixture_receipt.operation
+    assert verify({**result, "returnData": "0x"}) == payment
     with pytest.raises(SequencerReceiptVerificationError) as raised:
         verify(result, keys=())
     assert raised.value.check == "unpinned_key"
@@ -194,15 +163,12 @@ def test_verify_rpc_payment_uses_receipt_keys():
         sha256(b"LXP/v1/receipt\0" + bytes(unpinned[:-69]) + b"\0").digest()
     )
     unpinned_result = {**result, "receipt": bytes(unpinned).hex()}
-    unpinned_authority = replace(authorized, sequencer_public_key=public_key)
     with pytest.raises(SequencerReceiptVerificationError) as raised:
-        verify(unpinned_result, authority=unpinned_authority)
+        verify(unpinned_result)
     assert raised.value.check == "unpinned_key"
     other_key = ReceiptKey(b"\x2a" * 32, public_key, 1000, 1999)
     assert (
-        verify(
-            unpinned_result, authority=unpinned_authority, keys=(other_key,)
-        ).canonical_bytes
+        verify(unpinned_result, keys=(other_key,)).canonical_bytes
         == bytes(unpinned)
     )
 
@@ -220,5 +186,12 @@ def test_verify_rpc_payment_uses_receipt_keys():
         with pytest.raises(ValueError, match="^payment-binding-mismatch$"):
             verify(result, **changes)
     with pytest.raises(ValueError, match="^payment-binding-mismatch$"):
-        verify(result, authority=replace(authorized, resulting_state_root=b"\x2a" * 32))
+        verify({**result, "returnData": "0x2a"})
+    with pytest.raises(ValueError, match="^payment-binding-mismatch$"):
+        verify(result, payer="2a" * 32)
+    altered_root = signed.replace(receipt.resulting_state_root, b"\x2a" * 32, 1)
+    assert altered_root != signed
+    with pytest.raises(SequencerReceiptVerificationError) as raised:
+        verify({**result, "receipt": altered_root.hex()})
+    assert raised.value.check == "bad_signature"
     assert verify({**result, "state": "pending"}) is None

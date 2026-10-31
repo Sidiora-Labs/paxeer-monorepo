@@ -1,5 +1,8 @@
 //! Production operation owner for the authenticated Human-to-agent boundary.
 
+#[path = "read/balance.rs"]
+pub mod read;
+
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
@@ -6009,51 +6012,31 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
         let authority =
             decode_owner_authority(&human.authority).map_err(|_| HumanOperationError::Refused)?;
-        let (prepared, snapshot, fee) = {
+        let (authorization, prepared, disclosure, snapshot, fee) = {
             let mut ops = self.lock_operations()?;
             if !ops.unified_owner_active {
                 return Err(HumanOperationError::Unavailable);
             }
             ops.require_write_admission(&peer.tenant)?;
             ops.subject_owner(peer, &actor, &authority)?;
-            let protocol_version = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
-            let defaults = PreparationDefaults {
-                timestamp_span: ops.timestamp_span,
-                fee_limit: Amount::from_u128(human.fee_limit),
-                maximum_payload_bytes: ops.maximum_payload_bytes,
-            };
-            let mut boundary = ProductionCorePreparationBoundary::new(
-                ops.chain.as_ref(),
-                ops.authority.registry(peer).map_err(map_core)?,
-            );
-            let prepared = prepare_activity_for_protocol(
-                &mut boundary,
-                defaults,
-                PrepareRequest {
-                    actor: actor.clone(),
-                    authority,
-                    activity_type: activity,
-                    expected_account_sequence: Some(human.nonce),
-                    timestamp_bound: Some(
-                        TimestampBound::new(human.not_before_height, human.not_after_height)
-                            .map_err(|_| HumanOperationError::Refused)?,
-                    ),
-                    fee_limit: Some(Amount::from_u128(human.fee_limit)),
-                    idempotency_key: IdempotencyKey::new(
-                        digest_from_hex(&human.idempotency_key)
-                            .ok_or(HumanOperationError::Refused)?,
-                    ),
-                    payload: human.payload.clone(),
-                    declared_payload_limit: defaults.maximum_payload_bytes,
-                },
-                protocol_version,
-            )
-            .map_err(|_| HumanOperationError::Refused)?;
-            let snapshot = boundary
-                .last_state()
-                .ok_or(HumanOperationError::Unavailable)?
-                .clone();
-            drop(boundary);
+            let snapshot =
+                core_preparation_snapshot(ops.chain.as_ref(), &ops.authority, peer, &actor)?;
+            let authorization = native_send_preview_authorization(
+                &human,
+                authority,
+                &snapshot,
+                ops.timestamp_span,
+                ops.maximum_payload_bytes,
+            )?;
+            let signing = prepare_evm_write_at_nonce(
+                &authorization,
+                ops.maximum_payload_bytes,
+                Some(human.nonce),
+            )?;
+            let prepared = signing.transaction;
+            let disclosure =
+                layerx_crypto::disclosure::call::bind_call(&prepared.call, signing.actor_address)
+                    .map_err(|_| HumanOperationError::Refused)?;
             let fee = ops
                 .node
                 .native_fee_policy(boundary_correlation(
@@ -6062,14 +6045,14 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     b"native-send-preview-fee",
                 ))
                 .map_err(|_| HumanOperationError::Unavailable)?;
-            if prepared.envelope.payload_hash() != human.payload_hash
-                || prepared.observed_head_sequence != snapshot.observed_head_sequence
+            if authorization.envelope.payload_hash() != human.payload_hash
+                || prepared.observed_head_height != snapshot.observed_head_sequence
                 || fee.observed_sequence != snapshot.observed_head_sequence
                 || fee.state_root == [0; 32]
             {
                 return Err(HumanOperationError::Refused);
             }
-            (prepared, snapshot, fee)
+            (authorization, prepared, disclosure, snapshot, fee)
         };
         let control = self.session_control.clone();
         let permit = control
@@ -6090,7 +6073,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             request.owner_public_key,
             snapshot.observed_head_sequence,
         )?;
-        let canonical_digest: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+        let canonical_digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
         let purpose = NativePreparationPurposeV1 {
             tenant: ApiTenantId::new(owner.tenant().as_str())
                 .map_err(|_| HumanOperationError::Refused)?,
@@ -6110,11 +6093,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
         .validate()
         .map_err(|_| HumanOperationError::Refused)?;
-        crate::prepare::verify_disclosure_binding(&prepared)
+        crate::prepare::verify_disclosure_binding(&authorization)
             .map_err(|_| HumanOperationError::Refused)?;
-        if binding::purpose_commitment(&prepared.disclosure) != Some(purpose.commitment)
+        if binding::purpose_commitment(&disclosure).is_some()
             || snapshot.protocol_timestamp >= purpose.expires_at_ms
-            || purpose.expires_at_ms > prepared.envelope.timestamp_bound().not_after()
+            || purpose.expires_at_ms > authorization.envelope.timestamp_bound().not_after()
         {
             return Err(HumanOperationError::Refused);
         }
@@ -6161,8 +6144,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 {
                     return Err(refused());
                 }
-                let plan = derive_native_effects(&prepared.disclosure, &VerifiedInputs::default())
-                    .map_err(|_| refused())?;
+                let plan =
+                    derive_native_effects(&authorization.disclosure, &VerifiedInputs::default())
+                        .map_err(|_| refused())?;
                 if !plan.program_spend_bounds().is_empty() || plan.effects().len() != 1 {
                     return Err(refused());
                 }
@@ -6183,16 +6167,19 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| refused())?;
                 let source = layerx_wire::hash::account_id_for_protocol(
                     &principal,
-                    prepared.envelope.protocol_version(),
+                    authorization.envelope.protocol_version(),
                 )
                 .map_err(|_| refused())?;
                 if source != from || !capability.record.counterparties.contains(&to) {
                     return Err(refused());
                 }
                 let mut totals: BTreeMap<[u8; 32], u128> = BTreeMap::from([(asset, amount)]);
-                if let Some(charge) =
-                    binding::native_effect_fee(&prepared, &fee, snapshot.observed_head_sequence)
-                        .map_err(|_| refused())?
+                if let Some(charge) = binding::native_effect_fee(
+                    &authorization,
+                    &fee,
+                    snapshot.observed_head_sequence,
+                )
+                .map_err(|_| refused())?
                 {
                     let total = totals.entry(charge.asset).or_default();
                     *total = total
@@ -6221,10 +6208,10 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .boundary(&control)
             .map_err(|_| HumanOperationError::Refused)?;
         Ok(crate::human::HumanNativeSendPreviewV1 {
-            canonical_bytes: prepared.canonical_bytes,
-            signing_preimage: prepared.signing_preimage.to_vec(),
+            canonical_bytes: prepared.call.encode_unsigned(),
+            signing_preimage: prepared.signing_hash.to_vec(),
             purpose,
-            observed_head_sequence: snapshot.observed_head_sequence,
+            observed_head_sequence: prepared.observed_head_height,
             protocol_timestamp: snapshot.protocol_timestamp,
             owner_public_key: owner.public_key(),
             revocation_sequence: owner.revocation_sequence(),
@@ -6286,51 +6273,31 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
         let authority =
             decode_owner_authority(&human.authority).map_err(|_| HumanOperationError::Refused)?;
-        let (prepared, snapshot, fee) = {
+        let (authorization, prepared, disclosure, snapshot, fee) = {
             let mut ops = self.lock_operations()?;
             if !ops.unified_owner_active {
                 return Err(HumanOperationError::Unavailable);
             }
             ops.require_write_admission(&peer.tenant)?;
             ops.subject_owner(peer, &actor, &authority)?;
-            let protocol_version = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
-            let defaults = PreparationDefaults {
-                timestamp_span: ops.timestamp_span,
-                fee_limit: Amount::from_u128(human.fee_limit),
-                maximum_payload_bytes: ops.maximum_payload_bytes,
-            };
-            let mut boundary = ProductionCorePreparationBoundary::new(
-                ops.chain.as_ref(),
-                ops.authority.registry(peer).map_err(map_core)?,
-            );
-            let prepared = prepare_activity_for_protocol(
-                &mut boundary,
-                defaults,
-                PrepareRequest {
-                    actor: actor.clone(),
-                    authority,
-                    activity_type: activity,
-                    expected_account_sequence: Some(human.nonce),
-                    timestamp_bound: Some(
-                        TimestampBound::new(human.not_before_height, human.not_after_height)
-                            .map_err(|_| HumanOperationError::Refused)?,
-                    ),
-                    fee_limit: Some(Amount::from_u128(human.fee_limit)),
-                    idempotency_key: IdempotencyKey::new(
-                        digest_from_hex(&human.idempotency_key)
-                            .ok_or(HumanOperationError::Refused)?,
-                    ),
-                    payload: human.payload.clone(),
-                    declared_payload_limit: defaults.maximum_payload_bytes,
-                },
-                protocol_version,
-            )
-            .map_err(|_| HumanOperationError::Refused)?;
-            let snapshot = boundary
-                .last_state()
-                .ok_or(HumanOperationError::Unavailable)?
-                .clone();
-            drop(boundary);
+            let snapshot =
+                core_preparation_snapshot(ops.chain.as_ref(), &ops.authority, peer, &actor)?;
+            let authorization = native_send_preview_authorization(
+                &human,
+                authority,
+                &snapshot,
+                ops.timestamp_span,
+                ops.maximum_payload_bytes,
+            )?;
+            let signing = prepare_evm_write_at_nonce(
+                &authorization,
+                ops.maximum_payload_bytes,
+                Some(human.nonce),
+            )?;
+            let prepared = signing.transaction;
+            let disclosure =
+                layerx_crypto::disclosure::call::bind_call(&prepared.call, signing.actor_address)
+                    .map_err(|_| HumanOperationError::Refused)?;
             let fee = ops
                 .node
                 .native_fee_policy(boundary_correlation(
@@ -6339,14 +6306,14 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     b"native-send-preview-fee",
                 ))
                 .map_err(|_| HumanOperationError::Unavailable)?;
-            if prepared.envelope.payload_hash() != human.payload_hash
-                || prepared.observed_head_sequence != snapshot.observed_head_sequence
+            if authorization.envelope.payload_hash() != human.payload_hash
+                || prepared.observed_head_height != snapshot.observed_head_sequence
                 || fee.observed_sequence != snapshot.observed_head_sequence
                 || fee.state_root == [0; 32]
             {
                 return Err(HumanOperationError::Refused);
             }
-            (prepared, snapshot, fee)
+            (authorization, prepared, disclosure, snapshot, fee)
         };
         let control = self.session_control.clone();
         let permit = control
@@ -6367,7 +6334,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             request.owner_public_key,
             snapshot.observed_head_sequence,
         )?;
-        let canonical_digest: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+        let canonical_digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
         let purpose = NativeSendPurposeV1 {
             tenant: ApiTenantId::new(owner.tenant().as_str())
                 .map_err(|_| HumanOperationError::Refused)?,
@@ -6380,11 +6347,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             owner_public_key: owner.public_key(),
             generation: owner.generation(),
             expires_at_ms: request.purpose_expires_at_ms,
-            protocol_version: prepared.envelope.protocol_version(),
-            network_id: prepared.envelope.network_id(),
+            protocol_version: authorization.envelope.protocol_version(),
+            network_id: authorization.envelope.network_id(),
             activity: NativeActivity::from(activity),
             economic_action: request.economic_action,
-            idempotency_key: prepared.envelope.idempotency_key().bytes(),
+            idempotency_key: authorization.envelope.idempotency_key().bytes(),
             capability_id: CapabilityId::new(hex(&human
                 .capability_id
                 .ok_or(HumanOperationError::Refused)?))
@@ -6395,13 +6362,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
         .validate()
         .map_err(|_| HumanOperationError::Refused)?;
-        crate::prepare::verify_disclosure_binding(&prepared)
+        crate::prepare::verify_disclosure_binding(&authorization)
             .map_err(|_| HumanOperationError::Refused)?;
-        if binding::purpose_commitment(&prepared.disclosure).is_some()
+        if binding::purpose_commitment(&disclosure).is_some()
             || purpose.economic_action != human.capability_id.ok_or(HumanOperationError::Refused)?
             || purpose.economic_action != owner.session_id().0
             || snapshot.protocol_timestamp >= purpose.expires_at_ms
-            || purpose.expires_at_ms > prepared.envelope.timestamp_bound().not_after()
+            || purpose.expires_at_ms > authorization.envelope.timestamp_bound().not_after()
         {
             return Err(HumanOperationError::Refused);
         }
@@ -6448,8 +6415,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 {
                     return Err(refused());
                 }
-                let plan = derive_native_effects(&prepared.disclosure, &VerifiedInputs::default())
-                    .map_err(|_| refused())?;
+                let plan =
+                    derive_native_effects(&authorization.disclosure, &VerifiedInputs::default())
+                        .map_err(|_| refused())?;
                 if !plan.program_spend_bounds().is_empty() || plan.effects().len() != 1 {
                     return Err(refused());
                 }
@@ -6470,16 +6438,19 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| refused())?;
                 let source = layerx_wire::hash::account_id_for_protocol(
                     &principal,
-                    prepared.envelope.protocol_version(),
+                    authorization.envelope.protocol_version(),
                 )
                 .map_err(|_| refused())?;
                 if source != from || !capability.record.counterparties.contains(&to) {
                     return Err(refused());
                 }
                 let mut totals: BTreeMap<[u8; 32], u128> = BTreeMap::from([(asset, amount)]);
-                if let Some(charge) =
-                    binding::native_effect_fee(&prepared, &fee, snapshot.observed_head_sequence)
-                        .map_err(|_| refused())?
+                if let Some(charge) = binding::native_effect_fee(
+                    &authorization,
+                    &fee,
+                    snapshot.observed_head_sequence,
+                )
+                .map_err(|_| refused())?
                 {
                     let total = totals.entry(charge.asset).or_default();
                     *total = total
@@ -6508,10 +6479,10 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .boundary(&control)
             .map_err(|_| HumanOperationError::Refused)?;
         Ok(crate::human::HumanNativeSendOwnerPreviewV1 {
-            canonical_bytes: prepared.canonical_bytes,
-            signing_preimage: prepared.signing_preimage.to_vec(),
+            canonical_bytes: prepared.call.encode_unsigned(),
+            signing_preimage: prepared.signing_hash.to_vec(),
             purpose,
-            observed_head_sequence: snapshot.observed_head_sequence,
+            observed_head_sequence: prepared.observed_head_height,
             protocol_timestamp: snapshot.protocol_timestamp,
             owner_public_key: owner.public_key(),
             revocation_sequence: owner.revocation_sequence(),
@@ -11688,6 +11659,13 @@ fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     }
 }
 
+pub(crate) fn receipt_rung_code(level: VerificationLevel) -> Result<u8, HumanOperationError> {
+    level
+        .rung()
+        .map(layerx_types::rung::Rung::wire_rank)
+        .ok_or(HumanOperationError::Refused)
+}
+
 impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     fn owner_replay(
         &self,
@@ -13524,7 +13502,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 out.fixed(&authority.previous_state_root());
                 out.fixed(&authority.resulting_state_root());
                 out.fixed(&authority.sequencer_public_key());
-                out.u8(served.metadata.verification_level.wire_rank());
+                out.u8(receipt_rung_code(served.metadata.verification_level)?);
             }
         }
         out.finish()
@@ -15181,8 +15159,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let _ = (currency, observed_at, authorization);
         let config = read_rpc_config()?;
         let endpoint = read_rpc_endpoint(&config)?;
-        let address = self.read_bound_address(peer, &endpoint)?;
-        let value = crate::read::balance(&config, address, None)
+        self.read_bound_address(peer, &endpoint)?;
+        let value = read::ledger_balance(&config, account, asset, None)
             .map_err(|_| HumanOperationError::Unavailable)?;
         read_json_response(balance_operation_value(
             account,
@@ -21594,9 +21572,82 @@ fn write_node() -> Result<crate::node_rpc::NodeRpc, HumanOperationError> {
     crate::node_rpc::NodeRpc::connect(&config).map_err(|_| HumanOperationError::Unavailable)
 }
 
+fn native_send_preview_authorization(
+    human: &HumanPrepare,
+    authority: Authority,
+    snapshot: &crate::prepare::legacy::CorePreparationState,
+    timestamp_span: u64,
+    maximum_payload_bytes: usize,
+) -> Result<Prepared, HumanOperationError> {
+    use layerx_types::activity::EnvelopeBuilder;
+    use layerx_types::payload::Payload;
+    let refused = |_| HumanOperationError::Refused;
+    let bound =
+        TimestampBound::new(human.not_before_height, human.not_after_height).map_err(refused)?;
+    if timestamp_span == 0
+        || maximum_payload_bytes == 0
+        || human.payload.len() > maximum_payload_bytes
+        || human.nonce != snapshot.account_sequence
+        || bound.not_before() > snapshot.protocol_timestamp
+        || bound.not_after() < snapshot.protocol_timestamp
+        || bound.not_after().saturating_sub(bound.not_before()) > timestamp_span
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let activity =
+        ActivityType::from_u32(human.activity_type).map_err(|_| HumanOperationError::Refused)?;
+    let payload = Payload::new(&snapshot.module_registry, activity, &human.payload)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let payload_hash =
+        layerx_wire::hash::payload_hash_for(&payload).map_err(|_| HumanOperationError::Refused)?;
+    if payload_hash != human.payload_hash {
+        return Err(HumanOperationError::Refused);
+    }
+    let actor = Did::new(human.actor.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
+    let idempotency_key = IdempotencyKey::new(
+        digest_from_hex(&human.idempotency_key).ok_or(HumanOperationError::Refused)?,
+    );
+    let mut builder = EnvelopeBuilder::new();
+    builder
+        .protocol_version(layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION)
+        .and_then(|builder| builder.network_id(snapshot.network_id))
+        .and_then(|builder| builder.activity_type(activity))
+        .and_then(|builder| builder.actor_did(actor))
+        .and_then(|builder| builder.authority(authority.clone()))
+        .and_then(|builder| builder.account_sequence(snapshot.account_sequence))
+        .and_then(|builder| builder.timestamp_bound(bound))
+        .and_then(|builder| builder.idempotency_key(idempotency_key))
+        .and_then(|builder| builder.fee_limit(Amount::from_u128(human.fee_limit)))
+        .and_then(|builder| builder.payload_hash(payload_hash))
+        .and_then(|builder| builder.payload(payload))
+        .map_err(|_| HumanOperationError::Refused)?;
+    let envelope = builder.build().map_err(|_| HumanOperationError::Refused)?;
+    let bytes = layerx_wire::activity::encode_unsigned_envelope(&envelope)
+        .map_err(|_| HumanOperationError::Refused)?;
+    crate::prepare::restore_canonical(
+        &bytes,
+        snapshot.observed_head_sequence,
+        &snapshot.module_registry,
+        Some(&authority),
+    )
+    .map_err(|_| HumanOperationError::Refused)
+}
+
 fn prepare_evm_write(
     authorization: &Prepared,
     maximum_payload_bytes: usize,
+) -> Result<crate::sign::SigningPreparation, HumanOperationError> {
+    prepare_evm_write_at_nonce(
+        authorization,
+        maximum_payload_bytes,
+        Some(authorization.envelope.account_sequence()),
+    )
+}
+
+fn prepare_evm_write_at_nonce(
+    authorization: &Prepared,
+    maximum_payload_bytes: usize,
+    expected_nonce: Option<u64>,
 ) -> Result<crate::sign::SigningPreparation, HumanOperationError> {
     use crate::prepare::evm;
     let config = crate::node_rpc::NodeRpcConfig::from_environment()
@@ -21630,6 +21681,12 @@ fn prepare_evm_write(
         .bound_address(&key)
         .map_err(|_| HumanOperationError::Unavailable)?
         .ok_or(HumanOperationError::Refused)?;
+    let expected_nonce = match expected_nonce {
+        Some(nonce) => nonce,
+        None => endpoint
+            .pending_nonce(&actor_address)
+            .map_err(|_| HumanOperationError::Unavailable)?,
+    };
     let activity = authorization.envelope.activity_type();
     if activity
         != ActivityType::new(layerx_types::payload::ModuleId::Asset, 5)
@@ -21651,7 +21708,7 @@ fn prepare_evm_write(
             call: evm::PrecompileCall::ledger_transfer(
                 authorization.envelope.payload().as_bytes().to_vec(),
             ),
-            expected_nonce: Some(authorization.envelope.account_sequence()),
+            expected_nonce: Some(expected_nonce),
             max_priority_fee_per_gas: None,
             max_fee_per_gas: None,
             declared_payload_limit: maximum_payload_bytes,

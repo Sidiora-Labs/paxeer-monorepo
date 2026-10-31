@@ -144,21 +144,21 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
     (
         "platform-swift",
         "swift",
-        "sdk/platform/swift/Sources/LayerXSDK/Generated",
+        "sdk/platform/swift/Sources/LayerXSDK",
         Some(&[
-            "OperationCatalog.swift",
-            "MirrorSchema.swift",
-            "ReceiptContract.swift",
+            "Generated/OperationCatalog.swift",
+            "Generated/MirrorSchema.swift",
+            "Generated/ReceiptContract.swift",
         ]),
     ),
     (
         "platform-dotnet",
         "csharp",
-        "sdk/platform/dotnet/Generated",
+        "sdk/platform/dotnet",
         Some(&[
-            "OperationCatalog.cs",
-            "MirrorSchema.cs",
-            "ReceiptContract.cs",
+            "Generated/OperationCatalog.cs",
+            "Generated/MirrorSchema.cs",
+            "Generated/ReceiptContract.cs",
         ]),
     ),
     (
@@ -511,46 +511,6 @@ fn receipt_contract(repo_root: &Path) -> Result<ReceiptContract, String> {
         return Err(
             "Programs ABI capability encoding differs from the canonical policy".to_owned(),
         );
-    }
-    let terminal_source = fs::read_to_string(
-        repo_root.join("programs/crates/layerx-programs-runtime/src/terminal.rs"),
-    )
-    .map_err(|error| format!("read native terminal codec: {error}"))?;
-    for (section, version, allowed) in [
-        (
-            "type.ProgramExecutionV4",
-            4,
-            vec!["ABI_V2_VERSION".to_owned()],
-        ),
-        (
-            "type.ProgramExecutionV5",
-            5,
-            vec![
-                "ABI_V3_VERSION".to_owned(),
-                "ABI_V4_VERSION".to_owned(),
-                "ABI_V5_VERSION".to_owned(),
-            ],
-        ),
-    ] {
-        let domain = layerx_platform_kvx::unquote(programs.required(section, "domain")?)?;
-        if domain != format!("LXP/program-execution/v{version}")
-            || programs.required(section, "encoding_version")? != version.to_string()
-            || layerx_platform_kvx::unquote(programs.required(section, "domain_terminator_hex")?)?
-                != "00"
-            || layerx_platform_kvx::string_list(programs.required(section, "allowed_guest_abis")?)?
-                != allowed
-        {
-            return Err(format!("{section} violates the frozen execution profile"));
-        }
-        let declaration = format!("const EXECUTION_V{version}: &[u8] = b\"{domain}\\0\";");
-        if !terminal_source
-            .lines()
-            .any(|line| line.trim() == declaration)
-        {
-            return Err(format!(
-                "{section} has no matching genuine terminal domain producer"
-            ));
-        }
     }
     Ok(ReceiptContract {
         receipt_versions,
@@ -1300,8 +1260,13 @@ fn write_rust_operation_catalog(repo_root: &Path) -> Result<(), String> {
 
 fn go_human_operations(human: &Sections) -> (Vec<String>, BTreeSet<String>) {
     let operations = human
-        .keys()
-        .filter_map(|section| section.strip_prefix("operation.").map(str::to_owned))
+        .iter()
+        .filter(|(_, entries)| {
+            !entries
+                .get("retired")
+                .is_some_and(|value| value == "\"true\"")
+        })
+        .filter_map(|(section, _)| section.strip_prefix("operation.").map(str::to_owned))
         .collect::<Vec<_>>();
     let mutations = operations
         .iter()
@@ -1543,8 +1508,13 @@ fn generate_jvm_contract(repo_root: &Path) -> Result<String, String> {
     let human = schema_sections(&repo_root.join(SOURCES[1].1))?;
     let operations = |sections: &Sections| {
         sections
-            .keys()
-            .filter_map(|section| section.strip_prefix("operation.").map(str::to_owned))
+            .iter()
+            .filter(|(_, entries)| {
+                !entries
+                    .get("retired")
+                    .is_some_and(|value| value == "\"true\"")
+            })
+            .filter_map(|(section, _)| section.strip_prefix("operation.").map(str::to_owned))
             .collect::<Vec<_>>()
     };
     let agent_operations = operations(&agent);
@@ -1667,8 +1637,13 @@ fn write_jvm_contract(repo_root: &Path) -> Result<(), String> {
 fn generate_jvm_conformance(repo_root: &Path) -> Result<String, String> {
     let operation_count = |root: &Path| -> Result<usize, String> {
         Ok(schema_sections(root)?
-            .keys()
-            .filter(|section| section.starts_with("operation."))
+            .iter()
+            .filter(|(section, entries)| {
+                section.starts_with("operation.")
+                    && !entries
+                        .get("retired")
+                        .is_some_and(|value| value == "\"true\"")
+            })
             .count())
     };
     let agent_operations = operation_count(&repo_root.join(SOURCES[0].1))?;

@@ -127,6 +127,9 @@ func newSendSeqHarness(t *testing.T, funded ...occutils.TestAcct) *sendSeqHarnes
 	valPub := secp256k1.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, false)
 	a := tw.App
+	params := a.GetConsensusParams(tw.Ctx)
+	params.Block.MaxGasWanted = 50_000_000
+	a.StoreConsensusParams(tw.Ctx, params)
 	for _, acct := range funded {
 		a.EvmKeeper.SetAddressMapping(tw.Ctx, acct.AccountAddress, acct.EvmAddress)
 		tw.FundAcc(acct.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(sendSeqFundingUhpx))))

@@ -11746,3 +11746,473 @@ fix = "Read the client's call order from the code and script the mock's exchange
 title = "Chain-reading tests run against the default RPC URL"
 symptom = "The gateway precompile route tests of 12.13.2, 12.13.3 and 12.13.4 need a node serving the precompiles; four attempts each ran against the default mainnet URL and failed with 502."
 fix = "A task whose tests read the chain starts the local node fixture in verify_cmd and passes its RPC URL."
+
+[gotcha.2387]
+title = "A codec deleted at wave 29 while its callers retire at wave 44"
+symptom = "1.6.3 deleted lxp_state_diff.h and its source at wave 29; three files that 1.34.1, 1.34.2 and 1.33.3 delete at wave 44 still included it and the library build stopped at the first include."
+fix = "A deletion task sits after every task that deletes the remaining callers and requires them; its title saying 'once the users leave' is not a schedule."
+
+[gotcha.2388]
+title = "Build commands naming test targets an earlier retirement unruled"
+symptom = "16.33.2, 16.33.5 and 16.33.6 built targets whose Makefile rules 16.0.4 and 16.2.4 had removed and stopped with 'No rule to make target' before any verify."
+fix = "Before a batch lands, grep the Makefile for every target build_cmd names; a test file no rule compiles is dead and a retirement task deletes it."
+
+[gotcha.2389]
+title = "A retired-suite scan matching a shared header include"
+symptom = "16.97.2's web intake scan matched '#include layerx/lx_web.h' and listed five live tests that include the still-live web module header."
+fix = "Absence scans match the retired suite's own path and identifiers, never a header other live files include."
+
+[gotcha.2390]
+title = "A symbols list naming a helper the task deletes"
+symptom = "8.18.1 listed collide, the manifest_check.py helper its do_4 removes; the verify passed and the graph check failed on the missing symbol twice."
+fix = "symbols names only what the task defines or keeps in its touched files; anything a do line deletes leaves the list."
+
+[gotcha.2391]
+title = "A package initialiser importing the module a task deletes"
+symptom = "8.32.1 deleted relay_archive/runtime.py and forward.py and __init__.py:3 still imported RelayArchive from the deleted module, failing the task's own import scan."
+fix = "When a task deletes modules of a python package that outlives them, its touches include the package's __init__.py and a do line removes the import."
+
+[gotcha.2392]
+title = "A retired-module scan list longer than the task's port"
+symptom = "8.98.4 and 8.98.5 listed every retired client module while their do lines kept lni, client, evidence or handover uses; attempts peeled one module per attempt, failing on the next."
+fix = "The scan list of a migration task equals the modules its do lines port in the files it owns; kept modules are named in a do line and left out of the list."
+
+[gotcha.2393]
+title = "A differential that reports one line for six checks"
+symptom = "13.34.1's qualify_workload returned 1 from six places and printed only 'low-conflict differential failed'; four attempts could not tell which stage diverged."
+fix = "A test with several silent early returns prints the stage and the compared values on each return before any repair is attempted."
+
+[gotcha.2394]
+title = "A recorded exchange re-recorded under a test that decodes it"
+symptom = "18.1129.1 re-recorded the x-websearch client exchange with a grantId reference; the typescript web search test still decoded grant bytes from it and failed on main."
+fix = "A task that re-records a shared fixture lists every reader of the fixture and ports or hands off each; readers across the sdk trees count."
+
+[gotcha.2395]
+title = "A locked cargo build against a lock a path dependency outdated"
+symptom = "18.1211.5 changed no manifest and cargo --locked refused services/interop/Cargo.lock; a path dependency manifest changed after the lock was last written."
+fix = "When a candidate changes no manifest and --locked refuses, the lock is stale on main: the task touches the lock and refreshes it before the build."
+
+[gotcha.2396]
+title = "A deletion whose last caller sits outside the touches"
+symptom = "1.12.1 deleted lxp_verify_payer_grant with the ledger header and lx_asset_transfer.c:68, not in its touches, still called it."
+fix = "Before deleting a declaration, grep every caller across src, include and tests and add each file to touches with a do line."
+
+[gotcha.2397]
+title = "End-to-end tests still starting a retired daemon"
+symptom = "10.20.3 and 18.1200.1 ran tests that start layerxd from build/bin after 5.50.1, 5.50.3 and 5.50.4 retired its servers; the binary no longer builds and 26 attempts chased it."
+fix = "When a component is retired, every test that spawns it is listed and reworked onto the replacement in the same programme; a precondition on its binaries is a stop sign."
+
+[gotcha.2398]
+title = "A local node fixture that never brings the merge precompiles live"
+symptom = "The gateway route tests of 12.13.2, 12.13.3 and 12.13.4 ran against the local node and every route returned precompile_not_served: eth_getCode at 0x0905-0x0908 is empty on the fresh genesis."
+fix = "A fixture that stands in for the merged node proves the precompile set it serves with eth_getCode before any consumer test depends on it."
+
+[gotcha.2399]
+title = "A byte scan for a retired route matching the test that asserts its refusal"
+symptom = "8.7.4's scan for /v1/activities under the gateway tests matched degraded.rs, a Rust test that posts to the route to assert the 503 refusal task 8.3.1 wrote."
+fix = "A retired-corpus scan is scoped to the file kinds of the corpus; a test asserting the refusal of a retired route is a live consumer proof, not a leftover."
+
+[gotcha.2400]
+title = "Touched files a prerequisite task deleted"
+symptom = "8.98.2 listed head_attestation.rs and head_attestation_tests.rs, which 8.8.4 removed before it ran; the graph check failed twice on files that cannot change."
+fix = "When a prerequisite deletes a file in touches, the task drops it from touches and marks the do line superseded in the same batch that records the deletion."
+
+[gotcha.2401]
+title = "A planned retirement test must name a target the Makefile builds and runs bare"
+symptom = "16.33.2 and 16.33.5 prescribed build_and_run_c_suite on lxp_test_maintenance_publication, which no rule builds, and on test_bridge_withdraw, which exits 1 silently and needs no input."
+fix = "Before prescribing a target, find its build rule and a bare run rule in the Makefile; without a run rule prescribe a make exit-0 check only."
+
+[gotcha.2402]
+title = "A touched path a prerequisite already cleaned invites a gratuitous edit"
+symptom = "16.33.2 attempt 5 changed two lines of tests/test_bridge_withdraw.c only to give the touched path a change after 16.94.1 had already satisfied the do line."
+fix = "When a prerequisite satisfied a do line, drop the path from touches in a decision instead of leaving it to be edited."
+
+[gotcha.2403]
+title = "A verifier signature change must re-point every consumer in the same task or a named follow-up"
+symptom = "verify_payment_receipt changed shape (9.97.10) while verify_rpc_payment, x402_http.py and x402_draw.py kept the old call shapes, so the x402 payment path has raised TypeError on main since."
+fix = "Grep the callers of a changed function across the package and its tests and list them in touches or a follow-up task before the change lands."
+
+[gotcha.2404]
+title = "eth_getCode is not a precompile readiness probe"
+symptom = "The node serves precompiles as native handlers and writes no account code, so getCode-based readiness refuses every served precompile."
+fix = "Probe with eth_call data 0xffffffff and read the LXP_PRECOMPILE_UNKNOWN_METHOD rejection as served and an empty 0x result as not served."
+
+[gotcha.2405]
+title = "Retiring a kernel C symbol must remove its cgo consumer"
+symptom = "1.12.1 deleted four grant symbols from the headers while modules/lxphost/read.go kept calling them, so make -f chain.mk install failed for every node task until 1.12.4."
+fix = "For every deleted declaration grep C.<symbol> under modules/, precompiles/, node/ and daemon/ and touch those files in the same task."
+
+[gotcha.2406]
+title = "A removed fixture must leave every include_str! and readFileSync that names it"
+symptom = "8.47.4 removed receipt-positive-v2.json while four Rust test files and one TypeScript test still include it, so two test builds failed on main."
+fix = "Grep the fixture name across *.rs, *.ts and *.py before deleting it and touch each consumer in the same task or a named follow-up."
+
+[gotcha.2407]
+title = "A planned test must not read an environment-named fixture"
+symptom = "10.0.3 attempt 2 read LAYERX_TEST_INTENT_FIXTURE_JSON, which nothing in the repository writes, so the test could never run on a fresh checkout."
+fix = "A planned test opens its own components in a temp directory and serves its peers in process; an environment variable may only select an optional external binary the verify command names."
+
+[gotcha.2408]
+title = "Porting a test onto a retired API reproduces the retirement as a test failure"
+symptom = "18.1205.1 attempt 5 built its cache value through declared_domain over a settlement document stripped since b284707f6."
+fix = "Before using a helper in a test, check the decisions that name it; build fixtures through the constructor production uses (CacheValue::from_receipt)."
+
+[gotcha.2409]
+title = "A package-wide --tests build is gated by every other task's test files"
+symptom = "18.1221.1 could not build because tests/degraded.rs, owned by 18.1205.1, fails to compile on main."
+fix = "Build the targets the task's verify runs (--lib --no-run or --test <name>), never -p <crate> --tests."
+
+[gotcha.2410]
+title = "A test that spawns a tool must name it in the gate command"
+symptom = "18.1233.1 and the new 10.13.9 spawn anvil; the gate environment installs Foundry only when the command text names it."
+fix = "Prefix verify_cmd with anvil --version && for every test that spawns anvil, forge or cast."
+
+[gotcha.2411]
+title = "A declared touch already absent from main fails the graph check"
+symptom = "8.19.5 attempt 4 passed its tests and failed on two deleted test files still listed in touches."
+fix = "When a prerequisite removed a declared path, drop it from touches in a decision before re-qualifying."
+
+[gotcha.2412]
+title = "Deleting a header while other sources include it breaks liblayerx.a"
+symptom = "1.18.2 and 1.19.3 deleted lx_web.h and lxp_bridge_credit.h while lx_web_adapter.c, lx_web_root.c, lx_batch.h, lxp_genesis.c, lxp_genesis_builder.h and lxp_module_ctx.c still include them."
+fix = "grep -rn 'include <layerx/<header>>' src include tests before deleting a header and sequence the task behind the owners of every include."
+
+[gotcha.2413]
+title = "Changing a pub accessor's return type breaks callers outside the task"
+symptom = "10.6.2 attempt 4 made SendRoute::intent return Option<&Intent> and broke sixteen call sites in reclaim.rs, intent_submit.rs and move_money.rs."
+fix = "Keep the accessor shape and express the new case as a refusal at the producer; grep callers before changing a signature."
+
+[gotcha.2414]
+title = "A symbols entry naming a deleted function fails the graph check"
+symptom = "9.97.6 and 9.97.7 passed every test and failed only because their symbols named the functions they removed."
+fix = "Pure-deletion tasks declare symbols = []; name only functions that exist after the change."
+
+[gotcha.2415]
+title = "Module-level awaits in a node:test file run under every filter"
+symptom = "9.97.12 attempt 4 passed its named test while the file's top-level history gateway block failed and left asynchronous activity after the run."
+fix = "Wrap every top-level block of a node:test file in await test(name, ...) so a filtered run executes only the named test."
+
+[gotcha.2416]
+title = "A directory-wide scan test reaches files outside the task's touches"
+symptom = "8.14.2 attempt 4 removed the anchor scripts and the scan still found the anchor genesis wiring in deployment.yaml and init-chain.sh."
+fix = "Run the scan's pattern over the whole scanned tree while writing the task and add every hit to touches."
+
+[gotcha.2417]
+title = "Duplicated cgo preambles must change together"
+symptom = "1.26.1 attempt 5 added a struct field to host.go's preamble and cgo refused the package with inconsistent definitions for C.lxphost_node because simulate.go repeats the typedef."
+fix = "Before changing a cgo preamble type, grep the package for every file that repeats it and change all copies identically."
+
+[gotcha.2418]
+title = "A regenerated output cannot pass a lock that only a later task reseals"
+symptom = "9.97.3 attempt 5 regenerated the receipt outputs and failed the pipeline lock comparison; the --write reseal belongs to 8.45.4, which requires 9.97.3."
+fix = "When a task regenerates locked outputs, put the lock file in touches and update the affected digest entries by hand."
+
+[gotcha.2419]
+title = "Removed fixtures break include_str in test targets the dependents check compiles"
+symptom = "10.13.9 attempts 1 and 2 failed the dependents compile on layerx-wire tests/maintenance_identity.rs, which includes two kernel fixtures task 8.47.5 deleted."
+fix = "A fixture deletion task greps include_str, read_to_string and open paths across every workspace for the deleted names and lists the readers in a follow-up task before publishing."
+
+[gotcha.2420]
+title = "Module and operation on a sequencer receipt are not a payment discriminator"
+symptom = "9.97.11 attempts 1 to 3 refused every draw with draw-receipt-mismatch on receipt.module_id == 1 and operation == 6 while every sequencer-receipt-v1.json case decodes to module 12, operation 2."
+fix = "Decode the fixture once before writing a receipt field check; prove payment terms through the verifier's amount, asset and pay_to arguments."
+
+[gotcha.2421]
+title = "CacheValue::from_receipt never yields a Committed rung"
+symptom = "18.1205.1 attempt 6 built its Committed cache value from a verified receipt and the level stayed SEQUENCER_SIGNED."
+fix = "Build Committed values with CacheValue::from_checkpoint over a ThresholdReport from verify_certificate; copy the certificate fixture of layerx-proof tests/checkpoint.rs."
+
+[gotcha.2422]
+title = "A test-local copy of a shared helper drifts from production"
+symptom = "18.1272.1 attempt 5 kept an inline canonical_owner module signing kernel envelope bytes while tests/support/canonical_owner.rs and production had moved to EVM transactions."
+fix = "Include the shared support helper with #[path] and extend it; never keep a second copy in one test file."
+
+[gotcha.2423]
+title = "ProductionComponents fixtures need the whole production environment"
+symptom = "10.0.3 attempt 3 set the roots and clock variables and stopped at LAYERX_HUMAN_AUTH_INDEX_KEY is required."
+fix = "Copy the complete environment block of tests/production_unhooked.rs:872-895 into any fixture that constructs ProductionComponents."
+
+[gotcha.2424]
+title = "Renaming or deleting an enum variant is a crate-wide change"
+symptom = "10.6.2 attempt 5 renamed Mechanism variants in resolver.rs and left six compile errors in move_money.rs, production_components.rs and a cfg(test) module of observed.rs."
+fix = "grep the crate for every variant path including cfg(test) modules, add each file to touches, and build the library unit tests as well as the integration target."
+
+[gotcha.2425]
+title = "Deleting a test source breaks scan tests that include it from another crate"
+symptom = "8.98.14 attempts 1 to 3 failed to compile layerx-platform-core's test targets because no_kernel_disclosure_codec.rs includes two gateway test files task 8.19.5 deleted."
+fix = "A task that deletes a source file greps the repository for its path in include_str, source! and read_to_string calls and removes or re-points every reader in the same change."
+
+[gotcha.2426]
+title = "Agent-function precompiles refuse on activation before reading the selector"
+symptom = "5.98.4 attempt 5 probed 0x0901 with an unknown selector and got LXP_AGENT_NOT_ACTIVE, not LXP_PRECOMPILE_UNKNOWN_METHOD."
+fix = "A readiness probe over 0x0901-0x0908 accepts the activation refusal as served; read the handler's first checks before fixing an expected error code."
+
+[gotcha.2427]
+title = "A deleted conformance fixture breaks cfg(test) modules in sibling crates"
+symptom = "8.47.11 attempts 1 to 3 failed to build layerx-proof's library tests because program.rs:854 includes receipt-programs-executed-v4.json, deleted by 8.47.6."
+fix = "Before building a crate's tests after fixture deletions, grep include_str over the crate for every removed fixture name and remove or re-point each reader; do_3's grep covered only receipt-programs- and receipt-positive-."
+
+[gotcha.2428]
+title = "Admission refuses a reused account sequence before the idempotency replay check"
+symptom = "16.33.5 attempt 8 expected LXP_ERR_IDEMPOTENT_REPLAY for a replayed call and the kernel answered LXP_ERR_SEQUENCE_REUSED."
+fix = "A replay that reuses the account sequence is a sequence refusal (lxp_admission.c:33-37); only a fresh sequence with a known idempotency key reaches LXP_ERR_IDEMPOTENT_REPLAY."
+
+[gotcha.2429]
+title = "JSON-RPC evidence carries no signed activity bytes"
+symptom = "8.98.3 attempt 5 could not port the withdrawal re-verification: ProofBundle, the replica document and the receipt reads carry headers, proofs and receipts, never the canonical signed activity."
+fix = "A port from the retired node interface to JSON-RPC lists every byte string the old call returned and checks each has a JSON-RPC source before the task is specified; a check that needs the signed activity moves to the submission path."
+
+[gotcha.2430]
+title = "The embedded checkpoint settlement document fails every certificate verification"
+symptom = "18.1205.1 attempt 7 called verify_certificate and got Configuration(Json(MissingField('schema'))) from the embedded checkpoint-settlement.json."
+fix = "Until 9.27.4 lands, no test can hold a CHECKPOINT_FINALISED value; use inclusion evidence (Receipted) and assert the rung checks that are reachable."
+
+[gotcha.2431]
+title = "The ledger send(bytes) construct admits only Asset send payloads"
+symptom = "18.1272.1 attempt 6 wrapped a Governance lifecycle payload in send(bytes) to 0x101a and bind_call answered MalformedPayload from decode_send."
+fix = "Before specifying a transaction form for a payload, read decode_method's arm for the target address and selector and confirm the payload decoder it calls accepts that module."
+
+[gotcha.2432]
+title = "Budget context binding derives account ids at protocol 3 regardless of the preparation protocol"
+symptom = "18.1188.2 attempt 8 derived the context accounts at layerx_intents::canonical::PROTOCOL_VERSION and bound_context answered MalformedPayload."
+fix = "Build a BudgetStateContext with account_id_for_protocol(.., 3), the derivation native.rs:220 uses; a mismatch surfaces as MalformedPayload, not FieldMismatch."
+
+[gotcha.2433]
+title = "A deleted conformance fixture breaks a test support module pulled into a library test by #[path]"
+symptom = "8.98.14 attempt 5 and 8.98.3 attempt 6 failed to build the authority tests on lifecycle_dispatch.rs:172 including receipt-programs-positive-v3.json, deleted by 8.47.5."
+fix = "After fixture deletions grep include_str across services/platform too, including tests/support files reached through #[path] in src/lib.rs; the crate's own src tree is not the whole test build."
+
+[gotcha.2434]
+title = "Porting one checkpoint reader to the RPC block type breaks every sibling consumer of VerifiedCheckpoint"
+symptom = "8.98.3 attempt 6 changed checkpoint_for to return SequencerBlock and human.rs, human/dynamic.rs and human/budget_state.rs failed to compile on canonical_header, report() and the socket constants."
+fix = "Before replacing a shared return type, grep the crate for every consumer of the old type's methods; port them in the same task or leave the type and record the gap."
+
+[gotcha.2435]
+title = "Retirement tests name the files they retire, so a sibling absence scan must skip them"
+symptom = "8.45.4's conformance walk flagged kernel-fixtures-retired-2.test.py and kernel-fixtures-retired-4.test.py for naming the retired generator and fixture."
+fix = "When a scan asserts a name is absent from a tree, exclude the tests whose assertions quote that name, or the two scans contradict each other."
+
+[gotcha.2436]
+title = "A hand edit to a DO NOT EDIT generated file fails the generator's check gate much later"
+symptom = "8.46.1, 8.46.2 and 18.1308.2 wrote EVMMetadata into sdk/platform/go/generated.go; 8.45.4's reseal test ran check_go and reported the file stale."
+fix = "Put hand-written code beside a generated file in a handwritten sibling of the same package and list it in pipeline.kvx; never add to a file whose header says the generator owns it."
+
+[gotcha.2437]
+title = "pax-tendermint answers GET /status without the jsonrpc result envelope"
+symptom = "5.98.4 attempt 6 asserted status['result']['node_info'] and the body carried node_info at the top level."
+fix = "Read Comet GET responses the way tools/hpx/registry/main.go rpcGet does: unwrap result when present, otherwise use the object itself."
+
+[gotcha.2438]
+title = "The call activity binary's default path reads a conformance fixture that no longer exists"
+symptom = "16.33.5 attempt 9 would have failed after the spend case too: test_call_activity.c:3329 opens receipt-programs-executed-v3.json with no argument given."
+fix = "Grep the C test sources for every deleted fixture path, not only Rust include_str readers."
+
+[gotcha.2439]
+title = "A consensus standby that is not in the committee times out on acknowledgements without saying so first"
+symptom = "12.35.4 attempts up to 19 saw acknowledgement timeouts; only the latest log reached 'validator not in committee' at round_state.go:537."
+fix = "When replication acknowledgements time out, check committee membership of the acknowledging identity before tuning timeouts."
+
+[gotcha.2440]
+title = "A test fixture that reads node sockets from the environment cannot qualify where no node runs"
+symptom = "10.0.3 attempt 5 required LAYERX_AGENT_HUMAN_NODE_LNI and the authority endpoint from the environment and both tests failed before any request."
+fix = "Serve the counterpart in process (RealAgentLayer pattern in tests/intent_submit.rs) and set every ProductionComponents variable from the test itself; never gate a task's test on binaries or sockets the environment must provide."
+
+[gotcha.2441]
+title = "A DO NOT EDIT catalogue edited in place drifts silently until the next --write"
+symptom = "Four tasks changed sdk/platform/go/generated.go and the JVM GeneratedContract.java by hand; the reseal task then saw --write revert routes, vocabulary and retired operations and stopped, five attempts in."
+fix = "Put the change into the schema the generator reads, into the generator, or into a handwritten sibling file, and let the task that changes an interface run the generator and the consumer tests on one revision."
+
+[gotcha.2442]
+title = "Two services, two words for the same rung"
+symptom = "Webhooks say block-committed (decision.813) and the human API says checkpoint-finalised (decision.1002); SDK tasks copied the webhook word into the human SDKs, which then refused every committed journey the human service serves."
+fix = "Name the producer of the interface before choosing a vocabulary; a consumer speaks its producer's words, and a requirement that borrows another interface's word is amended, not implemented."
+
+[gotcha.2443]
+title = "A typed operation catalogue cannot address a retired wire name"
+symptom = "The Swift and .NET retired-faucet tests send PlatformOperation.AgentFaucetClaim; once the catalogue drops the case the tests cannot be written, while the Go and JVM tests send the string faucet.claim."
+fix = "Keep retired-name refusal tests on string-based transports; delete them where the transport is typed and note where the coverage lives."
+
+[gotcha.2444]
+title = "A scan list that names a module the same decision keeps"
+symptom = "A retired-module scan over trust.rs listed batch while the decision that wrote it kept the trust::checkpoint batch lookup; the attempt that did everything else right failed on that one line."
+fix = "When a decision keeps a call, take its module out of the scan over that file in the same decision, and name the task that retires both."
+
+[gotcha.2445]
+title = "A reachability guard needs the wiring before it can pass"
+symptom = "The first run of the C and Rust reachability guard listed 78 programs: kernel suites built by name through a pattern rule, modules of fixture crates rooted under tests/, programs built by stem from a gate script, and four whose rules earlier retirements removed without the file."
+fix = "Decide what a build reference is (path or stem, which script roots, which suites are built by name) before the guard is written, exclude crates rooted under tests/, and give every program the guard exposes an owner task before the guard task runs."
+
+[gotcha.2446]
+title = "A test double with a constant identity fails the first real-identity check"
+symptom = "The human-service real-layer double hardcoded a budget id and derived the account from it; the kernel codec compared the payload's budget id with the context's and refused the preparation."
+fix = "A double that stands in for a producer derives every identity from the bytes it is handed, never from a constant."
+
+[gotcha.2447]
+title = "A purpose check no input can satisfy is a defect, not a gate"
+symptom = "native_send_preview_v1 required the disclosure's purpose commitment to equal the requested one; a native send never discloses a payment, so the commitment is always None and every send was refused, while the sibling owner-preview path already refused only a present commitment."
+fix = "When a check cannot be satisfied by any valid input, read the sibling path and the binding code before adding fields; the commitment is bound where the capability is checked."
+
+[gotcha.2448]
+title = "A hand-added catalogue field has readers the reseal does not see"
+symptom = "Resealing the Go human catalogue removed the PerLeg field a task had added by hand; the conformance command outside the task's touches still compared it and the build failed one attempt later."
+fix = "Before a generator reverts a hand edit, build every package in the module (go build ./...) and list the readers of the field; add each reader's file to the touches in the same decision."
+
+[gotcha.2449]
+title = "The journey boundary and the socket are two different agent seams"
+symptom = "A router-level test was told to reuse the journey-level in-process agent of a sibling test; the Router reaches the agent only through a Unix socket, so the attempt started a real agent that needed a node."
+fix = "Name the seam a test exercises: a journey test injects the boundary trait, a router test serves the socket in process with the crate's existing peer pattern."
+
+[gotcha.2450]
+title = "A Makefile target is not a graph symbol"
+symptom = "A task listed its new phony Makefile target among its symbols; build and all three tests passed and the done check still failed because the code graph indexes functions and types, not make targets."
+fix = "List functions, types and tests under symbols; a Makefile target is proven by the build command or a test that runs it."
+
+[gotcha.2451]
+title = "The agent JSON surface carries no native send preview"
+symptom = "A test posted a native_send_preview_v1 variant through handle_rpc and got 400 envelope.malformed: the prepare operation of the JSON surface routes only native_effect_v1, native_registration_v1, native_send_v1 and native_send_submit_v1; previews travel as human frames (operation 63) written by the human service."
+fix = "Prove a native send preview through serve_one with the frame the human service writes (agent_runtime.rs native_send_preview), not through the JSON surface."
+
+[gotcha.2452]
+title = "The served-precompile probe is an eth_call with selector 0xffffffff"
+symptom = "Gateway tests expected an eth_getCode probe for a served precompile and saw none, and a route's eth_call count came out one too high: since the node serves precompiles natively without account code, ensureServed probes with eth_call data 0xffffffff once per process per key."
+fix = "Assert the probe as that eth_call and exclude it from per-route eth_call counts; eth_getCode at a native precompile answers 0x."
+
+[gotcha.2453]
+title = "The attestor test support resolves a wallet identity only from a held secp256k1 key bound to the primary's policy account"
+symptom = "A service test created a human primary key through the attestor test support and asked for its EVM wallet; the attestors refused with key_invalid_share: the inventory listed no key for generation, and the public-wallet route needs a held secp256k1 key owned by the same subject whose address equals the account the primary was generated with."
+fix = "Generate the owner's secp256k1 wallet first, approve the primary key id for generate, create the primary with the wallet address as its account, approve it for sign, then resolve the wallet."
+
+[gotcha.2454]
+title = "A human service test gated on the protected native producer fixture never runs inside a qualification gate"
+symptom = "A new test copied the fixture reader of tests/native_send_producer.rs, which expects PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, a running human service over TLS and a real daemon socket; the gate had none of them, so both cases panicked with NotPresent before their first assertion and the task failed three times without the preview path ever being exercised."
+fix = "Write such tests against an in-process peer double over a UnixListener and a temporary principal store, the way tests/agent_runtime_nonces.rs and tests/agent_runtime_eip1559.rs do; leave the protected fixture tests as release gates."
+
+[gotcha.2455]
+title = "The human service's plan route answers every refusal with the same reasonless 403"
+symptom = "An end-to-end fixture got {code: forbidden, retry: final} from POST /v1/intents/plan with no attestor refusal recorded; the route has about a dozen checks that answer exactly this (assertion admission, owner identity, balance coordinates, custody binding, plan refusals, leg transactions, observation cache), so the failing check could not be read from the response."
+fix = "Make the fixture's doubles record every request they serve and print the lists in the failure text, then bisect along the route's forbidden emitters in call order."
+
+[gotcha.2456]
+title = "The node serves a sequencer receipt only by transaction hash"
+symptom = "A service route keyed by the receipt's global sequence looked for a node JSON-RPC twin of the retired selector-3 receipt lookup; pax_sequencerReceipt (rpc/sequencer_receipt.go:252) takes a transaction hash and nothing looks a receipt up by global sequence."
+fix = "Key the route by transaction hash and read the global sequence from the executed receipt's seq field; a global-sequence index would be a new node method."
+
+[gotcha.2457]
+title = "A sequencer primary refuses to start without a standby address even though its config validation admits one"
+symptom = "Config.Validate (node/sequencer/config.go:165-205) accepts an empty sequencer.standby-address, but NewNode (node/sequencer/node.go:62) then fails with ErrConfigStandbyAddress and NewReplicator refuses a nil dialer, so a single-node sequencer start needs a second node it never uses."
+fix = "Treat the empty address as standalone replication (task 12.35.9) or configure a standby; do not point the standby address at the primary's own listener."
+
+[gotcha.2458]
+title = "The layerxauth keeper executes any governance payload ordinal the kernel admits, but only methods on its ABI reach it"
+symptom = "A service built a DID registration as a ledger send(bytes) call because no precompile exposed a lifecycle method; the ledger decoder refused the governance bytes with MalformedPayload. The layerxauth keeper's execute (modules/layerxauth/keeper/execute.go:15) already maps payload[1] to kernel activity 0x00070000 | ordinal and the kernel decoder admits ordinals 1 and 3."
+fix = "Add the ABI method, gas row and handler on the layerxauth precompile and the matching decoder arm in layerx-crypto; never tunnel a governance payload through another module's send."
+
+[gotcha.2459]
+title = "The gateway client refuses a balances answer that says bound without a DID and an account"
+symptom = "A test double answered px_getBalances with account {evm_address, bound: true} and the service reported upstream-degraded: retain_lookup in the gateway client requires bound to equal the presence of both layerx_did and layerx_account and an evm_address on every bound answer, and the plan path maps every gateway error to upstream-degraded."
+fix = "Answer the declared nested join shape the gateway crate's own decoder test fixes: identities with evm_address, pax_address, layerx_did, layerx_account and bound, rows with asset_id, denom, custody, paxeer and layerx, and an integer joined_limit."
+
+[gotcha.2460]
+title = "The JSON-RPC module-state read proves one storage word, not a kernel module record"
+symptom = "A caller ported a kernel module-state read (a 223-byte record) onto rpc::module_state::module_state and found it returns a single 32-byte slot value proven against a signed header the caller must supply; kernel-era records with their own layouts have no slot twin, and the node keeps that state in precompiles instead."
+fix = "Read precompile-backed state through eth_call (SequencerEndpoint::call_at with the ABI selector and arguments) and take finality from the anchor precompile's latestFinalized and checkpoint views; reserve rpc::module_state for genuine single-slot module values."
+
+[gotcha.2461]
+title = "The layerxauth precompile pins its method count in two tests"
+symptom = "A new layerxauth precompile method passed its own tests and the ABI test, then failed TestAuthGasTable (row count) and TestAuthSurfaceFrozen (three Len pins) because both pin the method count."
+fix = "When adding a layerxauth method, raise the pinned counts in gas_test.go and surface_test.go together with the ABI, handler and gas row."
+
+[gotcha.2462]
+title = "Store row keys are limited to 128 identifier characters, and two 32-byte hex fields plus a prefix exceed it"
+symptom = "A handler built a Cache row key from a prefix and two 64-character hex digests (148 characters); RowKey::new refused it as InvalidKey and the handler reported upstream-degraded on every request."
+fix = "Key rows by one digest of the inputs (prefix plus 64 hex characters) and keep RowKey::new's IDENTIFIER_LIMIT in mind whenever a key concatenates hashes."
+
+[gotcha.2463]
+title = "A panic inside an evmrpc handler is reported only as 'method handler crashed' and the node log shows nothing"
+symptom = "A client saw 'method handler crashed' from eth_sendRawTransaction; the JSON-RPC server recovers handler panics and logs them through its own logger, which the node does not route, and the handler's deferred recordMetricsWithError re-panicked without logging, so node.log held no error, no stack and the goroutine dump had already unwound."
+fix = "Log the panic value and debug.Stack() in recordMetricsWithError before re-raising (task 12.35.11), and reproduce handler paths in process with the production SendConfig instead of only through a started binary."
+
+[gotcha.2464]
+title = "A retired-module scan list is per crate, and extending it before that crate's own port fails the port's neighbour"
+symptom = "A core task added 'read' to the authority crate's retired-module list because an early do-line bundled the authority reader with the core port; the core port passed its own scan and the task failed on the authority crate's unchanged import."
+fix = "Keep each crate's retired list with the task that ports that crate; a cross-crate clause in a do-line is a second task, not a line item."
+
+[gotcha.2465]
+title = "The agent creation lifecycle binding matches the disclosure construct method exhaustively"
+symptom = "A task added a variant to layerx_crypto::disclosure::call::ConstructMethod, built and tested layerx-crypto, and landed; every later build of the layerx-human-service library failed with error[E0004] non-exhaustive patterns in agents/create.rs bound_activity."
+fix = "When adding a ConstructMethod variant, add its bound_activity arm in the same change and build layerx-human-service as part of the gate; the two crates live in different workspaces, so the human service build must be named explicitly."
+
+[gotcha.2466]
+title = "The human service's component server validates every response against the declared schema and answers upstream-degraded on an undeclared key"
+symptom = "A handler emitted fields the schema file did not declare; the service built and the peers answered, and every request still got 503 upstream-degraded with no log of the cause, because encode_response refuses an undeclared object key after the backend has executed."
+fix = "When a handler emits a new response field, declare it in services/human/schema/human-api (optional lists are additive within a major), regenerate baseline.kvx with the refresh command in its manifest, and run the schema-check conformance test with the handler's test."
+
+[gotcha.2467]
+title = "Test wrappers start with Block.MaxGasWanted zero and the sequencer admission then refuses every transaction"
+symptom = "An rpc test harness built app.NewTestWrapper, funded accounts and sent a transaction; the sequencer answered 'transaction does not fit the block limits: gas wanted 21000 exceeds Block.MaxGasWanted 0' from node/sequencer/limits.go, because the admission check reads the stored consensus params and the wrapper never stores any."
+fix = "Store consensus params with Block.MaxGasWanted set (50000000 is the production genesis value) through App.StoreConsensusParams before the harness's first block, as node/genesis_sequenced_test.go does."
+
+[gotcha.2468]
+title = "Removing a variant from a human-service enum left two test targets uncompilable on main"
+symptom = "A task removed two variants from journeys::resolver::Mechanism, built and tested its own targets and landed; tests/intent_nonces.rs and tests/resolver.rs still named the variants and every later --all-targets build of layerx-human-service failed on them."
+fix = "When removing or renaming an enum variant in services/human, grep the crate's tests directory for the variant and build the crate with --all-targets in the gate; the resolver's refusal for custody routes is pinned in tests/send_routes.rs, so do not duplicate it elsewhere."
+
+[gotcha.2469]
+title = "The authority's Config is built literally in more than one test, so a new field breaks tests outside the task that added it"
+symptom = "A task added chain_rpc_url to the hosted authority's Config and updated the tests it owned; cargo build --tests then failed in tests/chain_receipts.rs, which constructs Config with a struct literal and was not in the task's touches."
+fix = "When adding a field to services/platform/hosted/authority's Config, grep the crate's tests for 'Config {' and add every literal to the touches before the build."
+
+[gotcha.2469]
+title = "The wallet's .pax name widget targets contract addresses that hold no code on chain 125"
+symptom = "apps/wallet/src/lib/pns.ts pins a controller, resolver and reverse registrar address and the widget drives registrations against them; eth_getCode for each returns empty on the live chain and the repository holds no name-service contract source."
+fix = "Treat a client with pinned addresses as a specification of the ABI, not as evidence of a deployment; check eth_getCode before building on a pinned address, and prefer environment-configured addresses with a not-configured state."
+
+[gotcha.2470]
+title = "A cargo gate that names a test target another task has yet to create exits 101 before any test runs"
+symptom = "A verify command listed --test intent_plan_evm for a crate whose tests/intent_plan_evm.rs is a planned path of a different task; cargo refused with no test target named intent_plan_evm and the task could not qualify although its own change built."
+fix = "Name only test targets that exist at the task's base or that the task itself creates; leave another task's planned target to that task's gate."
+
+[gotcha.2471]
+title = "A status-only assertion against the authority hides which refusal code produced a 503"
+symptom = "Three TLS tests failed with 503 where 200 was expected and the attempt could only report pre-existing; the authority's refusal body carries error.code and server.log carries the eprintln reasons, neither of which the assertions printed."
+fix = "Assert on status and body together and print the server log tail on failure, so a refused route names its cause in the first run."
+
+[gotcha.2472]
+title = "An ES-module package whose exports declare only import and types conditions cannot be required by Playwright's CommonJS loader"
+symptom = "A Playwright suite in a package without 'type': 'module' imported a workspace library that imports @sidiora/layerx-sdk/browser; Node failed with Package subpath './browser' is not defined by exports because the map had no require or default condition, while Vitest over the same files passed."
+fix = "Give every exports entry a default condition (Node 24 can require an ES module), and when a Playwright webServer never becomes ready, pipe its stdout and fetch the probe URL by hand: Playwright treats a 500 as not ready and says nothing about why."
+
+[gotcha.2473]
+title = "A fresh perps node emits its first FundingSettled only at the first whole hour after its first block, and end-block failures surface as Cosmos events"
+symptom = "An end-to-end test waited six minutes for FundingSettled on a freshly started node and passed or failed depending on where its window fell against the wall-clock hour; the perps funding step records the first hour it sees and emits nothing, and a market whose end-block step fails is skipped with a perps_endblock_error event that eth_getLogs never shows."
+fix = "Give a local genesis perps market states whose last_index_hour is one hour before genesis so the first block settles, and read /block_results for perps_endblock_error before concluding that a settlement is late."
+
+[gotcha.2474]
+title = "An exports map with only types and import conditions breaks every bundler and CommonJS consumer"
+symptom = "A webpack build and a CommonJS loader both failed to resolve a package subpath whose exports entry declared only types and import; the ESM consumers passed, so the defect surfaced only in aggregate builds."
+fix = "Give every exports entry a default (or require) condition beside import, and make aggregate gate tests print the failing step's log tail so the owning module is visible from the test output."
+
+[gotcha.2475]
+title = "The root Foundry project does not build as a whole, so new contracts need their own profile"
+symptom = "forge build --root . under the default profile failed on retired kernel contracts whose libraries no longer exist and on tests importing an unpopulated contracts/lib; the new contracts themselves were fine."
+fix = "Build and test new Solidity work under a dedicated [profile.<name>] in foundry.toml (its own src, test, out and cache_path) and prefix the commands with FOUNDRY_PROFILE=<name>."
+
+[gotcha.2476]
+title = "Every declared touch path must exist and change, and the xweb kind admissions live under types/"
+symptom = "A task declared modules/xweb/observation.go and modules/xweb/genesis.go; the files live in modules/xweb/types, so the done check refused the otherwise passing attempt for two unchanged paths."
+fix = "Check each touch path exists on main before committing a task block, and expect the done check to refuse any declared path that no commit changed."
+
+[gotcha.2477]
+title = "pnpm install inside the repository resolves the root workspace unless told otherwise"
+symptom = "pnpm --dir <package> install for a package outside pnpm-workspace.yaml still found the repository workspace file and tried to install all twenty members, one of which depends on a registry package that does not exist."
+fix = "Pass --ignore-workspace to pnpm install for packages that are not workspace members, and keep their file: dependencies on sibling packages."
+
+[gotcha.2478]
+title = "A pinned receipt key is selected by the receipt's context_hash, so kernel-era signed fixtures cannot be pinned"
+symptom = "A server-launching test pinned the fixture's sequencer id as a receipt key; the authority refused every state record as state_evidence_refused because the signed receipt's context_hash was another value, and a zero key id is refused outright."
+fix = "Derive test receipts from the committed fixture at run time: write the key id into context_hash, re-encode unsigned, re-sign the receipt digest and the batch header digest with the test key, and pin that key."
+
+[gotcha.2479]
+title = "The wallet already consumes a name indexer in the explorer name-service shape"
+symptom = "A name system planned without an indexer would have left the wallet's My Names tab and the explorer's name display empty: apps/wallet/src/lib/pns.ts and apps/explorer/configs/app/apis.ts both read the explorer name-service API, and the wallet proxy pointed at a literal origin serving nothing."
+fix = "When a feature replaces a hosted dependency, grep the consumers for the API shape they already speak and serve that shape; commit one answer vector that the producer test and the consumer test both assert against."
