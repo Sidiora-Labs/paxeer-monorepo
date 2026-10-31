@@ -179,7 +179,8 @@ type ReplicatorConfig struct {
 	// WAL is the primary's sequencer WAL.
 	WAL *wal.WAL
 	// Dial opens the authenticated link to the standby (mutual TLS on a private network).
-	Dial func(ctx context.Context) (net.Conn, error)
+	Dial       func(ctx context.Context) (net.Conn, error)
+	Standalone bool
 	// ReplicationTimeout bounds dialling, sending a group and reading the standby's ack, gap
 	// refill included. It is set at activation rehearsal; there is no default.
 	ReplicationTimeout time.Duration
@@ -191,15 +192,16 @@ type ReplicatorConfig struct {
 type Replicator struct {
 	// ponytail: one Release at a time keeps the wire in WAL order; pipeline groups if one fsync
 	// plus one round trip per group caps throughput.
-	mu        sync.Mutex
-	wal       *wal.WAL
-	dial      func(ctx context.Context) (net.Conn, error)
-	timeout   time.Duration
-	onWALSync func(time.Duration)
-	conn      net.Conn
-	retained  []retainedFrame
-	lastSeq   uint64
-	epoch     uint64
+	mu         sync.Mutex
+	wal        *wal.WAL
+	dial       func(ctx context.Context) (net.Conn, error)
+	standalone bool
+	timeout    time.Duration
+	onWALSync  func(time.Duration)
+	conn       net.Conn
+	retained   []retainedFrame
+	lastSeq    uint64
+	epoch      uint64
 }
 
 // retainedFrame is a record kept until the standby acknowledges a later COMMITTED; the retained
@@ -217,13 +219,20 @@ func NewReplicator(cfg ReplicatorConfig) (*Replicator, error) {
 	if cfg.WAL == nil {
 		return nil, errors.New("sequencer: replicator without a wal")
 	}
-	if cfg.Dial == nil {
+	if cfg.Standalone && cfg.Dial != nil {
+		return nil, errors.New("sequencer: standalone replicator with a standby dialer")
+	}
+	if !cfg.Standalone && cfg.Dial == nil {
 		return nil, errors.New("sequencer: replicator without a standby dialer")
 	}
-	if cfg.ReplicationTimeout <= 0 {
+	if cfg.ReplicationTimeout < 0 || (!cfg.Standalone && cfg.ReplicationTimeout == 0) {
 		return nil, fmt.Errorf("sequencer: replication timeout %s must be positive", cfg.ReplicationTimeout)
 	}
-	return &Replicator{wal: cfg.WAL, dial: cfg.Dial, timeout: cfg.ReplicationTimeout, onWALSync: cfg.OnWALSync}, nil
+	return &Replicator{wal: cfg.WAL, dial: cfg.Dial, standalone: cfg.Standalone, timeout: cfg.ReplicationTimeout, onWALSync: cfg.OnWALSync}, nil
+}
+
+func (r *Replicator) Standalone() bool {
+	return r.standalone
 }
 
 // Release appends entries to the local WAL, then overlaps the group fsync that covers them with
@@ -238,6 +247,11 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 	frames := make([]wal.Frame, len(entries))
 	var maxSeq uint64
 	for i, e := range entries {
+		if r.standalone {
+			if _, ok := e.(*wal.Lease); ok {
+				return Ack{}, ErrNoAck
+			}
+		}
 		f, err := wal.NewFrame(e)
 		if err != nil {
 			return Ack{}, err
@@ -268,11 +282,12 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 			rf.leaseEpoch = v.Epoch
 			rf.lease = true
 		}
-		r.retained = append(r.retained, rf)
+		if !r.standalone {
+			r.retained = append(r.retained, rf)
+		}
 		pending = append(pending, p)
 	}
-	var group errgroup.Group
-	group.Go(func() error {
+	syncWAL := func() error {
 		syncStart := time.Now()
 		if _, err := r.wal.GroupSync(); err != nil {
 			return err
@@ -286,7 +301,15 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 			}
 		}
 		return nil
-	})
+	}
+	if r.standalone {
+		if err := syncWAL(); err != nil {
+			return Ack{}, err
+		}
+		return Ack{Status: AckOK, LastSeq: maxSeq}, nil
+	}
+	var group errgroup.Group
+	group.Go(syncWAL)
 	var ack Ack
 	group.Go(func() error {
 		var err error
@@ -312,6 +335,9 @@ func (r *Replicator) Epoch() uint64 {
 // acknowledged, so it carries the whole retained window; the standby skips the records it holds.
 // On an open link a gap answer is refilled with the whole retained window.
 func (r *Replicator) replicate(ctx context.Context, frames []wal.Frame, maxSeq uint64) (Ack, error) {
+	if r.standalone {
+		return Ack{}, ErrNoAck
+	}
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	var gap Ack
