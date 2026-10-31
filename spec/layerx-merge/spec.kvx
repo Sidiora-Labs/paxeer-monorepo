@@ -141939,7 +141939,7 @@ do_8 = "Scan only: after the requires tasks land the files in touches carry no r
 
 [task.8.98.14]
 title = "Port the kernel custody reads of core and the probe custody steps onto the sequencer endpoint and retire the LNI socket variable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["8.20.2", "8.98.5", "18.1297.1"]
