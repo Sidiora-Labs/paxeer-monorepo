@@ -49,7 +49,7 @@ root = "services/agent/crates/layerx-sdk/src"
 
 [files.agent-rust]
 "mirror_generated.rs" = "2530079ae0ca1fbbce1c01cb3212ea04423dc94225e9c7d9c39f2b0d0928db5f"
-"receipt_generated.rs" = "e86ac1dd0b00fdc56e7524a5a8ca9eb1c9a656ca6c07a9e4f8bf9bd162d0538b"
+"receipt_generated.rs" = "96045e38ad84ba9374e822f5f7952509f6fb330da83662ea15302eb6b9ef8b08"
 
 [handwritten.agent-rust]
 "agent_envelope.rs" = "handwritten"
@@ -85,7 +85,7 @@ root = "services/agent/sdk/typescript/src/generated"
 "client.ts" = "cd45ebdbced20bc1d2fa96dbfac763dc46fbe76d078d398a2f9054001ff87937"
 "guarantees.md" = "7f44042200d4ce72758644fc3aeb9e20b5b4414f1db8412973f6347872d1c7b3"
 "mirror.ts" = "53f5fc3afc8cccd0d27a1bb656d6f5e520e3e21983ee274a44fd74b1ddc6eac1"
-"receipt.ts" = "ee9f7b2dc347a31c673e1bc943a265cbbda2c1b1df9b9656ff27ab4cc94f0d5e"
+"receipt.ts" = "ff103ad593b5f0cd0a687ec159eea440365af8fc89da052530146372ac971719"
 
 [output.agent-python]
 language = "python"
@@ -98,8 +98,8 @@ root = "services/agent/sdk/python/layerx_sdk/generated"
 "guarantees.md" = "7f44042200d4ce72758644fc3aeb9e20b5b4414f1db8412973f6347872d1c7b3"
 "mirror.py" = "c4ca83fb5b195303cf3154da99933fda9d8915140f6e864c6c74df872422843e"
 "mirror.pyi" = "8cc2faef1d16e4768c62b7ce2bf87c4556ea391e3fec92a5704c8917cd154719"
-"receipt.py" = "efc3fb256f3123ca3342d9292c3783a4cab6dfefd4e0e0913cbd951e4630cfe2"
-"receipt.pyi" = "970a72e96b3b236c763786e5f599147fa824641258c8b89aad1dda25bd56ca8b"
+"receipt.py" = "56f2a43d935f9e8081d937a54959f8ca03a2fddb2188d6bc3c34bf228ea0b81d"
+"receipt.pyi" = "580b7e83862cf02c54564aa6b34518f4df3077752d1f916d3c315a6348f2fb6a"
 
 [output.agent-compatibility]
 language = "markdown"

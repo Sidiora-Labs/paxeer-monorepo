@@ -912,7 +912,7 @@ await assert.rejects(
   ),
 );
 
-await test("px_history_routes", async () => {
+async function px_history_routes() {
   // A px_getUnifiedHistory answer recorded from the gateway history read over a
   // loopback indexer store; the gateway's own tests keep it equal to what the
   // gateway answers. Its px_getHistory page is the same rows without `side`.
@@ -972,12 +972,41 @@ await test("px_history_routes", async () => {
       row.blockHeight,
       row.txIndex,
       row.logIndex,
+      row.txHash,
     ]),
     [
-      ["3", "paxeer", 10, 0, 0],
-      ["6", "paxeer", 11, 0, 0],
-      ["9", "paxeer", 12, 0, 0],
-      ["11", "paxeer", 12, 1, 0],
+      [
+        "3",
+        "paxeer",
+        10,
+        0,
+        0,
+        "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+      ],
+      [
+        "6",
+        "paxeer",
+        11,
+        0,
+        0,
+        "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+      ],
+      [
+        "9",
+        "paxeer",
+        12,
+        0,
+        0,
+        "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+      ],
+      [
+        "11",
+        "paxeer",
+        12,
+        1,
+        0,
+        "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+      ],
     ],
   );
   assert.deepEqual(unifiedPage.accounts, [{ side: "paxeer", account: EVE }]);
@@ -1302,4 +1331,5 @@ await test("px_history_routes", async () => {
     historyGateway.close();
     await once(historyGateway, "close");
   }
-});
+}
+await test(px_history_routes);

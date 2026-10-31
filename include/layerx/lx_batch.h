@@ -2,7 +2,6 @@
 #define LAYERX_LX_BATCH_H
 
 #include "layerx/lx_oracle.h"
-#include "layerx/lx_web.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -41,9 +40,6 @@ lxp_result lx_oracle_root_compute(const lx_oracle_store *store,
 lxp_result lx_batch_header_set_oracle_root(lx_batch_header *header,
                                            const lx_oracle_store *store,
                                            lxp_arena *arena);
-lxp_result lx_batch_header_set_web_root(lx_batch_header *header,
-                                        const lx_web_store *store,
-                                        lxp_arena *arena);
 lxp_result lx_oracle_availability_bundle_build(
     const lx_oracle_store *store, lx_oracle_availability_bundle *bundle);
 lxp_result lx_oracle_root_from_availability(
