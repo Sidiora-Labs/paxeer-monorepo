@@ -19,7 +19,6 @@ REQUIRED = {
 BALANCE_CASES = {f'BAL-{index:02d}' for index in range(1, 10)}
 OWN = [
     'Makefile', 'rust-toolchain.toml', 'migrations/0007_history_index.sql',
-    'tests/programs/test_balance_read.c',
     'tests/programs/balance_read_guests.h',
     'tests/programs/test_accounts.c',
     'tools/qualification/paxeer-x/program_balance_read.py',
@@ -77,7 +76,7 @@ def sources():
     tracked = subprocess.check_output([
         'git', 'ls-files', '-z', '--', 'src', 'include', 'programs',
         'services/agent/crates', 'services/agent/Cargo.toml', 'services/agent/Cargo.lock',
-        'contracts/config/checkpoint-settlement.json', 'tests/programs', '.cargo',
+        'tests/programs', '.cargo',
     ], cwd=ROOT).decode().split('\0')
     names = set(OWN)
     for name in tracked:

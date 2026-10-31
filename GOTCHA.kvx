@@ -11576,3 +11576,23 @@ fix = "symbols lists only the symbols that exist after the task; a deleted symbo
 title = "Regenerating a contract's outputs breaks the consumers the contract rewrite left behind"
 symptom = "8.45.1 rewrote the receipt contract and 9.97.3 regenerated its Rust, TypeScript and Python outputs; the SDK verifiers, programs modules and web search and x402 clients still implemented the kernel receipt path over names the new contract no longer defines, and no task owned their port."
 fix = "When a contract is rewritten, list every consumer of the generated names and give each a retirement or port task that the regeneration task requires (decision.1992)."
+
+[gotcha.2353]
+title = "A build command that checks the file the task deletes"
+symptom = "16.8.1's build_cmd was bash -n on tools/paxeer-x/gates/2.2.sh while do_1 deletes that file; two attempts exited 127 at build and never verified."
+fix = "When a do line deletes a file, the build and verify commands must name only files that remain; point them at the surviving sibling."
+
+[gotcha.2354]
+title = "A scan path wider than the task's touches catches sibling work"
+symptom = "16.6.1 scanned --path scripts for retired callers and failed on scripts/ci/solidity-state-surface.sh, which 16.5.3 owned and had not yet published."
+fix = "Either narrow the scan path to the task's own files or add the owner of every other file under the path to requires."
+
+[gotcha.2355]
+title = "A self-test that reads the spec text goes stale with the spec"
+symptom = "retired_callers_test.py --self-test required its component set to equal the --component names in spec verify_cmd lines; after the scans moved into unittest files no verify_cmd named the tool and the self-test failed for every caller."
+fix = "A tool's self-test must not depend on how the spec phrases its gates; check inclusion over every spec line, or drop the coupling."
+
+[gotcha.2356]
+title = "An operator renderer that reaches ssh and the live gateway cannot run as a gate"
+symptom = "16.7.4's test ran xweb-config.sh render serve, which lists names over ssh through the private host map and prices through the gateway; the gate exited 2 on the unset host map."
+fix = "Give the renderer overridable inputs (names variable, endpoint variable) and prove the consumer path against a loopback fixture in the record shape the contract test asserts."
