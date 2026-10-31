@@ -119224,7 +119224,7 @@ do_4 = "Attempts 1 to 3 (460ed8339 first) delete tests/daemon/lxp_test_daemon_al
 
 [task.5.54.5]
 title = "Retire the batch-WAL consumer daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.11.1", "16.11.2", "16.11.3", "16.11.4", "16.11.5"]
@@ -170629,7 +170629,7 @@ do_7 = "The task gate also runs scripts/ci/runner-routing-check.sh, which fails 
 
 [task.16.6.1]
 title = "Retire the beta deployment script for the retired root contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "16.5.3"]
@@ -173121,7 +173121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.9]
 title = "Delete the batch write-ahead log, maintenance publication and recovery-order checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.4", "16.5.2", "16.11.9", "16.11.2", "16.11.8"]
