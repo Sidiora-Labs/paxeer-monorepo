@@ -119770,7 +119770,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.54.3]
 title = "Retire the handover and finality daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["5.0.3", "8.19.11", "8.19.7", "16.0.4", "16.11.1", "16.36.2"]
@@ -193018,7 +193018,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1233.1]
 title = "Issue #1233: Read the requested asset's ledger balance for read.balance instead of the native EVM balance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1199.1", "18.1206.1", "18.1200.1", "18.1304.1"]
