@@ -2560,10 +2560,84 @@
       "result": {
         "name": "result",
         "schema": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "height",
+            "assets",
+            "joined_limit"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "assets": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "required": [
+                  "asset_id",
+                  "denom",
+                  "kind",
+                  "name",
+                  "symbol",
+                  "decimals",
+                  "supply"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "asset_id": {
+                    "type": "string"
+                  },
+                  "denom": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "symbol": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "decimals": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 255
+                  },
+                  "supply": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]+$"
+                  }
+                }
+              }
+            },
+            "joined_limit": {
+              "type": "integer",
+              "const": 16
+            }
+          }
         }
       },
-      "description": "The joined asset map: for each LayerX asset (asset_id, denom and its public core record) the custody precompile's record on Paxeer (pointer, enabled, paused, minimum_deposit, custody_cap, custodied, released, pending), or null when the asset is not registered with custody. At most 16 assets are joined per answer, reported as joined_limit. Takes no arguments.",
+      "description": "Lists indexer assets sorted by asset_id, limited to 16. Bank denoms read name, symbol, decimals and supply from bank 0x1001; ledger assets read getAsset at 0x101A. All chain reads use the returned height. A failed or unsupported asset read leaves name, symbol, decimals and supply null. Supply is an integer in base units rendered as a decimal string. Takes no arguments.",
       "errors": [
         {
           "code": -32602,

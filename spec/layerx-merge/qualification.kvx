@@ -13379,3 +13379,163 @@ symbol = "queryServer"
 observed = "Attempt 3 (d1636324f on 2c40f554a) failed go build ./modules/xweb/... with 'undefined: queryServer': the receiver type is created by task 6.69.1 (modules/xweb/keeper/grpc_query.go:12, landed 7f65d97eb) which 6.69.2 never required; the spec supersedes 6.69.2 into 6.69.1, which carries the same two files and the same two tests."
 assumption = "6.69.2 stays superseded and is never re-run; nothing depends on it; the attempt 3 content is redundant with main."
 severity = "cross-task"
+
+[finding.12.35.4.12]
+task = "12.35.4"
+file = "node/sequencer/accepter.go:86"
+symbol = "Accepter.send"
+observed = "Attempt 14 (a564859dd on 22b9ee184) failed TestLocalNodeV6120SequencerReceipt with 'replication halted: no block is open': send calls exec.Snapshot() after the accept critical section, Seal (node/sequencer/executor.go:308) had closed the layer, and accepter.go:52-56 turned ErrLayerNotOpen into ErrReplicationHalted."
+assumption = "A sequencer defect outside the two touched files: task 12.35.8 carries the transient receipt through the accept critical section (req.5082); 12.35.4 requires it and the attempt 14 content stands."
+severity = "cross-task"
+
+[finding.1.1.5.1]
+task = "1.1.5"
+file = "src/guarantor/lxp_da_possession.c:84, :234, :317"
+symbol = "LXP_ERR_DA_MISSING"
+observed = "Attempt 4 (7feda6d9a on 142a24573) failed the kernel library build because lxp_da_possession.c still returns LXP_ERR_DA_MISSING after the row left include/layerx/lxp_result.h:146; do_1 conditions the deletion on the DA emitters leaving, which task 1.31.7 (wave 44) performs."
+assumption = "Order, not content: 1.1.5 requires 1.31.7 and moves to wave 45; the attempt 4 content stands."
+severity = "cross-task"
+
+[finding.6.34.1.1]
+task = "6.34.1"
+file = "precompiles/layerxanchor/retire_read_gate_test.go:115"
+symbol = "TestUnwiredAnchorRevertsModuleDisabled"
+observed = "Attempt 4 (ae18d0281 on 07856fee5) could not run the focused test: go test reported the package build failed because retire_read_gate_test.go:115 still assigns keepers.AnchorKeeper, a field this task removes."
+assumption = "A dead statement in a done task's test, owned by the task that removes the field; do_6 deletes it and the attempt 4 content stands."
+severity = "cross-task"
+
+[finding.6.10.7.1]
+task = "6.10.7"
+file = "precompiles/distribution/gas_golden_test.go:117-119"
+symbol = "TestDistributionGasGolden"
+observed = "Attempts 2, 3 and 4 (9b02a043e on 12b2b2daa last) failed with 'height 9: gas = 7677, frozen gas = 7674' and the same at height 10; no contract names 7674."
+assumption = "Owner ruling decision.1974: the golden re-freezes at the measured 7677; do_5 applies it."
+severity = "owner"
+
+[finding.18.1200.1.9]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/operator_route.rs:14-66"
+symbol = "route_operator_command"
+observed = "Attempt 15 (735ba2425 on 16f187251) failed the operator route test on the reply length: left 74, right 110; the test was written against the layout before 39cb9f1e7 (task 9.2.3)."
+assumption = "Owner ruling decision.1975: the 74-byte layout is the contract; do_13 ports the test."
+severity = "owner"
+
+[finding.18.1228.1.8]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:78"
+symbol = "sign_transaction"
+observed = "Attempt 10 (000f26ee9 on 16f187251) failed at canonical_owner.rs:78: payload[2..34] differs from action_key because controls.rs:585 writes the replacement budget digest there since ea572906f."
+assumption = "Owner ruling decision.1976: the digest is the contract; do_16 ports the helper and its callers."
+severity = "owner"
+
+[finding.13.33.1.1]
+task = "13.33.1"
+file = "precompiles/layerxprograms/webreader_test.go:249, :344, :353"
+symbol = "TestWebReaderExampleRoundTripThroughXWeb"
+observed = "Attempt 4 (4a355f551 on cd54b1083): both subtests expected the example's read entrypoint to return and got LXP_NON_CANONICAL, because program web_read returns LXP_ERR_MODULE_DISABLED since ad8a576e8 (req.1065 ac_2)."
+assumption = "Owner ruling decision.1977: web_read stays retired; req.13290 ac_1 and do_3 now assert through the keeper and expect the revert."
+severity = "owner"
+
+[finding.18.1211.5.4]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-interop-service/src/payer_tx.rs:195; services/interop/crates/layerx-interop-service/src/server.rs (tests); src/relay.rs (tests)"
+symbol = "decodes_the_recorded_pay_exact_transaction"
+observed = "Attempt 7 (0b506ccc2 on 22b9ee184): 12 tests of layerx-interop-service failed, the payer_tx decode on left.from against right.to, ten server::tests with EvidenceMismatch after the fixtures were re-recorded, and one relay test owned by capability 11.11.2."
+assumption = "Owner ruling decision.1978: payer_tx.rs joins touches for its tests; do_11 repairs what the re-recorded fixtures changed and records the rest."
+severity = "owner"
+
+[finding.17.5.1.12]
+task = "17.5.1"
+file = "apps/web/package.json:9-13; Makefile:19-21, :1956-1961"
+symbol = "human-build"
+observed = "Attempt 14 (befea813e on c833996dd) failed test_wave_0_gate_passes with 'tsup: not found' from make human-build: only the root package-lock.json had been installed and apps/web is outside the root workspaces."
+assumption = "An environment gap, not a product or test defect: the gate environment installs apps/web; the attempt 14 content stands."
+severity = "environment"
+
+[finding.10.20.3.15]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:185, :459"
+symbol = "start_agent"
+observed = "Attempt 21 (962aaebd0 on 877e81900): the real daemon refused its human listener because the socket's parent directory root carries mode 0o711 and validate_path (services/agent/crates/layerx-agentd/src/human.rs:1725-1742) refuses any other-user bit on it."
+assumption = "Fixture layout, not a daemon defect: a 0o700 socket directory under root satisfies the listener and keeps root traversable for the node; do_26 applies it."
+severity = "task-scoped"
+
+[finding.8.5.2.4]
+task = "8.5.2"
+file = "services/platform/hosted/gateway/src/rpc.rs:356"
+symbol = "kernel_backend"
+observed = "Attempt 6 (33b0b5024 on d88134e96) reached the gate for the first time and px_listAssets was refused with kernel_unavailable/not_configured because kernel_backend still routes it to the public core kernel, which the test (and req.8041) run without."
+assumption = "A one-arm product change outside the four declared files; rpc.rs joins touches and do_8 removes the arm. Task 8.3.1 (pending) also touches rpc.rs and is unaffected."
+severity = "cross-task"
+
+[finding.18.1200.1.10]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/recovery.rs:49"
+symbol = "transition"
+observed = "Attempt 16 (b00385370 on 29f8a5dc1) fails restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema and the two other recovery tests with ReceiptLocationRequired from src/outbox/mod.rs:461-481 because the helper reaches Executed through outbox::transition, which carries no block location."
+assumption = "A test-helper gap, not a product change: do_14 routes the Executed step through outbox::record_execution with the support receipt and a block position."
+severity = "minor"
+
+[finding.18.1211.5.5]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-interop-service/src/relay.rs:794"
+symbol = "a_committed_answer_with_another_block_hash_is_receipted"
+observed = "Attempt 8 (eb4261f6c on 29f8a5dc1) fails this relay test, ten server::tests and x402_settle_succeeds_on_the_receipted_rung: the relay mock's block hash literal equals the re-recorded receipt's hash, the server tests still build offers on the 'layerx:beta' network that server.rs:1131 refuses, and the settle test reports EvidenceMismatch from services/interop/crates/layerx-x402/src/seller.rs:315-352."
+assumption = "relay.rs joins touches for its tests module (decision.1979, amending 1978) and do_12 carries the three repairs without changing an assertion."
+severity = "cross-task"
+
+[finding.18.1228.1.9]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/src/agents/controls.rs:610"
+symbol = "change_protocol_limit"
+observed = "Attempt 11 (c61196b80 on 29f8a5dc1) fails only protocol_and_app_limit_changes_keep_their_real_enforcement_labels with Refused 'lifecycle transaction binding differs' (src/agents/create.rs:550): the ProtocolAction carries control_action_key (:686) while the compiled PayBudgetCreate payload and its disclosure carry the replacement budget id (:585), and the production boundary (src/server/agent_creation.rs:422, :474) binds the evidence to the disclosed key."
+assumption = "A production contradiction, not a fixture gap; decision.1980 rules the action key is the budget id and task 18.1228.2 changes controls.rs and the test's receipt builder."
+severity = "owner"
+
+[finding.18.1228.1.10]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:1457"
+symbol = "BudgetCreation"
+observed = "The creation journey's BudgetCreation stage compiles a PayBudgetCreate whose budget id is BudgetId::new(agent_id) (:1457) while its action key is digest(ACTION_DOMAIN, agent_id, stage) (:1646) and :1481 sets the idempotency key from that action key; under decision.1980 the two keys would have to coincide, and no gate fails on it today."
+assumption = "Recorded for the owner, not fixed by any task in this batch; the limit-change fix of 18.1228.2 does not touch the creation stages."
+severity = "owner"
+
+[finding.6.32.3.1]
+task = "6.32.3"
+file = "precompiles/common/precompiles.go:197"
+symbol = "Run"
+observed = "Attempts 1 to 3 (b6d68f78f, 11359f1e9, e499b9df6) fail 48 of 84 cases: every write method of 0x1014 after the store-delete step answers Error('execution reverted') (100 bytes) through Run instead of RetiredRevert (132 bytes), because the deferred handler repacks executor errors whenever the wrapper's retirePlan gate (:215-223) did not fire, and that gate names the nine view methods only."
+assumption = "A wrapper defect outside this test-only task; decision.1981 and task 6.34.2 keep executor revert data and reorder the Execute checks, and 6.32.3 requires it."
+severity = "cross-task"
+
+[finding.8.0.4.1]
+task = "8.0.4"
+file = "services/platform/hosted/gateway/src/main.rs:4117"
+symbol = "gateway_readiness_scope"
+observed = "Attempts 1 and 2 (f87e0cd18, d399c7d77 on a1c0f4e7f) fail chain_only_router_serves_receipts_balances_and_assets at router_surface.rs:1010: readiness answers 'degraded' because complete is computed over every KernelBackend::ALL entry and product_routes['complete'] even when no kernel backend is configured, while paxeer_chain, consensus and chain_serving are ready."
+assumption = "A product readiness rule outside this test-only task; decision.1982 and task 8.0.5 make an unconfigured kernel fall out of the readiness document, and 8.0.4 requires it."
+severity = "cross-task"
+
+[finding.8.5.3.1]
+task = "8.5.3"
+file = "services/platform/hosted/gateway/src/rpc.rs"
+symbol = "anchor_head"
+observed = "Attempts 1 and 2 (954c60ae0, 66d37aa82 on a1c0f4e7f) pass the declared test, and the completion check then fails on symbol anchor_head not defined in the graph because do_1 deletes it."
+assumption = "A spec defect: a symbol a task removes cannot stay in its symbols list; the list now names the surviving function and the test."
+severity = "note"
+
+[finding.10.20.3.16]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/src/server/movement_provider.rs:835"
+symbol = "UnixMovementProvider::new"
+observed = "Attempt 22 (9449cd2a4 on 29f8a5dc1) fails production_components_open_without_paxeer_or_exit_environment and components_binary_starts_without_recipient_or_exit_environment with 'movement provider refused startup' from src/server/production_components.rs:707: validate_socket requires an existing socket owned by the configured peer with no other-permission bits, and the test environment only names the path."
+assumption = "A test precondition, not a product change (decision.1983); do_27 binds a listener in the test environment."
+severity = "minor"
+
+[finding.17.5.1.13]
+task = "17.5.1"
+file = "apps/web/src/app/exchange/exchange-client.tsx:18"
+symbol = "pxResolveAccount"
+observed = "Attempt 15 (682092ffd on 29f8a5dc1) fails the wave-0 gate in the apps/web build: the client component imports the server-only ../../api/gateway, and @noble/curves, @noble/hashes, @sidiora/layerx-sdk and @supabase/supabase-js imported by the aliased sdk/wallet/src are not declared by apps/web."
+assumption = "A product build defect outside this gate task; task 17.5.10 moves the read behind a server action and declares the packages, and 17.5.1 requires it."
+severity = "cross-task"
