@@ -382,7 +382,7 @@ class Corpus:
         require(status == 200 and response.get('request_id') == request['request_id'], 'actual owner RPC refused')
         if verified:
             require(response.get('verification_status', {}).get('state') == 'achieved' and
-                response['verification_status'].get('level') in ('StateProven', 'CheckpointFinalised', 'SettlementAnchored'),
+                response['verification_status'].get('level') in ('StateProven', 'CheckpointFinalised'),
                 'payment state lacks authenticated protocol authority')
         return response['value']
 
