@@ -135937,7 +135937,7 @@ do_6 = "Continue from attempt 3 (b84236330): restore the authority dependency at
 
 [task.8.20.4]
 title = "List only merged-chain surfaces on the beta page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["8.0.4", "8.19.2", "8.18.1"]
@@ -148398,7 +148398,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.20.3]
 title = "Unhook retired journeys, wallet binding and the settlement recipient from production"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.2", "10.12.2", "10.3.1", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "9.5.10", "18.1297.1", "18.1304.1", "18.1310.1", "5.7.3", "5.7.4", "9.12.11", "1.2.6"]
@@ -196221,7 +196221,7 @@ qualification = "UNRUN"
 
 [task.18.1211.5]
 title = "Issue #1211: Re-record the sequencer receipt vectors with a derivable payee in native PaymentExact order"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1211.2", "18.1211.3", "18.1211.4", "18.1308.2"]
