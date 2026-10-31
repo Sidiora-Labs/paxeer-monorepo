@@ -192349,7 +192349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1188.2]
 title = "Follow the budget defund to kernel activity 0x00030008 in the service and its test registries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
