@@ -257,8 +257,10 @@ fn page(source: &Source<'_>, account: &str, query: &Query) -> Result<Page, Failu
         if items.last().is_some_and(|((last, ..), _)| *last > position) {
             return Err(invalid());
         }
+        let tx_hash = text(row, "tx_id").ok_or_else(invalid)?.to_owned();
         let mut row = row.clone();
         if let Some(object) = row.as_object_mut() {
+            object.insert("tx_hash".to_owned(), json!(tx_hash));
             object.insert("blockHeight".to_owned(), json!(position.height));
             object.insert("txIndex".to_owned(), json!(position.tx_index));
             object.insert("logIndex".to_owned(), json!(position.log_index));
@@ -894,6 +896,7 @@ pub(super) fn status(config: &Config) -> &'static str {
 mod tests {
     use super::*;
     use layerx_indexer::store::{AssetRow, HolderRow, Position, Store, TransferRow, Unit};
+    use sha2::{Digest, Sha256};
     use std::net::TcpListener;
     use std::sync::Arc;
 
@@ -907,6 +910,13 @@ mod tests {
     const POINTER: &str = "0xcccccccccccccccccccccccccccccccccccccccc";
     const TICKET: &str = "denom:factory/pax1issuer/ticket";
     const BUDGET: &str = "0101010101010101010101010101010101010101010101010101010101010101";
+
+    fn transaction_hash(kind: &str, position: u64, tx_index: u32) -> String {
+        format!(
+            "0x{}",
+            crate::hex(&Sha256::digest(format!("{kind}-{position}-{tx_index}")))
+        )
+    }
 
     /// One transfer leg of transaction `tx_index` at `position`: a native
     /// value row when `ordinal` is 0, else the log at index `ordinal - 1`.
@@ -928,7 +938,7 @@ mod tests {
             counterparty: Some(counterparty.to_owned()),
             asset: asset.to_owned(),
             amount: amount.to_owned(),
-            tx_id: format!("{kind}-{position}-{tx_index}"),
+            tx_id: transaction_hash(kind, position, tx_index),
             ordinal,
             decoded: json!({"position": position.to_string()}),
         }
@@ -1075,7 +1085,7 @@ mod tests {
                     record_id: BUDGET.to_owned(),
                     event: "BudgetCreated",
                     state: "active",
-                    tx_id: "budget-12-2".to_owned(),
+                    tx_id: transaction_hash("budget", 12, 2),
                     decoded: json!({"args": {"amount": "500"}}),
                 }],
                 ..unit(
@@ -1239,9 +1249,16 @@ mod tests {
             assert_eq!(item["blockHeight"], json!(at.height));
             assert_eq!(item["txIndex"], json!(at.tx_index));
             assert_eq!(item["logIndex"], json!(at.log_index));
+            assert_eq!(item["tx_hash"], row["tx_id"]);
             let mut stripped = item.clone();
             if let Some(object) = stripped.as_object_mut() {
-                for field in ["asset_metadata", "blockHeight", "txIndex", "logIndex"] {
+                for field in [
+                    "asset_metadata",
+                    "blockHeight",
+                    "txIndex",
+                    "logIndex",
+                    "tx_hash",
+                ] {
                     object.remove(field);
                 }
             }
@@ -1413,7 +1430,7 @@ mod tests {
         let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
         let token = "evm:0x0000000000000000000000000000000000000abc";
         let swap = |row: TransferRow| TransferRow {
-            tx_id: "swap-20-0".to_owned(),
+            tx_id: transaction_hash("swap", 20, 0),
             ..row
         };
         let units = [
@@ -1533,11 +1550,12 @@ mod tests {
                 )
             })
             .collect();
+        let swap_hash = transaction_hash("swap", 20, 0);
         assert_eq!(
             legs,
             vec![
-                ("swap-20-0", "native_transfer", "0"),
-                ("swap-20-0", "erc20_transfer", "1")
+                (swap_hash.as_str(), "native_transfer", "0"),
+                (swap_hash.as_str(), "erc20_transfer", "1")
             ]
         );
         assert_eq!(history["next_cursor"], Value::Null);
@@ -2300,6 +2318,34 @@ mod tests {
     }
 
     #[test]
+    fn history_rows_carry_the_transaction_hash() {
+        let indexer = indexer();
+        let upstream = raw(&indexer, &format!("/v1/history/{EVE}"), "limit=100");
+        assert_eq!(ids(&upstream), vec![3, 6, 9, 11]);
+        for method in ["px_getHistory", "px_getUnifiedHistory"] {
+            let answer = answered(&indexer, method, &json!([EVE, null, 100, null]));
+            assert!(answer.get("error").is_none(), "{answer}");
+            assert_eq!(ids(&answer["result"]), ids(&upstream));
+            for (row, indexed) in items(&answer["result"]).iter().zip(items(&upstream)) {
+                assert_eq!(row["tx_id"], indexed["tx_id"]);
+                assert_eq!(row["tx_hash"], indexed["tx_id"]);
+                let hash = row["tx_hash"].as_str().unwrap_or_else(|| panic!("{row}"));
+                assert_eq!(hash.len(), 66, "{row}");
+                assert!(hash.starts_with("0x"), "{row}");
+                assert!(
+                    hash[2..]
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+                    "{row}"
+                );
+                if method == "px_getUnifiedHistory" {
+                    assert_eq!(row["side"], json!("paxeer"), "{row}");
+                }
+            }
+        }
+    }
+
+    #[test]
     fn answer_tags_every_unified_history_row_with_side_and_no_plain_history_row() {
         let indexer = indexer();
         let params = json!([EVE, null, 100, null]);
@@ -2426,7 +2472,7 @@ mod tests {
                 "PayerGrantIssued"
             },
             state: "active",
-            tx_id: format!("{kind}-{height}"),
+            tx_id: transaction_hash(kind, height, 0),
             decoded: json!({}),
         }
     }
