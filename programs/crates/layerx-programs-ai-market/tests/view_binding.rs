@@ -384,6 +384,28 @@ fn binding_v2_encodes_block_commit_section() -> Checked {
     Ok(())
 }
 
+#[test]
+fn binding_v2_matches_pinned_vector() -> Checked {
+    let binding = binding_v2_fixture()?;
+    let mut out = [0; BINDING_MAX_BYTES];
+    let n = binding.encode(&mut out)?;
+    let vector = include_str!("../../../tests/vectors/snapshot-binding-v2.hex");
+    assert_eq!(n, BINDING_MAX_BYTES);
+    assert_eq!(vector.len(), 2 * n + 1);
+    assert!(vector.ends_with('\n'));
+    let hex = &vector[..vector.len() - 1];
+    assert!(hex
+        .bytes()
+        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)));
+    let pinned = (0..hex.len())
+        .step_by(2)
+        .map(|offset| u8::from_str_radix(&hex[offset..offset + 2], 16))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| Failure::Unexpected("snapshot binding vector hex"))?;
+    assert_eq!(&out[..n], pinned.as_slice());
+    Ok(())
+}
+
 fn binding_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }

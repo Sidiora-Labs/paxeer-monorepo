@@ -2,7 +2,8 @@
 
 import React from 'react';
 
-import { PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
+import type { PaxeerXArchiveReceiptsItem } from 'types/api/paxeerXArchive';
+
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from 'vitest/lib';
@@ -11,7 +12,14 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 
 import PaxeerXReceiptsListItem from './PaxeerXReceiptsListItem';
 
-const renderItem = (item = PAXEER_X_RECEIPTS_ITEM) => render(<PaxeerXReceiptsListItem item={ item }/>);
+const receipt: PaxeerXArchiveReceiptsItem = {
+  id: '0x1a2b3c4d5e6f7081928374655647382910ffeeddccbbaa99887766554433221100',
+  account: '0x0000000000000000000000000000000000000000000000000000000000000000',
+  frozen: true,
+  block_number: 8341004,
+};
+
+const renderItem = (item: PaxeerXArchiveReceiptsItem = receipt) => render(<PaxeerXReceiptsListItem item={ item }/>);
 
 describe('PaxeerXReceiptsListItem', () => {
   beforeEach(() => {
@@ -25,25 +33,25 @@ describe('PaxeerXReceiptsListItem', () => {
     expect(screen.getByText('Receipt ID')).toBeTruthy();
     expect(screen.getByText('Account')).toBeTruthy();
     expect(screen.getByText('Block')).toBeTruthy();
-    expect(screen.getByText('Settlement')).toBeTruthy();
   });
 
   it('links the receipt id to its page and the block to the block page', () => {
     const { container } = renderItem();
 
-    expect(container.querySelector(`a[href="/paxeer-x/receipts/${ PAXEER_X_RECEIPTS_ITEM.id }"]`)).toBeTruthy();
-    expect(container.querySelector(`a[href="/block/${ PAXEER_X_RECEIPTS_ITEM.block_number }"]`)?.textContent)
-      .toBe(String(PAXEER_X_RECEIPTS_ITEM.block_number));
+    expect(container.querySelector(`a[href="/paxeer-x/receipts/${ receipt.id }"]`)).toBeTruthy();
+    expect(container.querySelector(`a[href="/block/${ receipt.block_number }"]`)?.textContent)
+      .toBe(String(receipt.block_number));
   });
 
-  it('puts the entry on its rung of the settlement ladder', () => {
+  it('renders the archive entry without a settlement badge', () => {
     const { container } = renderItem();
 
-    expect(container.querySelector(`[data-rung="${ PAXEER_X_RECEIPTS_ITEM.status }"]`)).toBeTruthy();
+    expect(container.querySelector('[data-rung]')).toBeNull();
+    expect(screen.queryByText('Settlement')).toBeNull();
   });
 
   it('marks an account the receipt log does not carry', () => {
-    renderItem({ ...PAXEER_X_RECEIPTS_ITEM, account: null });
+    renderItem({ ...receipt, account: null });
 
     expect(screen.getByText('—')).toBeTruthy();
     expect(screen.getAllByLabelText('copy')).toHaveLength(1);

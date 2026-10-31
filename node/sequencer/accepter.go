@@ -50,8 +50,7 @@ func (a *Accepter) Accept(txBytes []byte) ([]byte, error) {
 	}
 	send, err := a.send(txBytes, acc, receipt)
 	if err != nil {
-		a.halted = true
-		return nil, fmt.Errorf("%w: %w", ErrReplicationHalted, err)
+		return nil, err
 	}
 	ackStart := time.Now()
 	ack, err := a.rep.Release(context.Background(), &wal.Accept{
@@ -83,11 +82,7 @@ func (a *Accepter) send(txBytes []byte, acc *Accepted, receipt []byte) (evmrpc.S
 	if a.r.host.GetEVMMsg(tx) == nil {
 		return send, nil
 	}
-	ctx, err := a.r.exec.Snapshot()
-	if err != nil {
-		return evmrpc.SequencerSend{}, err
-	}
-	rcpt, err := a.r.evm.GetTransientReceipt(ctx, common.Hash(acc.ActivityID), uint64(acc.TxIndex))
+	rcpt, err := a.r.evm.GetTransientReceipt(acc.ReceiptContext, common.Hash(acc.ActivityID), uint64(acc.TxIndex))
 	if err != nil {
 		return evmrpc.SequencerSend{}, err
 	}

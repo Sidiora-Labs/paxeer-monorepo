@@ -12,8 +12,8 @@
 
 pub mod abi;
 pub mod ai_health;
-pub mod ai_reputation;
 pub mod ai_market;
+pub mod ai_reputation;
 pub mod api;
 pub mod backfill;
 pub mod blockscout;
@@ -24,7 +24,6 @@ pub mod follow;
 pub mod layerx;
 pub mod paxeer;
 pub mod paxscan;
-pub mod settlement;
 pub mod store;
 pub mod transport;
 

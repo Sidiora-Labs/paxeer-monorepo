@@ -1404,8 +1404,6 @@ static int lni_init(const char *keeper)
     lni.owner.history = &lni.history;
     lni.owner.receipt_authority = &lni.receipt_authority;
     lni.owner.scratch = &lni.scratch;
-    lni.owner.feed_store.baseline_present = true;
-    lni.owner.feed_store.baseline_next_sequence = 1U;
     lni.owner.attached = true;
     (void)memcpy(lni.receipt_authority.authorization.public_key,
                  sequencer_public, 32U);

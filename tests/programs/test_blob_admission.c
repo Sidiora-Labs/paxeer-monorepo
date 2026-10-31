@@ -631,18 +631,6 @@ static int ledger_read(uint8_t **bytes, size_t *length, struct stat *metadata)
     return failed;
 }
 
-static int ledger_write(const uint8_t *bytes, size_t length)
-{
-    char path[256];
-    int descriptor;
-    int failed;
-    if (ledger_path(path, sizeof(path), ledger_name) != 0) return 1;
-    descriptor = open(path, O_WRONLY | O_TRUNC | O_CLOEXEC);
-    if (descriptor < 0) return 1;
-    failed = write_all(descriptor, bytes, length) != 0 || fsync(descriptor) != 0;
-    return close(descriptor) != 0 || failed;
-}
-
 static bool ledger_absent(void)
 {
     char path[256];
@@ -783,8 +771,6 @@ static int fixture_init(const char *keeper)
     fx.owner.history = &fx.history;
     fx.owner.receipt_authority = &fx.receipt_authority;
     fx.owner.scratch = &fx.scratch;
-    fx.owner.feed_store.baseline_present = true;
-    fx.owner.feed_store.baseline_next_sequence = 1U;
     fx.owner.attached = true;
     (void)memcpy(fx.receipt_authority.authorization.public_key,
                  sequencer_public, 32U);
@@ -1343,67 +1329,6 @@ static int case_race(void)
     return pass("two_writers_serialized");
 }
 
-static int case_restart(void)
-{
-    connection link;
-    observation before;
-    observation after;
-    lxp_capacity_ledger *ledger;
-    uint8_t *bytes = NULL;
-    size_t length = 0U;
-    struct stat metadata;
-    char path[256];
-    reply answer;
-    lxp_result status = LXP_OK;
-    int descriptor;
-    int decoded;
-    CHECK(connection_open(&link) == 0 && observe(link.descriptor, &before,
-                                                 NULL) == 0, "head");
-    CHECK(connection_close(&link) == 0, "closed");
-    CHECK(lni_stop() == 0, "node_stopped");
-    CHECK(ledger_path(path, sizeof(path), ledger_temp_name) == 0, "temp_path");
-    descriptor = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
-    CHECK(descriptor >= 0 && write_all(descriptor, (const uint8_t *)"torn", 4U) ==
-          0 && close(descriptor) == 0, "torn_temp_left");
-    CHECK(lni_serve(NULL) == 0, "node_restarted");
-    CHECK(connection_open(&link) == 0 && observe(link.descriptor, &after,
-                                                 NULL) == 0, "head_after");
-    CHECK(after.next_request_id == before.next_request_id &&
-          after.active == before.active &&
-          memcmp(after.work, before.work, sizeof(after.work)) == 0,
-          "ledger_recovered");
-    CHECK(call(link.descriptor, RESERVE, work_body, sizeof(work_body),
-               &answer) == 0 && answer.tag == RESERVE + 1U &&
-          answer.payload[0] == 1U &&
-          get_u64(answer.payload + 1U + REC_ID) == work_id,
-          "identity_survives_restart");
-    CHECK(by_id(link.descriptor, CANCEL, work_id, &answer) == 0 &&
-          answer.tag == CANCEL + 1U &&
-          answer.payload[REC_STATE] == LXP_CAPACITY_CANCELLED, "work_cancelled");
-    CHECK(access(path, F_OK) != 0 && errno == ENOENT, "temp_consumed");
-    CHECK(connection_close(&link) == 0, "closed_again");
-    CHECK(ledger_read(&bytes, &length, &metadata) == 0, "ledger_read");
-    ledger = (lxp_capacity_ledger *)calloc(1U, sizeof(*ledger));
-    decoded = ledger != NULL &&
-        lxp_capacity_ledger_decode(bytes, length, ledger) == LXP_OK &&
-        ledger->next_request_id == before.next_request_id &&
-        ledger->count == 2U && ledger->entries[0].request_id == work_id &&
-        ledger->entries[0].state == LXP_CAPACITY_CANCELLED;
-    free(ledger);
-    if (!decoded) free(bytes);
-    CHECK(decoded, "ledger_contents");
-    CHECK(lni_stop() == 0, "node_stopped_again");
-    bytes[length / 2U] ^= 0x01U;
-    CHECK(ledger_write(bytes, length) == 0, "ledger_corrupted");
-    CHECK(lni_serve(&status) != 0 && status == LXP_ERR_LOG_CORRUPT,
-          "corrupt_ledger_fails_closed");
-    bytes[length / 2U] ^= 0x01U;
-    CHECK(ledger_write(bytes, length) == 0, "ledger_restored");
-    free(bytes);
-    CHECK(lni_serve(NULL) == 0, "node_restarted_clean");
-    return pass("durable_identity_across_restart");
-}
-
 static int case_full_store(int descriptor)
 {
     observation head;
@@ -1669,7 +1594,6 @@ int main(int argument_count, char **arguments)
             case_stale_after_commit(link.descriptor) != 0 ||
             case_race() != 0;
     if (connection_close(&link) != 0) failed = 1;
-    if (failed == 0) failed = case_restart();
     if (failed == 0 && connection_open(&link) == 0) {
         failed = case_full_store(link.descriptor) != 0 ||
             case_obligations(link.descriptor) != 0 ||

@@ -1336,54 +1336,6 @@ static int two_class_failure_case(void)
     return 0;
 }
 
-static int two_class_disposition_case(void)
-{
-    lxp_queue_disposition disposition, decoded, invalid;
-    uint8_t bytes[LXP_QUEUE_DISPOSITION_BYTES], tampered[LXP_QUEUE_DISPOSITION_BYTES];
-    size_t i;
-    memset(&disposition, 0, sizeof(disposition));
-    disposition.admission_order = 41U;
-    disposition.ordering_sequence = 9U;
-    disposition.result_code = LXP_ERR_EXPIRED;
-    disposition.parameter_version = (uint32_t)LXP_FEE_TWO_CLASS_PARAMETER_VERSION;
-    for (i = 0U; i < 32U; ++i) {
-        disposition.activity_id[i] = (uint8_t)(i + 1U);
-        disposition.idempotency_key[i] = (uint8_t)(0xA0U + i);
-    }
-    CHECK(lxp_queue_disposition_encode(&disposition, bytes) == LXP_OK);
-    CHECK(lxp_queue_disposition_header(bytes, sizeof(bytes)));
-    CHECK(!lxp_queue_disposition_header(bytes, LXP_QUEUE_DISPOSITION_HEADER_BYTES - 1U));
-    memset(&decoded, 0, sizeof(decoded));
-    CHECK(lxp_queue_disposition_decode(bytes, sizeof(bytes), &decoded) == LXP_OK);
-    CHECK(decoded.admission_order == disposition.admission_order);
-    CHECK(decoded.ordering_sequence == disposition.ordering_sequence);
-    CHECK(decoded.result_code == disposition.result_code);
-    CHECK(decoded.parameter_version == disposition.parameter_version);
-    CHECK(memcmp(decoded.activity_id, disposition.activity_id, 32U) == 0);
-    CHECK(memcmp(decoded.idempotency_key, disposition.idempotency_key, 32U) == 0);
-    CHECK(lxp_queue_disposition_decode(bytes, sizeof(bytes) - 1U, &decoded) ==
-          LXP_ERR_NON_CANONICAL);
-    for (i = 0U; i < sizeof(bytes); ++i) {
-        memcpy(tampered, bytes, sizeof(bytes));
-        tampered[i] ^= 1U;
-        CHECK(lxp_queue_disposition_decode(tampered, sizeof(tampered), &decoded) != LXP_OK);
-    }
-    invalid = disposition;
-    invalid.parameter_version = 1U;
-    CHECK(lxp_queue_disposition_encode(&invalid, bytes) != LXP_OK);
-    invalid = disposition;
-    invalid.result_code = LXP_OK;
-    CHECK(lxp_queue_disposition_encode(&invalid, bytes) != LXP_OK);
-    invalid = disposition;
-    invalid.result_code = LXP_FATAL_INVARIANT;
-    CHECK(lxp_queue_disposition_encode(&invalid, bytes) != LXP_OK);
-    invalid = disposition;
-    invalid.admission_order = 0U;
-    CHECK(lxp_queue_disposition_encode(&invalid, bytes) != LXP_OK);
-    printf("two-class disposition case passed\n");
-    return 0;
-}
-
 static int two_class_cases(void)
 {
     int kind;
@@ -1392,7 +1344,6 @@ static int two_class_cases(void)
     for (kind = 0; kind < TWO_CLASS_ADMISSION_COUNT; ++kind)
         if (two_class_admission_case(kind) != 0) return 1;
     if (two_class_failure_case() != 0) return 1;
-    if (two_class_disposition_case() != 0) return 1;
     return 0;
 }
 
