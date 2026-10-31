@@ -1,62 +1,50 @@
-use layerx_client::evidence::verification_label;
-use sha2::{Digest, Sha256};
+use layerx_client::px::PxAssetEntry;
+use layerx_client::rpc::evidence::{verification_label, Rung};
+use layerx_client::rpc::{account as account_rpc, evidence as evidence_rpc, history, payments};
 
-use super::{
-    connect_client, decode_account_value, fixed_hex, hex_encode, refusal, success, Config, Request,
-    Response, SequencerAuthorization, VerificationLevel,
-};
+use super::{connect_client, fixed_hex, hex_encode, refusal, success, Config, Request, Response};
 
 pub(super) fn account(config: &Config, id: &str) -> Response {
     let Ok(account_id) = fixed_hex::<32>("account_id", id) else {
         return refusal(400, "invalid_account_id", None);
     };
-    let Ok(mut client) = connect_client(config) else {
+    let Ok(joined) = config.network.account(&hex_encode(&account_id)) else {
         return refusal(503, "node_unavailable", Some(5));
     };
-    let authorization = SequencerAuthorization::new(
-        config.sequencer_id,
-        client.handshake().node().authorised_sequencer_key,
-        1,
-        u64::MAX,
-    );
-    let Ok(value) = client.account(
-        account_id,
-        VerificationLevel::STATE_PROVEN,
-        1,
-        authorization,
+    let Some(address) = joined.account.evm_address else {
+        return refusal(503, "account_evidence_unavailable", Some(5));
+    };
+    let Ok(head) = config.network.network() else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
+    let Ok(requested) = account_rpc::Requested::new(Rung::Committed) else {
+        return refusal(503, "account_evidence_unavailable", Some(5));
+    };
+    let Ok(value) = account_rpc::account(
+        &config.sequencer,
+        address,
+        account_rpc::ReadContext {
+            committed_height: head.latest_committed_height,
+            requested,
+        },
     ) else {
         return refusal(503, "account_evidence_unavailable", Some(5));
     };
-    let Some(verification) = verification_label(value.achieved()) else {
-        return refusal(503, "account_evidence_unavailable", Some(5));
-    };
-    let Ok(account) = decode_account_value(account_id, value.canonical_bytes()) else {
-        return refusal(502, "invalid_account_evidence", None);
-    };
-    let Ok(name) = std::str::from_utf8(&account.name) else {
-        return refusal(502, "invalid_account_name", None);
-    };
-    success(&serde_json::json!({
-        "account_id": hex_encode(&account.account_id),
-        "name": name,
-        "asset_id": hex_encode(&account.asset_id()),
-        "balance": account.balance().to_string(),
-        "next_sequence": account.next_sequence.to_string(),
-        "frozen": account.frozen,
-        "canonical_value": hex_encode(value.canonical_bytes()),
-        "proof_material": hex_encode(value.proof_material()),
-        "observed_head_sequence": value.freshness().observed_head_sequence.to_string(),
-        "batch_number": value.freshness().batch_number.to_string(),
-        "verification": verification
-    }))
-}
-
-fn snapshot_context(handshake: &super::Handshake) -> layerx_client::payments::SnapshotContext {
-    layerx_client::payments::SnapshotContext {
-        interface_version: handshake.node().interface_version,
-        correlation_id: 1,
-        minimum_sequence: handshake.node().chain_head_sequence,
+    let mut result = serde_json::Map::new();
+    if let Some(layerx) = joined.layerx {
+        for key in ["name", "asset_id", "balance", "frozen"] {
+            if let Some(value) = layerx.get(key) {
+                result.insert(key.to_owned(), value.clone());
+            }
+        }
     }
+    result.insert("account_id".to_owned(), hex_encode(&account_id).into());
+    result.insert("next_sequence".to_owned(), value.nonce.to_string().into());
+    result.insert(
+        "batch_number".to_owned(),
+        head.latest_committed_height.to_string().into(),
+    );
+    success(&serde_json::Value::Object(result))
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -72,47 +60,55 @@ impl AssetSnapshotError {
     }
 }
 
-fn asset_json(
-    asset: &layerx_client::payments::AssetMetadata,
-) -> Result<serde_json::Value, AssetSnapshotError> {
-    if !(1..=16).contains(&asset.symbol.len()) || !asset.symbol.is_ascii() {
-        return Err(AssetSnapshotError::InvalidSymbol);
+fn asset_json(asset: &PxAssetEntry) -> Result<serde_json::Value, AssetSnapshotError> {
+    let mut metadata = serde_json::Map::new();
+    if let Some(layerx) = &asset.layerx {
+        let symbol = layerx
+            .get("symbol")
+            .and_then(serde_json::Value::as_str)
+            .ok_or(AssetSnapshotError::InvalidSymbol)?;
+        if !(1..=16).contains(&symbol.len()) || !symbol.is_ascii() {
+            return Err(AssetSnapshotError::InvalidSymbol);
+        }
+        for key in [
+            "symbol",
+            "name",
+            "decimals",
+            "custody_kind",
+            "custody_reference",
+            "paused",
+            "supply_cap",
+            "issuer_did",
+            "issuer_kind",
+            "total_units",
+            "salt",
+        ] {
+            if let Some(value) = layerx.get(key) {
+                metadata.insert(key.to_owned(), value.clone());
+            }
+        }
     }
-    let symbol =
-        std::str::from_utf8(&asset.symbol).map_err(|_| AssetSnapshotError::InvalidSymbol)?;
-    Ok(serde_json::json!({
-        "asset_id": hex_encode(&asset.asset_id), "symbol": symbol,
-        "name": asset.name, "decimals": asset.decimals, "custody_kind": asset.custody_kind,
-        "custody_reference": hex_encode(&asset.custody_reference), "paused": asset.paused,
-        "supply_cap": asset.supply_cap.to_string(), "issuer_did": hex_encode(&asset.issuer_did),
-        "issuer_kind": asset.issuer_kind, "total_units": asset.total_units.to_string(),
-        "salt": hex_encode(&asset.salt)
-    }))
+    metadata.insert("asset_id".to_owned(), hex_encode(&asset.asset_id).into());
+    if let Some(custody) = &asset.paxeer {
+        metadata.insert("paused".to_owned(), custody.paused.into());
+    }
+    Ok(serde_json::Value::Object(metadata))
 }
 
 fn assets(config: &Config, id: Option<[u8; 32]>) -> Response {
-    let Ok((mut transport, handshake)) = super::connect_raw(config) else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    let context = snapshot_context(&handshake);
     if let Some(id) = id {
-        return match layerx_client::payments::get_asset(&mut transport, id, context) {
-            Ok(snapshot) => match asset_json(&snapshot.value) {
-                Ok(asset) => success(&serde_json::json!({
-                    "asset": asset,
-                    "observed_head_sequence": snapshot.observed_sequence.to_string(),
-                    "state_root": hex_encode(&snapshot.state_root),
-                    "verification": "authenticated_committed_snapshot"
-                })),
+        return match payments::get_asset(&config.network, id) {
+            Ok(asset) => match asset_json(&asset) {
+                Ok(asset) => success(&serde_json::json!({"asset": asset})),
                 Err(error) => error.response(),
             },
             Err(_) => refusal(503, "asset_evidence_unavailable", Some(5)),
         };
     }
-    match layerx_client::payments::list_assets(&mut transport, None, context) {
-        Ok(snapshot) => {
-            let assets = match snapshot
-                .value
+    match payments::list_assets(&config.network) {
+        Ok(table) => {
+            let assets = match table
+                .assets
                 .iter()
                 .map(asset_json)
                 .collect::<Result<Vec<_>, _>>()
@@ -120,103 +116,20 @@ fn assets(config: &Config, id: Option<[u8; 32]>) -> Response {
                 Ok(assets) => assets,
                 Err(error) => return error.response(),
             };
-            success(&serde_json::json!({
-                "assets": assets,
-                "observed_head_sequence": snapshot.observed_sequence.to_string(),
-                "state_root": hex_encode(&snapshot.state_root),
-                "verification": "authenticated_committed_snapshot"
-            }))
+            success(&serde_json::json!({"assets": assets}))
         }
         Err(_) => refusal(503, "asset_evidence_unavailable", Some(5)),
     }
 }
 
 fn did_accounts(config: &Config, did: &str) -> Response {
-    use layerx_client::{
-        evidence::RootSelector,
-        head::HeadTracker,
-        read::{ReadContext, Requested},
-    };
-    let Ok(did_value) = layerx_types::ids::Did::new(did.as_bytes()) else {
+    if layerx_types::ids::Did::new(did.as_bytes()).is_err() {
         return refusal(400, "invalid_did", None);
-    };
-    let Ok((mut transport, handshake)) = super::connect_raw(config) else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    let node = handshake.node();
-    if node.interface_version.minor < 5 {
-        return refusal(503, "did_account_listing_unavailable", Some(5));
     }
-    let context = ReadContext {
-        interface_version: node.interface_version,
-        correlation_id: 1,
-        expected_protocol_version: node.protocol_version,
-        expected_network_id: config.network_id,
-        requested: Requested::new(VerificationLevel::STATE_PROVEN),
-        head: HeadTracker::new(node).current(),
-        sequencer_authorization: SequencerAuthorization::new(
-            config.sequencer_id,
-            node.authorised_sequencer_key,
-            1,
-            u64::MAX,
-        ),
-        handshake_sequencer_key: node.authorised_sequencer_key,
-        root_selector: RootSelector::Latest,
-    };
-    let Ok(values) = layerx_client::read::did_accounts(&mut transport, &did_value, context) else {
-        return refusal(503, "did_account_listing_unavailable", Some(5));
-    };
-    if values.is_empty() {
-        return refusal(503, "did_account_listing_unavailable", Some(5));
+    match history::did_accounts(&config.network, did) {
+        Ok(accounts) => success(&serde_json::json!({"did": did, "accounts": accounts})),
+        Err(_) => refusal(503, "did_account_listing_unavailable", Some(5)),
     }
-    let mut accounts = Vec::with_capacity(values.len());
-    let mut listing = (
-        VerificationLevel::SETTLEMENT_ANCHORED,
-        "settlement_anchored",
-    );
-    for value in values {
-        let Some(verification) = verification_label(value.achieved()) else {
-            return refusal(503, "did_account_listing_unavailable", Some(5));
-        };
-        if value.achieved().compare(listing.0) == std::cmp::Ordering::Less {
-            listing = (value.achieved(), verification);
-        }
-        let bytes = value.canonical_bytes();
-        let Some(length) = bytes
-            .get(..2)
-            .map(|v| usize::from(u16::from_be_bytes([v[0], v[1]])))
-        else {
-            return refusal(502, "invalid_account_evidence", None);
-        };
-        let Some(name) = bytes
-            .get(2..2 + length)
-            .and_then(|v| std::str::from_utf8(v).ok())
-        else {
-            return refusal(502, "invalid_account_name", None);
-        };
-        let Ok(length) = u32::try_from(name.len()) else {
-            return refusal(502, "invalid_account_name", None);
-        };
-        let mut hash = Sha256::new();
-        hash.update(b"LX:ACCOUNT:v1");
-        hash.update(length.to_be_bytes());
-        hash.update(name.as_bytes());
-        let id = hash.finalize().into();
-        let Ok(account) = decode_account_value(id, bytes) else {
-            return refusal(502, "invalid_account_evidence", None);
-        };
-        accounts.push(serde_json::json!({
-            "account_id": hex_encode(&id), "name": name,
-            "asset_id": hex_encode(&account.asset_id()), "balance": account.balance().to_string(),
-            "next_sequence": account.next_sequence.to_string(), "frozen": account.frozen,
-            "canonical_value": hex_encode(bytes), "proof_material": hex_encode(value.proof_material()),
-            "observed_head_sequence": value.freshness().observed_head_sequence.to_string(),
-            "batch_number": value.freshness().batch_number.to_string(),
-            "verification": verification
-        }));
-    }
-    success(&serde_json::json!({"did": did, "accounts": accounts,
-        "verification": listing.1}))
 }
 
 fn estimate_fee(config: &Config, body: &[u8]) -> Response {
@@ -232,49 +145,33 @@ fn estimate_fee(config: &Config, body: &[u8]) -> Response {
     let Ok(canonical) = layerx_platform_core::hex_decode(hex) else {
         return refusal(400, "invalid_fee_request", None);
     };
-    let Ok(registry) = super::submission_decode_registry() else {
-        return refusal(503, "registry_unavailable", Some(5));
-    };
-    let Ok(activity) = layerx_wire::activity::decode_signed(&canonical, &registry) else {
+    let Ok((transaction, signature)) = layerx_crypto::evm_transaction::decode_signed(&canonical)
+    else {
         return refusal(400, "invalid_activity", None);
     };
-    if activity.protocol_version() != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
-        || activity.network_id() != config.network_id
-    {
-        return refusal(400, "invalid_activity_domain", None);
-    }
-    if let Err(error) = super::validate_submission_payload(&canonical, &activity, &registry) {
-        return error.response();
-    }
-    let Ok((mut transport, handshake)) = super::connect_raw(config) else {
+    let Ok(sender) = layerx_crypto::evm_transaction::recover_sender(&transaction, &signature)
+    else {
+        return refusal(400, "invalid_activity", None);
+    };
+    let Ok(chain_id) = config.sequencer.chain_id() else {
         return refusal(503, "node_unavailable", Some(5));
     };
-    let kind = activity.activity_type().value();
-    match layerx_client::payments::estimate_fee(
-        &mut transport,
-        kind,
-        canonical.len() as u64,
-        0,
-        0,
-        snapshot_context(&handshake),
-    ) {
-        Ok(snapshot) => {
-            if snapshot.value.canonical_schedule[50..82]
-                .iter()
-                .any(|byte| *byte != 0)
-            {
-                return refusal(503, "fee_execution_meter_unavailable", Some(5));
-            }
-            success(&serde_json::json!({
-                "fee": snapshot.value.fee.to_string(),
-                "parameter_version": snapshot.value.parameter_version,
-                "canonical_schedule": hex_encode(&snapshot.value.canonical_schedule),
-                "canonical_bytes": canonical.len(),
-                "observed_head_sequence": snapshot.observed_sequence.to_string(),
-                "state_root": hex_encode(&snapshot.state_root),
-                "verification": "authenticated_committed_snapshot"
-            }))
-        }
+    if transaction.chain_id != chain_id {
+        return refusal(400, "invalid_activity_domain", None);
+    }
+    let call = payments::CallRequest {
+        from: Some(sender),
+        to: Some(transaction.to),
+        value: 0,
+        data: transaction.data,
+    };
+    match payments::estimate_fee(&config.sequencer, &call) {
+        Ok(estimate) => success(&serde_json::json!({
+            "fee": estimate.fee.to_string(),
+            "parameter_version": estimate.parameter_version,
+            "canonical_schedule": hex_encode(&estimate.canonical_schedule),
+            "canonical_bytes": canonical.len()
+        })),
         Err(_) => refusal(503, "fee_evidence_unavailable", Some(5)),
     }
 }
@@ -304,9 +201,6 @@ fn asset_route(config: &Config, request: &Request) -> Response {
 }
 
 pub(super) fn route(config: &Config, request: &Request) -> Option<Response> {
-    if request.path == "/internal/v1/wallet-caps" {
-        return Some(super::caps_reads::read(config, request));
-    }
     if request.path == "/v1/assets" || request.path.starts_with("/v1/assets/") {
         return Some(asset_route(config, request));
     }
@@ -409,7 +303,6 @@ fn node_info(config: &Config) -> Response {
 }
 
 fn evidence(config: &Config, kind: &str, id: &str) -> Response {
-    use layerx_client::evidence::CheckpointSelector;
     if kind == "batches" {
         let Ok(number) = id.parse::<u64>() else {
             return refusal(400, "invalid_batch", None);
@@ -417,36 +310,25 @@ fn evidence(config: &Config, kind: &str, id: &str) -> Response {
         if number == 0 || number.to_string() != id {
             return refusal(400, "invalid_batch", None);
         }
-        let Ok(mut client) = connect_client(config) else {
-            return refusal(503, "node_unavailable", Some(5));
-        };
-        return match client.batch_header(number, 1) {
-            Ok(header) => success(&serde_json::json!({
-                "batch_number": number.to_string(), "canonical_header": hex_encode(header.canonical_bytes()),
-                "signature": hex_encode(&header.signature), "sequencer_id": hex_encode(&header.sequencer_id),
-                "sequencer_public_key": hex_encode(&header.sequencer_public_key),
-                "first_batch_number": header.first_batch_number.to_string(),
-                "last_batch_number": header.last_batch_number.to_string()
-            })),
+        return match layerx_client::rpc::batch::lookup(&config.sequencer, number) {
+            Ok(block) => success(&serde_json::json!({"batch_number": block.number.to_string()})),
             Err(_) => refusal(503, "batch_evidence_unavailable", Some(5)),
         };
     }
-    let Ok(id) = fixed_hex::<32>("checkpoint_id", id) else {
+    let Ok(identifier) = fixed_hex::<32>("checkpoint_id", id) else {
         return refusal(400, "invalid_checkpoint", None);
     };
-    if id == [0; 32] {
+    if identifier == [0; 32] {
         return refusal(400, "invalid_checkpoint", None);
     }
-    let Ok(mut client) = connect_client(config) else {
+    let Ok(head) = config.network.network() else {
         return refusal(503, "node_unavailable", Some(5));
     };
-    match client.checkpoint_evidence(CheckpointSelector::Identifier(id), 1) {
-        Ok(checkpoint) => success(&serde_json::json!({
-            "checkpoint_id": hex_encode(&id), "checkpoint": hex_encode(checkpoint.checkpoint_bytes()),
-            "context": hex_encode(checkpoint.context_bytes()),
-            "canonical_header": hex_encode(checkpoint.canonical_header())
+    match evidence_rpc::checkpoint(&config.sequencer, head.latest_committed_height) {
+        Ok(checkpoint) if checkpoint.hash == identifier => success(&serde_json::json!({
+            "checkpoint_id": hex_encode(&checkpoint.hash)
         })),
-        Err(_) => refusal(503, "checkpoint_evidence_unavailable", Some(5)),
+        _ => refusal(503, "checkpoint_evidence_unavailable", Some(5)),
     }
 }
 
@@ -469,63 +351,98 @@ fn sequence(config: &Config, did: &str) -> Response {
 }
 
 fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Response {
-    use layerx_client::evidence::{ProofBundleSelector, VerifiedProofBundle};
     let Ok(identifier) = fixed_hex::<32>("activity_id", id) else {
         return refusal(400, "invalid_proof_selector", None);
     };
-    if identifier == [0; 32] {
+    if identifier == [0; 32] || !matches!(kind, "activity" | "receipt" | "account") {
         return refusal(400, "invalid_proof_selector", None);
     }
-    let selector = match kind {
-        "activity" => ProofBundleSelector::Activity(identifier),
-        "receipt" => ProofBundleSelector::Receipt(identifier),
-        "account" => {
-            let Some(account) = account else {
-                return refusal(400, "invalid_proof_selector", None);
-            };
-            let Ok(account_id) = fixed_hex::<32>("account_id", account) else {
-                return refusal(400, "invalid_proof_selector", None);
-            };
-            if account_id == [0; 32] {
-                return refusal(400, "invalid_proof_selector", None);
-            }
-            ProofBundleSelector::AccountState {
-                activity_id: identifier,
-                account_id,
-            }
+    let selected_account = if kind == "account" {
+        let Some(account) = account else {
+            return refusal(400, "invalid_proof_selector", None);
+        };
+        let Ok(account_id) = fixed_hex::<32>("account_id", account) else {
+            return refusal(400, "invalid_proof_selector", None);
+        };
+        if account_id == [0; 32] {
+            return refusal(400, "invalid_proof_selector", None);
         }
-        _ => return refusal(400, "invalid_proof_selector", None),
+        Some(account_id)
+    } else {
+        None
     };
-    let Ok(registry) = super::submission_registry() else {
-        return refusal(503, "registry_unavailable", Some(5));
-    };
-    let Ok(mut client) = connect_client(config) else {
+    let Ok(keys) = config.sequencer.receipt_keys() else {
         return refusal(503, "node_unavailable", Some(5));
     };
-    let Ok(bundle) = client.proof_bundle(selector, 1, &registry) else {
+    let Ok(layerx_client::rpc::receipt::Lookup::Verified(receipt)) =
+        layerx_client::rpc::receipt::lookup(
+            &config.sequencer,
+            identifier,
+            layerx_client::rpc::receipt::LookupContext {
+                receipt_keys: &keys,
+            },
+        )
+    else {
         return refusal(503, "proof_evidence_unavailable", Some(5));
     };
-    let proof = match &bundle {
-        VerifiedProofBundle::Activity { proof, .. }
-        | VerifiedProofBundle::Receipt { proof, .. } => {
-            serde_json::json!({"leaf_index": proof.leaf_index(), "leaf_count": proof.leaf_count(),
-                "siblings": proof.siblings().iter().map(|v| hex_encode(v)).collect::<Vec<_>>()})
-        }
-        VerifiedProofBundle::Account { proof_material, .. }
-        | VerifiedProofBundle::MaintainedAccount { proof_material, .. } => {
-            serde_json::json!({"canonical_bytes": hex_encode(proof_material)})
-        }
+    let address = if let Some(account_id) = selected_account {
+        let Ok(joined) = config.network.account(&hex_encode(&account_id)) else {
+            return refusal(503, "node_unavailable", Some(5));
+        };
+        let Some(address) = joined.account.evm_address else {
+            return refusal(503, "proof_evidence_unavailable", Some(5));
+        };
+        address
+    } else {
+        receipt.execution().from
     };
-    let header = bundle.signed_header();
-    success(&serde_json::json!({
-        "kind": kind, "activity_id": id, "canonical_value": hex_encode(bundle.canonical_bytes()),
-        "proof": proof, "account_id": account,
-        "signed_header": {"canonical_header": hex_encode(&header.canonical_bytes),
-            "signature": hex_encode(&header.signature), "sequencer_id": hex_encode(&header.sequencer_id),
-            "public_key": hex_encode(&header.public_key),
-            "first_batch_number": header.first_batch_number.to_string(),
-            "last_batch_number": header.last_batch_number.to_string()}
-    }))
+    let Ok(head) = config.network.network() else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
+    if receipt.rung() != Rung::Committed || receipt.height() > head.latest_committed_height {
+        return refusal(503, "proof_evidence_unavailable", Some(5));
+    }
+    let bundle = if kind == "account" {
+        evidence_rpc::proof_bundle_with_history(
+            &config.sequencer,
+            address,
+            &[],
+            head.latest_committed_height,
+        )
+    } else {
+        evidence_rpc::proof_bundle(
+            &config.sequencer,
+            address,
+            &[],
+            head.latest_committed_height,
+        )
+    };
+    let Ok(bundle) = bundle else {
+        return refusal(503, "proof_evidence_unavailable", Some(5));
+    };
+    let mut result = serde_json::json!({
+        "kind": kind, "activity_id": id, "account_id": account,
+        "proof": {"address": hex_encode(&bundle.account_proof.address),
+            "account_proof": bundle.account_proof.account_proof.iter().map(|node| hex_encode(node)).collect::<Vec<_>>()},
+        "verification": verification_label(receipt.rung())
+    });
+    if kind == "receipt" {
+        result["canonical_value"] = hex_encode(receipt.canonical_bytes()).into();
+    } else if kind == "activity" {
+        let Some(landing) = receipt.landing() else {
+            return refusal(503, "proof_evidence_unavailable", Some(5));
+        };
+        let Ok(block) = evidence_rpc::checkpoint(&config.sequencer, landing.block_number) else {
+            return refusal(503, "proof_evidence_unavailable", Some(5));
+        };
+        let Some(transaction) = block.transactions.iter().find(|transaction| {
+            layerx_crypto::evm_transaction::transaction_hash(transaction) == identifier
+        }) else {
+            return refusal(503, "proof_evidence_unavailable", Some(5));
+        };
+        result["canonical_value"] = hex_encode(transaction).into();
+    }
+    success(&result)
 }
 
 fn receipt_event(config: &Config, request: &Request, sequence: &str) -> Response {
@@ -591,20 +508,19 @@ fn valid_fee_request(body: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    fn asset(symbol: &[u8]) -> layerx_client::payments::AssetMetadata {
-        layerx_client::payments::AssetMetadata {
+    fn asset(symbol: &[u8]) -> super::PxAssetEntry {
+        let symbol = match std::str::from_utf8(symbol) {
+            Ok(symbol) => serde_json::Value::String(symbol.to_owned()),
+            Err(_) => serde_json::json!(symbol),
+        };
+        super::PxAssetEntry {
             asset_id: [1; 32],
-            symbol: symbol.to_vec(),
-            name: "Test asset".to_owned(),
-            decimals: 6,
-            custody_kind: 1,
-            custody_reference: Vec::new(),
-            paused: false,
-            supply_cap: 0,
-            issuer_did: [2; 32],
-            issuer_kind: 2,
-            total_units: 1,
-            salt: [3; 32],
+            layerx: Some(serde_json::Map::from_iter([
+                ("symbol".to_owned(), symbol),
+                ("name".to_owned(), "Test asset".into()),
+                ("decimals".to_owned(), 6.into()),
+            ])),
+            paxeer: None,
         }
     }
 

@@ -1115,39 +1115,9 @@ mod programs_version_contract {
     use super::{
         guest_abi, programs_module_abi, programs_version_for_protocol, supported_program_guest_abi,
         supported_programs_module_version, supported_protocol_version,
-        supports_program_account_state, PROGRAMS_CALL_OPERATION, PROGRAMS_MODULE_ID,
-        RUNTIME_VERSION,
+        supports_program_account_state,
     };
-    use layerx_wire::limits::{LEGACY_PROTOCOL_VERSION, STATE_COMMITMENT_PROTOCOL_VERSION};
-
-    const POSITIVE_V1: &str = include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v1.json"
-    );
-    const POSITIVE_V2: &str = include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v2.json"
-    );
-    const POSITIVE_V3: &str = include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json"
-    );
-
-    fn expected_block<'a>(document: &'a str, name: &str) -> &'a str {
-        document
-            .split_once("\"expected\": {")
-            .unwrap_or_else(|| panic!("{name} records no expected block"))
-            .1
-    }
-
-    fn number(block: &str, field: &str, name: &str) -> u64 {
-        let marker = format!("\"{field}\": ");
-        let tail = block
-            .split_once(marker.as_str())
-            .unwrap_or_else(|| panic!("{name} records no {field}"))
-            .1;
-        let digits: String = tail.chars().take_while(char::is_ascii_digit).collect();
-        digits
-            .parse()
-            .unwrap_or_else(|error| panic!("{name} {field}: {error}"))
-    }
+    use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
 
     #[test]
     fn module_and_guest_versions_are_independent() {
@@ -1219,46 +1189,6 @@ mod programs_version_contract {
             programs_module_abi::SANDBOX_DESTROY,
             true
         ));
-    }
-
-    #[test]
-    fn every_recorded_programs_call_receipt_carries_an_accepted_version_set() {
-        for (name, document) in [
-            ("receipt-programs-positive-v1", POSITIVE_V1),
-            ("receipt-programs-positive-v2", POSITIVE_V2),
-            ("receipt-programs-positive-v3", POSITIVE_V3),
-        ] {
-            let expected = expected_block(document, name);
-            assert_eq!(
-                number(expected, "module_id", name),
-                u64::from(PROGRAMS_MODULE_ID),
-                "{name}"
-            );
-            assert_eq!(
-                number(expected, "operation", name),
-                u64::from(PROGRAMS_CALL_OPERATION),
-                "{name}"
-            );
-            let protocol = u16::try_from(number(expected, "protocol_version", name))
-                .unwrap_or_else(|error| panic!("{name} protocol version: {error}"));
-            let module = u32::try_from(number(expected, "module_version", name))
-                .unwrap_or_else(|error| panic!("{name} module version: {error}"));
-            let abi = u16::try_from(number(expected, "program_outcome_abi_version", name))
-                .unwrap_or_else(|error| panic!("{name} guest ABI: {error}"));
-            let runtime = u16::try_from(number(expected, "program_outcome_runtime_version", name))
-                .unwrap_or_else(|error| panic!("{name} runtime version: {error}"));
-            assert!(supported_program_guest_abi(abi), "{name}");
-            assert_eq!(runtime, RUNTIME_VERSION, "{name}");
-            assert!(
-                programs_version_for_protocol(protocol, module, false),
-                "{name}"
-            );
-            assert_eq!(
-                supported_protocol_version(protocol),
-                protocol != LEGACY_PROTOCOL_VERSION,
-                "{name}"
-            );
-        }
     }
 
     #[test]

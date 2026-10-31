@@ -1,5 +1,8 @@
 //! Production operation owner for the authenticated Human-to-agent boundary.
 
+#[path = "read/balance.rs"]
+pub mod read;
+
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
@@ -11688,6 +11691,13 @@ fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     }
 }
 
+pub(crate) fn receipt_rung_code(level: VerificationLevel) -> Result<u8, HumanOperationError> {
+    level
+        .rung()
+        .map(layerx_types::rung::Rung::wire_rank)
+        .ok_or(HumanOperationError::Refused)
+}
+
 impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     fn owner_replay(
         &self,
@@ -13524,7 +13534,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 out.fixed(&authority.previous_state_root());
                 out.fixed(&authority.resulting_state_root());
                 out.fixed(&authority.sequencer_public_key());
-                out.u8(served.metadata.verification_level.wire_rank());
+                out.u8(receipt_rung_code(served.metadata.verification_level)?);
             }
         }
         out.finish()
@@ -15181,8 +15191,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let _ = (currency, observed_at, authorization);
         let config = read_rpc_config()?;
         let endpoint = read_rpc_endpoint(&config)?;
-        let address = self.read_bound_address(peer, &endpoint)?;
-        let value = crate::read::balance(&config, address, None)
+        self.read_bound_address(peer, &endpoint)?;
+        let value = read::ledger_balance(&config, account, asset, None)
             .map_err(|_| HumanOperationError::Unavailable)?;
         read_json_response(balance_operation_value(
             account,

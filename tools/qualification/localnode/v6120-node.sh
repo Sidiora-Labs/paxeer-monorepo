@@ -49,6 +49,94 @@ rpc() {
             '{jsonrpc:"2.0",id:1,method:$method,params:$params}')" "$EVM"
 }
 
+require_merge_precompiles() {
+    local suffix address response data
+    local missing=()
+    for suffix in 101A 101B 101C 101D 0901 0902 0903 0904 0905 0906 0907 0908; do
+        address=0x000000000000000000000000000000000000$suffix
+        response=$(rpc eth_call "[{\"to\":\"$address\",\"data\":\"0xffffffff\"},\"latest\"]")
+        if jq -e '.result == "0x" and .error == null' <<< "$response" >/dev/null; then
+            missing+=("$address")
+        elif ! jq -e '.result == null and .error.code == 3
+            and (.error.message | strings |
+                contains("LXP_PRECOMPILE_UNKNOWN_METHOD") or contains("LXP_AGENT_NOT_ACTIVE"))' \
+            <<< "$response" >/dev/null; then
+            fail "unexpected merge precompile rejection at $address: $response"
+        fi
+    done
+    if [ "${#missing[@]}" -gt 0 ]; then
+        fail "merge precompiles are not ready; addresses without handlers: ${missing[*]}"
+    fi
+    address=0x000000000000000000000000000000000000101A
+    printf -v data '0x3f050cbc%s%064x' \
+        1111111111111111111111111111111111111111111111111111111111111111 0
+    response=$(rpc eth_call "[{\"to\":\"$address\",\"data\":\"$data\"},\"latest\"]")
+    jq -e '(.error == null) and (.result | strings | test("^0x[0-9a-fA-F]{64}$"))' \
+        <<< "$response" >/dev/null || fail "native ledger accountId failed: $response"
+}
+
+governance_tx() {
+    local response hash deadline=$((SECONDS + 30))
+    response=$("$PAXD" tx gov "$@" --from validator --home "$NODE_HOME" \
+        --keyring-backend test --chain-id "$CHAIN" --node "$NODE" \
+        --gas 2000000 --fees 1000000uhpx -b sync -o json -y)
+    jq -e '(.code // 0) == 0 and (.txhash | test("^[0-9A-Fa-f]{64}$"))' \
+        <<< "$response" >/dev/null || fail "governance broadcast rejected: $response"
+    hash=$(jq -r '.txhash' <<< "$response")
+    while ! response=$("$PAXD" q tx "$hash" --node "$NODE" -o json 2>/dev/null); do
+        kill -0 "$(cat "$NODE_HOME/node.pid")" 2>/dev/null || fail "node exited: $NODE_HOME/node.log"
+        (( SECONDS < deadline )) || fail "governance transaction did not commit: $hash"
+        sleep 0.2
+    done
+    jq -e '(.code // 0) == 0' <<< "$response" >/dev/null \
+        || fail "governance transaction failed: $response"
+}
+
+activate_merge() {
+    local height info proposal applied deadline=$((SECONDS + 120))
+    height=$(rpc eth_blockNumber | jq -er '.result')
+    height=$((height + 20))
+    info=$(python3 - "$NODE_HOME/config/priv_validator_key.json" "$height" <<'PY'
+import base64
+import hashlib
+import json
+import sys
+with open(sys.argv[1]) as handle:
+    public_key = json.load(handle)['pub_key']['value']
+print(json.dumps({
+    'upgradeType': 'minor',
+    'leaders': [public_key],
+    'receipt_keys': [{
+        'key_id': base64.b64encode(hashlib.sha256(base64.b64decode(public_key)).digest()).decode(),
+        'public_key': public_key,
+        'first_height': int(sys.argv[2]) + 1,
+        'last_height': 9223372036854775807,
+    }],
+    'last_seq': 0,
+}))
+PY
+)
+    governance_tx submit-proposal software-upgrade v7.0 --upgrade-height "$height" \
+        --upgrade-info "$info" --title 'Activate the local merge precompiles' \
+        --description 'Apply the merge plan on the disposable local chain.' --deposit 10000000uhpx
+    proposal=$("$PAXD" q gov proposals --node "$NODE" -o json | jq -er \
+        '.proposals[] | select(.content.plan.name == "v7.0") | .proposal_id')
+    governance_tx vote "$proposal" yes
+    while :; do
+        kill -0 "$(cat "$NODE_HOME/node.pid")" 2>/dev/null || fail "node exited: $NODE_HOME/node.log"
+        if grep -q 'ProcessBlock panic:' "$NODE_HOME/node.log"; then
+            fail "merge upgrade failed: $NODE_HOME/node.log"
+        fi
+        if applied=$("$PAXD" q upgrade applied v7.0 --node "$NODE" -o json 2>/dev/null) \
+            && [ "$(jq -r '.header.height' <<< "$applied")" = "$height" ]; then
+            break
+        fi
+        (( SECONDS < deadline )) || fail "merge upgrade readiness timed out: $NODE_HOME/node.log"
+        sleep 0.5
+    done
+    require_merge_precompiles
+}
+
 wait_receipt() {
     local hash=$1 receipt deadline=$((SECONDS + 60))
     [[ "$hash" =~ ^0x[0-9a-fA-F]{64}$ ]] || fail "missing EVM transaction hash"
@@ -309,6 +397,16 @@ with open(path, 'w') as handle:
     json.dump(genesis, handle)
 PY
 jq --slurpfile init "$NODE_HOME/init-genesis.json" '
+    reduce ["layerxledger", "layerxauth", "layerxpay", "layerxagent"][] as $module (.;
+      if .app_state[$module] == null then
+        .app_state[$module] = ($init[0].app_state[$module]
+          // error("missing merge module genesis: " + $module))
+      else . end)
+' "$GENESIS" > "$GENESIS.tmp"
+mv "$GENESIS.tmp" "$GENESIS"
+jq '.app_state.gov.voting_params.voting_period = "5s"' "$GENESIS" > "$GENESIS.tmp"
+mv "$GENESIS.tmp" "$GENESIS"
+jq --slurpfile init "$NODE_HOME/init-genesis.json" '
     .app_state = ($init[0].app_state + .app_state)
 ' "$GENESIS" > "$NODE_HOME/validation-genesis.json"
 "$PAXD" validate-genesis "$NODE_HOME/validation-genesis.json" --home "$NODE_HOME" > "$NODE_HOME/validate-genesis.log" 2>&1
@@ -418,6 +516,7 @@ while :; do
     (( SECONDS < deadline )) || fail "BTC price did not become fresh: $NODE_HOME/feeder.log"
     sleep 0.2
 done
+activate_merge
 {
     printf 'LOCAL_NODE_RPC=%q\n' "$EVM"
     printf 'LOCAL_NODE_KEY=%q\n' "0x$KEY"

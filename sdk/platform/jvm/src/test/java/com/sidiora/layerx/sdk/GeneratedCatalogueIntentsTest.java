@@ -89,9 +89,9 @@ public final class GeneratedCatalogueIntentsTest {
     }
 
     @Test
-    void verificationLevelsUseBlockCommitted() throws Exception {
-        var committed = GeneratedSchema.HumanModels.HumanVerificationLevel.BLOCK_COMMITTED;
-        assertEquals(Set.of("unverified", "receipt-verified", "block-committed"),
+    void verificationLevelsFollowTheHumanSchema() throws Exception {
+        var committed = GeneratedSchema.HumanModels.HumanVerificationLevel.CHECKPOINT_FINALISED;
+        assertEquals(Set.of("unverified", "receipt-verified", "checkpoint-finalised"),
             Arrays.stream(GeneratedSchema.HumanModels.HumanVerificationLevel.values())
                 .map(GeneratedSchema.HumanModels.HumanVerificationLevel::wire).collect(Collectors.toSet()));
         for (var level : GeneratedSchema.HumanModels.HumanVerificationLevel.values()) {
@@ -99,14 +99,14 @@ public final class GeneratedCatalogueIntentsTest {
             assertEquals(level, JSON.readValue(JSON.writeValueAsBytes(level),
                 GeneratedSchema.HumanModels.HumanVerificationLevel.class));
         }
-        for (String retired : List.of("checkpoint-finalised", "paxeer-finalised", "settlement-anchored")) {
+        for (String retired : List.of("block-committed", "paxeer-finalised", "settlement-anchored")) {
             assertThrows(IllegalArgumentException.class,
                 () -> GeneratedSchema.HumanModels.HumanVerificationLevel.fromWire(retired));
             assertThrows(DatabindException.class, () -> JSON.readValue(JSON.writeValueAsBytes(retired),
                 GeneratedSchema.HumanModels.HumanVerificationLevel.class));
         }
         ObjectNode evidence = JSON.createObjectNode().put("evidence_id", "receipt-1")
-            .put("class", "layerx-receipt").put("verification", "block-committed");
+            .put("class", "layerx-receipt").put("verification", "checkpoint-finalised");
         var reference = JSON.treeToValue(evidence, GeneratedSchema.HumanModels.EvidenceRef.class);
         assertEquals(committed, reference.verification());
         assertEquals(evidence, JSON.valueToTree(reference));
