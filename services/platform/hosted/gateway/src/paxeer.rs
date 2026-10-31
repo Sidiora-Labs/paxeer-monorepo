@@ -794,36 +794,6 @@ fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     })
 }
 
-fn anchor_head(config: &Config) -> Value {
-    let Ok(answer) = call(
-        &mut |request| node(config, request),
-        &evm::ANCHOR_PRECOMPILE,
-        &evm::calldata_empty(evm::SELECTOR_LATEST_FINALIZED),
-    ) else {
-        return Value::Null;
-    };
-    let Ok((batch, exists)) = evm::decode_latest_finalized(&answer) else {
-        return Value::Null;
-    };
-    let status = if exists {
-        call(
-            &mut |request| node(config, request),
-            &evm::ANCHOR_PRECOMPILE,
-            &evm::calldata_u64(evm::SELECTOR_STATUS_OF, batch),
-        )
-        .ok()
-        .and_then(|answer| evm::decode_u8(&answer).ok())
-    } else {
-        None
-    };
-    json!({
-        "latest_finalized_batch": exists.then_some(batch),
-        "status": status,
-        "status_name": status.map(evm::anchor_status_name),
-        "status_ladder": {"0": "unknown", "1": "submitted", "2": "final"}
-    })
-}
-
 fn get_network(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     if config.paxeer.is_none() {
         return unconfigured(id);
@@ -847,36 +817,29 @@ fn get_network(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         Ok(block) => block,
         Err(code) => return unavailable(id, code),
     };
-    let node_info = super::rpc::read_result(config, "/v1/node-info").unwrap_or(Value::Null);
-    let anchor = anchor_head(config);
-    let kernel = kernel_availability(config, &node_info, &anchor);
+    let consensus = super::chain_reads::consensus_head(config, id);
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "result": {
-            "network_id": config.network_id,
-            "paxeer": {"chain_id": chain_id, "latest_block": block},
-            "layerx": {"node_info": node_info},
-            "anchor": anchor,
-            "kernel": kernel
-        }
+        "result": network_result(&config.network_id, &chain_id, &block, consensus)
     })
 }
 
-fn kernel_availability(config: &Config, node_info: &Value, anchor: &Value) -> Value {
-    let reason = match config.backend(super::KernelBackend::PublicCore) {
-        Err(unavailable) => unavailable.reason,
-        Ok(_) if node_info.is_null() => "unreachable",
-        Ok(_)
-            if anchor
-                .get("latest_finalized_batch")
-                .is_none_or(Value::is_null) =>
-        {
-            "no_finalised_checkpoint"
-        }
-        Ok(_) => "available",
-    };
-    json!({"available": reason == "available", "reason": reason})
+pub(super) fn network_result(
+    network_id: &str,
+    chain_id: &str,
+    latest_block: &str,
+    consensus: Option<super::chain_reads::ConsensusHead>,
+) -> Value {
+    let mut result = json!({
+        "network_id": network_id,
+        "paxeer": {"chain_id": chain_id, "latest_block": latest_block},
+        "consensus": consensus
+    });
+    if consensus.is_none() {
+        result["reason"] = json!("consensus_unavailable");
+    }
+    result
 }
 
 /// Answers every unified and relayed EVM method, or `None` when the method
