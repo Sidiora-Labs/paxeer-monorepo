@@ -464,11 +464,11 @@ func readAmount(amount C.struct_lxp_u128) sdk.Int {
 }
 
 func (h *Host) withRead(ctx sdk.Context, modules []uint16, read func(*C.lxphost_read_state) error) (err error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.node == nil {
-		return codeNonCanonical
+	node, err := h.borrowNode()
+	if err != nil {
+		return err
 	}
+	defer h.returnNode(node)
 	branch := &branchCtx{store: ctx.KVStore(h.cfg.StoreKey)}
 	last, err := branch.lastSequence()
 	if err != nil {
