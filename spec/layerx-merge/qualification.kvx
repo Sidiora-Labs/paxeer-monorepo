@@ -14411,3 +14411,147 @@ symbol = "standby_power"
 observed = "Attempt 18 (110c9d81f) adds the standby to genesis as a second bonded validator with a third of the power and as the second sequencer leader; the standby's consensus then proposes every fourth height and fails with 'sequencer: no sealed layer' (standby.log 12:57:28.868, 12:57:40.903, ...), and the primary's replication reads time out on the standby listener at those same seconds ('standby did not acknowledge: read tcp ...->127.0.0.1:55013: i/o timeout', node.log 12:57:28.247, 12:57:40.495, ...); the transfer then fails with 'method handler crashed' from eth_sendRawTransaction and node.log carries no 'RPC method ... crashed' line."
 assumption = "A standby leader that is also a proposer blocks its own replication acknowledgement while it is asked to seal; whether a standby may hold validator power is the node runtime owners' question. The handler crash is logged by core/deps/geth/rpc/service.go:200 at error level only if that logger reaches node.log."
 severity = "owner"
+
+[finding.8.47.11.2]
+task = "8.47.11"
+file = "services/agent/crates/layerx-proof/src/program.rs:854"
+symbol = "terminal_binding_tests"
+observed = "Attempts 1 to 3 of 8.47.11 (17cbdd8cb, 9940ca91d among them) fail the layerx-proof library test build: mod terminal_binding_tests includes sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json, which task 8.47.6 (d756f1d3b) deleted with the kernel programs terminal v4 vectors."
+assumption = "The module's single test binds a terminal code to a signed outcome recorded in that fixture; without the vectors it has no input, and removing it belongs to the task that makes the proof library tests build again, 8.47.11."
+severity = "cross-task"
+
+[finding.8.98.3.3]
+task = "8.98.3"
+file = "services/platform/hosted/authority/src/main.rs:858"
+symbol = "verify_withdrawal_request"
+observed = "Attempt 5 of 8.98.3 stopped on decision 2083's condition: rpc::evidence::ProofBundle (layerx-client src/rpc/evidence.rs:9-12) carries an account proof and the landing block, the replica document (BatchEvidence, authority src/lib.rs:97-106) carries the header, its signature, the receipt proof and the batch identity, and layerx-client's JSON-RPC surface has no read of a signed activity by activity id, so the signed_activity argument of layerx_proof::receipt::withdrawal::verify (receipt/withdrawal.rs:179-185) cannot be obtained by the authority."
+assumption = "The receipt authority stops re-verifying a withdrawal receipt against its signed activity; the receipt stays bound to its batch through authorized_batch_by_activity and the gateway verifies withdrawal semantics at submission (gateway src/main.rs:2903-2931). Whether the replica document should carry the canonical activity so the authority can verify it again is the platform owners' question."
+severity = "owner"
+
+[finding.18.1205.1.2]
+task = "18.1205.1"
+file = "services/agent/crates/layerx-proof/src/checkpoint.rs:477"
+symbol = "verify_certificate"
+observed = "Attempt 7 of 18.1205.1 (40be44b8b) built the Committed cache value through verify_certificate as decision 2085 says and it fails with Configuration(Json(MissingField('schema'))): verify_certificate reads settlement::maximum_attestation_delay_ms() from the embedded contracts/config/checkpoint-settlement.json (src/settlement.rs:11-12, :66, :79), which since b284707f6 holds only chain_id and offline_export; ThresholdReport (:280) has private fields and verify_certificate as its only constructor, and inclusion evidence reaches at most StateProven (Rung::Receipted)."
+assumption = "No code path on main produces a CHECKPOINT_FINALISED (Committed) cache value until task 9.27.4 (wave 37) deletes the certificate verifier and the document; the degraded-mode test proves capping with a Receipted value. How the Committed rung is reached afterwards is the proof owners' question."
+severity = "owner"
+
+[finding.18.1272.1.1]
+task = "18.1272.1"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:315"
+symbol = "decode_method"
+observed = "Attempt 6 of 18.1272.1 (570af0da6) built the ledger send(bytes) call carrying the Governance payload and bind_call refuses it with MalformedPayload: decode_method admits send(bytes) to 0x101a only when decode_send (src/disclosure.rs:293) decodes an Asset send, handles only 0x101a, 0x101b and the bank send (:241, :349, :387), and the ledger precompile exposes no lifecycle method, so production bound_activity's LedgerSend arm (human-service src/agents/create.rs:562-579, task 10.97.1) is unreachable and no EIP-1559 transaction carries the DidRegistration or RecoveryRegistration payload of an agent creation."
+assumption = "Which call carries a lifecycle registration (a ledger method, the layerxauth precompile, or another construct) is the owners' decision for the agent creation path; the test cannot drive the two Governance stages until a task provides it."
+severity = "owner"
+
+[finding.18.1188.2.4]
+task = "18.1188.2"
+file = "services/agent/crates/layerx-crypto/src/disclosure/native.rs:220"
+symbol = "account_id"
+observed = "Attempt 8 of 18.1188.2 (378650fe1) routed the budget defund through prepare_budget_mutation_for_protocol with a context whose owner and budget accounts were derived with layerx_intents::canonical::PROTOCOL_VERSION, and bound_context (:339-363) answered MalformedPayload: it derives the owner, budget and per-asset account ids with hash::account_id_for_protocol(&account, 3) whatever protocol version the preparation runs at."
+assumption = "The context binding pins the account derivation to protocol 3 while prepare_budget_mutation_for_protocol takes the caller's protocol version; whether the derivation should follow the preparation's protocol is the crypto owners' question. The test double derives with 3."
+severity = "owner"
+
+[finding.8.98.14.2]
+task = "8.98.14"
+file = "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs:172"
+symbol = "call_fixture"
+observed = "Attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) cannot build the authority tests: tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json, deleted by 8.47.5, and src/lib.rs:620 pulls the file into the library test, so every task whose build names -p layerx-platform-authority --tests stops at that include."
+assumption = "call_fixture feeds one test, call_outcome_cannot_be_reclassified_as_state (:262-274); the other two tests read tests/fixtures/real-program-deploy-receipt.json through state_fixture (:11-14), which exists, so deleting the fixture reader and its one consumer restores the build without changing what the crate proves about deploy receipts."
+severity = "cross-task"
+
+[finding.8.98.3.4]
+task = "8.98.3"
+file = "services/platform/hosted/authority/src/human.rs:588"
+symbol = "checkpoint_for"
+observed = "Attempt 6 of 8.98.3 (6a83e2d41) ported checkpoint_for and checkpoint_header to rpc::evidence::checkpoint and the authority binary failed with nine errors: human/budget_state.rs:5 imports LNI_FRAME_BYTES and MAX_LNI_CONNECTIONS, :77 and :256 open Uds::connect(&config.lni_socket, &config.lni_gate), :103 calls trust::checkpoint; human.rs:579 and human/dynamic.rs:563 store the result as Option<VerifiedCheckpoint> and human.rs:588 calls canonical_header() on it, which rpc SequencerBlock (sequencer.rs:190-200: number, hash, parent_hash, timestamp, transactions_root) does not carry."
+assumption = "The human readers (human.rs:134, :1013, :1025, :1037; dynamic.rs:141, :570) consume VerifiedCheckpoint methods, canonical_header and report().evidence().checkpoint_id(), that no rpc type offers, and decisions 2057 and 2058 already keep budget_state.rs on the socket reads until 8.98.14; no task ports the human checkpoint readers, so the authority keeps trust::checkpoint and the socket configuration until one is specified."
+severity = "owner"
+
+[finding.16.33.5.1]
+task = "16.33.5"
+file = "tests/programs/test_call_activity.c:2915"
+symbol = "program_spend_failure"
+observed = "Attempt 9 (e3d2eda13) built and tests/ci/test_retired_programs_batch.py failed because build/tests/programs_call_activity exited 1 at 'Program-owned spend failed at line=2915': the activity at :2895-2914 expects receipt.result_code and program_outcome.result_code LXP_ERR_NON_CANONICAL and the kernel answers LXP_ERR_PROGRAM_REFUSED (a planning refusal, src/protocol/lxp_kernel.c:5335-5352)."
+assumption = "The task changed only the replay expectations at :1439 and :1466, so the mismatch is on main already; which commit moved the kernel's code is not recorded here."
+severity = "cross-task"
+
+[finding.12.35.4.16]
+task = "12.35.4"
+file = "consensus/internal/consensus/types/round_state.go:537"
+symbol = "validator not in committee"
+observed = "Attempt 19 of 12.35.4 (ef91a499c) built and the qualification failed before the Go test ran: the acknowledgement timeout persisted and the log then reported 'validator ... not in committee' at consensus/internal/consensus/types/round_state.go:537 while the replication endpoints matched."
+assumption = "Nineteen attempts have not shown whether the standby's validator key belongs to the committee the fixture seals; the correlation between the standby identity and the committee needs a product ruling before another attempt runs."
+severity = "owner"
+
+[finding.10.0.3.2]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:147"
+symbol = "Fixture::open"
+observed = "Attempt 5 (40dd6adae) built and both tests failed with 'real in-process agent requires LAYERX_AGENT_HUMAN_NODE_LNI (native node LNI)': the fixture's agent branch (:147-183) demands a native node socket, the authority endpoint, bearer and CA and LAYERX_HUMAN_AGENT_ACTOR from the environment, which the qualification environment does not provide (tests/production_unhooked.rs:160-175 needs LAYERX_TEST_AGENTD_BIN, LAYERX_TEST_NATIVE_BIN_DIR and root for the same reason and is not this task's gate)."
+assumption = "Decision 2071 (do_10) already rules the test self-contained with the agent side served in process by RealAgentLayer (tests/intent_submit.rs:326, :385), which reads no environment variable and opens no node socket; attempt 5 chose the external-node path instead."
+severity = "cross-task"
+
+[finding.8.45.4.1]
+task = "8.45.4"
+file = "sdk/platform/pipeline.kvx:252"
+symbol = "pipeline_lock_matches_repository"
+observed = "Attempt 5 (bf181d7df) ran layerx-platform-sdkgen --write, saw it refresh digests and handwritten lists across sdk/platform/pipeline.kvx and rewrite sdk/platform/go/generated.go and the JVM GeneratedContract.java beyond the two moved items, treated the whole as the do_8 stop condition, restored the regenerated files and stopped without the verify."
+assumption = "The do_8 stop condition names generated.go only; the pipeline.kvx changes are the reseal do_1 asks for, and the generated.go and GeneratedContract.java reversions are hand edits that 8.46.1, 8.46.2, 8.46.4 and 18.1308.2 made inside files whose header says DO NOT EDIT, which the generator cannot reproduce from the schemas."
+severity = "cross_task"
+
+[finding.8.45.4.2]
+task = "8.45.4"
+file = "sdk/platform/go/generated.go:467"
+symbol = "HumanOperation.Metadata"
+observed = "intent.plan and intent.submit carry Method eth_call and eth_sendRawTransaction with an empty Path (8.46.1), while the human schema declares POST /v1/intents/plan and /v1/intents/submit (services/human/schema/human-api/intent.kvx:66-85) and the Go human transport builds its HTTP request from exactly these fields (sdk/platform/go/http.go:97-110); the Swift and .NET descriptors render POST with an empty path (OperationCatalog.swift:386, OperationCatalog.cs:388) and the JVM kept the routes (GeneratedContract.java:208-209)."
+assumption = "The per-leg EVM calls live inside the IntentPlan result (req.8520 ac_1); the operations themselves are human-service routes, so the Go, Swift and .NET catalogues cannot reach the service as committed."
+severity = "cross_task"
+
+[finding.8.45.4.3]
+task = "8.45.4"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2582"
+symbol = "HumanVerificationLevel"
+observed = "The Go (generated.go:682) and JVM human verification enums carry block-committed and refuse checkpoint-finalised (8.46.2 do_4, 8.46.7), while the human schema (services/human/schema/human-api/journeys.kvx:26-28, decision.1002) and the human service (services/human/crates/layerx-human-service/src/server/projection.rs:16, production_reads.rs:591) name the committed rung checkpoint-finalised; block-committed is the webhook vocabulary of decision.813 (services/platform/hosted/webhooks/src/events.rs:36)."
+assumption = "Consumers of the human API speak the human service's words; req.8520 ac_2 and req.8521 ac_1 borrowed the webhook word and are amended by decision 2115."
+severity = "owner"
+
+[finding.8.98.3.5]
+task = "8.98.3"
+file = "services/platform/hosted/authority/src/trust.rs:203"
+symbol = "trust::checkpoint"
+observed = "Attempt 8 (006f514eb) deleted call_fixture and verify_withdrawal_request as decisions 2104 and 2100 ask; no_retired_layerx_client_module_paths_w2 then fails on the single remaining layerx_client::batch::lookup_untrusted call at src/trust.rs:203, inside the trust::checkpoint read that decision 2105 keeps."
+assumption = "Decision 2105 keeps trust::checkpoint and lists batch among the trust.rs scan modules at the same time; the scan has to follow the keep."
+severity = "cross_task"
+
+[finding.16.28.1.1]
+task = "16.28.1"
+file = "tools/repotest/reachability_test.go:60"
+symbol = "TestEveryCTestMainHasBuildReference"
+observed = "Attempt 2 (e5415471d) lists 78 tests/**/*.c programs without a root-relative path in Makefile, chain.mk, tools/ or scripts/: 69 in tests/arith, tests/codec, tests/crypto and tests/fuzz (built by name through the kernel pattern rule at Makefile:1157 by their suites' own qualification commands), tests/programs/test_module_registration.c (built by stem from tools/paxeer-x/gates/104.19.4.sh:18 and :145), tests/fixtures/asset/generate_supply_receipts.c (built by tests/fixtures/asset/generate_supply_receipts.sh:8), tests/daemon/lxp_test_owner_rotation.c and lxp_test_replica_prefix.c and tests/bridge/test_credit_admission.c (deleted by pending 5.54.9 and 6.60.2), and four programs whose rules earlier retirements removed without the file: tests/state/lxp_test_idempotency.c (16.2.2 do_5, wiring.J21.25), tests/network/test_oracle_replay_absent.c (16.2.2 do_2), tests/programs/test_paxai_storage_continuity.c (16.0.4 do_6, wiring.J40.22) and tests/modules/dump_trading_vectors.c (never had a rule; its header says so). TestEveryRustTestFileIsCompiled lists the 11 msg.rs and querier.rs modules of the cosmwasm fixture crates under tests/fixtures/example/cosmwasm/*/src, each a member of a Cargo package rooted under tests/."
+assumption = "The guard is right about the four rule-less programs and wrong about the rest; acceptance.16.297.1 already excludes the kernel suites, and the fixture-crate modules are reached through their own Cargo.toml."
+severity = "cross_task"
+
+[finding.18.1188.2.5]
+task = "18.1188.2"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1415"
+symbol = "RealAgentLayer::prepare"
+observed = "Attempt 9 (569d39e41) fails archive_requires_real_reclaim_and_step_up_then_retires_authority_once at src/agents/reclaim.rs:135: the agent preparation for ActivityType(196616) (Budget ordinal 8, budget_defund) is refused with Disclosure(Decode(FieldMismatch('budget_id'))); the test double at tests/agent_controls_rungs.rs:1415-1455 hardcodes budget_id [0x41; 32] and derives the budget account from it, while services/agent/crates/layerx-crypto/src/disclosure/native.rs:345 bound_context compares the payload's budget_id (bytes 2..34 of the 50-byte budget_defund payload, native.rs:402-423) with the context's."
+assumption = "The double has to read the identity from the payload it is handed; a constant identity passes until the first real-identity check."
+severity = "cross_task"
+
+[finding.10.13.9.1]
+task = "10.13.9"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:6118"
+symbol = "native_send_preview_v1"
+observed = "Attempts 1 and 2 of 10.13.9 recorded build and dependents only, never the verify; decision 2087's statement that both pass their test was wrong. Attempt 4 (0a356e6d7) fails native_send_preview_is_an_unsigned_ledger_transfer_call at tests/native_send_preview_evm.rs:970 with Refused: the check at services/agent/crates/layerx-agentd/src/human_runtime.rs:6118 (attempt 4 :6098) requires binding::purpose_commitment(&prepared.disclosure) == Some(purpose.commitment), but a native send discloses counterparties, amount, asset, idempotency and expiry (services/agent/crates/layerx-crypto/src/disclosure/call.rs:483-500) with payment None (disclosure.rs:503, :727, :789), and capability/binding.rs:170-179 returns Some only for BudgetCreate, IssueGrant and Receive, so every native send is refused."
+assumption = "The purpose commitment of a send is bound by the capability check at :6162 and the signed grant; the owner-preview path at :6403 already uses the is_some() refusal form."
+severity = "cross_task"
+
+[finding.8.98.14.3]
+task = "8.98.14"
+file = "services/platform/hosted/core/src/lib.rs:451"
+symbol = "FrameTransport"
+observed = "Attempt 7 (a41a80ed3) leaves the three `&mut dyn layerx_client::lni::transport::FrameTransport` parameters at services/platform/hosted/core/src/lib.rs:451, :511 and :575 because no rpc read serves what they fetch: the custody profile record is [u8; 223] (lib.rs:386-397, :476-486) while services/agent/crates/layerx-client/src/rpc/module_state.rs:143-150 returns one 32-byte storage word from account_proof, and services/platform/hosted/core/src/public_reads.rs (outside the touches) reads node_info (:290), the sequence (:339) and the receipt by global sequence (:474) over the kernel socket."
+assumption = "Serving a 223-byte module record and the three public reads needs a new rpc surface or a record layout the owner has to choose; the task cannot pass by deleting the transport parameters."
+severity = "owner"

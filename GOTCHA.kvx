@@ -11946,3 +11946,108 @@ fix = "A task that deletes a source file greps the repository for its path in in
 title = "Agent-function precompiles refuse on activation before reading the selector"
 symptom = "5.98.4 attempt 5 probed 0x0901 with an unknown selector and got LXP_AGENT_NOT_ACTIVE, not LXP_PRECOMPILE_UNKNOWN_METHOD."
 fix = "A readiness probe over 0x0901-0x0908 accepts the activation refusal as served; read the handler's first checks before fixing an expected error code."
+
+[gotcha.2427]
+title = "A deleted conformance fixture breaks cfg(test) modules in sibling crates"
+symptom = "8.47.11 attempts 1 to 3 failed to build layerx-proof's library tests because program.rs:854 includes receipt-programs-executed-v4.json, deleted by 8.47.6."
+fix = "Before building a crate's tests after fixture deletions, grep include_str over the crate for every removed fixture name and remove or re-point each reader; do_3's grep covered only receipt-programs- and receipt-positive-."
+
+[gotcha.2428]
+title = "Admission refuses a reused account sequence before the idempotency replay check"
+symptom = "16.33.5 attempt 8 expected LXP_ERR_IDEMPOTENT_REPLAY for a replayed call and the kernel answered LXP_ERR_SEQUENCE_REUSED."
+fix = "A replay that reuses the account sequence is a sequence refusal (lxp_admission.c:33-37); only a fresh sequence with a known idempotency key reaches LXP_ERR_IDEMPOTENT_REPLAY."
+
+[gotcha.2429]
+title = "JSON-RPC evidence carries no signed activity bytes"
+symptom = "8.98.3 attempt 5 could not port the withdrawal re-verification: ProofBundle, the replica document and the receipt reads carry headers, proofs and receipts, never the canonical signed activity."
+fix = "A port from the retired node interface to JSON-RPC lists every byte string the old call returned and checks each has a JSON-RPC source before the task is specified; a check that needs the signed activity moves to the submission path."
+
+[gotcha.2430]
+title = "The embedded checkpoint settlement document fails every certificate verification"
+symptom = "18.1205.1 attempt 7 called verify_certificate and got Configuration(Json(MissingField('schema'))) from the embedded checkpoint-settlement.json."
+fix = "Until 9.27.4 lands, no test can hold a CHECKPOINT_FINALISED value; use inclusion evidence (Receipted) and assert the rung checks that are reachable."
+
+[gotcha.2431]
+title = "The ledger send(bytes) construct admits only Asset send payloads"
+symptom = "18.1272.1 attempt 6 wrapped a Governance lifecycle payload in send(bytes) to 0x101a and bind_call answered MalformedPayload from decode_send."
+fix = "Before specifying a transaction form for a payload, read decode_method's arm for the target address and selector and confirm the payload decoder it calls accepts that module."
+
+[gotcha.2432]
+title = "Budget context binding derives account ids at protocol 3 regardless of the preparation protocol"
+symptom = "18.1188.2 attempt 8 derived the context accounts at layerx_intents::canonical::PROTOCOL_VERSION and bound_context answered MalformedPayload."
+fix = "Build a BudgetStateContext with account_id_for_protocol(.., 3), the derivation native.rs:220 uses; a mismatch surfaces as MalformedPayload, not FieldMismatch."
+
+[gotcha.2433]
+title = "A deleted conformance fixture breaks a test support module pulled into a library test by #[path]"
+symptom = "8.98.14 attempt 5 and 8.98.3 attempt 6 failed to build the authority tests on lifecycle_dispatch.rs:172 including receipt-programs-positive-v3.json, deleted by 8.47.5."
+fix = "After fixture deletions grep include_str across services/platform too, including tests/support files reached through #[path] in src/lib.rs; the crate's own src tree is not the whole test build."
+
+[gotcha.2434]
+title = "Porting one checkpoint reader to the RPC block type breaks every sibling consumer of VerifiedCheckpoint"
+symptom = "8.98.3 attempt 6 changed checkpoint_for to return SequencerBlock and human.rs, human/dynamic.rs and human/budget_state.rs failed to compile on canonical_header, report() and the socket constants."
+fix = "Before replacing a shared return type, grep the crate for every consumer of the old type's methods; port them in the same task or leave the type and record the gap."
+
+[gotcha.2435]
+title = "Retirement tests name the files they retire, so a sibling absence scan must skip them"
+symptom = "8.45.4's conformance walk flagged kernel-fixtures-retired-2.test.py and kernel-fixtures-retired-4.test.py for naming the retired generator and fixture."
+fix = "When a scan asserts a name is absent from a tree, exclude the tests whose assertions quote that name, or the two scans contradict each other."
+
+[gotcha.2436]
+title = "A hand edit to a DO NOT EDIT generated file fails the generator's check gate much later"
+symptom = "8.46.1, 8.46.2 and 18.1308.2 wrote EVMMetadata into sdk/platform/go/generated.go; 8.45.4's reseal test ran check_go and reported the file stale."
+fix = "Put hand-written code beside a generated file in a handwritten sibling of the same package and list it in pipeline.kvx; never add to a file whose header says the generator owns it."
+
+[gotcha.2437]
+title = "pax-tendermint answers GET /status without the jsonrpc result envelope"
+symptom = "5.98.4 attempt 6 asserted status['result']['node_info'] and the body carried node_info at the top level."
+fix = "Read Comet GET responses the way tools/hpx/registry/main.go rpcGet does: unwrap result when present, otherwise use the object itself."
+
+[gotcha.2438]
+title = "The call activity binary's default path reads a conformance fixture that no longer exists"
+symptom = "16.33.5 attempt 9 would have failed after the spend case too: test_call_activity.c:3329 opens receipt-programs-executed-v3.json with no argument given."
+fix = "Grep the C test sources for every deleted fixture path, not only Rust include_str readers."
+
+[gotcha.2439]
+title = "A consensus standby that is not in the committee times out on acknowledgements without saying so first"
+symptom = "12.35.4 attempts up to 19 saw acknowledgement timeouts; only the latest log reached 'validator not in committee' at round_state.go:537."
+fix = "When replication acknowledgements time out, check committee membership of the acknowledging identity before tuning timeouts."
+
+[gotcha.2440]
+title = "A test fixture that reads node sockets from the environment cannot qualify where no node runs"
+symptom = "10.0.3 attempt 5 required LAYERX_AGENT_HUMAN_NODE_LNI and the authority endpoint from the environment and both tests failed before any request."
+fix = "Serve the counterpart in process (RealAgentLayer pattern in tests/intent_submit.rs) and set every ProductionComponents variable from the test itself; never gate a task's test on binaries or sockets the environment must provide."
+
+[gotcha.2441]
+title = "A DO NOT EDIT catalogue edited in place drifts silently until the next --write"
+symptom = "Four tasks changed sdk/platform/go/generated.go and the JVM GeneratedContract.java by hand; the reseal task then saw --write revert routes, vocabulary and retired operations and stopped, five attempts in."
+fix = "Put the change into the schema the generator reads, into the generator, or into a handwritten sibling file, and let the task that changes an interface run the generator and the consumer tests on one revision."
+
+[gotcha.2442]
+title = "Two services, two words for the same rung"
+symptom = "Webhooks say block-committed (decision.813) and the human API says checkpoint-finalised (decision.1002); SDK tasks copied the webhook word into the human SDKs, which then refused every committed journey the human service serves."
+fix = "Name the producer of the interface before choosing a vocabulary; a consumer speaks its producer's words, and a requirement that borrows another interface's word is amended, not implemented."
+
+[gotcha.2443]
+title = "A typed operation catalogue cannot address a retired wire name"
+symptom = "The Swift and .NET retired-faucet tests send PlatformOperation.AgentFaucetClaim; once the catalogue drops the case the tests cannot be written, while the Go and JVM tests send the string faucet.claim."
+fix = "Keep retired-name refusal tests on string-based transports; delete them where the transport is typed and note where the coverage lives."
+
+[gotcha.2444]
+title = "A scan list that names a module the same decision keeps"
+symptom = "A retired-module scan over trust.rs listed batch while the decision that wrote it kept the trust::checkpoint batch lookup; the attempt that did everything else right failed on that one line."
+fix = "When a decision keeps a call, take its module out of the scan over that file in the same decision, and name the task that retires both."
+
+[gotcha.2445]
+title = "A reachability guard needs the wiring before it can pass"
+symptom = "The first run of the C and Rust reachability guard listed 78 programs: kernel suites built by name through a pattern rule, modules of fixture crates rooted under tests/, programs built by stem from a gate script, and four whose rules earlier retirements removed without the file."
+fix = "Decide what a build reference is (path or stem, which script roots, which suites are built by name) before the guard is written, exclude crates rooted under tests/, and give every program the guard exposes an owner task before the guard task runs."
+
+[gotcha.2446]
+title = "A test double with a constant identity fails the first real-identity check"
+symptom = "The human-service real-layer double hardcoded a budget id and derived the account from it; the kernel codec compared the payload's budget id with the context's and refused the preparation."
+fix = "A double that stands in for a producer derives every identity from the bytes it is handed, never from a constant."
+
+[gotcha.2447]
+title = "A purpose check no input can satisfy is a defect, not a gate"
+symptom = "native_send_preview_v1 required the disclosure's purpose commitment to equal the requested one; a native send never discloses a payment, so the commitment is always None and every send was refused, while the sibling owner-preview path already refused only a present commitment."
+fix = "When a check cannot be satisfied by any valid input, read the sibling path and the binding code before adding fields; the commitment is bound where the capability is checked."
