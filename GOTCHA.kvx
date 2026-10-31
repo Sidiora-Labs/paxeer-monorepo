@@ -11446,3 +11446,33 @@ fix = "When a task removes the last writer of a store table, grep src/ for every
 title = "A verify leg that selects --lib on a binary-only package fails after every other leg passed"
 symptom = "A fixture re-record task passed nine verify legs and failed the tenth with 'no library targets found' because the service package declares only a [[bin]] and the verify_cmd asked for --lib; the leg had never run because earlier attempts stopped at earlier legs."
 fix = "When writing a cargo test leg for a package, read its Cargo.toml: a package with only [[bin]] takes --bin <name>, a package with [lib] takes --lib; check every leg of a chained verify_cmd against its target list before the first attempt."
+
+[gotcha.2327]
+title = "A vector consumer task that its producer lists as a requirement never finds the vector"
+symptom = "A decoder task failed three times with 'No such file or directory' on a shared test vector because the task that writes the vector listed the decoder as a requirement, so the file could only appear after the test that reads it had passed."
+fix = "When a task reads a planned file, the task that creates it must be in that task's requires and in an earlier or equal wave; check the producer's planned_paths against the touches and do lines of every consumer before landing the requires lists."
+
+[gotcha.2328]
+title = "A task that deletes or reshapes a public type leaves unlisted callers red on main"
+symptom = "Tasks 13.4.5 and 13.4.6 replaced the ProtocolDeploymentVerifier head model and completed on their own gates; layerx-platform-registry (31 errors) and layerx-human-security-provider (2 errors) stayed red on main, every gateway task then failed the build of its dependents, and the aggregate gate failed in human-build; attempts of three tasks repeated the same failure."
+fix = "Before a task deletes or changes a pub item, grep every workspace (programs, services/agent, services/platform, services/human, tools) for its callers; add each caller crate to the touches of that task or create the port tasks in the same batch, ordered before the gates that build those crates, and make the aggregate gate require every port its workspace build needs."
+
+[gotcha.2329]
+title = "Explorer spec files are linted by the production build, not by vitest or yarn lint:tsc"
+symptom = "The frontend image build runs next build, which runs ESLint over lib/ with @typescript-eslint/naming-convention, vitest/valid-title and vitest/expect-expect; spec files that passed snake_case functions as test titles (test(fn, fn)) or declared a snake_case const resource passed vitest and the type check and failed the image build, so paxscan.io kept serving a stale frontend (openapi.yaml 404, home block rows at 0 transactions) until f038ebb3f."
+fix = "Write test titles as string literals, keep the assertions inline in the test callback, name identifiers camelCase or inline them into the typed map; an explorer task gate does not run the production lint, so the author checks these three rules before the gate."
+
+[gotcha.2330]
+title = "The agent daemon's human socket directory must carry no other-user bits"
+symptom = "layerx-agentd exits 2 with 'human listener is invalid: Unauthenticated' when LAYERX_AGENT_HUMAN_SOCKET sits in a directory whose mode has any bit in 0o007 (0o711 for example), whose uid or gid differ from LAYERX_AGENT_HUMAN_SOCKET_UID and _GID, or that is a symlink (services/agent/crates/layerx-agentd/src/human.rs:1725-1742)."
+fix = "Bind the socket inside a dedicated directory created with mode 0o700 by the uid and gid the daemon is told to expect; keep shared fixture roots at their wider mode."
+
+[gotcha.2331]
+title = "apps/web is outside the root npm workspace"
+symptom = "make human-build fails with 'tsup: not found' (or another missing devDependency) in an environment that installed only the root package-lock.json: apps/web has its own lockfile and is excluded from the root workspaces, so the root install never provides its tools."
+fix = "Run npm ci inside apps/web before any human-build or human-test target; the root install does not cover it."
+
+[gotcha.2332]
+title = "A go test package fails to build when another test file still names a removed field"
+symptom = "go test ./precompiles/<pkg>/ -run X reports '[build failed]' from a different test file of the package (retire_read_gate_test.go:115 keepers.AnchorKeeper undefined) even though the focused test and the package build pass."
+fix = "A task that removes a field from a shared struct owns every test file in the package that names it: add those files to touches and delete the dead statements in the same change."
