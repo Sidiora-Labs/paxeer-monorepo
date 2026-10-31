@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include "layerx/programs.h"
 
 #include "layerx/lxp_activity.h"

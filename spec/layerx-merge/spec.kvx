@@ -118803,7 +118803,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.50.3]
 title = "Retire the layerxd replica and authority-replica servers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.2.4"]
@@ -118993,7 +118993,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.51.2]
 title = "Retire the layerx-guarantor exchange and LNI client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.2.4"]
@@ -119024,7 +119024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.51.3]
 title = "Retire the layerx-guarantor settlement engine"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.2.4", "16.36.2"]
@@ -119280,7 +119280,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.54.2]
 title = "Retire the guarantor Python daemon drivers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.2.4", "16.5.2"]
@@ -139672,7 +139672,7 @@ do_5 = "activity.submit is validated against the catalogue before server.rs:1026
 
 [task.8.50.4]
 title = "layerx CLI refuses every lx_ method and drops the kernel program-events and activity paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.50.3", "8.48.3", "8.50.2", "8.0.4", "9.1.8", "18.1121.1", "8.48.1", "18.1297.1", "16.0.5"]
@@ -172919,7 +172919,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.31.2]
 title = "Delete the sequencer recovery and sequence suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4", "16.37.2"]
@@ -172952,7 +172952,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.31.3]
 title = "Delete the batch publication, batch time and history query suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4", "16.37.2"]
@@ -172986,7 +172986,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.31.4]
 title = "Delete the cross-architecture replay suite and its matrix script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4", "16.37.2"]
@@ -173420,7 +173420,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.10]
 title = "Delete the batch identity and terminal rejection protocol suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["16.37.1", "16.2.4", "16.8.6"]
@@ -173762,7 +173762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.34.2]
 title = "Delete the layerxd and daemon bootstrap artifact suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4"]
@@ -173795,7 +173795,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.34.3]
 title = "Delete the verify CLI suite of the retired daemon tools"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4"]
@@ -173827,7 +173827,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.34.4]
 title = "Delete the relay-archive end-to-end suite that drives the retired daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4", "8.96.3", "16.37.2"]
