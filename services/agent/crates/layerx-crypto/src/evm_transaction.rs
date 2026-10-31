@@ -190,13 +190,18 @@ impl Eip1559Call {
         out
     }
 
+    /// Canonical unsigned type-2 signing bytes.
+    #[must_use]
+    pub fn encode_unsigned(&self) -> Vec<u8> {
+        let mut raw = vec![0x02];
+        raw.extend_from_slice(&rlp_list(&self.fields()));
+        raw
+    }
+
     /// The digest the sender signs.
     #[must_use]
     pub fn signing_hash(&self) -> [u8; 32] {
-        let mut hasher = Keccak256::new();
-        hasher.update([0x02]);
-        hasher.update(rlp_list(&self.fields()));
-        hasher.finalize().into()
+        Keccak256::digest(self.encode_unsigned()).into()
     }
 
     /// Signs the call, yielding the bytes `eth_sendRawTransaction` takes.
@@ -229,6 +234,57 @@ pub fn assemble(call: &Eip1559Call, signature: &AgentSignature) -> Vec<u8> {
     let mut raw = vec![0x02];
     raw.extend_from_slice(&rlp_list(&payload));
     raw
+}
+
+/// Decodes canonical unsigned type-2 signing bytes.
+///
+/// # Errors
+/// Refuses noncanonical RLP, trailing fields, zero chain IDs, value, access
+/// lists, signatures, and inputs larger than the custody decoder's limit.
+pub fn decode_unsigned(raw: &[u8]) -> Result<Eip1559Call, EvmTransactionError> {
+    let Some((&0x02, mut envelope)) = raw.split_first() else {
+        return Err(EvmTransactionError::NotEip1559);
+    };
+    if raw.len() > 1_048_576 {
+        return Err(EvmTransactionError::UnsupportedField);
+    }
+    let Item::List(mut fields) = take_item(&mut envelope)? else {
+        return Err(EvmTransactionError::UnsupportedField);
+    };
+    if !envelope.is_empty() {
+        return Err(EvmTransactionError::MalformedRlp);
+    }
+    let chain_id = u64::from_be_bytes(take_uint(&mut fields)?);
+    let nonce = u64::from_be_bytes(take_uint(&mut fields)?);
+    let max_priority_fee_per_gas = u128::from_be_bytes(take_uint(&mut fields)?);
+    let max_fee_per_gas = u128::from_be_bytes(take_uint(&mut fields)?);
+    let gas_limit = u64::from_be_bytes(take_uint(&mut fields)?);
+    let to = take_string(&mut fields)?
+        .try_into()
+        .map_err(|_| EvmTransactionError::UnsupportedField)?;
+    if chain_id == 0 || take_uint::<32>(&mut fields)? != [0; 32] {
+        return Err(EvmTransactionError::UnsupportedField);
+    }
+    let data = take_string(&mut fields)?.to_vec();
+    let Item::List([]) = take_item(&mut fields)? else {
+        return Err(EvmTransactionError::UnsupportedField);
+    };
+    if !fields.is_empty() {
+        return Err(EvmTransactionError::MalformedRlp);
+    }
+    let call = Eip1559Call {
+        chain_id,
+        nonce,
+        max_priority_fee_per_gas,
+        max_fee_per_gas,
+        gas_limit,
+        to,
+        data,
+    };
+    if call.encode_unsigned() != raw {
+        return Err(EvmTransactionError::NonCanonical);
+    }
+    Ok(call)
 }
 
 /// Decodes a signed type-2 call that [`assemble`] produced.

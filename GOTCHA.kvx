@@ -12011,3 +12011,68 @@ fix = "Grep the C test sources for every deleted fixture path, not only Rust inc
 title = "A consensus standby that is not in the committee times out on acknowledgements without saying so first"
 symptom = "12.35.4 attempts up to 19 saw acknowledgement timeouts; only the latest log reached 'validator not in committee' at round_state.go:537."
 fix = "When replication acknowledgements time out, check committee membership of the acknowledging identity before tuning timeouts."
+
+[gotcha.2440]
+title = "A test fixture that reads node sockets from the environment cannot qualify where no node runs"
+symptom = "10.0.3 attempt 5 required LAYERX_AGENT_HUMAN_NODE_LNI and the authority endpoint from the environment and both tests failed before any request."
+fix = "Serve the counterpart in process (RealAgentLayer pattern in tests/intent_submit.rs) and set every ProductionComponents variable from the test itself; never gate a task's test on binaries or sockets the environment must provide."
+
+[gotcha.2441]
+title = "A DO NOT EDIT catalogue edited in place drifts silently until the next --write"
+symptom = "Four tasks changed sdk/platform/go/generated.go and the JVM GeneratedContract.java by hand; the reseal task then saw --write revert routes, vocabulary and retired operations and stopped, five attempts in."
+fix = "Put the change into the schema the generator reads, into the generator, or into a handwritten sibling file, and let the task that changes an interface run the generator and the consumer tests on one revision."
+
+[gotcha.2442]
+title = "Two services, two words for the same rung"
+symptom = "Webhooks say block-committed (decision.813) and the human API says checkpoint-finalised (decision.1002); SDK tasks copied the webhook word into the human SDKs, which then refused every committed journey the human service serves."
+fix = "Name the producer of the interface before choosing a vocabulary; a consumer speaks its producer's words, and a requirement that borrows another interface's word is amended, not implemented."
+
+[gotcha.2443]
+title = "A typed operation catalogue cannot address a retired wire name"
+symptom = "The Swift and .NET retired-faucet tests send PlatformOperation.AgentFaucetClaim; once the catalogue drops the case the tests cannot be written, while the Go and JVM tests send the string faucet.claim."
+fix = "Keep retired-name refusal tests on string-based transports; delete them where the transport is typed and note where the coverage lives."
+
+[gotcha.2444]
+title = "A scan list that names a module the same decision keeps"
+symptom = "A retired-module scan over trust.rs listed batch while the decision that wrote it kept the trust::checkpoint batch lookup; the attempt that did everything else right failed on that one line."
+fix = "When a decision keeps a call, take its module out of the scan over that file in the same decision, and name the task that retires both."
+
+[gotcha.2445]
+title = "A reachability guard needs the wiring before it can pass"
+symptom = "The first run of the C and Rust reachability guard listed 78 programs: kernel suites built by name through a pattern rule, modules of fixture crates rooted under tests/, programs built by stem from a gate script, and four whose rules earlier retirements removed without the file."
+fix = "Decide what a build reference is (path or stem, which script roots, which suites are built by name) before the guard is written, exclude crates rooted under tests/, and give every program the guard exposes an owner task before the guard task runs."
+
+[gotcha.2446]
+title = "A test double with a constant identity fails the first real-identity check"
+symptom = "The human-service real-layer double hardcoded a budget id and derived the account from it; the kernel codec compared the payload's budget id with the context's and refused the preparation."
+fix = "A double that stands in for a producer derives every identity from the bytes it is handed, never from a constant."
+
+[gotcha.2447]
+title = "A purpose check no input can satisfy is a defect, not a gate"
+symptom = "native_send_preview_v1 required the disclosure's purpose commitment to equal the requested one; a native send never discloses a payment, so the commitment is always None and every send was refused, while the sibling owner-preview path already refused only a present commitment."
+fix = "When a check cannot be satisfied by any valid input, read the sibling path and the binding code before adding fields; the commitment is bound where the capability is checked."
+
+[gotcha.2448]
+title = "A hand-added catalogue field has readers the reseal does not see"
+symptom = "Resealing the Go human catalogue removed the PerLeg field a task had added by hand; the conformance command outside the task's touches still compared it and the build failed one attempt later."
+fix = "Before a generator reverts a hand edit, build every package in the module (go build ./...) and list the readers of the field; add each reader's file to the touches in the same decision."
+
+[gotcha.2449]
+title = "The journey boundary and the socket are two different agent seams"
+symptom = "A router-level test was told to reuse the journey-level in-process agent of a sibling test; the Router reaches the agent only through a Unix socket, so the attempt started a real agent that needed a node."
+fix = "Name the seam a test exercises: a journey test injects the boundary trait, a router test serves the socket in process with the crate's existing peer pattern."
+
+[gotcha.2450]
+title = "A Makefile target is not a graph symbol"
+symptom = "A task listed its new phony Makefile target among its symbols; build and all three tests passed and the done check still failed because the code graph indexes functions and types, not make targets."
+fix = "List functions, types and tests under symbols; a Makefile target is proven by the build command or a test that runs it."
+
+[gotcha.2451]
+title = "The agent JSON surface carries no native send preview"
+symptom = "A test posted a native_send_preview_v1 variant through handle_rpc and got 400 envelope.malformed: the prepare operation of the JSON surface routes only native_effect_v1, native_registration_v1, native_send_v1 and native_send_submit_v1; previews travel as human frames (operation 63) written by the human service."
+fix = "Prove a native send preview through serve_one with the frame the human service writes (agent_runtime.rs native_send_preview), not through the JSON surface."
+
+[gotcha.2452]
+title = "The served-precompile probe is an eth_call with selector 0xffffffff"
+symptom = "Gateway tests expected an eth_getCode probe for a served precompile and saw none, and a route's eth_call count came out one too high: since the node serves precompiles natively without account code, ensureServed probes with eth_call data 0xffffffff once per process per key."
+fix = "Assert the probe as that eth_call and exclude it from per-route eth_call counts; eth_getCode at a native precompile answers 0x."
